@@ -117,7 +117,7 @@ impl Function {
         let dyn_func =
             JsFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
         let binded_func = dyn_func.bind1(&JsValue::UNDEFINED, &wrapped_func);
-        let vm_function = VMFunction::new(binded_func, func_ty);
+        let vm_function = VMFunction::new(binded_func.unchecked_into::<JsFunction>(), func_ty);
         Self::from_vm_extern(&mut store, VMExternFunction::Js(vm_function))
     }
 
@@ -144,7 +144,7 @@ impl Function {
             &JsValue::from_f64(store.as_raw() as *mut u8 as usize as f64),
         );
         let ty = function.ty();
-        let vm_function = VMFunction::new(binded_func, ty);
+        let vm_function = VMFunction::new(binded_func.unchecked_into::<JsFunction>(), ty);
         Self {
             handle: vm_function,
         }
@@ -177,7 +177,7 @@ impl Function {
             &JsValue::from_f64(env.as_js().handle.internal_handle().index() as f64),
         );
         let ty = function.ty();
-        let vm_function = VMFunction::new(binded_func, ty);
+        let vm_function = VMFunction::new(binded_func.unchecked_into::<JsFunction>(), ty);
         Self {
             handle: vm_function,
         }

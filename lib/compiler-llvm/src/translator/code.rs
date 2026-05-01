@@ -30,7 +30,7 @@ use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
 use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
-    abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
+    abi::{Abi, get_abi},
     config::LLVM,
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
@@ -78,6 +78,7 @@ pub struct FuncTranslator {
     func_section: String,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
+    non_volatile_memory_ops: bool,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
@@ -90,6 +91,7 @@ impl FuncTranslator {
         binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
+        non_volatile_memory_ops: bool,
     ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
         Ok(Self {
@@ -110,6 +112,7 @@ impl FuncTranslator {
             binary_fmt,
             pointer_width,
             cpu_features,
+            non_volatile_memory_ops,
         })
     }
 
@@ -133,12 +136,11 @@ impl FuncTranslator {
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
-        let g0m0_is_enabled = config.enable_g0m0_opt;
-        let func_kind = if g0m0_is_enabled {
-            Some(G0M0FunctionKind::Local)
-        } else {
-            None
-        };
+        // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
+        // the allocated heap is never moved to a different location.
+        let m0_is_enabled = memory_styles
+            .get(MemoryIndex::from_u32(0))
+            .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {function_name}"),
@@ -169,7 +171,7 @@ impl FuncTranslator {
             &intrinsics,
             Some(&offsets),
             wasm_fn_type,
-            func_kind,
+            m0_is_enabled,
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
@@ -241,9 +243,9 @@ impl FuncTranslator {
         let mut params = vec![];
         let first_param =
             if func_type.get_return_type().is_none() && wasm_fn_type.results().len() > 1 {
-                if g0m0_is_enabled { 4 } else { 2 }
-            } else if g0m0_is_enabled {
-                3
+                if m0_is_enabled { 3 } else { 2 }
+            } else if m0_is_enabled {
+                2
             } else {
                 1
             };
@@ -301,21 +303,16 @@ impl FuncTranslator {
         let mut params_locals = params.clone();
         params_locals.extend(locals.iter().cloned());
 
-        let mut g0m0_params = None;
+        let mut m0_param = None;
 
-        if g0m0_is_enabled {
-            let value = self.abi.get_g0_ptr_param(&func);
-            let g0 = insert_alloca(intrinsics.i32_ty.as_basic_type_enum(), "g0".to_string())?;
-            err!(cache_builder.build_store(g0, value));
-            g0.set_name("g0");
+        if m0_is_enabled {
             let m0 = self.abi.get_m0_ptr_param(&func);
             m0.set_name("m0_base_ptr");
-
-            g0m0_params = Some((g0, m0));
+            m0_param = Some(m0);
         }
 
         let mut fcg = LLVMFunctionCodeGenerator {
-            g0m0: g0m0_params,
+            m0_param,
             context: &self.ctx,
             builder,
             alloca_builder,
@@ -328,8 +325,8 @@ impl FuncTranslator {
                 &func,
                 &cache_builder,
                 &*self.abi,
-                config,
                 self.pointer_width,
+                m0_param,
             ),
             unreachable_depth: 0,
             memory_styles,
@@ -344,6 +341,7 @@ impl FuncTranslator {
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
             cpu_features: self.cpu_features,
+            non_volatile_memory_ops: self.non_volatile_memory_ops,
         };
 
         fcg.ctx.add_func(
@@ -1226,10 +1224,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             self.memory_styles,
         )? {
             // The best we've got is `volatile`.
-            // TODO: convert unwrap fail to CompileError
-            memaccess.set_volatile(true).unwrap();
+            memaccess.set_volatile(true).map_err(|err| {
+                CompileError::Codegen(format!("could not set volatile on memory operation: {err}"))
+            })
+        } else {
+            Ok(())
         }
-        Ok(())
     }
 
     fn annotate_user_memaccess(
@@ -1245,7 +1245,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             _ => {}
         };
-        self.mark_memaccess_nodelete(memory_index, memaccess)?;
+        if !self.non_volatile_memory_ops {
+            self.mark_memaccess_nodelete(memory_index, memaccess)?;
+        }
         tbaa_label(
             self.module,
             self.intrinsics,
@@ -1274,8 +1276,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr = if let Some((_, ref m0)) = self.g0m0 {
-            *m0
+        let base_ptr = if let Some(m0) = self.m0_param {
+            m0
         } else {
             match self
                 .ctx
@@ -1560,7 +1562,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         tag_glbl
     }
 
-    fn build_g0m0_indirect_call(
+    fn build_m0_indirect_call(
         &mut self,
         table_index: u32,
         ctx_ptr: PointerValue<'ctx>,
@@ -1568,9 +1570,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         func_ptr: PointerValue<'ctx>,
         func_index: IntValue<'ctx>,
     ) -> Result<(), CompileError> {
-        let Some((g0, m0)) = self.g0m0 else {
+        let Some(m0) = self.m0_param else {
             return Err(CompileError::Codegen(
-                "Call to build_g0m0_indirect_call without g0m0 parameters!".to_string(),
+                "Call to build_m0_indirect_call without m0 parameter!".to_string(),
             ));
         };
 
@@ -1590,11 +1592,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
         }
 
-        // removed with mem2reg.
-        //
-        let g0_value = err!(self.builder.build_load(self.intrinsics.i32_ty, g0, "g0"));
-
-        let needs_switch = self.g0m0.is_some()
+        let needs_switch = self.m0_param.is_some()
             && !local_func_indices.is_empty()
             && !foreign_func_indices.is_empty();
 
@@ -1635,13 +1633,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             //let current_block = self.builder.get_insert_block().unwrap();
             self.builder.position_at_end(local_idx_block);
-            let local_call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Local),
-                Some((g0_value.into_int_value(), m0)),
-            )?;
+            let local_call_site =
+                self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
 
             let local_rets = self.abi.rets_from_call(
                 &self.builder,
@@ -1653,13 +1646,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             err!(self.builder.build_unconditional_branch(cont));
 
             self.builder.position_at_end(foreign_idx_block);
-            let foreign_call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Imported),
-                None,
-            )?;
+            let foreign_call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
 
             let foreign_rets = self.abi.rets_from_call(
                 &self.builder,
@@ -1681,26 +1668,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(v.as_basic_value());
             }
         } else if foreign_func_indices.is_empty() {
-            let call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Local),
-                Some((g0_value.into_int_value(), m0)),
-            )?;
+            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, Some(m0))?;
 
             self.abi
                 .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
                 .iter()
                 .for_each(|ret| self.state.push1(*ret));
         } else {
-            let call_site = self.build_indirect_call(
-                ctx_ptr,
-                func_type,
-                func_ptr,
-                Some(G0M0FunctionKind::Imported),
-                Some((g0_value.into_int_value(), m0)),
-            )?;
+            let call_site = self.build_indirect_call(ctx_ptr, func_type, func_ptr, None)?;
             self.abi
                 .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
                 .iter()
@@ -1715,15 +1690,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         ctx_ptr: PointerValue<'ctx>,
         func_type: &FunctionType,
         func_ptr: PointerValue<'ctx>,
-        func_kind: Option<G0M0FunctionKind>,
-        g0m0_params: LocalFunctionG0M0params<'ctx>,
+        m0_param: Option<PointerValue<'ctx>>,
     ) -> Result<CallSiteValue<'ctx>, CompileError> {
         let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
             self.context,
             self.intrinsics,
             Some(self.ctx.get_offsets()),
             func_type,
-            func_kind,
+            m0_param.is_some(),
         )?;
 
         let params = self.state.popn_save_extra(func_type.params().len())?;
@@ -1755,7 +1729,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             ctx_ptr,
             params.as_slice(),
             self.intrinsics,
-            g0m0_params,
+            m0_param,
         )?;
 
         let typed_func_ptr = err!(self.builder.build_pointer_cast(
@@ -1784,40 +1758,55 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
         */
 
-        let call_site_local = if let Some(lpad) = self.state.get_innermost_landingpad() {
-            let then_block = self.context.append_basic_block(self.function, "then_block");
+        let call_site_local = self.build_indirect_call_or_invoke(
+            llvm_func_type,
+            typed_func_ptr,
+            params.as_slice(),
+            "then_block",
+        )?;
+        for (attr, attr_loc) in llvm_func_attrs {
+            call_site_local.add_attribute(attr_loc, attr);
+        }
+
+        Ok(call_site_local)
+    }
+
+    fn build_indirect_call_or_invoke(
+        &mut self,
+        llvm_func_type: inkwell::types::FunctionType<'ctx>,
+        func_ptr: PointerValue<'ctx>,
+        params: &[BasicValueEnum<'ctx>],
+        then_block_name: &str,
+    ) -> Result<CallSiteValue<'ctx>, CompileError> {
+        if let Some(lpad) = self.state.get_innermost_landingpad() {
+            let then_block = self
+                .context
+                .append_basic_block(self.function, then_block_name);
 
             let ret = err!(self.builder.build_indirect_invoke(
                 llvm_func_type,
-                typed_func_ptr,
-                params.as_slice(),
+                func_ptr,
+                params,
                 then_block,
                 lpad,
                 "",
             ));
 
             self.builder.position_at_end(then_block);
-            ret
+            Ok(ret)
         } else {
-            err!(
-                self.builder.build_indirect_call(
-                    llvm_func_type,
-                    typed_func_ptr,
-                    params
-                        .iter()
-                        .copied()
-                        .map(Into::into)
-                        .collect::<Vec<BasicMetadataValueEnum>>()
-                        .as_slice(),
-                    "indirect_call",
-                )
-            )
-        };
-        for (attr, attr_loc) in llvm_func_attrs {
-            call_site_local.add_attribute(attr_loc, attr);
+            let call_params = params
+                .iter()
+                .copied()
+                .map(Into::into)
+                .collect::<Vec<BasicMetadataValueEnum>>();
+            Ok(err!(self.builder.build_indirect_call(
+                llvm_func_type,
+                func_ptr,
+                call_params.as_slice(),
+                ""
+            )))
         }
-
-        Ok(call_site_local)
     }
 }
 
@@ -1907,7 +1896,7 @@ fn finalize_opcode_stack_map<'ctx>(
  */
 
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
-    g0m0: Option<(PointerValue<'ctx>, PointerValue<'ctx>)>,
+    m0_param: Option<PointerValue<'ctx>>,
     context: &'ctx Context,
     builder: Builder<'ctx>,
     alloca_builder: Builder<'ctx>,
@@ -1937,6 +1926,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
     cpu_features: EnumSet<CpuFeature>,
+    non_volatile_memory_ops: bool,
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
@@ -2832,75 +2822,52 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
 
             Operator::GlobalGet { global_index } => {
-                if self.g0m0.is_some() && global_index == 0 {
-                    let Some((g0, _)) = self.g0m0 else {
-                        unreachable!()
-                    };
-
-                    // Removed with mem2reg.
-                    let value = err!(self.builder.build_load(self.intrinsics.i32_ty, g0, ""));
-
-                    self.state.push1(value);
-                } else {
-                    let global_index = GlobalIndex::from_u32(global_index);
-                    match self
-                        .ctx
-                        .global(global_index, self.intrinsics, self.module)?
-                    {
-                        GlobalCache::Const { value } => {
-                            self.state.push1(*value);
-                        }
-                        GlobalCache::Mut {
-                            ptr_to_value,
-                            value_type,
-                        } => {
-                            let value =
-                                err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
-                            tbaa_label(
-                                self.module,
-                                self.intrinsics,
-                                format!("global {}", global_index.as_u32()),
-                                value.as_instruction_value().unwrap(),
-                            );
-                            self.state.push1(value);
-                        }
+                let global_index = GlobalIndex::from_u32(global_index);
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
+                    GlobalCache::Const { value } => {
+                        self.state.push1(*value);
+                    }
+                    GlobalCache::Mut {
+                        ptr_to_value,
+                        value_type,
+                    } => {
+                        let value = err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
+                        tbaa_label(
+                            self.module,
+                            self.intrinsics,
+                            format!("global {}", global_index.as_u32()),
+                            value.as_instruction_value().unwrap(),
+                        );
+                        self.state.push1(value);
                     }
                 }
             }
             Operator::GlobalSet { global_index } => {
-                if self.g0m0.is_some() && global_index == 0 {
-                    let Some((g0, _)) = self.g0m0 else {
-                        unreachable!()
-                    };
-                    let ptr_to_value = g0;
-                    let (value, info) = self.state.pop1_extra()?;
-                    let value = self.apply_pending_canonicalization(value, info)?;
-                    let store = err!(self.builder.build_store(ptr_to_value, value));
-                    tbaa_label(self.module, self.intrinsics, "global 0".to_string(), store);
-                } else {
-                    let global_index = GlobalIndex::from_u32(global_index);
-                    match self
-                        .ctx
-                        .global(global_index, self.intrinsics, self.module)?
-                    {
-                        GlobalCache::Const { value: _ } => {
-                            return Err(CompileError::Codegen(format!(
-                                "global.set on immutable global index {}",
-                                global_index.as_u32()
-                            )));
-                        }
-                        GlobalCache::Mut { ptr_to_value, .. } => {
-                            let ptr_to_value = *ptr_to_value;
-                            let (value, info) = self.state.pop1_extra()?;
-                            let value = self.apply_pending_canonicalization(value, info)?;
-                            let store = err!(self.builder.build_store(ptr_to_value, value));
-                            tbaa_label(
-                                self.module,
-                                self.intrinsics,
-                                format!("global {}", global_index.as_u32()),
-                                store,
-                            );
-                        }
+                let global_index = GlobalIndex::from_u32(global_index);
+                match self
+                    .ctx
+                    .global(global_index, self.intrinsics, self.module)?
+                {
+                    GlobalCache::Const { value: _ } => {
+                        return Err(CompileError::Codegen(format!(
+                            "global.set on immutable global index {}",
+                            global_index.as_u32()
+                        )));
+                    }
+                    GlobalCache::Mut { ptr_to_value, .. } => {
+                        let ptr_to_value = *ptr_to_value;
+                        let (value, info) = self.state.pop1_extra()?;
+                        let value = self.apply_pending_canonicalization(value, info)?;
+                        let store = err!(self.builder.build_store(ptr_to_value, value));
+                        tbaa_label(
+                            self.module,
+                            self.intrinsics,
+                            format!("global {}", global_index.as_u32()),
+                            store,
+                        );
                     }
                 }
             }
@@ -2954,21 +2921,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
 
-                let mut g0m0_params = None;
-
                 let FunctionCache {
                     func,
                     llvm_func_type,
                     vmctx: callee_vmctx,
+                    imported_include_m0_param,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    if let Some((g0, m0)) = &self.g0m0 {
-                        // removed with mem2reg.
-                        let value = err!(self.builder.build_load(self.intrinsics.i32_ty, *g0, ""));
-
-                        g0m0_params = Some((value.into_int_value(), *m0));
-                    }
-
                     let function_name = self
                         .symbol_registry
                         .symbol_to_name(Symbol::LocalFunction(local_func_index));
@@ -2984,11 +2943,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     )?
                 } else {
                     self.ctx
-                        .func(func_index, self.intrinsics, self.context, func_type)?
+                        .imported_func(func_index, self.intrinsics, self.context, func_type)?
                 };
                 let llvm_func_type = *llvm_func_type;
                 let func = *func;
                 let callee_vmctx = *callee_vmctx;
+                let imported_include_m0_param = *imported_include_m0_param;
                 let attrs = attrs.clone();
 
                 /*
@@ -3018,87 +2978,165 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
-                let params = self.abi.args_to_call(
-                    &self.alloca_builder,
-                    func_type,
-                    &llvm_func_type,
-                    callee_vmctx.into_pointer_value(),
-                    params.as_slice(),
-                    self.intrinsics,
-                    g0m0_params,
-                )?;
-
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        emit_stack_map(
-                            &info,
+                if let (Some(m0_param), Some(include_m0_param)) =
+                    (self.m0_param, imported_include_m0_param)
+                {
+                    /* For imported functions, we must be careful about when to include `g0_param`:
+                    imports from another Wasm module expect it, while host-function imports do not.
+                    */
+                    let (llvm_func_type_no_m0, llvm_func_attrs_no_m0) =
+                        self.abi.func_type_to_llvm(
+                            self.context,
                             self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            &self.locals,
-                            state,
-                            ctx,
-                            offset,
-                        )
-                    }
-                }
-                */
-                let call_site = if let Some(lpad) = self.state.get_innermost_landingpad() {
-                    let then_block = self.context.append_basic_block(self.function, "then_block");
+                            Some(self.ctx.get_offsets()),
+                            func_type,
+                            false,
+                        )?;
+                    let params_with_m0 = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type,
+                        callee_vmctx.into_pointer_value(),
+                        params.as_slice(),
+                        self.intrinsics,
+                        Some(m0_param),
+                    )?;
+                    let params_no_m0 = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type_no_m0,
+                        callee_vmctx.into_pointer_value(),
+                        params.as_slice(),
+                        self.intrinsics,
+                        None,
+                    )?;
 
-                    let ret = err!(self.builder.build_indirect_invoke(
+                    let include_m0_call_block = self
+                        .context
+                        .append_basic_block(self.function, "call_block_with_m0");
+                    let skip_m0_call_block =
+                        self.context.append_basic_block(self.function, "call_block");
+                    let call_cont = self.context.append_basic_block(self.function, "call_cont");
+                    err!(self.builder.build_conditional_branch(
+                        include_m0_param,
+                        include_m0_call_block,
+                        skip_m0_call_block,
+                    ));
+
+                    self.builder.position_at_end(include_m0_call_block);
+                    let call_site_with_m0 = self.build_indirect_call_or_invoke(
+                        llvm_func_type,
+                        func,
+                        params_with_m0.as_slice(),
+                        "then_block_with_m0",
+                    )?;
+                    for (attr, attr_loc) in &attrs {
+                        call_site_with_m0.add_attribute(*attr_loc, *attr);
+                    }
+                    let rets_with_m0 = self.abi.rets_from_call(
+                        &self.builder,
+                        self.intrinsics,
+                        call_site_with_m0,
+                        func_type,
+                    )?;
+                    let with_m0_pred = self.builder.get_insert_block().ok_or_else(|| {
+                        CompileError::Codegen(
+                            "missing insertion block after call with m0".to_string(),
+                        )
+                    })?;
+                    err!(self.builder.build_unconditional_branch(call_cont));
+
+                    self.builder.position_at_end(skip_m0_call_block);
+                    let call_site_no_m0 = self.build_indirect_call_or_invoke(
+                        llvm_func_type_no_m0,
+                        func,
+                        params_no_m0.as_slice(),
+                        "then_block",
+                    )?;
+                    for (attr, attr_loc) in &llvm_func_attrs_no_m0 {
+                        call_site_no_m0.add_attribute(*attr_loc, *attr);
+                    }
+                    let rets_no_m0 = self.abi.rets_from_call(
+                        &self.builder,
+                        self.intrinsics,
+                        call_site_no_m0,
+                        func_type,
+                    )?;
+                    let no_m0_pred = self.builder.get_insert_block().ok_or_else(|| {
+                        CompileError::Codegen(
+                            "missing insertion block after call without m0".to_string(),
+                        )
+                    })?;
+                    err!(self.builder.build_unconditional_branch(call_cont));
+
+                    self.builder.position_at_end(call_cont);
+                    for i in 0..rets_with_m0.len() {
+                        let with_m0 = rets_with_m0[i];
+                        let no_m0 = rets_no_m0[i];
+                        let phi = err!(self.builder.build_phi(with_m0.get_type(), ""));
+                        phi.add_incoming(&[(&with_m0, with_m0_pred), (&no_m0, no_m0_pred)]);
+                        self.state.push1(phi.as_basic_value());
+                    }
+                } else {
+                    let params = self.abi.args_to_call(
+                        &self.alloca_builder,
+                        func_type,
+                        &llvm_func_type,
+                        callee_vmctx.into_pointer_value(),
+                        params.as_slice(),
+                        self.intrinsics,
+                        self.m0_param,
+                    )?;
+
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            emit_stack_map(
+                                &info,
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                &self.locals,
+                                state,
+                                ctx,
+                                offset,
+                            )
+                        }
+                    }
+                    */
+                    let call_site = self.build_indirect_call_or_invoke(
                         llvm_func_type,
                         func,
                         params.as_slice(),
-                        then_block,
-                        lpad,
-                        "",
-                    ));
-
-                    self.builder.position_at_end(then_block);
-                    ret
-                } else {
-                    err!(
-                        self.builder.build_indirect_call(
-                            llvm_func_type,
-                            func,
-                            params
-                                .iter()
-                                .copied()
-                                .map(Into::into)
-                                .collect::<Vec<BasicMetadataValueEnum>>()
-                                .as_slice(),
-                            "",
-                        )
-                    )
-                };
-                for (attr, attr_loc) in attrs {
-                    call_site.add_attribute(attr_loc, attr);
-                }
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        finalize_opcode_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            offset,
-                        )
+                        "then_block",
+                    )?;
+                    for (attr, attr_loc) in attrs {
+                        call_site.add_attribute(attr_loc, attr);
                     }
-                }
-                */
+                    /*
+                    if self.track_state {
+                        if let Some(offset) = opcode_offset {
+                            let mut stackmaps = self.stackmaps.borrow_mut();
+                            finalize_opcode_stack_map(
+                                self.intrinsics,
+                                self.builder,
+                                self.index,
+                                &mut *stackmaps,
+                                StackmapEntryKind::Call,
+                                offset,
+                            )
+                        }
+                    }
+                    */
 
-                self.abi
-                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                    .iter()
-                    .for_each(|ret| self.state.push1(*ret));
+                    self.abi
+                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                        .iter()
+                        .for_each(|ret| self.state.push1(*ret));
+                }
             }
             Operator::CallIndirect {
                 type_index,
@@ -3324,8 +3362,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(continue_block);
 
-                if self.g0m0.is_some() {
-                    self.build_g0m0_indirect_call(
+                if self.m0_param.is_some() {
+                    self.build_m0_indirect_call(
                         table_index,
                         ctx_ptr.into_pointer_value(),
                         func_type,
@@ -3337,7 +3375,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         ctx_ptr.into_pointer_value(),
                         func_type,
                         func_ptr,
-                        None,
                         None,
                     )?;
 
@@ -13752,6 +13789,110 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 }
 
                 self.state.reachable = false;
+            }
+            Operator::I64Add128 | Operator::I64Sub128 => {
+                let (rhs_hi, rhs_hi_info) = self.state.pop1_extra()?;
+                let (rhs_lo, rhs_lo_info) = self.state.pop1_extra()?;
+                let (lhs_hi, lhs_hi_info) = self.state.pop1_extra()?;
+                let (lhs_lo, lhs_lo_info) = self.state.pop1_extra()?;
+
+                let lhs_lo = self
+                    .apply_pending_canonicalization(lhs_lo, lhs_lo_info)?
+                    .into_int_value();
+                let lhs_hi = self
+                    .apply_pending_canonicalization(lhs_hi, lhs_hi_info)?
+                    .into_int_value();
+                let rhs_lo = self
+                    .apply_pending_canonicalization(rhs_lo, rhs_lo_info)?
+                    .into_int_value();
+                let rhs_hi = self
+                    .apply_pending_canonicalization(rhs_hi, rhs_hi_info)?
+                    .into_int_value();
+
+                let idx0 = self.intrinsics.i32_ty.const_zero();
+                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
+
+                let lhs = self.intrinsics.i64x2_ty.get_undef();
+                let lhs = err!(self.builder.build_insert_element(lhs, lhs_lo, idx0, ""));
+                let lhs = err!(self.builder.build_insert_element(lhs, lhs_hi, idx1, ""));
+                let lhs = err!(
+                    self.builder
+                        .build_bit_cast(lhs, self.intrinsics.i128_ty, "a")
+                )
+                .into_int_value();
+
+                let rhs = self.intrinsics.i64x2_ty.get_undef();
+                let rhs = err!(self.builder.build_insert_element(rhs, rhs_lo, idx0, ""));
+                let rhs = err!(self.builder.build_insert_element(rhs, rhs_hi, idx1, ""));
+                let rhs = err!(
+                    self.builder
+                        .build_bit_cast(rhs, self.intrinsics.i128_ty, "b")
+                )
+                .into_int_value();
+
+                let result = err!(match op {
+                    Operator::I64Add128 => self.builder.build_int_add(lhs, rhs, ""),
+                    Operator::I64Sub128 => self.builder.build_int_sub(lhs, rhs, ""),
+                    _ => unreachable!(),
+                });
+                let result = err!(self.builder.build_bit_cast(
+                    result,
+                    self.intrinsics.i64x2_ty,
+                    ""
+                ))
+                .into_vector_value();
+                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
+                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
+
+                self.state.push1(result_lo);
+                self.state.push1(result_hi);
+            }
+            Operator::I64MulWideS | Operator::I64MulWideU => {
+                let ((lhs, lhs_info), (rhs, rhs_info)) = self.state.pop2_extra()?;
+                let lhs = self
+                    .apply_pending_canonicalization(lhs, lhs_info)?
+                    .into_int_value();
+                let rhs = self
+                    .apply_pending_canonicalization(rhs, rhs_info)?
+                    .into_int_value();
+
+                let lhs = err!(match op {
+                    Operator::I64MulWideS => {
+                        self.builder
+                            .build_int_s_extend(lhs, self.intrinsics.i128_ty, "a")
+                    }
+                    Operator::I64MulWideU => {
+                        self.builder
+                            .build_int_z_extend(lhs, self.intrinsics.i128_ty, "a")
+                    }
+                    _ => unreachable!(),
+                });
+                let rhs = err!(match op {
+                    Operator::I64MulWideS => {
+                        self.builder
+                            .build_int_s_extend(rhs, self.intrinsics.i128_ty, "b")
+                    }
+                    Operator::I64MulWideU => {
+                        self.builder
+                            .build_int_z_extend(rhs, self.intrinsics.i128_ty, "b")
+                    }
+                    _ => unreachable!(),
+                });
+
+                let result = err!(self.builder.build_int_mul(lhs, rhs, ""));
+                let result = err!(self.builder.build_bit_cast(
+                    result,
+                    self.intrinsics.i64x2_ty,
+                    ""
+                ))
+                .into_vector_value();
+                let idx0 = self.intrinsics.i32_ty.const_zero();
+                let idx1 = self.intrinsics.i32_ty.const_int(1, false);
+                let result_lo = err!(self.builder.build_extract_element(result, idx0, ""));
+                let result_hi = err!(self.builder.build_extract_element(result, idx1, ""));
+
+                self.state.push1(result_lo);
+                self.state.push1(result_hi);
             }
             _ => {
                 return Err(CompileError::Codegen(format!(

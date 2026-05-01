@@ -6,6 +6,67 @@
 
 ## **Unreleased**
 
+## 7.1.0-alpha.1 - 23/02/2026
+
+## Added
+
+  - [#6193](https://github.com/wasmerio/wasmer/pull/6193) Add more cloexec tests
+  - [#6190](https://github.com/wasmerio/wasmer/pull/6190) fix(wasix): Add symlink support in path_open
+  - [#6158](https://github.com/wasmerio/wasmer/pull/6158) Add ModuleInfo for public re-export in api
+
+## Changed
+
+  - [#6224](https://github.com/wasmerio/wasmer/pull/6224) test(WASIX): test setjmp under C++ with -flto
+  - [#6223](https://github.com/wasmerio/wasmer/pull/6223) feat: drop SuggestedCompilerOptimizations as it's unused
+  - [#6225](https://github.com/wasmerio/wasmer/pull/6225) deps: bump crates
+  - [#6226](https://github.com/wasmerio/wasmer/pull/6226) chore: simplify how we display CPU flags
+  - [#6227](https://github.com/wasmerio/wasmer/pull/6227) chore(LLVM): use descriptive names for trampoline wrappers
+  - [#6212](https://github.com/wasmerio/wasmer/pull/6212) feat(LLVM): mark memory loads/stores as non-volatile for WASIX modules
+  - [#6213](https://github.com/wasmerio/wasmer/pull/6213) feat(LLVM): use m0 param by default
+  - [#6229](https://github.com/wasmerio/wasmer/pull/6229) feat: include Updated column in app listing
+  - [#6220](https://github.com/wasmerio/wasmer/pull/6220) chore(LLVM): rename trampoline/wasm.rs to translator/trampoline.rs
+  - [#6218](https://github.com/wasmerio/wasmer/pull/6218) CI: increase nextest timeouts for Int. tests on Windows
+  - [#6219](https://github.com/wasmerio/wasmer/pull/6219) feat: drop XXHash from ModuleHash Artifact format
+  - [#6211](https://github.com/wasmerio/wasmer/pull/6211) chore(LLVM): do not emit BB names with a space
+  - [#6209](https://github.com/wasmerio/wasmer/pull/6209) deps: bump zip and clap_lex crates
+  - [#6206](https://github.com/wasmerio/wasmer/pull/6206) chore: bump dynasm crate
+  - [#6205](https://github.com/wasmerio/wasmer/pull/6205) update `spec` tests from upstream
+  - [#6151](https://github.com/wasmerio/wasmer/pull/6151) Relaxed SIMD support
+  - [#6201](https://github.com/wasmerio/wasmer/pull/6201) chore(LLVM): remove unnecessary function
+  - [#6203](https://github.com/wasmerio/wasmer/pull/6203) CI(macos-arm/x86): skip on PR (main branch only)
+  - [#6199](https://github.com/wasmerio/wasmer/pull/6199) CI: do not create ignored jobs on PRs
+  - [#6192](https://github.com/wasmerio/wasmer/pull/6192) bump wasixcc to 0.3.0
+  - [#6174](https://github.com/wasmerio/wasmer/pull/6174) Resurrect Wasmer CLI integration tests
+  - [#6182](https://github.com/wasmerio/wasmer/pull/6182) feat(CLI): use --disable-cache if --compiler-debug-dir used
+  - [#6186](https://github.com/wasmerio/wasmer/pull/6186) bump wasm-tools related crates
+  - [#6185](https://github.com/wasmerio/wasmer/pull/6185) chore: use vmctx name in LLVM IR dumps
+  - [#6183](https://github.com/wasmerio/wasmer/pull/6183) Pin the wasixcc ref to a known good point, since main may be broken a…
+  - [#6171](https://github.com/wasmerio/wasmer/pull/6171) Bump crate dependencies
+  - [#6165](https://github.com/wasmerio/wasmer/pull/6165) Deploy improvements
+  - [#6169](https://github.com/wasmerio/wasmer/pull/6169) deps: bump time
+  - [#6167](https://github.com/wasmerio/wasmer/pull/6167) deps: bump webc and rand
+  - [#6164](https://github.com/wasmerio/wasmer/pull/6164) CI: skip zig step (unused)
+  - [#6160](https://github.com/wasmerio/wasmer/pull/6160) deps: bump crates
+  - [#6159](https://github.com/wasmerio/wasmer/pull/6159) feat(cli): use percent indication in progress bar
+  - [#6157](https://github.com/wasmerio/wasmer/pull/6157) cicd: Disable integration tests (temporarily... hopefully)
+  - [#6153](https://github.com/wasmerio/wasmer/pull/6153) feat(LLVM+Cranelift): parallel compilation revamp
+  - [#6137](https://github.com/wasmerio/wasmer/pull/6137) chore: use WASMER_REPRODUCIBLE_BUILD for reproducible builds
+
+## Fixed
+
+  - [#6222](https://github.com/wasmerio/wasmer/pull/6222) fix(Backend): Sys backend should use all supported features
+  - [#6230](https://github.com/wasmerio/wasmer/pull/6230) fix(Singlepass): use correct signature for wasmer_vm_memory32_atomic_notify
+  - [#6208](https://github.com/wasmerio/wasmer/pull/6208) fix(wasix-fs): Fix symlink behaviour
+  - [#6210](https://github.com/wasmerio/wasmer/pull/6210) chore: fix new clippy warnings
+  - [#6202](https://github.com/wasmerio/wasmer/pull/6202) fix: relax parsing of --volume argument with respect to Windows
+  - [#6132](https://github.com/wasmerio/wasmer/pull/6132) fix(wasix): fd_allocate should never truncate the file
+  - [#6194](https://github.com/wasmerio/wasmer/pull/6194) fix(CI): stick to older wasixcc
+  - [#6139](https://github.com/wasmerio/wasmer/pull/6139) fix(Singlepass): support ExternRef and FuncRef
+  - [#6168](https://github.com/wasmerio/wasmer/pull/6168) fix(sdk): Inaccurate handling of command-line arguments in `proc_exec`.
+  - [#6163](https://github.com/wasmerio/wasmer/pull/6163) fix(perfmap): support shared libraries (append to file)
+
+
+
 ## 7.0.1 - 02/02/2026
 
 ## Added

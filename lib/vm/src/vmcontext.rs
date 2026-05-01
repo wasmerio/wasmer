@@ -72,6 +72,9 @@ pub struct VMFunctionImport {
 
     /// Handle to the `VMFunction` in the context.
     pub handle: InternalStoreHandle<VMFunction>,
+
+    /// Flag if the function requires extra the m0 argument (used for m0 optimization dispatch).
+    pub include_m0_param: bool,
 }
 
 #[cfg(test)]

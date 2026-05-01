@@ -3,14 +3,13 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ciborium::{Value, cbor};
+use ciborium::Value;
 use semver::VersionReq;
 use sha2::Digest;
 use shared_buffer::{MmapError, OwnedBuffer};
 use url::Url;
 #[allow(deprecated)]
 use wasmer_config::package::{CommandV1, CommandV2, Manifest as WasmerManifest, Package};
-use wasmer_config::package::{SuggestedCompilerOptimizations, UserAnnotations};
 use webc::{
     indexmap::{self, IndexMap},
     metadata::AtomSignature,
@@ -161,7 +160,7 @@ pub(crate) fn wasmer_manifest_to_webc(
 /// take a `wasmer.toml` manifest and convert it to the `*.webc` equivalent.
 pub(crate) fn in_memory_wasmer_manifest_to_webc(
     manifest: &WasmerManifest,
-    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer, Option<&UserAnnotations>)>,
+    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer)>,
 ) -> Result<(WebcManifest, BTreeMap<String, OwnedBuffer>), ManifestError> {
     let use_map = transform_dependencies(&manifest.dependencies)?;
 
@@ -280,40 +279,27 @@ fn transform_atoms(
             error,
         })?;
 
-        atom_entries.insert(
-            name.clone(),
-            (module.kind.clone(), file, module.annotations.as_ref()),
-        );
+        atom_entries.insert(name.clone(), (module.kind.clone(), file));
     }
 
     transform_atoms_shared(&atom_entries)
 }
 
 fn transform_in_memory_atoms(
-    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer, Option<&UserAnnotations>)>,
+    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer)>,
 ) -> Result<(IndexMap<String, Atom>, Atoms), ManifestError> {
     transform_atoms_shared(atoms)
 }
 
 fn transform_atoms_shared(
-    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer, Option<&UserAnnotations>)>,
+    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer)>,
 ) -> Result<(IndexMap<String, Atom>, Atoms), ManifestError> {
     let mut atom_files = BTreeMap::new();
     let mut metadata = IndexMap::new();
 
-    for (name, (kind, content, misc_annotations)) in atoms.iter() {
+    for (name, (kind, content)) in atoms.iter() {
         // Create atom with annotations including Wasm features if available
         let mut annotations = IndexMap::new();
-        if let Some(misc_annotations) = misc_annotations
-            && let Some(pass_params) = misc_annotations
-                .suggested_compiler_optimizations
-                .pass_params
-        {
-            annotations.insert(
-                SuggestedCompilerOptimizations::KEY.to_string(),
-                cbor!({"pass_params" => pass_params}).unwrap(),
-            );
-        }
 
         // Detect required WebAssembly features by analyzing the module binary
         let features_result = wasmer_types::Features::detect_from_wasm(content);

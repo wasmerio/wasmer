@@ -544,15 +544,11 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     }
     println!("host: {}", target_lexicon::HOST);
 
-    let cpu_features = {
-        let feats = wasmer_types::target::CpuFeature::for_host();
-        let all = wasmer_types::target::CpuFeature::all();
-        all.iter()
-            .map(|f| format!("{}={}", f, feats.contains(f)))
-            .collect::<Vec<_>>()
-            .join(",")
-    };
-    println!("cpu: {cpu_features}");
+    let cpu_features = wasmer_types::target::CpuFeature::for_host()
+        .iter()
+        .map(|f| f.to_string())
+        .join(" ");
+    println!("CPU flags: {cpu_features}");
 
     let mut runtimes = Vec::new();
     if cfg!(feature = "singlepass") {

@@ -23,6 +23,7 @@ use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_ca
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::{export::VMExtern, threadconditions::ExpectedValue};
 pub use allocator::InstanceAllocator;
+use itertools::Itertools;
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::Layout;
@@ -37,8 +38,8 @@ use std::sync::Arc;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap, packed_option::ReservedValue};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
-    MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, TagIndex,
+    InitExpr, InitExprOp, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
+    MemoryError, MemoryIndex, ModuleInfo, Pages, RawValue, SignatureIndex, TableIndex, TagIndex,
     VMOffsets,
 };
 
@@ -1382,24 +1383,6 @@ impl VMInstance {
     }
 }
 
-/// Compute the offset for a memory data initializer.
-fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usize {
-    let mut start = init.location.offset;
-
-    if let Some(base) = init.location.base {
-        let val = unsafe {
-            if let Some(def_index) = instance.module.local_global_index(base) {
-                instance.global(def_index).val.u32
-            } else {
-                instance.imported_global(base).definition.as_ref().val.u32
-            }
-        };
-        start += usize::try_from(val).unwrap();
-    }
-
-    start
-}
-
 #[allow(clippy::mut_from_ref)]
 #[allow(dead_code)]
 /// Return a byte-slice view of a memory's data.
@@ -1421,29 +1404,109 @@ unsafe fn get_memory_slice<'instance>(
     }
 }
 
-/// Compute the offset for a table element initializer.
-fn get_table_init_start(init: &TableInitializer, instance: &Instance) -> usize {
-    let mut start = init.offset;
-
-    if let Some(base) = init.base {
-        let val = unsafe {
-            if let Some(def_index) = instance.module.local_global_index(base) {
-                instance.global(def_index).val.u32
-            } else {
-                instance.imported_global(base).definition.as_ref().val.u32
-            }
-        };
-        start += usize::try_from(val).unwrap();
+fn get_global(index: GlobalIndex, instance: &Instance) -> RawValue {
+    unsafe {
+        if let Some(local_global_index) = instance.module.local_global_index(index) {
+            instance.global(local_global_index).val
+        } else {
+            instance.imported_global(index).definition.as_ref().val
+        }
     }
+}
 
-    start
+enum EvaluatedInitExpr {
+    I32(i32),
+    I64(i64),
+}
+
+fn eval_init_expr(expr: &InitExpr, instance: &Instance) -> EvaluatedInitExpr {
+    if expr
+        .ops()
+        .first()
+        .expect("missing expression")
+        .is_32bit_expression()
+    {
+        let mut stack = Vec::with_capacity(expr.ops().len());
+        for op in expr.ops() {
+            match *op {
+                InitExprOp::I32Const(value) => stack.push(value),
+                InitExprOp::GlobalGetI32(global) => {
+                    stack.push(unsafe { get_global(global, instance).i32 })
+                }
+                InitExprOp::I32Add => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i32.add");
+                    let lhs = stack.pop().expect("invalid init expr stack for i32.add");
+                    stack.push(lhs.wrapping_add(rhs));
+                }
+                InitExprOp::I32Sub => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i32.sub");
+                    let lhs = stack.pop().expect("invalid init expr stack for i32.sub");
+                    stack.push(lhs.wrapping_sub(rhs));
+                }
+                InitExprOp::I32Mul => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i32.mul");
+                    let lhs = stack.pop().expect("invalid init expr stack for i32.mul");
+                    stack.push(lhs.wrapping_mul(rhs));
+                }
+                _ => {
+                    panic!("unexpected init expr statement: {op:?}");
+                }
+            }
+        }
+        EvaluatedInitExpr::I32(
+            stack
+                .into_iter()
+                .exactly_one()
+                .expect("invalid init expr stack shape"),
+        )
+    } else {
+        let mut stack = Vec::with_capacity(expr.ops().len());
+        for op in expr.ops() {
+            match *op {
+                InitExprOp::I64Const(value) => stack.push(value),
+                InitExprOp::GlobalGetI64(global) => {
+                    stack.push(unsafe { get_global(global, instance).i64 })
+                }
+                InitExprOp::I64Add => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i64.add");
+                    let lhs = stack.pop().expect("invalid init expr stack for i64.add");
+                    stack.push(lhs.wrapping_add(rhs));
+                }
+                InitExprOp::I64Sub => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i64.sub");
+                    let lhs = stack.pop().expect("invalid init expr stack for i64.sub");
+                    stack.push(lhs.wrapping_sub(rhs));
+                }
+                InitExprOp::I64Mul => {
+                    let rhs = stack.pop().expect("invalid init expr stack for i64.mul");
+                    let lhs = stack.pop().expect("invalid init expr stack for i64.mul");
+                    stack.push(lhs.wrapping_mul(rhs));
+                }
+                _ => {
+                    panic!("unexpected init expr statement: {op:?}");
+                }
+            }
+        }
+        EvaluatedInitExpr::I64(
+            stack
+                .into_iter()
+                .exactly_one()
+                .expect("invalid init expr stack shape"),
+        )
+    }
 }
 
 /// Initialize the table memory from the provided initializers.
 fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);
     for init in &module.table_initializers {
-        let start = get_table_init_start(init, instance);
+        let EvaluatedInitExpr::I32(start) = eval_init_expr(&init.offset_expr, instance) else {
+            panic!("unexpected expression type, expected i32");
+        };
+        if start < 0 {
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+        }
+        let start = start as usize;
         let table = instance.get_table_handle(init.table_index);
         let table = unsafe { table.get_mut(&mut *instance.context) };
 
@@ -1514,7 +1577,14 @@ fn initialize_memories(
     for init in data_initializers {
         let memory = instance.get_vmmemory(init.location.memory_index);
 
-        let start = get_memory_init_start(init, instance);
+        let EvaluatedInitExpr::I32(start) = eval_init_expr(&init.location.offset_expr, instance)
+        else {
+            panic!("unexpected expression type, expected i32");
+        };
+        if start < 0 {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        }
+        let start = start as usize;
         unsafe {
             let current_length = memory.vmmemory().as_ref().current_length;
             if start
@@ -1555,6 +1625,10 @@ fn initialize_globals(instance: &Instance) {
                     let funcref = instance.func_ref(*func_idx).unwrap();
                     (*to).val = funcref.into_raw();
                 }
+                GlobalInit::Expr(expr) => match eval_init_expr(expr, instance) {
+                    EvaluatedInitExpr::I32(value) => (*to).val.i32 = value,
+                    EvaluatedInitExpr::I64(value) => (*to).val.i64 = value,
+                },
             }
         }
     }

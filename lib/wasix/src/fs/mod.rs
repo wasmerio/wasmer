@@ -240,6 +240,14 @@ impl InodeWeakGuard {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+struct EphemeralSymlinkEntry {
+    base_po_dir: WasiFd,
+    path_to_symlink: PathBuf,
+    relative_path: PathBuf,
+}
+
+#[derive(Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 struct WasiInodesProtected {
     lookup: HashMap<Inode, Weak<InodeVal>>,
 }
@@ -248,6 +256,28 @@ struct WasiInodesProtected {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiInodes {
     protected: Arc<RwLock<WasiInodesProtected>>,
+}
+
+fn normalize_virtual_symlink_key(path: &Path) -> PathBuf {
+    let mut normalized = PathBuf::new();
+    for component in path.components() {
+        match component {
+            Component::RootDir => normalized.push("/"),
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if !normalized.as_os_str().is_empty() && normalized.as_os_str() != "/" {
+                    normalized.pop();
+                }
+            }
+            Component::Normal(seg) => normalized.push(seg),
+            Component::Prefix(_) => {}
+        }
+    }
+    if normalized.as_os_str().is_empty() {
+        PathBuf::from("/")
+    } else {
+        normalized
+    }
 }
 
 impl WasiInodes {
@@ -557,6 +587,7 @@ pub struct WasiFs {
     pub root_fs: WasiFsRoot,
     pub root_inode: InodeGuard,
     pub has_unioned: Mutex<HashSet<PackageId>>,
+    ephemeral_symlinks: Arc<RwLock<HashMap<PathBuf, EphemeralSymlinkEntry>>>,
 
     // TODO: remove
     // using an atomic is a hack to enable customization after construction,
@@ -581,6 +612,65 @@ impl WasiFs {
         self.is_wasix.store(is_wasix, Ordering::SeqCst);
     }
 
+    pub(crate) fn register_ephemeral_symlink(
+        &self,
+        full_path: PathBuf,
+        base_po_dir: WasiFd,
+        path_to_symlink: PathBuf,
+        relative_path: PathBuf,
+    ) {
+        let mut guard = self.ephemeral_symlinks.write().unwrap();
+        guard.insert(
+            normalize_virtual_symlink_key(&full_path),
+            EphemeralSymlinkEntry {
+                base_po_dir,
+                path_to_symlink: normalize_virtual_symlink_key(&path_to_symlink),
+                relative_path,
+            },
+        );
+    }
+
+    pub(crate) fn ephemeral_symlink_at(
+        &self,
+        full_path: &Path,
+    ) -> Option<(WasiFd, PathBuf, PathBuf)> {
+        let guard = self.ephemeral_symlinks.read().unwrap();
+        let entry = guard.get(&normalize_virtual_symlink_key(full_path))?;
+        Some((
+            entry.base_po_dir,
+            entry.path_to_symlink.clone(),
+            entry.relative_path.clone(),
+        ))
+    }
+
+    pub(crate) fn unregister_ephemeral_symlink(&self, full_path: &Path) {
+        let mut guard = self.ephemeral_symlinks.write().unwrap();
+        guard.remove(&normalize_virtual_symlink_key(full_path));
+    }
+
+    pub(crate) fn move_ephemeral_symlink(
+        &self,
+        old_full_path: &Path,
+        new_full_path: &Path,
+        base_po_dir: WasiFd,
+        path_to_symlink: PathBuf,
+        relative_path: PathBuf,
+    ) {
+        let old_key = normalize_virtual_symlink_key(old_full_path);
+        let new_key = normalize_virtual_symlink_key(new_full_path);
+
+        let mut guard = self.ephemeral_symlinks.write().unwrap();
+        guard.remove(&old_key);
+        guard.insert(
+            new_key,
+            EphemeralSymlinkEntry {
+                base_po_dir,
+                path_to_symlink: normalize_virtual_symlink_key(&path_to_symlink),
+                relative_path,
+            },
+        );
+    }
+
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Self {
         Self {
@@ -591,6 +681,7 @@ impl WasiFs {
             root_fs: self.root_fs.clone(),
             root_inode: self.root_inode.clone(),
             has_unioned: Mutex::new(self.has_unioned.lock().unwrap().clone()),
+            ephemeral_symlinks: self.ephemeral_symlinks.clone(),
             init_preopens: self.init_preopens.clone(),
             init_vfs_preopens: self.init_vfs_preopens.clone(),
         }
@@ -742,6 +833,7 @@ impl WasiFs {
             root_fs: fs_backing,
             root_inode,
             has_unioned: Mutex::new(HashSet::new()),
+            ephemeral_symlinks: Arc::new(RwLock::new(HashMap::new())),
             init_preopens: Default::default(),
             init_vfs_preopens: Default::default(),
         };
@@ -1102,112 +1194,122 @@ impl WasiFs {
                                 cd.push(component);
                                 cd
                             };
-                            let metadata = self
-                                .root_fs
-                                .symlink_metadata(&file)
-                                .ok()
-                                .ok_or(Errno::Noent)?;
-                            let file_type = metadata.file_type();
                             // we want to insert newly opened dirs and files, but not transient symlinks
                             // TODO: explain why (think about this deeply when well rested)
                             let should_insert;
 
-                            let kind = if file_type.is_dir() {
-                                should_insert = true;
-                                // load DIR
-                                Kind::Dir {
-                                    parent: cur_inode.downgrade(),
-                                    path: file.clone(),
-                                    entries: Default::default(),
-                                }
-                            } else if file_type.is_file() {
-                                should_insert = true;
-                                // load file
-                                Kind::File {
-                                    handle: None,
-                                    path: file.clone(),
-                                    fd: None,
-                                }
-                            } else if file_type.is_symlink() {
+                            let kind = if let Some((base_po_dir, path_to_symlink, relative_path)) =
+                                self.ephemeral_symlink_at(&file)
+                            {
+                                // Ephemeral symlinks are transient records;
+                                // we resolve them but don't cache them as dir entries.
                                 should_insert = false;
-                                let link_value =
-                                    self.root_fs.readlink(&file).ok().ok_or(Errno::Noent)?;
-                                debug!("attempting to decompose path {:?}", link_value);
-
-                                let (pre_open_dir_fd, relative_path) = if link_value.is_relative() {
-                                    self.path_into_pre_open_and_relative_path(&file)?
-                                } else {
-                                    tracing::error!("Absolute symlinks are not yet supported");
-                                    return Err(Errno::Notsup);
-                                };
                                 loop_for_symlink = true;
                                 symlink_count += 1;
                                 Kind::Symlink {
-                                    base_po_dir: pre_open_dir_fd,
-                                    path_to_symlink: relative_path.to_owned(),
-                                    relative_path: link_value,
+                                    base_po_dir,
+                                    path_to_symlink,
+                                    relative_path,
                                 }
                             } else {
-                                #[cfg(unix)]
-                                {
-                                    //use std::os::unix::fs::FileTypeExt;
-                                    let file_type: Filetype = if file_type.is_char_device() {
-                                        Filetype::CharacterDevice
-                                    } else if file_type.is_block_device() {
-                                        Filetype::BlockDevice
-                                    } else if file_type.is_fifo() {
-                                        // FIFO doesn't seem to fit any other type, so unknown
-                                        Filetype::Unknown
-                                    } else if file_type.is_socket() {
-                                        // TODO: how do we know if it's a `SocketStream` or
-                                        // a `SocketDgram`?
-                                        Filetype::SocketStream
-                                    } else {
-                                        unimplemented!(
-                                            "state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket"
-                                        );
-                                    };
-
-                                    let kind = Kind::File {
+                                let metadata = self
+                                    .root_fs
+                                    .symlink_metadata(&file)
+                                    .ok()
+                                    .ok_or(Errno::Noent)?;
+                                let file_type = metadata.file_type();
+                                if file_type.is_dir() {
+                                    should_insert = true;
+                                    // load DIR
+                                    Kind::Dir {
+                                        parent: cur_inode.downgrade(),
+                                        path: file.clone(),
+                                        entries: Default::default(),
+                                    }
+                                } else if file_type.is_file() {
+                                    should_insert = true;
+                                    // load file
+                                    Kind::File {
                                         handle: None,
                                         path: file.clone(),
                                         fd: None,
-                                    };
-                                    drop(guard);
-                                    let new_inode = self.create_inode_with_stat(
-                                        inodes,
-                                        kind,
-                                        false,
-                                        file.to_string_lossy().to_string().into(),
-                                        Filestat {
-                                            st_filetype: file_type,
-                                            st_ino: Inode::from_path(path_str).as_u64(),
-                                            st_size: metadata.len(),
-                                            st_ctim: metadata.created(),
-                                            st_mtim: metadata.modified(),
-                                            st_atim: metadata.accessed(),
-                                            ..Filestat::default()
-                                        },
-                                    );
-
-                                    let mut guard = cur_inode.write();
-                                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
-                                        entries.insert(
-                                            component.as_os_str().to_string_lossy().to_string(),
-                                            new_inode.clone(),
-                                        );
-                                    } else {
-                                        unreachable!(
-                                            "Attempted to insert special device into non-directory"
-                                        );
                                     }
-                                    // perhaps just continue with symlink resolution and return at the end
-                                    return Ok(new_inode);
+                                } else if file_type.is_symlink() {
+                                    should_insert = false;
+                                    let link_value =
+                                        self.root_fs.readlink(&file).ok().ok_or(Errno::Noent)?;
+                                    debug!("attempting to decompose path {:?}", link_value);
+                                    let (pre_open_dir_fd, path_to_symlink) =
+                                        self.path_into_pre_open_and_relative_path(&file)?;
+                                    loop_for_symlink = true;
+                                    symlink_count += 1;
+                                    Kind::Symlink {
+                                        base_po_dir: pre_open_dir_fd,
+                                        path_to_symlink: path_to_symlink.to_owned(),
+                                        relative_path: link_value,
+                                    }
+                                } else {
+                                    #[cfg(unix)]
+                                    {
+                                        //use std::os::unix::fs::FileTypeExt;
+                                        let file_type: Filetype = if file_type.is_char_device() {
+                                            Filetype::CharacterDevice
+                                        } else if file_type.is_block_device() {
+                                            Filetype::BlockDevice
+                                        } else if file_type.is_fifo() {
+                                            // FIFO doesn't seem to fit any other type, so unknown
+                                            Filetype::Unknown
+                                        } else if file_type.is_socket() {
+                                            // TODO: how do we know if it's a `SocketStream` or
+                                            // a `SocketDgram`?
+                                            Filetype::SocketStream
+                                        } else {
+                                            unimplemented!(
+                                                "state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket"
+                                            );
+                                        };
+
+                                        let kind = Kind::File {
+                                            handle: None,
+                                            path: file.clone(),
+                                            fd: None,
+                                        };
+                                        drop(guard);
+                                        let new_inode = self.create_inode_with_stat(
+                                            inodes,
+                                            kind,
+                                            false,
+                                            file.to_string_lossy().to_string().into(),
+                                            Filestat {
+                                                st_filetype: file_type,
+                                                st_ino: Inode::from_path(path_str).as_u64(),
+                                                st_size: metadata.len(),
+                                                st_ctim: metadata.created(),
+                                                st_mtim: metadata.modified(),
+                                                st_atim: metadata.accessed(),
+                                                ..Filestat::default()
+                                            },
+                                        );
+
+                                        let mut guard = cur_inode.write();
+                                        if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                                            entries.insert(
+                                                component.as_os_str().to_string_lossy().to_string(),
+                                                new_inode.clone(),
+                                            );
+                                        } else {
+                                            unreachable!(
+                                                "Attempted to insert special device into non-directory"
+                                            );
+                                        }
+                                        // perhaps just continue with symlink resolution and return at the end
+                                        return Ok(new_inode);
+                                    }
+                                    #[cfg(not(unix))]
+                                    unimplemented!(
+                                        "state::get_inode_at_path unknown file type: not file, directory, or symlink"
+                                    );
                                 }
-                                #[cfg(not(unix))]
-                                unimplemented!(
-                                    "state::get_inode_at_path unknown file type: not file, directory, or symlink"
-                                );
                             };
                             drop(guard);
 
@@ -1269,20 +1371,29 @@ impl WasiFs {
                         path_to_symlink,
                         relative_path,
                     } => {
-                        let new_base_dir = *base_po_dir;
-                        let new_base_inode = self.get_fd_inode(new_base_dir)?;
-
-                        // allocate to reborrow mutabily to recur
-                        let new_path = {
-                            /*if let Kind::Root { .. } = self.inodes[base_po_dir].kind {
-                                assert!(false, "symlinks should never be relative to the root");
-                            }*/
-                            let mut base = path_to_symlink.clone();
-                            // remove the symlink file itself from the path, leaving just the path from the base
-                            // to the dir containing the symlink
-                            base.pop();
-                            base.push(relative_path);
-                            base.to_string_lossy().to_string()
+                        let (new_base_inode, new_path) = if relative_path.is_absolute() {
+                            // Absolute symlink targets must resolve from the virtual root
+                            // rather than from the directory containing the symlink.
+                            (
+                                self.get_fd_inode(VIRTUAL_ROOT_FD)?,
+                                relative_path.to_string_lossy().to_string(),
+                            )
+                        } else {
+                            let new_base_dir = *base_po_dir;
+                            let new_base_inode = self.get_fd_inode(new_base_dir)?;
+                            // allocate to reborrow mutabily to recur
+                            let new_path = {
+                                /*if let Kind::Root { .. } = self.inodes[base_po_dir].kind {
+                                    assert!(false, "symlinks should never be relative to the root");
+                                }*/
+                                let mut base = path_to_symlink.clone();
+                                // remove the symlink file itself from the path, leaving just the path from the base
+                                // to the dir containing the symlink
+                                base.pop();
+                                base.push(relative_path);
+                                base.to_string_lossy().to_string()
+                            };
+                            (new_base_inode, new_path)
                         };
                         debug!("Following symlink recursively");
                         drop(guard);
@@ -1383,30 +1494,12 @@ impl WasiFs {
         }
     }
 
-    /// finds the number of directories between the fd and the inode if they're connected
-    /// expects inode to point to a directory
-    pub(crate) fn path_depth_from_fd(&self, fd: WasiFd, inode: InodeGuard) -> Result<usize, Errno> {
-        let mut counter = 0;
-        let base_inode = self.get_fd_inode(fd)?;
-        let mut cur_inode = inode;
-
-        while cur_inode.ino() != base_inode.ino() {
-            counter += 1;
-
-            let processing_cur_inode = cur_inode.clone();
-            let guard = processing_cur_inode.read();
-
-            match guard.deref() {
-                Kind::Dir { parent, .. } => {
-                    if let Some(p) = parent.upgrade() {
-                        cur_inode = p;
-                    }
-                }
-                _ => return Err(Errno::Inval),
-            }
-        }
-
-        Ok(counter)
+    pub(crate) fn path_into_pre_open_and_relative_path_owned(
+        &self,
+        path: &Path,
+    ) -> Result<(WasiFd, PathBuf), Errno> {
+        let (fd, rel_path) = self.path_into_pre_open_and_relative_path(path)?;
+        Ok((fd, rel_path.to_owned()))
     }
 
     /// gets a host file from a base directory and a path

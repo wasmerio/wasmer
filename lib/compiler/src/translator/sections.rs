@@ -21,7 +21,8 @@ use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::packed_option::ReservedValue;
 use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
-    MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, TagIndex, Type, V128,
+    InitExpr, InitExprOp, MemoryIndex, MemoryType, ModuleInfo, Pages, SignatureIndex, TableIndex,
+    TableType, TagIndex, Type, V128,
 };
 use wasmer_types::{WasmError, WasmResult};
 use wasmparser::{
@@ -273,6 +274,95 @@ pub fn parse_tag_section(
     Ok(())
 }
 
+fn parse_serialized_init_expr(
+    expr: &wasmparser::ConstExpr<'_>,
+    section_name: &str,
+    module: &ModuleInfo,
+) -> WasmResult<InitExpr> {
+    let mut reader = expr.get_operators_reader();
+    let mut ops = Vec::new();
+    loop {
+        let op = reader.read().map_err(from_binaryreadererror_wasmerror)?;
+        match op {
+            Operator::End => break,
+            Operator::I32Const { value } => ops.push(InitExprOp::I32Const(value)),
+            Operator::I64Const { value } => ops.push(InitExprOp::I64Const(value)),
+            Operator::GlobalGet { global_index } => {
+                let global_index = GlobalIndex::from_u32(global_index);
+                let global_type = module
+                    .global_type(global_index)
+                    .expect("Global index must be valid");
+
+                match global_type.ty {
+                    Type::I32 => ops.push(InitExprOp::GlobalGetI32(global_index)),
+                    Type::I64 => ops.push(InitExprOp::GlobalGetI64(global_index)),
+                    other => {
+                        return Err(wasm_unsupported!(
+                            "unsupported init expr in {section_name}: global.get type must be i32 or i64, got {other:?}",
+                        ));
+                    }
+                }
+            }
+            Operator::I32Add => ops.push(InitExprOp::I32Add),
+            Operator::I32Sub => ops.push(InitExprOp::I32Sub),
+            Operator::I32Mul => ops.push(InitExprOp::I32Mul),
+            Operator::I64Add => ops.push(InitExprOp::I64Add),
+            Operator::I64Sub => ops.push(InitExprOp::I64Sub),
+            Operator::I64Mul => ops.push(InitExprOp::I64Mul),
+            other => {
+                return Err(wasm_unsupported!(
+                    "unsupported init expr in {section_name}: {other:?}",
+                ));
+            }
+        }
+    }
+
+    if ops.is_empty() {
+        return Err(wasm_unsupported!("empty init expr in {section_name}"));
+    }
+
+    Ok(InitExpr::new(ops.into_boxed_slice()))
+}
+
+fn parse_global_initializer(
+    init_expr: &wasmparser::ConstExpr<'_>,
+    module: &ModuleInfo,
+) -> WasmResult<GlobalInit> {
+    let mut init_expr_reader = init_expr.get_operators_reader();
+    let first = init_expr_reader
+        .read()
+        .map_err(from_binaryreadererror_wasmerror)?;
+    let second = init_expr_reader
+        .read()
+        .map_err(from_binaryreadererror_wasmerror)?;
+
+    if matches!(second, Operator::End) {
+        return match first {
+            Operator::I32Const { value } => Ok(GlobalInit::I32Const(value)),
+            Operator::I64Const { value } => Ok(GlobalInit::I64Const(value)),
+            Operator::F32Const { value } => Ok(GlobalInit::F32Const(f32::from_bits(value.bits()))),
+            Operator::F64Const { value } => Ok(GlobalInit::F64Const(f64::from_bits(value.bits()))),
+            Operator::V128Const { value } => Ok(GlobalInit::V128Const(V128::from(*value.bytes()))),
+            Operator::RefNull { hty: _ } => {
+                // TODO: Do we need to handle different heap types here?
+                Ok(GlobalInit::RefNullConst)
+            }
+            Operator::RefFunc { function_index } => {
+                Ok(GlobalInit::RefFunc(FunctionIndex::from_u32(function_index)))
+            }
+            Operator::GlobalGet { global_index } => {
+                Ok(GlobalInit::GetGlobal(GlobalIndex::from_u32(global_index)))
+            }
+            other => Err(wasm_unsupported!(
+                "unsupported init expr in global section: {other:?}",
+            )),
+        };
+    }
+
+    let expr = parse_serialized_init_expr(init_expr, "global section", module)?;
+    Ok(GlobalInit::Expr(expr))
+}
+
 /// Parses the Global section of the wasm module.
 pub fn parse_global_section(
     globals: GlobalSectionReader,
@@ -290,33 +380,7 @@ pub fn parse_global_section(
                 },
             init_expr,
         } = entry.map_err(from_binaryreadererror_wasmerror)?;
-        let mut init_expr_reader = init_expr.get_operators_reader();
-        let initializer = match init_expr_reader
-            .read()
-            .map_err(from_binaryreadererror_wasmerror)?
-        {
-            Operator::I32Const { value } => GlobalInit::I32Const(value),
-            Operator::I64Const { value } => GlobalInit::I64Const(value),
-            Operator::F32Const { value } => GlobalInit::F32Const(f32::from_bits(value.bits())),
-            Operator::F64Const { value } => GlobalInit::F64Const(f64::from_bits(value.bits())),
-            Operator::V128Const { value } => GlobalInit::V128Const(V128::from(*value.bytes())),
-            Operator::RefNull { hty: _ } => {
-                // TODO: Do we need to handle different heap types here?
-                GlobalInit::RefNullConst
-            }
-            Operator::RefFunc { function_index } => {
-                GlobalInit::RefFunc(FunctionIndex::from_u32(function_index))
-            }
-            Operator::GlobalGet { global_index } => {
-                GlobalInit::GetGlobal(GlobalIndex::from_u32(global_index))
-            }
-            ref s => {
-                return Err(wasm_unsupported!(
-                    "unsupported init expr in global section: {:?}",
-                    s
-                ));
-            }
-        };
+        let initializer = parse_global_initializer(&init_expr, &environ.module)?;
         let global = GlobalType {
             ty: wptype_to_type(content_type).unwrap(),
             mutability: mutable.into(),
@@ -434,24 +498,9 @@ pub fn parse_element_section(
                 offset_expr,
             } => {
                 let table_index = TableIndex::from_u32(table_index.unwrap_or(0));
-
-                let mut init_expr_reader = offset_expr.get_operators_reader();
-                let (base, offset) = match init_expr_reader
-                    .read()
-                    .map_err(from_binaryreadererror_wasmerror)?
-                {
-                    Operator::I32Const { value } => (None, value as u32 as usize),
-                    Operator::GlobalGet { global_index } => {
-                        (Some(GlobalIndex::from_u32(global_index)), 0)
-                    }
-                    ref s => {
-                        return Err(wasm_unsupported!(
-                            "unsupported init expr in element section: {:?}",
-                            s
-                        ));
-                    }
-                };
-                environ.declare_table_initializers(table_index, base, offset, segments)?
+                let offset_expr =
+                    parse_serialized_init_expr(&offset_expr, "element section", &environ.module)?;
+                environ.declare_table_initializers(table_index, offset_expr, segments)?
             }
             ElementKind::Passive => {
                 let index = ElemIndex::from_u32(index as u32);
@@ -481,26 +530,11 @@ pub fn parse_data_section<'data>(
                 memory_index,
                 offset_expr,
             } => {
-                let mut init_expr_reader = offset_expr.get_operators_reader();
-                let (base, offset) = match init_expr_reader
-                    .read()
-                    .map_err(from_binaryreadererror_wasmerror)?
-                {
-                    Operator::I32Const { value } => (None, value as u32 as usize),
-                    Operator::GlobalGet { global_index } => {
-                        (Some(GlobalIndex::from_u32(global_index)), 0)
-                    }
-                    ref s => {
-                        return Err(wasm_unsupported!(
-                            "unsupported init expr in data section: {:?}",
-                            s
-                        ));
-                    }
-                };
+                let offset_expr =
+                    parse_serialized_init_expr(&offset_expr, "data section", &environ.module)?;
                 environ.declare_data_initialization(
                     MemoryIndex::from_u32(memory_index),
-                    base,
-                    offset,
+                    offset_expr,
                     data,
                 )?;
             }

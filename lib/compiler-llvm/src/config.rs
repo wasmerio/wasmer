@@ -103,7 +103,7 @@ impl LLVMCallbacks {
 #[derive(Debug, Clone)]
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
-    pub(crate) enable_g0m0_opt: bool,
+    pub(crate) enable_non_volatile_memops: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     pub(crate) opt_level: LLVMOptLevel,
@@ -122,13 +122,13 @@ impl LLVM {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: false,
+            enable_non_volatile_memops: false,
             enable_verifier: false,
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
             is_pic: false,
             callbacks: None,
             middlewares: vec![],
-            enable_g0m0_opt: false,
             verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
@@ -137,14 +137,6 @@ impl LLVM {
     /// The optimization levels when optimizing the IR.
     pub fn opt_level(&mut self, opt_level: LLVMOptLevel) -> &mut Self {
         self.opt_level = opt_level;
-        self
-    }
-
-    /// (warning: experimental) Pass the value of the first (#0) global and the base pointer of the
-    /// first (#0) memory as parameter between guest functions.
-    pub fn enable_pass_params_opt(&mut self) -> &mut Self {
-        // internally, the "pass_params" opt is known as g0m0 opt.
-        self.enable_g0m0_opt = true;
         self
     }
 
@@ -162,6 +154,13 @@ impl LLVM {
     /// phases in LLVM.
     pub fn callbacks(&mut self, callbacks: Option<LLVMCallbacks>) -> &mut Self {
         self.callbacks = callbacks;
+        self
+    }
+
+    /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
+    /// (but are not 100% SPEC compliant).
+    pub fn non_volatile_memops(&mut self, enable_non_volatile_memops: bool) -> &mut Self {
+        self.enable_non_volatile_memops = enable_non_volatile_memops;
         self
     }
 
@@ -367,6 +366,12 @@ impl CompilerConfig for LLVM {
         self.enable_verifier = true;
     }
 
+    /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
+    /// (but are not 100% SPEC compliant).
+    fn enable_non_volatile_memops(&mut self) {
+        self.enable_non_volatile_memops = true;
+    }
+
     fn canonicalize_nans(&mut self, enable: bool) {
         self.enable_nan_canonicalization = enable;
     }
@@ -385,6 +390,7 @@ impl CompilerConfig for LLVM {
         let mut feats = Features::default();
         feats.exceptions(true);
         feats.relaxed_simd(true);
+        feats.wide_arithmetic(true);
         feats
     }
 }

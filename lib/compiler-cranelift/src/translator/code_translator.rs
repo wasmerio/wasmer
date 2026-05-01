@@ -2424,10 +2424,41 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::Resume { .. } => todo!(),
         Operator::ResumeThrow { .. } => todo!(),
         Operator::Switch { .. } => todo!(),
-        Operator::I64Add128 => todo!(),
-        Operator::I64Sub128 => todo!(),
-        Operator::I64MulWideS => todo!(),
-        Operator::I64MulWideU => todo!(),
+        Operator::I64Add128 | Operator::I64Sub128 => {
+            let (rhs_lo, rhs_hi) = state.pop2();
+            let (lhs_lo, lhs_hi) = state.pop2();
+
+            let lhs = builder.ins().iconcat(lhs_lo, lhs_hi);
+            let rhs = builder.ins().iconcat(rhs_lo, rhs_hi);
+            let result = match op {
+                Operator::I64Add128 => builder.ins().iadd(lhs, rhs),
+                Operator::I64Sub128 => builder.ins().isub(lhs, rhs),
+                _ => unreachable!(),
+            };
+            let (result_lo, result_hi) = builder.ins().isplit(result);
+
+            state.push1(result_lo);
+            state.push1(result_hi);
+        }
+        Operator::I64MulWideS | Operator::I64MulWideU => {
+            let (lhs, rhs) = state.pop2();
+
+            let lhs = match op {
+                Operator::I64MulWideS => builder.ins().sextend(I128, lhs),
+                Operator::I64MulWideU => builder.ins().uextend(I128, lhs),
+                _ => unreachable!(),
+            };
+            let rhs = match op {
+                Operator::I64MulWideS => builder.ins().sextend(I128, rhs),
+                Operator::I64MulWideU => builder.ins().uextend(I128, rhs),
+                _ => unreachable!(),
+            };
+
+            let result = builder.ins().imul(lhs, rhs);
+            let (result_lo, result_hi) = builder.ins().isplit(result);
+            state.push1(result_lo);
+            state.push1(result_hi);
+        }
         _ => todo!(),
     };
     Ok(())

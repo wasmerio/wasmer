@@ -247,6 +247,6 @@ impl Default for Target {
 // avoid dependencies on `wasmer_config` for crates that already depend on `wasmer_types`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct UserCompilerOptimizations {
-    /// Suggest the `pass_params` (also known as g0m0) optimization pass.
+    /// Suggest the `pass_params` (also known as m0) optimization pass.
     pub pass_params: Option<bool>,
 }

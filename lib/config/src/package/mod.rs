@@ -514,15 +514,10 @@ pub struct UserAnnotations {
     pub suggested_compiler_optimizations: SuggestedCompilerOptimizations,
 }
 
-/// Suggested optimization that might be operated on the module when (and if) compiled.
+/// Deprecated.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Default)]
 pub struct SuggestedCompilerOptimizations {
     pub pass_params: Option<bool>,
-}
-
-impl SuggestedCompilerOptimizations {
-    pub const KEY: &'static str = "suggested_compiler_optimizations";
-    pub const PASS_PARAMS_KEY: &'static str = "pass_params";
 }
 
 /// The interface exposed by a [`Module`].

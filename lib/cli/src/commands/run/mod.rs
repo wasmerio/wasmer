@@ -278,15 +278,12 @@ impl Run {
                             &Target::default(),
                         );
 
-                        if !filtered_backends.is_empty() {
-                            let engine_id = filtered_backends[0].to_string();
+                        if let Some(backend) = filtered_backends.first() {
+                            let engine_id = backend.to_string();
 
                             // Get a new engine that's compatible with the required features
-                            if let Ok(new_engine) = filtered_backends[0].get_engine(
-                                &Target::default(),
-                                &features,
-                                &self.rt,
-                            ) {
+                            if let Ok(new_engine) = backend.get_engine(&Target::default(), &self.rt)
+                            {
                                 tracing::info!(
                                     "The command '{}' requires to run the Wasm module with the features {:?}. The backends available are {}. Choosing {}.",
                                     cmd.name(),

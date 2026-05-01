@@ -79,7 +79,6 @@ impl ArtifactBuild {
             .apply_on_module_info(&mut module)
             .map_err(|err| CompileError::MiddlewareError(err.to_string()))?;
         module.hash = Some(ModuleHash::new(data));
-
         let compile_info = CompileModuleInfo {
             module: Arc::new(module),
             features,
