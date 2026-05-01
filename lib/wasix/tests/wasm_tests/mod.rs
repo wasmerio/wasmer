@@ -9,6 +9,9 @@
 /// // Same, but assert the process exits non-zero.
 /// wasm_test!(fn_name, "subdir", should_fail);
 ///
+/// // Assert the process exits with a specific code.
+/// wasm_test!(fn_name, "subdir", exit_code = 134);
+///
 /// // Assert the trimmed stdout equals the given string literal.
 /// wasm_test!(fn_name, "subdir", stdout = "expected output");
 ///
@@ -34,6 +37,24 @@ macro_rules! wasm_test {
             assert!(
                 super::run_wasm(&wasm, wasm.parent().unwrap()).is_err(),
                 concat!(stringify!($fn_name), " should exit with non-zero code"),
+            );
+        }
+    };
+    // ── expect specific exit code ──────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, exit_code = $expected:expr) => {
+        $(#[$attr])*
+        #[test]
+        fn $fn_name() {
+            let wasm = super::run_build_script(file!(), $subdir).unwrap();
+            let result = super::run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
+            assert_eq!(
+                result.exit_code,
+                Some($expected),
+                "{} should exit with code {:?}\nstdout:\n{}\nstderr:\n{}",
+                stringify!($fn_name),
+                Some($expected),
+                String::from_utf8_lossy(&result.stdout),
+                String::from_utf8_lossy(&result.stderr),
             );
         }
     };
