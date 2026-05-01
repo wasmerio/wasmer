@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+export WASIXCC_PIC=1
 # static-thrower-via-shared-proxy-static-catcher: thrower and catcher static, proxy in shared lib
 $CXX -c -fPIC ../exceptions-across-modules/proxy.cpp -o proxy.o
 $CXX -shared proxy.o -o libproxy.so

@@ -1,5 +1,6 @@
-use super::{run_build_script, run_wasm, run_wasm_with_result};
+use super::{run_build_script, run_wasm_with_result};
 
+// These tests include stderr in the assertion message for easier debugging.
 #[test]
 fn test_pipe_send_recv_compat() {
     let wasm = run_build_script(file!(), "pipe_send_recv_compat").unwrap();
@@ -30,10 +31,9 @@ fn test_nonblocking_connect() {
     );
 }
 
-#[test]
 // https://github.com/wasmerio/wasmer/issues/6366
-#[ignore = "flaky test (#6366)"]
-fn test_socket_pair() {
-    let wasm = run_build_script(file!(), "socket-pair").unwrap();
-    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
-}
+wasm_test!(
+    #[ignore = "flaky test (#6366)"]
+    test_socket_pair,
+    "socket-pair"
+);
