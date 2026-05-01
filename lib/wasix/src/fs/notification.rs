@@ -47,18 +47,22 @@ impl NotificationState {
     }
 
     fn dec(&mut self) -> u64 {
-        let val = self.counter;
         if self.is_semaphore {
-            if self.counter > 0 {
-                self.counter -= 1;
-                if self.counter > 0 {
-                    self.wake_all();
-                }
+            if self.counter == 0 {
+                return 0;
             }
+
+            self.counter -= 1;
+            if self.counter > 0 {
+                self.wake_all();
+            }
+
+            1
         } else {
+            let val = self.counter;
             self.counter = 0;
+            val
         }
-        val
     }
 }
 

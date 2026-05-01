@@ -3,6 +3,7 @@ use super::{run_build_script, run_wasm_with_result};
 wasm_test!(test_epoll_create, "epoll-create");
 wasm_test!(test_poll_oneoff_zero, "poll-oneoff-zero");
 wasm_test!(test_poll_oneoff, "poll-oneoff");
+wasm_test!(test_eventfd_semaphore_read, "eventfd-semaphore-read");
 
 // Checks both stdout and exit_code explicitly.
 #[test]
