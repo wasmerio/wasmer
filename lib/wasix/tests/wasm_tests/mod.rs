@@ -1,3 +1,83 @@
+/// Build a WASM test and run it, asserting success or checking stdout.
+///
+/// # Forms
+///
+/// ```ignore
+/// // Build the test in `<module>/<subdir>/`, run it, assert exit 0.
+/// wasm_test!(fn_name, "subdir");
+///
+/// // Same, but assert the process exits non-zero.
+/// wasm_test!(fn_name, "subdir", should_fail);
+///
+/// // Assert the process exits with a specific code.
+/// wasm_test!(fn_name, "subdir", exit_code = 134);
+///
+/// // Assert the trimmed stdout equals the given string literal.
+/// wasm_test!(fn_name, "subdir", stdout = "expected output");
+///
+/// // Any of the above may be prefixed with Rust attributes.
+/// wasm_test!(#[cfg(unix)] #[ignore = "reason"] fn_name, "subdir");
+/// ```
+macro_rules! wasm_test {
+    // ── success ────────────────────────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal) => {
+        $(#[$attr])*
+        #[test]
+        fn $fn_name() {
+            let wasm = super::run_build_script(file!(), $subdir).unwrap();
+            super::run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
+        }
+    };
+    // ── expect non-zero exit ───────────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, should_fail) => {
+        $(#[$attr])*
+        #[test]
+        fn $fn_name() {
+            let wasm = super::run_build_script(file!(), $subdir).unwrap();
+            assert!(
+                super::run_wasm(&wasm, wasm.parent().unwrap()).is_err(),
+                concat!(stringify!($fn_name), " should exit with non-zero code"),
+            );
+        }
+    };
+    // ── expect specific exit code ──────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, exit_code = $expected:expr) => {
+        $(#[$attr])*
+        #[test]
+        fn $fn_name() {
+            let wasm = super::run_build_script(file!(), $subdir).unwrap();
+            let result = super::run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
+            assert_eq!(
+                result.exit_code,
+                Some($expected),
+                "{} should exit with code {:?}\nstdout:\n{}\nstderr:\n{}",
+                stringify!($fn_name),
+                Some($expected),
+                String::from_utf8_lossy(&result.stdout),
+                String::from_utf8_lossy(&result.stderr),
+            );
+        }
+    };
+    // ── check trimmed stdout ───────────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, stdout = $expected:literal) => {
+        $(#[$attr])*
+        #[test]
+        fn $fn_name() {
+            let wasm = super::run_build_script(file!(), $subdir).unwrap();
+            let result = super::run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
+            let stdout = String::from_utf8_lossy(&result.stdout);
+            assert_eq!(
+                stdout.trim(),
+                $expected,
+                "exit_code={:?}\nstdout:\n{}\nstderr:\n{}",
+                result.exit_code,
+                stdout,
+                String::from_utf8_lossy(&result.stderr),
+            );
+        }
+    };
+}
+
 mod basic_tests;
 mod call_dynamic;
 mod closure_free;
@@ -167,49 +247,60 @@ impl std::io::Seek for CaptureFile {
     }
 }
 
-fn find_compatible_sysroot() -> Result<String, anyhow::Error> {
-    if let Ok(sysroot) = std::env::var("WASIXCC_SYSROOT") {
-        if !Path::new(&sysroot).exists() {
-            anyhow::bail!("WASIXCC_SYSROOT is set but does not exist: {}", sysroot);
-        }
-        return Ok(sysroot);
+/// Find the single C/C++ source file to compile in a directory with no `build.sh`.
+///
+/// Priority order: `main.c` → `main.cpp` → the only `.c` file → the only `.cpp` file.
+/// Returns `(compiler, source_filename)`.
+fn find_source_file(dir: &Path) -> Result<(String, String), anyhow::Error> {
+    let cc = std::env::var("CC").unwrap_or_else(|_| "wasixcc".to_string());
+    let cxx = std::env::var("CXX").unwrap_or_else(|_| "wasix++".to_string());
+
+    if dir.join("main.c").exists() {
+        return Ok((cc, "main.c".to_string()));
+    }
+    if dir.join("main.cpp").exists() {
+        return Ok((cxx, "main.cpp".to_string()));
     }
 
-    if let Ok(output) = Command::new("wasixccenv")
-        .arg("-sPIC=1")
-        .arg("print-sysroot")
-        .output()
-        && output.status.success()
-    {
-        let sysroot = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !sysroot.is_empty() {
-            if !Path::new(&sysroot).exists() {
-                anyhow::bail!(
-                    "`wasixccenv print-sysroot` returned a path that does not exist: {}",
-                    sysroot
-                );
-            }
-            return Ok(sysroot);
-        }
+    // Fall back to the sole .c / .cpp file in the directory.
+    let c_files: Vec<_> = std::fs::read_dir(dir)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.ends_with(".c") && !n.ends_with(".cpp"))
+        .collect();
+    if c_files.len() == 1 {
+        return Ok((cc, c_files.into_iter().next().unwrap()));
+    }
+
+    let cpp_files: Vec<_> = std::fs::read_dir(dir)?
+        .filter_map(|e| e.ok())
+        .map(|e| e.file_name().to_string_lossy().into_owned())
+        .filter(|n| n.ends_with(".cpp"))
+        .collect();
+    if cpp_files.len() == 1 {
+        return Ok((cxx, cpp_files.into_iter().next().unwrap()));
     }
 
     anyhow::bail!(
-        "Could not find a sysroot compatible with the wasix tests. Install wasixcc and run `wasixccenv aio-install`, or set WASIXCC_SYSROOT to an existing sysroot."
-    );
+        "No build.sh and could not find a unique compilable source in {}. \
+         Add a build.sh or ensure there is exactly one .c / .cpp file.",
+        dir.display()
+    )
 }
 
-/// Run a build.sh script for a test directory.
+/// Build a test's WASM binary.
 ///
-/// This function locates the test directory based on the test file path,
-/// runs the build.sh script within that directory using wasixcc/wasix++,
-/// and returns the path to the compiled WASM binary.
+/// Locates the test directory from the calling file's name (`file!()`),
+/// then either runs the directory's `build.sh` or, when no `build.sh` is
+/// present, compiles `main.c` / `main.cpp` directly with wasixcc/wasix++.
 ///
 /// # Arguments
-/// * `file` - The test file path (typically `file!()`)
-/// * `test_dir` - The test directory name relative to the test file's directory
+/// * `file` - The test file path (use `file!()` at the call site)
+/// * `test_dir` - Subdirectory relative to the test file's directory;
+///   use `""` or `"."` to target the test file's own directory
 ///
 /// # Returns
-/// The path to the compiled `main` binary
+/// Path to the compiled `main` binary
 pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::Error> {
     let input_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests/wasm_tests")
@@ -223,29 +314,53 @@ pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::E
     let test_path = input_dir.join(test_dir);
     let build_script = test_path.join("build.sh");
 
-    // Use wasixcc environment variables if available, otherwise use defaults
-    let sysroot = find_compatible_sysroot()?;
+    // Read optional per-test env overrides from `build.env` (KEY=VALUE, one per line).
+    let build_env: Vec<(String, String)> = {
+        let env_file = test_path.join("build.env");
+        if env_file.exists() {
+            std::fs::read_to_string(&env_file)?
+                .lines()
+                .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#'))
+                .filter_map(|l| {
+                    let (k, v) = l.split_once('=')?;
+                    Some((k.trim().to_string(), v.trim().to_string()))
+                })
+                .collect()
+        } else {
+            vec![]
+        }
+    };
 
-    let compiler_flags = std::env::var("WASIXCC_COMPILER_FLAGS")
-        .unwrap_or_else(|_| format!(
-            "-fPIC:-Wl,-L{}/usr/local/lib/wasm32-wasi:-I{}/usr/local/include:-iwithsysroot:/usr/local/include/c++/v1",
-            sysroot, sysroot
-        ));
+    let mut cmd = if build_script.exists() {
+        let mut cmd = Command::new("bash");
+        cmd.arg(&build_script)
+            .current_dir(&test_path)
+            .env("CC", "wasixcc")
+            .env("CXX", "wasix++")
+            .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
+        cmd
+    } else {
+        // No build.sh — find a compilable source file and invoke the compiler directly.
+        // Priority: main.c > main.cpp > any single .c > any single .cpp
+        let (compiler, source) = find_source_file(&test_path)?;
+        let mut cmd = Command::new(&compiler);
+        cmd.arg(&source)
+            .arg("-o")
+            .arg("main")
+            .current_dir(&test_path)
+            .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
+        cmd
+    };
 
-    let output = Command::new("bash")
-        .arg(&build_script)
-        .current_dir(&test_path)
-        .env("CC", "wasixcc")
-        .env("CXX", "wasix++")
-        .env("WASIXCC_SYSROOT", &sysroot)
-        .env("WASIXCC_COMPILER_FLAGS", &compiler_flags)
-        .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes")
-        .output()?;
+    for (k, v) in &build_env {
+        cmd.env(k, v);
+    }
+    let output = cmd.output()?;
 
     if !output.status.success() {
         eprintln!("Build stdout: {}", String::from_utf8_lossy(&output.stdout));
         eprintln!("Build stderr: {}", String::from_utf8_lossy(&output.stderr));
-        anyhow::bail!("Build script failed");
+        anyhow::bail!("Build failed for {}", test_path.display());
     }
 
     Ok(test_path.join("main"))
@@ -322,6 +437,15 @@ pub struct WasmRunResult {
     pub stderr: Vec<u8>,
     #[allow(dead_code)]
     pub exit_code: Option<i32>,
+}
+
+fn format_captured_output(result: &WasmRunResult) -> String {
+    format!(
+        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}",
+        result.exit_code,
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr),
+    )
 }
 
 /// Run a compiled WASM file using WasiRunner and return output buffers and exit status
@@ -445,7 +569,7 @@ pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
     if let Some(code) = result.exit_code
         && code != 0
     {
-        anyhow::bail!("WASI exited with code: {}", code);
+        anyhow::bail!(format_captured_output(&result));
     }
 
     Ok(())

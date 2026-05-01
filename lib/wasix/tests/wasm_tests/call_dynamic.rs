@@ -1,7 +1,1 @@
-use super::{run_build_script, run_wasm};
-
-#[test]
-fn call_dynamic() {
-    let wasm = run_build_script(file!(), "").unwrap();
-    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
-}
+wasm_test!(call_dynamic, "");

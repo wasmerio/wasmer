@@ -6,30 +6,44 @@ The general idea of this test suite is to run the modules directly from rust usi
 
 ## Adding tests
 
-The tests are organized into somewhat related sets. For each set there is a `<setname>.rs` module which defines the tests. For each tests there is a test directory at `<setname>/<testname>/` which contains the sources for the test (`build.sh`, C files, precompiled wasm files, etc...).
+The tests are organized into somewhat related sets. For each set there is a `<setname>.rs` module which defines the tests. For each test there is a test directory at `<setname>/<testname>/` which contains the sources for the test (C/C++ files, optionally a `build.sh`, precompiled wasm files, etc.).
 
-Tests should always run the wasm modules with the `run_wasm() -> ()` or `run_wasm_with_result() -> output + exitcode` helper functions/
-
-Look at [`basic_tests`](./basic_tests/) for an example for a normal test set.
+Look at [`basic_tests`](./basic_tests/) for an example of a normal test set.
 
 When adding a new testset module remember importing the module in [`wasm_tests/mod.rs`](./mod.rs).
 
 ### Normal tests
 
-For generating modules there is a `run_build_script()` helper function that calls `build.sh` in the respective tests directory. `build.sh` should generate a `main` wasm module next to the build script. Using this structure a normal test case looks like:
+Use the `wasm_test!` macro — it generates the `#[test]` function and handles building and running automatically:
 
 ```rust
-#[test]
-fn test_helloworld() {
-    // Run build.sh in the test directory
-    let wasm_path = run_build_script(file!(), "helloworld").unwrap();
-    let test_dir = wasm_path.parent().unwrap();
-    // Run the generated wasm module
-    run_wasm(&wasm_path, test_dir).unwrap();
-}
+// Assert exit 0
+wasm_test!(test_helloworld, "helloworld");
+
+// Assert non-zero exit
+wasm_test!(test_exits_nonzero, "exit-nonzero", should_fail);
+
+// Assert trimmed stdout matches a string
+wasm_test!(test_prints_hello, "hello", stdout = "hello world");
+
+// With extra attributes (cfg, ignore, etc.)
+wasm_test!(#[cfg(unix)] test_context, "ctx");
 ```
 
-`build.sh` should be written in a way that they can also produce native executables. In most cases this means not to call `wasixcc` directly but instead use `$CC` and `$CXX` and to check that it still builds with them set to `clang`/`clang++`. There is no automated testing for this.
+The macro calls `run_build_script` to compile the test and then runs it.
+
+### Building tests
+
+`run_build_script` looks for a way to build the test in this order:
+
+1. **`build.sh`** — if present, it is executed with `bash`. `$CC` and `$CXX` are set to `wasixcc`/`wasix++`. Write `build.sh` using `$CC`/`$CXX` so the same script works with native compilers too.
+2. **Auto-build** — if there is no `build.sh`, the script looks for a single `.c` or `.cpp` file in the test directory and compiles it directly with `wasixcc`/`wasix++`. This covers the common case of a single-source test with no special build logic.
+
+Only add a `build.sh` when the test needs something the auto-build cannot handle: multiple source files, shared libraries, special linker flags, etc.
+
+### Per-test compiler flags (`build.env`)
+
+If a test needs extra environment variables for the compiler (e.g. `WASIXCC_WASM_EXCEPTIONS=1`), create a `build.env` file in the test directory with one `KEY=VALUE` entry per line. These variables are injected into both `build.sh` and auto-build invocations.
 
 ### Tests with precompiled wasm files
 

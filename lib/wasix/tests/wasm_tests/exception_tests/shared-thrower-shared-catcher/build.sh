@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+export WASIXCC_PIC=1
 # shared-thrower-shared-catcher: both in shared libs
 $CXX -c -fPIC ../exceptions-across-modules/thrower.cpp -o thrower.o
 $CXX -shared thrower.o -o libthrower.so
