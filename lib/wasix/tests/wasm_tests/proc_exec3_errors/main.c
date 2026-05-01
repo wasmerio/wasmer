@@ -22,22 +22,22 @@ static void expect_errno(const char* name, __wasi_errno_t expected) {
 int main(void) {
   int fd;
 
-  fd = open("noexec_file", O_CREAT | O_TRUNC | O_WRONLY, 0755);
+  fd = open("noexec_file.tmp", O_CREAT | O_TRUNC | O_WRONLY, 0755);
   assert(fd >= 0);
   assert(close(fd) == 0);
 
-  fd = open("noaccess_file", O_CREAT | O_TRUNC | O_WRONLY, 0644);
+  fd = open("noaccess_file.tmp", O_CREAT | O_TRUNC | O_WRONLY, 0644);
   assert(fd >= 0);
   assert(close(fd) == 0);
 
-  fd = open("notdir", O_CREAT | O_TRUNC | O_WRONLY, 0644);
+  fd = open("notdir.tmp", O_CREAT | O_TRUNC | O_WRONLY, 0644);
   assert(fd >= 0);
   assert(close(fd) == 0);
 
   expect_errno("no_such_file.wasm", __WASI_ERRNO_NOENT);
-  expect_errno("notdir/child.wasm", __WASI_ERRNO_NOTDIR);
-  expect_errno("noexec_file", __WASI_ERRNO_NOEXEC);
-  expect_errno("noaccess_file", __WASI_ERRNO_NOEXEC);
+  expect_errno("notdir.tmp/child.wasm", __WASI_ERRNO_NOTDIR);
+  expect_errno("noexec_file.tmp", __WASI_ERRNO_NOEXEC);
+  expect_errno("noaccess_file.tmp", __WASI_ERRNO_NOEXEC);
 
   char long_name[300];
   memset(long_name, 'a', sizeof(long_name));

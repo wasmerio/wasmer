@@ -11,7 +11,7 @@ wasm_test!(
     stdout = "Hello world from C++"
 );
 wasm_test!(
-    // #[ignore = "Known failure - wasixcc fails dlclose-executes-destructors-in-the-correct-order"]
+    #[ignore = "Known issue - side module destructors don't run on dlclose yet"]
     test_dlclose_executes_destructors,
     "dlclose-executes-destructors",
     stdout = "abcdef"

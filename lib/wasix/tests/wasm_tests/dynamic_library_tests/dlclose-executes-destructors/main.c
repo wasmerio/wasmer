@@ -9,7 +9,6 @@ __attribute__((destructor)) static void fini() { printf("f"); }
 // The main module stays loaded until process exit, so its destructor is last.
 
 int main() {
-  printf("c");
   void* handle = dlopen("libside.so", RTLD_NOW | RTLD_LOCAL);
   assert(handle);
 

@@ -1,7 +1,6 @@
-**/*
-!**/*.c
-!**/*.h
-!**/*.cpp
-!**/*.hpp
-!**/*.rs
-!**/build.env
+*.out
+main
+*.wasm
+*.o
+*.so
+*.tmp

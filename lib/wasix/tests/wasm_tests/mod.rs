@@ -267,7 +267,8 @@ fn find_source_file(dir: &Path) -> Result<(String, String), anyhow::Error> {
     )
 }
 
-/// Build a test's WASM binary.///
+/// Build a test's WASM binary.
+///
 /// Locates the test directory from the calling file's name (`file!()`),
 /// then either runs the directory's `build.sh` or, when no `build.sh` is
 /// present, compiles `main.c` / `main.cpp` directly with wasixcc/wasix++.
@@ -417,6 +418,15 @@ pub struct WasmRunResult {
     pub exit_code: Option<i32>,
 }
 
+fn format_captured_output(result: &WasmRunResult) -> String {
+    format!(
+        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}",
+        result.exit_code,
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr),
+    )
+}
+
 /// Run a compiled WASM file using WasiRunner and return output buffers and exit status
 ///
 /// This function uses the same caching mechanism as the Wasmer CLI:
@@ -538,7 +548,7 @@ pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
     if let Some(code) = result.exit_code
         && code != 0
     {
-        anyhow::bail!("WASI exited with code: {}", code);
+        anyhow::bail!(format_captured_output(&result));
     }
 
     Ok(())
