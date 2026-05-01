@@ -35,10 +35,10 @@ fn value_to_table_element(
     }
     Ok(match val {
         Value::ExternRef(extern_ref) => {
-            wasmer_vm::TableElement::ExternRef(extern_ref.map(|e| e.vm_externref().into_sys()))
+            wasmer_vm::TableElement::ExternRef(extern_ref.map(|e| e.vm_externref().unwrap_sys()))
         }
         Value::FuncRef(func_ref) => {
-            wasmer_vm::TableElement::FuncRef(func_ref.map(|f| f.vm_funcref(store).into_sys()))
+            wasmer_vm::TableElement::FuncRef(func_ref.map(|f| f.vm_funcref(store).unwrap_sys()))
         }
         _ => return Err(RuntimeError::new("val is not reference")),
     })
@@ -164,7 +164,7 @@ impl Table {
             handle: unsafe {
                 StoreHandle::from_internal(
                     store.as_store_ref().objects().id(),
-                    vm_extern.into_sys(),
+                    vm_extern.unwrap_sys(),
                 )
             },
         }

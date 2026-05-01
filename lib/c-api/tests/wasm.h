@@ -37,13 +37,7 @@ wasm_engine_t *wasm_engine_new() {
     wasm_config_set_backend(config, HEADLESS);
   } else if (strcmp(wasmer_test_backend, "v8") == 0) {
     assert(wasmer_is_backend_available(V8));
-    wasm_config_set_backend(config, V8);
-  } else if (strcmp(wasmer_test_backend, "wamr") == 0) {
-    assert(wasmer_is_backend_available(WAMR));
-    wasm_config_set_backend(config, WAMR);
-  } else if (strcmp(wasmer_test_backend, "wasmi") == 0) {
-    assert(wasmer_is_backend_available(WASMI));
-    wasm_config_set_backend(config, WASMI);
+    wasm_config_set_backend(config, V8);  
   } else if (wasmer_test_backend) {
     printf("Compiler %s not recognized\n", wasmer_test_backend);
     abort();

@@ -15,6 +15,10 @@ impl ArcFileSystem {
     pub fn new(inner: Arc<dyn FileSystem + Send + Sync + 'static>) -> Self {
         Self { fs: inner }
     }
+
+    pub fn inner(&self) -> &Arc<dyn FileSystem + Send + Sync + 'static> {
+        &self.fs
+    }
 }
 
 impl FileSystem for ArcFileSystem {
@@ -28,6 +32,10 @@ impl FileSystem for ArcFileSystem {
 
     fn create_dir(&self, path: &Path) -> Result<()> {
         self.fs.create_dir(path)
+    }
+
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        self.fs.create_symlink(source, target)
     }
 
     fn remove_dir(&self, path: &Path) -> Result<()> {
@@ -52,14 +60,5 @@ impl FileSystem for ArcFileSystem {
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         self.fs.new_open_options()
-    }
-
-    fn mount(
-        &self,
-        name: String,
-        path: &Path,
-        fs: Box<dyn crate::FileSystem + Send + Sync>,
-    ) -> Result<()> {
-        self.fs.mount(name, path, fs)
     }
 }

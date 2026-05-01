@@ -3,7 +3,7 @@ set -e
 
 # Compile the test file
 # Compile without exception handling to enable asyncify
-WASIXCC_WASM_EXCEPTION=no wasixcc main.c -o main.wasm
+WASIXCC_WASM_EXCEPTIONS=no wasixcc main.c -o main.wasm
 
 
 # Tests that pipe2(O_CLOEXEC) correctly closes fds after posix_spawn

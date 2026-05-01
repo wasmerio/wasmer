@@ -31,7 +31,7 @@ use crate::{
 #[derive(Debug)]
 pub struct BuiltinPackageLoader {
     client: Arc<dyn HttpClient + Send + Sync>,
-    in_memory: InMemoryCache,
+    in_memory: Option<InMemoryCache>,
     cache: Option<FileSystemCache>,
     /// A mapping from hostnames to tokens
     tokens: HashMap<String, String>,
@@ -54,7 +54,7 @@ pub enum HashIntegrityValidationMode {
 impl BuiltinPackageLoader {
     pub fn new() -> Self {
         BuiltinPackageLoader {
-            in_memory: InMemoryCache::default(),
+            in_memory: Some(InMemoryCache::default()),
             client: Arc::new(crate::http::default_http_client().unwrap()),
             cache: None,
             hash_validation: HashIntegrityValidationMode::NoValidate,
@@ -75,6 +75,14 @@ impl BuiltinPackageLoader {
             cache: Some(FileSystemCache {
                 cache_dir: cache_dir.into(),
             }),
+            ..self
+        }
+    }
+
+    /// Disable promotion of loaded containers into the in-memory cache.
+    pub fn without_in_memory_cache(self) -> Self {
+        BuiltinPackageLoader {
+            in_memory: None,
             ..self
         }
     }
@@ -155,21 +163,35 @@ impl BuiltinPackageLoader {
 
     /// Insert a container into the in-memory hash.
     pub fn insert_cached(&self, hash: WebcHash, container: &Container) {
-        self.in_memory.save(container, hash);
+        if let Some(in_memory) = &self.in_memory {
+            in_memory.save(container, hash);
+        }
+    }
+
+    /// Remove a container from the in-memory cache.
+    pub fn evict_cached(&self, hash: &WebcHash) -> Option<Container> {
+        self.in_memory
+            .as_ref()
+            .and_then(|in_memory| in_memory.remove(hash))
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(pkg.hash=%hash))]
     async fn get_cached(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
-        if let Some(cached) = self.in_memory.lookup(hash) {
+        if let Some(cached) = self
+            .in_memory
+            .as_ref()
+            .and_then(|in_memory| in_memory.lookup(hash))
+        {
             return Ok(Some(cached));
         }
 
         if let Some(cache) = self.cache.as_ref()
             && let Some(cached) = cache.lookup(hash).await?
         {
-            // Note: We want to propagate it to the in-memory cache, too
-            tracing::debug!("Copying from the filesystem cache to the in-memory cache");
-            self.in_memory.save(&cached, *hash);
+            if let Some(in_memory) = &self.in_memory {
+                tracing::debug!("Copying from the filesystem cache to the in-memory cache");
+                in_memory.save(&cached, *hash);
+            }
             return Ok(Some(cached));
         }
 
@@ -422,7 +444,9 @@ impl PackageLoader for BuiltinPackageLoader {
             {
                 Ok(container) => {
                     tracing::debug!("Cached to disk");
-                    self.in_memory.save(&container, summary.dist.webc_sha256);
+                    if let Some(in_memory) = &self.in_memory {
+                        in_memory.save(&container, summary.dist.webc_sha256);
+                    }
                     // The happy path - we've saved to both caches and loaded the
                     // container from disk (hopefully using mmap) so we're done.
                     return Ok(container);
@@ -442,8 +466,10 @@ impl PackageLoader for BuiltinPackageLoader {
         // The sad path - looks like we don't have a filesystem cache so we'll
         // need to keep the whole thing in memory.
         let container = crate::spawn_blocking(move || from_bytes(bytes)).await??;
-        // We still want to cache it in memory, of course
-        self.in_memory.save(&container, summary.dist.webc_sha256);
+        if let Some(in_memory) = &self.in_memory {
+            // We still want to cache it in memory, of course
+            in_memory.save(&container, summary.dist.webc_sha256);
+        }
         Ok(container)
     }
 
@@ -749,6 +775,10 @@ impl InMemoryCache {
         let mut cache = self.0.write().unwrap();
         cache.entry(hash).or_insert_with(|| container.clone());
     }
+
+    fn remove(&self, hash: &WebcHash) -> Option<Container> {
+        self.0.write().unwrap().remove(hash)
+    }
 }
 
 #[cfg(test)]
@@ -767,7 +797,8 @@ mod tests {
 
     use super::*;
 
-    const PYTHON: &[u8] = include_bytes!("../../../../c-api/examples/assets/python-0.1.0.wasmer");
+    const PYTHON: &[u8] =
+        include_bytes!("../../../../../wasmer-test-files/examples/python-0.1.0.wasmer");
 
     #[derive(Debug)]
     pub(crate) struct DummyClient {
@@ -851,7 +882,7 @@ mod tests {
         assert!(path.exists());
         assert_eq!(std::fs::read(&path).unwrap(), PYTHON);
         // and cached in memory for next time
-        let in_memory = loader.in_memory.0.read().unwrap();
+        let in_memory = loader.in_memory.as_ref().unwrap().0.read().unwrap();
         assert!(in_memory.contains_key(&summary.dist.webc_sha256));
     }
 
@@ -861,10 +892,58 @@ mod tests {
         cache_misses_will_trigger_a_download_internal().await
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    #[tokio::test]
+    async fn can_disable_in_memory_cache() {
+        let temp = TempDir::new().unwrap();
+        let client = Arc::new(DummyClient::with_responses([HttpResponse {
+            body: Some(PYTHON.to_vec()),
+            redirected: false,
+            status: StatusCode::OK,
+            headers: HeaderMap::new(),
+        }]));
+        let loader = BuiltinPackageLoader::new()
+            .with_cache_dir(temp.path())
+            .without_in_memory_cache()
+            .with_shared_http_client(client);
+        let summary = PackageSummary {
+            pkg: PackageInfo {
+                id: PackageId::new_named("python/python", "0.1.0".parse().unwrap()),
+                dependencies: Vec::new(),
+                commands: Vec::new(),
+                entrypoint: Some("asdf".to_string()),
+                filesystem: Vec::new(),
+            },
+            dist: DistributionInfo {
+                webc: "https://wasmer.io/python/python".parse().unwrap(),
+                webc_sha256: [0xbb; 32].into(),
+            },
+        };
+
+        loader.load(&summary).await.unwrap();
+
+        assert!(loader.in_memory.is_none());
+    }
+
     #[cfg(target_arch = "wasm32")]
     #[tokio::test()]
     async fn cache_misses_will_trigger_a_download() {
         cache_misses_will_trigger_a_download_internal().await
+    }
+
+    #[tokio::test]
+    async fn evict_cached_removes_in_memory_container() {
+        let loader = BuiltinPackageLoader::new();
+        let container = from_bytes(PYTHON).unwrap();
+        let hash: WebcHash = [0xaa; 32].into();
+        loader.insert_cached(hash, &container);
+        let evicted = loader.evict_cached(&hash);
+        assert!(evicted.is_some());
+        {
+            let in_memory = loader.in_memory.as_ref().unwrap().0.read().unwrap();
+            assert!(!in_memory.contains_key(&hash));
+        }
+        assert!(loader.evict_cached(&hash).is_none());
     }
 
     /// Small helper to construct headers with a given content-encoding.

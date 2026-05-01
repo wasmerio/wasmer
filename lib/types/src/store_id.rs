@@ -19,6 +19,13 @@ impl loupe::MemoryUsage for StoreId {
     }
 }
 
+impl StoreId {
+    /// Returns the raw [`NonZeroUsize`] value of this [`StoreId`].
+    pub fn as_raw(&self) -> NonZeroUsize {
+        self.0
+    }
+}
+
 impl Default for StoreId {
     // Allocates a unique ID for a new context.
     fn default() -> Self {

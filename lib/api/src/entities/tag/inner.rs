@@ -12,10 +12,11 @@ use crate::{
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
-gen_rt_ty!(Tag
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq, derive_more::From
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
+    pub(crate) BackendTag(entities::tag::Tag);
+}
 
 impl BackendTag {
     /// Create a new tag with event of type P -> [], that is a function that takes parameters `P`
@@ -27,14 +28,6 @@ impl BackendTag {
             crate::BackendStore::Sys(_) => {
                 Self::Sys(crate::backend::sys::tag::Tag::new(store, params))
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => {
-                Self::Wamr(crate::backend::wamr::tag::Tag::new(store, params))
-            }
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => {
-                Self::Wasmi(crate::backend::wasmi::tag::Tag::new(store, params))
-            }
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => {
                 Self::V8(crate::backend::v8::entities::tag::Tag::new(store, params))
@@ -42,10 +35,6 @@ impl BackendTag {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => {
                 Self::Js(crate::backend::js::tag::Tag::new(store, params))
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
-                Self::Jsc(crate::backend::jsc::tag::Tag::new(store, params))
             }
         }
     }
@@ -65,14 +54,6 @@ impl BackendTag {
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::tag::Tag::from_vm_extern(store, vm_extern),
             ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => Self::Wamr(
-                crate::backend::wamr::tag::Tag::from_vm_extern(store, vm_extern),
-            ),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => Self::Wasmi(
-                crate::backend::wasmi::tag::Tag::from_vm_extern(store, vm_extern),
-            ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Self::V8(
                 crate::backend::v8::entities::tag::Tag::from_vm_extern(store, vm_extern),
@@ -80,10 +61,6 @@ impl BackendTag {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Self::Js(
                 crate::backend::js::entities::tag::Tag::from_vm_extern(store, vm_extern),
-            ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::entities::tag::Tag::from_vm_extern(store, vm_extern),
             ),
         }
     }

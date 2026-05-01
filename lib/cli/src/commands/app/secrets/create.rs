@@ -166,27 +166,29 @@ impl CmdAppSecretsCreate {
                 for secret in &secrets {
                     eprintln!("{}", secret.name.bold());
                 }
+            }
 
-                let should_redeploy = self.redeploy || {
-                    if !self.non_interactive && self.from_file.is_some() {
-                        let theme = ColorfulTheme::default();
-                        dialoguer::Confirm::with_theme(&theme)
-                            .with_prompt("Do you want to redeploy your app?")
-                            .interact()?
-                    } else {
-                        false
-                    }
-                };
-
-                if should_redeploy {
-                    wasmer_backend_api::query::redeploy_app_by_id(client, app_id).await?;
-                    eprintln!("{} Deployment complete", "𖥔".yellow().bold());
+            let should_redeploy = self.redeploy || {
+                if !self.non_interactive && self.from_file.is_some() {
+                    let theme = ColorfulTheme::default();
+                    dialoguer::Confirm::with_theme(&theme)
+                        .with_prompt("Do you want to redeploy your app?")
+                        .interact()?
                 } else {
-                    eprintln!(
-                        "{}: In order for secrets to appear in your app, re-deploy it.",
-                        "Info".bold()
-                    );
+                    false
                 }
+            };
+
+            if should_redeploy {
+                wasmer_backend_api::query::redeploy_app_by_id(client, app_id).await?;
+                if !self.quiet {
+                    eprintln!("{} Deployment complete", "𖥔".yellow().bold());
+                }
+            } else if !self.quiet {
+                eprintln!(
+                    "{}: In order for secrets to appear in your app, re-deploy it.",
+                    "Info".bold()
+                );
             }
 
             Ok(())

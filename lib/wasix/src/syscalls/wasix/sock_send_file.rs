@@ -60,13 +60,10 @@ pub(crate) fn sock_send_file_internal(
     let net = env.net();
     let tasks = env.tasks().clone();
     let state = env.state.clone();
+    let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(in_fd));
 
     // Set the offset of the file
-    {
-        let mut fd_map = state.fs.fd_map.write().unwrap();
-        let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(in_fd).ok_or(Errno::Badf));
-        fd_entry.offset.store(offset, Ordering::Release);
-    }
+    fd_entry.inner.offset.store(offset, Ordering::Release);
 
     // Enter a loop that will process all the data
     let mut total_written: Filesize = 0;
@@ -74,7 +71,6 @@ pub(crate) fn sock_send_file_internal(
         let sub_count = count.min(4096);
         count -= sub_count;
 
-        let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(in_fd));
         let fd_flags = fd_entry.inner.flags;
 
         let data = {
@@ -101,7 +97,7 @@ pub(crate) fn sock_send_file_internal(
                     }
 
                     let offset = fd_entry.inner.offset.load(Ordering::Acquire) as usize;
-                    let inode = fd_entry.inode;
+                    let inode = fd_entry.inode.clone();
                     let data = {
                         let mut guard = inode.write();
                         match guard.deref_mut() {
@@ -215,10 +211,8 @@ pub(crate) fn sock_send_file_internal(
                         }
                     };
 
-                    // reborrow
-                    let mut fd_map = state.fs.fd_map.write().unwrap();
-                    let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(in_fd).ok_or(Errno::Badf));
                     fd_entry
+                        .inner
                         .offset
                         .fetch_add(data.len() as u64, Ordering::AcqRel);
 

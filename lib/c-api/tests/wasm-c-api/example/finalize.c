@@ -1,7 +1,7 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
@@ -52,7 +52,7 @@ void run_in_store(wasm_store_t* store) {
     if (i % (iterations / 10) == 0) printf("%d\n", i);
     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
     own wasm_instance_t* instance =
-      wasm_instance_new(store, module, &imports, NULL);
+        wasm_instance_new(store, module, &imports, NULL);
     if (!instance) {
       printf("> Error instantiating module %d!\n", i);
       exit(1);

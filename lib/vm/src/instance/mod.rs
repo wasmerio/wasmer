@@ -16,7 +16,7 @@ use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMSharedTagIndex, VMTableDefinition, VMTableImport,
+    VMMemoryImport, VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport,
     VMTrampoline, memory_copy, memory_fill, memory32_atomic_check32, memory32_atomic_check64,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
@@ -141,11 +141,6 @@ impl Instance {
         &self.offsets
     }
 
-    /// Return a pointer to the `VMSharedSignatureIndex`s.
-    fn signature_ids_ptr(&self) -> *mut VMSharedSignatureIndex {
-        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_signature_ids_begin()) }
-    }
-
     /// Return the indexed `VMFunctionImport`.
     fn imported_function(&self, index: FunctionIndex) -> &VMFunctionImport {
         let index = usize::try_from(index.as_u32()).unwrap();
@@ -225,6 +220,49 @@ impl Instance {
     /// Return a pointer to the `VMTableDefinition`s.
     fn tables_ptr(&self) -> *mut VMTableDefinition {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_tables_begin()) }
+    }
+
+    fn fixed_funcref_table_ptr(
+        &self,
+        index: LocalTableIndex,
+    ) -> Option<NonNull<VMCallerCheckedAnyfunc>> {
+        let offset = self.offsets.vmctx_fixed_funcref_table_anyfuncs(index)?;
+        Some(NonNull::new(unsafe { self.vmctx_plus_offset(offset) }).unwrap())
+    }
+
+    fn sync_fixed_funcref_table_element(
+        &self,
+        table_index: LocalTableIndex,
+        index: u32,
+        funcref: Option<VMFuncRef>,
+    ) {
+        let Some(base) = self.fixed_funcref_table_ptr(table_index) else {
+            return;
+        };
+        unsafe {
+            *base.as_ptr().add(index as usize) = anyfunc_from_funcref(funcref);
+        }
+    }
+
+    fn sync_fixed_funcref_table(&self, table_index: LocalTableIndex) {
+        let Some(base) = self.fixed_funcref_table_ptr(table_index) else {
+            return;
+        };
+        let table = self.tables[table_index].get(self.context());
+        for index in 0..table.size() {
+            let TableElement::FuncRef(funcref) = table.get(index).unwrap() else {
+                unreachable!("fixed funcref tables cannot contain externrefs");
+            };
+            unsafe {
+                *base.as_ptr().add(index as usize) = anyfunc_from_funcref(funcref);
+            }
+        }
+    }
+
+    fn sync_fixed_funcref_table_by_index(&self, table_index: TableIndex) {
+        if let Some(local_table_index) = self.module.local_table_index(table_index) {
+            self.sync_fixed_funcref_table(local_table_index);
+        }
     }
 
     #[allow(dead_code)]
@@ -318,12 +356,11 @@ impl Instance {
     /// Return the indexed `VMGlobalDefinition`.
     fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
-        // TODO:
-        NonNull::new(unsafe { *self.globals_ptr().add(index) }).unwrap()
+        NonNull::new(unsafe { self.globals_ptr().add(index) }).unwrap()
     }
 
     /// Return a pointer to the `VMGlobalDefinition`s.
-    fn globals_ptr(&self) -> *mut *mut VMGlobalDefinition {
+    fn globals_ptr(&self) -> *mut VMGlobalDefinition {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_globals_begin()) }
     }
 
@@ -572,7 +609,15 @@ impl Instance {
             .tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()));
-        table.get_mut(self.context_mut()).set(index, val)
+        let funcref = match &val {
+            TableElement::FuncRef(funcref) => Some(*funcref),
+            TableElement::ExternRef(_) => None,
+        };
+        table.get_mut(self.context_mut()).set(index, val)?;
+        if let Some(funcref) = funcref {
+            self.sync_fixed_funcref_table_element(table_index, index, funcref);
+        }
+        Ok(())
     }
 
     /// Set table element by index for an imported table.
@@ -639,6 +684,8 @@ impl Instance {
                 .expect("should never panic because we already did the bounds check above");
         }
 
+        self.sync_fixed_funcref_table_by_index(table_index);
+
         Ok(())
     }
 
@@ -671,6 +718,46 @@ impl Instance {
                 .set(i, item.clone())
                 .expect("should never panic because we already did the bounds check above");
         }
+
+        self.sync_fixed_funcref_table_by_index(table_index);
+
+        Ok(())
+    }
+
+    /// The `table.copy` operation.
+    pub(crate) fn table_copy(
+        &mut self,
+        dst_table_index: TableIndex,
+        src_table_index: TableIndex,
+        dst: u32,
+        src: u32,
+        len: u32,
+    ) -> Result<(), Trap> {
+        let result = if dst_table_index == src_table_index {
+            let table = self.get_table(dst_table_index);
+            table.copy_within(dst, src, len)
+        } else {
+            let dst_table = self.get_table_handle(dst_table_index);
+            let src_table = self.get_table_handle(src_table_index);
+            if dst_table == src_table {
+                unsafe {
+                    dst_table
+                        .get_mut(&mut *self.context)
+                        .copy_within(dst, src, len)
+                }
+            } else {
+                unsafe {
+                    dst_table.get_mut(&mut *self.context).copy(
+                        src_table.get(&*self.context),
+                        dst,
+                        src,
+                        len,
+                    )
+                }
+            }
+        };
+        result?;
+        self.sync_fixed_funcref_table_by_index(dst_table_index);
 
         Ok(())
     }
@@ -846,6 +933,7 @@ impl Instance {
             Ok(count) => Ok(count),
             Err(_err) => {
                 // ret is None if there is more than 2^32 waiter in queue or some other error
+                // TODO: why THIS specific trap code tho? -.-
                 Err(Trap::lib(TrapCode::TableAccessOutOfBounds))
             }
         }
@@ -1059,18 +1147,13 @@ impl VMInstance {
         finished_globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
         tags: BoxedSlice<TagIndex, InternalStoreHandle<VMTag>>,
         imports: Imports,
-        vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+        vmshared_signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, Trap> {
         unsafe {
             let vmctx_tags = tags
                 .values()
                 .map(|m: &InternalStoreHandle<VMTag>| VMSharedTagIndex::new(m.index() as u32))
                 .collect::<PrimaryMap<TagIndex, VMSharedTagIndex>>()
-                .into_boxed_slice();
-            let vmctx_globals = finished_globals
-                .values()
-                .map(|m: &InternalStoreHandle<VMGlobal>| m.get(context).vmglobal())
-                .collect::<PrimaryMap<LocalGlobalIndex, NonNull<VMGlobalDefinition>>>()
                 .into_boxed_slice();
             let passive_data = RefCell::new(
                 module
@@ -1119,6 +1202,9 @@ impl VMInstance {
                         &instance.function_call_trampolines,
                         vmctx_ptr,
                     );
+                    for local_table_index in instance.tables.keys() {
+                        instance.sync_fixed_funcref_table(local_table_index);
+                    }
                 }
 
                 instance_handle
@@ -1129,11 +1215,6 @@ impl VMInstance {
                 vmctx_tags.values().as_slice().as_ptr(),
                 instance.shared_tags_ptr(),
                 vmctx_tags.len(),
-            );
-            ptr::copy(
-                vmshared_signatures.values().as_slice().as_ptr(),
-                instance.signature_ids_ptr(),
-                vmshared_signatures.len(),
             );
             ptr::copy(
                 imports.functions.values().as_slice().as_ptr(),
@@ -1158,11 +1239,6 @@ impl VMInstance {
             // these should already be set, add asserts here? for:
             // - instance.tables_ptr() as *mut VMTableDefinition
             // - instance.memories_ptr() as *mut VMMemoryDefinition
-            ptr::copy(
-                vmctx_globals.values().as_slice().as_ptr(),
-                instance.globals_ptr() as *mut NonNull<VMGlobalDefinition>,
-                vmctx_globals.len(),
-            );
             ptr::write(
                 instance.builtin_functions_ptr(),
                 VMBuiltinFunctionsArray::initialized(),
@@ -1521,22 +1597,26 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
             for (i, func_idx) in init.elements.iter().enumerate() {
                 let anyfunc = instance.func_ref(*func_idx);
                 table
-                    .set(
+                    .set_with_construction(
                         u32::try_from(start + i).unwrap(),
                         TableElement::FuncRef(anyfunc),
+                        true,
                     )
                     .unwrap();
             }
         } else {
             for i in 0..init.elements.len() {
                 table
-                    .set(
+                    .set_with_construction(
                         u32::try_from(start + i).unwrap(),
                         TableElement::ExternRef(None),
+                        true,
                     )
                     .unwrap();
             }
         }
+
+        instance.sync_fixed_funcref_table_by_index(init.table_index);
     }
 
     Ok(())
@@ -1634,6 +1714,13 @@ fn initialize_globals(instance: &Instance) {
     }
 }
 
+fn anyfunc_from_funcref(funcref: Option<VMFuncRef>) -> VMCallerCheckedAnyfunc {
+    match funcref {
+        Some(funcref) => unsafe { *funcref.0.as_ptr() },
+        None => VMCallerCheckedAnyfunc::null(),
+    }
+}
+
 /// Eagerly builds all the `VMFuncRef`s for imported and local functions so that all
 /// future funcref operations are just looking up this data.
 fn build_funcrefs(
@@ -1641,7 +1728,7 @@ fn build_funcrefs(
     ctx: &StoreObjects,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    vmshared_signatures: &BoxedSlice<SignatureIndex, VMSignatureHash>,
     function_call_trampolines: &BoxedSlice<SignatureIndex, VMTrampoline>,
     vmctx_ptr: *mut VMContext,
 ) -> (
@@ -1661,11 +1748,11 @@ fn build_funcrefs(
     for (local_index, func_ptr) in finished_functions.iter() {
         let index = module_info.func_index(local_index);
         let sig_index = module_info.functions[index];
-        let type_index = vmshared_signatures[sig_index];
+        let type_signature_hash = vmshared_signatures[sig_index];
         let call_trampoline = function_call_trampolines[sig_index];
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr: func_ptr.0,
-            type_index,
+            type_signature_hash,
             vmctx: VMFunctionContext { vmctx: vmctx_ptr },
             call_trampoline,
         };

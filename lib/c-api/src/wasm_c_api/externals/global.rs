@@ -1,3 +1,5 @@
+use crate::error::update_last_error;
+
 use super::super::store::wasm_store_t;
 use super::super::types::wasm_globaltype_t;
 use super::super::value::wasm_val_t;
@@ -55,21 +57,40 @@ pub unsafe extern "C" fn wasm_global_copy(global: &wasm_global_t) -> Box<wasm_gl
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_global_get(
-    global: &mut wasm_global_t,
+    global: Option<&mut wasm_global_t>,
     // own
-    out: &mut wasm_val_t,
+    out: Option<&mut wasm_val_t>,
 ) {
+    let Some(global) = global else {
+        update_last_error("global pointer is null");
+        return;
+    };
+    let Some(out) = out else {
+        update_last_error("out pointer is null");
+        return;
+    };
     let wasm_global = global.extern_.global();
     let mut store_mut = unsafe { global.extern_.store.store_mut() };
     let value = wasm_global.get(&mut store_mut);
-    *out = value.try_into().unwrap();
+    *out = c_try!(value.try_into(); otherwise ());
 }
 
 /// Note: This function returns nothing by design but it can raise an
 /// error if setting a new value fails.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasm_global_set(global: &mut wasm_global_t, val: &wasm_val_t) {
-    let value: Value = val.try_into().unwrap();
+pub unsafe extern "C" fn wasm_global_set(
+    global: Option<&mut wasm_global_t>,
+    val: Option<&wasm_val_t>,
+) {
+    let Some(global) = global else {
+        update_last_error("global pointer is null");
+        return;
+    };
+    let Some(val) = val else {
+        update_last_error("val pointer is null");
+        return;
+    };
+    let value: Value = c_try!(val.try_into(); otherwise ());
     let wasm_global = global.extern_.global();
     let mut store_mut = unsafe { global.extern_.store.store_mut() };
     c_try!(wasm_global.set(&mut store_mut, value); otherwise ());

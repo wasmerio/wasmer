@@ -219,6 +219,7 @@ impl IntoWasmerExternType for *const wasm_externtype_t {
                         } else {
                             Some(limits.max)
                         },
+                        readonly: false,
                     })
                 }
                 bindings::wasm_externkind_enum_WASM_EXTERN_MEMORY => {

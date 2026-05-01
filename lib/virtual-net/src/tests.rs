@@ -474,3 +474,77 @@ async fn test_google_epoll() {
 
     tracing::info!("done");
 }
+
+#[cfg(not(target_os = "windows"))]
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_connect_tcp_returns_immediately_for_in_progress_connect() {
+    use tokio::time::{Duration, Instant, timeout};
+
+    // This address is intentionally blackholed in typical dev/prod networks:
+    // a blocking connect will hang for many seconds, while a nonblocking
+    // connect should return immediately with a socket that becomes writable
+    // later when the connect either succeeds or fails.
+    let peer = SocketAddr::from((Ipv4Addr::new(10, 255, 255, 1), 443));
+    let networking = LocalNetworking::new();
+
+    let started = Instant::now();
+    let connect = networking.connect_tcp(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)), peer);
+    let result = timeout(Duration::from_millis(250), connect).await;
+
+    match result {
+        Ok(Ok(_socket)) => {
+            assert!(
+                started.elapsed() < Duration::from_millis(250),
+                "connect_tcp unexpectedly took too long for a nonblocking connect attempt: {:?}",
+                started.elapsed()
+            );
+        }
+        Ok(Err(err)) => {
+            panic!("connect_tcp returned an unexpected immediate error: {err:?}");
+        }
+        Err(_) => {
+            panic!(
+                "connect_tcp did not return promptly for an in-progress connect; elapsed={:?}",
+                started.elapsed()
+            );
+        }
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_failed_connect_status_stays_failed() {
+    use tokio::time::{Duration, Instant, sleep};
+
+    let probe = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let peer = probe.local_addr().unwrap();
+    drop(probe);
+
+    let networking = LocalNetworking::new();
+    let socket = networking
+        .connect_tcp(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)), peer)
+        .await
+        .unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(1);
+    loop {
+        match socket.status().unwrap() {
+            SocketStatus::Failed => break,
+            SocketStatus::Opening => {
+                assert!(
+                    Instant::now() < deadline,
+                    "connect status never reached Failed before timeout"
+                );
+                sleep(Duration::from_millis(10)).await;
+            }
+            SocketStatus::Opened => panic!("unused localhost port unexpectedly connected"),
+            SocketStatus::Closed => panic!("connect status unexpectedly reported Closed"),
+        }
+    }
+
+    assert!(matches!(socket.status().unwrap(), SocketStatus::Failed));
+}

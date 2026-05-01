@@ -46,10 +46,9 @@ pub enum CpuFeature {
     AVX512VL,
     AVX512F,
     LZCNT,
+    FMA,
     // ARM features
     NEON,
-    // X86 features (TODO: reorganize at some point)
-    FMA,
 }
 
 impl CpuFeature {

@@ -290,7 +290,8 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
         // WARNING: The return code from _Unwind_RaiseException is unreliable on some targets
         // due to GCC compiler issues (see https://gcc.gnu.org/bugzilla/show_bug.cgi?id=114843).
         // We proceed regardless of the actual return value (similarly to the libstdc++).
-        uw::_Unwind_RaiseException(exception_ptr as *mut libunwind::_Unwind_Exception);
+        let exit_code =
+            uw::_Unwind_RaiseException(exception_ptr as *mut libunwind::_Unwind_Exception);
         delete_exception(exception_ptr as *mut c_void);
 
         let exnref = VMExceptionRef(StoreHandle::from_internal(
@@ -298,7 +299,7 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
             InternalStoreHandle::from_index(exnref as usize).unwrap(),
         ));
         log!(
-            "[wasmer][eh] throw -> _Unwind_RaiseException returned (personality={:p})",
+            "[wasmer][eh] throw -> _Unwind_RaiseException returned (personality={:p}) (exit_code={exit_code})",
             wasmer_eh_personality as *const ()
         );
         crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))

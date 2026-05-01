@@ -3,6 +3,9 @@
 * Wasmer is written in Rust. To build Wasmer, where possible, do not
   directly invoke `cargo`, but use the supplied `Makefile`
 
+* For packaging purposes, use the provided `wasmer-full-source.tar.gz`,
+  which includes all required submodules.
+
 * Wasmer provides several compilers and the `Makefile` autodetects
   when compilers can be compiled and/or installed. Set the environment
   variables `ENABLE_{CRANELIFT,LLVM,SINGLEPASS}=1` to force compiler
@@ -30,6 +33,11 @@
     will not enable features on the subcrates in the workspace and
     result in a headless Wasmer binary that can not compile Wasm files
     directly.
+
+* For reproducible builds, set `WASMER_REPRODUCIBLE_BUILD=1` in the
+  build environment. This strips the build timestamp from
+  `wasmer --version -v` by omitting the verbose `commit-date:` line,
+  which is useful for distribution packaging.
 
 * If you split the package into several subpackages, beware that the
   `create-exe` command of the `wasmer` CLI requires `libwasmer.a` to

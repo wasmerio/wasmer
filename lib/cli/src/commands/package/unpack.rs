@@ -115,7 +115,7 @@ mod tests {
         let package_path = std::env::var("CARGO_MANIFEST_DIR").map(PathBuf::from).unwrap()
             .parent().unwrap()
             .parent().unwrap()
-            .join("tests/integration/cli/tests/webc/hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc");
+            .join("wasmer-test-files/integration/webc/hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc");
 
         assert!(package_path.is_file());
 

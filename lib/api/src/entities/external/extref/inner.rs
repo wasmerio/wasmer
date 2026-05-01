@@ -5,7 +5,10 @@ use crate::entities::store::{AsStoreMut, AsStoreRef};
 use crate::macros::backend::{gen_rt_ty, match_rt};
 use crate::vm::VMExternRef;
 
-gen_rt_ty!(ExternRef @derives derive_more::From, Debug, Clone ; @path external);
+gen_rt_ty! {
+    #[derive(derive_more::From, Debug, Clone)]
+    pub(crate) BackendExternRef(entities::external::ExternRef);
+}
 
 impl BackendExternRef {
     /// Make a new extern reference
@@ -19,14 +22,6 @@ impl BackendExternRef {
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::external::ExternRef::new(store, value),
             ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(s) => Self::Wamr(
-                crate::backend::wamr::entities::external::ExternRef::new(store, value),
-            ),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(s) => Self::Wasmi(
-                crate::backend::wasmi::entities::external::ExternRef::new(store, value),
-            ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(s) => Self::V8(
                 crate::backend::v8::entities::external::ExternRef::new(store, value),
@@ -34,10 +29,6 @@ impl BackendExternRef {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(s) => Self::Js(
                 crate::backend::js::entities::external::ExternRef::new(store, value),
-            ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Self::Jsc(
-                crate::backend::jsc::entities::external::ExternRef::new(store, value),
             ),
         }
     }
@@ -59,16 +50,10 @@ impl BackendExternRef {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(r) => VMExternRef::Sys(r.vm_externref()),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(r) => VMExternRef::Wamr(r.vm_externref()),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(r) => VMExternRef::Wasmi(r.vm_externref()),
             #[cfg(feature = "v8")]
             Self::V8(r) => VMExternRef::V8(r.vm_externref()),
             #[cfg(feature = "js")]
             Self::Js(r) => VMExternRef::Js(r.vm_externref()),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(r) => VMExternRef::Jsc(r.vm_externref()),
         }
     }
 
@@ -83,42 +68,21 @@ impl BackendExternRef {
             crate::BackendStore::Sys(_) => Self::Sys(unsafe {
                 crate::backend::sys::entities::external::ExternRef::from_vm_externref(
                     store,
-                    vm_externref.into_sys(),
-                )
-            }),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => Self::Wamr(unsafe {
-                crate::backend::wamr::entities::external::ExternRef::from_vm_externref(
-                    store,
-                    vm_externref.into_wamr(),
-                )
-            }),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => Self::Wasmi(unsafe {
-                crate::backend::wasmi::entities::external::ExternRef::from_vm_externref(
-                    store,
-                    vm_externref.into_wasmi(),
+                    vm_externref.unwrap_sys(),
                 )
             }),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Self::V8(unsafe {
                 crate::backend::v8::entities::external::ExternRef::from_vm_externref(
                     store,
-                    vm_externref.into_v8(),
+                    vm_externref.unwrap_v_8(),
                 )
             }),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Self::Js(unsafe {
                 crate::backend::js::entities::external::ExternRef::from_vm_externref(
                     store,
-                    vm_externref.into_js(),
-                )
-            }),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(unsafe {
-                crate::backend::jsc::entities::external::ExternRef::from_vm_externref(
-                    store,
-                    vm_externref.into_jsc(),
+                    vm_externref.unwrap_js(),
                 )
             }),
         }

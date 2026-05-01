@@ -93,7 +93,7 @@ pub struct WasiModuleInstanceHandles {
     pub(crate) asyncify_stop_unwind: Option<TypedFunction<(), ()>>,
 
     /// asyncify_start_rewind(data : i32): call this to start rewinding the
-    /// stack vack up to the location stored in the provided data. This prepares
+    /// stack back up to the location stored in the provided data. This prepares
     /// for the rewind; to start it, you must call the first function in the
     /// call stack to be unwound.
     // TODO: review allow...

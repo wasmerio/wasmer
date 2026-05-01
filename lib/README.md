@@ -29,7 +29,7 @@ composed of a set of crates. We can group them as follows:
   same compiler, the runtime performance will be approximately the
   same, however the way it stores and loads the executable code will
   differ:
-  * `engine-universal` — stores the code in a custom file format, and
+  * `engine` — stores the code in a custom file format, and
     loads it in memory,
   * `object` — A library to cross-generate native objects for various
     platforms.

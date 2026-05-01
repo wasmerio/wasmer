@@ -1,26 +1,23 @@
-#include <stdio.h>
 #include <dirent.h>
-#include <unistd.h>
+#include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
-int main(int argc, char *argv[])
-{
-    DIR *dir;
-    struct dirent *entry;
+int main(int argc, char* argv[]) {
+  DIR* dir;
+  struct dirent* entry;
 
-    dir = opendir("./");
-    if (dir == NULL)
-    {
-        perror("opendir");
-        return 1;
-    }
+  dir = opendir("./");
+  if (dir == NULL) {
+    perror("opendir");
+    return 1;
+  }
 
-    while ((entry = readdir(dir)) != NULL)
-    {
-        printf("%s\n", entry->d_name);
-    }
+  while ((entry = readdir(dir)) != NULL) {
+    printf("%s\n", entry->d_name);
+  }
 
-    closedir(dir);
+  closedir(dir);
 
-    return 0;
+  return 0;
 }

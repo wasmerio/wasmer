@@ -1,0 +1,95 @@
+wasm_test!(
+    #[cfg(unix)]
+    test_simple_switching,
+    "simple_switching"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_switching_with_main,
+    "switching_with_main"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_switching_to_a_deleted_context,
+    "switching_to_a_deleted_context"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_switching_threads,
+    "switching_in_threads"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_multiple_contexts,
+    "multiple_contexts"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_error_handling,
+    "error_handling"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_nested_switches,
+    "nested_switches"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_contexts_with_mutexes,
+    "contexts_with_mutexes"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_contexts_with_env_vars,
+    "contexts_with_env_vars"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_contexts_with_signals,
+    "contexts_with_signals"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_contexts_with_timers,
+    "contexts_with_timers"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_contexts_with_pipes,
+    "contexts_with_pipes"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_pending_file_operations,
+    "pending_file_operations"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_recursive_host_calls,
+    "recursive_host_calls"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_malloc_during_switch,
+    "malloc_during_switch"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_nested_host_call_switch,
+    "nested_host_call_switch"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_switch_to_never_resumed,
+    "switch_to_never_resumed"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_three_way_recursion,
+    "three_way_recursion"
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_contexts_with_setjmp,
+    "contexts_with_setjmp"
+);

@@ -215,14 +215,11 @@ impl Console {
                 Box::new(self.stdout.clone()),
                 Box::new(self.stdin.clone()),
             )))
+            .with_memory_limiter_opt(self.memfs_memory_limiter.clone())
             .build();
 
-        if let Some(limiter) = &self.memfs_memory_limiter {
-            root_fs.set_memory_limiter(limiter.clone());
-        }
-
         let builder = crate::runners::wasi::WasiRunner::new()
-            .with_envs(self.env.clone().into_iter())
+            .with_envs(self.env.clone())
             .with_args(args)
             .with_capabilities(self.capabilities.clone())
             .with_stdin(Box::new(self.stdin.clone()))
@@ -233,7 +230,10 @@ impl Console {
                 &wasi_opts,
                 PackageOrHash::Package(&pkg),
                 RuntimeOrEngine::Runtime(self.runtime.clone()),
-                Some(root_fs),
+                Some(
+                    crate::fs::WasiFsRoot::from_mount_fs(root_fs)
+                        .with_memory_limiter_opt(self.memfs_memory_limiter.clone()),
+                ),
             )
             // TODO: better error conversion
             .map_err(|err| SpawnError::Other(err.into()))?;
@@ -259,7 +259,7 @@ impl Console {
         }
 
         // The custom readonly files have to be added after the uses packages
-        // otherwise they will be overriden by their attached file systems
+        // otherwise they will be overridden by their attached file systems
         for (path, data) in self.ro_files.clone() {
             let path = PathBuf::from(path);
             env.fs_root().remove_file(&path).ok();
@@ -341,7 +341,7 @@ mod tests {
             .collect();
 
         // Pass some arguments.
-        let cmd = "sharrattj/dash -s stdin";
+        let cmd = "wasmer/dash -s stdin";
 
         let (mut stdin_tx, stdin_rx) = Pipe::channel();
         let (stdout_tx, mut stdout_rx) = Pipe::channel();

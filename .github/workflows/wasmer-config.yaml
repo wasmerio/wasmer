@@ -1,26 +1,24 @@
 # Dedicated workflow just for the wasmer-config crate
 name: wasmer-config
-
 on:
   push:
     branches:
-    - main
+      - main
   pull_request:
-
 # Automatically cancel previous workflow runs when a new commit is pushed.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
 env:
   DEFAULT_CRATE_NAME: wasmer_toml
-
 jobs:
   check:
     name: Compile and Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
@@ -36,12 +34,13 @@ jobs:
       - name: Test
         run: |
           cd lib/config && cargo nextest run --verbose --locked
-
   lints:
     name: Linting and Formatting
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+        with:
+          submodules: true
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust

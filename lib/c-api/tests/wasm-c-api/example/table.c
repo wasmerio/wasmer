@@ -1,22 +1,20 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
 #define own
 
 // A function to be called from Wasm code.
-own wasm_trap_t* neg_callback(
-  const wasm_val_vec_t* args, wasm_val_vec_t* results
-) {
+own wasm_trap_t* neg_callback(const wasm_val_vec_t* args,
+                              wasm_val_vec_t* results) {
   printf("Calling back...\n");
   results->data[0].kind = WASM_I32;
   results->data[0].of.i32 = -args->data[0].of.i32;
   return NULL;
 }
-
 
 wasm_table_t* get_export_table(const wasm_extern_vec_t* exports, size_t i) {
   if (exports->size <= i || !wasm_extern_as_table(exports->data[i])) {
@@ -34,7 +32,6 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
   return wasm_extern_as_func(exports->data[i]);
 }
 
-
 void check(bool success) {
   if (!success) {
     printf("> Error, expected success\n");
@@ -48,9 +45,10 @@ void check_table(wasm_table_t* table, int32_t i, bool expect_set) {
   if (ref) wasm_ref_delete(ref);
 }
 
-void check_call(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected) {
-  wasm_val_t vs[2] = { WASM_I32_VAL(arg1), WASM_I32_VAL(arg2) };
-  wasm_val_t r[1] = { WASM_INIT_VAL };
+void check_call(wasm_func_t* func, int32_t arg1, int32_t arg2,
+                int32_t expected) {
+  wasm_val_t vs[2] = {WASM_I32_VAL(arg1), WASM_I32_VAL(arg2)};
+  wasm_val_t r[1] = {WASM_INIT_VAL};
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_ARRAY_VEC(r);
   if (wasm_func_call(func, &args, &results) || r[0].of.i32 != expected) {
@@ -60,18 +58,17 @@ void check_call(wasm_func_t* func, int32_t arg1, int32_t arg2, int32_t expected)
 }
 
 void check_trap(wasm_func_t* func, int32_t arg1, int32_t arg2) {
-  wasm_val_t vs[2] = { WASM_I32_VAL(arg1), WASM_I32_VAL(arg2) };
-  wasm_val_t r[1] = { WASM_INIT_VAL };
+  wasm_val_t vs[2] = {WASM_I32_VAL(arg1), WASM_I32_VAL(arg2)};
+  wasm_val_t r[1] = {WASM_INIT_VAL};
   wasm_val_vec_t args = WASM_ARRAY_VEC(vs);
   wasm_val_vec_t results = WASM_ARRAY_VEC(r);
   own wasm_trap_t* trap = wasm_func_call(func, &args, &results);
-  if (! trap) {
+  if (!trap) {
     printf("> Error on result, expected trap\n");
     exit(1);
   }
   wasm_trap_delete(trap);
 }
-
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -111,7 +108,7 @@ int main(int argc, const char* argv[]) {
   printf("Instantiating module...\n");
   wasm_extern_vec_t imports = WASM_EMPTY_VEC;
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, &imports, NULL);
+      wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -131,7 +128,8 @@ int main(int argc, const char* argv[]) {
 
   // Create external function.
   printf("Creating callback...\n");
-  own wasm_functype_t* neg_type = wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
+  own wasm_functype_t* neg_type =
+      wasm_functype_new_1_1(wasm_valtype_new_i32(), wasm_valtype_new_i32());
   own wasm_func_t* h = wasm_func_new(store, neg_type, neg_callback);
 
   wasm_functype_delete(neg_type);
@@ -154,7 +152,7 @@ int main(int argc, const char* argv[]) {
   printf("Mutating table...\n");
   check(wasm_table_set(table, 0, wasm_func_as_ref(g)));
   check(wasm_table_set(table, 1, NULL));
-  check(! wasm_table_set(table, 2, wasm_func_as_ref(f)));
+  check(!wasm_table_set(table, 2, wasm_func_as_ref(f)));
   check_table(table, 0, true);
   check_table(table, 1, false);
   check_call(call_indirect, 7, 0, 666);
@@ -167,7 +165,7 @@ int main(int argc, const char* argv[]) {
   check(wasm_table_size(table) == 5);
   check(wasm_table_set(table, 2, wasm_func_as_ref(f)));
   check(wasm_table_set(table, 3, wasm_func_as_ref(h)));
-  check(! wasm_table_set(table, 5, NULL));
+  check(!wasm_table_set(table, 5, NULL));
   check_table(table, 2, true);
   check_table(table, 3, true);
   check_table(table, 4, false);
@@ -181,7 +179,7 @@ int main(int argc, const char* argv[]) {
   check_table(table, 5, true);
   check_table(table, 6, true);
 
-  check(! wasm_table_grow(table, 5, NULL));
+  check(!wasm_table_grow(table, 5, NULL));
   check(wasm_table_grow(table, 3, NULL));
   check(wasm_table_grow(table, 0, NULL));
 
@@ -194,10 +192,10 @@ int main(int argc, const char* argv[]) {
   printf("Creating stand-alone table...\n");
   wasm_limits_t limits = {5, 5};
   own wasm_tabletype_t* tabletype =
-    wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), &limits);
+      wasm_tabletype_new(wasm_valtype_new(WASM_FUNCREF), &limits);
   own wasm_table_t* table2 = wasm_table_new(store, tabletype, NULL);
   check(wasm_table_size(table2) == 5);
-  check(! wasm_table_grow(table2, 1, NULL));
+  check(!wasm_table_grow(table2, 1, NULL));
   check(wasm_table_grow(table2, 0, NULL));
 
   wasm_tabletype_delete(tabletype);

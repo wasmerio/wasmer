@@ -1,8 +1,8 @@
 #include <inttypes.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <unistd.h>
 
 #include "wasm.h"
@@ -18,7 +18,6 @@ own wasm_trap_t* callback(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
   printf("> Thread %d running\n", args->data[0].of.i32);
   return NULL;
 }
-
 
 typedef struct {
   wasm_engine_t* engine;
@@ -38,23 +37,25 @@ void* run(void* args_abs) {
     usleep(100000);
 
     // Create imports.
-    own wasm_functype_t* func_type = wasm_functype_new_1_0(wasm_valtype_new_i32());
+    own wasm_functype_t* func_type =
+        wasm_functype_new_1_0(wasm_valtype_new_i32());
     own wasm_func_t* func = wasm_func_new(store, func_type, callback);
     wasm_functype_delete(func_type);
 
     wasm_val_t val = WASM_I32_VAL((int32_t)args->id);
     own wasm_globaltype_t* global_type =
-      wasm_globaltype_new(wasm_valtype_new_i32(), WASM_CONST);
+        wasm_globaltype_new(wasm_valtype_new_i32(), WASM_CONST);
     own wasm_global_t* global = wasm_global_new(store, global_type, &val);
     wasm_globaltype_delete(global_type);
 
     // Instantiate.
     wasm_extern_t* externs[] = {
-      wasm_func_as_extern(func), wasm_global_as_extern(global),
+        wasm_func_as_extern(func),
+        wasm_global_as_extern(global),
     };
     wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
     own wasm_instance_t* instance =
-      wasm_instance_new(store, module, &imports, NULL);
+        wasm_instance_new(store, module, &imports, NULL);
     if (!instance) {
       printf("> Error instantiating module!\n");
       return NULL;
@@ -70,7 +71,7 @@ void* run(void* args_abs) {
       printf("> Error accessing exports!\n");
       return NULL;
     }
-    const wasm_func_t *run_func = wasm_extern_as_func(exports.data[0]);
+    const wasm_func_t* run_func = wasm_extern_as_func(exports.data[0]);
     if (run_func == NULL) {
       printf("> Error accessing export!\n");
       return NULL;
@@ -96,7 +97,7 @@ void* run(void* args_abs) {
   return NULL;
 }
 
-int main(int argc, const char *argv[]) {
+int main(int argc, const char* argv[]) {
   // Initialize.
   wasm_engine_t* engine = wasm_engine_new();
 

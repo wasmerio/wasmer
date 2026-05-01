@@ -8,9 +8,9 @@
 //! WebAssembly module and the runtime environment.
 
 use super::code_translator::translate_operator;
-use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
+use crate::func_environ::FuncEnvironment;
 use crate::translator::EXN_REF_TYPE;
 use crate::translator::code_translator::bitcast_wasm_returns;
 use core::convert::TryFrom;
@@ -62,12 +62,12 @@ impl FuncTranslator {
     /// regarded as WebAssembly local variables. Any signature arguments marked as
     /// `ArgumentPurpose::Normal` are made accessible as WebAssembly local variables.
     ///
-    pub fn translate<FE: FuncEnvironment + ?Sized>(
+    pub fn translate(
         &mut self,
         module_translation_state: &ModuleTranslationState,
         reader: &mut dyn FunctionBinaryReader,
         func: &mut ir::Function,
-        environ: &mut FE,
+        environ: &mut FuncEnvironment<'_>,
         local_function_index: LocalFunctionIndex,
     ) -> WasmResult<()> {
         environ.push_params_on_stack(local_function_index);
@@ -75,12 +75,12 @@ impl FuncTranslator {
     }
 
     /// Translate a binary WebAssembly function from a `FunctionBinaryReader`.
-    pub fn translate_from_reader<FE: FuncEnvironment + ?Sized>(
+    pub fn translate_from_reader(
         &mut self,
         module_translation_state: &ModuleTranslationState,
         reader: &mut dyn FunctionBinaryReader,
         func: &mut ir::Function,
-        environ: &mut FE,
+        environ: &mut FuncEnvironment<'_>,
     ) -> WasmResult<()> {
         let _tt = timing::wasm_translate_function();
         tracing::trace!(
@@ -129,10 +129,10 @@ impl FuncTranslator {
 /// Declare local variables for the signature parameters that correspond to WebAssembly locals.
 ///
 /// Return the number of local variables declared.
-fn declare_wasm_parameters<FE: FuncEnvironment + ?Sized>(
+fn declare_wasm_parameters(
     builder: &mut FunctionBuilder,
     entry_block: Block,
-    environ: &FE,
+    environ: &FuncEnvironment<'_>,
 ) -> usize {
     let sig_len = builder.func.signature.params.len();
     let mut next_local = 0;
@@ -163,11 +163,11 @@ fn declare_wasm_parameters<FE: FuncEnvironment + ?Sized>(
 /// Parse the local variable declarations that precede the function body.
 ///
 /// Declare local variables, starting from `num_params`.
-fn parse_local_decls<FE: FuncEnvironment + ?Sized>(
+fn parse_local_decls(
     reader: &mut dyn FunctionBinaryReader,
     builder: &mut FunctionBuilder,
     num_params: usize,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     let mut next_local = num_params;
     let local_count = reader.read_local_count()?;
@@ -184,12 +184,12 @@ fn parse_local_decls<FE: FuncEnvironment + ?Sized>(
 /// Declare `count` local variables of the same type, starting from `next_local`.
 ///
 /// Fail if the type is not valid for a local.
-fn declare_locals<FE: FuncEnvironment + ?Sized>(
+fn declare_locals(
     builder: &mut FunctionBuilder,
     count: u32,
     wasm_type: wasmparser::ValType,
     next_local: &mut usize,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     // All locals are initialized to 0.
     use wasmparser::ValType::*;
@@ -233,12 +233,12 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
 ///
 /// This assumes that the local variable declarations have already been parsed and function
 /// arguments and locals are declared in the builder.
-fn parse_function_body<FE: FuncEnvironment + ?Sized>(
+fn parse_function_body(
     module_translation_state: &ModuleTranslationState,
     reader: &mut dyn FunctionBinaryReader,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
-    environ: &mut FE,
+    environ: &mut FuncEnvironment<'_>,
 ) -> WasmResult<()> {
     // The control stack is initialized with a single block representing the whole function.
     debug_assert_eq!(state.control_stack.len(), 1, "State not initialized");
@@ -247,9 +247,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     while !state.control_stack.is_empty() {
         builder.set_srcloc(cur_srcloc(reader));
         let op = reader.read_operator()?;
-        environ.before_translate_operator(&op, builder, state)?;
         translate_operator(module_translation_state, &op, builder, state, environ)?;
-        environ.after_translate_operator(&op, builder, state)?;
     }
 
     // The final `End` operator left us in the exit block where we need to manually add a return
@@ -260,11 +258,9 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     if state.reachable {
         //debug_assert!(builder.is_pristine());
         if !builder.is_unreachable() {
-            match environ.return_mode() {
-                ReturnMode::NormalReturns => {
-                    bitcast_wasm_returns(environ, &mut state.stack, builder);
-                    builder.ins().return_(&state.stack)
-                }
+            {
+                bitcast_wasm_returns(environ, &mut state.stack, builder);
+                builder.ins().return_(&state.stack)
             };
         }
     }

@@ -98,11 +98,7 @@ pub struct RuntimeOptions {
         #[cfg(feature = "v8")]
         "v8", 
         #[cfg(feature = "cranelift")]
-        "cranelift", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
+        "cranelift",         
     ]))]
     singlepass: bool,
 
@@ -115,10 +111,6 @@ pub struct RuntimeOptions {
         "v8", 
         #[cfg(feature = "singlepass")]
         "singlepass", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
     ]))]
     cranelift: bool,
 
@@ -131,10 +123,6 @@ pub struct RuntimeOptions {
         "v8", 
         #[cfg(feature = "singlepass")]
         "singlepass", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
     ]))]
     llvm: bool,
 
@@ -147,71 +135,47 @@ pub struct RuntimeOptions {
         "llvm", 
         #[cfg(feature = "singlepass")]
         "singlepass", 
-        #[cfg(feature = "wamr")]
-        "wamr", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
     ]))]
     v8: bool,
 
-    /// Use WAMR.
-    #[cfg(feature = "wamr")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
-        #[cfg(feature = "cranelift")]
-        "cranelift", 
-        #[cfg(feature = "llvm")]
-        "llvm", 
-        #[cfg(feature = "singlepass")]
-        "singlepass", 
-        #[cfg(feature = "v8")]
-        "v8", 
-        #[cfg(feature = "wasmi")]
-        "wasmi"
-    ]))]
-    wamr: bool,
-
-    /// Use the wasmi runtime.
-    #[cfg(feature = "wasmi")]
-    #[clap(long, conflicts_with_all = &Vec::<&str>::from_iter([
-        #[cfg(feature = "cranelift")]
-        "cranelift", 
-        #[cfg(feature = "llvm")]
-        "llvm", 
-        #[cfg(feature = "singlepass")]
-        "singlepass", 
-        #[cfg(feature = "v8")]
-        "v8", 
-        #[cfg(feature = "wamr")]
-        "wamr"
-    ]))]
-    wasmi: bool,
-
     /// Enable compiler internal verification.
     ///
-    /// Available for cranelift, LLVM and singlepass.
+    /// Available for Cranelift, LLVM and Singlepass.
     #[clap(long)]
     enable_verifier: bool,
 
     /// Debug directory, where IR and object files will be written to.
     ///
-    /// Available for cranelift, LLVM and singlepass.
+    /// Available for Cranelift, LLVM and Singlepass.
     #[clap(long, alias = "llvm-debug-dir")]
     pub(crate) compiler_debug_dir: Option<PathBuf>,
 
     /// Enable a profiler.
     ///
-    /// Available for cranelift, LLVM and singlepass.
+    /// Available for Cranelift, LLVM and Singlepass.
     #[clap(long, value_enum)]
     profiler: Option<Profiler>,
 
     /// Deprecated option as m0 optimization always play role if we use a static memory
     #[cfg(feature = "llvm")]
-    #[clap(long)]
+    #[clap(long, hide = true)]
     _enable_pass_params_opt: bool,
 
     /// Sets the number of threads used to compile the input module(s).
     #[clap(long, alias = "llvm-num-threads")]
     compiler_threads: Option<NonZero<usize>>,
+
+    /// Enable NaN canonicalization during compilation to produce deterministic
+    /// canonical quiet NaNs (QNaNs) across architectures.
+    #[clap(long = "enable-nan-canonicalization")]
+    enable_nan_canonicalization: bool,
+
+    /// Disable LLVM non-volatile memory operations.
+    ///
+    /// Available for LLVM.
+    #[cfg(feature = "llvm")]
+    #[clap(long = "disable-non-volatile-memops")]
+    disable_non_volatile_memops: bool,
 
     #[clap(flatten)]
     features: WasmFeatures,
@@ -258,24 +222,10 @@ impl RuntimeOptions {
             }
         }
 
-        #[cfg(feature = "wamr")]
-        {
-            if self.wamr {
-                return Ok(vec![BackendType::Wamr]);
-            }
-        }
-
         #[cfg(feature = "v8")]
         {
             if self.v8 {
                 return Ok(vec![BackendType::V8]);
-            }
-        }
-
-        #[cfg(feature = "wasmi")]
-        {
-            if self.wasmi {
-                return Ok(vec![BackendType::Wasmi]);
             }
         }
 
@@ -459,6 +409,9 @@ impl RuntimeOptions {
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
+                if self.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
+                }
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
@@ -481,6 +434,9 @@ impl RuntimeOptions {
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
+                if self.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
+                }
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
@@ -502,7 +458,10 @@ impl RuntimeOptions {
                 use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
-                config.enable_non_volatile_memops();
+                if !self.disable_non_volatile_memops {
+                    config.enable_non_volatile_memops();
+                }
+                config.enable_readonly_funcref_table();
 
                 if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
@@ -516,6 +475,9 @@ impl RuntimeOptions {
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
+                if self.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
+                }
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
@@ -524,7 +486,7 @@ impl RuntimeOptions {
 
                 Box::new(config)
             }
-            BackendType::V8 | BackendType::Wamr | BackendType::Wasmi => unreachable!(),
+            BackendType::V8 => unreachable!(),
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
                 bail!("The `{compiler}` compiler is not included in this binary.")
@@ -552,12 +514,6 @@ pub enum BackendType {
     /// V8 runtime
     V8,
 
-    /// Wamr runtime
-    Wamr,
-
-    /// Wasmi runtime
-    Wasmi,
-
     /// Headless compiler
     #[allow(dead_code)]
     Headless,
@@ -575,10 +531,6 @@ impl BackendType {
             Self::Singlepass,
             #[cfg(feature = "v8")]
             Self::V8,
-            #[cfg(feature = "wamr")]
-            Self::Wamr,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi,
         ]
     }
 
@@ -593,6 +545,9 @@ impl BackendType {
                 let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
+                }
+                if runtime_opts.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
@@ -622,6 +577,9 @@ impl BackendType {
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
                 }
+                if runtime_opts.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
+                }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
@@ -649,7 +607,10 @@ impl BackendType {
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
-                config.enable_non_volatile_memops();
+                if !runtime_opts.disable_non_volatile_memops {
+                    config.enable_non_volatile_memops();
+                }
+                config.enable_readonly_funcref_table();
 
                 let supported_features = config.supported_features_for_target(target);
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
@@ -659,6 +620,9 @@ impl BackendType {
                 }
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
+                }
+                if runtime_opts.enable_nan_canonicalization {
+                    config.canonicalize_nans(true);
                 }
 
                 if let Some(num_threads) = runtime_opts.compiler_threads {
@@ -680,10 +644,6 @@ impl BackendType {
             }
             #[cfg(feature = "v8")]
             Self::V8 => Ok(wasmer::v8::V8::new().into()),
-            #[cfg(feature = "wamr")]
-            Self::Wamr => Ok(wasmer::wamr::Wamr::new().into()),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi => Ok(wasmer::wasmi::Wasmi::new().into()),
             Self::Headless => bail!("Headless is not a valid runtime to instantiate directly"),
             #[allow(unreachable_patterns)]
             _ => bail!("Unsupported backend type"),
@@ -703,10 +663,6 @@ impl BackendType {
             Self::LLVM => wasmer::BackendKind::LLVM,
             #[cfg(feature = "v8")]
             Self::V8 => wasmer::BackendKind::V8,
-            #[cfg(feature = "wamr")]
-            Self::Wamr => wasmer::BackendKind::Wamr,
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi => wasmer::BackendKind::Wasmi,
             Self::Headless => return false, // Headless can't compile
             #[allow(unreachable_patterns)]
             _ => return false,
@@ -735,10 +691,6 @@ impl From<&BackendType> for wasmer::BackendKind {
             BackendType::LLVM => wasmer::BackendKind::LLVM,
             #[cfg(feature = "v8")]
             BackendType::V8 => wasmer::BackendKind::V8,
-            #[cfg(feature = "wamr")]
-            BackendType::Wamr => wasmer::BackendKind::Wamr,
-            #[cfg(feature = "wasmi")]
-            BackendType::Wasmi => wasmer::BackendKind::Wasmi,
             _ => {
                 #[cfg(feature = "sys")]
                 {
@@ -763,8 +715,6 @@ impl std::fmt::Display for BackendType {
                 Self::Cranelift => "cranelift",
                 Self::LLVM => "llvm",
                 Self::V8 => "v8",
-                Self::Wamr => "wamr",
-                Self::Wasmi => "wasmi",
                 Self::Headless => "headless",
             }
         )

@@ -9,7 +9,8 @@ use std::vec::Vec;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{
     ExportIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalType, ImportIndex, MemoryIndex,
-    MemoryType, ModuleInfo, Pages, SignatureIndex, TableIndex, TableType, TagIndex, TagType, Type,
+    MemoryType, ModuleInfo, Pages, SignatureHash, SignatureIndex, TableIndex, TableType, TagIndex,
+    TagType, Type,
 };
 
 use wasmparser::{
@@ -57,7 +58,9 @@ impl ModuleInfoPolyfill {
     }
 
     pub(crate) fn declare_signature(&mut self, sig: FunctionType) -> WasmResult<()> {
+        let signature_hash = SignatureHash::new(sig.signature_hash());
         self.info.signatures.push(sig);
+        self.info.signature_hashes.push(signature_hash);
         Ok(())
     }
 
@@ -351,6 +354,10 @@ pub fn translate_module(data: &[u8]) -> WasmResult<ModuleInfoPolyfill> {
         }
     }
 
+    module_info
+        .info
+        .validate_signature_hashes()
+        .map_err(|err| err.to_string())?;
     Ok(module_info)
 }
 
@@ -482,6 +489,7 @@ pub fn parse_import_section(
                         ty: wpreftype_to_type(tab.element_type).unwrap(),
                         minimum: tab.initial as u32,
                         maximum: tab.maximum.map(|v| v as u32),
+                        readonly: false,
                     },
                     module_name,
                     field_name,
@@ -522,6 +530,7 @@ pub fn parse_table_section(
             ty: wpreftype_to_type(table.ty.element_type).unwrap(),
             minimum: table.ty.initial as u32,
             maximum: table.ty.maximum.map(|v| v as u32),
+            readonly: false,
         })?;
     }
 

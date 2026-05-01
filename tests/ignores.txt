@@ -1,13 +1,34 @@
 # Compilers
+# SIMD
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
-singlepass spec::relaxed_simd # Singlepass doesn't support relaxed SIMD yet
+singlepass relaxed # Singlepass doesn't support relaxed SIMD yet
 singlepass wasmer::simd_generated_ext_ops
 singlepass wasmer::simd
-singlepass spec::exceptions # Singlepass doesn't support EH yet (no one asked for this feature)
-singlepass wasmer::exception_handling
-windows spec::exceptions # No EH support on Windows yet
-macos+cranelift spec::exceptions
+
+# Exception handling
+singlepass      spec::throw
+singlepass      spec::try_table
+singlepass      wasmer::exception_handling
+windows         spec::throw
+windows         spec::try_table
+windows         wasmer::exception_handling
+macos+cranelift spec::throw
+macos+cranelift spec::try_table
+macos+cranelift wasmer::exception_handling
+
+# Misc
 singlepass wide_arithmetic
+singlepass spec::linking
+cranelift spec::linking
+llvm spec::linking
+singlepass spec::threads::imports
+cranelift spec::threads::imports
+llvm spec::threads::imports
+
+
+# Tail-call
+singlepass return_call
+cranelift return_call
 
 # Traps
 ## Traps. Tracing doesn't work properly in Singlepass
@@ -44,21 +65,21 @@ llvm+loongarch64  spec::skip_stack_guard_page
 llvm+windows      issues::huge_number_of_arguments_fn
 
 # riscv support is still early, function call ABI needs some work
-llvm+riscv64      static_function::llvm::universal
-llvm+riscv64      static_function_with_env::llvm::universal
-llvm+riscv64      static_function_with_results::llvm::universal
-llvm+riscv64      spec::f32::llvm::universal
-llvm+riscv64      spec::f64::llvm::universal
-llvm+riscv64      spec::float_misc::llvm::universal
-llvm+riscv64      spec::memory_copy::llvm::universal
-llvm+riscv64      spec::memory_init::llvm::universal
-llvm+riscv64      spec::memory_trap::llvm::universal
-llvm+riscv64      spec::multi_value::binary::llvm::universal
-llvm+riscv64      spec::multi_value::block::llvm::universal
-llvm+riscv64      spec::simd::simd_align::llvm::universal
-llvm+riscv64      spec::simd::simd_f32x4_rounding::llvm::universal
-llvm+riscv64      spec::simd::simd_f64x2_rounding::llvm::universal
-llvm+riscv64      wasmer::nan_canonicalization::llvm::universal
+llvm+riscv64      static_function::llvm
+llvm+riscv64      static_function_with_env::llvm
+llvm+riscv64      static_function_with_results::llvm
+llvm+riscv64      spec::f32::llvm
+llvm+riscv64      spec::f64::llvm
+llvm+riscv64      spec::float_misc::llvm
+llvm+riscv64      spec::memory_copy::llvm
+llvm+riscv64      spec::memory_init::llvm
+llvm+riscv64      spec::memory_trap::llvm
+llvm+riscv64      spec::multi_value::binary::llvm
+llvm+riscv64      spec::multi_value::block::llvm
+llvm+riscv64      spec::simd::simd_align::llvm
+llvm+riscv64      spec::simd::simd_f32x4_rounding::llvm
+llvm+riscv64      spec::simd::simd_f64x2_rounding::llvm
+llvm+riscv64      wasmer::nan_canonicalization::llvm
 
 #6032
 llvm+riscv64      wasmer::stack_overflow_sret::llvm
@@ -71,28 +92,28 @@ cranelift+riscv64 spec::r#if::cranelift
 
 # no SIMD on riscv, Cranelift will not handle them
 cranelift+riscv64 spec::simd
-cranelift+riscv64 spec::relaxed_simd
+cranelift+riscv64 relaxed
 # 6078
 cranelift+riscv64 wasmer::simd_generated_ext_ops
 cranelift+riscv64 wasmer::simd
 
 # loongarch64 support is still early, function call ABI needs some work
-llvm+loongarch64  static_function::llvm::universal
-llvm+loongarch64  static_function_with_env::llvm::universal
-llvm+loongarch64  static_function_with_results::llvm::universal
-llvm+loongarch64  spec::f32::llvm::universal
-llvm+loongarch64  spec::f64::llvm::universal
-llvm+loongarch64  spec::float_misc::llvm::universal
-llvm+loongarch64  spec::memory_copy::llvm::universal
-llvm+loongarch64  spec::memory_init::llvm::universal
-llvm+loongarch64  spec::memory_trap::llvm::universal
-llvm+loongarch64  spec::multi_value::binary::llvm::universal
-llvm+loongarch64  spec::multi_value::block::llvm::universal
-llvm+loongarch64  spec::simd::simd_align::llvm::universal
-llvm+loongarch64  spec::simd::simd_f32x4_rounding::llvm::universal
-llvm+loongarch64  spec::simd::simd_f64x2_rounding::llvm::universal
-llvm+loongarch64  wasmer::nan_canonicalization::llvm::universal
-llvm+loongarch64  wasmer::stack_overflow_sret::llvm::universal
+llvm+loongarch64  static_function::llvm
+llvm+loongarch64  static_function_with_env::llvm
+llvm+loongarch64  static_function_with_results::llvm
+llvm+loongarch64  spec::f32::llvm
+llvm+loongarch64  spec::f64::llvm
+llvm+loongarch64  spec::float_misc::llvm
+llvm+loongarch64  spec::memory_copy::llvm
+llvm+loongarch64  spec::memory_init::llvm
+llvm+loongarch64  spec::memory_trap::llvm
+llvm+loongarch64  spec::multi_value::binary::llvm
+llvm+loongarch64  spec::multi_value::block::llvm
+llvm+loongarch64  spec::simd::simd_align::llvm
+llvm+loongarch64  spec::simd::simd_f32x4_rounding::llvm
+llvm+loongarch64  spec::simd::simd_f64x2_rounding::llvm
+llvm+loongarch64  wasmer::nan_canonicalization::llvm
+llvm+loongarch64  wasmer::stack_overflow_sret::llvm
 
 # #6017 - a crash in the LLVM compiler
 llvm+loongarch64  spec::simd::simd_f32x4::llvm

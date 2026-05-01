@@ -2,6 +2,8 @@ use crate::commands::AsyncCliCommand;
 
 pub mod create;
 pub mod delete;
+pub mod export;
+pub mod import;
 pub mod list;
 pub mod reveal;
 pub mod update;
@@ -12,6 +14,8 @@ mod utils;
 pub enum CmdAppSecrets {
     Create(create::CmdAppSecretsCreate),
     Delete(delete::CmdAppSecretsDelete),
+    Export(export::CmdAppSecretsExport),
+    Import(import::CmdAppSecretsImport),
     Reveal(reveal::CmdAppSecretsReveal),
     List(list::CmdAppSecretsList),
     Update(update::CmdAppSecretsUpdate),
@@ -28,6 +32,14 @@ impl AsyncCliCommand for CmdAppSecrets {
                 Ok(())
             }
             CmdAppSecrets::Delete(c) => {
+                c.run_async().await?;
+                Ok(())
+            }
+            CmdAppSecrets::Export(c) => {
+                c.run_async().await?;
+                Ok(())
+            }
+            CmdAppSecrets::Import(c) => {
                 c.run_async().await?;
                 Ok(())
             }

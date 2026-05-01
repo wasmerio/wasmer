@@ -164,7 +164,7 @@ impl RuntimeError {
             #[cfg(feature = "sys")]
             crate::StoreObjects::Sys(ref store_objects) => {
                 crate::backend::sys::vm::Trap::uncaught_exception(
-                    exnref.as_sys().clone(),
+                    exnref.unwrap_sys_ref().clone(),
                     store_objects,
                 )
                 .into()
@@ -249,10 +249,7 @@ impl RuntimeError {
             writeln!(f)?;
             write!(f, "    at ")?;
             match frame.function_name() {
-                Some(name) => match rustc_demangle::try_demangle(name) {
-                    Ok(name) => write!(f, "{name}")?,
-                    Err(_) => write!(f, "{name}")?,
-                },
+                Some(name) => write!(f, "{}", symbolic_demangle::demangle(name))?,
                 None => write!(f, "<unnamed>")?,
             }
             write!(

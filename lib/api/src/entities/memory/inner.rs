@@ -7,10 +7,11 @@ use crate::{
     vm::{VMExtern, VMExternMemory, VMMemory},
 };
 
-gen_rt_ty!(Memory
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq, derive_more::From
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
+    pub BackendMemory(entities::memory::Memory);
+}
 
 impl BackendMemory {
     /// Creates a new host [`BackendMemory`] from the provided [`MemoryType`].
@@ -33,14 +34,6 @@ impl BackendMemory {
             crate::BackendStore::Sys(s) => Ok(Self::Sys(
                 crate::backend::sys::entities::memory::Memory::new(store, ty)?,
             )),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(s) => Ok(Self::Wamr(
-                crate::backend::wamr::entities::memory::Memory::new(store, ty)?,
-            )),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(s) => Ok(Self::Wasmi(
-                crate::backend::wasmi::entities::memory::Memory::new(store, ty)?,
-            )),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(s) => Ok(Self::V8(
                 crate::backend::v8::entities::memory::Memory::new(store, ty)?,
@@ -48,10 +41,6 @@ impl BackendMemory {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(s) => Ok(Self::Js(
                 crate::backend::js::entities::memory::Memory::new(store, ty)?,
-            )),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::memory::Memory::new(store, ty)?,
             )),
         }
     }
@@ -64,42 +53,21 @@ impl BackendMemory {
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::memory::Memory::new_from_existing(
                     new_store,
-                    memory.into_sys(),
-                ),
-            ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => Self::Wamr(
-                crate::backend::wamr::entities::memory::Memory::new_from_existing(
-                    new_store,
-                    memory.into_wamr(),
-                ),
-            ),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => Self::Wasmi(
-                crate::backend::wasmi::entities::memory::Memory::new_from_existing(
-                    new_store,
-                    memory.into_wasmi(),
+                    memory.unwrap_sys(),
                 ),
             ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => Self::V8(
                 crate::backend::v8::entities::memory::Memory::new_from_existing(
                     new_store,
-                    memory.into_v8(),
+                    memory.unwrap_v_8(),
                 ),
             ),
             #[cfg(feature = "js")]
             crate::BackendStore::Js(_) => Self::Js(
                 crate::backend::js::entities::memory::Memory::new_from_existing(
                     new_store,
-                    memory.into_js(),
-                ),
-            ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(
-                crate::backend::jsc::entities::memory::Memory::new_from_existing(
-                    new_store,
-                    memory.into_jsc(),
+                    memory.unwrap_js(),
                 ),
             ),
         }
@@ -225,14 +193,6 @@ impl BackendMemory {
                     VMMemory::Sys(crate::backend::sys::vm::VMMemory(new_memory)),
                 )
             }),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s
-                .try_copy(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Wamr(new_memory))),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(s) => s
-                .try_copy(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Wasmi(new_memory))),
 
             #[cfg(feature = "v8")]
             Self::V8(s) => s
@@ -242,10 +202,6 @@ impl BackendMemory {
             Self::Js(s) => s
                 .try_copy(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => s
-                .try_copy(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
         }
     }
 
@@ -256,14 +212,6 @@ impl BackendMemory {
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(s) => Self::Wamr(
-                crate::backend::wamr::entities::memory::Memory::from_vm_extern(store, vm_extern),
-            ),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(s) => Self::Wasmi(
-                crate::backend::wasmi::entities::memory::Memory::from_vm_extern(store, vm_extern),
-            ),
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(s) => Self::V8(
                 crate::backend::v8::entities::memory::Memory::from_vm_extern(store, vm_extern),
@@ -271,10 +219,6 @@ impl BackendMemory {
             #[cfg(feature = "js")]
             crate::BackendStore::Js(s) => Self::Js(
                 crate::backend::js::entities::memory::Memory::from_vm_extern(store, vm_extern),
-            ),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Self::Jsc(
-                crate::backend::jsc::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
         }
     }
@@ -298,16 +242,10 @@ impl BackendMemory {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.try_clone(store).map(VMMemory::Sys),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s.try_clone(store).map(VMMemory::Wamr),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(s) => s.try_clone(store).map(VMMemory::Wasmi),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.try_clone(store).map(VMMemory::V8),
             #[cfg(feature = "js")]
             Self::Js(s) => s.try_clone(store).map(VMMemory::Js),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => s.try_clone(store).map(VMMemory::Jsc),
         }
     }
 
@@ -331,14 +269,6 @@ impl BackendMemory {
             Self::Sys(s) => s
                 .try_clone(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Sys(new_memory))),
-            #[cfg(feature = "wamr")]
-            Self::Wamr(s) => s
-                .try_clone(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Wamr(new_memory))),
-            #[cfg(feature = "wasmi")]
-            Self::Wasmi(s) => s
-                .try_clone(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Wasmi(new_memory))),
             #[cfg(feature = "v8")]
             Self::V8(s) => s
                 .try_clone(store)
@@ -347,10 +277,6 @@ impl BackendMemory {
             Self::Js(s) => s
                 .try_clone(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
-            #[cfg(feature = "jsc")]
-            Self::Jsc(s) => s
-                .try_clone(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
         }
     }
 

@@ -795,10 +795,7 @@ impl WasiProcess {
                 })
             }
         }
-        futures::future::join_all(waits.into_iter())
-            .await
-            .into_iter()
-            .next()
+        futures::future::join_all(waits).await.into_iter().next()
     }
 
     /// Waits for any of the children to finished

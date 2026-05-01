@@ -51,7 +51,7 @@ impl Tag {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTag) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.into_sys())
+                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.unwrap_sys())
             },
         }
     }

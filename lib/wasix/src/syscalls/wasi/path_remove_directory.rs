@@ -15,13 +15,15 @@ pub fn path_remove_directory<M: MemorySize>(
 
     // TODO check if fd is a dir, ensure it's within sandbox, etc.
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, mut state, _inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
     let base_dir = wasi_try_ok!(state.fs.get_fd(fd));
     let path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
 
-    wasi_try_ok!(path_remove_directory_internal(&mut ctx, fd, &path_str));
+    wasi_try_ok!(path_remove_directory_internal(
+        &mut ctx, fd, base_dir, &path_str
+    ));
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -40,11 +42,11 @@ pub fn path_remove_directory<M: MemorySize>(
 pub(crate) fn path_remove_directory_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
+    _base_dir: Fd,
     path: &str,
 ) -> Result<(), Errno> {
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-    let working_dir = state.fs.get_fd(fd)?;
 
     let (parent_inode, dir_name) =
         state

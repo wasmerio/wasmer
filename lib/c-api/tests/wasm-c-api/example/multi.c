@@ -1,20 +1,18 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
 #define own
 
 // A function to be called from Wasm code.
-own wasm_trap_t* callback(
-  const wasm_val_vec_t* args, wasm_val_vec_t* results
-) {
+own wasm_trap_t* callback(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
   printf("Calling back...\n> ");
-  printf("> %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32"\n",
-    args->data[0].of.i32, args->data[1].of.i64,
-    args->data[2].of.i64, args->data[3].of.i32);
+  printf("> %" PRIu32 " %" PRIu64 " %" PRIu64 " %" PRIu32 "\n",
+         args->data[0].of.i32, args->data[1].of.i64, args->data[2].of.i64,
+         args->data[3].of.i32);
   printf("\n");
 
   wasm_val_copy(&results->data[0], &args->data[3]);
@@ -24,11 +22,9 @@ own wasm_trap_t* callback(
   return NULL;
 }
 
-
 // A function closure.
-own wasm_trap_t* closure_callback(
-  void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results
-) {
+own wasm_trap_t* closure_callback(void* env, const wasm_val_vec_t* args,
+                                  wasm_val_vec_t* results) {
   int i = *(int*)env;
   printf("Calling back closure...\n");
   printf("> %d\n", i);
@@ -37,7 +33,6 @@ own wasm_trap_t* closure_callback(
   results->data[0].of.i32 = (int32_t)i;
   return NULL;
 }
-
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -75,25 +70,23 @@ int main(int argc, const char* argv[]) {
 
   // Create external print functions.
   printf("Creating callback...\n");
-  wasm_valtype_t* types[4] = {
-    wasm_valtype_new_i32(), wasm_valtype_new_i64(),
-    wasm_valtype_new_i64(), wasm_valtype_new_i32()
-  };
+  wasm_valtype_t* types[4] = {wasm_valtype_new_i32(), wasm_valtype_new_i64(),
+                              wasm_valtype_new_i64(), wasm_valtype_new_i32()};
   own wasm_valtype_vec_t tuple1, tuple2;
   wasm_valtype_vec_new(&tuple1, 4, types);
   wasm_valtype_vec_copy(&tuple2, &tuple1);
   own wasm_functype_t* callback_type = wasm_functype_new(&tuple1, &tuple2);
   own wasm_func_t* callback_func =
-    wasm_func_new(store, callback_type, callback);
+      wasm_func_new(store, callback_type, callback);
 
   wasm_functype_delete(callback_type);
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_t* externs[] = { wasm_func_as_extern(callback_func) };
+  wasm_extern_t* externs[] = {wasm_func_as_extern(callback_func)};
   wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, &imports, NULL);
+      wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -120,12 +113,10 @@ int main(int argc, const char* argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_t vals[4] = {
-    WASM_I32_VAL(1), WASM_I64_VAL(2), WASM_I64_VAL(3), WASM_I32_VAL(4)
-  };
-  wasm_val_t res[4] = {
-    WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL
-  };
+  wasm_val_t vals[4] = {WASM_I32_VAL(1), WASM_I64_VAL(2), WASM_I64_VAL(3),
+                        WASM_I32_VAL(4)};
+  wasm_val_t res[4] = {WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL,
+                       WASM_INIT_VAL};
   wasm_val_vec_t args = WASM_ARRAY_VEC(vals);
   wasm_val_vec_t results = WASM_ARRAY_VEC(res);
   if (wasm_func_call(run_func, &args, &results)) {
@@ -137,8 +128,8 @@ int main(int argc, const char* argv[]) {
 
   // Print result.
   printf("Printing result...\n");
-  printf("> %"PRIu32" %"PRIu64" %"PRIu64" %"PRIu32"\n",
-    res[0].of.i32, res[1].of.i64, res[2].of.i64, res[3].of.i32);
+  printf("> %" PRIu32 " %" PRIu64 " %" PRIu64 " %" PRIu32 "\n", res[0].of.i32,
+         res[1].of.i64, res[2].of.i64, res[3].of.i32);
 
   assert(res[0].of.i32 == 4);
   assert(res[1].of.i64 == 3);

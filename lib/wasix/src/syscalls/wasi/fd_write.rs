@@ -34,17 +34,16 @@ pub fn fd_write<M: MemorySize>(
 
     let env = ctx.data();
     let enable_journal = env.enable_journal;
-    let offset = {
+    let fd_entry = {
         let state = env.state.clone();
-        let inodes = state.inodes.clone();
-
-        let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
-        fd_entry.inner.offset.load(Ordering::Acquire) as usize
+        wasi_try_ok!(state.fs.get_fd(fd))
     };
+    let offset = fd_entry.inner.offset.load(Ordering::Acquire) as usize;
 
     let bytes_written = wasi_try_ok!(fd_write_internal::<M>(
         &mut ctx,
         fd,
+        fd_entry,
         FdWriteSource::Iovs { iovs, iovs_len },
         offset as u64,
         true,
@@ -90,9 +89,15 @@ pub fn fd_pwrite<M: MemorySize>(
 
     let enable_snapshot_capture = ctx.data().enable_journal;
 
+    let fd_entry = {
+        let env = ctx.data();
+        let state = env.state.clone();
+        wasi_try_ok!(state.fs.get_fd(fd))
+    };
     let bytes_written = wasi_try_ok!(fd_write_internal::<M>(
         &mut ctx,
         fd,
+        fd_entry,
         FdWriteSource::Iovs { iovs, iovs_len },
         offset,
         false,
@@ -123,6 +128,7 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
 pub(crate) fn fd_write_internal<M: MemorySize>(
     mut ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
+    fd_entry: Fd,
     data: FdWriteSource<'_, M>,
     offset: u64,
     should_update_cursor: bool,
@@ -131,8 +137,6 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     let mut offset = offset;
     let mut env = ctx.data();
     let state = env.state.clone();
-
-    let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
     let is_stdio = fd_entry.is_stdio;
 
     let bytes_written = {
@@ -515,9 +519,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         if !is_stdio {
             let curr_offset = if is_file && should_update_cursor {
                 let bytes_written = bytes_written as u64;
-                let mut fd_map = state.fs.fd_map.write().unwrap();
-                let fd_entry = wasi_try_ok_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
                 fd_entry
+                    .inner
                     .offset
                     .fetch_add(bytes_written, Ordering::AcqRel)
                     // fetch_add returns the previous value, we have to add bytes_written again here

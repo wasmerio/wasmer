@@ -10,6 +10,68 @@ use crate::{Runtime, SpawnError, WasiEnv, syscalls::stderr_write};
 
 use super::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 
+type BuiltinCommandHandler = dyn for<'a> Fn(
+        &FunctionEnvMut<'a, WasiEnv>,
+        &str,
+        &mut Option<WasiEnv>,
+    ) -> Result<TaskJoinHandle, SpawnError>
+    + Send
+    + Sync
+    + 'static;
+
+#[derive(Clone)]
+pub struct BuiltinCommand {
+    name: String,
+    handler: Arc<BuiltinCommandHandler>,
+}
+
+impl std::fmt::Debug for BuiltinCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BuiltinCommand")
+            .field("name", &self.name)
+            .finish()
+    }
+}
+
+impl BuiltinCommand {
+    pub fn new<Name, Handler>(name: Name, handler: Handler) -> Self
+    where
+        Name: Into<String>,
+        Handler: for<'a> Fn(
+                &FunctionEnvMut<'a, WasiEnv>,
+                &str,
+                &mut Option<WasiEnv>,
+            ) -> Result<TaskJoinHandle, SpawnError>
+            + Send
+            + Sync
+            + 'static,
+    {
+        Self {
+            name: name.into(),
+            handler: Arc::new(handler),
+        }
+    }
+}
+
+impl VirtualCommand for BuiltinCommand {
+    fn name(&self) -> &str {
+        self.name.as_str()
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn exec(
+        &self,
+        parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
+        path: &str,
+        config: &mut Option<WasiEnv>,
+    ) -> Result<TaskJoinHandle, SpawnError> {
+        (self.handler)(parent_ctx, path, config)
+    }
+}
+
 /// A command available to an OS environment.
 pub trait VirtualCommand
 where
@@ -55,8 +117,7 @@ impl Commands {
     ///
     /// The command will be available with it's canonical name ([`VirtualCommand::name()`]) at /bin/NAME.
     pub fn register_command<C: VirtualCommand + Send + Sync + 'static>(&mut self, cmd: C) {
-        let path = format!("/bin/{}", cmd.name());
-        self.register_command_with_path(cmd, path);
+        self.register_command_shared(Arc::new(cmd));
     }
 
     /// Register a command at a custom path.
@@ -65,7 +126,30 @@ impl Commands {
         cmd: C,
         path: String,
     ) {
-        self.commands.insert(path, Arc::new(cmd));
+        self.register_command_with_path_shared(Arc::new(cmd), path);
+    }
+
+    /// Register a command behind an [`Arc`].
+    pub(crate) fn register_command_shared(
+        &mut self,
+        cmd: Arc<dyn VirtualCommand + Send + Sync + 'static>,
+    ) {
+        let path = format!("/bin/{}", cmd.name());
+        self.register_command_with_path_shared(cmd, path);
+    }
+
+    /// Register a command behind an [`Arc`] at a custom path.
+    pub(crate) fn register_command_with_path_shared(
+        &mut self,
+        cmd: Arc<dyn VirtualCommand + Send + Sync + 'static>,
+        path: String,
+    ) {
+        self.commands.insert(path, cmd);
+    }
+
+    /// Remove all registered commands.
+    pub fn clear(&mut self) {
+        self.commands.clear();
     }
 
     /// Determine if a command exists at the given path.

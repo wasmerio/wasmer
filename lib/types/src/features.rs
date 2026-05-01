@@ -114,7 +114,7 @@ impl Features {
     /// This feature gates items such as shared memories and atomic
     /// instructions.
     ///
-    /// This is `false` by default.
+    /// This is `true` by default.
     ///
     /// [threads]: https://github.com/webassembly/threads
     pub fn threads(&mut self, enable: bool) -> &mut Self {
@@ -155,7 +155,7 @@ impl Features {
     /// This feature gates items such as the `v128` type and all of its
     /// operators being in a module.
     ///
-    /// This is `false` by default.
+    /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/webassembly/simd
     pub fn simd(&mut self, enable: bool) -> &mut Self {

@@ -180,7 +180,7 @@ impl Memory {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
         check_isolate(store);
         Self {
-            handle: internal.into_v8(),
+            handle: internal.unwrap_v_8(),
         }
     }
 

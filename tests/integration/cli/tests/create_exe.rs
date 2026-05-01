@@ -273,10 +273,10 @@ fn test_create_exe_with_precompiled_works_1() {
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
 // Also ignored on macOS because it's flaky
-#[cfg_attr(
-    any(target_os = "windows", target_os = "macos"),
-    ignore = "See https://github.com/wasmerio/wasmer/issues/4285"
-)]
+// #[cfg_attr(
+//     any(target_os = "windows", target_os = "macos"),
+//     ignore = "See https://github.com/wasmerio/wasmer/issues/4285"
+// )]
 #[ignore = "create_exe is obsolete right now"]
 #[test]
 fn create_exe_works() -> anyhow::Result<()> {
@@ -315,7 +315,8 @@ fn create_exe_works() -> anyhow::Result<()> {
 /// Tests that "-c" and "-- -c" are treated differently
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
+
 #[test]
 // FIXME: Fix an re-enable test
 // See https://github.com/wasmerio/wasmer/issues/3615
@@ -386,7 +387,6 @@ fn create_exe_works_multi_command_args_handling() -> anyhow::Result<()> {
 /// Tests that create-exe works with underscores and dashes in command names
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
@@ -453,7 +453,8 @@ fn create_exe_works_underscore_module_name() -> anyhow::Result<()> {
 
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
+
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_multi_command() -> anyhow::Result<()> {
@@ -511,7 +512,8 @@ fn create_exe_works_multi_command() -> anyhow::Result<()> {
 
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
+
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_works_with_file() -> anyhow::Result<()> {
@@ -691,7 +693,8 @@ fn create_exe_with_object_input(args: Vec<String>) -> anyhow::Result<()> {
 
 // Ignored because of -lunwind linker issue on Windows
 // see https://github.com/wasmerio/wasmer/issues/3459
-#[cfg_attr(target_os = "windows", ignore)]
+//#[cfg_attr(target_os = "windows", ignore)]
+
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn create_exe_with_object_input_default() -> anyhow::Result<()> {
@@ -700,7 +703,8 @@ fn create_exe_with_object_input_default() -> anyhow::Result<()> {
 
 /// TODO: on linux-musl, the packaging of libwasmer.a doesn't work properly
 /// Tracked in https://github.com/wasmerio/wasmer/issues/3271
-#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+//#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+
 #[test]
 #[ignore = "See https://github.com/wasmerio/wasmer/issues/4285"]
 fn test_wasmer_create_exe_pirita_works() {
@@ -762,16 +766,10 @@ fn test_cross_compile_python_windows() {
     let temp_dir = TempDir::new().unwrap();
 
     let targets: &[&str] = if cfg!(windows) {
-        &[
-            "aarch64-darwin",
-            "x86_64-darwin",
-            "x86_64-linux-gnu",
-            "aarch64-linux-gnu",
-        ]
+        &["aarch64-darwin", "x86_64-linux-gnu", "aarch64-linux-gnu"]
     } else {
         &[
             "aarch64-darwin",
-            "x86_64-darwin",
             "x86_64-linux-gnu",
             "aarch64-linux-gnu",
             "x86_64-windows-gnu",
@@ -791,7 +789,6 @@ fn test_cross_compile_python_windows() {
         ("aarch64-darwin", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
         ("aarch64-linux-gnu", "llvm"), // LLVM: aarch64 not supported relocation Arm64MovwG0 not supported
         // https://github.com/ziglang/zig/issues/13729
-        ("x86_64-darwin", "llvm"), // undefined reference to symbol 'wasmer_vm_raise_trap' kind Unknown
         ("x86_64-windows-gnu", "llvm"), // unimplemented symbol `wasmer_vm_raise_trap` kind Unknown
     ];
 
@@ -849,7 +846,6 @@ fn assert_tarball_is_present_local(target: &str) -> Result<PathBuf, anyhow::Erro
     let wasmer_dir = std::env::var("WASMER_DIR").expect("no WASMER_DIR set");
     let directory = match target {
         "aarch64-darwin" => "wasmer-darwin-arm64.tar.gz",
-        "x86_64-darwin" => "wasmer-darwin-amd64.tar.gz",
         "x86_64-linux-gnu" => "wasmer-linux-amd64.tar.gz",
         "aarch64-linux-gnu" => "wasmer-linux-aarch64.tar.gz",
         "x86_64-windows-gnu" => "wasmer-windows-gnu64.tar.gz",

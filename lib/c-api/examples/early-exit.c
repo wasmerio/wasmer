@@ -12,40 +12,39 @@ void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
   if (error_len > 0) {
     printf("Error len: `%d`\n", error_len);
-    char *error_str = malloc(error_len);
+    char* error_str = malloc(error_len);
     wasmer_last_error_message(error_str, error_len);
     printf("Error str: `%s`\n", error_str);
   }
 }
 
 void print_frame(wasm_frame_t* frame) {
-  printf("> %p @ 0x%zx = %"PRIu32".0x%zx\n",
-    wasm_frame_instance(frame),
-    wasm_frame_module_offset(frame),
-    wasm_frame_func_index(frame),
-    wasm_frame_func_offset(frame)
-  );
+  printf("> %p @ 0x%zx = %" PRIu32 ".0x%zx\n", wasm_frame_instance(frame),
+         wasm_frame_module_offset(frame), wasm_frame_func_index(frame),
+         wasm_frame_func_offset(frame));
 }
 
-wasm_store_t *store = NULL;
+wasm_store_t* store = NULL;
 
-own wasm_trap_t* early_exit(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
+own wasm_trap_t* early_exit(const wasm_val_vec_t* args,
+                            wasm_val_vec_t* results) {
   own wasm_message_t trap_message;
   wasm_name_new_from_string_nt(&trap_message, "trapping from a host import");
-  own wasm_trap_t *trap = wasm_trap_new(store, &trap_message);
+  own wasm_trap_t* trap = wasm_trap_new(store, &trap_message);
   wasm_name_delete(&trap_message);
   return trap;
 }
 
-int main(int argc, const char *argv[]) {
+int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
-  wasm_engine_t *engine = wasm_engine_new();
+  wasm_engine_t* engine = wasm_engine_new();
   store = wasm_store_new(engine);
 
   // Load binary.
   printf("Loading binary...\n");
-  FILE *file = fopen("assets/call_trap.wasm", "rb");
+  FILE* file =
+      fopen("../../../wasmer-test-files/examples/call_trap.wasm", "rb");
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
@@ -63,7 +62,7 @@ int main(int argc, const char *argv[]) {
 
   // Compile.
   printf("Compiling module...\n");
-  own wasm_module_t *module = wasm_module_new(store, &binary);
+  own wasm_module_t* module = wasm_module_new(store, &binary);
   if (!module) {
     printf("> Error compiling module!\n");
     return 1;
@@ -74,8 +73,8 @@ int main(int argc, const char *argv[]) {
   // Instantiate.
   printf("Instantiating module...\n");
 
-  wasm_functype_t *host_func_type = wasm_functype_new_0_0();
-  wasm_func_t *host_func = wasm_func_new(store, host_func_type, early_exit);
+  wasm_functype_t* host_func_type = wasm_functype_new_0_0();
+  wasm_func_t* host_func = wasm_func_new(store, host_func_type, early_exit);
 
   wasm_functype_delete(host_func_type);
 
@@ -83,7 +82,7 @@ int main(int argc, const char *argv[]) {
   wasm_extern_vec_new_uninitialized(&imports, 1);
   imports.data[0] = wasm_func_as_extern(host_func);
 
-  own wasm_instance_t *instance =
+  own wasm_instance_t* instance =
       wasm_instance_new(store, module, &imports, NULL);
 
   if (!instance) {
@@ -105,7 +104,7 @@ int main(int argc, const char *argv[]) {
   wasm_module_delete(module);
   wasm_instance_delete(instance);
 
-  wasm_func_t *run_func = wasm_extern_as_func(exports.data[0]);
+  wasm_func_t* run_func = wasm_extern_as_func(exports.data[0]);
   if (run_func == NULL) {
     printf("> Error accessing export!\n");
     print_wasmer_error();
@@ -114,11 +113,11 @@ int main(int argc, const char *argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  wasm_val_t values[2] = { WASM_I32_VAL(1), WASM_I32_VAL(7) };
+  wasm_val_t values[2] = {WASM_I32_VAL(1), WASM_I32_VAL(7)};
   own wasm_val_vec_t args = WASM_ARRAY_VEC(values);
   wasm_val_t result = WASM_INIT_VAL;
-  own wasm_val_vec_t rets = { 1, &result };
-  own wasm_trap_t *trap = wasm_func_call(run_func, &args, &rets);
+  own wasm_val_vec_t rets = {1, &result};
+  own wasm_trap_t* trap = wasm_func_call(run_func, &args, &rets);
 
   if (!trap) {
     printf("> Error calling function: expected trap!\n");

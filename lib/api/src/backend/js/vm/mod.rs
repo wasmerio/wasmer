@@ -16,6 +16,7 @@ pub use tag::*;
 /// The type of instances in the `js` VM.
 pub type VMInstance = js_sys::WebAssembly::Instance;
 
+#[derive(Debug)]
 pub struct VMTrampoline;
 
 /// The type of extern tables in the `js` VM.

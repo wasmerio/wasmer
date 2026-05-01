@@ -29,8 +29,17 @@ impl JournalEffector {
         // see `VIRTUAL_ROOT_FD` for details as to why this exists
         if fd == VIRTUAL_ROOT_FD {
             ctx.data().state.fs.root_fs.remove_dir(Path::new(path))?;
-        } else if let Err(err) = crate::syscalls::path_remove_directory_internal(ctx, fd, path) {
-            bail!("journal restore error: failed to remove directory - {err}");
+        } else {
+            let base_dir = ctx.data().state.fs.get_fd(fd).map_err(|err| {
+                anyhow::format_err!(
+                    "journal restore error: invalid directory descriptor (fd={fd}) - {err}"
+                )
+            })?;
+            if let Err(err) =
+                crate::syscalls::path_remove_directory_internal(ctx, fd, base_dir, path)
+            {
+                bail!("journal restore error: failed to remove directory - {err}");
+            }
         }
         Ok(())
     }

@@ -233,7 +233,7 @@ impl InodeSocket {
 
     pub fn poll_write_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         let mut inner = self.inner.protected.write().unwrap();
-        inner.poll_read_ready(cx)
+        inner.poll_write_ready(cx)
     }
 
     // When a sendto or connect call comes in for a UDP "pre-socket", it must be bound to
@@ -582,7 +582,9 @@ impl InodeSocket {
         let new_write_timeout;
         let new_read_timeout;
 
-        let timeout = timeout.unwrap_or(Duration::from_secs(30));
+        let timeout = timeout
+            .or_else(|| self.opt_time(TimeType::ConnectTimeout).ok().flatten())
+            .unwrap_or(Duration::from_secs(30));
 
         let handler;
         let connect = {
@@ -667,7 +669,13 @@ impl InodeSocket {
         Ok(match &inner.kind {
             InodeSocketKind::PreSocket { .. } => WasiSocketStatus::Opening,
             InodeSocketKind::TcpListener { .. } => WasiSocketStatus::Opened,
-            InodeSocketKind::TcpStream { .. } => WasiSocketStatus::Opened,
+            InodeSocketKind::TcpStream { socket, .. } => match socket.status() {
+                Ok(virtual_net::SocketStatus::Opening) => WasiSocketStatus::Opening,
+                Ok(virtual_net::SocketStatus::Opened) => WasiSocketStatus::Opened,
+                Ok(virtual_net::SocketStatus::Closed) => WasiSocketStatus::Closed,
+                Ok(virtual_net::SocketStatus::Failed) => WasiSocketStatus::Failed,
+                Err(_) => WasiSocketStatus::Failed,
+            },
             InodeSocketKind::UdpSocket { .. } => WasiSocketStatus::Opened,
             InodeSocketKind::RemoteSocket { is_dead, .. } => match is_dead {
                 true => WasiSocketStatus::Closed,
@@ -1227,6 +1235,7 @@ impl InodeSocket {
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
                         InodeSocketKind::Icmp(socket) => socket.try_send_to(self.data, self.addr),
+                        InodeSocketKind::TcpStream { socket, .. } => socket.try_send(self.data),
                         InodeSocketKind::UdpSocket { socket, .. } => {
                             socket.try_send_to(self.data, self.addr)
                         }
@@ -1580,4 +1589,204 @@ pub(crate) fn all_socket_rights() -> Rights {
         .union(Rights::SOCK_ADDR_REMOTE)
         .union(Rights::SOCK_RECV_FROM)
         .union(Rights::SOCK_SEND_TO)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{InodeSocket, InodeSocketKind, WasiSocketStatus};
+    use std::{
+        mem::MaybeUninit,
+        net::{Ipv4Addr, Shutdown, SocketAddr},
+        pin::Pin,
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
+        task::{Context, Poll},
+        time::Duration,
+    };
+    use virtual_mio::InterestHandler;
+    use virtual_net::{
+        NetworkError, Result as NetResult, SocketStatus, VirtualConnectedSocket, VirtualIoSource,
+        VirtualSocket, VirtualTcpSocket,
+    };
+
+    #[derive(Debug)]
+    struct MockTcpSocket {
+        read_calls: Arc<AtomicUsize>,
+        write_calls: Arc<AtomicUsize>,
+        status: Arc<AtomicUsize>,
+    }
+
+    const MOCK_STATUS_OPENING: usize = 0;
+    const MOCK_STATUS_OPENED: usize = 1;
+
+    fn decode_mock_status(value: usize) -> SocketStatus {
+        match value {
+            MOCK_STATUS_OPENED => SocketStatus::Opened,
+            _ => SocketStatus::Opening,
+        }
+    }
+
+    impl VirtualIoSource for MockTcpSocket {
+        fn remove_handler(&mut self) {}
+
+        fn poll_read_ready(&mut self, _cx: &mut Context<'_>) -> Poll<NetResult<usize>> {
+            self.read_calls.fetch_add(1, Ordering::Relaxed);
+            Poll::Ready(Ok(3))
+        }
+
+        fn poll_write_ready(&mut self, _cx: &mut Context<'_>) -> Poll<NetResult<usize>> {
+            self.write_calls.fetch_add(1, Ordering::Relaxed);
+            self.status.store(MOCK_STATUS_OPENED, Ordering::Relaxed);
+            Poll::Ready(Ok(7))
+        }
+    }
+
+    impl VirtualSocket for MockTcpSocket {
+        fn set_ttl(&mut self, _ttl: u32) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn ttl(&self) -> NetResult<u32> {
+            Ok(64)
+        }
+
+        fn addr_local(&self) -> NetResult<SocketAddr> {
+            Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)))
+        }
+
+        fn status(&self) -> NetResult<SocketStatus> {
+            Ok(decode_mock_status(self.status.load(Ordering::Relaxed)))
+        }
+
+        fn set_handler(
+            &mut self,
+            _handler: Box<dyn InterestHandler + Send + Sync>,
+        ) -> NetResult<()> {
+            Ok(())
+        }
+    }
+
+    impl VirtualConnectedSocket for MockTcpSocket {
+        fn set_linger(&mut self, _linger: Option<Duration>) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn linger(&self) -> NetResult<Option<Duration>> {
+            Ok(None)
+        }
+
+        fn try_send(&mut self, _data: &[u8]) -> NetResult<usize> {
+            Err(NetworkError::Unsupported)
+        }
+
+        fn try_flush(&mut self) -> NetResult<()> {
+            Err(NetworkError::Unsupported)
+        }
+
+        fn close(&mut self) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn try_recv(&mut self, _buf: &mut [MaybeUninit<u8>], _peek: bool) -> NetResult<usize> {
+            Err(NetworkError::Unsupported)
+        }
+    }
+
+    impl VirtualTcpSocket for MockTcpSocket {
+        fn set_recv_buf_size(&mut self, _size: usize) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn recv_buf_size(&self) -> NetResult<usize> {
+            Ok(0)
+        }
+
+        fn set_send_buf_size(&mut self, _size: usize) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn send_buf_size(&self) -> NetResult<usize> {
+            Ok(0)
+        }
+
+        fn set_nodelay(&mut self, _reuse: bool) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn nodelay(&self) -> NetResult<bool> {
+            Ok(true)
+        }
+
+        fn set_keepalive(&mut self, _keepalive: bool) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn keepalive(&self) -> NetResult<bool> {
+            Ok(false)
+        }
+
+        fn set_dontroute(&mut self, _keepalive: bool) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn dontroute(&self) -> NetResult<bool> {
+            Ok(false)
+        }
+
+        fn addr_peer(&self) -> NetResult<SocketAddr> {
+            Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 80)))
+        }
+
+        fn shutdown(&mut self, _how: Shutdown) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn is_closed(&self) -> bool {
+            false
+        }
+    }
+
+    #[test]
+    fn inode_socket_poll_write_ready_uses_write_path() {
+        let read_calls = Arc::new(AtomicUsize::new(0));
+        let write_calls = Arc::new(AtomicUsize::new(0));
+        let status = Arc::new(AtomicUsize::new(MOCK_STATUS_OPENED));
+        let mut inode = InodeSocket::new(InodeSocketKind::TcpStream {
+            socket: Box::new(MockTcpSocket {
+                read_calls: read_calls.clone(),
+                write_calls: write_calls.clone(),
+                status,
+            }),
+            write_timeout: None,
+            read_timeout: None,
+        });
+
+        let waker = futures::task::noop_waker();
+        let mut cx = Context::from_waker(&waker);
+        let ready = Pin::new(&mut inode).poll_write_ready(&mut cx);
+
+        assert!(matches!(ready, Poll::Ready(Ok(7))));
+        assert_eq!(read_calls.load(Ordering::Relaxed), 0);
+        assert_eq!(write_calls.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn inode_socket_status_tracks_tcp_socket_status() {
+        let status = Arc::new(AtomicUsize::new(MOCK_STATUS_OPENING));
+        let inode = InodeSocket::new(InodeSocketKind::TcpStream {
+            socket: Box::new(MockTcpSocket {
+                read_calls: Arc::new(AtomicUsize::new(0)),
+                write_calls: Arc::new(AtomicUsize::new(0)),
+                status: status.clone(),
+            }),
+            write_timeout: None,
+            read_timeout: None,
+        });
+
+        assert!(matches!(inode.status().unwrap(), WasiSocketStatus::Opening));
+        status.store(MOCK_STATUS_OPENED, Ordering::Relaxed);
+        assert!(matches!(inode.status().unwrap(), WasiSocketStatus::Opened));
+    }
 }

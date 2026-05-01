@@ -158,9 +158,9 @@ impl State {
             .tty
             .as_ref()
             .into_iter()
-            .chain(self.chdir.as_ref().into_iter())
-            .chain(self.process_exit.as_ref().into_iter())
-            .chain(self.init_module.as_ref().into_iter())
+            .chain(self.chdir.as_ref())
+            .chain(self.process_exit.as_ref())
+            .chain(self.init_module.as_ref())
             .chain(self.snapshots.iter())
             .chain(self.memory_map.values())
             .chain(self.thread_map.values())

@@ -83,7 +83,7 @@ pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
-    MemoryIndex, SignatureIndex, TableIndex, Tag, TagIndex,
+    MemoryIndex, SignatureHash, SignatureIndex, TableIndex, Tag, TagIndex,
 };
 pub use crate::initializers::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, DataInitializer,
@@ -113,7 +113,7 @@ pub use crate::stack::{FrameInfo, SourceLoc, TrapInformation};
 pub use crate::store_id::StoreId;
 pub use crate::trapcode::{OnCalledAction, TrapCode};
 pub use crate::utils::is_wasm;
-pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};
+pub use crate::vmoffsets::{VMBuiltinFunctionIndex, VMOffsets};
 
 /// Offset in bytes from the beginning of the function.
 pub type CodeOffset = u32;

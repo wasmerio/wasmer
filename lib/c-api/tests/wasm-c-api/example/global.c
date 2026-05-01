@@ -1,7 +1,7 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 
@@ -23,29 +23,27 @@ wasm_func_t* get_export_func(const wasm_extern_vec_t* exports, size_t i) {
   return wasm_extern_as_func(exports->data[i]);
 }
 
-
-#define check(val, type, expected) \
-  if (val.of.type != expected) { \
+#define check(val, type, expected)     \
+  if (val.of.type != expected) {       \
     printf("> Error reading value\n"); \
-    exit(1); \
+    exit(1);                           \
   }
 
 #define check_global(global, type, expected) \
-  { \
-    wasm_val_t val; \
-    wasm_global_get(global, &val); \
-    check(val, type, expected); \
+  {                                          \
+    wasm_val_t val;                          \
+    wasm_global_get(global, &val);           \
+    check(val, type, expected);              \
   }
 
-#define check_call(func, type, expected) \
-  { \
-    wasm_val_t vs[1]; \
-    wasm_val_vec_t args = WASM_EMPTY_VEC; \
+#define check_call(func, type, expected)         \
+  {                                              \
+    wasm_val_t vs[1];                            \
+    wasm_val_vec_t args = WASM_EMPTY_VEC;        \
     wasm_val_vec_t results = WASM_ARRAY_VEC(vs); \
-    wasm_func_call(func, &args, &results); \
-    check(vs[0], type, expected); \
+    wasm_func_call(func, &args, &results);       \
+    check(vs[0], type, expected);                \
   }
-
 
 int main(int argc, const char* argv[]) {
   // Initialize.
@@ -83,27 +81,27 @@ int main(int argc, const char* argv[]) {
 
   // Create external globals.
   printf("Creating globals...\n");
-  own wasm_globaltype_t* const_f32_type = wasm_globaltype_new(
-    wasm_valtype_new(WASM_F32), WASM_CONST);
-  own wasm_globaltype_t* const_i64_type = wasm_globaltype_new(
-    wasm_valtype_new(WASM_I64), WASM_CONST);
-  own wasm_globaltype_t* var_f32_type = wasm_globaltype_new(
-    wasm_valtype_new(WASM_F32), WASM_VAR);
-  own wasm_globaltype_t* var_i64_type = wasm_globaltype_new(
-    wasm_valtype_new(WASM_I64), WASM_VAR);
+  own wasm_globaltype_t* const_f32_type =
+      wasm_globaltype_new(wasm_valtype_new(WASM_F32), WASM_CONST);
+  own wasm_globaltype_t* const_i64_type =
+      wasm_globaltype_new(wasm_valtype_new(WASM_I64), WASM_CONST);
+  own wasm_globaltype_t* var_f32_type =
+      wasm_globaltype_new(wasm_valtype_new(WASM_F32), WASM_VAR);
+  own wasm_globaltype_t* var_i64_type =
+      wasm_globaltype_new(wasm_valtype_new(WASM_I64), WASM_VAR);
 
   wasm_val_t val_f32_1 = WASM_F32_VAL(1);
   own wasm_global_t* const_f32_import =
-    wasm_global_new(store, const_f32_type, &val_f32_1);
+      wasm_global_new(store, const_f32_type, &val_f32_1);
   wasm_val_t val_i64_2 = WASM_I64_VAL(2);
   own wasm_global_t* const_i64_import =
-    wasm_global_new(store, const_i64_type, &val_i64_2);
+      wasm_global_new(store, const_i64_type, &val_i64_2);
   wasm_val_t val_f32_3 = WASM_F32_VAL(3);
   own wasm_global_t* var_f32_import =
-    wasm_global_new(store, var_f32_type, &val_f32_3);
+      wasm_global_new(store, var_f32_type, &val_f32_3);
   wasm_val_t val_i64_4 = WASM_I64_VAL(4);
   own wasm_global_t* var_i64_import =
-    wasm_global_new(store, var_i64_type, &val_i64_4);
+      wasm_global_new(store, var_i64_type, &val_i64_4);
 
   wasm_globaltype_delete(const_f32_type);
   wasm_globaltype_delete(const_i64_type);
@@ -112,15 +110,13 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  wasm_extern_t* externs[] = {
-    wasm_global_as_extern(const_f32_import),
-    wasm_global_as_extern(const_i64_import),
-    wasm_global_as_extern(var_f32_import),
-    wasm_global_as_extern(var_i64_import)
-  };
+  wasm_extern_t* externs[] = {wasm_global_as_extern(const_f32_import),
+                              wasm_global_as_extern(const_i64_import),
+                              wasm_global_as_extern(var_f32_import),
+                              wasm_global_as_extern(var_i64_import)};
   wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, &imports, NULL);
+      wasm_instance_new(store, module, &imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     return 1;
@@ -199,16 +195,16 @@ int main(int argc, const char* argv[]) {
 
   // Modify variables through calls and check again.
   wasm_val_vec_t res = WASM_EMPTY_VEC;
-  wasm_val_t vs73[] = { WASM_F32_VAL(73) };
+  wasm_val_t vs73[] = {WASM_F32_VAL(73)};
   wasm_val_vec_t args73 = WASM_ARRAY_VEC(vs73);
   wasm_func_call(set_var_f32_import, &args73, &res);
-  wasm_val_t vs74[] = { WASM_I64_VAL(74) };
+  wasm_val_t vs74[] = {WASM_I64_VAL(74)};
   wasm_val_vec_t args74 = WASM_ARRAY_VEC(vs74);
   wasm_func_call(set_var_i64_import, &args74, &res);
-  wasm_val_t vs77[] = { WASM_F32_VAL(77) };
+  wasm_val_t vs77[] = {WASM_F32_VAL(77)};
   wasm_val_vec_t args77 = WASM_ARRAY_VEC(vs77);
   wasm_func_call(set_var_f32_export, &args77, &res);
-  wasm_val_t vs78[] = { WASM_I64_VAL(78) };
+  wasm_val_t vs78[] = {WASM_I64_VAL(78)};
   wasm_val_vec_t args78 = WASM_ARRAY_VEC(vs78);
   wasm_func_call(set_var_i64_export, &args78, &res);
 

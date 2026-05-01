@@ -47,7 +47,7 @@ impl Tag {
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTag) -> Self {
         Self {
-            handle: vm_extern.into_js(),
+            handle: vm_extern.unwrap_js(),
         }
     }
 

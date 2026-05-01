@@ -34,11 +34,17 @@ pub struct TableData {
     /// Global value giving the address of the start of the table.
     pub base_gv: ir::GlobalValue,
 
+    /// Constant offset to apply to `base_gv` to get the start of the table.
+    pub base_offset: i32,
+
     /// The size of the table, in elements.
     pub bound: TableSize,
 
     /// The size of a table element, in bytes.
     pub element_size: u32,
+
+    /// Whether table entries are inline `VMCallerCheckedAnyfunc` values.
+    pub inline_anyfunc: bool,
 }
 
 impl TableData {
@@ -71,7 +77,10 @@ impl TableData {
         }
 
         // Add the table base address base
-        let base = pos.ins().global_value(addr_ty, self.base_gv);
+        let mut base = pos.ins().global_value(addr_ty, self.base_gv);
+        if self.base_offset != 0 {
+            base = pos.ins().iadd_imm(base, i64::from(self.base_offset));
+        }
 
         let element_size = self.element_size;
         let offset = if element_size == 1 {

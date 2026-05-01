@@ -892,8 +892,8 @@ mod tests {
         let coreutils = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
-            .join("tests")
-            .join("old-tar-gz")
+            .join("wasmer-test-files")
+            .join("legacy")
             .join("coreutils-1.0.11.tar.gz");
         assert!(coreutils.exists());
 
@@ -945,8 +945,8 @@ mod tests {
         let tarball = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("..")
             .join("..")
-            .join("tests")
-            .join("old-tar-gz")
+            .join("wasmer-test-files")
+            .join("legacy")
             .join("cowsay-0.3.0.tar.gz");
 
         let pkg = Package::from_tarball_file(tarball).unwrap();

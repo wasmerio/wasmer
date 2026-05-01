@@ -23,7 +23,7 @@ impl InstanceHandle {
     ) -> Result<Self, InstantiationError> {
         let mut trap: *mut wasm_trap_t = std::ptr::null_mut() as _;
 
-        let externs: Vec<_> = externs.into_iter().map(|v| v.into_v8()).collect();
+        let externs: Vec<_> = externs.into_iter().map(|v| v.unwrap_v_8()).collect();
 
         let instance = unsafe {
             let mut imports = unsafe {
