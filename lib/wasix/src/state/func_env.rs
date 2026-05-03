@@ -174,6 +174,7 @@ impl WasiFunctionEnv {
         let new_inner = handles;
 
         let main_module_handles = new_inner.main_module_instance_handles();
+        let shared_memory = main_module_handles.memory().as_shared(store);
         let stack_pointer = main_module_handles.stack_pointer.clone();
         let data_end = main_module_handles.data_end.clone();
         let stack_low = main_module_handles.stack_low.clone();
@@ -181,6 +182,9 @@ impl WasiFunctionEnv {
         let tls_base = main_module_handles.tls_base.clone();
 
         let env = self.data_mut(store);
+        if let Some(shared_memory) = shared_memory {
+            env.process.register_memory(shared_memory);
+        }
         env.set_inner(new_inner);
 
         env.state.fs.set_is_wasix(is_wasix_module);

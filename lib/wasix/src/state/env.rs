@@ -1315,25 +1315,27 @@ impl WasiEnv {
             let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
             let state = self.state.clone();
             Box::pin(async move {
-                if !disable_fs_cleanup {
-                    tracing::trace!(pid = %pid, "cleaning up open file handles");
+                if process.try_start_cleanup() {
+                    if !disable_fs_cleanup {
+                        tracing::trace!(pid = %pid, "cleaning up open file handles");
 
-                    // Perform the clean operation using the asynchronous runtime
-                    tokio::select! {
-                        _ = timeout => {
-                            tracing::debug!(
-                                "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
-                            );
-                        },
-                        _ = state.fs.close_all() => { }
+                        // Perform the clean operation using the asynchronous runtime
+                        tokio::select! {
+                            _ = timeout => {
+                                tracing::debug!(
+                                    "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
+                                );
+                            },
+                            _ = state.fs.close_all() => { }
+                        }
                     }
 
                     // Now send a signal that the thread is terminated
                     process.signal_process(Signal::Sigquit);
-                }
 
-                // Terminate the process
-                process.terminate(process_exit_code);
+                    // Terminate the process
+                    process.terminate(process_exit_code);
+                }
             })
         } else {
             Box::pin(async {})
