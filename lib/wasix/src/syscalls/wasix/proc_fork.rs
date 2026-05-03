@@ -111,6 +111,9 @@ pub fn proc_fork<M: MemorySize>(
             // We first fork the environment and replace the current environment
             // so that the process can continue to prepare for the real fork as
             // if it had actually forked
+            if let Some(memory) = ctx.data().process.lock().memory.clone() {
+                child_env.process.register_memory(memory);
+            }
             child_env.swap_inner(ctx.data_mut());
             std::mem::swap(ctx.data_mut(), &mut child_env);
             let previous_vfork = ctx.data_mut().vfork.replace(WasiVFork {
