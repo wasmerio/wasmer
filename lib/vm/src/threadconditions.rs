@@ -148,6 +148,8 @@ impl ThreadConditions {
     /// Disable the use of atomics, leading to all atomic waits failing with
     /// an error, which leads to a Webassembly trap.
     ///
+    /// NOTE: will also wake up all current waiters.
+    ///
     /// Useful for force-closing instances that keep waiting on atomics.
     pub fn disable_atomics(&self) {
         self.inner

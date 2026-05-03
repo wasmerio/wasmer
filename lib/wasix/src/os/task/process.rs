@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 use tracing::trace;
-use wasmer::FunctionEnvMut;
+use wasmer::{FunctionEnvMut, SharedMemory};
 use wasmer_types::ModuleHash;
 use wasmer_wasix_types::{
     types::Signal,
@@ -176,6 +176,10 @@ pub struct WasiProcessInner {
     pub snapshot_on: HashSet<SnapshotTrigger>,
     /// Any wakers waiting on this process (for example for a checkpoint)
     pub wakers: Vec<Waker>,
+    /// If true then the process has started cleaning up
+    pub cleanup_started: bool,
+    /// Shared process memory.
+    pub memory: Option<SharedMemory>,
     /// The snapshot memory significantly reduce the amount of
     /// duplicate entries in the journal for memory that has not changed
     #[cfg(feature = "journal")]
@@ -421,6 +425,8 @@ impl WasiProcess {
                 children: Default::default(),
                 checkpoint: WasiProcessCheckpoint::Execute,
                 wakers: Default::default(),
+                cleanup_started: false,
+                memory: Default::default(),
                 waiting: waiting.clone(),
                 #[cfg(feature = "journal")]
                 snapshot_on: Default::default(),
@@ -457,6 +463,18 @@ impl WasiProcess {
             ),
             waiting,
             cpu_run_tokens: Arc::new(AtomicU32::new(0)),
+        }
+    }
+
+    /// Tries to start the cleanup process, returns true if this is the first
+    /// thread to start the cleanup.
+    pub fn try_start_cleanup(&self) -> bool {
+        let mut guard = self.inner.0.lock().unwrap();
+        if guard.cleanup_started {
+            false
+        } else {
+            guard.cleanup_started = true;
+            true
         }
     }
 
@@ -563,6 +581,8 @@ impl WasiProcess {
         tracing::trace!(%pid, %tid, "signal-thread({:?})", signal);
 
         let inner = self.inner.0.lock().unwrap();
+
+        wake_atomic_waiters(&inner, signal);
         if let Some(thread) = inner.threads.get(&tid) {
             thread.signal(signal);
         } else {
@@ -578,6 +598,12 @@ impl WasiProcess {
     /// Signals all the threads in this process
     pub fn signal_process(&self, signal: Signal) {
         signal_process_internal(&self.inner, signal);
+    }
+
+    /// Registers the shared memory used by this process.
+    pub fn register_memory(&self, memory: SharedMemory) {
+        let mut inner = self.inner.0.lock().unwrap();
+        inner.memory = Some(memory);
     }
 
     /// Takes a snapshot of the process and disables journaling returning
@@ -798,6 +824,8 @@ impl WasiProcess {
 
     /// Terminate the process and all its threads
     pub fn terminate(&self, exit_code: ExitCode) {
+        let pid = self.pid;
+        tracing::trace!(%pid, %exit_code, "process-terminate");
         // FIXME: this is wrong, threads might still be running!
         // Need special logic for the main thread.
         let guard = self.inner.0.lock().unwrap();
@@ -850,8 +878,44 @@ fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
     }
 
     // Otherwise just send the signal to all the threads
+    wake_atomic_waiters(&guard, signal);
     for thread in guard.threads.values() {
         thread.signal(signal);
+    }
+}
+
+fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
+    let Some(memory) = &process.memory else {
+        return;
+    };
+
+    // Atomic wait wakeups are memory-wide, so only use them for signals
+    // that should interrupt or terminate execution anyway.
+    if !matches!(
+        signal,
+        Signal::Sigkill
+            | Signal::Sigterm
+            | Signal::Sigabrt
+            | Signal::Sigquit
+            | Signal::Sigint
+            | Signal::Sigstop
+            | Signal::Sigpipe
+    ) {
+        return;
+    }
+
+    // On kill, disable atomics to prevent threads from resuming.
+    if signal == Signal::Sigkill {
+        // NOTE: disable_atomics also wakes all current waiters.
+        if let Err(err) = memory.disable_atomics() {
+            tracing::trace!(
+                pid=%process.pid,
+                error = &err as &dyn std::error::Error,
+                "failed to wake atomic waiters"
+            );
+        }
+    } else {
+        memory.wake_all_atomic_waiters();
     }
 }
 

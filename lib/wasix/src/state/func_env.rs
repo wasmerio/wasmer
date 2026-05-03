@@ -156,13 +156,16 @@ impl WasiFunctionEnv {
         };
 
         let new_inner = WasiInstanceHandles::new(memory, store, instance);
-
+        let shared_memory = new_inner.memory().as_shared(store);
         let stack_pointer = new_inner.stack_pointer.clone();
         let data_end = new_inner.data_end.clone();
         let stack_low = new_inner.stack_low.clone();
         let stack_high = new_inner.stack_high.clone();
 
         let env = self.data_mut(store);
+        if let Some(shared_memory) = shared_memory {
+            env.process.register_memory(shared_memory);
+        }
         env.set_inner(new_inner);
 
         env.state.fs.set_is_wasix(is_wasix_module);
