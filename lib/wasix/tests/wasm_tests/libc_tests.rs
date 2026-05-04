@@ -27,8 +27,18 @@ fn run_libc_test_stdout_0(test_name: &str, cleanup_paths: &[&str]) {
     for path in cleanup_paths {
         remove_path_if_exists(&test_dir.join(path));
     }
-    assert_eq!(String::from_utf8_lossy(&result.stdout).trim(), "0");
-    assert_eq!(result.exit_code, Some(0));
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    let trace = String::from_utf8_lossy(&result.trace_output);
+    assert_eq!(stdout.trim(), "0", "stderr:\n{}\ntrace:\n{}", stderr, trace);
+    assert_eq!(
+        result.exit_code,
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}\ntrace:\n{}",
+        stdout,
+        stderr,
+        trace,
+    );
 }
 
 wasm_test!(

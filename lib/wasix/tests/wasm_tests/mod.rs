@@ -50,11 +50,12 @@ macro_rules! wasm_test {
             assert_eq!(
                 result.exit_code,
                 Some($expected),
-                "{} should exit with code {:?}\nstdout:\n{}\nstderr:\n{}",
+                "{} should exit with code {:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
                 stringify!($fn_name),
                 Some($expected),
                 String::from_utf8_lossy(&result.stdout),
                 String::from_utf8_lossy(&result.stderr),
+                String::from_utf8_lossy(&result.trace_output),
             );
         }
     };
@@ -69,10 +70,11 @@ macro_rules! wasm_test {
             assert_eq!(
                 stdout.trim(),
                 $expected,
-                "exit_code={:?}\nstdout:\n{}\nstderr:\n{}",
+                "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
                 result.exit_code,
                 stdout,
                 String::from_utf8_lossy(&result.stderr),
+                String::from_utf8_lossy(&result.trace_output),
             );
         }
     };
@@ -112,17 +114,94 @@ mod socket_tests;
 mod threadlocal_tests;
 
 use std::borrow::Cow;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Command;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::task::{Context, Poll};
+use tracing_subscriber::EnvFilter;
+use tracing_subscriber::fmt::MakeWriter;
+use tracing_subscriber::layer::SubscriberExt;
 use wasmer_wasix::VirtualFile as VirtualFileTrait;
 use wasmer_wasix::runners::MappedDirectory;
 use wasmer_wasix::runners::wasi::{RuntimeOrEngine, WasiRunner};
 use wasmer_wasix::runtime::module_cache::{HashedModuleData, ModuleCache};
 use wasmer_wasix::virtual_fs::{AsyncRead, AsyncSeek, AsyncWrite};
+
+static TRACE_SUBSCRIBER_INIT: OnceLock<()> = OnceLock::new();
+static TRACE_CAPTURE_STATE: OnceLock<TraceCaptureState> = OnceLock::new();
+
+#[derive(Default)]
+struct TraceCaptureState {
+    active_buffer: Mutex<Option<Arc<Mutex<Vec<u8>>>>>,
+    run_lock: Mutex<()>,
+}
+
+#[derive(Clone, Default)]
+struct TraceMakeWriter;
+
+struct TraceWriter {
+    buffer: Option<Arc<Mutex<Vec<u8>>>>,
+}
+
+impl<'a> MakeWriter<'a> for TraceMakeWriter {
+    type Writer = TraceWriter;
+
+    fn make_writer(&'a self) -> Self::Writer {
+        let buffer = trace_capture_state().active_buffer.lock().unwrap().clone();
+        TraceWriter { buffer }
+    }
+}
+
+impl Write for TraceWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        if let Some(buffer) = &self.buffer {
+            buffer.lock().unwrap().extend_from_slice(buf);
+        }
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+fn trace_capture_state() -> &'static TraceCaptureState {
+    TRACE_CAPTURE_STATE.get_or_init(TraceCaptureState::default)
+}
+
+fn init_trace_capture() {
+    TRACE_SUBSCRIBER_INIT.get_or_init(|| {
+        let filter = EnvFilter::try_from_env("RUST_LOG").unwrap_or_else(|_| EnvFilter::new("off"));
+        let subscriber = tracing_subscriber::registry().with(filter).with(
+            tracing_subscriber::fmt::layer()
+                .with_ansi(false)
+                .without_time()
+                .with_writer(TraceMakeWriter),
+        );
+
+        let _ = tracing::subscriber::set_global_default(subscriber);
+    });
+}
+
+fn capture_trace_output<T>(f: impl FnOnce() -> T) -> (T, Vec<u8>) {
+    init_trace_capture();
+
+    let state = trace_capture_state();
+    let _run_guard = state.run_lock.lock().unwrap();
+    let buffer = Arc::new(Mutex::new(Vec::new()));
+    *state.active_buffer.lock().unwrap() = Some(buffer.clone());
+
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    *state.active_buffer.lock().unwrap() = None;
+    let trace_output = buffer.lock().unwrap().clone();
+
+    match result {
+        Ok(value) => (value, trace_output),
+        Err(payload) => std::panic::resume_unwind(payload),
+    }
+}
 
 /// A virtual file that captures all writes to an in-memory buffer.
 /// This is used to capture stdout/stderr during test execution.
@@ -436,15 +515,18 @@ pub struct WasmRunResult {
     #[allow(dead_code)]
     pub stderr: Vec<u8>,
     #[allow(dead_code)]
+    pub trace_output: Vec<u8>,
+    #[allow(dead_code)]
     pub exit_code: Option<i32>,
 }
 
 fn format_captured_output(result: &WasmRunResult) -> String {
     format!(
-        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}",
+        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
         result.exit_code,
         String::from_utf8_lossy(&result.stdout),
         String::from_utf8_lossy(&result.stderr),
+        String::from_utf8_lossy(&result.trace_output),
     )
 }
 
@@ -480,58 +562,61 @@ pub fn run_wasm_with_result(
 
     let rt = create_runtime();
 
-    let result = rt.block_on(async {
-        // Set up module cache with in-memory + filesystem fallback (same as CLI)
-        let cache_dir = get_cache_dir();
-        std::fs::create_dir_all(&cache_dir).ok();
+    let (result, trace_output) = capture_trace_output(|| {
+        rt.block_on(async {
+            // Set up module cache with in-memory + filesystem fallback (same as CLI)
+            let cache_dir = get_cache_dir();
+            std::fs::create_dir_all(&cache_dir).ok();
 
-        let rt_handle = wasmer_wasix::runtime::task_manager::tokio::RuntimeOrHandle::Handle(
-            tokio::runtime::Handle::current(),
-        );
-        let tokio_task_manager =
-            Arc::new(wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager::new(rt_handle));
-        let module_cache = wasmer_wasix::runtime::module_cache::SharedCache::default()
-            .with_fallback(wasmer_wasix::runtime::module_cache::FileSystemCache::new(
-                cache_dir,
-                tokio_task_manager,
-            ));
+            let rt_handle = wasmer_wasix::runtime::task_manager::tokio::RuntimeOrHandle::Handle(
+                tokio::runtime::Handle::current(),
+            );
+            let tokio_task_manager = Arc::new(
+                wasmer_wasix::runtime::task_manager::tokio::TokioTaskManager::new(rt_handle),
+            );
+            let module_cache = wasmer_wasix::runtime::module_cache::SharedCache::default()
+                .with_fallback(wasmer_wasix::runtime::module_cache::FileSystemCache::new(
+                    cache_dir,
+                    tokio_task_manager,
+                ));
 
-        let arc_cache = Arc::new(module_cache);
+            let arc_cache = Arc::new(module_cache);
 
-        let module = wasmer_wasix::runtime::load_module(
-            &engine,
-            &arc_cache,
-            wasmer_wasix::runtime::ModuleInput::Hashed(Cow::Borrowed(&module_data)),
-            None,
-        )
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to load module: {}", e))?;
-
-        tokio::task::block_in_place(move || {
-            // Run the WASM module using WasiRunner
-            let mut runner = WasiRunner::new();
-            runner
-                .with_mapped_directories([MappedDirectory {
-                    guest: dir.to_string_lossy().to_string(),
-                    host: dir.to_path_buf(),
-                }])
-                .with_mapped_directories([MappedDirectory {
-                    guest: "/lib".to_string(),
-                    host: dir.to_path_buf(),
-                }])
-                .with_mapped_directories([MappedDirectory {
-                    guest: "/data".to_string(),
-                    host: dir.to_path_buf(),
-                }])
-                .with_current_dir(dir.to_string_lossy().to_string())
-                .with_stdout(stdout_capture)
-                .with_stderr(stderr_capture);
-            runner.run_wasm(
-                RuntimeOrEngine::Engine(engine),
-                wasm_path.to_string_lossy().as_ref(),
-                module,
-                hash,
+            let module = wasmer_wasix::runtime::load_module(
+                &engine,
+                &arc_cache,
+                wasmer_wasix::runtime::ModuleInput::Hashed(Cow::Borrowed(&module_data)),
+                None,
             )
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to load module: {}", e))?;
+
+            tokio::task::block_in_place(move || {
+                // Run the WASM module using WasiRunner
+                let mut runner = WasiRunner::new();
+                runner
+                    .with_mapped_directories([MappedDirectory {
+                        guest: dir.to_string_lossy().to_string(),
+                        host: dir.to_path_buf(),
+                    }])
+                    .with_mapped_directories([MappedDirectory {
+                        guest: "/lib".to_string(),
+                        host: dir.to_path_buf(),
+                    }])
+                    .with_mapped_directories([MappedDirectory {
+                        guest: "/data".to_string(),
+                        host: dir.to_path_buf(),
+                    }])
+                    .with_current_dir(dir.to_string_lossy().to_string())
+                    .with_stdout(stdout_capture)
+                    .with_stderr(stderr_capture);
+                runner.run_wasm(
+                    RuntimeOrEngine::Engine(engine),
+                    wasm_path.to_string_lossy().as_ref(),
+                    module,
+                    hash,
+                )
+            })
         })
     });
 
@@ -560,6 +645,7 @@ pub fn run_wasm_with_result(
     Ok(WasmRunResult {
         stdout,
         stderr,
+        trace_output,
         exit_code,
     })
 }
