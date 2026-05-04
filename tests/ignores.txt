@@ -28,6 +28,7 @@ macos+cranelift wasmer::exception_handling
 
 # Misc
 singlepass wide_arithmetic
+v8 wide_arithmetic
 singlepass spec::linking
 cranelift spec::linking
 llvm spec::linking

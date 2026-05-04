@@ -2,11 +2,11 @@ use wasmer_types::{ExternType, FunctionType, Mutability, Type};
 
 /// Utilities to convert between `v8` and `wasmer` values
 use crate::{
-    BackendFunction, Function, Value,
     v8::{
         bindings::{self, *},
         function,
     },
+    BackendFunction, Function, Value,
 };
 
 pub trait IntoCApiValue {
@@ -51,9 +51,14 @@ impl IntoCApiValue for Value {
             Self::ExceptionRef(_) => {
                 panic!("Creating host values from guest V128s is not currently supported in V8.")
             }
-            Self::V128(_) => {
-                panic!("Creating host values from guest V128s is not currently supported in V8.")
-            }
+            Self::V128(val) => wasm_val_t {
+                kind: bindings::wasm_valkind_enum_WASM_V128 as _,
+                of: wasm_val_t__bindgen_ty_1 {
+                    v128: wasm_v128_t {
+                        bytes: val.to_le_bytes(),
+                    },
+                },
+            },
         }
     }
 }
@@ -70,6 +75,9 @@ impl IntoWasmerValue for wasm_val_t {
             bindings::wasm_valkind_enum_WASM_I64 => Value::I64(unsafe { self.of.i64_ }),
             bindings::wasm_valkind_enum_WASM_F32 => Value::F32(unsafe { self.of.f32_ }),
             bindings::wasm_valkind_enum_WASM_F64 => Value::F64(unsafe { self.of.f64_ }),
+            bindings::wasm_valkind_enum_WASM_V128 => {
+                Value::V128(u128::from_le_bytes(unsafe { self.of.v128.bytes }))
+            }
             bindings::wasm_valkind_enum_WASM_FUNCREF => Value::FuncRef(Some(Function(
                 BackendFunction::V8(crate::backend::v8::function::Function {
                     handle: unsafe { self.of.ref_ as _ },
@@ -97,6 +105,7 @@ impl IntoWasmerType for wasm_valkind_t {
             bindings::wasm_valkind_enum_WASM_F64 => Type::F64,
             bindings::wasm_valkind_enum_WASM_EXTERNREF => Type::ExternRef,
             bindings::wasm_valkind_enum_WASM_FUNCREF => Type::FuncRef,
+            bindings::wasm_valkind_enum_WASM_V128 => Type::V128,
             _ => unreachable!("v8 kind {self:?} has no matching wasmer type"),
         }
     }
@@ -116,7 +125,7 @@ impl IntoCApiType for Type {
             Self::F64 => bindings::wasm_valkind_enum_WASM_F64 as _,
             Self::FuncRef => bindings::wasm_valkind_enum_WASM_FUNCREF as _,
             Self::ExternRef => bindings::wasm_valkind_enum_WASM_EXTERNREF as _,
-            Self::V128 => panic!("v8 currently does not support V128 types"),
+            Self::V128 => bindings::wasm_valkind_enum_WASM_V128 as _,
             Self::ExceptionRef => panic!("v8 currently does not support exnrefs"),
         }
     }

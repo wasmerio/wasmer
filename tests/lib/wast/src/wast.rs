@@ -543,6 +543,8 @@ impl Wast {
             || (expected.contains("alignment must not be larger than natural") && actual.contains("malformed memop alignment: alignment too large"))
             || (expected.contains("type mismatch") && actual.contains("malformed memop alignment: alignment too large"))
             || (expected.contains("type mismatch") && actual.contains("Validation error: gc support is not enabled"))
+            // V8 engine does not provide any detailed error messages.
+            || (expected.contains("type mismatch") && actual.contains("Validation error: Failed to create V8 module"))
     }
 
     // Checks if the `assert_trap` message matches the expected one
