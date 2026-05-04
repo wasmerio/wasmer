@@ -141,10 +141,8 @@ fn downcast_from_ptr(value: &JsValue) -> Option<Trap> {
             .and_then(|destroy_into_raw| destroy_into_raw.call0(value).ok())
             .and_then(|ret| ret.as_f64())?;
 
-        let abi_ptr = std::mem::transmute(ptr as u32);
-
         Some(<Trap as wasm_bindgen::convert::FromWasmAbi>::from_abi(
-            abi_ptr,
+            wasm_bindgen::__rt::WasmPtr::from_usize(ptr as u32 as usize),
         ))
     }
 }
