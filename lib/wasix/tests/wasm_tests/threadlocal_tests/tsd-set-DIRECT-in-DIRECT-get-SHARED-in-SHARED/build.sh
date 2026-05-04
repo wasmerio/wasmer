@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+export WASIXCC_PIC=1
 cd "$(dirname "$0")"
 SRCDIR=../thread-getspecific-set-and-get
 

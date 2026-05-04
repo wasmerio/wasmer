@@ -582,7 +582,9 @@ impl InodeSocket {
         let new_write_timeout;
         let new_read_timeout;
 
-        let timeout = timeout.unwrap_or(Duration::from_secs(30));
+        let timeout = timeout
+            .or_else(|| self.opt_time(TimeType::ConnectTimeout).ok().flatten())
+            .unwrap_or(Duration::from_secs(30));
 
         let handler;
         let connect = {

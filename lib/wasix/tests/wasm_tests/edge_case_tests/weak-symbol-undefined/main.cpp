@@ -1,5 +1,4 @@
 #include <assert.h>
-#include <dlfcn.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -12,5 +11,5 @@ int main() {
   }
   int result = other_func();
   printf("other_func returned %i\n", result);
-  return 0;
+  return 1;
 }

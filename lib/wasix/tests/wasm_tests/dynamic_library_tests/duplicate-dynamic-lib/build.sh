@@ -1,5 +1,6 @@
 #!/bin/bash
 set -ex
+export WASIXCC_PIC=1
 
 # Compile the shared libraries in subdirectories
 mkdir -p a b
@@ -12,4 +13,4 @@ $CC -shared side.c -o libside.so
 cd ..
 
 # Compile the main executable
-$CC main.c -o main -ldl
+$CC main.c -o main

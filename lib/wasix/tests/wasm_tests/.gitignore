@@ -1,11 +1,6 @@
-*/*.test.wasm
-*/*.out
-wasix-tests
-*/*/*
-*/*/*/*
-!*/*/*/
-!*/*/**/build.sh
-!*/*/**/*.c
-!*/*/**/*.cpp
-!*/*/**/*.hpp
-!*/*/**/*.h
+*.out
+main
+*.wasm
+*.o
+*.so
+*.tmp
