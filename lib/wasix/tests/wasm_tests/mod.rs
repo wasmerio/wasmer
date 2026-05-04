@@ -519,6 +519,10 @@ pub fn run_wasm_with_result(
                     guest: "/lib".to_string(),
                     host: dir.to_path_buf(),
                 }])
+                .with_mapped_directories([MappedDirectory {
+                    guest: "/data".to_string(),
+                    host: dir.to_path_buf(),
+                }])
                 .with_current_dir(dir.to_string_lossy().to_string())
                 .with_stdout(stdout_capture)
                 .with_stderr(stderr_capture);

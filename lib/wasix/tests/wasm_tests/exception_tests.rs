@@ -43,3 +43,9 @@ wasm_test!(
     "static-thrower-via-shared-proxy-static-catcher"
 );
 wasm_test!(nested_exceptions, "nested-exceptions");
+wasm_test!(
+    #[ignore = "exceptions across a normal call stack are currently unsupported"]
+    legacy_exception,
+    "legacy-exception",
+    stdout = "caught exception, will rethrow\ncaught exception in main: 42"
+);
