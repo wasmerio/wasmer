@@ -139,6 +139,12 @@ pub fn path_rename_internal(
         }
     };
 
+    if source_parent_inode.ino() == target_parent_inode.ino()
+        && source_entry_name == target_entry_name
+    {
+        return Ok(Errno::Success);
+    }
+
     let source_entry = {
         let mut guard = source_parent_inode.write();
         match guard.deref_mut() {

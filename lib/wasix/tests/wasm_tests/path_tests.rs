@@ -35,3 +35,13 @@ fn test_create_move_open() {
     assert_eq!(String::from_utf8_lossy(&result.stdout).trim(), "0");
     assert_eq!(result.exit_code, Some(0));
 }
+
+#[test]
+fn test_rename_same_path() {
+    let wasm = run_build_script(file!(), "rename-same-path").unwrap();
+    let test_dir = wasm.parent().unwrap();
+    remove_path_if_exists(&test_dir.join("same-path"));
+    let result = run_wasm_with_result(&wasm, test_dir).unwrap();
+    remove_path_if_exists(&test_dir.join("same-path"));
+    assert_eq!(result.exit_code, Some(0));
+}
