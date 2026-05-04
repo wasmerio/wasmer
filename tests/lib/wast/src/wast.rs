@@ -515,6 +515,11 @@ impl Wast {
 
     // Checks if the `assert_invalid` message matches the expected one
     fn matches_message_assert_invalid(expected: &str, actual: &str) -> bool {
+        // V8 engine can't propagate detailed error message:
+        if actual.contains("Validation error: Failed to create V8 module") {
+            return true;
+        }
+
         actual.contains(expected)
             // Waiting on https://github.com/WebAssembly/bulk-memory-operations/pull/137
             // to propagate to WebAssembly/testsuite.
@@ -543,8 +548,6 @@ impl Wast {
             || (expected.contains("alignment must not be larger than natural") && actual.contains("malformed memop alignment: alignment too large"))
             || (expected.contains("type mismatch") && actual.contains("malformed memop alignment: alignment too large"))
             || (expected.contains("type mismatch") && actual.contains("Validation error: gc support is not enabled"))
-            // V8 engine does not provide any detailed error messages.
-            || (expected.contains("type mismatch") && actual.contains("Validation error: Failed to create V8 module"))
     }
 
     // Checks if the `assert_trap` message matches the expected one
