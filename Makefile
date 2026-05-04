@@ -664,10 +664,6 @@ test-wasi-fyi: build-wasmer
 	cd tests/wasi-fyi; \
 	./test.sh
 
-test-wasix: build-wasmer
-	cd tests/wasix; \
-	./test.sh
-
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci: require-nextest build-wasmer
 	rustup target add wasm32-wasip1

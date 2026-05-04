@@ -1,7 +1,9 @@
 use std::fs;
 use std::path::Path;
 
-use super::{run_build_script, run_wasm_with_result};
+use super::{
+    MappedDirectory, run_build_script, run_wasm_with_result, run_wasm_with_runner_config_checked,
+};
 
 fn remove_path_if_exists(path: &Path) {
     if !path.exists() {
@@ -80,6 +82,19 @@ fn test_fstatat_with_chdir() {
 #[test]
 fn test_mount_tmp_locally() {
     run_path_test_stdout_0("mount-tmp-locally", &[]);
+}
+
+#[test]
+fn test_fs_mount() {
+    let wasm = run_build_script(file!(), "fs-mount").unwrap();
+    let test_dir = wasm.parent().unwrap();
+    run_wasm_with_runner_config_checked(&wasm, test_dir, |runner| {
+        runner.with_mapped_directories([MappedDirectory {
+            guest: "/mount".to_string(),
+            host: test_dir.to_path_buf(),
+        }]);
+    })
+    .unwrap();
 }
 
 #[test]
