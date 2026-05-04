@@ -1,11 +1,7 @@
-#include <stdio.h>
-#if defined __has_include
-#if __has_include(<wasix/reflection.h>) && __has_include(<wasix/closure.h>)
 #include <assert.h>
 #include <errno.h>
+#include <stdio.h>
 #include <wasix/reflection.h>
-#endif
-#endif
 
 void nothing(void) {
   // Nothing
@@ -16,8 +12,6 @@ int triple_add(int a, int b, int c) {
 };
 
 int main() {
-#if defined __has_include
-#if __has_include(<wasix/reflection.h>) && __has_include(<wasix/closure.h>)
   void (*nothing_ptr)(void) = nothing;
   int (*triple_add_ptr)(int, int, int) = triple_add;
 
@@ -87,8 +81,6 @@ int main() {
   assert(result.arguments == 0);
   assert(result.results == 0);
   assert(result.cacheable == 1);
-#endif
-#endif
 
   printf("Reflection API seems to work\n");
   return 0;

@@ -1,17 +1,10 @@
-#include <dlfcn.h>
-#include <stdio.h>
-
-#if defined __has_include
-#if __has_include(<wasix/reflection.h>)
 #include <assert.h>
+#include <dlfcn.h>
 #include <errno.h>
+#include <stdio.h>
 #include <wasix/reflection.h>
-#endif
-#endif
 
 int main() {
-#if defined __has_include
-#if __has_include(<wasix/reflection.h>)
   // Open the shared library
   void* handle = dlopen("./liblibrary.so", RTLD_LAZY);
   assert(handle != NULL);
@@ -54,8 +47,6 @@ int main() {
   assert(result.cacheable == 1);
 
   dlclose(handle);
-#endif
-#endif
 
   printf("Reflection API works with dlopened functions\n");
   return 0;

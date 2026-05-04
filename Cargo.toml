@@ -237,7 +237,11 @@ region = "3.0"
 replace_with = "0.1.7"
 reqwest = { version = "0.13.0", default-features = false }
 rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
-symbolic-demangle = { version = "12", default-features = false, features = ["rust", "cpp", "msvc"] }
+symbolic-demangle = { version = "12", default-features = false, features = [
+	"rust",
+	"cpp",
+	"msvc",
+] }
 rustc_version = "0.4"
 rusty_pool = "0.7.0"
 rustversion = "1.0"
@@ -301,9 +305,15 @@ wasm-bindgen = "0.2.100"
 wasm-bindgen-futures = "0.4.37"
 wasm-bindgen-test = "0.3.0"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.248.0", default-features = false, features = ["std"] }
+wasm-encoder = { version = "0.248.0", default-features = false, features = [
+	"std",
+] }
 wasm-smith = "0.248.0"
-wasmparser = { version = "0.248.0", default-features = false, features = ["validate", "features", "simd"] }
+wasmparser = { version = "0.248.0", default-features = false, features = [
+	"validate",
+	"features",
+	"simd",
+] }
 wasmprinter = "0.248.0"
 wasmer-inline-c = "0.1.1"
 wast = "248.0.0"
@@ -329,6 +339,10 @@ rustc_version.workspace = true
 [dev-dependencies]
 wasmer = { version = "=7.2.0-alpha.2", path = "lib/api", features = [
 	"compiler",
+	"singlepass",
+	"sys",
+] }
+wasmer-wasix = { version = "=0.702.0-alpha.2", path = "lib/wasix", features = [
 	"singlepass",
 	"sys",
 ] }
@@ -369,8 +383,18 @@ wast = ["wasmer-wast"]
 wasi = ["wasmer-wasix", "tokio"]
 wat = ["wasmer/wat"]
 compiler = ["wasmer/compiler", "backend", "wasmer-compiler/translator"]
-singlepass = ["compiler", "wasmer-compiler-singlepass", "wasmer/singlepass", "wasmer-wasix/singlepass"]
-cranelift = ["compiler", "wasmer-compiler-cranelift", "wasmer/cranelift", "wasmer-wasix/cranelift"]
+singlepass = [
+	"compiler",
+	"wasmer-compiler-singlepass",
+	"wasmer/singlepass",
+	"wasmer-wasix/singlepass",
+]
+cranelift = [
+	"compiler",
+	"wasmer-compiler-cranelift",
+	"wasmer/cranelift",
+	"wasmer-wasix/cranelift",
+]
 llvm = ["compiler", "wasmer-compiler-llvm", "wasmer/llvm", "wasmer-wasix/llvm"]
 middlewares = ["wasmer-middlewares"]
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]

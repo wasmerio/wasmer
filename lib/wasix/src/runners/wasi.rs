@@ -632,7 +632,7 @@ mod tests {
         let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
             tokrt.clone(),
         ));
-        let rt = crate::PluggableRuntime::new(tm, wasmer::Engine::default());
+        let rt = crate::PluggableRuntime::new(tm);
 
         let envb = envb
             .prepare_webc_env(
@@ -671,7 +671,7 @@ mod tests {
         let tm = Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::new(
             tokrt.clone(),
         ));
-        let mut rt = crate::PluggableRuntime::new(tm, wasmer::Engine::default());
+        let mut rt = crate::PluggableRuntime::new(tm);
         rt.set_package_loader(crate::runtime::package_loader::BuiltinPackageLoader::new());
 
         let webc_path = std::path::PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap())

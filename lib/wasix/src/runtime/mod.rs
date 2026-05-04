@@ -529,7 +529,11 @@ pub struct PluggableRuntime {
 }
 
 impl PluggableRuntime {
-    pub fn new(rt: Arc<dyn VirtualTaskManager>, engine: Engine) -> Self {
+    pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
+        Self::new_with_engine(rt, Engine::default())
+    }
+
+    pub fn new_with_engine(rt: Arc<dyn VirtualTaskManager>, engine: Engine) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
         cfg_if::cfg_if! {
             if #[cfg(feature = "host-vnet")] {

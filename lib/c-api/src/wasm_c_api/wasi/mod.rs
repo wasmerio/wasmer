@@ -278,7 +278,7 @@ fn prepare_webc_env(
 
     let handle = runtime.handle().clone();
     let _guard = handle.enter();
-    let rt = PluggableRuntime::new(
+    let rt = PluggableRuntime::new_with_engine(
         Arc::new(TokioTaskManager::new(runtime)),
         store_mut.engine().clone(),
     );
@@ -353,7 +353,7 @@ pub unsafe extern "C" fn wasi_env_new(
 
     let handle = runtime.handle().clone();
     let _guard = handle.enter();
-    let rt = PluggableRuntime::new(
+    let rt = PluggableRuntime::new_with_engine(
         Arc::new(TokioTaskManager::new(runtime)),
         store_mut.engine().clone(),
     );

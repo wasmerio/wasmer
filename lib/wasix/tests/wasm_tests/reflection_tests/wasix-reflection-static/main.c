@@ -1,12 +1,7 @@
-#include <stdio.h>
-
-#if defined __has_include
-#if __has_include(<wasix/reflection.h>)
 #include <assert.h>
 #include <errno.h>
+#include <stdio.h>
 #include <wasix/reflection.h>
-#endif
-#endif
 
 static int static_add(int a, int b) { return a + b; }
 
@@ -17,8 +12,6 @@ static void static_no_params(void) {
 static double static_double_func(double x, double y) { return x * y; }
 
 int main() {
-#if defined __has_include
-#if __has_include(<wasix/reflection.h>)
   wasix_reflection_result_t result;
   int code;
   wasix_value_type_t params[5];
@@ -59,8 +52,6 @@ int main() {
   assert(params[0] == WASIX_VALUE_TYPE_F64);
   assert(params[1] == WASIX_VALUE_TYPE_F64);
   assert(results[0] == WASIX_VALUE_TYPE_F64);
-#endif
-#endif
 
   printf("Reflection API works with static functions\n");
   return 0;

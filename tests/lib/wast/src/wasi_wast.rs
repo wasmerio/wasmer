@@ -111,12 +111,12 @@ impl<'a> WasiTest<'a> {
         #[cfg(not(target_arch = "wasm32"))]
         let _guard = handle.enter();
         #[cfg(not(target_arch = "wasm32"))]
-        let rt = PluggableRuntime::new(
+        let rt = PluggableRuntime::new_with_engine(
             Arc::new(TokioTaskManager::new(runtime)),
             store.engine().clone(),
         );
         #[cfg(target_arch = "wasm32")]
-        let rt = PluggableRuntime::new(
+        let rt = PluggableRuntime::new_with_engine(
             Arc::new(TokioTaskManager::default()),
             store.engine().clone(),
         );

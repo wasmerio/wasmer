@@ -335,11 +335,20 @@ impl Engine {
         let inner = self.inner();
         let mut final_features = inner.features().clone();
         final_features.extend(features);
-        Ok(Self::new(
+
+        let mut engine = Self::new(
             inner.compiler()?.configuration(),
             self.target().clone(),
             final_features,
-        ))
+        );
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            engine.tunables = Arc::clone(&self.tunables);
+        }
+
+        engine.name = self.name.clone();
+        Ok(engine)
     }
 }
 

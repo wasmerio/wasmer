@@ -40,6 +40,14 @@ compile_error!(
     "The `js` feature must be enabled only for the `wasm32` target (either `wasm32-unknown-unknown` or `wasm32-wasip1`)."
 );
 
+#[cfg(all(
+    feature = "sys",
+    not(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))
+))]
+compile_error!(
+    "When `sys` is enabled, at least one compile backend (`cranelift`, `llvm`, `singlepass`) must be enabled as well"
+);
+
 #[cfg(all(test, target_arch = "wasm32"))]
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 

@@ -1022,7 +1022,7 @@ impl WasiEnvBuilder {
                         )
                         .clone();
                 #[allow(unused_mut)]
-                let mut runtime = crate::runtime::PluggableRuntime::new(
+                let mut runtime = crate::runtime::PluggableRuntime::new_with_engine(
                     Arc::new(
                         crate::runtime::task_manager::tokio::TokioTaskManager::default()
                     ),

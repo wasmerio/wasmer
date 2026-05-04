@@ -17,16 +17,7 @@ static wasix_function_pointer_t closure_backing_function_id(void) {
 
 static void flush_trace(void) { fflush(stdout); }
 
-#if defined __has_include
-#if __has_include(<wasix/reflection.h>) && __has_include(<wasix/closure.h>)
-static void closure_backing_function(uint8_t* values, uint8_t* results,
-                                     void* user_data_ptr) {}
-#endif
-#endif
-
 int main() {
-#if defined __has_include
-#if __has_include(<wasix/reflection.h>) && __has_include(<wasix/closure.h>)
   wasix_function_pointer_t closure_pointer = 0;
   wasix_value_type_t argument_types[2] = {WASIX_VALUE_TYPE_I32,
                                           WASIX_VALUE_TYPE_I64};
@@ -73,8 +64,6 @@ int main() {
   printf("closure_free rc=%d\n", code);
   flush_trace();
   assert(code == 0);
-#endif
-#endif
 
   printf("Reflection API seems to work with closures\n");
   return 0;
