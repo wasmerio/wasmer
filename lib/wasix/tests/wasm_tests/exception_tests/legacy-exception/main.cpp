@@ -7,7 +7,7 @@ void foo() { bar(); }
 void baz() {
   try {
     foo();
-  } catch (int &e) {
+  } catch (int& e) {
     e += 2;
     std::cout << "caught exception, will rethrow" << std::endl;
     throw;

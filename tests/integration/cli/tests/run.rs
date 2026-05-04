@@ -579,7 +579,11 @@ fn local_package_fs_mounts_work_for_dir_and_webc() {
     let webc = temp.path().join("fs-mount-test.webc");
 
     compile_wasix_source(&fixture.join("main.c"), &temp.path().join("main.wasm"));
-    std::fs::copy(fixture.join("testfile.txt"), temp.path().join("testfile.txt")).unwrap();
+    std::fs::copy(
+        fixture.join("testfile.txt"),
+        temp.path().join("testfile.txt"),
+    )
+    .unwrap();
     std::fs::copy(fixture.join("wasmer.toml"), temp.path().join("wasmer.toml")).unwrap();
 
     Command::new(get_wasmer_path())
