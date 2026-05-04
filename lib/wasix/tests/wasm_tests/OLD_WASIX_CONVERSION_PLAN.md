@@ -54,13 +54,16 @@ These are normal new-format tests, but they need explicit build metadata because
 the legacy test uses multiple sources, dynamic libraries, special linker flags,
 or non-default compiler settings.
 
+Converted:
+
+- `dl-cache` -> `dynamic_library_tests/dl-cache`
+- `dl-needed` -> `dynamic_library_tests/dl-needed`
+- `dl-tls` -> `threadlocal_tests/dl-tls`
+- `dlopen` -> `dynamic_library_tests/dlopen`
+- `posix_spawn` -> `process_tests/posix-spawn` (non-asyncified variant)
+
 | Old test | Suggested new group | Conversion notes |
 | --- | --- | --- |
-| `dl-cache` | `dynamic_library_tests` | Add `build.sh`; compile `main` plus `libside1.so` and `libside2.so` with PIC/EH settings. |
-| `dl-needed` | `dynamic_library_tests` | Add `build.sh`; preserve `$ORIGIN` rpath and needed side modules. |
-| `dl-tls` | `threadlocal_tests` or `dynamic_library_tests` | Add `build.sh`; preserve `libcommon.so`, `libside.so`, PIC/EH settings. |
-| `dlopen` | `dynamic_library_tests` | Add `build.sh`; equivalent pattern already exists in `simple-dynamic-lib`. |
-| `posix_spawn` | `process_tests` | Needs custom build script for `-sRUN_WASM_OPT=no` plus `wasm-opt --asyncify`, or a decision to test the non-asyncified variant only. |
 
 ## Requires Harness Extensions Or Custom Rust Tests
 
@@ -68,20 +71,25 @@ These are convertible, but not as plain `wasm_test!` entries with the current
 helper. Add reusable helpers for args, env, custom mounts, stdin, network, and
 possibly multiple sequential runs before converting these.
 
+Converted:
+
+- `cloexec` -> `process_tests/cloexec`
+- `context-switching` -> `context_switching/legacy_process_switching`
+- `cross-fs-rename` -> `process_tests/cross-fs-rename`
+- `fork` -> `process_tests/fork`
+- `popen` -> `process_tests/popen`
+- `proc-exec` -> `process_tests/legacy-proc-exec`
+- `proc-exec2` -> `process_tests/legacy-proc-exec2`
+- `share-tmp-after-fork` -> `process_tests/share-tmp-after-fork`
+- `share-tmp-after-proc-exec` -> `process_tests/share-tmp-after-proc-exec`
+- `share-tmp-after-proc-exec2` -> `process_tests/share-tmp-after-proc-exec2`
+- `udp` -> `socket_tests/udp`
+- `vfork` -> `process_tests/vfork` (`exit_before_exec` and `trap_before_exec`
+  are preserved as ignored tests because the legacy plan identifies them as
+  undefined-behavior cases)
+
 | Old test | Missing harness support | Conversion notes |
 | --- | --- | --- |
-| `cloexec` | argv, multiple subtest runs, timeout-equivalent behavior | Legacy runs `flag_tests`, `exec_tests`, and `pipe2_cloexec_test` separately. |
-| `context-switching` | argv, multiple subtest runs | Several subtests are selected by argv and exercise fork/vfork after context switching. |
-| `cross-fs-rename` | multiple distinct host mounts | Needs separate `/temp1` and `/temp2` HostFS mounts plus default `/tmp`. |
-| `fork` | argv, multiple subtest runs | Legacy runs `failing_exec` and `cloexec` separately. |
-| `popen` | argv, multiple subtest runs, timeout-equivalent behavior | Legacy runs `posix_spawn_direct`, `pipe2_cloexec`, and `popen`. |
-| `proc-exec` | guest path `/code` or fixture adaptation | Current new tests cover newer proc-exec APIs, but this legacy behavior should be checked separately or merged. |
-| `proc-exec2` | guest path `/code`, environment handling | Similar to `proc-exec`; may overlap existing `proc_exec2`. |
-| `share-tmp-after-fork` | guest path `/code` or fixture adaptation | Verifies `/tmp` visibility after fork. |
-| `share-tmp-after-proc-exec` | guest path `/code` or fixture adaptation | Verifies `/tmp` visibility after exec. |
-| `share-tmp-after-proc-exec2` | guest path `/code` or fixture adaptation | Same class as `share-tmp-after-proc-exec`. |
-| `udp` | argv, network capability/setup | Legacy uses `--net` and runs four argv-selected UDP subtests. |
-| `vfork` | argv, multiple binaries, compiler env variants, expected-failure subtests | Needs both asyncify and EH/PIC builds; undefined-behavior subtests should become ignored or explicit expected-failure tests. |
 
 ## Not Directly Equivalent To `wasm_tests`
 

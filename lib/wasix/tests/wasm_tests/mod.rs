@@ -105,6 +105,7 @@ mod poll_tests;
 mod proc_exec3;
 mod proc_exec3_empty_argv;
 mod proc_exec3_errors;
+mod process_tests;
 mod reflect_signature;
 mod reflection_tests;
 mod sched_yield;
@@ -547,6 +548,14 @@ pub fn run_wasm_with_result(
     wasm_path: &PathBuf,
     dir: &Path,
 ) -> Result<WasmRunResult, anyhow::Error> {
+    run_wasm_with_runner_config(wasm_path, dir, |_| {})
+}
+
+pub fn run_wasm_with_runner_config(
+    wasm_path: &PathBuf,
+    dir: &Path,
+    configure_runner: impl FnOnce(&mut WasiRunner),
+) -> Result<WasmRunResult, anyhow::Error> {
     // Load the compiled WASM module
     let wasm_bytes = std::fs::read(wasm_path)?;
     let engine = create_engine_for_wasm(&wasm_bytes);
@@ -610,6 +619,7 @@ pub fn run_wasm_with_result(
                     .with_current_dir(dir.to_string_lossy().to_string())
                     .with_stdout(stdout_capture)
                     .with_stderr(stderr_capture);
+                configure_runner(&mut runner);
                 runner.run_wasm(
                     RuntimeOrEngine::Engine(engine),
                     wasm_path.to_string_lossy().as_ref(),
@@ -654,7 +664,20 @@ pub fn run_wasm_with_result(
 #[allow(unused)]
 pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
     let result = run_wasm_with_result(wasm_path, dir)?;
+    ensure_wasm_run_succeeded(&result)
+}
 
+#[allow(unused)]
+pub fn run_wasm_with_runner_config_checked(
+    wasm_path: &PathBuf,
+    dir: &Path,
+    configure_runner: impl FnOnce(&mut WasiRunner),
+) -> Result<(), anyhow::Error> {
+    let result = run_wasm_with_runner_config(wasm_path, dir, configure_runner)?;
+    ensure_wasm_run_succeeded(&result)
+}
+
+fn ensure_wasm_run_succeeded(result: &WasmRunResult) -> Result<(), anyhow::Error> {
     // If exit code is non-zero, return an error
     if let Some(code) = result.exit_code
         && code != 0

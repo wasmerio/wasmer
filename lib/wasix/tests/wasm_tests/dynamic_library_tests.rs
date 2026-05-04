@@ -17,6 +17,17 @@ wasm_test!(
     stdout = "abcdef"
 );
 wasm_test!(test_dlopen_exports, "dlopen-exports");
+wasm_test!(test_dl_cache, "dl-cache");
+wasm_test!(
+    test_dl_needed,
+    "dl-needed",
+    stdout = "All tests passed successfully!"
+);
+wasm_test!(
+    test_dlopen,
+    "dlopen",
+    stdout = "All tests passed successfully!"
+);
 wasm_test!(test_dylink_needed, "dylink-needed");
 wasm_test!(
     #[ignore = "Currently broken - wasm-ld does not support recursive linking yet"]

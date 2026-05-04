@@ -1,4 +1,4 @@
-use super::{run_build_script, run_wasm_with_result};
+use super::{run_build_script, run_wasm_with_result, run_wasm_with_runner_config};
 
 // These tests include stderr in the assertion message for easier debugging.
 #[test]
@@ -37,3 +37,21 @@ wasm_test!(
     test_socket_pair,
     "socket-pair"
 );
+
+#[test]
+fn test_udp() {
+    let wasm = run_build_script(file!(), "udp").unwrap();
+    for arg in ["addr-reuse", "ipv6", "autobind-connect", "autobind-sendto"] {
+        let result = run_wasm_with_runner_config(&wasm, wasm.parent().unwrap(), |runner| {
+            runner.with_args([arg]);
+        })
+        .unwrap();
+        assert_eq!(
+            result.exit_code,
+            Some(0),
+            "case={arg}\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+}
