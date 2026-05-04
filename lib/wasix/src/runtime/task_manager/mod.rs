@@ -47,7 +47,11 @@ pub enum SpawnMemoryTypeOrStore {
     New,
     Type(wasmer::MemoryType),
     StoreAndMemory(wasmer::Store, Option<wasmer::Memory>),
+    MemoryFactory(Box<SpawnMemoryFactory>),
 }
+
+pub type SpawnMemoryFactory =
+    dyn FnOnce(&mut Store) -> Result<Option<Memory>, WasiThreadError> + Send + 'static;
 
 pub type WasmResumeTask = dyn FnOnce(WasiFunctionEnv, Store, Bytes) + Send + 'static;
 

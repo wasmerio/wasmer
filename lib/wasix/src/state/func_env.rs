@@ -72,6 +72,11 @@ impl WasiFunctionEnv {
                 (Some(mem), Some(store))
             }
             SpawnMemoryTypeOrStore::StoreAndMemory(s, m) => (m, Some(s)),
+            SpawnMemoryTypeOrStore::MemoryFactory(factory) => {
+                let mut store = env.runtime.new_store();
+                let memory = factory(&mut store)?;
+                (memory, Some(store))
+            }
         };
 
         let mut store = store.unwrap_or_else(|| env.runtime().new_store());
