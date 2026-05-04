@@ -224,6 +224,8 @@ impl VirtualFile for FileHandle {
             _ => return Err(FsError::NotAFile),
         }
 
+        // Update current cursor position if file got truncated
+        self.cursor = self.cursor.min(new_size);
         Ok(())
     }
 
