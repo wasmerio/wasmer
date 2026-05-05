@@ -26,7 +26,7 @@ jobs:
           if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
             base_ref='${{ github.event.pull_request.base.ref }}'
             head_sha='${{ github.event.pull_request.head.sha }}'
-            git fetch origin "$base_ref" --depth=1
+            git fetch origin "$base_ref"
             base_sha=$(git merge-base "origin/$base_ref" "$head_sha")
           else
             base_sha='${{ github.event.before }}'
