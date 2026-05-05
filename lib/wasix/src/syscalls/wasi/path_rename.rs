@@ -77,7 +77,7 @@ pub fn path_rename_internal(
     }
 
     // this is to be sure the source file is fetched from the filesystem if needed
-    wasi_try_ok!(
+    let source_inode = wasi_try_ok!(
         state
             .fs
             .get_inode_at_path(inodes, source_fd, source_path, true)
@@ -143,6 +143,14 @@ pub fn path_rename_internal(
         && source_entry_name == target_entry_name
     {
         return Ok(Errno::Success);
+    }
+
+    let source_is_dir = {
+        let guard = source_inode.read();
+        matches!(guard.deref(), Kind::Dir { .. })
+    };
+    if source_is_dir && host_adjusted_target_path.starts_with(&host_adjusted_source_path) {
+        return Ok(Errno::Inval);
     }
 
     let source_entry = {
