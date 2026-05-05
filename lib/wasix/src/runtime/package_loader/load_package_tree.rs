@@ -109,9 +109,15 @@ fn commands(
         },
     ) in commands
     {
-        let webc = &containers[package];
+        let webc = containers.get(package).with_context(|| {
+            format!("Unable to find the \"{package}\" package for the \"{name}\" command")
+        })?;
         let manifest = webc.manifest();
-        let command_metadata = &manifest.commands[original_name];
+        let command_metadata = manifest.commands.get(original_name).with_context(|| {
+            format!(
+                "Unable to find the \"{original_name}\" command metadata in the \"{package}\" package"
+            )
+        })?;
 
         if let Some(cmd) =
             load_binary_command(package, name, command_metadata, containers, resolution)?
@@ -149,7 +155,9 @@ fn load_binary_command(
         }
     };
 
-    let package = &containers[package_id];
+    let package = containers
+        .get(package_id)
+        .with_context(|| format!("Unable to find the \"{package_id}\" package"))?;
 
     let (webc, resolved_package_id) = match dependency {
         Some(dep) => {
@@ -173,7 +181,13 @@ fn load_binary_command(
                 resolved_package_id=%id,
                 "command atom resolution: resolved dependency",
             );
-            (&containers[id], id)
+            let container = containers.get(id).with_context(|| {
+                format!(
+                    "Unable to find the \"{id}\" dependency for the \"{command_name}\" command in \"{package_id}\""
+                )
+            })?;
+
+            (container, id)
         }
         None => (package, package_id),
     };
@@ -307,18 +321,7 @@ async fn fetch_dependencies(
     pkg: &ResolvedPackage,
     graph: &DependencyGraph,
 ) -> Result<HashMap<PackageId, Container>, Error> {
-    let mut packages = HashSet::new();
-
-    for loc in pkg.commands.values() {
-        packages.insert(loc.package.clone());
-    }
-
-    for mapping in &pkg.filesystem {
-        packages.insert(mapping.package.clone());
-    }
-
-    // We don't need to download the root package
-    packages.remove(&pkg.root_package);
+    let packages = packages_needed_for_load(pkg, graph);
 
     let packages = packages.into_iter().filter_map(|id| {
         let crate::runtime::resolver::Node { pkg, dist, .. } = &graph[&id];
@@ -340,6 +343,29 @@ async fn fetch_dependencies(
         .await?;
 
     Ok(packages)
+}
+
+fn packages_needed_for_load(pkg: &ResolvedPackage, graph: &DependencyGraph) -> HashSet<PackageId> {
+    let mut packages = HashSet::new();
+
+    for loc in pkg.commands.values() {
+        packages.insert(loc.package.clone());
+
+        if let Some(owner) = graph.packages().get(&loc.package).copied() {
+            for edge in graph.graph().edges(owner) {
+                packages.insert(graph[edge.target()].id.clone());
+            }
+        }
+    }
+
+    for mapping in &pkg.filesystem {
+        packages.insert(mapping.package.clone());
+    }
+
+    // We don't need to download the root package
+    packages.remove(&pkg.root_package);
+
+    packages
 }
 
 /// How many bytes worth of files does a directory contain?
@@ -592,11 +618,12 @@ fn filesystem_v2(
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::{BTreeMap, HashMap},
+        collections::{BTreeMap, HashMap, HashSet},
         path::{Path, PathBuf},
     };
 
     use ciborium::value::Value;
+    use petgraph::graph::DiGraph;
     use virtual_fs::FileSystem;
     use wasmer_config::package::PackageId;
     use webc::{
@@ -613,7 +640,12 @@ mod tests {
         },
     };
 
-    use super::{ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2};
+    use super::{
+        ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2, packages_needed_for_load,
+    };
+    use crate::runtime::resolver::{
+        Command, DependencyGraph, Edge, ItemLocation, Node, PackageInfo,
+    };
 
     #[test]
     fn v2_filesystem_mapping_resolves_mount_paths() {
@@ -679,6 +711,73 @@ mod tests {
                 .metadata(Path::new("/public/index.html"))
                 .unwrap()
                 .is_file()
+        );
+    }
+
+    #[test]
+    fn command_owner_dependencies_are_fetched_when_dependency_command_is_shadowed() {
+        let root_id = PackageId::new_named("root", "0.1.0".parse().unwrap());
+        let dep_id = PackageId::new_named("wasmer/static-web-server", "1.0.0".parse().unwrap());
+
+        let root_info = PackageInfo {
+            id: root_id.clone(),
+            commands: vec![Command {
+                name: "webserver".to_string(),
+            }],
+            entrypoint: Some("webserver".to_string()),
+            dependencies: Vec::new(),
+            filesystem: Vec::new(),
+        };
+        let dep_info = PackageInfo {
+            id: dep_id.clone(),
+            commands: vec![Command {
+                name: "webserver".to_string(),
+            }],
+            entrypoint: Some("webserver".to_string()),
+            dependencies: Vec::new(),
+            filesystem: Vec::new(),
+        };
+
+        let mut graph = DiGraph::new();
+        let root = graph.add_node(Node {
+            id: root_id.clone(),
+            pkg: root_info,
+            dist: None,
+        });
+        let dep = graph.add_node(Node {
+            id: dep_id.clone(),
+            pkg: dep_info,
+            dist: None,
+        });
+        graph.add_edge(
+            root,
+            dep,
+            Edge {
+                alias: "wasmer/static-web-server".to_string(),
+            },
+        );
+
+        let dependency_graph = DependencyGraph::new(
+            root,
+            graph,
+            BTreeMap::from([(root_id.clone(), root), (dep_id.clone(), dep)]),
+        );
+        let pkg = ResolvedPackage {
+            root_package: root_id.clone(),
+            commands: BTreeMap::from([(
+                "webserver".to_string(),
+                ItemLocation {
+                    name: "webserver".to_string(),
+                    package: root_id,
+                },
+            )]),
+            entrypoint: Some("webserver".to_string()),
+            filesystem: Vec::new(),
+        };
+
+        assert_eq!(
+            packages_needed_for_load(&pkg, &dependency_graph),
+            HashSet::from([dep_id])
         );
     }
 
