@@ -104,6 +104,10 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     wast.allow_trap_message("integer overflow", "float unrepresentable in integer range");
     wast.allow_trap_message("call stack exhausted", "Maximum call stack size exceeded");
     wast.allow_trap_message("cast failure", "illegal cast");
+    wast.allow_trap_message(
+        "uninitialized element 2",
+        "null function or function signature mismatch",
+    );
 
     if cfg!(feature = "coverage") {
         wast.disable_assert_and_exhaustion();
