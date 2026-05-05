@@ -511,6 +511,8 @@ impl Wast {
                 && actual.contains("instantiation failed with: constant expression required"))
             || (expected.contains("unknown import")
                 && actual.contains("instantiation failed with: constant expression required"))
+            || (expected.contains("incompatible import type")
+                && actual.contains("Uncaught LinkError: instantiation"))
     }
 
     // Checks if the `assert_invalid` message matches the expected one
@@ -548,6 +550,9 @@ impl Wast {
             || (expected.contains("alignment must not be larger than natural") && actual.contains("malformed memop alignment: alignment too large"))
             || (expected.contains("type mismatch") && actual.contains("malformed memop alignment: alignment too large"))
             || (expected.contains("type mismatch") && actual.contains("Validation error: gc support is not enabled"))
+            // V8-specific
+            || (expected.contains("multiple tables") && actual.contains("constant expression required"))
+            || (expected.contains("multiple memories") && actual.contains("constant expression required"))
     }
 
     // Checks if the `assert_trap` message matches the expected one

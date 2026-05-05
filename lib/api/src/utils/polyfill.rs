@@ -399,20 +399,26 @@ pub fn parse_type_section(
                 wasmparser::CompositeInnerType::Func(functype) => {
                     let params = functype.params();
                     let returns = functype.results();
-                    let sig_params: Vec<Type> = params
+                    let sig_params = params
                         .iter()
                         .map(|ty| {
-                            wptype_to_type(*ty)
-                                .expect("only numeric types are supported in function signatures")
+                            wptype_to_type(*ty).map_err(|err| {
+                                format!(
+                                    "only numeric types are supported in function signatures: {err}"
+                                )
+                            })
                         })
-                        .collect();
-                    let sig_returns: Vec<Type> = returns
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let sig_returns = returns
                         .iter()
                         .map(|ty| {
-                            wptype_to_type(*ty)
-                                .expect("only numeric types are supported in function signatures")
+                            wptype_to_type(*ty).map_err(|err| {
+                                format!(
+                                    "only numeric types are supported in function signatures: {err}"
+                                )
+                            })
                         })
-                        .collect();
+                        .collect::<Result<Vec<_>, _>>()?;
                     let sig = FunctionType::new(sig_params, sig_returns);
                     module_info.declare_signature(sig)?;
                 }
