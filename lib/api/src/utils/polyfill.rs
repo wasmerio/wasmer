@@ -486,7 +486,7 @@ pub fn parse_import_section(
             TypeRef::Table(ref tab) => {
                 module_info.declare_table_import(
                     TableType {
-                        ty: wpreftype_to_type(tab.element_type).unwrap(),
+                        ty: wpreftype_to_type(tab.element_type)?,
                         minimum: tab.initial as u32,
                         maximum: tab.maximum.map(|v| v as u32),
                         readonly: false,
@@ -527,7 +527,7 @@ pub fn parse_table_section(
     for entry in tables {
         let table = entry.map_err(transform_err)?;
         module_info.declare_table(TableType {
-            ty: wpreftype_to_type(table.ty.element_type).unwrap(),
+            ty: wpreftype_to_type(table.ty.element_type)?,
             minimum: table.ty.initial as u32,
             maximum: table.ty.maximum.map(|v| v as u32),
             readonly: false,

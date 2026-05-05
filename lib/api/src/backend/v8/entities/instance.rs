@@ -58,8 +58,13 @@ impl InstanceHandle {
             vec
         };
 
-        let wasm_exports: &[*mut wasm_extern_t] =
-            unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
+        dbg!(exports.size);
+
+        let wasm_exports: &[*mut wasm_extern_t] = if exports.size == 0 {
+            &[]
+        } else {
+            unsafe { std::slice::from_raw_parts(exports.data, exports.size) }
+        };
 
         let exports_ty = module.exports().collect::<Vec<_>>();
         exports_ty

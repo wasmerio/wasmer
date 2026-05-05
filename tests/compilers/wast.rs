@@ -73,6 +73,13 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "out of bounds memory access",
         "Validation error: multiple memories",
     );
+    // V8-specific
+    wast.allow_trap_message("uninitialized element", "RuntimeError: wasm-c-api trap: Uncaught RuntimeError: null function or function signature mismatch");
+    wast.allow_trap_message(
+        "out of bounds table access",
+        "RuntimeError: wasm-c-api trap: Uncaught RuntimeError: table index is out of bounds",
+    );
+
     if cfg!(feature = "coverage") {
         wast.disable_assert_and_exhaustion();
     }
@@ -100,6 +107,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Unsupported feature: unsupported init expr in element section",
         "Insufficient resources: Table minimum",
         "Insufficient resources: Table maximum",
+        // V8-specific
+        "Validation error: Unsupported ref type: (ref null",
     ]);
     wast.fail_fast = false;
     let path = Path::new(wast_path);

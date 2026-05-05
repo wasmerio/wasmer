@@ -163,7 +163,7 @@ impl Module {
         let binary = binary.into_bytes();
         let module = ModuleHandle::new(engine, &binary)?;
         let info = crate::utils::polyfill::translate_module(&binary[..])
-            .unwrap()
+            .map_err(CompileError::Validate)?
             .info;
 
         Ok(Self {
@@ -338,7 +338,11 @@ impl Module {
 
             wasm_module_exports(module as *const _, &mut exports as *mut _);
 
-            let exports = std::slice::from_raw_parts(exports.data, exports.size).to_vec();
+            let exports = if exports.size == 0 {
+                Vec::new()
+            } else {
+                std::slice::from_raw_parts(exports.data, exports.size).to_vec()
+            };
             let mut wasmer_exports = vec![];
 
             for e in exports.into_iter() {
