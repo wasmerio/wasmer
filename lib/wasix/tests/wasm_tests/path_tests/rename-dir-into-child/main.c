@@ -4,11 +4,11 @@
 #include <sys/stat.h>
 
 int main(void) {
-  assert(mkdir("/tmp/rename-parent", 0755) == 0);
+  assert(mkdir("rename-parent", 0755) == 0);
 
   errno = 0;
-  int ret = rename("/tmp/rename-parent", "/tmp/rename-parent/child");
+  int ret = rename("rename-parent", "rename-parent/child");
   assert(ret == -1);
   assert(errno == EINVAL);
-  assert(mkdir("/tmp/rename-parent/still-here", 0755) == 0);
+  assert(mkdir("rename-parent/still-here", 0755) == 0);
 }

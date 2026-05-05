@@ -49,10 +49,7 @@ fn test_rename_same_path() {
 #[test]
 fn test_rename_dir_into_child() {
     let wasm = run_build_script(file!(), "rename-dir-into-child").unwrap();
-    let test_dir = wasm.parent().unwrap();
-    remove_path_if_exists(&test_dir.join("rename-parent"));
-    let result = run_wasm_with_result(&wasm, test_dir).unwrap();
-    remove_path_if_exists(&test_dir.join("rename-parent"));
+    let test_dir = tempfile::tempdir().unwrap();
+    let result = run_wasm_with_result(&wasm, test_dir.path()).unwrap();
     assert_eq!(result.exit_code, Some(0));
 }
-
