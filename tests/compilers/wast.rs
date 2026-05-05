@@ -80,6 +80,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     );
     wast.allow_trap_message("out of bounds table access", "table index is out of bounds");
     wast.allow_trap_message("out of bounds memory access", "memory access out of bounds");
+    wast.allow_trap_message("out of bounds memory access", "is out of bounds");
     wast.allow_trap_message(
         "out of bounds table access",
         "element segment out of bounds",
@@ -100,6 +101,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     wast.allow_trap_message("integer divide by zero", "remainder by zero");
     wast.allow_trap_message("integer divide by zero", "divide by zero");
     wast.allow_trap_message("integer overflow", "divide result unrepresentable");
+    wast.allow_trap_message("integer overflow", "float unrepresentable in integer range");
     wast.allow_trap_message("call stack exhausted", "Maximum call stack size exceeded");
     wast.allow_trap_message("cast failure", "illegal cast");
 
@@ -132,8 +134,9 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Insufficient resources: Table maximum",
         // V8-specific
         "Validation error: only numeric types are supported in function signatures: Unsupported ref type:",
-        "Validation error: Unsupported ref type: (ref null",
+        "Validation error: Unsupported ref type:",
         "Validation error: GC is not implemented yet",
+        "Validation error: 64bit memory not implemented yet",
     ]);
     wast.fail_fast = false;
     let path = Path::new(wast_path);

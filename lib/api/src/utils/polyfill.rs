@@ -465,7 +465,7 @@ pub fn parse_import_section(
                 ..
             }) => {
                 if memory64 {
-                    unimplemented!("64bit memory not implemented yet");
+                    return Err("64bit memory not implemented yet".to_owned());
                 }
                 module_info.declare_memory_import(
                     MemoryType {
@@ -480,7 +480,7 @@ pub fn parse_import_section(
             TypeRef::Global(ref ty) => {
                 module_info.declare_global_import(
                     GlobalType {
-                        ty: wptype_to_type(ty.content_type).unwrap(),
+                        ty: wptype_to_type(ty.content_type)?,
                         mutability: ty.mutable.into(),
                     },
                     module_name,
@@ -557,7 +557,7 @@ pub fn parse_memory_section(
             ..
         } = entry.map_err(transform_err)?;
         if memory64 {
-            unimplemented!("64bit memory not implemented yet");
+            return Err("64bit memory not implemented yet".to_owned());
         }
         module_info.declare_memory(MemoryType {
             minimum: Pages(initial as u32),
@@ -583,7 +583,7 @@ pub fn parse_global_section(
             ..
         } = entry.map_err(transform_err)?.ty;
         let global = GlobalType {
-            ty: wptype_to_type(content_type).unwrap(),
+            ty: wptype_to_type(content_type)?,
             mutability: mutable.into(),
         };
         module_info.declare_global(global)?;
