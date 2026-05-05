@@ -100,6 +100,14 @@ impl FileHandle {
             .map_err(|err| *err)?
             .as_mut())
     }
+
+    fn write_cursor(&self, file_size: u64) -> u64 {
+        if self.append_mode {
+            file_size
+        } else {
+            self.cursor
+        }
+    }
 }
 
 impl VirtualFile for FileHandle {
@@ -809,10 +817,6 @@ impl AsyncRead for FileHandle {
 
 impl AsyncSeek for FileHandle {
     fn start_seek(mut self: Pin<&mut Self>, position: io::SeekFrom) -> io::Result<()> {
-        if self.append_mode {
-            return Ok(());
-        }
-
         let mut cursor = self.cursor;
         let ret = {
             let mut fs = self
@@ -868,24 +872,6 @@ impl AsyncSeek for FileHandle {
     }
 
     fn poll_complete(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        // In `append` mode, it's not possible to seek in the file. In
-        // [`open(2)`](https://man7.org/linux/man-pages/man2/open.2.html),
-        // the `O_APPEND` option describes this behavior well:
-        //
-        // > Before each write(2), the file offset is positioned at
-        // > the end of the file, as if with lseek(2).  The
-        // > modification of the file offset and the write operation
-        // > are performed as a single atomic step.
-        // >
-        // > O_APPEND may lead to corrupted files on NFS filesystems
-        // > if more than one process appends data to a file at once.
-        // > This is because NFS does not support appending to a file,
-        // > so the client kernel has to simulate it, which can't be
-        // > done without a race condition.
-        if self.append_mode {
-            return Poll::Ready(Ok(0));
-        }
-
         let mut fs = self
             .filesystem
             .inner
@@ -939,7 +925,7 @@ impl AsyncWrite for FileHandle {
             )));
         }
 
-        let mut cursor = self.cursor;
+        let mut cursor;
         let bytes_written = {
             let mut fs = self
                 .filesystem
@@ -950,25 +936,29 @@ impl AsyncWrite for FileHandle {
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
+                    cursor = self.write_cursor(node.file.len() as u64);
                     let bytes_written = node.file.write(buf, &mut cursor)?;
                     node.metadata.len = node.file.len().try_into().unwrap();
                     bytes_written
                 }
                 Some(Node::OffloadedFile(node)) => {
+                    cursor = self.write_cursor(node.file.len());
                     let bytes_written = node.file.write(OffloadWrite::Buffer(buf), &mut cursor)?;
                     node.metadata.len = node.file.len();
                     bytes_written
                 }
                 Some(Node::ReadOnlyFile(node)) => {
+                    cursor = self.write_cursor(node.file.len() as u64);
                     let bytes_written = node.file.write(buf, &mut cursor)?;
                     node.metadata.len = node.file.len().try_into().unwrap();
                     bytes_written
                 }
                 Some(Node::CustomFile(node)) => {
                     let mut guard = node.file.lock().unwrap();
+                    cursor = self.write_cursor(guard.size());
 
                     let file = Pin::new(guard.as_mut());
-                    if let Err(err) = file.start_seek(io::SeekFrom::Start(self.cursor)) {
+                    if let Err(err) = file.start_seek(io::SeekFrom::Start(cursor)) {
                         return Poll::Ready(Err(err));
                     }
 
@@ -1028,6 +1018,7 @@ impl AsyncWrite for FileHandle {
             let inode = fs.storage.get_mut(self.inode);
             match inode {
                 Some(Node::File(node)) => {
+                    cursor = self.write_cursor(node.file.len() as u64);
                     let buf = bufs
                         .iter()
                         .find(|b| !b.is_empty())
@@ -1037,6 +1028,7 @@ impl AsyncWrite for FileHandle {
                     Poll::Ready(Ok(bytes_written))
                 }
                 Some(Node::OffloadedFile(node)) => {
+                    cursor = self.write_cursor(node.file.len());
                     let buf = bufs
                         .iter()
                         .find(|b| !b.is_empty())
@@ -1046,6 +1038,7 @@ impl AsyncWrite for FileHandle {
                     Poll::Ready(Ok(bytes_written))
                 }
                 Some(Node::ReadOnlyFile(node)) => {
+                    cursor = self.write_cursor(node.file.len() as u64);
                     let buf = bufs
                         .iter()
                         .find(|b| !b.is_empty())
@@ -1505,6 +1498,12 @@ impl File {
 impl File {
     pub fn read(&self, buf: &mut [u8], cursor: &mut u64) -> io::Result<usize> {
         let cur_pos = *cursor as usize;
+
+        // POSIX regular files return EOF, not an error, when reading at or beyond EOF.
+        if cur_pos >= self.buffer.len() {
+            return Ok(0);
+        }
+
         let max_to_read = cmp::min(self.buffer.len() - cur_pos, buf.len());
         let data_to_copy = &self.buffer[cur_pos..][..max_to_read];
 
@@ -1546,10 +1545,8 @@ impl File {
             ));
         }
 
-        // In this implementation, it's an error to seek beyond the
-        // end of the buffer.
         let next_cursor = next_cursor.try_into().map_err(to_err)?;
-        *cursor = cmp::min(self.buffer.len() as u64, next_cursor);
+        *cursor = next_cursor;
 
         let cursor = *cursor;
         Ok(cursor)
@@ -1559,15 +1556,23 @@ impl File {
 impl File {
     pub fn write(&mut self, buf: &[u8], cursor: &mut u64) -> io::Result<usize> {
         let position = *cursor as usize;
+        let end = position
+            .checked_add(buf.len())
+            .ok_or(io::ErrorKind::InvalidInput)?;
 
-        if position + buf.len() > self.buffer.len() {
+        if position > self.buffer.len() {
+            // Materialize the sparse gap with zeroes in this contiguous in-memory buffer.
+            self.buffer.resize(position, 0)?;
+        }
+
+        if end > self.buffer.len() {
             // Writing past the end of the current buffer, must reallocate
-            let len_after_end = (position + buf.len()) - self.buffer.len();
+            let len_after_end = end - self.buffer.len();
             let let_to_end = buf.len() - len_after_end;
-            self.buffer[position..position + let_to_end].copy_from_slice(&buf[0..let_to_end]);
+            self.buffer[position..end - len_after_end].copy_from_slice(&buf[0..let_to_end]);
             self.buffer.extend_from_slice(&buf[let_to_end..buf.len()])?;
         } else {
-            self.buffer[position..position + buf.len()].copy_from_slice(buf);
+            self.buffer[position..end].copy_from_slice(buf);
         }
 
         *cursor += buf.len() as u64;

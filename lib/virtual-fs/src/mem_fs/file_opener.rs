@@ -366,7 +366,7 @@ impl crate::FileOpener for FileSystem {
             }
         };
 
-        let mut cursor = 0u64;
+        let cursor = 0u64;
         let inode_of_file = match maybe_inode_of_file {
             // The file already exists, and a _new_ one _must_ be
             // created; it's not OK.
@@ -395,11 +395,6 @@ impl crate::FileOpener for FileSystem {
                             file.truncate();
                             metadata.len = 0;
                         }
-
-                        // Move the cursor to the end if needed.
-                        if append {
-                            cursor = file.len() as u64;
-                        }
                     }
 
                     Some(Node::OffloadedFile(OffloadedFileNode { metadata, file, .. })) => {
@@ -410,11 +405,6 @@ impl crate::FileOpener for FileSystem {
                         if truncate {
                             file.truncate();
                             metadata.len = 0;
-                        }
-
-                        // Move the cursor to the end if needed.
-                        if append {
-                            cursor = file.len();
                         }
                     }
 
@@ -438,11 +428,6 @@ impl crate::FileOpener for FileSystem {
                             file.set_len(0)?;
                             node.metadata.len = 0;
                         }
-
-                        // Move the cursor to the end if needed.
-                        if append {
-                            cursor = file.size();
-                        }
                     }
 
                     Some(Node::ArcFile(node)) => {
@@ -464,11 +449,6 @@ impl crate::FileOpener for FileSystem {
                         if truncate {
                             file.set_len(0)?;
                             node.metadata.len = 0;
-                        }
-
-                        // Move the cursor to the end if needed.
-                        if append {
-                            cursor = file.size();
                         }
                     }
 

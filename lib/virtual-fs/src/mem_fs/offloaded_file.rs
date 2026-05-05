@@ -174,10 +174,8 @@ impl OffloadedFile {
             ));
         }
 
-        // In this implementation, it's an error to seek beyond the
-        // end of the buffer.
         let next_cursor = next_cursor.try_into().map_err(to_err)?;
-        *cursor = cmp::min(self.len(), next_cursor);
+        *cursor = next_cursor;
         Ok(*cursor)
     }
 
