@@ -25,7 +25,7 @@ pub struct Wast {
     allowed_instantiation_failures: HashSet<String>,
     /// If the (expected from .wast, actual) message pair is in this list,
     /// treat the strings as matching.
-    match_trap_messages: HashMap<String, String>,
+    match_trap_messages: Vec<(String, String)>,
     /// If the current module was an allowed failure, we allow test to fail
     current_is_allowed_failure: bool,
     /// The store in which the tests are executing.
@@ -48,7 +48,7 @@ impl Wast {
             store,
             import_object,
             allowed_instantiation_failures: HashSet::new(),
-            match_trap_messages: HashMap::new(),
+            match_trap_messages: Vec::new(),
             current_is_allowed_failure: false,
             instances: HashMap::new(),
             fail_fast: true,
@@ -68,7 +68,7 @@ impl Wast {
     /// A list of alternative messages to permit for a trap failure.
     pub fn allow_trap_message(&mut self, expected: &str, allowed: &str) {
         self.match_trap_messages
-            .insert(expected.into(), allowed.into());
+            .push((expected.into(), allowed.into()));
     }
 
     /// Do not run any code in assert_trap or assert_exhaustion.
@@ -555,8 +555,8 @@ impl Wast {
         actual.contains(expected)
             || self
                 .match_trap_messages
-                .get(expected)
-                .is_some_and(|alternative| actual.contains(alternative))
+                .iter()
+                .any(|(exp, alt)| exp == expected && actual.contains(alt))
     }
 
     fn assert_exception(&self, result: Result<Vec<Value>>) -> Result<()> {

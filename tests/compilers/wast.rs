@@ -74,11 +74,33 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: multiple memories",
     );
     // V8-specific
-    wast.allow_trap_message("uninitialized element", "RuntimeError: wasm-c-api trap: Uncaught RuntimeError: null function or function signature mismatch");
+    wast.allow_trap_message(
+        "uninitialized element",
+        "null function or function signature mismatch",
+    );
+    wast.allow_trap_message("out of bounds table access", "table index is out of bounds");
+    wast.allow_trap_message("out of bounds memory access", "memory access out of bounds");
     wast.allow_trap_message(
         "out of bounds table access",
-        "RuntimeError: wasm-c-api trap: Uncaught RuntimeError: table index is out of bounds",
+        "element segment out of bounds",
     );
+    wast.allow_trap_message(
+        "indirect call type mismatch",
+        "null function or function signature mismatch",
+    );
+    wast.allow_trap_message("undefined element", "table index is out of bounds");
+    wast.allow_trap_message(
+        "unaligned atomic",
+        "operation does not support unaligned accesses",
+    );
+    wast.allow_trap_message(
+        "invalid conversion to integer",
+        "float unrepresentable in integer range",
+    );
+    wast.allow_trap_message("integer divide by zero", "remainder by zero");
+    wast.allow_trap_message("integer divide by zero", "divide by zero");
+    wast.allow_trap_message("integer overflow", "divide result unrepresentable");
+    wast.allow_trap_message("call stack exhausted", "Maximum call stack size exceeded");
 
     if cfg!(feature = "coverage") {
         wast.disable_assert_and_exhaustion();

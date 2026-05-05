@@ -58,8 +58,6 @@ impl InstanceHandle {
             vec
         };
 
-        dbg!(exports.size);
-
         let wasm_exports: &[*mut wasm_extern_t] = if exports.size == 0 {
             &[]
         } else {
