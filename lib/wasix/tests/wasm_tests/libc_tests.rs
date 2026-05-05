@@ -1,32 +1,27 @@
-use std::fs;
-use std::path::Path;
-
 use super::{run_build_script, run_wasm_with_result};
 
-fn remove_path_if_exists(path: &Path) {
-    if !path.exists() {
-        return;
-    }
-
-    if path.is_dir() {
-        let _ = fs::remove_dir_all(path);
-    } else {
-        let _ = fs::remove_file(path);
-    }
+fn run_libc_test_stdout_0(test_name: &str) {
+    let wasm = run_build_script(file!(), test_name).unwrap();
+    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
+    let stdout = String::from_utf8_lossy(&result.stdout);
+    let stderr = String::from_utf8_lossy(&result.stderr);
+    let trace = String::from_utf8_lossy(&result.trace_output);
+    assert_eq!(stdout.trim(), "0", "stderr:\n{}\ntrace:\n{}", stderr, trace);
+    assert_eq!(
+        result.exit_code,
+        Some(0),
+        "stdout:\n{}\nstderr:\n{}\ntrace:\n{}",
+        stdout,
+        stderr,
+        trace,
+    );
 }
 
-fn run_libc_test_stdout_0(test_name: &str, cleanup_paths: &[&str]) {
+fn run_libc_test_stdout_0_in_temp_dir(test_name: &str) {
     let wasm = run_build_script(file!(), test_name).unwrap();
-    let test_dir = wasm.parent().unwrap();
-    for path in cleanup_paths {
-        remove_path_if_exists(&test_dir.join(path));
-    }
-
+    let temp = tempfile::tempdir().unwrap();
+    let test_dir = temp.path();
     let result = run_wasm_with_result(&wasm, test_dir).unwrap();
-
-    for path in cleanup_paths {
-        remove_path_if_exists(&test_dir.join(path));
-    }
     let stdout = String::from_utf8_lossy(&result.stdout);
     let stderr = String::from_utf8_lossy(&result.stderr);
     let trace = String::from_utf8_lossy(&result.trace_output);
@@ -65,46 +60,46 @@ wasm_test!(
 #[test]
 #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
 fn test_msync_end_of_file() {
-    run_libc_test_stdout_0("msync-end-of-file", &["my_file.txt"]);
+    run_libc_test_stdout_0_in_temp_dir("msync-end-of-file");
 }
 
 #[test]
 #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
 fn test_msync_middle_of_file() {
-    run_libc_test_stdout_0("msync-middle-of-file", &["my_file.txt"]);
+    run_libc_test_stdout_0_in_temp_dir("msync-middle-of-file");
 }
 
 #[test]
 #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
 fn test_msync_start_of_file() {
-    run_libc_test_stdout_0("msync-start-of-file", &["my_file.txt"]);
+    run_libc_test_stdout_0_in_temp_dir("msync-start-of-file");
 }
 
 #[test]
 #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
 fn test_munmap_sync_end_of_file() {
-    run_libc_test_stdout_0("munmap-sync-end-of-file", &["my_file.txt"]);
+    run_libc_test_stdout_0_in_temp_dir("munmap-sync-end-of-file");
 }
 
 #[test]
 #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
 fn test_munmap_sync_middle_of_file() {
-    run_libc_test_stdout_0("munmap-sync-middle-of-file", &["my_file.txt"]);
+    run_libc_test_stdout_0_in_temp_dir("munmap-sync-middle-of-file");
 }
 
 #[test]
 #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
 fn test_munmap_sync_start_of_file() {
-    run_libc_test_stdout_0("munmap-sync-start-of-file", &["my_file.txt"]);
+    run_libc_test_stdout_0_in_temp_dir("munmap-sync-start-of-file");
 }
 
 #[test]
 #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
 fn test_read_after_munmap() {
-    run_libc_test_stdout_0("read-after-munmap", &["my_file.txt"]);
+    run_libc_test_stdout_0_in_temp_dir("read-after-munmap");
 }
 
 #[test]
 fn test_signal() {
-    run_libc_test_stdout_0("signal", &[]);
+    run_libc_test_stdout_0("signal");
 }

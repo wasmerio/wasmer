@@ -15,38 +15,66 @@
 /// // Assert the trimmed stdout equals the given string literal.
 /// wasm_test!(fn_name, "subdir", stdout = "expected output");
 ///
+/// // Pass argv to the test binary and assert exit 0.
+/// wasm_test!(fn_name, "subdir", args = ["case-name"]);
+///
 /// // Any of the above may be prefixed with Rust attributes.
 /// wasm_test!(#[cfg(unix)] #[ignore = "reason"] fn_name, "subdir");
 /// ```
 macro_rules! wasm_test {
-    // ── success ────────────────────────────────────────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal) => {
+    (@run $wasm:ident, []) => {
+        super::run_wasm_with_runner_config(&$wasm, $wasm.parent().unwrap(), |_| {})
+    };
+    (@run $wasm:ident, [$($arg:expr),+ $(,)?]) => {
+        super::run_wasm_with_runner_config(&$wasm, $wasm.parent().unwrap(), |runner| {
+            runner.with_args([$($arg),+]);
+        })
+    };
+    // ── base case used by all public forms ────────────────────────────────
+    (
+        @base
+        $(#[$attr:meta])*
+        $fn_name:ident,
+        $subdir:literal,
+        args = [$($arg:expr),* $(,)?],
+        |$result:ident| $body:block
+    ) => {
         $(#[$attr])*
         #[test]
         fn $fn_name() {
             let wasm = super::run_build_script(file!(), $subdir).unwrap();
-            super::run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
+            let $result = wasm_test!(@run wasm, [$($arg),*]).unwrap();
+            $body
         }
+    };
+    // ── success with argv ──────────────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, args = [$($arg:expr),* $(,)?]) => {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [$($arg),*], |result| {
+            super::ensure_wasm_run_succeeded(&result).unwrap();
+        });
+    };
+    // ── success ────────────────────────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal) => {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [], |result| {
+            super::ensure_wasm_run_succeeded(&result).unwrap();
+        });
     };
     // ── expect non-zero exit ───────────────────────────────────────────────
     ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, should_fail) => {
-        $(#[$attr])*
-        #[test]
-        fn $fn_name() {
-            let wasm = super::run_build_script(file!(), $subdir).unwrap();
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [], |result| {
             assert!(
-                super::run_wasm(&wasm, wasm.parent().unwrap()).is_err(),
-                concat!(stringify!($fn_name), " should exit with non-zero code"),
+                result.exit_code != Some(0),
+                "{} should exit with non-zero code\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
+                stringify!($fn_name),
+                String::from_utf8_lossy(&result.stdout),
+                String::from_utf8_lossy(&result.stderr),
+                String::from_utf8_lossy(&result.trace_output),
             );
-        }
+        });
     };
     // ── expect specific exit code ──────────────────────────────────────────
     ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, exit_code = $expected:expr) => {
-        $(#[$attr])*
-        #[test]
-        fn $fn_name() {
-            let wasm = super::run_build_script(file!(), $subdir).unwrap();
-            let result = super::run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [], |result| {
             assert_eq!(
                 result.exit_code,
                 Some($expected),
@@ -57,15 +85,11 @@ macro_rules! wasm_test {
                 String::from_utf8_lossy(&result.stderr),
                 String::from_utf8_lossy(&result.trace_output),
             );
-        }
+        });
     };
     // ── check trimmed stdout ───────────────────────────────────────────────
     ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, stdout = $expected:literal) => {
-        $(#[$attr])*
-        #[test]
-        fn $fn_name() {
-            let wasm = super::run_build_script(file!(), $subdir).unwrap();
-            let result = super::run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [], |result| {
             let stdout = String::from_utf8_lossy(&result.stdout);
             assert_eq!(
                 stdout.trim(),
@@ -76,7 +100,7 @@ macro_rules! wasm_test {
                 String::from_utf8_lossy(&result.stderr),
                 String::from_utf8_lossy(&result.trace_output),
             );
-        }
+        });
     };
 }
 

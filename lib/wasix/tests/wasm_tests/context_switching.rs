@@ -1,20 +1,3 @@
-use super::{run_build_script, run_wasm_with_runner_config};
-
-fn run_legacy_process_switching_case(arg: &str) {
-    let wasm = run_build_script(file!(), "legacy_process_switching").unwrap();
-    let result = run_wasm_with_runner_config(&wasm, wasm.parent().unwrap(), |runner| {
-        runner.with_args([arg]);
-    })
-    .unwrap();
-    assert_eq!(
-        result.exit_code,
-        Some(0),
-        "stdout:\n{}\nstderr:\n{}",
-        String::from_utf8_lossy(&result.stdout),
-        String::from_utf8_lossy(&result.stderr)
-    );
-}
-
 wasm_test!(
     #[cfg(unix)]
     test_simple_switching,
@@ -110,18 +93,39 @@ wasm_test!(
     test_contexts_with_setjmp,
     "contexts_with_setjmp"
 );
-
-#[test]
-#[cfg(unix)]
-fn test_legacy_process_switching() {
-    for arg in [
-        "basic_switching",
-        "vfork_after_switching",
-        "vfork_after_switching2",
-        "fork_after_switching",
-        "fork_and_vfork_only_work_in_main_context",
-        "posix_spawning_a_forking_subprocess_from_a_context",
-    ] {
-        run_legacy_process_switching_case(arg);
-    }
-}
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_basic_switching,
+    "legacy_process_switching",
+    args = ["basic_switching"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_vfork_after_switching,
+    "legacy_process_switching",
+    args = ["vfork_after_switching"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_vfork_after_switching2,
+    "legacy_process_switching",
+    args = ["vfork_after_switching2"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_fork_after_switching,
+    "legacy_process_switching",
+    args = ["fork_after_switching"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_fork_and_vfork_only_work_in_main_context,
+    "legacy_process_switching",
+    args = ["fork_and_vfork_only_work_in_main_context"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_posix_spawning_a_forking_subprocess_from_a_context,
+    "legacy_process_switching",
+    args = ["posix_spawning_a_forking_subprocess_from_a_context"]
+);
