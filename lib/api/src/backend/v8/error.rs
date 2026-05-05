@@ -80,7 +80,9 @@ impl Trap {
                     wasm_byte_vec_new(&mut data, error_message.len(), error_message.as_ptr() as _)
                 };
                 let store = store.as_store_mut();
-                unsafe { wasm_trap_new(store.inner.store.as_v8().inner, &mut data) }
+                let trap = unsafe { wasm_trap_new(store.inner.store.as_v8().inner, &mut data) };
+                unsafe { wasm_byte_vec_delete(&mut data) };
+                trap
             }
         }
     }
