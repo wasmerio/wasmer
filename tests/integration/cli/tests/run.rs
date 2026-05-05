@@ -572,13 +572,18 @@ fn wasi_runner_on_disk_with_mounted_directories() {
     assert.success().stdout(contains("Hello, World!"));
 }
 
+#[cfg(target_os = "linux")]
 #[test]
 fn local_package_fs_mounts_work_for_dir_and_webc() {
     let fixture = packages().join("fs-mount");
     let temp = TempDir::new().unwrap();
     let webc = temp.path().join("fs-mount-test.webc");
 
-    compile_wasix_source(&fixture.join("main.c"), &temp.path().join("main.wasm"));
+    compile_wasix_source(
+        &fixture.join("main.c"),
+        &temp.path().join("main.wasm"),
+        false,
+    );
     std::fs::copy(
         fixture.join("testfile.txt"),
         temp.path().join("testfile.txt"),
@@ -961,7 +966,7 @@ file.write("Hello, world!")
     assert_eq!(file_contents, "Hello, world!");
 }
 
-#[cfg(unix)]
+#[cfg(target_os = "linux")]
 #[test]
 fn shared_fd_closes_the_host_file_only_after_the_last_fd_is_closed() {
     let fixture = packages().join("shared-fd");
@@ -970,7 +975,7 @@ fn shared_fd_closes_the_host_file_only_after_the_last_fd_is_closed() {
     let combined_log = temp.path().join("combined.log");
     let output_path = temp.path().join("output");
 
-    compile_wasix_source(&fixture.join("main.c"), &wasm);
+    compile_wasix_source(&fixture.join("main.c"), &wasm, false);
 
     let mut cmd = Command::new(get_wasmer_path());
     cmd.arg("run")
@@ -1092,13 +1097,13 @@ fn read_line(reader: &mut dyn Read) -> Result<String, std::io::Error> {
     Ok(line)
 }
 
-fn compile_wasix_source(source: &Path, output: &Path) {
+#[cfg(target_os = "linux")]
+fn compile_wasix_source(source: &Path, output: &Path, use_eh: bool) {
     let output = Command::new("wasixcc")
         .arg(source)
         .arg("-o")
         .arg(output)
-        .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes")
-        .env("WASIXCC_WASM_EXCEPTIONS", "no")
+        .env("WASIXCC_WASM_EXCEPTIONS", if use_eh { "yes" } else { "no" })
         .output()
         .unwrap();
 
