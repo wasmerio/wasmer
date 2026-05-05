@@ -130,6 +130,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Insufficient resources: Table minimum",
         "Insufficient resources: Table maximum",
         // V8-specific
+        "Validation error: only numeric types are supported in function signatures: Unsupported ref type:",
         "Validation error: Unsupported ref type: (ref null",
     ]);
     wast.fail_fast = false;
