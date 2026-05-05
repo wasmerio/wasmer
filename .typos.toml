@@ -1,0 +1,26 @@
+[files]
+# Focus on user-facing content: docs, doc comments, error messages
+# Excluding implementation code, test suites, examples, and build artifacts
+extend-exclude = [
+  # Test code and fixtures
+  "tests",
+  "wasmer-test-files",
+  #Examples and benchmarks (implementation details)
+  "examples",
+  "benches",
+  "fuzz",
+  #Build artifacts and dependencies
+  "target",
+  "Cargo.lock",
+  ".git",
+  "node_modules",
+  # Internal tooling
+  "scripts",  
+  
+  # Localized documentation (non-English)
+  "docs/cn",
+  "docs/de",
+  "docs/es",
+  "docs/fr",
+  "docs/ja",
+  "docs/ko",]
