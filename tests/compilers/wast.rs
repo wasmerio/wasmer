@@ -137,6 +137,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: Unsupported ref type:",
         "Validation error: GC is not implemented yet",
         "Validation error: 64bit memory not implemented yet",
+        "ExternRefs are unsupported yet",
     ]);
     wast.fail_fast = false;
     let path = Path::new(wast_path);

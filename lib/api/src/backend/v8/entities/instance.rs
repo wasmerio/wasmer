@@ -1,8 +1,10 @@
 //! Data types, functions and traits for `v8` runtime's `Function` implementation.
 use std::sync::Arc;
 
+use wasmer_types::{ExternType, Type};
+
 use crate::{
-    AsStoreMut, AsStoreRef, Exports, Extern, Imports, InstantiationError, Module,
+    AsStoreMut, AsStoreRef, Exports, Extern, Imports, InstantiationError, LinkError, Module,
     backend::v8::bindings::*, v8::error::Trap, vm::VMExtern,
 };
 
@@ -105,6 +107,7 @@ impl Instance {
         let externs = imports
             .imports_for_module(module)
             .map_err(InstantiationError::Link)?;
+        reject_unsupported_externref_boundaries(module)?;
 
         Self::new_by_index(&mut store, module, &externs)
     }
@@ -134,6 +137,42 @@ impl Instance {
             },
             exports,
         ))
+    }
+}
+
+fn reject_unsupported_externref_boundaries(module: &Module) -> Result<(), InstantiationError> {
+    for import in module.imports() {
+        let ty = import.ty();
+        if extern_type_contains_externref(ty) {
+            return Err(InstantiationError::Link(LinkError::Resource(
+                "ExternRefs are unsupported yet".to_owned(),
+            )));
+        }
+    }
+
+    for export in module.exports() {
+        let ty = export.ty();
+        if extern_type_contains_externref(ty) {
+            return Err(InstantiationError::Link(LinkError::Resource(
+                "ExternRefs are unsupported yet".to_owned(),
+            )));
+        }
+    }
+
+    Ok(())
+}
+
+fn extern_type_contains_externref(ty: &ExternType) -> bool {
+    match ty {
+        ExternType::Function(function) => function
+            .params()
+            .iter()
+            .chain(function.results())
+            .any(|ty| *ty == Type::ExternRef),
+        ExternType::Global(global) => global.ty == Type::ExternRef,
+        ExternType::Table(table) => table.ty == Type::ExternRef,
+        ExternType::Memory(_) => false,
+        ExternType::Tag(tag) => tag.params().iter().any(|ty| *ty == Type::ExternRef),
     }
 }
 

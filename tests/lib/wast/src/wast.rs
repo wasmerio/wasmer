@@ -117,6 +117,9 @@ impl Wast {
     }
 
     fn perform_invoke(&mut self, exec: wast::WastInvoke<'_>) -> Result<Vec<Value>> {
+        let module = exec.module.map(|i| i.name());
+        self.get_instance(module)?;
+
         let values = exec
             .args
             .iter()
@@ -126,7 +129,7 @@ impl Wast {
                 _ => todo!(),
             })
             .collect::<Result<Vec<_>>>()?;
-        self.invoke(exec.module.map(|i| i.name()), exec.name, &values)
+        self.invoke(module, exec.name, &values)
     }
 
     fn assert_return(

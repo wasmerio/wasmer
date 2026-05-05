@@ -792,6 +792,15 @@ fn issue_4169_funcref_externref_import(mut config: crate::Config) -> Result<()> 
         }
     };
 
+    if config.compiler == crate::Compiler::V8 {
+        let err = Instance::new(&mut store, &module, &imports).unwrap_err();
+        assert!(
+            err.to_string()
+                .contains("ExternRefs are not currently supported through wasm_c_api")
+        );
+        return Ok(());
+    }
+
     let _instance = Instance::new(&mut store, &module, &imports)?;
 
     Ok(())
