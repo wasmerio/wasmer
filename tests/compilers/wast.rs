@@ -101,6 +101,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     wast.allow_trap_message("integer divide by zero", "divide by zero");
     wast.allow_trap_message("integer overflow", "divide result unrepresentable");
     wast.allow_trap_message("call stack exhausted", "Maximum call stack size exceeded");
+    wast.allow_trap_message("cast failure", "illegal cast");
 
     if cfg!(feature = "coverage") {
         wast.disable_assert_and_exhaustion();
@@ -132,6 +133,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         // V8-specific
         "Validation error: only numeric types are supported in function signatures: Unsupported ref type:",
         "Validation error: Unsupported ref type: (ref null",
+        "Validation error: GC is not implemented yet",
     ]);
     wast.fail_fast = false;
     let path = Path::new(wast_path);

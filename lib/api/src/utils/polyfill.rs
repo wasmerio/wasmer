@@ -422,9 +422,7 @@ pub fn parse_type_section(
                     let sig = FunctionType::new(sig_params, sig_returns);
                     module_info.declare_signature(sig)?;
                 }
-                _ => {
-                    unimplemented!("GC is  not implemented yet")
-                }
+                _ => return Err("GC is not implemented yet".to_owned()),
             }
         }
     }
