@@ -366,7 +366,7 @@
 <a href=#366 id=366 data-nosnippet>366</a>            }
 <a href=#367 id=367 data-nosnippet>367</a>        };
 <a href=#368 id=368 data-nosnippet>368</a>
-<a href=#369 id=369 data-nosnippet>369</a>        <span class="kw">let </span><span class="kw-2">mut </span>cursor = <span class="number">0u64</span>;
+<a href=#369 id=369 data-nosnippet>369</a>        <span class="kw">let </span>cursor = <span class="number">0u64</span>;
 <a href=#370 id=370 data-nosnippet>370</a>        <span class="kw">let </span>inode_of_file = <span class="kw">match </span>maybe_inode_of_file {
 <a href=#371 id=371 data-nosnippet>371</a>            <span class="comment">// The file already exists, and a _new_ one _must_ be
 <a href=#372 id=372 data-nosnippet>372</a>            // created; it's not OK.
@@ -395,402 +395,382 @@
 <a href=#395 id=395 data-nosnippet>395</a>                            file.truncate();
 <a href=#396 id=396 data-nosnippet>396</a>                            metadata.len = <span class="number">0</span>;
 <a href=#397 id=397 data-nosnippet>397</a>                        }
-<a href=#398 id=398 data-nosnippet>398</a>
-<a href=#399 id=399 data-nosnippet>399</a>                        <span class="comment">// Move the cursor to the end if needed.
-<a href=#400 id=400 data-nosnippet>400</a>                        </span><span class="kw">if </span>append {
-<a href=#401 id=401 data-nosnippet>401</a>                            cursor = file.len() <span class="kw">as </span>u64;
-<a href=#402 id=402 data-nosnippet>402</a>                        }
-<a href=#403 id=403 data-nosnippet>403</a>                    }
-<a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a>                    <span class="prelude-val">Some</span>(Node::OffloadedFile(OffloadedFileNode { metadata, file, .. })) =&gt; {
-<a href=#406 id=406 data-nosnippet>406</a>                        <span class="comment">// Update the accessed time.
-<a href=#407 id=407 data-nosnippet>407</a>                        </span>metadata.accessed = time();
-<a href=#408 id=408 data-nosnippet>408</a>
-<a href=#409 id=409 data-nosnippet>409</a>                        <span class="comment">// Truncate if needed.
-<a href=#410 id=410 data-nosnippet>410</a>                        </span><span class="kw">if </span>truncate {
-<a href=#411 id=411 data-nosnippet>411</a>                            file.truncate();
-<a href=#412 id=412 data-nosnippet>412</a>                            metadata.len = <span class="number">0</span>;
-<a href=#413 id=413 data-nosnippet>413</a>                        }
+<a href=#398 id=398 data-nosnippet>398</a>                    }
+<a href=#399 id=399 data-nosnippet>399</a>
+<a href=#400 id=400 data-nosnippet>400</a>                    <span class="prelude-val">Some</span>(Node::OffloadedFile(OffloadedFileNode { metadata, file, .. })) =&gt; {
+<a href=#401 id=401 data-nosnippet>401</a>                        <span class="comment">// Update the accessed time.
+<a href=#402 id=402 data-nosnippet>402</a>                        </span>metadata.accessed = time();
+<a href=#403 id=403 data-nosnippet>403</a>
+<a href=#404 id=404 data-nosnippet>404</a>                        <span class="comment">// Truncate if needed.
+<a href=#405 id=405 data-nosnippet>405</a>                        </span><span class="kw">if </span>truncate {
+<a href=#406 id=406 data-nosnippet>406</a>                            file.truncate();
+<a href=#407 id=407 data-nosnippet>407</a>                            metadata.len = <span class="number">0</span>;
+<a href=#408 id=408 data-nosnippet>408</a>                        }
+<a href=#409 id=409 data-nosnippet>409</a>                    }
+<a href=#410 id=410 data-nosnippet>410</a>
+<a href=#411 id=411 data-nosnippet>411</a>                    <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; {
+<a href=#412 id=412 data-nosnippet>412</a>                        <span class="comment">// Update the accessed time.
+<a href=#413 id=413 data-nosnippet>413</a>                        </span>node.metadata.accessed = time();
 <a href=#414 id=414 data-nosnippet>414</a>
-<a href=#415 id=415 data-nosnippet>415</a>                        <span class="comment">// Move the cursor to the end if needed.
-<a href=#416 id=416 data-nosnippet>416</a>                        </span><span class="kw">if </span>append {
-<a href=#417 id=417 data-nosnippet>417</a>                            cursor = file.len();
+<a href=#415 id=415 data-nosnippet>415</a>                        <span class="comment">// Truncate if needed.
+<a href=#416 id=416 data-nosnippet>416</a>                        </span><span class="kw">if </span>truncate || append {
+<a href=#417 id=417 data-nosnippet>417</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::PermissionDenied);
 <a href=#418 id=418 data-nosnippet>418</a>                        }
 <a href=#419 id=419 data-nosnippet>419</a>                    }
 <a href=#420 id=420 data-nosnippet>420</a>
-<a href=#421 id=421 data-nosnippet>421</a>                    <span class="prelude-val">Some</span>(Node::ReadOnlyFile(node)) =&gt; {
+<a href=#421 id=421 data-nosnippet>421</a>                    <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
 <a href=#422 id=422 data-nosnippet>422</a>                        <span class="comment">// Update the accessed time.
 <a href=#423 id=423 data-nosnippet>423</a>                        </span>node.metadata.accessed = time();
 <a href=#424 id=424 data-nosnippet>424</a>
 <a href=#425 id=425 data-nosnippet>425</a>                        <span class="comment">// Truncate if needed.
-<a href=#426 id=426 data-nosnippet>426</a>                        </span><span class="kw">if </span>truncate || append {
-<a href=#427 id=427 data-nosnippet>427</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::PermissionDenied);
-<a href=#428 id=428 data-nosnippet>428</a>                        }
-<a href=#429 id=429 data-nosnippet>429</a>                    }
-<a href=#430 id=430 data-nosnippet>430</a>
-<a href=#431 id=431 data-nosnippet>431</a>                    <span class="prelude-val">Some</span>(Node::CustomFile(node)) =&gt; {
-<a href=#432 id=432 data-nosnippet>432</a>                        <span class="comment">// Update the accessed time.
-<a href=#433 id=433 data-nosnippet>433</a>                        </span>node.metadata.accessed = time();
-<a href=#434 id=434 data-nosnippet>434</a>
-<a href=#435 id=435 data-nosnippet>435</a>                        <span class="comment">// Truncate if needed.
-<a href=#436 id=436 data-nosnippet>436</a>                        </span><span class="kw">let </span><span class="kw-2">mut </span>file = node.file.lock().unwrap();
-<a href=#437 id=437 data-nosnippet>437</a>                        <span class="kw">if </span>truncate {
-<a href=#438 id=438 data-nosnippet>438</a>                            file.set_len(<span class="number">0</span>)<span class="question-mark">?</span>;
-<a href=#439 id=439 data-nosnippet>439</a>                            node.metadata.len = <span class="number">0</span>;
-<a href=#440 id=440 data-nosnippet>440</a>                        }
-<a href=#441 id=441 data-nosnippet>441</a>
-<a href=#442 id=442 data-nosnippet>442</a>                        <span class="comment">// Move the cursor to the end if needed.
-<a href=#443 id=443 data-nosnippet>443</a>                        </span><span class="kw">if </span>append {
-<a href=#444 id=444 data-nosnippet>444</a>                            cursor = file.size();
-<a href=#445 id=445 data-nosnippet>445</a>                        }
-<a href=#446 id=446 data-nosnippet>446</a>                    }
+<a href=#426 id=426 data-nosnippet>426</a>                        </span><span class="kw">let </span><span class="kw-2">mut </span>file = node.file.lock().unwrap();
+<a href=#427 id=427 data-nosnippet>427</a>                        <span class="kw">if </span>truncate {
+<a href=#428 id=428 data-nosnippet>428</a>                            file.set_len(<span class="number">0</span>)<span class="question-mark">?</span>;
+<a href=#429 id=429 data-nosnippet>429</a>                            node.metadata.len = <span class="number">0</span>;
+<a href=#430 id=430 data-nosnippet>430</a>                        }
+<a href=#431 id=431 data-nosnippet>431</a>                    }
+<a href=#432 id=432 data-nosnippet>432</a>
+<a href=#433 id=433 data-nosnippet>433</a>                    <span class="prelude-val">Some</span>(Node::ArcFile(node)) =&gt; {
+<a href=#434 id=434 data-nosnippet>434</a>                        <span class="comment">// Update the accessed time.
+<a href=#435 id=435 data-nosnippet>435</a>                        </span>node.metadata.accessed = time();
+<a href=#436 id=436 data-nosnippet>436</a>
+<a href=#437 id=437 data-nosnippet>437</a>                        <span class="kw">let </span><span class="kw-2">mut </span>file = node
+<a href=#438 id=438 data-nosnippet>438</a>                            .fs
+<a href=#439 id=439 data-nosnippet>439</a>                            .new_open_options()
+<a href=#440 id=440 data-nosnippet>440</a>                            .read(read)
+<a href=#441 id=441 data-nosnippet>441</a>                            .write(write)
+<a href=#442 id=442 data-nosnippet>442</a>                            .append(append)
+<a href=#443 id=443 data-nosnippet>443</a>                            .truncate(truncate)
+<a href=#444 id=444 data-nosnippet>444</a>                            .create(create)
+<a href=#445 id=445 data-nosnippet>445</a>                            .create_new(create_new)
+<a href=#446 id=446 data-nosnippet>446</a>                            .open(node.path.as_path())<span class="question-mark">?</span>;
 <a href=#447 id=447 data-nosnippet>447</a>
-<a href=#448 id=448 data-nosnippet>448</a>                    <span class="prelude-val">Some</span>(Node::ArcFile(node)) =&gt; {
-<a href=#449 id=449 data-nosnippet>449</a>                        <span class="comment">// Update the accessed time.
-<a href=#450 id=450 data-nosnippet>450</a>                        </span>node.metadata.accessed = time();
-<a href=#451 id=451 data-nosnippet>451</a>
-<a href=#452 id=452 data-nosnippet>452</a>                        <span class="kw">let </span><span class="kw-2">mut </span>file = node
-<a href=#453 id=453 data-nosnippet>453</a>                            .fs
-<a href=#454 id=454 data-nosnippet>454</a>                            .new_open_options()
-<a href=#455 id=455 data-nosnippet>455</a>                            .read(read)
-<a href=#456 id=456 data-nosnippet>456</a>                            .write(write)
-<a href=#457 id=457 data-nosnippet>457</a>                            .append(append)
-<a href=#458 id=458 data-nosnippet>458</a>                            .truncate(truncate)
-<a href=#459 id=459 data-nosnippet>459</a>                            .create(create)
-<a href=#460 id=460 data-nosnippet>460</a>                            .create_new(create_new)
-<a href=#461 id=461 data-nosnippet>461</a>                            .open(node.path.as_path())<span class="question-mark">?</span>;
-<a href=#462 id=462 data-nosnippet>462</a>
-<a href=#463 id=463 data-nosnippet>463</a>                        <span class="comment">// Truncate if needed.
-<a href=#464 id=464 data-nosnippet>464</a>                        </span><span class="kw">if </span>truncate {
-<a href=#465 id=465 data-nosnippet>465</a>                            file.set_len(<span class="number">0</span>)<span class="question-mark">?</span>;
-<a href=#466 id=466 data-nosnippet>466</a>                            node.metadata.len = <span class="number">0</span>;
-<a href=#467 id=467 data-nosnippet>467</a>                        }
+<a href=#448 id=448 data-nosnippet>448</a>                        <span class="comment">// Truncate if needed.
+<a href=#449 id=449 data-nosnippet>449</a>                        </span><span class="kw">if </span>truncate {
+<a href=#450 id=450 data-nosnippet>450</a>                            file.set_len(<span class="number">0</span>)<span class="question-mark">?</span>;
+<a href=#451 id=451 data-nosnippet>451</a>                            node.metadata.len = <span class="number">0</span>;
+<a href=#452 id=452 data-nosnippet>452</a>                        }
+<a href=#453 id=453 data-nosnippet>453</a>                    }
+<a href=#454 id=454 data-nosnippet>454</a>
+<a href=#455 id=455 data-nosnippet>455</a>                    <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound),
+<a href=#456 id=456 data-nosnippet>456</a>                    <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::NotAFile),
+<a href=#457 id=457 data-nosnippet>457</a>                }
+<a href=#458 id=458 data-nosnippet>458</a>
+<a href=#459 id=459 data-nosnippet>459</a>                inode_of_file
+<a href=#460 id=460 data-nosnippet>460</a>            }
+<a href=#461 id=461 data-nosnippet>461</a>
+<a href=#462 id=462 data-nosnippet>462</a>            <span class="comment">// The file doesn't already exist; it's OK to create it if:
+<a href=#463 id=463 data-nosnippet>463</a>            // 1. `create_new` is used with `write` or `append`,
+<a href=#464 id=464 data-nosnippet>464</a>            // 2. `create` is used with `write` or `append`.
+<a href=#465 id=465 data-nosnippet>465</a>            </span><span class="prelude-val">None </span><span class="kw">if </span>(create_new || create) &amp;&amp; (create_new || write || append) =&gt; {
+<a href=#466 id=466 data-nosnippet>466</a>                <span class="comment">// Write lock.
+<a href=#467 id=467 data-nosnippet>467</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.inner.write().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
 <a href=#468 id=468 data-nosnippet>468</a>
-<a href=#469 id=469 data-nosnippet>469</a>                        <span class="comment">// Move the cursor to the end if needed.
-<a href=#470 id=470 data-nosnippet>470</a>                        </span><span class="kw">if </span>append {
-<a href=#471 id=471 data-nosnippet>471</a>                            cursor = file.size();
-<a href=#472 id=472 data-nosnippet>472</a>                        }
-<a href=#473 id=473 data-nosnippet>473</a>                    }
-<a href=#474 id=474 data-nosnippet>474</a>
-<a href=#475 id=475 data-nosnippet>475</a>                    <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound),
-<a href=#476 id=476 data-nosnippet>476</a>                    <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::NotAFile),
-<a href=#477 id=477 data-nosnippet>477</a>                }
-<a href=#478 id=478 data-nosnippet>478</a>
-<a href=#479 id=479 data-nosnippet>479</a>                inode_of_file
-<a href=#480 id=480 data-nosnippet>480</a>            }
-<a href=#481 id=481 data-nosnippet>481</a>
-<a href=#482 id=482 data-nosnippet>482</a>            <span class="comment">// The file doesn't already exist; it's OK to create it if:
-<a href=#483 id=483 data-nosnippet>483</a>            // 1. `create_new` is used with `write` or `append`,
-<a href=#484 id=484 data-nosnippet>484</a>            // 2. `create` is used with `write` or `append`.
-<a href=#485 id=485 data-nosnippet>485</a>            </span><span class="prelude-val">None </span><span class="kw">if </span>(create_new || create) &amp;&amp; (create_new || write || append) =&gt; {
-<a href=#486 id=486 data-nosnippet>486</a>                <span class="comment">// Write lock.
-<a href=#487 id=487 data-nosnippet>487</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>fs = <span class="self">self</span>.inner.write().map_err(|<span class="kw">_</span>| FsError::Lock)<span class="question-mark">?</span>;
-<a href=#488 id=488 data-nosnippet>488</a>
-<a href=#489 id=489 data-nosnippet>489</a>                <span class="kw">let </span>metadata = {
-<a href=#490 id=490 data-nosnippet>490</a>                    <span class="kw">let </span>time = time();
-<a href=#491 id=491 data-nosnippet>491</a>                    Metadata {
-<a href=#492 id=492 data-nosnippet>492</a>                        ft: FileType {
-<a href=#493 id=493 data-nosnippet>493</a>                            file: <span class="bool-val">true</span>,
-<a href=#494 id=494 data-nosnippet>494</a>                            ..Default::default()
-<a href=#495 id=495 data-nosnippet>495</a>                        },
-<a href=#496 id=496 data-nosnippet>496</a>                        accessed: time,
-<a href=#497 id=497 data-nosnippet>497</a>                        created: time,
-<a href=#498 id=498 data-nosnippet>498</a>                        modified: time,
-<a href=#499 id=499 data-nosnippet>499</a>                        len: <span class="number">0</span>,
-<a href=#500 id=500 data-nosnippet>500</a>                    }
-<a href=#501 id=501 data-nosnippet>501</a>                };
-<a href=#502 id=502 data-nosnippet>502</a>                <span class="kw">let </span>inode_of_file = fs.storage.vacant_entry().key();
-<a href=#503 id=503 data-nosnippet>503</a>
-<a href=#504 id=504 data-nosnippet>504</a>                <span class="comment">// We might be in optimized mode
-<a href=#505 id=505 data-nosnippet>505</a>                </span><span class="kw">let </span>file = <span class="kw">match </span>fs.backing_offload.clone() {
-<a href=#506 id=506 data-nosnippet>506</a>                    <span class="prelude-val">Some</span>(offload) =&gt; {
-<a href=#507 id=507 data-nosnippet>507</a>                        <span class="kw">let </span>file = OffloadedFile::new(fs.limiter.clone(), offload);
-<a href=#508 id=508 data-nosnippet>508</a>                        Node::OffloadedFile(OffloadedFileNode {
-<a href=#509 id=509 data-nosnippet>509</a>                            inode: inode_of_file,
-<a href=#510 id=510 data-nosnippet>510</a>                            name: name_of_file,
-<a href=#511 id=511 data-nosnippet>511</a>                            file,
-<a href=#512 id=512 data-nosnippet>512</a>                            metadata,
-<a href=#513 id=513 data-nosnippet>513</a>                        })
-<a href=#514 id=514 data-nosnippet>514</a>                    }
-<a href=#515 id=515 data-nosnippet>515</a>                    <span class="kw">_ </span>=&gt; {
-<a href=#516 id=516 data-nosnippet>516</a>                        <span class="kw">let </span>file = File::new(fs.limiter.clone());
-<a href=#517 id=517 data-nosnippet>517</a>                        Node::File(FileNode {
-<a href=#518 id=518 data-nosnippet>518</a>                            inode: inode_of_file,
-<a href=#519 id=519 data-nosnippet>519</a>                            name: name_of_file,
-<a href=#520 id=520 data-nosnippet>520</a>                            file,
-<a href=#521 id=521 data-nosnippet>521</a>                            metadata,
-<a href=#522 id=522 data-nosnippet>522</a>                        })
-<a href=#523 id=523 data-nosnippet>523</a>                    }
-<a href=#524 id=524 data-nosnippet>524</a>                };
-<a href=#525 id=525 data-nosnippet>525</a>
-<a href=#526 id=526 data-nosnippet>526</a>                <span class="comment">// Creating the file in the storage.
-<a href=#527 id=527 data-nosnippet>527</a>                </span><span class="kw">let </span>real_inode_of_file = fs.storage.insert(file);
-<a href=#528 id=528 data-nosnippet>528</a>
-<a href=#529 id=529 data-nosnippet>529</a>                <span class="macro">assert_eq!</span>(
-<a href=#530 id=530 data-nosnippet>530</a>                    inode_of_file, real_inode_of_file,
-<a href=#531 id=531 data-nosnippet>531</a>                    <span class="string">"new file inode should have been correctly calculated"</span>,
-<a href=#532 id=532 data-nosnippet>532</a>                );
-<a href=#533 id=533 data-nosnippet>533</a>
-<a href=#534 id=534 data-nosnippet>534</a>                <span class="comment">// Adding the new directory to its parent.
-<a href=#535 id=535 data-nosnippet>535</a>                </span>fs.add_child_to_node(inode_of_parent, inode_of_file)<span class="question-mark">?</span>;
-<a href=#536 id=536 data-nosnippet>536</a>
-<a href=#537 id=537 data-nosnippet>537</a>                inode_of_file
-<a href=#538 id=538 data-nosnippet>538</a>            }
+<a href=#469 id=469 data-nosnippet>469</a>                <span class="kw">let </span>metadata = {
+<a href=#470 id=470 data-nosnippet>470</a>                    <span class="kw">let </span>time = time();
+<a href=#471 id=471 data-nosnippet>471</a>                    Metadata {
+<a href=#472 id=472 data-nosnippet>472</a>                        ft: FileType {
+<a href=#473 id=473 data-nosnippet>473</a>                            file: <span class="bool-val">true</span>,
+<a href=#474 id=474 data-nosnippet>474</a>                            ..Default::default()
+<a href=#475 id=475 data-nosnippet>475</a>                        },
+<a href=#476 id=476 data-nosnippet>476</a>                        accessed: time,
+<a href=#477 id=477 data-nosnippet>477</a>                        created: time,
+<a href=#478 id=478 data-nosnippet>478</a>                        modified: time,
+<a href=#479 id=479 data-nosnippet>479</a>                        len: <span class="number">0</span>,
+<a href=#480 id=480 data-nosnippet>480</a>                    }
+<a href=#481 id=481 data-nosnippet>481</a>                };
+<a href=#482 id=482 data-nosnippet>482</a>                <span class="kw">let </span>inode_of_file = fs.storage.vacant_entry().key();
+<a href=#483 id=483 data-nosnippet>483</a>
+<a href=#484 id=484 data-nosnippet>484</a>                <span class="comment">// We might be in optimized mode
+<a href=#485 id=485 data-nosnippet>485</a>                </span><span class="kw">let </span>file = <span class="kw">match </span>fs.backing_offload.clone() {
+<a href=#486 id=486 data-nosnippet>486</a>                    <span class="prelude-val">Some</span>(offload) =&gt; {
+<a href=#487 id=487 data-nosnippet>487</a>                        <span class="kw">let </span>file = OffloadedFile::new(fs.limiter.clone(), offload);
+<a href=#488 id=488 data-nosnippet>488</a>                        Node::OffloadedFile(OffloadedFileNode {
+<a href=#489 id=489 data-nosnippet>489</a>                            inode: inode_of_file,
+<a href=#490 id=490 data-nosnippet>490</a>                            name: name_of_file,
+<a href=#491 id=491 data-nosnippet>491</a>                            file,
+<a href=#492 id=492 data-nosnippet>492</a>                            metadata,
+<a href=#493 id=493 data-nosnippet>493</a>                        })
+<a href=#494 id=494 data-nosnippet>494</a>                    }
+<a href=#495 id=495 data-nosnippet>495</a>                    <span class="kw">_ </span>=&gt; {
+<a href=#496 id=496 data-nosnippet>496</a>                        <span class="kw">let </span>file = File::new(fs.limiter.clone());
+<a href=#497 id=497 data-nosnippet>497</a>                        Node::File(FileNode {
+<a href=#498 id=498 data-nosnippet>498</a>                            inode: inode_of_file,
+<a href=#499 id=499 data-nosnippet>499</a>                            name: name_of_file,
+<a href=#500 id=500 data-nosnippet>500</a>                            file,
+<a href=#501 id=501 data-nosnippet>501</a>                            metadata,
+<a href=#502 id=502 data-nosnippet>502</a>                        })
+<a href=#503 id=503 data-nosnippet>503</a>                    }
+<a href=#504 id=504 data-nosnippet>504</a>                };
+<a href=#505 id=505 data-nosnippet>505</a>
+<a href=#506 id=506 data-nosnippet>506</a>                <span class="comment">// Creating the file in the storage.
+<a href=#507 id=507 data-nosnippet>507</a>                </span><span class="kw">let </span>real_inode_of_file = fs.storage.insert(file);
+<a href=#508 id=508 data-nosnippet>508</a>
+<a href=#509 id=509 data-nosnippet>509</a>                <span class="macro">assert_eq!</span>(
+<a href=#510 id=510 data-nosnippet>510</a>                    inode_of_file, real_inode_of_file,
+<a href=#511 id=511 data-nosnippet>511</a>                    <span class="string">"new file inode should have been correctly calculated"</span>,
+<a href=#512 id=512 data-nosnippet>512</a>                );
+<a href=#513 id=513 data-nosnippet>513</a>
+<a href=#514 id=514 data-nosnippet>514</a>                <span class="comment">// Adding the new directory to its parent.
+<a href=#515 id=515 data-nosnippet>515</a>                </span>fs.add_child_to_node(inode_of_parent, inode_of_file)<span class="question-mark">?</span>;
+<a href=#516 id=516 data-nosnippet>516</a>
+<a href=#517 id=517 data-nosnippet>517</a>                inode_of_file
+<a href=#518 id=518 data-nosnippet>518</a>            }
+<a href=#519 id=519 data-nosnippet>519</a>
+<a href=#520 id=520 data-nosnippet>520</a>            <span class="prelude-val">None </span><span class="kw">if </span>(create_new || create) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::PermissionDenied),
+<a href=#521 id=521 data-nosnippet>521</a>
+<a href=#522 id=522 data-nosnippet>522</a>            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound),
+<a href=#523 id=523 data-nosnippet>523</a>        };
+<a href=#524 id=524 data-nosnippet>524</a>
+<a href=#525 id=525 data-nosnippet>525</a>        <span class="prelude-val">Ok</span>(Box::new(FileHandle::new(
+<a href=#526 id=526 data-nosnippet>526</a>            inode_of_file,
+<a href=#527 id=527 data-nosnippet>527</a>            <span class="self">self</span>.clone(),
+<a href=#528 id=528 data-nosnippet>528</a>            read,
+<a href=#529 id=529 data-nosnippet>529</a>            write || append || truncate,
+<a href=#530 id=530 data-nosnippet>530</a>            append,
+<a href=#531 id=531 data-nosnippet>531</a>            cursor,
+<a href=#532 id=532 data-nosnippet>532</a>        )))
+<a href=#533 id=533 data-nosnippet>533</a>    }
+<a href=#534 id=534 data-nosnippet>534</a>}
+<a href=#535 id=535 data-nosnippet>535</a>
+<a href=#536 id=536 data-nosnippet>536</a><span class="attr">#[cfg(test)]
+<a href=#537 id=537 data-nosnippet>537</a></span><span class="kw">mod </span>test_file_opener {
+<a href=#538 id=538 data-nosnippet>538</a>    <span class="kw">use </span>tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 <a href=#539 id=539 data-nosnippet>539</a>
-<a href=#540 id=540 data-nosnippet>540</a>            <span class="prelude-val">None </span><span class="kw">if </span>(create_new || create) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::PermissionDenied),
-<a href=#541 id=541 data-nosnippet>541</a>
-<a href=#542 id=542 data-nosnippet>542</a>            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(FsError::EntryNotFound),
-<a href=#543 id=543 data-nosnippet>543</a>        };
-<a href=#544 id=544 data-nosnippet>544</a>
-<a href=#545 id=545 data-nosnippet>545</a>        <span class="prelude-val">Ok</span>(Box::new(FileHandle::new(
-<a href=#546 id=546 data-nosnippet>546</a>            inode_of_file,
-<a href=#547 id=547 data-nosnippet>547</a>            <span class="self">self</span>.clone(),
-<a href=#548 id=548 data-nosnippet>548</a>            read,
-<a href=#549 id=549 data-nosnippet>549</a>            write || append || truncate,
-<a href=#550 id=550 data-nosnippet>550</a>            append,
-<a href=#551 id=551 data-nosnippet>551</a>            cursor,
-<a href=#552 id=552 data-nosnippet>552</a>        )))
-<a href=#553 id=553 data-nosnippet>553</a>    }
-<a href=#554 id=554 data-nosnippet>554</a>}
-<a href=#555 id=555 data-nosnippet>555</a>
-<a href=#556 id=556 data-nosnippet>556</a><span class="attr">#[cfg(test)]
-<a href=#557 id=557 data-nosnippet>557</a></span><span class="kw">mod </span>test_file_opener {
-<a href=#558 id=558 data-nosnippet>558</a>    <span class="kw">use </span>tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
-<a href=#559 id=559 data-nosnippet>559</a>
-<a href=#560 id=560 data-nosnippet>560</a>    <span class="kw">use crate</span>::{FileSystem <span class="kw">as </span>FS, FsError, mem_fs::<span class="kw-2">*</span>};
-<a href=#561 id=561 data-nosnippet>561</a>    <span class="kw">use </span>std::io;
-<a href=#562 id=562 data-nosnippet>562</a>
-<a href=#563 id=563 data-nosnippet>563</a>    <span class="macro">macro_rules!</span> path {
-<a href=#564 id=564 data-nosnippet>564</a>        (<span class="macro-nonterminal">$path</span>:expr) =&gt; {
-<a href=#565 id=565 data-nosnippet>565</a>            std::path::Path::new(<span class="macro-nonterminal">$path</span>)
-<a href=#566 id=566 data-nosnippet>566</a>        };
-<a href=#567 id=567 data-nosnippet>567</a>    }
-<a href=#568 id=568 data-nosnippet>568</a>
-<a href=#569 id=569 data-nosnippet>569</a>    <span class="attr">#[tokio::test]
-<a href=#570 id=570 data-nosnippet>570</a>    </span><span class="kw">async fn </span>test_create_new_file() {
-<a href=#571 id=571 data-nosnippet>571</a>        <span class="kw">let </span>fs = FileSystem::default();
-<a href=#572 id=572 data-nosnippet>572</a>
-<a href=#573 id=573 data-nosnippet>573</a>        <span class="macro">assert!</span>(
-<a href=#574 id=574 data-nosnippet>574</a>            fs.new_open_options()
-<a href=#575 id=575 data-nosnippet>575</a>                .write(<span class="bool-val">true</span>)
-<a href=#576 id=576 data-nosnippet>576</a>                .create_new(<span class="bool-val">true</span>)
-<a href=#577 id=577 data-nosnippet>577</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
-<a href=#578 id=578 data-nosnippet>578</a>                .is_ok(),
-<a href=#579 id=579 data-nosnippet>579</a>            <span class="string">"creating a new file"</span>,
-<a href=#580 id=580 data-nosnippet>580</a>        );
-<a href=#581 id=581 data-nosnippet>581</a>
-<a href=#582 id=582 data-nosnippet>582</a>        {
-<a href=#583 id=583 data-nosnippet>583</a>            <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
-<a href=#584 id=584 data-nosnippet>584</a>
-<a href=#585 id=585 data-nosnippet>585</a>            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">2</span>, <span class="string">"storage has the new file"</span>);
-<a href=#586 id=586 data-nosnippet>586</a>            <span class="macro">assert!</span>(
-<a href=#587 id=587 data-nosnippet>587</a>                <span class="macro">matches!</span>(
-<a href=#588 id=588 data-nosnippet>588</a>                    fs_inner.storage.get(ROOT_INODE),
-<a href=#589 id=589 data-nosnippet>589</a>                    <span class="prelude-val">Some</span>(Node::Directory(DirectoryNode {
-<a href=#590 id=590 data-nosnippet>590</a>                        inode: ROOT_INODE,
-<a href=#591 id=591 data-nosnippet>591</a>                        name,
-<a href=#592 id=592 data-nosnippet>592</a>                        children,
-<a href=#593 id=593 data-nosnippet>593</a>                        ..
-<a href=#594 id=594 data-nosnippet>594</a>                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
-<a href=#595 id=595 data-nosnippet>595</a>                ),
-<a href=#596 id=596 data-nosnippet>596</a>                <span class="string">"`/` contains `foo.txt`"</span>,
-<a href=#597 id=597 data-nosnippet>597</a>            );
-<a href=#598 id=598 data-nosnippet>598</a>            <span class="macro">assert!</span>(
-<a href=#599 id=599 data-nosnippet>599</a>                <span class="macro">matches!</span>(
-<a href=#600 id=600 data-nosnippet>600</a>                    fs_inner.storage.get(<span class="number">1</span>),
-<a href=#601 id=601 data-nosnippet>601</a>                    <span class="prelude-val">Some</span>(Node::File(FileNode {
-<a href=#602 id=602 data-nosnippet>602</a>                        inode: <span class="number">1</span>,
-<a href=#603 id=603 data-nosnippet>603</a>                        name,
-<a href=#604 id=604 data-nosnippet>604</a>                        ..
-<a href=#605 id=605 data-nosnippet>605</a>                    })) <span class="kw">if </span>name == <span class="string">"foo.txt"
-<a href=#606 id=606 data-nosnippet>606</a>                </span>),
-<a href=#607 id=607 data-nosnippet>607</a>                <span class="string">"`foo.txt` exists and is a file"</span>,
-<a href=#608 id=608 data-nosnippet>608</a>            );
-<a href=#609 id=609 data-nosnippet>609</a>        }
-<a href=#610 id=610 data-nosnippet>610</a>
-<a href=#611 id=611 data-nosnippet>611</a>        <span class="macro">assert!</span>(
-<a href=#612 id=612 data-nosnippet>612</a>            <span class="macro">matches!</span>(
-<a href=#613 id=613 data-nosnippet>613</a>                fs.new_open_options()
-<a href=#614 id=614 data-nosnippet>614</a>                    .write(<span class="bool-val">true</span>)
-<a href=#615 id=615 data-nosnippet>615</a>                    .create_new(<span class="bool-val">true</span>)
-<a href=#616 id=616 data-nosnippet>616</a>                    .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)),
-<a href=#617 id=617 data-nosnippet>617</a>                <span class="prelude-val">Err</span>(FsError::AlreadyExists)
-<a href=#618 id=618 data-nosnippet>618</a>            ),
-<a href=#619 id=619 data-nosnippet>619</a>            <span class="string">"creating a new file that already exist"</span>,
-<a href=#620 id=620 data-nosnippet>620</a>        );
-<a href=#621 id=621 data-nosnippet>621</a>
-<a href=#622 id=622 data-nosnippet>622</a>        <span class="macro">assert_eq!</span>(
-<a href=#623 id=623 data-nosnippet>623</a>            fs.new_open_options()
-<a href=#624 id=624 data-nosnippet>624</a>                .write(<span class="bool-val">true</span>)
-<a href=#625 id=625 data-nosnippet>625</a>                .create_new(<span class="bool-val">true</span>)
-<a href=#626 id=626 data-nosnippet>626</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo/bar.txt"</span>))
-<a href=#627 id=627 data-nosnippet>627</a>                .map(|<span class="kw">_</span>| ()),
-<a href=#628 id=628 data-nosnippet>628</a>            <span class="prelude-val">Err</span>(FsError::EntryNotFound),
-<a href=#629 id=629 data-nosnippet>629</a>            <span class="string">"creating a file in a directory that doesn't exist"</span>,
-<a href=#630 id=630 data-nosnippet>630</a>        );
-<a href=#631 id=631 data-nosnippet>631</a>
-<a href=#632 id=632 data-nosnippet>632</a>        <span class="macro">assert_eq!</span>(fs.remove_file(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"removing a file"</span>);
-<a href=#633 id=633 data-nosnippet>633</a>
-<a href=#634 id=634 data-nosnippet>634</a>        <span class="macro">assert!</span>(
-<a href=#635 id=635 data-nosnippet>635</a>            fs.new_open_options()
-<a href=#636 id=636 data-nosnippet>636</a>                .write(<span class="bool-val">false</span>)
-<a href=#637 id=637 data-nosnippet>637</a>                .create_new(<span class="bool-val">true</span>)
-<a href=#638 id=638 data-nosnippet>638</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
-<a href=#639 id=639 data-nosnippet>639</a>                .is_ok(),
-<a href=#640 id=640 data-nosnippet>640</a>            <span class="string">"creating a file without the `write` option"</span>,
-<a href=#641 id=641 data-nosnippet>641</a>        );
-<a href=#642 id=642 data-nosnippet>642</a>    }
+<a href=#540 id=540 data-nosnippet>540</a>    <span class="kw">use crate</span>::{FileSystem <span class="kw">as </span>FS, FsError, mem_fs::<span class="kw-2">*</span>};
+<a href=#541 id=541 data-nosnippet>541</a>    <span class="kw">use </span>std::io;
+<a href=#542 id=542 data-nosnippet>542</a>
+<a href=#543 id=543 data-nosnippet>543</a>    <span class="macro">macro_rules!</span> path {
+<a href=#544 id=544 data-nosnippet>544</a>        (<span class="macro-nonterminal">$path</span>:expr) =&gt; {
+<a href=#545 id=545 data-nosnippet>545</a>            std::path::Path::new(<span class="macro-nonterminal">$path</span>)
+<a href=#546 id=546 data-nosnippet>546</a>        };
+<a href=#547 id=547 data-nosnippet>547</a>    }
+<a href=#548 id=548 data-nosnippet>548</a>
+<a href=#549 id=549 data-nosnippet>549</a>    <span class="attr">#[tokio::test]
+<a href=#550 id=550 data-nosnippet>550</a>    </span><span class="kw">async fn </span>test_create_new_file() {
+<a href=#551 id=551 data-nosnippet>551</a>        <span class="kw">let </span>fs = FileSystem::default();
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a>        <span class="macro">assert!</span>(
+<a href=#554 id=554 data-nosnippet>554</a>            fs.new_open_options()
+<a href=#555 id=555 data-nosnippet>555</a>                .write(<span class="bool-val">true</span>)
+<a href=#556 id=556 data-nosnippet>556</a>                .create_new(<span class="bool-val">true</span>)
+<a href=#557 id=557 data-nosnippet>557</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#558 id=558 data-nosnippet>558</a>                .is_ok(),
+<a href=#559 id=559 data-nosnippet>559</a>            <span class="string">"creating a new file"</span>,
+<a href=#560 id=560 data-nosnippet>560</a>        );
+<a href=#561 id=561 data-nosnippet>561</a>
+<a href=#562 id=562 data-nosnippet>562</a>        {
+<a href=#563 id=563 data-nosnippet>563</a>            <span class="kw">let </span>fs_inner = fs.inner.read().unwrap();
+<a href=#564 id=564 data-nosnippet>564</a>
+<a href=#565 id=565 data-nosnippet>565</a>            <span class="macro">assert_eq!</span>(fs_inner.storage.len(), <span class="number">2</span>, <span class="string">"storage has the new file"</span>);
+<a href=#566 id=566 data-nosnippet>566</a>            <span class="macro">assert!</span>(
+<a href=#567 id=567 data-nosnippet>567</a>                <span class="macro">matches!</span>(
+<a href=#568 id=568 data-nosnippet>568</a>                    fs_inner.storage.get(ROOT_INODE),
+<a href=#569 id=569 data-nosnippet>569</a>                    <span class="prelude-val">Some</span>(Node::Directory(DirectoryNode {
+<a href=#570 id=570 data-nosnippet>570</a>                        inode: ROOT_INODE,
+<a href=#571 id=571 data-nosnippet>571</a>                        name,
+<a href=#572 id=572 data-nosnippet>572</a>                        children,
+<a href=#573 id=573 data-nosnippet>573</a>                        ..
+<a href=#574 id=574 data-nosnippet>574</a>                    })) <span class="kw">if </span>name == <span class="string">"/" </span>&amp;&amp; children == <span class="kw-2">&amp;</span>[<span class="number">1</span>]
+<a href=#575 id=575 data-nosnippet>575</a>                ),
+<a href=#576 id=576 data-nosnippet>576</a>                <span class="string">"`/` contains `foo.txt`"</span>,
+<a href=#577 id=577 data-nosnippet>577</a>            );
+<a href=#578 id=578 data-nosnippet>578</a>            <span class="macro">assert!</span>(
+<a href=#579 id=579 data-nosnippet>579</a>                <span class="macro">matches!</span>(
+<a href=#580 id=580 data-nosnippet>580</a>                    fs_inner.storage.get(<span class="number">1</span>),
+<a href=#581 id=581 data-nosnippet>581</a>                    <span class="prelude-val">Some</span>(Node::File(FileNode {
+<a href=#582 id=582 data-nosnippet>582</a>                        inode: <span class="number">1</span>,
+<a href=#583 id=583 data-nosnippet>583</a>                        name,
+<a href=#584 id=584 data-nosnippet>584</a>                        ..
+<a href=#585 id=585 data-nosnippet>585</a>                    })) <span class="kw">if </span>name == <span class="string">"foo.txt"
+<a href=#586 id=586 data-nosnippet>586</a>                </span>),
+<a href=#587 id=587 data-nosnippet>587</a>                <span class="string">"`foo.txt` exists and is a file"</span>,
+<a href=#588 id=588 data-nosnippet>588</a>            );
+<a href=#589 id=589 data-nosnippet>589</a>        }
+<a href=#590 id=590 data-nosnippet>590</a>
+<a href=#591 id=591 data-nosnippet>591</a>        <span class="macro">assert!</span>(
+<a href=#592 id=592 data-nosnippet>592</a>            <span class="macro">matches!</span>(
+<a href=#593 id=593 data-nosnippet>593</a>                fs.new_open_options()
+<a href=#594 id=594 data-nosnippet>594</a>                    .write(<span class="bool-val">true</span>)
+<a href=#595 id=595 data-nosnippet>595</a>                    .create_new(<span class="bool-val">true</span>)
+<a href=#596 id=596 data-nosnippet>596</a>                    .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)),
+<a href=#597 id=597 data-nosnippet>597</a>                <span class="prelude-val">Err</span>(FsError::AlreadyExists)
+<a href=#598 id=598 data-nosnippet>598</a>            ),
+<a href=#599 id=599 data-nosnippet>599</a>            <span class="string">"creating a new file that already exist"</span>,
+<a href=#600 id=600 data-nosnippet>600</a>        );
+<a href=#601 id=601 data-nosnippet>601</a>
+<a href=#602 id=602 data-nosnippet>602</a>        <span class="macro">assert_eq!</span>(
+<a href=#603 id=603 data-nosnippet>603</a>            fs.new_open_options()
+<a href=#604 id=604 data-nosnippet>604</a>                .write(<span class="bool-val">true</span>)
+<a href=#605 id=605 data-nosnippet>605</a>                .create_new(<span class="bool-val">true</span>)
+<a href=#606 id=606 data-nosnippet>606</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo/bar.txt"</span>))
+<a href=#607 id=607 data-nosnippet>607</a>                .map(|<span class="kw">_</span>| ()),
+<a href=#608 id=608 data-nosnippet>608</a>            <span class="prelude-val">Err</span>(FsError::EntryNotFound),
+<a href=#609 id=609 data-nosnippet>609</a>            <span class="string">"creating a file in a directory that doesn't exist"</span>,
+<a href=#610 id=610 data-nosnippet>610</a>        );
+<a href=#611 id=611 data-nosnippet>611</a>
+<a href=#612 id=612 data-nosnippet>612</a>        <span class="macro">assert_eq!</span>(fs.remove_file(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)), <span class="prelude-val">Ok</span>(()), <span class="string">"removing a file"</span>);
+<a href=#613 id=613 data-nosnippet>613</a>
+<a href=#614 id=614 data-nosnippet>614</a>        <span class="macro">assert!</span>(
+<a href=#615 id=615 data-nosnippet>615</a>            fs.new_open_options()
+<a href=#616 id=616 data-nosnippet>616</a>                .write(<span class="bool-val">false</span>)
+<a href=#617 id=617 data-nosnippet>617</a>                .create_new(<span class="bool-val">true</span>)
+<a href=#618 id=618 data-nosnippet>618</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#619 id=619 data-nosnippet>619</a>                .is_ok(),
+<a href=#620 id=620 data-nosnippet>620</a>            <span class="string">"creating a file without the `write` option"</span>,
+<a href=#621 id=621 data-nosnippet>621</a>        );
+<a href=#622 id=622 data-nosnippet>622</a>    }
+<a href=#623 id=623 data-nosnippet>623</a>
+<a href=#624 id=624 data-nosnippet>624</a>    <span class="attr">#[tokio::test]
+<a href=#625 id=625 data-nosnippet>625</a>    </span><span class="kw">async fn </span>test_truncate_a_read_only_file() {
+<a href=#626 id=626 data-nosnippet>626</a>        <span class="kw">let </span>fs = FileSystem::default();
+<a href=#627 id=627 data-nosnippet>627</a>
+<a href=#628 id=628 data-nosnippet>628</a>        <span class="macro">assert!</span>(
+<a href=#629 id=629 data-nosnippet>629</a>            <span class="macro">matches!</span>(
+<a href=#630 id=630 data-nosnippet>630</a>                fs.new_open_options()
+<a href=#631 id=631 data-nosnippet>631</a>                    .write(<span class="bool-val">false</span>)
+<a href=#632 id=632 data-nosnippet>632</a>                    .truncate(<span class="bool-val">true</span>)
+<a href=#633 id=633 data-nosnippet>633</a>                    .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)),
+<a href=#634 id=634 data-nosnippet>634</a>                <span class="prelude-val">Err</span>(FsError::PermissionDenied),
+<a href=#635 id=635 data-nosnippet>635</a>            ),
+<a href=#636 id=636 data-nosnippet>636</a>            <span class="string">"truncating a read-only file"</span>,
+<a href=#637 id=637 data-nosnippet>637</a>        );
+<a href=#638 id=638 data-nosnippet>638</a>    }
+<a href=#639 id=639 data-nosnippet>639</a>
+<a href=#640 id=640 data-nosnippet>640</a>    <span class="attr">#[tokio::test]
+<a href=#641 id=641 data-nosnippet>641</a>    </span><span class="kw">async fn </span>test_truncate() {
+<a href=#642 id=642 data-nosnippet>642</a>        <span class="kw">let </span>fs = FileSystem::default();
 <a href=#643 id=643 data-nosnippet>643</a>
-<a href=#644 id=644 data-nosnippet>644</a>    <span class="attr">#[tokio::test]
-<a href=#645 id=645 data-nosnippet>645</a>    </span><span class="kw">async fn </span>test_truncate_a_read_only_file() {
-<a href=#646 id=646 data-nosnippet>646</a>        <span class="kw">let </span>fs = FileSystem::default();
-<a href=#647 id=647 data-nosnippet>647</a>
-<a href=#648 id=648 data-nosnippet>648</a>        <span class="macro">assert!</span>(
-<a href=#649 id=649 data-nosnippet>649</a>            <span class="macro">matches!</span>(
-<a href=#650 id=650 data-nosnippet>650</a>                fs.new_open_options()
-<a href=#651 id=651 data-nosnippet>651</a>                    .write(<span class="bool-val">false</span>)
-<a href=#652 id=652 data-nosnippet>652</a>                    .truncate(<span class="bool-val">true</span>)
-<a href=#653 id=653 data-nosnippet>653</a>                    .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)),
-<a href=#654 id=654 data-nosnippet>654</a>                <span class="prelude-val">Err</span>(FsError::PermissionDenied),
-<a href=#655 id=655 data-nosnippet>655</a>            ),
-<a href=#656 id=656 data-nosnippet>656</a>            <span class="string">"truncating a read-only file"</span>,
-<a href=#657 id=657 data-nosnippet>657</a>        );
-<a href=#658 id=658 data-nosnippet>658</a>    }
-<a href=#659 id=659 data-nosnippet>659</a>
-<a href=#660 id=660 data-nosnippet>660</a>    <span class="attr">#[tokio::test]
-<a href=#661 id=661 data-nosnippet>661</a>    </span><span class="kw">async fn </span>test_truncate() {
-<a href=#662 id=662 data-nosnippet>662</a>        <span class="kw">let </span>fs = FileSystem::default();
-<a href=#663 id=663 data-nosnippet>663</a>
-<a href=#664 id=664 data-nosnippet>664</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
-<a href=#665 id=665 data-nosnippet>665</a>            .new_open_options()
-<a href=#666 id=666 data-nosnippet>666</a>            .write(<span class="bool-val">true</span>)
-<a href=#667 id=667 data-nosnippet>667</a>            .create_new(<span class="bool-val">true</span>)
-<a href=#668 id=668 data-nosnippet>668</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
-<a href=#669 id=669 data-nosnippet>669</a>            .expect(<span class="string">"failed to create a new file"</span>);
-<a href=#670 id=670 data-nosnippet>670</a>
-<a href=#671 id=671 data-nosnippet>671</a>        <span class="macro">assert!</span>(
-<a href=#672 id=672 data-nosnippet>672</a>            <span class="macro">matches!</span>(file.write(<span class="string">b"foobar"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-<a href=#673 id=673 data-nosnippet>673</a>            <span class="string">"writing `foobar` at the end of the file"</span>,
-<a href=#674 id=674 data-nosnippet>674</a>        );
-<a href=#675 id=675 data-nosnippet>675</a>
+<a href=#644 id=644 data-nosnippet>644</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
+<a href=#645 id=645 data-nosnippet>645</a>            .new_open_options()
+<a href=#646 id=646 data-nosnippet>646</a>            .write(<span class="bool-val">true</span>)
+<a href=#647 id=647 data-nosnippet>647</a>            .create_new(<span class="bool-val">true</span>)
+<a href=#648 id=648 data-nosnippet>648</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#649 id=649 data-nosnippet>649</a>            .expect(<span class="string">"failed to create a new file"</span>);
+<a href=#650 id=650 data-nosnippet>650</a>
+<a href=#651 id=651 data-nosnippet>651</a>        <span class="macro">assert!</span>(
+<a href=#652 id=652 data-nosnippet>652</a>            <span class="macro">matches!</span>(file.write(<span class="string">b"foobar"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
+<a href=#653 id=653 data-nosnippet>653</a>            <span class="string">"writing `foobar` at the end of the file"</span>,
+<a href=#654 id=654 data-nosnippet>654</a>        );
+<a href=#655 id=655 data-nosnippet>655</a>
+<a href=#656 id=656 data-nosnippet>656</a>        <span class="macro">assert!</span>(
+<a href=#657 id=657 data-nosnippet>657</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
+<a href=#658 id=658 data-nosnippet>658</a>            <span class="string">"checking the current position is 6"</span>,
+<a href=#659 id=659 data-nosnippet>659</a>        );
+<a href=#660 id=660 data-nosnippet>660</a>        <span class="macro">assert!</span>(
+<a href=#661 id=661 data-nosnippet>661</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
+<a href=#662 id=662 data-nosnippet>662</a>            <span class="string">"checking the size is 6"</span>,
+<a href=#663 id=663 data-nosnippet>663</a>        );
+<a href=#664 id=664 data-nosnippet>664</a>
+<a href=#665 id=665 data-nosnippet>665</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
+<a href=#666 id=666 data-nosnippet>666</a>            .new_open_options()
+<a href=#667 id=667 data-nosnippet>667</a>            .write(<span class="bool-val">true</span>)
+<a href=#668 id=668 data-nosnippet>668</a>            .truncate(<span class="bool-val">true</span>)
+<a href=#669 id=669 data-nosnippet>669</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#670 id=670 data-nosnippet>670</a>            .expect(<span class="string">"failed to open + truncate `foo.txt`"</span>);
+<a href=#671 id=671 data-nosnippet>671</a>
+<a href=#672 id=672 data-nosnippet>672</a>        <span class="macro">assert!</span>(
+<a href=#673 id=673 data-nosnippet>673</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+<a href=#674 id=674 data-nosnippet>674</a>            <span class="string">"checking the current position is 0"</span>,
+<a href=#675 id=675 data-nosnippet>675</a>        );
 <a href=#676 id=676 data-nosnippet>676</a>        <span class="macro">assert!</span>(
-<a href=#677 id=677 data-nosnippet>677</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-<a href=#678 id=678 data-nosnippet>678</a>            <span class="string">"checking the current position is 6"</span>,
+<a href=#677 id=677 data-nosnippet>677</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+<a href=#678 id=678 data-nosnippet>678</a>            <span class="string">"checking the size is 0"</span>,
 <a href=#679 id=679 data-nosnippet>679</a>        );
-<a href=#680 id=680 data-nosnippet>680</a>        <span class="macro">assert!</span>(
-<a href=#681 id=681 data-nosnippet>681</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-<a href=#682 id=682 data-nosnippet>682</a>            <span class="string">"checking the size is 6"</span>,
-<a href=#683 id=683 data-nosnippet>683</a>        );
-<a href=#684 id=684 data-nosnippet>684</a>
-<a href=#685 id=685 data-nosnippet>685</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
-<a href=#686 id=686 data-nosnippet>686</a>            .new_open_options()
-<a href=#687 id=687 data-nosnippet>687</a>            .write(<span class="bool-val">true</span>)
-<a href=#688 id=688 data-nosnippet>688</a>            .truncate(<span class="bool-val">true</span>)
-<a href=#689 id=689 data-nosnippet>689</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
-<a href=#690 id=690 data-nosnippet>690</a>            .expect(<span class="string">"failed to open + truncate `foo.txt`"</span>);
-<a href=#691 id=691 data-nosnippet>691</a>
-<a href=#692 id=692 data-nosnippet>692</a>        <span class="macro">assert!</span>(
-<a href=#693 id=693 data-nosnippet>693</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-<a href=#694 id=694 data-nosnippet>694</a>            <span class="string">"checking the current position is 0"</span>,
-<a href=#695 id=695 data-nosnippet>695</a>        );
-<a href=#696 id=696 data-nosnippet>696</a>        <span class="macro">assert!</span>(
-<a href=#697 id=697 data-nosnippet>697</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-<a href=#698 id=698 data-nosnippet>698</a>            <span class="string">"checking the size is 0"</span>,
-<a href=#699 id=699 data-nosnippet>699</a>        );
-<a href=#700 id=700 data-nosnippet>700</a>    }
-<a href=#701 id=701 data-nosnippet>701</a>
-<a href=#702 id=702 data-nosnippet>702</a>    <span class="attr">#[tokio::test]
-<a href=#703 id=703 data-nosnippet>703</a>    </span><span class="kw">async fn </span>test_append() {
-<a href=#704 id=704 data-nosnippet>704</a>        <span class="kw">let </span>fs = FileSystem::default();
-<a href=#705 id=705 data-nosnippet>705</a>
-<a href=#706 id=706 data-nosnippet>706</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
-<a href=#707 id=707 data-nosnippet>707</a>            .new_open_options()
-<a href=#708 id=708 data-nosnippet>708</a>            .write(<span class="bool-val">true</span>)
-<a href=#709 id=709 data-nosnippet>709</a>            .create_new(<span class="bool-val">true</span>)
+<a href=#680 id=680 data-nosnippet>680</a>    }
+<a href=#681 id=681 data-nosnippet>681</a>
+<a href=#682 id=682 data-nosnippet>682</a>    <span class="attr">#[tokio::test]
+<a href=#683 id=683 data-nosnippet>683</a>    </span><span class="kw">async fn </span>test_append() {
+<a href=#684 id=684 data-nosnippet>684</a>        <span class="kw">let </span>fs = FileSystem::default();
+<a href=#685 id=685 data-nosnippet>685</a>
+<a href=#686 id=686 data-nosnippet>686</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
+<a href=#687 id=687 data-nosnippet>687</a>            .new_open_options()
+<a href=#688 id=688 data-nosnippet>688</a>            .write(<span class="bool-val">true</span>)
+<a href=#689 id=689 data-nosnippet>689</a>            .create_new(<span class="bool-val">true</span>)
+<a href=#690 id=690 data-nosnippet>690</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#691 id=691 data-nosnippet>691</a>            .expect(<span class="string">"failed to create a new file"</span>);
+<a href=#692 id=692 data-nosnippet>692</a>
+<a href=#693 id=693 data-nosnippet>693</a>        <span class="macro">assert!</span>(
+<a href=#694 id=694 data-nosnippet>694</a>            <span class="macro">matches!</span>(file.write(<span class="string">b"foobar"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
+<a href=#695 id=695 data-nosnippet>695</a>            <span class="string">"writing `foobar` at the end of the file"</span>,
+<a href=#696 id=696 data-nosnippet>696</a>        );
+<a href=#697 id=697 data-nosnippet>697</a>
+<a href=#698 id=698 data-nosnippet>698</a>        <span class="macro">assert!</span>(
+<a href=#699 id=699 data-nosnippet>699</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
+<a href=#700 id=700 data-nosnippet>700</a>            <span class="string">"checking the current position is 6"</span>,
+<a href=#701 id=701 data-nosnippet>701</a>        );
+<a href=#702 id=702 data-nosnippet>702</a>        <span class="macro">assert!</span>(
+<a href=#703 id=703 data-nosnippet>703</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
+<a href=#704 id=704 data-nosnippet>704</a>            <span class="string">"checking the size is 6"</span>,
+<a href=#705 id=705 data-nosnippet>705</a>        );
+<a href=#706 id=706 data-nosnippet>706</a>
+<a href=#707 id=707 data-nosnippet>707</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
+<a href=#708 id=708 data-nosnippet>708</a>            .new_open_options()
+<a href=#709 id=709 data-nosnippet>709</a>            .append(<span class="bool-val">true</span>)
 <a href=#710 id=710 data-nosnippet>710</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
-<a href=#711 id=711 data-nosnippet>711</a>            .expect(<span class="string">"failed to create a new file"</span>);
+<a href=#711 id=711 data-nosnippet>711</a>            .expect(<span class="string">"failed to open `foo.txt`"</span>);
 <a href=#712 id=712 data-nosnippet>712</a>
 <a href=#713 id=713 data-nosnippet>713</a>        <span class="macro">assert!</span>(
-<a href=#714 id=714 data-nosnippet>714</a>            <span class="macro">matches!</span>(file.write(<span class="string">b"foobar"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-<a href=#715 id=715 data-nosnippet>715</a>            <span class="string">"writing `foobar` at the end of the file"</span>,
+<a href=#714 id=714 data-nosnippet>714</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+<a href=#715 id=715 data-nosnippet>715</a>            <span class="string">"checking the current position in append-mode is 0"</span>,
 <a href=#716 id=716 data-nosnippet>716</a>        );
-<a href=#717 id=717 data-nosnippet>717</a>
-<a href=#718 id=718 data-nosnippet>718</a>        <span class="macro">assert!</span>(
-<a href=#719 id=719 data-nosnippet>719</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-<a href=#720 id=720 data-nosnippet>720</a>            <span class="string">"checking the current position is 6"</span>,
-<a href=#721 id=721 data-nosnippet>721</a>        );
-<a href=#722 id=722 data-nosnippet>722</a>        <span class="macro">assert!</span>(
-<a href=#723 id=723 data-nosnippet>723</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::End(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">6</span>)),
-<a href=#724 id=724 data-nosnippet>724</a>            <span class="string">"checking the size is 6"</span>,
-<a href=#725 id=725 data-nosnippet>725</a>        );
-<a href=#726 id=726 data-nosnippet>726</a>
-<a href=#727 id=727 data-nosnippet>727</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
-<a href=#728 id=728 data-nosnippet>728</a>            .new_open_options()
-<a href=#729 id=729 data-nosnippet>729</a>            .append(<span class="bool-val">true</span>)
-<a href=#730 id=730 data-nosnippet>730</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
-<a href=#731 id=731 data-nosnippet>731</a>            .expect(<span class="string">"failed to open `foo.txt`"</span>);
-<a href=#732 id=732 data-nosnippet>732</a>
-<a href=#733 id=733 data-nosnippet>733</a>        <span class="macro">assert!</span>(
-<a href=#734 id=734 data-nosnippet>734</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-<a href=#735 id=735 data-nosnippet>735</a>            <span class="string">"checking the current position in append-mode is 0"</span>,
-<a href=#736 id=736 data-nosnippet>736</a>        );
-<a href=#737 id=737 data-nosnippet>737</a>        <span class="macro">assert!</span>(
-<a href=#738 id=738 data-nosnippet>738</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-<a href=#739 id=739 data-nosnippet>739</a>            <span class="string">"trying to rewind in append-mode"</span>,
-<a href=#740 id=740 data-nosnippet>740</a>        );
-<a href=#741 id=741 data-nosnippet>741</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.write(<span class="string">b"baz"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)), <span class="string">"writing `baz`"</span>);
-<a href=#742 id=742 data-nosnippet>742</a>
-<a href=#743 id=743 data-nosnippet>743</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
-<a href=#744 id=744 data-nosnippet>744</a>            .new_open_options()
-<a href=#745 id=745 data-nosnippet>745</a>            .read(<span class="bool-val">true</span>)
-<a href=#746 id=746 data-nosnippet>746</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
-<a href=#747 id=747 data-nosnippet>747</a>            .expect(<span class="string">"failed to open `foo.txt"</span>);
+<a href=#717 id=717 data-nosnippet>717</a>        <span class="macro">assert!</span>(
+<a href=#718 id=718 data-nosnippet>718</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+<a href=#719 id=719 data-nosnippet>719</a>            <span class="string">"trying to rewind in append-mode"</span>,
+<a href=#720 id=720 data-nosnippet>720</a>        );
+<a href=#721 id=721 data-nosnippet>721</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.write(<span class="string">b"baz"</span>).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">3</span>)), <span class="string">"writing `baz`"</span>);
+<a href=#722 id=722 data-nosnippet>722</a>
+<a href=#723 id=723 data-nosnippet>723</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
+<a href=#724 id=724 data-nosnippet>724</a>            .new_open_options()
+<a href=#725 id=725 data-nosnippet>725</a>            .read(<span class="bool-val">true</span>)
+<a href=#726 id=726 data-nosnippet>726</a>            .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#727 id=727 data-nosnippet>727</a>            .expect(<span class="string">"failed to open `foo.txt"</span>);
+<a href=#728 id=728 data-nosnippet>728</a>
+<a href=#729 id=729 data-nosnippet>729</a>        <span class="macro">assert!</span>(
+<a href=#730 id=730 data-nosnippet>730</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+<a href=#731 id=731 data-nosnippet>731</a>            <span class="string">"checking the current position is read-mode is 0"</span>,
+<a href=#732 id=732 data-nosnippet>732</a>        );
+<a href=#733 id=733 data-nosnippet>733</a>
+<a href=#734 id=734 data-nosnippet>734</a>        <span class="kw">let </span><span class="kw-2">mut </span>string = String::new();
+<a href=#735 id=735 data-nosnippet>735</a>        <span class="macro">assert!</span>(
+<a href=#736 id=736 data-nosnippet>736</a>            <span class="macro">matches!</span>(file.read_to_string(<span class="kw-2">&amp;mut </span>string).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">9</span>)),
+<a href=#737 id=737 data-nosnippet>737</a>            <span class="string">"reading the entire `foo.txt` file"</span>,
+<a href=#738 id=738 data-nosnippet>738</a>        );
+<a href=#739 id=739 data-nosnippet>739</a>        <span class="macro">assert_eq!</span>(
+<a href=#740 id=740 data-nosnippet>740</a>            string, <span class="string">"foobarbaz"</span>,
+<a href=#741 id=741 data-nosnippet>741</a>            <span class="string">"checking append-mode is ignoring seek operations"</span>,
+<a href=#742 id=742 data-nosnippet>742</a>        );
+<a href=#743 id=743 data-nosnippet>743</a>    }
+<a href=#744 id=744 data-nosnippet>744</a>
+<a href=#745 id=745 data-nosnippet>745</a>    <span class="attr">#[tokio::test]
+<a href=#746 id=746 data-nosnippet>746</a>    </span><span class="kw">async fn </span>test_opening_a_file_that_already_exists() {
+<a href=#747 id=747 data-nosnippet>747</a>        <span class="kw">let </span>fs = FileSystem::default();
 <a href=#748 id=748 data-nosnippet>748</a>
 <a href=#749 id=749 data-nosnippet>749</a>        <span class="macro">assert!</span>(
-<a href=#750 id=750 data-nosnippet>750</a>            <span class="macro">matches!</span>(file.seek(io::SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-<a href=#751 id=751 data-nosnippet>751</a>            <span class="string">"checking the current position is read-mode is 0"</span>,
-<a href=#752 id=752 data-nosnippet>752</a>        );
-<a href=#753 id=753 data-nosnippet>753</a>
-<a href=#754 id=754 data-nosnippet>754</a>        <span class="kw">let </span><span class="kw-2">mut </span>string = String::new();
-<a href=#755 id=755 data-nosnippet>755</a>        <span class="macro">assert!</span>(
-<a href=#756 id=756 data-nosnippet>756</a>            <span class="macro">matches!</span>(file.read_to_string(<span class="kw-2">&amp;mut </span>string).<span class="kw">await</span>, <span class="prelude-val">Ok</span>(<span class="number">9</span>)),
-<a href=#757 id=757 data-nosnippet>757</a>            <span class="string">"reading the entire `foo.txt` file"</span>,
-<a href=#758 id=758 data-nosnippet>758</a>        );
-<a href=#759 id=759 data-nosnippet>759</a>        <span class="macro">assert_eq!</span>(
-<a href=#760 id=760 data-nosnippet>760</a>            string, <span class="string">"foobarbaz"</span>,
-<a href=#761 id=761 data-nosnippet>761</a>            <span class="string">"checking append-mode is ignoring seek operations"</span>,
-<a href=#762 id=762 data-nosnippet>762</a>        );
-<a href=#763 id=763 data-nosnippet>763</a>    }
-<a href=#764 id=764 data-nosnippet>764</a>
-<a href=#765 id=765 data-nosnippet>765</a>    <span class="attr">#[tokio::test]
-<a href=#766 id=766 data-nosnippet>766</a>    </span><span class="kw">async fn </span>test_opening_a_file_that_already_exists() {
-<a href=#767 id=767 data-nosnippet>767</a>        <span class="kw">let </span>fs = FileSystem::default();
-<a href=#768 id=768 data-nosnippet>768</a>
-<a href=#769 id=769 data-nosnippet>769</a>        <span class="macro">assert!</span>(
-<a href=#770 id=770 data-nosnippet>770</a>            fs.new_open_options()
-<a href=#771 id=771 data-nosnippet>771</a>                .write(<span class="bool-val">true</span>)
-<a href=#772 id=772 data-nosnippet>772</a>                .create_new(<span class="bool-val">true</span>)
-<a href=#773 id=773 data-nosnippet>773</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
-<a href=#774 id=774 data-nosnippet>774</a>                .is_ok(),
-<a href=#775 id=775 data-nosnippet>775</a>            <span class="string">"creating a _new_ file"</span>,
-<a href=#776 id=776 data-nosnippet>776</a>        );
-<a href=#777 id=777 data-nosnippet>777</a>
-<a href=#778 id=778 data-nosnippet>778</a>        <span class="macro">assert!</span>(
-<a href=#779 id=779 data-nosnippet>779</a>            <span class="macro">matches!</span>(
-<a href=#780 id=780 data-nosnippet>780</a>                fs.new_open_options()
-<a href=#781 id=781 data-nosnippet>781</a>                    .create_new(<span class="bool-val">true</span>)
-<a href=#782 id=782 data-nosnippet>782</a>                    .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)),
-<a href=#783 id=783 data-nosnippet>783</a>                <span class="prelude-val">Err</span>(FsError::AlreadyExists),
-<a href=#784 id=784 data-nosnippet>784</a>            ),
-<a href=#785 id=785 data-nosnippet>785</a>            <span class="string">"creating a _new_ file that already exists"</span>,
-<a href=#786 id=786 data-nosnippet>786</a>        );
-<a href=#787 id=787 data-nosnippet>787</a>
-<a href=#788 id=788 data-nosnippet>788</a>        <span class="macro">assert!</span>(
-<a href=#789 id=789 data-nosnippet>789</a>            fs.new_open_options()
-<a href=#790 id=790 data-nosnippet>790</a>                .read(<span class="bool-val">true</span>)
-<a href=#791 id=791 data-nosnippet>791</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
-<a href=#792 id=792 data-nosnippet>792</a>                .is_ok(),
-<a href=#793 id=793 data-nosnippet>793</a>            <span class="string">"opening a file that already exists"</span>,
-<a href=#794 id=794 data-nosnippet>794</a>        );
-<a href=#795 id=795 data-nosnippet>795</a>    }
-<a href=#796 id=796 data-nosnippet>796</a>}</code></pre></div></section></main></body></html>
+<a href=#750 id=750 data-nosnippet>750</a>            fs.new_open_options()
+<a href=#751 id=751 data-nosnippet>751</a>                .write(<span class="bool-val">true</span>)
+<a href=#752 id=752 data-nosnippet>752</a>                .create_new(<span class="bool-val">true</span>)
+<a href=#753 id=753 data-nosnippet>753</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#754 id=754 data-nosnippet>754</a>                .is_ok(),
+<a href=#755 id=755 data-nosnippet>755</a>            <span class="string">"creating a _new_ file"</span>,
+<a href=#756 id=756 data-nosnippet>756</a>        );
+<a href=#757 id=757 data-nosnippet>757</a>
+<a href=#758 id=758 data-nosnippet>758</a>        <span class="macro">assert!</span>(
+<a href=#759 id=759 data-nosnippet>759</a>            <span class="macro">matches!</span>(
+<a href=#760 id=760 data-nosnippet>760</a>                fs.new_open_options()
+<a href=#761 id=761 data-nosnippet>761</a>                    .create_new(<span class="bool-val">true</span>)
+<a href=#762 id=762 data-nosnippet>762</a>                    .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>)),
+<a href=#763 id=763 data-nosnippet>763</a>                <span class="prelude-val">Err</span>(FsError::AlreadyExists),
+<a href=#764 id=764 data-nosnippet>764</a>            ),
+<a href=#765 id=765 data-nosnippet>765</a>            <span class="string">"creating a _new_ file that already exists"</span>,
+<a href=#766 id=766 data-nosnippet>766</a>        );
+<a href=#767 id=767 data-nosnippet>767</a>
+<a href=#768 id=768 data-nosnippet>768</a>        <span class="macro">assert!</span>(
+<a href=#769 id=769 data-nosnippet>769</a>            fs.new_open_options()
+<a href=#770 id=770 data-nosnippet>770</a>                .read(<span class="bool-val">true</span>)
+<a href=#771 id=771 data-nosnippet>771</a>                .open(<span class="macro">path!</span>(<span class="string">"/foo.txt"</span>))
+<a href=#772 id=772 data-nosnippet>772</a>                .is_ok(),
+<a href=#773 id=773 data-nosnippet>773</a>            <span class="string">"opening a file that already exists"</span>,
+<a href=#774 id=774 data-nosnippet>774</a>        );
+<a href=#775 id=775 data-nosnippet>775</a>    }
+<a href=#776 id=776 data-nosnippet>776</a>}</code></pre></div></section></main></body></html>
