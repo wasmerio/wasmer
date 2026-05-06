@@ -129,7 +129,11 @@ fn test_legacy_proc_exec2() {
     });
 }
 
-wasm_test!(test_share_tmp_after_fork, "share-tmp-after-fork", stdout = "0");
+wasm_test!(
+    test_share_tmp_after_fork,
+    "share-tmp-after-fork",
+    stdout = "0"
+);
 
 #[test]
 fn test_share_tmp_after_proc_exec() {

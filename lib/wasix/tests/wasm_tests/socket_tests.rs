@@ -1,6 +1,10 @@
 use super::{run_build_script, run_wasm_with_runner_config};
 
-wasm_test!(test_pipe_send_recv_compat, "pipe_send_recv_compat", stdout = "pipe send/recv works");
+wasm_test!(
+    test_pipe_send_recv_compat,
+    "pipe_send_recv_compat",
+    stdout = "pipe send/recv works"
+);
 
 wasm_test!(
     test_nonblocking_connect,

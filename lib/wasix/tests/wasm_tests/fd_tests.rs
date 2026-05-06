@@ -19,4 +19,9 @@ wasm_test!(test_fd_close, "fd-close");
 
 wasm_test!(test_pipes, "pipes");
 
-wasm_test!(test_pwrite_and_size, "pwrite-and-size", temp_dir, stdout = "0");
+wasm_test!(
+    test_pwrite_and_size,
+    "pwrite-and-size",
+    temp_dir,
+    stdout = "0"
+);
