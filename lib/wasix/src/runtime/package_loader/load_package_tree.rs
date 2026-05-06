@@ -109,9 +109,15 @@ fn commands(
         },
     ) in commands
     {
-        let webc = &containers[package];
+        let webc = containers.get(package).with_context(|| {
+            format!("Unable to find the \"{package}\" package for the \"{name}\" command")
+        })?;
         let manifest = webc.manifest();
-        let command_metadata = &manifest.commands[original_name];
+        let command_metadata = manifest.commands.get(original_name).with_context(|| {
+            format!(
+                "Unable to find the \"{original_name}\" command metadata in the \"{package}\" package"
+            )
+        })?;
 
         if let Some(cmd) =
             load_binary_command(package, name, command_metadata, containers, resolution)?
@@ -149,7 +155,9 @@ fn load_binary_command(
         }
     };
 
-    let package = &containers[package_id];
+    let package = containers
+        .get(package_id)
+        .with_context(|| format!("Unable to find the \"{package_id}\" package"))?;
 
     let (webc, resolved_package_id) = match dependency {
         Some(dep) => {
@@ -173,7 +181,13 @@ fn load_binary_command(
                 resolved_package_id=%id,
                 "command atom resolution: resolved dependency",
             );
-            (&containers[id], id)
+            let container = containers.get(id).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "The \"{command_name}\" command in \"{package_id}\" shadows an entry/command of the \"{dep}\" dependency. Rename the local command."
+                )
+            })?;
+
+            (container, id)
         }
         None => (package, package_id),
     };
@@ -307,18 +321,7 @@ async fn fetch_dependencies(
     pkg: &ResolvedPackage,
     graph: &DependencyGraph,
 ) -> Result<HashMap<PackageId, Container>, Error> {
-    let mut packages = HashSet::new();
-
-    for loc in pkg.commands.values() {
-        packages.insert(loc.package.clone());
-    }
-
-    for mapping in &pkg.filesystem {
-        packages.insert(mapping.package.clone());
-    }
-
-    // We don't need to download the root package
-    packages.remove(&pkg.root_package);
+    let packages = packages_needed_for_load(pkg);
 
     let packages = packages.into_iter().filter_map(|id| {
         let crate::runtime::resolver::Node { pkg, dist, .. } = &graph[&id];
@@ -340,6 +343,23 @@ async fn fetch_dependencies(
         .await?;
 
     Ok(packages)
+}
+
+fn packages_needed_for_load(pkg: &ResolvedPackage) -> HashSet<PackageId> {
+    let mut packages = HashSet::new();
+
+    for loc in pkg.commands.values() {
+        packages.insert(loc.package.clone());
+    }
+
+    for mapping in &pkg.filesystem {
+        packages.insert(mapping.package.clone());
+    }
+
+    // We don't need to download the root package
+    packages.remove(&pkg.root_package);
+
+    packages
 }
 
 /// How many bytes worth of files does a directory contain?
@@ -596,15 +616,19 @@ mod tests {
         path::{Path, PathBuf},
     };
 
+    use anyhow::Error;
     use ciborium::value::Value;
+    use petgraph::graph::DiGraph;
     use virtual_fs::FileSystem;
     use wasmer_config::package::PackageId;
     use webc::{
         Container,
         indexmap::IndexMap,
         metadata::{
-            Manifest,
-            annotations::{FileSystemMapping, FileSystemMappings},
+            Command as WebcCommand, Manifest,
+            annotations::{
+                Atom as AtomAnnotation, FileSystemMapping, FileSystemMappings, WASI_RUNNER_URI,
+            },
         },
         v2::{
             SignatureAlgorithm,
@@ -614,6 +638,32 @@ mod tests {
     };
 
     use super::{ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2};
+    use crate::runtime::{
+        package_loader::PackageLoader,
+        resolver::{
+            Command, DependencyGraph, DistributionInfo, Edge, ItemLocation, Node, PackageInfo,
+            PackageSummary, Resolution, WebcHash,
+        },
+    };
+
+    #[derive(Debug, Default)]
+    struct TestLoader;
+
+    #[async_trait::async_trait]
+    impl PackageLoader for TestLoader {
+        async fn load(&self, summary: &PackageSummary) -> Result<Container, Error> {
+            anyhow::bail!("unexpected dependency fetch: {}", summary.package_id())
+        }
+
+        async fn load_package_tree(
+            &self,
+            root: &Container,
+            resolution: &Resolution,
+            root_is_local_dir: bool,
+        ) -> Result<crate::bin_factory::BinaryPackage, Error> {
+            super::load_package_tree(root, self, resolution, root_is_local_dir).await
+        }
+    }
 
     #[test]
     fn v2_filesystem_mapping_resolves_mount_paths() {
@@ -680,6 +730,121 @@ mod tests {
                 .unwrap()
                 .is_file()
         );
+    }
+
+    #[tokio::test]
+    async fn load_package_tree_reports_shadowed_dependency_command_without_panic() {
+        let root_id = PackageId::new_named("root", "0.1.0".parse().unwrap());
+        let dep_id = PackageId::new_named("wasmer/static-web-server", "1.0.0".parse().unwrap());
+        let dep_alias = "wasmer/static-web-server";
+
+        let root_info = PackageInfo {
+            id: root_id.clone(),
+            commands: vec![Command {
+                name: "webserver".to_string(),
+            }],
+            entrypoint: Some("webserver".to_string()),
+            dependencies: Vec::new(),
+            filesystem: Vec::new(),
+        };
+        let dep_info = PackageInfo {
+            id: dep_id.clone(),
+            commands: vec![Command {
+                name: "webserver".to_string(),
+            }],
+            entrypoint: Some("webserver".to_string()),
+            dependencies: Vec::new(),
+            filesystem: Vec::new(),
+        };
+        let root_container = test_container([(
+            "webserver",
+            command_for_atom("webserver", Some(dep_alias.to_string())),
+        )]);
+
+        let mut graph = DiGraph::new();
+        let root = graph.add_node(Node {
+            id: root_id.clone(),
+            pkg: root_info,
+            dist: None,
+        });
+        let dep = graph.add_node(Node {
+            id: dep_id.clone(),
+            pkg: dep_info,
+            dist: Some(DistributionInfo {
+                webc: "http://localhost/wasmer-static-web-server.webc"
+                    .parse()
+                    .unwrap(),
+                webc_sha256: WebcHash::from([0; 32]),
+            }),
+        });
+        graph.add_edge(
+            root,
+            dep,
+            Edge {
+                alias: dep_alias.to_string(),
+            },
+        );
+
+        let dependency_graph = DependencyGraph::new(
+            root,
+            graph,
+            BTreeMap::from([(root_id.clone(), root), (dep_id.clone(), dep)]),
+        );
+        let pkg = ResolvedPackage {
+            root_package: root_id.clone(),
+            commands: BTreeMap::from([(
+                "webserver".to_string(),
+                ItemLocation {
+                    name: "webserver".to_string(),
+                    package: root_id.clone(),
+                },
+            )]),
+            entrypoint: Some("webserver".to_string()),
+            filesystem: Vec::new(),
+        };
+
+        let err = super::load_package_tree(
+            &root_container,
+            &TestLoader,
+            &Resolution {
+                package: pkg,
+                graph: dependency_graph,
+            },
+            false,
+        )
+        .await
+        .unwrap_err();
+        let message = format!("{err:#}");
+
+        assert!(message.contains("shadows an entry/command"));
+        assert!(message.contains("Rename the local command"));
+    }
+
+    fn command_for_atom(atom: &str, dependency: Option<String>) -> WebcCommand {
+        let mut annotations = IndexMap::new();
+        annotations.insert(
+            AtomAnnotation::KEY.to_string(),
+            Value::serialized(&AtomAnnotation::new(atom, dependency)).unwrap(),
+        );
+
+        WebcCommand {
+            runner: WASI_RUNNER_URI.to_string(),
+            annotations,
+        }
+    }
+
+    fn test_container<'a>(commands: impl IntoIterator<Item = (&'a str, WebcCommand)>) -> Container {
+        let mut manifest = Manifest::default();
+
+        for (name, command) in commands {
+            manifest.commands.insert(name.to_string(), command);
+        }
+
+        let writer = Writer::default().write_manifest(&manifest).unwrap();
+        let writer = writer.write_atoms(BTreeMap::new()).unwrap();
+        let bytes = writer.finish(SignatureAlgorithm::None).unwrap();
+        let reader = OwnedReader::parse(bytes).unwrap();
+        Container::from(reader)
     }
 
     #[test]
