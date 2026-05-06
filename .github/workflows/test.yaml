@@ -757,3 +757,24 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
+  ci_success:
+    name: Tests CI
+    runs-on: ubuntu-22.04
+    needs:
+      - setup
+      - lint
+      - cargo_deny
+      - test_nodejs
+      - test_wasi_fyi
+      - test_interpreter_api
+      - test_build_docs_rs
+      - build_linux_riscv64
+      - build
+      - test
+    if: ${{ always() }}
+    steps:
+      - name: Check required jobs
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        run: exit 1
+      - name: Required jobs passed
+        run: echo "All required jobs passed"
