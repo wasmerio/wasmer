@@ -1198,3 +1198,43 @@ fn issue_6401_llvm_v128_load16x4_s_oob() -> Result<()> {
 
     Ok(())
 }
+
+#[compiler_test(issues)]
+fn issue_6534_declared_element_segment_with_global(config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+          (type $add_one_ty (func (param i32) (result i32)))
+          (import "env" "g" (global funcref))
+          (table 1 funcref)
+
+          (elem declare funcref (global.get 0))
+
+          (func (export "run") (param i32) (result i32)
+            i32.const 0
+            global.get 0
+            table.set 0
+
+            local.get 0
+            i32.const 0
+            call_indirect (type $add_one_ty))
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let add_one = Function::new_typed(&mut store, |value: i32| value + 1);
+    let g = Global::new(&mut store, Value::FuncRef(Some(add_one)));
+    let imports = imports! {
+        "env" => {
+            "g" => g,
+        },
+    };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let run: TypedFunction<i32, i32> = instance.exports.get_typed_function(&store, "run")?;
+
+    assert_eq!(run.call(&mut store, 41)?, 42);
+
+    Ok(())
+}
