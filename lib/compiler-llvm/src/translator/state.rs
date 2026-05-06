@@ -156,7 +156,7 @@ impl BitOr for ExtraInfo {
         if (self.has_pending_f32_nan() && other.has_pending_f64_nan())
             || (self.has_pending_f64_nan() && other.has_pending_f32_nan())
         {
-            return Err(CompileError::Codegen("Can't produce bitwise or of two different states if there are two different kinds of nan canonicalizations at the same time".to_string()));
+            return Err(CompileError::Codegen("Can't produce bitwise or of two different states if there are two different kinds of nan canonicalization at the same time".to_string()));
         }
 
         Ok(ExtraInfo {
@@ -186,7 +186,7 @@ impl BitOrAssign for ExtraInfo {
 impl BitAnd for ExtraInfo {
     type Output = Result<Self, CompileError>;
     fn bitand(self, other: Self) -> Self::Output {
-        // Pending canonicalizations are not safe to discard, or even reorder.
+        // Pending canonicalization are not safe to discard, or even reorder.
         debug_assert!(
             self.has_pending_f32_nan() == other.has_pending_f32_nan()
                 || self.is_arithmetic_f32()

@@ -302,7 +302,7 @@ impl From<virtual_net::StreamSecurity> for JournalStreamSecurityV1 {
         use virtual_net::StreamSecurity;
         match val {
             StreamSecurity::Unencrypted => JournalStreamSecurityV1::Unencrypted,
-            StreamSecurity::AnyEncyption => JournalStreamSecurityV1::AnyEncryption,
+            StreamSecurity::AnyEncryption => JournalStreamSecurityV1::AnyEncryption,
             StreamSecurity::ClassicEncryption => JournalStreamSecurityV1::ClassicEncryption,
             StreamSecurity::DoubleEncryption => JournalStreamSecurityV1::DoubleEncryption,
         }
@@ -314,10 +314,10 @@ impl From<JournalStreamSecurityV1> for virtual_net::StreamSecurity {
         use virtual_net::StreamSecurity;
         match val {
             JournalStreamSecurityV1::Unencrypted => StreamSecurity::Unencrypted,
-            JournalStreamSecurityV1::AnyEncryption => StreamSecurity::AnyEncyption,
+            JournalStreamSecurityV1::AnyEncryption => StreamSecurity::AnyEncryption,
             JournalStreamSecurityV1::ClassicEncryption => StreamSecurity::ClassicEncryption,
             JournalStreamSecurityV1::DoubleEncryption => StreamSecurity::DoubleEncryption,
-            JournalStreamSecurityV1::Unknown => StreamSecurity::AnyEncyption,
+            JournalStreamSecurityV1::Unknown => StreamSecurity::AnyEncryption,
         }
     }
 }
@@ -327,10 +327,10 @@ impl From<&'_ ArchivedJournalStreamSecurityV1> for virtual_net::StreamSecurity {
         use virtual_net::StreamSecurity;
         match val {
             ArchivedJournalStreamSecurityV1::Unencrypted => StreamSecurity::Unencrypted,
-            ArchivedJournalStreamSecurityV1::AnyEncryption => StreamSecurity::AnyEncyption,
+            ArchivedJournalStreamSecurityV1::AnyEncryption => StreamSecurity::AnyEncryption,
             ArchivedJournalStreamSecurityV1::ClassicEncryption => StreamSecurity::ClassicEncryption,
             ArchivedJournalStreamSecurityV1::DoubleEncryption => StreamSecurity::DoubleEncryption,
-            ArchivedJournalStreamSecurityV1::Unknown => StreamSecurity::AnyEncyption,
+            ArchivedJournalStreamSecurityV1::Unknown => StreamSecurity::AnyEncryption,
         }
     }
 }

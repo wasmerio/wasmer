@@ -697,7 +697,7 @@ impl WasiEnv {
         Ok(())
     }
 
-    /// Porcesses any signals that are batched up or any forced exit codes
+    /// Processes any signals that are batched up or any forced exit codes
     pub fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
@@ -734,7 +734,7 @@ impl WasiEnv {
         Self::process_signals(ctx)
     }
 
-    /// Porcesses any signals that are batched up
+    /// Processes any signals that are batched up
     pub(crate) fn process_signals(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently

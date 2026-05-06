@@ -9,7 +9,7 @@ use crate::{
 /// A handle that exposes operations only relevant for shared memories.
 ///
 /// Enables interaction independent from the [`crate::Store`], and thus allows calling
-/// some methods an instane is running.
+/// some methods an instance is running.
 ///
 /// **NOTE**: Not all methods are supported by all backends.
 #[derive(Clone)]

@@ -77,7 +77,7 @@ fn main() -> anyhow::Result<()> {
 
     // We now have an instance ready to be used.
     //
-    // We will start by querying the most intersting information
+    // We will start by querying the most interesting information
     // about the memory: its size. There are mainly two ways of getting
     // this:
     // * the size as a number of `Page`s

@@ -61,7 +61,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // We create some shared data here, `Arc` is required because we may
     // move our WebAssembly instance to another thread to run it. Mutex
     // lets us get shared mutabilty which is fine because we know we won't
-    // run host calls concurrently.  If concurrency is a possibilty, we'd have
+    // run host calls concurrently.  If concurrency is a possibility, we'd have
     // to use a `Mutex`.
     let shared_counter: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
 

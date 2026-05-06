@@ -121,7 +121,7 @@ pub trait Compiler: Send + std::fmt::Debug {
 
     /// Validates a module.
     ///
-    /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
+    /// It returns the a successful Result in case is valid, `CompileError` in case is not.
     #[cfg(feature = "translator")]
     fn validate_module(&self, features: &Features, data: &[u8]) -> Result<(), CompileError> {
         let mut wasm_features = WasmFeatures::empty();
@@ -172,7 +172,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         false
     }
 
-    /// Get the CpuFeatues used by the compiler
+    /// Get the CpuFeatures used by the compiler
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
         *cpu_features
     }

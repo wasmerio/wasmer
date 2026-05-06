@@ -185,7 +185,7 @@ pub mod module;
 /// all instances of functions, tables, memories, and globals that
 /// have been allocated during the lifetime of the abstract machine.
 ///
-/// The store holds the [engine] (that is —amonst many things— used to
+/// The store holds the [engine] (that is —amongst many things— used to
 /// compile the Wasm bytes into a valid [module] artifact), in addition
 /// to extra private types.
 ///

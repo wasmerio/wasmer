@@ -220,7 +220,7 @@ impl CType {
 
 /// A statement in the C programming language. This may not be exact to what an
 /// AST would look like or what the C standard says about the C language, it's
-/// simply a structed way to organize data for generating C code.
+/// simply a structured way to organize data for generating C code.
 #[derive(Debug, Clone)]
 pub enum CStatement {
     /// A declaration of some kind.

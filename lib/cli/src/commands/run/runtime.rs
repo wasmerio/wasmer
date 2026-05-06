@@ -25,7 +25,7 @@ use webc::Container;
 
 /// Special wasix runtime implementation for the CLI.
 ///
-/// Wraps an undelrying runtime and adds progress monitoring for package
+/// Wraps an underlying runtime and adds progress monitoring for package
 /// compilation.
 #[derive(Debug)]
 pub struct MonitoringRuntime<R> {

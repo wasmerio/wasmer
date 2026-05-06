@@ -20,7 +20,7 @@ const RIGHTS_FD_WRITE: i64 = 64;
 
 fn main() {
     let link_path = "fyi/fs_sandbox_symlink.dir/link";
-    let link_path_non_existant = "fyi/fs_sandbox_symlink.dir/link-non-existant";
+    let link_path_non_existent = "fyi/fs_sandbox_symlink.dir/link-non-existant";
     let mut fd: i32 = 0;
 
     unsafe {
@@ -40,8 +40,8 @@ fn main() {
         let errno = path_open(
             5,
             LOOKUPFLAGS_SYMLINK_FOLLOW,
-            link_path_non_existant.as_ptr() as i32,
-            link_path_non_existant.len() as i32,
+            link_path_non_existent.as_ptr() as i32,
+            link_path_non_existent.len() as i32,
             OFLAGS_CREAT,
             RIGHTS_FD_WRITE,
             0,

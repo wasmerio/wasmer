@@ -924,7 +924,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_notify(
     }
 }
 
-/// Implementation of memory.notfy for imported 32-bit memories.
+/// Implementation of memory.notify for imported 32-bit memories.
 ///
 /// # Safety
 ///

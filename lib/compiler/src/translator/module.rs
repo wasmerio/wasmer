@@ -221,7 +221,7 @@ pub fn translate_module<'data>(
             Payload::UnknownSection { .. } => unreachable!(),
             k => {
                 return Err(WasmError::Unsupported(format!(
-                    "Unsupported paylod kind: {k:?}"
+                    "Unsupported payload kind: {k:?}"
                 )));
             }
         }

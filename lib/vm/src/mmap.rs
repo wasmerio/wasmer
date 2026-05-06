@@ -306,7 +306,7 @@ impl Mmap {
     }
 
     /// Return the allocated memory as a slice of u8.
-    pub fn as_slice_arbitary(&self, size: usize) -> &[u8] {
+    pub fn as_slice_arbitrary(&self, size: usize) -> &[u8] {
         let size = usize::min(size, self.total_size);
         unsafe { slice::from_raw_parts(self.ptr as *const u8, size) }
     }
@@ -322,7 +322,7 @@ impl Mmap {
     }
 
     /// Return the allocated memory as a mutable slice of u8.
-    pub fn as_mut_slice_arbitary(&mut self, size: usize) -> &mut [u8] {
+    pub fn as_mut_slice_arbitrary(&mut self, size: usize) -> &mut [u8] {
         let size = usize::min(size, self.total_size);
         unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, size) }
     }
@@ -364,8 +364,8 @@ impl Mmap {
 
         let mut new =
             Self::accessible_reserved(copy_size, self.total_size, None, MmapType::Private)?;
-        new.as_mut_slice_arbitary(copy_size)
-            .copy_from_slice(self.as_slice_arbitary(copy_size));
+        new.as_mut_slice_arbitrary(copy_size)
+            .copy_from_slice(self.as_slice_arbitrary(copy_size));
         Ok(new)
     }
 }

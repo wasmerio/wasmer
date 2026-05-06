@@ -509,7 +509,7 @@ impl WasiProcess {
         let is_main = matches!(start, ThreadStartType::MainThread);
 
         // Generate a new process ID (this is because the process ID and thread ID
-        // address space must not overlap in libc). For the main proecess the TID=PID
+        // address space must not overlap in libc). For the main process the TID=PID
         let tid: WasiThreadId = if is_main {
             self.pid().raw().into()
         } else {

@@ -103,7 +103,7 @@ pub struct CmdAppDeploy {
 
     /// Don't print any message.
     ///
-    /// The only message that will be printed is the one signaling the successfullness of the
+    /// The only message that will be printed is the one signaling the successfulness of the
     /// operation.
     #[clap(long)]
     pub quiet: bool,

@@ -29,7 +29,7 @@ pub fn port_bridge<M: MemorySize>(
     let token = unsafe { get_input_str_ok!(&memory, token, token_len) };
     let security = match security {
         Streamsecurity::Unencrypted => StreamSecurity::Unencrypted,
-        Streamsecurity::AnyEncryption => StreamSecurity::AnyEncyption,
+        Streamsecurity::AnyEncryption => StreamSecurity::AnyEncryption,
         Streamsecurity::ClassicEncryption => StreamSecurity::ClassicEncryption,
         Streamsecurity::DoubleEncryption => StreamSecurity::DoubleEncryption,
         _ => return Ok(Errno::Inval),

@@ -150,7 +150,7 @@ impl AsyncCliCommand for PackagePublish {
             }
             PackageIdent::Hash(ref h) => {
                 eprintln!(
-                    "\n{} Succesfully published package ({h})",
+                    "\n{} Successfully published package ({h})",
                     "✔".green().bold()
                 );
             }
