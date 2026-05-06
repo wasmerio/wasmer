@@ -462,16 +462,21 @@ impl WasiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let exec_name = if let Some(exec_name) = wasi.exec_name.as_ref() {
-            exec_name
-        } else {
-            command_name
-        };
+        // Prefer an explicit exec_name from the annotation; otherwise use the
+        // atom's canonical VFS path (e.g. "/bin/.__atoms/wasmer/php/php") so
+        // that re-exec via argv[0] finds the raw wasm without triggering
+        // prepare_spawn again.  Fall back to the command name for packages
+        // that carry no atom annotation.
+        let exec_name: String = wasi
+            .exec_name
+            .clone()
+            .or_else(|| cmd.atom_vfs_path())
+            .unwrap_or_else(|| command_name.to_owned());
 
         #[allow(unused_mut)]
         let mut builder = self
             .prepare_webc_env(
-                exec_name,
+                &exec_name,
                 &wasi,
                 PackageOrHash::Package(pkg),
                 runtime_or_engine,

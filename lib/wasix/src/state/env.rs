@@ -1134,20 +1134,20 @@ impl WasiEnv {
                 let atom = command.atom();
 
                 if let Err(err) = write_readonly_buffer_to_fs(root_fs, path, &atom).await {
-                    tracing::debug!(
-                        "failed to add package [{}] command [{}] - {}",
-                        pkg.id,
-                        command.name(),
-                        err
+                    tracing::warn!(
+                        package=%pkg.id,
+                        command_name=command.name(),
+                        error=%err,
+                        "Failed to mount command into the filesystem",
                     );
                     continue;
                 }
                 if let Err(err) = write_readonly_buffer_to_fs(root_fs, path2, &atom).await {
-                    tracing::debug!(
-                        "failed to add package [{}] command [{}] - {}",
-                        pkg.id,
-                        command.name(),
-                        err
+                    tracing::warn!(
+                        package=%pkg.id,
+                        command_name=command.name(),
+                        error=%err,
+                        "Failed to mount command into the filesystem",
                     );
                     continue;
                 }
@@ -1166,6 +1166,50 @@ impl WasiEnv {
                     path=%path.display(),
                     "Injected a command into the filesystem",
                 );
+            }
+
+            // Mount each atom under /bin/.__atoms/<pkg>/<atom> so that a
+            // process re-execing via argv[0] (set to that path) finds the raw
+            // wasm bytes without command metadata.  We intentionally do NOT
+            // register these paths in bin_factory so they are loaded as plain
+            // wasm executables, bypassing prepare_spawn and preventing
+            // main_args from being re-injected.
+            //
+            // The path encodes the origin package so atoms with the same name
+            // from different packages are kept separate.  An atom referenced by
+            // multiple commands is only written once (deduplicated by path).
+            //
+            // Track only atoms that were actually written so that
+            // atom_vfs_path() in prepare_spawn is not set to a path that does
+            // not exist in the VFS.
+            let mut mounted_atoms: std::collections::HashSet<String> =
+                std::collections::HashSet::new();
+            for command in &pkg.commands {
+                if let Some(atom_path) = command.atom_vfs_path() {
+                    if mounted_atoms.contains(&atom_path) {
+                        continue;
+                    }
+                    let atom = command.atom();
+                    if let Err(err) =
+                        write_readonly_buffer_to_fs(root_fs, Path::new(&atom_path), &atom).await
+                    {
+                        tracing::warn!(
+                            package=%pkg.id,
+                            origin_package=%command.origin_package(),
+                            atom_path=%atom_path,
+                            error=%err,
+                            "Failed to mount atom into the filesystem; re-exec via argv[0] may not work",
+                        );
+                        continue;
+                    }
+                    mounted_atoms.insert(atom_path.clone());
+                    tracing::debug!(
+                        package=%pkg.id,
+                        origin_package=%command.origin_package(),
+                        atom_path=%atom_path,
+                        "Injected atom into the filesystem",
+                    );
+                }
             }
         }
 
@@ -1342,8 +1386,13 @@ impl WasiEnv {
                 args.splice(1..1, main_args);
             }
 
-            if let Some(exec_name) = exec_name {
-                self.state.args.lock().unwrap()[0] = exec_name;
+            // Prefer an explicit exec_name from the annotation; otherwise use
+            // the atom's canonical VFS path (e.g.
+            // "/bin/.__atoms/wasmer/php/php") so that re-exec via argv[0] finds
+            // the raw wasm without triggering prepare_spawn again.
+            let argv0 = exec_name.or_else(|| cmd.atom_vfs_path());
+            if let Some(argv0) = argv0 {
+                self.state.args.lock().unwrap()[0] = argv0;
             }
         }
     }
