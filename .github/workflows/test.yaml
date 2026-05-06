@@ -605,25 +605,18 @@ jobs:
         stage:
           - description: "WAST (all comp.)"
             make: "test-stage-0-wast"
-            install_wasixcc: false
           - description: "Packages - std"
             make: "test-stage-1-test-all"
-            install_wasixcc: false
           - description: "Cranelift - no-std"
             make: "test-stage-2-test-compiler-cranelift-nostd"
-            install_wasixcc: false
           - description: "Singlepass - no-std"
             make: "test-stage-3-test-compiler-singlepass-nostd"
-            install_wasixcc: false
           - description: "Wasmer-cli"
             make: "test-stage-4-wasmer-cli"
-            install_wasixcc: false
           - description: "Examples"
             make: "test-stage-5-test-examples"
-            install_wasixcc: false
           - description: "CLI integ. tests"
             make: test-integration-cli-ci
-            install_wasixcc: true
         metadata:
           - build: linux-x64
             os: ubuntu-22.04
@@ -745,7 +738,7 @@ jobs:
         if: matrix.metadata.target
       - name: Install wasixcc
         uses: wasix-org/wasixcc@v0.4.3
-        if: matrix.stage.install_wasixcc == true && (matrix.metadata.build == 'linux-x64' || matrix.metadata.build == 'linux-arm64' || matrix.metadata.build == 'linux-musl')
+        if: matrix.description == 'CLI integ. tests' && startsWith(matrix.metadata.build, 'linux')
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
