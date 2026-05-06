@@ -6898,6 +6898,7 @@ dependencies = [
  "futures",
  "hashbrown 0.17.0",
  "indexmap",
+ "itertools 0.14.0",
  "js-sys",
  "loupe",
  "macro-wasmer-engine-test",
