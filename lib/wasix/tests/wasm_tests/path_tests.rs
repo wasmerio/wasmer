@@ -6,11 +6,25 @@ use super::{
 
 wasm_test!(test_chdir_getcwd, "chdir-getcwd", stdout = "0");
 
-wasm_test!(test_closing_pre_opened_dirs, "closing-pre-opened-dirs", stdout = "0");
+wasm_test!(
+    test_closing_pre_opened_dirs,
+    "closing-pre-opened-dirs",
+    stdout = "0"
+);
 
-wasm_test!(test_create_and_remove_dirs, "create-and-remove-dirs", temp_dir, stdout = "0");
+wasm_test!(
+    test_create_and_remove_dirs,
+    "create-and-remove-dirs",
+    temp_dir,
+    stdout = "0"
+);
 
-wasm_test!(test_create_dir_at_cwd, "create-dir-at-cwd", temp_dir, stdout = "0");
+wasm_test!(
+    test_create_dir_at_cwd,
+    "create-dir-at-cwd",
+    temp_dir,
+    stdout = "0"
+);
 
 wasm_test!(
     test_create_dir_at_cwd_with_chdir,
@@ -28,7 +42,12 @@ wasm_test!(
     stdout = "0"
 );
 
-wasm_test!(test_fstatat_with_chdir, "fstatat-with-chdir", temp_dir, stdout = "0");
+wasm_test!(
+    test_fstatat_with_chdir,
+    "fstatat-with-chdir",
+    temp_dir,
+    stdout = "0"
+);
 
 wasm_test!(test_mount_tmp_locally, "mount-tmp-locally", stdout = "0");
 
@@ -45,7 +64,12 @@ fn test_fs_mount() {
     .unwrap();
 }
 
-wasm_test!(test_open_under_file, "open-under-file", temp_dir, stdout = "0");
+wasm_test!(
+    test_open_under_file,
+    "open-under-file",
+    temp_dir,
+    stdout = "0"
+);
 
 #[test]
 fn test_symlink_open_read_write() {
@@ -64,6 +88,16 @@ fn test_symlink_open_read_write() {
     );
 }
 
-wasm_test!(test_create_move_open, "create-move-open", temp_dir, stdout = "0");
+wasm_test!(
+    test_create_move_open,
+    "create-move-open",
+    temp_dir,
+    stdout = "0"
+);
 
 wasm_test!(test_rename_same_path, "rename-same-path", temp_dir);
+wasm_test!(
+    test_rename_dir_into_child,
+    "rename-dir-into-child",
+    temp_dir
+);

@@ -489,6 +489,34 @@ fn run_no_start_wasm_report_error() {
     assert.stderr(contains("The module doesn't export a \"_start\" function"));
 }
 
+#[cfg(feature = "v8")]
+#[test]
+fn run_v8_wasi_proc_exit_zero_is_success() {
+    let wasi_wat = "
+    (module
+        (import \"wasi_snapshot_preview1\" \"proc_exit\"
+          (func $__wasi_proc_exit (param i32)))
+        (func $_start
+          i32.const 0
+          call $__wasi_proc_exit)
+        (memory 1)
+        (export \"memory\" (memory 0))
+        (export \"_start\" (func $_start))
+      )
+    ";
+
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("proc_exit_zero.wat");
+    std::fs::write(&module_file, wasi_wat.as_bytes()).unwrap();
+
+    Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("--v8")
+        .arg(&module_file)
+        .assert()
+        .success();
+}
+
 // Test that wasmer can run a complex path
 #[test]
 fn test_wasmer_run_complex_url() {
