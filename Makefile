@@ -556,26 +556,22 @@ test-wast:
 test-all:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --features experimental-async,experimental-host-interrupt --locked && \
 	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --features experimental-async,experimental-host-interrupt --locked
-test-compilers-only-std:
+check-compilers-only-std:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std --locked && \
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std --locked
 test-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-fs/Cargo.toml --release --locked && \
-$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release --locked
 # test examples
 test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) $(compiler_features) --features wasi --examples --locked
-test-examples-release:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --features wasi --examples --locked
 test-capi-integration-tests:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --package wasmer-c-api-test-runner --locked && \
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --package wasmer-capi-examples-runner --locked
 
-test: test-packages test-examples
+test: test-all test-examples
 
-test-packages: test-all test-test-compilers-only-std test-wasmer-cli
-
-test-examples: test-examples test-release
+test-packages: test-all check-compilers-only-std test-wasmer-cli
 
 
 test-v8: test-v8-api
