@@ -11183,8 +11183,19 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(ty.const_zero());
             }
             Operator::RefIsNull => {
-                let value = self.state.pop1()?.into_pointer_value();
-                let is_null = err!(self.builder.build_is_null(value, ""));
+                let value = self.state.pop1()?;
+                let is_null = match value {
+                    BasicValueEnum::IntValue(value) => err!(self.builder.build_int_compare(
+                        IntPredicate::EQ,
+                        value,
+                        value.get_type().const_zero(),
+                        "",
+                    )),
+                    BasicValueEnum::PointerValue(value) => {
+                        err!(self.builder.build_is_null(value, ""))
+                    }
+                    _ => unreachable!("ref.is_null only accepts reference types"),
+                };
                 let is_null = err!(self.builder.build_int_z_extend(
                     is_null,
                     self.intrinsics.i32_ty,
