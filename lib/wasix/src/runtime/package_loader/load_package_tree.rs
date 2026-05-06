@@ -181,9 +181,9 @@ fn load_binary_command(
                 resolved_package_id=%id,
                 "command atom resolution: resolved dependency",
             );
-            let container = containers.get(id).with_context(|| {
-                format!(
-                    "Unable to find the \"{id}\" dependency for the \"{command_name}\" command in \"{package_id}\""
+            let container = containers.get(id).ok_or_else(|| {
+                anyhow::anyhow!(
+                    "The \"{command_name}\" command in \"{package_id}\" shadows a entry/command of the \"{dep}\" dependency. Rename the local command."
                 )
             })?;
 
@@ -321,7 +321,7 @@ async fn fetch_dependencies(
     pkg: &ResolvedPackage,
     graph: &DependencyGraph,
 ) -> Result<HashMap<PackageId, Container>, Error> {
-    let packages = packages_needed_for_load(pkg, graph);
+    let packages = packages_needed_for_load(pkg);
 
     let packages = packages.into_iter().filter_map(|id| {
         let crate::runtime::resolver::Node { pkg, dist, .. } = &graph[&id];
@@ -345,17 +345,11 @@ async fn fetch_dependencies(
     Ok(packages)
 }
 
-fn packages_needed_for_load(pkg: &ResolvedPackage, graph: &DependencyGraph) -> HashSet<PackageId> {
+fn packages_needed_for_load(pkg: &ResolvedPackage) -> HashSet<PackageId> {
     let mut packages = HashSet::new();
 
     for loc in pkg.commands.values() {
         packages.insert(loc.package.clone());
-
-        if let Some(owner) = graph.packages().get(&loc.package).copied() {
-            for edge in graph.graph().edges(owner) {
-                packages.insert(graph[edge.target()].id.clone());
-            }
-        }
     }
 
     for mapping in &pkg.filesystem {
@@ -618,10 +612,11 @@ fn filesystem_v2(
 #[cfg(test)]
 mod tests {
     use std::{
-        collections::{BTreeMap, HashMap, HashSet},
+        collections::{BTreeMap, HashMap},
         path::{Path, PathBuf},
     };
 
+    use anyhow::Error;
     use ciborium::value::Value;
     use petgraph::graph::DiGraph;
     use virtual_fs::FileSystem;
@@ -630,8 +625,10 @@ mod tests {
         Container,
         indexmap::IndexMap,
         metadata::{
-            Manifest,
-            annotations::{FileSystemMapping, FileSystemMappings},
+            Command as WebcCommand, Manifest,
+            annotations::{
+                Atom as AtomAnnotation, FileSystemMapping, FileSystemMappings, WASI_RUNNER_URI,
+            },
         },
         v2::{
             SignatureAlgorithm,
@@ -640,12 +637,33 @@ mod tests {
         },
     };
 
-    use super::{
-        ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2, packages_needed_for_load,
+    use super::{ResolvedFileSystemMapping, ResolvedPackage, filesystem_v2};
+    use crate::runtime::{
+        package_loader::PackageLoader,
+        resolver::{
+            Command, DependencyGraph, DistributionInfo, Edge, ItemLocation, Node, PackageInfo,
+            PackageSummary, Resolution, WebcHash,
+        },
     };
-    use crate::runtime::resolver::{
-        Command, DependencyGraph, Edge, ItemLocation, Node, PackageInfo,
-    };
+
+    #[derive(Debug, Default)]
+    struct TestLoader;
+
+    #[async_trait::async_trait]
+    impl PackageLoader for TestLoader {
+        async fn load(&self, summary: &PackageSummary) -> Result<Container, Error> {
+            anyhow::bail!("unexpected dependency fetch: {}", summary.package_id())
+        }
+
+        async fn load_package_tree(
+            &self,
+            root: &Container,
+            resolution: &Resolution,
+            root_is_local_dir: bool,
+        ) -> Result<crate::bin_factory::BinaryPackage, Error> {
+            super::load_package_tree(root, self, resolution, root_is_local_dir).await
+        }
+    }
 
     #[test]
     fn v2_filesystem_mapping_resolves_mount_paths() {
@@ -714,10 +732,11 @@ mod tests {
         );
     }
 
-    #[test]
-    fn command_owner_dependencies_are_fetched_when_dependency_command_is_shadowed() {
+    #[tokio::test]
+    async fn load_package_tree_reports_shadowed_dependency_command_without_panic() {
         let root_id = PackageId::new_named("root", "0.1.0".parse().unwrap());
         let dep_id = PackageId::new_named("wasmer/static-web-server", "1.0.0".parse().unwrap());
+        let dep_alias = "wasmer/static-web-server";
 
         let root_info = PackageInfo {
             id: root_id.clone(),
@@ -737,6 +756,10 @@ mod tests {
             dependencies: Vec::new(),
             filesystem: Vec::new(),
         };
+        let root_container = test_container([(
+            "webserver",
+            command_for_atom("webserver", Some(dep_alias.to_string())),
+        )]);
 
         let mut graph = DiGraph::new();
         let root = graph.add_node(Node {
@@ -747,13 +770,18 @@ mod tests {
         let dep = graph.add_node(Node {
             id: dep_id.clone(),
             pkg: dep_info,
-            dist: None,
+            dist: Some(DistributionInfo {
+                webc: "http://localhost/wasmer-static-web-server.webc"
+                    .parse()
+                    .unwrap(),
+                webc_sha256: WebcHash::from([0; 32]),
+            }),
         });
         graph.add_edge(
             root,
             dep,
             Edge {
-                alias: "wasmer/static-web-server".to_string(),
+                alias: dep_alias.to_string(),
             },
         );
 
@@ -768,17 +796,55 @@ mod tests {
                 "webserver".to_string(),
                 ItemLocation {
                     name: "webserver".to_string(),
-                    package: root_id,
+                    package: root_id.clone(),
                 },
             )]),
             entrypoint: Some("webserver".to_string()),
             filesystem: Vec::new(),
         };
 
-        assert_eq!(
-            packages_needed_for_load(&pkg, &dependency_graph),
-            HashSet::from([dep_id])
+        let err = super::load_package_tree(
+            &root_container,
+            &TestLoader,
+            &Resolution {
+                package: pkg,
+                graph: dependency_graph,
+            },
+            false,
+        )
+        .await
+        .unwrap_err();
+        let message = format!("{err:#}");
+
+        assert!(message.contains("The \"webserver\" command in \"root@0.1.0\" references the \"wasmer/static-web-server\" dependency (wasmer/static-web-server@1.0.0), but that dependency is not loaded"));
+        assert!(message.contains("local command shadows a dependency command"));
+    }
+
+    fn command_for_atom(atom: &str, dependency: Option<String>) -> WebcCommand {
+        let mut annotations = IndexMap::new();
+        annotations.insert(
+            AtomAnnotation::KEY.to_string(),
+            Value::serialized(&AtomAnnotation::new(atom, dependency)).unwrap(),
         );
+
+        WebcCommand {
+            runner: WASI_RUNNER_URI.to_string(),
+            annotations,
+        }
+    }
+
+    fn test_container<'a>(commands: impl IntoIterator<Item = (&'a str, WebcCommand)>) -> Container {
+        let mut manifest = Manifest::default();
+
+        for (name, command) in commands {
+            manifest.commands.insert(name.to_string(), command);
+        }
+
+        let writer = Writer::default().write_manifest(&manifest).unwrap();
+        let writer = writer.write_atoms(BTreeMap::new()).unwrap();
+        let bytes = writer.finish(SignatureAlgorithm::None).unwrap();
+        let reader = OwnedReader::parse(bytes).unwrap();
+        Container::from(reader)
     }
 
     #[test]
