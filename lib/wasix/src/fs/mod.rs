@@ -55,6 +55,11 @@ pub use self::notification::NotificationInner;
 use crate::syscalls::map_io_err;
 use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
 
+// POSIX bounds descriptor numbers by the process fd limit (`OPEN_MAX`,
+// `RLIMIT_NOFILE` on Linux). Other OSes commonly override the default, so
+// use a Linux-like 64k ceiling until WASIX models per-process fd limits.
+pub(crate) const MAX_FD: WasiFd = (64 * 1024) - 1;
+
 /// the fd value of the virtual root
 ///
 /// Used for interacting with the file system when it has no
@@ -1862,6 +1867,9 @@ impl WasiFs {
 
         match idx {
             Some(idx) => {
+                if idx > MAX_FD {
+                    return Err(Errno::Badf);
+                }
                 if guard.insert(exclusive, idx, fd) {
                     Ok(idx)
                 } else {
@@ -1883,6 +1891,9 @@ impl WasiFs {
         cloexec: Option<bool>,
     ) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
+        if min_result_fd > MAX_FD {
+            return Err(Errno::Inval);
+        }
         Ok(self.fd_map.write().unwrap().insert_first_free_after(
             Fd {
                 inner: FdInner {

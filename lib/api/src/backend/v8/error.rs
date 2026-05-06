@@ -72,13 +72,17 @@ impl Trap {
             InnerTrap::CApi(t) => t,
             InnerTrap::User(err) => {
                 let err_ptr = Box::leak(Box::new(err));
+                // UNSAFE: The boxed error is propagated by passing the string
+                // with the pointer to the struct instance, later on decoded.
                 let mut data = unsafe { std::mem::zeroed() };
                 let error_message = format!("🐛{err_ptr:p}");
                 unsafe {
                     wasm_byte_vec_new(&mut data, error_message.len(), error_message.as_ptr() as _)
                 };
                 let store = store.as_store_mut();
-                unsafe { wasm_trap_new(store.inner.store.as_v8().inner, &mut data) }
+                let trap = unsafe { wasm_trap_new(store.inner.store.as_v8().inner, &mut data) };
+                unsafe { wasm_byte_vec_delete(&mut data) };
+                trap
             }
         }
     }
@@ -95,6 +99,8 @@ impl From<*mut wasm_trap_t> for Trap {
                 .unwrap()
         };
 
+        // User traps are encoded by `into_wasm_trap` as a leaked `Box` pointer
+        // prefixed with this marker.
         if let Some((_, ptr_str)) = message.split_once("🐛") {
             let ptr: Box<dyn Error + Send + Sync + 'static> = unsafe {
                 let r = ptr_str.trim_start_matches("0x");
