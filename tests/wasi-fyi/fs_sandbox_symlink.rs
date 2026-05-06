@@ -20,7 +20,7 @@ const RIGHTS_FD_WRITE: i64 = 64;
 
 fn main() {
     let link_path = "fyi/fs_sandbox_symlink.dir/link";
-    let link_path_non_existent = "fyi/fs_sandbox_symlink.dir/link-non-existant";
+    let link_path_non_existent = "fyi/fs_sandbox_symlink.dir/link-non-existent";
     let mut fd: i32 = 0;
 
     unsafe {
