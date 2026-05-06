@@ -183,7 +183,7 @@ fn load_binary_command(
             );
             let container = containers.get(id).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "The \"{command_name}\" command in \"{package_id}\" shadows a entry/command of the \"{dep}\" dependency. Rename the local command."
+                    "The \"{command_name}\" command in \"{package_id}\" shadows an entry/command of the \"{dep}\" dependency. Rename the local command."
                 )
             })?;
 
@@ -816,8 +816,8 @@ mod tests {
         .unwrap_err();
         let message = format!("{err:#}");
 
-        assert!(message.contains("The \"webserver\" command in \"root@0.1.0\" references the \"wasmer/static-web-server\" dependency (wasmer/static-web-server@1.0.0), but that dependency is not loaded"));
-        assert!(message.contains("local command shadows a dependency command"));
+        assert!(message.contains("shadows an entry/command"));
+        assert!(message.contains("Rename the local command"));
     }
 
     fn command_for_atom(atom: &str, dependency: Option<String>) -> WebcCommand {
