@@ -29,6 +29,13 @@ pub struct ModuleInfoPolyfill {
 
 impl ModuleInfoPolyfill {
     pub(crate) fn declare_export(&mut self, export: ExportIndex, name: &str) -> WasmResult<()> {
+        // See #6560 for more context why such names are unsupported by V8.
+        if !name.is_empty() && name.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(format!(
+                "exported names can't be made of digits only: `{name}`"
+            ));
+        }
+
         self.info.exports.insert(String::from(name), export);
         Ok(())
     }
