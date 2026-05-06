@@ -493,117 +493,118 @@
 <a href=#493 id=493 data-nosnippet>493</a>            range: <span class="kw">_</span>,
 <a href=#494 id=494 data-nosnippet>494</a>        } = elem.map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>;
 <a href=#495 id=495 data-nosnippet>495</a>
-<a href=#496 id=496 data-nosnippet>496</a>        <span class="kw">let </span>segments = read_elems(<span class="kw-2">&amp;</span>items)<span class="question-mark">?</span>;
-<a href=#497 id=497 data-nosnippet>497</a>        <span class="kw">match </span>kind {
-<a href=#498 id=498 data-nosnippet>498</a>            ElementKind::Active {
-<a href=#499 id=499 data-nosnippet>499</a>                table_index,
-<a href=#500 id=500 data-nosnippet>500</a>                offset_expr,
-<a href=#501 id=501 data-nosnippet>501</a>            } =&gt; {
+<a href=#496 id=496 data-nosnippet>496</a>        <span class="kw">match </span>kind {
+<a href=#497 id=497 data-nosnippet>497</a>            ElementKind::Active {
+<a href=#498 id=498 data-nosnippet>498</a>                table_index,
+<a href=#499 id=499 data-nosnippet>499</a>                offset_expr,
+<a href=#500 id=500 data-nosnippet>500</a>            } =&gt; {
+<a href=#501 id=501 data-nosnippet>501</a>                <span class="kw">let </span>segments = read_elems(<span class="kw-2">&amp;</span>items)<span class="question-mark">?</span>;
 <a href=#502 id=502 data-nosnippet>502</a>                <span class="kw">let </span>table_index = TableIndex::from_u32(table_index.unwrap_or(<span class="number">0</span>));
 <a href=#503 id=503 data-nosnippet>503</a>                <span class="kw">let </span>offset_expr =
 <a href=#504 id=504 data-nosnippet>504</a>                    parse_serialized_init_expr(<span class="kw-2">&amp;</span>offset_expr, <span class="string">"element section"</span>, <span class="kw-2">&amp;</span>environ.module)<span class="question-mark">?</span>;
 <a href=#505 id=505 data-nosnippet>505</a>                environ.declare_table_initializers(table_index, offset_expr, segments)<span class="question-mark">?
 <a href=#506 id=506 data-nosnippet>506</a>            </span>}
 <a href=#507 id=507 data-nosnippet>507</a>            ElementKind::Passive =&gt; {
-<a href=#508 id=508 data-nosnippet>508</a>                <span class="kw">let </span>index = ElemIndex::from_u32(index <span class="kw">as </span>u32);
-<a href=#509 id=509 data-nosnippet>509</a>                environ.declare_passive_element(index, segments)<span class="question-mark">?</span>;
-<a href=#510 id=510 data-nosnippet>510</a>            }
-<a href=#511 id=511 data-nosnippet>511</a>            ElementKind::Declared =&gt; (),
-<a href=#512 id=512 data-nosnippet>512</a>        }
-<a href=#513 id=513 data-nosnippet>513</a>    }
-<a href=#514 id=514 data-nosnippet>514</a>    <span class="prelude-val">Ok</span>(())
-<a href=#515 id=515 data-nosnippet>515</a>}
-<a href=#516 id=516 data-nosnippet>516</a>
-<a href=#517 id=517 data-nosnippet>517</a><span class="doccomment">/// Parses the Data section of the wasm module.
-<a href=#518 id=518 data-nosnippet>518</a></span><span class="kw">pub fn </span>parse_data_section&lt;<span class="lifetime">'data</span>&gt;(
-<a href=#519 id=519 data-nosnippet>519</a>    data: DataSectionReader&lt;<span class="lifetime">'data</span>&gt;,
-<a href=#520 id=520 data-nosnippet>520</a>    environ: <span class="kw-2">&amp;mut </span>ModuleEnvironment&lt;<span class="lifetime">'data</span>&gt;,
-<a href=#521 id=521 data-nosnippet>521</a>) -&gt; WasmResult&lt;()&gt; {
-<a href=#522 id=522 data-nosnippet>522</a>    environ.reserve_data_initializers(data.count())<span class="question-mark">?</span>;
-<a href=#523 id=523 data-nosnippet>523</a>
-<a href=#524 id=524 data-nosnippet>524</a>    <span class="kw">for </span>(index, entry) <span class="kw">in </span>data.into_iter().enumerate() {
-<a href=#525 id=525 data-nosnippet>525</a>        <span class="kw">let </span>Data {
-<a href=#526 id=526 data-nosnippet>526</a>            kind,
-<a href=#527 id=527 data-nosnippet>527</a>            data,
-<a href=#528 id=528 data-nosnippet>528</a>            range: <span class="kw">_</span>,
-<a href=#529 id=529 data-nosnippet>529</a>        } = entry.map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>;
-<a href=#530 id=530 data-nosnippet>530</a>        <span class="kw">match </span>kind {
-<a href=#531 id=531 data-nosnippet>531</a>            DataKind::Active {
-<a href=#532 id=532 data-nosnippet>532</a>                memory_index,
-<a href=#533 id=533 data-nosnippet>533</a>                offset_expr,
-<a href=#534 id=534 data-nosnippet>534</a>            } =&gt; {
-<a href=#535 id=535 data-nosnippet>535</a>                <span class="kw">let </span>offset_expr =
-<a href=#536 id=536 data-nosnippet>536</a>                    parse_serialized_init_expr(<span class="kw-2">&amp;</span>offset_expr, <span class="string">"data section"</span>, <span class="kw-2">&amp;</span>environ.module)<span class="question-mark">?</span>;
-<a href=#537 id=537 data-nosnippet>537</a>                environ.declare_data_initialization(
-<a href=#538 id=538 data-nosnippet>538</a>                    MemoryIndex::from_u32(memory_index),
-<a href=#539 id=539 data-nosnippet>539</a>                    offset_expr,
-<a href=#540 id=540 data-nosnippet>540</a>                    data,
-<a href=#541 id=541 data-nosnippet>541</a>                )<span class="question-mark">?</span>;
-<a href=#542 id=542 data-nosnippet>542</a>            }
-<a href=#543 id=543 data-nosnippet>543</a>            DataKind::Passive =&gt; {
-<a href=#544 id=544 data-nosnippet>544</a>                <span class="kw">let </span>index = DataIndex::from_u32(index <span class="kw">as </span>u32);
-<a href=#545 id=545 data-nosnippet>545</a>                environ.declare_passive_data(index, data)<span class="question-mark">?</span>;
-<a href=#546 id=546 data-nosnippet>546</a>            }
-<a href=#547 id=547 data-nosnippet>547</a>        }
-<a href=#548 id=548 data-nosnippet>548</a>    }
-<a href=#549 id=549 data-nosnippet>549</a>
-<a href=#550 id=550 data-nosnippet>550</a>    <span class="prelude-val">Ok</span>(())
-<a href=#551 id=551 data-nosnippet>551</a>}
-<a href=#552 id=552 data-nosnippet>552</a>
-<a href=#553 id=553 data-nosnippet>553</a><span class="doccomment">/// Parses the Name section of the wasm module.
-<a href=#554 id=554 data-nosnippet>554</a></span><span class="kw">pub fn </span>parse_name_section&lt;<span class="lifetime">'data</span>&gt;(
-<a href=#555 id=555 data-nosnippet>555</a>    names: NameSectionReader&lt;<span class="lifetime">'data</span>&gt;,
-<a href=#556 id=556 data-nosnippet>556</a>    environ: <span class="kw-2">&amp;mut </span>ModuleEnvironment&lt;<span class="lifetime">'data</span>&gt;,
-<a href=#557 id=557 data-nosnippet>557</a>) -&gt; WasmResult&lt;()&gt; {
-<a href=#558 id=558 data-nosnippet>558</a>    <span class="kw">let </span><span class="kw-2">mut </span>functions = HashMap::new();
-<a href=#559 id=559 data-nosnippet>559</a>    <span class="kw">let </span><span class="kw-2">mut </span>names_set = HashSet::new();
-<a href=#560 id=560 data-nosnippet>560</a>
-<a href=#561 id=561 data-nosnippet>561</a>    <span class="kw">for </span>res <span class="kw">in </span>names {
-<a href=#562 id=562 data-nosnippet>562</a>        <span class="kw">let </span>subsection = <span class="kw">if let </span><span class="prelude-val">Ok</span>(subsection) = res {
-<a href=#563 id=563 data-nosnippet>563</a>            subsection
-<a href=#564 id=564 data-nosnippet>564</a>        } <span class="kw">else </span>{
-<a href=#565 id=565 data-nosnippet>565</a>            <span class="comment">// Should we log / warn here?
-<a href=#566 id=566 data-nosnippet>566</a>            </span><span class="kw">continue</span>;
-<a href=#567 id=567 data-nosnippet>567</a>        };
-<a href=#568 id=568 data-nosnippet>568</a>        <span class="kw">match </span>subsection {
-<a href=#569 id=569 data-nosnippet>569</a>            wasmparser::Name::Function(function_subsection) =&gt; {
-<a href=#570 id=570 data-nosnippet>570</a>                <span class="kw">let </span><span class="kw-2">mut </span>unique_name_map = HashMap::new();
-<a href=#571 id=571 data-nosnippet>571</a>                <span class="kw">for </span>naming <span class="kw">in </span>function_subsection.into_iter().flatten() {
-<a href=#572 id=572 data-nosnippet>572</a>                    <span class="kw">if </span>naming.index != u32::MAX {
-<a href=#573 id=573 data-nosnippet>573</a>                        <span class="kw">let </span><span class="kw-2">mut </span>name = naming.name.to_string();
-<a href=#574 id=574 data-nosnippet>574</a>                        <span class="comment">// In very rare cases a function name can have duplicates.
-<a href=#575 id=575 data-nosnippet>575</a>                        </span><span class="kw">if </span>names_set.contains(<span class="kw-2">&amp;</span>name) {
-<a href=#576 id=576 data-nosnippet>576</a>                            <span class="kw">let </span>index = unique_name_map
-<a href=#577 id=577 data-nosnippet>577</a>                                .entry(name.clone())
-<a href=#578 id=578 data-nosnippet>578</a>                                .and_modify(|e| <span class="kw-2">*</span>e += <span class="number">1</span>)
-<a href=#579 id=579 data-nosnippet>579</a>                                .or_insert(<span class="number">0</span>);
-<a href=#580 id=580 data-nosnippet>580</a>                            <span class="kw">let </span>alternative = <span class="macro">format!</span>(<span class="string">"{name}.{index}"</span>);
-<a href=#581 id=581 data-nosnippet>581</a>                            name = alternative;
-<a href=#582 id=582 data-nosnippet>582</a>                        }
-<a href=#583 id=583 data-nosnippet>583</a>                        names_set.insert(name.clone());
-<a href=#584 id=584 data-nosnippet>584</a>                        functions.insert(FunctionIndex::from_u32(naming.index), name);
-<a href=#585 id=585 data-nosnippet>585</a>                    }
-<a href=#586 id=586 data-nosnippet>586</a>                }
-<a href=#587 id=587 data-nosnippet>587</a>            }
-<a href=#588 id=588 data-nosnippet>588</a>            wasmparser::Name::Module {
-<a href=#589 id=589 data-nosnippet>589</a>                name,
-<a href=#590 id=590 data-nosnippet>590</a>                name_range: <span class="kw">_</span>,
-<a href=#591 id=591 data-nosnippet>591</a>            } =&gt; {
-<a href=#592 id=592 data-nosnippet>592</a>                environ.declare_module_name(name)<span class="question-mark">?</span>;
-<a href=#593 id=593 data-nosnippet>593</a>            }
-<a href=#594 id=594 data-nosnippet>594</a>            wasmparser::Name::Local(<span class="kw">_</span>) =&gt; {}
-<a href=#595 id=595 data-nosnippet>595</a>            wasmparser::Name::Label(<span class="kw">_</span>)
-<a href=#596 id=596 data-nosnippet>596</a>            | wasmparser::Name::Type(<span class="kw">_</span>)
-<a href=#597 id=597 data-nosnippet>597</a>            | wasmparser::Name::Table(<span class="kw">_</span>)
-<a href=#598 id=598 data-nosnippet>598</a>            | wasmparser::Name::Memory(<span class="kw">_</span>)
-<a href=#599 id=599 data-nosnippet>599</a>            | wasmparser::Name::Global(<span class="kw">_</span>)
-<a href=#600 id=600 data-nosnippet>600</a>            | wasmparser::Name::Element(<span class="kw">_</span>)
-<a href=#601 id=601 data-nosnippet>601</a>            | wasmparser::Name::Data(<span class="kw">_</span>)
-<a href=#602 id=602 data-nosnippet>602</a>            | wasmparser::Name::Unknown { .. }
-<a href=#603 id=603 data-nosnippet>603</a>            | wasmparser::Name::Field(<span class="kw">_</span>)
-<a href=#604 id=604 data-nosnippet>604</a>            | wasmparser::Name::Tag(..) =&gt; {}
-<a href=#605 id=605 data-nosnippet>605</a>        }
-<a href=#606 id=606 data-nosnippet>606</a>    }
-<a href=#607 id=607 data-nosnippet>607</a>
-<a href=#608 id=608 data-nosnippet>608</a>    environ.declare_function_names(functions)
-<a href=#609 id=609 data-nosnippet>609</a>}</code></pre></div></section></main></body></html>
+<a href=#508 id=508 data-nosnippet>508</a>                <span class="kw">let </span>segments = read_elems(<span class="kw-2">&amp;</span>items)<span class="question-mark">?</span>;
+<a href=#509 id=509 data-nosnippet>509</a>                <span class="kw">let </span>index = ElemIndex::from_u32(index <span class="kw">as </span>u32);
+<a href=#510 id=510 data-nosnippet>510</a>                environ.declare_passive_element(index, segments)<span class="question-mark">?</span>;
+<a href=#511 id=511 data-nosnippet>511</a>            }
+<a href=#512 id=512 data-nosnippet>512</a>            ElementKind::Declared =&gt; (),
+<a href=#513 id=513 data-nosnippet>513</a>        }
+<a href=#514 id=514 data-nosnippet>514</a>    }
+<a href=#515 id=515 data-nosnippet>515</a>    <span class="prelude-val">Ok</span>(())
+<a href=#516 id=516 data-nosnippet>516</a>}
+<a href=#517 id=517 data-nosnippet>517</a>
+<a href=#518 id=518 data-nosnippet>518</a><span class="doccomment">/// Parses the Data section of the wasm module.
+<a href=#519 id=519 data-nosnippet>519</a></span><span class="kw">pub fn </span>parse_data_section&lt;<span class="lifetime">'data</span>&gt;(
+<a href=#520 id=520 data-nosnippet>520</a>    data: DataSectionReader&lt;<span class="lifetime">'data</span>&gt;,
+<a href=#521 id=521 data-nosnippet>521</a>    environ: <span class="kw-2">&amp;mut </span>ModuleEnvironment&lt;<span class="lifetime">'data</span>&gt;,
+<a href=#522 id=522 data-nosnippet>522</a>) -&gt; WasmResult&lt;()&gt; {
+<a href=#523 id=523 data-nosnippet>523</a>    environ.reserve_data_initializers(data.count())<span class="question-mark">?</span>;
+<a href=#524 id=524 data-nosnippet>524</a>
+<a href=#525 id=525 data-nosnippet>525</a>    <span class="kw">for </span>(index, entry) <span class="kw">in </span>data.into_iter().enumerate() {
+<a href=#526 id=526 data-nosnippet>526</a>        <span class="kw">let </span>Data {
+<a href=#527 id=527 data-nosnippet>527</a>            kind,
+<a href=#528 id=528 data-nosnippet>528</a>            data,
+<a href=#529 id=529 data-nosnippet>529</a>            range: <span class="kw">_</span>,
+<a href=#530 id=530 data-nosnippet>530</a>        } = entry.map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>;
+<a href=#531 id=531 data-nosnippet>531</a>        <span class="kw">match </span>kind {
+<a href=#532 id=532 data-nosnippet>532</a>            DataKind::Active {
+<a href=#533 id=533 data-nosnippet>533</a>                memory_index,
+<a href=#534 id=534 data-nosnippet>534</a>                offset_expr,
+<a href=#535 id=535 data-nosnippet>535</a>            } =&gt; {
+<a href=#536 id=536 data-nosnippet>536</a>                <span class="kw">let </span>offset_expr =
+<a href=#537 id=537 data-nosnippet>537</a>                    parse_serialized_init_expr(<span class="kw-2">&amp;</span>offset_expr, <span class="string">"data section"</span>, <span class="kw-2">&amp;</span>environ.module)<span class="question-mark">?</span>;
+<a href=#538 id=538 data-nosnippet>538</a>                environ.declare_data_initialization(
+<a href=#539 id=539 data-nosnippet>539</a>                    MemoryIndex::from_u32(memory_index),
+<a href=#540 id=540 data-nosnippet>540</a>                    offset_expr,
+<a href=#541 id=541 data-nosnippet>541</a>                    data,
+<a href=#542 id=542 data-nosnippet>542</a>                )<span class="question-mark">?</span>;
+<a href=#543 id=543 data-nosnippet>543</a>            }
+<a href=#544 id=544 data-nosnippet>544</a>            DataKind::Passive =&gt; {
+<a href=#545 id=545 data-nosnippet>545</a>                <span class="kw">let </span>index = DataIndex::from_u32(index <span class="kw">as </span>u32);
+<a href=#546 id=546 data-nosnippet>546</a>                environ.declare_passive_data(index, data)<span class="question-mark">?</span>;
+<a href=#547 id=547 data-nosnippet>547</a>            }
+<a href=#548 id=548 data-nosnippet>548</a>        }
+<a href=#549 id=549 data-nosnippet>549</a>    }
+<a href=#550 id=550 data-nosnippet>550</a>
+<a href=#551 id=551 data-nosnippet>551</a>    <span class="prelude-val">Ok</span>(())
+<a href=#552 id=552 data-nosnippet>552</a>}
+<a href=#553 id=553 data-nosnippet>553</a>
+<a href=#554 id=554 data-nosnippet>554</a><span class="doccomment">/// Parses the Name section of the wasm module.
+<a href=#555 id=555 data-nosnippet>555</a></span><span class="kw">pub fn </span>parse_name_section&lt;<span class="lifetime">'data</span>&gt;(
+<a href=#556 id=556 data-nosnippet>556</a>    names: NameSectionReader&lt;<span class="lifetime">'data</span>&gt;,
+<a href=#557 id=557 data-nosnippet>557</a>    environ: <span class="kw-2">&amp;mut </span>ModuleEnvironment&lt;<span class="lifetime">'data</span>&gt;,
+<a href=#558 id=558 data-nosnippet>558</a>) -&gt; WasmResult&lt;()&gt; {
+<a href=#559 id=559 data-nosnippet>559</a>    <span class="kw">let </span><span class="kw-2">mut </span>functions = HashMap::new();
+<a href=#560 id=560 data-nosnippet>560</a>    <span class="kw">let </span><span class="kw-2">mut </span>names_set = HashSet::new();
+<a href=#561 id=561 data-nosnippet>561</a>
+<a href=#562 id=562 data-nosnippet>562</a>    <span class="kw">for </span>res <span class="kw">in </span>names {
+<a href=#563 id=563 data-nosnippet>563</a>        <span class="kw">let </span>subsection = <span class="kw">if let </span><span class="prelude-val">Ok</span>(subsection) = res {
+<a href=#564 id=564 data-nosnippet>564</a>            subsection
+<a href=#565 id=565 data-nosnippet>565</a>        } <span class="kw">else </span>{
+<a href=#566 id=566 data-nosnippet>566</a>            <span class="comment">// Should we log / warn here?
+<a href=#567 id=567 data-nosnippet>567</a>            </span><span class="kw">continue</span>;
+<a href=#568 id=568 data-nosnippet>568</a>        };
+<a href=#569 id=569 data-nosnippet>569</a>        <span class="kw">match </span>subsection {
+<a href=#570 id=570 data-nosnippet>570</a>            wasmparser::Name::Function(function_subsection) =&gt; {
+<a href=#571 id=571 data-nosnippet>571</a>                <span class="kw">let </span><span class="kw-2">mut </span>unique_name_map = HashMap::new();
+<a href=#572 id=572 data-nosnippet>572</a>                <span class="kw">for </span>naming <span class="kw">in </span>function_subsection.into_iter().flatten() {
+<a href=#573 id=573 data-nosnippet>573</a>                    <span class="kw">if </span>naming.index != u32::MAX {
+<a href=#574 id=574 data-nosnippet>574</a>                        <span class="kw">let </span><span class="kw-2">mut </span>name = naming.name.to_string();
+<a href=#575 id=575 data-nosnippet>575</a>                        <span class="comment">// In very rare cases a function name can have duplicates.
+<a href=#576 id=576 data-nosnippet>576</a>                        </span><span class="kw">if </span>names_set.contains(<span class="kw-2">&amp;</span>name) {
+<a href=#577 id=577 data-nosnippet>577</a>                            <span class="kw">let </span>index = unique_name_map
+<a href=#578 id=578 data-nosnippet>578</a>                                .entry(name.clone())
+<a href=#579 id=579 data-nosnippet>579</a>                                .and_modify(|e| <span class="kw-2">*</span>e += <span class="number">1</span>)
+<a href=#580 id=580 data-nosnippet>580</a>                                .or_insert(<span class="number">0</span>);
+<a href=#581 id=581 data-nosnippet>581</a>                            <span class="kw">let </span>alternative = <span class="macro">format!</span>(<span class="string">"{name}.{index}"</span>);
+<a href=#582 id=582 data-nosnippet>582</a>                            name = alternative;
+<a href=#583 id=583 data-nosnippet>583</a>                        }
+<a href=#584 id=584 data-nosnippet>584</a>                        names_set.insert(name.clone());
+<a href=#585 id=585 data-nosnippet>585</a>                        functions.insert(FunctionIndex::from_u32(naming.index), name);
+<a href=#586 id=586 data-nosnippet>586</a>                    }
+<a href=#587 id=587 data-nosnippet>587</a>                }
+<a href=#588 id=588 data-nosnippet>588</a>            }
+<a href=#589 id=589 data-nosnippet>589</a>            wasmparser::Name::Module {
+<a href=#590 id=590 data-nosnippet>590</a>                name,
+<a href=#591 id=591 data-nosnippet>591</a>                name_range: <span class="kw">_</span>,
+<a href=#592 id=592 data-nosnippet>592</a>            } =&gt; {
+<a href=#593 id=593 data-nosnippet>593</a>                environ.declare_module_name(name)<span class="question-mark">?</span>;
+<a href=#594 id=594 data-nosnippet>594</a>            }
+<a href=#595 id=595 data-nosnippet>595</a>            wasmparser::Name::Local(<span class="kw">_</span>) =&gt; {}
+<a href=#596 id=596 data-nosnippet>596</a>            wasmparser::Name::Label(<span class="kw">_</span>)
+<a href=#597 id=597 data-nosnippet>597</a>            | wasmparser::Name::Type(<span class="kw">_</span>)
+<a href=#598 id=598 data-nosnippet>598</a>            | wasmparser::Name::Table(<span class="kw">_</span>)
+<a href=#599 id=599 data-nosnippet>599</a>            | wasmparser::Name::Memory(<span class="kw">_</span>)
+<a href=#600 id=600 data-nosnippet>600</a>            | wasmparser::Name::Global(<span class="kw">_</span>)
+<a href=#601 id=601 data-nosnippet>601</a>            | wasmparser::Name::Element(<span class="kw">_</span>)
+<a href=#602 id=602 data-nosnippet>602</a>            | wasmparser::Name::Data(<span class="kw">_</span>)
+<a href=#603 id=603 data-nosnippet>603</a>            | wasmparser::Name::Unknown { .. }
+<a href=#604 id=604 data-nosnippet>604</a>            | wasmparser::Name::Field(<span class="kw">_</span>)
+<a href=#605 id=605 data-nosnippet>605</a>            | wasmparser::Name::Tag(..) =&gt; {}
+<a href=#606 id=606 data-nosnippet>606</a>        }
+<a href=#607 id=607 data-nosnippet>607</a>    }
+<a href=#608 id=608 data-nosnippet>608</a>
+<a href=#609 id=609 data-nosnippet>609</a>    environ.declare_function_names(functions)
+<a href=#610 id=610 data-nosnippet>610</a>}</code></pre></div></section></main></body></html>
