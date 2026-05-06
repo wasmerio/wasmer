@@ -162,6 +162,27 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "tests/wast/spec/memory64.wast",
         "Validation error: Failed to create V8 module: null module reference returned from V8",
     );
+    // V8 already supports Multi Memories extension
+    wast.allow_directive_failures_at_line(
+        317,
+        "tests/wast/spec/proposals/threads/imports.wast",
+        "expected module to fail to build",
+    );
+    wast.allow_directive_failures_at_line(
+        412,
+        "tests/wast/spec/proposals/threads/imports.wast",
+        "expected module to fail to build",
+    );
+    wast.allow_directive_failures_at_line(
+        14,
+        "tests/wast/spec/proposals/threads/memory.wast",
+        "expected module to fail to build",
+    );
+    wast.allow_directive_failures_at_line(
+        15,
+        "tests/wast/spec/proposals/threads/memory.wast",
+        "expected module to fail to build",
+    );
     wast.fail_fast = false;
     let path = Path::new(wast_path);
     wast.run_file(path)
