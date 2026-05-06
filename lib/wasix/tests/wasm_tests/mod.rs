@@ -18,15 +18,28 @@
 /// // Pass argv to the test binary and assert exit 0.
 /// wasm_test!(fn_name, "subdir", args = ["case-name"]);
 ///
+/// // Run inside a fresh temp dir instead of `<module>/<subdir>/`.
+/// wasm_test!(fn_name, "subdir", temp_dir);
+///
+/// // Temp dir can be combined with other checks.
+/// wasm_test!(fn_name, "subdir", temp_dir, stdout = "expected output");
+///
 /// // Any of the above may be prefixed with Rust attributes.
 /// wasm_test!(#[cfg(unix)] #[ignore = "reason"] fn_name, "subdir");
 /// ```
 macro_rules! wasm_test {
-    (@run $wasm:ident, []) => {
-        super::run_wasm_with_runner_config(&$wasm, $wasm.parent().unwrap(), |_| {})
+    (@setup default, $wasm:ident, $run_dir:ident, $temp_dir:ident) => {
+        let $run_dir = $wasm.parent().unwrap();
     };
-    (@run $wasm:ident, [$($arg:expr),+ $(,)?]) => {
-        super::run_wasm_with_runner_config(&$wasm, $wasm.parent().unwrap(), |runner| {
+    (@setup temp_dir, $wasm:ident, $run_dir:ident, $temp_dir:ident) => {
+        let $temp_dir = tempfile::tempdir().unwrap();
+        let $run_dir = $temp_dir.path();
+    };
+    (@run $wasm:ident, $run_dir:expr, []) => {
+        super::run_wasm_with_runner_config(&$wasm, $run_dir, |_| {})
+    };
+    (@run $wasm:ident, $run_dir:expr, [$($arg:expr),+ $(,)?]) => {
+        super::run_wasm_with_runner_config(&$wasm, $run_dir, |runner| {
             runner.with_args([$($arg),+]);
         })
     };
@@ -36,69 +49,114 @@ macro_rules! wasm_test {
         $(#[$attr:meta])*
         $fn_name:ident,
         $subdir:literal,
+        setup = $setup:ident,
         args = [$($arg:expr),* $(,)?],
         |$result:ident| $body:block
     ) => {
         $(#[$attr])*
         #[test]
         fn $fn_name() {
-            let wasm = super::run_build_script(file!(), $subdir).unwrap();
-            let $result = wasm_test!(@run wasm, [$($arg),*]).unwrap();
+            let wasm = super::run_build_script(file!(), $subdir)
+                .unwrap_or_else(|error| panic!("failed to build {}: {error}", stringify!($fn_name)));
+            wasm_test!(@setup $setup, wasm, run_dir, temp_dir);
+            let $result = wasm_test!(@run wasm, run_dir, [$($arg),*])
+                .unwrap_or_else(|error| panic!("failed to execute {}: {error}", stringify!($fn_name)));
             $body
         }
     };
     // ── success with argv ──────────────────────────────────────────────────
     ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, args = [$($arg:expr),* $(,)?]) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [$($arg),*], |result| {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [$($arg),*], |result| {
+            super::ensure_wasm_run_succeeded(&result).unwrap();
+        });
+    };
+    // ── success with argv in a fresh temp dir ──────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, args = [$($arg:expr),* $(,)?]) => {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [$($arg),*], |result| {
             super::ensure_wasm_run_succeeded(&result).unwrap();
         });
     };
     // ── success ────────────────────────────────────────────────────────────
     ($(#[$attr:meta])* $fn_name:ident, $subdir:literal) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [], |result| {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [], |result| {
+            super::ensure_wasm_run_succeeded(&result).unwrap();
+        });
+    };
+    // ── success in a fresh temp dir ────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir) => {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], |result| {
             super::ensure_wasm_run_succeeded(&result).unwrap();
         });
     };
     // ── expect non-zero exit ───────────────────────────────────────────────
     ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, should_fail) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [], |result| {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [], |result| {
             assert!(
                 result.exit_code != Some(0),
-                "{} should exit with non-zero code\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
+                "{} should exit with non-zero code\n{}",
                 stringify!($fn_name),
-                String::from_utf8_lossy(&result.stdout),
-                String::from_utf8_lossy(&result.stderr),
-                String::from_utf8_lossy(&result.trace_output),
+                super::format_captured_output(&result),
+            );
+        });
+    };
+    // ── expect non-zero exit in a fresh temp dir ───────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, should_fail) => {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], |result| {
+            assert!(
+                result.exit_code != Some(0),
+                "{} should exit with non-zero code\n{}",
+                stringify!($fn_name),
+                super::format_captured_output(&result),
             );
         });
     };
     // ── expect specific exit code ──────────────────────────────────────────
     ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, exit_code = $expected:expr) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [], |result| {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [], |result| {
             assert_eq!(
                 result.exit_code,
                 Some($expected),
-                "{} should exit with code {:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
+                "{} should exit with code {:?}\n{}",
                 stringify!($fn_name),
                 Some($expected),
-                String::from_utf8_lossy(&result.stdout),
-                String::from_utf8_lossy(&result.stderr),
-                String::from_utf8_lossy(&result.trace_output),
+                super::format_captured_output(&result),
+            );
+        });
+    };
+    // ── expect specific exit code in a fresh temp dir ──────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, exit_code = $expected:expr) => {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], |result| {
+            assert_eq!(
+                result.exit_code,
+                Some($expected),
+                "{} should exit with code {:?}\n{}",
+                stringify!($fn_name),
+                Some($expected),
+                super::format_captured_output(&result),
             );
         });
     };
     // ── check trimmed stdout ───────────────────────────────────────────────
     ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, stdout = $expected:literal) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, args = [], |result| {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [], |result| {
             let stdout = String::from_utf8_lossy(&result.stdout);
             assert_eq!(
                 stdout.trim(),
                 $expected,
-                "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
-                result.exit_code,
-                stdout,
-                String::from_utf8_lossy(&result.stderr),
-                String::from_utf8_lossy(&result.trace_output),
+                "{}",
+                super::format_captured_output(&result),
+            );
+        });
+    };
+    // ── check trimmed stdout in a fresh temp dir ───────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, stdout = $expected:literal) => {
+        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], |result| {
+            let stdout = String::from_utf8_lossy(&result.stdout);
+            assert_eq!(
+                stdout.trim(),
+                $expected,
+                "{}",
+                super::format_captured_output(&result),
             );
         });
     };
@@ -139,6 +197,7 @@ mod socket_tests;
 mod threadlocal_tests;
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
@@ -156,6 +215,7 @@ use wasmer_wasix::virtual_fs::{AsyncRead, AsyncSeek, AsyncWrite};
 
 static TRACE_SUBSCRIBER_INIT: OnceLock<()> = OnceLock::new();
 static TRACE_CAPTURE_STATE: OnceLock<TraceCaptureState> = OnceLock::new();
+static BUILD_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceLock::new();
 
 #[derive(Default)]
 struct TraceCaptureState {
@@ -194,6 +254,15 @@ impl Write for TraceWriter {
 
 fn trace_capture_state() -> &'static TraceCaptureState {
     TRACE_CAPTURE_STATE.get_or_init(TraceCaptureState::default)
+}
+
+fn build_lock_for(test_path: &Path) -> Arc<Mutex<()>> {
+    let locks = BUILD_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut locks = locks.lock().unwrap();
+    locks
+        .entry(test_path.to_path_buf())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
 }
 
 fn init_trace_capture() {
@@ -417,6 +486,8 @@ pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::E
 
     let test_path = input_dir.join(test_dir);
     let build_script = test_path.join("build.sh");
+    let build_lock = build_lock_for(&test_path);
+    let _build_guard = build_lock.lock().unwrap();
 
     // Read optional per-test env overrides from `build.env` (KEY=VALUE, one per line).
     let build_env: Vec<(String, String)> = {
@@ -543,16 +614,24 @@ pub struct WasmRunResult {
     pub trace_output: Vec<u8>,
     #[allow(dead_code)]
     pub exit_code: Option<i32>,
+    #[allow(dead_code)]
+    pub error: Option<String>,
 }
 
 fn format_captured_output(result: &WasmRunResult) -> String {
-    format!(
+    let mut message = format!(
         "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
         result.exit_code,
         String::from_utf8_lossy(&result.stdout),
         String::from_utf8_lossy(&result.stderr),
         String::from_utf8_lossy(&result.trace_output),
-    )
+    );
+
+    if let Some(error) = &result.error {
+        message.push_str(&format!("\nerror:\n{}", error));
+    }
+
+    message
 }
 
 /// Run a compiled WASM file using WasiRunner and return output buffers and exit status
@@ -681,6 +760,7 @@ pub fn run_wasm_with_runner_config(
         stderr,
         trace_output,
         exit_code,
+        error: result.as_ref().err().map(ToString::to_string),
     })
 }
 
@@ -702,7 +782,9 @@ pub fn run_wasm_with_runner_config_checked(
 }
 
 fn ensure_wasm_run_succeeded(result: &WasmRunResult) -> Result<(), anyhow::Error> {
-    // If exit code is non-zero, return an error
+    // Preserve the historical behavior here: only an explicit non-zero exit
+    // is treated as failure. Some fixtures currently surface loader/runtime
+    // errors without a parsed exit code.
     if let Some(code) = result.exit_code
         && code != 0
     {

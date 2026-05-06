@@ -1,5 +1,3 @@
-use super::{run_build_script, run_wasm_with_result};
-
 wasm_test!(test_semaphore_named, "semaphore-named");
 wasm_test!(test_semaphore_unnamed, "semaphore-unnamed");
 wasm_test!(
@@ -28,14 +26,8 @@ wasm_test!(
     "semaphore-unlink-nonexistent"
 );
 
-// sem_unlink(NULL) must produce a non-zero exit code (assertion / segfault).
-// Checked via run_wasm_with_result because the exit code may come from a trap
-// rather than an explicit exit(), and we want to verify it's `Some` and non-zero.
-#[test]
-fn test_semaphore_unlink_nullptr_exits() {
-    let wasm_path = run_build_script(file!(), "semaphore-unlink-nullptr-exits").unwrap();
-    let test_dir = wasm_path.parent().unwrap();
-    let result = run_wasm_with_result(&wasm_path, test_dir).unwrap();
-    assert!(result.exit_code.is_some(), "Expected an exit code");
-    assert_ne!(result.exit_code.unwrap(), 0, "Expected non-zero exit code");
-}
+wasm_test!(
+    test_semaphore_unlink_nullptr_exits,
+    "semaphore-unlink-nullptr-exits",
+    should_fail
+);

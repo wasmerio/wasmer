@@ -4,68 +4,33 @@ use super::{
     MappedDirectory, run_build_script, run_wasm_with_result, run_wasm_with_runner_config_checked,
 };
 
-fn run_path_test_stdout_0(test_name: &str) {
-    let wasm = run_build_script(file!(), test_name).unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    assert_eq!(String::from_utf8_lossy(&result.stdout).trim(), "0");
-    assert_eq!(result.exit_code, Some(0));
-}
+wasm_test!(test_chdir_getcwd, "chdir-getcwd", stdout = "0");
 
-fn run_path_test_stdout_0_in_temp_dir(test_name: &str) {
-    let wasm = run_build_script(file!(), test_name).unwrap();
-    let temp = tempfile::tempdir().unwrap();
-    let result = run_wasm_with_result(&wasm, temp.path()).unwrap();
-    assert_eq!(String::from_utf8_lossy(&result.stdout).trim(), "0");
-    assert_eq!(result.exit_code, Some(0));
-}
+wasm_test!(test_closing_pre_opened_dirs, "closing-pre-opened-dirs", stdout = "0");
 
-#[test]
-fn test_chdir_getcwd() {
-    let wasm = run_build_script(file!(), "chdir-getcwd").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    assert_eq!(String::from_utf8_lossy(&result.stdout).trim(), "0");
-    assert_eq!(result.exit_code, Some(0));
-}
+wasm_test!(test_create_and_remove_dirs, "create-and-remove-dirs", temp_dir, stdout = "0");
 
-#[test]
-fn test_closing_pre_opened_dirs() {
-    run_path_test_stdout_0("closing-pre-opened-dirs");
-}
+wasm_test!(test_create_dir_at_cwd, "create-dir-at-cwd", temp_dir, stdout = "0");
 
-#[test]
-fn test_create_and_remove_dirs() {
-    run_path_test_stdout_0_in_temp_dir("create-and-remove-dirs");
-}
+wasm_test!(
+    test_create_dir_at_cwd_with_chdir,
+    "create-dir-at-cwd-with-chdir",
+    temp_dir,
+    stdout = "0"
+);
 
-#[test]
-fn test_create_dir_at_cwd() {
-    run_path_test_stdout_0_in_temp_dir("create-dir-at-cwd");
-}
+wasm_test!(test_cwd_to_home, "cwd-to-home", stdout = "0");
 
-#[test]
-fn test_create_dir_at_cwd_with_chdir() {
-    run_path_test_stdout_0_in_temp_dir("create-dir-at-cwd-with-chdir");
-}
+wasm_test!(
+    test_distinct_inodes_same_basename,
+    "distinct-inodes-same-basename",
+    temp_dir,
+    stdout = "0"
+);
 
-#[test]
-fn test_cwd_to_home() {
-    run_path_test_stdout_0("cwd-to-home");
-}
+wasm_test!(test_fstatat_with_chdir, "fstatat-with-chdir", temp_dir, stdout = "0");
 
-#[test]
-fn test_distinct_inodes_same_basename() {
-    run_path_test_stdout_0_in_temp_dir("distinct-inodes-same-basename");
-}
-
-#[test]
-fn test_fstatat_with_chdir() {
-    run_path_test_stdout_0_in_temp_dir("fstatat-with-chdir");
-}
-
-#[test]
-fn test_mount_tmp_locally() {
-    run_path_test_stdout_0("mount-tmp-locally");
-}
+wasm_test!(test_mount_tmp_locally, "mount-tmp-locally", stdout = "0");
 
 #[test]
 fn test_fs_mount() {
@@ -80,10 +45,7 @@ fn test_fs_mount() {
     .unwrap();
 }
 
-#[test]
-fn test_open_under_file() {
-    run_path_test_stdout_0_in_temp_dir("open-under-file");
-}
+wasm_test!(test_open_under_file, "open-under-file", temp_dir, stdout = "0");
 
 #[test]
 fn test_symlink_open_read_write() {
@@ -102,19 +64,6 @@ fn test_symlink_open_read_write() {
     );
 }
 
-#[test]
-fn test_create_move_open() {
-    let wasm = run_build_script(file!(), "create-move-open").unwrap();
-    let temp = tempfile::tempdir().unwrap();
-    let result = run_wasm_with_result(&wasm, temp.path()).unwrap();
-    assert_eq!(String::from_utf8_lossy(&result.stdout).trim(), "0");
-    assert_eq!(result.exit_code, Some(0));
-}
+wasm_test!(test_create_move_open, "create-move-open", temp_dir, stdout = "0");
 
-#[test]
-fn test_rename_same_path() {
-    let wasm = run_build_script(file!(), "rename-same-path").unwrap();
-    let temp = tempfile::tempdir().unwrap();
-    let result = run_wasm_with_result(&wasm, temp.path()).unwrap();
-    assert_eq!(result.exit_code, Some(0));
-}
+wasm_test!(test_rename_same_path, "rename-same-path", temp_dir);

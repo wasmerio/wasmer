@@ -129,11 +129,7 @@ fn test_legacy_proc_exec2() {
     });
 }
 
-#[test]
-fn test_share_tmp_after_fork() {
-    let wasm = run_build_script(file!(), "share-tmp-after-fork").unwrap();
-    assert_stdout_zero(&wasm, |_| {});
-}
+wasm_test!(test_share_tmp_after_fork, "share-tmp-after-fork", stdout = "0");
 
 #[test]
 fn test_share_tmp_after_proc_exec() {
