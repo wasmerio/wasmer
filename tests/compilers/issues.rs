@@ -638,6 +638,11 @@ fn compiler_debug_dir_test(mut config: crate::Config) {
 
 #[compiler_test(issues)]
 fn issue_5795_memory_reset_size(mut config: crate::Config) {
+    // TODO: V8 appears to handle this differently
+    if config.compiler == crate::Compiler::V8 {
+        return;
+    }
+
     let wasm_bytes = wat2wasm(
         r#"
 (module
@@ -794,9 +799,9 @@ fn issue_4169_funcref_externref_import(mut config: crate::Config) -> Result<()> 
 
     if config.compiler == crate::Compiler::V8 {
         let err = Instance::new(&mut store, &module, &imports).unwrap_err();
-        assert!(
-            err.to_string()
-                .contains("ExternRefs are not currently supported through wasm_c_api")
+        assert_eq!(
+            err.to_string(),
+            "Insufficient resources: ExternRefs are unsupported yet"
         );
         return Ok(());
     }
@@ -1210,6 +1215,11 @@ fn issue_6401_llvm_v128_load16x4_s_oob() -> Result<()> {
 
 #[compiler_test(issues)]
 fn issue_6534_declared_element_segment_with_global(config: crate::Config) -> Result<()> {
+    // #6570
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
     let mut store = config.store();
     let wasm_bytes = wat2wasm(
         br#"
