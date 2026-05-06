@@ -437,3 +437,5 @@ llvm+windows      multi_value_imports
 llvm+loongarch64  multi_value_imports
 llvm+riscv64      multi_value_imports
 llvm+windows      static_function_with_results
+
+v8                table64

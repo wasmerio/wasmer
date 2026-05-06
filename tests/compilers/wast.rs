@@ -144,7 +144,24 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "ExternRefs are unsupported yet",
         "constant expression required",
         "Validation error: exported names can't be made of digits only",
+        "Validation error: imported functions cannot be used as start functions",
     ]);
+    // V8 rejects creation of large table and memories.
+    wast.allow_directive_failures_at_line(
+        9,
+        "tests/wast/spec/table.wast",
+        "Validation error: Failed to create V8 module: null module reference returned from V8",
+    );
+    wast.allow_directive_failures_at_line(
+        8,
+        "tests/wast/spec/memory64.wast",
+        "Validation error: Failed to create V8 module: null module reference returned from V8",
+    );
+    wast.allow_directive_failures_at_line(
+        9,
+        "tests/wast/spec/memory64.wast",
+        "Validation error: Failed to create V8 module: null module reference returned from V8",
+    );
     wast.fail_fast = false;
     let path = Path::new(wast_path);
     wast.run_file(path)

@@ -339,6 +339,10 @@ pub fn translate_module(data: &[u8]) -> WasmResult<ModuleInfoPolyfill> {
                 parse_export_section(exports, &mut module_info)?;
             }
 
+            Payload::StartSection { func, .. } => {
+                parse_start_section(func, &mut module_info)?;
+            }
+
             Payload::TagSection(tags) => {
                 parse_tag_section(tags, &mut module_info)?;
             }
@@ -654,11 +658,16 @@ pub fn parse_export_section(
     Ok(())
 }
 
-// /// Parses the Start section of the wasm module.
-// pub fn parse_start_section(index: u32, module_info: &mut ModuleInfoPolyfill) -> WasmResult<()> {
-//     module_info.declare_start_function(FunctionIndex::from_u32(index))?;
-//     Ok(())
-// }
+/// Parses the Start section of the wasm module.
+pub fn parse_start_section(index: u32, module_info: &mut ModuleInfoPolyfill) -> WasmResult<()> {
+    // Right now, we cannot invoke an imported function as a start function: #6568.
+    let start_function = FunctionIndex::from_u32(index);
+    if module_info.info.is_imported_function(start_function) {
+        return Err("imported functions cannot be used as start functions".to_string());
+    }
+    module_info.info.start_function = Some(start_function);
+    Ok(())
+}
 
 /// Parses the Name section of the wasm module.
 pub fn parse_name_section(

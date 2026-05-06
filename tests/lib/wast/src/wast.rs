@@ -23,6 +23,8 @@ pub struct Wast {
     instances: HashMap<String, Instance>,
     /// Allowed failures (ideally this should be empty)
     allowed_instantiation_failures: HashSet<String>,
+    /// Allowed directive failures in a specific file at a specific 1-based line.
+    allowed_directive_failures: HashSet<(String, usize, String)>,
     /// If the (expected from .wast, actual) message pair is in this list,
     /// treat the strings as matching.
     match_trap_messages: Vec<(String, String)>,
@@ -48,6 +50,7 @@ impl Wast {
             store,
             import_object,
             allowed_instantiation_failures: HashSet::new(),
+            allowed_directive_failures: HashSet::new(),
             match_trap_messages: Vec::new(),
             current_is_allowed_failure: false,
             instances: HashMap::new(),
@@ -63,6 +66,17 @@ impl Wast {
             self.allowed_instantiation_failures
                 .insert(failure_str.to_string());
         }
+    }
+
+    /// A directive failure to allow in a specific file at a specific 1-based line.
+    pub fn allow_directive_failures_at_line(
+        &mut self,
+        line: usize,
+        filename: &str,
+        failure: &str,
+    ) {
+        self.allowed_directive_failures
+            .insert((filename.to_string(), line, failure.to_string()));
     }
 
     /// A list of alternative messages to permit for a trap failure.
@@ -356,11 +370,19 @@ impl Wast {
                     continue;
                 }
                 let (line, col) = sp.linecol_in(wast);
-                errors.push(DirectiveError {
-                    line: line + 1,
-                    col,
-                    message,
-                });
+                let line = line + 1;
+                if self
+                    .allowed_directive_failures
+                    .iter()
+                    .any(|(allowed_filename, allowed_line, allowed_failure)| {
+                        allowed_filename == filename
+                            && *allowed_line == line
+                            && message.contains(allowed_failure)
+                    })
+                {
+                    continue;
+                }
+                errors.push(DirectiveError { line, col, message });
                 if self.fail_fast {
                     break;
                 }
