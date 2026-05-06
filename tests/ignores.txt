@@ -439,5 +439,8 @@ llvm+riscv64      multi_value_imports
 llvm+windows      static_function_with_results
 
 # V8 ignores
-v8                table64
-v8                wasmer::nan_canonicalization
+v8                  table64
+v8                  wasmer::nan_canonicalization
+#6571
+v8                  spec::global
+v8                  spec::table_grow
