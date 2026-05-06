@@ -1,8 +1,6 @@
 name: Typos
-
 permissions:
   contents: read
-
 on:
   push:
     branches:
@@ -10,33 +8,11 @@ on:
   pull_request:
     branches:
       - "main"
-
 jobs:
   typos:
     name: Spell Check with Typos
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - name: Determine changed files
-        id: changed_files
-        shell: bash
-        run: |
-          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
-            base_ref='${{ github.event.pull_request.base.ref }}'
-            head_sha='${{ github.event.pull_request.head.sha }}'
-            git fetch origin "$base_ref"
-            base_sha=$(git merge-base "origin/$base_ref" "$head_sha")
-          else
-            base_sha='${{ github.event.before }}'
-            head_sha='${{ github.sha }}'
-          fi
-
-          files=$(git diff --name-only --diff-filter=ACMRT "$base_sha" "$head_sha" | tr '\n' ' ')
-          echo "files=$files" >> "$GITHUB_OUTPUT"
-      - name: Spell Check Changed Files
-        if: steps.changed_files.outputs.files != ''
+      - name: Spell Check Repo
         uses: crate-ci/typos@v1.46.0
-        with:
-          files: ${{ steps.changed_files.outputs.files }}
