@@ -1,56 +1,179 @@
 # WASIX wasm tests
 
-This is a collection of tests that run wasm modules using WASIX. Most of the tests use `wasixcc` to compile C code with `wasix-libc` to generate the modules.
+This directory contains integration tests that build small WASM programs and run them directly through `wasmer-wasix` from Rust. Most fixtures are C or C++ programs compiled with `wasixcc` / `wasix++`.
 
-The general idea of this test suite is to run the modules directly from rust using the wasmer/wasix crates. This way it is easy to debug them with a debugger.
+A working installation of `wasixcc` is required for this suite to work. The harness expects `wasixcc` and `wasix++` to be available on `PATH`.
 
-## Adding tests
+## How the suite is structured
 
-The tests are organized into somewhat related sets. For each set there is a `<setname>.rs` module which defines the tests. For each test there is a test directory at `<setname>/<testname>/` which contains the sources for the test (C/C++ files, optionally a `build.sh`, precompiled wasm files, etc.).
+There are two layers:
 
-Look at [`basic_tests`](./basic_tests/) for an example of a normal test set.
+1. Rust test modules in this directory such as `basic_tests.rs`, `process_tests.rs`, or `threadlocal_tests.rs`.
+2. Fixture directories that sit next to the module name and contain the source code and optional build files.
 
-When adding a new testset module remember importing the module in [`wasm_tests/mod.rs`](./mod.rs).
+The mapping is driven by `run_build_script(file!(), ...)` in [`mod.rs`](./mod.rs):
 
-### Normal tests
+- `basic_tests.rs` loads fixtures from `basic_tests/...`
+- `process_tests.rs` loads fixtures from `process_tests/...`
+- `fd_fdflags_get.rs` can use its own directory directly
 
-Use the `wasm_test!` macro — it generates the `#[test]` function and handles building and running automatically:
+Examples:
 
-```rust
-// Assert exit 0
-wasm_test!(test_helloworld, "helloworld");
+- [`basic_tests.rs`](./basic_tests.rs) defines `wasm_test!(test_helloworld, "helloworld");`
+- that resolves to [`basic_tests/helloworld/`](./basic_tests/helloworld/)
+- [`fd_fdflags_get.rs`](./fd_fdflags_get.rs) defines `wasm_test!(fd_fdflags_get, "");`
+- that resolves to [`fd_fdflags_get/`](./fd_fdflags_get/)
 
-// Assert non-zero exit
-wasm_test!(test_exits_nonzero, "exit-nonzero", should_fail);
+Most tests use the `wasm_test!` macro from [`mod.rs`](./mod.rs). It:
 
-// Assert trimmed stdout matches a string
-wasm_test!(test_prints_hello, "hello", stdout = "hello world");
+- builds the fixture with `run_build_script`
+- runs the resulting module with the WASIX runner
+- asserts success, failure, exit code, or stdout depending on the macro form
 
-// With extra attributes (cfg, ignore, etc.)
-wasm_test!(#[cfg(unix)] test_context, "ctx");
+Some tests are written manually instead of using the macro when they need custom runner setup, such as mapped directories, a custom working directory, or multiple invocations of the same compiled fixture. [`process_tests.rs`](./process_tests.rs) is the main example of that pattern.
+
+## How building works
+
+For a fixture directory, `run_build_script` builds in this order:
+
+1. `build.sh`, if present
+2. automatic single-file compilation if there is no `build.sh`
+
+### `build.sh`
+
+If a fixture has a `build.sh`, the test harness executes it with `bash` in the fixture directory and sets:
+
+- `CC=wasixcc`
+- `CXX=wasix++`
+- `WASIXCC_DISCARD_UNSUPPORTED_FLAGS=yes`
+
+Use `$CC` and `$CXX` inside the script instead of hardcoding compiler names.
+
+Add `build.sh` when the fixture needs:
+
+- multiple source files
+- shared or dynamic libraries
+- special linker flags
+- multiple output artifacts
+
+### Auto-build
+
+If there is no `build.sh`, the harness looks for a single compilable source file using this priority:
+
+1. `main.c`
+2. `main.cpp`
+3. the only `.c` file in the directory
+4. the only `.cpp` file in the directory
+
+That source is compiled to an output named `main`.
+
+### `build.env`
+
+If a fixture needs compiler environment overrides, add a `build.env` file with one `KEY=VALUE` entry per line. The harness applies those variables to both `build.sh` and auto-build mode.
+
+Examples already in the tree use this for settings such as `WASIXCC_PIC=1` or `WASIXCC_WASM_EXCEPTIONS=no`.
+
+## Adding a test
+
+### Common case: a normal fixture
+
+1. Pick the Rust module that should own the test, or create a new one.
+2. Add a fixture directory under the matching path.
+3. Put the fixture sources there.
+4. Add a `wasm_test!` entry to the Rust module.
+5. If you created a new Rust module, import it from [`mod.rs`](./mod.rs).
+
+Minimal example:
+
+```text
+wasm_tests/
+├── basic_tests.rs
+└── basic_tests/
+    └── hello-new/
+        └── main.c
 ```
 
-The macro calls `run_build_script` to compile the test and then runs it.
+```rust
+wasm_test!(test_hello_new, "hello-new");
+```
 
-### Building tests
+Useful `wasm_test!` forms:
 
-`run_build_script` looks for a way to build the test in this order:
+```rust
+wasm_test!(test_ok, "hello");
+wasm_test!(test_fails, "exit-nonzero", should_fail);
+wasm_test!(test_exit_code, "abort-case", exit_code = 134);
+wasm_test!(test_stdout, "print-case", stdout = "hello world");
+wasm_test!(test_with_args, "arg-case", args = ["case-name"]);
+wasm_test!(#[ignore = "flaky on CI"] test_ignored, "fixture");
+```
 
-1. **`build.sh`** — if present, it is executed with `bash`. `$CC` and `$CXX` are set to `wasixcc`/`wasix++`. Write `build.sh` using `$CC`/`$CXX` so the same script works with native compilers too.
-2. **Auto-build** — if there is no `build.sh`, the script looks for a single `.c` or `.cpp` file in the test directory and compiles it directly with `wasixcc`/`wasix++`. This covers the common case of a single-source test with no special build logic.
+Use `""` or `"."` as the fixture path when the sources live directly in the directory that matches the Rust file stem.
 
-Only add a `build.sh` when the test needs something the auto-build cannot handle: multiple source files, shared libraries, special linker flags, etc.
+### Custom Rust test
 
-### Per-test compiler flags (`build.env`)
+Drop to a manual `#[test]` when the fixture needs more than the macro supports. Typical reasons:
 
-If a test needs extra environment variables for the compiler (e.g. `WASIXCC_WASM_EXCEPTIONS=1`), create a `build.env` file in the test directory with one `KEY=VALUE` entry per line. These variables are injected into both `build.sh` and auto-build invocations.
+- mount host directories with `MappedDirectory`
+- set a guest current directory
+- run the same compiled module multiple times with different args
+- assert on stdout or stderr in a custom way
+- run a secondary output file instead of `main`
 
-### Tests with precompiled wasm files
+In that case, follow the pattern used in [`process_tests.rs`](./process_tests.rs):
 
-You should avoid creating tests with precompiled wasm files. If possible stay close to the normal test architecture with `build.sh` and C files. If that is not possible you can also commit precompiled wasm files, but please create a README.md in the test directory in that case.
+```rust
+#[test]
+fn test_custom() {
+    let wasm = run_build_script(file!(), "my-fixture").unwrap();
+    let result = run_wasm_with_runner_config(&wasm, wasm.parent().unwrap(), |runner| {
+        runner.with_args(["example"]);
+    })
+    .unwrap();
 
-### Tests that are only expected to work on WASIX
+    ensure_wasm_run_succeeded(&result).unwrap();
+}
+```
 
-Ideally the C based tests compile and run for both native and WASIX. For now we don't mark tests that only support WASIX (for example the ones using the context switching, dynamic calling, or closure APIs).
+## Running the tests
 
-In the future we would ideally have some way to mark them and some infra to test whether they work on native clang/gcc and maybe even emscripten.
+These tests live in the `wasmer-wasix` crate and are compiled as integration tests.
+
+Before running them, make sure `wasixcc` is installed and working in your shell environment.
+
+Run the main WASIX wasm suite:
+
+```bash
+cargo test -p wasmer-wasix --features sys --test wasix-wasm -- --nocapture
+```
+
+Run all `wasmer-wasix` tests, including this suite:
+
+```bash
+cargo test -p wasmer-wasix --features sys
+```
+
+Run a single test by name:
+
+```bash
+cargo test -p wasmer-wasix --features sys --test wasix-wasm test_helloworld -- --nocapture
+```
+
+Run a subset by filter:
+
+```bash
+cargo test -p wasmer-wasix --features sys --test wasix-wasm process_tests -- --nocapture
+```
+
+On macOS there is also a separate integration test target for socket-specific coverage:
+
+```bash
+cargo test -p wasmer-wasix --features sys --test socket_wasm -- --nocapture
+```
+
+## Notes and conventions
+
+- Prefer source-based fixtures over committing prebuilt `.wasm` files.
+- If a prebuilt artifact is unavoidable, document how it was produced in a fixture-local `README.md`.
+- Keep fixtures as small as possible. Add `build.sh` only when auto-build is not enough.
+- Reuse `build.env` for per-fixture compiler settings instead of exporting variables inside Rust tests when possible.
