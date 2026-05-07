@@ -552,6 +552,11 @@ pub struct WasiFs {
     pub(crate) init_vfs_preopens: Vec<String>,
 }
 
+enum FlushTarget {
+    Noop,
+    File(Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>),
+}
+
 impl WasiFs {
     fn writable_package_mount(
         fs: Arc<dyn FileSystem + Send + Sync>,
@@ -653,51 +658,77 @@ impl WasiFs {
     /// Closes all the file handles.
     pub async fn close_cloexec_fds(&self) {
         let to_close = {
-            if let Ok(map) = self.fd_map.read() {
-                map.iter()
-                    .filter_map(|(k, v)| {
-                        if v.inner.fd_flags.contains(Fdflagsext::CLOEXEC)
-                            && !v.is_stdio
-                            && !v.inode.is_preopened
+            if let Ok(mut map) = self.fd_map.write() {
+                let to_close = map
+                    .iter()
+                    .filter_map(|(fd, entry)| {
+                        if entry.inner.fd_flags.contains(Fdflagsext::CLOEXEC)
+                            && !entry.is_stdio
+                            && !entry.inode.is_preopened
                         {
-                            tracing::trace!(fd = %k, "Closing FD due to CLOEXEC flag");
-                            Some(k)
+                            tracing::trace!(fd = %fd, "Closing FD due to CLOEXEC flag");
+                            Some((fd, Self::flush_target_for_fd(entry, false).ok()))
                         } else {
                             None
                         }
                     })
-                    .collect::<HashSet<_>>()
+                    .collect::<Vec<_>>();
+
+                for (fd, _) in &to_close {
+                    map.remove(*fd);
+                }
+
+                to_close
             } else {
-                HashSet::new()
+                Vec::new()
             }
         };
 
-        let _ = tokio::join!(async {
-            for fd in &to_close {
-                self.flush(*fd).await.ok();
-                self.close_fd(*fd).ok();
+        for (_, flush_target) in to_close {
+            if let Some(flush_target) = flush_target {
+                Self::flush_target(flush_target).await.ok();
             }
-        });
+        }
     }
 
     /// Closes all the file handles.
     pub async fn close_all(&self) {
-        let mut to_close = {
-            if let Ok(map) = self.fd_map.read() {
+        let to_close = {
+            let mut fds = if let Ok(map) = self.fd_map.read() {
                 map.keys().collect::<HashSet<_>>()
             } else {
                 HashSet::new()
+            };
+            fds.insert(__WASI_STDOUT_FILENO);
+            fds.insert(__WASI_STDERR_FILENO);
+
+            if let Ok(mut map) = self.fd_map.write() {
+                let to_close = map
+                    .iter()
+                    .filter_map(|(fd, entry)| {
+                        if fds.contains(&fd) {
+                            Some((fd, Self::flush_target_for_fd(entry, false).ok()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                for (fd, _) in &to_close {
+                    map.remove(*fd);
+                }
+
+                to_close
+            } else {
+                Vec::new()
             }
         };
-        to_close.insert(__WASI_STDOUT_FILENO);
-        to_close.insert(__WASI_STDERR_FILENO);
 
-        let _ = tokio::join!(async {
-            for fd in to_close {
-                self.flush(fd).await.ok();
-                self.close_fd(fd).ok();
+        for (_, flush_target) in to_close {
+            if let Some(flush_target) = flush_target {
+                Self::flush_target(flush_target).await.ok();
             }
-        });
+        }
     }
 
     /// Will conditionally union the binary file system with this one
@@ -1661,40 +1692,52 @@ impl WasiFs {
             }
             _ => {
                 let fd = self.get_fd(fd)?;
-                if !fd.inner.rights.contains(Rights::FD_DATASYNC) {
-                    return Err(Errno::Access);
-                }
-
-                let file = {
-                    let guard = fd.inode.read();
-                    match guard.deref() {
-                        Kind::File {
-                            handle: Some(file), ..
-                        } => file.clone(),
-                        // TODO: verify this behavior
-                        Kind::Dir { .. } => return Err(Errno::Isdir),
-                        Kind::Buffer { .. } => return Ok(()),
-                        _ => return Err(Errno::Io),
-                    }
-                };
-                drop(fd);
-
-                struct FlushPoller {
-                    file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
-                }
-                impl Future for FlushPoller {
-                    type Output = Result<(), Errno>;
-                    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                        let mut file = self.file.write().unwrap();
-                        Pin::new(file.as_mut())
-                            .poll_flush(cx)
-                            .map_err(|_| Errno::Io)
-                    }
-                }
-                FlushPoller { file }.await?;
+                Self::flush_fd_entry(&fd, true).await?;
             }
         }
         Ok(())
+    }
+
+    async fn flush_fd_entry(fd: &Fd, enforce_rights: bool) -> Result<(), Errno> {
+        let flush_target = Self::flush_target_for_fd(fd, enforce_rights)?;
+        Self::flush_target(flush_target).await
+    }
+
+    fn flush_target_for_fd(fd: &Fd, enforce_rights: bool) -> Result<FlushTarget, Errno> {
+        if enforce_rights && !fd.inner.rights.contains(Rights::FD_DATASYNC) {
+            return Err(Errno::Access);
+        }
+
+        let guard = fd.inode.read();
+        match guard.deref() {
+            Kind::File {
+                handle: Some(file), ..
+            } => Ok(FlushTarget::File(file.clone())),
+            // TODO: verify this behavior
+            Kind::Dir { .. } => Err(Errno::Isdir),
+            Kind::Buffer { .. } => Ok(FlushTarget::Noop),
+            _ => Err(Errno::Io),
+        }
+    }
+
+    async fn flush_target(target: FlushTarget) -> Result<(), Errno> {
+        struct FlushPoller {
+            file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
+        }
+        impl Future for FlushPoller {
+            type Output = Result<(), Errno>;
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+                let mut file = self.file.write().unwrap();
+                Pin::new(file.as_mut())
+                    .poll_flush(cx)
+                    .map_err(|_| Errno::Io)
+            }
+        }
+
+        match target {
+            FlushTarget::Noop => Ok(()),
+            FlushTarget::File(file) => FlushPoller { file }.await,
+        }
     }
 
     /// Creates an inode and inserts it given a Kind and some extra data
@@ -2841,7 +2884,7 @@ mod tests {
                 release_flush: release_flush_rx,
             }),
         );
-        let blocked_fd = wasi_fs
+        let _blocked_fd = wasi_fs
             .create_fd(
                 ALL_RIGHTS,
                 ALL_RIGHTS,
@@ -2858,7 +2901,6 @@ mod tests {
         });
 
         flush_started_rx.await.unwrap();
-        assert!(wasi_fs.fd_map.read().unwrap().get(blocked_fd).is_some());
 
         let fresh_inode = create_test_inode(
             &wasi_fs,
@@ -2884,6 +2926,138 @@ mod tests {
         assert!(
             wasi_fs.fd_map.read().unwrap().get(fresh_fd).is_some(),
             "close_all cleared a descriptor created while cleanup was in progress"
+        );
+    }
+
+    #[tokio::test]
+    async fn close_all_does_not_close_reused_fd_slot() {
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs = Arc::new(WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap());
+
+        let (flush_started_tx, flush_started_rx) = oneshot::channel();
+        let (release_flush_tx, release_flush_rx) = oneshot::channel();
+
+        let blocked_inode = create_test_inode(
+            &wasi_fs,
+            &inodes,
+            "blocked-close-all",
+            Box::new(BlockingFlushFile {
+                flush_started: Some(flush_started_tx),
+                release_flush: release_flush_rx,
+            }),
+        );
+        let blocked_fd = wasi_fs
+            .create_fd(
+                ALL_RIGHTS,
+                ALL_RIGHTS,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                Fd::READ,
+                blocked_inode,
+            )
+            .unwrap();
+
+        let cleanup_fs = Arc::clone(&wasi_fs);
+        let cleanup = tokio::spawn(async move {
+            cleanup_fs.close_all().await;
+        });
+
+        flush_started_rx.await.unwrap();
+
+        let replacement_inode = create_test_inode(
+            &wasi_fs,
+            &inodes,
+            "replacement-close-all",
+            Box::new(virtual_fs::BufferFile::default()),
+        );
+        let replacement_fd = wasi_fs
+            .create_fd_ext(
+                ALL_RIGHTS,
+                ALL_RIGHTS,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                Fd::READ,
+                replacement_inode,
+                Some(blocked_fd),
+                false,
+            )
+            .unwrap();
+        assert_eq!(replacement_fd, blocked_fd);
+
+        release_flush_tx.send(()).unwrap();
+        cleanup.await.unwrap();
+
+        assert!(
+            wasi_fs.fd_map.read().unwrap().get(blocked_fd).is_some(),
+            "close_all closed a replacement descriptor after reusing the fd slot"
+        );
+    }
+
+    #[tokio::test]
+    async fn close_cloexec_fds_does_not_close_reused_fd_slot() {
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs = Arc::new(WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap());
+
+        let (flush_started_tx, flush_started_rx) = oneshot::channel();
+        let (release_flush_tx, release_flush_rx) = oneshot::channel();
+
+        let blocked_inode = create_test_inode(
+            &wasi_fs,
+            &inodes,
+            "blocked-cloexec",
+            Box::new(BlockingFlushFile {
+                flush_started: Some(flush_started_tx),
+                release_flush: release_flush_rx,
+            }),
+        );
+        let blocked_fd = wasi_fs
+            .create_fd(
+                ALL_RIGHTS,
+                ALL_RIGHTS,
+                Fdflags::empty(),
+                Fdflagsext::CLOEXEC,
+                Fd::READ,
+                blocked_inode,
+            )
+            .unwrap();
+
+        let cleanup_fs = Arc::clone(&wasi_fs);
+        let cleanup = tokio::spawn(async move {
+            cleanup_fs.close_cloexec_fds().await;
+        });
+
+        flush_started_rx.await.unwrap();
+
+        let replacement_inode = create_test_inode(
+            &wasi_fs,
+            &inodes,
+            "replacement-cloexec",
+            Box::new(virtual_fs::BufferFile::default()),
+        );
+        let replacement_fd = wasi_fs
+            .create_fd_ext(
+                ALL_RIGHTS,
+                ALL_RIGHTS,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                Fd::READ,
+                replacement_inode,
+                Some(blocked_fd),
+                false,
+            )
+            .unwrap();
+        assert_eq!(replacement_fd, blocked_fd);
+
+        release_flush_tx.send(()).unwrap();
+        cleanup.await.unwrap();
+
+        assert!(
+            wasi_fs.fd_map.read().unwrap().get(blocked_fd).is_some(),
+            "close_cloexec_fds closed a replacement descriptor after reusing the fd slot"
         );
     }
 }
