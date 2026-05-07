@@ -258,11 +258,7 @@ jobs:
         if: startsWith(matrix.metadata.build, 'windows-')
       - name: Lint ${{ matrix.build-what.key }}
         run: ${{ matrix.build-what.lint-cmd }}
-      - name: Test V8 API (Linux + clang)
-        if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
-        run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld" CARGO_TERM_VERBOSE=true ${{ matrix.build-what.build-cmd }}
       - name: Test V8 API
-        if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
         run: ${{ matrix.build-what.build-cmd }}
   test_build_docs_rs:
     name: Build docs.rs
