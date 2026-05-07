@@ -1,0 +1,11 @@
+[[module]]
+name = "main"
+source = "main.wasm"
+
+[fs]
+"/mount" = "."
+
+[[command]]
+name = "main"
+module = "main"
+runner = "wasi"
