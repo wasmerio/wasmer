@@ -678,12 +678,6 @@ impl WasiFs {
                 self.close_fd(*fd).ok();
             }
         });
-
-        if let Ok(mut map) = self.fd_map.write() {
-            for fd in &to_close {
-                map.remove(*fd);
-            }
-        }
     }
 
     /// Closes all the file handles.
@@ -704,10 +698,6 @@ impl WasiFs {
                 self.close_fd(fd).ok();
             }
         });
-
-        if let Ok(mut map) = self.fd_map.write() {
-            map.clear();
-        }
     }
 
     /// Will conditionally union the binary file system with this one
@@ -2472,7 +2462,12 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
 mod tests {
     use super::*;
     use once_cell::sync::OnceCell;
+    use std::io;
+    use std::pin::Pin;
+    use std::task::{Context, Poll};
     use tempfile::tempdir;
+    use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
+    use tokio::sync::oneshot;
     use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
     use wasmer::Engine;
     use wasmer_config::package::PackageId;
@@ -2715,6 +2710,180 @@ mod tests {
                 .metadata(Path::new("/public/index.html"))
                 .unwrap()
                 .is_file()
+        );
+    }
+
+    #[derive(Debug)]
+    struct BlockingFlushFile {
+        flush_started: Option<oneshot::Sender<()>>,
+        release_flush: oneshot::Receiver<()>,
+    }
+
+    impl AsyncRead for BlockingFlushFile {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncWrite for BlockingFlushFile {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(buf.len()))
+        }
+
+        fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            if let Some(tx) = self.flush_started.take() {
+                let _ = tx.send(());
+            }
+
+            match Pin::new(&mut self.release_flush).poll(cx) {
+                Poll::Ready(Ok(())) | Poll::Ready(Err(_)) => Poll::Ready(Ok(())),
+                Poll::Pending => Poll::Pending,
+            }
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncSeek for BlockingFlushFile {
+        fn start_seek(self: Pin<&mut Self>, _position: io::SeekFrom) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+            Poll::Ready(Ok(0))
+        }
+    }
+
+    impl VirtualFile for BlockingFlushFile {
+        fn last_accessed(&self) -> u64 {
+            1_000_000_000
+        }
+
+        fn last_modified(&self) -> u64 {
+            1_000_000_000
+        }
+
+        fn created_time(&self) -> u64 {
+            1_000_000_000
+        }
+
+        fn size(&self) -> u64 {
+            0
+        }
+
+        fn set_len(&mut self, _new_size: u64) -> virtual_fs::Result<()> {
+            Ok(())
+        }
+
+        fn unlink(&mut self) -> virtual_fs::Result<()> {
+            Ok(())
+        }
+
+        fn poll_read_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(0))
+        }
+
+        fn poll_write_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(8192))
+        }
+    }
+
+    fn create_test_inode(
+        wasi_fs: &WasiFs,
+        inodes: &WasiInodes,
+        name: &'static str,
+        handle: Box<dyn VirtualFile + Send + Sync + 'static>,
+    ) -> InodeGuard {
+        wasi_fs.create_inode_with_default_stat(
+            inodes,
+            Kind::File {
+                handle: Some(Arc::new(RwLock::new(handle))),
+                path: PathBuf::from(format!("/{name}")),
+                fd: None,
+            },
+            false,
+            name.into(),
+        )
+    }
+
+    #[tokio::test]
+    async fn close_all_keeps_fds_created_during_cleanup() {
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs = Arc::new(WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap());
+
+        let (flush_started_tx, flush_started_rx) = oneshot::channel();
+        let (release_flush_tx, release_flush_rx) = oneshot::channel();
+
+        let blocked_inode = create_test_inode(
+            &wasi_fs,
+            &inodes,
+            "blocked",
+            Box::new(BlockingFlushFile {
+                flush_started: Some(flush_started_tx),
+                release_flush: release_flush_rx,
+            }),
+        );
+        let blocked_fd = wasi_fs
+            .create_fd(
+                ALL_RIGHTS,
+                ALL_RIGHTS,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                Fd::READ,
+                blocked_inode,
+            )
+            .unwrap();
+
+        let cleanup_fs = Arc::clone(&wasi_fs);
+        let cleanup = tokio::spawn(async move {
+            cleanup_fs.close_all().await;
+        });
+
+        flush_started_rx.await.unwrap();
+        assert!(wasi_fs.fd_map.read().unwrap().get(blocked_fd).is_some());
+
+        let fresh_inode = create_test_inode(
+            &wasi_fs,
+            &inodes,
+            "fresh",
+            Box::new(virtual_fs::BufferFile::default()),
+        );
+        let fresh_fd = wasi_fs
+            .create_fd(
+                ALL_RIGHTS,
+                ALL_RIGHTS,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                Fd::READ,
+                fresh_inode,
+            )
+            .unwrap();
+        assert!(wasi_fs.fd_map.read().unwrap().get(fresh_fd).is_some());
+
+        release_flush_tx.send(()).unwrap();
+        cleanup.await.unwrap();
+
+        assert!(
+            wasi_fs.fd_map.read().unwrap().get(fresh_fd).is_some(),
+            "close_all cleared a descriptor created while cleanup was in progress"
         );
     }
 }
