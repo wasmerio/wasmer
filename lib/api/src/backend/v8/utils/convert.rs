@@ -5,6 +5,7 @@ use crate::{
     v8::{
         bindings::{self, *},
         function,
+        vm::VMExternRef,
     },
     BackendFunction, Function, Value,
 };
@@ -45,9 +46,25 @@ impl IntoCApiValue for Value {
                     ref_: unsafe { wasm_func_as_ref(std::ptr::null_mut()) },
                 },
             },
-            Self::ExternRef(_) => panic!(
-                "Creating host values from guest ExternRefs is not currently supported in V8."
-            ),
+            Self::ExternRef(Some(val)) => wasm_val_t {
+                kind: bindings::wasm_valkind_enum_WASM_EXTERNREF as _,
+                of: wasm_val_t__bindgen_ty_1 {
+                    ref_: match val.0 {
+                        crate::entities::external::BackendExternRef::V8(ref v8_ref) => {
+                            unsafe {
+                                v8_ref.vm_externref().into_raw().externref as *mut wasm_ref_t
+                            }
+                        }
+                        _ => panic!("Cannot use non-v8 externref with v8"),
+                    },
+                },
+            },
+            Self::ExternRef(None) => wasm_val_t {
+                kind: bindings::wasm_valkind_enum_WASM_EXTERNREF as _,
+                of: wasm_val_t__bindgen_ty_1 {
+                    ref_: std::ptr::null_mut(),
+                },
+            },
             Self::ExceptionRef(_) => {
                 panic!("Creating host values from guest V128s is not currently supported in V8.")
             }
@@ -83,9 +100,19 @@ impl IntoWasmerValue for wasm_val_t {
                     handle: unsafe { self.of.ref_ as _ },
                 }),
             ))),
-            bindings::wasm_valkind_enum_WASM_EXTERNREF => {
-                panic!("ExternRefs are not currently supported through wasm_c_api")
-            }
+            bindings::wasm_valkind_enum_WASM_EXTERNREF => Value::ExternRef(
+                unsafe {
+                    let ref_ = self.of.ref_;
+                    if ref_.is_null() {
+                        None
+                    } else {
+                        Some(VMExternRef::from_owned_raw(wasm_ref_copy(ref_)))
+                    }
+                }
+                .map(crate::backend::v8::entities::external::ExternRef::from)
+                .map(crate::entities::external::extref::BackendExternRef::from)
+                .map(crate::ExternRef::from),
+            ),
             _ => unreachable!("v8 kind {} has no matching wasmer type", self.kind),
         }
     }

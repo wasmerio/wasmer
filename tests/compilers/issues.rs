@@ -797,15 +797,6 @@ fn issue_4169_funcref_externref_import(mut config: crate::Config) -> Result<()> 
         }
     };
 
-    if config.compiler == crate::Compiler::V8 {
-        let err = Instance::new(&mut store, &module, &imports).unwrap_err();
-        assert_eq!(
-            err.to_string(),
-            "Insufficient resources: ExternRefs are unsupported yet"
-        );
-        return Ok(());
-    }
-
     let _instance = Instance::new(&mut store, &module, &imports)?;
 
     Ok(())

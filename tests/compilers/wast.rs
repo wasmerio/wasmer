@@ -141,7 +141,6 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Validation error: Unsupported ref type:",
         "Validation error: GC is not implemented yet",
         "Validation error: 64bit memory not implemented yet",
-        "ExternRefs are unsupported yet",
         "constant expression required",
         "Validation error: exported names can't be made of digits only",
         "Validation error: imported functions cannot be used as start functions",

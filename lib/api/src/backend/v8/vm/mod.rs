@@ -101,19 +101,45 @@ impl crate::VMExternToExtern for VMExtern {
     }
 }
 
+#[derive(Debug)]
 pub(crate) struct VMExternRef(*mut wasm_ref_t);
 impl VMExternRef {
+    pub(crate) fn from_owned_raw(raw: *mut wasm_ref_t) -> Self {
+        Self(raw)
+    }
+
+    pub(crate) fn as_raw(&self) -> *mut wasm_ref_t {
+        self.0
+    }
+
     /// Converts the `VMExternRef` into a `RawValue`.
     pub fn into_raw(self) -> RawValue {
-        unimplemented!()
+        let ptr = self.0;
+        std::mem::forget(self);
+        RawValue {
+            externref: ptr as usize,
+        }
     }
 
     /// Extracts a `VMExternRef` from a `RawValue`.
     ///
     /// # Safety
     /// `raw` must be a valid `VMExternRef` instance.
-    pub unsafe fn from_raw(_raw: RawValue) -> Option<Self> {
-        unimplemented!();
+    pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
+        let ptr = unsafe { raw.externref as *mut wasm_ref_t };
+        if ptr.is_null() { None } else { Some(Self(ptr)) }
+    }
+}
+
+impl Clone for VMExternRef {
+    fn clone(&self) -> Self {
+        Self(unsafe { wasm_ref_copy(self.0 as _) })
+    }
+}
+
+impl Drop for VMExternRef {
+    fn drop(&mut self) {
+        unsafe { wasm_ref_delete(self.0) }
     }
 }
 

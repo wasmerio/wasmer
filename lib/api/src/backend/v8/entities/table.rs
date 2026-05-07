@@ -117,8 +117,18 @@ impl Table {
         let store_mut = store.as_store_mut();
 
         unsafe {
+            let mut externref_keepalive = None;
             let init = match val {
                 Value::ExternRef(None) | Value::FuncRef(None) => std::ptr::null_mut(),
+                Value::ExternRef(Some(ref r)) => {
+                    externref_keepalive = Some(match &r.0 {
+                        crate::entities::external::BackendExternRef::V8(v8_ref) => {
+                            v8_ref.vm_externref()
+                        }
+                        _ => panic!("Cannot use non-v8 externref with v8"),
+                    });
+                    externref_keepalive.as_ref().unwrap().as_raw()
+                }
                 Value::FuncRef(Some(ref r)) => wasm_func_as_ref(r.as_v8().handle),
                 _ => {
                     return Err(RuntimeError::new(format!(
@@ -154,8 +164,18 @@ impl Table {
 
         unsafe {
             let size = wasm_table_size(self.handle);
+            let mut externref_keepalive = None;
             let init = match init {
                 Value::ExternRef(None) | Value::FuncRef(None) => std::ptr::null_mut(),
+                Value::ExternRef(Some(r)) => {
+                    externref_keepalive = Some(match &r.0 {
+                        crate::entities::external::BackendExternRef::V8(v8_ref) => {
+                            v8_ref.vm_externref()
+                        }
+                        _ => panic!("Cannot use non-v8 externref with v8"),
+                    });
+                    externref_keepalive.as_ref().unwrap().as_raw()
+                }
                 Value::FuncRef(Some(r)) => wasm_func_as_ref(r.as_v8().handle),
                 _ => {
                     return Err(RuntimeError::new(format!(
