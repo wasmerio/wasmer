@@ -1,23 +1,6 @@
 use super::*;
-use crate::fs::MAX_FD;
+use crate::fs::{FlushPoller, MAX_FD};
 use crate::syscalls::*;
-use std::{future::Future, pin::Pin, sync::Arc, task::Context, task::Poll};
-use virtual_fs::VirtualFile;
-
-struct FlushPoller {
-    file: Arc<std::sync::RwLock<Box<dyn VirtualFile + Send + Sync>>>,
-}
-
-impl Future for FlushPoller {
-    type Output = Result<(), Errno>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut file = self.file.write().unwrap();
-        Pin::new(file.as_mut())
-            .poll_flush(cx)
-            .map_err(|_| Errno::Io)
-    }
-}
 
 /// ### `fd_renumber()`
 /// Atomically copy file descriptor

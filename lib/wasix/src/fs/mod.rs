@@ -60,6 +60,21 @@ use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
 // use a Linux-like 64k ceiling until WASIX models per-process fd limits.
 pub(crate) const MAX_FD: WasiFd = (64 * 1024) - 1;
 
+pub(crate) struct FlushPoller {
+    pub(crate) file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
+}
+
+impl Future for FlushPoller {
+    type Output = Result<(), Errno>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut file = self.file.write().unwrap();
+        Pin::new(file.as_mut())
+            .poll_flush(cx)
+            .map_err(|_| Errno::Io)
+    }
+}
+
 /// the fd value of the virtual root
 ///
 /// Used for interacting with the file system when it has no
@@ -1698,19 +1713,6 @@ impl WasiFs {
                     }
                 };
                 drop(fd);
-
-                struct FlushPoller {
-                    file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
-                }
-                impl Future for FlushPoller {
-                    type Output = Result<(), Errno>;
-                    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                        let mut file = self.file.write().unwrap();
-                        Pin::new(file.as_mut())
-                            .poll_flush(cx)
-                            .map_err(|_| Errno::Io)
-                    }
-                }
                 FlushPoller { file }.await?;
             }
         }
