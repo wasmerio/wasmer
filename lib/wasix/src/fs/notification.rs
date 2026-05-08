@@ -12,8 +12,6 @@ struct NotificationState {
     /// Used for event notifications by the user application or operating system
     /// (positive number means there are events waiting to be processed)
     counter: u64,
-    /// Counter used to prevent duplicate notification events
-    last_poll: u64,
     /// Flag that indicates if this is operating
     is_semaphore: bool,
     /// All the registered wakers
@@ -32,7 +30,6 @@ impl NotificationState {
     }
 
     fn wake_all(&mut self) {
-        self.last_poll = u64::MAX;
         while let Some(waker) = self.wakers.pop_front() {
             waker.wake();
         }
@@ -75,7 +72,6 @@ impl NotificationInner {
         Self {
             state: Mutex::new(NotificationState {
                 counter: initial_val,
-                last_poll: u64::MAX,
                 is_semaphore,
                 wakers: Default::default(),
                 interest_handler: None,
@@ -86,8 +82,7 @@ impl NotificationInner {
         let mut state = self.state.lock().unwrap();
         state.add_waker(waker);
 
-        if state.last_poll != state.counter {
-            state.last_poll = state.counter;
+        if state.counter > 0 {
             Poll::Ready(state.counter as usize)
         } else {
             Poll::Pending
@@ -118,7 +113,7 @@ impl NotificationInner {
 
     pub fn reset(&self) {
         let mut state = self.state.lock().unwrap();
-        state.last_poll = u64::MAX;
+        state.counter = 0;
     }
 
     pub fn set_interest_handler(&self, handler: Box<dyn InterestHandler>) {
