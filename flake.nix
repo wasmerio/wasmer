@@ -70,11 +70,12 @@
             llvmPackages_22.llvm
             llvmPackages_22.llvm.dev
             llvmPackages_22.libclang.dev
+            llvmPackages_22.compiler-rt-libc
             libxml2
             libffi
             cmake
             ninja
-            webkitgtk_4_1
+            webkitgtk_4_1.dev
 
             # Rust tooling
             (rust-toolchain.override {
@@ -108,28 +109,23 @@
 
             # WASIX C compiler
             wasinix.packages.${system}.wasixcc
+
+            rustPlatform.bindgenHook
           ];
 
-          shellHook = ''
-            export LLVM_SYS_221_PREFIX="${pkgs.llvmPackages_22.llvm.dev}"
-            export LIBCLANG_PATH="${pkgs.llvmPackages_22.libclang.lib}/lib"
-            export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_1.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
-            export LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"
-            export LD_LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
-            export NAPI_V8_INCLUDE_DIR="${v8Prebuilt}/include"
-            export V8_LIB_DIR="${v8Prebuilt}/lib"
-            export BINDGEN_EXTRA_CLANG_ARGS="$(
-                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libc-crt1-cflags
-                ) $(
-                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libc-cflags
-                ) $(
-                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/cc-cflags
-                ) $(
-                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libcxx-cxxflags
-                ) \
-                -isystem ${pkgs.glibc.dev}/include \
-                -idirafter ${pkgs.llvmPackages_22.clang}/lib/clang/${pkgs.lib.getVersion pkgs.llvmPackages_22.clang}/include"
-          '';
+          shellHook =
+            ''
+              export LLVM_SYS_221_PREFIX="${pkgs.llvmPackages_22.llvm.dev}"
+              export LIBCLANG_PATH="${pkgs.llvmPackages_22.libclang.lib}/lib"
+              export LD_LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
+
+              # These can cause unexpected behaviour when running tests. Bindgen should find LLVM regardless
+              unset CC CXX
+            ''
+            + pkgs.lib.optionalString withV8 ''
+              export NAPI_V8_INCLUDE_DIR="${v8Prebuilt}/include"
+              export V8_LIB_DIR="${v8Prebuilt}/lib"
+            '';
         };
       }
     );
