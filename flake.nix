@@ -3,15 +3,16 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
-    rust-overlay.url = "github:oxalica/rust-overlay";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
     wasinix = {
       url = "github:wasix-org/wasinix";
       inputs.nixpkgs.follows = "nixpkgs";
     };
-    flakeutils = {
-      url = "github:numtide/flake-utils";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
+    flake-utils.url = "github:numtide/flake-utils";
+    self.submodules = true;
   };
 
   outputs = { self, nixpkgs, flakeutils, rust-overlay, wasinix }:
@@ -25,10 +26,13 @@
         };
 
         rust-toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
+
+        v8Prebuilt = pkgs.callPackage ./scripts/nix/v8-prebuilt.nix { };
       in
       rec {
-        packages.${NAME} = import ./scripts/nix/pkg.nix pkgs;
-        defaultPackage = pkgs.callPackage packages.${NAME} pkgs;
+        packages.${NAME} = pkgs.callPackage ./scripts/nix/pkg.nix { };
+        packages.v8-prebuilt = v8Prebuilt;
+        defaultPackage = packages.${NAME};
 
         # For `nix run`.
         apps.${NAME} = flakeutils.lib.mkApp {
@@ -97,15 +101,8 @@
             export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_1.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
             export LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"
             export LD_LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
-            if [ -z "$V8_INCLUDE_DIR" ] || [ -z "$V8_LIB_DIR" ]; then
-              for candidate in /nix/store/*-ubi-v8-prebuilt-11.9.2; do
-                if [ -d "$candidate/include" ] && [ -d "$candidate/lib" ]; then
-                  export V8_INCLUDE_DIR="$candidate/include"
-                  export V8_LIB_DIR="$candidate/lib"
-                  break
-                fi
-              done
-            fi
+            export NAPI_V8_INCLUDE_DIR="${v8Prebuilt}/include"
+            export V8_LIB_DIR="${v8Prebuilt}/lib"
             export BINDGEN_EXTRA_CLANG_ARGS="$(
                   < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libc-crt1-cflags
                 ) $(

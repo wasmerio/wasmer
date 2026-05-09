@@ -1,74 +1,109 @@
 # Nix derivation for the Wasmer CLI binary
 #
-# NOTE: mostly copied from upstrean nixpkgs
-# See: https://github.com/NixOS/nixpkgs/blob/master/pkgs/development/interpreters/wasmer/default.nix
-pkgs@{ stdenv
-, lib
-, rustPlatform
-, fetchFromGitHub
-, llvmPackages
-, libffi
-, libxml2
-, withLLVM ? !stdenv.isDarwin
-, withSinglepass ? !(stdenv.isDarwin && stdenv.isx86_64)
-, ...
+# NOTE: mostly adapted from upstream nixpkgs
+# See: https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/wa/wasmer/package.nix
+{
+  lib,
+  stdenv,
+  rustPlatform,
+  cargo,
+  rustc,
+  fetchurl,
+  llvmPackages_22,
+  libffi,
+  libxml2,
+  withLLVM ? stdenv.hostPlatform.isLinux || (stdenv.hostPlatform.isDarwin && stdenv.hostPlatform.isx86_64),
+  withV8 ? (stdenv.hostPlatform.isLinux && stdenv.hostPlatform.isx86_64),
 }:
 
 let
-  # Get the release version from Cargo.toml
-  cargoToml = builtins.fromTOML (builtins.readFile ../../lib/cli/Cargo.toml);
-  version = cargoToml.package.version;
+  v8Prebuilt = import ./v8-prebuilt.nix { inherit lib stdenv fetchurl; };
 in
-rustPlatform.buildRustPackage rec {
+
+stdenv.mkDerivation {
   pname = "wasmer";
-  version = "4.2.5";
+  version = "dev";
 
   src = ../..;
 
-  cargoLock = {
+  cargoDeps = rustPlatform.importCargoLock {
     lockFile = ../../Cargo.lock;
   };
 
   nativeBuildInputs = [
+    cargo
+    rustc
+    rustPlatform.cargoSetupHook
     rustPlatform.bindgenHook
   ];
 
   buildInputs = lib.optionals withLLVM [
-    llvmPackages.llvm
+    llvmPackages_22.llvm
     libffi
     libxml2
-  ] ++ lib.optionals stdenv.isDarwin [
-    pkgs.CoreFoundation
-    pkgs.SystemConfiguration
-    pkgs.Security
   ];
 
-  # check references to `compiler_features` in Makefile on update
-  buildFeatures = [
-    "cranelift"
-    "wasmer-artifact-create"
-    "static-artifact-create"
-    "wasmer-artifact-load"
-    "static-artifact-load"
-  ]
-  ++ lib.optional withLLVM "llvm"
-  ++ lib.optional withSinglepass "singlepass";
+  preBuild = ''
+    if [ ! -f lib/napi/Cargo.toml ]; then
+      echo ""
+      echo "error: lib/napi submodule is missing (wasmer-napi not found)"
+      echo ""
+      echo "  When building from a local checkout, Nix does not fetch git submodules"
+      echo "  automatically. Re-run with the submodules flag:"
+      echo ""
+      echo "    nix build '.?submodules=1#wasmer'"
+      echo ""
+      exit 1
+    fi
+  '';
 
-  cargoBuildFlags = [ "--manifest-path" "lib/cli/Cargo.toml" "--bin" "wasmer" ];
+  postPatch = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    substituteInPlace Makefile \
+      --replace-fail 'install: install-wasmer install-capi-headers install-capi-lib install-pkgconfig install-misc' \
+                     'install: install-wasmer install-capi-headers install-misc'
+  '';
 
-  env.LLVM_SYS_150_PREFIX = lib.optionalString withLLVM llvmPackages.llvm.dev;
+  makeFlags = [
+    "WASMER_INSTALL_PREFIX=${placeholder "out"}"
+    "DESTDIR=${placeholder "out"}"
+    "ENABLE_LLVM=${if withLLVM then "1" else "0"}"
+    "ENABLE_NAPI_V8=${if withV8 then "1" else "0"}"
+  ];
+
+  buildFlags = [
+    "build-wasmer"
+    "build-capi"
+  ];
+
+  env =
+    lib.optionalAttrs withLLVM {
+      LLVM_SYS_221_PREFIX = llvmPackages_22.llvm.dev;
+    }
+    // lib.optionalAttrs withV8 {
+      NAPI_V8_INCLUDE_DIR = "${v8Prebuilt}/include";
+      V8_LIB_DIR = "${v8Prebuilt}/lib";
+    };
+
+  postInstall = lib.optionalString stdenv.hostPlatform.isDarwin ''
+    install -Dm755 target/release/libwasmer.dylib $out/lib/libwasmer.dylib
+    if pc="$(WASMER_DIR="" target/release/wasmer config --pkg-config 2>/dev/null)"; then
+      mkdir -p "$out/lib/pkgconfig"
+      printf '%s\n' "$pc" > "$out/lib/pkgconfig/wasmer.pc"
+    fi
+  '';
 
   doCheck = false;
 
-  meta = with lib; {
-    description = "The Universal WebAssembly Runtime";
+  meta = {
+    description = "Universal WebAssembly Runtime";
+    mainProgram = "wasmer";
     longDescription = ''
       Wasmer is a standalone WebAssembly runtime for running WebAssembly outside
-      of the browser, supporting WASI. Wasmer can be used
+      of the browser, supporting WASI and Emscripten. Wasmer can be used
       standalone (via the CLI) and embedded in different languages, running in
       x86 and ARM devices.
     '';
     homepage = "https://wasmer.io/";
-    license = licenses.mit;
+    license = lib.licenses.mit;
   };
 }
