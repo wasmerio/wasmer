@@ -3,6 +3,7 @@
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    crane.url = "github:ipetkov/crane";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
       inputs.nixpkgs.follows = "nixpkgs";
@@ -15,27 +16,42 @@
     self.submodules = true;
   };
 
-  outputs = { self, nixpkgs, flakeutils, rust-overlay, wasinix }:
-    flakeutils.lib.eachDefaultSystem (system:
-      let
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    crane,
+    rust-overlay,
+    wasinix,
+  }:
+    flake-utils.lib.eachDefaultSystem (
+      system: let
         NAME = "wasmer";
 
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ (import rust-overlay) ];
+          overlays = [(import rust-overlay)];
         };
 
         rust-toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
 
-        v8Prebuilt = pkgs.callPackage ./scripts/nix/v8-prebuilt.nix { };
-      in
-      rec {
-        packages.${NAME} = pkgs.callPackage ./scripts/nix/pkg.nix { };
-        packages.v8-prebuilt = v8Prebuilt;
+        craneLib = (crane.mkLib pkgs).overrideToolchain rust-toolchain;
+
+        withV8 =
+          (pkgs.stdenv.hostPlatform.isLinux && pkgs.stdenv.hostPlatform.isx86_64)
+          || (pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isAarch64);
+        withLLVM = pkgs.stdenv.hostPlatform.isLinux || (pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isx86_64);
+
+        v8Prebuilt = pkgs.callPackage ./scripts/nix/v8-prebuilt.nix {};
+        wasmerPkg = pkgs.callPackage ./scripts/nix/pkg.nix {inherit craneLib v8Prebuilt withV8 withLLVM;};
+      in rec {
+        packages =
+          {${NAME} = wasmerPkg;}
+          // pkgs.lib.optionalAttrs withV8 {v8-prebuilt = v8Prebuilt;};
         defaultPackage = packages.${NAME};
 
         # For `nix run`.
-        apps.${NAME} = flakeutils.lib.mkApp {
+        apps.${NAME} = flake-utils.lib.mkApp {
           drv = packages.${NAME};
         };
         defaultApp = apps.${NAME};
@@ -60,11 +76,10 @@
             ninja
             webkitgtk_4_1
 
-
             # Rust tooling
             (rust-toolchain.override {
-              targets = [ "wasm32-unknown-unknown" ];
-              extensions = [ "clippy" "rustfmt" "rust-analyzer" "rust-src" ];
+              targets = ["wasm32-unknown-unknown"];
+              extensions = ["clippy" "rustfmt" "rust-analyzer" "rust-src"];
             })
 
             # Snapshot testing
@@ -114,7 +129,7 @@
                 ) \
                 -isystem ${pkgs.glibc.dev}/include \
                 -idirafter ${pkgs.llvmPackages_22.clang}/lib/clang/${pkgs.lib.getVersion pkgs.llvmPackages_22.clang}/include"
-            '';
+          '';
         };
       }
     );
