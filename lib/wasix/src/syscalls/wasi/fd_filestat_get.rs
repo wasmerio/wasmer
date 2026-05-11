@@ -49,13 +49,14 @@ pub(crate) fn fd_filestat_get_internal(
     fd: WasiFd,
 ) -> Result<Filestat, Errno> {
     let env = ctx.data();
-    let (_, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (_, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let fd_entry = state.fs.get_fd(fd)?;
     if !fd_entry.inner.rights.contains(Rights::FD_FILESTAT_GET) {
         return Err(Errno::Access);
     }
 
-    state.fs.filestat_fd(fd)
+    let guard = fd_entry.inode.stat.read().unwrap();
+    Ok(*guard.deref())
 }
 
 /// ### `fd_filestat_get_old()`
