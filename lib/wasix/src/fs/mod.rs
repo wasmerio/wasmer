@@ -1497,6 +1497,16 @@ impl WasiFs {
         self.get_inode_at_path_inner(inodes, base_inode, path, 0, follow_symlinks)
     }
 
+    pub(crate) fn get_inode_at_path_from_inode(
+        &self,
+        inodes: &WasiInodes,
+        base_inode: InodeGuard,
+        path: &str,
+        follow_symlinks: bool,
+    ) -> Result<InodeGuard, Errno> {
+        self.get_inode_at_path_inner(inodes, base_inode, path, 0, follow_symlinks)
+    }
+
     /// Returns the parent Dir or Root that the file at a given path is in and the file name
     /// stripped off
     pub(crate) fn get_parent_inode_at_path(
