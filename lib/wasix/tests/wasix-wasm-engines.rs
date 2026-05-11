@@ -1,6 +1,5 @@
-#![allow(dead_code, unused_imports)]
-
 #[cfg(all(unix, not(feature = "js")))]
+#[allow(dead_code, unused_imports)]
 mod wasm_tests;
 
 #[cfg(all(unix, not(feature = "js")))]

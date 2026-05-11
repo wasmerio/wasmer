@@ -594,15 +594,19 @@ impl WasmTestEngine {
     }
 }
 
-fn create_llvm_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
+fn create_compiler_engine_for_wasm<T>(
+    wasm_bytes: &[u8],
+    backend_kind: wasmer::BackendKind,
+    compiler: T,
+) -> wasmer::Engine
+where
+    T: Into<Box<dyn wasmer::sys::CompilerConfig>>,
+{
     use wasmer::{sys::EngineBuilder, sys::Target};
 
     let target = Target::default();
-    let features = wasmer_types::Features::detect_from_wasm(wasm_bytes).unwrap_or_else(|_| {
-        wasmer::Engine::default_features_for_backend(&wasmer::BackendKind::LLVM, &target)
-    });
-
-    let compiler = wasmer::sys::LLVM::default();
+    let features = wasmer_types::Features::detect_from_wasm(wasm_bytes)
+        .unwrap_or_else(|_| wasmer::Engine::default_features_for_backend(&backend_kind, &target));
 
     EngineBuilder::new(compiler)
         .set_features(Some(features))
@@ -611,21 +615,20 @@ fn create_llvm_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
         .into()
 }
 
+fn create_llvm_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
+    create_compiler_engine_for_wasm(
+        wasm_bytes,
+        wasmer::BackendKind::LLVM,
+        wasmer::sys::LLVM::default(),
+    )
+}
+
 fn create_cranelift_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
-    use wasmer::{sys::EngineBuilder, sys::Target};
-
-    let target = Target::default();
-    let features = wasmer_types::Features::detect_from_wasm(wasm_bytes).unwrap_or_else(|_| {
-        wasmer::Engine::default_features_for_backend(&wasmer::BackendKind::Cranelift, &target)
-    });
-
-    let compiler = wasmer::sys::Cranelift::default();
-
-    EngineBuilder::new(compiler)
-        .set_features(Some(features))
-        .set_target(Some(target))
-        .engine()
-        .into()
+    create_compiler_engine_for_wasm(
+        wasm_bytes,
+        wasmer::BackendKind::Cranelift,
+        wasmer::sys::Cranelift::default(),
+    )
 }
 
 fn create_engine_for_wasm_with_engine(
