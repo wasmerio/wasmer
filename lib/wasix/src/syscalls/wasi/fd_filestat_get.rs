@@ -49,7 +49,7 @@ pub(crate) fn fd_filestat_get_internal(
     fd: WasiFd,
 ) -> Result<Filestat, Errno> {
     let env = ctx.data();
-    let (_, state, _) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let state = env.get_wasi_state();
     let fd_entry = state.fs.get_fd(fd)?;
     if !fd_entry.inner.rights.contains(Rights::FD_FILESTAT_GET) {
         return Err(Errno::Access);
