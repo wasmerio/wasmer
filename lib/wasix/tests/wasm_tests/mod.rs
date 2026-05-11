@@ -575,26 +575,77 @@ fn get_cache_dir() -> PathBuf {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[allow(dead_code)]
+pub enum WasmTestEngine {
+    Default,
+    Llvm,
+    Cranelift,
+}
+
+impl WasmTestEngine {
+    #[allow(dead_code)]
+    pub fn name(self) -> &'static str {
+        match self {
+            WasmTestEngine::Default => "default",
+            WasmTestEngine::Llvm => "llvm",
+            WasmTestEngine::Cranelift => "cranelift",
+        }
+    }
+}
+
+fn create_llvm_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
+    use wasmer::{sys::EngineBuilder, sys::Target};
+
+    let target = Target::default();
+    let features = wasmer_types::Features::detect_from_wasm(wasm_bytes).unwrap_or_else(|_| {
+        wasmer::Engine::default_features_for_backend(&wasmer::BackendKind::LLVM, &target)
+    });
+
+    let compiler = wasmer::sys::LLVM::default();
+
+    EngineBuilder::new(compiler)
+        .set_features(Some(features))
+        .set_target(Some(target))
+        .engine()
+        .into()
+}
+
+fn create_cranelift_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
+    use wasmer::{sys::EngineBuilder, sys::Target};
+
+    let target = Target::default();
+    let features = wasmer_types::Features::detect_from_wasm(wasm_bytes).unwrap_or_else(|_| {
+        wasmer::Engine::default_features_for_backend(&wasmer::BackendKind::Cranelift, &target)
+    });
+
+    let compiler = wasmer::sys::Cranelift::default();
+
+    EngineBuilder::new(compiler)
+        .set_features(Some(features))
+        .set_target(Some(target))
+        .engine()
+        .into()
+}
+
+fn create_engine_for_wasm_with_engine(
+    wasm_bytes: &[u8],
+    test_engine: WasmTestEngine,
+) -> wasmer::Engine {
+    match test_engine {
+        WasmTestEngine::Default => create_engine_for_wasm(wasm_bytes),
+        WasmTestEngine::Llvm => create_llvm_engine_for_wasm(wasm_bytes),
+        WasmTestEngine::Cranelift => create_cranelift_engine_for_wasm(wasm_bytes),
+    }
+}
+
 fn create_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
     #[cfg(target_os = "macos")]
     {
-        use wasmer::{sys::EngineBuilder, sys::Target};
-
         // On macOS, the default Cranelift backend has limited support for the features
         // required by these tests, especially exception handling. Use the slower LLVM
         // backend instead so the WASIX test suite can run reliably on macOS.
-        let target = Target::default();
-        let features = wasmer_types::Features::detect_from_wasm(wasm_bytes).unwrap_or_else(|_| {
-            wasmer::Engine::default_features_for_backend(&wasmer::BackendKind::LLVM, &target)
-        });
-
-        let compiler = wasmer::sys::LLVM::default();
-
-        EngineBuilder::new(compiler)
-            .set_features(Some(features))
-            .set_target(Some(target))
-            .engine()
-            .into()
+        create_llvm_engine_for_wasm(wasm_bytes)
     }
 
     #[cfg(not(target_os = "macos"))]
@@ -659,9 +710,23 @@ pub fn run_wasm_with_runner_config(
     dir: &Path,
     configure_runner: impl FnOnce(&mut WasiRunner),
 ) -> Result<WasmRunResult, anyhow::Error> {
+    run_wasm_with_runner_config_and_engine(
+        wasm_path,
+        dir,
+        WasmTestEngine::Default,
+        configure_runner,
+    )
+}
+
+pub fn run_wasm_with_runner_config_and_engine(
+    wasm_path: &PathBuf,
+    dir: &Path,
+    test_engine: WasmTestEngine,
+    configure_runner: impl FnOnce(&mut WasiRunner),
+) -> Result<WasmRunResult, anyhow::Error> {
     // Load the compiled WASM module
     let wasm_bytes = std::fs::read(wasm_path)?;
-    let engine = create_engine_for_wasm(&wasm_bytes);
+    let engine = create_engine_for_wasm_with_engine(&wasm_bytes, test_engine);
     let module_data = HashedModuleData::new(wasm_bytes);
     let hash = *module_data.hash();
 
@@ -781,7 +846,7 @@ pub fn run_wasm_with_runner_config_checked(
     ensure_wasm_run_succeeded(&result)
 }
 
-fn ensure_wasm_run_succeeded(result: &WasmRunResult) -> Result<(), anyhow::Error> {
+pub fn ensure_wasm_run_succeeded(result: &WasmRunResult) -> Result<(), anyhow::Error> {
     // Preserve the historical behavior here: only an explicit non-zero exit
     // is treated as failure. Some fixtures currently surface loader/runtime
     // errors without a parsed exit code.
