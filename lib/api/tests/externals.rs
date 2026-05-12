@@ -254,6 +254,23 @@ fn memory_new() -> Result<(), String> {
     Ok(())
 }
 
+#[test]
+#[cfg(feature = "v8")]
+fn memory_ty_preserves_shared_flag_in_v8() -> Result<(), String> {
+    let engine: Engine = wasmer::v8::V8::new().into();
+    let mut store = Store::new(engine);
+
+    for memory_type in [
+        MemoryType::new(Pages(1), Some(Pages(2)), false),
+        MemoryType::new(Pages(1), Some(Pages(2)), true),
+    ] {
+        let memory = Memory::new(&mut store, memory_type).map_err(|e| format!("{e:?}"))?;
+        assert_eq!(memory.ty(&store), memory_type);
+    }
+
+    Ok(())
+}
+
 #[engine_test]
 fn memory_grow() -> Result<(), String> {
     let mut store = Store::default();

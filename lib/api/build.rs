@@ -7,6 +7,8 @@ fn build_v8() {
         sync::{LazyLock, Mutex},
     };
 
+    const WEE8_RELEASE_VERSION: &str = "11.9.5";
+
     let url = match (
         env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
         env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
@@ -15,16 +17,24 @@ fn build_v8() {
             .as_str(),
     ) {
         ("macos", "aarch64", _) => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-aarch64.tar.xz"
+            format!(
+                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/v8-darwin-aarch64.tar.xz"
+            )
         }
         ("linux", "x86_64", "gnu") => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-amd64.tar.xz"
+            format!(
+                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/v8-linux-amd64.tar.xz"
+            )
         }
         ("linux", "x86_64", "musl") => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-musl-amd64.tar.xz"
+            format!(
+                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/v8-linux-musl-amd64.tar.xz"
+            )
         }
         ("android", "aarch64", _) => {
-            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-android-arm64.tar.xz"
+            format!(
+                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/v8-android-arm64.tar.xz"
+            )
         }
         // Not supported in 6.0.0-alpha1
         //("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-windows-amd64.tar.xz",
@@ -32,6 +42,7 @@ fn build_v8() {
     };
 
     let out_dir = env::var("OUT_DIR").unwrap();
+    let out_path = PathBuf::from(&out_dir);
     let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
     let v8_header_path = PathBuf::from(&crate_root).join("third-party").join("wee8");
 
@@ -55,7 +66,9 @@ fn build_v8() {
     let mut archive = tar::Archive::new(tar);
 
     archive.unpack(out_dir.clone()).unwrap();
-    println!("cargo:rustc-link-search=native={out_dir}");
+    let v8_lib_dir = out_path.join("lib");
+    let v8_lib_path = v8_lib_dir.join("libv8.a");
+    println!("cargo:rustc-link-search=native={}", v8_lib_dir.display());
 
     if cfg!(any(target_os = "linux",)) {
         println!("cargo:rustc-link-lib=stdc++");
@@ -67,7 +80,8 @@ fn build_v8() {
         println!("cargo:rustc-link-lib=c++");
     }
 
-    // Rename the symbols created from wee8.
+    // Rename the wasm-c-api symbols from V8 so they do not collide with
+    // Wasmer's own wasm-c-api exports when this crate is linked into tests.
     static WEE8_RENAMED: LazyLock<Mutex<Vec<(String, String)>>> =
         LazyLock::new(|| Mutex::new(Vec::new()));
 
@@ -111,8 +125,6 @@ fn build_v8() {
         .generate()
         .expect("Unable to generate bindings for `v8`!");
 
-    let out_path = PathBuf::from(out_dir);
-
     bindings
         .write_to_file(out_path.join("v8_bindings.rs"))
         .expect("Couldn't write bindings");
@@ -136,28 +148,27 @@ fn build_v8() {
 
     let objcopy = objcopy.unwrap();
 
-    let syms: Vec<String> = WEE8_RENAMED.lock()
-                        .expect("cannot lock WEE8_RENAMED")
-            .iter()
-            .map(|(old, new)|
-                // A bit hacky: we need a way to figure out if we're going to target a Mach-O
-                // library or an ELF one to take care of the "_" in front of symbols.
-            {
-                if cfg!(any(target_os = "macos", target_os = "ios")) {
-                    format!("--redefine-sym=_{old}={new}")
-                } else {
-                    format!("--redefine-sym={old}={new}")
-                }
-            })
-            .collect();
-    let output = dbg!(
-        std::process::Command::new(objcopy)
-            .args(syms)
-            .arg(out_path.join("obj").join("libwee8.a").display().to_string())
-            .arg(out_path.join("libwee8prefixed.a").display().to_string())
-    )
-    .output()
-    .unwrap();
+    let syms: Vec<String> = WEE8_RENAMED
+        .lock()
+        .expect("cannot lock WEE8_RENAMED")
+        .iter()
+        .map(|(old, new)| {
+            // A bit hacky: we need a way to figure out if we're going to target a Mach-O
+            // library or an ELF one to take care of the "_" in front of symbols.
+            if cfg!(any(target_os = "macos", target_os = "ios")) {
+                format!("--redefine-sym=_{old}={new}")
+            } else {
+                format!("--redefine-sym={old}={new}")
+            }
+        })
+        .collect();
+    let prefixed_v8_lib_path = v8_lib_dir.join("libv8prefixed.a");
+    let output = std::process::Command::new(objcopy)
+        .args(syms)
+        .arg(v8_lib_path.display().to_string())
+        .arg(prefixed_v8_lib_path.display().to_string())
+        .output()
+        .expect("objcopy command failed");
 
     if !output.status.success() {
         panic!(
@@ -167,7 +178,7 @@ fn build_v8() {
         );
     }
 
-    println!("cargo:rustc-link-lib=static=wee8prefixed");
+    println!("cargo:rustc-link-lib=static=v8prefixed");
 }
 
 #[allow(unused)]

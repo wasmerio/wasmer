@@ -1,5 +1,6 @@
 wasm_test!(minimal_threadlocal, "minimal-threadlocal");
 wasm_test!(minimal_threadlocals, "minimal-threadlocals");
+wasm_test!(dl_tls, "dl-tls");
 wasm_test!(
     thread_getspecific_in_main_thread,
     "thread-getspecific-in-main-thread"

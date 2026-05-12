@@ -32,3 +32,5 @@ link.tar.gz
 .envrc
 /tests/tmp
 .codex
+result
+result-*

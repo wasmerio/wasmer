@@ -183,6 +183,7 @@ enum wasm_valkind_enum {
   WASM_I64,
   WASM_F32,
   WASM_F64,
+  WASM_V128,
   WASM_EXTERNREF = 128,
   WASM_FUNCREF,
 };
@@ -327,6 +328,10 @@ WASM_API_EXTERN const wasm_externtype_t* wasm_exporttype_type(const wasm_exportt
 
 struct wasm_ref_t;
 
+typedef struct wasm_v128_t {
+  uint8_t bytes[16];
+} wasm_v128_t;
+
 typedef struct wasm_val_t {
   wasm_valkind_t kind;
   union {
@@ -334,6 +339,7 @@ typedef struct wasm_val_t {
     int64_t i64;
     float32_t f32;
     float64_t f64;
+    wasm_v128_t v128;
     struct wasm_ref_t* ref;
   } of;
 } wasm_val_t;
@@ -739,6 +745,7 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
 #define WASM_I64_VAL(i) {.kind = WASM_I64, .of = {.i64 = i}}
 #define WASM_F32_VAL(z) {.kind = WASM_F32, .of = {.f32 = z}}
 #define WASM_F64_VAL(z) {.kind = WASM_F64, .of = {.f64 = z}}
+#define WASM_V128_VAL(v) {.kind = WASM_V128, .of = {.v128 = v}}
 #define WASM_REF_VAL(r) {.kind = WASM_EXTERNREF, .of = {.ref = r}}
 #define WASM_INIT_VAL {.kind = WASM_EXTERNREF, .of = {.ref = NULL}}
 

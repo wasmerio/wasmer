@@ -14,3 +14,4 @@ wasm_test!(
     "longjmp-across-libraries-buffer-in-lib",
     stdout = "abc"
 );
+wasm_test!(test_legacy_setjmp_longjmp, "legacy-setjmp-longjmp");
