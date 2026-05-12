@@ -188,6 +188,7 @@ mod proc_exec3;
 mod proc_exec3_empty_argv;
 mod proc_exec3_errors;
 mod process_tests;
+mod pthread_tests;
 mod reflect_signature;
 mod reflection_tests;
 mod sched_yield;
