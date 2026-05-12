@@ -138,7 +138,7 @@
 <a href=#138 id=138 data-nosnippet>138</a>        <span class="self">self</span>.cpu_run_tokens.fetch_add(<span class="number">1</span>, Ordering::SeqCst);
 <a href=#139 id=139 data-nosnippet>139</a>
 <a href=#140 id=140 data-nosnippet>140</a>        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
-<a href=#141 id=141 data-nosnippet>141</a>        <span class="kw">for </span>(<span class="kw">_</span>, waker) <span class="kw">in </span>inner.backoff.cpu_backoff_wakers.iter() {
+<a href=#141 id=141 data-nosnippet>141</a>        <span class="kw">for </span>waker <span class="kw">in </span>inner.backoff.cpu_backoff_wakers.values() {
 <a href=#142 id=142 data-nosnippet>142</a>            waker.wake_by_ref();
 <a href=#143 id=143 data-nosnippet>143</a>        }
 <a href=#144 id=144 data-nosnippet>144</a>        inner.backoff.cpu_backoff_wakers.clear();

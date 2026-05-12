@@ -152,7 +152,7 @@
 <a href=#152 id=152 data-nosnippet>152</a>
 <a href=#153 id=153 data-nosnippet>153</a>    <span class="macro">println!</span>(
 <a href=#154 id=154 data-nosnippet>154</a>        <span class="string">"Compiling wasm module `{}` with toolchain `{}`"</span>,
-<a href=#155 id=155 data-nosnippet>155</a>        <span class="kw-2">&amp;</span>wasm_out_name.to_string_lossy(),
+<a href=#155 id=155 data-nosnippet>155</a>        wasm_out_name.to_string_lossy(),
 <a href=#156 id=156 data-nosnippet>156</a>        version.get_compiler_toolchain()
 <a href=#157 id=157 data-nosnippet>157</a>    );
 <a href=#158 id=158 data-nosnippet>158</a>    <span class="kw">let </span><span class="kw-2">mut </span>command = Command::new(<span class="string">"rustc"</span>);
@@ -171,7 +171,7 @@
 <a href=#171 id=171 data-nosnippet>171</a>    util::print_info_on_error(<span class="kw-2">&amp;</span>wasm_compilation_out, <span class="string">"WASM COMPILATION"</span>);
 <a href=#172 id=172 data-nosnippet>172</a>    <span class="macro">println!</span>(
 <a href=#173 id=173 data-nosnippet>173</a>        <span class="string">"Removing file `{}`"</span>,
-<a href=#174 id=174 data-nosnippet>174</a>        <span class="kw-2">&amp;</span>temp_wasi_rs_file_name.to_string_lossy()
+<a href=#174 id=174 data-nosnippet>174</a>        temp_wasi_rs_file_name.to_string_lossy()
 <a href=#175 id=175 data-nosnippet>175</a>    );
 <a href=#176 id=176 data-nosnippet>176</a>
 <a href=#177 id=177 data-nosnippet>177</a>    <span class="comment">// to prevent commiting huge binary blobs forever
@@ -221,7 +221,7 @@
 <a href=#221 id=221 data-nosnippet>221</a>        options,
 <a href=#222 id=222 data-nosnippet>222</a>    };
 <a href=#223 id=223 data-nosnippet>223</a>    <span class="kw">let </span>test_serialized = test.into_wasi_wast();
-<a href=#224 id=224 data-nosnippet>224</a>    <span class="macro">println!</span>(<span class="string">"Generated test output: {}"</span>, <span class="kw-2">&amp;</span>test_serialized);
+<a href=#224 id=224 data-nosnippet>224</a>    <span class="macro">println!</span>(<span class="string">"Generated test output: {test_serialized}"</span>);
 <a href=#225 id=225 data-nosnippet>225</a>
 <a href=#226 id=226 data-nosnippet>226</a>    wasi_versions
 <a href=#227 id=227 data-nosnippet>227</a>        .iter()

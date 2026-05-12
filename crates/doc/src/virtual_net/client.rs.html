@@ -474,7 +474,7 @@
 <a href=#474 id=474 data-nosnippet>474</a>
 <a href=#475 id=475 data-nosnippet>475</a>    <span class="kw">fn </span>wake_now(<span class="kw-2">&amp;</span><span class="self">self</span>) {
 <a href=#476 id=476 data-nosnippet>476</a>        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.common.handlers.lock().unwrap();
-<a href=#477 id=477 data-nosnippet>477</a>        <span class="kw">for </span>(<span class="kw">_</span>, handler) <span class="kw">in </span>guard.iter_mut() {
+<a href=#477 id=477 data-nosnippet>477</a>        <span class="kw">for </span>handler <span class="kw">in </span>guard.values_mut() {
 <a href=#478 id=478 data-nosnippet>478</a>            handler.push_interest(InterestType::Writable);
 <a href=#479 id=479 data-nosnippet>479</a>        }
 <a href=#480 id=480 data-nosnippet>480</a>    }
