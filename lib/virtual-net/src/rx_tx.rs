@@ -352,8 +352,8 @@ where
                     }
                 };
 
-                let waker = NoopWaker::new_waker();
-                let mut cx = Context::from_waker(&waker);
+                let waker = Waker::noop();
+                let mut cx = Context::from_waker(waker);
 
                 let mut job = Box::pin(async move {
                     if let Err(err) = tx_guard.send(req).await.map_err(io_err_into_net_error) {
@@ -409,8 +409,8 @@ where
                     }
                 };
 
-                let waker = NoopWaker::new_waker();
-                let mut cx = Context::from_waker(&waker);
+                let waker = Waker::noop();
+                let mut cx = Context::from_waker(waker);
 
                 let mut job = Box::pin(async move {
                     if let Err(err) = tx_guard
@@ -471,8 +471,8 @@ where
                     }
                 };
 
-                let waker = NoopWaker::new_waker();
-                let mut cx = Context::from_waker(&waker);
+                let waker = Waker::noop();
+                let mut cx = Context::from_waker(waker);
 
                 let mut job = Box::pin(async move {
                     if let Err(err) = tx_guard
@@ -622,16 +622,4 @@ where
             };
         }
     }
-}
-
-struct NoopWaker;
-
-impl NoopWaker {
-    fn new_waker() -> Waker {
-        Waker::from(Arc::new(Self))
-    }
-}
-
-impl std::task::Wake for NoopWaker {
-    fn wake(self: Arc<Self>) {}
 }

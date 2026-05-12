@@ -78,7 +78,7 @@ pub struct ArtifactId {
 impl ArtifactId {
     /// Format this identifier as a string.
     pub fn id(&self) -> String {
-        format!("{}", &self.id)
+        format!("{}", self.id)
     }
 }
 

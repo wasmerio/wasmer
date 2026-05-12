@@ -788,7 +788,7 @@ fn ensure_wasm_run_succeeded(result: &WasmRunResult) -> Result<(), anyhow::Error
     if let Some(code) = result.exit_code
         && code != 0
     {
-        anyhow::bail!(format_captured_output(&result));
+        anyhow::bail!(format_captured_output(result));
     }
 
     Ok(())
