@@ -2084,7 +2084,7 @@ impl WasiFs {
             } else {
                 return Err(format!(
                     "WASI only supports pre-opened directories right now; found \"{}\"",
-                    &path.to_string_lossy()
+                    path.to_string_lossy()
                 ));
             };
 

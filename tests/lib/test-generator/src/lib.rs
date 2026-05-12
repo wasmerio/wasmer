@@ -42,7 +42,7 @@ fn write_test(out: &mut Testsuite, testname: &str, body: &str) -> anyhow::Result
     writeln!(
         out.buffer,
         "fn r#{}(config: crate::Config) -> anyhow::Result<()> {{",
-        &testname
+        testname
     )?;
     writeln!(out.buffer, "{body}")?;
     writeln!(out.buffer, "}}")?;
