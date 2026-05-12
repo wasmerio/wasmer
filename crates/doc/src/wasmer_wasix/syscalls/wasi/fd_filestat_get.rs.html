@@ -49,48 +49,49 @@
 <a href=#49 id=49 data-nosnippet>49</a>    fd: WasiFd,
 <a href=#50 id=50 data-nosnippet>50</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Filestat, Errno&gt; {
 <a href=#51 id=51 data-nosnippet>51</a>    <span class="kw">let </span>env = ctx.data();
-<a href=#52 id=52 data-nosnippet>52</a>    <span class="kw">let </span>(<span class="kw">_</span>, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+<a href=#52 id=52 data-nosnippet>52</a>    <span class="kw">let </span>state = env.get_wasi_state();
 <a href=#53 id=53 data-nosnippet>53</a>    <span class="kw">let </span>fd_entry = state.fs.get_fd(fd)<span class="question-mark">?</span>;
 <a href=#54 id=54 data-nosnippet>54</a>    <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::FD_FILESTAT_GET) {
 <a href=#55 id=55 data-nosnippet>55</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
 <a href=#56 id=56 data-nosnippet>56</a>    }
 <a href=#57 id=57 data-nosnippet>57</a>
-<a href=#58 id=58 data-nosnippet>58</a>    state.fs.filestat_fd(fd)
-<a href=#59 id=59 data-nosnippet>59</a>}
-<a href=#60 id=60 data-nosnippet>60</a>
-<a href=#61 id=61 data-nosnippet>61</a><span class="doccomment">/// ### `fd_filestat_get_old()`
-<a href=#62 id=62 data-nosnippet>62</a>/// Get the metadata of an open file
-<a href=#63 id=63 data-nosnippet>63</a>///
-<a href=#64 id=64 data-nosnippet>64</a>/// Input:
-<a href=#65 id=65 data-nosnippet>65</a>/// - `Fd fd`
-<a href=#66 id=66 data-nosnippet>66</a>///   The open file descriptor whose metadata will be read
-<a href=#67 id=67 data-nosnippet>67</a>///
-<a href=#68 id=68 data-nosnippet>68</a>/// Output:
-<a href=#69 id=69 data-nosnippet>69</a>/// - `Snapshot0Filestat *buf`
-<a href=#70 id=70 data-nosnippet>70</a>///   Where the metadata from `fd` will be written
-<a href=#71 id=71 data-nosnippet>71</a></span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(%fd), ret)]
-<a href=#72 id=72 data-nosnippet>72</a></span><span class="kw">pub fn </span>fd_filestat_get_old&lt;M: MemorySize&gt;(
-<a href=#73 id=73 data-nosnippet>73</a>    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-<a href=#74 id=74 data-nosnippet>74</a>    fd: WasiFd,
-<a href=#75 id=75 data-nosnippet>75</a>    buf: WasmPtr&lt;Snapshot0Filestat, M&gt;,
-<a href=#76 id=76 data-nosnippet>76</a>) -&gt; Errno {
-<a href=#77 id=77 data-nosnippet>77</a>    <span class="kw">let </span>stat = <span class="macro">wasi_try!</span>(fd_filestat_get_internal(<span class="kw-2">&amp;mut </span>ctx, fd));
-<a href=#78 id=78 data-nosnippet>78</a>
-<a href=#79 id=79 data-nosnippet>79</a>    <span class="kw">let </span>env = ctx.data();
-<a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span>(memory, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-<a href=#81 id=81 data-nosnippet>81</a>    <span class="kw">let </span>old_stat = Snapshot0Filestat {
-<a href=#82 id=82 data-nosnippet>82</a>        st_dev: stat.st_dev,
-<a href=#83 id=83 data-nosnippet>83</a>        st_ino: stat.st_ino,
-<a href=#84 id=84 data-nosnippet>84</a>        st_filetype: stat.st_filetype,
-<a href=#85 id=85 data-nosnippet>85</a>        st_nlink: stat.st_nlink <span class="kw">as </span>u32,
-<a href=#86 id=86 data-nosnippet>86</a>        st_size: stat.st_size,
-<a href=#87 id=87 data-nosnippet>87</a>        st_atim: stat.st_atim,
-<a href=#88 id=88 data-nosnippet>88</a>        st_mtim: stat.st_mtim,
-<a href=#89 id=89 data-nosnippet>89</a>        st_ctim: stat.st_ctim,
-<a href=#90 id=90 data-nosnippet>90</a>    };
-<a href=#91 id=91 data-nosnippet>91</a>
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="kw">let </span>buf = buf.deref(<span class="kw-2">&amp;</span>memory);
-<a href=#93 id=93 data-nosnippet>93</a>    <span class="macro">wasi_try_mem!</span>(buf.write(old_stat));
-<a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a>    Errno::Success
-<a href=#96 id=96 data-nosnippet>96</a>}</code></pre></div></section></main></body></html>
+<a href=#58 id=58 data-nosnippet>58</a>    <span class="kw">let </span>guard = fd_entry.inode.stat.read().unwrap();
+<a href=#59 id=59 data-nosnippet>59</a>    <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>guard.deref())
+<a href=#60 id=60 data-nosnippet>60</a>}
+<a href=#61 id=61 data-nosnippet>61</a>
+<a href=#62 id=62 data-nosnippet>62</a><span class="doccomment">/// ### `fd_filestat_get_old()`
+<a href=#63 id=63 data-nosnippet>63</a>/// Get the metadata of an open file
+<a href=#64 id=64 data-nosnippet>64</a>///
+<a href=#65 id=65 data-nosnippet>65</a>/// Input:
+<a href=#66 id=66 data-nosnippet>66</a>/// - `Fd fd`
+<a href=#67 id=67 data-nosnippet>67</a>///   The open file descriptor whose metadata will be read
+<a href=#68 id=68 data-nosnippet>68</a>///
+<a href=#69 id=69 data-nosnippet>69</a>/// Output:
+<a href=#70 id=70 data-nosnippet>70</a>/// - `Snapshot0Filestat *buf`
+<a href=#71 id=71 data-nosnippet>71</a>///   Where the metadata from `fd` will be written
+<a href=#72 id=72 data-nosnippet>72</a></span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(%fd), ret)]
+<a href=#73 id=73 data-nosnippet>73</a></span><span class="kw">pub fn </span>fd_filestat_get_old&lt;M: MemorySize&gt;(
+<a href=#74 id=74 data-nosnippet>74</a>    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+<a href=#75 id=75 data-nosnippet>75</a>    fd: WasiFd,
+<a href=#76 id=76 data-nosnippet>76</a>    buf: WasmPtr&lt;Snapshot0Filestat, M&gt;,
+<a href=#77 id=77 data-nosnippet>77</a>) -&gt; Errno {
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="kw">let </span>stat = <span class="macro">wasi_try!</span>(fd_filestat_get_internal(<span class="kw-2">&amp;mut </span>ctx, fd));
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span>env = ctx.data();
+<a href=#81 id=81 data-nosnippet>81</a>    <span class="kw">let </span>(memory, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">let </span>old_stat = Snapshot0Filestat {
+<a href=#83 id=83 data-nosnippet>83</a>        st_dev: stat.st_dev,
+<a href=#84 id=84 data-nosnippet>84</a>        st_ino: stat.st_ino,
+<a href=#85 id=85 data-nosnippet>85</a>        st_filetype: stat.st_filetype,
+<a href=#86 id=86 data-nosnippet>86</a>        st_nlink: stat.st_nlink <span class="kw">as </span>u32,
+<a href=#87 id=87 data-nosnippet>87</a>        st_size: stat.st_size,
+<a href=#88 id=88 data-nosnippet>88</a>        st_atim: stat.st_atim,
+<a href=#89 id=89 data-nosnippet>89</a>        st_mtim: stat.st_mtim,
+<a href=#90 id=90 data-nosnippet>90</a>        st_ctim: stat.st_ctim,
+<a href=#91 id=91 data-nosnippet>91</a>    };
+<a href=#92 id=92 data-nosnippet>92</a>
+<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">let </span>buf = buf.deref(<span class="kw-2">&amp;</span>memory);
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="macro">wasi_try_mem!</span>(buf.write(old_stat));
+<a href=#95 id=95 data-nosnippet>95</a>
+<a href=#96 id=96 data-nosnippet>96</a>    Errno::Success
+<a href=#97 id=97 data-nosnippet>97</a>}</code></pre></div></section></main></body></html>

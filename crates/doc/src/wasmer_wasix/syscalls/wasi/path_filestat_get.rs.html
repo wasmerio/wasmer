@@ -72,9 +72,9 @@
 <a href=#72 id=72 data-nosnippet>72</a>    <span class="kw">if </span>!root_dir.inner.rights.contains(Rights::PATH_FILESTAT_GET) {
 <a href=#73 id=73 data-nosnippet>73</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Access);
 <a href=#74 id=74 data-nosnippet>74</a>    }
-<a href=#75 id=75 data-nosnippet>75</a>    <span class="kw">let </span>file_inode = state.fs.get_inode_at_path(
+<a href=#75 id=75 data-nosnippet>75</a>    <span class="kw">let </span>file_inode = state.fs.get_inode_at_path_from_inode(
 <a href=#76 id=76 data-nosnippet>76</a>        inodes,
-<a href=#77 id=77 data-nosnippet>77</a>        fd,
+<a href=#77 id=77 data-nosnippet>77</a>        root_dir.inode,
 <a href=#78 id=78 data-nosnippet>78</a>        path_string,
 <a href=#79 id=79 data-nosnippet>79</a>        flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0</span>,
 <a href=#80 id=80 data-nosnippet>80</a>    )<span class="question-mark">?</span>;
