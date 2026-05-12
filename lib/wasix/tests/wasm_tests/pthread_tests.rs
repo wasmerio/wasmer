@@ -16,7 +16,9 @@ fn test_lock_timeout() {
     let result = match receiver.recv_timeout(Duration::from_secs(5)) {
         Ok(result) => result.unwrap(),
         Err(RecvTimeoutError::Timeout) => panic!("mutex-lock-timeout timed out after 5 seconds"),
-        Err(RecvTimeoutError::Disconnected) => panic!("mutex-lock-timeout runner thread exited early"),
+        Err(RecvTimeoutError::Disconnected) => {
+            panic!("mutex-lock-timeout runner thread exited early")
+        }
     };
 
     assert_eq!(
