@@ -2374,7 +2374,7 @@
 <a href=#2374 id=2374 data-nosnippet>2374</a>            machine.gen_std_trampoline(sig, calling_convention)
 <a href=#2375 id=2375 data-nosnippet>2375</a>        }
 <a href=#2376 id=2376 data-nosnippet>2376</a>        Architecture::Riscv64(<span class="kw">_</span>) =&gt; {
-<a href=#2377 id=2377 data-nosnippet>2377</a>            <span class="kw">let </span>machine = MachineRiscv::new(<span class="prelude-val">Some</span>(target.clone()))<span class="question-mark">?</span>;
+<a href=#2377 id=2377 data-nosnippet>2377</a>            <span class="kw">let </span>machine = MachineRiscv::new(<span class="prelude-val">Some</span>(target.clone()), <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#2378 id=2378 data-nosnippet>2378</a>            machine.gen_std_trampoline(sig, calling_convention)
 <a href=#2379 id=2379 data-nosnippet>2379</a>        }
 <a href=#2380 id=2380 data-nosnippet>2380</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
@@ -2400,7 +2400,7 @@
 <a href=#2400 id=2400 data-nosnippet>2400</a>            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
 <a href=#2401 id=2401 data-nosnippet>2401</a>        }
 <a href=#2402 id=2402 data-nosnippet>2402</a>        Architecture::Riscv64(<span class="kw">_</span>) =&gt; {
-<a href=#2403 id=2403 data-nosnippet>2403</a>            <span class="kw">let </span>machine = MachineRiscv::new(<span class="prelude-val">Some</span>(target.clone()))<span class="question-mark">?</span>;
+<a href=#2403 id=2403 data-nosnippet>2403</a>            <span class="kw">let </span>machine = MachineRiscv::new(<span class="prelude-val">Some</span>(target.clone()), <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#2404 id=2404 data-nosnippet>2404</a>            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
 <a href=#2405 id=2405 data-nosnippet>2405</a>        }
 <a href=#2406 id=2406 data-nosnippet>2406</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
@@ -2426,7 +2426,7 @@
 <a href=#2426 id=2426 data-nosnippet>2426</a>            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
 <a href=#2427 id=2427 data-nosnippet>2427</a>        }
 <a href=#2428 id=2428 data-nosnippet>2428</a>        Architecture::Riscv64(<span class="kw">_</span>) =&gt; {
-<a href=#2429 id=2429 data-nosnippet>2429</a>            <span class="kw">let </span>machine = MachineRiscv::new(<span class="prelude-val">Some</span>(target.clone()))<span class="question-mark">?</span>;
+<a href=#2429 id=2429 data-nosnippet>2429</a>            <span class="kw">let </span>machine = MachineRiscv::new(<span class="prelude-val">Some</span>(target.clone()), <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#2430 id=2430 data-nosnippet>2430</a>            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
 <a href=#2431 id=2431 data-nosnippet>2431</a>        }
 <a href=#2432 id=2432 data-nosnippet>2432</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
