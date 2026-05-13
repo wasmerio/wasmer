@@ -268,7 +268,7 @@
 <a href=#268 id=268 data-nosnippet>268</a></span><span class="kw">pub struct </span>ModuleFromArchive&lt;<span class="lifetime">'a</span>&gt; {
 <a href=#269 id=269 data-nosnippet>269</a>    <span class="doccomment">/// The main serializable compilation object
 <a href=#270 id=270 data-nosnippet>270</a>    </span><span class="kw">pub </span>compilation: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>ArchivedSerializableCompilation,
-<a href=#271 id=271 data-nosnippet>271</a>    <span class="doccomment">/// Datas initializers
+<a href=#271 id=271 data-nosnippet>271</a>    <span class="doccomment">/// Data initializers
 <a href=#272 id=272 data-nosnippet>272</a>    </span><span class="kw">pub </span>data_initializers: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>rkyv::Archived&lt;Box&lt;[OwnedDataInitializer]&gt;&gt;,
 <a href=#273 id=273 data-nosnippet>273</a>    <span class="doccomment">/// CPU Feature flags for this compilation
 <a href=#274 id=274 data-nosnippet>274</a>    </span><span class="kw">pub </span>cpu_features: u64,
@@ -315,7 +315,7 @@
 <a href=#315 id=315 data-nosnippet>315</a></span><span class="kw">pub struct </span>ArtifactBuildFromArchive {
 <a href=#316 id=316 data-nosnippet>316</a>    cell: Arc&lt;ArtifactBuildFromArchiveCell&gt;,
 <a href=#317 id=317 data-nosnippet>317</a>
-<a href=#318 id=318 data-nosnippet>318</a>    <span class="doccomment">/// Compilation informations
+<a href=#318 id=318 data-nosnippet>318</a>    <span class="doccomment">/// Compilation information
 <a href=#319 id=319 data-nosnippet>319</a>    </span>compile_info: CompileModuleInfo,
 <a href=#320 id=320 data-nosnippet>320</a>}
 <a href=#321 id=321 data-nosnippet>321</a>

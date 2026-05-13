@@ -129,7 +129,7 @@
 <a href=#129 id=129 data-nosnippet>129</a>    }
 <a href=#130 id=130 data-nosnippet>130</a>
 <a href=#131 id=131 data-nosnippet>131</a>    <span class="doccomment">/// Set a global, at index idx. Will panic if idx is out of range
-<a href=#132 id=132 data-nosnippet>132</a>    /// Safety: the caller should check taht the raw value is compatible
+<a href=#132 id=132 data-nosnippet>132</a>    /// Safety: the caller should check that the raw value is compatible
 <a href=#133 id=133 data-nosnippet>133</a>    /// with destination VMGlobal type
 <a href=#134 id=134 data-nosnippet>134</a>    </span><span class="kw">pub fn </span>set_global_unchecked(<span class="kw-2">&amp;</span><span class="self">self</span>, idx: usize, val: u128) {
 <a href=#135 id=135 data-nosnippet>135</a>        <span class="macro">assert!</span>(idx &lt; <span class="self">self</span>.globals.len());

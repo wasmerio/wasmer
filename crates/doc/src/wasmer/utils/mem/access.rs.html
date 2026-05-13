@@ -215,7 +215,7 @@
 <a href=#215 id=215 data-nosnippet>215</a><span class="kw">where
 <a href=#216 id=216 data-nosnippet>216</a>    </span>T: wasmer_types::ValueType,
 <a href=#217 id=217 data-nosnippet>217</a>{
-<a href=#218 id=218 data-nosnippet>218</a>    <span class="doccomment">/// Returns a reference to an unitialized reference to this value
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="doccomment">/// Returns a reference to an uninitialized reference to this value
 <a href=#219 id=219 data-nosnippet>219</a>    </span><span class="kw">pub fn </span>as_mut_uninit(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>MaybeUninit&lt;T&gt; {
 <a href=#220 id=220 data-nosnippet>220</a>        <span class="kw">let </span>ret: <span class="kw-2">&amp;mut </span>T = <span class="self">self</span>.buf.as_mut();
 <a href=#221 id=221 data-nosnippet>221</a>        <span class="kw">let </span>ret: <span class="kw-2">&amp;mut </span>MaybeUninit&lt;T&gt; = <span class="kw">unsafe </span>{ std::mem::transmute(ret) };

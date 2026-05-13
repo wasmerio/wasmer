@@ -322,7 +322,7 @@
 <a href=#322 id=322 data-nosnippet>322</a>    }
 <a href=#323 id=323 data-nosnippet>323</a>
 <a href=#324 id=324 data-nosnippet>324</a>    <span class="doccomment">/// Return the allocated memory as a mutable slice of u8.
-<a href=#325 id=325 data-nosnippet>325</a>    </span><span class="kw">pub fn </span>as_mut_slice_arbitary(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
+<a href=#325 id=325 data-nosnippet>325</a>    </span><span class="kw">pub fn </span>as_mut_slice_arbitrary(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="kw-2">&amp;mut </span>[u8] {
 <a href=#326 id=326 data-nosnippet>326</a>        <span class="kw">let </span>size = usize::min(size, <span class="self">self</span>.total_size);
 <a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">unsafe </span>{ slice::from_raw_parts_mut(<span class="self">self</span>.ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8, size) }
 <a href=#328 id=328 data-nosnippet>328</a>    }
@@ -364,7 +364,7 @@
 <a href=#364 id=364 data-nosnippet>364</a>
 <a href=#365 id=365 data-nosnippet>365</a>        <span class="kw">let </span><span class="kw-2">mut </span>new =
 <a href=#366 id=366 data-nosnippet>366</a>            <span class="self">Self</span>::accessible_reserved(copy_size, <span class="self">self</span>.total_size, <span class="prelude-val">None</span>, MmapType::Private)<span class="question-mark">?</span>;
-<a href=#367 id=367 data-nosnippet>367</a>        new.as_mut_slice_arbitary(copy_size)
+<a href=#367 id=367 data-nosnippet>367</a>        new.as_mut_slice_arbitrary(copy_size)
 <a href=#368 id=368 data-nosnippet>368</a>            .copy_from_slice(<span class="self">self</span>.as_slice_arbitary(copy_size));
 <a href=#369 id=369 data-nosnippet>369</a>        <span class="prelude-val">Ok</span>(new)
 <a href=#370 id=370 data-nosnippet>370</a>    }

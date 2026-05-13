@@ -223,7 +223,7 @@
 <a href=#223 id=223 data-nosnippet>223</a>    }
 <a href=#224 id=224 data-nosnippet>224</a>
 <a href=#225 id=225 data-nosnippet>225</a>    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages
-<a href=#226 id=226 data-nosnippet>226</a>    /// that is backed by a memory file. When set to private the file will be remaing in memory and
+<a href=#226 id=226 data-nosnippet>226</a>    /// that is backed by a memory file. When set to private the file will be remaining in memory and
 <a href=#227 id=227 data-nosnippet>227</a>    /// never flush to disk, when set to shared the memory will be flushed to disk.
 <a href=#228 id=228 data-nosnippet>228</a>    ///
 <a href=#229 id=229 data-nosnippet>229</a>    /// This creates a `Memory` with owned metadata: this can be used to create a memory
@@ -261,7 +261,7 @@
 <a href=#261 id=261 data-nosnippet>261</a>    }
 <a href=#262 id=262 data-nosnippet>262</a>
 <a href=#263 id=263 data-nosnippet>263</a>    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages
-<a href=#264 id=264 data-nosnippet>264</a>    /// that is backed by a file. When set to private the file will be remaing in memory and
+<a href=#264 id=264 data-nosnippet>264</a>    /// that is backed by a file. When set to private the file will be remaining in memory and
 <a href=#265 id=265 data-nosnippet>265</a>    /// never flush to disk, when set to shared the memory will be flushed to disk.
 <a href=#266 id=266 data-nosnippet>266</a>    ///
 <a href=#267 id=267 data-nosnippet>267</a>    /// This creates a `Memory` with metadata owned by a VM, pointed to by
@@ -401,7 +401,7 @@
 <a href=#401 id=401 data-nosnippet>401</a>        <span class="self">self</span>.config.ty(minimum)
 <a href=#402 id=402 data-nosnippet>402</a>    }
 <a href=#403 id=403 data-nosnippet>403</a>
-<a href=#404 id=404 data-nosnippet>404</a>    <span class="doccomment">/// Returns the size of hte memory in pages
+<a href=#404 id=404 data-nosnippet>404</a>    <span class="doccomment">/// Returns the size of the memory in pages
 <a href=#405 id=405 data-nosnippet>405</a>    </span><span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Pages {
 <a href=#406 id=406 data-nosnippet>406</a>        <span class="self">self</span>.mmap.size()
 <a href=#407 id=407 data-nosnippet>407</a>    }
@@ -472,7 +472,7 @@
 <a href=#472 id=472 data-nosnippet>472</a>    }
 <a href=#473 id=473 data-nosnippet>473</a>
 <a href=#474 id=474 data-nosnippet>474</a>    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages
-<a href=#475 id=475 data-nosnippet>475</a>    /// that is backed by a file. When set to private the file will be remaing in memory and
+<a href=#475 id=475 data-nosnippet>475</a>    /// that is backed by a file. When set to private the file will be remaining in memory and
 <a href=#476 id=476 data-nosnippet>476</a>    /// never flush to disk, when set to shared the memory will be flushed to disk.
 <a href=#477 id=477 data-nosnippet>477</a>    ///
 <a href=#478 id=478 data-nosnippet>478</a>    /// This creates a `Memory` with owned metadata: this can be used to create a memory
@@ -504,7 +504,7 @@
 <a href=#504 id=504 data-nosnippet>504</a>    }
 <a href=#505 id=505 data-nosnippet>505</a>
 <a href=#506 id=506 data-nosnippet>506</a>    <span class="doccomment">/// Create a new linear memory instance with specified minimum and maximum number of wasm pages
-<a href=#507 id=507 data-nosnippet>507</a>    /// that is backed by a file. When set to private the file will be remaing in memory and
+<a href=#507 id=507 data-nosnippet>507</a>    /// that is backed by a file. When set to private the file will be remaining in memory and
 <a href=#508 id=508 data-nosnippet>508</a>    /// never flush to disk, when set to shared the memory will be flushed to disk.
 <a href=#509 id=509 data-nosnippet>509</a>    ///
 <a href=#510 id=510 data-nosnippet>510</a>    /// This creates a `Memory` with metadata owned by a VM, pointed to by
@@ -552,7 +552,7 @@
 <a href=#552 id=552 data-nosnippet>552</a>        <span class="self">self</span>.config.ty(minimum)
 <a href=#553 id=553 data-nosnippet>553</a>    }
 <a href=#554 id=554 data-nosnippet>554</a>
-<a href=#555 id=555 data-nosnippet>555</a>    <span class="doccomment">/// Returns the size of hte memory in pages
+<a href=#555 id=555 data-nosnippet>555</a>    <span class="doccomment">/// Returns the size of the memory in pages
 <a href=#556 id=556 data-nosnippet>556</a>    </span><span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Pages {
 <a href=#557 id=557 data-nosnippet>557</a>        <span class="kw">let </span>guard = <span class="self">self</span>.mmap.read().unwrap();
 <a href=#558 id=558 data-nosnippet>558</a>        guard.size()
@@ -655,7 +655,7 @@
 <a href=#655 id=655 data-nosnippet>655</a>        <span class="self">self</span>.<span class="number">0</span>.ty()
 <a href=#656 id=656 data-nosnippet>656</a>    }
 <a href=#657 id=657 data-nosnippet>657</a>
-<a href=#658 id=658 data-nosnippet>658</a>    <span class="doccomment">/// Returns the size of hte memory in pages
+<a href=#658 id=658 data-nosnippet>658</a>    <span class="doccomment">/// Returns the size of the memory in pages
 <a href=#659 id=659 data-nosnippet>659</a>    </span><span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Pages {
 <a href=#660 id=660 data-nosnippet>660</a>        <span class="self">self</span>.<span class="number">0</span>.size()
 <a href=#661 id=661 data-nosnippet>661</a>    }
@@ -690,7 +690,7 @@
 <a href=#690 id=690 data-nosnippet>690</a>        <span class="self">self</span>.<span class="number">0</span>.vmmemory()
 <a href=#691 id=691 data-nosnippet>691</a>    }
 <a href=#692 id=692 data-nosnippet>692</a>
-<a href=#693 id=693 data-nosnippet>693</a>    <span class="doccomment">/// Attempts to clone this memory (if its clonable)
+<a href=#693 id=693 data-nosnippet>693</a>    <span class="doccomment">/// Attempts to clone this memory (if its cloneable)
 <a href=#694 id=694 data-nosnippet>694</a>    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
 <a href=#695 id=695 data-nosnippet>695</a>        <span class="self">self</span>.<span class="number">0</span>.try_clone()
 <a href=#696 id=696 data-nosnippet>696</a>    }
@@ -807,7 +807,7 @@
 <a href=#807 id=807 data-nosnippet>807</a>    }
 <a href=#808 id=808 data-nosnippet>808</a>}
 <a href=#809 id=809 data-nosnippet>809</a>
-<a href=#810 id=810 data-nosnippet>810</a><span class="doccomment">/// Represents memory that is used by the WebAsssembly module
+<a href=#810 id=810 data-nosnippet>810</a><span class="doccomment">/// Represents memory that is used by the WebAssembly module
 <a href=#811 id=811 data-nosnippet>811</a></span><span class="kw">pub trait </span>LinearMemory
 <a href=#812 id=812 data-nosnippet>812</a><span class="kw">where
 <a href=#813 id=813 data-nosnippet>813</a>    </span><span class="self">Self</span>: std::fmt::Debug + Send,
@@ -815,7 +815,7 @@
 <a href=#815 id=815 data-nosnippet>815</a>    <span class="doccomment">/// Returns the type for this memory.
 <a href=#816 id=816 data-nosnippet>816</a>    </span><span class="kw">fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; MemoryType;
 <a href=#817 id=817 data-nosnippet>817</a>
-<a href=#818 id=818 data-nosnippet>818</a>    <span class="doccomment">/// Returns the size of hte memory in pages
+<a href=#818 id=818 data-nosnippet>818</a>    <span class="doccomment">/// Returns the size of the memory in pages
 <a href=#819 id=819 data-nosnippet>819</a>    </span><span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Pages;
 <a href=#820 id=820 data-nosnippet>820</a>
 <a href=#821 id=821 data-nosnippet>821</a>    <span class="doccomment">/// Returns the memory style for this memory.
@@ -845,7 +845,7 @@
 <a href=#845 id=845 data-nosnippet>845</a>    <span class="doccomment">/// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
 <a href=#846 id=846 data-nosnippet>846</a>    </span><span class="kw">fn </span>vmmemory(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NonNull&lt;VMMemoryDefinition&gt;;
 <a href=#847 id=847 data-nosnippet>847</a>
-<a href=#848 id=848 data-nosnippet>848</a>    <span class="doccomment">/// Attempts to clone this memory (if its clonable)
+<a href=#848 id=848 data-nosnippet>848</a>    <span class="doccomment">/// Attempts to clone this memory (if its cloneable)
 <a href=#849 id=849 data-nosnippet>849</a>    </span><span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt;;
 <a href=#850 id=850 data-nosnippet>850</a>
 <a href=#851 id=851 data-nosnippet>851</a>    <span class="attr">#[doc(hidden)]

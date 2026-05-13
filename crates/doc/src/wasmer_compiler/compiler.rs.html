@@ -121,7 +121,7 @@
 <a href=#121 id=121 data-nosnippet>121</a>
 <a href=#122 id=122 data-nosnippet>122</a>    <span class="doccomment">/// Validates a module.
 <a href=#123 id=123 data-nosnippet>123</a>    ///
-<a href=#124 id=124 data-nosnippet>124</a>    /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
+<a href=#124 id=124 data-nosnippet>124</a>    /// It returns the a successful Result in case is valid, `CompileError` in case is not.
 <a href=#125 id=125 data-nosnippet>125</a>    </span><span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
 <a href=#126 id=126 data-nosnippet>126</a>    </span><span class="kw">fn </span>validate_module(<span class="kw-2">&amp;</span><span class="self">self</span>, features: <span class="kw-2">&amp;</span>Features, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
 <a href=#127 id=127 data-nosnippet>127</a>        <span class="kw">let </span><span class="kw-2">mut </span>wasm_features = WasmFeatures::empty();
@@ -172,7 +172,7 @@
 <a href=#172 id=172 data-nosnippet>172</a>        <span class="bool-val">false
 <a href=#173 id=173 data-nosnippet>173</a>    </span>}
 <a href=#174 id=174 data-nosnippet>174</a>
-<a href=#175 id=175 data-nosnippet>175</a>    <span class="doccomment">/// Get the CpuFeatues used by the compiler
+<a href=#175 id=175 data-nosnippet>175</a>    <span class="doccomment">/// Get the CpuFeatures used by the compiler
 <a href=#176 id=176 data-nosnippet>176</a>    </span><span class="kw">fn </span>get_cpu_features_used(<span class="kw-2">&amp;</span><span class="self">self</span>, cpu_features: <span class="kw-2">&amp;</span>EnumSet&lt;CpuFeature&gt;) -&gt; EnumSet&lt;CpuFeature&gt; {
 <a href=#177 id=177 data-nosnippet>177</a>        <span class="kw-2">*</span>cpu_features
 <a href=#178 id=178 data-nosnippet>178</a>    }

@@ -465,8 +465,8 @@
 <a href=#465 id=465 data-nosnippet>465</a>        unaligned_atomic: Label,
 <a href=#466 id=466 data-nosnippet>466</a>        cb: F,
 <a href=#467 id=467 data-nosnippet>467</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#468 id=468 data-nosnippet>468</a>        <span class="comment">// This function as been re-writen to use only 2 temporary register instead of 3
-<a href=#469 id=469 data-nosnippet>469</a>        // without compromisong on the perfomances.
+<a href=#468 id=468 data-nosnippet>468</a>        <span class="comment">// This function as been re-written to use only 2 temporary register instead of 3
+<a href=#469 id=469 data-nosnippet>469</a>        // without compromisong on the performances.
 <a href=#470 id=470 data-nosnippet>470</a>        // The number of memory move should be equivalent to previous 3-temp regs version
 <a href=#471 id=471 data-nosnippet>471</a>        // Register pressure is high on x86_64, and this is needed to be able to use
 <a href=#472 id=472 data-nosnippet>472</a>        // instruction that neead RAX, like cmpxchg for example
@@ -5144,7 +5144,7 @@
 <a href=#5144 id=5144 data-nosnippet>5144</a>                        )<span class="question-mark">?</span>; <span class="comment">// clear upper bits
 <a href=#5145 id=5145 data-nosnippet>5145</a>                    </span>}
 <a href=#5146 id=5146 data-nosnippet>5146</a>                    <span class="kw">_ </span>=&gt; {
-<a href=#5147 id=5147 data-nosnippet>5147</a>                        <span class="macro">codegen_error!</span>(<span class="string">"singlepass i64_load_32u unreacahble"</span>);
+<a href=#5147 id=5147 data-nosnippet>5147</a>                        <span class="macro">codegen_error!</span>(<span class="string">"singlepass i64_load_32u unreachable"</span>);
 <a href=#5148 id=5148 data-nosnippet>5148</a>                    }
 <a href=#5149 id=5149 data-nosnippet>5149</a>                }
 <a href=#5150 id=5150 data-nosnippet>5150</a>                this.emit_relaxed_binop(

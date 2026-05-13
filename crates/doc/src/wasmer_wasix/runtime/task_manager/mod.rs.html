@@ -444,7 +444,7 @@
 <a href=#444 id=444 data-nosnippet>444</a><span class="doccomment">/// Generic utility methods for VirtualTaskManager
 <a href=#445 id=445 data-nosnippet>445</a></span><span class="kw">pub trait </span>VirtualTaskManagerExt {
 <a href=#446 id=446 data-nosnippet>446</a>    <span class="doccomment">/// Runs the work in the background via the task managers shared background
-<a href=#447 id=447 data-nosnippet>447</a>    /// threads while blocking the current execution until it finishs
+<a href=#447 id=447 data-nosnippet>447</a>    /// threads while blocking the current execution until it finishes
 <a href=#448 id=448 data-nosnippet>448</a>    </span><span class="kw">fn </span>spawn_and_block_on&lt;A&gt;(
 <a href=#449 id=449 data-nosnippet>449</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#450 id=450 data-nosnippet>450</a>        task: <span class="kw">impl </span>Future&lt;Output = A&gt; + Send + <span class="lifetime">'static</span>,
@@ -467,7 +467,7 @@
 <a href=#467 id=467 data-nosnippet>467</a>    T: VirtualTaskManager + <span class="question-mark">?</span>Sized,
 <a href=#468 id=468 data-nosnippet>468</a>{
 <a href=#469 id=469 data-nosnippet>469</a>    <span class="doccomment">/// Runs the work in the background via the task managers shared background
-<a href=#470 id=470 data-nosnippet>470</a>    /// threads while blocking the current execution until it finishs
+<a href=#470 id=470 data-nosnippet>470</a>    /// threads while blocking the current execution until it finishes
 <a href=#471 id=471 data-nosnippet>471</a>    </span><span class="kw">fn </span>spawn_and_block_on&lt;A&gt;(
 <a href=#472 id=472 data-nosnippet>472</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#473 id=473 data-nosnippet>473</a>        task: <span class="kw">impl </span>Future&lt;Output = A&gt; + Send + <span class="lifetime">'static</span>,

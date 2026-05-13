@@ -298,8 +298,8 @@
 <a href=#298 id=298 data-nosnippet>298</a>            }
 <a href=#299 id=299 data-nosnippet>299</a>            <span class="prelude-val">Ok</span>(chunk) =&gt; {
 <a href=#300 id=300 data-nosnippet>300</a>                <span class="macro">tracing::trace!</span>(<span class="string">"received stderr (len={})"</span>, chunk.len());
-<a href=#301 id=301 data-nosnippet>301</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(propogate) = propagate.as_mut() {
-<a href=#302 id=302 data-nosnippet>302</a>                    propogate.write_all(chunk).<span class="kw">await</span>.ok();
+<a href=#301 id=301 data-nosnippet>301</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(propagate) = propagate.as_mut() {
+<a href=#302 id=302 data-nosnippet>302</a>                    propagate.write_all(chunk).<span class="kw">await</span>.ok();
 <a href=#303 id=303 data-nosnippet>303</a>                }
 <a href=#304 id=304 data-nosnippet>304</a>                callbacks.on_stderr(chunk);
 <a href=#305 id=305 data-nosnippet>305</a>                <span class="kw">let </span>bytes_read = chunk.len();

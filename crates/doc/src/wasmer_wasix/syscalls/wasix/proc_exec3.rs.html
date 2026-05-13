@@ -36,7 +36,7 @@
 <a href=#36 id=36 data-nosnippet>36</a>
 <a href=#37 id=37 data-nosnippet>37</a>    <span class="comment">// If we were just restored the stack then we were woken after a deep sleep
 <a href=#38 id=38 data-nosnippet>38</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(exit_code) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, i32&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
-<a href=#39 id=39 data-nosnippet>39</a>        <span class="comment">// We should never get here as the process will be termined
+<a href=#39 id=39 data-nosnippet>39</a>        <span class="comment">// We should never get here as the process will be terminated
 <a href=#40 id=40 data-nosnippet>40</a>        // in the `WasiEnv::do_pending_operations()` call
 <a href=#41 id=41 data-nosnippet>41</a>        </span><span class="kw">let </span>exit_code = ExitCode::from_native(exit_code);
 <a href=#42 id=42 data-nosnippet>42</a>        ctx.data().process.terminate(exit_code);

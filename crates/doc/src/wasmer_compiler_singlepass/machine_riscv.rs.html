@@ -1594,7 +1594,7 @@
 <a href=#1594 id=1594 data-nosnippet>1594</a>            <span class="self">self</span>.assembler.emit_swap_fscr(old_fcsr)<span class="question-mark">?</span>;
 <a href=#1595 id=1595 data-nosnippet>1595</a>            <span class="self">self</span>.assembler
 <a href=#1596 id=1596 data-nosnippet>1596</a>                .emit_fcvt(signed, size_in, src, size_out, dest)<span class="question-mark">?</span>;
-<a href=#1597 id=1597 data-nosnippet>1597</a>            <span class="self">self</span>.trap_float_convertion_errors(size_in, src, old_fcsr, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
+<a href=#1597 id=1597 data-nosnippet>1597</a>            <span class="self">self</span>.trap_float_conversion_errors(size_in, src, old_fcsr, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
 <a href=#1598 id=1598 data-nosnippet>1598</a>            <span class="self">self</span>.release_gpr(old_fcsr);
 <a href=#1599 id=1599 data-nosnippet>1599</a>        }
 <a href=#1600 id=1600 data-nosnippet>1600</a>
@@ -1666,7 +1666,7 @@
 <a href=#1666 id=1666 data-nosnippet>1666</a>        <span class="prelude-val">Ok</span>(())
 <a href=#1667 id=1667 data-nosnippet>1667</a>    }
 <a href=#1668 id=1668 data-nosnippet>1668</a>
-<a href=#1669 id=1669 data-nosnippet>1669</a>    <span class="kw">fn </span>trap_float_convertion_errors(
+<a href=#1669 id=1669 data-nosnippet>1669</a>    <span class="kw">fn </span>trap_float_conversion_errors(
 <a href=#1670 id=1670 data-nosnippet>1670</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#1671 id=1671 data-nosnippet>1671</a>        sz: Size,
 <a href=#1672 id=1672 data-nosnippet>1672</a>        f: Location,
@@ -2623,7 +2623,7 @@
 <a href=#2623 id=2623 data-nosnippet>2623</a>        output: Location,
 <a href=#2624 id=2624 data-nosnippet>2624</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
 <a href=#2625 id=2625 data-nosnippet>2625</a>        <span class="kw">let </span><span class="kw-2">mut </span>temps = <span class="macro">vec!</span>[];
-<a href=#2626 id=2626 data-nosnippet>2626</a>        <span class="comment">// use FMAX (input, intput) =&gt; output to automaticaly normalize the NaN
+<a href=#2626 id=2626 data-nosnippet>2626</a>        <span class="comment">// use FMAX (input, input) =&gt; output to automatically normalize the NaN
 <a href=#2627 id=2627 data-nosnippet>2627</a>        </span><span class="kw">match </span>(sz, input, output) {
 <a href=#2628 id=2628 data-nosnippet>2628</a>            (Size::S32, Location::SIMD(<span class="kw">_</span>), Location::SIMD(<span class="kw">_</span>)) =&gt; {
 <a href=#2629 id=2629 data-nosnippet>2629</a>                <span class="self">self</span>.assembler.emit_fmax(sz, input, input, output)<span class="question-mark">?</span>;

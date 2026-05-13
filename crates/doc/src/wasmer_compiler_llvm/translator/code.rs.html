@@ -1893,7 +1893,7 @@
 <a href=#1893 id=1893 data-nosnippet>1893</a>
 <a href=#1894 id=1894 data-nosnippet>1894</a>        tag_glbl.set_linkage(Linkage::External);
 <a href=#1895 id=1895 data-nosnippet>1895</a>        tag_glbl.set_constant(<span class="bool-val">true</span>);
-<a href=#1896 id=1896 data-nosnippet>1896</a>        <span class="comment">// Why set this to a specific section? On macOS it would land on a specifc read only data
+<a href=#1896 id=1896 data-nosnippet>1896</a>        <span class="comment">// Why set this to a specific section? On macOS it would land on a specific read only data
 <a href=#1897 id=1897 data-nosnippet>1897</a>        // section. GOT-based relocations will probably be generated with a non-zero addend, making
 <a href=#1898 id=1898 data-nosnippet>1898</a>        // some EH-related intricacies not working.
 <a href=#1899 id=1899 data-nosnippet>1899</a>        //
@@ -2172,7 +2172,7 @@
 <a href=#2172 id=2172 data-nosnippet>2172</a>            m0_param.is_some(),
 <a href=#2173 id=2173 data-nosnippet>2173</a>        )<span class="question-mark">?</span>;
 <a href=#2174 id=2174 data-nosnippet>2174</a>
-<a href=#2175 id=2175 data-nosnippet>2175</a>        <span class="comment">// Apply pending canonicalizations.
+<a href=#2175 id=2175 data-nosnippet>2175</a>        <span class="comment">// Apply pending canonicalization.
 <a href=#2176 id=2176 data-nosnippet>2176</a>        </span><span class="kw">let </span>params = params
 <a href=#2177 id=2177 data-nosnippet>2177</a>            .iter()
 <a href=#2178 id=2178 data-nosnippet>2178</a>            .zip(func_type.params().iter())
@@ -3223,7 +3223,7 @@
 <a href=#3223 id=3223 data-nosnippet>3223</a>
 <a href=#3224 id=3224 data-nosnippet>3224</a>                // If the pending bits of v1 and v2 are the same, we can pass
 <a href=#3225 id=3225 data-nosnippet>3225</a>                // them along to the result. Otherwise, apply pending
-<a href=#3226 id=3226 data-nosnippet>3226</a>                // canonicalizations now.
+<a href=#3226 id=3226 data-nosnippet>3226</a>                // canonicalization now.
 <a href=#3227 id=3227 data-nosnippet>3227</a>                </span><span class="kw">let </span>(v1, i1, v2, i2) = <span class="kw">if </span>i1.has_pending_f32_nan() != i2.has_pending_f32_nan()
 <a href=#3228 id=3228 data-nosnippet>3228</a>                    || i1.has_pending_f64_nan() != i2.has_pending_f64_nan()
 <a href=#3229 id=3229 data-nosnippet>3229</a>                {
@@ -3300,7 +3300,7 @@
 <a href=#3300 id=3300 data-nosnippet>3300</a>                */
 <a href=#3301 id=3301 data-nosnippet>3301</a>                </span><span class="kw">let </span>params = <span class="self">self</span>.state.popn_save_extra(func_type.params().len())<span class="question-mark">?</span>;
 <a href=#3302 id=3302 data-nosnippet>3302</a>
-<a href=#3303 id=3303 data-nosnippet>3303</a>                <span class="comment">// Apply pending canonicalizations.
+<a href=#3303 id=3303 data-nosnippet>3303</a>                <span class="comment">// Apply pending canonicalization.
 <a href=#3304 id=3304 data-nosnippet>3304</a>                </span><span class="kw">let </span>params = params
 <a href=#3305 id=3305 data-nosnippet>3305</a>                    .iter()
 <a href=#3306 id=3306 data-nosnippet>3306</a>                    .zip(func_type.params().iter())
@@ -9496,7 +9496,7 @@
 <a href=#9496 id=9496 data-nosnippet>9496</a>            //     let res = self
 <a href=#9497 id=9497 data-nosnippet>9497</a>            //         .builder
 <a href=#9498 id=9498 data-nosnippet>9498</a>            //         .build_signed_int_to_float(v, self.intrinsics.f64x2_ty, "");
-<a href=#9499 id=9499 data-nosnippet>9499</a>            //     let res = chck_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
+<a href=#9499 id=9499 data-nosnippet>9499</a>            //     let res = check_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
 <a href=#9500 id=9500 data-nosnippet>9500</a>            //     self.state.push1(res);
 <a href=#9501 id=9501 data-nosnippet>9501</a>            // }
 <a href=#9502 id=9502 data-nosnippet>9502</a>            // Operator::F64x2ConvertI64x2U =&gt; {
@@ -9508,7 +9508,7 @@
 <a href=#9508 id=9508 data-nosnippet>9508</a>            //     let res = self
 <a href=#9509 id=9509 data-nosnippet>9509</a>            //         .builder
 <a href=#9510 id=9510 data-nosnippet>9510</a>            //         .build_unsigned_int_to_float(v, self.intrinsics.f64x2_ty, "");
-<a href=#9511 id=9511 data-nosnippet>9511</a>            //     let res = chck_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
+<a href=#9511 id=9511 data-nosnippet>9511</a>            //     let res = check_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
 <a href=#9512 id=9512 data-nosnippet>9512</a>            //     self.state.push1(res);
 <a href=#9513 id=9513 data-nosnippet>9513</a>            // }
 <a href=#9514 id=9514 data-nosnippet>9514</a>            </span>Operator::I32ReinterpretF32 =&gt; {
@@ -11577,7 +11577,7 @@
 <a href=#11577 id=11577 data-nosnippet>11577</a>                    // just re-allocate a new exception.
 <a href=#11578 id=11578 data-nosnippet>11578</a>                    //
 <a href=#11579 id=11579 data-nosnippet>11579</a>                    // Note that this is different from how it's done in C++ land, where the
-<a href=#11580 id=11580 data-nosnippet>11580</a>                    // exception object is kept around for rethrowing; this discrepency exists
+<a href=#11580 id=11580 data-nosnippet>11580</a>                    // exception object is kept around for rethrowing; this discrepancy exists
 <a href=#11581 id=11581 data-nosnippet>11581</a>                    // because in C++, exception handling is lexical (i.e. there's an implicit
 <a href=#11582 id=11582 data-nosnippet>11582</a>                    // "current exception" in catch blocks) whereas in WASM, you rethrow with
 <a href=#11583 id=11583 data-nosnippet>11583</a>                    // an exnref that may very well have come from somewhere else; consider this
@@ -11838,7 +11838,7 @@
 <a href=#11838 id=11838 data-nosnippet>11838</a>                <span class="comment">// Move back to current block
 <a href=#11839 id=11839 data-nosnippet>11839</a>                </span><span class="self">self</span>.builder.position_at_end(current_block);
 <a href=#11840 id=11840 data-nosnippet>11840</a>
-<a href=#11841 id=11841 data-nosnippet>11841</a>                <span class="comment">// Note: catch_tag_values also containes outer tags, but zipping with
+<a href=#11841 id=11841 data-nosnippet>11841</a>                <span class="comment">// Note: catch_tag_values also contains outer tags, but zipping with
 <a href=#11842 id=11842 data-nosnippet>11842</a>                // catch_blocks will let us ignore the extra ones.
 <a href=#11843 id=11843 data-nosnippet>11843</a>                </span><span class="kw">let </span>catch_tags_and_blocks = catch_tag_values
 <a href=#11844 id=11844 data-nosnippet>11844</a>                    .into_iter()

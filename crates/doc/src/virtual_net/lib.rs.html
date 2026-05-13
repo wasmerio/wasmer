@@ -307,7 +307,7 @@
 <a href=#307 id=307 data-nosnippet>307</a><span class="attr">#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 <a href=#308 id=308 data-nosnippet>308</a></span><span class="kw">pub enum </span>StreamSecurity {
 <a href=#309 id=309 data-nosnippet>309</a>    Unencrypted,
-<a href=#310 id=310 data-nosnippet>310</a>    AnyEncyption,
+<a href=#310 id=310 data-nosnippet>310</a>    AnyEncryption,
 <a href=#311 id=311 data-nosnippet>311</a>    ClassicEncryption,
 <a href=#312 id=312 data-nosnippet>312</a>    DoubleEncryption,
 <a href=#313 id=313 data-nosnippet>313</a>}
@@ -586,7 +586,7 @@
 <a href=#586 id=586 data-nosnippet>586</a>}
 <a href=#587 id=587 data-nosnippet>587</a>
 <a href=#588 id=588 data-nosnippet>588</a><span class="kw">pub trait </span>VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + <span class="lifetime">'static </span>{
-<a href=#589 id=589 data-nosnippet>589</a>    <span class="doccomment">/// Sets the receive buffer size which acts as a trottle for how
+<a href=#589 id=589 data-nosnippet>589</a>    <span class="doccomment">/// Sets the receive buffer size which acts as a throttle for how
 <a href=#590 id=590 data-nosnippet>590</a>    /// much data is buffered on this side of the pipe
 <a href=#591 id=591 data-nosnippet>591</a>    </span><span class="kw">fn </span>set_recv_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, size: usize) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 <a href=#592 id=592 data-nosnippet>592</a>
@@ -632,7 +632,7 @@
 <a href=#632 id=632 data-nosnippet>632</a>    </span><span class="kw">fn </span>dontroute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt;;
 <a href=#633 id=633 data-nosnippet>633</a>
 <a href=#634 id=634 data-nosnippet>634</a>    <span class="doccomment">/// Returns the address (IP and Port) of the peer socket that this
-<a href=#635 id=635 data-nosnippet>635</a>    /// is conencted to
+<a href=#635 id=635 data-nosnippet>635</a>    /// is connected to
 <a href=#636 id=636 data-nosnippet>636</a>    </span><span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt;;
 <a href=#637 id=637 data-nosnippet>637</a>
 <a href=#638 id=638 data-nosnippet>638</a>    <span class="doccomment">/// Shuts down either the READER or WRITER sides of the socket

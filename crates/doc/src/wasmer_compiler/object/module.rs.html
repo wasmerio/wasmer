@@ -492,7 +492,7 @@
 <a href=#492 id=492 data-nosnippet>492</a>
 <a href=#493 id=493 data-nosnippet>493</a>                    <span class="kw">let </span>libcall_fn_name = libcall_fn_name.as_bytes();
 <a href=#494 id=494 data-nosnippet>494</a>
-<a href=#495 id=495 data-nosnippet>495</a>                    <span class="comment">// We add the symols lazily as we see them
+<a href=#495 id=495 data-nosnippet>495</a>                    <span class="comment">// We add the symbols lazily as we see them
 <a href=#496 id=496 data-nosnippet>496</a>                    </span><span class="kw">let </span>target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
 <a href=#497 id=497 data-nosnippet>497</a>                        obj.add_symbol(ObjSymbol {
 <a href=#498 id=498 data-nosnippet>498</a>                            name: libcall_fn_name.to_vec(),
@@ -609,8 +609,8 @@
 <a href=#609 id=609 data-nosnippet>609</a>/// an object. In addition, it also relies on information from ModuleInfo
 <a href=#610 id=610 data-nosnippet>610</a>/// to build a table of function pointers, trmampolines and dynamic function
 <a href=#611 id=611 data-nosnippet>611</a>/// trampoline pointers. ObjectMetadataBuilder takes care of setting up
-<a href=#612 id=612 data-nosnippet>612</a>/// relocations, so a linker can automatically fill in actuall addesses of
-<a href=#613 id=613 data-nosnippet>613</a>/// all relavant functions. There is no need to piece the information together
+<a href=#612 id=612 data-nosnippet>612</a>/// relocations, so a linker can automatically fill in actual addresses of
+<a href=#613 id=613 data-nosnippet>613</a>/// all relevant functions. There is no need to piece the information together
 <a href=#614 id=614 data-nosnippet>614</a>/// in the glue C file.
 <a href=#615 id=615 data-nosnippet>615</a></span><span class="kw">pub struct </span>ObjectMetadataBuilder {
 <a href=#616 id=616 data-nosnippet>616</a>    placeholder_data: Vec&lt;u8&gt;,

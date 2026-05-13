@@ -17,7 +17,7 @@
 <a href=#17 id=17 data-nosnippet>17</a>    ReadDir, VirtualFile, ops,
 <a href=#18 id=18 data-nosnippet>18</a>};
 <a href=#19 id=19 data-nosnippet>19</a>
-<a href=#20 id=20 data-nosnippet>20</a><span class="doccomment">/// A primary filesystem and chain of secondary filesystems that are overlayed
+<a href=#20 id=20 data-nosnippet>20</a><span class="doccomment">/// A primary filesystem and chain of secondary filesystems that are overlaid
 <a href=#21 id=21 data-nosnippet>21</a>/// on top of each other.
 <a href=#22 id=22 data-nosnippet>22</a>///
 <a href=#23 id=23 data-nosnippet>23</a>/// # Precedence
@@ -1280,10 +1280,10 @@
 <a href=#1280 id=1280 data-nosnippet>1280</a>    }
 <a href=#1281 id=1281 data-nosnippet>1281</a>
 <a href=#1282 id=1282 data-nosnippet>1282</a>    <span class="attr">#[tokio::test]
-<a href=#1283 id=1283 data-nosnippet>1283</a>    </span><span class="kw">async fn </span>listed_files_appear_overlayed() {
+<a href=#1283 id=1283 data-nosnippet>1283</a>    </span><span class="kw">async fn </span>listed_files_appear_overlaid() {
 <a href=#1284 id=1284 data-nosnippet>1284</a>        <span class="kw">let </span>primary = MemFS::default();
 <a href=#1285 id=1285 data-nosnippet>1285</a>        <span class="kw">let </span>secondary = MemFS::default();
-<a href=#1286 id=1286 data-nosnippet>1286</a>        <span class="kw">let </span>secondary_overlayed = MemFS::default();
+<a href=#1286 id=1286 data-nosnippet>1286</a>        <span class="kw">let </span>secondary_overlaid = MemFS::default();
 <a href=#1287 id=1287 data-nosnippet>1287</a>        ops::create_dir_all(<span class="kw-2">&amp;</span>primary, <span class="string">"/primary"</span>).unwrap();
 <a href=#1288 id=1288 data-nosnippet>1288</a>        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">"/primary/read.txt"</span>).unwrap();
 <a href=#1289 id=1289 data-nosnippet>1289</a>        ops::touch(<span class="kw-2">&amp;</span>primary, <span class="string">"/primary/write.txt"</span>).unwrap();
@@ -1292,10 +1292,10 @@
 <a href=#1292 id=1292 data-nosnippet>1292</a>        ops::touch(<span class="kw-2">&amp;</span>secondary, <span class="string">"/secondary/write.txt"</span>).unwrap();
 <a href=#1293 id=1293 data-nosnippet>1293</a>        <span class="comment">// This second "secondary" filesystem should share the same folders as
 <a href=#1294 id=1294 data-nosnippet>1294</a>        // the first one.
-<a href=#1295 id=1295 data-nosnippet>1295</a>        </span>ops::create_dir_all(<span class="kw-2">&amp;</span>secondary_overlayed, <span class="string">"/secondary"</span>).unwrap();
-<a href=#1296 id=1296 data-nosnippet>1296</a>        ops::touch(<span class="kw-2">&amp;</span>secondary_overlayed, <span class="string">"/secondary/overlayed.txt"</span>).unwrap();
+<a href=#1295 id=1295 data-nosnippet>1295</a>        </span>ops::create_dir_all(<span class="kw-2">&amp;</span>secondary_overlaid, <span class="string">"/secondary"</span>).unwrap();
+<a href=#1296 id=1296 data-nosnippet>1296</a>        ops::touch(<span class="kw-2">&amp;</span>secondary_overlaid, <span class="string">"/secondary/overlayed.txt"</span>).unwrap();
 <a href=#1297 id=1297 data-nosnippet>1297</a>
-<a href=#1298 id=1298 data-nosnippet>1298</a>        <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary, secondary_overlayed]);
+<a href=#1298 id=1298 data-nosnippet>1298</a>        <span class="kw">let </span>fs = OverlayFileSystem::new(primary, [secondary, secondary_overlaid]);
 <a href=#1299 id=1299 data-nosnippet>1299</a>
 <a href=#1300 id=1300 data-nosnippet>1300</a>        <span class="kw">let </span>paths: Vec&lt;<span class="kw">_</span>&gt; = ops::walk(<span class="kw-2">&amp;</span>fs, <span class="string">"/"</span>).map(|entry| entry.path()).collect();
 <a href=#1301 id=1301 data-nosnippet>1301</a>        <span class="macro">assert_eq!</span>(

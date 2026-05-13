@@ -363,7 +363,7 @@
 <a href=#363 id=363 data-nosnippet>363</a>        }
 <a href=#364 id=364 data-nosnippet>364</a>        <span class="comment">// Offset base by num_items items of size item_size, panicking on overflow
 <a href=#365 id=365 data-nosnippet>365</a>        // Also, will align the value on pointer size boundary,
-<a href=#366 id=366 data-nosnippet>366</a>        // to avoid misalignement issue
+<a href=#366 id=366 data-nosnippet>366</a>        // to avoid misalignment issue
 <a href=#367 id=367 data-nosnippet>367</a>        </span><span class="kw">let </span>pointer_size = <span class="self">self</span>.pointer_size <span class="kw">as </span>u32;
 <a href=#368 id=368 data-nosnippet>368</a>        <span class="kw">let </span>offset_by_aligned = |base: u32, num_items: u32, item_size: u32| -&gt; u32 {
 <a href=#369 id=369 data-nosnippet>369</a>            align(

@@ -512,7 +512,7 @@
 <a href=#512 id=512 data-nosnippet>512</a>    manifest: <span class="kw-2">&amp;</span>WasmerManifest,
 <a href=#513 id=513 data-nosnippet>513</a>    base_dir: <span class="kw-2">&amp;</span>Path,
 <a href=#514 id=514 data-nosnippet>514</a>) -&gt; <span class="prelude-ty">Result</span>&lt;IndexMap&lt;String, Command&gt;, ManifestError&gt; {
-<a href=#515 id=515 data-nosnippet>515</a>    trasform_commands_shared(
+<a href=#515 id=515 data-nosnippet>515</a>    transform_commands_shared(
 <a href=#516 id=516 data-nosnippet>516</a>        manifest,
 <a href=#517 id=517 data-nosnippet>517</a>        |cmd| transform_command_v1(cmd, manifest),
 <a href=#518 id=518 data-nosnippet>518</a>        |cmd| transform_command_v2(cmd, base_dir),
@@ -522,7 +522,7 @@
 <a href=#522 id=522 data-nosnippet>522</a><span class="kw">fn </span>transform_in_memory_commands(
 <a href=#523 id=523 data-nosnippet>523</a>    manifest: <span class="kw-2">&amp;</span>WasmerManifest,
 <a href=#524 id=524 data-nosnippet>524</a>) -&gt; <span class="prelude-ty">Result</span>&lt;IndexMap&lt;String, Command&gt;, ManifestError&gt; {
-<a href=#525 id=525 data-nosnippet>525</a>    trasform_commands_shared(
+<a href=#525 id=525 data-nosnippet>525</a>    transform_commands_shared(
 <a href=#526 id=526 data-nosnippet>526</a>        manifest,
 <a href=#527 id=527 data-nosnippet>527</a>        |cmd| transform_command_v1(cmd, manifest),
 <a href=#528 id=528 data-nosnippet>528</a>        transform_in_memory_command_v2,
@@ -530,7 +530,7 @@
 <a href=#530 id=530 data-nosnippet>530</a>}
 <a href=#531 id=531 data-nosnippet>531</a>
 <a href=#532 id=532 data-nosnippet>532</a><span class="attr">#[allow(deprecated)]
-<a href=#533 id=533 data-nosnippet>533</a></span><span class="kw">fn </span>trasform_commands_shared(
+<a href=#533 id=533 data-nosnippet>533</a></span><span class="kw">fn </span>transform_commands_shared(
 <a href=#534 id=534 data-nosnippet>534</a>    manifest: <span class="kw-2">&amp;</span>WasmerManifest,
 <a href=#535 id=535 data-nosnippet>535</a>    transform_command_v1: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>CommandV1) -&gt; <span class="prelude-ty">Result</span>&lt;Command, ManifestError&gt;,
 <a href=#536 id=536 data-nosnippet>536</a>    transform_command_v2: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>CommandV2) -&gt; <span class="prelude-ty">Result</span>&lt;Command, ManifestError&gt;,

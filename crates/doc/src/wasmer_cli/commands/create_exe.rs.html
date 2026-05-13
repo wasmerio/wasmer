@@ -1359,7 +1359,7 @@
 <a href=#1359 id=1359 data-nosnippet>1359</a>    <span class="kw">if </span>zig_triple.contains(<span class="string">"macos"</span>) {
 <a href=#1360 id=1360 data-nosnippet>1360</a>        <span class="comment">// need to link with Security framework when using zig, but zig
 <a href=#1361 id=1361 data-nosnippet>1361</a>        // doesn't include it, so we need to bring a copy of the dtb file
-<a href=#1362 id=1362 data-nosnippet>1362</a>        // which is basicaly the collection of exported symbol for the libs
+<a href=#1362 id=1362 data-nosnippet>1362</a>        // which is basically the collection of exported symbol for the libs
 <a href=#1363 id=1363 data-nosnippet>1363</a>        </span><span class="kw">let </span>framework = <span class="macro">include_bytes!</span>(<span class="string">"security_framework.tgz"</span>).to_vec();
 <a href=#1364 id=1364 data-nosnippet>1364</a>        <span class="comment">// extract files
 <a href=#1365 id=1365 data-nosnippet>1365</a>        </span><span class="kw">let </span>tar = flate2::read::GzDecoder::new(framework.as_slice());

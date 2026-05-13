@@ -39,7 +39,7 @@
 <a href=#39 id=39 data-nosnippet>39</a>}
 <a href=#40 id=40 data-nosnippet>40</a>
 <a href=#41 id=41 data-nosnippet>41</a><span class="comment">// Quick safety check:
-<a href=#42 id=42 data-nosnippet>42</a>// This folder isn't world writeable (or else its sticky bit is set), and neither are its parents.
+<a href=#42 id=42 data-nosnippet>42</a>// This folder isn't world writable (or else its sticky bit is set), and neither are its parents.
 <a href=#43 id=43 data-nosnippet>43</a>//
 <a href=#44 id=44 data-nosnippet>44</a>// If somebody mounted /tmp wrong, this might result in a TOCTOU problem.
 <a href=#45 id=45 data-nosnippet>45</a></span><span class="kw">fn </span>seccheck(path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -51,7 +51,7 @@
 <a href=#51 id=51 data-nosnippet>51</a>    <span class="kw">use </span>unix_mode::<span class="kw-2">*</span>;
 <a href=#52 id=52 data-nosnippet>52</a>    <span class="macro">anyhow::ensure!</span>(
 <a href=#53 id=53 data-nosnippet>53</a>        !is_allowed(Accessor::Other, Access::Write, m.mode()) || is_sticky(m.mode()),
-<a href=#54 id=54 data-nosnippet>54</a>        <span class="string">"{} is world writeable and not sticky ({m:?})"</span>,
+<a href=#54 id=54 data-nosnippet>54</a>        <span class="string">"{} is world writable and not sticky ({m:?})"</span>,
 <a href=#55 id=55 data-nosnippet>55</a>        path.to_string_lossy()
 <a href=#56 id=56 data-nosnippet>56</a>    );
 <a href=#57 id=57 data-nosnippet>57</a>    <span class="prelude-val">Ok</span>(())

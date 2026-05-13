@@ -156,7 +156,7 @@
 <a href=#156 id=156 data-nosnippet>156</a>        <span class="kw">if </span>(<span class="self">self</span>.has_pending_f32_nan() &amp;&amp; other.has_pending_f64_nan())
 <a href=#157 id=157 data-nosnippet>157</a>            || (<span class="self">self</span>.has_pending_f64_nan() &amp;&amp; other.has_pending_f32_nan())
 <a href=#158 id=158 data-nosnippet>158</a>        {
-<a href=#159 id=159 data-nosnippet>159</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="string">"Can't produce bitwise or of two different states if there are two different kinds of nan canonicalizations at the same time"</span>.to_string()));
+<a href=#159 id=159 data-nosnippet>159</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="string">"Can't produce bitwise or of two different states if there are two different kinds of nan canonicalization at the same time"</span>.to_string()));
 <a href=#160 id=160 data-nosnippet>160</a>        }
 <a href=#161 id=161 data-nosnippet>161</a>
 <a href=#162 id=162 data-nosnippet>162</a>        <span class="prelude-val">Ok</span>(ExtraInfo {
@@ -186,7 +186,7 @@
 <a href=#186 id=186 data-nosnippet>186</a></span><span class="kw">impl </span>BitAnd <span class="kw">for </span>ExtraInfo {
 <a href=#187 id=187 data-nosnippet>187</a>    <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt;;
 <a href=#188 id=188 data-nosnippet>188</a>    <span class="kw">fn </span>bitand(<span class="self">self</span>, other: <span class="self">Self</span>) -&gt; <span class="self">Self</span>::Output {
-<a href=#189 id=189 data-nosnippet>189</a>        <span class="comment">// Pending canonicalizations are not safe to discard, or even reorder.
+<a href=#189 id=189 data-nosnippet>189</a>        <span class="comment">// Pending canonicalization are not safe to discard, or even reorder.
 <a href=#190 id=190 data-nosnippet>190</a>        </span><span class="macro">debug_assert!</span>(
 <a href=#191 id=191 data-nosnippet>191</a>            <span class="self">self</span>.has_pending_f32_nan() == other.has_pending_f32_nan()
 <a href=#192 id=192 data-nosnippet>192</a>                || <span class="self">self</span>.is_arithmetic_f32()
@@ -210,7 +210,7 @@
 <a href=#210 id=210 data-nosnippet>210</a>            (<span class="bool-val">false</span>, <span class="bool-val">false</span>) =&gt; <span class="prelude-val">Ok</span>(info),
 <a href=#211 id=211 data-nosnippet>211</a>            (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; info | ExtraInfo::pending_f32_nan(),
 <a href=#212 id=212 data-nosnippet>212</a>            (<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; info | ExtraInfo::pending_f64_nan(),
-<a href=#213 id=213 data-nosnippet>213</a>            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"Can't form ExtraInfo with two pending canonicalizations"</span>),
+<a href=#213 id=213 data-nosnippet>213</a>            (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"Can't form ExtraInfo with two pending canonicalization"</span>),
 <a href=#214 id=214 data-nosnippet>214</a>        }
 <a href=#215 id=215 data-nosnippet>215</a>    }
 <a href=#216 id=216 data-nosnippet>216</a>}

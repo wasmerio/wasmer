@@ -118,7 +118,7 @@
 <a href=#118 id=118 data-nosnippet>118</a>    </span><span class="kw">fn </span>get_used_gprs(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;<span class="self">Self</span>::GPR&gt;;
 <a href=#119 id=119 data-nosnippet>119</a>    <span class="doccomment">/// Get all used SIMD regs
 <a href=#120 id=120 data-nosnippet>120</a>    </span><span class="kw">fn </span>get_used_simd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;<span class="self">Self</span>::SIMD&gt;;
-<a href=#121 id=121 data-nosnippet>121</a>    <span class="doccomment">/// Picks an unused general pupose register and mark it as used
+<a href=#121 id=121 data-nosnippet>121</a>    <span class="doccomment">/// Picks an unused general purpose register and mark it as used
 <a href=#122 id=122 data-nosnippet>122</a>    </span><span class="kw">fn </span>acquire_temp_gpr(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>::GPR&gt;;
 <a href=#123 id=123 data-nosnippet>123</a>    <span class="doccomment">/// Releases a temporary GPR.
 <a href=#124 id=124 data-nosnippet>124</a>    </span><span class="kw">fn </span>release_gpr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, gpr: <span class="self">Self</span>::GPR);
@@ -148,7 +148,7 @@
 <a href=#148 id=148 data-nosnippet>148</a>    </span><span class="kw">fn </span>push_used_simd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, simds: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::SIMD]) -&gt; <span class="prelude-ty">Result</span>&lt;usize, CompileError&gt;;
 <a href=#149 id=149 data-nosnippet>149</a>    <span class="doccomment">/// Pop used simd regs to the stack
 <a href=#150 id=150 data-nosnippet>150</a>    </span><span class="kw">fn </span>pop_used_simd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, simds: <span class="kw-2">&amp;</span>[<span class="self">Self</span>::SIMD]) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-<a href=#151 id=151 data-nosnippet>151</a>    <span class="doccomment">/// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
+<a href=#151 id=151 data-nosnippet>151</a>    <span class="doccomment">/// Return a rounded stack adjustment value (must be multiple of 16bytes on ARM64 for example)
 <a href=#152 id=152 data-nosnippet>152</a>    </span><span class="kw">fn </span>round_stack_adjust(<span class="kw-2">&amp;</span><span class="self">self</span>, value: usize) -&gt; usize;
 <a href=#153 id=153 data-nosnippet>153</a>    <span class="doccomment">/// Set the source location of the Wasm to the given offset.
 <a href=#154 id=154 data-nosnippet>154</a>    </span><span class="kw">fn </span>set_srcloc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: u32);
@@ -165,7 +165,7 @@
 <a href=#165 id=165 data-nosnippet>165</a>    </span><span class="kw">fn </span>insert_stackoverflow(<span class="kw-2">&amp;mut </span><span class="self">self</span>);
 <a href=#166 id=166 data-nosnippet>166</a>    <span class="doccomment">/// Get all current TrapInformation
 <a href=#167 id=167 data-nosnippet>167</a>    </span><span class="kw">fn </span>collect_trap_information(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;TrapInformation&gt;;
-<a href=#168 id=168 data-nosnippet>168</a>    <span class="comment">// Get all intructions address map
+<a href=#168 id=168 data-nosnippet>168</a>    <span class="comment">// Get all instructions address map
 <a href=#169 id=169 data-nosnippet>169</a>    </span><span class="kw">fn </span>instructions_address_map(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;InstructionAddressMap&gt;;
 <a href=#170 id=170 data-nosnippet>170</a>    <span class="doccomment">/// Memory location for a local on the stack
 <a href=#171 id=171 data-nosnippet>171</a>    /// Like Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)) for x86_64
@@ -174,7 +174,7 @@
 <a href=#174 id=174 data-nosnippet>174</a>    </span><span class="kw">fn </span>extend_stack(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delta_stack_offset: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 <a href=#175 id=175 data-nosnippet>175</a>    <span class="doccomment">/// Truncate stack space by the `delta_stack_offset`.
 <a href=#176 id=176 data-nosnippet>176</a>    </span><span class="kw">fn </span>truncate_stack(<span class="kw-2">&amp;mut </span><span class="self">self</span>, delta_stack_offset: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-<a href=#177 id=177 data-nosnippet>177</a>    <span class="doccomment">/// Zero a location taht is 32bits
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="doccomment">/// Zero a location that is 32bits
 <a href=#178 id=178 data-nosnippet>178</a>    </span><span class="kw">fn </span>zero_location(
 <a href=#179 id=179 data-nosnippet>179</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#180 id=180 data-nosnippet>180</a>        size: Size,
@@ -301,7 +301,7 @@
 <a href=#301 id=301 data-nosnippet>301</a>    </span><span class="kw">fn </span>emit_function_epilog(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 <a href=#302 id=302 data-nosnippet>302</a>    <span class="doccomment">/// Handle copy to SIMD register from ret value (if needed by the arch/calling convention)
 <a href=#303 id=303 data-nosnippet>303</a>    </span><span class="kw">fn </span>emit_function_return_float(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-<a href=#304 id=304 data-nosnippet>304</a>    <span class="doccomment">/// Cannonicalize a NaN (or panic if not supported)
+<a href=#304 id=304 data-nosnippet>304</a>    <span class="doccomment">/// Canonicalize a NaN (or panic if not supported)
 <a href=#305 id=305 data-nosnippet>305</a>    </span><span class="kw">fn </span>canonicalize_nan(
 <a href=#306 id=306 data-nosnippet>306</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#307 id=307 data-nosnippet>307</a>        sz: Size,
@@ -353,7 +353,7 @@
 <a href=#353 id=353 data-nosnippet>353</a>        dest: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
 <a href=#354 id=354 data-nosnippet>354</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 <a href=#355 id=355 data-nosnippet>355</a>
-<a href=#356 id=356 data-nosnippet>356</a>    <span class="doccomment">/// jmp without condidtion
+<a href=#356 id=356 data-nosnippet>356</a>    <span class="doccomment">/// jmp without condition
 <a href=#357 id=357 data-nosnippet>357</a>    </span><span class="kw">fn </span>jmp_unconditional(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 <a href=#358 id=358 data-nosnippet>358</a>
 <a href=#359 id=359 data-nosnippet>359</a>    <span class="doccomment">/// jmp to label if the provided condition is true (when comparing loc_a and loc_b)
@@ -366,7 +366,7 @@
 <a href=#366 id=366 data-nosnippet>366</a>        label: Label,
 <a href=#367 id=367 data-nosnippet>367</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 <a href=#368 id=368 data-nosnippet>368</a>
-<a href=#369 id=369 data-nosnippet>369</a>    <span class="doccomment">/// jmp using a jump table at lable with cond as the indice
+<a href=#369 id=369 data-nosnippet>369</a>    <span class="doccomment">/// jmp using a jump table at label with cond as the indice
 <a href=#370 id=370 data-nosnippet>370</a>    </span><span class="kw">fn </span>emit_jmp_to_jumptable(
 <a href=#371 id=371 data-nosnippet>371</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#372 id=372 data-nosnippet>372</a>        label: Label,
@@ -573,7 +573,7 @@
 <a href=#573 id=573 data-nosnippet>573</a>        loc: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
 <a href=#574 id=574 data-nosnippet>574</a>        ret: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
 <a href=#575 id=575 data-nosnippet>575</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-<a href=#576 id=576 data-nosnippet>576</a>    <span class="doccomment">/// Count Trailling 0 bit of an i32
+<a href=#576 id=576 data-nosnippet>576</a>    <span class="doccomment">/// Count Trailing 0 bit of an i32
 <a href=#577 id=577 data-nosnippet>577</a>    </span><span class="kw">fn </span>i32_ctz(
 <a href=#578 id=578 data-nosnippet>578</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#579 id=579 data-nosnippet>579</a>        loc: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
@@ -1257,7 +1257,7 @@
 <a href=#1257 id=1257 data-nosnippet>1257</a>        loc: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
 <a href=#1258 id=1258 data-nosnippet>1258</a>        ret: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
 <a href=#1259 id=1259 data-nosnippet>1259</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-<a href=#1260 id=1260 data-nosnippet>1260</a>    <span class="doccomment">/// Count Trailling 0 bit of an i64
+<a href=#1260 id=1260 data-nosnippet>1260</a>    <span class="doccomment">/// Count Trailing 0 bit of an i64
 <a href=#1261 id=1261 data-nosnippet>1261</a>    </span><span class="kw">fn </span>i64_ctz(
 <a href=#1262 id=1262 data-nosnippet>1262</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#1263 id=1263 data-nosnippet>1263</a>        loc: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,

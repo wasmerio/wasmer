@@ -215,7 +215,7 @@
 <a href=#215 id=215 data-nosnippet>215</a>        // which could happen in applications that use contexts during setup, but not during main execution.
 <a href=#216 id=216 data-nosnippet>216</a>        // We don't do immediate destruction because that would make this more complex, as it is essentially
 <a href=#217 id=217 data-nosnippet>217</a>        // identical to switching to the target context
-<a href=#218 id=218 data-nosnippet>218</a>        // TODO: Implement immediate destruction if the above becoms an issue
+<a href=#218 id=218 data-nosnippet>218</a>        // TODO: Implement immediate destruction if the above becomes an issue
 <a href=#219 id=219 data-nosnippet>219</a>        </span><span class="self">self</span>.inner
 <a href=#220 id=220 data-nosnippet>220</a>            .unblockers
 <a href=#221 id=221 data-nosnippet>221</a>            .write()
@@ -474,7 +474,7 @@
 <a href=#474 id=474 data-nosnippet>474</a>                <span class="comment">// This case could happen if the executor is being shut down while it is still polling a future (this one).
 <a href=#475 id=475 data-nosnippet>475</a>                // Which shouldn't be able with a single-threaded executor, as the shutdown would have to
 <a href=#476 id=476 data-nosnippet>476</a>                // be initiated from within a future running on that executor.
-<a href=#477 id=477 data-nosnippet>477</a>                // I the current WASIX context switching implemenation should not be able to produce this case,
+<a href=#477 id=477 data-nosnippet>477</a>                // I the current WASIX context switching implementation should not be able to produce this case,
 <a href=#478 id=478 data-nosnippet>478</a>                // but maybe it will be possible in future implementations. If someone manages to produce this case,
 <a href=#479 id=479 data-nosnippet>479</a>                // they should open an issue so we can discuss how to handle this case properly.
 <a href=#480 id=480 data-nosnippet>480</a>                // If this case is reachable we could return the same error as when no context-switching environment is present,

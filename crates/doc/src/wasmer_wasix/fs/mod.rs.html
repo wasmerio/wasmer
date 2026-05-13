@@ -2,7 +2,7 @@
 <a href=#2 id=2 data-nosnippet>2</a>// It is impossible to fix them with the current setup, since a hard
 <a href=#3 id=3 data-nosnippet>3</a>// link must point to the actual file rather than its path, but the
 <a href=#4 id=4 data-nosnippet>4</a>// only way we can get to a file on a FileSystem instance is by going
-<a href=#5 id=5 data-nosnippet>5</a>// through its repective FileOpener and giving it a path as input.
+<a href=#5 id=5 data-nosnippet>5</a>// through its respective FileOpener and giving it a path as input.
 <a href=#6 id=6 data-nosnippet>6</a>// TODO: refactor away the InodeVal type
 <a href=#7 id=7 data-nosnippet>7</a>
 <a href=#8 id=8 data-nosnippet>8</a></span><span class="kw">mod </span>fd;
@@ -110,7 +110,7 @@
 <a href=#110 id=110 data-nosnippet>110</a>};
 <a href=#111 id=111 data-nosnippet>111</a><span class="kw">const </span>STDERR_DEFAULT_RIGHTS: Rights = STDOUT_DEFAULT_RIGHTS;
 <a href=#112 id=112 data-nosnippet>112</a>
-<a href=#113 id=113 data-nosnippet>113</a><span class="doccomment">/// A completely aribtrary "big enough" number used as the upper limit for
+<a href=#113 id=113 data-nosnippet>113</a><span class="doccomment">/// A completely arbitrary "big enough" number used as the upper limit for
 <a href=#114 id=114 data-nosnippet>114</a>/// the number of symlinks that can be traversed when resolving a path
 <a href=#115 id=115 data-nosnippet>115</a></span><span class="kw">pub const </span>MAX_SYMLINKS: u32 = <span class="number">128</span>;
 <a href=#116 id=116 data-nosnippet>116</a>
@@ -819,7 +819,7 @@
 <a href=#819 id=819 data-nosnippet>819</a>    /// # Safety
 <a href=#820 id=820 data-nosnippet>820</a>    /// - Virtual directories created with this function must not conflict with
 <a href=#821 id=821 data-nosnippet>821</a>    ///   the standard operation of the WASI filesystem.  This is vague and
-<a href=#822 id=822 data-nosnippet>822</a>    ///   unlikely in pratice.  [Join the discussion](https://github.com/wasmerio/wasmer/issues/1219)
+<a href=#822 id=822 data-nosnippet>822</a>    ///   unlikely in practice.  [Join the discussion](https://github.com/wasmerio/wasmer/issues/1219)
 <a href=#823 id=823 data-nosnippet>823</a>    ///   for what the newer, safer WASI FS APIs should look like.
 <a href=#824 id=824 data-nosnippet>824</a>    </span><span class="attr">#[allow(dead_code)]
 <a href=#825 id=825 data-nosnippet>825</a>    #[allow(clippy::too_many_arguments)]
@@ -1980,7 +1980,7 @@
 <a href=#1980 id=1980 data-nosnippet>1980</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_rootfd(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), String&gt; {
 <a href=#1981 id=1981 data-nosnippet>1981</a>        <span class="comment">// create virtual root
 <a href=#1982 id=1982 data-nosnippet>1982</a>        </span><span class="kw">let </span>all_rights = ALL_RIGHTS;
-<a href=#1983 id=1983 data-nosnippet>1983</a>        <span class="comment">// TODO: make this a list of positive rigths instead of negative ones
+<a href=#1983 id=1983 data-nosnippet>1983</a>        <span class="comment">// TODO: make this a list of positive rights instead of negative ones
 <a href=#1984 id=1984 data-nosnippet>1984</a>        // root gets all right for now
 <a href=#1985 id=1985 data-nosnippet>1985</a>        </span><span class="kw">let </span>root_rights = all_rights
 <a href=#1986 id=1986 data-nosnippet>1986</a>            <span class="comment">/*

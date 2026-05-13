@@ -86,7 +86,7 @@
 <a href=#86 id=86 data-nosnippet>86</a>    <span class="doccomment">/// List of builtin commands to register in the WASI instance.
 <a href=#87 id=87 data-nosnippet>87</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) builtin_commands: Vec&lt;(String, Arc&lt;<span class="kw">dyn </span>VirtualCommand + Send + Sync + <span class="lifetime">'static</span>&gt;)&gt;,
 <a href=#88 id=88 data-nosnippet>88</a>
-<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">pub</span>(<span class="kw">super</span>) capabilites: Capabilities,
+<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">pub</span>(<span class="kw">super</span>) capabilities: Capabilities,
 <a href=#90 id=90 data-nosnippet>90</a>
 <a href=#91 id=91 data-nosnippet>91</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 <a href=#92 id=92 data-nosnippet>92</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) snapshot_on: Vec&lt;SnapshotTrigger&gt;,
@@ -182,7 +182,7 @@
 <a href=#182 id=182 data-nosnippet>182</a>    }
 <a href=#183 id=183 data-nosnippet>183</a>
 <a href=#184 id=184 data-nosnippet>184</a>    <span class="doccomment">/// Attaches a ctrl-c handler which will send signals to the
-<a href=#185 id=185 data-nosnippet>185</a>    /// process rather than immediately termiante it
+<a href=#185 id=185 data-nosnippet>185</a>    /// process rather than immediately terminate it
 <a href=#186 id=186 data-nosnippet>186</a>    </span><span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
 <a href=#187 id=187 data-nosnippet>187</a>    </span><span class="kw">pub fn </span>attach_ctrl_c(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
 <a href=#188 id=188 data-nosnippet>188</a>        <span class="self">self</span>.attach_ctrl_c = <span class="bool-val">true</span>;
@@ -670,7 +670,7 @@
 <a href=#670 id=670 data-nosnippet>670</a>        <span class="prelude-val">Ok</span>(())
 <a href=#671 id=671 data-nosnippet>671</a>    }
 <a href=#672 id=672 data-nosnippet>672</a>
-<a href=#673 id=673 data-nosnippet>673</a>    <span class="doccomment">/// Preopen directorys with a different names exposed to the WASI.
+<a href=#673 id=673 data-nosnippet>673</a>    <span class="doccomment">/// Preopen directories with a different names exposed to the WASI.
 <a href=#674 id=674 data-nosnippet>674</a>    </span><span class="kw">pub fn </span>map_dirs&lt;I, P&gt;(<span class="kw-2">mut </span><span class="self">self</span>, mapped_dirs: I) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasiStateCreationError&gt;
 <a href=#675 id=675 data-nosnippet>675</a>    <span class="kw">where
 <a href=#676 id=676 data-nosnippet>676</a>        </span>I: IntoIterator&lt;Item = (String, P)&gt;,
@@ -828,11 +828,11 @@
 <a href=#828 id=828 data-nosnippet>828</a>    </span>}
 <a href=#829 id=829 data-nosnippet>829</a>
 <a href=#830 id=830 data-nosnippet>830</a>    <span class="kw">pub fn </span>capabilities_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Capabilities {
-<a href=#831 id=831 data-nosnippet>831</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>.capabilites
+<a href=#831 id=831 data-nosnippet>831</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>.capabilities
 <a href=#832 id=832 data-nosnippet>832</a>    }
 <a href=#833 id=833 data-nosnippet>833</a>
 <a href=#834 id=834 data-nosnippet>834</a>    <span class="kw">pub fn </span>set_capabilities(<span class="kw-2">&amp;mut </span><span class="self">self</span>, capabilities: Capabilities) {
-<a href=#835 id=835 data-nosnippet>835</a>        <span class="self">self</span>.capabilites = capabilities;
+<a href=#835 id=835 data-nosnippet>835</a>        <span class="self">self</span>.capabilities = capabilities;
 <a href=#836 id=836 data-nosnippet>836</a>    }
 <a href=#837 id=837 data-nosnippet>837</a>
 <a href=#838 id=838 data-nosnippet>838</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
@@ -861,7 +861,7 @@
 <a href=#861 id=861 data-nosnippet>861</a>    ///
 <a href=#862 id=862 data-nosnippet>862</a>    /// NOTE: You should prefer to not work directly with [`WasiEnvInit`].
 <a href=#863 id=863 data-nosnippet>863</a>    /// Use [`WasiEnvBuilder::build`] or [`WasiEnvBuilder::instantiate`] instead
-<a href=#864 id=864 data-nosnippet>864</a>    /// to ensure proper invokation of WASI modules.
+<a href=#864 id=864 data-nosnippet>864</a>    /// to ensure proper invocation of WASI modules.
 <a href=#865 id=865 data-nosnippet>865</a>    </span><span class="kw">pub fn </span>build_init(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvInit, WasiStateCreationError&gt; {
 <a href=#866 id=866 data-nosnippet>866</a>        <span class="kw">for </span>arg <span class="kw">in </span><span class="self">self</span>.args.iter() {
 <a href=#867 id=867 data-nosnippet>867</a>            <span class="kw">for </span>b <span class="kw">in </span>arg.as_bytes().iter() {
@@ -1054,7 +1054,7 @@
 <a href=#1054 id=1054 data-nosnippet>1054</a>            bin_factory.register_builtin_command_with_path_shared(command, path);
 <a href=#1055 id=1055 data-nosnippet>1055</a>        }
 <a href=#1056 id=1056 data-nosnippet>1056</a>
-<a href=#1057 id=1057 data-nosnippet>1057</a>        <span class="kw">let </span>capabilities = <span class="self">self</span>.capabilites;
+<a href=#1057 id=1057 data-nosnippet>1057</a>        <span class="kw">let </span>capabilities = <span class="self">self</span>.capabilities;
 <a href=#1058 id=1058 data-nosnippet>1058</a>
 <a href=#1059 id=1059 data-nosnippet>1059</a>        <span class="kw">let </span>plane_config = ControlPlaneConfig {
 <a href=#1060 id=1060 data-nosnippet>1060</a>            max_task_count: capabilities.threading.max_threads,

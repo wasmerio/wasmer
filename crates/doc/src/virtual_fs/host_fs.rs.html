@@ -1312,7 +1312,7 @@
 <a href=#1312 id=1312 data-nosnippet>1312</a>        <span class="kw">let </span>root_metadata = fs.metadata(Path::new(<span class="string">"/"</span>)).unwrap();
 <a href=#1313 id=1313 data-nosnippet>1313</a>
 <a href=#1314 id=1314 data-nosnippet>1314</a>        <span class="macro">assert!</span>(root_metadata.ft.dir);
-<a href=#1315 id=1315 data-nosnippet>1315</a>        <span class="comment">// it seems created is not evailable on musl, at least on CI testing.
+<a href=#1315 id=1315 data-nosnippet>1315</a>        <span class="comment">// it seems created is not available on musl, at least on CI testing.
 <a href=#1316 id=1316 data-nosnippet>1316</a>        </span><span class="attr">#[cfg(not(target_env = <span class="string">"musl"</span>))]
 <a href=#1317 id=1317 data-nosnippet>1317</a>        </span><span class="macro">assert_eq!</span>(root_metadata.accessed, root_metadata.created);
 <a href=#1318 id=1318 data-nosnippet>1318</a>        <span class="attr">#[cfg(not(target_env = <span class="string">"musl"</span>))]

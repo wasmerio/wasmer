@@ -996,7 +996,7 @@
 <a href=#996 id=996 data-nosnippet>996</a><span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Socktype {
 <a href=#997 id=997 data-nosnippet>997</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
 <a href=#998 id=998 data-nosnippet>998</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#999 id=999 data-nosnippet>999</a>            Socktype::Unknown =&gt; f.debug_tuple(<span class="string">"Socktype::Uknown"</span>).finish(),
+<a href=#999 id=999 data-nosnippet>999</a>            Socktype::Unknown =&gt; f.debug_tuple(<span class="string">"Socktype::Unknown"</span>).finish(),
 <a href=#1000 id=1000 data-nosnippet>1000</a>            Socktype::Stream =&gt; f.debug_tuple(<span class="string">"Socktype::Stream"</span>).finish(),
 <a href=#1001 id=1001 data-nosnippet>1001</a>            Socktype::Dgram =&gt; f.debug_tuple(<span class="string">"Socktype::Dgram"</span>).finish(),
 <a href=#1002 id=1002 data-nosnippet>1002</a>            Socktype::Raw =&gt; f.debug_tuple(<span class="string">"Socktype::Raw"</span>).finish(),
@@ -2654,7 +2654,7 @@
 <a href=#2654 id=2654 data-nosnippet>2654</a>        <span class="self">Self </span>{ bits }
 <a href=#2655 id=2655 data-nosnippet>2655</a>    }
 <a href=#2656 id=2656 data-nosnippet>2656</a>}
-<a href=#2657 id=2657 data-nosnippet>2657</a><span class="attr">#[doc = <span class="string">" What has happened with the proccess when we joined on it"</span>]
+<a href=#2657 id=2657 data-nosnippet>2657</a><span class="attr">#[doc = <span class="string">" What has happened with the process when we joined on it"</span>]
 <a href=#2658 id=2658 data-nosnippet>2658</a>#[repr(u8)]
 <a href=#2659 id=2659 data-nosnippet>2659</a>#[derive(Clone, Copy, PartialEq, Eq)]
 <a href=#2660 id=2660 data-nosnippet>2660</a>#[non_exhaustive]

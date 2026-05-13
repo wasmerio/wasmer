@@ -51,7 +51,7 @@
 <a href=#51 id=51 data-nosnippet>51</a>        })<span class="question-mark">?</span>;
 <a href=#52 id=52 data-nosnippet>52</a>        <span class="kw">if </span>bytes.len() != <span class="number">32 </span>{
 <a href=#53 id=53 data-nosnippet>53</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(DeserializeError::Generic(
-<a href=#54 id=54 data-nosnippet>54</a>                <span class="string">"Prehashed keys must deserialze into exactly 32 bytes"</span>.to_string(),
+<a href=#54 id=54 data-nosnippet>54</a>                <span class="string">"Prehashed keys must deserialize into exactly 32 bytes"</span>.to_string(),
 <a href=#55 id=55 data-nosnippet>55</a>            ));
 <a href=#56 id=56 data-nosnippet>56</a>        }
 <a href=#57 id=57 data-nosnippet>57</a>        <span class="prelude-val">Ok</span>(<span class="self">Self</span>(bytes[<span class="number">0</span>..<span class="number">32</span>].try_into().map_err(|e| {

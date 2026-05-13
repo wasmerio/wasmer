@@ -302,7 +302,7 @@
 <a href=#302 id=302 data-nosnippet>302</a>        <span class="kw">use </span>virtual_net::StreamSecurity;
 <a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">match </span>val {
 <a href=#304 id=304 data-nosnippet>304</a>            StreamSecurity::Unencrypted =&gt; JournalStreamSecurityV1::Unencrypted,
-<a href=#305 id=305 data-nosnippet>305</a>            StreamSecurity::AnyEncyption =&gt; JournalStreamSecurityV1::AnyEncryption,
+<a href=#305 id=305 data-nosnippet>305</a>            StreamSecurity::AnyEncryption =&gt; JournalStreamSecurityV1::AnyEncryption,
 <a href=#306 id=306 data-nosnippet>306</a>            StreamSecurity::ClassicEncryption =&gt; JournalStreamSecurityV1::ClassicEncryption,
 <a href=#307 id=307 data-nosnippet>307</a>            StreamSecurity::DoubleEncryption =&gt; JournalStreamSecurityV1::DoubleEncryption,
 <a href=#308 id=308 data-nosnippet>308</a>        }
@@ -314,10 +314,10 @@
 <a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">use </span>virtual_net::StreamSecurity;
 <a href=#315 id=315 data-nosnippet>315</a>        <span class="kw">match </span>val {
 <a href=#316 id=316 data-nosnippet>316</a>            JournalStreamSecurityV1::Unencrypted =&gt; StreamSecurity::Unencrypted,
-<a href=#317 id=317 data-nosnippet>317</a>            JournalStreamSecurityV1::AnyEncryption =&gt; StreamSecurity::AnyEncyption,
+<a href=#317 id=317 data-nosnippet>317</a>            JournalStreamSecurityV1::AnyEncryption =&gt; StreamSecurity::AnyEncryption,
 <a href=#318 id=318 data-nosnippet>318</a>            JournalStreamSecurityV1::ClassicEncryption =&gt; StreamSecurity::ClassicEncryption,
 <a href=#319 id=319 data-nosnippet>319</a>            JournalStreamSecurityV1::DoubleEncryption =&gt; StreamSecurity::DoubleEncryption,
-<a href=#320 id=320 data-nosnippet>320</a>            JournalStreamSecurityV1::Unknown =&gt; StreamSecurity::AnyEncyption,
+<a href=#320 id=320 data-nosnippet>320</a>            JournalStreamSecurityV1::Unknown =&gt; StreamSecurity::AnyEncryption,
 <a href=#321 id=321 data-nosnippet>321</a>        }
 <a href=#322 id=322 data-nosnippet>322</a>    }
 <a href=#323 id=323 data-nosnippet>323</a>}
@@ -327,10 +327,10 @@
 <a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">use </span>virtual_net::StreamSecurity;
 <a href=#328 id=328 data-nosnippet>328</a>        <span class="kw">match </span>val {
 <a href=#329 id=329 data-nosnippet>329</a>            ArchivedJournalStreamSecurityV1::Unencrypted =&gt; StreamSecurity::Unencrypted,
-<a href=#330 id=330 data-nosnippet>330</a>            ArchivedJournalStreamSecurityV1::AnyEncryption =&gt; StreamSecurity::AnyEncyption,
+<a href=#330 id=330 data-nosnippet>330</a>            ArchivedJournalStreamSecurityV1::AnyEncryption =&gt; StreamSecurity::AnyEncryption,
 <a href=#331 id=331 data-nosnippet>331</a>            ArchivedJournalStreamSecurityV1::ClassicEncryption =&gt; StreamSecurity::ClassicEncryption,
 <a href=#332 id=332 data-nosnippet>332</a>            ArchivedJournalStreamSecurityV1::DoubleEncryption =&gt; StreamSecurity::DoubleEncryption,
-<a href=#333 id=333 data-nosnippet>333</a>            ArchivedJournalStreamSecurityV1::Unknown =&gt; StreamSecurity::AnyEncyption,
+<a href=#333 id=333 data-nosnippet>333</a>            ArchivedJournalStreamSecurityV1::Unknown =&gt; StreamSecurity::AnyEncryption,
 <a href=#334 id=334 data-nosnippet>334</a>        }
 <a href=#335 id=335 data-nosnippet>335</a>    }
 <a href=#336 id=336 data-nosnippet>336</a>}

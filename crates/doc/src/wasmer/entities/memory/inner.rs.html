@@ -170,7 +170,7 @@
 <a href=#170 id=170 data-nosnippet>170</a>        })
 <a href=#171 id=171 data-nosnippet>171</a>    }
 <a href=#172 id=172 data-nosnippet>172</a>
-<a href=#173 id=173 data-nosnippet>173</a>    <span class="doccomment">/// Attempts to duplicate this memory (if its clonable) in a new store
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="doccomment">/// Attempts to duplicate this memory (if its cloneable) in a new store
 <a href=#174 id=174 data-nosnippet>174</a>    /// (copied memory)
 <a href=#175 id=175 data-nosnippet>175</a>    </span><span class="attr">#[inline]
 <a href=#176 id=176 data-nosnippet>176</a>    </span><span class="kw">pub fn </span>copy_to_store(
@@ -236,7 +236,7 @@
 <a href=#236 id=236 data-nosnippet>236</a>    ///
 <a href=#237 id=237 data-nosnippet>237</a>    /// # Errors
 <a href=#238 id=238 data-nosnippet>238</a>    ///
-<a href=#239 id=239 data-nosnippet>239</a>    /// Fails if the underlying memory is not clonable.
+<a href=#239 id=239 data-nosnippet>239</a>    /// Fails if the underlying memory is not cloneable.
 <a href=#240 id=240 data-nosnippet>240</a>    </span><span class="attr">#[inline]
 <a href=#241 id=241 data-nosnippet>241</a>    </span><span class="kw">pub fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt; {
 <a href=#242 id=242 data-nosnippet>242</a>        <span class="kw">match </span><span class="self">self </span>{
@@ -249,7 +249,7 @@
 <a href=#249 id=249 data-nosnippet>249</a>        }
 <a href=#250 id=250 data-nosnippet>250</a>    }
 <a href=#251 id=251 data-nosnippet>251</a>
-<a href=#252 id=252 data-nosnippet>252</a>    <span class="doccomment">/// Attempts to clone this memory (if its clonable) in a new store
+<a href=#252 id=252 data-nosnippet>252</a>    <span class="doccomment">/// Attempts to clone this memory (if its cloneable) in a new store
 <a href=#253 id=253 data-nosnippet>253</a>    /// (cloned memory will be shared between those that clone it)
 <a href=#254 id=254 data-nosnippet>254</a>    </span><span class="attr">#[inline]
 <a href=#255 id=255 data-nosnippet>255</a>    </span><span class="kw">pub fn </span>share_in_store(

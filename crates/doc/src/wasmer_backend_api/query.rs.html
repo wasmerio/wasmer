@@ -297,7 +297,7 @@
 <a href=#297 id=297 data-nosnippet>297</a>) -&gt; <span class="prelude-ty">Result</span>&lt;types::S3Credentials, anyhow::Error&gt; {
 <a href=#298 id=298 data-nosnippet>298</a>    <span class="kw">let </span>app_id = app_id.into();
 <a href=#299 id=299 data-nosnippet>299</a>
-<a href=#300 id=300 data-nosnippet>300</a>    <span class="comment">// Firt load the app to get the s3 url.
+<a href=#300 id=300 data-nosnippet>300</a>    <span class="comment">// First load the app to get the s3 url.
 <a href=#301 id=301 data-nosnippet>301</a>    </span><span class="kw">let </span>app1 = get_app_by_id(client, app_id.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
 <a href=#302 id=302 data-nosnippet>302</a>
 <a href=#303 id=303 data-nosnippet>303</a>    <span class="kw">let </span>vars = types::GetDeployAppVars {

@@ -509,7 +509,7 @@
 <a href=#509 id=509 data-nosnippet>509</a>        </span><span class="kw">let </span>is_main = <span class="macro">matches!</span>(start, ThreadStartType::MainThread);
 <a href=#510 id=510 data-nosnippet>510</a>
 <a href=#511 id=511 data-nosnippet>511</a>        <span class="comment">// Generate a new process ID (this is because the process ID and thread ID
-<a href=#512 id=512 data-nosnippet>512</a>        // address space must not overlap in libc). For the main proecess the TID=PID
+<a href=#512 id=512 data-nosnippet>512</a>        // address space must not overlap in libc). For the main process the TID=PID
 <a href=#513 id=513 data-nosnippet>513</a>        </span><span class="kw">let </span>tid: WasiThreadId = <span class="kw">if </span>is_main {
 <a href=#514 id=514 data-nosnippet>514</a>            <span class="self">self</span>.pid().raw().into()
 <a href=#515 id=515 data-nosnippet>515</a>        } <span class="kw">else </span>{

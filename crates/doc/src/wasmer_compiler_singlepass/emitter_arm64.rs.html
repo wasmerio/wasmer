@@ -3230,7 +3230,7 @@
 <a href=#3230 id=3230 data-nosnippet>3230</a>    // from Ctx and jumps to it.
 <a href=#3231 id=3231 data-nosnippet>3231</a>
 <a href=#3232 id=3232 data-nosnippet>3232</a>    </span><span class="kw">let </span>offset = vmoffsets.vmctx_vmfunction_import(index);
-<a href=#3233 id=3233 data-nosnippet>3233</a>    <span class="comment">// for ldr, offset needs to be a multiple of 8, wich often is not
+<a href=#3233 id=3233 data-nosnippet>3233</a>    <span class="comment">// for ldr, offset needs to be a multiple of 8, which often is not
 <a href=#3234 id=3234 data-nosnippet>3234</a>    // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
 <a href=#3235 id=3235 data-nosnippet>3235</a>    </span><span class="kw">let </span>offset =
 <a href=#3236 id=3236 data-nosnippet>3236</a>        <span class="kw">if </span>(offset &gt; <span class="number">0</span>) &amp;&amp; ((offset &lt; <span class="number">0xF8</span>) || (offset &lt; <span class="number">0x7FF8 </span>&amp;&amp; offset.is_multiple_of(<span class="number">8</span>))) {

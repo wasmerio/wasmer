@@ -418,7 +418,7 @@
 <a href=#418 id=418 data-nosnippet>418</a>        <span class="kw">unsafe </span>{
 <a href=#419 id=419 data-nosnippet>419</a>            <span class="comment">// Even though we already know the type of the function we need to call, in certain
 <a href=#420 id=420 data-nosnippet>420</a>            // specific cases trampoline prepare callee arguments for specific optimizations, such
-<a href=#421 id=421 data-nosnippet>421</a>            // as passing g0 and m0_base_ptr as paramters.
+<a href=#421 id=421 data-nosnippet>421</a>            // as passing g0 and m0_base_ptr as parameters.
 <a href=#422 id=422 data-nosnippet>422</a>            </span>wasmer_call_trampoline(
 <a href=#423 id=423 data-nosnippet>423</a>                trap_handler,
 <a href=#424 id=424 data-nosnippet>424</a>                config,
@@ -440,7 +440,7 @@
 <a href=#440 id=440 data-nosnippet>440</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>table_index(<span class="kw-2">&amp;</span><span class="self">self</span>, table: <span class="kw-2">&amp;</span>VMTableDefinition) -&gt; LocalTableIndex {
 <a href=#441 id=441 data-nosnippet>441</a>        <span class="kw">let </span>begin: <span class="kw-2">*const </span>VMTableDefinition = <span class="self">self</span>.tables_ptr() <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>;
 <a href=#442 id=442 data-nosnippet>442</a>        <span class="kw">let </span>end: <span class="kw-2">*const </span>VMTableDefinition = table;
-<a href=#443 id=443 data-nosnippet>443</a>        <span class="comment">// TODO: Use `offset_from` once it stablizes.
+<a href=#443 id=443 data-nosnippet>443</a>        <span class="comment">// TODO: Use `offset_from` once it stabilizes.
 <a href=#444 id=444 data-nosnippet>444</a>        </span><span class="kw">let </span>index = LocalTableIndex::new(
 <a href=#445 id=445 data-nosnippet>445</a>            (end <span class="kw">as </span>usize - begin <span class="kw">as </span>usize) / mem::size_of::&lt;VMTableDefinition&gt;(),
 <a href=#446 id=446 data-nosnippet>446</a>        );
@@ -452,7 +452,7 @@
 <a href=#452 id=452 data-nosnippet>452</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>memory_index(<span class="kw-2">&amp;</span><span class="self">self</span>, memory: <span class="kw-2">&amp;</span>VMMemoryDefinition) -&gt; LocalMemoryIndex {
 <a href=#453 id=453 data-nosnippet>453</a>        <span class="kw">let </span>begin: <span class="kw-2">*const </span>VMMemoryDefinition = <span class="self">self</span>.memories_ptr() <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>;
 <a href=#454 id=454 data-nosnippet>454</a>        <span class="kw">let </span>end: <span class="kw-2">*const </span>VMMemoryDefinition = memory;
-<a href=#455 id=455 data-nosnippet>455</a>        <span class="comment">// TODO: Use `offset_from` once it stablizes.
+<a href=#455 id=455 data-nosnippet>455</a>        <span class="comment">// TODO: Use `offset_from` once it stabilizes.
 <a href=#456 id=456 data-nosnippet>456</a>        </span><span class="kw">let </span>index = LocalMemoryIndex::new(
 <a href=#457 id=457 data-nosnippet>457</a>            (end <span class="kw">as </span>usize - begin <span class="kw">as </span>usize) / mem::size_of::&lt;VMMemoryDefinition&gt;(),
 <a href=#458 id=458 data-nosnippet>458</a>        );
@@ -1099,7 +1099,7 @@
 <a href=#1099 id=1099 data-nosnippet>1099</a>
 <a href=#1100 id=1100 data-nosnippet>1100</a><span class="doccomment">/// VMInstance are created with an InstanceAllocator
 <a href=#1101 id=1101 data-nosnippet>1101</a>/// and it will "consume" the memory
-<a href=#1102 id=1102 data-nosnippet>1102</a>/// So the Drop here actualy free it (else it would be leaked)
+<a href=#1102 id=1102 data-nosnippet>1102</a>/// So the Drop here actually free it (else it would be leaked)
 <a href=#1103 id=1103 data-nosnippet>1103</a></span><span class="kw">impl </span>Drop <span class="kw">for </span>VMInstance {
 <a href=#1104 id=1104 data-nosnippet>1104</a>    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
 <a href=#1105 id=1105 data-nosnippet>1105</a>        <span class="kw">let </span>instance_ptr = <span class="self">self</span>.instance.as_ptr();

@@ -28,7 +28,7 @@ mutable from both host and WebAssembly.</p>
     store: &amp;mut impl <a class="trait" href="trait.AsStoreMut.html" title="trait wasmer::AsStoreMut">AsStoreMut</a>,
     delta: <a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.u32.html">u32</a>,
     init: <a class="enum" href="enum.Value.html" title="enum wasmer::Value">Value</a>,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.92.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.u32.html">u32</a>, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer::RuntimeError">RuntimeError</a>&gt;</h4></section></summary><div class="docblock"><p>Grows the size of the <code>Table</code> by <code>delta</code>, initializating
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.92.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.92.0/std/primitive.u32.html">u32</a>, <a class="struct" href="struct.RuntimeError.html" title="struct wasmer::RuntimeError">RuntimeError</a>&gt;</h4></section></summary><div class="docblock"><p>Grows the size of the <code>Table</code> by <code>delta</code>, initializing
 the elements with the provided <code>init</code> value.</p>
 <p>It returns the previous size of the <code>Table</code> in case is able
 to grow the Table successfully.</p>

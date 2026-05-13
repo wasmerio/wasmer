@@ -1200,7 +1200,7 @@
 <a href=#1200 id=1200 data-nosnippet>1200</a>    }
 <a href=#1201 id=1201 data-nosnippet>1201</a>
 <a href=#1202 id=1202 data-nosnippet>1202</a>    <span class="kw">fn </span>set_default_nan(<span class="kw-2">&amp;mut </span><span class="self">self</span>, temps: <span class="kw-2">&amp;mut </span>Vec&lt;GPR&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;GPR, CompileError&gt; {
-<a href=#1203 id=1203 data-nosnippet>1203</a>        <span class="comment">// temporarly set FPCR to DefaultNan
+<a href=#1203 id=1203 data-nosnippet>1203</a>        <span class="comment">// temporarily set FPCR to DefaultNan
 <a href=#1204 id=1204 data-nosnippet>1204</a>        </span><span class="kw">let </span>old_fpcr = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
 <a href=#1205 id=1205 data-nosnippet>1205</a>            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
 <a href=#1206 id=1206 data-nosnippet>1206</a>        })<span class="question-mark">?</span>;
@@ -1230,7 +1230,7 @@
 <a href=#1230 id=1230 data-nosnippet>1230</a>        <span class="prelude-val">Ok</span>(old_fpcr)
 <a href=#1231 id=1231 data-nosnippet>1231</a>    }
 <a href=#1232 id=1232 data-nosnippet>1232</a>    <span class="kw">fn </span>set_trap_enabled(<span class="kw-2">&amp;mut </span><span class="self">self</span>, temps: <span class="kw-2">&amp;mut </span>Vec&lt;GPR&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;GPR, CompileError&gt; {
-<a href=#1233 id=1233 data-nosnippet>1233</a>        <span class="comment">// temporarly set FPCR to DefaultNan
+<a href=#1233 id=1233 data-nosnippet>1233</a>        <span class="comment">// temporarily set FPCR to DefaultNan
 <a href=#1234 id=1234 data-nosnippet>1234</a>        </span><span class="kw">let </span>old_fpcr = <span class="self">self</span>.acquire_temp_gpr().ok_or_else(|| {
 <a href=#1235 id=1235 data-nosnippet>1235</a>            CompileError::Codegen(<span class="string">"singlepass cannot acquire temp gpr"</span>.to_owned())
 <a href=#1236 id=1236 data-nosnippet>1236</a>        })<span class="question-mark">?</span>;
@@ -1273,7 +1273,7 @@
 <a href=#1273 id=1273 data-nosnippet>1273</a>        <span class="prelude-val">Ok</span>(fpsr)
 <a href=#1274 id=1274 data-nosnippet>1274</a>    }
 <a href=#1275 id=1275 data-nosnippet>1275</a>
-<a href=#1276 id=1276 data-nosnippet>1276</a>    <span class="kw">fn </span>trap_float_convertion_errors(
+<a href=#1276 id=1276 data-nosnippet>1276</a>    <span class="kw">fn </span>trap_float_conversion_errors(
 <a href=#1277 id=1277 data-nosnippet>1277</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#1278 id=1278 data-nosnippet>1278</a>        old_fpcr: GPR,
 <a href=#1279 id=1279 data-nosnippet>1279</a>        sz: Size,
@@ -2246,7 +2246,7 @@
 <a href=#2246 id=2246 data-nosnippet>2246</a>        <span class="kw">let </span><span class="kw-2">mut </span>tempn = <span class="macro">vec!</span>[];
 <a href=#2247 id=2247 data-nosnippet>2247</a>        <span class="kw">let </span><span class="kw-2">mut </span>temps = <span class="macro">vec!</span>[];
 <a href=#2248 id=2248 data-nosnippet>2248</a>        <span class="kw">let </span>old_fpcr = <span class="self">self</span>.set_default_nan(<span class="kw-2">&amp;mut </span>temps)<span class="question-mark">?</span>;
-<a href=#2249 id=2249 data-nosnippet>2249</a>        <span class="comment">// use FMAX (input, intput) =&gt; output to automaticaly normalize the NaN
+<a href=#2249 id=2249 data-nosnippet>2249</a>        <span class="comment">// use FMAX (input, input) =&gt; output to automatically normalize the NaN
 <a href=#2250 id=2250 data-nosnippet>2250</a>        </span><span class="kw">match </span>(sz, input, output) {
 <a href=#2251 id=2251 data-nosnippet>2251</a>            (Size::S32, Location::SIMD(<span class="kw">_</span>), Location::SIMD(<span class="kw">_</span>)) =&gt; {
 <a href=#2252 id=2252 data-nosnippet>2252</a>                <span class="self">self</span>.assembler.emit_fmax(sz, input, input, output)<span class="question-mark">?</span>;
@@ -7667,7 +7667,7 @@
 <a href=#7667 id=7667 data-nosnippet>7667</a>                .emit_fcvtzu(Size::S64, src, Size::S64, dest)<span class="question-mark">?</span>;
 <a href=#7668 id=7668 data-nosnippet>7668</a>        }
 <a href=#7669 id=7669 data-nosnippet>7669</a>        <span class="kw">if </span>!sat {
-<a href=#7670 id=7670 data-nosnippet>7670</a>            <span class="self">self</span>.trap_float_convertion_errors(old_fpcr, Size::S64, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
+<a href=#7670 id=7670 data-nosnippet>7670</a>            <span class="self">self</span>.trap_float_conversion_errors(old_fpcr, Size::S64, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
 <a href=#7671 id=7671 data-nosnippet>7671</a>        }
 <a href=#7672 id=7672 data-nosnippet>7672</a>        <span class="kw">if </span>ret != dest {
 <a href=#7673 id=7673 data-nosnippet>7673</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
@@ -7706,7 +7706,7 @@
 <a href=#7706 id=7706 data-nosnippet>7706</a>                .emit_fcvtzu(Size::S64, src, Size::S32, dest)<span class="question-mark">?</span>;
 <a href=#7707 id=7707 data-nosnippet>7707</a>        }
 <a href=#7708 id=7708 data-nosnippet>7708</a>        <span class="kw">if </span>!sat {
-<a href=#7709 id=7709 data-nosnippet>7709</a>            <span class="self">self</span>.trap_float_convertion_errors(old_fpcr, Size::S64, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
+<a href=#7709 id=7709 data-nosnippet>7709</a>            <span class="self">self</span>.trap_float_conversion_errors(old_fpcr, Size::S64, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
 <a href=#7710 id=7710 data-nosnippet>7710</a>        }
 <a href=#7711 id=7711 data-nosnippet>7711</a>        <span class="kw">if </span>ret != dest {
 <a href=#7712 id=7712 data-nosnippet>7712</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
@@ -7745,7 +7745,7 @@
 <a href=#7745 id=7745 data-nosnippet>7745</a>                .emit_fcvtzu(Size::S32, src, Size::S64, dest)<span class="question-mark">?</span>;
 <a href=#7746 id=7746 data-nosnippet>7746</a>        }
 <a href=#7747 id=7747 data-nosnippet>7747</a>        <span class="kw">if </span>!sat {
-<a href=#7748 id=7748 data-nosnippet>7748</a>            <span class="self">self</span>.trap_float_convertion_errors(old_fpcr, Size::S32, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
+<a href=#7748 id=7748 data-nosnippet>7748</a>            <span class="self">self</span>.trap_float_conversion_errors(old_fpcr, Size::S32, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
 <a href=#7749 id=7749 data-nosnippet>7749</a>        }
 <a href=#7750 id=7750 data-nosnippet>7750</a>        <span class="kw">if </span>ret != dest {
 <a href=#7751 id=7751 data-nosnippet>7751</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
@@ -7784,7 +7784,7 @@
 <a href=#7784 id=7784 data-nosnippet>7784</a>                .emit_fcvtzu(Size::S32, src, Size::S32, dest)<span class="question-mark">?</span>;
 <a href=#7785 id=7785 data-nosnippet>7785</a>        }
 <a href=#7786 id=7786 data-nosnippet>7786</a>        <span class="kw">if </span>!sat {
-<a href=#7787 id=7787 data-nosnippet>7787</a>            <span class="self">self</span>.trap_float_convertion_errors(old_fpcr, Size::S32, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
+<a href=#7787 id=7787 data-nosnippet>7787</a>            <span class="self">self</span>.trap_float_conversion_errors(old_fpcr, Size::S32, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
 <a href=#7788 id=7788 data-nosnippet>7788</a>        }
 <a href=#7789 id=7789 data-nosnippet>7789</a>        <span class="kw">if </span>ret != dest {
 <a href=#7790 id=7790 data-nosnippet>7790</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;

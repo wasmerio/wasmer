@@ -61,12 +61,12 @@
 <a href=#61 id=61 data-nosnippet>61</a></span><span class="kw">pub struct </span>FunctionEnvMut&lt;<span class="lifetime">'a</span>, T: <span class="lifetime">'a</span>&gt;(<span class="kw">pub</span>(<span class="kw">crate</span>) BackendFunctionEnvMut&lt;<span class="lifetime">'a</span>, T&gt;);
 <a href=#62 id=62 data-nosnippet>62</a>
 <a href=#63 id=63 data-nosnippet>63</a><span class="kw">impl</span>&lt;T: Send + <span class="lifetime">'static</span>&gt; FunctionEnvMut&lt;<span class="lifetime">'_</span>, T&gt; {
-<a href=#64 id=64 data-nosnippet>64</a>    <span class="doccomment">/// Returns a reference to the host state in this function environement.
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="doccomment">/// Returns a reference to the host state in this function environment.
 <a href=#65 id=65 data-nosnippet>65</a>    </span><span class="kw">pub fn </span>data(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>T {
 <a href=#66 id=66 data-nosnippet>66</a>        <span class="self">self</span>.<span class="number">0</span>.data()
 <a href=#67 id=67 data-nosnippet>67</a>    }
 <a href=#68 id=68 data-nosnippet>68</a>
-<a href=#69 id=69 data-nosnippet>69</a>    <span class="doccomment">/// Returns a mutable- reference to the host state in this function environement.
+<a href=#69 id=69 data-nosnippet>69</a>    <span class="doccomment">/// Returns a mutable- reference to the host state in this function environment.
 <a href=#70 id=70 data-nosnippet>70</a>    </span><span class="kw">pub fn </span>data_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>T {
 <a href=#71 id=71 data-nosnippet>71</a>        <span class="self">self</span>.<span class="number">0</span>.data_mut()
 <a href=#72 id=72 data-nosnippet>72</a>    }

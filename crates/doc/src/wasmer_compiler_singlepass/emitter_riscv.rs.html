@@ -1560,7 +1560,7 @@
 <a href=#1560 id=1560 data-nosnippet>1560</a>        <span class="kw">match </span>cond {
 <a href=#1561 id=1561 data-nosnippet>1561</a>            Location::GPR(cond) =&gt; {
 <a href=#1562 id=1562 data-nosnippet>1562</a>                <span class="comment">// Use the negative condition to jump after the "j" instruction that will
-<a href=#1563 id=1563 data-nosnippet>1563</a>                // go to the requsted `label`.
+<a href=#1563 id=1563 data-nosnippet>1563</a>                // go to the requested `label`.
 <a href=#1564 id=1564 data-nosnippet>1564</a>                </span><span class="macro">dynasm!</span>(<span class="self">self</span>; bnez X(cond), =&gt; cont);
 <a href=#1565 id=1565 data-nosnippet>1565</a>            }
 <a href=#1566 id=1566 data-nosnippet>1566</a>            <span class="kw">_ if </span>cond.is_imm() =&gt; {

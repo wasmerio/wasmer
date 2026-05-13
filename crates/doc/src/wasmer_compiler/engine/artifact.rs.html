@@ -49,12 +49,12 @@
 <a href=#49 id=49 data-nosnippet>49</a>
 <a href=#50 id=50 data-nosnippet>50</a><span class="attr">#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
 <a href=#51 id=51 data-nosnippet>51</a></span><span class="kw">pub struct </span>AllocatedArtifact {
-<a href=#52 id=52 data-nosnippet>52</a>    <span class="comment">// This shows if the frame info has been regestered already or not.
-<a href=#53 id=53 data-nosnippet>53</a>    // Because the 'GlobalFrameInfoRegistration' ownership can be transfered to EngineInner
+<a href=#52 id=52 data-nosnippet>52</a>    <span class="comment">// This shows if the frame info has been registered already or not.
+<a href=#53 id=53 data-nosnippet>53</a>    // Because the 'GlobalFrameInfoRegistration' ownership can be transferred to EngineInner
 <a href=#54 id=54 data-nosnippet>54</a>    // this bool is needed to track the status, as 'frame_info_registration' will be None
-<a href=#55 id=55 data-nosnippet>55</a>    // after the ownership is transfered.
+<a href=#55 id=55 data-nosnippet>55</a>    // after the ownership is transferred.
 <a href=#56 id=56 data-nosnippet>56</a>    </span>frame_info_registered: bool,
-<a href=#57 id=57 data-nosnippet>57</a>    <span class="comment">// frame_info_registered is not staying there but transfered to CodeMemory from EngineInner
+<a href=#57 id=57 data-nosnippet>57</a>    <span class="comment">// frame_info_registered is not staying there but transferred to CodeMemory from EngineInner
 <a href=#58 id=58 data-nosnippet>58</a>    // using 'Artifact::take_frame_info_registration' method
 <a href=#59 id=59 data-nosnippet>59</a>    // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
 <a href=#60 id=60 data-nosnippet>60</a>    </span>frame_info_registration: <span class="prelude-ty">Option</span>&lt;GlobalFrameInfoRegistration&gt;,
