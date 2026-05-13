@@ -93,3 +93,39 @@ wasm_test!(
     test_contexts_with_setjmp,
     "contexts_with_setjmp"
 );
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_basic_switching,
+    "legacy_process_switching",
+    args = ["basic_switching"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_vfork_after_switching,
+    "legacy_process_switching",
+    args = ["vfork_after_switching"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_vfork_after_switching2,
+    "legacy_process_switching",
+    args = ["vfork_after_switching2"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_fork_after_switching,
+    "legacy_process_switching",
+    args = ["fork_after_switching"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_fork_and_vfork_only_work_in_main_context,
+    "legacy_process_switching",
+    args = ["fork_and_vfork_only_work_in_main_context"]
+);
+wasm_test!(
+    #[cfg(unix)]
+    test_legacy_process_switching_posix_spawning_a_forking_subprocess_from_a_context,
+    "legacy_process_switching",
+    args = ["posix_spawning_a_forking_subprocess_from_a_context"]
+);

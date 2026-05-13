@@ -1,9 +1,10 @@
 //! Basic tests for the `run` subcommand
 
 use std::{
+    fs::File,
     io::{ErrorKind, Read},
     path::Path,
-    process::{Child, Command, Stdio},
+    process::{Child, Command, ExitStatus, Stdio},
 };
 
 use assert_cmd::{assert::Assert, prelude::OutputAssertExt};
@@ -488,6 +489,34 @@ fn run_no_start_wasm_report_error() {
     assert.stderr(contains("The module doesn't export a \"_start\" function"));
 }
 
+#[cfg(feature = "v8")]
+#[test]
+fn run_v8_wasi_proc_exit_zero_is_success() {
+    let wasi_wat = "
+    (module
+        (import \"wasi_snapshot_preview1\" \"proc_exit\"
+          (func $__wasi_proc_exit (param i32)))
+        (func $_start
+          i32.const 0
+          call $__wasi_proc_exit)
+        (memory 1)
+        (export \"memory\" (memory 0))
+        (export \"_start\" (func $_start))
+      )
+    ";
+
+    let temp = TempDir::new().unwrap();
+    let module_file = temp.path().join("proc_exit_zero.wat");
+    std::fs::write(&module_file, wasi_wat.as_bytes()).unwrap();
+
+    Command::new(get_wasmer_path())
+        .arg("run")
+        .arg("--v8")
+        .arg(&module_file)
+        .assert()
+        .success();
+}
+
 // Test that wasmer can run a complex path
 #[test]
 fn test_wasmer_run_complex_url() {
@@ -569,6 +598,51 @@ fn wasi_runner_on_disk_with_mounted_directories() {
         .assert();
 
     assert.success().stdout(contains("Hello, World!"));
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn local_package_fs_mounts_work_for_dir_and_webc() {
+    let fixture = packages().join("fs-mount");
+    let temp = TempDir::new().unwrap();
+    let webc = temp.path().join("fs-mount-test.webc");
+
+    compile_wasix_source(
+        &fixture.join("main.c"),
+        &temp.path().join("main.wasm"),
+        false,
+    );
+    std::fs::copy(
+        fixture.join("testfile.txt"),
+        temp.path().join("testfile.txt"),
+    )
+    .unwrap();
+    std::fs::copy(fixture.join("wasmer.toml"), temp.path().join("wasmer.toml")).unwrap();
+
+    Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(temp.path())
+        .env("RUST_LOG", &*RUST_LOG)
+        .assert()
+        .success();
+
+    Command::new(get_wasmer_path())
+        .arg("-q")
+        .arg("package")
+        .arg("build")
+        .arg(".")
+        .arg("-o")
+        .arg(&webc)
+        .current_dir(temp.path())
+        .assert()
+        .success();
+
+    Command::new(get_wasmer_path())
+        .arg("run")
+        .arg(&webc)
+        .env("RUST_LOG", &*RUST_LOG)
+        .assert()
+        .success();
 }
 
 #[test]
@@ -920,6 +994,48 @@ file.write("Hello, world!")
     assert_eq!(file_contents, "Hello, world!");
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn shared_fd_closes_the_host_file_only_after_the_last_fd_is_closed() {
+    let fixture = packages().join("shared-fd");
+    let temp = TempDir::new().unwrap();
+    let wasm = temp.path().join("main.wasm");
+    let combined_log = temp.path().join("combined.log");
+    let output_path = temp.path().join("output");
+
+    compile_wasix_source(&fixture.join("main.c"), &wasm, false);
+
+    let mut cmd = Command::new(get_wasmer_path());
+    cmd.arg("run")
+        .arg(&wasm)
+        .arg("--volume")
+        .arg(".")
+        .current_dir(temp.path())
+        .env("RUST_LOG", "virtual_fs=trace");
+
+    let (status, combined_output) = run_with_combined_output(&mut cmd, &combined_log);
+    assert!(status.success(), "{combined_output}");
+
+    let output = std::fs::read_to_string(&output_path).unwrap();
+    for expected in ["parent 1", "parent 2", "child 1", "child 2"] {
+        assert!(
+            output.contains(expected),
+            "missing `{expected}` in output file:\n{output}"
+        );
+    }
+
+    let closing_marker = combined_output.find("closing last fd").unwrap();
+    let close_log = combined_output
+        .find(&output_path.display().to_string())
+        .unwrap_or_else(|| panic!("missing close trace for output file:\n{combined_output}"));
+    let closed_marker = combined_output.find("last fd closed").unwrap();
+
+    assert!(
+        closing_marker < close_log && close_log < closed_marker,
+        "unexpected close ordering:\n{combined_output}"
+    );
+}
+
 fn project_root() -> &'static Path {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
@@ -1007,6 +1123,37 @@ fn read_line(reader: &mut dyn Read) -> Result<String, std::io::Error> {
 
     let line = String::from_utf8(line).map_err(std::io::Error::other)?;
     Ok(line)
+}
+
+#[cfg(target_os = "linux")]
+fn compile_wasix_source(source: &Path, output: &Path, use_eh: bool) {
+    let output = Command::new("wasixcc")
+        .arg(source)
+        .arg("-o")
+        .arg(output)
+        .env("WASIXCC_WASM_EXCEPTIONS", if use_eh { "yes" } else { "no" })
+        .output()
+        .unwrap();
+
+    assert!(
+        output.status.success(),
+        "failed to compile {}:\nstdout:\n{}\nstderr:\n{}",
+        source.display(),
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+fn run_with_combined_output(cmd: &mut Command, log_path: &Path) -> (ExitStatus, String) {
+    let stdout = File::create(log_path).unwrap();
+    let stderr = stdout.try_clone().unwrap();
+    let status = cmd
+        .stdout(Stdio::from(stdout))
+        .stderr(Stdio::from(stderr))
+        .status()
+        .unwrap();
+    let output = std::fs::read_to_string(log_path).unwrap();
+    (status, output)
 }
 
 impl Drop for JoinableChild {

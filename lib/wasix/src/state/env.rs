@@ -1087,6 +1087,10 @@ impl WasiEnv {
         (state, inodes)
     }
 
+    pub(crate) fn get_wasi_state(&self) -> &WasiState {
+        self.state.deref()
+    }
+
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
         block_on(self.use_package_async(pkg))
     }
