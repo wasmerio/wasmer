@@ -45,7 +45,7 @@ fn run_with_toplevel_dir() {
         return;
     }
 
-    // TODO: add temp directory suport for native execution...
+    // TODO: add temp directory support for native execution...
     // until then, don't actually inspect the directory when running native code.
     for item in fs::read_dir(&base).unwrap() {
         println!(
@@ -116,7 +116,7 @@ fn run_with_toplevel_dir_overwrite() {
         return;
     }
 
-    // TODO: add temp directory suport for native execution...
+    // TODO: add temp directory support for native execution...
     // until then, don't actually inspect the directory when running native code.
     for item in fs::read_dir(&base).unwrap() {
         println!(

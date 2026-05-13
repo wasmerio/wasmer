@@ -444,7 +444,7 @@ impl dyn VirtualTaskManager {
 /// Generic utility methods for VirtualTaskManager
 pub trait VirtualTaskManagerExt {
     /// Runs the work in the background via the task managers shared background
-    /// threads while blocking the current execution until it finishs
+    /// threads while blocking the current execution until it finishes
     fn spawn_and_block_on<A>(
         &self,
         task: impl Future<Output = A> + Send + 'static,
@@ -467,7 +467,7 @@ where
     T: VirtualTaskManager + ?Sized,
 {
     /// Runs the work in the background via the task managers shared background
-    /// threads while blocking the current execution until it finishs
+    /// threads while blocking the current execution until it finishes
     fn spawn_and_block_on<A>(
         &self,
         task: impl Future<Output = A> + Send + 'static,

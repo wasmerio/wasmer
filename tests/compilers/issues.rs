@@ -352,7 +352,7 @@ fn test_popcnt(mut config: crate::Config) -> Result<()> {
 /// sequence
 ///   mov x17, #0x1010
 ///   sub xsp, xsp, x17
-/// will tranform to
+/// will transform to
 ///   mov x17, #0x1010
 ///   sub xzr, xzr, x17
 /// and the locals

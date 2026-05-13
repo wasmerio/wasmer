@@ -118,7 +118,7 @@ pub trait Machine {
     fn get_used_gprs(&self) -> Vec<Self::GPR>;
     /// Get all used SIMD regs
     fn get_used_simd(&self) -> Vec<Self::SIMD>;
-    /// Picks an unused general pupose register and mark it as used
+    /// Picks an unused general purpose register and mark it as used
     fn acquire_temp_gpr(&mut self) -> Option<Self::GPR>;
     /// Releases a temporary GPR.
     fn release_gpr(&mut self, gpr: Self::GPR);
@@ -148,7 +148,7 @@ pub trait Machine {
     fn push_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<usize, CompileError>;
     /// Pop used simd regs to the stack
     fn pop_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<(), CompileError>;
-    /// Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
+    /// Return a rounded stack adjustment value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize;
     /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32);
@@ -165,7 +165,7 @@ pub trait Machine {
     fn insert_stackoverflow(&mut self);
     /// Get all current TrapInformation
     fn collect_trap_information(&self) -> Vec<TrapInformation>;
-    // Get all intructions address map
+    // Get all instructions address map
     fn instructions_address_map(&self) -> Vec<InstructionAddressMap>;
     /// Memory location for a local on the stack
     /// Like Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)) for x86_64
@@ -174,7 +174,7 @@ pub trait Machine {
     fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
     /// Truncate stack space by the `delta_stack_offset`.
     fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
-    /// Zero a location taht is 32bits
+    /// Zero a location that is 32bits
     fn zero_location(
         &mut self,
         size: Size,
@@ -301,7 +301,7 @@ pub trait Machine {
     fn emit_function_epilog(&mut self) -> Result<(), CompileError>;
     /// Handle copy to SIMD register from ret value (if needed by the arch/calling convention)
     fn emit_function_return_float(&mut self) -> Result<(), CompileError>;
-    /// Cannonicalize a NaN (or panic if not supported)
+    /// Canonicalize a NaN (or panic if not supported)
     fn canonicalize_nan(
         &mut self,
         sz: Size,
@@ -353,7 +353,7 @@ pub trait Machine {
         dest: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
 
-    /// jmp without condidtion
+    /// jmp without condition
     fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError>;
 
     /// jmp to label if the provided condition is true (when comparing loc_a and loc_b)
@@ -366,7 +366,7 @@ pub trait Machine {
         label: Label,
     ) -> Result<(), CompileError>;
 
-    /// jmp using a jump table at lable with cond as the indice
+    /// jmp using a jump table at label with cond as the indice
     fn emit_jmp_to_jumptable(
         &mut self,
         label: Label,
@@ -573,7 +573,7 @@ pub trait Machine {
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// Count Trailling 0 bit of an i32
+    /// Count Trailing 0 bit of an i32
     fn i32_ctz(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,
@@ -1257,7 +1257,7 @@ pub trait Machine {
         loc: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// Count Trailling 0 bit of an i64
+    /// Count Trailing 0 bit of an i64
     fn i64_ctz(
         &mut self,
         loc: Location<Self::GPR, Self::SIMD>,

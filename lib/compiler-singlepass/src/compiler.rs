@@ -479,7 +479,7 @@ mod tests {
     }
 
     #[test]
-    fn errors_for_unsuported_cpufeatures() {
+    fn errors_for_unsupported_cpufeatures() {
         let compiler = SinglepassCompiler::new(Singlepass::default());
         let mut features =
             CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;

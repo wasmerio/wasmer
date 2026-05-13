@@ -103,7 +103,7 @@ endpoint: {endpoint}
  * additional formatting - rclone - that only makes sense in this context.
  */
 
-/// The possibile formats to output the credentials in.
+/// The possible formats to output the credentials in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, clap::ValueEnum)]
 pub enum CredsItemFormat {
     Json,

@@ -4,7 +4,7 @@
 #include <thread>
 
 int main() {
-  // For the same test, but without the TLS item beeing used, see
+  // For the same test, but without the TLS item being used, see
   // lifecycle-of-global-in-shared-library
   return 0;
 }

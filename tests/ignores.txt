@@ -49,7 +49,7 @@ singlepass+aarch64+macos traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
 cranelift+aarch64+macos    traps::trap_display_multi_module
 windows+singlepass   traps::trap_display_multi_module
-singlepass traps::call_signature_mismatch   # Need to investigate, get foo (a[0]:0x33) instead of 0x30 for inderect call
+singlepass traps::call_signature_mismatch   # Need to investigate, get foo (a[0]:0x33) instead of 0x30 for indirect call
 llvm       traps::call_signature_mismatch
 macos+aarch64    traps::call_signature_mismatch
 singlepass+aarch64+macos traps::start_trap_pretty
@@ -187,11 +187,11 @@ wasitests::unstable::mem_fs::fd_close
 
 ### failing because we're operating on stdout which is now overridden.
 ### TODO: check WasiFile implementation
-### Alterative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
+### Alternative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
 wasitests::unstable::host_fs::poll_oneoff
 wasitests::unstable::mem_fs::poll_oneoff
 
-### randomly failed, mainly on windows but also on macos, due to a race condition when concurently testing multiple compiler / engines
+### randomly failed, mainly on windows but also on macos, due to a race condition when concurrently testing multiple compiler / engines
 wasitests::snapshot1::host_fs::fd_rename_path
 
 # This tests are disabled for now

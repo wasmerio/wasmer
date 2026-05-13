@@ -307,7 +307,7 @@ pub enum SocketStatus {
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum StreamSecurity {
     Unencrypted,
-    AnyEncyption,
+    AnyEncryption,
     ClassicEncryption,
     DoubleEncryption,
 }
@@ -586,7 +586,7 @@ pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
 }
 
 pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 'static {
-    /// Sets the receive buffer size which acts as a trottle for how
+    /// Sets the receive buffer size which acts as a throttle for how
     /// much data is buffered on this side of the pipe
     fn set_recv_buf_size(&mut self, size: usize) -> Result<()>;
 
@@ -632,7 +632,7 @@ pub trait VirtualTcpSocket: VirtualConnectedSocket + fmt::Debug + Send + Sync + 
     fn dontroute(&self) -> Result<bool>;
 
     /// Returns the address (IP and Port) of the peer socket that this
-    /// is conencted to
+    /// is connected to
     fn addr_peer(&self) -> Result<SocketAddr>;
 
     /// Shuts down either the READER or WRITER sides of the socket

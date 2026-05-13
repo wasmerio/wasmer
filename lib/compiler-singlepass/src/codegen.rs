@@ -450,7 +450,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Callee-saved vmctx.
         static_area_size += 8;
 
-        // Some ABI (like Windows) needs extrat reg save
+        // Some ABI (like Windows) needs extract reg save
         static_area_size += 8 * self.machine.list_to_save(calling_convention).len();
 
         // Total size of callee saved registers.

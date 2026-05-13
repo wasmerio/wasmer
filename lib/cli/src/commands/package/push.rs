@@ -163,7 +163,7 @@ impl PackagePush {
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
         };
 
-        let msg = format!("Succesfully pushed release to namespace {namespace} on the registry");
+        let msg = format!("Successfully pushed release to namespace {namespace} on the registry");
         spinner_ok!(pb, msg);
 
         Ok(())

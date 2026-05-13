@@ -174,7 +174,7 @@ fn compile_wasm_for_version(
         temp_wasi_rs_file_name.to_string_lossy()
     );
 
-    // to prevent commiting huge binary blobs forever
+    // to prevent committing huge binary blobs forever
     let wasm_strip_out = Command::new("wasm-strip")
         .arg(&wasm_out_name)
         .output()
@@ -361,7 +361,7 @@ impl WasiTest {
     }
 }
 
-/// The options provied when executed a WASI Wasm program
+/// The options provided when executed a WASI Wasm program
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct WasiOptions {
     /// Mapped pre-opened dirs

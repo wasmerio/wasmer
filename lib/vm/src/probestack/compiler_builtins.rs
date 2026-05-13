@@ -151,7 +151,7 @@ core::arch::global_asm!(
     // page needed.
     //
     // Note that we're also testing against `8(%rsp)` to account for the 8
-    // bytes pushed on the stack orginally with our return address. Using
+    // bytes pushed on the stack originally with our return address. Using
     // `8(%rsp)` simulates us testing the stack pointer in the caller's
     // context.
 
@@ -215,7 +215,7 @@ core::arch::global_asm!(
     // page needed.
     //
     // Note that we're also testing against `8(%rsp)` to account for the 8
-    // bytes pushed on the stack orginally with our return address. Using
+    // bytes pushed on the stack originally with our return address. Using
     // `8(%rsp)` simulates us testing the stack pointer in the caller's
     // context.
 

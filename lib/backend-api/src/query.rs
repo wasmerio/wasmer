@@ -297,7 +297,7 @@ pub async fn get_app_s3_credentials(
 ) -> Result<types::S3Credentials, anyhow::Error> {
     let app_id = app_id.into();
 
-    // Firt load the app to get the s3 url.
+    // First load the app to get the s3 url.
     let app1 = get_app_by_id(client, app_id.clone()).await?;
 
     let vars = types::GetDeployAppVars {

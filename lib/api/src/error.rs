@@ -41,7 +41,7 @@ pub enum InstantiationError {
     #[cfg_attr(feature = "std", error(transparent))]
     Link(LinkError),
 
-    /// A runtime error occured while invoking the start function
+    /// A runtime error occurred while invoking the start function
     #[cfg_attr(feature = "std", error(transparent))]
     Start(RuntimeError),
 

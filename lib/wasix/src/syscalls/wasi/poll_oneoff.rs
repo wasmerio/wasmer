@@ -49,7 +49,7 @@ impl EventResult {
 /// - `const __wasi_subscription_t *in`
 ///     The events to subscribe to
 /// - `__wasi_event_t *out`
-///     The events that have occured
+///     The events that have occurred
 /// - `u32 nsubscriptions`
 ///     The number of subscriptions and the number of events
 ///
@@ -218,7 +218,7 @@ pub(crate) fn poll_fd_guard(
 /// - `const __wasi_subscription_t *in`
 ///   The events to subscribe to
 /// - `__wasi_event_t *out`
-///   The events that have occured
+///   The events that have occurred
 /// - `u32 nsubscriptions`
 ///   The number of subscriptions and the number of events
 ///

@@ -41,7 +41,7 @@ impl VMMemory {
         dummy.byte_length / WASM_PAGE_SIZE as u32
     }
 
-    /// Attempts to clone this memory (if its clonable)
+    /// Attempts to clone this memory (if its cloneable)
     pub(crate) fn try_clone(&self) -> Result<Self, MemoryError> {
         Ok(self.clone())
     }

@@ -1,4 +1,4 @@
-//! Here we define the processors usable for each test genrator
+//! Here we define the processors usable for each test generator
 use crate::{Test, Testsuite, extract_name};
 use std::path::PathBuf;
 

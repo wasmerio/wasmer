@@ -1359,7 +1359,7 @@ fn link_exe_from_dir(
     if zig_triple.contains("macos") {
         // need to link with Security framework when using zig, but zig
         // doesn't include it, so we need to bring a copy of the dtb file
-        // which is basicaly the collection of exported symbol for the libs
+        // which is basically the collection of exported symbol for the libs
         let framework = include_bytes!("security_framework.tgz").to_vec();
         // extract files
         let tar = flate2::read::GzDecoder::new(framework.as_slice());

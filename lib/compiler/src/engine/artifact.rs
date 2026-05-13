@@ -49,12 +49,12 @@ use wasmer_vm::{
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct AllocatedArtifact {
-    // This shows if the frame info has been regestered already or not.
-    // Because the 'GlobalFrameInfoRegistration' ownership can be transfered to EngineInner
+    // This shows if the frame info has been registered already or not.
+    // Because the 'GlobalFrameInfoRegistration' ownership can be transferred to EngineInner
     // this bool is needed to track the status, as 'frame_info_registration' will be None
-    // after the ownership is transfered.
+    // after the ownership is transferred.
     frame_info_registered: bool,
-    // frame_info_registered is not staying there but transfered to CodeMemory from EngineInner
+    // frame_info_registered is not staying there but transferred to CodeMemory from EngineInner
     // using 'Artifact::take_frame_info_registration' method
     // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
     frame_info_registration: Option<GlobalFrameInfoRegistration>,

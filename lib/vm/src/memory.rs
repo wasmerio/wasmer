@@ -223,7 +223,7 @@ impl VMOwnedMemory {
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
-    /// that is backed by a memory file. When set to private the file will be remaing in memory and
+    /// that is backed by a memory file. When set to private the file will be remaining in memory and
     /// never flush to disk, when set to shared the memory will be flushed to disk.
     ///
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
@@ -261,7 +261,7 @@ impl VMOwnedMemory {
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
-    /// that is backed by a file. When set to private the file will be remaing in memory and
+    /// that is backed by a file. When set to private the file will be remaining in memory and
     /// never flush to disk, when set to shared the memory will be flushed to disk.
     ///
     /// This creates a `Memory` with metadata owned by a VM, pointed to by
@@ -401,7 +401,7 @@ impl LinearMemory for VMOwnedMemory {
         self.config.ty(minimum)
     }
 
-    /// Returns the size of hte memory in pages
+    /// Returns the size of the memory in pages
     fn size(&self) -> Pages {
         self.mmap.size()
     }
@@ -472,7 +472,7 @@ impl VMSharedMemory {
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
-    /// that is backed by a file. When set to private the file will be remaing in memory and
+    /// that is backed by a file. When set to private the file will be remaining in memory and
     /// never flush to disk, when set to shared the memory will be flushed to disk.
     ///
     /// This creates a `Memory` with owned metadata: this can be used to create a memory
@@ -504,7 +504,7 @@ impl VMSharedMemory {
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
-    /// that is backed by a file. When set to private the file will be remaing in memory and
+    /// that is backed by a file. When set to private the file will be remaining in memory and
     /// never flush to disk, when set to shared the memory will be flushed to disk.
     ///
     /// This creates a `Memory` with metadata owned by a VM, pointed to by
@@ -552,7 +552,7 @@ impl LinearMemory for VMSharedMemory {
         self.config.ty(minimum)
     }
 
-    /// Returns the size of hte memory in pages
+    /// Returns the size of the memory in pages
     fn size(&self) -> Pages {
         let guard = self.mmap.read().unwrap();
         guard.size()
@@ -655,7 +655,7 @@ impl LinearMemory for VMMemory {
         self.0.ty()
     }
 
-    /// Returns the size of hte memory in pages
+    /// Returns the size of the memory in pages
     fn size(&self) -> Pages {
         self.0.size()
     }
@@ -690,7 +690,7 @@ impl LinearMemory for VMMemory {
         self.0.vmmemory()
     }
 
-    /// Attempts to clone this memory (if its clonable)
+    /// Attempts to clone this memory (if its cloneable)
     fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         self.0.try_clone()
     }
@@ -807,7 +807,7 @@ pub unsafe fn initialize_memory_with_data(
     }
 }
 
-/// Represents memory that is used by the WebAsssembly module
+/// Represents memory that is used by the WebAssembly module
 pub trait LinearMemory
 where
     Self: std::fmt::Debug + Send,
@@ -815,7 +815,7 @@ where
     /// Returns the type for this memory.
     fn ty(&self) -> MemoryType;
 
-    /// Returns the size of hte memory in pages
+    /// Returns the size of the memory in pages
     fn size(&self) -> Pages;
 
     /// Returns the memory style for this memory.
@@ -845,7 +845,7 @@ where
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
 
-    /// Attempts to clone this memory (if its clonable)
+    /// Attempts to clone this memory (if its cloneable)
     fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 
     #[doc(hidden)]
