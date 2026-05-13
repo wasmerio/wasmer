@@ -889,6 +889,8 @@ lint-clang-format:
 	find . \( -path './lib/napi' -o -path './target' \) -prune -o -type f \( -name '*.c' -o -name '*.cpp' \) -exec clang-format --dry-run --color -Werror {} +
 lint-yamlfmt:
 	yamlfmt -lint .github
+lint-taplo:
+	taplo format --check --diff
 
 lint-v8:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="v8-default" --locked -- -D clippy::all
@@ -900,7 +902,7 @@ lint-formatting:
 	cargo fmt --all -- --check
 	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
-lint: lint-yamlfmt lint-clang-format lint-formatting lint-packages
+lint: lint-yamlfmt lint-clang-format lint-formatting lint-packages lint-taplo
 
 lint-all: lint-formatting lint-packages lint-v8 lint-capi-ci lint-package-crate
 
