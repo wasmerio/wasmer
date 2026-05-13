@@ -21,6 +21,9 @@
 /// // Run inside a fresh temp dir instead of `<module>/<subdir>/`.
 /// wasm_test!(fn_name, "subdir", temp_dir);
 ///
+/// // Generate one Rust test per engine.
+/// wasm_test!(fn_name, "subdir", engines = [Llvm, Cranelift]);
+///
 /// // Temp dir can be combined with other checks.
 /// wasm_test!(fn_name, "subdir", temp_dir, stdout = "expected output");
 ///
@@ -43,6 +46,94 @@ macro_rules! wasm_test {
             runner.with_args([$($arg),+]);
         })
     };
+    (@run_engine $engine:ident, $wasm:ident, $run_dir:expr, []) => {
+        super::super::run_wasm_with_runner_config_and_engine(
+            &$wasm,
+            $run_dir,
+            super::super::WasmTestEngine::$engine,
+            |_| {},
+        )
+    };
+    (@run_engine $engine:ident, $wasm:ident, $run_dir:expr, [$($arg:expr),+ $(,)?]) => {
+        super::super::run_wasm_with_runner_config_and_engine(
+            &$wasm,
+            $run_dir,
+            super::super::WasmTestEngine::$engine,
+            |runner| {
+                runner.with_args([$($arg),+]);
+            },
+        )
+    };
+    (@engine_case @attrs[$(#[$attr:meta])*] Default, $subdir:literal, setup = $setup:ident, args = [$($arg:expr),* $(,)?], check = $check:tt) => {
+        wasm_test!(@engine_fn $(#[$attr])* default_engine, Default, $subdir, setup = $setup, args = [$($arg),*], check = $check);
+    };
+    (@engine_case @attrs[$(#[$attr:meta])*] Llvm, $subdir:literal, setup = $setup:ident, args = [$($arg:expr),* $(,)?], check = $check:tt) => {
+        wasm_test!(@engine_fn $(#[$attr])* llvm, Llvm, $subdir, setup = $setup, args = [$($arg),*], check = $check);
+    };
+    (@engine_case @attrs[$(#[$attr:meta])*] Cranelift, $subdir:literal, setup = $setup:ident, args = [$($arg:expr),* $(,)?], check = $check:tt) => {
+        wasm_test!(@engine_fn $(#[$attr])* cranelift, Cranelift, $subdir, setup = $setup, args = [$($arg),*], check = $check);
+    };
+    (@engine_fn $(#[$attr:meta])* $test_name:ident, $engine:ident, $subdir:literal, setup = $setup:ident, args = [$($arg:expr),* $(,)?], check = $check:tt) => {
+        $(#[$attr])*
+        #[test]
+        fn $test_name() {
+            let wasm = super::super::run_build_script(file!(), $subdir)
+                .unwrap_or_else(|error| panic!("failed to build {}: {error}", stringify!($test_name)));
+            wasm_test!(@setup $setup, wasm, run_dir, temp_dir);
+            let result = wasm_test!(@run_engine $engine, wasm, run_dir, [$($arg),*])
+                .unwrap_or_else(|error| panic!("failed to execute {}: {error}", stringify!($test_name)));
+            wasm_test!(@check $check, $test_name, result);
+        }
+    };
+    (@engine_cases @attrs[$(#[$attr:meta])*] [], $subdir:literal, setup = $setup:ident, args = [$($arg:expr),* $(,)?], check = $check:tt) => {};
+    (@engine_cases @attrs[$(#[$attr:meta])*] [$engine:ident $(, $rest:ident)* $(,)?], $subdir:literal, setup = $setup:ident, args = [$($arg:expr),* $(,)?], check = $check:tt) => {
+        wasm_test!(@engine_case @attrs[$(#[$attr])*] $engine, $subdir, setup = $setup, args = [$($arg),*], check = $check);
+        wasm_test!(@engine_cases @attrs[$(#[$attr])*] [$($rest),*], $subdir, setup = $setup, args = [$($arg),*], check = $check);
+    };
+    (@check success, $fn_name:ident, $result:ident) => {
+        super::super::ensure_wasm_run_succeeded(&$result).unwrap();
+    };
+    (@check should_fail, $fn_name:ident, $result:ident) => {
+        assert!(
+            $result.exit_code != Some(0),
+            "{} should exit with non-zero code\n{}",
+            stringify!($fn_name),
+            super::super::format_captured_output(&$result),
+        );
+    };
+    (@check exit_code($expected:expr), $fn_name:ident, $result:ident) => {
+        assert_eq!(
+            $result.exit_code,
+            Some($expected),
+            "{} should exit with code {:?}\n{}",
+            stringify!($fn_name),
+            Some($expected),
+            super::super::format_captured_output(&$result),
+        );
+    };
+    (@check stdout($expected:literal), $fn_name:ident, $result:ident) => {
+        let stdout = String::from_utf8_lossy(&$result.stdout);
+        assert_eq!(
+            stdout.trim(),
+            $expected,
+            "{}",
+            super::super::format_captured_output(&$result),
+        );
+    };
+    (
+        @base_engines
+        $(#[$attr:meta])*
+        $fn_name:ident,
+        $subdir:literal,
+        setup = $setup:ident,
+        args = [$($arg:expr),* $(,)?],
+        engines = [$($engine:ident),+ $(,)?],
+        check = $check:tt
+    ) => {
+        mod $fn_name {
+            wasm_test!(@engine_cases @attrs[$(#[$attr])*] [$($engine),+], $subdir, setup = $setup, args = [$($arg),*], check = $check);
+        }
+    };
     // ── base case used by all public forms ────────────────────────────────
     (
         @base
@@ -63,6 +154,46 @@ macro_rules! wasm_test {
                 .unwrap_or_else(|error| panic!("failed to execute {}: {error}", stringify!($fn_name)));
             $body
         }
+    };
+    // ── engine-specific success with argv ─────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, args = [$($arg:expr),* $(,)?], engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = default, args = [$($arg),*], engines = [$($engine),+], check = success);
+    };
+    // ── engine-specific success with argv in a fresh temp dir ─────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, args = [$($arg:expr),* $(,)?], engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [$($arg),*], engines = [$($engine),+], check = success);
+    };
+    // ── engine-specific success ───────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = default, args = [], engines = [$($engine),+], check = success);
+    };
+    // ── engine-specific success in a fresh temp dir ───────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], engines = [$($engine),+], check = success);
+    };
+    // ── engine-specific non-zero exit ─────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, should_fail, engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = default, args = [], engines = [$($engine),+], check = should_fail);
+    };
+    // ── engine-specific non-zero exit in a fresh temp dir ─────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, should_fail, engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], engines = [$($engine),+], check = should_fail);
+    };
+    // ── engine-specific exit code ─────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, exit_code = $expected:expr, engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = default, args = [], engines = [$($engine),+], check = exit_code($expected));
+    };
+    // ── engine-specific exit code in a fresh temp dir ─────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, exit_code = $expected:expr, engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], engines = [$($engine),+], check = exit_code($expected));
+    };
+    // ── engine-specific stdout ────────────────────────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, stdout = $expected:literal, engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = default, args = [], engines = [$($engine),+], check = stdout($expected));
+    };
+    // ── engine-specific stdout in a fresh temp dir ────────────────────────
+    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, stdout = $expected:literal, engines = [$($engine:ident),+ $(,)?]) => {
+        wasm_test!(@base_engines $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], engines = [$($engine),+], check = stdout($expected));
     };
     // ── success with argv ──────────────────────────────────────────────────
     ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, args = [$($arg:expr),* $(,)?]) => {

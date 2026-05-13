@@ -195,7 +195,6 @@ js-sys = "0.3.77"
 leb128 = "0.2"
 libc = { version = "0.2.178", default-features = false }
 libfuzzer-sys = "0.4.0"
-libtest-mimic = "0.8.2"
 libunwind = "1.3.3"
 linked_hash_set = "0.1.6"
 log = "0.4.22"

@@ -105,6 +105,7 @@ wasm_test!(test_fails, "exit-nonzero", should_fail);
 wasm_test!(test_exit_code, "abort-case", exit_code = 134);
 wasm_test!(test_stdout, "print-case", stdout = "hello world");
 wasm_test!(test_with_args, "arg-case", args = ["case-name"]);
+wasm_test!(test_multi_engine, "hello", engines = [Llvm, Cranelift]);
 wasm_test!(#[ignore = "flaky on CI"] test_ignored, "fixture");
 ```
 
