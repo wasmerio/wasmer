@@ -31,7 +31,12 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     // Keep stdio behavior unchanged: flush before close.
     if fd <= __WASI_STDERR_FILENO {
         match __asyncify_light(env, None, state.fs.flush(fd))? {
-            Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
+            Ok(_)
+            | Err(Errno::Isdir)
+            | Err(Errno::Io)
+            | Err(Errno::Access)
+            // EINVAL is returned by e.g. pipe-backed stdio and is safe to ignore.
+            | Err(Errno::Inval) => {}
             Err(e) => {
                 return Ok(e);
             }

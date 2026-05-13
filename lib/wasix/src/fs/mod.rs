@@ -31,7 +31,6 @@ use crate::{
 use futures::{Future, future::BoxFuture};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{
     ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
@@ -52,7 +51,6 @@ pub(crate) use self::inode_guard::{
     InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
 };
 pub use self::notification::NotificationInner;
-use crate::syscalls::map_io_err;
 use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
 
 // POSIX bounds descriptor numbers by the process fd limit (`OPEN_MAX`,
@@ -1680,43 +1678,29 @@ impl WasiFs {
         }
     }
 
-    #[allow(clippy::await_holding_lock)]
     pub async fn flush(&self, fd: WasiFd) -> Result<(), Errno> {
-        match fd {
-            __WASI_STDIN_FILENO => (),
-            __WASI_STDOUT_FILENO => {
-                let mut file =
-                    WasiInodes::stdout_mut(&self.fd_map).map_err(fs_error_into_wasi_err)?;
-                file.flush().await.map_err(map_io_err)?
-            }
-            __WASI_STDERR_FILENO => {
-                let mut file =
-                    WasiInodes::stderr_mut(&self.fd_map).map_err(fs_error_into_wasi_err)?;
-                file.flush().await.map_err(map_io_err)?
-            }
-            _ => {
-                let fd = self.get_fd(fd)?;
-                if !fd.inner.rights.contains(Rights::FD_DATASYNC) {
-                    return Err(Errno::Access);
-                }
-
-                let file = {
-                    let guard = fd.inode.read();
-                    match guard.deref() {
-                        Kind::File {
-                            handle: Some(file), ..
-                        } => file.clone(),
-                        // TODO: verify this behavior
-                        Kind::Dir { .. } => return Err(Errno::Isdir),
-                        Kind::Buffer { .. } => return Ok(()),
-                        _ => return Err(Errno::Io),
-                    }
-                };
-                drop(fd);
-                FlushPoller { file }.await?;
-            }
+        let fd_entry = self.get_fd(fd)?;
+        if !fd_entry.inner.rights.contains(Rights::FD_DATASYNC) {
+            return Err(Errno::Access);
         }
-        Ok(())
+
+        let file = {
+            let guard = fd_entry.inode.read();
+            match guard.deref() {
+                Kind::File {
+                    handle: Some(file), ..
+                } => file.clone(),
+                // TODO: verify this behavior
+                Kind::Dir { .. } => return Err(Errno::Isdir),
+                Kind::Buffer { .. } => return Ok(()),
+                // Linux fsync(2) returns EINVAL for fds "bound to a special
+                // file (e.g., a pipe, FIFO, or socket) which does not support
+                // synchronization.", mirror that behaviour
+                _ => return Err(Errno::Inval),
+            }
+        };
+        drop(fd_entry);
+        FlushPoller { file }.await
     }
 
     /// Creates an inode and inserts it given a Kind and some extra data
