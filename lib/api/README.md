@@ -52,14 +52,7 @@ Wasmer is not only fast, but also designed to be *highly customizable*:
   * [`wasmer-compiler-cranelift`] provides the right balance between
     compilation-time and runtime performance, useful for development,
   * [`wasmer-compiler-llvm`] provides a deeply optimized executable
-    code with the fastest runtime speed, ideal for production.
-
-* **Pluggable interpreters** (experimental) - `wamr`, a feature provided by
-  the `wasmer` crate, provides binding to the interpreter provided by
-  [`WAMR`](https://github.com/bytecodealliance/wasm-micro-runtime). More
-  informations about this experimental backend can be found in the [dedicated
-  documentation](/docs/en/wamr.md).
- 
+    code with the fastest runtime speed, ideal for production. 
     
 * **Headless mode** — Once a WebAssembly module has been compiled, it
   is possible to serialize it in a file for example, and later execute

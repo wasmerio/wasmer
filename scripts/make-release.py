@@ -252,7 +252,7 @@ def make_release(version):
             raise Exception("could not run git checkout -b release-" + RELEASE_VERSION)
 
         replace(
-            temp_dir.name + "/CHANGELOG.md", "## **Unreleased**", "\r\n".join(changelog)
+            temp_dir.name + "/CHANGELOG.md", "## **Unreleased**", "\n".join(changelog)
         )
 
         proc = subprocess.Popen(
@@ -642,7 +642,7 @@ def make_release(version):
             "edit",
             RELEASE_VERSION_WITH_V,
             "--notes",
-            "\r\n".join(release_notes),
+            "\n".join(release_notes),
         ],
         stdout=subprocess.PIPE,
         cwd=temp_dir.name,

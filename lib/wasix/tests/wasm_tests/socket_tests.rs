@@ -1,24 +1,38 @@
-use super::{run_build_script, run_wasm, run_wasm_with_result};
+use super::{run_build_script, run_wasm_with_runner_config};
 
-#[test]
-fn test_pipe_send_recv_compat() {
-    let wasm = run_build_script(file!(), "pipe_send_recv_compat").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    let stdout = String::from_utf8_lossy(&result.stdout);
-    assert_eq!(
-        stdout.trim(),
-        "pipe send/recv works",
-        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}",
-        result.exit_code,
-        stdout,
-        String::from_utf8_lossy(&result.stderr)
-    );
-}
+wasm_test!(
+    test_pipe_send_recv_compat,
+    "pipe_send_recv_compat",
+    stdout = "pipe send/recv works"
+);
 
-#[test]
+wasm_test!(
+    test_nonblocking_connect,
+    "nonblocking-connect",
+    stdout = "nonblocking connect returned immediately"
+);
+
 // https://github.com/wasmerio/wasmer/issues/6366
-#[ignore = "flaky test (#6366)"]
-fn test_socket_pair() {
-    let wasm = run_build_script(file!(), "socket-pair").unwrap();
-    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
+wasm_test!(
+    #[ignore = "flaky test (#6366)"]
+    test_socket_pair,
+    "socket-pair"
+);
+
+#[test]
+fn test_udp() {
+    let wasm = run_build_script(file!(), "udp").unwrap();
+    for arg in ["addr-reuse", "ipv6", "autobind-connect", "autobind-sendto"] {
+        let result = run_wasm_with_runner_config(&wasm, wasm.parent().unwrap(), |runner| {
+            runner.with_args([arg]);
+        })
+        .unwrap();
+        assert_eq!(
+            result.exit_code,
+            Some(0),
+            "case={arg}\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
 }

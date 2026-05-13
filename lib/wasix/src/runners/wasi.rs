@@ -4,7 +4,7 @@ use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
 use tracing::Instrument;
-use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
+use virtual_fs::{ArcBoxFile, FileSystem, VirtualFile};
 use wasmer::{Engine, Module};
 use wasmer_types::ModuleHash;
 use webc::metadata::{Command, annotations::Wasi};
@@ -18,7 +18,9 @@ use crate::{
     runtime::task_manager::VirtualTaskManagerExt,
 };
 
-use super::wasi_common::{MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand};
+use super::wasi_common::{
+    ExistingMountConflictBehavior, MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand,
+};
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
@@ -121,6 +123,14 @@ impl WasiRunner {
     /// Mount a [`FileSystem`] instance at a particular location.
     pub fn with_mount(&mut self, dest: String, fs: Arc<dyn FileSystem + Send + Sync>) -> &mut Self {
         self.wasi.mounts.push(MountedDirectory { guest: dest, fs });
+        self
+    }
+
+    pub fn with_existing_mount_conflict_behavior(
+        &mut self,
+        behavior: ExistingMountConflictBehavior,
+    ) -> &mut Self {
+        self.wasi.existing_mount_conflict_behavior = behavior;
         self
     }
 
@@ -284,7 +294,7 @@ impl WasiRunner {
         wasi: &Wasi,
         pkg_or_hash: PackageOrHash,
         runtime_or_engine: RuntimeOrEngine,
-        root_fs: Option<TmpFileSystem>,
+        root_fs: Option<crate::fs::WasiFsRoot>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
         let mut builder = WasiEnvBuilder::new(program_name);
 
@@ -297,13 +307,13 @@ impl WasiRunner {
             }
         }
 
-        let container_fs = match pkg_or_hash {
+        let container_mounts = match pkg_or_hash {
             PackageOrHash::Package(pkg) => {
                 builder.add_webc(pkg.clone());
                 builder.set_module_hash(pkg.hash());
                 builder.include_packages(pkg.package_ids.clone());
 
-                pkg.webc_fs.as_deref().map(|fs| fs.duplicate())
+                pkg.package_mounts.as_deref()
             }
             PackageOrHash::Hash(hash) => {
                 builder.set_module_hash(hash);
@@ -324,7 +334,7 @@ impl WasiRunner {
         }
 
         self.wasi
-            .prepare_webc_env(&mut builder, container_fs, wasi, root_fs)?;
+            .prepare_webc_env(&mut builder, container_mounts, wasi, root_fs)?;
 
         if let Some(stdin) = &self.stdin {
             builder.set_stdin(Box::new(stdin.clone()));
@@ -609,18 +619,13 @@ mod tests {
     async fn test_volume_mount_without_webcs() {
         use std::sync::Arc;
 
-        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
-
         let tokrt = tokio::runtime::Handle::current();
 
         let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
         let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
 
-        root_fs
-            .mount("/host".into(), &hostdir_dyn, "/".into())
-            .unwrap();
-
-        let envb = crate::runners::wasi::WasiRunner::new();
+        let mut envb = crate::runners::wasi::WasiRunner::new();
+        envb.with_mount("/host".to_string(), hostdir_dyn);
 
         let annotations = webc::metadata::annotations::Wasi::new("test");
 
@@ -635,7 +640,7 @@ mod tests {
                 &annotations,
                 PackageOrHash::Hash(ModuleHash::random()),
                 RuntimeOrEngine::Runtime(Arc::new(rt)),
-                Some(root_fs),
+                None,
             )
             .unwrap();
 
@@ -653,18 +658,13 @@ mod tests {
 
         use wasmer_package::utils::from_bytes;
 
-        let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
-
         let tokrt = tokio::runtime::Handle::current();
 
         let hostdir = virtual_fs::host_fs::FileSystem::new(tokrt.clone(), "/").unwrap();
         let hostdir_dyn: Arc<dyn virtual_fs::FileSystem + Send + Sync> = Arc::new(hostdir);
 
-        root_fs
-            .mount("/host".into(), &hostdir_dyn, "/".into())
-            .unwrap();
-
-        let envb = crate::runners::wasi::WasiRunner::new();
+        let mut envb = crate::runners::wasi::WasiRunner::new();
+        envb.with_mount("/host".to_string(), hostdir_dyn);
 
         let annotations = webc::metadata::annotations::Wasi::new("test");
 
@@ -689,7 +689,7 @@ mod tests {
                 &annotations,
                 PackageOrHash::Package(&binpkg),
                 RuntimeOrEngine::Runtime(Arc::new(rt)),
-                Some(root_fs),
+                None,
             )
             .unwrap();
 

@@ -78,7 +78,7 @@ pub struct ArtifactId {
 impl ArtifactId {
     /// Format this identifier as a string.
     pub fn id(&self) -> String {
-        format!("{}", &self.id)
+        format!("{}", self.id)
     }
 }
 
@@ -215,7 +215,7 @@ impl Artifact {
                     }
                     Err(e) => {
                         return Err(DeserializeError::Incompatible(format!(
-                            "The provided bytes are not wasmer-universal: {e}"
+                            "The provided bytes are not a Wasmer engine artifact: {e}"
                         )));
                     }
                 }
@@ -262,7 +262,7 @@ impl Artifact {
                     }
                     Err(e) => {
                         return Err(DeserializeError::Incompatible(format!(
-                            "The provided bytes are not wasmer-universal: {e}"
+                            "The provided bytes are not a Wasmer engine artifact: {e}"
                         )));
                     }
                 }

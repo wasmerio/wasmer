@@ -4,6 +4,7 @@ use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
 use super::*;
 use crate::{
     VIRTUAL_ROOT_FD, WasiFs,
+    fs::MAX_FD,
     os::task::{OwnedTaskStatus, TaskStatus},
     syscalls::*,
 };
@@ -203,6 +204,10 @@ fn apply_fd_op<M: MemorySize>(
             env.state.fs.close_fd(op.fd)
         }
         ProcSpawnFdOpName::Dup2 => {
+            if op.fd > MAX_FD {
+                return Err(Errno::Badf);
+            }
+
             let target_fd = env.state.fs.get_fd(op.fd).ok();
             if let Some(fd) = target_fd.as_ref()
                 && !fd.is_stdio

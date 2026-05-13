@@ -1,15 +1,9 @@
-use super::{run_build_script, run_wasm, run_wasm_with_result};
+wasm_test!(test_epoll_create, "epoll-create");
+wasm_test!(test_poll_oneoff_zero, "poll-oneoff-zero");
+wasm_test!(test_poll_oneoff, "poll-oneoff");
 
-#[test]
-fn test_poll_oneoff_zero() {
-    let wasm = run_build_script(file!(), "poll-oneoff-zero").unwrap();
-    run_wasm(&wasm, wasm.parent().unwrap()).unwrap();
-}
-
-#[test]
-fn test_epoll_create_ctl_wait() {
-    let wasm = run_build_script(file!(), "epoll-create-ctl-wait").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    assert_eq!(String::from_utf8_lossy(&result.stdout).trim(), "0");
-    assert_eq!(result.exit_code, Some(0));
-}
+wasm_test!(
+    test_epoll_create_ctl_wait,
+    "epoll-create-ctl-wait",
+    stdout = "0"
+);

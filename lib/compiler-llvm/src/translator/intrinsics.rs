@@ -24,6 +24,7 @@ use inkwell::{
     },
 };
 use std::collections::{HashMap, hash_map::Entry};
+use std::num::NonZero;
 use target_lexicon::{Architecture, Triple};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
@@ -311,8 +312,12 @@ impl<'ctx> Intrinsics<'ctx> {
         let is_riscv64 = matches!(target_triple.architecture, Architecture::Riscv64(..));
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
-        let i2_ty = context.custom_width_int_type(2);
-        let i4_ty = context.custom_width_int_type(4);
+        let i2_ty = context
+            .custom_width_int_type(NonZero::new(2).unwrap())
+            .unwrap();
+        let i4_ty = context
+            .custom_width_int_type(NonZero::new(4).unwrap())
+            .unwrap();
         let i8_ty = context.i8_type();
         let i16_ty = context.i16_type();
         let i32_ty = context.i32_type();

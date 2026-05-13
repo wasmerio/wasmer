@@ -29,12 +29,12 @@ pub mod empty_fs;
 #[cfg(feature = "host-fs")]
 pub mod host_fs;
 pub mod mem_fs;
+pub mod mount_fs;
 pub mod null_file;
 pub mod passthru_fs;
 pub mod random_file;
 pub mod special_file;
 pub mod tmp_fs;
-pub mod union_fs;
 pub mod zero_file;
 // tty_file -> see wasmer_wasi::tty_file
 mod filesystems;
@@ -60,6 +60,7 @@ pub use cow_file::*;
 pub use dual_write_file::*;
 pub use empty_fs::*;
 pub use filesystems::FileSystems;
+pub use mount_fs::*;
 pub use null_file::*;
 pub use overlay_fs::OverlayFileSystem;
 pub use passthru_fs::*;
@@ -68,7 +69,6 @@ pub use special_file::*;
 pub use static_file::StaticFile;
 pub use tmp_fs::*;
 pub use trace_fs::TraceFileSystem;
-pub use union_fs::*;
 #[cfg(feature = "webc-fs")]
 pub use webc_volume_fs::WebcVolumeFileSystem;
 pub use zero_file::*;
@@ -89,6 +89,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
+    fn create_symlink(&self, _source: &Path, _target: &Path) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
     fn remove_dir(&self, path: &Path) -> Result<()>;
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
@@ -99,9 +102,6 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions<'_>;
-
-    fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>)
-    -> Result<()>;
 }
 
 impl dyn FileSystem + 'static {
@@ -133,6 +133,10 @@ where
         (**self).create_dir(path)
     }
 
+    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        (**self).create_symlink(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         (**self).remove_dir(path)
     }
@@ -155,15 +159,6 @@ where
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         (**self).new_open_options()
-    }
-
-    fn mount(
-        &self,
-        name: String,
-        path: &Path,
-        fs: Box<dyn FileSystem + Send + Sync>,
-    ) -> Result<()> {
-        (**self).mount(name, path, fs)
     }
 }
 

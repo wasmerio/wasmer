@@ -50,16 +50,21 @@ fn main() -> anyhow::Result<()> {
         };
 
         with_test_module(&mut spectests, "spec", |spectests| {
-            let _spec_tests = test_directory(spectests, "tests/wast/spec", wast_processor)?;
-            Ok(())
-        })?;
-        with_test_module(&mut spectests, "wasmer", |spectests| {
-            let _spec_tests = test_directory(spectests, "tests/wast/wasmer", wast_processor)?;
+            test_directory(spectests, "tests/wast/spec", wast_processor)?;
             test_directory_module(
                 spectests,
                 "tests/wast/spec/proposals/wide-arithmetic",
                 wast_processor,
             )?;
+            test_directory_module(
+                spectests,
+                "tests/wast/spec/proposals/threads",
+                wast_processor,
+            )?;
+            Ok(())
+        })?;
+        with_test_module(&mut spectests, "wasmer", |spectests| {
+            test_directory(spectests, "tests/wast/wasmer", wast_processor)?;
             Ok(())
         })?;
 

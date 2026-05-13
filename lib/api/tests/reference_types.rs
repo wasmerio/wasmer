@@ -2,14 +2,14 @@
 pub mod reference_types {
 
     use anyhow::Result;
-    use macro_wasmer_universal_test::universal_test;
+    use macro_wasmer_engine_test::engine_test;
     use std::sync::Arc;
     use std::sync::atomic::{AtomicBool, Ordering};
     #[cfg(feature = "js")]
     use wasm_bindgen_test::*;
     use wasmer::*;
 
-    #[universal_test]
+    #[engine_test]
     fn func_ref_passed_and_returned() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -60,7 +60,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[universal_test]
+    #[engine_test]
     fn func_ref_passed_and_called() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -130,7 +130,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[macro_wasmer_universal_test::universal_test]
+    #[macro_wasmer_engine_test::engine_test]
     fn extern_ref_passed_and_returned() -> Result<()> {
         use std::collections::HashMap;
         let mut store = Store::default();
@@ -221,7 +221,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[universal_test]
+    #[engine_test]
     fn extern_ref_ref_counting_basic() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -242,7 +242,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[universal_test]
+    #[engine_test]
     fn refs_in_globals() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -307,7 +307,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[universal_test]
+    #[engine_test]
     fn extern_ref_ref_counting_table_basic() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -349,7 +349,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[universal_test]
+    #[engine_test]
     fn extern_ref_ref_counting_global_basic() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -378,7 +378,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[universal_test]
+    #[engine_test]
     fn extern_ref_ref_counting_traps() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -401,7 +401,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[universal_test]
+    #[engine_test]
     fn extern_ref_ref_counting_table_instructions() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -488,7 +488,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[universal_test]
+    #[engine_test]
     fn extern_ref_ref_counting_table_instructions_in_module() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module
@@ -580,7 +580,7 @@ pub mod reference_types {
         Ok(())
     }
 
-    #[universal_test]
+    #[engine_test]
     fn extern_ref_table_host_guest() -> Result<()> {
         let mut store = Store::default();
         let wat = r#"(module

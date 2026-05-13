@@ -1,37 +1,17 @@
-//! Longjmp tests
-//!
-//! These tests verify setjmp/longjmp functionality within and across module boundaries.
-
-use super::{run_build_script, run_wasm_with_result};
-
-#[test]
-fn test_simple_longjmp() {
-    let wasm = run_build_script(file!(), "simple-longjmp").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    let output = String::from_utf8_lossy(&result.stdout);
-    assert_eq!(output.trim(), "abc");
-}
-
-#[test]
-fn test_longjmp_in_library() {
-    let wasm = run_build_script(file!(), "longjmp-in-library").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    let output = String::from_utf8_lossy(&result.stdout);
-    assert_eq!(output.trim(), "abc");
-}
-
-#[test]
-fn test_longjmp_across_libraries() {
-    let wasm = run_build_script(file!(), "longjmp-across-libraries").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    let output = String::from_utf8_lossy(&result.stdout);
-    assert_eq!(output.trim(), "abc");
-}
-
-#[test]
-fn test_longjmp_across_libraries_buffer_in_lib() {
-    let wasm = run_build_script(file!(), "longjmp-across-libraries-buffer-in-lib").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    let output = String::from_utf8_lossy(&result.stdout);
-    assert_eq!(output.trim(), "abc");
-}
+wasm_test!(test_simple_longjmp, "simple-longjmp", stdout = "abc");
+wasm_test!(
+    test_longjmp_in_library,
+    "longjmp-in-library",
+    stdout = "abc"
+);
+wasm_test!(
+    test_longjmp_across_libraries,
+    "longjmp-across-libraries",
+    stdout = "abc"
+);
+wasm_test!(
+    test_longjmp_across_libraries_buffer_in_lib,
+    "longjmp-across-libraries-buffer-in-lib",
+    stdout = "abc"
+);
+wasm_test!(test_legacy_setjmp_longjmp, "legacy-setjmp-longjmp");

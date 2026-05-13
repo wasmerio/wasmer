@@ -2339,6 +2339,14 @@ impl Machine for MachineX86_64 {
         self.get_param_registers(calling_convention)[idx]
     }
 
+    fn adjust_gpr_param_location(
+        &mut self,
+        _register: Self::GPR,
+        _size: Size,
+    ) -> Result<(), CompileError> {
+        Ok(())
+    }
+
     fn get_return_value_location(
         &self,
         idx: usize,

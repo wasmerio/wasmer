@@ -1,40 +1,78 @@
-//! Libc function tests
-//!
-//! These tests verify various libc functions work correctly in WASIX.
+wasm_test!(
+    test_libc_clock_function,
+    "libc-clock-function",
+    stdout = "Clock works."
+);
+wasm_test!(
+    test_libc_getpass,
+    "libc-getpass",
+    stdout = "getpass test - requires interactive terminal"
+);
+wasm_test!(
+    test_mmap_anon,
+    "mmap-anon",
+    stdout = "mmap anon memory works"
+);
+wasm_test!(
+    test_variadic_args,
+    "variadic-args",
+    stdout = "Printing 5, 6, 0, 42"
+);
 
-use super::{run_build_script, run_wasm_with_result};
+wasm_test!(
+    #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
+    test_msync_end_of_file,
+    "msync-end-of-file",
+    temp_dir,
+    stdout = "0"
+);
 
-#[test]
-fn test_libc_clock_function() {
-    let wasm = run_build_script(file!(), "libc-clock-function").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    let output = String::from_utf8_lossy(&result.stdout);
-    assert_eq!(output.trim(), "Clock works.");
-}
+wasm_test!(
+    #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
+    test_msync_middle_of_file,
+    "msync-middle-of-file",
+    temp_dir,
+    stdout = "0"
+);
 
-#[test]
-fn test_libc_getpass() {
-    let wasm = run_build_script(file!(), "libc-getpass").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    let output = String::from_utf8_lossy(&result.stdout);
-    assert_eq!(
-        output.trim(),
-        "getpass test - requires interactive terminal"
-    );
-}
+wasm_test!(
+    #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
+    test_msync_start_of_file,
+    "msync-start-of-file",
+    temp_dir,
+    stdout = "0"
+);
 
-#[test]
-fn test_mmap_anon() {
-    let wasm = run_build_script(file!(), "mmap-anon").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    let output = String::from_utf8_lossy(&result.stdout);
-    assert_eq!(output.trim(), "mmap anon memory works");
-}
+wasm_test!(
+    #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
+    test_munmap_sync_end_of_file,
+    "munmap-sync-end-of-file",
+    temp_dir,
+    stdout = "0"
+);
 
-#[test]
-fn test_variadic_args() {
-    let wasm = run_build_script(file!(), "variadic-args").unwrap();
-    let result = run_wasm_with_result(&wasm, wasm.parent().unwrap()).unwrap();
-    let output = String::from_utf8_lossy(&result.stdout);
-    assert_eq!(output.trim(), "Printing 5, 6, 0, 42");
-}
+wasm_test!(
+    #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
+    test_munmap_sync_middle_of_file,
+    "munmap-sync-middle-of-file",
+    temp_dir,
+    stdout = "0"
+);
+
+wasm_test!(
+    #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
+    test_munmap_sync_start_of_file,
+    "munmap-sync-start-of-file",
+    temp_dir,
+    stdout = "0"
+);
+
+wasm_test!(
+    #[ignore = "file-backed mmap writeback does not currently persist under WasiRunner"]
+    test_read_after_munmap,
+    "read-after-munmap",
+    temp_dir,
+    stdout = "0"
+);
+
+wasm_test!(test_signal, "signal", stdout = "0");

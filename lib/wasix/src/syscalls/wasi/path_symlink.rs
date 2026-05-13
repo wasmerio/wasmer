@@ -1,7 +1,5 @@
 use super::*;
-use crate::fs::WasiFsRoot;
 use crate::syscalls::*;
-use virtual_fs::FsError;
 
 /// ### `path_symlink()`
 /// Create a symlink
@@ -123,15 +121,11 @@ pub fn path_symlink_internal(
 
     let source_path = std::path::Path::new(old_path);
     let target_path = symlink_path.as_path();
-    let persisted_in_backing_fs = match &state.fs.root_fs {
-        WasiFsRoot::Sandbox(fs) => fs.create_symlink(source_path, target_path),
-        WasiFsRoot::Overlay(overlay) => overlay.primary().create_symlink(source_path, target_path),
-        WasiFsRoot::Backing(_) => Err(FsError::Unsupported),
-    };
+    let persisted_in_backing_fs = state.fs.root_fs.create_symlink(source_path, target_path);
 
     let needs_ephemeral_fallback = match persisted_in_backing_fs {
         Ok(()) => false,
-        Err(FsError::Unsupported) => true,
+        Err(virtual_fs::FsError::Unsupported) => true,
         Err(err) => return Err(fs_error_into_wasi_err(err)),
     };
 

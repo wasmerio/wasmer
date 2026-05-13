@@ -27,7 +27,7 @@ pub fn test_directory_module(
     out: &mut Testsuite,
     path: impl AsRef<Path>,
     processor: impl Fn(&mut Testsuite, PathBuf) -> Option<Test>,
-) -> anyhow::Result<usize> {
+) -> anyhow::Result<()> {
     let path = path.as_ref();
     let testsuite = &extract_name(path);
     with_test_module(out, testsuite, |out| test_directory(out, path, processor))
@@ -41,8 +41,7 @@ fn write_test(out: &mut Testsuite, testname: &str, body: &str) -> anyhow::Result
     )?;
     writeln!(
         out.buffer,
-        "fn r#{}(config: crate::Config) -> anyhow::Result<()> {{",
-        &testname
+        "fn r#{testname}(config: crate::Config) -> anyhow::Result<()> {{",
     )?;
     writeln!(out.buffer, "{body}")?;
     writeln!(out.buffer, "}}")?;
@@ -54,7 +53,7 @@ pub fn test_directory(
     out: &mut Testsuite,
     path: impl AsRef<Path>,
     processor: impl Fn(&mut Testsuite, PathBuf) -> Option<Test>,
-) -> anyhow::Result<usize> {
+) -> anyhow::Result<()> {
     let path = path.as_ref();
     let mut dir_entries: Vec<_> = path
         .read_dir()
@@ -75,7 +74,7 @@ pub fn test_directory(
         out.path.pop().unwrap();
     }
 
-    Ok(dir_entries.len())
+    Ok(())
 }
 
 /// Extract a valid Rust identifier from the stem of a path.
@@ -88,19 +87,19 @@ pub fn extract_name(path: impl AsRef<Path>) -> String {
         .replace(['-', '/'], "_")
 }
 
-pub fn with_test_module<T>(
+pub fn with_test_module(
     out: &mut Testsuite,
     testsuite: &str,
-    f: impl FnOnce(&mut Testsuite) -> anyhow::Result<T>,
-) -> anyhow::Result<T> {
+    f: impl FnOnce(&mut Testsuite) -> anyhow::Result<()>,
+) -> anyhow::Result<()> {
     out.path.push(testsuite.to_string());
     out.buffer.push_str("mod ");
     out.buffer.push_str(testsuite);
     out.buffer.push_str(" {\n");
 
-    let result = f(out)?;
+    f(out)?;
 
     out.buffer.push_str("}\n");
     out.path.pop().unwrap();
-    Ok(result)
+    Ok(())
 }

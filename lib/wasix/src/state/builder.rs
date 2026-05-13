@@ -8,7 +8,9 @@ use std::{
 
 use rand::RngExt;
 use thiserror::Error;
-use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
+use virtual_fs::{
+    ArcFile, FileSystem, FsError, MountFileSystem, RootFileSystemBuilder, VirtualFile,
+};
 use wasmer::{AsStoreMut, Engine, Instance, Module};
 use wasmer_config::package::PackageId;
 
@@ -768,7 +770,16 @@ impl WasiEnvBuilder {
     }
 
     pub fn set_fs(&mut self, fs: impl Into<Arc<dyn virtual_fs::FileSystem + Send + Sync>>) {
-        self.fs = Some(WasiFsRoot::Backing(fs.into()));
+        self.fs = Some(WasiFsRoot::from_filesystem(fs.into()));
+    }
+
+    pub fn mount_fs(mut self, fs: MountFileSystem) -> Self {
+        self.set_mount_fs(fs);
+        self
+    }
+
+    pub fn set_mount_fs(&mut self, fs: MountFileSystem) {
+        self.fs = Some(WasiFsRoot::from_mount_fs(fs));
     }
 
     pub(crate) fn set_fs_root(&mut self, fs: WasiFsRoot) {
@@ -776,10 +787,8 @@ impl WasiEnvBuilder {
     }
 
     /// Sets a new sandbox FileSystem to be used with this WASI instance.
-    ///
-    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
-    pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
-        self.fs = Some(WasiFsRoot::Sandbox(fs));
+    pub fn sandbox_fs(mut self, fs: MountFileSystem) -> Self {
+        self.fs = Some(WasiFsRoot::from_mount_fs(fs));
         self
     }
 
@@ -908,10 +917,9 @@ impl WasiEnvBuilder {
             .take()
             .unwrap_or_else(|| Box::new(ArcFile::new(Box::<super::Stdin>::default())));
 
-        let fs_backing = self
-            .fs
-            .take()
-            .unwrap_or_else(|| WasiFsRoot::Sandbox(TmpFileSystem::new()));
+        let fs_backing = self.fs.take().unwrap_or_else(|| {
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()))
+        });
 
         if let Some(dir) = &self.current_dir {
             match fs_backing.read_dir(dir) {
@@ -935,13 +943,19 @@ impl WasiEnvBuilder {
             }
         }
 
+        let resolved_preopens = self.preopens.clone();
+
         // self.preopens are checked in [`PreopenDirBuilder::build`]
         let inodes = crate::state::WasiInodes::new();
         let wasi_fs = {
             // self.preopens are checked in [`PreopenDirBuilder::build`]
-            let mut wasi_fs =
-                WasiFs::new_with_preopen(&inodes, &self.preopens, &self.vfs_preopens, fs_backing)
-                    .map_err(WasiStateCreationError::WasiFsCreationError)?;
+            let mut wasi_fs = WasiFs::new_with_preopen(
+                &inodes,
+                &resolved_preopens,
+                &self.vfs_preopens,
+                fs_backing,
+            )
+            .map_err(WasiStateCreationError::WasiFsCreationError)?;
 
             // set up the file system, overriding base files and calling the setup function
             wasi_fs

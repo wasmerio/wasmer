@@ -14,14 +14,14 @@ use tempfile::TempDir;
 use tokio::runtime::Handle;
 use virtual_fs::{
     AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt, FileSystem, Pipe, ReadBuf,
-    RootFileSystemBuilder, host_fs, mem_fs, passthru_fs, tmp_fs, union_fs,
+    RootFileSystemBuilder, host_fs, mem_fs, mount_fs, passthru_fs, tmp_fs,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
 use wasmer_types::ModuleHash;
 use wasmer_wasix::runtime::task_manager::{block_on, tokio::TokioTaskManager};
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
-    FsError, PluggableRuntime, VirtualFile, WasiEnv, WasiEnvBuilder, WasiVersion,
+    FsError, PluggableRuntime, VirtualFile, WasiEnv, WasiEnvBuilder, WasiError, WasiVersion,
     generate_import_object_from_env, get_wasi_version,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
@@ -41,7 +41,7 @@ pub enum WasiFileSystemKind {
     /// Instruct the test runner to use `virtual_fs::passtru_fs`
     PassthruMemory,
 
-    /// Instruct the test runner to use `virtual_fs::union_fs<host_fs, mem_fs>`
+    /// Instruct the test runner to use `virtual_fs::mount_fs::MountFileSystem`
     UnionHostMemory,
 
     /// Instruct the test runner to use the TempFs returned by `virtual_fs::builder::RootFileSystemBuilder`
@@ -151,18 +151,25 @@ impl<'a> WasiTest<'a> {
             std::mem::drop(stdin_tx);
         }
 
-        // TODO: handle errors here when the error fix gets shipped
-        match start.call(&mut store, &[]) {
-            Ok(_) => {}
+        let exit_code = match start.call(&mut store, &[]) {
+            Ok(_) => 0,
             Err(e) => {
-                let stdout_str = get_stdio_output(&stdout_rx)?;
-                let stderr_str = get_stdio_output(&stderr_rx)?;
-                Err(e).with_context(|| {
-                    format!(
-                        "failed to run WASI `_start` function: failed with stdout: \"{stdout_str}\"\nstderr: \"{stderr_str}\"",
-                    )
-                })?;
+                if let Some(WasiError::Exit(code)) = e.downcast_ref::<WasiError>() {
+                    code.raw() as i64
+                } else {
+                    let stdout_str = get_stdio_output(&stdout_rx)?;
+                    let stderr_str = get_stdio_output(&stderr_rx)?;
+                    return Err(e).with_context(|| {
+                        format!(
+                            "failed to run WASI `_start` function: failed with stdout: \"{stdout_str}\"\nstderr: \"{stderr_str}\"",
+                        )
+                    });
+                }
             }
+        };
+
+        if let Some(expected) = &self.assert_return {
+            assert_eq!(exit_code, expected.return_value);
         }
 
         if let Some(expected_stdout) = &self.assert_stdout {
@@ -221,21 +228,23 @@ impl<'a> WasiTest<'a> {
                 let fs = host_fs::FileSystem::new(Handle::current(), base_dir.clone()).unwrap();
 
                 for (alias, real_dir) in &self.mapped_dirs {
-                    let mut dir = base_dir.clone();
-                    dir.push(real_dir);
-                    builder.add_map_dir(alias, dir)?;
+                    let mut guest_dir = PathBuf::from("/");
+                    guest_dir.push(real_dir);
+                    builder.add_map_dir(alias, guest_dir)?;
                 }
 
                 // due to the structure of our code, all preopen dirs must be mapped now
                 for dir in &self.dirs {
-                    let mut new_dir = base_dir.clone();
+                    let mut new_dir = PathBuf::from("/");
                     new_dir.push(dir);
                     builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
                     let temp_dir = tempfile::tempdir_in(&base_dir)?;
-                    builder.add_map_dir(alias, temp_dir.path())?;
+                    let guest_temp_dir =
+                        Path::new("/").join(temp_dir.path().strip_prefix(&base_dir).unwrap());
+                    builder.add_map_dir(alias, guest_temp_dir)?;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }
 
@@ -261,40 +270,16 @@ impl<'a> WasiTest<'a> {
                         let e = mem_fs::FileSystem::default();
                         let f = mem_fs::FileSystem::default();
 
-                        let union = union_fs::UnionFileSystem::new();
+                        let mount_fs = mount_fs::MountFileSystem::new();
 
-                        union.mount(
-                            "mem_fs".to_string(),
-                            PathBuf::from("/test_fs").as_ref(),
-                            Box::new(a),
-                        )?;
-                        union.mount(
-                            "mem_fs_2".to_string(),
-                            PathBuf::from("/snapshot1").as_ref(),
-                            Box::new(b),
-                        )?;
-                        union.mount(
-                            "mem_fs_3".to_string(),
-                            PathBuf::from("/tests").as_ref(),
-                            Box::new(c),
-                        )?;
-                        union.mount(
-                            "mem_fs_4".to_string(),
-                            PathBuf::from("/nightly_2022_10_18").as_ref(),
-                            Box::new(d),
-                        )?;
-                        union.mount(
-                            "mem_fs_5".to_string(),
-                            PathBuf::from("/unstable").as_ref(),
-                            Box::new(e),
-                        )?;
-                        union.mount(
-                            "mem_fs_6".to_string(),
-                            PathBuf::from("/.tmp_wasmer_wast_0").as_ref(),
-                            Box::new(f),
-                        )?;
+                        mount_fs.mount("/test_fs", Arc::new(a))?;
+                        mount_fs.mount("/snapshot1", Arc::new(b))?;
+                        mount_fs.mount("/tests", Arc::new(c))?;
+                        mount_fs.mount("/nightly_2022_10_18", Arc::new(d))?;
+                        mount_fs.mount("/unstable", Arc::new(e))?;
+                        mount_fs.mount("/.tmp_wasmer_wast_0", Arc::new(f))?;
 
-                        Arc::new(union)
+                        Arc::new(mount_fs)
                     }
                     _ => {
                         panic!("unexpected filesystem type {other:?}");
