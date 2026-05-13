@@ -87,7 +87,7 @@ impl BackendTable {
         })
     }
 
-    /// Grows the size of the `Table` by `delta`, initializating
+    /// Grows the size of the `Table` by `delta`, initializing
     /// the elements with the provided `init` value.
     ///
     /// It returns the previous size of the `Table` in case is able

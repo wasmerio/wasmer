@@ -43,16 +43,16 @@ const INFINITE_ATOMIC_WAIT_WAT: &str = r#"
 
 #[test]
 fn test_interrupt_hot_loop() -> Result<()> {
-    test_interruptable(INFINITE_LOOP_WAT)
+    test_interruptible(INFINITE_LOOP_WAT)
 }
 
 #[test]
 fn test_interrupt_memory_wait() -> Result<()> {
-    test_interruptable(INFINITE_ATOMIC_WAIT_WAT)
+    test_interruptible(INFINITE_ATOMIC_WAIT_WAT)
 }
 
 // TODO: update/fix this as we implement more of the feature
-fn test_interruptable(wat: &str) -> Result<()> {
+fn test_interruptible(wat: &str) -> Result<()> {
     let wasm = wat::parse_str(wat)?;
 
     let mut store = Store::default();

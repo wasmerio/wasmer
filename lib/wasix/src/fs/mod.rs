@@ -2,7 +2,7 @@
 // It is impossible to fix them with the current setup, since a hard
 // link must point to the actual file rather than its path, but the
 // only way we can get to a file on a FileSystem instance is by going
-// through its repective FileOpener and giving it a path as input.
+// through its respective FileOpener and giving it a path as input.
 // TODO: refactor away the InodeVal type
 
 mod fd;
@@ -110,7 +110,7 @@ const STDOUT_DEFAULT_RIGHTS: Rights = {
 };
 const STDERR_DEFAULT_RIGHTS: Rights = STDOUT_DEFAULT_RIGHTS;
 
-/// A completely aribtrary "big enough" number used as the upper limit for
+/// A completely arbitrary "big enough" number used as the upper limit for
 /// the number of symlinks that can be traversed when resolving a path
 pub const MAX_SYMLINKS: u32 = 128;
 
@@ -819,7 +819,7 @@ impl WasiFs {
     /// # Safety
     /// - Virtual directories created with this function must not conflict with
     ///   the standard operation of the WASI filesystem.  This is vague and
-    ///   unlikely in pratice.  [Join the discussion](https://github.com/wasmerio/wasmer/issues/1219)
+    ///   unlikely in practice.  [Join the discussion](https://github.com/wasmerio/wasmer/issues/1219)
     ///   for what the newer, safer WASI FS APIs should look like.
     #[allow(dead_code)]
     #[allow(clippy::too_many_arguments)]
@@ -1980,7 +1980,7 @@ impl WasiFs {
     pub(crate) fn create_rootfd(&self) -> Result<(), String> {
         // create virtual root
         let all_rights = ALL_RIGHTS;
-        // TODO: make this a list of positive rigths instead of negative ones
+        // TODO: make this a list of positive rights instead of negative ones
         // root gets all right for now
         let root_rights = all_rights
             /*

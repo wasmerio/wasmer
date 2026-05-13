@@ -11,7 +11,7 @@ are deterministic regardless of the environment/chipset where it executes in.
 
 ## Call Indirect Spilled Stack: `call-indirect-spilledd-stack.wast`
 
-We had an issue occuring that was making singlepass not working properly
+We had an issue occurring that was making singlepass not working properly
 on the WebAssembly benchmark: https://00f.net/2019/10/22/updated-webassembly-benchmark/.
 
 This is a test case to ensure it doesn't reproduce again in the future.

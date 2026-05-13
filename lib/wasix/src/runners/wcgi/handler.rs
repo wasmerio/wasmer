@@ -298,8 +298,8 @@ async fn consume_stderr(
             }
             Ok(chunk) => {
                 tracing::trace!("received stderr (len={})", chunk.len());
-                if let Some(propogate) = propagate.as_mut() {
-                    propogate.write_all(chunk).await.ok();
+                if let Some(propagate) = propagate.as_mut() {
+                    propagate.write_all(chunk).await.ok();
                 }
                 callbacks.on_stderr(chunk);
                 let bytes_read = chunk.len();

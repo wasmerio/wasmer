@@ -8,7 +8,7 @@ use crate::{
     commands::AsyncCliCommand, config::WasmerEnv, opts::ItemFormatOpts, utils::render::ItemFormat,
 };
 
-/// Retrieve detailed informations about an app
+/// Retrieve detailed information about an app
 #[derive(clap::Parser, Debug)]
 pub struct CmdAppGet {
     #[clap(flatten)]

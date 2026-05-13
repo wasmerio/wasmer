@@ -11,7 +11,7 @@ pub struct Table {
     pub(crate) handle: VMTable,
 }
 
-// Table can't be Send in js because it dosen't support `structuredClone`
+// Table can't be Send in js because it doesn't support `structuredClone`
 // https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
 // unsafe impl Send for Table {}
 

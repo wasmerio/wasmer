@@ -21,7 +21,7 @@ pub struct Memory {
     pub(crate) handle: VMMemory,
 }
 
-// Only SharedMemories can be Send in js, becuase they support `structuredClone`.
+// Only SharedMemories can be Send in js, because they support `structuredClone`.
 // Normal memories will fail while doing structuredClone.
 // In this case, we implement Send just in case as it can be a shared memory.
 // https://developer.mozilla.org/en-US/docs/Web/API/structuredClone

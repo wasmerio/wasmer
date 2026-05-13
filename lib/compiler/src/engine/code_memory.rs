@@ -230,7 +230,7 @@ impl CodeMemory {
         unsafe { &mut *body_ptr }
     }
 
-    /// Register the frame info, so it's free when the mememory gets freed
+    /// Register the frame info, so it's free when the memory gets freed
     pub fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
         self.frame_info_registration = Some(frame_info);
     }

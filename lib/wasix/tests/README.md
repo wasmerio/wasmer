@@ -154,7 +154,7 @@ Expected:
 (A4) r=10003
 ```
 
-## Yet another longjmp implemenation
+## Yet another longjmp implementation
 
 This one is initiated from `rust` code and thus has the risk of leaking memory but uses different interfaces
 

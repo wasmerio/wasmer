@@ -165,7 +165,7 @@ impl JournalEffector {
             // UNSAFE:
             //
             // This is only unsafe while the WASM process itself is running and using this
-            // method avoids a memory copy before its compressed, this also signficantly
+            // method avoids a memory copy before its compressed, this also significantly
             // reduces the memory process
             #[cfg(feature = "sys")]
             let compressed_data = compress_prepend_size(unsafe {

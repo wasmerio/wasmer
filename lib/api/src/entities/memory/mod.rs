@@ -151,7 +151,7 @@ impl Memory {
         self.0.reset(store)
     }
 
-    /// Attempts to duplicate this memory (if its clonable) in a new store
+    /// Attempts to duplicate this memory (if its cloneable) in a new store
     /// (copied memory)
     pub fn copy_to_store(
         &self,
@@ -175,12 +175,12 @@ impl Memory {
     ///
     /// # Errors
     ///
-    /// Fails if the underlying memory is not clonable.
+    /// Fails if the underlying memory is not cloneable.
     pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         self.0.try_clone(store)
     }
 
-    /// Attempts to clone this memory (if its clonable) in a new store
+    /// Attempts to clone this memory (if its cloneable) in a new store
     /// (cloned memory will be shared between those that clone it)
     pub fn share_in_store(
         &self,

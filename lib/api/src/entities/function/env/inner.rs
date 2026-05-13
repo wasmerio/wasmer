@@ -106,14 +106,14 @@ pub enum BackendFunctionEnvMut<'a, T: 'a> {
 }
 
 impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
-    /// Returns a reference to the host state in this function environement.
+    /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         match_rt!(on self => f {
             f.data()
         })
     }
 
-    /// Returns a mutable- reference to the host state in this function environement.
+    /// Returns a mutable- reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         match_rt!(on self => f {
             f.data_mut()

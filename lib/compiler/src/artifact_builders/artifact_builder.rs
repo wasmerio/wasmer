@@ -268,7 +268,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
 pub struct ModuleFromArchive<'a> {
     /// The main serializable compilation object
     pub compilation: &'a ArchivedSerializableCompilation,
-    /// Datas initializers
+    /// Data initializers
     pub data_initializers: &'a rkyv::Archived<Box<[OwnedDataInitializer]>>,
     /// CPU Feature flags for this compilation
     pub cpu_features: u64,
@@ -315,7 +315,7 @@ impl loupe::MemoryUsage for ArtifactBuildFromArchiveCell {
 pub struct ArtifactBuildFromArchive {
     cell: Arc<ArtifactBuildFromArchiveCell>,
 
-    /// Compilation informations
+    /// Compilation information
     compile_info: CompileModuleInfo,
 }
 

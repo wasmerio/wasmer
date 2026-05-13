@@ -177,7 +177,7 @@ impl AppConfigV1 {
             Self::KIND => {}
             other => {
                 bail!(
-                    "invalid app config: unspported kind '{other}', expected {}",
+                    "invalid app config: unsupported kind '{other}', expected {}",
                     Self::KIND
                 );
             }

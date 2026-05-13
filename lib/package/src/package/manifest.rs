@@ -512,7 +512,7 @@ fn transform_commands(
     manifest: &WasmerManifest,
     base_dir: &Path,
 ) -> Result<IndexMap<String, Command>, ManifestError> {
-    trasform_commands_shared(
+    transform_commands_shared(
         manifest,
         |cmd| transform_command_v1(cmd, manifest),
         |cmd| transform_command_v2(cmd, base_dir),
@@ -522,7 +522,7 @@ fn transform_commands(
 fn transform_in_memory_commands(
     manifest: &WasmerManifest,
 ) -> Result<IndexMap<String, Command>, ManifestError> {
-    trasform_commands_shared(
+    transform_commands_shared(
         manifest,
         |cmd| transform_command_v1(cmd, manifest),
         transform_in_memory_command_v2,
@@ -530,7 +530,7 @@ fn transform_in_memory_commands(
 }
 
 #[allow(deprecated)]
-fn trasform_commands_shared(
+fn transform_commands_shared(
     manifest: &WasmerManifest,
     transform_command_v1: impl Fn(&CommandV1) -> Result<Command, ManifestError>,
     transform_command_v2: impl Fn(&CommandV2) -> Result<Command, ManifestError>,

@@ -1607,7 +1607,7 @@ impl MachineRiscv {
             self.assembler.emit_swap_fscr(old_fcsr)?;
             self.assembler
                 .emit_fcvt(signed, size_in, src, size_out, dest)?;
-            self.trap_float_convertion_errors(size_in, src, old_fcsr, &mut gprs)?;
+            self.trap_float_conversion_errors(size_in, src, old_fcsr, &mut gprs)?;
             self.release_gpr(old_fcsr);
         }
 
@@ -1679,7 +1679,7 @@ impl MachineRiscv {
         Ok(())
     }
 
-    fn trap_float_convertion_errors(
+    fn trap_float_conversion_errors(
         &mut self,
         sz: Size,
         f: Location,
@@ -2636,7 +2636,7 @@ impl Machine for MachineRiscv {
         output: Location,
     ) -> Result<(), CompileError> {
         let mut temps = vec![];
-        // use FMAX (input, intput) => output to automaticaly normalize the NaN
+        // use FMAX (input, input) => output to automatically normalize the NaN
         match (sz, input, output) {
             (Size::S32, Location::SIMD(_), Location::SIMD(_)) => {
                 self.assembler.emit_fmax(sz, input, input, output)?;

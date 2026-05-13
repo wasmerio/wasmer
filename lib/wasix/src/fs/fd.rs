@@ -96,7 +96,7 @@ pub enum Kind {
         /// Marks the file as a special file that only one `fd` can exist for
         /// This is useful when dealing with host-provided special files that
         /// should be looked up by path
-        /// TOOD: clarify here?
+        /// TODO: clarify here?
         fd: Option<u32>,
     },
     #[cfg_attr(feature = "enable-serde", serde(skip))]

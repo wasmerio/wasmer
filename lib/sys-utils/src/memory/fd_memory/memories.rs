@@ -332,7 +332,7 @@ impl LinearMemory for VMOwnedMemory {
         self.config.ty(minimum)
     }
 
-    /// Returns the size of hte memory in pages
+    /// Returns the size of the memory in pages
     fn size(&self) -> Pages {
         self.mmap.size()
     }
@@ -437,7 +437,7 @@ impl LinearMemory for VMSharedMemory {
         self.config.ty(minimum)
     }
 
-    /// Returns the size of hte memory in pages
+    /// Returns the size of the memory in pages
     fn size(&self) -> Pages {
         let guard = self.mmap.read().unwrap();
         guard.size()
@@ -543,7 +543,7 @@ impl LinearMemory for VMMemory {
         self.0.ty()
     }
 
-    /// Returns the size of hte memory in pages
+    /// Returns the size of the memory in pages
     fn size(&self) -> Pages {
         self.0.size()
     }
@@ -578,7 +578,7 @@ impl LinearMemory for VMMemory {
         self.0.vmmemory()
     }
 
-    /// Attempts to clone this memory (if its clonable)
+    /// Attempts to clone this memory (if its cloneable)
     fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         self.0.try_clone()
     }

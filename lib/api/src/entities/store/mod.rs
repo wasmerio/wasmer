@@ -48,7 +48,7 @@ use wasmer_vm::TrapHandlerFn;
 /// The [`Store`] is tied to the underlying [`Engine`] that is — among many things — used to
 /// compile the Wasm bytes into a valid module artifact.
 ///
-/// For more informations, check out the [related WebAssembly specification]
+/// For more information, check out the [related WebAssembly specification]
 /// [related WebAssembly specification]: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) inner: Box<StoreInner>,

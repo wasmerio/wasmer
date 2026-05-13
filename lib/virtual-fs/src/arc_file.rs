@@ -1,7 +1,7 @@
 //! Used for sharing references to the same file across multiple file systems,
 //! effectively this is a symbolic link without all the complex path redirection
 
-use crate::{ClonableVirtualFile, VirtualFile};
+use crate::{CloneableVirtualFile, VirtualFile};
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use std::{
@@ -162,7 +162,7 @@ where
     }
 }
 
-impl<T> ClonableVirtualFile for ArcFile<T>
+impl<T> CloneableVirtualFile for ArcFile<T>
 where
     T: VirtualFile + Send + Sync + 'static,
     T: Clone,

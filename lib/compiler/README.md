@@ -44,7 +44,7 @@ pub trait Compiler {
 
 ## Acknowledgments
 
-This project borrowed some of the code strucutre from the
+This project borrowed some of the code structure from the
 [`cranelift-wasm`] crate, however it's been adapted to not depend on
 any specific IR and be abstract of any compiler.
 
