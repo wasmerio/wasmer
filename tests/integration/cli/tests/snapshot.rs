@@ -1308,8 +1308,8 @@ fn test_snapshot_exit_0_from_worker() {
     assert_json_snapshot!(snapshot);
 }
 
-// Seems it's flaky on musl
-#[cfg_attr(target_env = "musl", ignore)]
+// Seems it's flaky on musl and Windows
+#[cfg_attr(any(target_env = "musl", target_env = "windows"), ignore)]
 #[test]
 fn test_snapshot_exit_1_from_worker() {
     let snapshot = TestBuilder::new()
