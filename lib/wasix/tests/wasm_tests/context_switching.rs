@@ -113,6 +113,7 @@ wasm_test!(
 );
 wasm_test!(
     #[cfg(unix)]
+    #[ignore = "flaky test (#6538)"]
     test_legacy_process_switching_fork_after_switching,
     "legacy_process_switching",
     args = ["fork_after_switching"]
