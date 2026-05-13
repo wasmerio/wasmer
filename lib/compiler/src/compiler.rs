@@ -54,6 +54,12 @@ pub trait CompilerConfig {
     /// (but are not 100% SPEC compliant).
     fn enable_non_volatile_memops(&mut self) {}
 
+    /// Enable run-time handling of potentially unaligned memory accesses.
+    ///
+    /// This feature is experimental and currently supports only Cranelift scalar types
+    /// and Singlepass on RISC-V for integral types.
+    fn enable_experimental_unaligned_memory_accesses(&mut self) {}
+
     /// Enables treating eligible funcref tables as read-only so the backend can
     /// place them in read-only data.
     fn enable_readonly_funcref_table(&mut self) {}

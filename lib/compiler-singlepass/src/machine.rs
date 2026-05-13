@@ -2374,7 +2374,7 @@ pub fn gen_std_trampoline(
             machine.gen_std_trampoline(sig, calling_convention)
         }
         Architecture::Riscv64(_) => {
-            let machine = MachineRiscv::new(Some(target.clone()))?;
+            let machine = MachineRiscv::new(Some(target.clone()), false)?;
             machine.gen_std_trampoline(sig, calling_convention)
         }
         _ => Err(CompileError::UnsupportedTarget(
@@ -2400,7 +2400,7 @@ pub fn gen_std_dynamic_import_trampoline(
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         Architecture::Riscv64(_) => {
-            let machine = MachineRiscv::new(Some(target.clone()))?;
+            let machine = MachineRiscv::new(Some(target.clone()), false)?;
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
         _ => Err(CompileError::UnsupportedTarget(
@@ -2426,7 +2426,7 @@ pub fn gen_import_call_trampoline(
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         Architecture::Riscv64(_) => {
-            let machine = MachineRiscv::new(Some(target.clone()))?;
+            let machine = MachineRiscv::new(Some(target.clone()), false)?;
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         _ => Err(CompileError::UnsupportedTarget(
