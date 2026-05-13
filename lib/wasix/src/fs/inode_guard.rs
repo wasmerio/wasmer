@@ -404,22 +404,6 @@ impl InodeValFileReadGuard {
     }
 }
 
-impl InodeValFileReadGuard {
-    pub fn into_poll_guard(
-        self,
-        fd: u32,
-        peb: PollEventSet,
-        subscription: Subscription,
-    ) -> InodeValFilePollGuard {
-        InodeValFilePollGuard {
-            fd,
-            peb,
-            subscription,
-            mode: InodeValFilePollGuardMode::File(self.guard.into_inner()),
-        }
-    }
-}
-
 impl Deref for InodeValFileReadGuard {
     type Target = dyn VirtualFile + Send + Sync + 'static;
     fn deref(&self) -> &Self::Target {

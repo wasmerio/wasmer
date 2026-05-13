@@ -331,19 +331,11 @@ impl WasiInodes {
         }
     }
 
-    /// Get the `VirtualFile` object at stdout
-    pub(crate) fn stdout(fd_map: &RwLock<FdList>) -> Result<InodeValFileReadGuard, FsError> {
-        Self::std_dev_get(fd_map, __WASI_STDOUT_FILENO)
-    }
     /// Get the `VirtualFile` object at stdout mutably
     pub(crate) fn stdout_mut(fd_map: &RwLock<FdList>) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDOUT_FILENO)
     }
 
-    /// Get the `VirtualFile` object at stderr
-    pub(crate) fn stderr(fd_map: &RwLock<FdList>) -> Result<InodeValFileReadGuard, FsError> {
-        Self::std_dev_get(fd_map, __WASI_STDERR_FILENO)
-    }
     /// Get the `VirtualFile` object at stderr mutably
     pub(crate) fn stderr_mut(fd_map: &RwLock<FdList>) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDERR_FILENO)
