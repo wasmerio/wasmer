@@ -179,7 +179,8 @@ pub struct RuntimeOptions {
 
     /// Allow unaligned memory accesses.
     ///
-    /// Available for Cranelift and Singlepass (RISC-V).
+    /// This feature is experimental and currently supports only Cranelift scalar types
+    /// and Singlepass on RISC-V for integral types.
     #[clap(long = "enable-experimental-unaligned-memory-accesses")]
     enable_experimental_unaligned_memory_accesses: bool,
 
