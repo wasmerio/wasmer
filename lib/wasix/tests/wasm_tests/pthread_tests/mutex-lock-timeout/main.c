@@ -6,6 +6,8 @@
 #include <time.h>
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
+const int LOCK_TIMEOUT_NSEC = 500 * 1000 * 1000; // 0.5 seconds
+const int NSEC_OVERFLOW_GUARD = 1000000000;
 
 void* f(void* arg) {
   (void)arg;
@@ -16,10 +18,11 @@ void* f(void* arg) {
     return (void*)(intptr_t)errno;
   }
 
-  ts.tv_nsec += 500 * 1000 * 1000;  // 0.5 seconds
-  if (ts.tv_nsec >= 1000000000) {
+  ts.tv_nsec += LOCK_TIMEOUT_NSEC;
+
+  if (ts.tv_nsec >= NSEC_OVERFLOW_GUARD) {
     ts.tv_sec += 1;
-    ts.tv_nsec -= 1000000000;
+    ts.tv_nsec -= NSEC_OVERFLOW_GUARD;
   }
 
   return (void*)(intptr_t)pthread_mutex_timedlock(&lock, &ts);
