@@ -1873,9 +1873,9 @@ impl core::fmt::Debug for SockProto {
             SockProto::ProtoOnehundredandthirtynine => f
                 .debug_tuple("SockProto::ProtoOnehundredandthirtynine")
                 .finish(),
-            SockProto::ProtoOnehundredandfourty => {
-                f.debug_tuple("SockProto::ProtoOnehundredandfourty").finish()
-            }
+            SockProto::ProtoOnehundredandfourty => f
+                .debug_tuple("SockProto::ProtoOnehundredandfourty")
+                .finish(),
             SockProto::ProtoOnehundredandfourtyone => f
                 .debug_tuple("SockProto::ProtoOnehundredandfourtyone")
                 .finish(),
@@ -2169,9 +2169,9 @@ impl core::fmt::Debug for SockProto {
             SockProto::ProtoTwohundredandthirtynine => f
                 .debug_tuple("SockProto::ProtoTwohundredandthirtynine")
                 .finish(),
-            SockProto::ProtoTwohundredandfourty => {
-                f.debug_tuple("SockProto::ProtoTwohundredandfourty").finish()
-            }
+            SockProto::ProtoTwohundredandfourty => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourty")
+                .finish(),
             SockProto::ProtoTwohundredandfourtyone => f
                 .debug_tuple("SockProto::ProtoTwohundredandfourtyone")
                 .finish(),
