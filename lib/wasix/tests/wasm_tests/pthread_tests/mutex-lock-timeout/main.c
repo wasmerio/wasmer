@@ -6,7 +6,7 @@
 #include <time.h>
 
 pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-const int LOCK_TIMEOUT_NSEC = 500 * 1000 * 1000; // 0.5 seconds
+const int LOCK_TIMEOUT_NSEC = 500 * 1000 * 1000;  // 0.5 seconds
 const int NSEC_OVERFLOW_GUARD = 1000000000;
 
 void* f(void* arg) {
