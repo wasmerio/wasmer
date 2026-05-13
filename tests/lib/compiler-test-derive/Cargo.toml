@@ -10,7 +10,7 @@ license.workspace = true
 
 description = "A macro to generate easily tests across compilers and engines"
 keywords = ["unsafe", "body", "fn", "safety", "hygiene"]
-categories = ["rust-patterns", ]
+categories = ["rust-patterns"]
 
 [dependencies]
 proc-macro2.workspace = true

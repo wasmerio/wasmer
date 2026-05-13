@@ -17,10 +17,10 @@ log-file = ["shared-buffer"]
 wasmer = { default-features = false, path = "../api", version = "=7.2.0-alpha.2" }
 wasmer-config = { default-features = false, path = "../config", version = "=0.702.0-alpha.2" }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.702.0-alpha.2", features = [
-	"enable-serde",
+  "enable-serde",
 ] }
 virtual-net = { path = "../virtual-net", version = "0.702.0-alpha.2", default-features = false, features = [
-	"rkyv",
+  "rkyv",
 ] }
 virtual-fs = { path = "../virtual-fs", version = "0.702.0-alpha.2", default-features = false }
 

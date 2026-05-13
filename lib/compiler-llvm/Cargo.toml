@@ -15,8 +15,8 @@ version.workspace = true
 
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "=7.2.0-alpha.2", features = [
-	"translator",
-	"compiler",
+  "translator",
+  "compiler",
 ] }
 wasmer-vm = { path = "../vm", version = "=7.2.0-alpha.2" }
 wasmer-types = { path = "../types", version = "=7.2.0-alpha.2" }
@@ -31,11 +31,11 @@ phf = { workspace = true, features = ["macros"] }
 tracing = { workspace = true, features = ["log"] }
 enumset.workspace = true
 inkwell = { workspace = true, features = [
-	"llvm22-1-prefer-static",
-	"target-x86",
-	"target-aarch64",
-	"target-riscv",
-	"target-loongarch",
+  "llvm22-1-prefer-static",
+  "target-x86",
+  "target-aarch64",
+  "target-riscv",
+  "target-loongarch",
 ] }
 crossbeam-channel.workspace = true
 enum-iterator.workspace = true

@@ -45,30 +45,30 @@ features = ["proto-ipv4", "std", "alloc"]
 
 [dev-dependencies]
 tokio = { workspace = true, default-features = false, features = [
-	"macros",
-	"rt-multi-thread",
+  "macros",
+  "rt-multi-thread",
 ] }
 tracing-test.workspace = true
 serial_test.workspace = true
 
 [features]
 default = [
-	"host-net",
-	"remote",
-	"json",
-	"messagepack",
-	"cbor",
-	"hyper",
-	"tokio-tungstenite",
+  "host-net",
+  "remote",
+  "json",
+  "messagepack",
+  "cbor",
+  "hyper",
+  "tokio-tungstenite",
 ]
 host-net = [
-	"libc",
-	"tokio/io-util",
-	"virtual-mio/sys",
-	"tokio/net",
-	"tokio/rt",
-	"socket2",
-	"mio",
+  "libc",
+  "tokio/io-util",
+  "virtual-mio/sys",
+  "tokio/net",
+  "tokio/rt",
+  "socket2",
+  "mio",
 ]
 remote = ["libc", "tokio/io-util", "tokio/sync", "tokio-serde", "tokio-util"]
 json = ["tokio-serde/json"]

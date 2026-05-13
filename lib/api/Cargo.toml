@@ -38,8 +38,8 @@ symbolic-demangle.workspace = true
 shared-buffer.workspace = true
 
 loupe = { workspace = true, optional = true, features = [
-	"indexmap",
-	"enable-indexmap",
+  "indexmap",
+  "enable-indexmap",
 ] }
 paste.workspace = true
 derive_more = { workspace = true, features = ["from", "debug", "unwrap"] }
@@ -81,7 +81,7 @@ crossbeam-channel.workspace = true
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # - Mandatory dependencies for `js`.
 wasmer-types = { path = "../types", version = "=7.2.0-alpha.2", default-features = false, features = [
-	"std",
+  "std",
 ] }
 wasm-bindgen.workspace = true
 js-sys.workspace = true
@@ -116,9 +116,9 @@ default = ["sys-default"]
 std = []
 core = ["hashbrown"]
 artifact-size = [
-	"dep:loupe",
-	"wasmer-vm/artifact-size",
-	"wasmer-compiler/artifact-size",
+  "dep:loupe",
+  "wasmer-vm/artifact-size",
+  "wasmer-compiler/artifact-size",
 ]
 
 # Features for `sys`.
@@ -131,16 +131,14 @@ headless = []
 experimental-async = ["dep:futures", "dep:corosensei"]
 
 # Experimental host-triggered interruption support
-experimental-host-interrupt = [
-	"wasmer-vm/experimental-host-interrupt",
-]
+experimental-host-interrupt = ["wasmer-vm/experimental-host-interrupt"]
 
 # - Compilers.
 compiler = [
-	"sys",
-	"dep:wasmer-compiler",
-	"wasmer-compiler/translator",
-	"wasmer-compiler/compiler",
+  "sys",
+  "dep:wasmer-compiler",
+  "wasmer-compiler/translator",
+  "wasmer-compiler/compiler",
 ]
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
@@ -164,9 +162,9 @@ js-serializable-module = []
 
 # Optional
 enable-serde = [
-	"wasmer-vm/enable-serde",
-	"wasmer-compiler/enable-serde",
-	"wasmer-types/enable-serde",
+  "wasmer-vm/enable-serde",
+  "wasmer-compiler/enable-serde",
+  "wasmer-types/enable-serde",
 ]
 
 # AddressSanitizer support
@@ -188,15 +186,15 @@ bindgen.workspace = true
 
 [package.metadata.docs.rs]
 features = [
-	"compiler",
-	"core",
-	"cranelift",
-	"singlepass",
-	"static-artifact-create",
-	"static-artifact-load",
-	"sys",
-	"sys-default",
-	"wasmer-artifact-create",
-	"wasmer-artifact-load",
+  "compiler",
+  "core",
+  "cranelift",
+  "singlepass",
+  "static-artifact-create",
+  "static-artifact-load",
+  "sys",
+  "sys-default",
+  "wasmer-artifact-create",
+  "wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]

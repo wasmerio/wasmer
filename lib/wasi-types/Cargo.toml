@@ -20,7 +20,7 @@ wasmer-types = { path = "../types", version = "=7.2.0-alpha.2" }
 wasmer-derive = { path = "../derive", version = "=7.2.0-alpha.2" }
 wai-bindgen-gen-rust.workspace = true
 wai-bindgen-rust = { workspace = true, default-features = false, features = [
-	"macros",
+  "macros",
 ] }
 wai-bindgen-gen-rust-wasm.workspace = true
 wai-bindgen-gen-core.workspace = true

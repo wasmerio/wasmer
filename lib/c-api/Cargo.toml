@@ -33,13 +33,13 @@ wasmer-compiler-singlepass = { version = "=7.2.0-alpha.2", path = "../compiler-s
 wasmer-middlewares = { version = "=7.2.0-alpha.2", path = "../middlewares", optional = true }
 wasmer-types = { version = "=7.2.0-alpha.2", path = "../types" }
 wasmer-wasix = { path = "../wasix", version = "=0.702.0-alpha.2", features = [
-	"host-fs",
-	"host-vnet",
-	"sys",
+  "host-fs",
+  "host-vnet",
+  "sys",
 ], default-features = false, optional = true }
 webc = { workspace = true, optional = true }
 virtual-fs = { version = "0.702.0-alpha.2", path = "../virtual-fs", optional = true, default-features = false, features = [
-	"static-fs",
+  "static-fs",
 ] }
 enumset.workspace = true
 cfg-if.workspace = true
@@ -48,11 +48,11 @@ thiserror.workspace = true
 typetag = { workspace = true, optional = true }
 paste.workspace = true
 tokio = { workspace = true, features = [
-	"rt",
-	"rt-multi-thread",
-	"io-util",
-	"sync",
-	"macros",
+  "rt",
+  "rt-multi-thread",
+  "io-util",
+  "sync",
+  "macros",
 ], default-features = false }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
@@ -78,36 +78,36 @@ sys = ["wasmer-api/sys", "wasmer-compiler"]
 
 # Enable the `singlepass` compiler.
 singlepass = [
-	"dep:wasmer-compiler-singlepass",
-	"wasmer-api/singlepass",
-	"compiler",
+  "dep:wasmer-compiler-singlepass",
+  "wasmer-api/singlepass",
+  "compiler",
 ]
 # Enable the `cranelift` compiler. 
 cranelift = [
-	"dep:wasmer-compiler-cranelift",
-	"wasmer-api/cranelift",
-	"compiler",
+  "dep:wasmer-compiler-cranelift",
+  "wasmer-api/cranelift",
+  "compiler",
 ]
 # Enable the `llvm` compiler.
 llvm = ["dep:wasmer-compiler-llvm", "wasmer-api/llvm", "compiler"]
 
 # Enable the use of compiler. Implies enabling the `sys` feature.
 compiler = [
-	"sys",
-	"wasmer-compiler",
-	"wasmer-api/compiler",
-	"wasmer-compiler/translator",
-	"wasmer-compiler/compiler",
+  "sys",
+  "wasmer-compiler",
+  "wasmer-api/compiler",
+  "wasmer-compiler/translator",
+  "wasmer-compiler/compiler",
 ]
 
 # Enable the use of the headless compiler. Implies enabling the `sys` feature.
 compiler-headless = [
-	"sys",
-	"wasmer-artifact-load",
-	"static-artifact-load",
-	"wasmer-api/compiler",
-	"wasmer-compiler/translator",
-	"wasmer-compiler/compiler",
+  "sys",
+  "wasmer-artifact-load",
+  "static-artifact-load",
+  "wasmer-api/compiler",
+  "wasmer-compiler/translator",
+  "wasmer-compiler/compiler",
 ]
 
 # Enable the `v8` backend.

@@ -74,6 +74,8 @@ jobs:
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-22
           echo '/opt/llvm-22/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_221_PREFIX=/opt/llvm-22' >> $GITHUB_ENV
+      - name: Install taplo
+        run: curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin /usr/local/bin/taplo
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2

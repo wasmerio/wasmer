@@ -22,8 +22,8 @@ thiserror.workspace = true
 serde_bytes = { workspace = true, optional = true }
 smallvec.workspace = true
 loupe = { workspace = true, optional = true, features = [
-	"indexmap",
-	"enable-indexmap",
+  "indexmap",
+  "enable-indexmap",
 ] }
 
 backtrace.workspace = true
@@ -54,7 +54,7 @@ crossbeam-channel.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { workspace = true, features = [
-	"Win32_System_Diagnostics_Debug",
+  "Win32_System_Diagnostics_Debug",
 ] }
 
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
@@ -81,9 +81,9 @@ maintenance = { status = "experimental" }
 
 [package.metadata.docs.rs]
 features = [
-	"static-artifact-create",
-	"static-artifact-load",
-	"wasmer-artifact-create",
-	"wasmer-artifact-load",
+  "static-artifact-create",
+  "static-artifact-load",
+  "wasmer-artifact-create",
+  "wasmer-artifact-load",
 ]
 rustc-args = ["--cfg", "docsrs"]
