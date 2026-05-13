@@ -50,3 +50,6 @@ existant = "existant"
 fourty = "fourty"
 # Scene ID
 tne = "tne"
+
+[default.extend-identifiers]
+as_slice_arbitary = "as_slice_arbitary"
