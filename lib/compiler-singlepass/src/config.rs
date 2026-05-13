@@ -76,7 +76,7 @@ impl SinglepassCallbacks {
 #[derive(Debug, Clone)]
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
-    pub(crate) allow_unaligned_memory_accesses: bool,
+    pub(crate) allow_experimental_unaligned_memory_accesses: bool,
 
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
@@ -93,7 +93,7 @@ impl Singlepass {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: true,
-            allow_unaligned_memory_accesses: false,
+            allow_experimental_unaligned_memory_accesses: false,
             middlewares: vec![],
             callbacks: None,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
@@ -112,7 +112,7 @@ impl Singlepass {
     /// This feature is experimental and currently supports only Cranelift scalar types
     /// and Singlepass on RISC-V for integral types.
     pub fn allow_experimental_unaligned_memory_accesses(&mut self, enable: bool) -> &mut Self {
-        self.allow_unaligned_memory_accesses = enable;
+        self.allow_experimental_unaligned_memory_accesses = enable;
         self
     }
 
