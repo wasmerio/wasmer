@@ -1439,16 +1439,16 @@ pub enum SockProto {
     ProtoThirtyseven,
     ProtoThirtyeight,
     ProtoThirtynine,
-    ProtoForty,
+    ProtoFourty,
     Ipv6,
-    ProtoFortytwo,
+    ProtoFourtytwo,
     Routing,
     Fragment,
-    ProtoFortyfive,
+    ProtoFourtyfive,
     Rsvp,
     Gre,
-    ProtoFortyeight,
-    ProtoFortynine,
+    ProtoFourtyeight,
+    ProtoFourtynine,
     Esp,
     Ah,
     ProtoFiftytwo,
@@ -1539,16 +1539,16 @@ pub enum SockProto {
     Mpls,
     ProtoOnehundredandthirtyeight,
     ProtoOnehundredandthirtynine,
-    ProtoOnehundredandforty,
-    ProtoOnehundredandfortyone,
-    ProtoOnehundredandfortytwo,
+    ProtoOnehundredandfourty,
+    ProtoOnehundredandfourtyone,
+    ProtoOnehundredandfourtytwo,
     Ethernet,
-    ProtoOnehundredandfortyfour,
-    ProtoOnehundredandfortyfive,
-    ProtoOnehundredandfortysix,
-    ProtoOnehundredandfortyseven,
-    ProtoOnehundredandfortyeight,
-    ProtoOnehundredandfortynine,
+    ProtoOnehundredandfourtyfour,
+    ProtoOnehundredandfourtyfive,
+    ProtoOnehundredandfourtysix,
+    ProtoOnehundredandfourtyseven,
+    ProtoOnehundredandfourtyeight,
+    ProtoOnehundredandfourtynine,
     ProtoOnehundredandfifty,
     ProtoOnehundredandfiftyone,
     ProtoOnehundredandfiftytwo,
@@ -1639,16 +1639,16 @@ pub enum SockProto {
     ProtoTwohundredandthirtyseven,
     ProtoTwohundredandthirtyeight,
     ProtoTwohundredandthirtynine,
-    ProtoTwohundredandforty,
-    ProtoTwohundredandfortyone,
-    ProtoTwohundredandfortytwo,
-    ProtoTwohundredandfortythree,
-    ProtoTwohundredandfortyfour,
-    ProtoTwohundredandfortyfive,
-    ProtoTwohundredandfortysix,
-    ProtoTwohundredandfortyseven,
-    ProtoTwohundredandfortyeight,
-    ProtoTwohundredandfortynine,
+    ProtoTwohundredandfourty,
+    ProtoTwohundredandfourtyone,
+    ProtoTwohundredandfourtytwo,
+    ProtoTwohundredandfourtythree,
+    ProtoTwohundredandfourtyfour,
+    ProtoTwohundredandfourtyfive,
+    ProtoTwohundredandfourtysix,
+    ProtoTwohundredandfourtyseven,
+    ProtoTwohundredandfourtyeight,
+    ProtoTwohundredandfourtynine,
     ProtoTwohundredandfifty,
     ProtoTwohundredandfiftyone,
     ProtoTwohundredandfiftytwo,
@@ -1707,16 +1707,16 @@ impl core::fmt::Debug for SockProto {
             SockProto::ProtoThirtyseven => f.debug_tuple("SockProto::ProtoThirtyseven").finish(),
             SockProto::ProtoThirtyeight => f.debug_tuple("SockProto::ProtoThirtyeight").finish(),
             SockProto::ProtoThirtynine => f.debug_tuple("SockProto::ProtoThirtynine").finish(),
-            SockProto::ProtoForty => f.debug_tuple("SockProto::ProtoForty").finish(),
+            SockProto::ProtoFourty => f.debug_tuple("SockProto::ProtoFourty").finish(),
             SockProto::Ipv6 => f.debug_tuple("SockProto::Ipv6").finish(),
-            SockProto::ProtoFortytwo => f.debug_tuple("SockProto::ProtoFortytwo").finish(),
+            SockProto::ProtoFourtytwo => f.debug_tuple("SockProto::ProtoFourtytwo").finish(),
             SockProto::Routing => f.debug_tuple("SockProto::Routing").finish(),
             SockProto::Fragment => f.debug_tuple("SockProto::Fragment").finish(),
-            SockProto::ProtoFortyfive => f.debug_tuple("SockProto::ProtoFortyfive").finish(),
+            SockProto::ProtoFourtyfive => f.debug_tuple("SockProto::ProtoFourtyfive").finish(),
             SockProto::Rsvp => f.debug_tuple("SockProto::Rsvp").finish(),
             SockProto::Gre => f.debug_tuple("SockProto::Gre").finish(),
-            SockProto::ProtoFortyeight => f.debug_tuple("SockProto::ProtoFortyeight").finish(),
-            SockProto::ProtoFortynine => f.debug_tuple("SockProto::ProtoFortynine").finish(),
+            SockProto::ProtoFourtyeight => f.debug_tuple("SockProto::ProtoFourtyeight").finish(),
+            SockProto::ProtoFourtynine => f.debug_tuple("SockProto::ProtoFourtynine").finish(),
             SockProto::Esp => f.debug_tuple("SockProto::Esp").finish(),
             SockProto::Ah => f.debug_tuple("SockProto::Ah").finish(),
             SockProto::ProtoFiftytwo => f.debug_tuple("SockProto::ProtoFiftytwo").finish(),
@@ -1873,33 +1873,33 @@ impl core::fmt::Debug for SockProto {
             SockProto::ProtoOnehundredandthirtynine => f
                 .debug_tuple("SockProto::ProtoOnehundredandthirtynine")
                 .finish(),
-            SockProto::ProtoOnehundredandforty => {
-                f.debug_tuple("SockProto::ProtoOnehundredandforty").finish()
+            SockProto::ProtoOnehundredandfourty => {
+                f.debug_tuple("SockProto::ProtoOnehundredandfourty").finish()
             }
-            SockProto::ProtoOnehundredandfortyone => f
-                .debug_tuple("SockProto::ProtoOnehundredandfortyone")
+            SockProto::ProtoOnehundredandfourtyone => f
+                .debug_tuple("SockProto::ProtoOnehundredandfourtyone")
                 .finish(),
-            SockProto::ProtoOnehundredandfortytwo => f
-                .debug_tuple("SockProto::ProtoOnehundredandfortytwo")
+            SockProto::ProtoOnehundredandfourtytwo => f
+                .debug_tuple("SockProto::ProtoOnehundredandfourtytwo")
                 .finish(),
             SockProto::Ethernet => f.debug_tuple("SockProto::Ethernet").finish(),
-            SockProto::ProtoOnehundredandfortyfour => f
-                .debug_tuple("SockProto::ProtoOnehundredandfortyfour")
+            SockProto::ProtoOnehundredandfourtyfour => f
+                .debug_tuple("SockProto::ProtoOnehundredandfourtyfour")
                 .finish(),
-            SockProto::ProtoOnehundredandfortyfive => f
-                .debug_tuple("SockProto::ProtoOnehundredandfortyfive")
+            SockProto::ProtoOnehundredandfourtyfive => f
+                .debug_tuple("SockProto::ProtoOnehundredandfourtyfive")
                 .finish(),
-            SockProto::ProtoOnehundredandfortysix => f
-                .debug_tuple("SockProto::ProtoOnehundredandfortysix")
+            SockProto::ProtoOnehundredandfourtysix => f
+                .debug_tuple("SockProto::ProtoOnehundredandfourtysix")
                 .finish(),
-            SockProto::ProtoOnehundredandfortyseven => f
-                .debug_tuple("SockProto::ProtoOnehundredandfortyseven")
+            SockProto::ProtoOnehundredandfourtyseven => f
+                .debug_tuple("SockProto::ProtoOnehundredandfourtyseven")
                 .finish(),
-            SockProto::ProtoOnehundredandfortyeight => f
-                .debug_tuple("SockProto::ProtoOnehundredandfortyeight")
+            SockProto::ProtoOnehundredandfourtyeight => f
+                .debug_tuple("SockProto::ProtoOnehundredandfourtyeight")
                 .finish(),
-            SockProto::ProtoOnehundredandfortynine => f
-                .debug_tuple("SockProto::ProtoOnehundredandfortynine")
+            SockProto::ProtoOnehundredandfourtynine => f
+                .debug_tuple("SockProto::ProtoOnehundredandfourtynine")
                 .finish(),
             SockProto::ProtoOnehundredandfifty => {
                 f.debug_tuple("SockProto::ProtoOnehundredandfifty").finish()
@@ -2169,35 +2169,35 @@ impl core::fmt::Debug for SockProto {
             SockProto::ProtoTwohundredandthirtynine => f
                 .debug_tuple("SockProto::ProtoTwohundredandthirtynine")
                 .finish(),
-            SockProto::ProtoTwohundredandforty => {
-                f.debug_tuple("SockProto::ProtoTwohundredandforty").finish()
+            SockProto::ProtoTwohundredandfourty => {
+                f.debug_tuple("SockProto::ProtoTwohundredandfourty").finish()
             }
-            SockProto::ProtoTwohundredandfortyone => f
-                .debug_tuple("SockProto::ProtoTwohundredandfortyone")
+            SockProto::ProtoTwohundredandfourtyone => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourtyone")
                 .finish(),
-            SockProto::ProtoTwohundredandfortytwo => f
-                .debug_tuple("SockProto::ProtoTwohundredandfortytwo")
+            SockProto::ProtoTwohundredandfourtytwo => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourtytwo")
                 .finish(),
-            SockProto::ProtoTwohundredandfortythree => f
-                .debug_tuple("SockProto::ProtoTwohundredandfortythree")
+            SockProto::ProtoTwohundredandfourtythree => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourtythree")
                 .finish(),
-            SockProto::ProtoTwohundredandfortyfour => f
-                .debug_tuple("SockProto::ProtoTwohundredandfortyfour")
+            SockProto::ProtoTwohundredandfourtyfour => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourtyfour")
                 .finish(),
-            SockProto::ProtoTwohundredandfortyfive => f
-                .debug_tuple("SockProto::ProtoTwohundredandfortyfive")
+            SockProto::ProtoTwohundredandfourtyfive => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourtyfive")
                 .finish(),
-            SockProto::ProtoTwohundredandfortysix => f
-                .debug_tuple("SockProto::ProtoTwohundredandfortysix")
+            SockProto::ProtoTwohundredandfourtysix => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourtysix")
                 .finish(),
-            SockProto::ProtoTwohundredandfortyseven => f
-                .debug_tuple("SockProto::ProtoTwohundredandfortyseven")
+            SockProto::ProtoTwohundredandfourtyseven => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourtyseven")
                 .finish(),
-            SockProto::ProtoTwohundredandfortyeight => f
-                .debug_tuple("SockProto::ProtoTwohundredandfortyeight")
+            SockProto::ProtoTwohundredandfourtyeight => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourtyeight")
                 .finish(),
-            SockProto::ProtoTwohundredandfortynine => f
-                .debug_tuple("SockProto::ProtoTwohundredandfortynine")
+            SockProto::ProtoTwohundredandfourtynine => f
+                .debug_tuple("SockProto::ProtoTwohundredandfourtynine")
                 .finish(),
             SockProto::ProtoTwohundredandfifty => {
                 f.debug_tuple("SockProto::ProtoTwohundredandfifty").finish()
@@ -3519,16 +3519,16 @@ unsafe impl wasmer::FromToNativeWasmType for SockProto {
             37 => Self::ProtoThirtyseven,
             38 => Self::ProtoThirtyeight,
             39 => Self::ProtoThirtynine,
-            40 => Self::ProtoForty,
+            40 => Self::ProtoFourty,
             41 => Self::Ipv6,
-            42 => Self::ProtoFortytwo,
+            42 => Self::ProtoFourtytwo,
             43 => Self::Routing,
             44 => Self::Fragment,
-            45 => Self::ProtoFortyfive,
+            45 => Self::ProtoFourtyfive,
             46 => Self::Rsvp,
             47 => Self::Gre,
-            48 => Self::ProtoFortyeight,
-            49 => Self::ProtoFortynine,
+            48 => Self::ProtoFourtyeight,
+            49 => Self::ProtoFourtynine,
             50 => Self::Esp,
             51 => Self::Ah,
             52 => Self::ProtoFiftytwo,
@@ -3619,16 +3619,16 @@ unsafe impl wasmer::FromToNativeWasmType for SockProto {
             137 => Self::Mpls,
             138 => Self::ProtoOnehundredandthirtyeight,
             139 => Self::ProtoOnehundredandthirtynine,
-            140 => Self::ProtoOnehundredandforty,
-            141 => Self::ProtoOnehundredandfortyone,
-            142 => Self::ProtoOnehundredandfortytwo,
+            140 => Self::ProtoOnehundredandfourty,
+            141 => Self::ProtoOnehundredandfourtyone,
+            142 => Self::ProtoOnehundredandfourtytwo,
             143 => Self::Ethernet,
-            144 => Self::ProtoOnehundredandfortyfour,
-            145 => Self::ProtoOnehundredandfortyfive,
-            146 => Self::ProtoOnehundredandfortysix,
-            147 => Self::ProtoOnehundredandfortyseven,
-            148 => Self::ProtoOnehundredandfortyeight,
-            149 => Self::ProtoOnehundredandfortynine,
+            144 => Self::ProtoOnehundredandfourtyfour,
+            145 => Self::ProtoOnehundredandfourtyfive,
+            146 => Self::ProtoOnehundredandfourtysix,
+            147 => Self::ProtoOnehundredandfourtyseven,
+            148 => Self::ProtoOnehundredandfourtyeight,
+            149 => Self::ProtoOnehundredandfourtynine,
             150 => Self::ProtoOnehundredandfifty,
             151 => Self::ProtoOnehundredandfiftyone,
             152 => Self::ProtoOnehundredandfiftytwo,
@@ -3719,16 +3719,16 @@ unsafe impl wasmer::FromToNativeWasmType for SockProto {
             237 => Self::ProtoTwohundredandthirtyseven,
             238 => Self::ProtoTwohundredandthirtyeight,
             239 => Self::ProtoTwohundredandthirtynine,
-            240 => Self::ProtoTwohundredandforty,
-            241 => Self::ProtoTwohundredandfortyone,
-            242 => Self::ProtoTwohundredandfortytwo,
-            243 => Self::ProtoTwohundredandfortythree,
-            244 => Self::ProtoTwohundredandfortyfour,
-            245 => Self::ProtoTwohundredandfortyfive,
-            246 => Self::ProtoTwohundredandfortysix,
-            247 => Self::ProtoTwohundredandfortyseven,
-            248 => Self::ProtoTwohundredandfortyeight,
-            249 => Self::ProtoTwohundredandfortynine,
+            240 => Self::ProtoTwohundredandfourty,
+            241 => Self::ProtoTwohundredandfourtyone,
+            242 => Self::ProtoTwohundredandfourtytwo,
+            243 => Self::ProtoTwohundredandfourtythree,
+            244 => Self::ProtoTwohundredandfourtyfour,
+            245 => Self::ProtoTwohundredandfourtyfive,
+            246 => Self::ProtoTwohundredandfourtysix,
+            247 => Self::ProtoTwohundredandfourtyseven,
+            248 => Self::ProtoTwohundredandfourtyeight,
+            249 => Self::ProtoTwohundredandfourtynine,
             250 => Self::ProtoTwohundredandfifty,
             251 => Self::ProtoTwohundredandfiftyone,
             252 => Self::ProtoTwohundredandfiftytwo,

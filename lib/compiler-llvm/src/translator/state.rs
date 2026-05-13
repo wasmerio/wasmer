@@ -210,7 +210,7 @@ impl BitAnd for ExtraInfo {
             (false, false) => Ok(info),
             (true, false) => info | ExtraInfo::pending_f32_nan(),
             (false, true) => info | ExtraInfo::pending_f64_nan(),
-            (true, true) => unreachable!("Can't form ExtraInfo with two pending canonicalizations"),
+            (true, true) => unreachable!("Can't form ExtraInfo with two pending canonicalization"),
         }
     }
 }
