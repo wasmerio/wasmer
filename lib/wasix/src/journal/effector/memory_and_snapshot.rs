@@ -141,7 +141,7 @@ impl JournalEffector {
         // Combine regions together that are next to each other
         regions.clear();
         let mut last_end = None;
-        for (region, _) in regions_phase2.iter() {
+        for region in regions_phase2.keys() {
             if Some(region.start) == last_end {
                 regions.last_mut().unwrap().end = region.end;
             } else {

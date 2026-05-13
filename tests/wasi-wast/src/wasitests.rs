@@ -152,7 +152,7 @@ fn compile_wasm_for_version(
 
     println!(
         "Compiling wasm module `{}` with toolchain `{}`",
-        &wasm_out_name.to_string_lossy(),
+        wasm_out_name.to_string_lossy(),
         version.get_compiler_toolchain()
     );
     let mut command = Command::new("rustc");
@@ -171,7 +171,7 @@ fn compile_wasm_for_version(
     util::print_info_on_error(&wasm_compilation_out, "WASM COMPILATION");
     println!(
         "Removing file `{}`",
-        &temp_wasi_rs_file_name.to_string_lossy()
+        temp_wasi_rs_file_name.to_string_lossy()
     );
 
     // to prevent commiting huge binary blobs forever
@@ -221,7 +221,7 @@ fn compile(temp_dir: &Path, file: &str, wasi_versions: &[WasiVersion]) {
         options,
     };
     let test_serialized = test.into_wasi_wast();
-    println!("Generated test output: {}", &test_serialized);
+    println!("Generated test output: {test_serialized}");
 
     wasi_versions
         .iter()

@@ -141,6 +141,15 @@ These tests live in the `wasmer-wasix` crate and are compiled as integration tes
 
 Before running them, make sure `wasixcc` is installed and working in your shell environment.
 
+> [!WARNING]
+> The auto-build path respects the `CC` / `CXX` environment variables. If your shell has `CC` set to a native compiler (e.g. `CC=gcc`), tests will silently compile to a native executable instead of WebAssembly, producing invalid test artifacts and confusing failures. Clear `CC` before running the suite.
+
+```bash
+unset CC CXX
+# or unset for a single invocation without affecting the current shell:
+env -u CC -u CXX cargo test ...
+```
+
 Run the main WASIX wasm suite:
 
 ```bash

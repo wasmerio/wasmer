@@ -35,7 +35,7 @@ pub struct ModuleId {
 
 impl ModuleId {
     pub fn id(&self) -> String {
-        format!("{}", &self.id)
+        format!("{}", self.id)
     }
 }
 

@@ -444,7 +444,7 @@ impl Errno {
 }
 impl core::fmt::Debug for Errno {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Errno::{}", &self.name())
+        write!(f, "Errno::{}", self.name())
     }
 }
 impl core::fmt::Display for Errno {

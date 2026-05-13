@@ -474,7 +474,7 @@ impl TxWaker {
 
     fn wake_now(&self) {
         let mut guard = self.common.handlers.lock().unwrap();
-        for (_, handler) in guard.iter_mut() {
+        for handler in guard.values_mut() {
             handler.push_interest(InterestType::Writable);
         }
     }
