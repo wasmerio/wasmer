@@ -15,7 +15,7 @@ version.workspace = true
 wasmer = { version = "=7.2.0-alpha.2", path = "lib/api", default-features = false }
 wasmer-cache = { version = "=7.2.0-alpha.2", path = "lib/cache", optional = true }
 wasmer-compiler = { version = "=7.2.0-alpha.2", path = "lib/compiler", features = [
-	"compiler",
+  "compiler",
 ], optional = true }
 wasmer-compiler-cranelift = { version = "=7.2.0-alpha.2", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-llvm = { version = "=7.2.0-alpha.2", path = "lib/compiler-llvm", optional = true }
@@ -29,48 +29,48 @@ wasmer-wasix = { path = "lib/wasix", optional = true }
 cfg-if.workspace = true
 crossbeam-queue.workspace = true
 tokio = { workspace = true, features = [
-	"rt",
-	"rt-multi-thread",
-	"macros",
+  "rt",
+  "rt-multi-thread",
+  "macros",
 ], optional = true }
 
 [workspace]
 members = [
-	"fuzz",
-	"lib/api",
-	"lib/api/macro-wasmer-engine-test",
-	"lib/backend-api",
-	"lib/c-api",
-	"lib/c-api/examples/wasmer-capi-examples-runner",
-	"lib/c-api/tests/wasmer-c-api-test-runner",
-	"lib/cache",
-	"lib/cli",
-	"lib/compiler-cranelift",
-	"lib/compiler-llvm",
-	"lib/compiler-singlepass",
-	"lib/compiler",
-	"lib/config",
-	"lib/derive",
-	"lib/napi",
-	"lib/sys-utils",
-	"lib/types",
-	"lib/sdk",
-	"lib/virtual-io",
-	"lib/virtual-fs",
-	"lib/virtual-net",
-	"lib/vm",
-	"lib/wai-bindgen-wasmer",
-	"lib/wasi-types",
-	"lib/wasix",
-	"lib/journal",
-	"lib/swift",
-	"lib/package",
-	"tests/integration/cli",
-	"tests/integration/ios",
-	"tests/lib/compiler-test-derive",
-	"tests/lib/wast",
-	"tests/wasi-wast",
-	"tests/wasmer-argus",
+  "fuzz",
+  "lib/api",
+  "lib/api/macro-wasmer-engine-test",
+  "lib/backend-api",
+  "lib/c-api",
+  "lib/c-api/examples/wasmer-capi-examples-runner",
+  "lib/c-api/tests/wasmer-c-api-test-runner",
+  "lib/cache",
+  "lib/cli",
+  "lib/compiler-cranelift",
+  "lib/compiler-llvm",
+  "lib/compiler-singlepass",
+  "lib/compiler",
+  "lib/config",
+  "lib/derive",
+  "lib/napi",
+  "lib/sys-utils",
+  "lib/types",
+  "lib/sdk",
+  "lib/virtual-io",
+  "lib/virtual-fs",
+  "lib/virtual-net",
+  "lib/vm",
+  "lib/wai-bindgen-wasmer",
+  "lib/wasi-types",
+  "lib/wasix",
+  "lib/journal",
+  "lib/swift",
+  "lib/package",
+  "tests/integration/cli",
+  "tests/integration/ios",
+  "tests/lib/compiler-test-derive",
+  "tests/lib/wast",
+  "tests/wasi-wast",
+  "tests/wasmer-argus",
 ]
 exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
@@ -237,7 +237,11 @@ region = "3.0"
 replace_with = "0.1.7"
 reqwest = { version = "0.13.0", default-features = false }
 rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
-symbolic-demangle = { version = "12", default-features = false, features = ["rust", "cpp", "msvc"] }
+symbolic-demangle = { version = "12", default-features = false, features = [
+  "rust",
+  "cpp",
+  "msvc",
+] }
 rustc_version = "0.4"
 rusty_pool = "0.7.0"
 rustversion = "1.0"
@@ -301,9 +305,15 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.248.0", default-features = false, features = ["std"] }
+wasm-encoder = { version = "0.248.0", default-features = false, features = [
+  "std",
+] }
 wasm-smith = "0.248.0"
-wasmparser = { version = "0.248.0", default-features = false, features = ["validate", "features", "simd"] }
+wasmparser = { version = "0.248.0", default-features = false, features = [
+  "validate",
+  "features",
+  "simd",
+] }
 wasmprinter = "0.248.0"
 wasmer-inline-c = "0.1.1"
 wast = "248.0.0"
@@ -328,9 +338,9 @@ rustc_version.workspace = true
 
 [dev-dependencies]
 wasmer = { version = "=7.2.0-alpha.2", path = "lib/api", features = [
-	"compiler",
-	"singlepass",
-	"sys",
+  "compiler",
+  "singlepass",
+  "sys",
 ] }
 anyhow.workspace = true
 clap.workspace = true
@@ -346,8 +356,8 @@ ureq.workspace = true
 test-log = { workspace = true, default-features = false, features = ["trace"] }
 tracing = { workspace = true, default-features = false, features = ["log"] }
 tracing-subscriber = { workspace = true, default-features = false, features = [
-	"env-filter",
-	"fmt",
+  "env-filter",
+  "fmt",
 ] }
 reqwest = { workspace = true, features = ["blocking", "rustls"] }
 itertools.workspace = true

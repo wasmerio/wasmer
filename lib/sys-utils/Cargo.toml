@@ -12,7 +12,11 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = ["sys", "compiler", "headless"] }
+wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = [
+  "sys",
+  "compiler",
+  "headless",
+] }
 wasmer-vm = { path = "../vm", version = "=7.2.0-alpha.2" }
 wasmer-types = { path = "../types", version = "=7.2.0-alpha.2" }
 region.workspace = true
@@ -23,7 +27,11 @@ libc.workspace = true
 
 [dev-dependencies]
 wasmer-wasix.workspace = true
-wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = ["sys", "compiler", "cranelift"] }
+wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = [
+  "sys",
+  "compiler",
+  "cranelift",
+] }
 tracing-subscriber = { workspace = true, features = ["fmt"] }
 tracing.workspace = true
 

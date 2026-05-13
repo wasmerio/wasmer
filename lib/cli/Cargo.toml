@@ -29,12 +29,12 @@ required-features = ["headless"]
 # Don't add the compiler features in default, please add them on the Makefile
 # since we might want to autoconfigure them depending on the availability on the host.
 default = [
-	"sys",
-	"wat",
-	"wast",
-	"journal",
-	"wasmer-artifact-create",
-	"static-artifact-create"
+  "sys",
+  "wat",
+  "wast",
+  "journal",
+  "wasmer-artifact-create",
+  "static-artifact-create",
 ]
 
 # # Tun-tap client for connecting to Wasmer Edge VPNs
@@ -55,42 +55,42 @@ wast = ["wasmer-wast"]
 host-net = ["virtual-net/host-net"]
 wat = ["wasmer/wat"]
 compiler = [
-	"backend",
-	"wasmer/compiler",
-	"wasmer-compiler/translator",
-	"wasmer-compiler/compiler",
-	"sys",
+  "backend",
+  "wasmer/compiler",
+  "wasmer-compiler/translator",
+  "wasmer-compiler/compiler",
+  "sys",
 ]
 wasmer-artifact-create = [
-	"compiler",
-	"wasmer/wasmer-artifact-load",
-	"wasmer/wasmer-artifact-create",
-	"wasmer-compiler/wasmer-artifact-load",
-	"wasmer-compiler/wasmer-artifact-create",
+  "compiler",
+  "wasmer/wasmer-artifact-load",
+  "wasmer/wasmer-artifact-create",
+  "wasmer-compiler/wasmer-artifact-load",
+  "wasmer-compiler/wasmer-artifact-create",
 ]
 static-artifact-create = [
-	"compiler",
-	"wasmer/static-artifact-load",
-	"wasmer/static-artifact-create",
-	"wasmer-compiler/static-artifact-load",
-	"wasmer-compiler/static-artifact-create",
+  "compiler",
+  "wasmer/static-artifact-load",
+  "wasmer/static-artifact-create",
+  "wasmer-compiler/static-artifact-load",
+  "wasmer-compiler/static-artifact-create",
 ]
 wasmer-artifact-load = [
-	"compiler",
-	"wasmer/wasmer-artifact-load",
-	"wasmer-compiler/wasmer-artifact-load",
+  "compiler",
+  "wasmer/wasmer-artifact-load",
+  "wasmer-compiler/wasmer-artifact-load",
 ]
 static-artifact-load = [
-	"compiler",
-	"wasmer/static-artifact-load",
-	"wasmer-compiler/static-artifact-load",
+  "compiler",
+  "wasmer/static-artifact-load",
+  "wasmer-compiler/static-artifact-load",
 ]
 singlepass = ["wasmer-compiler-singlepass", "compiler", "wasmer/singlepass"]
 cranelift = ["wasmer-compiler-cranelift", "compiler", "wasmer/cranelift"]
 llvm = ["wasmer-compiler-llvm", "compiler", "wasmer/llvm"]
 disable-all-logging = [
-	"wasmer-wasix/disable-all-logging",
-	"log/release_max_level_off",
+  "wasmer-wasix/disable-all-logging",
+  "log/release_max_level_off",
 ]
 headless = ["dep:wasmer-vm", "wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
@@ -99,10 +99,10 @@ napi-v8 = ["dep:wasmer-napi"]
 
 # Optional
 enable-serde = [
-	"wasmer/enable-serde",
-	"wasmer-vm/enable-serde",
-	"wasmer-compiler/enable-serde",
-	"wasmer-wasix/enable-serde",
+  "wasmer/enable-serde",
+  "wasmer-vm/enable-serde",
+  "wasmer-compiler/enable-serde",
+  "wasmer-wasix/enable-serde",
 ]
 
 tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
@@ -110,9 +110,11 @@ tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=7.2.0-alpha.2", path = "../api", default-features = false, features = ["headless"] }
+wasmer = { version = "=7.2.0-alpha.2", path = "../api", default-features = false, features = [
+  "headless",
+] }
 wasmer-compiler = { version = "=7.2.0-alpha.2", path = "../compiler", features = [
-	"compiler"
+  "compiler",
 ], optional = true }
 wasmer-compiler-cranelift = { version = "=7.2.0-alpha.2", path = "../compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=7.2.0-alpha.2", path = "../compiler-singlepass", optional = true }
@@ -120,22 +122,22 @@ wasmer-compiler-llvm = { version = "=7.2.0-alpha.2", path = "../compiler-llvm", 
 wasmer-package.workspace = true
 wasmer-vm = { version = "=7.2.0-alpha.2", path = "../vm", optional = true }
 wasmer-wasix = { path = "../wasix", version = "=0.702.0-alpha.2", features = [
-	"logging",
-	"webc_runner_rt_wcgi",
-	"webc_runner_rt_dcgi",
-	"webc_runner_rt_dproxy",
-	"host-fs",
-	"ctrlc",
-	"sys",
+  "logging",
+  "webc_runner_rt_wcgi",
+  "webc_runner_rt_dcgi",
+  "webc_runner_rt_dproxy",
+  "host-fs",
+  "ctrlc",
+  "sys",
 ], default-features = false }
 wasmer-wast = { version = "=7.2.0-alpha.2", path = "../../tests/lib/wast", optional = true }
 wasmer-types = { version = "=7.2.0-alpha.2", path = "../types", features = [
-	"enable-serde",
-	"detect-wasm-features",
+  "enable-serde",
+  "detect-wasm-features",
 ] }
 wasmer-napi = { version = "0.702.0-alpha.2", path = "../napi", optional = true }
 virtual-fs = { version = "0.702.0-alpha.2", path = "../virtual-fs", default-features = false, features = [
-	"host-fs",
+  "host-fs",
 ] }
 virtual-net = { version = "0.702.0-alpha.2", path = "../virtual-net" }
 virtual-mio = { version = "0.702.0-alpha.2", path = "../virtual-io" }
@@ -185,10 +187,10 @@ object.workspace = true
 wasm-coredump-builder = { workspace = true, optional = true }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = [
-	"env-filter",
-	"fmt",
-	"json",
-	"ansi"
+  "env-filter",
+  "fmt",
+  "json",
+  "ansi",
 ] }
 async-trait.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
@@ -216,8 +218,8 @@ enum-iterator.workspace = true
 futures-util.workspace = true
 mio = { workspace = true, optional = true }
 tokio-tungstenite = { workspace = true, features = [
-	"rustls-tls-webpki-roots",
-	"stream",
+  "rustls-tls-webpki-roots",
+  "stream",
 ], optional = true }
 mac_address = { workspace = true, optional = true }
 #tun-tap = { workspace = true, features = ["tokio"], optional = true }
@@ -234,40 +236,43 @@ console-subscriber = { workspace = true, optional = true }
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-clap = { workspace = true, default-features = true, features = ["derive", "env"] }
+clap = { workspace = true, default-features = true, features = [
+  "derive",
+  "env",
+] }
 [target.'cfg(target_family = "wasm")'.dependencies]
 clap = { workspace = true, default-features = false, features = [
-	"std",
-	"help",
-	"usage",
-	"error-context",
-	"suggestions",
-	"derive",
-	"env",
+  "std",
+  "help",
+  "usage",
+  "error-context",
+  "suggestions",
+  "derive",
+  "env",
 ] }
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies]
 reqwest = { workspace = true, default-features = false, features = [
-	"rustls",
-	"json",
-	"multipart",
-	"gzip",
-	"zstd",
+  "rustls",
+  "json",
+  "multipart",
+  "gzip",
+  "zstd",
 ] }
 
 [target.'cfg(any(target_arch = "riscv64", target_arch = "loongarch64"))'.dependencies]
 reqwest = { workspace = true, default-features = false, features = [
-	"native-tls",
-	"json",
-	"multipart",
-	"zstd",
+  "native-tls",
+  "json",
+  "multipart",
+  "zstd",
 ] }
 
 
 [build-dependencies]
 chrono = { workspace = true, default-features = false, features = [
-	"std",
-	"clock",
+  "std",
+  "clock",
 ] }
 
 [target.'cfg(target_os = "linux")'.dependencies]

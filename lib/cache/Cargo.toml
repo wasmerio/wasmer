@@ -26,7 +26,10 @@ clap_derive.workspace = true
 clap_lex.workspace = true
 tempfile.workspace = true
 rand.workspace = true
-wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = ["sys", "cranelift"] }
+wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = [
+  "sys",
+  "cranelift",
+] }
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=7.2.0-alpha.2" }
 
 [features]
