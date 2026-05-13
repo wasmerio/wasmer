@@ -180,8 +180,8 @@ pub struct RuntimeOptions {
     /// Allow unaligned memory accesses.
     ///
     /// Available for Cranelift and Singlepass (RISC-V).
-    #[clap(long = "enable-unaligned-memory-accesses")]
-    enable_unaligned_memory_accesses: bool,
+    #[clap(long = "enable-experimental-unaligned-memory-accesses")]
+    enable_experimental_unaligned_memory_accesses: bool,
 
     #[clap(flatten)]
     features: WasmFeatures,
@@ -412,8 +412,8 @@ impl RuntimeOptions {
             #[cfg(feature = "singlepass")]
             BackendType::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
-                if self.enable_unaligned_memory_accesses {
-                    config.allow_unaligned_memory_accesses(true);
+                if self.enable_experimental_unaligned_memory_accesses {
+                    config.allow_experimental_unaligned_memory_accesses(true);
                 }
                 if self.enable_verifier {
                     config.enable_verifier();
@@ -440,8 +440,8 @@ impl RuntimeOptions {
             #[cfg(feature = "cranelift")]
             BackendType::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
-                if self.enable_unaligned_memory_accesses {
-                    config.allow_unaligned_memory_accesses(true);
+                if self.enable_experimental_unaligned_memory_accesses {
+                    config.allow_experimental_unaligned_memory_accesses(true);
                 }
                 if self.enable_verifier {
                     config.enable_verifier();
@@ -554,8 +554,8 @@ impl BackendType {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
-                if runtime_opts.enable_unaligned_memory_accesses {
-                    config.allow_unaligned_memory_accesses(true);
+                if runtime_opts.enable_experimental_unaligned_memory_accesses {
+                    config.allow_experimental_unaligned_memory_accesses(true);
                 }
                 let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_verifier {
@@ -588,8 +588,8 @@ impl BackendType {
             #[cfg(feature = "cranelift")]
             Self::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
-                if runtime_opts.enable_unaligned_memory_accesses {
-                    config.allow_unaligned_memory_accesses(true);
+                if runtime_opts.enable_experimental_unaligned_memory_accesses {
+                    config.allow_experimental_unaligned_memory_accesses(true);
                 }
                 let supported_features = config.supported_features_for_target(target);
                 if runtime_opts.enable_verifier {

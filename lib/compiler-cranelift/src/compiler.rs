@@ -351,7 +351,7 @@ impl CraneliftCompiler {
 
             translate_function_buckets(
                 &pool,
-                || FuncTranslator::new(self.config.allow_unaligned_memory_accesses),
+                || FuncTranslator::new(self.config.allow_experimental_unaligned_memory_accesses),
                 |func_translator, i, input| compile_function(func_translator, i, input),
                 progress.clone(),
                 &buckets,

@@ -108,7 +108,10 @@ impl Singlepass {
     /// Enable run-time handling of potentially unaligned memory accesses.
     /// Unaligned memory accesses occur when you try to read N bytes of data starting
     /// from an address that is not evenly divisible by N.
-    pub fn allow_unaligned_memory_accesses(&mut self, enable: bool) -> &mut Self {
+    ///
+    /// This feature is experimental and currently supports only Cranelift scalar types
+    /// and Singlepass on RISC-V for integral types.
+    pub fn allow_experimental_unaligned_memory_accesses(&mut self, enable: bool) -> &mut Self {
         self.allow_unaligned_memory_accesses = enable;
         self
     }

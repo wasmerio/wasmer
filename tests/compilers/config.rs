@@ -89,7 +89,8 @@ impl Config {
 
                 let mut compiler = wasmer_compiler_cranelift::Cranelift::new();
                 compiler.canonicalize_nans(canonicalize_nans);
-                compiler.allow_unaligned_memory_accesses(allow_unaligned_memory_accesses);
+                compiler
+                    .allow_experimental_unaligned_memory_accesses(allow_unaligned_memory_accesses);
                 compiler.enable_verifier();
                 if let Some(mut debug_dir) = debug_dir {
                     debug_dir.push("cranelift");
@@ -121,7 +122,8 @@ impl Config {
             Compiler::Singlepass => {
                 let mut compiler = wasmer_compiler_singlepass::Singlepass::new();
                 compiler.canonicalize_nans(canonicalize_nans);
-                compiler.allow_unaligned_memory_accesses(allow_unaligned_memory_accesses);
+                compiler
+                    .allow_experimental_unaligned_memory_accesses(allow_unaligned_memory_accesses);
                 compiler.enable_verifier();
                 if let Some(mut debug_dir) = debug_dir {
                     use wasmer_compiler_singlepass::SinglepassCallbacks;
