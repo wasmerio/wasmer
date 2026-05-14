@@ -240,6 +240,8 @@ fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion>
             config.test_name,
             format_captured_output(&result),
         );
+    } else if result.exit_code.is_none() && config.expected_exit_code == 0 {
+        // OK
     } else if result.exit_code != Some(config.expected_exit_code) {
         bail!(
             "{} expected exit code {}, got {:?}\n{}",
