@@ -1,3 +1,5 @@
+//#ExpectedExitCode:13455
+
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
