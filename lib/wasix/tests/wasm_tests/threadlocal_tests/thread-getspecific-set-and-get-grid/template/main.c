@@ -1,3 +1,5 @@
+//#Ignored: abstract folder only
+
 #include <assert.h>
 #include <pthread.h>
 #include <stdio.h>
