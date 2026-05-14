@@ -1,3 +1,4 @@
+//#ExpectedStdout: 0
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>

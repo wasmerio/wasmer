@@ -1,3 +1,5 @@
+//#Ignored: Currently broken - wasm-ld does not support recursive linking yet
+//#ExpectedStdout: The shared library returned: 42
 #include <assert.h>
 #include <stdio.h>
 

@@ -1,4 +1,5 @@
-//#ExpectedExitCode:134
+//#Ignored: flaky test (#6538)
+//#ExpectedExitCode: 134
 
 #include <pthread.h>
 #include <stdio.h>

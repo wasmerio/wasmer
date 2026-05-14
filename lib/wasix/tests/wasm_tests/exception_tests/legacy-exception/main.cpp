@@ -1,3 +1,4 @@
+//#ExpectedStdout: caught exception, will rethrow\ncaught exception in main: 42
 #include <iostream>
 
 void bar() { throw 40; }

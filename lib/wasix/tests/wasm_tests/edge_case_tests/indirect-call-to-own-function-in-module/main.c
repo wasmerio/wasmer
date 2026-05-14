@@ -1,3 +1,4 @@
+//#ExpectedStdout: called
 #include <assert.h>
 #include <dlfcn.h>
 #include <stdio.h>

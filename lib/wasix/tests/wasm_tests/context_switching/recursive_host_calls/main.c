@@ -1,3 +1,4 @@
+//#UnixOnly: true
 // Test context switching during recursive system calls
 // This tries to trigger the store context borrow error by doing
 // complex syscalls that might borrow the store while switching

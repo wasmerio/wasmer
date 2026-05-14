@@ -1,3 +1,4 @@
+//#UnixOnly: true
 // Test memory allocations during context switches
 // This can trigger store context issues if malloc implementation
 // does host calls while the store is borrowed

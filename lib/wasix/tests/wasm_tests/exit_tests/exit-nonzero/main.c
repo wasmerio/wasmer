@@ -1,3 +1,4 @@
+//#MustFail: true
 //#ExpectedExitCode: 99
 
 #include <assert.h>

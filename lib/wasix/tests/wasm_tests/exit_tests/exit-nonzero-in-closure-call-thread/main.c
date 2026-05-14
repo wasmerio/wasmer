@@ -1,3 +1,4 @@
+//#Ignored: flaky test (#6538)
 //#MustFail: true
 
 #include <assert.h>

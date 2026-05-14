@@ -1,3 +1,4 @@
+//#ExpectedStdout: The shared library returned: 42
 #include <assert.h>
 #include <dlfcn.h>
 #include <stdio.h>

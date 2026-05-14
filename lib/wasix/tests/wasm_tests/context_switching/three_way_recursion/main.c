@@ -1,3 +1,4 @@
+//#UnixOnly: true
 // Minimal: 3 mutually recursive funcs, 3 contexts, circular pattern
 #include <assert.h>
 #include <stdio.h>

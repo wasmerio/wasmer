@@ -1,3 +1,4 @@
+//#UnixOnly: true
 #include <assert.h>
 #include <signal.h>
 #include <stdio.h>
