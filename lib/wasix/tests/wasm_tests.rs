@@ -209,13 +209,8 @@ fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion>
         return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
     }
 
-    let (module, test_dir) = config
-        .test_name
-        .split_once('/')
-        .with_context(|| format!("invalid test name `{}`", config.test_name))?;
-    let module_file = format!("{module}.rs");
-
-    let wasm = wasm_test_helpers::run_build_script(&module_file, test_dir)?;
+    // TODO
+    let wasm = wasm_test_helpers::run_build_script(&"x.rs", config.test_src_dir.to_str().unwrap())?;
     let temp_dir = config
         .tempdir_as_workdir
         .then(|| tempfile::tempdir().expect("temporary directory must exist"));
