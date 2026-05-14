@@ -11,6 +11,12 @@ homepage.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+autotests = false
+
+[[test]]
+name = "wasm_tests"
+path = "tests/wasm_tests.rs"
+harness = false
 
 [dependencies]
 wasmer-package.workspace = true
@@ -127,6 +133,8 @@ pin-utils.workspace = true
 wasmparser.workspace = true
 crossbeam-channel.workspace = true
 bus.workspace = true
+libtest-mimic.workspace = true
+walkdir.workspace = true
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true
