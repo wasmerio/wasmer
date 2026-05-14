@@ -354,7 +354,7 @@ where
 
 pub type DynRuntime = dyn Runtime + Send + Sync;
 
-/// Load a a Webassembly module, trying to use a pre-compiled version if possible.
+/// Load a Webassembly module, trying to use a pre-compiled version if possible.
 ///
 // This function exists to provide a reusable baseline implementation for
 // implementing [`Runtime::load_module`], so custom logic can be added on top.

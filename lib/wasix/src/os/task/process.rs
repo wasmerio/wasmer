@@ -497,7 +497,7 @@ impl WasiProcess {
         self.inner.0.lock().unwrap()
     }
 
-    /// Creates a a thread and returns it
+    /// Creates a thread and returns it
     pub fn new_thread(
         &self,
         layout: WasiMemoryLayout,
@@ -520,7 +520,7 @@ impl WasiProcess {
         self.new_thread_with_id(layout, start, tid)
     }
 
-    /// Creates a a thread and returns it
+    /// Creates a thread and returns it
     pub fn new_thread_with_id(
         &self,
         layout: WasiMemoryLayout,
