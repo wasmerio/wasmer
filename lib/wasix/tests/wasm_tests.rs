@@ -57,6 +57,12 @@ fn main() -> Result<std::process::ExitCode> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+struct MappedDirectory {
+    host: String,
+    guest: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct Config {
     /// The directory containing the test sources.
     test_src_dir: PathBuf,
@@ -72,6 +78,7 @@ struct Config {
     tempdir_as_workdir: bool,
     ignored: Option<String>,
     unix_only: bool,
+    mapped_directories: Vec<MappedDirectory>,
 }
 
 impl Config {
@@ -88,6 +95,7 @@ impl Config {
             tempdir_as_workdir: false,
             ignored: None,
             unix_only: false,
+            mapped_directories: Vec::new(),
         }
     }
 }
@@ -196,12 +204,21 @@ fn process_directive(
         }
         "Ignored" => config.ignored = Some(arg.to_owned()),
         "UnixOnly" => config.unix_only = arg.parse::<bool>()?,
+        "MappedDirectory" => {
+            let (host, guest) = arg
+                .split_once(':')
+                .ok_or_else(|| anyhow!("missing colon separator for MappedDirectory"))?;
+            config.mapped_directories.push(MappedDirectory {
+                host: host.to_owned(),
+                guest: guest.to_owned(),
+            });
+        }
         other => bail!("Unknown directive '{other}'"),
     }
     Ok(())
 }
 
-fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion> {
+fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     if let Some(reason) = config.ignored {
         return Ok(libtest_mimic::Completion::ignored_with(reason));
     }
@@ -220,13 +237,26 @@ fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion>
         wasm.parent()
             .with_context(|| format!("{} has no parent directory", wasm.display()))?
     };
-    let result = if config.arguments.is_empty() {
-        wasm_test_helpers::run_wasm_with_result(&wasm, run_dir)?
-    } else {
-        wasm_test_helpers::run_wasm_with_runner_config(&wasm, run_dir, |runner| {
+    let result = wasm_test_helpers::run_wasm_with_runner_config(&wasm, run_dir, |runner| {
+        if !config.arguments.is_empty() {
             runner.with_args(config.arguments);
-        })?
-    };
+        }
+
+        let mapped_directories = config.mapped_directories.into_iter().map(|directory| {
+            let host = PathBuf::from(directory.host);
+            let host = if host.is_absolute() {
+                host
+            } else {
+                config.test_src_dir.join(host)
+            };
+
+            wasmer_wasix::runners::MappedDirectory {
+                host,
+                guest: directory.guest,
+            }
+        });
+        runner.with_mapped_directories(mapped_directories);
+    })?;
 
     if config.nonzero_exit_code {
         ensure!(
