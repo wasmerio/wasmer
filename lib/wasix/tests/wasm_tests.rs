@@ -67,7 +67,7 @@ struct Config {
 
     nonzero_exit_code: bool,
     expected_exit_code: i32,
-    expected_stdout: Option<String>,
+    expected_stdout: Vec<String>,
     arguments: Vec<String>,
     tempdir_as_workdir: bool,
     ignored: Option<String>,
@@ -84,7 +84,7 @@ impl Config {
             arguments: Vec::new(),
             nonzero_exit_code: false,
             expected_exit_code: 0,
-            expected_stdout: None,
+            expected_stdout: Vec::new(),
             tempdir_as_workdir: false,
             ignored: None,
             unix_only: false,
@@ -183,7 +183,7 @@ fn process_directive(
                 .collect();
         }
         "ExpectedStdout" => {
-            config.expected_stdout = Some(arg.to_owned());
+            config.expected_stdout.push(arg.to_owned());
         }
         "MustFail" => {
             config.nonzero_exit_code = arg.parse::<bool>()?;
@@ -252,16 +252,17 @@ fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion>
         );
     }
 
-    if let Some(expected_stdout) = config.expected_stdout.take() {
+    if !config.expected_stdout.is_empty() {
+        // TODO: improve
         let stdout = String::from_utf8_lossy(&result.stdout);
-        if stdout.trim() != expected_stdout {
+        let result_lines: Vec<_> = stdout.lines().collect();
+        if result_lines != config.expected_stdout {
             bail!(
-                "{} expected stdout `{}`, got `{}`\n{}",
+                "{} expected stdout `{:?}`, got `{:?}`\n",
                 config.test_name,
-                expected_stdout,
-                stdout.trim(),
-                format_captured_output(&result),
-            );
+                config.expected_stdout,
+                result_lines
+            )
         }
     }
 
