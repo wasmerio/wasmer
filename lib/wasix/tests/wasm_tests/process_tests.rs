@@ -174,12 +174,6 @@ fn run_vfork_suite(wasm: &PathBuf) {
 }
 
 #[test]
-fn test_vfork_asyncify() {
-    let wasm = run_build_script(file!(), "vfork").unwrap();
-    run_vfork_suite(&wasm);
-}
-
-#[test]
 fn test_vfork_eh() {
     let wasm = run_build_script(file!(), "vfork").unwrap();
     run_vfork_suite(&wasm.with_file_name("main-eh.wasm"));

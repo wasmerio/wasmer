@@ -79,6 +79,7 @@ struct Config {
     ignored: Option<String>,
     unix_only: bool,
     mapped_directories: Vec<MappedDirectory>,
+    current_directory: Option<String>,
 }
 
 impl Config {
@@ -96,6 +97,7 @@ impl Config {
             ignored: None,
             unix_only: false,
             mapped_directories: Vec::new(),
+            current_directory: None,
         }
     }
 }
@@ -213,6 +215,9 @@ fn process_directive(
                 guest: guest.to_owned(),
             });
         }
+        "CurrentDirectory" => {
+            config.current_directory = Some(arg.to_owned());
+        }
         other => bail!("Unknown directive '{other}'"),
     }
     Ok(())
@@ -256,6 +261,9 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
             }
         });
         runner.with_mapped_directories(mapped_directories);
+        if let Some(current_directory) = config.current_directory {
+            runner.with_current_dir(current_directory);
+        }
     })?;
 
     if config.nonzero_exit_code {
