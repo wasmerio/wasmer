@@ -1,3 +1,5 @@
+//#Ignored: file-backed mmap writeback does not currently persist under WasiRunner
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>

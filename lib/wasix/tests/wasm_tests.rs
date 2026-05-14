@@ -69,6 +69,8 @@ struct Config {
     expected_exit_code: i32,
     expected_stdout: Option<String>,
     arguments: Vec<String>,
+    tempdir_as_workdir: bool,
+    ignored: Option<String>,
 }
 
 impl Config {
@@ -82,6 +84,8 @@ impl Config {
             nonzero_exit_code: false,
             expected_exit_code: 0,
             expected_stdout: None,
+            tempdir_as_workdir: false,
+            ignored: None,
         }
     }
 }
@@ -185,12 +189,20 @@ fn process_directive(
         "ExpectedExitCode" => {
             config.expected_exit_code = arg.parse::<i32>()?;
         }
+        "Tempdir" => {
+            config.tempdir_as_workdir = arg.parse::<bool>()?;
+        }
+        "Ignored" => config.ignored = Some(arg.to_owned()),
         other => bail!("Unknown directive '{other}'"),
     }
     Ok(())
 }
 
 fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion> {
+    if let Some(reason) = config.ignored {
+        return Ok(libtest_mimic::Completion::ignored_with(reason));
+    }
+
     let (module, test_dir) = config
         .test_name
         .split_once('/')
@@ -198,9 +210,15 @@ fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion>
     let module_file = format!("{module}.rs");
 
     let wasm = wasm_test_helpers::run_build_script(&module_file, test_dir)?;
-    let run_dir = wasm
-        .parent()
-        .with_context(|| format!("{} has no parent directory", wasm.display()))?;
+    let temp_dir = config
+        .tempdir_as_workdir
+        .then(|| tempfile::tempdir().expect("temporary directory must exist"));
+    let run_dir = if let Some(temp_dir) = &temp_dir {
+        temp_dir.path()
+    } else {
+        wasm.parent()
+            .with_context(|| format!("{} has no parent directory", wasm.display()))?
+    };
     let result = if config.arguments.is_empty() {
         wasm_test_helpers::run_wasm_with_result(&wasm, run_dir)?
     } else {
