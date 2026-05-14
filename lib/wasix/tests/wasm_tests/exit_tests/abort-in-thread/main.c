@@ -1,4 +1,4 @@
-//#ExpectedExitCode:13455
+//#ExpectedExitCode:134
 
 #include <pthread.h>
 #include <stdio.h>

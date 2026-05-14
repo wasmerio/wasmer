@@ -1,3 +1,5 @@
+//#MustFail: true
+
 #include <dlfcn.h>
 #include <pthread.h>
 #include <stdio.h>

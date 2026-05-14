@@ -1,4 +1,4 @@
-use anyhow::{Context, Result, anyhow};
+use anyhow::{Context, Result, anyhow, ensure};
 use std::collections::HashMap;
 use std::io::IsTerminal;
 use std::path::{Path, PathBuf};
@@ -7,6 +7,10 @@ use std::str::FromStr;
 use anyhow::bail;
 use libtest_mimic::Trial;
 use walkdir::WalkDir;
+
+#[allow(dead_code, unused_imports)]
+#[path = "wasm_tests/mod.rs"]
+mod wasm_test_helpers;
 
 struct Filter {
     filter: Option<String>,
@@ -61,6 +65,7 @@ struct Config {
     config_name: String,
     is_abstract: bool,
 
+    nonzero_exit_code: bool,
     expected_exit_code: i32,
     expected_stdout: Option<String>,
     arguments: Vec<String>,
@@ -74,6 +79,7 @@ impl Config {
             config_name: "default".to_owned(),
             is_abstract: false,
             arguments: Vec::new(),
+            nonzero_exit_code: false,
             expected_exit_code: 0,
             expected_stdout: None,
         }
@@ -173,6 +179,9 @@ fn process_directive(
         "ExpectedStdout" => {
             config.expected_stdout = Some(arg.to_owned());
         }
+        "MustFail" => {
+            config.nonzero_exit_code = arg.parse::<bool>()?;
+        }
         "ExpectedExitCode" => {
             config.expected_exit_code = arg.parse::<i32>()?;
         }
@@ -182,7 +191,71 @@ fn process_directive(
 }
 
 fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion> {
+    let (module, test_dir) = config
+        .test_name
+        .split_once('/')
+        .with_context(|| format!("invalid test name `{}`", config.test_name))?;
+    let module_file = format!("{module}.rs");
+
+    let wasm = wasm_test_helpers::run_build_script(&module_file, test_dir)?;
+    let run_dir = wasm
+        .parent()
+        .with_context(|| format!("{} has no parent directory", wasm.display()))?;
+    let result = if config.arguments.is_empty() {
+        wasm_test_helpers::run_wasm_with_result(&wasm, run_dir)?
+    } else {
+        wasm_test_helpers::run_wasm_with_runner_config(&wasm, run_dir, |runner| {
+            runner.with_args(config.arguments);
+        })?
+    };
+
+    if config.nonzero_exit_code {
+        ensure!(
+            result.exit_code.is_some_and(|exit_code| exit_code != 0),
+            "{} expected non-zero exit code\n{}",
+            config.test_name,
+            format_captured_output(&result),
+        );
+    } else if result.exit_code != Some(config.expected_exit_code) {
+        bail!(
+            "{} expected exit code {}, got {:?}\n{}",
+            config.test_name,
+            config.expected_exit_code,
+            result.exit_code,
+            format_captured_output(&result),
+        );
+    }
+
+    if let Some(expected_stdout) = config.expected_stdout.take() {
+        let stdout = String::from_utf8_lossy(&result.stdout);
+        if stdout.trim() != expected_stdout {
+            bail!(
+                "{} expected stdout `{}`, got `{}`\n{}",
+                config.test_name,
+                expected_stdout,
+                stdout.trim(),
+                format_captured_output(&result),
+            );
+        }
+    }
+
     Ok(libtest_mimic::Completion::Completed)
+}
+
+fn format_captured_output(result: &wasm_test_helpers::WasmRunResult) -> String {
+    let mut message = format!(
+        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
+        result.exit_code,
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr),
+        String::from_utf8_lossy(&result.trace_output),
+    );
+
+    if let Some(error) = &result.error {
+        message.push_str(&format!("\nerror:\n{}", error));
+    }
+
+    message
 }
 
 fn identify_primary_source(test_src_dir: &Path) -> Result<PathBuf> {
@@ -237,7 +310,8 @@ fn collect_tests(tests: &mut Vec<Trial>, filter: &Filter) -> Result<()> {
         )?;
 
         for config in configs {
-            let full_name = format!("{}/{}", test_name, config.config_name);
+            // TODO: strip "wasm"
+            let full_name = format!("wasm/{}/{}", test_name, config.config_name);
 
             tests.push(libtest_mimic::Trial::ignorable_test(full_name, move || {
                 run_integration_test(config).map_err(|e| libtest_mimic::Failed::from(e.to_string()))

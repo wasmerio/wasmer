@@ -1,3 +1,5 @@
+//#MustFail: true
+
 #include <assert.h>
 #include <pthread.h>
 #include <stdint.h>
