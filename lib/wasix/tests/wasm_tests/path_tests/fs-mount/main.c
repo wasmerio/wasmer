@@ -1,3 +1,5 @@
+//#MappedDirectory: .:/mount
+
 #include <stdio.h>
 #include <string.h>
 
