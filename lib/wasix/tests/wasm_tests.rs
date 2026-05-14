@@ -71,6 +71,7 @@ struct Config {
     arguments: Vec<String>,
     tempdir_as_workdir: bool,
     ignored: Option<String>,
+    unix_only: bool,
 }
 
 impl Config {
@@ -86,6 +87,7 @@ impl Config {
             expected_stdout: None,
             tempdir_as_workdir: false,
             ignored: None,
+            unix_only: false,
         }
     }
 }
@@ -193,6 +195,7 @@ fn process_directive(
             config.tempdir_as_workdir = arg.parse::<bool>()?;
         }
         "Ignored" => config.ignored = Some(arg.to_owned()),
+        "UnixOnly" => config.unix_only = arg.parse::<bool>()?,
         other => bail!("Unknown directive '{other}'"),
     }
     Ok(())
@@ -201,6 +204,9 @@ fn process_directive(
 fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion> {
     if let Some(reason) = config.ignored {
         return Ok(libtest_mimic::Completion::ignored_with(reason));
+    }
+    if !cfg!(unix) && config.unix_only {
+        return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
     }
 
     let (module, test_dir) = config
