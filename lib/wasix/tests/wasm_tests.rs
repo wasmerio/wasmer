@@ -276,10 +276,10 @@ fn format_captured_output(result: &wasm_test_helpers::WasmRunResult) -> String {
     message
 }
 
-fn identify_primary_source(test_src_dir: &Path) -> Result<PathBuf> {
-    const FILES: &[&str] = &["main.c", "main.cpp", "build.sh"];
+const PRIMARY_SOURCE_FILES: &[&str] = &["main.c", "main.cpp", "build.sh"];
 
-    for file in FILES {
+fn identify_primary_source(test_src_dir: &Path) -> Result<PathBuf> {
+    for file in PRIMARY_SOURCE_FILES {
         let path = test_src_dir.join(file);
         if path.exists() {
             return Ok(path);
@@ -289,7 +289,7 @@ fn identify_primary_source(test_src_dir: &Path) -> Result<PathBuf> {
     bail!(
         "{} must contain {}",
         test_src_dir.display(),
-        FILES.join(",")
+        PRIMARY_SOURCE_FILES.join(",")
     );
 }
 
@@ -301,22 +301,16 @@ fn collect_tests(tests: &mut Vec<Trial>, filter: &Filter) -> Result<()> {
         .filter_map(Result::ok)
         .filter(|e| e.path() != tests_dir)
         // Skip temporary helper directories (like 'a', 'b', etc.).
-        .filter(|e| {
-            e.path()
-                .file_name()
-                .expect("file name must be valid")
-                .to_str()
-                .expect("valid path")
-                .len()
-                > 1
-        })
         .filter(|e| e.file_type().is_dir())
         // TODO
         .filter(|e| {
             std::fs::read_dir(e.path())
                 .expect("valid directory entry")
                 .filter_map(Result::ok)
-                .any(|entry| entry.file_type().expect("cannot read file type").is_file())
+                .any(|entry| {
+                    PRIMARY_SOURCE_FILES
+                        .contains(&entry.file_name().to_str().expect("filename must be valid"))
+                })
         })
     {
         let test_name = entry.path().strip_prefix(&tests_dir)?.display().to_string();
