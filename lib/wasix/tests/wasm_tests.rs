@@ -250,7 +250,7 @@ fn run_integration_test(mut config: Config) -> Result<libtest_mimic::Completion>
     if !config.expected_stdout.is_empty() {
         // TODO: improve
         let stdout = String::from_utf8_lossy(&result.stdout);
-        let result_lines: Vec<_> = stdout.lines().collect();
+        let result_lines: Vec<_> = stdout.trim().lines().collect();
         if result_lines != config.expected_stdout {
             bail!(
                 "{} expected stdout `{:?}`, got `{:?}`\n",
