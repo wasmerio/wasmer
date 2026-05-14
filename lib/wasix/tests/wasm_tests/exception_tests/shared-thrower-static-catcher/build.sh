@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+#
+##Ignored: #6244: wasm-ld: error: unable to find library -llibrary
+
 set -e
 # shared-thrower-static-catcher: thrower in shared lib, catcher static
 $CXX -c -fPIC ../exceptions-across-modules/thrower.cpp -o thrower.o

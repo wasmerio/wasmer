@@ -1,3 +1,5 @@
+//#Ignored: #6244: wasm-ld: error: unable to find library -llibrary
+
 #include <assert.h>
 #include <stdio.h>
 
