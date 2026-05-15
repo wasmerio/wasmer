@@ -1,6 +1,7 @@
 use anyhow::{Context, Result, anyhow, ensure};
 use std::collections::HashMap;
-use std::io::IsTerminal;
+use std::fs::File;
+use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
@@ -80,6 +81,8 @@ struct Config {
     unix_only: bool,
     mapped_directories: Vec<MappedDirectory>,
     current_directory: Option<String>,
+    prefilled_files: Vec<(PathBuf, String)>,
+    expected_files: Vec<(PathBuf, String)>,
 }
 
 impl Config {
@@ -98,6 +101,8 @@ impl Config {
             unix_only: false,
             mapped_directories: Vec::new(),
             current_directory: None,
+            prefilled_files: Vec::new(),
+            expected_files: Vec::new(),
         }
     }
 }
@@ -218,6 +223,28 @@ fn process_directive(
         "CurrentDirectory" => {
             config.current_directory = Some(arg.to_owned());
         }
+        "PrefilledFile" => {
+            let (path, file_content) = arg
+                .split_once(':')
+                .ok_or_else(|| anyhow!("missing colon separator for PrefilledFile"))?;
+            let path = PathBuf::try_from(path)?;
+            ensure!(
+                path.is_relative(),
+                "PrefilledPath must be relative: {path:?}"
+            );
+            config.prefilled_files.push((path, file_content.to_owned()));
+        }
+        "ExpectedFile" => {
+            let (path, file_content) = arg
+                .split_once(':')
+                .ok_or_else(|| anyhow!("missing colon separator for ExpectedFile"))?;
+            let path = PathBuf::try_from(path)?;
+            ensure!(
+                path.is_relative(),
+                "ExpectedFile must be relative: {path:?}"
+            );
+            config.expected_files.push((path, file_content.to_owned()));
+        }
         other => bail!("Unknown directive '{other}'"),
     }
     Ok(())
@@ -232,7 +259,7 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     }
 
     // TODO
-    let wasm = wasm_test_helpers::run_build_script(&"x.rs", config.test_src_dir.to_str().unwrap())?;
+    let wasm = wasm_test_helpers::run_build_script("x.rs", config.test_src_dir.to_str().unwrap())?;
     let temp_dir = config
         .tempdir_as_workdir
         .then(|| tempfile::tempdir().expect("temporary directory must exist"));
@@ -242,6 +269,10 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
         wasm.parent()
             .with_context(|| format!("{} has no parent directory", wasm.display()))?
     };
+    for (path, file_content) in config.prefilled_files {
+        File::create(run_dir.join(path))?.write_all(file_content.as_bytes())?;
+    }
+
     let result = wasm_test_helpers::run_wasm_with_runner_config(&wasm, run_dir, |runner| {
         if !config.arguments.is_empty() {
             runner.with_args(config.arguments);
@@ -297,6 +328,19 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
                 result_lines
             )
         }
+    }
+
+    for (path, expected_content) in config.expected_files {
+        let content = std::fs::read_to_string(run_dir.join(&path))
+            .with_context(|| format!("{} failed to read {}", config.test_name, path.display()))?;
+        ensure!(
+            content == expected_content,
+            "{} expected file {} to contain `{:?}`, got `{:?}`",
+            config.test_name,
+            path.display(),
+            expected_content,
+            content
+        );
     }
 
     Ok(libtest_mimic::Completion::Completed)
