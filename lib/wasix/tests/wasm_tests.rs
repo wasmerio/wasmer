@@ -58,8 +58,24 @@ fn main() -> Result<std::process::ExitCode> {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+enum HostMappedLocation {
+    TemporaryFolder,
+    HostPath(String),
+}
+
+impl HostMappedLocation {
+    fn new(path: &str) -> Self {
+        if path == "$temp" {
+            Self::TemporaryFolder
+        } else {
+            Self::HostPath(path.to_owned())
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct MappedDirectory {
-    host: String,
+    host: HostMappedLocation,
     guest: String,
 }
 
@@ -216,7 +232,7 @@ fn process_directive(
                 .split_once(':')
                 .ok_or_else(|| anyhow!("missing colon separator for MappedDirectory"))?;
             config.mapped_directories.push(MappedDirectory {
-                host: host.to_owned(),
+                host: HostMappedLocation::new(host),
                 guest: guest.to_owned(),
             });
         }
@@ -273,17 +289,28 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
         File::create(run_dir.join(path))?.write_all(file_content.as_bytes())?;
     }
 
+    let mut extra_temporary_folders = Vec::new();
     let result = wasm_test_helpers::run_wasm_with_runner_config(&wasm, run_dir, |runner| {
         if !config.arguments.is_empty() {
             runner.with_args(config.arguments);
         }
 
         let mapped_directories = config.mapped_directories.into_iter().map(|directory| {
-            let host = PathBuf::from(directory.host);
-            let host = if host.is_absolute() {
-                host
-            } else {
-                config.test_src_dir.join(host)
+            let host = match directory.host {
+                HostMappedLocation::HostPath(host) => {
+                    let host = PathBuf::from(host);
+                    if host.is_absolute() {
+                        host
+                    } else {
+                        config.test_src_dir.join(host)
+                    }
+                }
+                HostMappedLocation::TemporaryFolder => {
+                    let temp = tempfile::tempdir().expect("temporary directory must exist");
+                    let host = temp.path().to_path_buf();
+                    extra_temporary_folders.push(temp);
+                    host
+                }
             };
 
             wasmer_wasix::runners::MappedDirectory {
