@@ -1,3 +1,41 @@
+//! Tests that build and run various WASIX test programs.
+//!
+//! Primary test files can contain directives that configure how each WASM test is built,
+//! run, and checked. Directives use `//#Directive: Args` in C/C++ sources and
+//! `##Directive: Args` in shell sources.
+//!
+//! Supported directives:
+//!
+//! `Config:{name}[:{inherits}]` starts a runnable configuration. When `inherits`
+//! is present, the new configuration copies the named earlier configuration first.
+//!
+//! `AbstractConfig:{name}[:{inherits}]` starts a configuration that can be inherited
+//! from but is not run directly.
+//!
+//! `Args:{args}` sets whitespace-separated command-line arguments.
+//!
+//! `ExpectedStdout:{line}` appends one expected stdout line.
+//! Can be used multiple times and all expected lines must match the trimmed stdout exactly.
+//!
+//! `MustFail:{bool}` requires a non-zero exit code when true.
+//!
+//! `ExpectedExitCode:{code}` sets the expected numeric exit code.
+//!
+//! `Tempdir:{bool}` runs the test in a fresh temporary working directory when true.
+//!
+//! `Ignored:{reason}` marks the configuration as ignored with the given reason.
+//!
+//! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
+//! `MappedDirectory:{host}:{guest}` maps a host directory into the guest. Relative
+//!  host paths are resolved from the test source directory; `$temp` creates a fresh
+//!  temporary host directory.
+//!
+//! `CurrentDirectory:{guest_path}` sets the guest current working directory.
+//!
+//! `PrefilledFile:{relative_path}:{contents}` writes a file before the test runs.
+//!
+//! `ExpectedFile:{relative_path}:{contents}` checks a file after the test runs.
+
 use anyhow::{Context, Result, anyhow, ensure};
 use std::collections::HashMap;
 use std::fs::File;
@@ -215,7 +253,7 @@ fn process_directive(
             let (path, file_content) = arg
                 .split_once(':')
                 .ok_or_else(|| anyhow!("missing colon separator for PrefilledFile"))?;
-            let path = PathBuf::try_from(path)?;
+            let path = PathBuf::from(path);
             ensure!(
                 path.is_relative(),
                 "PrefilledPath must be relative: {path:?}"
@@ -226,7 +264,7 @@ fn process_directive(
             let (path, file_content) = arg
                 .split_once(':')
                 .ok_or_else(|| anyhow!("missing colon separator for ExpectedFile"))?;
-            let path = PathBuf::try_from(path)?;
+            let path = PathBuf::from(path);
             ensure!(
                 path.is_relative(),
                 "ExpectedFile must be relative: {path:?}"
