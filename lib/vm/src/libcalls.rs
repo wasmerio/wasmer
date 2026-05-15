@@ -1006,5 +1006,126 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         }
         LibCall::DebugUsize => wasmer_vm_dbg_usize as *const () as usize,
         LibCall::DebugStr => wasmer_vm_dbg_str as *const () as usize,
+        LibCall::Adddf3 => __adddf3 as *const () as usize,
+        LibCall::Addsf3 => __addsf3 as *const () as usize,
+        LibCall::Divdf3 => __divdf3 as *const () as usize,
+        LibCall::Divdi3 => __divdi3 as *const () as usize,
+        LibCall::Divsf3 => __divsf3 as *const () as usize,
+        LibCall::Divsi3 => __divsi3 as *const () as usize,
+        LibCall::Eqdf2 => __eqdf2 as *const () as usize,
+        LibCall::Eqsf2 => __eqsf2 as *const () as usize,
+        LibCall::Extendsfdf2 => __extendsfdf2 as *const () as usize,
+        LibCall::Fixdfdi => __fixdfdi as *const () as usize,
+        LibCall::Fixdfsi => __fixdfsi as *const () as usize,
+        LibCall::Fixsfdi => __fixsfdi as *const () as usize,
+        LibCall::Fixsfsi => __fixsfsi as *const () as usize,
+        LibCall::Fixunsdfdi => __fixunsdfdi as *const () as usize,
+        LibCall::Fixunsdfsi => __fixunsdfsi as *const () as usize,
+        LibCall::Fixunssfdi => __fixunssfdi as *const () as usize,
+        LibCall::Fixunssfsi => __fixunssfsi as *const () as usize,
+        LibCall::Floatdidf => __floatdidf as *const () as usize,
+        LibCall::Floatdisf => __floatdisf as *const () as usize,
+        LibCall::Floatsidf => __floatsidf as *const () as usize,
+        LibCall::Floatsisf => __floatsisf as *const () as usize,
+        LibCall::Floatundidf => __floatundidf as *const () as usize,
+        LibCall::Floatundisf => __floatundisf as *const () as usize,
+        LibCall::Floatunsidf => __floatunsidf as *const () as usize,
+        LibCall::Floatunsisf => __floatunsisf as *const () as usize,
+        LibCall::Gedf2 => __gedf2 as *const () as usize,
+        LibCall::Gesf2 => __gesf2 as *const () as usize,
+        LibCall::Gtdf2 => __gtdf2 as *const () as usize,
+        LibCall::Gtsf2 => __gtsf2 as *const () as usize,
+        LibCall::Ledf2 => __ledf2 as *const () as usize,
+        LibCall::Lesf2 => __lesf2 as *const () as usize,
+        LibCall::Ltdf2 => __ltdf2 as *const () as usize,
+        LibCall::Ltsf2 => __ltsf2 as *const () as usize,
+        LibCall::Moddi3 => __moddi3 as *const () as usize,
+        LibCall::Modsi3 => __modsi3 as *const () as usize,
+        LibCall::Muldf3 => __muldf3 as *const () as usize,
+        LibCall::Muldi3 => __muldi3 as *const () as usize,
+        LibCall::Mulsf3 => __mulsf3 as *const () as usize,
+        LibCall::Mulsi3 => wasmer_vm__mulsi3 as *const () as usize,
+        LibCall::Nedf2 => __nedf2 as *const () as usize,
+        LibCall::Negdf2 => __negdf2 as *const () as usize,
+        LibCall::Negsf2 => __negsf2 as *const () as usize,
+        LibCall::Nesf2 => __nesf2 as *const () as usize,
+        LibCall::Subdf3 => __subdf3 as *const () as usize,
+        LibCall::Subsf3 => __subsf3 as *const () as usize,
+        LibCall::Truncdfsf2 => __truncdfsf2 as *const () as usize,
+        LibCall::Udivdi3 => __udivdi3 as *const () as usize,
+        LibCall::Udivsi3 => __udivsi3 as *const () as usize,
+        LibCall::Umoddi3 => __umoddi3 as *const () as usize,
+        LibCall::Umodsi3 => __umodsi3 as *const () as usize,
+        LibCall::Unorddf2 => __unorddf2 as *const () as usize,
+        LibCall::Unordsf2 => __unordsf2 as *const () as usize,
+        LibCall::Memset => memset as *const () as usize,
+        LibCall::Sqrt => sqrt as *const () as usize,
     }
+}
+
+// Soft-float and 64-bit integer arithmetic routines. These are provided by
+// compiler-rt / libgcc on every standard Rust target. We declare them here so
+// wasmer can resolve JIT-compiled references to them at link time.
+unsafe extern "C" {
+    fn __adddf3();
+    fn __addsf3();
+    fn __divdf3();
+    fn __divdi3();
+    fn __divsf3();
+    fn __divsi3();
+    fn __eqdf2();
+    fn __eqsf2();
+    fn __extendsfdf2();
+    fn __fixdfdi();
+    fn __fixdfsi();
+    fn __fixsfdi();
+    fn __fixsfsi();
+    fn __fixunsdfdi();
+    fn __fixunsdfsi();
+    fn __fixunssfdi();
+    fn __fixunssfsi();
+    fn __floatdidf();
+    fn __floatdisf();
+    fn __floatsidf();
+    fn __floatsisf();
+    fn __floatundidf();
+    fn __floatundisf();
+    fn __floatunsidf();
+    fn __floatunsisf();
+    fn __gedf2();
+    fn __gesf2();
+    fn __gtdf2();
+    fn __gtsf2();
+    fn __ledf2();
+    fn __lesf2();
+    fn __ltdf2();
+    fn __ltsf2();
+    fn __moddi3();
+    fn __modsi3();
+    fn __muldf3();
+    fn __muldi3();
+    fn __mulsf3();
+    fn __nedf2();
+    fn __negdf2();
+    fn __negsf2();
+    fn __nesf2();
+    fn __subdf3();
+    fn __subsf3();
+    fn __truncdfsf2();
+    fn __udivdi3();
+    fn __udivsi3();
+    fn __umoddi3();
+    fn __umodsi3();
+    fn __unorddf2();
+    fn __unordsf2();
+    fn memset();
+    fn sqrt();
+}
+
+// __mulsi3 (32×32 soft-multiply) is absent from some 64-bit toolchains.
+// Provide it under a wasmer-namespaced symbol so it never clashes with a
+// system copy.
+#[unsafe(no_mangle)]
+pub extern "C" fn wasmer_vm__mulsi3(a: i32, b: i32) -> i32 {
+    a.wrapping_mul(b)
 }
