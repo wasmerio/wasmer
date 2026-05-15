@@ -143,8 +143,9 @@ pub fn spawn_exec_module(
             .task_wasm(
                 TaskWasm::new(Box::new(run_exec), env, module, true, true).with_pre_run(Box::new(
                     |ctx, store| {
+                        let wasi_state = ctx.data(store).state.clone();
                         Box::pin(async move {
-                            ctx.data(store).state.fs.close_cloexec_fds().await;
+                            wasi_state.fs.close_cloexec_fds().await;
                         })
                     },
                 )),

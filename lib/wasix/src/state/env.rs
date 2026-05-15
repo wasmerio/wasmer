@@ -12,6 +12,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
+    state::PreparedInstanceGroupData,
     syscalls::platform_clock_time_get,
 };
 use futures::future::BoxFuture;
@@ -467,7 +468,7 @@ impl WasiEnv {
         memory: Option<Memory>,
         update_layout: bool,
         call_initialize: bool,
-        parent_linker_and_ctx: Option<(Linker, &mut FunctionEnvMut<WasiEnv>)>,
+        linker_instance_group_data: Option<PreparedInstanceGroupData>,
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
         let pid = self.process.pid();
 
@@ -477,8 +478,10 @@ impl WasiEnv {
 
         let is_dl = super::linker::is_dynamically_linked(&module);
         if is_dl {
-            let linker = match parent_linker_and_ctx {
-                Some((linker, ctx)) => linker.create_instance_group(ctx, &mut store, &mut func_env),
+            let linker = match linker_instance_group_data {
+                Some(instance_group_data) => {
+                    Linker::create_instance_group(instance_group_data, &mut store, &mut func_env)
+                }
                 None => {
                     // FIXME: should we be storing envs as raw byte arrays?
                     let ld_library_path_owned;

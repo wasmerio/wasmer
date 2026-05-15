@@ -10,30 +10,22 @@ use bytes::Bytes;
 use derive_more::Debug;
 use futures::future::BoxFuture;
 use futures::{Future, TryFutureExt};
-use wasmer::{
-    AsStoreMut, AsStoreRef, FunctionEnv, Memory, MemoryType, Module, Store, StoreMut, StoreRef,
-};
+use wasmer::{AsStoreMut, DetachedMemory, Memory, MemoryType, Module, Store, StoreMut};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
-use crate::syscalls::AsyncifyFuture;
+use crate::os::task::thread::WasiThreadError;
 use crate::{StoreSnapshot, WasiEnv, WasiFunctionEnv, WasiThread, capture_store_snapshot};
-use crate::{os::task::thread::WasiThreadError, state::Linker};
+use crate::{state::PreparedInstanceGroupData, syscalls::AsyncifyFuture};
 
 pub use virtual_mio::waker::*;
 
 #[derive(Debug)]
-pub enum SpawnType<'a> {
+pub enum SpawnType {
     CreateMemory,
     CreateMemoryOfType(MemoryType),
-    // TODO: is there a way to get rid of the memory reference
-    ShareMemory(Memory, StoreRef<'a>),
-    // TODO: is there a way to get rid of the memory reference
-    // Note: The message sender is triggered once the memory
-    // has been copied, this makes sure its not modified until
-    // its been properly copied
-    CopyMemory(Memory, StoreRef<'a>),
+    AttachMemory(DetachedMemory),
     #[debug("NewLinkerInstanceGroup(..)")]
-    NewLinkerInstanceGroup(Linker, FunctionEnv<WasiEnv>, StoreMut<'a>),
+    NewLinkerInstanceGroup(PreparedInstanceGroupData),
 }
 
 /// Describes whether a new memory should be created (and, in case, its type) or if it was already
@@ -46,7 +38,7 @@ pub enum SpawnType<'a> {
 pub enum SpawnMemoryTypeOrStore {
     New,
     Type(wasmer::MemoryType),
-    StoreAndMemory(wasmer::Store, Option<wasmer::Memory>),
+    StoreAndMemory(wasmer::Store, Memory),
 }
 
 pub type WasmResumeTask = dyn FnOnce(WasiFunctionEnv, Store, Bytes) + Send + 'static;
@@ -92,21 +84,25 @@ pub struct TaskWasmRecycleProperties {
 /// Callback that will be invoked
 pub type TaskWasmRecycle = dyn FnOnce(TaskWasmRecycleProperties) + Send + 'static;
 
-/// Represents a WASM task that will be executed on a dedicated thread
-pub struct TaskWasm<'a> {
+pub struct TaskWasmCallbacks {
     pub run: Box<TaskWasmRun>,
     pub recycle: Option<Box<TaskWasmRecycle>>,
+    pub pre_run: Option<Box<TaskWasmPreRun>>,
+    pub trigger: Option<Box<WasmResumeTrigger>>,
+}
+
+/// Represents a WASM task that will be executed on a dedicated thread
+pub struct TaskWasm {
+    pub callbacks: TaskWasmCallbacks,
     pub env: WasiEnv,
     pub module: Module,
     pub globals: Option<StoreSnapshot>,
-    pub spawn_type: SpawnType<'a>,
-    pub trigger: Option<Box<WasmResumeTrigger>>,
+    pub spawn_type: SpawnType,
     pub update_layout: bool,
     pub call_initialize: bool,
-    pub pre_run: Option<Box<TaskWasmPreRun>>,
 }
 
-impl<'a> TaskWasm<'a> {
+impl TaskWasm {
     pub fn new(
         run: Box<TaskWasmRun>,
         env: WasiEnv,
@@ -116,7 +112,12 @@ impl<'a> TaskWasm<'a> {
     ) -> Self {
         let shared_memory = module.imports().memories().next().map(|a| *a.ty());
         Self {
-            run,
+            callbacks: TaskWasmCallbacks {
+                run,
+                recycle: None,
+                pre_run: None,
+                trigger: None,
+            },
             env,
             module,
             globals: None,
@@ -124,20 +125,17 @@ impl<'a> TaskWasm<'a> {
                 Some(ty) => SpawnType::CreateMemoryOfType(ty),
                 None => SpawnType::CreateMemory,
             },
-            trigger: None,
             update_layout,
             call_initialize,
-            recycle: None,
-            pre_run: None,
         }
     }
 
-    pub fn with_memory(mut self, spawn_type: SpawnType<'a>) -> Self {
+    pub fn with_memory(mut self, spawn_type: SpawnType) -> Self {
         self.spawn_type = spawn_type;
         self
     }
 
-    pub fn with_optional_memory(mut self, spawn_type: Option<SpawnType<'a>>) -> Self {
+    pub fn with_optional_memory(mut self, spawn_type: Option<SpawnType>) -> Self {
         if let Some(spawn_type) = spawn_type {
             self.spawn_type = spawn_type;
         }
@@ -150,17 +148,17 @@ impl<'a> TaskWasm<'a> {
     }
 
     pub fn with_trigger(mut self, trigger: Box<WasmResumeTrigger>) -> Self {
-        self.trigger.replace(trigger);
+        self.callbacks.trigger.replace(trigger);
         self
     }
 
     pub fn with_recycle(mut self, recycle: Box<TaskWasmRecycle>) -> Self {
-        self.recycle.replace(recycle);
+        self.callbacks.recycle.replace(recycle);
         self
     }
 
     pub fn with_pre_run(mut self, pre_run: Box<TaskWasmPreRun>) -> Self {
-        self.pre_run.replace(pre_run);
+        self.callbacks.pre_run.replace(pre_run);
         self
     }
 }
@@ -188,11 +186,10 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     fn build_memory(
         &self,
         mut store: &mut StoreMut,
-        spawn_type: &SpawnType,
+        spawn_type: SpawnType,
     ) -> Result<Option<Memory>, WasiThreadError> {
         match spawn_type {
-            SpawnType::CreateMemoryOfType(ty) => {
-                let mut ty = *ty;
+            SpawnType::CreateMemoryOfType(mut ty) => {
                 ty.shared = true;
 
                 // Note: If memory is shared, maximum needs to be set in the
@@ -209,26 +206,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
                 })?;
                 Ok(Some(mem))
             }
-            SpawnType::ShareMemory(mem, old_store) => {
-                let mem = mem.share_in_store(&old_store, store).map_err(|err| {
-                    tracing::warn!(
-                        error = &err as &dyn std::error::Error,
-                        "could not clone memory",
-                    );
-                    WasiThreadError::MemoryCreateFailed(err)
-                })?;
-                Ok(Some(mem))
-            }
-            SpawnType::CopyMemory(mem, old_store) => {
-                let mem = mem.copy_to_store(&old_store, store).map_err(|err| {
-                    tracing::warn!(
-                        error = &err as &dyn std::error::Error,
-                        "could not copy memory",
-                    );
-                    WasiThreadError::MemoryCreateFailed(err)
-                })?;
-                Ok(Some(mem))
-            }
+            SpawnType::AttachMemory(mem) => Ok(Some(mem.attach(store))),
             SpawnType::CreateMemory | SpawnType::NewLinkerInstanceGroup(..) => Ok(None),
         }
     }
@@ -307,7 +285,7 @@ where
     fn build_memory(
         &self,
         store: &mut StoreMut,
-        spawn_type: &SpawnType,
+        spawn_type: SpawnType,
     ) -> Result<Option<Memory>, WasiThreadError> {
         (**self).build_memory(store, spawn_type)
     }
@@ -416,7 +394,15 @@ impl dyn VirtualTaskManager {
                 false,
                 false,
             )
-            .with_memory(SpawnType::ShareMemory(memory, store.as_store_ref()))
+            .with_memory(SpawnType::AttachMemory(
+                memory.share_and_detach(&store).map_err(|err| {
+                    tracing::error!(
+                        error = &err as &dyn std::error::Error,
+                        "failed to share and detach memory for asyncify poller",
+                    );
+                    WasiThreadError::MemoryCreateFailed(err)
+                })?,
+            ))
             .with_globals(snapshot)
             .with_trigger(Box::new(move || {
                 Box::pin(async move {
