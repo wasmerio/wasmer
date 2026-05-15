@@ -27,3 +27,4 @@ set -euo pipefail
 ##Args: trapping_child
 
 WASIXCC_WASM_EXCEPTIONS=yes WASIXCC_PIC=yes "$CC" ../vfork/main.c -o main -Wl,-pie
+cp main main.wasm
