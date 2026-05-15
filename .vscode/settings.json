@@ -1,10 +1,10 @@
 {
     "rust-analyzer.cargo.features": [
-        // "llvm",
-        // "cranelift",
-        // "singlepass",
-        // "v8",
-        // "wasmer-artifact-create",
-        // "wasmer-artifact-load",
+        "llvm",
+        "cranelift",
+        "singlepass",
+        "v8",
+        "wasmer-artifact-create",
+        "wasmer-artifact-load",
     ],
 }
