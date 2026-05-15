@@ -119,7 +119,9 @@ impl Memory {
         &self,
         store: &impl AsStoreRef,
     ) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
-        let mut mem = self.try_clone(store)?;
+        let store = store.as_store_ref();
+        let objects = store.objects();
+        let mem = self.handle.get(objects.as_sys());
         mem.copy()
     }
 

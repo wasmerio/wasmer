@@ -4,7 +4,12 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
-use std::{cell::UnsafeCell, convert::TryInto, ptr::NonNull, rc::Rc, sync::RwLock};
+use std::{
+    cell::UnsafeCell,
+    convert::TryInto,
+    ptr::NonNull,
+    sync::{Arc, RwLock},
+};
 
 use wasmer::{Bytes, MemoryError, MemoryType, Pages};
 use wasmer_types::{MemoryStyle, WASM_PAGE_SIZE};
@@ -34,6 +39,9 @@ struct WasmMmap {
     /// The owned memory definition used by the generated code
     vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
+
+unsafe impl Send for WasmMmap {}
+unsafe impl Sync for WasmMmap {}
 
 impl WasmMmap {
     fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
@@ -146,7 +154,7 @@ impl WasmMmap {
 
     /// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
-    pub fn copy(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&self) -> Result<Self, MemoryError> {
         let mem_length = self.size.bytes().0;
         let mut alloc = self
             .alloc
@@ -310,14 +318,14 @@ impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
-            mmap: Rc::new(RwLock::new(self.mmap)),
+            mmap: Arc::new(RwLock::new(self.mmap)),
             config: self.config,
             conditions: ThreadConditions::new(),
         }
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&self) -> Result<Self, MemoryError> {
         Ok(Self {
             mmap: self.mmap.copy()?,
             config: self.config.clone(),
@@ -372,7 +380,7 @@ impl LinearMemory for VMOwnedMemory {
     }
 
     /// Copies this memory to a new memory
-    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
@@ -382,14 +390,11 @@ impl LinearMemory for VMOwnedMemory {
 #[derive(Debug, Clone)]
 pub struct VMSharedMemory {
     // The underlying allocation.
-    mmap: Rc<RwLock<WasmMmap>>,
+    mmap: Arc<RwLock<WasmMmap>>,
     // Configuration of this memory
     config: VMMemoryConfig,
     conditions: ThreadConditions,
 }
-
-unsafe impl Send for VMSharedMemory {}
-unsafe impl Sync for VMSharedMemory {}
 
 impl VMSharedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -417,10 +422,10 @@ impl VMSharedMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&mut self) -> Result<Self, MemoryError> {
-        let mut guard = self.mmap.write().unwrap();
+    pub fn copy(&self) -> Result<Self, MemoryError> {
+        let guard = self.mmap.read().unwrap();
         Ok(Self {
-            mmap: Rc::new(RwLock::new(guard.copy()?)),
+            mmap: Arc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
             conditions: ThreadConditions::new(),
         })
@@ -483,7 +488,7 @@ impl LinearMemory for VMSharedMemory {
     }
 
     /// Copies this memory to a new memory
-    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
@@ -589,7 +594,7 @@ impl LinearMemory for VMMemory {
     }
 
     /// Copies this memory to a new memory
-    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         self.0.copy()
     }
 }
@@ -648,7 +653,7 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    pub fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         LinearMemory::copy(self)
     }
 }

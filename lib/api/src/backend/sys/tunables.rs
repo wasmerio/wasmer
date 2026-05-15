@@ -143,7 +143,7 @@ mod tests {
             })
         }
 
-        fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
             let mem = self.mem.clone();
             Ok(Box::new(Self {
                 memory_definition: Some(UnsafeCell::new(VMMemoryDefinition {

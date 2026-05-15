@@ -15,6 +15,58 @@ pub(crate) mod view;
 pub(crate) use inner::*;
 pub use view::*;
 
+/// A memory handle that has been shallow-cloned or copied from an existing memory but
+/// has not yet been attached to a store.
+#[derive(Debug)]
+pub struct DetachedMemory {
+    kind: DetachedMemoryKind,
+    memory: VMMemory,
+}
+
+// The whole point of DetachedMemory is to be thread-safe, and indeed it is
+// in every backend we support.
+unsafe impl Send for DetachedMemory {}
+unsafe impl Sync for DetachedMemory {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DetachedMemoryKind {
+    Shared,
+    Copied,
+}
+
+impl DetachedMemory {
+    pub(crate) fn from_shared_vm_memory(memory: VMMemory) -> Self {
+        Self {
+            kind: DetachedMemoryKind::Shared,
+            memory,
+        }
+    }
+
+    pub(crate) fn from_copied_vm_memory(memory: VMMemory) -> Self {
+        Self {
+            kind: DetachedMemoryKind::Copied,
+            memory,
+        }
+    }
+
+    /// Returns true if this detached memory will be attached as a shared
+    /// memory reference.
+    pub fn is_shared(&self) -> bool {
+        self.kind == DetachedMemoryKind::Shared
+    }
+
+    /// Returns true if this detached memory will be attached as a copied
+    /// memory.
+    pub fn is_copied(&self) -> bool {
+        self.kind == DetachedMemoryKind::Copied
+    }
+
+    /// Attaches this detached memory to the provided store.
+    pub fn attach(self, new_store: &mut impl AsStoreMut) -> Memory {
+        Memory::new_from_existing(new_store, self.memory)
+    }
+}
+
 /// A WebAssembly `memory` instance.
 ///
 /// A memory instance is the runtime representation of a linear memory.
@@ -151,14 +203,19 @@ impl Memory {
         self.0.reset(store)
     }
 
-    /// Attempts to duplicate this memory (if its cloneable) in a new store
-    /// (copied memory)
+    /// Attempts to duplicate this memory in a new store with a byte-for-byte copy
+    #[deprecated(
+        since = "8.0.0",
+        note = "Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
+                Use `copy_and_detach`, then `attach` on the thread owning the other `Store` instead."
+    )]
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        self.0.copy_to_store(store, new_store).map(Self)
+        self.copy_and_detach(store)
+            .map(|memory| memory.attach(new_store))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
@@ -180,14 +237,39 @@ impl Memory {
         self.0.try_clone(store)
     }
 
+    /// Attempts to create a detached shared memory handle that can
+    /// later be attached to a different store.
+    pub fn share_and_detach(&self, store: &impl AsStoreRef) -> Result<DetachedMemory, MemoryError> {
+        self.0
+            .share_and_detach(store)
+            .map(DetachedMemory::from_shared_vm_memory)
+    }
+
+    /// Attempts to create a detached copied memory handle that can later be
+    /// attached to a different store.
+    ///
+    /// Unlike [`Memory::share_and_detach`], this operation is not limited to
+    /// shared memories because it creates an independent copy.
+    pub fn copy_and_detach(&self, store: &impl AsStoreRef) -> Result<DetachedMemory, MemoryError> {
+        self.0
+            .copy_and_detach(store)
+            .map(DetachedMemory::from_copied_vm_memory)
+    }
+
     /// Attempts to clone this memory (if its cloneable) in a new store
     /// (cloned memory will be shared between those that clone it)
+    #[deprecated(
+        since = "8.0.0",
+        note = "Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
+                Use `share_and_detach`, then `attach` on the thread owning the other `Store` instead."
+    )]
     pub fn share_in_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        self.0.share_in_store(store, new_store).map(Self)
+        self.share_and_detach(store)
+            .map(|memory| memory.attach(new_store))
     }
 
     /// Get a [`SharedMemory`].

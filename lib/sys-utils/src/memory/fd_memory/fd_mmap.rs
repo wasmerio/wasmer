@@ -196,7 +196,7 @@ impl FdMmap {
     // }
 
     /// Copies the memory to a new swap file (using copy-on-write if available)
-    pub fn duplicate(&mut self, hint_used: Option<usize>) -> Result<Self, String> {
+    pub fn duplicate(&self, hint_used: Option<usize>) -> Result<Self, String> {
         // Empty memory is an edge case
 
         use std::os::unix::prelude::FromRawFd;

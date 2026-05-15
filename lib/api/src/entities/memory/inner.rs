@@ -170,39 +170,20 @@ impl BackendMemory {
         })
     }
 
-    /// Attempts to duplicate this memory (if its cloneable) in a new store
-    /// (copied memory)
+    /// Attempts to duplicate this memory in a new store with a byte-for-byte copy
     #[inline]
+    #[deprecated(
+        since = "8.0.0",
+        note = "Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
+                Use `copy_and_detach`, then `attach` on the thread owning the other `Store` instead."
+    )]
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        if !self.ty(store).shared {
-            // We should only be able to duplicate in a new store if the memory is shared
-            return Err(MemoryError::InvalidMemory {
-                reason: "memory is not a shared memory type".to_string(),
-            });
-        }
-
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.try_copy(store).map(|new_memory| {
-                Self::new_from_existing(
-                    new_store,
-                    VMMemory::Sys(crate::backend::sys::vm::VMMemory(new_memory)),
-                )
-            }),
-
-            #[cfg(feature = "v8")]
-            Self::V8(s) => s
-                .try_copy(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::V8(new_memory))),
-            #[cfg(feature = "js")]
-            Self::Js(s) => s
-                .try_copy(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
-        }
+        self.copy_and_detach(store)
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory))
     }
 
     #[inline]
@@ -249,35 +230,51 @@ impl BackendMemory {
         }
     }
 
-    /// Attempts to clone this memory (if its cloneable) in a new store
-    /// (cloned memory will be shared between those that clone it)
+    /// Attempts to create a detached shared memory handle that can
+    /// later be attached to a different store. This operation is only supported
+    /// for shared memory instances.
     #[inline]
-    pub fn share_in_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
+    pub fn share_and_detach(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         if !self.ty(store).shared {
-            // We should only be able to duplicate in a new store if the memory is shared
             return Err(MemoryError::InvalidMemory {
                 reason: "memory is not a shared memory type".to_string(),
             });
         }
 
+        self.try_clone(store)
+    }
+
+    /// Attempts to create a detached copied memory handle that can later be
+    /// attached to a different store.
+    #[inline]
+    pub fn copy_and_detach(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s
-                .try_clone(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Sys(new_memory))),
+                .try_copy(store)
+                .map(|new_memory| VMMemory::Sys(crate::backend::sys::vm::VMMemory(new_memory))),
             #[cfg(feature = "v8")]
-            Self::V8(s) => s
-                .try_clone(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::V8(new_memory))),
+            Self::V8(s) => s.try_copy(store).map(VMMemory::V8),
             #[cfg(feature = "js")]
-            Self::Js(s) => s
-                .try_clone(store)
-                .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Js(new_memory))),
+            Self::Js(s) => s.try_copy(store).map(VMMemory::Js),
         }
+    }
+
+    /// Attempts to clone this memory (if its cloneable) in a new store
+    /// (cloned memory will be shared between those that clone it)
+    #[inline]
+    #[deprecated(
+        since = "8.0.0",
+        note = "Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
+                Use `share_and_detach`, then `attach` on the thread owning the other `Store` instead."
+    )]
+    pub fn share_in_store(
+        &self,
+        store: &impl AsStoreRef,
+        new_store: &mut impl AsStoreMut,
+    ) -> Result<Self, MemoryError> {
+        self.share_and_detach(store)
+            .map(|new_memory| Self::new_from_existing(new_store, new_memory))
     }
 
     /// Get a [`SharedMemory`].

@@ -162,11 +162,6 @@ impl PartialEq for Store {
     }
 }
 
-// This is required to be able to set the trap_handler in the
-// Store.
-unsafe impl Send for Store {}
-unsafe impl Sync for Store {}
-
 impl Default for Store {
     fn default() -> Self {
         Self::new(Engine::default())
