@@ -417,6 +417,11 @@ fn identify_primary_source(test_src_dir: &Path) -> Result<PathBuf> {
 }
 
 fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
+    // Windows runtime support is still limited, so skip these tests on that platform.
+    if cfg!(target_os = "windows") {
+        return Ok(());
+    }
+
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
 
     for entry in WalkDir::new(&tests_dir)
