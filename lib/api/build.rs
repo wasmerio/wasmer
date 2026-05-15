@@ -2,40 +2,24 @@
 fn build_v8() {
     use bindgen::callbacks::ParseCallbacks;
     use std::{
-        env,
-        path::PathBuf,
+        env, fs,
+        path::{Path, PathBuf},
         sync::{LazyLock, Mutex},
     };
 
     const WEE8_RELEASE_VERSION: &str = "11.9.5";
 
-    let url = match (
+    let (asset_name, platform_name) = match (
         env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
         env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
         env::var("CARGO_CFG_TARGET_ENV")
             .unwrap_or_default()
             .as_str(),
     ) {
-        ("macos", "aarch64", _) => {
-            format!(
-                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/v8-darwin-aarch64.tar.xz"
-            )
-        }
-        ("linux", "x86_64", "gnu") => {
-            format!(
-                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/v8-linux-amd64.tar.xz"
-            )
-        }
-        ("linux", "x86_64", "musl") => {
-            format!(
-                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/v8-linux-musl-amd64.tar.xz"
-            )
-        }
-        ("android", "aarch64", _) => {
-            format!(
-                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/v8-android-arm64.tar.xz"
-            )
-        }
+        ("macos", "aarch64", _) => ("v8-darwin-aarch64.tar.xz", "darwin-aarch64"),
+        ("linux", "x86_64", "gnu") => ("v8-linux-amd64.tar.xz", "linux-amd64"),
+        ("linux", "x86_64", "musl") => ("v8-linux-musl-amd64.tar.xz", "linux-musl-amd64"),
+        ("android", "aarch64", _) => ("v8-android-arm64.tar.xz", "android-arm64"),
         // Not supported in 6.0.0-alpha1
         //("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-windows-amd64.tar.xz",
         (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
@@ -45,29 +29,60 @@ fn build_v8() {
     let out_path = PathBuf::from(&out_dir);
     let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
     let v8_header_path = PathBuf::from(&crate_root).join("third-party").join("wee8");
+    let cache_dir = stable_target_dir(&out_path)
+        .join("wee8-artifacts")
+        .join(WEE8_RELEASE_VERSION)
+        .join(platform_name);
+    let archive_path = cache_dir.join(asset_name);
+    let v8_lib_dir = cache_dir.join("lib");
+    let v8_lib_path = v8_lib_dir.join("libv8.a");
 
-    let tar_data = ureq::get(url)
-        .call()
-        .expect("failed to download v8")
-        .body_mut()
-        .with_config()
-        .limit(50 * 1024 * 1024) // 50MB
-        .read_to_vec()
-        .expect("failed to download v8 lib");
+    if !v8_lib_path.exists() {
+        fs::create_dir_all(&cache_dir).unwrap_or_else(|err| {
+            panic!(
+                "failed to create v8 cache dir {}: {err}",
+                cache_dir.display()
+            )
+        });
 
-    let tar = xz::read::XzDecoder::new(tar_data.as_slice());
-    let mut archive = tar::Archive::new(tar);
+        if !archive_path.exists() {
+            let url = format!(
+                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/{asset_name}"
+            );
+            let tar_data = ureq::get(&url)
+                .call()
+                .expect("failed to download v8")
+                .body_mut()
+                .with_config()
+                .limit(50 * 1024 * 1024) // 50MB
+                .read_to_vec()
+                .expect("failed to download v8 lib");
 
-    for entry in archive.entries().unwrap() {
-        eprintln!("entry: {:?}", entry.unwrap().path());
+            fs::write(&archive_path, tar_data).unwrap_or_else(|err| {
+                panic!(
+                    "failed to write v8 archive cache {}: {err}",
+                    archive_path.display()
+                )
+            });
+        }
+
+        let tar_data = fs::read(&archive_path).unwrap_or_else(|err| {
+            panic!(
+                "failed to read v8 archive cache {}: {err}",
+                archive_path.display()
+            )
+        });
+        let tar = xz::read::XzDecoder::new(tar_data.as_slice());
+        let mut archive = tar::Archive::new(tar);
+        archive.unpack(&cache_dir).unwrap_or_else(|err| {
+            panic!(
+                "failed to unpack v8 archive cache {} into {}: {err}",
+                archive_path.display(),
+                cache_dir.display()
+            )
+        });
     }
 
-    let tar = xz::read::XzDecoder::new(tar_data.as_slice());
-    let mut archive = tar::Archive::new(tar);
-
-    archive.unpack(out_dir.clone()).unwrap();
-    let v8_lib_dir = out_path.join("lib");
-    let v8_lib_path = v8_lib_dir.join("libv8.a");
     println!("cargo:rustc-link-search=native={}", v8_lib_dir.display());
 
     if cfg!(any(target_os = "linux",)) {
@@ -179,6 +194,16 @@ fn build_v8() {
     }
 
     println!("cargo:rustc-link-lib=static=v8prefixed");
+
+    fn stable_target_dir(out_path: &Path) -> PathBuf {
+        let mut dir = out_path;
+        for _ in 0..4 {
+            dir = dir
+                .parent()
+                .expect("OUT_DIR is not inside Cargo's target build output");
+        }
+        dir.to_path_buf()
+    }
 }
 
 #[allow(unused)]
