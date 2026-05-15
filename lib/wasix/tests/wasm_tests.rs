@@ -13,33 +13,6 @@ use walkdir::WalkDir;
 #[path = "wasm_tests/mod.rs"]
 mod wasm_test_helpers;
 
-struct Filter {
-    filter: Option<String>,
-    exact: bool,
-}
-
-impl Filter {
-    fn new(args: &libtest_mimic::Arguments) -> Self {
-        Self {
-            filter: args.filter.clone(),
-            exact: args.exact,
-        }
-    }
-
-    /// TODO: write comment
-    fn excludes(&self, prefix: &str) -> bool {
-        let Some(filter) = self.filter.as_ref() else {
-            return false;
-        };
-
-        if self.exact {
-            !filter.starts_with(prefix) && !prefix.starts_with(filter)
-        } else {
-            false
-        }
-    }
-}
-
 fn should_emit_colour() -> bool {
     std::io::stdout().is_terminal()
         || std::env::var("CARGO_TERM_COLOR").as_deref() == Ok("always")
@@ -51,9 +24,8 @@ fn main() -> Result<std::process::ExitCode> {
     if should_emit_colour() {
         args.color = Some(libtest_mimic::ColorSetting::Always);
     }
-    let filter = Filter::new(&args);
     let mut tests = Vec::new();
-    collect_tests(&mut tests, &filter)?;
+    collect_tests(&mut tests)?;
     Ok(libtest_mimic::run(&args, tests).exit_code())
 }
 
@@ -274,7 +246,7 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
         return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
     }
 
-    // TODO
+    // TODO: remove
     let wasm = wasm_test_helpers::run_build_script("x.rs", config.test_src_dir.to_str().unwrap())?;
     let temp_dir = config
         .tempdir_as_workdir
@@ -406,7 +378,7 @@ fn identify_primary_source(test_src_dir: &Path) -> Result<PathBuf> {
     );
 }
 
-fn collect_tests(tests: &mut Vec<Trial>, filter: &Filter) -> Result<()> {
+fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
 
     for entry in WalkDir::new(&tests_dir)
@@ -415,7 +387,6 @@ fn collect_tests(tests: &mut Vec<Trial>, filter: &Filter) -> Result<()> {
         .filter(|e| e.path() != tests_dir)
         // Skip temporary helper directories (like 'a', 'b', etc.).
         .filter(|e| e.file_type().is_dir())
-        // TODO
         .filter(|e| {
             std::fs::read_dir(e.path())
                 .expect("valid directory entry")
@@ -435,7 +406,7 @@ fn collect_tests(tests: &mut Vec<Trial>, filter: &Filter) -> Result<()> {
         )?;
 
         for config in configs {
-            // TODO: strip "wasm"
+            // TODO: strip "wasm" ??
             let full_name = format!("wasm/{}/{}", test_name, config.config_name);
 
             tests.push(libtest_mimic::Trial::ignorable_test(full_name, move || {
