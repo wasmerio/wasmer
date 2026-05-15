@@ -93,12 +93,28 @@ pub enum MemoryError {
         /// Message describing the unsupported operation.
         message: String,
     },
-    /// The memory does not support atomic operations.
-    #[error("The memory does not support atomic operations")]
-    AtomicsNotSupported,
+    /// An atomic operation failed.
+    #[error("Atomic operation failed: {0}")]
+    AtomicOperationFailed(AtomicsError),
     /// A user defined error value, used for error cases not listed above.
     #[error("A user-defined error occurred: {0}")]
     Generic(String),
+}
+
+/// Error that can occur during atomic operations. (notify/wait)
+// Non-exhaustive to allow for future variants without breaking changes!
+#[derive(PartialEq, Eq, Debug, Error, Clone, Copy, Hash)]
+#[non_exhaustive]
+pub enum AtomicsError {
+    /// Atomic operations are not supported by this memory.
+    #[error("The memory does not support atomic operations")]
+    Unimplemented,
+    /// Too many waiters for address.
+    #[error("Too many waiters for address")]
+    TooManyWaiters,
+    /// Atomic operations are disabled.
+    #[error("Atomic operations are disabled for this memory")]
+    AtomicsDisabled,
 }
 
 /// An ImportError.

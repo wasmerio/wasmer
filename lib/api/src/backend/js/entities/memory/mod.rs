@@ -11,7 +11,8 @@ use wasm_bindgen::JsCast;
 use wasmer_types::{MemoryError, MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendMemory,
+    AsStoreMut, AsStoreRef, BackendMemory, OwnedMemory, OwnedOrSharedMemory, SharedMemory,
+    entities::memory::shared_memory_detach_error,
     js::vm::memory::VMMemory,
     vm::{VMExtern, VMExternMemory},
 };
@@ -155,26 +156,32 @@ impl Memory {
         }
     }
 
-    /// Cloning memory will create another reference to the same memory that
-    /// can be put into a new store
-    pub fn try_clone(&self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        self.handle.try_clone()
-    }
+    pub fn copy(&self, store: &impl AsStoreRef) -> Result<OwnedOrSharedMemory, MemoryError> {
+        if self.ty(store).shared {
+            return self
+                .as_shared(store)
+                .ok_or_else(shared_memory_detach_error)
+                .map(OwnedOrSharedMemory::Shared);
+        }
 
-    /// Copying the memory will actually copy all the bytes in the memory to
-    /// a identical byte copy of the original that can be put into a new store
-    pub fn try_copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        let mut cloned = self.try_clone(store)?;
-        cloned.copy()
+        let mut cloned = self.handle.try_clone()?;
+        Ok(OwnedOrSharedMemory::Owned(OwnedMemory::from_vm_memory(
+            crate::vm::VMMemory::Js(cloned.copy()?),
+        )))
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
 
-    pub fn as_shared(&self, _store: &impl AsStoreRef) -> Option<crate::shared::SharedMemory> {
-        // Not supported.
-        None
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
+        if !self.ty(store).shared {
+            return None;
+        }
+
+        Some(SharedMemory::from_vm_memory(
+            crate::vm::VMMemory::Js(self.handle.try_clone().ok()?),
+        ))
     }
 }
 

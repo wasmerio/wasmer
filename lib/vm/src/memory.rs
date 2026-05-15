@@ -787,6 +787,11 @@ impl VMMemory {
     pub fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
         LinearMemory::copy(self)
     }
+
+    /// Attempts to clone this memory handle.
+    pub fn try_clone(&self) -> Result<Self, MemoryError> {
+        LinearMemory::try_clone(self).map(Self)
+    }
 }
 
 #[doc(hidden)]

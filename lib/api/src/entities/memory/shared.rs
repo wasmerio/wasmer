@@ -1,22 +1,21 @@
-use wasmer_types::MemoryError;
+use std::sync::Arc;
 
 use crate::{
-    Memory,
+    AsStoreMut, Memory,
     error::AtomicsError,
     location::{MemoryLocation, SharedMemoryOps},
+    vm::VMMemory,
 };
 
-/// A handle that exposes operations only relevant for shared memories.
-///
-/// Enables interaction independent from the [`crate::Store`], and thus allows calling
-/// some methods an instance is running.
-///
-/// **NOTE**: Not all methods are supported by all backends.
-#[derive(Clone)]
+/// A shared memory instance that can be shared across multiple stores and threads,
+/// not attached to any specific store.
 pub struct SharedMemory {
-    memory: Memory,
-    ops: std::sync::Arc<dyn SharedMemoryOps + Send + Sync>,
+    memory: VMMemory,
+    ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
 }
+
+unsafe impl Send for SharedMemory {}
+unsafe impl Sync for SharedMemory {}
 
 impl std::fmt::Debug for SharedMemory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -24,24 +23,51 @@ impl std::fmt::Debug for SharedMemory {
     }
 }
 
+impl Clone for SharedMemory {
+    fn clone(&self) -> Self {
+        Self {
+            memory: self
+                .memory
+                .try_clone()
+                .expect("Internal error: shared memory should be cloneable"),
+            ops: self.ops.clone(),
+        }
+    }
+}
+
 impl SharedMemory {
-    /// Get the underlying memory.
-    pub fn memory(&self) -> &Memory {
-        &self.memory
+    /// Create a new shared memory from an existing VMMemory.
+    pub(crate) fn from_vm_memory(memory: VMMemory) -> Self {
+        Self { memory, ops: None }
     }
 
-    /// Create a new handle from ops.
-    #[allow(unused)]
-    pub(crate) fn new(memory: Memory, ops: impl SharedMemoryOps + Send + Sync + 'static) -> Self {
+    /// Create a new shared memory from an existing VMMemory.
+    pub(crate) fn from_vm_memory_and_ops(
+        memory: VMMemory,
+        ops: Arc<dyn SharedMemoryOps + Send + Sync>,
+    ) -> Self {
         Self {
             memory,
-            ops: std::sync::Arc::new(ops),
+            ops: Some(ops),
         }
+    }
+
+    /// Attach this shared memory to the provided store.
+    pub fn attach(self, store: &mut impl AsStoreMut) -> Memory {
+        Memory::new_from_existing(store, self.memory)
+    }
+
+    #[inline]
+    fn ops(&self) -> Result<&(dyn SharedMemoryOps + Send + Sync), AtomicsError> {
+        self.ops
+            .as_ref()
+            .map(|ops| ops.as_ref())
+            .ok_or(AtomicsError::Unimplemented)
     }
 
     /// Notify up to `count` waiters waiting for the memory location.
     pub fn notify(&self, location: MemoryLocation, count: u32) -> Result<u32, AtomicsError> {
-        self.ops.notify(location, count)
+        self.ops()?.notify(location, count)
     }
 
     /// Wait for the memory location to be notified.
@@ -50,7 +76,7 @@ impl SharedMemory {
         location: MemoryLocation,
         timeout: Option<std::time::Duration>,
     ) -> Result<u32, AtomicsError> {
-        self.ops.wait(location, timeout)
+        self.ops()?.wait(location, timeout)
     }
 
     /// Disable atomics for this memory.
@@ -62,8 +88,8 @@ impl SharedMemory {
     ///
     /// NOTE: this operation might not be supported by all memory implementations.
     /// In that case, this function will return an error.
-    pub fn disable_atomics(&self) -> Result<(), MemoryError> {
-        self.ops.disable_atomics()
+    pub fn disable_atomics(&self) -> Result<(), AtomicsError> {
+        self.ops()?.disable_atomics()
     }
 
     /// Wake up all atomic waiters.
@@ -72,7 +98,7 @@ impl SharedMemory {
     ///
     /// NOTE: this operation might not be supported by all memory implementations.
     /// In that case, this function will return an error.
-    pub fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
-        self.ops.wake_all_atomic_waiters()
+    pub fn wake_all_atomic_waiters(&self) -> Result<(), AtomicsError> {
+        self.ops()?.wake_all_atomic_waiters()
     }
 }

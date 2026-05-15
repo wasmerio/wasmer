@@ -1,3 +1,4 @@
+pub use owned::OwnedMemory;
 pub use shared::SharedMemory;
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
@@ -9,61 +10,39 @@ use crate::{
 pub(crate) mod buffer;
 pub(crate) mod inner;
 pub(crate) mod location;
+pub(crate) mod owned;
 pub(crate) mod shared;
 pub(crate) mod view;
 
 pub(crate) use inner::*;
 pub use view::*;
 
-/// A memory handle that has been shallow-cloned or copied from an existing memory but
-/// has not yet been attached to a store.
-#[derive(Debug)]
-pub struct DetachedMemory {
-    kind: DetachedMemoryKind,
-    memory: VMMemory,
+#[inline]
+pub(crate) fn shared_memory_detach_error() -> MemoryError {
+    MemoryError::Generic(
+        "could not detach shared WebAssembly memory for use outside the store: duplicating the \
+         backing handle failed, synchronization support may be unavailable, or the backend does \
+         not support exposing this shared memory independently of its store"
+            .into(),
+    )
 }
 
-// The whole point of DetachedMemory is to be thread-safe, and indeed it is
-// in every backend we support.
-unsafe impl Send for DetachedMemory {}
-unsafe impl Sync for DetachedMemory {}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum DetachedMemoryKind {
-    Shared,
-    Copied,
+/// A detached memory handle that is either an owned non-shared
+/// memory or a shared memory reference.
+pub enum OwnedOrSharedMemory {
+    /// A shared memory reference.
+    Shared(SharedMemory),
+    /// A detached owned memory.
+    Owned(OwnedMemory),
 }
 
-impl DetachedMemory {
-    pub(crate) fn from_shared_vm_memory(memory: VMMemory) -> Self {
-        Self {
-            kind: DetachedMemoryKind::Shared,
-            memory,
+impl OwnedOrSharedMemory {
+    /// Attach this memory handle to the provided store.
+    pub fn attach(self, store: &mut impl AsStoreMut) -> Memory {
+        match self {
+            OwnedOrSharedMemory::Shared(shared) => shared.attach(store),
+            OwnedOrSharedMemory::Owned(owned) => owned.attach(store),
         }
-    }
-
-    pub(crate) fn from_copied_vm_memory(memory: VMMemory) -> Self {
-        Self {
-            kind: DetachedMemoryKind::Copied,
-            memory,
-        }
-    }
-
-    /// Returns true if this detached memory will be attached as a shared
-    /// memory reference.
-    pub fn is_shared(&self) -> bool {
-        self.kind == DetachedMemoryKind::Shared
-    }
-
-    /// Returns true if this detached memory will be attached as a copied
-    /// memory.
-    pub fn is_copied(&self) -> bool {
-        self.kind == DetachedMemoryKind::Copied
-    }
-
-    /// Attaches this detached memory to the provided store.
-    pub fn attach(self, new_store: &mut impl AsStoreMut) -> Memory {
-        Memory::new_from_existing(new_store, self.memory)
     }
 }
 
@@ -207,15 +186,14 @@ impl Memory {
     #[deprecated(
         since = "8.0.0",
         note = "Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
-                Use `copy_and_detach`, then `attach` on the thread owning the other `Store` instead."
+                Use `copy`, then `attach` on the thread owning the other `Store` instead."
     )]
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        self.copy_and_detach(store)
-            .map(|memory| memory.attach(new_store))
+        self.copy(store).map(|memory| memory.attach(new_store))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
@@ -227,33 +205,13 @@ impl Memory {
         self.0.is_from_store(store)
     }
 
-    /// Attempt to create a new reference to the underlying memory; this new reference can then be
-    /// used within a different store (from the same implementer).
-    ///
-    /// # Errors
-    ///
-    /// Fails if the underlying memory is not cloneable.
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        self.0.try_clone(store)
-    }
-
-    /// Attempts to create a detached shared memory handle that can
-    /// later be attached to a different store.
-    pub fn share_and_detach(&self, store: &impl AsStoreRef) -> Result<DetachedMemory, MemoryError> {
-        self.0
-            .share_and_detach(store)
-            .map(DetachedMemory::from_shared_vm_memory)
-    }
-
     /// Attempts to create a detached copied memory handle that can later be
     /// attached to a different store.
     ///
-    /// Unlike [`Memory::share_and_detach`], this operation is not limited to
-    /// shared memories because it creates an independent copy.
-    pub fn copy_and_detach(&self, store: &impl AsStoreRef) -> Result<DetachedMemory, MemoryError> {
-        self.0
-            .copy_and_detach(store)
-            .map(DetachedMemory::from_copied_vm_memory)
+    /// If the memory is shared, this returns a shared handle. Otherwise, it
+    /// creates an independent byte-for-byte copy.
+    pub fn copy(&self, store: &impl AsStoreRef) -> Result<OwnedOrSharedMemory, MemoryError> {
+        self.0.copy(store)
     }
 
     /// Attempts to clone this memory (if its cloneable) in a new store
@@ -261,14 +219,19 @@ impl Memory {
     #[deprecated(
         since = "8.0.0",
         note = "Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
-                Use `share_and_detach`, then `attach` on the thread owning the other `Store` instead."
+                Use `as_shared`, then `attach` on the thread owning the other `Store` instead."
     )]
     pub fn share_in_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        self.share_and_detach(store)
+        if !self.ty(store).shared {
+            return Err(MemoryError::MemoryNotShared);
+        }
+
+        self.as_shared(store)
+            .ok_or_else(shared_memory_detach_error)
             .map(|memory| memory.attach(new_store))
     }
 

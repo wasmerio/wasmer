@@ -54,6 +54,10 @@ pub struct Store {
     pub(crate) inner: Box<StoreInner>,
 }
 
+// *Very* temporarily put this back, will be removed with #6587.
+unsafe impl Send for Store {}
+unsafe impl Sync for Store {}
+
 impl Store {
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
