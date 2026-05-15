@@ -22,6 +22,14 @@
 //
 //#Config: trapping_child:vfork_asyncify
 //#Args: trapping_child
+//
+//#Config: exit_before_exec:vfork_asyncify
+//#Args: exit_before_exec
+//#Ignored: undefined behavior in legacy fixture
+//
+//#Config: trap_before_exec:vfork_asyncify
+//#Args: trap_before_exec
+//#Ignored: undefined behavior in legacy fixture
 
 #include <errno.h>
 #include <fcntl.h>

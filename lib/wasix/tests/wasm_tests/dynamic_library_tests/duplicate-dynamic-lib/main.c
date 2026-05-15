@@ -1,3 +1,6 @@
+//#ExpectedStdout: Module A returned: A
+//#ExpectedStdout: Module B returned: B
+
 #include <assert.h>
 #include <dlfcn.h>
 #include <stdio.h>
