@@ -198,13 +198,17 @@ mod socket_tests;
 mod threadlocal_tests;
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::hash_map::DefaultHasher;
+use std::fs;
+use std::hash::{Hash, Hasher};
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Command;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::task::{Context, Poll};
+use std::thread;
+use std::time::{Duration, Instant};
 use tracing_subscriber::EnvFilter;
 use tracing_subscriber::fmt::MakeWriter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -216,7 +220,6 @@ use wasmer_wasix::virtual_fs::{AsyncRead, AsyncSeek, AsyncWrite};
 
 static TRACE_SUBSCRIBER_INIT: OnceLock<()> = OnceLock::new();
 static TRACE_CAPTURE_STATE: OnceLock<TraceCaptureState> = OnceLock::new();
-static BUILD_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceLock::new();
 
 #[derive(Default)]
 struct TraceCaptureState {
@@ -257,13 +260,48 @@ fn trace_capture_state() -> &'static TraceCaptureState {
     TRACE_CAPTURE_STATE.get_or_init(TraceCaptureState::default)
 }
 
-fn build_lock_for(test_path: &Path) -> Arc<Mutex<()>> {
-    let locks = BUILD_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut locks = locks.lock().unwrap();
-    locks
-        .entry(test_path.to_path_buf())
-        .or_insert_with(|| Arc::new(Mutex::new(())))
-        .clone()
+struct BuildLockGuard {
+    lock_dir: PathBuf,
+}
+
+impl Drop for BuildLockGuard {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir(&self.lock_dir);
+    }
+}
+
+fn build_lock_path(test_path: &Path) -> PathBuf {
+    let mut hasher = DefaultHasher::new();
+    test_path.hash(&mut hasher);
+
+    std::env::temp_dir()
+        .join("wasmer-wasm-test-build-locks")
+        .join(format!("{:016x}", hasher.finish()))
+}
+
+fn acquire_build_lock(test_path: &Path) -> Result<BuildLockGuard, anyhow::Error> {
+    let lock_dir = build_lock_path(test_path);
+    let lock_root = lock_dir
+        .parent()
+        .expect("build lock path must have a parent");
+    fs::create_dir_all(lock_root)?;
+
+    let started = Instant::now();
+    loop {
+        match fs::create_dir(&lock_dir) {
+            Ok(()) => return Ok(BuildLockGuard { lock_dir }),
+            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {
+                if started.elapsed() > Duration::from_secs(300) {
+                    anyhow::bail!(
+                        "timed out waiting for WASIX test build lock {}",
+                        lock_dir.display()
+                    );
+                }
+                thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => return Err(error.into()),
+        }
+    }
 }
 
 fn init_trace_capture() {
@@ -487,8 +525,7 @@ pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::E
 
     let test_path = input_dir.join(test_dir);
     let build_script = test_path.join("build.sh");
-    let build_lock = build_lock_for(&test_path);
-    let _build_guard = build_lock.lock().unwrap();
+    let _build_guard = acquire_build_lock(&test_path)?;
 
     // Read optional per-test env overrides from `build.env` (KEY=VALUE, one per line).
     let build_env: Vec<(String, String)> = {
