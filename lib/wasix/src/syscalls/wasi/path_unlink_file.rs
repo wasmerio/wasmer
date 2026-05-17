@@ -75,18 +75,49 @@ pub(crate) fn path_unlink_file_internal(
 
     let removed_inode = {
         let mut guard = parent_inode.write();
-        match guard.deref_mut() {
-            Kind::Dir { entries, .. } => {
-                let removed_inode = wasi_try_ok!(entries.remove(&child_name).ok_or(Errno::Inval));
+        let entry = match guard.deref_mut() {
+            Kind::Dir { entries, .. } => entries.remove(&child_name),
+            Kind::Root { .. } => return Ok(Errno::Access),
+            _ => unreachable!(
+                "Internal logic error in wasi::path_unlink_file, parent is not a directory"
+            ),
+        };
+        match entry {
+            Some(removed_inode) => {
                 // TODO: make this a debug assert in the future
                 assert!(inode.ino() == removed_inode.ino());
                 debug_assert!(inode.stat.read().unwrap().st_nlink > 0);
                 removed_inode
             }
-            Kind::Root { .. } => return Ok(Errno::Access),
-            _ => unreachable!(
-                "Internal logic error in wasi::path_unlink_file, parent is not a directory"
-            ),
+            None => {
+                // Symlinks discovered during path resolution aren't cached in `entries`
+                // (path lookup re-resolves them each time), so a backing-FS symlink is
+                // absent here even though the host file exists. Symlinks created via
+                // `path_symlink` are cached and take the `Some` branch above.
+                let inode_is_symlink = matches!(inode.read().deref(), Kind::Symlink { .. });
+                if !inode_is_symlink {
+                    unreachable!(
+                        "Internal logic error in wasi::path_unlink_file: path resolution returned inode {:?} for {:?}, but parent directory had no matching entry",
+                        inode.ino(),
+                        child_name
+                    );
+                    return Ok(Errno::Io);
+                }
+                let host_path = host_adjusted_path.as_path();
+                let errno = match state.fs_remove_file(host_path) {
+                    Ok(()) => {
+                        state.fs.unregister_ephemeral_symlink(host_path);
+                        Errno::Success
+                    }
+                    Err(Errno::Noent) if state.fs.ephemeral_symlink_at(host_path).is_some() => {
+                        state.fs.unregister_ephemeral_symlink(host_path);
+                        Errno::Success
+                    }
+                    Err(e) => e,
+                };
+                drop(guard);
+                return Ok(errno);
+            }
         }
     };
 
