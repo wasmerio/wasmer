@@ -213,7 +213,7 @@ fn apply_relocation(
         RelocationKind::Aarch64AdrPrelPgHi21 => unsafe {
             let (reloc_address, delta) = r.for_address(body, target_func_address as u64);
 
-            let delta = delta as isize;
+            let delta = delta as i64;
             assert!(
                 ((-1 << 32)..(1 << 32)).contains(&delta),
                 "can't generate page-relative relocation with ±4GB `adrp` instruction"
@@ -231,7 +231,7 @@ fn apply_relocation(
         RelocationKind::Aarch64AdrPrelLo21 => unsafe {
             let (reloc_address, delta) = r.for_address(body, target_func_address as u64);
 
-            let delta = delta as isize;
+            let delta = delta as i64;
             assert!(
                 ((-1 << 20)..(1 << 20)).contains(&delta),
                 "can't generate an ADR_PREL_LO21 relocation with an immediate larger than 20 bits"
