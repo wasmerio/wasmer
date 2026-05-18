@@ -234,6 +234,15 @@ impl Module {
         }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn function_extents(&self) -> Vec<(u32, usize, usize)> {
+        self.artifact
+            .finished_function_extents()
+            .into_iter()
+            .map(|(index, extent)| (index.as_u32(), extent.ptr.0 as usize, extent.length))
+            .collect()
+    }
+
     pub(crate) fn name(&self) -> Option<&str> {
         self.info().name.as_deref()
     }

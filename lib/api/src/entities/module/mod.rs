@@ -440,6 +440,16 @@ impl Module {
     pub fn info(&self) -> &ModuleInfo {
         self.0.info()
     }
+
+    /// Returns the extents of each local function body in the compiled module as a
+    /// `(local_function_index, start_address, length)` triple.
+    ///
+    /// This is only meaningful for the `sys` (native JIT) backend; all other backends return an
+    /// empty vec.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn function_extents(&self) -> Vec<(u32, usize, usize)> {
+        self.0.function_extents()
+    }
 }
 
 impl std::fmt::Debug for Module {

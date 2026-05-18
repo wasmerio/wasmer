@@ -596,6 +596,22 @@ impl BackendModule {
             s.info()
         })
     }
+
+    /// Returns the extents (start address and length) of each local function body in the compiled
+    /// module as a `(local_function_index, start_address, length)` triple.
+    ///
+    /// Only available on native (non-wasm32) targets and only meaningful for the `sys` backend;
+    /// all other backends return an empty vec.
+    #[cfg(not(target_arch = "wasm32"))]
+    #[inline]
+    pub fn function_extents(&self) -> Vec<(u32, usize, usize)> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.function_extents(),
+            #[allow(unreachable_patterns)]
+            _ => vec![],
+        }
+    }
 }
 
 impl std::fmt::Debug for BackendModule {
