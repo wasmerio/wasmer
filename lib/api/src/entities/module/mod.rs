@@ -17,6 +17,17 @@ use wasmer_types::{
 
 use crate::{AsEngineRef, macros::backend::match_rt, utils::IntoBytes};
 
+/// The memory extent of a compiled local function body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FunctionExtent {
+    /// Index of this function within the module's local function space.
+    pub index: u32,
+    /// Start address of the compiled function body in memory.
+    pub address: usize,
+    /// Length of the compiled function body in bytes.
+    pub length: usize,
+}
+
 /// IO errors that can happen while compiling a [`Module`].
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -441,13 +452,12 @@ impl Module {
         self.0.info()
     }
 
-    /// Returns the extents of each local function body in the compiled module as a
-    /// `(local_function_index, start_address, length)` triple.
+    /// Returns the extent of each local function body in the compiled module.
     ///
     /// This is only meaningful for the `sys` (native JIT) backend; all other backends return an
     /// empty vec.
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn function_extents(&self) -> Vec<(u32, usize, usize)> {
+    pub fn function_extents(&self) -> Vec<FunctionExtent> {
         self.0.function_extents()
     }
 }

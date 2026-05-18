@@ -309,9 +309,9 @@ fn function_extents_returns_one_entry_per_local_function() -> Result<(), String>
     let extents = module.function_extents();
 
     assert_eq!(extents.len(), 3, "expected one extent per local function");
-    for (index, address, length) in &extents {
-        assert_ne!(*address, 0, "function {index} has null address");
-        assert_ne!(*length, 0, "function {index} has zero length");
+    for extent in &extents {
+        assert_ne!(extent.address, 0, "function {} has null address", extent.index);
+        assert_ne!(extent.length, 0, "function {} has zero length", extent.index);
     }
 
     Ok(())

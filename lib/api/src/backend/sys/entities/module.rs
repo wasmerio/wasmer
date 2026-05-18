@@ -235,11 +235,15 @@ impl Module {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn function_extents(&self) -> Vec<(u32, usize, usize)> {
+    pub(crate) fn function_extents(&self) -> Vec<crate::FunctionExtent> {
         self.artifact
             .finished_function_extents()
             .into_iter()
-            .map(|(index, extent)| (index.as_u32(), extent.ptr.0 as usize, extent.length))
+            .map(|(index, extent)| crate::FunctionExtent {
+                index: index.as_u32(),
+                address: extent.ptr.0 as usize,
+                length: extent.length,
+            })
             .collect()
     }
 
