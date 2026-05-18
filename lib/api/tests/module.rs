@@ -392,6 +392,32 @@ fn function_extents_excludes_imported_functions() -> Result<(), String> {
 }
 
 #[test]
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "cranelift", feature = "llvm", feature = "singlepass")
+))]
+fn function_extents_returns_empty_for_deserialized_artifact() -> Result<(), String> {
+    // Module::deserialize loads into a static (non-allocated) artifact whose
+    // finished_function_lengths are all zero. function_extents() must return
+    // empty rather than panic or expose stale addresses.
+    let store = sys_store();
+    let wat = r#"(module
+        (func $f1 (result i32) i32.const 1)
+        (func $f2 (result i32) i32.const 2)
+        (func $f3 (param i32) (result i32) local.get 0)
+    )"#;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let bytes = module.serialize().map_err(|e| format!("{e:?}"))?;
+    let deserialized = unsafe { Module::deserialize(&store, bytes) }.map_err(|e| format!("{e:?}"))?;
+    assert!(
+        deserialized.function_extents().is_empty(),
+        "deserialized (static) artifact must return an empty vec because \
+         function body addresses are not mapped into memory"
+    );
+    Ok(())
+}
+
+#[test]
 #[cfg(all(not(target_arch = "wasm32"), feature = "v8"))]
 fn function_extents_returns_empty_for_non_sys_backend() -> Result<(), String> {
     let engine: Engine = wasmer::v8::V8::new().into();
