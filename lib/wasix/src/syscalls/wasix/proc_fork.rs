@@ -177,11 +177,10 @@ pub fn proc_fork<M: MemorySize>(
         let instance_handles = env_inner.static_module_instance_handles().unwrap();
         let module = instance_handles.module_clone();
         let memory = instance_handles.memory_clone();
-        let spawn_type =
-            SpawnType::AttachMemory(match memory.copy_and_detach(&ctx.as_store_ref()) {
-                Ok(x) => x,
-                Err(e) => return OnCalledAction::Trap(Box::new(e)),
-            });
+        let spawn_type = SpawnType::AttachMemory(match memory.copy(&ctx.as_store_ref()) {
+            Ok(shared) => shared,
+            Err(e) => return OnCalledAction::Trap(Box::new(e)),
+        });
 
         // Spawn a new process with this current execution environment
         let signaler = Box::new(child_env.process.clone());

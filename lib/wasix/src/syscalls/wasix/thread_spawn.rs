@@ -171,8 +171,8 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
             crate::runtime::SpawnType::NewLinkerInstanceGroup(instance_group_data)
         }
         None => crate::runtime::SpawnType::AttachMemory(
-            thread_memory.share_and_detach(&store).map_err(|e| {
-                tracing::warn!("failed to prepare memory for thread spawn: {e}");
+            thread_memory.as_shared(&store).ok_or_else(|| {
+                tracing::warn!("Memory must be shared for thread spawning to work");
                 Errno::Memviolation
             })?,
         ),

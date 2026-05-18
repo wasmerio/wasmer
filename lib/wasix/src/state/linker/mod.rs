@@ -620,7 +620,10 @@ impl Linker {
 
         let parent_store = parent_ctx.as_store_mut();
 
-        let memory = parent_group_state.memory.share_and_detach(&parent_store)?;
+        let memory = parent_group_state
+            .memory
+            .as_shared(&parent_store)
+            .ok_or_else(|| LinkError::MemoryNotShared)?;
 
         let indirect_function_table_type =
             parent_group_state.indirect_function_table.ty(&parent_store);

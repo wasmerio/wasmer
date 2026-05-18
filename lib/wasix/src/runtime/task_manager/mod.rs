@@ -10,7 +10,7 @@ use bytes::Bytes;
 use derive_more::Debug;
 use futures::future::BoxFuture;
 use futures::{Future, TryFutureExt};
-use wasmer::{AsStoreMut, DetachedMemory, Memory, MemoryType, Module, Store, StoreMut};
+use wasmer::{AsStoreMut, Memory, MemoryType, Module, SharedMemory, Store, StoreMut};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::os::task::thread::WasiThreadError;
@@ -23,7 +23,7 @@ pub use virtual_mio::waker::*;
 pub enum SpawnType {
     CreateMemory,
     CreateMemoryOfType(MemoryType),
-    AttachMemory(DetachedMemory),
+    AttachMemory(SharedMemory),
     #[debug("NewLinkerInstanceGroup(..)")]
     NewLinkerInstanceGroup(PreparedInstanceGroupData),
 }
@@ -395,12 +395,9 @@ impl dyn VirtualTaskManager {
                 false,
             )
             .with_memory(SpawnType::AttachMemory(
-                memory.share_and_detach(&store).map_err(|err| {
-                    tracing::error!(
-                        error = &err as &dyn std::error::Error,
-                        "failed to share and detach memory for asyncify poller",
-                    );
-                    WasiThreadError::MemoryCreateFailed(err)
+                memory.as_shared(&store).ok_or_else(|| {
+                    tracing::error!("failed to get shared memory for asyncify poller");
+                    WasiThreadError::Unsupported
                 })?,
             ))
             .with_globals(snapshot)

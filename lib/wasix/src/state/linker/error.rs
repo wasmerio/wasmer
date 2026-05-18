@@ -32,6 +32,9 @@ pub enum LinkError {
     #[error("Module is not a dynamic library")]
     NotDynamicLibrary,
 
+    #[error("Module's memory is not shared")]
+    MemoryNotShared,
+
     #[error("Failed to parse dylink.0 section: {0}")]
     Dylink0SectionParseError(#[from] wasmparser::BinaryReaderError),
 
