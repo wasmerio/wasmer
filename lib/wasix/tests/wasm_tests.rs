@@ -639,6 +639,11 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
             for config in configs {
                 for engine in [Engine::Cranelift, Engine::LLVM] {
+                    // The EH support for macOS is still missing: #6419
+                    if cfg!(target_os = "macos") {
+                        return Ok(());
+                    }
+
                     let mut config = config.clone();
                     config.engine = engine;
                     tests.push(libtest_mimic::Trial::ignorable_test(

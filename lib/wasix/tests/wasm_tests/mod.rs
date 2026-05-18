@@ -260,7 +260,7 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
     let features = wasmer_types::Features::detect_from_wasm(wasm_bytes)
         .unwrap_or_else(|_| wasmer::Engine::default_features_for_backend(&backend, &target));
 
-        // We're going to run many parallel tests and so we use just a single thread for compilation.
+    // We're going to run many parallel tests and so we use just a single thread for compilation.
     let engine = match engine {
         Engine::Cranelift => {
             let mut config = wasmer::sys::Cranelift::default();
