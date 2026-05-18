@@ -309,6 +309,8 @@ fn function_extents_returns_one_entry_per_local_function() -> Result<(), String>
     let extents = module.function_extents();
 
     assert_eq!(extents.len(), 3, "expected one extent per local function");
+    let indices: Vec<u32> = extents.iter().map(|e| e.index).collect();
+    assert_eq!(indices, vec![0, 1, 2], "indices must be sequential starting from 0");
     for extent in &extents {
         assert_ne!(extent.address, 0, "function {} has null address", extent.index);
         assert_ne!(extent.length, 0, "function {} has zero length", extent.index);
