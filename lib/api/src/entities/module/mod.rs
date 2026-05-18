@@ -38,8 +38,8 @@ pub struct FunctionExtent {
     pub index: u32,
     /// Start address of the compiled function body in memory.
     ///
-    /// Valid only while the originating [`Module`] and its backing
-    /// [`Store`]/[`Engine`] are alive; see the type-level documentation.
+    /// Valid only while the originating `Module` and its backing `Store`/`Engine`
+    /// are alive; see the type-level documentation for details.
     pub address: usize,
     /// Length of the compiled function body in bytes.
     pub length: usize,
