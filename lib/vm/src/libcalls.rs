@@ -1064,7 +1064,6 @@ pub fn function_pointer(libcall: LibCall) -> usize {
     }
 }
 
-
 // Soft-float and 64-bit integer arithmetic routines. These are provided by
 // compiler-rt / libgcc on every standard Rust target. We declare them here so
 // wasmer can resolve JIT-compiled references to them at link time.
