@@ -145,14 +145,7 @@ cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
 
 # --- Enable the v8 backend and use it as default backend.
-v8 = [
-  "wasm-c-api",
-  "std",
-  "dep:tempfile",
-  "dep:which",
-  "dep:xz",
-  "dep:ureq",
-]
+v8 = ["wasm-c-api", "std", "dep:tempfile", "dep:which", "dep:xz", "dep:ureq"]
 # --- Enable the v8 backend and use it as defaul backend only if it is the only one enabled.
 v8-default = ["v8", "wat"]
 
