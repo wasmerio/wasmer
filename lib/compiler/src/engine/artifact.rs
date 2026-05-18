@@ -788,12 +788,16 @@ impl Artifact {
 
     /// Returns the start address and byte length of each locally-defined
     /// function body in this artifact.
+    ///
+    /// Returns an empty vec for statically-loaded artifacts, where function
+    /// lengths are not recorded and would otherwise be reported as zero.
     pub fn finished_function_extents(&self) -> Vec<(LocalFunctionIndex, FunctionExtent)> {
         let allocated = self.allocated.as_ref().expect("It must be allocated");
         allocated
             .finished_functions
             .iter()
             .zip(allocated.finished_function_lengths.values().copied())
+            .filter(|(_, length)| *length > 0)
             .map(|((index, &ptr), length)| (index, FunctionExtent { ptr, length }))
             .collect()
     }
