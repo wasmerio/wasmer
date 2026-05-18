@@ -408,7 +408,8 @@ fn function_extents_returns_empty_for_deserialized_artifact() -> Result<(), Stri
     )"#;
     let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     let bytes = module.serialize().map_err(|e| format!("{e:?}"))?;
-    let deserialized = unsafe { Module::deserialize(&store, bytes) }.map_err(|e| format!("{e:?}"))?;
+    let deserialized =
+        unsafe { Module::deserialize(&store, bytes) }.map_err(|e| format!("{e:?}"))?;
     assert!(
         deserialized.function_extents().is_empty(),
         "deserialized (static) artifact must return an empty vec because \
