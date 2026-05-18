@@ -1320,3 +1320,87 @@ impl Artifact {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{
+        serialize::{SerializableCompilation, SerializableModule},
+        types::module::CompileModuleInfo,
+    };
+    use wasmer_types::{Features, ModuleInfo, entity::PrimaryMap};
+    use wasmer_vm::{FunctionBodyPtr, VMFunctionBody};
+
+    fn empty_artifact_build() -> ArtifactBuild {
+        ArtifactBuild::from_serializable(SerializableModule {
+            compilation: SerializableCompilation::default(),
+            compile_info: CompileModuleInfo {
+                features: Features::default(),
+                module: std::sync::Arc::new(ModuleInfo::default()),
+                memory_styles: PrimaryMap::new(),
+                table_styles: PrimaryMap::new(),
+            },
+            data_initializers: Box::new([]),
+            cpu_features: 0,
+        })
+    }
+
+    fn make_artifact(lengths: &[usize]) -> Artifact {
+        let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
+            PrimaryMap::new();
+        let mut finished_function_lengths: PrimaryMap<LocalFunctionIndex, usize> =
+            PrimaryMap::new();
+        for &len in lengths {
+            finished_functions.push(FunctionBodyPtr(0x1000 as *const VMFunctionBody));
+            finished_function_lengths.push(len);
+        }
+        Artifact {
+            id: Default::default(),
+            artifact: ArtifactBuildVariant::Plain(empty_artifact_build()),
+            allocated: Some(AllocatedArtifact {
+                frame_info_registered: false,
+                frame_info_registration: None,
+                finished_functions: finished_functions.into_boxed_slice(),
+                finished_function_call_trampolines: PrimaryMap::new().into_boxed_slice(),
+                finished_dynamic_function_trampolines: PrimaryMap::new().into_boxed_slice(),
+                signatures: PrimaryMap::new().into_boxed_slice(),
+                finished_function_lengths: finished_function_lengths.into_boxed_slice(),
+            }),
+        }
+    }
+
+    // The static-artifact-load path (deserialize_object) sets all
+    // finished_function_lengths to 0 because lengths are not stored in
+    // that format. finished_function_extents() must filter them out so
+    // callers see an empty vec rather than zero-length phantom extents.
+    #[test]
+    fn finished_function_extents_filters_zero_lengths() {
+        let artifact = make_artifact(&[0, 64, 0]);
+        let extents = artifact.finished_function_extents();
+        assert_eq!(extents.len(), 1, "only the non-zero function should appear");
+        assert_eq!(extents[0].0.as_u32(), 1, "index must match the non-zero function");
+        assert_eq!(extents[0].1.length, 64);
+    }
+
+    #[test]
+    fn finished_function_extents_all_zero_returns_empty() {
+        let artifact = make_artifact(&[0, 0, 0]);
+        assert!(
+            artifact.finished_function_extents().is_empty(),
+            "all-zero lengths (static artifact) must yield an empty vec"
+        );
+    }
+
+    #[test]
+    fn finished_function_extents_none_allocated_returns_empty() {
+        let artifact = Artifact {
+            id: Default::default(),
+            artifact: ArtifactBuildVariant::Plain(empty_artifact_build()),
+            allocated: None,
+        };
+        assert!(
+            artifact.finished_function_extents().is_empty(),
+            "non-allocated artifact (cross-compilation target) must yield an empty vec"
+        );
+    }
+}
