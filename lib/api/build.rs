@@ -45,6 +45,33 @@ fn build_v8() {
             )
         });
 
+        // Unpack into a staging directory first, then rename `lib` into place. If the
+        // process dies during extract, the next build only sees either missing `libv8.a`
+        // or a complete tree — never a half-written `lib/` next to the cached archive.
+        let unpack_staging = cache_dir.join(".wee8-unpack-staging");
+        if unpack_staging.exists() {
+            fs::remove_dir_all(&unpack_staging).unwrap_or_else(|err| {
+                panic!(
+                    "failed to remove stale wee8 unpack staging {}: {err}",
+                    unpack_staging.display()
+                )
+            });
+        }
+        if v8_lib_dir.exists() && !v8_lib_path.exists() {
+            fs::remove_dir_all(&v8_lib_dir).unwrap_or_else(|err| {
+                panic!(
+                    "failed to remove incomplete wee8 lib dir {}: {err}",
+                    v8_lib_dir.display()
+                )
+            });
+        }
+        fs::create_dir_all(&unpack_staging).unwrap_or_else(|err| {
+            panic!(
+                "failed to create wee8 unpack staging {}: {err}",
+                unpack_staging.display()
+            )
+        });
+
         if !archive_path.exists() {
             let url = format!(
                 "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/{asset_name}"
@@ -58,9 +85,29 @@ fn build_v8() {
                 .read_to_vec()
                 .expect("failed to download v8 lib");
 
-            fs::write(&archive_path, tar_data).unwrap_or_else(|err| {
+            // Write to a temp file in the same directory, then rename into place so an
+            // interrupted build cannot leave a partially-written archive at `archive_path`
+            // (which would confuse the next unpack).
+            let tmp_name = format!(
+                "{}.partial.{}",
+                archive_path
+                    .file_name()
+                    .expect("archive path must have a file name")
+                    .to_string_lossy(),
+                std::process::id()
+            );
+            let tmp_path = cache_dir.join(tmp_name);
+            fs::write(&tmp_path, &tar_data).unwrap_or_else(|err| {
+                let _ = fs::remove_file(&tmp_path);
                 panic!(
-                    "failed to write v8 archive cache {}: {err}",
+                    "failed to write v8 archive cache temp {}: {err}",
+                    tmp_path.display()
+                )
+            });
+            fs::rename(&tmp_path, &archive_path).unwrap_or_else(|err| {
+                let _ = fs::remove_file(&tmp_path);
+                panic!(
+                    "failed to finalize v8 archive cache {}: {err}",
                     archive_path.display()
                 )
             });
@@ -74,13 +121,43 @@ fn build_v8() {
         });
         let tar = xz::read::XzDecoder::new(tar_data.as_slice());
         let mut archive = tar::Archive::new(tar);
-        archive.unpack(&cache_dir).unwrap_or_else(|err| {
+        archive.unpack(&unpack_staging).unwrap_or_else(|err| {
+            let _ = fs::remove_file(&archive_path);
+            let _ = fs::remove_dir_all(&unpack_staging);
             panic!(
-                "failed to unpack v8 archive cache {} into {}: {err}",
+                "failed to unpack v8 archive cache {} into {} (cache removed so the next build can re-download): {err}",
                 archive_path.display(),
-                cache_dir.display()
+                unpack_staging.display()
             )
         });
+        let staged_lib = unpack_staging.join("lib");
+        if !staged_lib.is_dir() {
+            let _ = fs::remove_file(&archive_path);
+            let _ = fs::remove_dir_all(&unpack_staging);
+            panic!(
+                "v8 archive {} did not contain a top-level `lib/` directory after unpack (expected {})",
+                archive_path.display(),
+                staged_lib.display()
+            );
+        }
+        if v8_lib_dir.exists() {
+            fs::remove_dir_all(&v8_lib_dir).unwrap_or_else(|err| {
+                panic!(
+                    "failed to remove existing wee8 lib dir {} before rename: {err}",
+                    v8_lib_dir.display()
+                )
+            });
+        }
+        fs::rename(&staged_lib, &v8_lib_dir).unwrap_or_else(|err| {
+            let _ = fs::remove_file(&archive_path);
+            let _ = fs::remove_dir_all(&unpack_staging);
+            panic!(
+                "failed to move unpacked wee8 lib from {} to {}: {err}",
+                staged_lib.display(),
+                v8_lib_dir.display()
+            )
+        });
+        let _ = fs::remove_dir_all(&unpack_staging);
     }
 
     println!("cargo:rustc-link-search=native={}", v8_lib_dir.display());
