@@ -28,6 +28,7 @@ use crate::{AsEngineRef, macros::backend::match_rt, utils::IntoBytes};
 /// — is unsound unless you also keep the `Module` alive for at least as long.
 ///
 /// [`Engine`]: crate::Engine
+#[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FunctionExtent {
     /// Index of this function within the module's local function space
