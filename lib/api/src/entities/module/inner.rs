@@ -603,7 +603,7 @@ impl BackendModule {
     /// all other backends return an empty vec.
     #[cfg(not(target_arch = "wasm32"))]
     #[inline]
-    pub fn function_extents(&self) -> Vec<crate::FunctionExtent> {
+    pub fn function_extents(&self) -> Vec<super::FunctionExtent> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.function_extents(),
