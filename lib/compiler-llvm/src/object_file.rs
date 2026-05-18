@@ -209,9 +209,11 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
     // Soft-float and 64-bit integer arithmetic routines. On Mach-O, C symbols
-    // gain a leading `_`, so `__adddf3` appears as `___adddf3` etc. `__mulsi3`
-    // is not provided by the host toolchain on 64-bit platforms, so wasmer
-    // supplies its own `wasmer_vm__mulsi3` (→ `_wasmer_vm__mulsi3` here).
+    // gain a leading `_`, so `__adddf3` appears as `___adddf3` etc. This map
+    // is keyed on the symbol names LLVM emits into the object file, so all
+    // entries use the Mach-O-mangled form. `__mulsi3` maps to `___mulsi3` here
+    // like every other helper; wasmer's own `wasmer_vm__mulsi3` implementation
+    // is what `function_pointer(LibCall::Mulsi3)` resolves to at JIT link time.
     "___adddf3" => LibCall::Adddf3,
     "___addsf3" => LibCall::Addsf3,
     "___cmpdf2" => LibCall::Cmpdf2,
@@ -252,7 +254,7 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "___muldf3" => LibCall::Muldf3,
     "___muldi3" => LibCall::Muldi3,
     "___mulsf3" => LibCall::Mulsf3,
-    "_wasmer_vm__mulsi3" => LibCall::Mulsi3,
+    "___mulsi3" => LibCall::Mulsi3,
     "___nedf2" => LibCall::Nedf2,
     "___negdf2" => LibCall::Negdf2,
     "___negsf2" => LibCall::Negsf2,
