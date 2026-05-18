@@ -12,7 +12,6 @@ use wasmer_types::{MemoryError, MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendMemory, SharedMemory,
-    entities::memory::shared_memory_detach_error,
     js::vm::memory::VMMemory,
     vm::{VMExtern, VMExternMemory},
 };
@@ -156,12 +155,10 @@ impl Memory {
         }
     }
 
-    pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
-        if self.ty(store).shared {
-            self.as_shared(store).ok_or_else(shared_memory_detach_error)
-        } else {
-            Err(MemoryError::MemoryNotShared)
-        }
+    pub fn copy(&self, _store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+        Ok(SharedMemory::from_vm_memory(crate::vm::VMMemory::Js(
+            self.handle.copy()?,
+        )))
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {

@@ -161,11 +161,10 @@ impl Memory {
     pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         check_isolate(store);
 
-        if self.ty(store).shared {
-            self.as_shared(store).ok_or_else(shared_memory_detach_error)
-        } else {
-            Err(MemoryError::MemoryNotShared)
-        }
+        // FIXME: implement memory copying
+        Err(MemoryError::UnsupportedOperation {
+            message: "copy is not supported for V8 memory because the wasm C API can only clone the memory reference".to_owned(),
+        })
     }
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {

@@ -47,7 +47,7 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&mut self) -> Result<Self, wasmer_types::MemoryError> {
+    pub fn copy(&self) -> Result<Self, wasmer_types::MemoryError> {
         let new_memory = crate::js::memory::Memory::js_memory_from_type(&self.ty)?;
 
         let src = crate::js::memory::MemoryView::new_raw(&self.memory);
