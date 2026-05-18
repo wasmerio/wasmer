@@ -786,6 +786,18 @@ impl Artifact {
             .finished_functions
     }
 
+    /// Returns the start address and byte length of each locally-defined
+    /// function body in this artifact.
+    pub fn finished_function_extents(&self) -> Vec<(LocalFunctionIndex, FunctionExtent)> {
+        let allocated = self.allocated.as_ref().expect("It must be allocated");
+        allocated
+            .finished_functions
+            .iter()
+            .zip(allocated.finished_function_lengths.values().copied())
+            .map(|((index, &ptr), length)| (index, FunctionExtent { ptr, length }))
+            .collect()
+    }
+
     /// Returns the function call trampolines allocated in memory of this
     /// `Artifact`, ready to be run.
     pub fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
