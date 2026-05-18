@@ -1,3 +1,4 @@
+//#ExpectedStdout: nonblocking connect returned immediately
 #include <arpa/inet.h>
 #include <errno.h>
 #include <fcntl.h>

@@ -1,3 +1,4 @@
+//#ExpectedStdout: All tests passed successfully!
 #include <dlfcn.h>
 #include <stdio.h>
 

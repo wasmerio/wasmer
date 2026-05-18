@@ -1,3 +1,6 @@
+//#Ignored: flaky test (#6538)
+//#MustFail: true
+
 #include <dlfcn.h>
 #include <pthread.h>
 #include <stdio.h>

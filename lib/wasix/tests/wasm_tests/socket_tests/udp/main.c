@@ -1,3 +1,15 @@
+//#Config: test_udp_addr_reuse
+//#Args: addr-reuse
+//
+//#Config: test_udp_ipv6
+//#Args: ipv6
+//
+//#Config: test_udp_autobind_connect
+//#Args: autobind-connect
+//
+//#Config: test_udp_autobind_sendto
+//#Args: autobind-sendto
+
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <stdio.h>

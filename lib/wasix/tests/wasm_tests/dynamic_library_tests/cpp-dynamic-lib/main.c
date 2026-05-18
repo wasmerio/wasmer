@@ -1,3 +1,4 @@
+//#ExpectedStdout: Hello world from C++
 #include <assert.h>
 #include <dlfcn.h>
 #include <stdio.h>

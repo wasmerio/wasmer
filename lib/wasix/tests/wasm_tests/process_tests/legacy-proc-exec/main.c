@@ -1,3 +1,6 @@
+//#MappedDirectory: .:/code
+//#ExpectedStdout: 0
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>

@@ -1,3 +1,6 @@
+//#MappedDirectory: .:/mount
+//#ExpectedStdout: 0
+
 #include <stdio.h>
 #include <string.h>
 
@@ -20,5 +23,6 @@ int main() {
   }
 
   fclose(f);
+  printf("0");
   return 0;
 }

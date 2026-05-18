@@ -1,3 +1,5 @@
+//#Tempdir: true
+//#ExpectedStdout: 0
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/stat.h>

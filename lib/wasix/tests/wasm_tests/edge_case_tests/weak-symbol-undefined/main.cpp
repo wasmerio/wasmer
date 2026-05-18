@@ -1,3 +1,4 @@
+//#ExpectedStdout: other_func is not defined, but the program still compiled
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>

@@ -1,3 +1,4 @@
+//#ExpectedStdout: .Nothing weird happened
 #include <assert.h>
 #include <dlfcn.h>
 #include <stdio.h>
