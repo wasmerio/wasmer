@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+##BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
 ##Config: test_legacy_process_switching_basic_switching
 ##UnixOnly: true
 ##Args: basic_switching

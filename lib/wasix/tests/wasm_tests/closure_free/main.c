@@ -1,3 +1,4 @@
+//#BuildEnv: WASIXCC_PIC=1
 #include <assert.h>
 #include <stdint.h>
 #include <stdio.h>

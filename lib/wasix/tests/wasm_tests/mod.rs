@@ -281,12 +281,12 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
 }
 
 /// Result from running a WASM program, including captured output and exit status
-pub struct WasmRunResult {
-    pub stdout: Vec<u8>,
-    pub stderr: Vec<u8>,
-    pub trace_output: Vec<u8>,
-    pub exit_code: i32,
-    pub error: Option<String>,
+pub(crate) struct WasmRunResult {
+    pub(crate) stdout: Vec<u8>,
+    pub(crate) stderr: Vec<u8>,
+    pub(crate) trace_output: Vec<u8>,
+    pub(crate) exit_code: i32,
+    pub(crate) error: Option<String>,
 }
 
 fn format_captured_output(result: &WasmRunResult) -> String {
@@ -318,14 +318,14 @@ fn format_captured_output(result: &WasmRunResult) -> String {
 ///
 /// The caching significantly improves test performance by avoiding recompilation
 /// of the same WASM modules across multiple test runs.
-pub fn run_wasm_with_result(
+pub(crate) fn run_wasm_with_result(
     wasm_path: &PathBuf,
     dir: &Path,
 ) -> Result<WasmRunResult, anyhow::Error> {
     run_wasm_with_runner_config(wasm_path, dir, Engine::Cranelift, |_| {})
 }
 
-pub fn run_wasm_with_runner_config(
+pub(crate) fn run_wasm_with_runner_config(
     wasm_path: &PathBuf,
     dir: &Path,
     compiler: Engine,

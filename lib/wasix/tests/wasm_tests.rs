@@ -17,6 +17,8 @@
 //!
 //! `Args:{args}` sets whitespace-separated command-line arguments.
 //!
+//! `BuildEnv:{key}={value}` sets an environment variable before building.
+//!
 //! `ExpectedStdout:{line}` appends one expected stdout line.
 //! Can be used multiple times and all expected lines must match the trimmed stdout exactly.
 //!
@@ -24,11 +26,10 @@
 //!
 //! `ExpectedExitCode:{code}` sets the expected numeric exit code.
 //!
-//! `Tempdir:{bool}` runs the test in a fresh temporary working directory when true.
-//!
 //! `Ignored:{reason}` marks the configuration as ignored with the given reason.
 //!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
+//!
 //! `MappedDirectory:{host}:{guest}` maps a host directory into the guest. Relative
 //!  host paths are resolved from the test source directory; `$temp` creates a fresh
 //!  temporary host directory.
@@ -125,6 +126,7 @@ struct Config {
     expected_exit_code: i32,
     expected_stdout: Vec<String>,
     arguments: Vec<String>,
+    build_env: Vec<(String, String)>,
     ignored: Option<String>,
     unix_only: bool,
     mapped_directories: Vec<MappedDirectory>,
@@ -149,6 +151,7 @@ impl Config {
             engine: Engine::Cranelift,
             is_abstract: false,
             arguments: Vec::new(),
+            build_env: Vec::new(),
             nonzero_exit_code: false,
             expected_exit_code: 0,
             expected_stdout: Vec::new(),
@@ -195,6 +198,7 @@ fn parse_configs(default_config: &Config) -> Result<Vec<Config>> {
     let mut configs = Vec::new();
     let mut config_name_to_index = HashMap::new();
     let mut config = default_config.clone();
+    let mut build_env = Vec::new();
 
     let directive_prefix = match src_filename
         .extension()
@@ -211,6 +215,7 @@ fn parse_configs(default_config: &Config) -> Result<Vec<Config>> {
         if let Some(rest) = line.trim().strip_prefix(directive_prefix) {
             process_directive(
                 rest,
+                &mut build_env,
                 &mut config,
                 default_config,
                 &mut config_name_to_index,
@@ -228,6 +233,10 @@ fn parse_configs(default_config: &Config) -> Result<Vec<Config>> {
 
     configs.push(config);
 
+    for config in &mut configs {
+        config.build_env = build_env.clone();
+    }
+
     configs.retain(|c| !c.is_abstract);
 
     if configs.is_empty() {
@@ -239,6 +248,7 @@ fn parse_configs(default_config: &Config) -> Result<Vec<Config>> {
 
 fn process_directive(
     rest: &str,
+    build_env: &mut Vec<(String, String)>,
     config: &mut Config,
     default_config: &Config,
     config_name_to_index: &mut HashMap<String, usize>,
@@ -280,6 +290,14 @@ fn process_directive(
         }
         "ExpectedStdout" => {
             config.expected_stdout.push(arg.to_owned());
+        }
+        "BuildEnv" => {
+            let (key, value) = arg
+                .split_once('=')
+                .ok_or_else(|| anyhow!("missing equals separator for BuildEnv"))?;
+            let key = key.trim();
+            ensure!(!key.is_empty(), "BuildEnv key must not be empty");
+            build_env.push((key.to_owned(), value.trim().to_owned()));
         }
         "MustFail" => {
             config.nonzero_exit_code = arg.parse::<bool>()?;
@@ -347,24 +365,6 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         )
     })?;
 
-    // Read optional per-test env overrides from `build.env` (KEY=VALUE, one per line).
-    // TODO: port to a directive as well
-    let build_env: Vec<(String, String)> = {
-        let env_file = build_test_path.join("build.env");
-        if env_file.exists() {
-            std::fs::read_to_string(&env_file)?
-                .lines()
-                .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#'))
-                .filter_map(|l| {
-                    let (k, v) = l.split_once('=')?;
-                    Some((k.trim().to_string(), v.trim().to_string()))
-                })
-                .collect()
-        } else {
-            vec![]
-        }
-    };
-
     let mut cmd = match &config.source {
         PrimarySource::BashScript(filename) => {
             let mut cmd = Command::new("bash");
@@ -399,7 +399,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         }
     };
 
-    for (k, v) in &build_env {
+    for (k, v) in &config.build_env {
         cmd.env(k, v);
     }
     let output = cmd.output()?;
@@ -481,7 +481,6 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     }
 
     if !config.expected_stdout.is_empty() {
-        // TODO: improve
         let stdout = String::from_utf8_lossy(&result.stdout);
         let result_lines: Vec<_> = stdout.trim().lines().collect();
         if result_lines != config.expected_stdout {

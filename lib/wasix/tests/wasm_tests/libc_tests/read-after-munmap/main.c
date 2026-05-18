@@ -1,3 +1,4 @@
+//#BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
 //#Ignored: file-backed mmap writeback does not currently persist under WasiRunner
 //#ExpectedStdout: 0
 

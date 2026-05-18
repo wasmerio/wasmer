@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+##BuildEnv: WASIXCC_WASM_EXCEPTIONS=legacy
 ##ExpectedStdout: caught exception, will rethrow
 ##ExpectedStdout: caught exception in main: 42
 ##ExpectedExitCode: 42
