@@ -365,6 +365,23 @@ fn function_extents_excludes_imported_functions() -> Result<(), String> {
 }
 
 #[test]
+#[cfg(all(not(target_arch = "wasm32"), feature = "v8"))]
+fn function_extents_returns_empty_for_non_sys_backend() -> Result<(), String> {
+    let engine: Engine = wasmer::v8::V8::new().into();
+    let store = Store::new(engine);
+    let wat = r#"(module
+        (func $f1 (result i32) i32.const 1)
+        (func $f2 (result i32) i32.const 2)
+    )"#;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    assert!(
+        module.function_extents().is_empty(),
+        "non-sys backends must return an empty vec"
+    );
+    Ok(())
+}
+
+#[test]
 #[cfg(unix)]
 fn module_from_file_non_utf8_path() -> Result<(), String> {
     let store = Store::default();
