@@ -94,6 +94,8 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     // targets without hardware floating-point or on 32-bit platforms.
     "__adddf3" => LibCall::Adddf3,
     "__addsf3" => LibCall::Addsf3,
+    "__cmpdf2" => LibCall::Cmpdf2,
+    "__cmpsf2" => LibCall::Cmpsf2,
     "__divdf3" => LibCall::Divdf3,
     "__divdi3" => LibCall::Divdi3,
     "__divsf3" => LibCall::Divsf3,
@@ -212,6 +214,8 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     // supplies its own `wasmer_vm__mulsi3` (→ `_wasmer_vm__mulsi3` here).
     "___adddf3" => LibCall::Adddf3,
     "___addsf3" => LibCall::Addsf3,
+    "___cmpdf2" => LibCall::Cmpdf2,
+    "___cmpsf2" => LibCall::Cmpsf2,
     "___divdf3" => LibCall::Divdf3,
     "___divdi3" => LibCall::Divdi3,
     "___divsf3" => LibCall::Divsf3,
