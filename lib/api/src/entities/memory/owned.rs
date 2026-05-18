@@ -6,9 +6,6 @@ pub struct OwnedMemory {
     memory: VMMemory,
 }
 
-unsafe impl Send for OwnedMemory {}
-unsafe impl Sync for OwnedMemory {}
-
 impl std::fmt::Debug for OwnedMemory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("OwnedMemory").finish()
@@ -24,5 +21,15 @@ impl OwnedMemory {
     /// Attach this owned memory to the provided store.
     pub fn attach(self, store: &mut impl AsStoreMut) -> Memory {
         Memory::new_from_existing(store, self.memory)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    pub fn ensure_owned_memory_is_send() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<super::OwnedMemory>();
+        assert_sync::<super::OwnedMemory>();
     }
 }

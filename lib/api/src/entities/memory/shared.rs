@@ -14,9 +14,6 @@ pub struct SharedMemory {
     ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
 }
 
-unsafe impl Send for SharedMemory {}
-unsafe impl Sync for SharedMemory {}
-
 impl std::fmt::Debug for SharedMemory {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("SharedMemory").finish()
@@ -100,5 +97,15 @@ impl SharedMemory {
     /// In that case, this function will return an error.
     pub fn wake_all_atomic_waiters(&self) -> Result<(), AtomicsError> {
         self.ops()?.wake_all_atomic_waiters()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    pub fn ensure_shared_memory_is_send_and_sync() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        assert_send::<super::SharedMemory>();
+        assert_sync::<super::SharedMemory>();
     }
 }

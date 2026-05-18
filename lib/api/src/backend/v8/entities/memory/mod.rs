@@ -24,9 +24,6 @@ pub struct Memory {
     pub(crate) handle: VMMemory,
 }
 
-unsafe impl Send for Memory {}
-unsafe impl Sync for Memory {}
-
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
         check_isolate(store);

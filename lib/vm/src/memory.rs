@@ -439,12 +439,12 @@ impl LinearMemory for VMOwnedMemory {
     }
 
     /// Owned memory can not be cloned (this will always return None)
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         Err(MemoryError::MemoryNotShared)
     }
 
     /// Copies this memory to a new memory
-    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
@@ -592,12 +592,12 @@ impl LinearMemory for VMSharedMemory {
     }
 
     /// Shared memory can always be cloned
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         Ok(Box::new(self.clone()))
     }
 
     /// Copies this memory to a new memory
-    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
@@ -640,10 +640,10 @@ impl From<VMSharedMemory> for VMMemory {
 
 /// Represents linear memory that can be either owned or shared
 #[derive(Debug)]
-pub struct VMMemory(pub Box<dyn LinearMemory + 'static>);
+pub struct VMMemory(pub Box<dyn LinearMemory + Send + Sync + 'static>);
 
-impl From<Box<dyn LinearMemory + 'static>> for VMMemory {
-    fn from(mem: Box<dyn LinearMemory + 'static>) -> Self {
+impl From<Box<dyn LinearMemory + Send + Sync + 'static>> for VMMemory {
+    fn from(mem: Box<dyn LinearMemory + Send + Sync + 'static>) -> Self {
         Self(mem)
     }
 }
@@ -690,7 +690,7 @@ impl LinearMemory for VMMemory {
     }
 
     /// Attempts to clone this memory (if its cloneable)
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         self.0.try_clone()
     }
 
@@ -700,7 +700,7 @@ impl LinearMemory for VMMemory {
     }
 
     /// Copies this memory to a new memory
-    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         self.0.copy()
     }
 
@@ -784,7 +784,7 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    pub fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         LinearMemory::copy(self)
     }
 
@@ -850,7 +850,7 @@ where
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
 
     /// Attempts to clone this memory (if its cloneable)
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError>;
 
     #[doc(hidden)]
     /// # Safety
@@ -865,7 +865,7 @@ where
     }
 
     /// Copies this memory to a new memory
-    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError>;
 
     /// Add current thread to the waiter hash, and wait until notified or timeout.
     /// Return 0 if the waiter has been notified, 1 if there was a value mismatch,

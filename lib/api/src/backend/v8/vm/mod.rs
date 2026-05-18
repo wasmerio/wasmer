@@ -150,6 +150,11 @@ pub struct VMMemory(pub(super) *mut wasm_memory_t);
 pub type VMSharedMemory = VMMemory;
 pub(crate) type VMExternMemory = *mut wasm_memory_t;
 
+/// # SAFETY: WASM memories are safe to send across thread boundaries.
+unsafe impl Send for VMMemory {}
+/// # SAFETY: WASM memories are safe to send across thread boundaries.
+unsafe impl Sync for VMMemory {}
+
 impl VMMemory {
     pub(crate) fn try_clone(&self) -> Result<Self, MemoryError> {
         let memory_type = unsafe { wasm_memory_type(self.0) };
