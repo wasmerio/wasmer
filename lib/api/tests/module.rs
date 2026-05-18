@@ -358,6 +358,8 @@ fn function_extents_excludes_imported_functions() -> Result<(), String> {
     let extents = module.function_extents();
 
     assert_eq!(extents.len(), 2, "imported functions must not appear in extents");
+    let indices: Vec<u32> = extents.iter().map(|e| e.index).collect();
+    assert_eq!(indices, vec![0, 1], "indices must be local (0-based), not global function indices");
 
     Ok(())
 }
