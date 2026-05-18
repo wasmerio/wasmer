@@ -379,12 +379,12 @@ impl LinearMemory for VMOwnedMemory {
     }
 
     /// Owned memory can not be cloned (this will always return None)
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         Err(MemoryError::MemoryNotShared)
     }
 
     /// Copies this memory to a new memory
-    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
@@ -487,12 +487,12 @@ impl LinearMemory for VMSharedMemory {
     }
 
     /// Shared memory can always be cloned
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         Ok(Box::new(self.clone()))
     }
 
     /// Copies this memory to a new memory
-    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
@@ -588,7 +588,7 @@ impl LinearMemory for VMMemory {
     }
 
     /// Attempts to clone this memory (if its cloneable)
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         self.0.try_clone()
     }
 
@@ -598,7 +598,7 @@ impl LinearMemory for VMMemory {
     }
 
     /// Copies this memory to a new memory
-    fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         self.0.copy()
     }
 }
@@ -657,7 +657,7 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    pub fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         LinearMemory::copy(self)
     }
 }
