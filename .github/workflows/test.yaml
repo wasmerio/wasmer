@@ -241,7 +241,7 @@ jobs:
         if: startsWith(matrix.metadata.build, 'linux-')
         shell: bash
         run: |
-          sudo apt-get update -y && sudo apt-get install ninja-build clang mold binutils -y
+          sudo apt-get update -y && sudo apt-get install ninja-build clang mold binutils llvm -y
       - name: Install `ninja` and (brew's) `llvm` on macOS
         if: startsWith(matrix.metadata.build, 'macos-')
         shell: bash
