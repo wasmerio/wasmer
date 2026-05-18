@@ -144,7 +144,12 @@ fn build_v8() {
         .write_to_file(out_path.join("v8_bindings.rs"))
         .expect("Couldn't write bindings");
 
-    let objcopy_names = ["llvm-objcopy", "objcopy", "gobjcopy"];
+    // llvm-objcopy is required: V8 15+ object files use SHT_CREL sections
+    // (an LLVM ELF extension) that GNU objcopy silently skips, leaving
+    // symbols unrenamed and breaking the link step.
+    let objcopy_names = ["llvm-objcopy", "llvm-objcopy-18", "llvm-objcopy-17",
+                         "llvm-objcopy-16", "llvm-objcopy-15", "llvm-objcopy-14",
+                         "objcopy", "gobjcopy"];
 
     let mut objcopy = None;
     for n in objcopy_names {
@@ -191,6 +196,30 @@ fn build_v8() {
             "{objcopy} failed with error code {}: {}",
             output.status,
             String::from_utf8(output.stderr).unwrap()
+        );
+    }
+
+    // Sanity-check that at least one symbol was actually renamed.  GNU
+    // objcopy silently exits 0 on V8 15+ object files (which contain
+    // SHT_CREL sections — an LLVM ELF extension — that GNU's BFD does
+    // not recognise), leaving all symbols with their original wasm_*
+    // names.  llvm-objcopy handles these files correctly.
+    let prefixed_lib = out_path.join("libwee8prefixed.a");
+    let nm_out = std::process::Command::new("nm")
+        .arg("--defined-only")
+        .arg(&prefixed_lib)
+        .output()
+        .expect("nm not found — cannot verify symbol renaming");
+    let nm_stdout = String::from_utf8_lossy(&nm_out.stdout);
+    if !nm_stdout.contains("wee8_") {
+        panic!(
+            "{objcopy} did not rename any wasm_* symbols in libv8.a — the \
+             resulting library still has unrenamed symbols and the link step \
+             will fail with undefined reference errors.\n\n\
+             This usually means GNU objcopy was used on V8 15+ object files \
+             that contain SHT_CREL sections (an LLVM ELF extension).  \
+             Install llvm-objcopy (e.g. `apt install llvm` on Debian/Ubuntu) \
+             and make sure it appears in PATH before the GNU binutils objcopy."
         );
     }
 
