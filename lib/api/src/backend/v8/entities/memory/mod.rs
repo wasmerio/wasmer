@@ -6,8 +6,7 @@ pub use wasmer_types::MemoryError;
 use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError, OwnedMemory, OwnedOrSharedMemory,
-    SharedMemory,
+    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError, SharedMemory,
     entities::memory::shared_memory_detach_error,
     v8::{bindings::*, vm::VMMemory},
     vm::{VMExtern, VMExternMemory},
@@ -159,23 +158,13 @@ impl Memory {
         }
     }
 
-    pub fn copy(&self, store: &impl AsStoreRef) -> Result<OwnedOrSharedMemory, MemoryError> {
+    pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         check_isolate(store);
 
         if self.ty(store).shared {
-            return self
-                .as_shared(store)
-                .ok_or_else(shared_memory_detach_error)
-                .map(OwnedOrSharedMemory::Shared);
-        }
-
-        let res = unsafe { wasm_memory_copy(self.handle.0) };
-        if res.is_null() {
-            Err(MemoryError::Generic("memory copy failed".to_owned()))
+            self.as_shared(store).ok_or_else(shared_memory_detach_error)
         } else {
-            Ok(OwnedOrSharedMemory::Owned(OwnedMemory::from_vm_memory(
-                crate::vm::VMMemory::V8(VMMemory(res)),
-            )))
+            Err(MemoryError::MemoryNotShared)
         }
     }
 
@@ -185,12 +174,8 @@ impl Memory {
     }
 
     pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
-        if !self.ty(store).shared {
-            return None;
-        }
-
         Some(SharedMemory::from_vm_memory(crate::vm::VMMemory::V8(
-            self.handle.clone(),
+            self.handle.try_clone().ok()?,
         )))
     }
 }

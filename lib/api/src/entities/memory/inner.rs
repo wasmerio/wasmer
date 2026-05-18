@@ -1,4 +1,4 @@
-use super::{OwnedOrSharedMemory, SharedMemory, shared_memory_detach_error, view::*};
+use super::{SharedMemory, shared_memory_detach_error, view::*};
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
 use crate::{
@@ -215,7 +215,7 @@ impl BackendMemory {
     /// Attempts to create a detached copied memory handle that can later be
     /// attached to a different store.
     #[inline]
-    pub fn copy(&self, store: &impl AsStoreRef) -> Result<OwnedOrSharedMemory, MemoryError> {
+    pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         match_rt!(on self => s {
             s.copy(store)
         })

@@ -1,4 +1,3 @@
-pub use owned::OwnedMemory;
 pub use shared::SharedMemory;
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
@@ -10,7 +9,6 @@ use crate::{
 pub(crate) mod buffer;
 pub(crate) mod inner;
 pub(crate) mod location;
-pub(crate) mod owned;
 pub(crate) mod shared;
 pub(crate) mod view;
 
@@ -25,25 +23,6 @@ pub(crate) fn shared_memory_detach_error() -> MemoryError {
          not support exposing this shared memory independently of its store"
             .into(),
     )
-}
-
-/// A detached memory handle that is either an owned non-shared
-/// memory or a shared memory reference.
-pub enum OwnedOrSharedMemory {
-    /// A shared memory reference.
-    Shared(SharedMemory),
-    /// A detached owned memory.
-    Owned(OwnedMemory),
-}
-
-impl OwnedOrSharedMemory {
-    /// Attach this memory handle to the provided store.
-    pub fn attach(self, store: &mut impl AsStoreMut) -> Memory {
-        match self {
-            OwnedOrSharedMemory::Shared(shared) => shared.attach(store),
-            OwnedOrSharedMemory::Owned(owned) => owned.attach(store),
-        }
-    }
 }
 
 /// A WebAssembly `memory` instance.
@@ -209,7 +188,7 @@ impl Memory {
     ///
     /// If the memory is shared, this returns a shared handle. Otherwise, it
     /// creates an independent byte-for-byte copy.
-    pub fn copy(&self, store: &impl AsStoreRef) -> Result<OwnedOrSharedMemory, MemoryError> {
+    pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         self.0.copy(store)
     }
 

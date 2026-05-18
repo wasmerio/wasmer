@@ -163,6 +163,12 @@ impl VMMemory {
             return Err(MemoryError::MemoryNotShared);
         }
 
-        Ok(Self(self.0))
+        let cloned = unsafe { wasm_memory_copy(self.0) };
+        if cloned.is_null() {
+            return Err(MemoryError::Generic(
+                "Failed to clone the memory".to_string(),
+            ));
+        }
+        Ok(Self(cloned))
     }
 }

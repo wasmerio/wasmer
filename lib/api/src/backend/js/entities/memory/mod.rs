@@ -11,7 +11,7 @@ use wasm_bindgen::JsCast;
 use wasmer_types::{MemoryError, MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendMemory, OwnedMemory, OwnedOrSharedMemory, SharedMemory,
+    AsStoreMut, AsStoreRef, BackendMemory, SharedMemory,
     entities::memory::shared_memory_detach_error,
     js::vm::memory::VMMemory,
     vm::{VMExtern, VMExternMemory},
@@ -156,18 +156,12 @@ impl Memory {
         }
     }
 
-    pub fn copy(&self, store: &impl AsStoreRef) -> Result<OwnedOrSharedMemory, MemoryError> {
+    pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         if self.ty(store).shared {
-            return self
-                .as_shared(store)
-                .ok_or_else(shared_memory_detach_error)
-                .map(OwnedOrSharedMemory::Shared);
+            self.as_shared(store).ok_or_else(shared_memory_detach_error)
+        } else {
+            Err(MemoryError::MemoryNotShared)
         }
-
-        let mut cloned = self.handle.try_clone()?;
-        Ok(OwnedOrSharedMemory::Owned(OwnedMemory::from_vm_memory(
-            crate::vm::VMMemory::Js(cloned.copy()?),
-        )))
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
@@ -179,9 +173,9 @@ impl Memory {
             return None;
         }
 
-        Some(SharedMemory::from_vm_memory(
-            crate::vm::VMMemory::Js(self.handle.try_clone().ok()?),
-        ))
+        Some(SharedMemory::from_vm_memory(crate::vm::VMMemory::Js(
+            self.handle.try_clone().ok()?,
+        )))
     }
 }
 
