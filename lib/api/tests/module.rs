@@ -296,10 +296,33 @@ fn module_custom_sections() -> Result<(), String> {
     Ok(())
 }
 
+/// Returns a [`Store`] backed by the sys engine using whatever compiler is
+/// available. Cranelift is preferred, then Singlepass, then LLVM.
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "cranelift", feature = "llvm", feature = "singlepass")
+))]
+fn sys_store() -> Store {
+    use wasmer::sys::NativeEngineExt as _;
+    #[cfg(feature = "cranelift")]
+    let engine: Engine =
+        wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default()).engine().into();
+    #[cfg(all(not(feature = "cranelift"), feature = "singlepass"))]
+    let engine: Engine =
+        wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default()).engine().into();
+    #[cfg(all(not(feature = "cranelift"), not(feature = "singlepass"), feature = "llvm"))]
+    let engine: Engine =
+        wasmer::sys::EngineBuilder::new(wasmer::sys::LLVM::default()).engine().into();
+    Store::new(engine)
+}
+
 #[test]
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "cranelift", feature = "llvm", feature = "singlepass")
+))]
 fn function_extents_returns_one_entry_per_local_function() -> Result<(), String> {
-    let store = Store::default();
+    let store = sys_store();
     let wat = r#"(module
         (func $f1 (result i32) i32.const 1)
         (func $f2 (result i32) i32.const 2)
@@ -320,9 +343,12 @@ fn function_extents_returns_one_entry_per_local_function() -> Result<(), String>
 }
 
 #[test]
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "cranelift", feature = "llvm", feature = "singlepass")
+))]
 fn function_extents_excludes_imported_functions() -> Result<(), String> {
-    let store = Store::default();
+    let store = sys_store();
     let wat = r#"(module
         (import "env" "f" (func (param i32)))
         (func $local1 (result i32) i32.const 42)
