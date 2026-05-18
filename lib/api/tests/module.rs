@@ -305,14 +305,21 @@ fn module_custom_sections() -> Result<(), String> {
 fn sys_store() -> Store {
     use wasmer::sys::NativeEngineExt as _;
     #[cfg(feature = "cranelift")]
-    let engine: Engine =
-        wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default()).engine().into();
+    let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
+        .engine()
+        .into();
     #[cfg(all(not(feature = "cranelift"), feature = "singlepass"))]
-    let engine: Engine =
-        wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default()).engine().into();
-    #[cfg(all(not(feature = "cranelift"), not(feature = "singlepass"), feature = "llvm"))]
-    let engine: Engine =
-        wasmer::sys::EngineBuilder::new(wasmer::sys::LLVM::default()).engine().into();
+    let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default())
+        .engine()
+        .into();
+    #[cfg(all(
+        not(feature = "cranelift"),
+        not(feature = "singlepass"),
+        feature = "llvm"
+    ))]
+    let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::LLVM::default())
+        .engine()
+        .into();
     Store::new(engine)
 }
 
@@ -333,10 +340,22 @@ fn function_extents_returns_one_entry_per_local_function() -> Result<(), String>
 
     assert_eq!(extents.len(), 3, "expected one extent per local function");
     let indices: Vec<u32> = extents.iter().map(|e| e.index).collect();
-    assert_eq!(indices, vec![0, 1, 2], "indices must be sequential starting from 0");
+    assert_eq!(
+        indices,
+        vec![0, 1, 2],
+        "indices must be sequential starting from 0"
+    );
     for extent in &extents {
-        assert_ne!(extent.address, 0, "function {} has null address", extent.index);
-        assert_ne!(extent.length, 0, "function {} has zero length", extent.index);
+        assert_ne!(
+            extent.address, 0,
+            "function {} has null address",
+            extent.index
+        );
+        assert_ne!(
+            extent.length, 0,
+            "function {} has zero length",
+            extent.index
+        );
     }
 
     Ok(())
@@ -357,9 +376,17 @@ fn function_extents_excludes_imported_functions() -> Result<(), String> {
     let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
     let extents = module.function_extents();
 
-    assert_eq!(extents.len(), 2, "imported functions must not appear in extents");
+    assert_eq!(
+        extents.len(),
+        2,
+        "imported functions must not appear in extents"
+    );
     let indices: Vec<u32> = extents.iter().map(|e| e.index).collect();
-    assert_eq!(indices, vec![0, 1], "indices must be local (0-based), not global function indices");
+    assert_eq!(
+        indices,
+        vec![0, 1],
+        "indices must be local (0-based), not global function indices"
+    );
 
     Ok(())
 }
