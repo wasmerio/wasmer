@@ -22,12 +22,14 @@ use crate::{AsEngineRef, macros::backend::match_rt, utils::IntoBytes};
 /// # Address validity
 ///
 /// `address` points into executable memory owned by the [`Module`]'s backing
-/// [`Engine`]. The address is valid only as long as that `Module` (and its
-/// engine) remains alive. Storing an `address` beyond the lifetime of the
-/// originating `Module` — for example, in a long-lived profiler registration
-/// — is unsound unless you also keep the `Module` alive for at least as long.
+/// [`Engine`]. The address is valid only as long as both that `Module` and its
+/// backing [`Store`]/[`Engine`] remain alive. Storing an `address` beyond
+/// their lifetime — for example, in a long-lived profiler registration — is
+/// unsound unless you also keep the `Module`, its `Store`, and its `Engine`
+/// alive at least as long.
 ///
 /// [`Engine`]: crate::Engine
+/// [`Store`]: crate::Store
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FunctionExtent {
@@ -36,8 +38,8 @@ pub struct FunctionExtent {
     pub index: u32,
     /// Start address of the compiled function body in memory.
     ///
-    /// Valid only while the originating [`Module`] is alive; see the
-    /// type-level documentation for details.
+    /// Valid only while the originating [`Module`] and its backing
+    /// [`Store`]/[`Engine`] are alive; see the type-level documentation.
     pub address: usize,
     /// Length of the compiled function body in bytes.
     pub length: usize,
@@ -479,11 +481,13 @@ impl Module {
     ///
     /// The `address` field of each returned [`FunctionExtent`] points into
     /// executable memory owned by this module's engine. The addresses are valid
-    /// only while this `Module` (and its backing [`Engine`]) remains alive.
-    /// Do not store addresses beyond the lifetime of the originating `Module`
-    /// unless you also ensure the `Module` is kept alive at least as long.
+    /// only while this `Module` and its backing [`Store`]/[`Engine`] remain
+    /// alive. Do not store addresses beyond their lifetime unless you also
+    /// ensure the `Module`, its `Store`, and its `Engine` are kept alive at
+    /// least as long.
     ///
     /// [`Engine`]: crate::Engine
+    /// [`Store`]: crate::Store
     #[cfg(not(target_arch = "wasm32"))]
     pub fn function_extents(&self) -> Vec<FunctionExtent> {
         self.0.function_extents()
