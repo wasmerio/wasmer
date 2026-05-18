@@ -213,7 +213,7 @@
 <a href=#213 id=213 data-nosnippet>213</a>        RelocationKind::Aarch64AdrPrelPgHi21 =&gt; <span class="kw">unsafe </span>{
 <a href=#214 id=214 data-nosnippet>214</a>            <span class="kw">let </span>(reloc_address, delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
 <a href=#215 id=215 data-nosnippet>215</a>
-<a href=#216 id=216 data-nosnippet>216</a>            <span class="kw">let </span>delta = delta <span class="kw">as </span>isize;
+<a href=#216 id=216 data-nosnippet>216</a>            <span class="kw">let </span>delta = delta <span class="kw">as </span>i64;
 <a href=#217 id=217 data-nosnippet>217</a>            <span class="macro">assert!</span>(
 <a href=#218 id=218 data-nosnippet>218</a>                ((-<span class="number">1 </span>&lt;&lt; <span class="number">32</span>)..(<span class="number">1 </span>&lt;&lt; <span class="number">32</span>)).contains(<span class="kw-2">&amp;</span>delta),
 <a href=#219 id=219 data-nosnippet>219</a>                <span class="string">"can't generate page-relative relocation with ±4GB `adrp` instruction"
@@ -231,7 +231,7 @@
 <a href=#231 id=231 data-nosnippet>231</a>        RelocationKind::Aarch64AdrPrelLo21 =&gt; <span class="kw">unsafe </span>{
 <a href=#232 id=232 data-nosnippet>232</a>            <span class="kw">let </span>(reloc_address, delta) = r.for_address(body, target_func_address <span class="kw">as </span>u64);
 <a href=#233 id=233 data-nosnippet>233</a>
-<a href=#234 id=234 data-nosnippet>234</a>            <span class="kw">let </span>delta = delta <span class="kw">as </span>isize;
+<a href=#234 id=234 data-nosnippet>234</a>            <span class="kw">let </span>delta = delta <span class="kw">as </span>i64;
 <a href=#235 id=235 data-nosnippet>235</a>            <span class="macro">assert!</span>(
 <a href=#236 id=236 data-nosnippet>236</a>                ((-<span class="number">1 </span>&lt;&lt; <span class="number">20</span>)..(<span class="number">1 </span>&lt;&lt; <span class="number">20</span>)).contains(<span class="kw-2">&amp;</span>delta),
 <a href=#237 id=237 data-nosnippet>237</a>                <span class="string">"can't generate an ADR_PREL_LO21 relocation with an immediate larger than 20 bits"
