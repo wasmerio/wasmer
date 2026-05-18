@@ -155,10 +155,7 @@ pub enum LibCall {
     Adddf3,
     /// __addsf3
     Addsf3,
-    /// __cmpdf2
-    Cmpdf2,
-    /// __cmpsf2
-    Cmpsf2,
+
     /// __divdf3
     Divdf3,
     /// __divdi3
@@ -321,8 +318,7 @@ impl LibCall {
             Self::DebugStr => "wasmer_vm_dbg_str",
             Self::Adddf3 => "__adddf3",
             Self::Addsf3 => "__addsf3",
-            Self::Cmpdf2 => "__cmpdf2",
-            Self::Cmpsf2 => "__cmpsf2",
+
             Self::Divdf3 => "__divdf3",
             Self::Divdi3 => "__divdi3",
             Self::Divsf3 => "__divsf3",

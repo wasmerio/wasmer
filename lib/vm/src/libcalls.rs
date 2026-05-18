@@ -1008,8 +1008,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::DebugStr => wasmer_vm_dbg_str as *const () as usize,
         LibCall::Adddf3 => __adddf3 as *const () as usize,
         LibCall::Addsf3 => __addsf3 as *const () as usize,
-        LibCall::Cmpdf2 => __cmpdf2 as *const () as usize,
-        LibCall::Cmpsf2 => __cmpsf2 as *const () as usize,
+
         LibCall::Divdf3 => __divdf3 as *const () as usize,
         LibCall::Divdi3 => __divdi3 as *const () as usize,
         LibCall::Divsf3 => __divsf3 as *const () as usize,
@@ -1065,14 +1064,13 @@ pub fn function_pointer(libcall: LibCall) -> usize {
     }
 }
 
+
 // Soft-float and 64-bit integer arithmetic routines. These are provided by
 // compiler-rt / libgcc on every standard Rust target. We declare them here so
 // wasmer can resolve JIT-compiled references to them at link time.
 unsafe extern "C" {
     fn __adddf3();
     fn __addsf3();
-    fn __cmpdf2();
-    fn __cmpsf2();
     fn __divdf3();
     fn __divdi3();
     fn __divsf3();
