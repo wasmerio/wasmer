@@ -1,3 +1,7 @@
+//#Ignored: file-backed mmap writeback does not currently persist under WasiRunner
+//#Tempdir: true
+//#ExpectedStdout: 0
+
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>

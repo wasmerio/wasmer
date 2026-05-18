@@ -1,3 +1,12 @@
+//#Config: posix_spawn_direct
+//#Args: posix_spawn_direct
+//
+//#Config: pipe2_cloexec
+//#Args: pipe2_cloexec
+//
+//#Config: popen
+//#Args: popen
+
 // Test file for popen stdin close issue
 // Verifies that pipe2(O_CLOEXEC) correctly closes fds after posix_spawn
 //

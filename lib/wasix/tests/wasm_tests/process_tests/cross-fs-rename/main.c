@@ -1,3 +1,7 @@
+//#MappedDirectory: $temp:/temp1
+//#MappedDirectory: $temp:/temp2
+//#ExpectedStdout: 0
+
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>

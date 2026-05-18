@@ -1,3 +1,9 @@
+//#Config: failing_exec
+//#Args: failing_exec
+//
+//#Config: cloexec
+//#Args: cloexec
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
