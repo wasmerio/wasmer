@@ -183,11 +183,10 @@ impl Memory {
     }
 
     /// Attempts to duplicate this memory in a new store with a byte-for-byte copy
-    #[deprecated(
-        since = "8.0.0",
-        note = "Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
-                Use `copy`, then `attach` on the thread owning the other `Store` instead."
-    )]
+    ///
+    /// Since Wasmer 8.0, this function can no longer be used for stores
+    /// in different threads; for that, use `copy`, and then `attach`
+    /// on the thread owning the other `Store`.
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
@@ -216,11 +215,10 @@ impl Memory {
 
     /// Attempts to clone this memory (if its cloneable) in a new store
     /// (cloned memory will be shared between those that clone it)
-    #[deprecated(
-        since = "8.0.0",
-        note = "Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
-                Use `as_shared`, then `attach` on the thread owning the other `Store` instead."
-    )]
+    ///
+    /// Since Wasmer 8.0, this function can no longer be used for stores
+    /// in different threads; for that, use `as_shared`, and then `attach`
+    /// on the thread owning the other `Store`.
     pub fn share_in_store(
         &self,
         store: &impl AsStoreRef,
