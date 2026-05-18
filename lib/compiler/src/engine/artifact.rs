@@ -792,7 +792,9 @@ impl Artifact {
     /// Returns an empty vec for statically-loaded artifacts, where function
     /// lengths are not recorded and would otherwise be reported as zero.
     pub fn finished_function_extents(&self) -> Vec<(LocalFunctionIndex, FunctionExtent)> {
-        let allocated = self.allocated.as_ref().expect("It must be allocated");
+        let Some(allocated) = self.allocated.as_ref() else {
+            return vec![];
+        };
         allocated
             .finished_functions
             .iter()
