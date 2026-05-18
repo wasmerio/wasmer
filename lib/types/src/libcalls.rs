@@ -353,7 +353,7 @@ impl LibCall {
             Self::Muldf3 => "__muldf3",
             Self::Muldi3 => "__muldi3",
             Self::Mulsf3 => "__mulsf3",
-            Self::Mulsi3 => "__mulsi3",
+            Self::Mulsi3 => "wasmer_vm__mulsi3",
             Self::Nedf2 => "__nedf2",
             Self::Negdf2 => "__negdf2",
             Self::Negsf2 => "__negsf2",
