@@ -109,10 +109,7 @@ impl Memory {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    pub(crate) fn copy(
-        &self,
-        store: &impl AsStoreRef,
-    ) -> Result<OwnedOrSharedMemory, MemoryError> {
+    pub(crate) fn copy(&self, store: &impl AsStoreRef) -> Result<OwnedOrSharedMemory, MemoryError> {
         if self.ty(store).shared {
             self.as_shared(store)
                 .ok_or_else(shared_memory_detach_error)
@@ -129,10 +126,7 @@ impl Memory {
         }
     }
 
-    pub(crate) fn as_shared(
-        &self,
-        store: &impl AsStoreRef,
-    ) -> Option<SharedMemory> {
+    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
         let mem = self.handle.get(store.as_store_ref().objects().as_sys());
         let conds = mem.thread_conditions()?.downgrade();
         let cloned = mem.try_clone().ok()?;
@@ -153,7 +147,7 @@ impl SharedMemoryOps for ThreadConditionsHandle {
     fn notify(&self, dst: MemoryLocation, count: u32) -> Result<u32, crate::AtomicsError> {
         let count = self
             .upgrade()
-            .ok_or(crate::AtomicsError::Unimplemented)?
+            .ok_or(crate::AtomicsError::MemoryDropped)?
             .do_notify(dst.address, count);
         Ok(count)
     }
@@ -166,7 +160,7 @@ impl SharedMemoryOps for ThreadConditionsHandle {
         // Safety: `ExpectedValue::None` has no safety requirements.
         unsafe {
             self.upgrade()
-                .ok_or(crate::AtomicsError::Unimplemented)?
+                .ok_or(crate::AtomicsError::MemoryDropped)?
                 .do_wait(
                     wasmer_vm::NotifyLocation {
                         memory_base: std::ptr::null_mut(),
@@ -186,14 +180,14 @@ impl SharedMemoryOps for ThreadConditionsHandle {
 
     fn disable_atomics(&self) -> Result<(), crate::AtomicsError> {
         self.upgrade()
-            .ok_or(crate::AtomicsError::Unimplemented)?
+            .ok_or(crate::AtomicsError::MemoryDropped)?
             .disable_atomics();
         Ok(())
     }
 
     fn wake_all_atomic_waiters(&self) -> Result<(), crate::AtomicsError> {
         self.upgrade()
-            .ok_or(crate::AtomicsError::Unimplemented)?
+            .ok_or(crate::AtomicsError::MemoryDropped)?
             .wake_all_atomic_waiters();
         Ok(())
     }

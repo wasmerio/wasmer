@@ -575,7 +575,7 @@ unsafe fn wasi_get_imports_inner(
     };
     let memory = {
         let mut store_mut = unsafe { store.store_mut() };
-        tasks.build_memory(&mut store_mut, spawn_type).unwrap()
+        tasks.build_memory(&mut store_mut, &spawn_type).unwrap()
     };
 
     if let Some(memory) = memory {

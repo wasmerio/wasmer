@@ -115,6 +115,9 @@ pub enum AtomicsError {
     /// Atomic operations are disabled.
     #[error("Atomic operations are disabled for this memory")]
     AtomicsDisabled,
+    /// The memory was already dropped.
+    #[error("The memory was already dropped")]
+    MemoryDropped,
 }
 
 /// An ImportError.
