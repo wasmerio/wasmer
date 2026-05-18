@@ -1,8 +1,11 @@
 //! Tests that build and run various WASIX test programs.
 //!
-//! Primary test files can contain directives that configure how each WASM test is built,
-//! run, and checked. Directives use `//#Directive: Args` in C/C++ sources and
-//! `##Directive: Args` in shell sources.
+//! Primary test files can contain directives that define one or more configurations
+//! for a WASM test. Each configuration represents a distinct test run, with its
+//! own arguments, environment setup, expected exit status, and output/file checks.
+//!
+//! Directives use `//#Directive: Args` in C/C++ sources and `##Directive: Args` in
+//! shell sources.
 //!
 //! Supported directives:
 //!
