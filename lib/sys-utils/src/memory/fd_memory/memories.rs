@@ -40,7 +40,11 @@ struct WasmMmap {
     vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
 
+/// # SAFETY: Not safe by rust standards, since guest code may do weird things
+/// with its memory. However, this is still safe to send across threads as
+/// far as the WASM spec is concerned.
 unsafe impl Send for WasmMmap {}
+/// # SAFETY: see above.
 unsafe impl Sync for WasmMmap {}
 
 impl WasmMmap {

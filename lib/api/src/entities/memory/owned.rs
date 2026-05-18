@@ -1,7 +1,7 @@
 use crate::{AsStoreMut, Memory, vm::VMMemory};
 
-/// An owned memory instance that can be attached to a store.
-/// not attached to any specific store.
+/// An owned memory instance that can be attached to a store, but is
+/// not currently attached to any specific store.
 pub struct OwnedMemory {
     memory: VMMemory,
 }
