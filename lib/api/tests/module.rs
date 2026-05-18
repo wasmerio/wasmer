@@ -297,6 +297,44 @@ fn module_custom_sections() -> Result<(), String> {
 }
 
 #[test]
+#[cfg(not(target_arch = "wasm32"))]
+fn function_extents_returns_one_entry_per_local_function() -> Result<(), String> {
+    let store = Store::default();
+    let wat = r#"(module
+        (func $f1 (result i32) i32.const 1)
+        (func $f2 (result i32) i32.const 2)
+        (func $f3 (param i32) (result i32) local.get 0)
+    )"#;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let extents = module.function_extents();
+
+    assert_eq!(extents.len(), 3, "expected one extent per local function");
+    for (index, address, length) in &extents {
+        assert_ne!(*address, 0, "function {index} has null address");
+        assert_ne!(*length, 0, "function {index} has zero length");
+    }
+
+    Ok(())
+}
+
+#[test]
+#[cfg(not(target_arch = "wasm32"))]
+fn function_extents_excludes_imported_functions() -> Result<(), String> {
+    let store = Store::default();
+    let wat = r#"(module
+        (import "env" "f" (func (param i32)))
+        (func $local1 (result i32) i32.const 42)
+        (func $local2 (param i32) (result i32) local.get 0)
+    )"#;
+    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let extents = module.function_extents();
+
+    assert_eq!(extents.len(), 2, "imported functions must not appear in extents");
+
+    Ok(())
+}
+
+#[test]
 #[cfg(unix)]
 fn module_from_file_non_utf8_path() -> Result<(), String> {
     let store = Store::default();
