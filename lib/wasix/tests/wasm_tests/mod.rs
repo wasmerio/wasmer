@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::num::NonZero;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Command;
@@ -259,9 +260,18 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
     let features = wasmer_types::Features::detect_from_wasm(wasm_bytes)
         .unwrap_or_else(|_| wasmer::Engine::default_features_for_backend(&backend, &target));
 
+        // We're going to run many parallel tests and so we use just a single thread for compilation.
     let engine = match engine {
-        Engine::Cranelift => EngineBuilder::new(wasmer::sys::Cranelift::default()),
-        Engine::LLVM => EngineBuilder::new(wasmer::sys::LLVM::default()),
+        Engine::Cranelift => {
+            let mut config = wasmer::sys::Cranelift::default();
+            config.num_threads(NonZero::new(1).unwrap());
+            EngineBuilder::new(config)
+        }
+        Engine::LLVM => {
+            let mut config = wasmer::sys::LLVM::default();
+            config.num_threads(NonZero::new(1).unwrap());
+            EngineBuilder::new(config)
+        }
     };
     engine
         .set_features(Some(features))
