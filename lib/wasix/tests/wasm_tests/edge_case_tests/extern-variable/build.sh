@@ -1,4 +1,5 @@
 #!/bin/bash
+##ExpectedStdout: error number: 444
 set -ex
 
 $CXX -c main.cpp -o main.o

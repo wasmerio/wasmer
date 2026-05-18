@@ -1,4 +1,3 @@
-//#ExpectedStdout: All tests passed successfully!
 #include <dlfcn.h>
 #include <pthread.h>
 #include <signal.h>

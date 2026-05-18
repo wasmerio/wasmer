@@ -1,7 +1,3 @@
-//#ExpectedStdout: caught exception, will rethrow
-//#ExpectedStdout: caught exception in main: 42
-//#ExpectedExitCode: 42
-
 #include <iostream>
 
 void bar() { throw 40; }

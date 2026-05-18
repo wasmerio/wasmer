@@ -1,4 +1,3 @@
-//#Tempdir: true
 //#ExpectedStdout: 0
 
 #include <fcntl.h>
