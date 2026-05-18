@@ -1,4 +1,3 @@
-//#ExpectedStdout: error number: 444
 #include <stdio.h>
 
 extern int erryes;

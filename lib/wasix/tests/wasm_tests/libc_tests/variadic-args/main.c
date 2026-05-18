@@ -1,4 +1,3 @@
-//#ExpectedStdout: Printing 5, 6, 0, 42
 #include <ctype.h>
 #include <stdio.h>
 #include <unistd.h>

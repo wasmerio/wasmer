@@ -1,4 +1,5 @@
 #!/bin/bash
+##ExpectedStdout: Hello world from C++
 set -ex
 export WASIXCC_PIC=1
 

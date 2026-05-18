@@ -1,4 +1,3 @@
-//#Tempdir: true
 //#ExpectedStdout: 0
 // There used to be an issue where, when moving a file, you could no longer
 // open it afterwards. This is a regression test for that issue.

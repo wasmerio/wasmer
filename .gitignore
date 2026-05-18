@@ -34,3 +34,4 @@ link.tar.gz
 .codex
 result
 result-*
+/lib/wasix/tests/wasm_tests/build/

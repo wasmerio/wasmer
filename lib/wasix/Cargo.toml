@@ -136,6 +136,8 @@ crossbeam-channel.workspace = true
 bus.workspace = true
 libtest-mimic.workspace = true
 walkdir.workspace = true
+fs_extra.workspace = true
+itertools.workspace = true
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true

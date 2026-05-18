@@ -40,10 +40,12 @@
 //! `ExpectedFile:{relative_path}:{contents}` checks a file after the test runs.
 
 use anyhow::{Context, Result, anyhow, ensure};
+use itertools::Itertools;
 use std::collections::HashMap;
-use std::fs::File;
+use std::fs::{File, create_dir_all, read_dir, remove_dir_all};
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use std::str::FromStr;
 
 use anyhow::bail;
@@ -92,20 +94,37 @@ struct MappedDirectory {
     guest: String,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Engine {
+    Cranelift,
+    LLVM,
+}
+
+impl Engine {
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Cranelift => "cranelift",
+            Self::LLVM => "llvm",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Config {
     /// The directory containing the test sources.
+    source: PrimarySource,
     test_src_dir: PathBuf,
+    tests_build_root: PathBuf,
 
     test_name: String,
     config_name: String,
+    engine: Engine,
     is_abstract: bool,
 
     nonzero_exit_code: bool,
     expected_exit_code: i32,
     expected_stdout: Vec<String>,
     arguments: Vec<String>,
-    tempdir_as_workdir: bool,
     ignored: Option<String>,
     unix_only: bool,
     mapped_directories: Vec<MappedDirectory>,
@@ -115,17 +134,24 @@ struct Config {
 }
 
 impl Config {
-    fn new(test_src_dir: PathBuf, test_name: String) -> Self {
+    fn new(
+        source: PrimarySource,
+        test_src_dir: PathBuf,
+        tests_build_root: PathBuf,
+        test_name: String,
+    ) -> Self {
         Self {
+            source,
             test_src_dir,
+            tests_build_root,
             test_name,
             config_name: "default".to_owned(),
+            engine: Engine::Cranelift,
             is_abstract: false,
             arguments: Vec::new(),
             nonzero_exit_code: false,
             expected_exit_code: 0,
             expected_stdout: Vec::new(),
-            tempdir_as_workdir: false,
             ignored: None,
             unix_only: false,
             mapped_directories: Vec::new(),
@@ -134,10 +160,36 @@ impl Config {
             expected_files: Vec::new(),
         }
     }
+
+    fn build_path(&self) -> PathBuf {
+        self.tests_build_root.join(self.full_test_name())
+    }
+
+    fn full_test_name(&self) -> String {
+        if self.source.is_default() {
+            format!(
+                "wasm/{}/{}/{}",
+                self.engine.name(),
+                self.test_name,
+                self.config_name,
+            )
+        } else {
+            format!(
+                "wasm/{}/{}/{}/{}",
+                self.engine.name(),
+                self.test_name,
+                self.source.config_name(),
+                self.config_name,
+            )
+        }
+    }
 }
 
-fn parse_configs(src_filename: &Path, default_config: &Config) -> Result<Vec<Config>> {
-    let source = std::fs::read_to_string(src_filename)
+fn parse_configs(default_config: &Config) -> Result<Vec<Config>> {
+    let src_filename = default_config
+        .test_src_dir
+        .join(default_config.source.filename());
+    let source = std::fs::read_to_string(&src_filename)
         .with_context(|| format!("Failed to read {}", src_filename.display()))?;
 
     let mut configs = Vec::new();
@@ -235,9 +287,6 @@ fn process_directive(
         "ExpectedExitCode" => {
             config.expected_exit_code = arg.parse::<i32>()?;
         }
-        "Tempdir" => {
-            config.tempdir_as_workdir = arg.parse::<bool>()?;
-        }
         "Ignored" => config.ignored = Some(arg.to_owned()),
         "UnixOnly" => config.unix_only = arg.parse::<bool>()?,
         "MappedDirectory" => {
@@ -279,74 +328,149 @@ fn process_directive(
     Ok(())
 }
 
+fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
+    // First, copy the test source directory to the 'build' subfolder that will
+    // be unique for each configuration of a test.
+    let build_test_path = config.build_path();
+    if build_test_path.exists() {
+        remove_dir_all(&build_test_path)?;
+    }
+    create_dir_all(&build_test_path)?;
+
+    let mut options = fs_extra::dir::CopyOptions::new();
+    options.content_only = true;
+    fs_extra::dir::copy(&config.test_src_dir, &build_test_path, &options).with_context(|| {
+        anyhow!(
+            "cannot copy {:?} to the temporary directory: {:?}",
+            config.test_src_dir,
+            &build_test_path,
+        )
+    })?;
+
+    // Read optional per-test env overrides from `build.env` (KEY=VALUE, one per line).
+    // TODO: port to a directive as well
+    let build_env: Vec<(String, String)> = {
+        let env_file = build_test_path.join("build.env");
+        if env_file.exists() {
+            std::fs::read_to_string(&env_file)?
+                .lines()
+                .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#'))
+                .filter_map(|l| {
+                    let (k, v) = l.split_once('=')?;
+                    Some((k.trim().to_string(), v.trim().to_string()))
+                })
+                .collect()
+        } else {
+            vec![]
+        }
+    };
+
+    let mut cmd = match &config.source {
+        PrimarySource::BashScript(filename) => {
+            let mut cmd = Command::new("bash");
+            cmd.arg(build_test_path.join(filename))
+                .current_dir(&build_test_path)
+                .env("CC", "wasixcc")
+                .env("CXX", "wasix++")
+                .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
+            cmd
+        }
+        PrimarySource::SourceFile(filename) => {
+            // No build.sh — find a compilable source file and invoke the compiler directly.
+            // Priority: main.c > main.cpp > any single .c > any single .cpp
+            let primary_source = build_test_path.join(filename);
+            let compiler = match primary_source
+                .extension()
+                .expect("valid extension expected")
+                .to_str()
+                .expect("string expected")
+            {
+                "c" => std::env::var("CC").unwrap_or_else(|_| "wasixcc".to_string()),
+                "cpp" => std::env::var("CXX").unwrap_or_else(|_| "wasix++".to_string()),
+                _ => unreachable!("missing primary source file: {build_test_path:?}"),
+            };
+            let mut cmd = Command::new(&compiler);
+            cmd.arg(&primary_source)
+                .arg("-o")
+                .arg("main")
+                .current_dir(&build_test_path)
+                .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
+            cmd
+        }
+    };
+
+    for (k, v) in &build_env {
+        cmd.env(k, v);
+    }
+    let output = cmd.output()?;
+
+    if !output.status.success() {
+        eprintln!("Build stdout: {}", String::from_utf8_lossy(&output.stdout));
+        eprintln!("Build stderr: {}", String::from_utf8_lossy(&output.stderr));
+        anyhow::bail!("Build failed for {}", build_test_path.display());
+    }
+
+    Ok(build_test_path.join("main"))
+}
+
 fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
-    if let Some(reason) = config.ignored {
-        return Ok(libtest_mimic::Completion::ignored_with(reason));
+    if let Some(reason) = &config.ignored {
+        return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
     }
     if !cfg!(unix) && config.unix_only {
         return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
     }
 
-    // TODO: remove
-    let wasm = wasm_test_helpers::run_build_script("x.rs", config.test_src_dir.to_str().unwrap())?;
-    let temp_dir = config
-        .tempdir_as_workdir
-        .then(|| tempfile::tempdir().expect("temporary directory must exist"));
-    let run_dir = if let Some(temp_dir) = &temp_dir {
-        temp_dir.path()
-    } else {
-        wasm.parent()
-            .with_context(|| format!("{} has no parent directory", wasm.display()))?
-    };
-    for (path, file_content) in config.prefilled_files {
+    let wasm = run_build_script(&config)?;
+    let run_dir = &config.build_path();
+    for (path, file_content) in &config.prefilled_files {
         File::create(run_dir.join(path))?.write_all(file_content.as_bytes())?;
     }
 
     let mut extra_temporary_folders = Vec::new();
-    let result = wasm_test_helpers::run_wasm_with_runner_config(&wasm, run_dir, |runner| {
-        if !config.arguments.is_empty() {
-            runner.with_args(config.arguments);
-        }
-
-        let mapped_directories = config.mapped_directories.into_iter().map(|directory| {
-            let host = match directory.host {
-                HostMappedLocation::HostPath(host) => {
-                    let host = PathBuf::from(host);
-                    if host.is_absolute() {
-                        host
-                    } else {
-                        config.test_src_dir.join(host)
-                    }
-                }
-                HostMappedLocation::TemporaryFolder => {
-                    let temp = tempfile::tempdir().expect("temporary directory must exist");
-                    let host = temp.path().to_path_buf();
-                    extra_temporary_folders.push(temp);
-                    host
-                }
-            };
-
-            wasmer_wasix::runners::MappedDirectory {
-                host,
-                guest: directory.guest,
+    let result =
+        wasm_test_helpers::run_wasm_with_runner_config(&wasm, run_dir, config.engine, |runner| {
+            if !config.arguments.is_empty() {
+                runner.with_args(config.arguments.iter().cloned());
             }
-        });
-        runner.with_mapped_directories(mapped_directories);
-        if let Some(current_directory) = config.current_directory {
-            runner.with_current_dir(current_directory);
-        }
-    })?;
+
+            let mapped_directories = config.mapped_directories.iter().map(|directory| {
+                let host = match &directory.host {
+                    HostMappedLocation::HostPath(host) => {
+                        let host = PathBuf::from(host);
+                        if host.is_absolute() {
+                            host
+                        } else {
+                            config.build_path().join(host)
+                        }
+                    }
+                    HostMappedLocation::TemporaryFolder => {
+                        let temp = tempfile::tempdir().expect("temporary directory must exist");
+                        let host = temp.path().to_path_buf();
+                        extra_temporary_folders.push(temp);
+                        host
+                    }
+                };
+
+                wasmer_wasix::runners::MappedDirectory {
+                    host,
+                    guest: directory.guest.clone(),
+                }
+            });
+            runner.with_mapped_directories(mapped_directories);
+            if let Some(current_directory) = &config.current_directory {
+                runner.with_current_dir(current_directory.clone());
+            }
+        })?;
 
     if config.nonzero_exit_code {
         ensure!(
-            result.exit_code.is_some_and(|exit_code| exit_code != 0),
+            result.exit_code != 0,
             "{} expected non-zero exit code\n{}",
             config.test_name,
             format_captured_output(&result),
         );
-    } else if result.exit_code.is_none() && config.expected_exit_code == 0 {
-        // OK
-    } else if result.exit_code != Some(config.expected_exit_code) {
+    } else if result.exit_code != config.expected_exit_code {
         bail!(
             "{} expected exit code {}, got {:?}\n{}",
             config.test_name,
@@ -404,11 +528,66 @@ fn format_captured_output(result: &wasm_test_helpers::WasmRunResult) -> String {
 
 const PRIMARY_SOURCE_FILES: &[&str] = &["main.c", "main.cpp", "build.sh"];
 
-fn identify_primary_source(test_src_dir: &Path) -> Result<PathBuf> {
-    for file in PRIMARY_SOURCE_FILES {
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum PrimarySource {
+    SourceFile(String),
+    BashScript(String),
+}
+
+impl PrimarySource {
+    fn config_name(&self) -> String {
+        match self {
+            Self::SourceFile(_) => "default".to_owned(),
+            Self::BashScript(path) => {
+                if path == "build.sh" {
+                    "default".to_owned()
+                } else {
+                    path.split_once(".")
+                        .expect(".sh extension expected")
+                        .0
+                        .to_string()
+                }
+            }
+        }
+    }
+
+    fn filename(&self) -> String {
+        match self {
+            Self::SourceFile(filename) => filename.clone(),
+            Self::BashScript(filename) => filename.clone(),
+        }
+    }
+
+    fn is_default(&self) -> bool {
+        match self {
+            Self::SourceFile(_) => true,
+            Self::BashScript(filename) => filename == "build.sh",
+        }
+    }
+}
+
+fn identify_primary_sources(test_src_dir: &Path) -> Result<Vec<PrimarySource>> {
+    let shell_sources = read_dir(test_src_dir)?
+        .filter_map(Result::ok)
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("sh"))
+        .map(|path| {
+            PrimarySource::BashScript(
+                path.file_name()
+                    .expect("valid filename")
+                    .to_string_lossy()
+                    .to_string(),
+            )
+        })
+        .collect_vec();
+    if !shell_sources.is_empty() {
+        return Ok(shell_sources);
+    }
+
+    for file in ["main.c", "main.cpp"] {
         let path = test_src_dir.join(file);
         if path.exists() {
-            return Ok(path);
+            return Ok(vec![PrimarySource::SourceFile(file.to_string())]);
         }
     }
 
@@ -426,11 +605,13 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     }
 
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
+    let tests_build_root = tests_dir.join("build");
 
     for entry in WalkDir::new(&tests_dir)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.path() != tests_dir)
+        .filter(|e| e.path().strip_prefix(&tests_build_root).is_err())
         // Skip temporary helper directories (like 'a', 'b', etc.).
         .filter(|e| e.file_type().is_dir())
         .filter(|e| {
@@ -443,21 +624,37 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                 })
         })
     {
-        let test_name = entry.path().strip_prefix(&tests_dir)?.display().to_string();
-        let primary_source = identify_primary_source(entry.path())?;
+        let relative_test_path = entry.path().strip_prefix(&tests_dir)?;
 
-        let configs = parse_configs(
-            &primary_source,
-            &Config::new(entry.path().to_path_buf(), test_name.clone()),
-        )?;
+        let test_name = relative_test_path.display().to_string();
+        let primary_sources = identify_primary_sources(entry.path())?;
 
-        for config in configs {
-            // TODO: strip "wasm" ??
-            let full_name = format!("wasm/{}/{}", test_name, config.config_name);
+        for primary_source in primary_sources {
+            let configs = parse_configs(&Config::new(
+                primary_source,
+                entry.path().to_path_buf(),
+                tests_build_root.clone(),
+                test_name.clone(),
+            ))?;
 
-            tests.push(libtest_mimic::Trial::ignorable_test(full_name, move || {
-                run_integration_test(config).map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-            }));
+            for config in configs {
+                for engine in [Engine::Cranelift, Engine::LLVM] {
+                    // The EH support for macOS is still missing: #6419
+                    if cfg!(target_os = "macos") {
+                        return Ok(());
+                    }
+
+                    let mut config = config.clone();
+                    config.engine = engine;
+                    tests.push(libtest_mimic::Trial::ignorable_test(
+                        config.full_test_name(),
+                        move || {
+                            run_integration_test(config)
+                                .map_err(|e| libtest_mimic::Failed::from(e.to_string()))
+                        },
+                    ));
+                }
+            }
         }
     }
 

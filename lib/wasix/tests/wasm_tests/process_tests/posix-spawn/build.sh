@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+##MappedDirectory:.:/home
+##CurrentDirectory: /home
+
 set -euo pipefail
 
 rm -f output.child.tmp output.yyy.tmp output.zzz.tmp

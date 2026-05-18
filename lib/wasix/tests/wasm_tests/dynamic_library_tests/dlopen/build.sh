@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+##ExpectedStdout: All tests passed successfully!
 set -euo pipefail
 
 export WASIXCC_WASM_EXCEPTIONS=1

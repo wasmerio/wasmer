@@ -1,4 +1,3 @@
-//#Ignored: not ported to the new test harness
 
 #include <stdio.h>
 #ifdef STATIC_THROWER

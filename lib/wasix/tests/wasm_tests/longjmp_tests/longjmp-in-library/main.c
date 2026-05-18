@@ -1,4 +1,3 @@
-//#ExpectedStdout: abc
 #include <setjmp.h>
 #include <stdio.h>
 

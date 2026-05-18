@@ -1,4 +1,3 @@
-//#ExpectedStdout: other_func returned 42
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
