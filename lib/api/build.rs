@@ -147,9 +147,16 @@ fn build_v8() {
     // llvm-objcopy is required: V8 15+ object files use SHT_CREL sections
     // (an LLVM ELF extension) that GNU objcopy silently skips, leaving
     // symbols unrenamed and breaking the link step.
-    let objcopy_names = ["llvm-objcopy", "llvm-objcopy-18", "llvm-objcopy-17",
-                         "llvm-objcopy-16", "llvm-objcopy-15", "llvm-objcopy-14",
-                         "objcopy", "gobjcopy"];
+    let objcopy_names = [
+        "llvm-objcopy",
+        "llvm-objcopy-18",
+        "llvm-objcopy-17",
+        "llvm-objcopy-16",
+        "llvm-objcopy-15",
+        "llvm-objcopy-14",
+        "objcopy",
+        "gobjcopy",
+    ];
 
     let mut objcopy = None;
     for n in objcopy_names {
