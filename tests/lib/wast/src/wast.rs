@@ -69,12 +69,7 @@ impl Wast {
     }
 
     /// A directive failure to allow in a specific file at a specific 1-based line.
-    pub fn allow_directive_failures_at_line(
-        &mut self,
-        line: usize,
-        filename: &str,
-        failure: &str,
-    ) {
+    pub fn allow_directive_failures_at_line(&mut self, line: usize, filename: &str, failure: &str) {
         self.allowed_directive_failures
             .insert((filename.to_string(), line, failure.to_string()));
     }
@@ -371,15 +366,13 @@ impl Wast {
                 }
                 let (line, col) = sp.linecol_in(wast);
                 let line = line + 1;
-                if self
-                    .allowed_directive_failures
-                    .iter()
-                    .any(|(allowed_filename, allowed_line, allowed_failure)| {
+                if self.allowed_directive_failures.iter().any(
+                    |(allowed_filename, allowed_line, allowed_failure)| {
                         allowed_filename == filename
                             && *allowed_line == line
                             && message.contains(allowed_failure)
-                    })
-                {
+                    },
+                ) {
                     continue;
                 }
                 errors.push(DirectiveError { line, col, message });
