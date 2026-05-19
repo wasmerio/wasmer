@@ -405,45 +405,31 @@ fn interest_to_pending_bit(interest: InterestType) -> u8 {
 }
 
 /// Converts consumed pending bits into caller-visible epoll events.
-fn pending_bits_to_events(bits: u8, mask: EpollType) -> Vec<EpollType> {
-    let mut events = Vec::with_capacity(4);
+fn pending_bits_to_event(bits: u8, mask: EpollType) -> EpollType {
+    let mut event = EpollType::empty();
     if let Some(bit) = epoll_type_to_pending_bit(EpollType::EPOLLIN)
         && (bits & bit) != 0
         && mask.contains(EpollType::EPOLLIN)
     {
-        events.push(EpollType::EPOLLIN);
+        event |= EpollType::EPOLLIN;
     }
     if let Some(bit) = epoll_type_to_pending_bit(EpollType::EPOLLOUT)
         && (bits & bit) != 0
         && mask.contains(EpollType::EPOLLOUT)
     {
-        events.push(EpollType::EPOLLOUT);
+        event |= EpollType::EPOLLOUT;
     }
     if let Some(bit) = epoll_type_to_pending_bit(EpollType::EPOLLHUP)
         && (bits & bit) != 0
     {
-        events.push(EpollType::EPOLLHUP);
+        event |= EpollType::EPOLLHUP;
     }
     if let Some(bit) = epoll_type_to_pending_bit(EpollType::EPOLLERR)
         && (bits & bit) != 0
     {
-        events.push(EpollType::EPOLLERR);
+        event |= EpollType::EPOLLERR;
     }
-    events
-}
-
-fn epoll_mask_to_pending_bits(mask: EpollType) -> u8 {
-    let mut bits = 0;
-    if mask.contains(EpollType::EPOLLIN) {
-        bits |= READABLE_BIT;
-    }
-    if mask.contains(EpollType::EPOLLOUT) {
-        bits |= WRITABLE_BIT;
-    }
-    // EPOLLHUP/EPOLLERR are always reported by epoll when present.
-    bits |= HUP_BIT;
-    bits |= ERR_BIT;
-    bits
+    event
 }
 
 fn prime_immediate_writable_if_applicable(
@@ -523,21 +509,9 @@ pub(crate) fn drain_ready_events(
         }
 
         let event = sub_state.fd_meta();
-        let mut undispatched_bits = bits & epoll_mask_to_pending_bits(event.events());
-        for readiness in pending_bits_to_events(bits, event.events()) {
-            if ret.len() >= maxevents {
-                break;
-            }
-            ret.push((event.clone(), readiness));
-            if let Some(bit) = epoll_type_to_pending_bit(readiness) {
-                undispatched_bits &= !bit;
-            }
-        }
-
-        if undispatched_bits != 0 {
-            sub_state
-                .pending_bits
-                .fetch_or(undispatched_bits, Ordering::AcqRel);
+        let readiness = pending_bits_to_event(bits, event.events());
+        if readiness != EpollType::empty() {
+            ret.push((event, readiness));
         }
         repair_ready_queue_after_drain(epoll_state, item.fd, &sub_state);
 
@@ -840,16 +814,9 @@ mod tests {
     }
 
     #[test]
-    fn pending_bits_to_events_always_includes_hup_and_err() {
-        let events = pending_bits_to_events(HUP_BIT | ERR_BIT, EpollType::EPOLLIN);
-        assert_eq!(events, vec![EpollType::EPOLLHUP, EpollType::EPOLLERR]);
-    }
-
-    #[test]
-    fn epoll_mask_to_pending_bits_always_tracks_hup_and_err() {
-        let bits = epoll_mask_to_pending_bits(EpollType::empty());
-        assert_eq!(bits & HUP_BIT, HUP_BIT);
-        assert_eq!(bits & ERR_BIT, ERR_BIT);
+    fn pending_bits_to_event_always_includes_hup_and_err() {
+        let event = pending_bits_to_event(HUP_BIT | ERR_BIT, EpollType::EPOLLIN);
+        assert_eq!(event, EpollType::EPOLLHUP | EpollType::EPOLLERR);
     }
 
     #[test]
@@ -879,7 +846,7 @@ mod tests {
     }
 
     #[test]
-    fn drain_ready_events_requeues_undispatched_bits_when_budget_exhausted() {
+    fn drain_ready_events_coalesces_readiness_bits_for_one_fd() {
         let epoll_state = Arc::new(EpollState::new());
         let sub = Arc::new(EpollSubState::new(
             EpollFd::new(EpollType::EPOLLIN | EpollType::EPOLLOUT, 0, 90, 0, 0),
@@ -894,14 +861,8 @@ mod tests {
 
         let first = drain_ready_events(&epoll_state, 1);
         assert_eq!(first.len(), 1);
-        assert_eq!(first[0].1, EpollType::EPOLLIN);
-        assert_eq!(sub.pending_bits(), WRITABLE_BIT);
-        assert!(sub.enqueued.load(Ordering::Acquire));
-        assert_eq!(epoll_state.ready.lock().unwrap().len(), 1);
-
-        let second = drain_ready_events(&epoll_state, 1);
-        assert_eq!(second.len(), 1);
-        assert_eq!(second[0].1, EpollType::EPOLLOUT);
+        assert_eq!(first[0].0.fd(), 90);
+        assert_eq!(first[0].1, EpollType::EPOLLIN | EpollType::EPOLLOUT);
         assert_eq!(sub.pending_bits(), 0);
         assert!(!sub.enqueued.load(Ordering::Acquire));
         assert_eq!(epoll_state.ready.lock().unwrap().len(), 0);
