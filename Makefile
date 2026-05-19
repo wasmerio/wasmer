@@ -204,12 +204,15 @@ endif
 ifneq ($(ENABLE_V8), 0)
 	# … then maybe the user forced to enable the V8 compiler.
 	ifneq ($(filter 1 true,$(ENABLE_V8)),)
-		build_compilers += v8
+		compilers += v8
 	endif
-	# we don't check automatically for now  
+	# … otherwise, enable it by default.
+	ifeq ($(ENABLE_V8),)
+		compilers += v8
+	endif
 endif
 
-ifneq (, $(findstring v8,$(build_compilers)))
+ifneq (, $(findstring v8,$(compilers)))
 	ENABLE_V8 := 1
 endif
 

@@ -256,6 +256,8 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
     let backend = match engine {
         Engine::Cranelift => wasmer::BackendKind::Cranelift,
         Engine::LLVM => wasmer::BackendKind::LLVM,
+        #[cfg(feature = "v8")]
+        Engine::V8 => wasmer::BackendKind::V8,
     };
     let features = wasmer_types::Features::detect_from_wasm(wasm_bytes)
         .unwrap_or_else(|_| wasmer::Engine::default_features_for_backend(&backend, &target));
@@ -272,6 +274,8 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
             config.num_threads(NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
+        #[cfg(feature = "v8")]
+        Engine::V8 => return wasmer::v8::engine::Engine::new().into(),
     };
     engine
         .set_features(Some(features))
