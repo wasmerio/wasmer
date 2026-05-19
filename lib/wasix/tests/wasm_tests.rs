@@ -172,17 +172,17 @@ impl Config {
         if self.source.is_default() {
             format!(
                 "wasm/{}/{}/{}",
-                self.engine.name(),
                 self.test_name,
                 self.config_name,
+                self.engine.name(),
             )
         } else {
             format!(
                 "wasm/{}/{}/{}/{}",
-                self.engine.name(),
                 self.test_name,
                 self.source.config_name(),
                 self.config_name,
+                self.engine.name(),
             )
         }
     }
