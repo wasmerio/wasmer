@@ -197,30 +197,16 @@ ifneq (, $(findstring singlepass,$(compilers)))
 endif
 
 ##
-# V8
+# V8 
 ##
-
-V8_SUPPORTED := 0
-ifeq ($(IS_LINUX), 1)
-	ifeq ($(IS_AMD64), 1)
-		V8_SUPPORTED := 1
-	endif
-endif
 
 # If the user didn't disable the V8 backend…
 ifneq ($(ENABLE_V8), 0)
 	# … then maybe the user forced to enable the V8 compiler.
 	ifneq ($(filter 1 true,$(ENABLE_V8)),)
-		ifeq ($(V8_SUPPORTED), 1)
-			compilers += v8
-		endif
-	# … otherwise, enable it by default when supported.
-	else ifeq ($(ENABLE_V8),)
-		ifeq ($(V8_SUPPORTED), 1)
-			compilers += v8
-		endif
+		build_compilers += v8
 	endif
-	# we don't check automatically for now
+	# we don't check automatically for now  
 endif
 
 ifneq (, $(findstring v8,$(build_compilers)))
@@ -307,8 +293,17 @@ space := $() $()
 comma := ,
 build_wasmer_extra_features_csv = $(subst $(space),$(comma),$(build_wasmer_extra_features))
 
+test_compilers := $(compilers)
+ifeq ($(IS_LINUX), 1)
+	ifeq ($(IS_AMD64), 1)
+		test_compilers += v8
+	endif
+endif
+test_compilers := $(strip $(test_compilers))
+
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 build_compiler_features = --features $(subst $(space),$(comma),$(build_compilers))$(if $(build_wasmer_extra_features_csv),$(comma)$(build_wasmer_extra_features_csv)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 capi_compilers_engines_exclude :=
 
@@ -568,8 +563,8 @@ build-capi-headless-ios:
 test-wast:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
 test-all:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --features experimental-async,experimental-host-interrupt --locked && \
-	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --features experimental-async,experimental-host-interrupt --locked
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features experimental-async,experimental-host-interrupt --locked && \
+	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features experimental-async,experimental-host-interrupt --locked
 check-compilers-only-std:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std --locked && \
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std --locked
