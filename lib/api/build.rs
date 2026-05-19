@@ -29,7 +29,8 @@ fn build_v8() {
     let out_path = PathBuf::from(&out_dir);
     let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
     let v8_header_path = PathBuf::from(&crate_root).join("third-party").join("wee8");
-    let cache_dir = stable_target_dir(&out_path)
+    let cache_dir = out_path
+        .join("../../../../")
         .join("wee8-artifacts")
         .join(WEE8_RELEASE_VERSION)
         .join(platform_name);
@@ -252,16 +253,6 @@ fn build_v8() {
     }
 
     println!("cargo:rustc-link-lib=static=v8prefixed");
-
-    fn stable_target_dir(out_path: &Path) -> PathBuf {
-        let mut dir = out_path;
-        for _ in 0..4 {
-            dir = dir
-                .parent()
-                .expect("OUT_DIR is not inside Cargo's target build output");
-        }
-        dir.to_path_buf()
-    }
 }
 
 #[allow(unused)]
