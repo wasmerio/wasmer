@@ -58,8 +58,11 @@ impl InstanceHandle {
             vec
         };
 
-        let wasm_exports: &[*mut wasm_extern_t] =
-            unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
+        let wasm_exports: &[*mut wasm_extern_t] = if exports.size == 0 {
+            &[]
+        } else {
+            unsafe { std::slice::from_raw_parts(exports.data, exports.size) }
+        };
 
         let exports_ty = module.exports().collect::<Vec<_>>();
         exports_ty
@@ -99,14 +102,9 @@ impl Instance {
         check_isolate(store);
         let mut store = store.as_store_mut();
 
-        let externs: Vec<_> = module
-            .imports()
-            .map(|import_ty| {
-                imports
-                    .get_export(import_ty.module(), import_ty.name())
-                    .unwrap_or_else(|| panic!("Export {import_ty:?} not found"))
-            })
-            .collect::<Vec<_>>();
+        let externs = imports
+            .imports_for_module(module)
+            .map_err(InstantiationError::Link)?;
 
         Self::new_by_index(&mut store, module, &externs)
     }

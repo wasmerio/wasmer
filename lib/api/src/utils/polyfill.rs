@@ -29,6 +29,13 @@ pub struct ModuleInfoPolyfill {
 
 impl ModuleInfoPolyfill {
     pub(crate) fn declare_export(&mut self, export: ExportIndex, name: &str) -> WasmResult<()> {
+        // See #6560 for more context why such names are unsupported by V8.
+        if !name.is_empty() && name.bytes().all(|b| b.is_ascii_digit()) {
+            return Err(format!(
+                "exported names can't be made of digits only: `{name}`"
+            ));
+        }
+
         self.info.exports.insert(String::from(name), export);
         Ok(())
     }
@@ -332,6 +339,10 @@ pub fn translate_module(data: &[u8]) -> WasmResult<ModuleInfoPolyfill> {
                 parse_export_section(exports, &mut module_info)?;
             }
 
+            Payload::StartSection { func, .. } => {
+                parse_start_section(func, &mut module_info)?;
+            }
+
             Payload::TagSection(tags) => {
                 parse_tag_section(tags, &mut module_info)?;
             }
@@ -379,6 +390,8 @@ pub fn wpreftype_to_type(ty: wasmparser::RefType) -> WasmResult<Type> {
         Ok(Type::ExternRef)
     } else if ty.is_func_ref() {
         Ok(Type::FuncRef)
+    } else if ty.as_non_null() == wasmparser::RefType::EXN {
+        Ok(Type::ExceptionRef)
     } else {
         Err(format!("Unsupported ref type: {ty:?}"))
     }
@@ -399,26 +412,30 @@ pub fn parse_type_section(
                 wasmparser::CompositeInnerType::Func(functype) => {
                     let params = functype.params();
                     let returns = functype.results();
-                    let sig_params: Vec<Type> = params
+                    let sig_params = params
                         .iter()
                         .map(|ty| {
-                            wptype_to_type(*ty)
-                                .expect("only numeric types are supported in function signatures")
+                            wptype_to_type(*ty).map_err(|err| {
+                                format!(
+                                    "only numeric types are supported in function signatures: {err}"
+                                )
+                            })
                         })
-                        .collect();
-                    let sig_returns: Vec<Type> = returns
+                        .collect::<Result<Vec<_>, _>>()?;
+                    let sig_returns = returns
                         .iter()
                         .map(|ty| {
-                            wptype_to_type(*ty)
-                                .expect("only numeric types are supported in function signatures")
+                            wptype_to_type(*ty).map_err(|err| {
+                                format!(
+                                    "only numeric types are supported in function signatures: {err}"
+                                )
+                            })
                         })
-                        .collect();
+                        .collect::<Result<Vec<_>, _>>()?;
                     let sig = FunctionType::new(sig_params, sig_returns);
                     module_info.declare_signature(sig)?;
                 }
-                _ => {
-                    unimplemented!("GC is  not implemented yet")
-                }
+                _ => return Err("GC is not implemented yet".to_owned()),
             }
         }
     }
@@ -461,7 +478,7 @@ pub fn parse_import_section(
                 ..
             }) => {
                 if memory64 {
-                    unimplemented!("64bit memory not implemented yet");
+                    return Err("64bit memory not implemented yet".to_owned());
                 }
                 module_info.declare_memory_import(
                     MemoryType {
@@ -476,7 +493,7 @@ pub fn parse_import_section(
             TypeRef::Global(ref ty) => {
                 module_info.declare_global_import(
                     GlobalType {
-                        ty: wptype_to_type(ty.content_type).unwrap(),
+                        ty: wptype_to_type(ty.content_type)?,
                         mutability: ty.mutable.into(),
                     },
                     module_name,
@@ -486,7 +503,7 @@ pub fn parse_import_section(
             TypeRef::Table(ref tab) => {
                 module_info.declare_table_import(
                     TableType {
-                        ty: wpreftype_to_type(tab.element_type).unwrap(),
+                        ty: wpreftype_to_type(tab.element_type)?,
                         minimum: tab.initial as u32,
                         maximum: tab.maximum.map(|v| v as u32),
                         readonly: false,
@@ -527,7 +544,7 @@ pub fn parse_table_section(
     for entry in tables {
         let table = entry.map_err(transform_err)?;
         module_info.declare_table(TableType {
-            ty: wpreftype_to_type(table.ty.element_type).unwrap(),
+            ty: wpreftype_to_type(table.ty.element_type)?,
             minimum: table.ty.initial as u32,
             maximum: table.ty.maximum.map(|v| v as u32),
             readonly: false,
@@ -553,7 +570,7 @@ pub fn parse_memory_section(
             ..
         } = entry.map_err(transform_err)?;
         if memory64 {
-            unimplemented!("64bit memory not implemented yet");
+            return Err("64bit memory not implemented yet".to_owned());
         }
         module_info.declare_memory(MemoryType {
             minimum: Pages(initial as u32),
@@ -579,7 +596,7 @@ pub fn parse_global_section(
             ..
         } = entry.map_err(transform_err)?.ty;
         let global = GlobalType {
-            ty: wptype_to_type(content_type).unwrap(),
+            ty: wptype_to_type(content_type)?,
             mutability: mutable.into(),
         };
         module_info.declare_global(global)?;
@@ -643,11 +660,16 @@ pub fn parse_export_section(
     Ok(())
 }
 
-// /// Parses the Start section of the wasm module.
-// pub fn parse_start_section(index: u32, module_info: &mut ModuleInfoPolyfill) -> WasmResult<()> {
-//     module_info.declare_start_function(FunctionIndex::from_u32(index))?;
-//     Ok(())
-// }
+/// Parses the Start section of the wasm module.
+pub fn parse_start_section(index: u32, module_info: &mut ModuleInfoPolyfill) -> WasmResult<()> {
+    // Right now, we cannot invoke an imported function as a start function: #6568.
+    let start_function = FunctionIndex::from_u32(index);
+    if module_info.info.is_imported_function(start_function) {
+        return Err("imported functions cannot be used as start functions".to_string());
+    }
+    module_info.info.start_function = Some(start_function);
+    Ok(())
+}
 
 /// Parses the Name section of the wasm module.
 pub fn parse_name_section(

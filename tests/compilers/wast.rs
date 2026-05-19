@@ -77,6 +77,42 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "out of bounds memory access",
         "Validation error: multiple memories",
     );
+    // V8-specific
+    wast.allow_trap_message(
+        "uninitialized element",
+        "null function or function signature mismatch",
+    );
+    wast.allow_trap_message("out of bounds table access", "table index is out of bounds");
+    wast.allow_trap_message("out of bounds memory access", "memory access out of bounds");
+    wast.allow_trap_message("out of bounds memory access", "is out of bounds");
+    wast.allow_trap_message(
+        "out of bounds table access",
+        "element segment out of bounds",
+    );
+    wast.allow_trap_message(
+        "indirect call type mismatch",
+        "null function or function signature mismatch",
+    );
+    wast.allow_trap_message("undefined element", "table index is out of bounds");
+    wast.allow_trap_message(
+        "unaligned atomic",
+        "operation does not support unaligned accesses",
+    );
+    wast.allow_trap_message(
+        "invalid conversion to integer",
+        "float unrepresentable in integer range",
+    );
+    wast.allow_trap_message("integer divide by zero", "remainder by zero");
+    wast.allow_trap_message("integer divide by zero", "divide by zero");
+    wast.allow_trap_message("integer overflow", "divide result unrepresentable");
+    wast.allow_trap_message("integer overflow", "float unrepresentable in integer range");
+    wast.allow_trap_message("call stack exhausted", "Maximum call stack size exceeded");
+    wast.allow_trap_message("cast failure", "illegal cast");
+    wast.allow_trap_message(
+        "uninitialized element 2",
+        "null function or function signature mismatch",
+    );
+
     if cfg!(feature = "coverage") {
         wast.disable_assert_and_exhaustion();
     }
@@ -104,7 +140,52 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "Unsupported feature: unsupported init expr in element section",
         "Insufficient resources: Table minimum",
         "Insufficient resources: Table maximum",
+        // V8-specific
+        "Validation error: only numeric types are supported in function signatures: Unsupported ref type:",
+        "Validation error: Unsupported ref type:",
+        "Validation error: GC is not implemented yet",
+        "Validation error: 64bit memory not implemented yet",
+        "constant expression required",
+        "Validation error: exported names can't be made of digits only",
+        "Validation error: imported functions cannot be used as start functions",
     ]);
+    // V8 rejects creation of large table and memories.
+    wast.allow_directive_failures_at_line(
+        9,
+        "tests/wast/spec/table.wast",
+        "Validation error: Failed to create V8 module: null module reference returned from V8",
+    );
+    wast.allow_directive_failures_at_line(
+        8,
+        "tests/wast/spec/memory64.wast",
+        "Validation error: Failed to create V8 module: null module reference returned from V8",
+    );
+    wast.allow_directive_failures_at_line(
+        9,
+        "tests/wast/spec/memory64.wast",
+        "Validation error: Failed to create V8 module: null module reference returned from V8",
+    );
+    // V8 already supports Multi Memories extension
+    wast.allow_directive_failures_at_line(
+        317,
+        "tests/wast/spec/proposals/threads/imports.wast",
+        "expected module to fail to build",
+    );
+    wast.allow_directive_failures_at_line(
+        412,
+        "tests/wast/spec/proposals/threads/imports.wast",
+        "expected module to fail to build",
+    );
+    wast.allow_directive_failures_at_line(
+        14,
+        "tests/wast/spec/proposals/threads/memory.wast",
+        "expected module to fail to build",
+    );
+    wast.allow_directive_failures_at_line(
+        15,
+        "tests/wast/spec/proposals/threads/memory.wast",
+        "expected module to fail to build",
+    );
     wast.fail_fast = false;
     let path = Path::new(wast_path);
     wast.run_file(path)

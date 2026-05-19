@@ -59,6 +59,7 @@ wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=7.2.0-alpha.2", 
 corosensei = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 dashmap.workspace = true
+itertools.workspace = true
 
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
