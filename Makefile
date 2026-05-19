@@ -197,22 +197,33 @@ ifneq (, $(findstring singlepass,$(compilers)))
 endif
 
 ##
-# V8 
+# V8
 ##
+
+V8_SUPPORTED := 0
+ifeq ($(IS_LINUX), 1)
+	ifeq ($(IS_AMD64), 1)
+		V8_SUPPORTED := 1
+	endif
+endif
 
 # If the user didn't disable the V8 backend…
 ifneq ($(ENABLE_V8), 0)
 	# … then maybe the user forced to enable the V8 compiler.
 	ifneq ($(filter 1 true,$(ENABLE_V8)),)
-		compilers += v8
+		ifeq ($(V8_SUPPORTED), 1)
+			compilers += v8
+		endif
+	# … otherwise, enable it by default when supported.
+	else ifeq ($(ENABLE_V8),)
+		ifeq ($(V8_SUPPORTED), 1)
+			compilers += v8
+		endif
 	endif
-	# … otherwise, enable it by default.
-	ifeq ($(ENABLE_V8),)
-		compilers += v8
-	endif
+	# we don't check automatically for now
 endif
 
-ifneq (, $(findstring v8,$(compilers)))
+ifneq (, $(findstring v8,$(build_compilers)))
 	ENABLE_V8 := 1
 endif
 
