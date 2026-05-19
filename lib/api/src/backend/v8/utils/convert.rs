@@ -2,12 +2,11 @@ use wasmer_types::{ExternType, FunctionType, Mutability, Type};
 
 /// Utilities to convert between `v8` and `wasmer` values
 use crate::{
+    BackendFunction, Function, Value,
     v8::{
         bindings::{self, *},
         function,
-        vm::VMExternRef,
     },
-    BackendFunction, Function, Value,
 };
 
 pub trait IntoCApiValue {
@@ -50,7 +49,9 @@ impl IntoCApiValue for Value {
                 "Creating host values from guest ExternRefs is not currently supported in V8."
             ),
             Self::ExceptionRef(_) => {
-                panic!("Creating host values from guest V128s is not currently supported in V8.")
+                panic!(
+                    "Creating host values from guest ExceptionRefs is not currently supported in V8."
+                )
             }
             Self::V128(val) => wasm_val_t {
                 kind: bindings::wasm_valkind_enum_WASM_V128 as _,

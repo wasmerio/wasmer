@@ -408,14 +408,12 @@ fn validate_exported_types(module_info: &ModuleInfoPolyfill) -> WasmResult<()> {
                 let ty = module_info.info.signatures.get(*signature).ok_or_else(|| {
                     format!("tag export `{name}` references unknown signature {signature:?}")
                 })?;
-                ty.params().iter().any(|ty| *ty == Type::ExternRef)
+                ty.params().contains(&Type::ExternRef)
             }
         };
 
         if uses_externref {
-            return Err(
-                "ExternRef is not supported by this backend yet".to_string()
-            );
+            return Err("ExternRef is not supported by this backend yet".to_string());
         }
     }
 
