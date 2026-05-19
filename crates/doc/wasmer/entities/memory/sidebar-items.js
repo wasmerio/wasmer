@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["buffer","inner","location","shared","view"],"struct":["Memory"]};
+window.SIDEBAR_ITEMS = {"fn":["shared_memory_detach_error"],"mod":["buffer","inner","location","shared","view"],"struct":["Memory"]};

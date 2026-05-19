@@ -196,7 +196,7 @@
 <a href=#196 id=196 data-nosnippet>196</a>    // }
 <a href=#197 id=197 data-nosnippet>197</a>
 <a href=#198 id=198 data-nosnippet>198</a>    </span><span class="doccomment">/// Copies the memory to a new swap file (using copy-on-write if available)
-<a href=#199 id=199 data-nosnippet>199</a>    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, hint_used: <span class="prelude-ty">Option</span>&lt;usize&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+<a href=#199 id=199 data-nosnippet>199</a>    </span><span class="kw">pub fn </span>duplicate(<span class="kw-2">&amp;</span><span class="self">self</span>, hint_used: <span class="prelude-ty">Option</span>&lt;usize&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
 <a href=#200 id=200 data-nosnippet>200</a>        <span class="comment">// Empty memory is an edge case
 <a href=#201 id=201 data-nosnippet>201</a>
 <a href=#202 id=202 data-nosnippet>202</a>        </span><span class="kw">use </span>std::os::unix::prelude::FromRawFd;

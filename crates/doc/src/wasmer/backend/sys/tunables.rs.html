@@ -137,13 +137,13 @@
 <a href=#137 id=137 data-nosnippet>137</a>            }
 <a href=#138 id=138 data-nosnippet>138</a>        }
 <a href=#139 id=139 data-nosnippet>139</a>
-<a href=#140 id=140 data-nosnippet>140</a>        <span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
+<a href=#140 id=140 data-nosnippet>140</a>        <span class="kw">fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + Send + Sync + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
 <a href=#141 id=141 data-nosnippet>141</a>            <span class="prelude-val">Err</span>(MemoryError::InvalidMemory {
 <a href=#142 id=142 data-nosnippet>142</a>                reason: <span class="string">"VMTinyMemory can not be cloned"</span>.to_string(),
 <a href=#143 id=143 data-nosnippet>143</a>            })
 <a href=#144 id=144 data-nosnippet>144</a>        }
 <a href=#145 id=145 data-nosnippet>145</a>
-<a href=#146 id=146 data-nosnippet>146</a>        <span class="kw">fn </span>copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
+<a href=#146 id=146 data-nosnippet>146</a>        <span class="kw">fn </span>copy(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>LinearMemory + Send + Sync + <span class="lifetime">'static</span>&gt;, MemoryError&gt; {
 <a href=#147 id=147 data-nosnippet>147</a>            <span class="kw">let </span>mem = <span class="self">self</span>.mem.clone();
 <a href=#148 id=148 data-nosnippet>148</a>            <span class="prelude-val">Ok</span>(Box::new(<span class="self">Self </span>{
 <a href=#149 id=149 data-nosnippet>149</a>                memory_definition: <span class="prelude-val">Some</span>(UnsafeCell::new(VMMemoryDefinition {

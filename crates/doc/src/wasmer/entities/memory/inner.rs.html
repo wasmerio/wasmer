@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/entities/memory/inner.rs`."><title>inner.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer/entities/memory/</div>inner.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use super</span>::{shared::SharedMemory, view::<span class="kw-2">*</span>};
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/api/src/entities/memory/inner.rs`."><title>inner.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer/entities/memory/</div>inner.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use super</span>::{SharedMemory, shared_memory_detach_error, view::<span class="kw-2">*</span>};
 <a href=#2 id=2 data-nosnippet>2</a><span class="kw">use </span>wasmer_types::{MemoryError, MemoryType, Pages};
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use crate</span>::{
@@ -170,138 +170,101 @@
 <a href=#170 id=170 data-nosnippet>170</a>        })
 <a href=#171 id=171 data-nosnippet>171</a>    }
 <a href=#172 id=172 data-nosnippet>172</a>
-<a href=#173 id=173 data-nosnippet>173</a>    <span class="doccomment">/// Attempts to duplicate this memory (if its cloneable) in a new store
-<a href=#174 id=174 data-nosnippet>174</a>    /// (copied memory)
-<a href=#175 id=175 data-nosnippet>175</a>    </span><span class="attr">#[inline]
-<a href=#176 id=176 data-nosnippet>176</a>    </span><span class="kw">pub fn </span>copy_to_store(
-<a href=#177 id=177 data-nosnippet>177</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#178 id=178 data-nosnippet>178</a>        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
-<a href=#179 id=179 data-nosnippet>179</a>        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-<a href=#180 id=180 data-nosnippet>180</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
-<a href=#181 id=181 data-nosnippet>181</a>        <span class="kw">if </span>!<span class="self">self</span>.ty(store).shared {
-<a href=#182 id=182 data-nosnippet>182</a>            <span class="comment">// We should only be able to duplicate in a new store if the memory is shared
-<a href=#183 id=183 data-nosnippet>183</a>            </span><span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::InvalidMemory {
-<a href=#184 id=184 data-nosnippet>184</a>                reason: <span class="string">"memory is not a shared memory type"</span>.to_string(),
-<a href=#185 id=185 data-nosnippet>185</a>            });
-<a href=#186 id=186 data-nosnippet>186</a>        }
-<a href=#187 id=187 data-nosnippet>187</a>
-<a href=#188 id=188 data-nosnippet>188</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#189 id=189 data-nosnippet>189</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#190 id=190 data-nosnippet>190</a>            </span><span class="self">Self</span>::Sys(s) =&gt; s.try_copy(store).map(|new_memory| {
-<a href=#191 id=191 data-nosnippet>191</a>                <span class="self">Self</span>::new_from_existing(
-<a href=#192 id=192 data-nosnippet>192</a>                    new_store,
-<a href=#193 id=193 data-nosnippet>193</a>                    VMMemory::Sys(<span class="kw">crate</span>::backend::sys::vm::VMMemory(new_memory)),
-<a href=#194 id=194 data-nosnippet>194</a>                )
-<a href=#195 id=195 data-nosnippet>195</a>            }),
-<a href=#196 id=196 data-nosnippet>196</a>
-<a href=#197 id=197 data-nosnippet>197</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-<a href=#198 id=198 data-nosnippet>198</a>            </span><span class="self">Self</span>::V8(s) =&gt; s
-<a href=#199 id=199 data-nosnippet>199</a>                .try_copy(store)
-<a href=#200 id=200 data-nosnippet>200</a>                .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, VMMemory::V8(new_memory))),
-<a href=#201 id=201 data-nosnippet>201</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#202 id=202 data-nosnippet>202</a>            </span><span class="self">Self</span>::Js(s) =&gt; s
-<a href=#203 id=203 data-nosnippet>203</a>                .try_copy(store)
-<a href=#204 id=204 data-nosnippet>204</a>                .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, VMMemory::Js(new_memory))),
-<a href=#205 id=205 data-nosnippet>205</a>        }
-<a href=#206 id=206 data-nosnippet>206</a>    }
-<a href=#207 id=207 data-nosnippet>207</a>
-<a href=#208 id=208 data-nosnippet>208</a>    <span class="attr">#[inline]
-<a href=#209 id=209 data-nosnippet>209</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_vm_extern(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, vm_extern: VMExternMemory) -&gt; <span class="self">Self </span>{
-<a href=#210 id=210 data-nosnippet>210</a>        <span class="kw">match </span><span class="kw-2">&amp;</span>store.as_store_mut().inner.store {
-<a href=#211 id=211 data-nosnippet>211</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#212 id=212 data-nosnippet>212</a>            </span><span class="kw">crate</span>::BackendStore::Sys(s) =&gt; <span class="self">Self</span>::Sys(
-<a href=#213 id=213 data-nosnippet>213</a>                <span class="kw">crate</span>::backend::sys::entities::memory::Memory::from_vm_extern(store, vm_extern),
-<a href=#214 id=214 data-nosnippet>214</a>            ),
-<a href=#215 id=215 data-nosnippet>215</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-<a href=#216 id=216 data-nosnippet>216</a>            </span><span class="kw">crate</span>::BackendStore::V8(s) =&gt; <span class="self">Self</span>::V8(
-<a href=#217 id=217 data-nosnippet>217</a>                <span class="kw">crate</span>::backend::v8::entities::memory::Memory::from_vm_extern(store, vm_extern),
-<a href=#218 id=218 data-nosnippet>218</a>            ),
-<a href=#219 id=219 data-nosnippet>219</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#220 id=220 data-nosnippet>220</a>            </span><span class="kw">crate</span>::BackendStore::Js(s) =&gt; <span class="self">Self</span>::Js(
-<a href=#221 id=221 data-nosnippet>221</a>                <span class="kw">crate</span>::backend::js::entities::memory::Memory::from_vm_extern(store, vm_extern),
-<a href=#222 id=222 data-nosnippet>222</a>            ),
-<a href=#223 id=223 data-nosnippet>223</a>        }
-<a href=#224 id=224 data-nosnippet>224</a>    }
-<a href=#225 id=225 data-nosnippet>225</a>
-<a href=#226 id=226 data-nosnippet>226</a>    <span class="doccomment">/// Checks whether this `Memory` can be used with the given context.
-<a href=#227 id=227 data-nosnippet>227</a>    </span><span class="attr">#[inline]
-<a href=#228 id=228 data-nosnippet>228</a>    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
-<a href=#229 id=229 data-nosnippet>229</a>        <span class="macro">match_rt!</span>(on <span class="self">self </span>=&gt; s {
-<a href=#230 id=230 data-nosnippet>230</a>            s.is_from_store(store)
-<a href=#231 id=231 data-nosnippet>231</a>        })
-<a href=#232 id=232 data-nosnippet>232</a>    }
-<a href=#233 id=233 data-nosnippet>233</a>
-<a href=#234 id=234 data-nosnippet>234</a>    <span class="doccomment">/// Attempt to create a new reference to the underlying memory; this new reference can then be
-<a href=#235 id=235 data-nosnippet>235</a>    /// used within a different store (from the same implementer).
-<a href=#236 id=236 data-nosnippet>236</a>    ///
-<a href=#237 id=237 data-nosnippet>237</a>    /// # Errors
-<a href=#238 id=238 data-nosnippet>238</a>    ///
-<a href=#239 id=239 data-nosnippet>239</a>    /// Fails if the underlying memory is not cloneable.
-<a href=#240 id=240 data-nosnippet>240</a>    </span><span class="attr">#[inline]
-<a href=#241 id=241 data-nosnippet>241</a>    </span><span class="kw">pub fn </span>try_clone(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Result</span>&lt;VMMemory, MemoryError&gt; {
-<a href=#242 id=242 data-nosnippet>242</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#243 id=243 data-nosnippet>243</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#244 id=244 data-nosnippet>244</a>            </span><span class="self">Self</span>::Sys(s) =&gt; s.try_clone(store).map(VMMemory::Sys),
-<a href=#245 id=245 data-nosnippet>245</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-<a href=#246 id=246 data-nosnippet>246</a>            </span><span class="self">Self</span>::V8(s) =&gt; s.try_clone(store).map(VMMemory::V8),
-<a href=#247 id=247 data-nosnippet>247</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#248 id=248 data-nosnippet>248</a>            </span><span class="self">Self</span>::Js(s) =&gt; s.try_clone(store).map(VMMemory::Js),
-<a href=#249 id=249 data-nosnippet>249</a>        }
-<a href=#250 id=250 data-nosnippet>250</a>    }
-<a href=#251 id=251 data-nosnippet>251</a>
-<a href=#252 id=252 data-nosnippet>252</a>    <span class="doccomment">/// Attempts to clone this memory (if its cloneable) in a new store
-<a href=#253 id=253 data-nosnippet>253</a>    /// (cloned memory will be shared between those that clone it)
-<a href=#254 id=254 data-nosnippet>254</a>    </span><span class="attr">#[inline]
-<a href=#255 id=255 data-nosnippet>255</a>    </span><span class="kw">pub fn </span>share_in_store(
-<a href=#256 id=256 data-nosnippet>256</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#257 id=257 data-nosnippet>257</a>        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
-<a href=#258 id=258 data-nosnippet>258</a>        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-<a href=#259 id=259 data-nosnippet>259</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
-<a href=#260 id=260 data-nosnippet>260</a>        <span class="kw">if </span>!<span class="self">self</span>.ty(store).shared {
-<a href=#261 id=261 data-nosnippet>261</a>            <span class="comment">// We should only be able to duplicate in a new store if the memory is shared
-<a href=#262 id=262 data-nosnippet>262</a>            </span><span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::InvalidMemory {
-<a href=#263 id=263 data-nosnippet>263</a>                reason: <span class="string">"memory is not a shared memory type"</span>.to_string(),
-<a href=#264 id=264 data-nosnippet>264</a>            });
-<a href=#265 id=265 data-nosnippet>265</a>        }
-<a href=#266 id=266 data-nosnippet>266</a>
-<a href=#267 id=267 data-nosnippet>267</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#268 id=268 data-nosnippet>268</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#269 id=269 data-nosnippet>269</a>            </span><span class="self">Self</span>::Sys(s) =&gt; s
-<a href=#270 id=270 data-nosnippet>270</a>                .try_clone(store)
-<a href=#271 id=271 data-nosnippet>271</a>                .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, VMMemory::Sys(new_memory))),
-<a href=#272 id=272 data-nosnippet>272</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-<a href=#273 id=273 data-nosnippet>273</a>            </span><span class="self">Self</span>::V8(s) =&gt; s
-<a href=#274 id=274 data-nosnippet>274</a>                .try_clone(store)
-<a href=#275 id=275 data-nosnippet>275</a>                .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, VMMemory::V8(new_memory))),
-<a href=#276 id=276 data-nosnippet>276</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-<a href=#277 id=277 data-nosnippet>277</a>            </span><span class="self">Self</span>::Js(s) =&gt; s
-<a href=#278 id=278 data-nosnippet>278</a>                .try_clone(store)
-<a href=#279 id=279 data-nosnippet>279</a>                .map(|new_memory| <span class="self">Self</span>::new_from_existing(new_store, VMMemory::Js(new_memory))),
-<a href=#280 id=280 data-nosnippet>280</a>        }
-<a href=#281 id=281 data-nosnippet>281</a>    }
-<a href=#282 id=282 data-nosnippet>282</a>
-<a href=#283 id=283 data-nosnippet>283</a>    <span class="doccomment">/// Get a [`SharedMemory`].
-<a href=#284 id=284 data-nosnippet>284</a>    ///
-<a href=#285 id=285 data-nosnippet>285</a>    /// Only returns `Some(_)` if the memory is shared, and if the target
-<a href=#286 id=286 data-nosnippet>286</a>    /// backend supports shared memory operations.
-<a href=#287 id=287 data-nosnippet>287</a>    ///
-<a href=#288 id=288 data-nosnippet>288</a>    /// See [`SharedMemory`] and its methods for more information.
-<a href=#289 id=289 data-nosnippet>289</a>    </span><span class="attr">#[inline]
-<a href=#290 id=290 data-nosnippet>290</a>    </span><span class="kw">pub fn </span>as_shared(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Option</span>&lt;SharedMemory&gt; {
-<a href=#291 id=291 data-nosnippet>291</a>        <span class="kw">if </span>!<span class="self">self</span>.ty(store).shared {
-<a href=#292 id=292 data-nosnippet>292</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#293 id=293 data-nosnippet>293</a>        }
-<a href=#294 id=294 data-nosnippet>294</a>
-<a href=#295 id=295 data-nosnippet>295</a>        <span class="macro">match_rt!</span>(on <span class="self">self </span>=&gt; s {
-<a href=#296 id=296 data-nosnippet>296</a>            s.as_shared(store)
-<a href=#297 id=297 data-nosnippet>297</a>        })
-<a href=#298 id=298 data-nosnippet>298</a>    }
-<a href=#299 id=299 data-nosnippet>299</a>
-<a href=#300 id=300 data-nosnippet>300</a>    <span class="doccomment">/// Create a [`VMExtern`] from self.
-<a href=#301 id=301 data-nosnippet>301</a>    </span><span class="attr">#[inline]
-<a href=#302 id=302 data-nosnippet>302</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_vm_extern(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMExtern {
-<a href=#303 id=303 data-nosnippet>303</a>        <span class="macro">match_rt!</span>(on <span class="self">self </span>=&gt; s {
-<a href=#304 id=304 data-nosnippet>304</a>            s.to_vm_extern()
-<a href=#305 id=305 data-nosnippet>305</a>        })
-<a href=#306 id=306 data-nosnippet>306</a>    }
-<a href=#307 id=307 data-nosnippet>307</a>}</code></pre></div></section></main></body></html>
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="doccomment">/// Attempts to duplicate this memory in a new store with a byte-for-byte copy
+<a href=#174 id=174 data-nosnippet>174</a>    </span><span class="attr">#[inline]
+<a href=#175 id=175 data-nosnippet>175</a>    #[deprecated(
+<a href=#176 id=176 data-nosnippet>176</a>        since = <span class="string">"8.0.0"</span>,
+<a href=#177 id=177 data-nosnippet>177</a>        note = <span class="string">"Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
+<a href=#178 id=178 data-nosnippet>178</a>                Use `copy`, then `attach` on the thread owning the other `Store` instead."
+<a href=#179 id=179 data-nosnippet>179</a>    </span>)]
+<a href=#180 id=180 data-nosnippet>180</a>    </span><span class="kw">pub fn </span>copy_to_store(
+<a href=#181 id=181 data-nosnippet>181</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#182 id=182 data-nosnippet>182</a>        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
+<a href=#183 id=183 data-nosnippet>183</a>        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#184 id=184 data-nosnippet>184</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+<a href=#185 id=185 data-nosnippet>185</a>        <span class="self">self</span>.copy(store)
+<a href=#186 id=186 data-nosnippet>186</a>            .map(|new_memory| new_memory.attach(new_store).<span class="number">0</span>)
+<a href=#187 id=187 data-nosnippet>187</a>    }
+<a href=#188 id=188 data-nosnippet>188</a>
+<a href=#189 id=189 data-nosnippet>189</a>    <span class="attr">#[inline]
+<a href=#190 id=190 data-nosnippet>190</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_vm_extern(store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, vm_extern: VMExternMemory) -&gt; <span class="self">Self </span>{
+<a href=#191 id=191 data-nosnippet>191</a>        <span class="kw">match </span><span class="kw-2">&amp;</span>store.as_store_mut().inner.store {
+<a href=#192 id=192 data-nosnippet>192</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+<a href=#193 id=193 data-nosnippet>193</a>            </span><span class="kw">crate</span>::BackendStore::Sys(s) =&gt; <span class="self">Self</span>::Sys(
+<a href=#194 id=194 data-nosnippet>194</a>                <span class="kw">crate</span>::backend::sys::entities::memory::Memory::from_vm_extern(store, vm_extern),
+<a href=#195 id=195 data-nosnippet>195</a>            ),
+<a href=#196 id=196 data-nosnippet>196</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+<a href=#197 id=197 data-nosnippet>197</a>            </span><span class="kw">crate</span>::BackendStore::V8(s) =&gt; <span class="self">Self</span>::V8(
+<a href=#198 id=198 data-nosnippet>198</a>                <span class="kw">crate</span>::backend::v8::entities::memory::Memory::from_vm_extern(store, vm_extern),
+<a href=#199 id=199 data-nosnippet>199</a>            ),
+<a href=#200 id=200 data-nosnippet>200</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+<a href=#201 id=201 data-nosnippet>201</a>            </span><span class="kw">crate</span>::BackendStore::Js(s) =&gt; <span class="self">Self</span>::Js(
+<a href=#202 id=202 data-nosnippet>202</a>                <span class="kw">crate</span>::backend::js::entities::memory::Memory::from_vm_extern(store, vm_extern),
+<a href=#203 id=203 data-nosnippet>203</a>            ),
+<a href=#204 id=204 data-nosnippet>204</a>        }
+<a href=#205 id=205 data-nosnippet>205</a>    }
+<a href=#206 id=206 data-nosnippet>206</a>
+<a href=#207 id=207 data-nosnippet>207</a>    <span class="doccomment">/// Checks whether this `Memory` can be used with the given context.
+<a href=#208 id=208 data-nosnippet>208</a>    </span><span class="attr">#[inline]
+<a href=#209 id=209 data-nosnippet>209</a>    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
+<a href=#210 id=210 data-nosnippet>210</a>        <span class="macro">match_rt!</span>(on <span class="self">self </span>=&gt; s {
+<a href=#211 id=211 data-nosnippet>211</a>            s.is_from_store(store)
+<a href=#212 id=212 data-nosnippet>212</a>        })
+<a href=#213 id=213 data-nosnippet>213</a>    }
+<a href=#214 id=214 data-nosnippet>214</a>
+<a href=#215 id=215 data-nosnippet>215</a>    <span class="doccomment">/// Attempts to create a detached copied memory handle that can later be
+<a href=#216 id=216 data-nosnippet>216</a>    /// attached to a different store.
+<a href=#217 id=217 data-nosnippet>217</a>    </span><span class="attr">#[inline]
+<a href=#218 id=218 data-nosnippet>218</a>    </span><span class="kw">pub fn </span>copy(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Result</span>&lt;SharedMemory, MemoryError&gt; {
+<a href=#219 id=219 data-nosnippet>219</a>        <span class="macro">match_rt!</span>(on <span class="self">self </span>=&gt; s {
+<a href=#220 id=220 data-nosnippet>220</a>            s.copy(store)
+<a href=#221 id=221 data-nosnippet>221</a>        })
+<a href=#222 id=222 data-nosnippet>222</a>    }
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a>    <span class="doccomment">/// Attempts to clone this memory (if its cloneable) in a new store
+<a href=#225 id=225 data-nosnippet>225</a>    /// (cloned memory will be shared between those that clone it)
+<a href=#226 id=226 data-nosnippet>226</a>    </span><span class="attr">#[inline]
+<a href=#227 id=227 data-nosnippet>227</a>    #[deprecated(
+<a href=#228 id=228 data-nosnippet>228</a>        since = <span class="string">"8.0.0"</span>,
+<a href=#229 id=229 data-nosnippet>229</a>        note = <span class="string">"Since `Store` is no longer `Send + Sync`, this method cannot be used meaningfully. \
+<a href=#230 id=230 data-nosnippet>230</a>                Use `as_shared`, then `attach` on the thread owning the other `Store` instead."
+<a href=#231 id=231 data-nosnippet>231</a>    </span>)]
+<a href=#232 id=232 data-nosnippet>232</a>    </span><span class="kw">pub fn </span>share_in_store(
+<a href=#233 id=233 data-nosnippet>233</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#234 id=234 data-nosnippet>234</a>        store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef,
+<a href=#235 id=235 data-nosnippet>235</a>        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#236 id=236 data-nosnippet>236</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, MemoryError&gt; {
+<a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">if </span>!<span class="self">self</span>.ty(store).shared {
+<a href=#238 id=238 data-nosnippet>238</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryError::MemoryNotShared);
+<a href=#239 id=239 data-nosnippet>239</a>        }
+<a href=#240 id=240 data-nosnippet>240</a>
+<a href=#241 id=241 data-nosnippet>241</a>        <span class="self">self</span>.as_shared(store)
+<a href=#242 id=242 data-nosnippet>242</a>            .ok_or_else(shared_memory_detach_error)
+<a href=#243 id=243 data-nosnippet>243</a>            .map(|new_memory| new_memory.attach(new_store).<span class="number">0</span>)
+<a href=#244 id=244 data-nosnippet>244</a>    }
+<a href=#245 id=245 data-nosnippet>245</a>
+<a href=#246 id=246 data-nosnippet>246</a>    <span class="doccomment">/// Get a [`SharedMemory`].
+<a href=#247 id=247 data-nosnippet>247</a>    ///
+<a href=#248 id=248 data-nosnippet>248</a>    /// Only returns `Some(_)` if the memory is shared, and if the target
+<a href=#249 id=249 data-nosnippet>249</a>    /// backend supports shared memory operations.
+<a href=#250 id=250 data-nosnippet>250</a>    ///
+<a href=#251 id=251 data-nosnippet>251</a>    /// See [`SharedMemory`] and its methods for more information.
+<a href=#252 id=252 data-nosnippet>252</a>    </span><span class="attr">#[inline]
+<a href=#253 id=253 data-nosnippet>253</a>    </span><span class="kw">pub fn </span>as_shared(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; <span class="prelude-ty">Option</span>&lt;SharedMemory&gt; {
+<a href=#254 id=254 data-nosnippet>254</a>        <span class="kw">if </span>!<span class="self">self</span>.ty(store).shared {
+<a href=#255 id=255 data-nosnippet>255</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href=#256 id=256 data-nosnippet>256</a>        }
+<a href=#257 id=257 data-nosnippet>257</a>
+<a href=#258 id=258 data-nosnippet>258</a>        <span class="macro">match_rt!</span>(on <span class="self">self </span>=&gt; s {
+<a href=#259 id=259 data-nosnippet>259</a>            s.as_shared(store)
+<a href=#260 id=260 data-nosnippet>260</a>        })
+<a href=#261 id=261 data-nosnippet>261</a>    }
+<a href=#262 id=262 data-nosnippet>262</a>
+<a href=#263 id=263 data-nosnippet>263</a>    <span class="doccomment">/// Create a [`VMExtern`] from self.
+<a href=#264 id=264 data-nosnippet>264</a>    </span><span class="attr">#[inline]
+<a href=#265 id=265 data-nosnippet>265</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_vm_extern(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; VMExtern {
+<a href=#266 id=266 data-nosnippet>266</a>        <span class="macro">match_rt!</span>(on <span class="self">self </span>=&gt; s {
+<a href=#267 id=267 data-nosnippet>267</a>            s.to_vm_extern()
+<a href=#268 id=268 data-nosnippet>268</a>        })
+<a href=#269 id=269 data-nosnippet>269</a>    }
+<a href=#270 id=270 data-nosnippet>270</a>}</code></pre></div></section></main></body></html>
