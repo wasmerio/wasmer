@@ -145,7 +145,7 @@ cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
 
 # --- Enable the v8 backend and use it as default backend.
-v8 = ["wasm-c-api", "std", "dep:which", "dep:xz", "dep:ureq"]
+v8 = ["wasm-c-api", "std", "dep:tempfile", "dep:which", "dep:xz", "dep:ureq"]
 # --- Enable the v8 backend and use it as defaul backend only if it is the only one enabled.
 v8-default = ["v8", "wat"]
 
@@ -178,6 +178,7 @@ static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 [build-dependencies]
 cmake.workspace = true
 tar.workspace = true
+tempfile = { workspace = true, optional = true }
 ureq = { workspace = true, optional = true }
 which = { workspace = true, optional = true }
 xz = { workspace = true, optional = true }
