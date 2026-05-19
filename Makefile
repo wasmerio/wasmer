@@ -296,7 +296,9 @@ build_wasmer_extra_features_csv = $(subst $(space),$(comma),$(build_wasmer_extra
 test_compilers := $(compilers)
 ifeq ($(IS_LINUX), 1)
 	ifeq ($(IS_AMD64), 1)
-		test_compilers += v8
+		ifneq ($(LIBC), musl)
+			test_compilers += v8
+		endif
 	endif
 endif
 test_compilers := $(strip $(test_compilers))
