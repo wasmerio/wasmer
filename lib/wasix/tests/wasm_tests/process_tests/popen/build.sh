@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+##BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
 ##Config: posix_spawn_direct
 ##Args: posix_spawn_direct
 

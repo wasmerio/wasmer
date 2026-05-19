@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+##BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
 ##Config: flag_tests
 ##Args: flag_tests
 
