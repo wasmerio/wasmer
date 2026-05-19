@@ -16,11 +16,13 @@ static void* dlopen_loop(void* arg) {
   (void)arg;
   for (int i = 0; i < DL_ITERATIONS; i++) {
     void* h = dlopen("./libside.so", RTLD_NOW | RTLD_GLOBAL);
-    if (h) {
-      int (*f)(int) = (int (*)(int))dlsym(h, "side_func");
-      if (!f || f(5) != 10) abort();
-      dlclose(h);
+    if (!h) {
+      fprintf(stderr, "dlopen failed: %s\n", dlerror());
+      abort();
     }
+    int (*f)(int) = (int (*)(int))dlsym(h, "side_func");
+    if (!f || f(5) != 10) abort();
+    dlclose(h);
     usleep(40);
   }
   return NULL;

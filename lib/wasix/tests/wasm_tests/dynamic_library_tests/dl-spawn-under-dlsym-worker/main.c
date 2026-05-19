@@ -32,6 +32,7 @@ static void* dlsym_worker(void* arg) {
       break;
     }
     if (fn(11) != 22) {
+      atomic_store(&worker_failed, 1);
       atomic_store(&stop_dlsym, 1);
       dlclose(handle);
       return NULL;

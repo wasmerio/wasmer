@@ -173,7 +173,10 @@ impl VirtualTaskManager for TokioTaskManager {
             tracing::trace!("spawning task_wasm trigger in async pool");
             self.pool.execute(move || {
                 let (mut ctx, mut store, callbacks) = match env_and_store(task) {
-                    Ok(x) => x,
+                    Ok(x) => {
+                        sx.send(Ok(())).unwrap();
+                        x
+                    }
                     Err(c) => {
                         tracing::error!("failed to prepare environment for task_wasm trigger: {c}");
                         sx.send(Err(c)).unwrap();
