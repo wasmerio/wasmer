@@ -1,3 +1,4 @@
+//#BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>

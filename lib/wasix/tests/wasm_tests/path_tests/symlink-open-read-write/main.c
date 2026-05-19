@@ -1,3 +1,7 @@
+//#PrefilledFile: target.txt:host-prefix:
+//#ExpectedStdout: 0
+//#ExpectedFile: target.txt:host-prefix: bla
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>

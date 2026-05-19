@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+##Ignored: #6595: HeapAccessOutOfBounds
+
 set -e
 export WASIXCC_PIC=1
 $CXX -c -fPIC library.cpp -o library.o

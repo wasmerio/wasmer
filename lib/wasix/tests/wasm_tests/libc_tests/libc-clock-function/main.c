@@ -1,3 +1,4 @@
+//#ExpectedStdout: Clock works.
 #include <stdio.h>
 #include <time.h>
 

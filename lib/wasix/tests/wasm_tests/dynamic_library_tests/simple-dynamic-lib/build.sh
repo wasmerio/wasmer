@@ -1,4 +1,5 @@
 #!/bin/bash
+##ExpectedStdout: The shared library returned: 42
 set -ex
 export WASIXCC_PIC=1
 

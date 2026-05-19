@@ -11,6 +11,13 @@ homepage.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+autotests = false
+
+[[test]]
+name = "wasm_tests"
+path = "tests/wasm_tests.rs"
+harness = false
+required-features = ["sys-thread"]
 
 [dependencies]
 wasmer-package.workspace = true
@@ -127,6 +134,10 @@ pin-utils.workspace = true
 wasmparser.workspace = true
 crossbeam-channel.workspace = true
 bus.workspace = true
+libtest-mimic.workspace = true
+walkdir.workspace = true
+fs_extra.workspace = true
+itertools.workspace = true
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true
@@ -167,6 +178,7 @@ tokio = { workspace = true, features = [
 ], default-features = false }
 pretty_assertions.workspace = true
 tracing-test.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 wasm-bindgen-test.workspace = true
 env_logger = { workspace = true, default-features = false }
 log.workspace = true
@@ -178,7 +190,6 @@ wasm-bindgen-test.workspace = true
 tracing-wasm.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tracing-subscriber.workspace = true
 wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = [
   "wat",
   "js-serializable-module",

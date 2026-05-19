@@ -1,4 +1,5 @@
 #!/bin/bash
+##ExpectedStdout: .Nothing weird happened
 set -ex
 export WASIXCC_PIC=1
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+##ExpectedStdout: called
 set -ex
 export WASIXCC_PIC=1
 

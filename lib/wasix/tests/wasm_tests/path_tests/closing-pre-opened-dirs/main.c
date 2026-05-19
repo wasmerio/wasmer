@@ -1,3 +1,4 @@
+//#ExpectedStdout: 0
 #include <assert.h>
 #include <dirent.h>
 #include <stdio.h>

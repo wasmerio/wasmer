@@ -1,205 +1,7 @@
-/// Build a WASM test and run it, asserting success or checking stdout.
-///
-/// # Forms
-///
-/// ```ignore
-/// // Build the test in `<module>/<subdir>/`, run it, assert exit 0.
-/// wasm_test!(fn_name, "subdir");
-///
-/// // Same, but assert the process exits non-zero.
-/// wasm_test!(fn_name, "subdir", should_fail);
-///
-/// // Assert the process exits with a specific code.
-/// wasm_test!(fn_name, "subdir", exit_code = 134);
-///
-/// // Assert the trimmed stdout equals the given string literal.
-/// wasm_test!(fn_name, "subdir", stdout = "expected output");
-///
-/// // Pass argv to the test binary and assert exit 0.
-/// wasm_test!(fn_name, "subdir", args = ["case-name"]);
-///
-/// // Run inside a fresh temp dir instead of `<module>/<subdir>/`.
-/// wasm_test!(fn_name, "subdir", temp_dir);
-///
-/// // Temp dir can be combined with other checks.
-/// wasm_test!(fn_name, "subdir", temp_dir, stdout = "expected output");
-///
-/// // Any of the above may be prefixed with Rust attributes.
-/// wasm_test!(#[cfg(unix)] #[ignore = "reason"] fn_name, "subdir");
-/// ```
-macro_rules! wasm_test {
-    (@setup default, $wasm:ident, $run_dir:ident, $temp_dir:ident) => {
-        let $run_dir = $wasm.parent().unwrap();
-    };
-    (@setup temp_dir, $wasm:ident, $run_dir:ident, $temp_dir:ident) => {
-        let $temp_dir = tempfile::tempdir().unwrap();
-        let $run_dir = $temp_dir.path();
-    };
-    (@run $wasm:ident, $run_dir:expr, []) => {
-        super::run_wasm_with_runner_config(&$wasm, $run_dir, |_| {})
-    };
-    (@run $wasm:ident, $run_dir:expr, [$($arg:expr),+ $(,)?]) => {
-        super::run_wasm_with_runner_config(&$wasm, $run_dir, |runner| {
-            runner.with_args([$($arg),+]);
-        })
-    };
-    // ── base case used by all public forms ────────────────────────────────
-    (
-        @base
-        $(#[$attr:meta])*
-        $fn_name:ident,
-        $subdir:literal,
-        setup = $setup:ident,
-        args = [$($arg:expr),* $(,)?],
-        |$result:ident| $body:block
-    ) => {
-        $(#[$attr])*
-        #[test]
-        fn $fn_name() {
-            let wasm = super::run_build_script(file!(), $subdir)
-                .unwrap_or_else(|error| panic!("failed to build {}: {error}", stringify!($fn_name)));
-            wasm_test!(@setup $setup, wasm, run_dir, temp_dir);
-            let $result = wasm_test!(@run wasm, run_dir, [$($arg),*])
-                .unwrap_or_else(|error| panic!("failed to execute {}: {error}", stringify!($fn_name)));
-            $body
-        }
-    };
-    // ── success with argv ──────────────────────────────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, args = [$($arg:expr),* $(,)?]) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [$($arg),*], |result| {
-            super::ensure_wasm_run_succeeded(&result).unwrap();
-        });
-    };
-    // ── success with argv in a fresh temp dir ──────────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, args = [$($arg:expr),* $(,)?]) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [$($arg),*], |result| {
-            super::ensure_wasm_run_succeeded(&result).unwrap();
-        });
-    };
-    // ── success ────────────────────────────────────────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [], |result| {
-            super::ensure_wasm_run_succeeded(&result).unwrap();
-        });
-    };
-    // ── success in a fresh temp dir ────────────────────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], |result| {
-            super::ensure_wasm_run_succeeded(&result).unwrap();
-        });
-    };
-    // ── expect non-zero exit ───────────────────────────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, should_fail) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [], |result| {
-            assert!(
-                result.exit_code != Some(0),
-                "{} should exit with non-zero code\n{}",
-                stringify!($fn_name),
-                super::format_captured_output(&result),
-            );
-        });
-    };
-    // ── expect non-zero exit in a fresh temp dir ───────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, should_fail) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], |result| {
-            assert!(
-                result.exit_code != Some(0),
-                "{} should exit with non-zero code\n{}",
-                stringify!($fn_name),
-                super::format_captured_output(&result),
-            );
-        });
-    };
-    // ── expect specific exit code ──────────────────────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, exit_code = $expected:expr) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [], |result| {
-            assert_eq!(
-                result.exit_code,
-                Some($expected),
-                "{} should exit with code {:?}\n{}",
-                stringify!($fn_name),
-                Some($expected),
-                super::format_captured_output(&result),
-            );
-        });
-    };
-    // ── expect specific exit code in a fresh temp dir ──────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, exit_code = $expected:expr) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], |result| {
-            assert_eq!(
-                result.exit_code,
-                Some($expected),
-                "{} should exit with code {:?}\n{}",
-                stringify!($fn_name),
-                Some($expected),
-                super::format_captured_output(&result),
-            );
-        });
-    };
-    // ── check trimmed stdout ───────────────────────────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, stdout = $expected:literal) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = default, args = [], |result| {
-            let stdout = String::from_utf8_lossy(&result.stdout);
-            assert_eq!(
-                stdout.trim(),
-                $expected,
-                "{}",
-                super::format_captured_output(&result),
-            );
-        });
-    };
-    // ── check trimmed stdout in a fresh temp dir ───────────────────────────
-    ($(#[$attr:meta])* $fn_name:ident, $subdir:literal, temp_dir, stdout = $expected:literal) => {
-        wasm_test!(@base $(#[$attr])* $fn_name, $subdir, setup = temp_dir, args = [], |result| {
-            let stdout = String::from_utf8_lossy(&result.stdout);
-            assert_eq!(
-                stdout.trim(),
-                $expected,
-                "{}",
-                super::format_captured_output(&result),
-            );
-        });
-    };
-}
-
-mod basic_tests;
-mod call_dynamic;
-mod closure_free;
-mod context_destroy;
-mod context_switch;
-mod context_switching;
-mod dynamic_call_and_closure_tests;
-mod dynamic_library_tests;
-mod edge_case_tests;
-mod exception_tests;
-mod exit_tests;
-mod fd_dup2;
-mod fd_fdflags_get;
-mod fd_fdflags_set;
-mod fd_fdstat_set_rights;
-mod fd_tell;
-mod fd_tests;
-mod libc_tests;
-mod lifecycle_tests;
-mod longjmp_tests;
-mod path_tests;
-mod poll_tests;
-mod proc_exec3;
-mod proc_exec3_empty_argv;
-mod proc_exec3_errors;
-mod process_tests;
-mod pthread_tests;
-mod reflect_signature;
-mod reflection_tests;
-mod sched_yield;
-mod semaphore_tests;
-mod shared_library_tests;
-mod socket_tests;
-mod threadlocal_tests;
-
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::num::NonZero;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::process::Command;
@@ -214,9 +16,10 @@ use wasmer_wasix::runners::wasi::{RuntimeOrEngine, WasiRunner};
 use wasmer_wasix::runtime::module_cache::{HashedModuleData, ModuleCache};
 use wasmer_wasix::virtual_fs::{AsyncRead, AsyncSeek, AsyncWrite};
 
+use crate::Engine;
+
 static TRACE_SUBSCRIBER_INIT: OnceLock<()> = OnceLock::new();
 static TRACE_CAPTURE_STATE: OnceLock<TraceCaptureState> = OnceLock::new();
-static BUILD_LOCKS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceLock::new();
 
 #[derive(Default)]
 struct TraceCaptureState {
@@ -255,15 +58,6 @@ impl Write for TraceWriter {
 
 fn trace_capture_state() -> &'static TraceCaptureState {
     TRACE_CAPTURE_STATE.get_or_init(TraceCaptureState::default)
-}
-
-fn build_lock_for(test_path: &Path) -> Arc<Mutex<()>> {
-    let locks = BUILD_LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut locks = locks.lock().unwrap();
-    locks
-        .entry(test_path.to_path_buf())
-        .or_insert_with(|| Arc::new(Mutex::new(())))
-        .clone()
 }
 
 fn init_trace_capture() {
@@ -421,127 +215,6 @@ impl std::io::Seek for CaptureFile {
     }
 }
 
-/// Find the single C/C++ source file to compile in a directory with no `build.sh`.
-///
-/// Priority order: `main.c` → `main.cpp` → the only `.c` file → the only `.cpp` file.
-/// Returns `(compiler, source_filename)`.
-fn find_source_file(dir: &Path) -> Result<(String, String), anyhow::Error> {
-    let cc = std::env::var("CC").unwrap_or_else(|_| "wasixcc".to_string());
-    let cxx = std::env::var("CXX").unwrap_or_else(|_| "wasix++".to_string());
-
-    if dir.join("main.c").exists() {
-        return Ok((cc, "main.c".to_string()));
-    }
-    if dir.join("main.cpp").exists() {
-        return Ok((cxx, "main.cpp".to_string()));
-    }
-
-    // Fall back to the sole .c / .cpp file in the directory.
-    let c_files: Vec<_> = std::fs::read_dir(dir)?
-        .filter_map(|e| e.ok())
-        .map(|e| e.file_name().to_string_lossy().into_owned())
-        .filter(|n| n.ends_with(".c") && !n.ends_with(".cpp"))
-        .collect();
-    if c_files.len() == 1 {
-        return Ok((cc, c_files.into_iter().next().unwrap()));
-    }
-
-    let cpp_files: Vec<_> = std::fs::read_dir(dir)?
-        .filter_map(|e| e.ok())
-        .map(|e| e.file_name().to_string_lossy().into_owned())
-        .filter(|n| n.ends_with(".cpp"))
-        .collect();
-    if cpp_files.len() == 1 {
-        return Ok((cxx, cpp_files.into_iter().next().unwrap()));
-    }
-
-    anyhow::bail!(
-        "No build.sh and could not find a unique compilable source in {}. \
-         Add a build.sh or ensure there is exactly one .c / .cpp file.",
-        dir.display()
-    )
-}
-
-/// Build a test's WASM binary.
-///
-/// Locates the test directory from the calling file's name (`file!()`),
-/// then either runs the directory's `build.sh` or, when no `build.sh` is
-/// present, compiles `main.c` / `main.cpp` directly with wasixcc/wasix++.
-///
-/// # Arguments
-/// * `file` - The test file path (use `file!()` at the call site)
-/// * `test_dir` - Subdirectory relative to the test file's directory;
-///   use `""` or `"."` to target the test file's own directory
-///
-/// # Returns
-/// Path to the compiled `main` binary
-pub fn run_build_script(file: &str, test_dir: &str) -> Result<PathBuf, anyhow::Error> {
-    let input_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/wasm_tests")
-        .join(PathBuf::from(
-            file.split('/')
-                .next_back()
-                .expect("The test file name cannot be empty")
-                .trim_end_matches(".rs"),
-        ));
-
-    let test_path = input_dir.join(test_dir);
-    let build_script = test_path.join("build.sh");
-    let build_lock = build_lock_for(&test_path);
-    let _build_guard = build_lock.lock().unwrap();
-
-    // Read optional per-test env overrides from `build.env` (KEY=VALUE, one per line).
-    let build_env: Vec<(String, String)> = {
-        let env_file = test_path.join("build.env");
-        if env_file.exists() {
-            std::fs::read_to_string(&env_file)?
-                .lines()
-                .filter(|l| !l.trim().is_empty() && !l.trim_start().starts_with('#'))
-                .filter_map(|l| {
-                    let (k, v) = l.split_once('=')?;
-                    Some((k.trim().to_string(), v.trim().to_string()))
-                })
-                .collect()
-        } else {
-            vec![]
-        }
-    };
-
-    let mut cmd = if build_script.exists() {
-        let mut cmd = Command::new("bash");
-        cmd.arg(&build_script)
-            .current_dir(&test_path)
-            .env("CC", "wasixcc")
-            .env("CXX", "wasix++")
-            .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
-        cmd
-    } else {
-        // No build.sh — find a compilable source file and invoke the compiler directly.
-        // Priority: main.c > main.cpp > any single .c > any single .cpp
-        let (compiler, source) = find_source_file(&test_path)?;
-        let mut cmd = Command::new(&compiler);
-        cmd.arg(&source)
-            .arg("-o")
-            .arg("main")
-            .current_dir(&test_path)
-            .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
-        cmd
-    };
-
-    for (k, v) in &build_env {
-        cmd.env(k, v);
-    }
-    let output = cmd.output()?;
-
-    if !output.status.success() {
-        eprintln!("Build stdout: {}", String::from_utf8_lossy(&output.stdout));
-        eprintln!("Build stderr: {}", String::from_utf8_lossy(&output.stderr));
-        anyhow::bail!("Build failed for {}", test_path.display());
-    }
-
-    Ok(test_path.join("main"))
-}
-
 /// Create a tokio runtime for async operations.
 /// This is a helper to avoid duplicating runtime creation code.
 fn create_runtime() -> tokio::runtime::Runtime {
@@ -576,47 +249,44 @@ fn get_cache_dir() -> PathBuf {
     }
 }
 
-fn create_engine_for_wasm(wasm_bytes: &[u8]) -> wasmer::Engine {
-    #[cfg(target_os = "macos")]
-    {
-        use wasmer::{sys::EngineBuilder, sys::Target};
+fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
+    use wasmer::{sys::EngineBuilder, sys::Target};
 
-        // On macOS, the default Cranelift backend has limited support for the features
-        // required by these tests, especially exception handling. Use the slower LLVM
-        // backend instead so the WASIX test suite can run reliably on macOS.
-        let target = Target::default();
-        let features = wasmer_types::Features::detect_from_wasm(wasm_bytes).unwrap_or_else(|_| {
-            wasmer::Engine::default_features_for_backend(&wasmer::BackendKind::LLVM, &target)
-        });
+    let target = Target::default();
+    let backend = match engine {
+        Engine::Cranelift => wasmer::BackendKind::Cranelift,
+        Engine::LLVM => wasmer::BackendKind::LLVM,
+    };
+    let features = wasmer_types::Features::detect_from_wasm(wasm_bytes)
+        .unwrap_or_else(|_| wasmer::Engine::default_features_for_backend(&backend, &target));
 
-        let compiler = wasmer::sys::LLVM::default();
-
-        EngineBuilder::new(compiler)
-            .set_features(Some(features))
-            .set_target(Some(target))
-            .engine()
-            .into()
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    {
-        let _ = wasm_bytes;
-        wasmer::Engine::default()
-    }
+    // We're going to run many parallel tests and so we use just a single thread for compilation.
+    let engine = match engine {
+        Engine::Cranelift => {
+            let mut config = wasmer::sys::Cranelift::default();
+            config.num_threads(NonZero::new(1).unwrap());
+            EngineBuilder::new(config)
+        }
+        Engine::LLVM => {
+            let mut config = wasmer::sys::LLVM::default();
+            config.num_threads(NonZero::new(1).unwrap());
+            EngineBuilder::new(config)
+        }
+    };
+    engine
+        .set_features(Some(features))
+        .set_target(Some(target))
+        .engine()
+        .into()
 }
 
 /// Result from running a WASM program, including captured output and exit status
-pub struct WasmRunResult {
-    #[allow(dead_code)]
-    pub stdout: Vec<u8>,
-    #[allow(dead_code)]
-    pub stderr: Vec<u8>,
-    #[allow(dead_code)]
-    pub trace_output: Vec<u8>,
-    #[allow(dead_code)]
-    pub exit_code: Option<i32>,
-    #[allow(dead_code)]
-    pub error: Option<String>,
+pub(crate) struct WasmRunResult {
+    pub(crate) stdout: Vec<u8>,
+    pub(crate) stderr: Vec<u8>,
+    pub(crate) trace_output: Vec<u8>,
+    pub(crate) exit_code: i32,
+    pub(crate) error: Option<String>,
 }
 
 fn format_captured_output(result: &WasmRunResult) -> String {
@@ -648,21 +318,22 @@ fn format_captured_output(result: &WasmRunResult) -> String {
 ///
 /// The caching significantly improves test performance by avoiding recompilation
 /// of the same WASM modules across multiple test runs.
-pub fn run_wasm_with_result(
+pub(crate) fn run_wasm_with_result(
     wasm_path: &PathBuf,
     dir: &Path,
 ) -> Result<WasmRunResult, anyhow::Error> {
-    run_wasm_with_runner_config(wasm_path, dir, |_| {})
+    run_wasm_with_runner_config(wasm_path, dir, Engine::Cranelift, |_| {})
 }
 
-pub fn run_wasm_with_runner_config(
+pub(crate) fn run_wasm_with_runner_config(
     wasm_path: &PathBuf,
     dir: &Path,
+    compiler: Engine,
     configure_runner: impl FnOnce(&mut WasiRunner),
 ) -> Result<WasmRunResult, anyhow::Error> {
     // Load the compiled WASM module
     let wasm_bytes = std::fs::read(wasm_path)?;
-    let engine = create_engine_for_wasm(&wasm_bytes);
+    let engine = create_engine_for_wasm(&wasm_bytes, compiler);
     let module_data = HashedModuleData::new(wasm_bytes);
     let hash = *module_data.hash();
 
@@ -738,20 +409,23 @@ pub fn run_wasm_with_runner_config(
     let stdout = stdout_buffer.lock().unwrap().clone();
     let stderr = stderr_buffer.lock().unwrap().clone();
 
+    const UNKNOWN_EXIT_CODE: i32 = i32::MAX;
+
     // Extract exit code from result
     let exit_code = match &result {
-        Ok(_) => Some(0),
+        Ok(_) => 0,
         Err(e) => {
             // Try to extract exit code from error message
             let error_msg = e.to_string();
             if let Some(code_str) = error_msg.split("ExitCode::").nth(1) {
                 if let Some(code) = code_str.split_whitespace().next() {
-                    code.parse::<i32>().ok()
+                    code.parse::<i32>()
+                        .expect("exit code cannot be parsed: `{error_msg}`")
                 } else {
-                    None
+                    UNKNOWN_EXIT_CODE
                 }
             } else {
-                None
+                UNKNOWN_EXIT_CODE
             }
         }
     };
@@ -763,34 +437,4 @@ pub fn run_wasm_with_runner_config(
         exit_code,
         error: result.as_ref().err().map(ToString::to_string),
     })
-}
-
-/// Run a compiled WASM file using WasiRunner
-#[allow(unused)]
-pub fn run_wasm(wasm_path: &PathBuf, dir: &Path) -> Result<(), anyhow::Error> {
-    let result = run_wasm_with_result(wasm_path, dir)?;
-    ensure_wasm_run_succeeded(&result)
-}
-
-#[allow(unused)]
-pub fn run_wasm_with_runner_config_checked(
-    wasm_path: &PathBuf,
-    dir: &Path,
-    configure_runner: impl FnOnce(&mut WasiRunner),
-) -> Result<(), anyhow::Error> {
-    let result = run_wasm_with_runner_config(wasm_path, dir, configure_runner)?;
-    ensure_wasm_run_succeeded(&result)
-}
-
-fn ensure_wasm_run_succeeded(result: &WasmRunResult) -> Result<(), anyhow::Error> {
-    // Preserve the historical behavior here: only an explicit non-zero exit
-    // is treated as failure. Some fixtures currently surface loader/runtime
-    // errors without a parsed exit code.
-    if let Some(code) = result.exit_code
-        && code != 0
-    {
-        anyhow::bail!(format_captured_output(result));
-    }
-
-    Ok(())
 }
