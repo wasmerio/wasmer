@@ -1,5 +1,3 @@
-use wasmer_types::MemoryError;
-
 use crate::error::AtomicsError;
 
 /// Location in a WebAssembly memory.
@@ -27,13 +25,13 @@ impl From<u32> for MemoryLocation {
 /// See [`crate::SharedMemory`].
 pub(crate) trait SharedMemoryOps {
     /// See [`crate::SharedMemory::disable_atomics`].
-    fn disable_atomics(&self) -> Result<(), MemoryError> {
-        Err(MemoryError::AtomicsNotSupported)
+    fn disable_atomics(&self) -> Result<(), AtomicsError> {
+        Err(AtomicsError::Unimplemented)
     }
 
     /// See [`crate::SharedMemory::wake_all_atomic_waiters`].
-    fn wake_all_atomic_waiters(&self) -> Result<(), MemoryError> {
-        Err(MemoryError::AtomicsNotSupported)
+    fn wake_all_atomic_waiters(&self) -> Result<(), AtomicsError> {
+        Err(AtomicsError::Unimplemented)
     }
 
     /// See [`crate::SharedMemory::notify`].

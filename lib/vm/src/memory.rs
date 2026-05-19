@@ -18,9 +18,8 @@ use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
 use std::ptr::NonNull;
-use std::rc::Rc;
 use std::slice;
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use wasmer_types::{Bytes, MemoryError, MemoryStyle, MemoryType, Pages, WASM_PAGE_SIZE};
 
@@ -34,6 +33,13 @@ struct WasmMmap {
     /// The owned memory definition used by the generated code
     vm_memory_definition: MaybeInstanceOwned<VMMemoryDefinition>,
 }
+
+/// # SAFETY: Not safe by rust standards, since guest code may do weird things
+/// with its memory. However, this is still safe to send across threads as
+/// far as the WASM spec is concerned.
+unsafe impl Send for WasmMmap {}
+/// # SAFETY: see above.
+unsafe impl Sync for WasmMmap {}
 
 impl WasmMmap {
     fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
@@ -154,7 +160,7 @@ impl WasmMmap {
 
     /// Copies the memory
     /// (in this case it performs a copy-on-write to save memory)
-    pub fn copy(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&self) -> Result<Self, MemoryError> {
         let mem_length = self.size.bytes().0;
         let mut alloc = self
             .alloc
@@ -378,14 +384,14 @@ impl VMOwnedMemory {
     /// Converts this owned memory into shared memory
     pub fn to_shared(self) -> VMSharedMemory {
         VMSharedMemory {
-            mmap: Rc::new(RwLock::new(self.mmap)),
+            mmap: Arc::new(RwLock::new(self.mmap)),
             config: self.config,
             conditions: ThreadConditions::new(),
         }
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&mut self) -> Result<Self, MemoryError> {
+    pub fn copy(&self) -> Result<Self, MemoryError> {
         Ok(Self {
             mmap: self.mmap.copy()?,
             config: self.config.clone(),
@@ -437,12 +443,12 @@ impl LinearMemory for VMOwnedMemory {
     }
 
     /// Owned memory can not be cloned (this will always return None)
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         Err(MemoryError::MemoryNotShared)
     }
 
     /// Copies this memory to a new memory
-    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
@@ -452,15 +458,12 @@ impl LinearMemory for VMOwnedMemory {
 #[derive(Debug, Clone)]
 pub struct VMSharedMemory {
     // The underlying allocation.
-    mmap: Rc<RwLock<WasmMmap>>,
+    mmap: Arc<RwLock<WasmMmap>>,
     // Configuration of this memory
     config: VMMemoryConfig,
     // waiters list for this memory
     conditions: ThreadConditions,
 }
-
-unsafe impl Send for VMSharedMemory {}
-unsafe impl Sync for VMSharedMemory {}
 
 impl VMSharedMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
@@ -532,10 +535,10 @@ impl VMSharedMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&mut self) -> Result<Self, MemoryError> {
-        let mut guard = self.mmap.write().unwrap();
+    pub fn copy(&self) -> Result<Self, MemoryError> {
+        let guard = self.mmap.read().unwrap();
         Ok(Self {
-            mmap: Rc::new(RwLock::new(guard.copy()?)),
+            mmap: Arc::new(RwLock::new(guard.copy()?)),
             config: self.config.clone(),
             conditions: ThreadConditions::new(),
         })
@@ -593,12 +596,12 @@ impl LinearMemory for VMSharedMemory {
     }
 
     /// Shared memory can always be cloned
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         Ok(Box::new(self.clone()))
     }
 
     /// Copies this memory to a new memory
-    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
@@ -641,10 +644,10 @@ impl From<VMSharedMemory> for VMMemory {
 
 /// Represents linear memory that can be either owned or shared
 #[derive(Debug)]
-pub struct VMMemory(pub Box<dyn LinearMemory + 'static>);
+pub struct VMMemory(pub Box<dyn LinearMemory + Send + Sync + 'static>);
 
-impl From<Box<dyn LinearMemory + 'static>> for VMMemory {
-    fn from(mem: Box<dyn LinearMemory + 'static>) -> Self {
+impl From<Box<dyn LinearMemory + Send + Sync + 'static>> for VMMemory {
+    fn from(mem: Box<dyn LinearMemory + Send + Sync + 'static>) -> Self {
         Self(mem)
     }
 }
@@ -691,7 +694,7 @@ impl LinearMemory for VMMemory {
     }
 
     /// Attempts to clone this memory (if its cloneable)
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         self.0.try_clone()
     }
 
@@ -701,7 +704,7 @@ impl LinearMemory for VMMemory {
     }
 
     /// Copies this memory to a new memory
-    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         self.0.copy()
     }
 
@@ -785,8 +788,13 @@ impl VMMemory {
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+    pub fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         LinearMemory::copy(self)
+    }
+
+    /// Attempts to clone this memory handle.
+    pub fn try_clone(&self) -> Result<Self, MemoryError> {
+        LinearMemory::try_clone(self).map(Self)
     }
 }
 
@@ -846,7 +854,7 @@ where
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
 
     /// Attempts to clone this memory (if its cloneable)
-    fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
+    fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError>;
 
     #[doc(hidden)]
     /// # Safety
@@ -861,7 +869,7 @@ where
     }
 
     /// Copies this memory to a new memory
-    fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
+    fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError>;
 
     /// Add current thread to the waiter hash, and wait until notified or timeout.
     /// Return 0 if the waiter has been notified, 1 if there was a value mismatch,

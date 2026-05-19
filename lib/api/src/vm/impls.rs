@@ -52,6 +52,20 @@ impl VMExternRef {
     }
 }
 
+impl VMMemory {
+    /// Attempts to clone this memory handle.
+    pub(crate) fn try_clone(&self) -> Result<Self, wasmer_types::MemoryError> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.try_clone().map(Self::Sys),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => s.try_clone().map(Self::V8),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.try_clone().map(Self::Js),
+        }
+    }
+}
+
 impl VMExceptionRef {
     /// Converts the `VMExternRef` into a `RawValue`.
     pub fn into_raw(self) -> RawValue {
