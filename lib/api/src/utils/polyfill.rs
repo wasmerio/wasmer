@@ -379,6 +379,8 @@ pub fn wpreftype_to_type(ty: wasmparser::RefType) -> WasmResult<Type> {
         Ok(Type::ExternRef)
     } else if ty.is_func_ref() {
         Ok(Type::FuncRef)
+    } else if ty.as_non_null() == wasmparser::RefType::EXN {
+        Ok(Type::ExceptionRef)
     } else {
         Err(format!("Unsupported ref type: {ty:?}"))
     }

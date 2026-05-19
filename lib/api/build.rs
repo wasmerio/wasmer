@@ -3,7 +3,7 @@ fn build_v8() {
     use bindgen::callbacks::ParseCallbacks;
     use std::{
         env, fs,
-        path::{Path, PathBuf},
+        path::PathBuf,
         sync::{LazyLock, Mutex},
     };
 
@@ -18,7 +18,7 @@ fn build_v8() {
     ) {
         ("macos", "aarch64", _) => ("v8-darwin-aarch64.tar.xz", "darwin-aarch64"),
         ("linux", "x86_64", "gnu") => ("v8-linux-amd64.tar.xz", "linux-amd64"),
-        ("linux", "x86_64", "musl") => ("v8-linux-musl-amd64.tar.xz", "linux-musl-amd64"),
+        ("linux", "x86_64", "musl") => ("v8-linux-musl.tar.xz", "linux-musl-amd64"),
         ("android", "aarch64", _) => ("v8-android-arm64.tar.xz", "android-arm64"),
         // Not supported in 6.0.0-alpha1
         //("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-windows-amd64.tar.xz",

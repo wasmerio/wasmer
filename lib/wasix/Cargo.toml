@@ -234,6 +234,7 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
+v8 = ["wasmer/v8"]
 
 js = [
   "virtual-fs/js",

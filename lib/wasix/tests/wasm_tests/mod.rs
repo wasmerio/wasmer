@@ -266,6 +266,8 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
     let backend = match engine {
         Engine::Cranelift => wasmer::BackendKind::Cranelift,
         Engine::LLVM => wasmer::BackendKind::LLVM,
+        #[cfg(feature = "v8")]
+        Engine::V8 => wasmer::BackendKind::V8,
     };
     let features = wasmer_types::Features::detect_from_wasm(wasm_bytes)
         .unwrap_or_else(|_| wasmer::Engine::default_features_for_backend(&backend, &target));
@@ -282,6 +284,8 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
             config.num_threads(NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
+        #[cfg(feature = "v8")]
+        Engine::V8 => return wasmer::v8::engine::Engine::new().into(),
     };
     engine
         .set_features(Some(features))
@@ -419,10 +423,9 @@ pub(crate) fn run_wasm_with_runner_config(
     let stdout = stdout_buffer.lock().unwrap().clone();
     let stderr = stderr_buffer.lock().unwrap().clone();
 
-    const UNKNOWN_EXIT_CODE: i32 = i32::MAX;
-
+    let error = result.as_ref().err().map(ToString::to_string);
     // Extract exit code from result
-    let exit_code = match &result {
+    let exit_code = match result {
         Ok(_) => 0,
         Err(e) => {
             // Try to extract exit code from error message
@@ -432,10 +435,10 @@ pub(crate) fn run_wasm_with_runner_config(
                     code.parse::<i32>()
                         .expect("exit code cannot be parsed: `{error_msg}`")
                 } else {
-                    UNKNOWN_EXIT_CODE
+                    anyhow::bail!(e);
                 }
             } else {
-                UNKNOWN_EXIT_CODE
+                anyhow::bail!(e);
             }
         }
     };
@@ -445,6 +448,6 @@ pub(crate) fn run_wasm_with_runner_config(
         stderr,
         trace_output,
         exit_code,
-        error: result.as_ref().err().map(ToString::to_string),
+        error,
     })
 }

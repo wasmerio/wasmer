@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-##Ignored: #6595: HeapAccessOutOfBounds
+
 
 set -e
 export WASIXCC_PIC=1
