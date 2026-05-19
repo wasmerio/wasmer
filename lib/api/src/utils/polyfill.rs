@@ -369,7 +369,57 @@ pub fn translate_module(data: &[u8]) -> WasmResult<ModuleInfoPolyfill> {
         .info
         .validate_signature_hashes()
         .map_err(|err| err.to_string())?;
+    validate_exported_types(&module_info)?;
     Ok(module_info)
+}
+
+fn validate_exported_types(module_info: &ModuleInfoPolyfill) -> WasmResult<()> {
+    for (name, export) in module_info.info.exports.iter() {
+        let uses_externref = match export {
+            ExportIndex::Function(index) => {
+                let signature = module_info.info.functions.get(*index).ok_or_else(|| {
+                    format!("function export `{name}` references unknown function {index:?}")
+                })?;
+                let ty = module_info.info.signatures.get(*signature).ok_or_else(|| {
+                    format!("function export `{name}` references unknown signature {signature:?}")
+                })?;
+                ty.params()
+                    .iter()
+                    .chain(ty.results().iter())
+                    .any(|ty| *ty == Type::ExternRef)
+            }
+            ExportIndex::Table(index) => {
+                let ty = module_info.info.tables.get(*index).ok_or_else(|| {
+                    format!("table export `{name}` references unknown table {index:?}")
+                })?;
+                ty.ty == Type::ExternRef
+            }
+            ExportIndex::Memory(_) => false,
+            ExportIndex::Global(index) => {
+                let ty = module_info.info.globals.get(*index).ok_or_else(|| {
+                    format!("global export `{name}` references unknown global {index:?}")
+                })?;
+                ty.ty == Type::ExternRef
+            }
+            ExportIndex::Tag(index) => {
+                let signature = module_info.info.tags.get(*index).ok_or_else(|| {
+                    format!("tag export `{name}` references unknown tag {index:?}")
+                })?;
+                let ty = module_info.info.signatures.get(*signature).ok_or_else(|| {
+                    format!("tag export `{name}` references unknown signature {signature:?}")
+                })?;
+                ty.params().iter().any(|ty| *ty == Type::ExternRef)
+            }
+        };
+
+        if uses_externref {
+            return Err(
+                "ExternRef is not supported by this backend yet".to_string()
+            );
+        }
+    }
+
+    Ok(())
 }
 
 /// Helper function translating wasmparser types to Wasm Type.

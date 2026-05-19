@@ -148,6 +148,7 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "constant expression required",
         "Validation error: exported names can't be made of digits only",
         "Validation error: imported functions cannot be used as start functions",
+        "Validation error: ExternRef is not supported by this backend yet",
     ]);
     // V8 rejects creation of large table and memories.
     wast.allow_directive_failures_at_line(
