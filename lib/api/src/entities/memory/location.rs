@@ -1,5 +1,3 @@
-use wasmer_types::MemoryError;
-
 use crate::error::AtomicsError;
 
 /// Location in a WebAssembly memory.

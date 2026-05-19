@@ -16,7 +16,6 @@ use wasmer_vm::{
 use crate::{
     BackendMemory, MemoryAccessError, SharedMemory,
     backend::sys::entities::{engine::NativeEngineExt, memory::MemoryView},
-    entities::memory::shared_memory_detach_error,
     entities::store::{AsStoreMut, AsStoreRef},
     location::{MemoryLocation, SharedMemoryOps},
     vm::{VMExtern, VMExternMemory},
@@ -111,7 +110,17 @@ impl Memory {
 
     pub(crate) fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         if self.ty(store).shared {
-            self.as_shared(store).ok_or_else(shared_memory_detach_error)
+            let mem = self.handle.get(store.as_store_ref().objects().as_sys());
+            let copied = mem.copy()?;
+            let ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>> = copied
+                .thread_conditions()
+                .map(|conditions| Arc::new(conditions.downgrade()) as Arc<_>);
+            let memory = crate::vm::VMMemory::Sys(SysVMMemory::from(copied));
+
+            Ok(match ops {
+                Some(ops) => SharedMemory::from_vm_memory_and_ops(memory, ops),
+                None => SharedMemory::from_vm_memory(memory),
+            })
         } else {
             Err(MemoryError::MemoryNotShared)
         }

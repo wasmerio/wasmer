@@ -7,7 +7,6 @@ use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError, SharedMemory,
-    entities::memory::shared_memory_detach_error,
     v8::{bindings::*, vm::VMMemory},
     vm::{VMExtern, VMExternMemory},
 };

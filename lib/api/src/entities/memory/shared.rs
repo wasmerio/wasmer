@@ -22,11 +22,11 @@ impl std::fmt::Debug for SharedMemory {
 
 impl Clone for SharedMemory {
     fn clone(&self) -> Self {
+        let Ok(memory) = self.memory.try_clone() else {
+            unreachable!("Internal error: shared memory is always cloneable");
+        };
         Self {
-            memory: self
-                .memory
-                .try_clone()
-                .expect("Internal error: shared memory should be cloneable"),
+            memory,
             ops: self.ops.clone(),
         }
     }
@@ -102,6 +102,7 @@ impl SharedMemory {
 
 #[cfg(test)]
 mod tests {
+    #[test]
     pub fn ensure_shared_memory_is_send_and_sync() {
         fn assert_send<T: Send>() {}
         fn assert_sync<T: Sync>() {}
