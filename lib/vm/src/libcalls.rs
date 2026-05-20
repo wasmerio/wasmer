@@ -146,7 +146,7 @@ pub extern "C" fn wasmer_vm_f64_nearest(x: f64) -> f64 {
 }
 
 /// Implementation of f64.sqrt
-#[unsafe(no_mangle)]
+#[no_mangle]
 pub extern "C" fn wasmer_vm_sqrt(x: f64) -> f64 {
     x.sqrt()
 }
@@ -1086,7 +1086,8 @@ fn softfloat_function_pointer(libcall: LibCall) -> usize {
 }
 
 // Soft-float and 64-bit integer arithmetic routines. Provided by compiler-rt /
-// libgcc; only needed on targets without hardware FP or with 32-bit integers.
+// libgcc; only needed on targets without hardware FP or on 32-bit targets
+// (where 64-bit arithmetic requires helper calls).
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 unsafe extern "C" {
     fn __adddf3();
@@ -1142,10 +1143,10 @@ unsafe extern "C" {
     fn __unordsf2();
 }
 
-// __mulsi3 (32×32 soft-multiply) is absent from some 64-bit toolchains.
-// Provide it under a wasmer-namespaced symbol so it never clashes with a
-// system copy.
-#[unsafe(no_mangle)]
+// __mulsi3 (32×32 soft-multiply) is absent from some bare-metal toolchains
+// (e.g. RISC-V builds with a hardware multiplier where compiler-rt omits it).
+// Provided under a wasmer-namespaced symbol so it never clashes with a system copy.
+#[no_mangle]
 pub extern "C" fn wasmer_vm__mulsi3(a: i32, b: i32) -> i32 {
     a.wrapping_mul(b)
 }
