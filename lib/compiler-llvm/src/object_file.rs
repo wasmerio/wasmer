@@ -90,13 +90,11 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_eh_personality2" => LibCall::EHPersonality2,
     "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
-    "sqrt" => LibCall::Sqrt,
 };
 
-// Soft-float and 64-bit integer arithmetic routines that LLVM emits for
-// targets without hardware floating-point or on 32-bit platforms.
-// Not needed on x86-64 or AArch64 because LLVM lowers float and integer
-// arithmetic to native instructions on those targets, never to these helpers.
+// Soft-float routines that LLVM emits for targets without hardware floating-point. Not needed on
+// x86-64 or AArch64 because LLVM lowers float and integer arithmetic to native instructions on
+// those targets, never to these helpers.
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "__adddf3" => LibCall::Adddf3,
@@ -211,7 +209,6 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_eh_personality2" => LibCall::EHPersonality2,
     "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
-    "_sqrt" => LibCall::Sqrt,
 };
 
 fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
@@ -224,8 +221,10 @@ fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
         return Some(lc);
     }
     #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-    if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
-        return Some(lc);
+    if fmt == BinaryFormat::Elf {
+        if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
+            return Some(lc);
+        }
     }
     None
 }

@@ -33,9 +33,6 @@ pub enum LibCall {
     /// nearest.f64
     NearestF64,
 
-    /// sqrt
-    Sqrt,
-
     /// trunc.f32
     TruncF32,
 
@@ -150,10 +147,9 @@ pub enum LibCall {
     /// debug_str
     DebugStr,
 
-    // Soft-float and 64-bit integer arithmetic routines emitted by LLVM when
-    // targeting platforms without hardware floating-point or when compiling for
-    // 32-bit targets. Standard toolchains (compiler-rt / libgcc) provide these,
-    // but wasmer needs to know their addresses to link JIT-compiled objects.
+    // Soft-float routines emitted by LLVM when targeting platforms without hardware floating-point.
+    // Standard toolchains (compiler-rt / libgcc) provide these, but wasmer needs to know their
+    // addresses to link JIT-compiled objects.
     /// __adddf3
     Adddf3,
     /// __addsf3
@@ -270,7 +266,6 @@ impl LibCall {
             Self::FloorF64 => "wasmer_vm_f64_floor",
             Self::NearestF32 => "wasmer_vm_f32_nearest",
             Self::NearestF64 => "wasmer_vm_f64_nearest",
-            Self::Sqrt => "wasmer_vm_sqrt",
             Self::TruncF32 => "wasmer_vm_f32_trunc",
             Self::TruncF64 => "wasmer_vm_f64_trunc",
             Self::Memory32Size => "wasmer_vm_memory32_size",

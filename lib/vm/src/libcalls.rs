@@ -145,12 +145,6 @@ pub extern "C" fn wasmer_vm_f64_nearest(x: f64) -> f64 {
     }
 }
 
-/// Implementation of f64.sqrt
-#[unsafe(no_mangle)]
-pub extern "C" fn wasmer_vm_sqrt(x: f64) -> f64 {
-    x.sqrt()
-}
-
 /// Implementation of memory.grow for locally-defined 32-bit memories.
 ///
 /// # Safety
@@ -965,7 +959,6 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::FloorF64 => wasmer_vm_f64_floor as *const () as usize,
         LibCall::NearestF32 => wasmer_vm_f32_nearest as *const () as usize,
         LibCall::NearestF64 => wasmer_vm_f64_nearest as *const () as usize,
-        LibCall::Sqrt => wasmer_vm_sqrt as *const () as usize,
         LibCall::TruncF32 => wasmer_vm_f32_trunc as *const () as usize,
         LibCall::TruncF64 => wasmer_vm_f64_trunc as *const () as usize,
         LibCall::Memory32Size => wasmer_vm_memory32_size as *const () as usize,
@@ -1051,7 +1044,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::Muldf3 => __muldf3 as *const () as usize,
         LibCall::Muldi3 => __muldi3 as *const () as usize,
         LibCall::Mulsf3 => __mulsf3 as *const () as usize,
-        LibCall::Mulsi3 => wasmer_vm__mulsi3 as *const () as usize,
+        LibCall::Mulsi3 => __mulsi3 as *const () as usize,
         LibCall::Nedf2 => __nedf2 as *const () as usize,
         LibCall::Negdf2 => __negdf2 as *const () as usize,
         LibCall::Negsf2 => __negsf2 as *const () as usize,
@@ -1068,67 +1061,64 @@ pub fn function_pointer(libcall: LibCall) -> usize {
     }
 }
 
-// Soft-float and 64-bit integer arithmetic routines. These are provided by
-// compiler-rt / libgcc on every standard Rust target. We declare them here so
-// wasmer can resolve JIT-compiled references to them at link time.
+// Soft-float and 64-bit/32-bit integer arithmetic routines. These are provided
+// by compiler-rt / libgcc on every standard Rust target. We declare them here
+// so wasmer can resolve JIT-compiled references to them at link time.
 unsafe extern "C" {
-    fn __adddf3();
-    fn __addsf3();
-    fn __divdf3();
-    fn __divdi3();
-    fn __divsf3();
-    fn __divsi3();
-    fn __eqdf2();
-    fn __eqsf2();
-    fn __extendsfdf2();
-    fn __fixdfdi();
-    fn __fixdfsi();
-    fn __fixsfdi();
-    fn __fixsfsi();
-    fn __fixunsdfdi();
-    fn __fixunsdfsi();
-    fn __fixunssfdi();
-    fn __fixunssfsi();
-    fn __floatdidf();
-    fn __floatdisf();
-    fn __floatsidf();
-    fn __floatsisf();
-    fn __floatundidf();
-    fn __floatundisf();
-    fn __floatunsidf();
-    fn __floatunsisf();
-    fn __gedf2();
-    fn __gesf2();
-    fn __gtdf2();
-    fn __gtsf2();
-    fn __ledf2();
-    fn __lesf2();
-    fn __ltdf2();
-    fn __ltsf2();
-    fn __moddi3();
-    fn __modsi3();
-    fn __muldf3();
-    fn __muldi3();
-    fn __mulsf3();
-    fn __nedf2();
-    fn __negdf2();
-    fn __negsf2();
-    fn __nesf2();
-    fn __subdf3();
-    fn __subsf3();
-    fn __truncdfsf2();
-    fn __udivdi3();
-    fn __udivsi3();
-    fn __umoddi3();
-    fn __umodsi3();
-    fn __unorddf2();
-    fn __unordsf2();
-}
-
-// __mulsi3 (32×32 soft-multiply) is absent from some bare-metal toolchains
-// (e.g. RISC-V builds with a hardware multiplier where compiler-rt omits it).
-// Provided under a wasmer-namespaced symbol so it never clashes with a system copy.
-#[unsafe(no_mangle)]
-pub extern "C" fn wasmer_vm__mulsi3(a: i32, b: i32) -> i32 {
-    a.wrapping_mul(b)
+    // --- f32/f64 arithmetic ---
+    fn __addsf3(a: f32, b: f32) -> f32;
+    fn __adddf3(a: f64, b: f64) -> f64;
+    fn __subsf3(a: f32, b: f32) -> f32;
+    fn __subdf3(a: f64, b: f64) -> f64;
+    fn __mulsf3(a: f32, b: f32) -> f32;
+    fn __muldf3(a: f64, b: f64) -> f64;
+    fn __divsf3(a: f32, b: f32) -> f32;
+    fn __divdf3(a: f64, b: f64) -> f64;
+    fn __negsf2(a: f32) -> f32;
+    fn __negdf2(a: f64) -> f64;
+    // --- f32/f64 conversions ---
+    fn __extendsfdf2(a: f32) -> f64;
+    fn __truncdfsf2(a: f64) -> f32;
+    fn __fixsfsi(a: f32) -> i32;
+    fn __fixsfdi(a: f32) -> i64;
+    fn __fixdfsi(a: f64) -> i32;
+    fn __fixdfdi(a: f64) -> i64;
+    fn __fixunssfsi(a: f32) -> u32;
+    fn __fixunssfdi(a: f32) -> u64;
+    fn __fixunsdfsi(a: f64) -> u32;
+    fn __fixunsdfdi(a: f64) -> u64;
+    fn __floatsisf(i: i32) -> f32;
+    fn __floatsidf(i: i32) -> f64;
+    fn __floatdisf(i: i64) -> f32;
+    fn __floatdidf(i: i64) -> f64;
+    fn __floatunsisf(i: u32) -> f32;
+    fn __floatunsidf(i: u32) -> f64;
+    fn __floatundisf(i: u64) -> f32;
+    fn __floatundidf(i: u64) -> f64;
+    // --- f32/f64 comparisons (return 0 / nonzero / negative per GCC ABI) ---
+    fn __eqsf2(a: f32, b: f32) -> i32;
+    fn __eqdf2(a: f64, b: f64) -> i32;
+    fn __nesf2(a: f32, b: f32) -> i32;
+    fn __nedf2(a: f64, b: f64) -> i32;
+    fn __gesf2(a: f32, b: f32) -> i32;
+    fn __gedf2(a: f64, b: f64) -> i32;
+    fn __gtsf2(a: f32, b: f32) -> i32;
+    fn __gtdf2(a: f64, b: f64) -> i32;
+    fn __lesf2(a: f32, b: f32) -> i32;
+    fn __ledf2(a: f64, b: f64) -> i32;
+    fn __ltsf2(a: f32, b: f32) -> i32;
+    fn __ltdf2(a: f64, b: f64) -> i32;
+    fn __unordsf2(a: f32, b: f32) -> i32;
+    fn __unorddf2(a: f64, b: f64) -> i32;
+    // --- 64-bit and 32-bit integer helpers ---
+    fn __muldi3(a: i64, b: i64) -> i64;
+    fn __mulsi3(a: i32, b: i32) -> i32;
+    fn __divdi3(a: i64, b: i64) -> i64;
+    fn __divsi3(a: i32, b: i32) -> i32;
+    fn __moddi3(a: i64, b: i64) -> i64;
+    fn __modsi3(a: i32, b: i32) -> i32;
+    fn __udivdi3(a: u64, b: u64) -> u64;
+    fn __udivsi3(a: u32, b: u32) -> u32;
+    fn __umoddi3(a: u64, b: u64) -> u64;
+    fn __umodsi3(a: u32, b: u32) -> u32;
 }
