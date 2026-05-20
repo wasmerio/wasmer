@@ -809,7 +809,7 @@ impl Artifact {
             .iter()
             .filter_map(|(index, &ptr)| {
                 let length = allocated.finished_function_lengths[index];
-                (length > 0).then(|| (index, FunctionExtent { ptr, length }))
+                (length > 0).then_some((index, FunctionExtent { ptr, length }))
             })
             .collect()
     }
