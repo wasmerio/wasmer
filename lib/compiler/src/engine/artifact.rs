@@ -789,8 +789,9 @@ impl Artifact {
     /// Returns the start address and byte length of each locally-defined
     /// function body in this artifact.
     ///
-    /// Returns an empty vec for statically-loaded artifacts, where function
-    /// lengths are not recorded and would otherwise be reported as zero.
+    /// Returns an empty vec for cross-compiled or statically-loaded artifacts
+    /// (where function lengths are not recorded), and also when the artifact's
+    /// internal state is inconsistent.
     pub fn finished_function_extents(&self) -> Vec<(LocalFunctionIndex, FunctionExtent)> {
         let Some(allocated) = self.allocated.as_ref() else {
             return vec![];
@@ -800,11 +801,14 @@ impl Artifact {
             allocated.finished_function_lengths.len(),
             "finished_functions and finished_function_lengths must have equal length"
         );
+        if allocated.finished_functions.len() != allocated.finished_function_lengths.len() {
+            return vec![];
+        }
         allocated
             .finished_functions
             .iter()
             .filter_map(|(index, &ptr)| {
-                let length = allocated.finished_function_lengths.get(index).copied().unwrap_or(0);
+                let length = allocated.finished_function_lengths[index];
                 (length > 0).then(|| (index, FunctionExtent { ptr, length }))
             })
             .collect()
