@@ -289,7 +289,7 @@ impl crate::Module {
     }
 
     /// Returns the compiled [`Artifact`] backing this module.
-    pub fn artifact(&self) -> &Arc<Artifact> {
+    pub fn artifact(&self) -> &Artifact {
         &self.as_sys().artifact
     }
 }
