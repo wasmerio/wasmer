@@ -803,11 +803,10 @@ impl Artifact {
         allocated
             .finished_functions
             .iter()
-            .map(|(index, &ptr)| {
+            .filter_map(|(index, &ptr)| {
                 let length = allocated.finished_function_lengths.get(index).copied().unwrap_or(0);
-                (index, FunctionExtent { ptr, length })
+                (length > 0).then(|| (index, FunctionExtent { ptr, length }))
             })
-            .filter(|(_, extent)| extent.length > 0)
             .collect()
     }
 
@@ -1380,7 +1379,7 @@ mod tests {
     // The static-artifact-load path (deserialize_object) sets all
     // finished_function_lengths to 0 because lengths are not stored in
     // that format. finished_function_extents() must filter them out so
-    // callers see an empty vec rather than zero-length phantom extents.
+    // callers see no extents rather than zero-length phantom extents.
     #[test]
     fn finished_function_extents_filters_zero_lengths() {
         let artifact = make_artifact(&[0, 64, 0]);
@@ -1395,7 +1394,7 @@ mod tests {
         let artifact = make_artifact(&[0, 0, 0]);
         assert!(
             artifact.finished_function_extents().is_empty(),
-            "all-zero lengths (static artifact) must yield an empty vec"
+            "all-zero lengths (static artifact) must yield no extents"
         );
     }
 
@@ -1408,7 +1407,7 @@ mod tests {
         };
         assert!(
             artifact.finished_function_extents().is_empty(),
-            "non-allocated artifact (cross-compilation target) must yield an empty vec"
+            "non-allocated artifact (cross-compilation target) must yield no extents"
         );
     }
 }
