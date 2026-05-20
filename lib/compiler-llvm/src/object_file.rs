@@ -90,8 +90,14 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_eh_personality2" => LibCall::EHPersonality2,
     "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
-    // Soft-float and 64-bit integer arithmetic routines that LLVM emits for
-    // targets without hardware floating-point or on 32-bit platforms.
+    "sqrt" => LibCall::Sqrt,
+};
+
+// Soft-float and 64-bit integer arithmetic routines that LLVM emits for
+// targets without hardware floating-point or on 32-bit platforms.
+// Not needed on x86-64 or AArch64 where LLVM always uses native instructions.
+#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "__adddf3" => LibCall::Adddf3,
     "__addsf3" => LibCall::Addsf3,
     "__divdf3" => LibCall::Divdf3,
@@ -144,7 +150,6 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "__umodsi3" => LibCall::Umodsi3,
     "__unorddf2" => LibCall::Unorddf2,
     "__unordsf2" => LibCall::Unordsf2,
-    "sqrt" => LibCall::Sqrt,
 };
 
 static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
@@ -208,6 +213,22 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_sqrt" => LibCall::Sqrt,
 };
 
+fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
+    let base = match fmt {
+        BinaryFormat::Elf => &LIBCALLS_ELF,
+        BinaryFormat::Macho => &LIBCALLS_MACHO,
+        _ => return None,
+    };
+    if let Some(&lc) = base.get(name) {
+        return Some(lc);
+    }
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
+        return Some(lc);
+    }
+    None
+}
+
 pub fn load_object_file<F>(
     contents: &[u8],
     root_section: &str,
@@ -220,15 +241,11 @@ where
 {
     let obj = object::File::parse(contents).map_err(map_object_err)?;
 
-    let libcalls = match binary_fmt {
-        BinaryFormat::Elf => &LIBCALLS_ELF,
-        BinaryFormat::Macho => &LIBCALLS_MACHO,
-        _ => {
-            return Err(CompileError::UnsupportedTarget(format!(
-                "Unsupported binary format {binary_fmt:?}"
-            )));
-        }
-    };
+    if !matches!(binary_fmt, BinaryFormat::Elf | BinaryFormat::Macho) {
+        return Err(CompileError::UnsupportedTarget(format!(
+            "Unsupported binary format {binary_fmt:?}"
+        )));
+    }
 
     let mut worklist: Vec<object::read::SectionIndex> = Vec::new();
     let mut section_targets: HashMap<object::read::SectionIndex, RelocationTarget> = HashMap::new();
@@ -354,8 +371,8 @@ where
                             }
                         }
                         // Maybe a libcall then?
-                    } else if let Some(libcall) = libcalls.get(symbol_name) {
-                        RelocationTarget::LibCall(*libcall)
+                    } else if let Some(libcall) = lookup_libcall(symbol_name, binary_fmt) {
+                        RelocationTarget::LibCall(libcall)
                     } else if let Ok(Some(reloc_target)) =
                         symbol_name_to_relocation_target(symbol_name)
                     {
