@@ -795,12 +795,19 @@ impl Artifact {
         let Some(allocated) = self.allocated.as_ref() else {
             return vec![];
         };
+        assert_eq!(
+            allocated.finished_functions.len(),
+            allocated.finished_function_lengths.len(),
+            "finished_functions and finished_function_lengths must have equal length"
+        );
         allocated
             .finished_functions
             .iter()
-            .zip(allocated.finished_function_lengths.values().copied())
-            .filter(|(_, length)| *length > 0)
-            .map(|((index, &ptr), length)| (index, FunctionExtent { ptr, length }))
+            .map(|(index, &ptr)| {
+                let length = allocated.finished_function_lengths[index];
+                (index, FunctionExtent { ptr, length })
+            })
+            .filter(|(_, extent)| extent.length > 0)
             .collect()
     }
 

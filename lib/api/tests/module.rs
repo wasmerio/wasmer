@@ -393,7 +393,6 @@ fn function_extents_excludes_imported_functions() -> Result<(), String> {
 }
 
 #[test]
-#[test]
 #[cfg(unix)]
 fn module_from_file_non_utf8_path() -> Result<(), String> {
     let store = Store::default();
