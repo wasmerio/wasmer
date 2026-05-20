@@ -17,34 +17,6 @@ use wasmer_types::{
 
 use crate::{AsEngineRef, macros::backend::match_rt, utils::IntoBytes};
 
-/// The memory extent of a compiled local function body.
-///
-/// # Address validity
-///
-/// `address` points into executable memory owned by the [`Module`]'s backing
-/// [`Engine`]. The address is valid only as long as both that `Module` and its
-/// backing [`Store`]/[`Engine`] remain alive. Storing an `address` beyond
-/// their lifetime — for example, in a long-lived profiler registration — is
-/// unsound unless you also keep the `Module`, its `Store`, and its `Engine`
-/// alive at least as long.
-///
-/// [`Engine`]: crate::Engine
-/// [`Store`]: crate::Store
-#[cfg(not(target_arch = "wasm32"))]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FunctionExtent {
-    /// Index of this function within the module's local function space
-    /// (imported functions are excluded).
-    pub index: u32,
-    /// Start address of the compiled function body in memory.
-    ///
-    /// Valid only while the originating `Module` and its backing `Store`/`Engine`
-    /// are alive; see the type-level documentation for details.
-    pub address: usize,
-    /// Length of the compiled function body in bytes.
-    pub length: usize,
-}
-
 /// IO errors that can happen while compiling a [`Module`].
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -467,30 +439,6 @@ impl Module {
     #[doc(hidden)]
     pub fn info(&self) -> &ModuleInfo {
         self.0.info()
-    }
-
-    /// Returns the extent of each local function body in the compiled module.
-    ///
-    /// Useful for registering JIT-compiled symbols with a profiler, disassembling
-    /// individual function bodies, or mapping a program counter back to a function.
-    ///
-    /// Only meaningful for the `sys` (native JIT) backend; all other backends and
-    /// statically-loaded artifacts return an empty vec.
-    ///
-    /// # Address validity
-    ///
-    /// The `address` field of each returned [`FunctionExtent`] points into
-    /// executable memory owned by this module's engine. The addresses are valid
-    /// only while this `Module` and its backing [`Store`]/[`Engine`] remain
-    /// alive. Do not store addresses beyond their lifetime unless you also
-    /// ensure the `Module`, its `Store`, and its `Engine` are kept alive at
-    /// least as long.
-    ///
-    /// [`Engine`]: crate::Engine
-    /// [`Store`]: crate::Store
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn function_extents(&self) -> Vec<FunctionExtent> {
-        self.0.function_extents()
     }
 }
 

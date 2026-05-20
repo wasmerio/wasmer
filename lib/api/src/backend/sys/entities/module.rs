@@ -234,19 +234,6 @@ impl Module {
         }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn function_extents(&self) -> Vec<crate::FunctionExtent> {
-        self.artifact
-            .finished_function_extents()
-            .into_iter()
-            .map(|(index, extent)| crate::FunctionExtent {
-                index: index.as_u32(),
-                address: extent.ptr.0 as usize,
-                length: extent.length,
-            })
-            .collect()
-    }
-
     pub(crate) fn name(&self) -> Option<&str> {
         self.info().name.as_deref()
     }
@@ -299,5 +286,10 @@ impl crate::Module {
             BackendModule::Sys(ref mut s) => s,
             _ => panic!("Not a `sys` module!"),
         }
+    }
+
+    /// Returns the compiled [`Artifact`] backing this module.
+    pub fn artifact(&self) -> &Arc<Artifact> {
+        &self.as_sys().artifact
     }
 }

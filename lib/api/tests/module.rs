@@ -336,25 +336,26 @@ fn function_extents_returns_one_entry_per_local_function() -> Result<(), String>
         (func $f3 (param i32) (result i32) local.get 0)
     )"#;
     let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
-    let extents = module.function_extents();
+    let extents = module.artifact().finished_function_extents();
 
     assert_eq!(extents.len(), 3, "expected one extent per local function");
-    let indices: Vec<u32> = extents.iter().map(|e| e.index).collect();
+    let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
     assert_eq!(
         indices,
         vec![0, 1, 2],
         "indices must be sequential starting from 0"
     );
-    for extent in &extents {
-        assert_ne!(
-            extent.address, 0,
+    for (index, extent) in &extents {
+        assert!(
+            !extent.ptr.0.is_null(),
             "function {} has null address",
-            extent.index
+            index.as_u32()
         );
         assert_ne!(
-            extent.length, 0,
+            extent.length,
+            0,
             "function {} has zero length",
-            extent.index
+            index.as_u32()
         );
     }
 
@@ -374,14 +375,14 @@ fn function_extents_excludes_imported_functions() -> Result<(), String> {
         (func $local2 (param i32) (result i32) local.get 0)
     )"#;
     let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
-    let extents = module.function_extents();
+    let extents = module.artifact().finished_function_extents();
 
     assert_eq!(
         extents.len(),
         2,
         "imported functions must not appear in extents"
     );
-    let indices: Vec<u32> = extents.iter().map(|e| e.index).collect();
+    let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
     assert_eq!(
         indices,
         vec![0, 1],
@@ -392,22 +393,6 @@ fn function_extents_excludes_imported_functions() -> Result<(), String> {
 }
 
 #[test]
-#[cfg(all(not(target_arch = "wasm32"), feature = "v8"))]
-fn function_extents_returns_empty_for_non_sys_backend() -> Result<(), String> {
-    let engine: Engine = wasmer::v8::V8::new().into();
-    let store = Store::new(engine);
-    let wat = r#"(module
-        (func $f1 (result i32) i32.const 1)
-        (func $f2 (result i32) i32.const 2)
-    )"#;
-    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
-    assert!(
-        module.function_extents().is_empty(),
-        "non-sys backends must return an empty vec"
-    );
-    Ok(())
-}
-
 #[test]
 #[cfg(unix)]
 fn module_from_file_non_utf8_path() -> Result<(), String> {

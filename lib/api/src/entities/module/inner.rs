@@ -596,21 +596,6 @@ impl BackendModule {
             s.info()
         })
     }
-
-    /// Returns the extent of each local function body in the compiled module.
-    ///
-    /// Only available on native (non-wasm32) targets and only meaningful for the `sys` backend;
-    /// all other backends return an empty vec.
-    #[cfg(not(target_arch = "wasm32"))]
-    #[inline]
-    pub fn function_extents(&self) -> Vec<super::FunctionExtent> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => s.function_extents(),
-            #[allow(unreachable_patterns)]
-            _ => vec![],
-        }
-    }
 }
 
 impl std::fmt::Debug for BackendModule {
