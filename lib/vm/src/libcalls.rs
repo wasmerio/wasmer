@@ -146,7 +146,7 @@ pub extern "C" fn wasmer_vm_f64_nearest(x: f64) -> f64 {
 }
 
 /// Implementation of f64.sqrt
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_vm_sqrt(x: f64) -> f64 {
     x.sqrt()
 }
@@ -1146,7 +1146,7 @@ unsafe extern "C" {
 // __mulsi3 (32×32 soft-multiply) is absent from some bare-metal toolchains
 // (e.g. RISC-V builds with a hardware multiplier where compiler-rt omits it).
 // Provided under a wasmer-namespaced symbol so it never clashes with a system copy.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_vm__mulsi3(a: i32, b: i32) -> i32 {
     a.wrapping_mul(b)
 }
