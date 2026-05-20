@@ -366,8 +366,8 @@ where
                         // Maybe a libcall then?
                     } else if let Some(libcall) = lookup_libcall(symbol_name, binary_fmt) {
                         RelocationTarget::LibCall(libcall)
-                    } else if let Some(reloc_target) =
-                        symbol_name_to_relocation_target(symbol_name)?
+                    } else if let Ok(Some(reloc_target)) =
+                        symbol_name_to_relocation_target(symbol_name)
                     {
                         reloc_target
                     } else if let object::SymbolSection::Section(section_index) = symbol.section() {
