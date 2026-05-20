@@ -792,6 +792,12 @@ impl Artifact {
     /// Returns an empty vec for cross-compiled or statically-loaded artifacts
     /// (where function lengths are not recorded), and also when the artifact's
     /// internal state is inconsistent.
+    ///
+    /// # Security
+    ///
+    /// The returned addresses are host-process pointers. They are not stable
+    /// across runs and must not be forwarded to untrusted parties, as they
+    /// reveal ASLR layout information.
     pub fn finished_function_extents(&self) -> Vec<(LocalFunctionIndex, FunctionExtent)> {
         let Some(allocated) = self.allocated.as_ref() else {
             return vec![];
