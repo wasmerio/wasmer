@@ -1336,6 +1336,7 @@ mod tests {
         types::module::CompileModuleInfo,
     };
     use wasmer_types::{Features, ModuleInfo, entity::PrimaryMap};
+    use std::ptr::NonNull;
     use wasmer_vm::{FunctionBodyPtr, VMFunctionBody};
 
     fn empty_artifact_build() -> ArtifactBuild {
@@ -1358,7 +1359,7 @@ mod tests {
         let mut finished_function_lengths: PrimaryMap<LocalFunctionIndex, usize> =
             PrimaryMap::new();
         for &len in lengths {
-            finished_functions.push(FunctionBodyPtr(0x1000 as *const VMFunctionBody));
+            finished_functions.push(FunctionBodyPtr(NonNull::<VMFunctionBody>::dangling().as_ptr()));
             finished_function_lengths.push(len);
         }
         Artifact {
