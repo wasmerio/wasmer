@@ -95,7 +95,8 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
 
 // Soft-float and 64-bit integer arithmetic routines that LLVM emits for
 // targets without hardware floating-point or on 32-bit platforms.
-// Not needed on x86-64 or AArch64 where LLVM always uses native instructions.
+// Not needed on x86-64 or AArch64 because LLVM lowers float and integer
+// arithmetic to native instructions on those targets, never to these helpers.
 #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
 static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "__adddf3" => LibCall::Adddf3,

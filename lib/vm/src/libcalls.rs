@@ -1016,7 +1016,10 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
         lc => softfloat_function_pointer(lc),
         #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-        _ => unreachable!("soft-float libcalls are not supported on this platform"),
+        lc => unreachable!(
+            "libcall {lc:?} has no function pointer on this platform; \
+             if this is a newly added LibCall variant, add it to function_pointer()"
+        ),
     }
 }
 
@@ -1075,7 +1078,10 @@ fn softfloat_function_pointer(libcall: LibCall) -> usize {
         LibCall::Umodsi3 => __umodsi3 as *const () as usize,
         LibCall::Unorddf2 => __unorddf2 as *const () as usize,
         LibCall::Unordsf2 => __unordsf2 as *const () as usize,
-        _ => unreachable!("not a soft-float libcall"),
+        lc => unreachable!(
+            "libcall {lc:?} is not a soft-float routine; \
+             add it to the explicit arms of function_pointer() instead"
+        ),
     }
 }
 
