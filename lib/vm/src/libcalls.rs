@@ -1007,54 +1007,113 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::DebugUsize => wasmer_vm_dbg_usize as *const () as usize,
         LibCall::DebugStr => wasmer_vm_dbg_str as *const () as usize,
         // --- Soft-float libcalls ---
+        // compiler-rt / libgcc provides these on every std Rust target.
+        // On wasm32 the JIT engine is never active, so these variants are unreachable.
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Addsf3 => __addsf3 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Adddf3 => __adddf3 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Subsf3 => __subsf3 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Subdf3 => __subdf3 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Mulsf3 => __mulsf3 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Muldf3 => __muldf3 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Divsf3 => __divsf3 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Divdf3 => __divdf3 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Negsf2 => __negsf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Negdf2 => __negdf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Extendsfdf2 => __extendsfdf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Truncdfsf2 => __truncdfsf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Fixsfsi => __fixsfsi as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Fixdfsi => __fixdfsi as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Fixsfdi => __fixsfdi as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Fixdfdi => __fixdfdi as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Fixunssfsi => __fixunssfsi as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Fixunsdfsi => __fixunsdfsi as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Fixunssfdi => __fixunssfdi as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Fixunsdfdi => __fixunsdfdi as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Floatsisf => __floatsisf as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Floatsidf => __floatsidf as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Floatdisf => __floatdisf as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Floatdidf => __floatdidf as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Floatunsisf => __floatunsisf as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Floatunsidf => __floatunsidf as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Floatundisf => __floatundisf as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Floatundidf => __floatundidf as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Unordsf2 => __unordsf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Unorddf2 => __unorddf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Eqsf2 => __eqsf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Eqdf2 => __eqdf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Nesf2 => __nesf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Nedf2 => __nedf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Gesf2 => __gesf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Gedf2 => __gedf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Ltsf2 => __ltsf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Ltdf2 => __ltdf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Lesf2 => __lesf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Ledf2 => __ledf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Gtsf2 => __gtsf2 as *const () as usize,
+        #[cfg(not(target_arch = "wasm32"))]
         LibCall::Gtdf2 => __gtdf2 as *const () as usize,
+        #[cfg(target_arch = "wasm32")]
+        LibCall::Addsf3 | LibCall::Adddf3 | LibCall::Subsf3 | LibCall::Subdf3
+        | LibCall::Mulsf3 | LibCall::Muldf3 | LibCall::Divsf3 | LibCall::Divdf3
+        | LibCall::Negsf2 | LibCall::Negdf2 | LibCall::Extendsfdf2 | LibCall::Truncdfsf2
+        | LibCall::Fixsfsi | LibCall::Fixdfsi | LibCall::Fixsfdi | LibCall::Fixdfdi
+        | LibCall::Fixunssfsi | LibCall::Fixunsdfsi | LibCall::Fixunssfdi | LibCall::Fixunsdfdi
+        | LibCall::Floatsisf | LibCall::Floatsidf | LibCall::Floatdisf | LibCall::Floatdidf
+        | LibCall::Floatunsisf | LibCall::Floatunsidf | LibCall::Floatundisf | LibCall::Floatundidf
+        | LibCall::Unordsf2 | LibCall::Unorddf2 | LibCall::Eqsf2 | LibCall::Eqdf2
+        | LibCall::Nesf2 | LibCall::Nedf2 | LibCall::Gesf2 | LibCall::Gedf2
+        | LibCall::Ltsf2 | LibCall::Ltdf2 | LibCall::Lesf2 | LibCall::Ledf2
+        | LibCall::Gtsf2 | LibCall::Gtdf2 => {
+            unreachable!("soft-float libcalls are not reachable on wasm32")
+        }
     }
 }
 
-// Soft-float arithmetic routines. These are provided by compiler-rt / libgcc
-// on every standard Rust target. We declare them here so wasmer can resolve
-// JIT-compiled references to them at link time.
+// Soft-float arithmetic routines. Provided by compiler-rt / libgcc on every
+// standard non-wasm Rust target. Not declared on wasm32 where these symbols
+// do not exist and the JIT engine is never active.
+#[cfg(not(target_arch = "wasm32"))]
 unsafe extern "C" {
     // --- f32/f64 arithmetic ---
     fn __addsf3(a: f32, b: f32) -> f32;
