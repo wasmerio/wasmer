@@ -144,7 +144,6 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "__umodsi3" => LibCall::Umodsi3,
     "__unorddf2" => LibCall::Unorddf2,
     "__unordsf2" => LibCall::Unordsf2,
-    "memset" => LibCall::Memset,
     "sqrt" => LibCall::Sqrt,
 };
 
@@ -264,7 +263,6 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "___umodsi3" => LibCall::Umodsi3,
     "___unorddf2" => LibCall::Unorddf2,
     "___unordsf2" => LibCall::Unordsf2,
-    "_memset" => LibCall::Memset,
     "_sqrt" => LibCall::Sqrt,
 };
 

@@ -1059,7 +1059,6 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::Umodsi3 => __umodsi3 as *const () as usize,
         LibCall::Unorddf2 => __unorddf2 as *const () as usize,
         LibCall::Unordsf2 => __unordsf2 as *const () as usize,
-        LibCall::Memset => memset as *const () as usize,
         LibCall::Sqrt => sqrt as *const () as usize,
     }
 }
@@ -1119,7 +1118,6 @@ unsafe extern "C" {
     fn __umodsi3();
     fn __unorddf2();
     fn __unordsf2();
-    fn memset();
     fn sqrt();
 }
 

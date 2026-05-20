@@ -256,8 +256,6 @@ pub enum LibCall {
     Unorddf2,
     /// __unordsf2
     Unordsf2,
-    /// memset
-    Memset,
     /// sqrt
     Sqrt,
 }
@@ -369,7 +367,6 @@ impl LibCall {
             Self::Umodsi3 => "__umodsi3",
             Self::Unorddf2 => "__unorddf2",
             Self::Unordsf2 => "__unordsf2",
-            Self::Memset => "memset",
             Self::Sqrt => "sqrt",
         }
     }
