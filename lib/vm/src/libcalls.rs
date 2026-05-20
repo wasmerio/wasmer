@@ -1006,64 +1006,55 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         }
         LibCall::DebugUsize => wasmer_vm_dbg_usize as *const () as usize,
         LibCall::DebugStr => wasmer_vm_dbg_str as *const () as usize,
-        LibCall::Adddf3 => __adddf3 as *const () as usize,
+        // --- Soft-float libcalls ---
         LibCall::Addsf3 => __addsf3 as *const () as usize,
-        LibCall::Divdf3 => __divdf3 as *const () as usize,
-        LibCall::Divdi3 => __divdi3 as *const () as usize,
+        LibCall::Adddf3 => __adddf3 as *const () as usize,
+        LibCall::Subsf3 => __subsf3 as *const () as usize,
+        LibCall::Subdf3 => __subdf3 as *const () as usize,
+        LibCall::Mulsf3 => __mulsf3 as *const () as usize,
+        LibCall::Muldf3 => __muldf3 as *const () as usize,
         LibCall::Divsf3 => __divsf3 as *const () as usize,
-        LibCall::Divsi3 => __divsi3 as *const () as usize,
-        LibCall::Eqdf2 => __eqdf2 as *const () as usize,
-        LibCall::Eqsf2 => __eqsf2 as *const () as usize,
+        LibCall::Divdf3 => __divdf3 as *const () as usize,
+        LibCall::Negsf2 => __negsf2 as *const () as usize,
+        LibCall::Negdf2 => __negdf2 as *const () as usize,
         LibCall::Extendsfdf2 => __extendsfdf2 as *const () as usize,
-        LibCall::Fixdfdi => __fixdfdi as *const () as usize,
+        LibCall::Truncdfsf2 => __truncdfsf2 as *const () as usize,
+        LibCall::Fixsfsi => __fixsfsi as *const () as usize,
         LibCall::Fixdfsi => __fixdfsi as *const () as usize,
         LibCall::Fixsfdi => __fixsfdi as *const () as usize,
-        LibCall::Fixsfsi => __fixsfsi as *const () as usize,
-        LibCall::Fixunsdfdi => __fixunsdfdi as *const () as usize,
+        LibCall::Fixdfdi => __fixdfdi as *const () as usize,
+        LibCall::Fixunssfsi => __fixunssfsi as *const () as usize,
         LibCall::Fixunsdfsi => __fixunsdfsi as *const () as usize,
         LibCall::Fixunssfdi => __fixunssfdi as *const () as usize,
-        LibCall::Fixunssfsi => __fixunssfsi as *const () as usize,
-        LibCall::Floatdidf => __floatdidf as *const () as usize,
-        LibCall::Floatdisf => __floatdisf as *const () as usize,
-        LibCall::Floatsidf => __floatsidf as *const () as usize,
+        LibCall::Fixunsdfdi => __fixunsdfdi as *const () as usize,
         LibCall::Floatsisf => __floatsisf as *const () as usize,
-        LibCall::Floatundidf => __floatundidf as *const () as usize,
-        LibCall::Floatundisf => __floatundisf as *const () as usize,
-        LibCall::Floatunsidf => __floatunsidf as *const () as usize,
+        LibCall::Floatsidf => __floatsidf as *const () as usize,
+        LibCall::Floatdisf => __floatdisf as *const () as usize,
+        LibCall::Floatdidf => __floatdidf as *const () as usize,
         LibCall::Floatunsisf => __floatunsisf as *const () as usize,
-        LibCall::Gedf2 => __gedf2 as *const () as usize,
-        LibCall::Gesf2 => __gesf2 as *const () as usize,
-        LibCall::Gtdf2 => __gtdf2 as *const () as usize,
-        LibCall::Gtsf2 => __gtsf2 as *const () as usize,
-        LibCall::Ledf2 => __ledf2 as *const () as usize,
-        LibCall::Lesf2 => __lesf2 as *const () as usize,
-        LibCall::Ltdf2 => __ltdf2 as *const () as usize,
-        LibCall::Ltsf2 => __ltsf2 as *const () as usize,
-        LibCall::Moddi3 => __moddi3 as *const () as usize,
-        LibCall::Modsi3 => __modsi3 as *const () as usize,
-        LibCall::Muldf3 => __muldf3 as *const () as usize,
-        LibCall::Muldi3 => __muldi3 as *const () as usize,
-        LibCall::Mulsf3 => __mulsf3 as *const () as usize,
-        LibCall::Mulsi3 => __mulsi3 as *const () as usize,
-        LibCall::Nedf2 => __nedf2 as *const () as usize,
-        LibCall::Negdf2 => __negdf2 as *const () as usize,
-        LibCall::Negsf2 => __negsf2 as *const () as usize,
-        LibCall::Nesf2 => __nesf2 as *const () as usize,
-        LibCall::Subdf3 => __subdf3 as *const () as usize,
-        LibCall::Subsf3 => __subsf3 as *const () as usize,
-        LibCall::Truncdfsf2 => __truncdfsf2 as *const () as usize,
-        LibCall::Udivdi3 => __udivdi3 as *const () as usize,
-        LibCall::Udivsi3 => __udivsi3 as *const () as usize,
-        LibCall::Umoddi3 => __umoddi3 as *const () as usize,
-        LibCall::Umodsi3 => __umodsi3 as *const () as usize,
-        LibCall::Unorddf2 => __unorddf2 as *const () as usize,
+        LibCall::Floatunsidf => __floatunsidf as *const () as usize,
+        LibCall::Floatundisf => __floatundisf as *const () as usize,
+        LibCall::Floatundidf => __floatundidf as *const () as usize,
         LibCall::Unordsf2 => __unordsf2 as *const () as usize,
+        LibCall::Unorddf2 => __unorddf2 as *const () as usize,
+        LibCall::Eqsf2 => __eqsf2 as *const () as usize,
+        LibCall::Eqdf2 => __eqdf2 as *const () as usize,
+        LibCall::Nesf2 => __nesf2 as *const () as usize,
+        LibCall::Nedf2 => __nedf2 as *const () as usize,
+        LibCall::Gesf2 => __gesf2 as *const () as usize,
+        LibCall::Gedf2 => __gedf2 as *const () as usize,
+        LibCall::Ltsf2 => __ltsf2 as *const () as usize,
+        LibCall::Ltdf2 => __ltdf2 as *const () as usize,
+        LibCall::Lesf2 => __lesf2 as *const () as usize,
+        LibCall::Ledf2 => __ledf2 as *const () as usize,
+        LibCall::Gtsf2 => __gtsf2 as *const () as usize,
+        LibCall::Gtdf2 => __gtdf2 as *const () as usize,
     }
 }
 
-// Soft-float and 64-bit/32-bit integer arithmetic routines. These are provided
-// by compiler-rt / libgcc on every standard Rust target. We declare them here
-// so wasmer can resolve JIT-compiled references to them at link time.
+// Soft-float arithmetic routines. These are provided by compiler-rt / libgcc
+// on every standard Rust target. We declare them here so wasmer can resolve
+// JIT-compiled references to them at link time.
 unsafe extern "C" {
     // --- f32/f64 arithmetic ---
     fn __addsf3(a: f32, b: f32) -> f32;
@@ -1080,12 +1071,12 @@ unsafe extern "C" {
     fn __extendsfdf2(a: f32) -> f64;
     fn __truncdfsf2(a: f64) -> f32;
     fn __fixsfsi(a: f32) -> i32;
-    fn __fixsfdi(a: f32) -> i64;
     fn __fixdfsi(a: f64) -> i32;
+    fn __fixsfdi(a: f32) -> i64;
     fn __fixdfdi(a: f64) -> i64;
     fn __fixunssfsi(a: f32) -> u32;
-    fn __fixunssfdi(a: f32) -> u64;
     fn __fixunsdfsi(a: f64) -> u32;
+    fn __fixunssfdi(a: f32) -> u64;
     fn __fixunsdfdi(a: f64) -> u64;
     fn __floatsisf(i: i32) -> f32;
     fn __floatsidf(i: i32) -> f64;
@@ -1096,29 +1087,18 @@ unsafe extern "C" {
     fn __floatundisf(i: u64) -> f32;
     fn __floatundidf(i: u64) -> f64;
     // --- f32/f64 comparisons (return 0 / nonzero / negative per GCC ABI) ---
+    fn __unordsf2(a: f32, b: f32) -> i32;
+    fn __unorddf2(a: f64, b: f64) -> i32;
     fn __eqsf2(a: f32, b: f32) -> i32;
     fn __eqdf2(a: f64, b: f64) -> i32;
     fn __nesf2(a: f32, b: f32) -> i32;
     fn __nedf2(a: f64, b: f64) -> i32;
     fn __gesf2(a: f32, b: f32) -> i32;
     fn __gedf2(a: f64, b: f64) -> i32;
-    fn __gtsf2(a: f32, b: f32) -> i32;
-    fn __gtdf2(a: f64, b: f64) -> i32;
-    fn __lesf2(a: f32, b: f32) -> i32;
-    fn __ledf2(a: f64, b: f64) -> i32;
     fn __ltsf2(a: f32, b: f32) -> i32;
     fn __ltdf2(a: f64, b: f64) -> i32;
-    fn __unordsf2(a: f32, b: f32) -> i32;
-    fn __unorddf2(a: f64, b: f64) -> i32;
-    // --- 64-bit and 32-bit integer helpers ---
-    fn __muldi3(a: i64, b: i64) -> i64;
-    fn __mulsi3(a: i32, b: i32) -> i32;
-    fn __divdi3(a: i64, b: i64) -> i64;
-    fn __divsi3(a: i32, b: i32) -> i32;
-    fn __moddi3(a: i64, b: i64) -> i64;
-    fn __modsi3(a: i32, b: i32) -> i32;
-    fn __udivdi3(a: u64, b: u64) -> u64;
-    fn __udivsi3(a: u32, b: u32) -> u32;
-    fn __umoddi3(a: u64, b: u64) -> u64;
-    fn __umodsi3(a: u32, b: u32) -> u32;
+    fn __lesf2(a: f32, b: f32) -> i32;
+    fn __ledf2(a: f64, b: f64) -> i32;
+    fn __gtsf2(a: f32, b: f32) -> i32;
+    fn __gtdf2(a: f64, b: f64) -> i32;
 }
