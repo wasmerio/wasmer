@@ -488,11 +488,13 @@ where
                     )
                 }
 
-                let rets_ptr = unsafe { (*rets).data };
-                unsafe {
-                    let rets_slice = std::slice::from_raw_parts_mut(rets_ptr, rets_size);
-                    for (dst, value) in rets_slice.iter_mut().zip(&c_results) {
-                        *dst = *value;
+                if rets_size > 0 {
+                    let rets_ptr = unsafe { (*rets).data };
+                    unsafe {
+                        let rets_slice = std::slice::from_raw_parts_mut(rets_ptr, rets_size);
+                        for (dst, value) in rets_slice.iter_mut().zip(&c_results) {
+                            *dst = *value;
+                        }
                     }
                 }
 

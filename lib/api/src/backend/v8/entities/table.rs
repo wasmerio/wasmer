@@ -28,7 +28,7 @@ impl Table {
 
         let limits = Box::into_raw(Box::new(wasm_limits_t {
             min: ty.minimum,
-            max: ty.maximum.unwrap_or_default(),
+            max: ty.maximum.unwrap_or(wasm_limits_max_default),
             shared: false,
         }));
 

@@ -12,6 +12,7 @@ use wasmer_types::{
     GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
     SerializeError, TableType, Type,
 };
+use wasmparser::{Parser, Payload};
 
 #[derive(Debug)]
 pub(crate) struct ModuleHandle {
@@ -132,11 +133,16 @@ impl Drop for ModuleHandle {
     }
 }
 
+const DYLINK_SECTION_NAME: &str = "dylink.0";
+
 #[derive(Clone, PartialEq, Eq)]
 /// A WebAssembly `module` in the `v8` runtime.
 pub struct Module {
     pub(crate) handle: Arc<ModuleHandle>,
     name: Option<String>,
+    // Copy of the section data needed by the dynamic linker, since the current
+    // API cannot retrieve it later from the handle.
+    dylink_section_data: Option<Vec<u8>>,
 }
 
 unsafe impl Send for Module {}
@@ -165,10 +171,12 @@ impl Module {
         let info = crate::utils::polyfill::translate_module(&binary[..])
             .unwrap()
             .info;
+        let dylink_section_data = get_dylink_section_data(&binary)?;
 
         Ok(Self {
             handle: Arc::new(module),
             name: info.name,
+            dylink_section_data,
         })
     }
 
@@ -227,10 +235,12 @@ impl Module {
         let name = String::from_utf8_lossy(name_bytes).to_string();
         let mod_bytes = &binary[(8 + off)..];
         let module = ModuleHandle::deserialize(engine, mod_bytes)?;
+        let dylink_section_data = get_dylink_section_data(mod_bytes)?;
 
         Ok(Self {
             handle: Arc::new(module),
             name: Some(name),
+            dylink_section_data,
         })
     }
 
@@ -368,12 +378,32 @@ impl Module {
         &'a self,
         name: &'a str,
     ) -> Box<dyn Iterator<Item = Box<[u8]>> + 'a> {
-        Box::new(vec![].into_iter())
+        if name == DYLINK_SECTION_NAME {
+            Box::new(
+                self.dylink_section_data
+                    .iter()
+                    .map(|data| data.clone().into_boxed_slice()),
+            )
+        } else {
+            Box::new(std::iter::empty())
+        }
     }
 
     pub(crate) fn info(&self) -> &ModuleInfo {
         panic!("no info for V8 modules")
     }
+}
+
+fn get_dylink_section_data(binary: &[u8]) -> Result<Option<Vec<u8>>, CompileError> {
+    for payload in Parser::new(0).parse_all(binary) {
+        if let Payload::CustomSection(section) = payload.map_err(|err| {
+            CompileError::Validate(format!("Failed to parse custom sections: {err}"))
+        })? && section.name() == DYLINK_SECTION_NAME
+        {
+            return Ok(Some(section.data().to_vec()));
+        }
+    }
+    Ok(None)
 }
 
 impl crate::Module {

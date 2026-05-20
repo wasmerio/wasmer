@@ -281,7 +281,6 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 
 #[engine_test]
 #[allow(unused_attributes)]
-#[cfg_attr(feature = "v8", ignore = "v8 does not support custom sections")]
 fn module_custom_sections() -> Result<(), String> {
     let store = Store::default();
     let custom_section_wasm_bytes = include_bytes!("simple-name-section.wasm");
