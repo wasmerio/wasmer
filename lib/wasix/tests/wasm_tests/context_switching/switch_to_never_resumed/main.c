@@ -1,4 +1,6 @@
 //#UnixOnly: true
+//#SkipEngine:V8:async functions are not supported yet
+
 // Test that switching to a never-resumed context activates the correct context
 // This test creates 3 contexts and switches between them to verify
 // that the correct entrypoint is called for each
