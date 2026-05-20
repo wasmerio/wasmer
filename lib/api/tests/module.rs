@@ -312,10 +312,9 @@ mod function_extents_tests {
             .engine()
             .into();
         #[cfg(all(not(feature = "cranelift"), feature = "singlepass"))]
-        let engine: Engine =
-            wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default())
-                .engine()
-                .into();
+        let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default())
+            .engine()
+            .into();
         #[cfg(all(
             not(feature = "cranelift"),
             not(feature = "singlepass"),
@@ -351,7 +350,12 @@ mod function_extents_tests {
                 "function {} has null address",
                 index.as_u32()
             );
-            assert_ne!(extent.length, 0, "function {} has zero length", index.as_u32());
+            assert_ne!(
+                extent.length,
+                0,
+                "function {} has zero length",
+                index.as_u32()
+            );
         }
 
         Ok(())
@@ -368,7 +372,11 @@ mod function_extents_tests {
         let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
         let extents = module.artifact().unwrap().finished_function_extents();
 
-        assert_eq!(extents.len(), 2, "imported functions must not appear in extents");
+        assert_eq!(
+            extents.len(),
+            2,
+            "imported functions must not appear in extents"
+        );
         let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
         assert_eq!(
             indices,
