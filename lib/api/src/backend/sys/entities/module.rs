@@ -288,8 +288,13 @@ impl crate::Module {
         }
     }
 
-    /// Returns the compiled [`Artifact`] backing this module.
-    pub fn artifact(&self) -> &Artifact {
-        &self.as_sys().artifact
+    /// Returns the compiled [`Artifact`] backing this module, or `None` if this
+    /// is not a `sys`-backend module.
+    pub fn artifact(&self) -> Option<&Artifact> {
+        match self.0 {
+            BackendModule::Sys(ref s) => Some(&s.artifact),
+            #[allow(unreachable_patterns)]
+            _ => None,
+        }
     }
 }
