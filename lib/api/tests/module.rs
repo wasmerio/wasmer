@@ -296,100 +296,88 @@ fn module_custom_sections() -> Result<(), String> {
     Ok(())
 }
 
-/// Returns a [`Store`] backed by the sys engine using whatever compiler is
-/// available. Cranelift is preferred, then Singlepass, then LLVM.
 #[cfg(all(
     not(target_arch = "wasm32"),
     any(feature = "cranelift", feature = "llvm", feature = "singlepass")
 ))]
-fn sys_store() -> Store {
-    use wasmer::sys::NativeEngineExt as _;
-    #[cfg(feature = "cranelift")]
-    let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
-        .engine()
-        .into();
-    #[cfg(all(not(feature = "cranelift"), feature = "singlepass"))]
-    let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default())
-        .engine()
-        .into();
-    #[cfg(all(
-        not(feature = "cranelift"),
-        not(feature = "singlepass"),
-        feature = "llvm"
-    ))]
-    let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::LLVM::default())
-        .engine()
-        .into();
-    Store::new(engine)
-}
+mod function_extents_tests {
+    use super::*;
 
-#[test]
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "cranelift", feature = "llvm", feature = "singlepass")
-))]
-fn function_extents_returns_one_entry_per_local_function() -> Result<(), String> {
-    let store = sys_store();
-    let wat = r#"(module
-        (func $f1 (result i32) i32.const 1)
-        (func $f2 (result i32) i32.const 2)
-        (func $f3 (param i32) (result i32) local.get 0)
-    )"#;
-    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
-    let extents = module.artifact().unwrap().finished_function_extents();
-
-    assert_eq!(extents.len(), 3, "expected one extent per local function");
-    let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
-    assert_eq!(
-        indices,
-        vec![0, 1, 2],
-        "indices must be sequential starting from 0"
-    );
-    for (index, extent) in &extents {
-        assert!(
-            !extent.ptr.0.is_null(),
-            "function {} has null address",
-            index.as_u32()
-        );
-        assert_ne!(
-            extent.length,
-            0,
-            "function {} has zero length",
-            index.as_u32()
-        );
+    /// Returns a [`Store`] backed by the sys engine using whatever compiler is
+    /// available. Cranelift is preferred, then Singlepass, then LLVM.
+    fn sys_store() -> Store {
+        use wasmer::sys::NativeEngineExt as _;
+        #[cfg(feature = "cranelift")]
+        let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
+            .engine()
+            .into();
+        #[cfg(all(not(feature = "cranelift"), feature = "singlepass"))]
+        let engine: Engine =
+            wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default())
+                .engine()
+                .into();
+        #[cfg(all(
+            not(feature = "cranelift"),
+            not(feature = "singlepass"),
+            feature = "llvm"
+        ))]
+        let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::LLVM::default())
+            .engine()
+            .into();
+        Store::new(engine)
     }
 
-    Ok(())
-}
+    #[test]
+    fn returns_one_entry_per_local_function() -> Result<(), String> {
+        let store = sys_store();
+        let wat = r#"(module
+            (func $f1 (result i32) i32.const 1)
+            (func $f2 (result i32) i32.const 2)
+            (func $f3 (param i32) (result i32) local.get 0)
+        )"#;
+        let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+        let extents = module.artifact().unwrap().finished_function_extents();
 
-#[test]
-#[cfg(all(
-    not(target_arch = "wasm32"),
-    any(feature = "cranelift", feature = "llvm", feature = "singlepass")
-))]
-fn function_extents_excludes_imported_functions() -> Result<(), String> {
-    let store = sys_store();
-    let wat = r#"(module
-        (import "env" "f" (func (param i32)))
-        (func $local1 (result i32) i32.const 42)
-        (func $local2 (param i32) (result i32) local.get 0)
-    )"#;
-    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
-    let extents = module.artifact().unwrap().finished_function_extents();
+        assert_eq!(extents.len(), 3, "expected one extent per local function");
+        let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
+        assert_eq!(
+            indices,
+            vec![0, 1, 2],
+            "indices must be sequential starting from 0"
+        );
+        for (index, extent) in &extents {
+            assert!(
+                !extent.ptr.0.is_null(),
+                "function {} has null address",
+                index.as_u32()
+            );
+            assert_ne!(extent.length, 0, "function {} has zero length", index.as_u32());
+        }
 
-    assert_eq!(
-        extents.len(),
-        2,
-        "imported functions must not appear in extents"
-    );
-    let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
-    assert_eq!(
-        indices,
-        vec![0, 1],
-        "indices must be local (0-based), not global function indices"
-    );
+        Ok(())
+    }
 
-    Ok(())
+    #[test]
+    fn excludes_imported_functions() -> Result<(), String> {
+        let store = sys_store();
+        let wat = r#"(module
+            (import "env" "f" (func (param i32)))
+            (func $local1 (result i32) i32.const 42)
+            (func $local2 (param i32) (result i32) local.get 0)
+        )"#;
+        let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+        let extents = module.artifact().unwrap().finished_function_extents();
+
+        assert_eq!(extents.len(), 2, "imported functions must not appear in extents");
+        let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
+        assert_eq!(
+            indices,
+            vec![0, 1],
+            "indices must be local (0-based), not global function indices"
+        );
+
+        Ok(())
+    }
 }
 
 #[test]
