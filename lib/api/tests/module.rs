@@ -336,7 +336,7 @@ mod function_extents_tests {
         )"#;
         let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
         let extents = module
-            .artifact()
+            .sys_artifact()
             .expect("expected sys-backend module artifact")
             .finished_function_extents();
 
@@ -374,7 +374,7 @@ mod function_extents_tests {
         )"#;
         let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
         let extents = module
-            .artifact()
+            .sys_artifact()
             .expect("expected sys-backend module artifact")
             .finished_function_extents();
 
