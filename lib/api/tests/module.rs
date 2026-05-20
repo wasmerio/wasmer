@@ -335,7 +335,10 @@ mod function_extents_tests {
             (func $f3 (param i32) (result i32) local.get 0)
         )"#;
         let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
-        let extents = module.artifact().unwrap().finished_function_extents();
+        let extents = module
+            .artifact()
+            .expect("expected sys-backend module artifact")
+            .finished_function_extents();
 
         assert_eq!(extents.len(), 3, "expected one extent per local function");
         let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
@@ -370,7 +373,10 @@ mod function_extents_tests {
             (func $local2 (param i32) (result i32) local.get 0)
         )"#;
         let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
-        let extents = module.artifact().unwrap().finished_function_extents();
+        let extents = module
+            .artifact()
+            .expect("expected sys-backend module artifact")
+            .finished_function_extents();
 
         assert_eq!(
             extents.len(),
