@@ -52,6 +52,12 @@ impl Pages {
     pub fn bytes(self) -> Bytes {
         self.into()
     }
+
+    /// Calculate the number of pages needed to hold the given number of bytes,
+    /// rounding up to include any partial page.
+    pub fn from_bytes_rounded_up(bytes: u32) -> Self {
+        Self(bytes.div_ceil(WASM_PAGE_SIZE as u32))
+    }
 }
 
 impl fmt::Debug for Pages {
