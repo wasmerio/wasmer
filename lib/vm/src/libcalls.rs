@@ -1013,19 +1013,6 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         }
         LibCall::DebugUsize => wasmer_vm_dbg_usize as *const () as usize,
         LibCall::DebugStr => wasmer_vm_dbg_str as *const () as usize,
-        #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-        lc => softfloat_function_pointer(lc),
-        #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
-        lc => unreachable!(
-            "libcall {lc:?} has no function pointer on this platform; \
-             if this is a newly added LibCall variant, add it to function_pointer()"
-        ),
-    }
-}
-
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
-fn softfloat_function_pointer(libcall: LibCall) -> usize {
-    match libcall {
         LibCall::Adddf3 => __adddf3 as *const () as usize,
         LibCall::Addsf3 => __addsf3 as *const () as usize,
         LibCall::Divdf3 => __divdf3 as *const () as usize,
@@ -1078,17 +1065,12 @@ fn softfloat_function_pointer(libcall: LibCall) -> usize {
         LibCall::Umodsi3 => __umodsi3 as *const () as usize,
         LibCall::Unorddf2 => __unorddf2 as *const () as usize,
         LibCall::Unordsf2 => __unordsf2 as *const () as usize,
-        lc => unreachable!(
-            "libcall {lc:?} is not a soft-float routine; \
-             add it to the explicit arms of function_pointer() instead"
-        ),
     }
 }
 
-// Soft-float and 64-bit integer arithmetic routines. Provided by compiler-rt /
-// libgcc; only needed on targets without hardware FP or on 32-bit targets
-// (where 64-bit arithmetic requires helper calls).
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+// Soft-float and 64-bit integer arithmetic routines. These are provided by
+// compiler-rt / libgcc on every standard Rust target. We declare them here so
+// wasmer can resolve JIT-compiled references to them at link time.
 unsafe extern "C" {
     fn __adddf3();
     fn __addsf3();
