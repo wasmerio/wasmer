@@ -33,6 +33,9 @@ pub enum LibCall {
     /// nearest.f64
     NearestF64,
 
+    /// sqrt
+    Sqrt,
+
     /// trunc.f32
     TruncF32,
 
@@ -155,7 +158,6 @@ pub enum LibCall {
     Adddf3,
     /// __addsf3
     Addsf3,
-
     /// __divdf3
     Divdf3,
     /// __divdi3
@@ -256,8 +258,6 @@ pub enum LibCall {
     Unorddf2,
     /// __unordsf2
     Unordsf2,
-    /// sqrt
-    Sqrt,
 }
 
 impl LibCall {
@@ -270,6 +270,7 @@ impl LibCall {
             Self::FloorF64 => "wasmer_vm_f64_floor",
             Self::NearestF32 => "wasmer_vm_f32_nearest",
             Self::NearestF64 => "wasmer_vm_f64_nearest",
+            Self::Sqrt => "wasmer_vm_sqrt",
             Self::TruncF32 => "wasmer_vm_f32_trunc",
             Self::TruncF64 => "wasmer_vm_f64_trunc",
             Self::Memory32Size => "wasmer_vm_memory32_size",
@@ -316,7 +317,6 @@ impl LibCall {
             Self::DebugStr => "wasmer_vm_dbg_str",
             Self::Adddf3 => "__adddf3",
             Self::Addsf3 => "__addsf3",
-
             Self::Divdf3 => "__divdf3",
             Self::Divdi3 => "__divdi3",
             Self::Divsf3 => "__divsf3",
@@ -367,7 +367,6 @@ impl LibCall {
             Self::Umodsi3 => "__umodsi3",
             Self::Unorddf2 => "__unorddf2",
             Self::Unordsf2 => "__unordsf2",
-            Self::Sqrt => "sqrt",
         }
     }
 }

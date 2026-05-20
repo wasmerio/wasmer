@@ -145,6 +145,12 @@ pub extern "C" fn wasmer_vm_f64_nearest(x: f64) -> f64 {
     }
 }
 
+/// Implementation of f64.sqrt
+#[unsafe(no_mangle)]
+pub extern "C" fn wasmer_vm_sqrt(x: f64) -> f64 {
+    x.sqrt()
+}
+
 /// Implementation of memory.grow for locally-defined 32-bit memories.
 ///
 /// # Safety
@@ -959,6 +965,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::FloorF64 => wasmer_vm_f64_floor as *const () as usize,
         LibCall::NearestF32 => wasmer_vm_f32_nearest as *const () as usize,
         LibCall::NearestF64 => wasmer_vm_f64_nearest as *const () as usize,
+        LibCall::Sqrt => wasmer_vm_sqrt as *const () as usize,
         LibCall::TruncF32 => wasmer_vm_f32_trunc as *const () as usize,
         LibCall::TruncF64 => wasmer_vm_f64_trunc as *const () as usize,
         LibCall::Memory32Size => wasmer_vm_memory32_size as *const () as usize,
@@ -1006,7 +1013,6 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         }
         LibCall::DebugUsize => wasmer_vm_dbg_usize as *const () as usize,
         LibCall::DebugStr => wasmer_vm_dbg_str as *const () as usize,
-        LibCall::Sqrt => sqrt as *const () as usize,
         #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
         lc => softfloat_function_pointer(lc),
         #[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
@@ -1128,10 +1134,6 @@ unsafe extern "C" {
     fn __umodsi3();
     fn __unorddf2();
     fn __unordsf2();
-}
-
-unsafe extern "C" {
-    fn sqrt();
 }
 
 // __mulsi3 (32×32 soft-multiply) is absent from some 64-bit toolchains.
