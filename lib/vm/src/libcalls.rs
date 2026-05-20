@@ -1094,17 +1094,48 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         #[cfg(not(target_arch = "wasm32"))]
         LibCall::Gtdf2 => __gtdf2 as *const () as usize,
         #[cfg(target_arch = "wasm32")]
-        LibCall::Addsf3 | LibCall::Adddf3 | LibCall::Subsf3 | LibCall::Subdf3
-        | LibCall::Mulsf3 | LibCall::Muldf3 | LibCall::Divsf3 | LibCall::Divdf3
-        | LibCall::Negsf2 | LibCall::Negdf2 | LibCall::Extendsfdf2 | LibCall::Truncdfsf2
-        | LibCall::Fixsfsi | LibCall::Fixdfsi | LibCall::Fixsfdi | LibCall::Fixdfdi
-        | LibCall::Fixunssfsi | LibCall::Fixunsdfsi | LibCall::Fixunssfdi | LibCall::Fixunsdfdi
-        | LibCall::Floatsisf | LibCall::Floatsidf | LibCall::Floatdisf | LibCall::Floatdidf
-        | LibCall::Floatunsisf | LibCall::Floatunsidf | LibCall::Floatundisf | LibCall::Floatundidf
-        | LibCall::Unordsf2 | LibCall::Unorddf2 | LibCall::Eqsf2 | LibCall::Eqdf2
-        | LibCall::Nesf2 | LibCall::Nedf2 | LibCall::Gesf2 | LibCall::Gedf2
-        | LibCall::Ltsf2 | LibCall::Ltdf2 | LibCall::Lesf2 | LibCall::Ledf2
-        | LibCall::Gtsf2 | LibCall::Gtdf2 => {
+        LibCall::Addsf3
+        | LibCall::Adddf3
+        | LibCall::Subsf3
+        | LibCall::Subdf3
+        | LibCall::Mulsf3
+        | LibCall::Muldf3
+        | LibCall::Divsf3
+        | LibCall::Divdf3
+        | LibCall::Negsf2
+        | LibCall::Negdf2
+        | LibCall::Extendsfdf2
+        | LibCall::Truncdfsf2
+        | LibCall::Fixsfsi
+        | LibCall::Fixdfsi
+        | LibCall::Fixsfdi
+        | LibCall::Fixdfdi
+        | LibCall::Fixunssfsi
+        | LibCall::Fixunsdfsi
+        | LibCall::Fixunssfdi
+        | LibCall::Fixunsdfdi
+        | LibCall::Floatsisf
+        | LibCall::Floatsidf
+        | LibCall::Floatdisf
+        | LibCall::Floatdidf
+        | LibCall::Floatunsisf
+        | LibCall::Floatunsidf
+        | LibCall::Floatundisf
+        | LibCall::Floatundidf
+        | LibCall::Unordsf2
+        | LibCall::Unorddf2
+        | LibCall::Eqsf2
+        | LibCall::Eqdf2
+        | LibCall::Nesf2
+        | LibCall::Nedf2
+        | LibCall::Gesf2
+        | LibCall::Gedf2
+        | LibCall::Ltsf2
+        | LibCall::Ltdf2
+        | LibCall::Lesf2
+        | LibCall::Ledf2
+        | LibCall::Gtsf2
+        | LibCall::Gtdf2 => {
             unreachable!("soft-float libcalls are not reachable on wasm32")
         }
     }
