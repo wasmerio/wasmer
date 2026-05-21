@@ -97,7 +97,7 @@ fn print_cycle(packages: &[PackageId]) -> String {
 /// Unlike [`resolve()`], this only queries and links packages. It does not apply
 /// runtime compatibility checks such as rejecting duplicate package versions.
 #[tracing::instrument(level = "debug", skip_all)]
-async fn resolve_dependency_graph(
+pub async fn resolve_dependency_graph(
     root_id: &PackageId,
     root: &PackageInfo,
     source: &dyn Source,
@@ -117,13 +117,11 @@ async fn resolve_dependency_graph(
 }
 
 /// Validate whether a dependency graph can be unified into a runnable package.
-fn validate_dependency_graph(graph: &DependencyGraph) -> Result<(), ResolveError> {
-    check_for_duplicate_versions(
-        petgraph::algo::toposort(graph.graph(), None)
-            .expect("dependency graph is acyclic")
-            .iter()
-            .map(|ix| &graph[*ix].id),
-    )
+pub fn validate_dependency_graph(graph: &DependencyGraph) -> Result<(), ResolveError> {
+    let sorted =
+        petgraph::algo::toposort(graph.graph(), None).map_err(|_| cycle_error(graph.graph()))?;
+
+    check_for_duplicate_versions(sorted.iter().map(|ix| &graph[*ix].id))
 }
 
 async fn discover_dependencies(
@@ -396,13 +394,11 @@ fn named_selection_signature(
 }
 
 fn discovered_packages_are_unified(discovered: &DiscoveredPackages) -> bool {
-    check_for_duplicate_versions(
-        petgraph::algo::toposort(&discovered.graph, None)
-            .expect("dependency graph is acyclic")
-            .iter()
-            .map(|ix| &discovered.graph[*ix].id),
-    )
-    .is_ok()
+    let Ok(sorted) = petgraph::algo::toposort(&discovered.graph, None) else {
+        return false;
+    };
+
+    check_for_duplicate_versions(sorted.iter().map(|ix| &discovered.graph[*ix].id)).is_ok()
 }
 
 async fn discover_dependencies_with_backtracking(
@@ -440,9 +436,11 @@ async fn discover_dependencies_with_backtracking(
         .await?;
 
         for candidate in candidates.into_iter().rev() {
+            // This still clones the graph state per candidate, but the clone is
+            // bounded by the state, package, and pending-dependency limits.
             let mut next = state.clone();
             next.pending = remaining.to_vec();
-            next.add_dependency(task.parent(), task.dep(), candidate);
+            next.add_dependency(task.parent(), task.dep(), candidate)?;
             stack.push(next);
         }
     }
@@ -475,7 +473,11 @@ async fn dependency_candidates(
                         .as_named()
                         .is_some_and(|id| named.matches_id(id))
                 };
-                return Ok(matches.then(|| vec![selected.clone()]).unwrap_or_default());
+                return Ok(if matches {
+                    vec![selected.clone()]
+                } else {
+                    Vec::new()
+                });
             }
 
             let candidates = named_dependency_candidates(named, source, candidate_cache).await?;
@@ -562,7 +564,12 @@ fn cycle_error(graph: &petgraph::Graph<Node, Edge>) -> ResolveError {
     // We know the graph has at least one cycle, so use SCC to find it.
     let mut cycle = petgraph::algo::kosaraju_scc(graph)
         .into_iter()
-        .find(|cycle| cycle.len() > 1)
+        .find(|cycle| {
+            cycle.len() > 1
+                || cycle
+                    .first()
+                    .is_some_and(|node| graph.edges(*node).any(|edge| edge.target() == *node))
+        })
         .expect("We know there is at least one cycle");
 
     // we want the loop's starting node to be deterministic (for tests), and
@@ -630,7 +637,12 @@ impl PartialDiscovery {
         }
     }
 
-    fn add_dependency(&mut self, parent: NodeIndex, dep: &Dependency, summary: PackageSummary) {
+    fn add_dependency(
+        &mut self,
+        parent: NodeIndex,
+        dep: &Dependency,
+        summary: PackageSummary,
+    ) -> Result<(), ResolveError> {
         let package_id = summary.package_id();
         let PackageSummary { pkg, dist } = summary.clone();
 
@@ -643,6 +655,23 @@ impl PartialDiscovery {
         let child = match self.packages.get(&package_id) {
             Some(&index) => index,
             None => {
+                if self.packages.len() >= MAX_DISCOVERED_PACKAGES {
+                    return Err(ResolveError::TooComplex {
+                        resource: "packages",
+                        value: self.packages.len() + 1,
+                        limit: MAX_DISCOVERED_PACKAGES,
+                    });
+                }
+
+                let pending_len = self.pending.len() + pkg.dependencies.len();
+                if pending_len > MAX_PENDING_DEPENDENCIES {
+                    return Err(ResolveError::TooComplex {
+                        resource: "pending_dependencies",
+                        value: pending_len,
+                        limit: MAX_PENDING_DEPENDENCIES,
+                    });
+                }
+
                 let index = self.graph.add_node(Node {
                     id: package_id.clone(),
                     pkg: pkg.clone(),
@@ -666,6 +695,8 @@ impl PartialDiscovery {
                 alias: dep.alias().to_string(),
             },
         );
+
+        Ok(())
     }
 
     fn finish(self) -> DiscoveredPackages {
@@ -1746,6 +1777,165 @@ mod tests {
             }
             _ => unreachable!("Expected a complexity limit error, found {:?}", result),
         }
+    }
+
+    #[test]
+    fn validate_dependency_graph_reports_cycles_without_panicking() {
+        let mut builder = RegistryBuilder::new();
+        builder.register("root", "1.0.0");
+        builder.register("dep", "1.0.0");
+
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let dep_id = PackageId::new_named("dep", "1.0.0".parse().unwrap());
+
+        let root = builder.get(&root_id);
+        let dep = builder.get(&dep_id);
+
+        let mut graph = DiGraph::new();
+        let root_ix = graph.add_node(Node {
+            id: root_id.clone(),
+            pkg: root.pkg.clone(),
+            dist: Some(root.dist.clone()),
+        });
+        let dep_ix = graph.add_node(Node {
+            id: dep_id.clone(),
+            pkg: dep.pkg.clone(),
+            dist: Some(dep.dist.clone()),
+        });
+
+        graph.add_edge(
+            root_ix,
+            dep_ix,
+            Edge {
+                alias: "dep".to_string(),
+            },
+        );
+        graph.add_edge(
+            dep_ix,
+            root_ix,
+            Edge {
+                alias: "root".to_string(),
+            },
+        );
+
+        let graph = DependencyGraph::new(
+            root_ix,
+            graph,
+            BTreeMap::from([(root_id, root_ix), (dep_id, dep_ix)]),
+        );
+
+        assert!(matches!(
+            validate_dependency_graph(&graph),
+            Err(ResolveError::Cycle(_))
+        ));
+    }
+
+    #[test]
+    fn backtracking_partial_discovery_enforces_pending_dependency_limit() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let child_id = PackageId::new_named("child", "1.0.0".parse().unwrap());
+
+        let root = PackageInfo {
+            id: root_id.clone(),
+            dependencies: vec![Dependency {
+                alias: "child".to_string(),
+                pkg: PackageSource::from(
+                    NamedPackageIdent::try_from_full_name_and_version("child", "=1.0.0").unwrap(),
+                ),
+            }],
+            commands: Vec::new(),
+            entrypoint: None,
+            filesystem: Vec::new(),
+        };
+        let mut child = PackageInfo {
+            id: child_id.clone(),
+            dependencies: Vec::new(),
+            commands: Vec::new(),
+            entrypoint: None,
+            filesystem: Vec::new(),
+        };
+        for ix in 0..=MAX_PENDING_DEPENDENCIES {
+            let name = format!("leaf{ix}");
+            child.dependencies.push(Dependency {
+                alias: name.clone(),
+                pkg: PackageSource::from(
+                    NamedPackageIdent::try_from_full_name_and_version(&name, "=1.0.0").unwrap(),
+                ),
+            });
+        }
+        let dist = DistributionInfo {
+            webc: "http://localhost/child@1.0.0".parse().unwrap(),
+            webc_sha256: [0; 32].into(),
+        };
+
+        let mut discovery = PartialDiscovery::new(&root_id, &root);
+        let task = discovery.pending.remove(0);
+        let result = discovery.add_dependency(
+            task.parent(),
+            task.dep(),
+            PackageSummary { pkg: child, dist },
+        );
+
+        match result {
+            Err(ResolveError::TooComplex {
+                resource,
+                value,
+                limit,
+            }) => {
+                assert_eq!(resource, "pending_dependencies");
+                assert_eq!(limit, MAX_PENDING_DEPENDENCIES);
+                assert!(value > limit);
+            }
+            _ => unreachable!("Expected a complexity limit error, found {:?}", result),
+        }
+    }
+
+    #[tokio::test]
+    async fn backtracking_handles_deep_incompatible_candidate_tree_with_state_limit() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("branch0", "^1.0.0")
+            .with_dependency("pinner", "=1.0.0");
+
+        for branch in 0..8 {
+            for version in 0..8 {
+                let name = format!("branch{branch}");
+                let version = format!("1.{version}.0");
+                let mut pkg = builder.register(&name, &version);
+                pkg.with_dependency("common", "=2.0.0");
+                if branch < 7 {
+                    pkg.with_dependency(&format!("branch{}", branch + 1), "^1.0.0");
+                }
+            }
+        }
+
+        builder
+            .register("pinner", "1.0.0")
+            .with_dependency("common", "=1.0.0");
+        builder.register("common", "1.0.0");
+        builder.register("common", "2.0.0");
+
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let result = tokio::time::timeout(
+            Duration::from_secs(1),
+            resolve(&root.package_id(), &root.pkg, &registry),
+        )
+        .await
+        .expect("backtracking did not finish within the test budget");
+
+        assert!(matches!(
+            result,
+            Err(ResolveError::DuplicateVersions { .. })
+                | Err(ResolveError::TooComplex {
+                    resource: "backtrack_states",
+                    ..
+                })
+        ));
     }
 
     #[tokio::test]
