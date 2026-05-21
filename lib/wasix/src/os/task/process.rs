@@ -571,7 +571,7 @@ impl WasiProcess {
     pub fn signal_thread(&self, tid: &WasiThreadId, signal: Signal) {
         // Sometimes we will signal the process rather than the thread hence this libc hardcoded value
         let mut tid = tid.raw();
-        if tid == 1073741823 {
+        if tid == 0x3ffffffe {
             tid = self.pid().raw();
         }
         let tid: WasiThreadId = tid.into();
