@@ -54,8 +54,8 @@ use libtest_mimic::Trial;
 use walkdir::WalkDir;
 
 #[allow(dead_code, unused_imports)]
-#[path = "wasm_tests/mod.rs"]
-mod wasm_test_helpers;
+#[path = "wasm_tests/runner.rs"]
+mod runner;
 
 fn should_emit_colour() -> bool {
     std::io::stdout().is_terminal()
@@ -429,7 +429,7 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
 
     let mut extra_temporary_folders = Vec::new();
     let result =
-        wasm_test_helpers::run_wasm_with_runner_config(&wasm, run_dir, config.engine, |runner| {
+        runner::run_wasm_with_runner_config(&wasm, run_dir, config.engine, |runner| {
             if !config.arguments.is_empty() {
                 runner.with_args(config.arguments.iter().cloned());
             }
@@ -509,7 +509,7 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     Ok(libtest_mimic::Completion::Completed)
 }
 
-fn format_captured_output(result: &wasm_test_helpers::WasmRunResult) -> String {
+fn format_captured_output(result: &runner::WasmRunResult) -> String {
     let mut message = format!(
         "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
         result.exit_code,

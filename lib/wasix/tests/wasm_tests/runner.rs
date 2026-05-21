@@ -1,10 +1,8 @@
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::io::{self, Write};
 use std::num::NonZero;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
-use std::process::Command;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::task::{Context, Poll};
 use tracing_subscriber::EnvFilter;
@@ -289,42 +287,6 @@ pub(crate) struct WasmRunResult {
     pub(crate) error: Option<String>,
 }
 
-fn format_captured_output(result: &WasmRunResult) -> String {
-    let mut message = format!(
-        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
-        result.exit_code,
-        String::from_utf8_lossy(&result.stdout),
-        String::from_utf8_lossy(&result.stderr),
-        String::from_utf8_lossy(&result.trace_output),
-    );
-
-    if let Some(error) = &result.error {
-        message.push_str(&format!("\nerror:\n{}", error));
-    }
-
-    message
-}
-
-/// Run a compiled WASM file using WasiRunner and return output buffers and exit status
-///
-/// This function uses the same caching mechanism as the Wasmer CLI:
-/// - In-memory cache (SharedCache) for fast repeated loads within the same process
-/// - Filesystem cache as a fallback for persistence across test runs
-/// - Cache directory follows the same precedence as the CLI:
-///   1. WASMER_CACHE_DIR environment variable
-///   2. WASMER_DIR/cache/compiled
-///   3. ~/.wasmer/cache/compiled
-///   4. temp_dir/wasmer/cache/compiled (fallback)
-///
-/// The caching significantly improves test performance by avoiding recompilation
-/// of the same WASM modules across multiple test runs.
-pub(crate) fn run_wasm_with_result(
-    wasm_path: &PathBuf,
-    dir: &Path,
-) -> Result<WasmRunResult, anyhow::Error> {
-    run_wasm_with_runner_config(wasm_path, dir, Engine::Cranelift, |_| {})
-}
-
 pub(crate) fn run_wasm_with_runner_config(
     wasm_path: &PathBuf,
     dir: &Path,
@@ -437,4 +399,20 @@ pub(crate) fn run_wasm_with_runner_config(
         exit_code,
         error: result.as_ref().err().map(ToString::to_string),
     })
+}
+
+pub(super) fn format_captured_output(result: &WasmRunResult) -> String {
+    let mut message = format!(
+        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
+        result.exit_code,
+        String::from_utf8_lossy(&result.stdout),
+        String::from_utf8_lossy(&result.stderr),
+        String::from_utf8_lossy(&result.trace_output),
+    );
+
+    if let Some(error) = &result.error {
+        message.push_str(&format!("\nerror:\n{}", error));
+    }
+
+    message
 }
