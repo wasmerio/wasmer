@@ -312,7 +312,7 @@ pub(crate) fn run_wasm_with_runner_config(
         rt.block_on(async {
             // Set up module cache with in-memory + filesystem fallback (same as CLI)
             let cache_dir = get_cache_dir();
-            std::fs::create_dir_all(&cache_dir).ok();
+            std::fs::create_dir_all(&cache_dir).expect("failed to create cache directory");
 
             let rt_handle = wasmer_wasix::runtime::task_manager::tokio::RuntimeOrHandle::Handle(
                 tokio::runtime::Handle::current(),
@@ -382,7 +382,7 @@ pub(crate) fn run_wasm_with_runner_config(
             if let Some(code_str) = error_msg.split("ExitCode::").nth(1) {
                 if let Some(code) = code_str.split_whitespace().next() {
                     code.parse::<i32>()
-                        .expect("exit code cannot be parsed: `{error_msg}`")
+                        .unwrap_or_else(|_| panic!("exit code cannot be parsed: `{error_msg}`"))
                 } else {
                     UNKNOWN_EXIT_CODE
                 }

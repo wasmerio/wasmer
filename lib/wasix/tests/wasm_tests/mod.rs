@@ -324,7 +324,7 @@ fn process_directive(
             let path = PathBuf::from(path);
             ensure!(
                 path.is_relative(),
-                "PrefilledPath must be relative: {path:?}"
+                "PrefilledFile must be relative: {path:?}"
             );
             config.prefilled_files.push((path, file_content.to_owned()));
         }
@@ -426,40 +426,39 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     }
 
     let mut extra_temporary_folders = Vec::new();
-    let result =
-        runner::run_wasm_with_runner_config(&wasm, run_dir, config.engine, |runner| {
-            if !config.arguments.is_empty() {
-                runner.with_args(config.arguments.iter().cloned());
-            }
+    let result = runner::run_wasm_with_runner_config(&wasm, run_dir, config.engine, |runner| {
+        if !config.arguments.is_empty() {
+            runner.with_args(config.arguments.iter().cloned());
+        }
 
-            let mapped_directories = config.mapped_directories.iter().map(|directory| {
-                let host = match &directory.host {
-                    HostMappedLocation::HostPath(host) => {
-                        let host = PathBuf::from(host);
-                        if host.is_absolute() {
-                            host
-                        } else {
-                            config.build_path().join(host)
-                        }
-                    }
-                    HostMappedLocation::TemporaryFolder => {
-                        let temp = tempfile::tempdir().expect("temporary directory must exist");
-                        let host = temp.path().to_path_buf();
-                        extra_temporary_folders.push(temp);
+        let mapped_directories = config.mapped_directories.iter().map(|directory| {
+            let host = match &directory.host {
+                HostMappedLocation::HostPath(host) => {
+                    let host = PathBuf::from(host);
+                    if host.is_absolute() {
                         host
+                    } else {
+                        config.build_path().join(host)
                     }
-                };
-
-                wasmer_wasix::runners::MappedDirectory {
-                    host,
-                    guest: directory.guest.clone(),
                 }
-            });
-            runner.with_mapped_directories(mapped_directories);
-            if let Some(current_directory) = &config.current_directory {
-                runner.with_current_dir(current_directory.clone());
+                HostMappedLocation::TemporaryFolder => {
+                    let temp = tempfile::tempdir().expect("temporary directory must exist");
+                    let host = temp.path().to_path_buf();
+                    extra_temporary_folders.push(temp);
+                    host
+                }
+            };
+
+            wasmer_wasix::runners::MappedDirectory {
+                host,
+                guest: directory.guest.clone(),
             }
-        })?;
+        });
+        runner.with_mapped_directories(mapped_directories);
+        if let Some(current_directory) = &config.current_directory {
+            runner.with_current_dir(current_directory.clone());
+        }
+    })?;
 
     if config.nonzero_exit_code {
         ensure!(
