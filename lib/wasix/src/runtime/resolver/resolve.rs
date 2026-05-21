@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeMap, HashSet, VecDeque},
+    collections::{BTreeMap, BTreeSet, HashSet, VecDeque},
     path::PathBuf,
 };
 
@@ -8,15 +8,19 @@ use petgraph::{
     visit::EdgeRef,
 };
 use semver::Version;
-use wasmer_config::package::{PackageId, PackageSource};
+use wasmer_config::package::{NamedPackageIdent, PackageId, PackageSource};
 
 use crate::runtime::resolver::{
-    DependencyGraph, ItemLocation, PackageInfo, PackageSummary, QueryError, Resolution,
+    Dependency, DependencyGraph, ItemLocation, PackageInfo, PackageSummary, QueryError, Resolution,
     ResolvedPackage, Source,
     outputs::{Edge, Node},
 };
 
 use super::ResolvedFileSystemMapping;
+
+const MAX_DISCOVERED_PACKAGES: usize = 1_000;
+const MAX_PENDING_DEPENDENCIES: usize = 4_000;
+const MAX_BACKTRACK_STATES: usize = 10_000;
 
 /// Given the [`PackageInfo`] for a root package, resolve its dependency graph
 /// and figure out how it could be executed.
@@ -27,6 +31,7 @@ pub async fn resolve(
     source: &dyn Source,
 ) -> Result<Resolution, ResolveError> {
     let graph = resolve_dependency_graph(root_id, root, source).await?;
+    validate_dependency_graph(&graph)?;
     let package = resolve_package(&graph)?;
 
     Ok(Resolution { graph, package })
@@ -49,6 +54,12 @@ pub enum ResolveError {
     DuplicateVersions {
         package_name: String,
         versions: Vec<Version>,
+    },
+    #[error("Dependency resolution exceeded safety limits ({resource}={value}, limit={limit})")]
+    TooComplex {
+        resource: &'static str,
+        value: usize,
+        limit: usize,
     },
 }
 
@@ -81,6 +92,11 @@ fn print_cycle(packages: &[PackageId]) -> String {
         .join(" → ")
 }
 
+/// Given the [`PackageInfo`] for a root package, discover its dependency graph.
+///
+/// Unlike [`resolve()`], this only queries and links packages. It does not apply
+/// runtime compatibility checks such as rejecting duplicate package versions.
+#[tracing::instrument(level = "debug", skip_all)]
 async fn resolve_dependency_graph(
     root_id: &PackageId,
     root: &PackageInfo,
@@ -89,11 +105,10 @@ async fn resolve_dependency_graph(
     let DiscoveredPackages {
         root,
         graph,
-        indices,
         packages,
+        ..
     } = discover_dependencies(root_id, root, source).await?;
 
-    check_for_duplicate_versions(indices.iter().copied().map(|ix| &graph[ix].id))?;
     log_dependencies(&graph, root);
 
     let graph = DependencyGraph::new(root, graph, packages);
@@ -101,10 +116,70 @@ async fn resolve_dependency_graph(
     Ok(graph)
 }
 
+/// Validate whether a dependency graph can be unified into a runnable package.
+fn validate_dependency_graph(graph: &DependencyGraph) -> Result<(), ResolveError> {
+    check_for_duplicate_versions(
+        petgraph::algo::toposort(graph.graph(), None)
+            .expect("dependency graph is acyclic")
+            .iter()
+            .map(|ix| &graph[*ix].id),
+    )
+}
+
 async fn discover_dependencies(
     root_id: &PackageId,
     root: &PackageInfo,
     source: &dyn Source,
+) -> Result<DiscoveredPackages, ResolveError> {
+    // First try a fast fixpoint pass that merges obviously compatible versions.
+    let heuristic = discover_merged_dependencies(root_id, root, source).await?;
+    if discovered_packages_are_unified(&heuristic) {
+        return Ok(heuristic);
+    }
+
+    // If the greedy pass still leaves duplicate named packages behind, search
+    // alternate version choices so lower direct versions can win when they are
+    // the only way to keep the full graph consistent.
+    if let Some(discovered) = discover_dependencies_with_backtracking(root_id, root, source).await?
+    {
+        return Ok(discovered);
+    }
+
+    Ok(heuristic)
+}
+
+async fn discover_merged_dependencies(
+    root_id: &PackageId,
+    root: &PackageInfo,
+    source: &dyn Source,
+) -> Result<DiscoveredPackages, ResolveError> {
+    let mut selected_named = BTreeMap::new();
+    let mut candidate_cache = BTreeMap::new();
+    let mut seen_selections = BTreeSet::from([named_selection_signature(&selected_named)]);
+
+    loop {
+        let discovered = discover_dependencies_once(root_id, root, source, &selected_named).await?;
+        let constraints = named_dependency_constraints(&discovered.graph);
+        let next_selected =
+            select_named_dependencies(constraints, source, &mut candidate_cache).await?;
+
+        if same_named_selection(&selected_named, &next_selected) {
+            return Ok(discovered);
+        }
+
+        if !seen_selections.insert(named_selection_signature(&next_selected)) {
+            return Ok(discovered);
+        }
+
+        selected_named = next_selected;
+    }
+}
+
+async fn discover_dependencies_once(
+    root_id: &PackageId,
+    root: &PackageInfo,
+    source: &dyn Source,
+    selected_named: &BTreeMap<String, PackageSummary>,
 ) -> Result<DiscoveredPackages, ResolveError> {
     let mut nodes: BTreeMap<PackageId, NodeIndex> = BTreeMap::new();
     let mut graph: DiGraph<Node, Edge> = DiGraph::new();
@@ -123,19 +198,13 @@ async fn discover_dependencies(
         let mut to_add = Vec::new();
 
         for dep in &graph[index].pkg.dependencies {
-            // Get the latest version that satisfies our requirement. If we were
-            // doing this more rigorously, we would be narrowing the version
-            // down using existing requirements and trying to reuse the same
-            // dependency when possible.
-            let dep_summary =
-                source
-                    .latest(&dep.pkg)
-                    .await
-                    .map_err(|error| ResolveError::Registry {
-                        package: dep.pkg.clone(),
-                        error,
-                    })?;
-            let dep_id = dep_summary.package_id().clone();
+            let dep_summary = resolve_dependency(dep, source, selected_named)
+                .await
+                .map_err(|error| ResolveError::Registry {
+                    package: dep.pkg.clone(),
+                    error,
+                })?;
+            let dep_id = dep_summary.package_id();
 
             let PackageSummary { pkg, dist } = dep_summary;
 
@@ -156,11 +225,25 @@ async fn discover_dependencies(
             let dep_index = match nodes.get(&dep_id) {
                 Some(&ix) => ix,
                 None => {
+                    if nodes.len() >= MAX_DISCOVERED_PACKAGES {
+                        return Err(ResolveError::TooComplex {
+                            resource: "packages",
+                            value: nodes.len() + 1,
+                            limit: MAX_DISCOVERED_PACKAGES,
+                        });
+                    }
                     // Create a new node and schedule its dependencies to be
                     // retrieved
                     let ix = graph.add_node(node);
                     nodes.insert(dep_id, ix);
                     to_visit.push_back(ix);
+                    if to_visit.len() > MAX_PENDING_DEPENDENCIES {
+                        return Err(ResolveError::TooComplex {
+                            resource: "pending_dependencies",
+                            value: to_visit.len(),
+                            limit: MAX_PENDING_DEPENDENCIES,
+                        });
+                    }
                     ix
                 }
             };
@@ -169,14 +252,310 @@ async fn discover_dependencies(
         }
     }
 
-    let sorted_indices = petgraph::algo::toposort(&graph, None).map_err(|_| cycle_error(&graph))?;
+    petgraph::algo::toposort(&graph, None).map_err(|_| cycle_error(&graph))?;
 
     Ok(DiscoveredPackages {
         root: root_index,
         graph,
-        indices: sorted_indices,
         packages: nodes,
     })
+}
+
+async fn resolve_dependency(
+    dep: &Dependency,
+    source: &dyn Source,
+    selected_named: &BTreeMap<String, PackageSummary>,
+) -> Result<PackageSummary, QueryError> {
+    let candidates = source.query(&dep.pkg).await?;
+
+    match dep.pkg.as_named() {
+        Some(named) => {
+            if let Some(selected) = selected_named.get(&named.full_name())
+                && let Some(id) = selected.pkg.id.as_named()
+                && named.matches_id(id)
+            {
+                return Ok(selected.clone());
+            }
+
+            select_latest_named_dependency(candidates, dep)
+        }
+        None => candidates
+            .into_iter()
+            .next()
+            .ok_or_else(|| QueryError::NotFound {
+                query: dep.pkg.clone(),
+            }),
+    }
+}
+
+fn select_latest_named_dependency(
+    candidates: Vec<PackageSummary>,
+    dep: &Dependency,
+) -> Result<PackageSummary, QueryError> {
+    candidates
+        .into_iter()
+        .max_by(|left, right| {
+            let left_version = left.pkg.id.as_named().map(|id| &id.version);
+            let right_version = right.pkg.id.as_named().map(|id| &id.version);
+
+            left_version.cmp(&right_version)
+        })
+        .ok_or_else(|| QueryError::NoMatches {
+            query: dep.pkg.clone(),
+            archived_versions: Vec::new(),
+        })
+}
+
+fn named_dependency_constraints(
+    graph: &DiGraph<Node, Edge>,
+) -> BTreeMap<String, Vec<NamedPackageIdent>> {
+    let mut constraints: BTreeMap<String, Vec<NamedPackageIdent>> = BTreeMap::new();
+
+    graph
+        .node_weights()
+        .flat_map(|node| &node.pkg.dependencies)
+        .filter_map(|dep| dep.pkg.as_named())
+        .for_each(|named| {
+            constraints
+                .entry(named.full_name())
+                .or_default()
+                .push(named.clone());
+        });
+
+    constraints
+}
+
+async fn select_named_dependencies(
+    constraints: BTreeMap<String, Vec<NamedPackageIdent>>,
+    source: &dyn Source,
+    candidate_cache: &mut BTreeMap<String, Vec<PackageSummary>>,
+) -> Result<BTreeMap<String, PackageSummary>, ResolveError> {
+    let mut selected = BTreeMap::new();
+
+    for (full_name, constraints) in constraints {
+        let Some(summary) =
+            select_unified_named_dependency(&constraints, source, candidate_cache).await?
+        else {
+            continue;
+        };
+        selected.insert(full_name, summary);
+    }
+
+    Ok(selected)
+}
+
+async fn select_unified_named_dependency(
+    constraints: &[NamedPackageIdent],
+    source: &dyn Source,
+    candidate_cache: &mut BTreeMap<String, Vec<PackageSummary>>,
+) -> Result<Option<PackageSummary>, ResolveError> {
+    let [first, remaining @ ..] = constraints else {
+        return Ok(None);
+    };
+
+    let mut candidates = named_dependency_candidates(first, source, candidate_cache).await?;
+
+    for constraint in remaining {
+        let matching_ids: HashSet<_> =
+            named_dependency_candidates(constraint, source, candidate_cache)
+                .await?
+                .into_iter()
+                .map(|summary| summary.package_id())
+                .collect();
+
+        candidates.retain(|candidate| matching_ids.contains(&candidate.package_id()));
+    }
+
+    Ok(candidates.into_iter().max_by(|left, right| {
+        let left_version = left.pkg.id.as_named().map(|id| &id.version);
+        let right_version = right.pkg.id.as_named().map(|id| &id.version);
+
+        left_version.cmp(&right_version)
+    }))
+}
+
+fn same_named_selection(
+    left: &BTreeMap<String, PackageSummary>,
+    right: &BTreeMap<String, PackageSummary>,
+) -> bool {
+    left.len() == right.len()
+        && left.iter().all(|(name, summary)| {
+            right
+                .get(name)
+                .is_some_and(|other| summary.package_id() == other.package_id())
+        })
+}
+
+fn named_selection_signature(
+    selected: &BTreeMap<String, PackageSummary>,
+) -> Vec<(String, PackageId)> {
+    selected
+        .iter()
+        .map(|(name, summary)| (name.clone(), summary.package_id()))
+        .collect()
+}
+
+fn discovered_packages_are_unified(discovered: &DiscoveredPackages) -> bool {
+    check_for_duplicate_versions(
+        petgraph::algo::toposort(&discovered.graph, None)
+            .expect("dependency graph is acyclic")
+            .iter()
+            .map(|ix| &discovered.graph[*ix].id),
+    )
+    .is_ok()
+}
+
+async fn discover_dependencies_with_backtracking(
+    root_id: &PackageId,
+    root: &PackageInfo,
+    source: &dyn Source,
+) -> Result<Option<DiscoveredPackages>, ResolveError> {
+    let mut candidate_cache = BTreeMap::new();
+    let mut stack = vec![PartialDiscovery::new(root_id, root)];
+    let mut states_explored = 0usize;
+
+    while let Some(state) = stack.pop() {
+        states_explored += 1;
+        if states_explored > MAX_BACKTRACK_STATES {
+            return Err(ResolveError::TooComplex {
+                resource: "backtrack_states",
+                value: states_explored,
+                limit: MAX_BACKTRACK_STATES,
+            });
+        }
+
+        let Some((task, remaining)) = state.pending.split_first() else {
+            if petgraph::algo::toposort(&state.graph, None).is_ok() {
+                return Ok(Some(state.finish()));
+            }
+            continue;
+        };
+
+        let candidates = dependency_candidates(
+            task.dep(),
+            source,
+            &state.selected_named,
+            &mut candidate_cache,
+        )
+        .await?;
+
+        for candidate in candidates.into_iter().rev() {
+            let mut next = state.clone();
+            next.pending = remaining.to_vec();
+            next.add_dependency(task.parent(), task.dep(), candidate);
+            stack.push(next);
+        }
+    }
+
+    Ok(None)
+}
+
+async fn dependency_candidates(
+    dep: &Dependency,
+    source: &dyn Source,
+    selected_named: &BTreeMap<String, PackageSummary>,
+    candidate_cache: &mut BTreeMap<String, Vec<PackageSummary>>,
+) -> Result<Vec<PackageSummary>, ResolveError> {
+    match dep.pkg.as_named() {
+        Some(named) => {
+            if let Some(selected) = selected_named.get(&named.full_name()) {
+                let matches = if named
+                    .tag
+                    .as_ref()
+                    .is_some_and(|tag| tag.as_named().is_some())
+                {
+                    named_dependency_candidates(named, source, candidate_cache)
+                        .await?
+                        .into_iter()
+                        .any(|candidate| candidate.package_id() == selected.package_id())
+                } else {
+                    selected
+                        .pkg
+                        .id
+                        .as_named()
+                        .is_some_and(|id| named.matches_id(id))
+                };
+                return Ok(matches.then(|| vec![selected.clone()]).unwrap_or_default());
+            }
+
+            let candidates = named_dependency_candidates(named, source, candidate_cache).await?;
+            Ok(candidates
+                .into_iter()
+                .filter(|candidate| candidate_matches_named_query(named, candidate))
+                .collect())
+        }
+        None => Ok(vec![
+            source
+                .query(&dep.pkg)
+                .await
+                .map_err(|error| ResolveError::Registry {
+                    package: dep.pkg.clone(),
+                    error,
+                })?
+                .into_iter()
+                .next()
+                .ok_or_else(|| ResolveError::Registry {
+                    package: dep.pkg.clone(),
+                    error: QueryError::NotFound {
+                        query: dep.pkg.clone(),
+                    },
+                })?,
+        ]),
+    }
+}
+
+async fn named_dependency_candidates(
+    named: &NamedPackageIdent,
+    source: &dyn Source,
+    candidate_cache: &mut BTreeMap<String, Vec<PackageSummary>>,
+) -> Result<Vec<PackageSummary>, ResolveError> {
+    let cache_key = named.build();
+
+    let candidates = match candidate_cache.get(&cache_key) {
+        Some(candidates) => candidates.clone(),
+        None => {
+            let query = PackageSource::from(named.clone());
+
+            let mut candidates =
+                source
+                    .query(&query)
+                    .await
+                    .map_err(|error| ResolveError::Registry {
+                        package: query.clone(),
+                        error,
+                    })?;
+            sort_named_candidates_desc(&mut candidates);
+            candidate_cache.insert(cache_key, candidates.clone());
+            candidates
+        }
+    };
+
+    Ok(candidates)
+}
+
+fn candidate_matches_named_query(named: &NamedPackageIdent, candidate: &PackageSummary) -> bool {
+    let Some(id) = candidate.pkg.id.as_named() else {
+        return false;
+    };
+
+    if named
+        .tag
+        .as_ref()
+        .is_some_and(|tag| tag.as_named().is_some())
+    {
+        named.full_name() == id.full_name
+    } else {
+        named.matches_id(id)
+    }
+}
+
+fn sort_named_candidates_desc(candidates: &mut [PackageSummary]) {
+    candidates.sort_by(|left, right| {
+        let left_version = left.pkg.id.as_named().map(|id| &id.version);
+        let right_version = right.pkg.id.as_named().map(|id| &id.version);
+
+        right_version.cmp(&left_version)
+    });
 }
 
 fn cycle_error(graph: &petgraph::Graph<Node, Edge>) -> ResolveError {
@@ -210,9 +589,108 @@ fn cycle_error(graph: &petgraph::Graph<Node, Edge>) -> ResolveError {
 struct DiscoveredPackages {
     root: NodeIndex,
     graph: DiGraph<Node, Edge>,
-    /// All node indices, in topologically sorted order.
-    indices: Vec<NodeIndex>,
     packages: BTreeMap<PackageId, NodeIndex>,
+}
+
+#[derive(Debug, Clone)]
+struct PartialDiscovery {
+    root: NodeIndex,
+    graph: DiGraph<Node, Edge>,
+    packages: BTreeMap<PackageId, NodeIndex>,
+    pending: Vec<PendingDependency>,
+    selected_named: BTreeMap<String, PackageSummary>,
+}
+
+impl PartialDiscovery {
+    fn new(root_id: &PackageId, root: &PackageInfo) -> Self {
+        let mut graph = DiGraph::new();
+        let root_index = graph.add_node(Node {
+            id: root_id.clone(),
+            pkg: root.clone(),
+            dist: None,
+        });
+
+        let packages = BTreeMap::from([(root_id.clone(), root_index)]);
+        let pending = root
+            .dependencies
+            .iter()
+            .cloned()
+            .map(|dep| PendingDependency {
+                parent: root_index,
+                dep,
+            })
+            .collect();
+
+        PartialDiscovery {
+            root: root_index,
+            graph,
+            packages,
+            pending,
+            selected_named: BTreeMap::new(),
+        }
+    }
+
+    fn add_dependency(&mut self, parent: NodeIndex, dep: &Dependency, summary: PackageSummary) {
+        let package_id = summary.package_id();
+        let PackageSummary { pkg, dist } = summary.clone();
+
+        if let Some(id) = pkg.id.as_named() {
+            self.selected_named
+                .entry(id.full_name.clone())
+                .or_insert(summary);
+        }
+
+        let child = match self.packages.get(&package_id) {
+            Some(&index) => index,
+            None => {
+                let index = self.graph.add_node(Node {
+                    id: package_id.clone(),
+                    pkg: pkg.clone(),
+                    dist: Some(dist),
+                });
+                self.packages.insert(package_id, index);
+                self.pending.extend(
+                    pkg.dependencies
+                        .iter()
+                        .cloned()
+                        .map(|dep| PendingDependency { parent: index, dep }),
+                );
+                index
+            }
+        };
+
+        self.graph.add_edge(
+            parent,
+            child,
+            Edge {
+                alias: dep.alias().to_string(),
+            },
+        );
+    }
+
+    fn finish(self) -> DiscoveredPackages {
+        DiscoveredPackages {
+            root: self.root,
+            graph: self.graph,
+            packages: self.packages,
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+struct PendingDependency {
+    parent: NodeIndex,
+    dep: Dependency,
+}
+
+impl PendingDependency {
+    fn parent(&self) -> NodeIndex {
+        self.parent
+    }
+
+    fn dep(&self) -> &Dependency {
+        &self.dep
+    }
 }
 
 #[tracing::instrument(level = "debug", name = "dependencies", skip_all)]
@@ -380,9 +858,9 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 
 #[cfg(test)]
 mod tests {
-    use std::path::PathBuf;
+    use std::{path::PathBuf, time::Duration};
 
-    use wasmer_config::package::NamedPackageIdent;
+    use wasmer_config::package::{NamedPackageIdent, PackageIdent, Tag};
 
     use crate::runtime::resolver::{
         Dependency, InMemorySource, MultiSource,
@@ -426,6 +904,13 @@ mod tests {
             registry
         }
 
+        fn finish_with_tags(&self, tags: BTreeMap<(String, String), String>) -> TagResolvingSource {
+            TagResolvingSource {
+                inner: self.finish(),
+                tags,
+            }
+        }
+
         fn get(&self, id: &PackageId) -> &PackageSummary {
             self.0.get(id).unwrap()
         }
@@ -452,6 +937,22 @@ mod tests {
     impl AddPackageVersion<'_> {
         fn with_dependency(&mut self, name: &str, version_constraint: &str) -> &mut Self {
             self.with_aliased_dependency(name, name, version_constraint)
+        }
+
+        fn with_tagged_dependency(&mut self, name: &str, tag: &str) -> &mut Self {
+            let pkg = PackageSource::from(NamedPackageIdent {
+                registry: None,
+                namespace: None,
+                name: name.to_string(),
+                tag: Some(Tag::Named(tag.to_string())),
+            });
+
+            self.summary.pkg.dependencies.push(Dependency {
+                alias: name.to_string(),
+                pkg,
+            });
+
+            self
         }
 
         fn with_aliased_dependency(
@@ -517,6 +1018,43 @@ mod tests {
                 dependency_name: Some(dependency.to_string()),
             });
             self
+        }
+    }
+
+    #[derive(Debug)]
+    struct TagResolvingSource {
+        inner: MultiSource,
+        tags: BTreeMap<(String, String), String>,
+    }
+
+    #[async_trait::async_trait]
+    impl Source for TagResolvingSource {
+        async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
+            let rewritten = match package {
+                PackageSource::Ident(PackageIdent::Named(named)) => {
+                    match named.tag.as_ref().and_then(|tag| tag.as_named()) {
+                        Some(tag) => {
+                            let version = self
+                                .tags
+                                .get(&(named.full_name(), tag.clone()))
+                                .ok_or_else(|| QueryError::NotFound {
+                                    query: package.clone(),
+                                })?;
+                            PackageSource::from(
+                                NamedPackageIdent::try_from_full_name_and_version(
+                                    &named.full_name(),
+                                    &format!("={version}"),
+                                )
+                                .unwrap(),
+                            )
+                        }
+                        None => package.clone(),
+                    }
+                }
+                _ => package.clone(),
+            };
+
+            self.inner.query(&rewritten).await
         }
     }
 
@@ -807,48 +1345,6 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn version_merging_isnt_implemented_yet() {
-        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
-        let mut builder = RegistryBuilder::new();
-        builder
-            .register("root", "1.0.0")
-            .with_dependency("first", "=1.0.0")
-            .with_dependency("second", "=1.0.0");
-        builder
-            .register("first", "1.0.0")
-            .with_dependency("common", "^1.0.0");
-        builder
-            .register("second", "1.0.0")
-            .with_dependency("common", ">1.1,<1.3");
-        builder.register("common", "1.0.0");
-        builder.register("common", "1.1.0");
-        builder.register("common", "1.2.0");
-        builder.register("common", "1.5.0");
-        let registry = builder.finish();
-        let root = builder.get(&root_id);
-
-        let result = resolve(&root.package_id(), &root.pkg, &registry).await;
-
-        match result {
-            Err(ResolveError::DuplicateVersions {
-                package_name,
-                versions,
-            }) => {
-                assert_eq!(package_name, "common");
-                assert_eq!(
-                    versions,
-                    [
-                        Version::parse("1.2.0").unwrap(),
-                        Version::parse("1.5.0").unwrap(),
-                    ]
-                );
-            }
-            _ => unreachable!("Expected a duplicate versions error, found {:?}", result),
-        }
-    }
-
-    #[tokio::test]
-    #[ignore = "Version merging isn't implemented"]
     async fn merge_compatible_versions() {
         let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
         let first_id = PackageId::new_named("first", "1.0.0".parse().unwrap());
@@ -899,6 +1395,357 @@ mod tests {
                 filesystem: Vec::new(),
             }
         );
+    }
+
+    #[tokio::test]
+    async fn merge_compatible_versions_when_constraints_appear_later() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let first_id = PackageId::new_named("first", "1.0.0".parse().unwrap());
+        let second_id = PackageId::new_named("second", "1.0.0".parse().unwrap());
+        let mid_id = PackageId::new_named("mid", "1.0.0".parse().unwrap());
+        let common_id = PackageId::new_named("common", "1.2.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("first", "=1.0.0")
+            .with_dependency("second", "=1.0.0");
+        builder
+            .register("first", "1.0.0")
+            .with_dependency("common", "^1.0.0");
+        builder
+            .register("second", "1.0.0")
+            .with_dependency("mid", "=1.0.0");
+        builder
+            .register("mid", "1.0.0")
+            .with_dependency("common", "<=1.2.0");
+        builder.register("common", "1.2.0");
+        builder.register("common", "1.5.0");
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert(root_id.clone())
+            .with_dependency(&first_id)
+            .with_dependency(&second_id);
+        dependency_graph
+            .insert(first_id.clone())
+            .with_dependency(&common_id);
+        dependency_graph
+            .insert(second_id.clone())
+            .with_dependency(&mid_id);
+        dependency_graph
+            .insert(mid_id.clone())
+            .with_dependency(&common_id);
+        dependency_graph.insert(common_id.clone());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
+    }
+
+    #[tokio::test]
+    async fn pick_a_lower_direct_dependency_to_preserve_transitive_unification() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let feature_id = PackageId::new_named("feature", "1.0.0".parse().unwrap());
+        let common_id = PackageId::new_named("common", "1.5.0".parse().unwrap());
+        let shared_id = PackageId::new_named("shared", "1.0.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("feature", "^1.0.0")
+            .with_dependency("shared", "=1.0.0");
+        builder
+            .register("feature", "1.0.0")
+            .with_dependency("common", "^1.0.0");
+        builder
+            .register("feature", "1.1.0")
+            .with_dependency("common", "^2.0.0");
+        builder
+            .register("shared", "1.0.0")
+            .with_dependency("common", "=1.5.0");
+        builder.register("common", "1.5.0");
+        builder.register("common", "2.1.0");
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert(root_id.clone())
+            .with_dependency(&feature_id)
+            .with_dependency(&shared_id);
+        dependency_graph
+            .insert(feature_id.clone())
+            .with_dependency(&common_id);
+        dependency_graph
+            .insert(shared_id.clone())
+            .with_dependency(&common_id);
+        dependency_graph.insert(common_id.clone());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
+    }
+
+    #[tokio::test]
+    async fn pick_a_lower_dependency_after_branching_transitive_constraints() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let feature_id = PackageId::new_named("feature", "1.0.0".parse().unwrap());
+        let aggregator_id = PackageId::new_named("aggregator", "1.0.0".parse().unwrap());
+        let leaf_id = PackageId::new_named("leaf", "1.0.0".parse().unwrap());
+        let common_id = PackageId::new_named("common", "1.4.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("feature", "^1.0.0")
+            .with_dependency("aggregator", "=1.0.0");
+        builder
+            .register("feature", "1.0.0")
+            .with_dependency("common", "^1.0.0");
+        builder
+            .register("feature", "1.1.0")
+            .with_dependency("common", "^2.0.0");
+        builder
+            .register("aggregator", "1.0.0")
+            .with_dependency("leaf", "=1.0.0");
+        builder
+            .register("leaf", "1.0.0")
+            .with_dependency("common", "<=1.4.0");
+        builder.register("common", "1.4.0");
+        builder.register("common", "2.0.0");
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert(root_id.clone())
+            .with_dependency(&feature_id)
+            .with_dependency(&aggregator_id);
+        dependency_graph
+            .insert(feature_id.clone())
+            .with_dependency(&common_id);
+        dependency_graph
+            .insert(aggregator_id.clone())
+            .with_dependency(&leaf_id);
+        dependency_graph
+            .insert(leaf_id.clone())
+            .with_dependency(&common_id);
+        dependency_graph.insert(common_id.clone());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
+    }
+
+    #[tokio::test]
+    async fn oscillating_greedy_selection_falls_back_to_backtracking() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let a_id = PackageId::new_named("a", "1.0.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("a", "^1.0.0");
+        builder.register("a", "1.0.0");
+        builder
+            .register("a", "2.0.0")
+            .with_dependency("x", "=1.0.0");
+        builder
+            .register("x", "1.0.0")
+            .with_dependency("a", "=1.0.0");
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        tokio::time::timeout(
+            Duration::from_secs(1),
+            discover_merged_dependencies(&root.package_id(), &root.pkg, &registry),
+        )
+        .await
+        .expect("greedy dependency discovery did not terminate")
+        .unwrap();
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert(root_id.clone())
+            .with_dependency(&a_id);
+        dependency_graph.insert(a_id.clone());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
+    }
+
+    #[tokio::test]
+    async fn named_tags_are_resolved_through_the_source_during_backtracking() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let feature_id = PackageId::new_named("feature", "1.0.0".parse().unwrap());
+        let common_id = PackageId::new_named("common", "1.5.0".parse().unwrap());
+        let shared_id = PackageId::new_named("shared", "1.0.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("feature", "^1.0.0")
+            .with_dependency("shared", "=1.0.0");
+        builder
+            .register("feature", "1.0.0")
+            .with_tagged_dependency("common", "stable");
+        builder
+            .register("feature", "1.1.0")
+            .with_dependency("common", "^2.0.0");
+        builder
+            .register("shared", "1.0.0")
+            .with_dependency("common", "=1.5.0");
+        builder.register("common", "1.5.0");
+        builder.register("common", "2.1.0");
+        let registry = builder.finish_with_tags(BTreeMap::from([(
+            ("common".to_string(), "stable".to_string()),
+            "1.5.0".to_string(),
+        )]));
+        let root = builder.get(&root_id);
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert(root_id.clone())
+            .with_dependency(&feature_id)
+            .with_dependency(&shared_id);
+        dependency_graph
+            .insert(feature_id.clone())
+            .with_dependency(&common_id);
+        dependency_graph
+            .insert(shared_id.clone())
+            .with_dependency(&common_id);
+        dependency_graph.insert(common_id.clone());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
+    }
+
+    #[tokio::test]
+    async fn incompatible_versions_still_report_duplicates() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("first", "=1.0.0")
+            .with_dependency("second", "=1.0.0");
+        builder
+            .register("first", "1.0.0")
+            .with_dependency("common", "=1.0.0");
+        builder
+            .register("second", "1.0.0")
+            .with_dependency("common", "=2.0.0");
+        builder.register("common", "1.0.0");
+        builder.register("common", "2.0.0");
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let result = resolve(&root.package_id(), &root.pkg, &registry).await;
+
+        match result {
+            Err(ResolveError::DuplicateVersions {
+                package_name,
+                versions,
+            }) => {
+                assert_eq!(package_name, "common");
+                assert_eq!(
+                    versions,
+                    [
+                        Version::parse("1.0.0").unwrap(),
+                        Version::parse("2.0.0").unwrap(),
+                    ]
+                );
+            }
+            _ => unreachable!("Expected a duplicate versions error, found {:?}", result),
+        }
+    }
+
+    #[tokio::test]
+    async fn incompatible_parent_versions_still_report_duplicates_when_no_solution_exists() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("feature", "^1.0.0")
+            .with_dependency("shared", "=1.0.0");
+        builder
+            .register("feature", "1.0.0")
+            .with_dependency("common", "^1.0.0");
+        builder
+            .register("feature", "1.1.0")
+            .with_dependency("common", "^2.0.0");
+        builder
+            .register("shared", "1.0.0")
+            .with_dependency("common", "=3.0.0");
+        builder.register("common", "1.5.0");
+        builder.register("common", "2.1.0");
+        builder.register("common", "3.0.0");
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let result = resolve(&root.package_id(), &root.pkg, &registry).await;
+
+        match result {
+            Err(ResolveError::DuplicateVersions {
+                package_name,
+                versions,
+            }) => {
+                assert_eq!(package_name, "common");
+                assert_eq!(
+                    versions,
+                    [
+                        Version::parse("2.1.0").unwrap(),
+                        Version::parse("3.0.0").unwrap(),
+                    ]
+                );
+            }
+            _ => unreachable!("Expected a duplicate versions error, found {:?}", result),
+        }
+    }
+
+    #[tokio::test]
+    async fn very_large_dependency_graphs_fail_with_a_clear_limit_error() {
+        let root_id = PackageId::new_named("pkg0", "1.0.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        for ix in 0..=MAX_DISCOVERED_PACKAGES {
+            let name = format!("pkg{ix}");
+            let version = "1.0.0";
+            let mut pkg = builder.register(&name, version);
+            if ix < MAX_DISCOVERED_PACKAGES {
+                let dep_name = format!("pkg{}", ix + 1);
+                pkg.with_dependency(&dep_name, "=1.0.0");
+            }
+        }
+
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let result = resolve(&root.package_id(), &root.pkg, &registry).await;
+
+        match result {
+            Err(ResolveError::TooComplex {
+                resource,
+                value,
+                limit,
+            }) => {
+                assert_eq!(resource, "packages");
+                assert_eq!(limit, MAX_DISCOVERED_PACKAGES);
+                assert!(value > limit);
+            }
+            _ => unreachable!("Expected a complexity limit error, found {:?}", result),
+        }
     }
 
     #[tokio::test]
