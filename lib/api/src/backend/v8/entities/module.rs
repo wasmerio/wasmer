@@ -140,6 +140,8 @@ const DYLINK_SECTION_NAME: &str = "dylink.0";
 pub struct Module {
     pub(crate) handle: Arc<ModuleHandle>,
     name: Option<String>,
+    imports: Vec<ImportType>,
+    exports: Vec<ExportType>,
     // Copy of the section data needed by the dynamic linker, since the current
     // API cannot retrieve it later from the handle.
     dylink_section_data: Option<Vec<u8>>,
@@ -171,11 +173,15 @@ impl Module {
         let info = crate::utils::polyfill::translate_module(&binary[..])
             .unwrap()
             .info;
+        let imports = info.imports().collect();
+        let exports = info.exports().collect();
         let dylink_section_data = get_dylink_section_data(&binary)?;
 
         Ok(Self {
             handle: Arc::new(module),
             name: info.name,
+            imports,
+            exports,
             dylink_section_data,
         })
     }
@@ -235,11 +241,17 @@ impl Module {
         let name = String::from_utf8_lossy(name_bytes).to_string();
         let mod_bytes = &binary[(8 + off)..];
         let module = ModuleHandle::deserialize(engine, mod_bytes)?;
+        let store = module.orig_store.as_v8().inner;
+        let shared_handle = module.v8_shared_module_handle;
+        let imports = v8_imports(store, shared_handle);
+        let exports = v8_exports(store, shared_handle);
         let dylink_section_data = get_dylink_section_data(mod_bytes)?;
 
         Ok(Self {
             handle: Arc::new(module),
             name: Some(name),
+            imports,
+            exports,
             dylink_section_data,
         })
     }
@@ -273,103 +285,13 @@ impl Module {
     }
 
     pub fn imports<'a>(&'a self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + 'a>> {
-        let mut imports = wasm_importtype_vec_t {
-            size: 0,
-            data: std::ptr::null_mut(),
-        };
-
-        let store = self.handle.orig_store.as_v8().inner;
-        let shared_handle = self.handle.v8_shared_module_handle;
-        let imports = unsafe {
-            let module = wasm_module_obtain(store, shared_handle);
-            if module.is_null() {
-                panic!("Could not get imports: underlying module is null!");
-            }
-
-            wasm_module_imports(module as *const _, &mut imports as *mut _);
-
-            let imports =
-                if imports.data.is_null() || !imports.data.is_aligned() || imports.size == 0 {
-                    vec![]
-                } else {
-                    std::slice::from_raw_parts(imports.data, imports.size).to_vec()
-                };
-            let mut wasmer_imports = vec![];
-
-            for i in imports.into_iter() {
-                if i.is_null() {
-                    panic!("null import returned from V8!");
-                }
-
-                let name = wasm_importtype_name(i as *const _);
-                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
-                let name_str = String::from_utf8_lossy(name).to_string();
-                let module = wasm_importtype_module(i as *const _);
-                let module_str = if module.is_null()
-                    || (*module).data.is_null()
-                    || !(*module).data.is_aligned()
-                    || (*module).size == 0
-                {
-                    String::new()
-                } else {
-                    let str =
-                        std::slice::from_raw_parts((*module).data as *const u8, (*module).size);
-                    String::from_utf8_lossy(str).to_string()
-                };
-
-                let ty = IntoWasmerExternType::into_wextt(wasm_importtype_type(i as *const _));
-                if let Err(err) = ty {
-                    panic!("{err}");
-                }
-
-                let ty = ty.unwrap();
-                wasmer_imports.push(ImportType::new(&module_str, &name_str, ty))
-            }
-
-            wasmer_imports
-        };
+        let imports = self.imports.clone();
         let len = imports.len();
         wasmer_types::ImportsIterator::new(Box::new(imports.into_iter()), len)
     }
 
     pub fn exports<'a>(&'a self) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + 'a>> {
-        let mut exports = wasm_exporttype_vec_t {
-            size: 0,
-            data: std::ptr::null_mut(),
-        };
-
-        let store = self.handle.orig_store.as_v8().inner;
-        let shared_handle = self.handle.v8_shared_module_handle;
-        let exports = unsafe {
-            let module = wasm_module_obtain(store, shared_handle);
-            if module.is_null() {
-                panic!("Could not get imports: underlying module is null!");
-            }
-
-            wasm_module_exports(module as *const _, &mut exports as *mut _);
-
-            let exports = std::slice::from_raw_parts(exports.data, exports.size).to_vec();
-            let mut wasmer_exports = vec![];
-
-            for e in exports.into_iter() {
-                if e.is_null() {
-                    panic!("null import returned from V8!");
-                }
-
-                let name = wasm_exporttype_name(e as *const _);
-                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
-                let name_str = String::from_utf8_lossy(name).to_string();
-                let ty = IntoWasmerExternType::into_wextt(wasm_exporttype_type(e as *const _));
-                if let Err(err) = ty {
-                    panic!("{err}");
-                }
-
-                let ty = ty.unwrap();
-                wasmer_exports.push(ExportType::new(&name_str, ty))
-            }
-
-            wasmer_exports
-        };
+        let exports = self.exports.clone();
         let len = exports.len();
         wasmer_types::ExportsIterator::new(Box::new(exports.into_iter()), len)
     }
@@ -404,6 +326,103 @@ fn get_dylink_section_data(binary: &[u8]) -> Result<Option<Vec<u8>>, CompileErro
         }
     }
     Ok(None)
+}
+
+fn v8_imports(
+    store: *mut wasm_store_t,
+    shared_handle: *mut wasm_shared_module_t,
+) -> Vec<ImportType> {
+    let mut imports = wasm_importtype_vec_t {
+        size: 0,
+        data: std::ptr::null_mut(),
+    };
+
+    unsafe {
+        let module = wasm_module_obtain(store, shared_handle);
+        if module.is_null() {
+            panic!("Could not get imports: underlying module is null!");
+        }
+
+        wasm_module_imports(module as *const _, &mut imports as *mut _);
+
+        let imports = if imports.data.is_null() || !imports.data.is_aligned() || imports.size == 0
+        {
+            vec![]
+        } else {
+            std::slice::from_raw_parts(imports.data, imports.size).to_vec()
+        };
+
+        imports
+            .into_iter()
+            .map(|i| {
+                if i.is_null() {
+                    panic!("null import returned from V8!");
+                }
+
+                let name = wasm_importtype_name(i as *const _);
+                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
+                let name_str = String::from_utf8_lossy(name).to_string();
+                let module = wasm_importtype_module(i as *const _);
+                let module_str = if module.is_null()
+                    || (*module).data.is_null()
+                    || !(*module).data.is_aligned()
+                    || (*module).size == 0
+                {
+                    String::new()
+                } else {
+                    let str =
+                        std::slice::from_raw_parts((*module).data as *const u8, (*module).size);
+                    String::from_utf8_lossy(str).to_string()
+                };
+
+                let ty = IntoWasmerExternType::into_wextt(wasm_importtype_type(i as *const _))
+                    .unwrap_or_else(|err| panic!("{err}"));
+                ImportType::new(&module_str, &name_str, ty)
+            })
+            .collect()
+    }
+}
+
+fn v8_exports(
+    store: *mut wasm_store_t,
+    shared_handle: *mut wasm_shared_module_t,
+) -> Vec<ExportType> {
+    let mut exports = wasm_exporttype_vec_t {
+        size: 0,
+        data: std::ptr::null_mut(),
+    };
+
+    unsafe {
+        let module = wasm_module_obtain(store, shared_handle);
+        if module.is_null() {
+            panic!("Could not get exports: underlying module is null!");
+        }
+
+        wasm_module_exports(module as *const _, &mut exports as *mut _);
+
+        let exports = if exports.data.is_null() || !exports.data.is_aligned() || exports.size == 0
+        {
+            vec![]
+        } else {
+            std::slice::from_raw_parts(exports.data, exports.size).to_vec()
+        };
+
+        exports
+            .into_iter()
+            .map(|e| {
+                if e.is_null() {
+                    panic!("null export returned from V8!");
+                }
+
+                let name = wasm_exporttype_name(e as *const _);
+                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
+                let name_str = String::from_utf8_lossy(name).to_string();
+                let ty = IntoWasmerExternType::into_wextt(wasm_exporttype_type(e as *const _))
+                    .unwrap_or_else(|err| panic!("{err}"));
+                ExportType::new(&name_str, ty)
+            })
+            .collect()
+    }
 }
 
 impl crate::Module {
