@@ -157,6 +157,7 @@ unsafe impl Sync for VMMemory {}
 
 impl VMMemory {
     pub(crate) fn try_clone(&self) -> Result<Self, MemoryError> {
+        tracing::trace!("clone memory");
         let memory_type = unsafe { wasm_memory_type(self.0) };
         let limits = unsafe { wasm_memorytype_limits(memory_type) };
         if !unsafe { (*limits).shared } {

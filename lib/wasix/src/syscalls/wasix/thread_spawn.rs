@@ -56,6 +56,7 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
 ) -> Result<Tid, Errno> {
+    tracing::trace!("thread_spawn_internal_from_wasi start");
     // Now we use the environment and memory references
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
