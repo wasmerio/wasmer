@@ -174,7 +174,10 @@ impl Memory {
         let limits = Box::into_raw(Box::new(wasm_limits_t {
             min: ty.minimum.0,
             max: ty.maximum.unwrap_or(Pages::max_value()).0,
-            shared: ty.shared,
+            // This copy is returned as a `SharedMemory` so it can be moved to
+            // another store/thread and attached there. Keep the copied memory
+            // independent from the source, but make the copy shareable.
+            shared: true,
         }));
 
         let memorytype = unsafe { wasm_memorytype_new(limits) };
@@ -215,7 +218,7 @@ impl Memory {
             .map_err(|err| MemoryError::Generic(format!("failed to copy V8 memory: {err}")))?;
 
         Ok(SharedMemory::from_vm_memory(crate::vm::VMMemory::V8(
-            copied.handle,
+            copied.handle.try_clone()?,
         )))
     }
 
