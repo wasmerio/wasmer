@@ -11,11 +11,10 @@ homepage.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-autotests = false
 
 [[test]]
 name = "wasm_tests"
-path = "tests/wasm_tests.rs"
+path = "tests/wasm_tests/mod.rs"
 harness = false
 required-features = ["sys-thread"]
 

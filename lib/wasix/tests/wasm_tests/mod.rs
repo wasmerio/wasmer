@@ -53,8 +53,6 @@ use anyhow::bail;
 use libtest_mimic::Trial;
 use walkdir::WalkDir;
 
-#[allow(dead_code, unused_imports)]
-#[path = "wasm_tests/runner.rs"]
 mod runner;
 
 fn should_emit_colour() -> bool {
@@ -468,7 +466,7 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
             result.exit_code != 0,
             "{} expected non-zero exit code\n{}",
             config.test_name,
-            format_captured_output(&result),
+            runner::format_captured_output(&result),
         );
     } else if result.exit_code != config.expected_exit_code {
         bail!(
@@ -476,7 +474,7 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
             config.test_name,
             config.expected_exit_code,
             result.exit_code,
-            format_captured_output(&result),
+            runner::format_captured_output(&result),
         );
     }
 
@@ -485,10 +483,11 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
         let result_lines: Vec<_> = stdout.trim().lines().collect();
         if result_lines != config.expected_stdout {
             bail!(
-                "{} expected stdout `{:?}`, got `{:?}`\n",
+                "{} expected stdout `{:?}`, got `{:?}`\n{}",
                 config.test_name,
                 config.expected_stdout,
-                result_lines
+                result_lines,
+                runner::format_captured_output(&result),
             )
         }
     }
@@ -498,31 +497,16 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
             .with_context(|| format!("{} failed to read {}", config.test_name, path.display()))?;
         ensure!(
             content == expected_content,
-            "{} expected file {} to contain `{:?}`, got `{:?}`",
+            "{} expected file {} to contain `{:?}`, got `{:?}`\n{}",
             config.test_name,
             path.display(),
             expected_content,
-            content
+            content,
+            runner::format_captured_output(&result),
         );
     }
 
     Ok(libtest_mimic::Completion::Completed)
-}
-
-fn format_captured_output(result: &runner::WasmRunResult) -> String {
-    let mut message = format!(
-        "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
-        result.exit_code,
-        String::from_utf8_lossy(&result.stdout),
-        String::from_utf8_lossy(&result.stderr),
-        String::from_utf8_lossy(&result.trace_output),
-    );
-
-    if let Some(error) = &result.error {
-        message.push_str(&format!("\nerror:\n{}", error));
-    }
-
-    message
 }
 
 const PRIMARY_SOURCE_FILES: &[&str] = &["main.c", "main.cpp", "build.sh"];
