@@ -19,6 +19,7 @@ must be properly aligned for the expected value type; either 4-byte aligned for
 <p>Useful on shutdown to resume execution in all waiters.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.disable_atomics" class="method"><h4 class="code-header">pub fn <a href="#method.disable_atomics" class="fn">disable_atomics</a>(&amp;self)</h4></section></summary><div class="docblock"><p>Disable the use of atomics, leading to all atomic waits failing with
 an error, which leads to a Webassembly trap.</p>
+<p>NOTE: will also wake up all current waiters.</p>
 <p>Useful for force-closing instances that keep waiting on atomics.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.downgrade" class="method"><h4 class="code-header">pub fn <a href="#method.downgrade" class="fn">downgrade</a>(&amp;self) -&gt; <a class="struct" href="struct.ThreadConditionsHandle.html" title="struct wasmer::sys::vm::ThreadConditionsHandle">ThreadConditionsHandle</a></h4></section></summary><div class="docblock"><p>Get a weak handle to this <code>ThreadConditions</code> instance.</p>
 <p>See <a href="struct.ThreadConditionsHandle.html" title="struct wasmer::sys::vm::ThreadConditionsHandle"><code>ThreadConditionsHandle</code></a> for more information.</p>
