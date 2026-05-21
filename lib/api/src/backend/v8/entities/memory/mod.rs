@@ -58,25 +58,28 @@ impl Memory {
         let c_memory = unsafe { wasm_memory_new(v8_store.inner, memorytype) };
 
         Ok(Self {
-            handle: VMMemory(c_memory),
+            handle: VMMemory::attached(c_memory),
         })
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
         check_isolate(new_store);
         let store_mut = new_store.as_store_mut();
-        Self { handle: memory }
+        let v8_store = store_mut.inner.store.as_v8();
+        Self {
+            handle: memory.obtain(v8_store.inner),
+        }
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::V8(unsafe { wasm_memory_as_extern(self.handle.0) })
+        VMExtern::V8(unsafe { wasm_memory_as_extern(self.handle.as_memory()) })
     }
 
     pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
         check_isolate(store);
         let store = store.as_store_ref();
 
-        let memory_type: *mut wasm_memorytype_t = unsafe { wasm_memory_type(self.handle.0) };
+        let memory_type: *mut wasm_memorytype_t = unsafe { wasm_memory_type(self.handle.as_memory()) };
         let limits: *const wasm_limits_t = unsafe { wasm_memorytype_limits(memory_type) };
 
         MemoryType {
@@ -88,7 +91,7 @@ impl Memory {
 
     pub fn size(&self, store: &impl AsStoreRef) -> Pages {
         check_isolate(store);
-        let size = unsafe { wasm_memory_size(self.handle.0) };
+        let size = unsafe { wasm_memory_size(self.handle.as_memory()) };
         Pages(size)
     }
 
@@ -112,9 +115,9 @@ impl Memory {
         unsafe {
             let delta: Pages = delta.into();
             debug!(?delta, "growing memory");
-            let current = Pages(wasm_memory_size(self.handle.0));
+            let current = Pages(wasm_memory_size(self.handle.as_memory()));
 
-            if !wasm_memory_grow(self.handle.0, delta.0) {
+            if !wasm_memory_grow(self.handle.as_memory(), delta.0) {
                 Err(MemoryError::CouldNotGrow {
                     current,
                     attempted_delta: delta,
@@ -138,7 +141,7 @@ impl Memory {
         );
 
         unsafe {
-            let current_pages = wasm_memory_size(self.handle.0);
+            let current_pages = wasm_memory_size(self.handle.as_memory());
             if min_size.0 > current_pages {
                 self.grow(store, Pages(min_size.0 - current_pages))?;
             }
@@ -157,7 +160,7 @@ impl Memory {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
         check_isolate(store);
         Self {
-            handle: VMMemory(internal.unwrap_v_8()),
+            handle: VMMemory::attached(internal.unwrap_v_8()),
         }
     }
 
@@ -183,7 +186,7 @@ impl Memory {
         }
 
         let copied = Self {
-            handle: VMMemory(copied_memory),
+            handle: VMMemory::attached(copied_memory),
         };
 
         let src_view = self.view(store);
@@ -197,7 +200,7 @@ impl Memory {
                 MemoryError::Generic("failed to calculate V8 memory copy growth".to_owned())
             })?;
 
-            if !unsafe { wasm_memory_grow(copied.handle.0, delta) } {
+            if !unsafe { wasm_memory_grow(copied.handle.as_memory(), delta) } {
                 return Err(MemoryError::CouldNotGrow {
                     current: dst_pages,
                     attempted_delta: Pages(delta),
@@ -230,7 +233,7 @@ impl Memory {
 
 impl std::cmp::PartialEq for Memory {
     fn eq(&self, other: &Self) -> bool {
-        self.handle.0 == other.handle.0
+        self.handle.as_memory() == other.handle.as_memory()
     }
 }
 

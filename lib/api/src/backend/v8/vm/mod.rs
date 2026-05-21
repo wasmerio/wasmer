@@ -146,7 +146,10 @@ impl VMExceptionRef {
 }
 
 #[derive(Debug, Clone)]
-pub struct VMMemory(pub(super) *mut wasm_memory_t);
+pub enum VMMemory {
+    Attached(*mut wasm_memory_t),
+    Shared(*mut wasm_shared_memory_t),
+}
 pub type VMSharedMemory = VMMemory;
 pub(crate) type VMExternMemory = *mut wasm_memory_t;
 
@@ -156,20 +159,45 @@ unsafe impl Send for VMMemory {}
 unsafe impl Sync for VMMemory {}
 
 impl VMMemory {
+    pub(crate) fn attached(memory: *mut wasm_memory_t) -> Self {
+        Self::Attached(memory)
+    }
+
+    pub(crate) fn as_memory(&self) -> *mut wasm_memory_t {
+        match self {
+            Self::Attached(memory) => *memory,
+            Self::Shared(_) => {
+                panic!("V8 shared memory must be attached to a store before it can be used")
+            }
+        }
+    }
+
+    pub(crate) fn obtain(&self, store: *mut wasm_store_t) -> Self {
+        match self {
+            Self::Attached(memory) => Self::Attached(*memory),
+            Self::Shared(shared) => Self::Attached(unsafe { wasm_memory_obtain(store, *shared) }),
+        }
+    }
+
     pub(crate) fn try_clone(&self) -> Result<Self, MemoryError> {
         tracing::trace!("clone memory");
-        let memory_type = unsafe { wasm_memory_type(self.0) };
+        if let Self::Shared(shared) = self {
+            return Ok(Self::Shared(*shared));
+        }
+
+        let memory = self.as_memory();
+        let memory_type = unsafe { wasm_memory_type(memory) };
         let limits = unsafe { wasm_memorytype_limits(memory_type) };
         if !unsafe { (*limits).shared } {
             return Err(MemoryError::MemoryNotShared);
         }
 
-        let cloned = unsafe { wasm_memory_copy(self.0) };
-        if cloned.is_null() {
+        let shared = unsafe { wasm_memory_share(memory) };
+        if shared.is_null() {
             return Err(MemoryError::Generic(
-                "Failed to clone the memory".to_string(),
+                "Failed to share the memory".to_string(),
             ));
         }
-        Ok(Self(cloned))
+        Ok(Self::Shared(shared))
     }
 }

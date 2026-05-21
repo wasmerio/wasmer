@@ -23,7 +23,7 @@ pub struct MemoryView<'a> {
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        let c_memory: *mut wasm_memory_t = memory.handle.0;
+        let c_memory: *mut wasm_memory_t = memory.handle.as_memory();
 
         let len = unsafe { wasm_memory_data_size(c_memory as _) };
         let base: *mut u8 = unsafe { wasm_memory_data(c_memory as _) as _ };
