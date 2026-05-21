@@ -69,8 +69,18 @@ fn init_trace_capture() {
                 .without_time()
                 .with_writer(TraceMakeWriter),
         );
-
-        let _ = tracing::subscriber::set_global_default(subscriber);
+        if std::env::var("WASIX_TRACE_TO_STDERR").is_ok() {
+            let subscriber = subscriber.with(
+                tracing_subscriber::fmt::layer()
+                    .with_target(true)
+                    .with_ansi(false)
+                    .with_thread_ids(true)
+                    .with_writer(std::io::stderr),
+            );
+            let _ = tracing::subscriber::set_global_default(subscriber);
+        } else {
+            let _ = tracing::subscriber::set_global_default(subscriber);
+        }
     });
 }
 

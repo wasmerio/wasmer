@@ -123,9 +123,6 @@ wasmer-package.workspace = true
 wasmer-vm = { version = "=7.2.0-alpha.2", path = "../vm", optional = true }
 wasmer-wasix = { path = "../wasix", version = "=0.702.0-alpha.2", features = [
   "logging",
-  "webc_runner_rt_wcgi",
-  "webc_runner_rt_dcgi",
-  "webc_runner_rt_dproxy",
   "host-fs",
   "ctrlc",
   "sys",
@@ -199,7 +196,11 @@ indicatif.workspace = true
 opener.workspace = true
 normpath.workspace = true
 hyper = { workspace = true, features = ["server"] }
-hyper-util = { workspace = true, features = ["tokio"] }
+hyper-util = { workspace = true, features = [
+  "tokio",
+  "server",
+  "server-graceful",
+] }
 http-body-util.workspace = true
 futures.workspace = true
 humantime.workspace = true
