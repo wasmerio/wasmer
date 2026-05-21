@@ -1,22 +1,6 @@
 use super::*;
+use crate::fs::FlushPoller;
 use crate::syscalls::*;
-use std::{future::Future, pin::Pin, sync::Arc, task::Context, task::Poll};
-use virtual_fs::VirtualFile;
-
-struct FlushPoller {
-    file: Arc<std::sync::RwLock<Box<dyn VirtualFile + Send + Sync>>>,
-}
-
-impl Future for FlushPoller {
-    type Output = Result<(), Errno>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut file = self.file.write().unwrap();
-        Pin::new(file.as_mut())
-            .poll_flush(cx)
-            .map_err(|_| Errno::Io)
-    }
-}
 
 /// ### `fd_close()`
 /// Close an open file descriptor
@@ -47,7 +31,12 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     // Keep stdio behavior unchanged: flush before close.
     if fd <= __WASI_STDERR_FILENO {
         match __asyncify_light(env, None, state.fs.flush(fd))? {
-            Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
+            Ok(_)
+            | Err(Errno::Isdir)
+            | Err(Errno::Io)
+            | Err(Errno::Access)
+            // EINVAL is returned by e.g. pipe-backed stdio and is safe to ignore.
+            | Err(Errno::Inval) => {}
             Err(e) => {
                 return Ok(e);
             }
