@@ -51,10 +51,7 @@ use wasmer_wasix::{
     journal::CompactingLogFileJournal,
     runners::{
         MappedCommand, MappedDirectory, Runner,
-        dcgi::{DcgiInstanceFactory, DcgiRunner},
-        dproxy::DProxyRunner,
         wasi::{RuntimeOrEngine, WasiRunner},
-        wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
     },
     runtime::{
         OverriddenRuntime,
@@ -90,8 +87,6 @@ pub struct Run {
     rt: RuntimeOptions,
     #[clap(flatten)]
     wasi: crate::commands::run::Wasi,
-    #[clap(flatten)]
-    wcgi: WcgiOptions,
     /// Set the default stack size (default is 1048576)
     #[clap(long = "stack-size")]
     stack_size: Option<usize>,
@@ -429,13 +424,7 @@ impl Run {
 
         let uses = self.load_injected_packages(&runtime)?;
 
-        if DcgiRunner::can_run_command(cmd.metadata())? {
-            self.run_dcgi(id, pkg, uses, runtime)
-        } else if DProxyRunner::can_run_command(cmd.metadata())? {
-            self.run_dproxy(id, pkg, runtime)
-        } else if WcgiRunner::can_run_command(cmd.metadata())? {
-            self.run_wcgi(id, pkg, uses, runtime)
-        } else if WasiRunner::can_run_command(cmd.metadata())? {
+        if WasiRunner::can_run_command(cmd.metadata())? {
             self.run_wasi(id, pkg, uses, runtime)
         } else {
             bail!(
@@ -498,90 +487,6 @@ impl Run {
         #[cfg(feature = "napi-v8")]
         self.configure_wasi_runner_for_napi(&module, &mut runner);
         Runner::run_command(&mut runner, command_name, pkg, runtime)
-    }
-
-    fn run_wcgi(
-        &self,
-        command_name: &str,
-        pkg: &BinaryPackage,
-        uses: Vec<BinaryPackage>,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let mut runner = wasmer_wasix::runners::wcgi::WcgiRunner::new(NoOpWcgiCallbacks);
-        self.config_wcgi(runner.config(), uses)?;
-        runner.run_command(command_name, pkg, runtime)
-    }
-
-    fn config_wcgi(
-        &self,
-        config: &mut wcgi::Config,
-        uses: Vec<BinaryPackage>,
-    ) -> Result<(), Error> {
-        config
-            .args(self.args.clone())
-            .addr(self.wcgi.addr)
-            .envs(self.wasi.env_vars.clone())
-            .map_directories(self.wasi.all_volumes())
-            .callbacks(Callbacks::new(self.wcgi.addr))
-            .inject_packages(uses);
-        *config.capabilities() = self.wasi.capabilities();
-        if self.wasi.forward_host_env {
-            config.forward_host_env();
-        }
-
-        #[cfg(feature = "journal")]
-        {
-            for trigger in self.wasi.snapshot_on.iter().cloned() {
-                config.add_snapshot_trigger(trigger);
-            }
-            if self.wasi.snapshot_on.is_empty() && !self.wasi.writable_journals.is_empty() {
-                config.add_default_snapshot_triggers();
-            }
-            if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.writable_journals.is_empty() {
-                    return Err(anyhow::format_err!(
-                        "If you specify a snapshot interval then you must also specify a writable journal file"
-                    ));
-                }
-                config.with_snapshot_interval(Duration::from_millis(period));
-            }
-            if self.wasi.stop_after_snapshot {
-                config.with_stop_running_after_snapshot(true);
-            }
-            let (r, w) = self.wasi.build_journals()?;
-            for journal in r {
-                config.add_read_only_journal(journal);
-            }
-            for journal in w {
-                config.add_writable_journal(journal);
-            }
-        }
-
-        Ok(())
-    }
-
-    fn run_dcgi(
-        &self,
-        command_name: &str,
-        pkg: &BinaryPackage,
-        uses: Vec<BinaryPackage>,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let factory = DcgiInstanceFactory::new();
-        let mut runner = wasmer_wasix::runners::dcgi::DcgiRunner::new(factory);
-        self.config_wcgi(runner.config().inner(), uses);
-        runner.run_command(command_name, pkg, runtime)
-    }
-
-    fn run_dproxy(
-        &self,
-        command_name: &str,
-        pkg: &BinaryPackage,
-        runtime: Arc<dyn Runtime + Send + Sync>,
-    ) -> Result<(), Error> {
-        let mut inner = self.build_wasi_runner(&runtime, true)?;
-        let mut runner = wasmer_wasix::runners::dproxy::DProxyRunner::new(inner, pkg);
-        runner.run_command(command_name, pkg, runtime)
     }
 
     #[tracing::instrument(skip_all)]
@@ -822,52 +727,6 @@ fn generate_coredump(err: &Error, source_name: String, coredump_path: &Path) -> 
     })?;
 
     Ok(())
-}
-
-#[derive(Debug, Clone, Parser)]
-pub(crate) struct WcgiOptions {
-    /// The address to serve on.
-    #[clap(long, short, env, default_value_t = ([127, 0, 0, 1], 8000).into())]
-    pub(crate) addr: SocketAddr,
-}
-
-impl Default for WcgiOptions {
-    fn default() -> Self {
-        Self {
-            addr: ([127, 0, 0, 1], 8000).into(),
-        }
-    }
-}
-
-#[derive(Debug)]
-struct Callbacks {
-    stderr: Mutex<LineWriter<std::io::Stderr>>,
-    addr: SocketAddr,
-}
-
-impl Callbacks {
-    fn new(addr: SocketAddr) -> Self {
-        Callbacks {
-            stderr: Mutex::new(LineWriter::new(std::io::stderr())),
-            addr,
-        }
-    }
-}
-
-impl wasmer_wasix::runners::wcgi::Callbacks for Callbacks {
-    fn started(&self, _abort: AbortHandle) {
-        println!("WCGI Server running at http://{}/", self.addr);
-    }
-
-    fn on_stderr(&self, raw_message: &[u8]) {
-        if let Ok(mut stderr) = self.stderr.lock() {
-            // If the WCGI runner printed any log messages we want to make sure
-            // they get propagated to the user. Line buffering is important here
-            // because it helps prevent the output from becoming a complete
-            // mess.
-            let _ = stderr.write_all(raw_message);
-        }
-    }
 }
 
 /// Exit the current process, using the WASI exit code if the error contains
