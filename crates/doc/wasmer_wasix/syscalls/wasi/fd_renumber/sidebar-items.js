@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fd_renumber","fd_renumber_internal"],"struct":["FlushPoller"]};
+window.SIDEBAR_ITEMS = {"fn":["fd_renumber","fd_renumber_internal"]};

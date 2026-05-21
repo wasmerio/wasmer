@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["fd_close"],"struct":["FlushPoller"]};
+window.SIDEBAR_ITEMS = {"fn":["fd_close"]};
