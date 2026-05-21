@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["call_initialization_function","create_indirect_function_table","create_main_stack_pointer_global","define_integer_global_import","get_integer_global_type_from_import","get_tls_base_export","main_module_function_table_type","main_module_memory_type","set_integer_global"]};

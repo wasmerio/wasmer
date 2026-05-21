@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["callbacks","create_env","handler","runner"],"struct":["AbortHandle","Config","CreateEnvConfig","CreateEnvResult","NoOpWcgiCallbacks","RecycleEnvConfig","WcgiRunner"],"trait":["Callbacks"]};

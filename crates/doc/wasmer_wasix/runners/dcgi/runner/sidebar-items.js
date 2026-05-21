@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["DCGI_RUNNER_URI"],"struct":["Config","DcgiRunner"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["Poll"],"mod":["builder","connector","stream"],"struct":["Context","Pin","Uri"],"trait":["AsyncWrite","Future"],"type":["BoxError"]};

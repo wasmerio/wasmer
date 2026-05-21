@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["factory","handler","hyper_proxy","instance","networking","runner","shard","socket_manager"],"struct":["Config","DProxyInstance","DProxyInstanceFactory","DProxyRunner"]};

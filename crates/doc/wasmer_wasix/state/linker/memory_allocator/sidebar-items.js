@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["WASM_PAGE_SIZE"],"struct":["AllocatedPage","MemoryAllocator"]};

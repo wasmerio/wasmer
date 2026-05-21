@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["callbacks","factory","handler","instance","runner"],"struct":["AbortHandle","Config","DcgiCallbacks","DcgiInstanceFactory","DcgiRunner"]};

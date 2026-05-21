@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["TICK"],"fn":["exit_with_wasi_exit_code","get_exit_code","invoke_function","parse_value"],"mod":["capabilities","package_source","runtime","target","wasi"],"struct":["Callbacks","Run","WcgiOptions"]};
+window.SIDEBAR_ITEMS = {"constant":["TICK"],"fn":["exit_with_wasi_exit_code","get_exit_code","invoke_function","parse_value"],"mod":["capabilities","package_source","runtime","target","wasi"],"struct":["Run"]};
