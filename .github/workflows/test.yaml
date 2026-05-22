@@ -149,51 +149,6 @@ jobs:
       - name: make test-js
         run: |
           make test-js
-  test_wasi_fyi:
-    name: Wasi-fyi
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly
-          targets: "wasm32-wasip1"
-      - name: Install wasm-pack
-        run: |
-          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - name: Install LLVM 22
-        run: |
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          mkdir ${LLVM_DIR}
-          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
-          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
-          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-        env:
-          LLVM_DIR: .llvm
-      - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-wasi-fyi
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
-      - name: make test-wasi-fyi
-        run: |
-          make test-wasi-fyi
         # The no_std functionality doesn't work at the moment - no point in testing it.
         # - name: make test-js-core
         #   run: |
@@ -699,6 +654,12 @@ jobs:
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.metadata.target }}
+      - name: Install Rust WASI targets
+        if: matrix.stage.make == 'test-all'
+        shell: bash
+        run: |
+          rustup target add wasm32-wasip1
+          rustup toolchain install nightly --profile minimal --target wasm32-wasip1
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Install wasixcc
@@ -763,7 +724,6 @@ jobs:
       - lint
       - cargo_deny
       - test_nodejs
-      - test_wasi_fyi
       - test_interpreter_api
       - test_build_docs_rs
       - build_linux_riscv64
