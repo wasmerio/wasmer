@@ -244,7 +244,7 @@ impl Module {
         tracing::info!("Creating module from deserialize_unchecked");
         let binary = bytes.into_bytes();
         let info = rkyv::access::<ArchivedV8ModuleInfo, rkyv::rancor::Error>(&binary)
-            .and_then(|archived| rkyv::deserialize::<V8ModuleInfo, rkyv::rancor::Error>(archived))
+            .and_then(rkyv::deserialize::<V8ModuleInfo, rkyv::rancor::Error>)
             .map_err(|err| DeserializeError::CorruptedBinary(format!("{err:?}")))?;
         let module = ModuleHandle::deserialize(engine, &info.v8_module_bytes)?;
 
