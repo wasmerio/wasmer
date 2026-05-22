@@ -1147,15 +1147,18 @@ impl WasiFs {
                     Create {
                         kind: Kind,
                         name: String,
+                        entry_name: String,
                         is_ephemeral: bool,
                     },
                     BackingSymlink {
                         file: PathBuf,
                         link_value: PathBuf,
+                        entry_name: String,
                     },
                     Special {
                         kind: Kind,
                         name: Cow<'static, str>,
+                        entry_name: String,
                         stat: Filestat,
                     },
                 }
@@ -1207,14 +1210,18 @@ impl WasiFs {
                                 cd.push(component);
                                 cd
                             };
+                            let entry_name = component.as_os_str().to_string_lossy().to_string();
                             let name = file.to_string_lossy().to_string();
 
                             if let Some((base_po_dir, path_to_symlink, relative_path)) =
                                 self.ephemeral_symlink_at(&file)
                             {
-                                // Ephemeral links are virtual, and they are not
-                                // persisted in directory like symbolic links,
-                                // so we will create a temporary inode for it.
+                                // Ephemeral symlink are transient records; they
+                                // are virtual, and they are not persisted in
+                                // directory like symbolic links, so we will
+                                // create a temporary inode for them.
+                                // We resolve them but don't cache them as dir
+                                // entries.
                                 symlink_count += 1;
                                 ComponentResolution::Create {
                                     kind: Kind::Symlink {
@@ -1223,6 +1230,7 @@ impl WasiFs {
                                         relative_path,
                                     },
                                     name,
+                                    entry_name,
                                     is_ephemeral: true,
                                 }
                             } else {
@@ -1244,6 +1252,7 @@ impl WasiFs {
                                             entries: Default::default(),
                                         },
                                         name,
+                                        entry_name,
                                         is_ephemeral: false,
                                     }
                                 } else if file_type.is_file() {
@@ -1255,6 +1264,7 @@ impl WasiFs {
                                             fd: None,
                                         },
                                         name,
+                                        entry_name,
                                         is_ephemeral: false,
                                     }
                                 } else if file_type.is_symlink() {
@@ -1262,7 +1272,11 @@ impl WasiFs {
                                     let link_value =
                                         self.root_fs.readlink(&file).ok().ok_or(Errno::Noent)?;
                                     debug!("attempting to decompose path {:?}", link_value);
-                                    ComponentResolution::BackingSymlink { file, link_value }
+                                    ComponentResolution::BackingSymlink {
+                                        file,
+                                        link_value,
+                                        entry_name,
+                                    }
                                 } else {
                                     #[cfg(unix)]
                                     {
@@ -1291,6 +1305,7 @@ impl WasiFs {
                                                 fd: None,
                                             },
                                             name: name.into(),
+                                            entry_name,
                                             stat: Filestat {
                                                 st_filetype: file_type,
                                                 st_ino: Inode::from_path(path_str).as_u64(),
@@ -1348,22 +1363,24 @@ impl WasiFs {
                     ComponentResolution::Create {
                         kind,
                         name,
+                        entry_name,
                         is_ephemeral,
                     } => {
                         let new_inode = self.create_inode(inodes, kind, false, name)?;
                         if !is_ephemeral {
                             let mut guard = processing_cur_inode.write();
                             if let Kind::Dir { entries, .. } = guard.deref_mut() {
-                                entries.insert(
-                                    component.as_os_str().to_string_lossy().to_string(),
-                                    new_inode.clone(),
-                                );
+                                entries.insert(entry_name, new_inode.clone());
                             }
                         }
                         cur_inode = new_inode;
                         break 'component_lookup;
                     }
-                    ComponentResolution::BackingSymlink { file, link_value } => {
+                    ComponentResolution::BackingSymlink {
+                        file,
+                        link_value,
+                        entry_name,
+                    } => {
                         let (pre_open_dir_fd, path_to_symlink) =
                             self.path_into_pre_open_and_relative_path(&file)?;
                         symlink_count += 1;
@@ -1380,23 +1397,22 @@ impl WasiFs {
                         )?;
                         let mut guard = processing_cur_inode.write();
                         if let Kind::Dir { entries, .. } = guard.deref_mut() {
-                            entries.insert(
-                                component.as_os_str().to_string_lossy().to_string(),
-                                new_inode.clone(),
-                            );
+                            entries.insert(entry_name, new_inode.clone());
                         }
                         cur_inode = new_inode;
                         break 'component_lookup;
                     }
-                    ComponentResolution::Special { kind, name, stat } => {
+                    ComponentResolution::Special {
+                        kind,
+                        name,
+                        entry_name,
+                        stat,
+                    } => {
                         let new_inode =
                             self.create_inode_with_stat(inodes, kind, false, name, stat);
                         let mut guard = processing_cur_inode.write();
                         if let Kind::Dir { entries, .. } = guard.deref_mut() {
-                            entries.insert(
-                                component.as_os_str().to_string_lossy().to_string(),
-                                new_inode.clone(),
-                            );
+                            entries.insert(entry_name, new_inode.clone());
                         } else {
                             unreachable!("Attempted to insert special device into non-directory");
                         }
