@@ -280,6 +280,10 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 }
 
 #[engine_test]
+#[cfg_attr(
+    feature = "v8",
+    ignore = "v8 does not currently support custom sections fully"
+)]
 #[allow(unused_attributes)]
 fn module_custom_sections() -> Result<(), String> {
     let store = Store::default();

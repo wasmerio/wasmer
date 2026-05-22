@@ -71,7 +71,7 @@ impl Table {
             ty: table_type.into_wt(),
             minimum: unsafe { (*table_limits).min },
             maximum: unsafe {
-                if (*table_limits).max == 0 {
+                if (*table_limits).max == wasm_limits_max_default {
                     None
                 } else {
                     Some((*table_limits).max)
