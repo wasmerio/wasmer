@@ -10,6 +10,8 @@ use std::{
 use crate::{WasiProcess, WasiProcessId};
 use wasmer_types::ModuleHash;
 
+const MAX_WASI_TASK_ID: u32 = 0x1fffffff;
+
 #[derive(Debug, Clone)]
 pub struct WasiControlPlane {
     state: Arc<State>,
@@ -174,9 +176,14 @@ impl MutableState {
         // TODO: reuse terminated ids, handle wrap-around, ...
         let id = self.process_seed.checked_add(1).ok_or({
             ControlPlaneError::TaskLimitReached {
-                max: u32::MAX as usize,
+                max: MAX_WASI_TASK_ID as usize,
             }
         })?;
+        if id > MAX_WASI_TASK_ID {
+            return Err(ControlPlaneError::TaskLimitReached {
+                max: MAX_WASI_TASK_ID as usize,
+            });
+        }
         self.process_seed = id;
         Ok(WasiProcessId::from(id))
     }
@@ -267,6 +274,25 @@ mod tests {
         assert_eq!(
             p.new_process(ModuleHash::random()).unwrap_err(),
             ControlPlaneError::TaskLimitReached { max: 2 }
+        );
+    }
+
+    #[test]
+    fn test_control_plane_id_limit() {
+        let mut state = MutableState {
+            process_seed: MAX_WASI_TASK_ID - 1,
+            processes: Default::default(),
+        };
+
+        assert_eq!(
+            state.next_process_id().unwrap(),
+            WasiProcessId::from(MAX_WASI_TASK_ID)
+        );
+        assert_eq!(
+            state.next_process_id().unwrap_err(),
+            ControlPlaneError::TaskLimitReached {
+                max: MAX_WASI_TASK_ID as usize
+            }
         );
     }
 }
