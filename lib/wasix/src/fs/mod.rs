@@ -1171,6 +1171,15 @@ impl WasiFs {
                             entries.get(component.as_os_str().to_string_lossy().as_ref())
                         {
                             cur_inode = entry.clone();
+                            if follow_symlinks || !last_component {
+                                let entry_guard = cur_inode.read();
+                                let entry_is_symlink =
+                                    matches!(entry_guard.deref(), Kind::Symlink { .. });
+                                drop(entry_guard);
+                                if entry_is_symlink {
+                                    continue 'symlink_resolution;
+                                }
+                            }
                         } else {
                             let file = {
                                 let mut cd = path.clone();
@@ -1218,19 +1227,29 @@ impl WasiFs {
                                         fd: None,
                                     }
                                 } else if file_type.is_symlink() {
-                                    should_insert = false;
                                     let link_value =
                                         self.root_fs.readlink(&file).ok().ok_or(Errno::Noent)?;
                                     debug!("attempting to decompose path {:?}", link_value);
+                                    drop(guard);
+
                                     let (pre_open_dir_fd, path_to_symlink) =
                                         self.path_into_pre_open_and_relative_path(&file)?;
-                                    loop_for_symlink = true;
                                     symlink_count += 1;
-                                    Kind::Symlink {
-                                        base_po_dir: pre_open_dir_fd,
-                                        path_to_symlink: path_to_symlink.to_owned(),
-                                        relative_path: link_value,
+                                    cur_inode = self.create_inode(
+                                        inodes,
+                                        Kind::Symlink {
+                                            base_po_dir: pre_open_dir_fd,
+                                            path_to_symlink: path_to_symlink.to_owned(),
+                                            relative_path: link_value,
+                                        },
+                                        false,
+                                        file.to_string_lossy().to_string(),
+                                    )?;
+                                    if follow_symlinks || !last_component {
+                                        debug!("Following symlink to {:?}", cur_inode);
+                                        continue 'symlink_resolution;
                                     }
+                                    break 'symlink_resolution;
                                 } else {
                                     #[cfg(unix)]
                                     {
@@ -1313,7 +1332,7 @@ impl WasiFs {
                             }
                             cur_inode = new_inode;
 
-                            if loop_for_symlink && follow_symlinks {
+                            if loop_for_symlink && (follow_symlinks || !last_component) {
                                 debug!("Following symlink to {:?}", cur_inode);
                                 continue 'symlink_resolution;
                             }
@@ -1388,16 +1407,7 @@ impl WasiFs {
                             follow_symlinks,
                         )?;
                         cur_inode = symlink_inode;
-                        // if we're at the very end and we found a file, then we're done
-                        // TODO: figure out if this should also happen for directories?
-                        let guard = cur_inode.read();
-                        if let Kind::File { .. } = guard.deref() {
-                            // check if on last step
-                            if last_component {
-                                break 'symlink_resolution;
-                            }
-                        }
-                        continue 'symlink_resolution;
+                        break 'symlink_resolution;
                     }
                 }
                 break 'symlink_resolution;
@@ -2616,6 +2626,60 @@ mod tests {
         };
 
         assert_eq!(path, std::path::Path::new("/work"));
+    }
+
+    #[tokio::test]
+    async fn symlinked_directory_components_resolve_to_target_entries() {
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs =
+            WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
+        let root = &wasi_fs.root_fs;
+
+        root.create_dir(Path::new("/orig")).unwrap();
+        root.new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/orig/child.txt"))
+            .unwrap();
+        root.create_symlink(Path::new("/orig"), Path::new("/linked"))
+            .unwrap();
+
+        let literal_link = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/linked", false)
+            .unwrap();
+        assert!(matches!(
+            literal_link.read().deref(),
+            Kind::Symlink {
+                relative_path,
+                ..
+            } if relative_path == Path::new("/orig")
+        ));
+
+        let followed_dir = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/linked", true)
+            .unwrap();
+        assert!(matches!(
+            followed_dir.read().deref(),
+            Kind::Dir { path, .. } if path == Path::new("/orig")
+        ));
+
+        let child = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/linked/child.txt", true)
+            .unwrap();
+        assert!(matches!(
+            child.read().deref(),
+            Kind::File { path, .. } if path == Path::new("/orig/child.txt")
+        ));
+
+        let child_without_final_follow = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/linked/child.txt", false)
+            .unwrap();
+        assert!(matches!(
+            child_without_final_follow.read().deref(),
+            Kind::File { path, .. } if path == Path::new("/orig/child.txt")
+        ));
     }
 
     #[tokio::test]

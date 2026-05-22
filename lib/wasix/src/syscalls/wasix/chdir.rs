@@ -32,12 +32,29 @@ pub fn chdir<M: MemorySize>(
 
 pub fn chdir_internal(env: &WasiEnv, path: &str) -> Result<(), Errno> {
     let state = &env.state;
+    let path = state.fs.relative_path_to_absolute(path.to_string());
+    let inode = state
+        .fs
+        .get_inode_at_path(&state.inodes, crate::VIRTUAL_ROOT_FD, &path, true)?;
 
-    // Check if the directory exists
-    if state.fs.root_fs.read_dir(Path::new(path)).is_err() {
+    let resolved_path = {
+        let guard = inode.read();
+        match guard.deref() {
+            Kind::Dir { path, .. } => path.to_string_lossy().into_owned(),
+            Kind::Root { .. } => "/".to_string(),
+            _ => return Err(Errno::Notdir),
+        }
+    };
+
+    if state
+        .fs
+        .root_fs
+        .read_dir(Path::new(&resolved_path))
+        .is_err()
+    {
         return Err(Errno::Noent);
     }
 
-    state.fs.set_current_dir(path);
+    state.fs.set_current_dir(&resolved_path);
     Ok(())
 }

@@ -372,6 +372,10 @@ pub(crate) fn path_open_internal(
                 path_to_symlink,
                 relative_path,
             } => {
+                if !follow_symlinks {
+                    return Ok(Err(Errno::Loop));
+                }
+
                 // Resolve the symlink via the existing path traversal logic and restart
                 // path_open with lookup-follow semantics for this resolved path.
                 let (resolved_base_fd, resolved_path) = if relative_path.is_absolute() {
