@@ -182,7 +182,7 @@ impl Module {
         let binary = binary.into_bytes();
         let module = ModuleHandle::new(engine, &binary)?;
         let info = crate::utils::polyfill::translate_module(&binary[..])
-            .unwrap()
+            .map_err(|err| CompileError::Validate(format!("Failed to translate module: {err}")))?
             .info;
         let imports = info.imports().collect();
         let exports = info.exports().collect();
