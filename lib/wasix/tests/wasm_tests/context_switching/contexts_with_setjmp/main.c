@@ -1,4 +1,6 @@
 //#UnixOnly: true
+//#SkipEngine:V8:async functions are not supported yet
+
 #include <assert.h>
 #include <setjmp.h>
 #include <stdio.h>

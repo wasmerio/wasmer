@@ -28,6 +28,9 @@
 //!
 //! `Ignored:{reason}` marks the configuration as ignored with the given reason.
 //!
+//! `SkipEngine:{engine}:{reason}` marks the configuration as ignored for
+//! a given engine (LLVM, Cranelift, V8).
+//!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
 //!
 //! `MappedDirectory:{host}:{guest}` maps a host directory into the guest. Relative
@@ -126,6 +129,7 @@ struct Config {
     arguments: Vec<String>,
     build_env: Vec<(String, String)>,
     ignored: Option<String>,
+    skipped_engines: Vec<(Engine, String)>,
     unix_only: bool,
     mapped_directories: Vec<MappedDirectory>,
     current_directory: Option<String>,
@@ -154,6 +158,7 @@ impl Config {
             expected_exit_code: 0,
             expected_stdout: Vec::new(),
             ignored: None,
+            skipped_engines: Vec::new(),
             unix_only: false,
             mapped_directories: Vec::new(),
             current_directory: None,
@@ -304,6 +309,19 @@ fn process_directive(
             config.expected_exit_code = arg.parse::<i32>()?;
         }
         "Ignored" => config.ignored = Some(arg.to_owned()),
+        "SkipEngine" => {
+            let (engine, reason) = arg
+                .split_once(':')
+                .ok_or_else(|| anyhow!("missing colon separator for SkipEngine"))?;
+            if let Some(engine) = match engine.to_lowercase().as_str() {
+                "llvm" => Some(Engine::LLVM),
+                "cranelift" => Some(Engine::Cranelift),
+                "v8" => None,
+                _ => bail!("unsupported engine: '{engine}'"),
+            } {
+                config.skipped_engines.push((engine, reason.to_owned()));
+            }
+        }
         "UnixOnly" => config.unix_only = arg.parse::<bool>()?,
         "MappedDirectory" => {
             let (host, guest) = arg
@@ -417,6 +435,13 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     }
     if !cfg!(unix) && config.unix_only {
         return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
+    }
+    if let Some((_, reason)) = config
+        .skipped_engines
+        .iter()
+        .find(|(engine, _)| *engine == config.engine)
+    {
+        return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
     }
 
     let wasm = run_build_script(&config)?;

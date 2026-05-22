@@ -1,4 +1,6 @@
 //#UnixOnly: true
+//#SkipEngine:V8:async functions are not supported yet
+
 // Test switching contexts while nested in the middle of syscalls
 // This directly tries to trigger "store context still borrowed" by
 // calling wasix_context_switch during operations that hold a store borrow
