@@ -100,6 +100,8 @@ struct MappedDirectory {
 pub enum Engine {
     Cranelift,
     LLVM,
+    #[cfg(feature = "v8")]
+    V8,
 }
 
 impl Engine {
@@ -107,6 +109,8 @@ impl Engine {
         match self {
             Self::Cranelift => "cranelift",
             Self::LLVM => "llvm",
+            #[cfg(feature = "v8")]
+            Self::V8 => "v8",
         }
     }
 }
@@ -316,7 +320,16 @@ fn process_directive(
             if let Some(engine) = match engine.to_lowercase().as_str() {
                 "llvm" => Some(Engine::LLVM),
                 "cranelift" => Some(Engine::Cranelift),
-                "v8" => None,
+                "v8" => {
+                    #[cfg(feature = "v8")]
+                    {
+                        Some(Engine::V8)
+                    }
+                    #[cfg(not(feature = "v8"))]
+                    {
+                        None
+                    }
+                }
                 _ => bail!("unsupported engine: '{engine}'"),
             } {
                 config.skipped_engines.push((engine, reason.to_owned()));
@@ -645,7 +658,12 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
             ))?;
 
             for config in configs {
-                for engine in [Engine::Cranelift, Engine::LLVM] {
+                for engine in [
+                    Engine::Cranelift,
+                    Engine::LLVM,
+                    #[cfg(feature = "v8")]
+                    Engine::V8,
+                ] {
                     // The EH support for macOS is still missing: #6419
                     if cfg!(target_os = "macos") {
                         return Ok(());
