@@ -1,8 +1,8 @@
+#!/usr/bin/env bash
 ##AbstractConfig:base
 ##SkipEngine:V8:async functions are not supported yet
 ##UnixOnly: true
 
-#!/usr/bin/env bash
 ##BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
 ##Config: test_legacy_process_switching_basic_switching:base
 ##Args: basic_switching
