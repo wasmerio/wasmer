@@ -116,14 +116,19 @@ impl ModuleHandle {
         let bytes = unsafe {
             wasm_module_serialize(handle, &mut bytes as *mut _);
             if bytes.data.is_null() || bytes.size == 0 {
+                wasm_module_delete(handle);
                 return Err(SerializeError::Generic(String::from(
                     "V8 returned an empty vector as serialized module",
                 )));
             }
-            std::slice::from_raw_parts(bytes.data as *mut u8, bytes.size)
+            let serialized_bytes =
+                std::slice::from_raw_parts(bytes.data as *mut u8, bytes.size).to_vec();
+            wasm_byte_vec_delete(&mut bytes);
+            wasm_module_delete(handle);
+            serialized_bytes
         };
 
-        Ok(bytes.to_vec())
+        Ok(bytes)
     }
 }
 

@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+use bytes::Bytes;
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
 use wasmer::{Engine, Module};
@@ -87,6 +88,18 @@ async fn tokio_contains(path: PathBuf) -> Result<bool, CacheError> {
 /// A tokio reactor must be available
 #[tracing::instrument(level = "debug", skip_all, fields(? path))]
 async fn tokio_save(path: PathBuf, module: Module) -> Result<(), CacheError> {
+    let serialized = tokio::task::spawn_blocking(move || module.serialize())
+        .await
+        .unwrap()?;
+
+    tokio_save_serialized(path, serialized).await
+}
+
+/// Saves serialized module bytes to the filesystem cache.
+///
+/// A tokio reactor must be available
+#[tracing::instrument(level = "debug", skip_all, fields(? path))]
+async fn tokio_save_serialized(path: PathBuf, serialized: Bytes) -> Result<(), CacheError> {
     let parent = path
         .parent()
         .expect("Unreachable - always created by joining onto cache_dir");
@@ -107,10 +120,6 @@ async fn tokio_save(path: PathBuf, module: Module) -> Result<(), CacheError> {
         .into_parts();
 
     let mut file = tokio::fs::File::from_std(file);
-
-    let serialized = tokio::task::spawn_blocking(move || module.serialize())
-        .await
-        .unwrap()?;
 
     let mut writer = tokio::io::BufWriter::new(&mut file);
     if let Err(error) = writer.write_all(&serialized).await {
@@ -163,6 +172,19 @@ impl ModuleCache for FileSystemCache {
     ) -> Result<(), CacheError> {
         let path = self.path(key, &engine.deterministic_id());
         let module = module.clone();
+
+        if engine.is_v8() {
+            // V8 modules are tied to the thread that owns their original store.
+            // Serialize before handing work to the task-manager runtime so only
+            // plain bytes cross threads.
+            let serialized = module.serialize()?;
+            return self
+                .task_manager
+                .runtime_handle()
+                .spawn(tokio_save_serialized(path, serialized))
+                .await
+                .unwrap();
+        }
 
         // Use the bundled tokio runtime instead of the given async runtime
         // This is necessary because this function can also be called with a futures_executor

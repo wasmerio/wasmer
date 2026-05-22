@@ -9,6 +9,7 @@ fn build_v8() {
 
     const LOCAL_V8_LIB_PATH: &str =
         "/home/marxin/Programming/wee8-custom-builds/v8/out/release/obj/libwee8.a";
+    // "/home/marxin/Programming/wee8-custom-builds/v8/out/debug/obj/libwee8.a";
 
     let out_dir = env::var("OUT_DIR").unwrap();
     let out_path = PathBuf::from(&out_dir);
