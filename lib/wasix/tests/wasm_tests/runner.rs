@@ -394,10 +394,10 @@ pub(crate) fn run_wasm_with_runner_config(
                     code.parse::<i32>()
                         .unwrap_or_else(|_| panic!("exit code cannot be parsed: `{error_msg}`"))
                 } else {
-                    anyhow::bail!(e);
+                    return Err(e);
                 }
             } else {
-                anyhow::bail!(e);
+                return Err(e);
             }
         }
     };
