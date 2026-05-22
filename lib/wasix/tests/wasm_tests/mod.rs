@@ -43,6 +43,7 @@
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::{File, create_dir_all, read_dir, remove_dir_all};
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -55,19 +56,48 @@ use walkdir::WalkDir;
 
 mod runner;
 
+const ENABLE_MACOS_WASM_TESTS_FLAG: &str = "--enable-macos-wasm-tests";
+
+struct HarnessOptions {
+    args: libtest_mimic::Arguments,
+    macos_tests_enabled: bool,
+}
+
 fn should_emit_colour() -> bool {
     std::io::stdout().is_terminal()
         || std::env::var("CARGO_TERM_COLOR").as_deref() == Ok("always")
         || std::env::var("NEXTEST").is_ok()
 }
 
+fn parse_harness_options() -> HarnessOptions {
+    let mut macos_tests_enabled = false;
+    let args = std::env::args_os()
+        .filter(|arg| {
+            if arg.as_os_str() == OsStr::new(ENABLE_MACOS_WASM_TESTS_FLAG) {
+                macos_tests_enabled = true;
+                false
+            } else {
+                true
+            }
+        })
+        .collect_vec();
+
+    HarnessOptions {
+        args: libtest_mimic::Arguments::from_iter(args),
+        macos_tests_enabled,
+    }
+}
+
 fn main() -> Result<std::process::ExitCode> {
-    let mut args = libtest_mimic::Arguments::from_args();
+    let HarnessOptions {
+        mut args,
+        macos_tests_enabled,
+    } = parse_harness_options();
     if should_emit_colour() {
         args.color = Some(libtest_mimic::ColorSetting::Always);
     }
     let mut tests = Vec::new();
-    collect_tests(&mut tests)?;
+    collect_tests(&mut tests, macos_tests_enabled)?;
     Ok(libtest_mimic::run(&args, tests).exit_code())
 }
 
@@ -580,9 +610,12 @@ fn identify_primary_sources(test_src_dir: &Path) -> Result<Vec<PrimarySource>> {
     );
 }
 
-fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
+fn collect_tests(tests: &mut Vec<Trial>, macos_tests_enabled: bool) -> Result<()> {
     // Windows runtime support is still limited, so skip these tests on that platform.
     if cfg!(target_os = "windows") {
+        return Ok(());
+    }
+    if cfg!(target_os = "macos") && !macos_tests_enabled {
         return Ok(());
     }
 
@@ -621,9 +654,11 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
             for config in configs {
                 for engine in [Engine::Cranelift, Engine::LLVM] {
-                    // The EH support for macOS is still missing: #6419
-                    if cfg!(target_os = "macos") {
-                        return Ok(());
+                    // Cranelift EH support for macOS is still missing: #6419.
+                    // Keep collecting LLVM trials so focused macOS filters do
+                    // not silently report zero tests.
+                    if cfg!(target_os = "macos") && engine == Engine::Cranelift {
+                        continue;
                     }
 
                     let mut config = config.clone();

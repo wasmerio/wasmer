@@ -46,3 +46,11 @@ the primary source, for example `//#BuildEnv: WASIXCC_PIC=1` in C/C++ sources or
 These tests run through the normal `wasix` integration test target, so standard
 Cargo and nextest filtering both work. Before running the suite, make sure
 `wasixcc` is installed and available in your shell environment.
+
+On macOS, this suite is opt-in because Cranelift exception-handling support is
+still incomplete there. Pass `--enable-macos-wasm-tests` after Cargo's `--` to
+collect and run the macOS-supported LLVM variants:
+
+```sh
+cargo test --test wasm_tests -- --enable-macos-wasm-tests wasm/context_switching/contexts_with_signals
+```
