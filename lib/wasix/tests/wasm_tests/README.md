@@ -48,9 +48,9 @@ Cargo and nextest filtering both work. Before running the suite, make sure
 `wasixcc` is installed and available in your shell environment.
 
 On macOS, this suite is opt-in because Cranelift exception-handling support is
-still incomplete there. Pass `--enable-macos-wasm-tests` after Cargo's `--` to
-collect and run the macOS-supported LLVM variants:
+still incomplete there. Set `WASMER_ENABLE_MACOS_WASM_TESTS=1` to collect and
+run the macOS-supported LLVM variants:
 
 ```sh
-cargo test --test wasm_tests -- --enable-macos-wasm-tests wasm/context_switching/contexts_with_signals
+WASMER_ENABLE_MACOS_WASM_TESTS=1 cargo test --test wasm_tests wasm/context_switching/contexts_with_signals
 ```

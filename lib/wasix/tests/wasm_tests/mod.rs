@@ -43,7 +43,6 @@
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::fs::{File, create_dir_all, read_dir, remove_dir_all};
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -56,12 +55,7 @@ use walkdir::WalkDir;
 
 mod runner;
 
-const ENABLE_MACOS_WASM_TESTS_FLAG: &str = "--enable-macos-wasm-tests";
-
-struct HarnessOptions {
-    args: libtest_mimic::Arguments,
-    macos_tests_enabled: bool,
-}
+const ENABLE_MACOS_WASM_TESTS_ENV: &str = "WASMER_ENABLE_MACOS_WASM_TESTS";
 
 fn should_emit_colour() -> bool {
     std::io::stdout().is_terminal()
@@ -69,35 +63,13 @@ fn should_emit_colour() -> bool {
         || std::env::var("NEXTEST").is_ok()
 }
 
-fn parse_harness_options() -> HarnessOptions {
-    let mut macos_tests_enabled = false;
-    let args = std::env::args_os()
-        .filter(|arg| {
-            if arg.as_os_str() == OsStr::new(ENABLE_MACOS_WASM_TESTS_FLAG) {
-                macos_tests_enabled = true;
-                false
-            } else {
-                true
-            }
-        })
-        .collect_vec();
-
-    HarnessOptions {
-        args: libtest_mimic::Arguments::from_iter(args),
-        macos_tests_enabled,
-    }
-}
-
 fn main() -> Result<std::process::ExitCode> {
-    let HarnessOptions {
-        mut args,
-        macos_tests_enabled,
-    } = parse_harness_options();
+    let mut args = libtest_mimic::Arguments::from_iter(std::env::args_os());
     if should_emit_colour() {
         args.color = Some(libtest_mimic::ColorSetting::Always);
     }
     let mut tests = Vec::new();
-    collect_tests(&mut tests, macos_tests_enabled)?;
+    collect_tests(&mut tests)?;
     Ok(libtest_mimic::run(&args, tests).exit_code())
 }
 
@@ -610,12 +582,12 @@ fn identify_primary_sources(test_src_dir: &Path) -> Result<Vec<PrimarySource>> {
     );
 }
 
-fn collect_tests(tests: &mut Vec<Trial>, macos_tests_enabled: bool) -> Result<()> {
+fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     // Windows runtime support is still limited, so skip these tests on that platform.
     if cfg!(target_os = "windows") {
         return Ok(());
     }
-    if cfg!(target_os = "macos") && !macos_tests_enabled {
+    if cfg!(target_os = "macos") && std::env::var_os(ENABLE_MACOS_WASM_TESTS_ENV).is_none() {
         return Ok(());
     }
 
