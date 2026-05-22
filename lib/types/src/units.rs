@@ -54,9 +54,15 @@ impl Pages {
     }
 
     /// Calculate the number of pages needed to hold the given number of bytes,
-    /// rounding up to include any partial page.
-    pub fn from_bytes_rounded_up(bytes: u64) -> Self {
-        Self(bytes.div_ceil(WASM_PAGE_SIZE as u64) as u32)
+    /// rounding up to include any partial page,
+    /// returning `None` if overflow occurred.
+    pub fn from_bytes_rounded_up(bytes: u64) -> Option<Self> {
+        let pages = bytes.div_ceil(WASM_PAGE_SIZE as u64);
+        if pages <= (WASM_MAX_PAGES as u64) {
+            Some(Self(pages as u32))
+        } else {
+            None
+        }
     }
 }
 

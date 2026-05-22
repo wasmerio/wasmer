@@ -131,7 +131,9 @@ impl Memory {
     ) -> Result<(), MemoryError> {
         check_isolate(store);
         let store_mut = store.as_store_mut();
-        let min_size = Pages::from_bytes_rounded_up(min_size);
+        let min_size = Pages::from_bytes_rounded_up(min_size).ok_or_else(|| {
+            MemoryError::Generic("could not reprent {min_size} in Pages".to_owned())
+        })?;
 
         unsafe {
             let current_pages = wasm_memory_size(self.handle.0);
