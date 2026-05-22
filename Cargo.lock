@@ -6920,6 +6920,7 @@ dependencies = [
  "macro-wasmer-engine-test",
  "more-asserts",
  "paste",
+ "rkyv",
  "serde",
  "serde-wasm-bindgen",
  "shared-buffer",

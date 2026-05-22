@@ -63,6 +63,7 @@ dashmap.workspace = true
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
 wasmparser = { workspace = true, default-features = false, optional = true }
+rkyv.workspace = true
 
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
