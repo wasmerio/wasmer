@@ -11,6 +11,7 @@ pub enum Compiler {
     LLVM,
     Cranelift,
     Singlepass,
+    V8,
 }
 
 #[derive(Clone)]
@@ -50,9 +51,7 @@ impl Config {
     }
 
     pub fn store(&self) -> Store {
-        let compiler_config =
-            self.compiler_config(self.canonicalize_nans, self.allow_unaligned_memory_accesses);
-        let engine = self.engine(compiler_config);
+        let engine = self.engine();
         Store::new(engine)
     }
 
@@ -61,12 +60,20 @@ impl Config {
         Store::new(engine)
     }
 
-    pub fn engine(&self, compiler_config: Box<dyn CompilerConfig>) -> wasmer::Engine {
-        let mut engine = wasmer::sys::EngineBuilder::new(compiler_config);
-        if let Some(ref features) = self.features {
-            engine = engine.set_features(Some(features.clone()));
+    pub fn engine(&self) -> wasmer::Engine {
+        match self.compiler {
+            #[cfg(feature = "v8")]
+            Compiler::V8 => wasmer::v8::V8::new().into(),
+            _ => {
+                let compiler_config = self
+                    .compiler_config(self.canonicalize_nans, self.allow_unaligned_memory_accesses);
+                let mut engine = wasmer::sys::EngineBuilder::new(compiler_config);
+                if let Some(ref features) = self.features {
+                    engine = engine.set_features(Some(features.clone()));
+                }
+                engine.engine().into()
+            }
         }
-        engine.engine().into()
     }
 
     pub fn engine_headless(&self) -> wasmer::Engine {
@@ -78,6 +85,7 @@ impl Config {
         #[allow(unused_variables)] canonicalize_nans: bool,
         #[allow(unused_variables)] allow_unaligned_memory_accesses: bool,
     ) -> Box<dyn CompilerConfig> {
+        #[allow(unused_variables)]
         let debug_dir = std::env::var("WASMER_COMPILER_DEBUG_DIR")
             .ok()
             .map(PathBuf::from);

@@ -18,6 +18,7 @@ use crate::{
 };
 
 use super::{super::error::Trap, check_isolate, store::StoreHandle};
+use itertools::Itertools;
 use wasmer_types::{FunctionType, RawValue};
 
 pub(crate) mod env;
@@ -352,7 +353,26 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         check_isolate(store);
         // unimplemented!();
-        let store_mut = store.as_store_mut();
+        let signature = self.ty(store);
+        if signature.params().len() != params.len()
+            || signature
+                .params()
+                .iter()
+                .zip(params)
+                .any(|(ty, param)| *ty != param.ty())
+        {
+            let param_types = params
+                .iter()
+                .map(|param| param.ty().to_string())
+                .collect_vec()
+                .join(", ");
+
+            return Err(RuntimeError::new(format!(
+                "Parameters of type [{}] did not match signature {}",
+                param_types, signature
+            )));
+        }
+
         // let wasm_func_param_arity(self.handle)
 
         let mut args = unsafe {
@@ -683,7 +703,9 @@ macro_rules! impl_host_function {
                     unsafe { std::ptr::null_mut() }
                 },
 
-                Ok(Err(e)) => { let trap = crate::backend::v8::error::Trap::user(Box::new(e)); unsafe { trap.into_wasm_trap(store) } },
+                Ok(Err(e)) => {
+                    let trap = crate::backend::v8::error::Trap::user(Box::new(e)); unsafe { trap.into_wasm_trap(store) }
+                },
 
                 Err(e) => { unimplemented!("host function panicked"); }
               }
