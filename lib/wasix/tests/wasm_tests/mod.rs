@@ -55,8 +55,6 @@ use walkdir::WalkDir;
 
 mod runner;
 
-const ENABLE_MACOS_WASM_TESTS_ENV: &str = "WASMER_ENABLE_MACOS_WASM_TESTS";
-
 fn should_emit_colour() -> bool {
     std::io::stdout().is_terminal()
         || std::env::var("CARGO_TERM_COLOR").as_deref() == Ok("always")
@@ -64,7 +62,7 @@ fn should_emit_colour() -> bool {
 }
 
 fn main() -> Result<std::process::ExitCode> {
-    let mut args = libtest_mimic::Arguments::from_iter(std::env::args_os());
+    let mut args = libtest_mimic::Arguments::from_args();
     if should_emit_colour() {
         args.color = Some(libtest_mimic::ColorSetting::Always);
     }
@@ -585,9 +583,6 @@ fn identify_primary_sources(test_src_dir: &Path) -> Result<Vec<PrimarySource>> {
 fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     // Windows runtime support is still limited, so skip these tests on that platform.
     if cfg!(target_os = "windows") {
-        return Ok(());
-    }
-    if cfg!(target_os = "macos") && std::env::var_os(ENABLE_MACOS_WASM_TESTS_ENV).is_none() {
         return Ok(());
     }
 
