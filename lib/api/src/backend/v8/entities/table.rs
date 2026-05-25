@@ -85,6 +85,10 @@ impl Table {
         check_isolate(store);
         let store_mut = store.as_store_mut();
 
+        if index >= self.size(store) {
+            return None;
+        }
+
         unsafe {
             let ref_ = wasm_table_get(self.handle, index);
 
