@@ -89,7 +89,11 @@ impl Table {
             let ref_ = wasm_table_get(self.handle, index);
 
             if ref_.is_null() {
-                return None;
+                return match self.ty(store).ty {
+                    wasmer_types::Type::ExternRef => Some(Value::ExceptionRef(None)),
+                    wasmer_types::Type::FuncRef => Some(Value::FuncRef(None)),
+                    ty => panic!("unsupported table type: {ty:?}"),
+                };
             }
 
             let kind = match self.ty(store).ty {
