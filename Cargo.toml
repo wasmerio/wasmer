@@ -135,9 +135,9 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.131.0", default-features = false }
-cranelift-entity = { version = "=0.131.0", default-features = false }
-cranelift-frontend = { version = "=0.131.0", default-features = false }
+cranelift-codegen = { version = "=0.132.0", default-features = false }
+cranelift-entity = { version = "=0.132.0", default-features = false }
+cranelift-frontend = { version = "=0.132.0", default-features = false }
 crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
@@ -238,7 +238,7 @@ region = "3.0"
 replace_with = "0.1.7"
 reqwest = { version = "0.13.0", default-features = false }
 rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
-symbolic-demangle = { version = "12", default-features = false, features = [
+symbolic-demangle = { version = "13", default-features = false, features = [
   "rust",
   "cpp",
   "msvc",
@@ -306,24 +306,24 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.248.0", default-features = false, features = [
+wasm-encoder = { version = "0.250.0", default-features = false, features = [
   "std",
 ] }
-wasm-smith = "0.248.0"
-wasmparser = { version = "0.248.0", default-features = false, features = [
+wasm-smith = "0.250.0"
+wasmparser = { version = "0.250.0", default-features = false, features = [
   "validate",
   "features",
   "simd",
 ] }
-wasmprinter = "0.248.0"
+wasmprinter = "0.250.0"
 wasmer-inline-c = "0.1.1"
-wast = "248.0.0"
+wast = "250.0.0"
 wat = "1.248.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"
 web-time = "1.1"
-weezl = "0.1"
+weezl = "0.2"
 which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
