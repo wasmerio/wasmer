@@ -124,14 +124,12 @@
 <a href=#124 id=124 data-nosnippet>124</a>        // are hard errors in the sense that retrying the interrupt at a later
 <a href=#125 id=125 data-nosnippet>125</a>        // point is *guaranteed* to fail again. Hence, we don't return any
 <a href=#126 id=126 data-nosnippet>126</a>        // indication of success or failure to embedder code.
-<a href=#127 id=127 data-nosnippet>127</a>        </span><span class="kw">match </span>interrupt_registry::interrupt(<span class="self">self</span>.store_id) {
-<a href=#128 id=128 data-nosnippet>128</a>            <span class="prelude-val">Err</span>(interrupt_registry::InterruptError::StoreNotRunning) =&gt; (),
-<a href=#129 id=129 data-nosnippet>129</a>            <span class="kw">_ </span>=&gt; {
-<a href=#130 id=130 data-nosnippet>130</a>                <span class="attr">#[cfg(feature = <span class="string">"experimental-async"</span>)]
-<a href=#131 id=131 data-nosnippet>131</a>                </span><span class="kw">crate</span>::backend::sys::async_runtime::notify_pending_futures_of_interrupt(
-<a href=#132 id=132 data-nosnippet>132</a>                    <span class="self">self</span>.store_id,
-<a href=#133 id=133 data-nosnippet>133</a>                );
-<a href=#134 id=134 data-nosnippet>134</a>            }
-<a href=#135 id=135 data-nosnippet>135</a>        }
-<a href=#136 id=136 data-nosnippet>136</a>    }
-<a href=#137 id=137 data-nosnippet>137</a>}</code></pre></div></section></main></body></html>
+<a href=#127 id=127 data-nosnippet>127</a>        </span><span class="kw">if </span>!<span class="macro">matches!</span>(
+<a href=#128 id=128 data-nosnippet>128</a>            interrupt_registry::interrupt(<span class="self">self</span>.store_id),
+<a href=#129 id=129 data-nosnippet>129</a>            <span class="prelude-val">Err</span>(interrupt_registry::InterruptError::StoreNotRunning)
+<a href=#130 id=130 data-nosnippet>130</a>        ) {
+<a href=#131 id=131 data-nosnippet>131</a>            <span class="attr">#[cfg(feature = <span class="string">"experimental-async"</span>)]
+<a href=#132 id=132 data-nosnippet>132</a>            </span><span class="kw">crate</span>::backend::sys::async_runtime::notify_pending_futures_of_interrupt(<span class="self">self</span>.store_id);
+<a href=#133 id=133 data-nosnippet>133</a>        }
+<a href=#134 id=134 data-nosnippet>134</a>    }
+<a href=#135 id=135 data-nosnippet>135</a>}</code></pre></div></section></main></body></html>
