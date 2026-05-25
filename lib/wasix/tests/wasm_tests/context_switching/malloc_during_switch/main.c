@@ -1,4 +1,6 @@
 //#UnixOnly: true
+//#SkipEngine:V8:async functions are not supported yet
+
 // Test memory allocations during context switches
 // This can trigger store context issues if malloc implementation
 // does host calls while the store is borrowed
