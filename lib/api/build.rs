@@ -3,7 +3,7 @@ fn build_v8() {
     use bindgen::callbacks::ParseCallbacks;
     use std::{
         env, fs,
-        path::{Path, PathBuf},
+        path::PathBuf,
         sync::{LazyLock, Mutex},
     };
 
