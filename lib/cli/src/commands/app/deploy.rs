@@ -380,11 +380,8 @@ impl CmdAppDeploy {
             mapping.remove("name");
         }
 
-        if mapping.get("name").is_none() && self.app_name.is_some() {
-            mapping.insert(
-                "name".into(),
-                self.app_name.as_ref().unwrap().to_string().into(),
-            );
+        if mapping.get("name").is_none() && let Some(app_name) = &self.app_name {
+            mapping.insert("name".into(), app_name.to_string().into());
         } else if mapping.get("name").is_none() && maybe_edge_app.is_some() {
             mapping.insert(
                 "name".into(),
@@ -664,10 +661,10 @@ impl AsyncCliCommand for CmdAppDeploy {
             }
         }
 
-        if app_yaml.get("name").is_none() && self.app_name.is_some() {
+        if app_yaml.get("name").is_none() && let Some(app_name) = &self.app_name {
             app_yaml.as_mapping_mut().unwrap().insert(
                 "name".into(),
-                self.app_name.as_ref().unwrap().to_string().into(),
+                app_name.to_string().into(),
             );
         } else if app_yaml.get("name").is_none() && maybe_edge_app.is_some() {
             app_yaml.as_mapping_mut().unwrap().insert(
