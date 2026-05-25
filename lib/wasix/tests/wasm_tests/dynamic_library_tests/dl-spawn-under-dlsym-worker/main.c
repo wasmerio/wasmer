@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define SPAWN_ROUNDS 64
+#define SPAWN_ROUNDS 256
 
 static atomic_int stop_dlsym = 0;
 static atomic_int worker_failed = 0;
