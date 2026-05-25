@@ -386,10 +386,9 @@ pub(crate) fn run_wasm_with_runner_config(
     let stdout = stdout_buffer.lock().unwrap().clone();
     let stderr = stderr_buffer.lock().unwrap().clone();
 
-    const UNKNOWN_EXIT_CODE: i32 = i32::MAX;
-
+    let error = result.as_ref().err().map(ToString::to_string);
     // Extract exit code from result
-    let exit_code = match &result {
+    let exit_code = match result {
         Ok(_) => 0,
         Err(e) => {
             // Try to extract exit code from error message
@@ -399,10 +398,10 @@ pub(crate) fn run_wasm_with_runner_config(
                     code.parse::<i32>()
                         .unwrap_or_else(|_| panic!("exit code cannot be parsed: `{error_msg}`"))
                 } else {
-                    UNKNOWN_EXIT_CODE
+                    return Err(e);
                 }
             } else {
-                UNKNOWN_EXIT_CODE
+                return Err(e);
             }
         }
     };
@@ -412,7 +411,7 @@ pub(crate) fn run_wasm_with_runner_config(
         stderr,
         trace_output,
         exit_code,
-        error: result.as_ref().err().map(ToString::to_string),
+        error,
     })
 }
 
