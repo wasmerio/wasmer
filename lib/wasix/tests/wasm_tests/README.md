@@ -49,7 +49,3 @@ Cargo and nextest filtering both work. Before running the suite, make sure
 
 On macOS, this suite collects and runs the LLVM variants only because Cranelift
 exception-handling support is still incomplete there:
-
-```sh
-cargo test --test wasm_tests wasm/context_switching/contexts_with_signals
-```
