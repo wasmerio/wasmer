@@ -280,7 +280,11 @@ fn handle_thread_result(
             Ok(Some(ExitCode::from(129)))
         }
         Err(err) => {
-            eprintln!("Thread {tid} of process {pid} failed with runtime error: {err}");
+            if err.clone().to_trap() == Some(wasmer_types::TrapCode::HostInterrupt) {
+                debug!(%tid, %pid, error = %err, "thread interrupted by host");
+            } else {
+                eprintln!("Thread {tid} of process {pid} failed with runtime error: {err}");
+            }
             env.data(&store)
                 .runtime
                 .on_taint(TaintReason::RuntimeError(err));
