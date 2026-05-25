@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(
 <a href=#2 id=2 data-nosnippet>2</a>    unused,
 <a href=#3 id=3 data-nosnippet>3</a>    clippy::too_many_arguments,
 <a href=#4 id=4 data-nosnippet>4</a>    clippy::cognitive_complexity,
@@ -204,7 +204,7 @@
 <a href=#204 id=204 data-nosnippet>204</a>        }
 <a href=#205 id=205 data-nosnippet>205</a>        <span class="kw">let </span>(left, right) = read_loc.split_at(to_read);
 <a href=#206 id=206 data-nosnippet>206</a>        <span class="kw">let </span>amt = buf.copy_from_slice_min(left);
-<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">if </span>amt != to_read {
+<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">if </span><span class="macro">amt !</span>= to_read {
 <a href=#208 id=208 data-nosnippet>208</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(bytes_read + amt);
 <a href=#209 id=209 data-nosnippet>209</a>        }
 <a href=#210 id=210 data-nosnippet>210</a>
@@ -233,7 +233,7 @@
 <a href=#233 id=233 data-nosnippet>233</a>        <span class="kw">let </span>has_read = reader.read(buf.as_mut()).map_err(map_io_err)<span class="question-mark">?</span>;
 <a href=#234 id=234 data-nosnippet>234</a>
 <a href=#235 id=235 data-nosnippet>235</a>        bytes_read += has_read;
-<a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">if </span>has_read != to_read {
+<a href=#236 id=236 data-nosnippet>236</a>        <span class="kw">if </span><span class="macro">has_read !</span>= to_read {
 <a href=#237 id=237 data-nosnippet>237</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(bytes_read);
 <a href=#238 id=238 data-nosnippet>238</a>        }
 <a href=#239 id=239 data-nosnippet>239</a>    }
@@ -1378,7 +1378,7 @@
 <a href=#1378 id=1378 data-nosnippet>1378</a>            )
 <a href=#1379 id=1379 data-nosnippet>1379</a>        };
 <a href=#1380 id=1380 data-nosnippet>1380</a>
-<a href=#1381 id=1381 data-nosnippet>1381</a>        <span class="kw">if </span>errno != Errno::Success {
+<a href=#1381 id=1381 data-nosnippet>1381</a>        <span class="kw">if </span><span class="macro">errno !</span>= Errno::Success {
 <a href=#1382 id=1382 data-nosnippet>1382</a>            <span class="kw">let </span>exit_code = ExitCode::from(errno);
 <a href=#1383 id=1383 data-nosnippet>1383</a>            ctx.data().blocking_on_exit(<span class="prelude-val">Some</span>(exit_code));
 <a href=#1384 id=1384 data-nosnippet>1384</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(exit_code);
@@ -1546,4 +1546,5 @@
 <a href=#1546 id=1546 data-nosnippet>1546</a>
 <a href=#1547 id=1547 data-nosnippet>1547</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_spawn_err_to_exit_code(err: <span class="kw-2">&amp;</span>SpawnError) -&gt; ExitCode {
 <a href=#1548 id=1548 data-nosnippet>1548</a>    conv_spawn_err_to_errno(err).into()
-<a href=#1549 id=1549 data-nosnippet>1549</a>}</code></pre></div></section></main></body></html>
+<a href=#1549 id=1549 data-nosnippet>1549</a>}
+</code></pre></div></section></main></body></html>

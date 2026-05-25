@@ -1,12 +1,89 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An atomic fence."><title>fence in wasmer_types::lib::std::sync::atomic - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">fence</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../wasmer_types/index.html">wasmer_<wbr>types</a><span class="version">7.2.0-alpha.2</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">fence</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#panics" title="Panics">Panics</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In wasmer_<wbr>types::<wbr>lib::<wbr>std::<wbr>sync::<wbr>atomic</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../../index.html">wasmer_types</a>::<wbr><a href="../../../index.html">lib</a>::<wbr><a href="../../index.html">std</a>::<wbr><a href="../index.html">sync</a>::<wbr><a href="index.html">atomic</a></div><h1>Function <span class="fn">fence</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.92.0/src/core/sync/atomic.rs.html#4357">Source</a> </span></div><pre class="rust item-decl"><code>pub fn fence(order: <a class="enum" href="enum.Ordering.html" title="enum wasmer_types::lib::std::sync::atomic::Ordering">Ordering</a>)</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An atomic fence.</p>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="An atomic fence."><title>fence in wasmer_types::lib::std::sync::atomic - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">fence</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../../wasmer_types/index.html">wasmer_<wbr>types</a><span class="version">7.2.0-alpha.2</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">fence</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#atomic---fence" title="Atomic - Fence">Atomic - Fence</a></li><li><a href="#fence---atomic" title="Fence - Atomic">Fence - Atomic</a></li><li><a href="#fence---fence" title="Fence - Fence">Fence - Fence</a></li><li><a href="#mandatory-atomic" title="Mandatory Atomic">Mandatory Atomic</a></li><li><a href="#memory-ordering" title="Memory Ordering">Memory Ordering</a></li><li><a href="#panics" title="Panics">Panics</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In wasmer_<wbr>types::<wbr>lib::<wbr>std::<wbr>sync::<wbr>atomic</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../../index.html">wasmer_types</a>::<wbr><a href="../../../index.html">lib</a>::<wbr><a href="../../index.html">std</a>::<wbr><a href="../index.html">sync</a>::<wbr><a href="index.html">atomic</a></div><h1>Function <span class="fn">fence</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span> · <a class="src" href="https://doc.rust-lang.org/1.93.1/src/core/sync/atomic.rs.html#4488">Source</a> </span></div><pre class="rust item-decl"><code>pub fn fence(order: <a class="enum" href="enum.Ordering.html" title="enum wasmer_types::lib::std::sync::atomic::Ordering">Ordering</a>)</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>An atomic fence.</p>
 <p>Fences create synchronization between themselves and atomic operations or fences in other
 threads. To achieve this, a fence prevents the compiler and CPU from reordering certain types of
 memory operations around it.</p>
-<p>A fence ‘A’ which has (at least) <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> ordering semantics, synchronizes
-with a fence ‘B’ with (at least) <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> semantics, if and only if there
-exist operations X and Y, both operating on some atomic object ‘m’ such
-that A is sequenced before X, Y is sequenced before B and Y observes
-the change to m. This provides a happens-before dependence between A and B.</p>
+<p>There are 3 different ways to use an atomic fence:</p>
+<ul>
+<li>atomic - fence synchronization: an atomic operation with (at least) <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> ordering
+semantics synchronizes with a fence with (at least) <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> ordering semantics.</li>
+<li>fence - atomic synchronization: a fence with (at least) <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> ordering semantics
+synchronizes with an atomic operation with (at least) <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> ordering semantics.</li>
+<li>fence - fence synchronization: a fence with (at least) <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> ordering semantics
+synchronizes with a fence with (at least) <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> ordering semantics.</li>
+</ul>
+<p>These 3 ways complement the regular, fence-less, atomic - atomic synchronization.</p>
+<h3 id="atomic---fence"><a class="doc-anchor" href="#atomic---fence">§</a>Atomic - Fence</h3>
+<p>An atomic operation on one thread will synchronize with a fence on another thread when:</p>
+<ul>
+<li>
+<p>on thread 1:</p>
+<ul>
+<li>an atomic operation ‘X’ with (at least) <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> ordering semantics on some atomic
+object ‘m’,</li>
+</ul>
+</li>
+<li>
+<p>is paired on thread 2 with:</p>
+<ul>
+<li>an atomic read ‘Y’ with any order on ‘m’,</li>
+<li>followed by a fence ‘B’ with (at least) <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> ordering semantics.</li>
+</ul>
+</li>
+</ul>
+<p>This provides a happens-before dependence between X and B.</p>
+<div class="example-wrap"><pre class="language-text"><code>    Thread 1                                          Thread 2
+
+m.store(3, Release); X ---------
+                               |
+                               |
+                               -------------&gt; Y  if m.load(Relaxed) == 3 {
+                                              B      fence(Acquire);
+                                                     ...
+                                                 }</code></pre></div><h3 id="fence---atomic"><a class="doc-anchor" href="#fence---atomic">§</a>Fence - Atomic</h3>
+<p>A fence on one thread will synchronize with an atomic operation on another thread when:</p>
+<ul>
+<li>
+<p>on thread:</p>
+<ul>
+<li>a fence ‘A’ with (at least) <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> ordering semantics,</li>
+<li>followed by an atomic write ‘X’ with any ordering on some atomic object ‘m’,</li>
+</ul>
+</li>
+<li>
+<p>is paired on thread 2 with:</p>
+<ul>
+<li>an atomic operation ‘Y’ with (at least) <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> ordering semantics.</li>
+</ul>
+</li>
+</ul>
+<p>This provides a happens-before dependence between A and Y.</p>
+<div class="example-wrap"><pre class="language-text"><code>    Thread 1                                          Thread 2
+
+fence(Release);      A
+m.store(3, Relaxed); X ---------
+                               |
+                               |
+                               -------------&gt; Y  if m.load(Acquire) == 3 {
+                                                     ...
+                                                 }</code></pre></div><h3 id="fence---fence"><a class="doc-anchor" href="#fence---fence">§</a>Fence - Fence</h3>
+<p>A fence on one thread will synchronize with a fence on another thread when:</p>
+<ul>
+<li>
+<p>on thread 1:</p>
+<ul>
+<li>a fence ‘A’ which has (at least) <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> ordering semantics,</li>
+<li>followed by an atomic write ‘X’ with any ordering on some atomic object ‘m’,</li>
+</ul>
+</li>
+<li>
+<p>is paired on thread 2 with:</p>
+<ul>
+<li>an atomic read ‘Y’ with any ordering on ‘m’,</li>
+<li>followed by a fence ‘B’ with (at least) <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> ordering semantics.</li>
+</ul>
+</li>
+</ul>
+<p>This provides a happens-before dependence between A and B.</p>
 <div class="example-wrap"><pre class="language-text"><code>    Thread 1                                          Thread 2
 
 fence(Release);      A --------------
@@ -16,17 +93,17 @@ m.store(3, Relaxed); X ---------    |
                                -------------&gt; Y  if m.load(Relaxed) == 3 {
                                     |-------&gt; B      fence(Acquire);
                                                      ...
-                                                 }</code></pre></div>
-<p>Note that in the example above, it is crucial that the accesses to <code>m</code> are atomic. Fences cannot
-be used to establish synchronization among non-atomic accesses in different threads. However,
-thanks to the happens-before relationship between A and B, any non-atomic accesses that
-happen-before A are now also properly synchronized with any non-atomic accesses that
-happen-after B.</p>
-<p>Atomic operations with <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> or <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> semantics can also synchronize
-with a fence.</p>
-<p>A fence which has <a href="enum.Ordering.html#variant.SeqCst" title="variant wasmer_types::lib::std::sync::atomic::Ordering::SeqCst"><code>SeqCst</code></a> ordering, in addition to having both <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a>
-and <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> semantics, participates in the global program order of the
-other <a href="enum.Ordering.html#variant.SeqCst" title="variant wasmer_types::lib::std::sync::atomic::Ordering::SeqCst"><code>SeqCst</code></a> operations and/or fences.</p>
+                                                 }</code></pre></div><h3 id="mandatory-atomic"><a class="doc-anchor" href="#mandatory-atomic">§</a>Mandatory Atomic</h3>
+<p>Note that in the examples above, it is crucial that the access to <code>m</code> are atomic. Fences cannot
+be used to establish synchronization between non-atomic accesses in different threads. However,
+thanks to the happens-before relationship, any non-atomic access that happen-before the atomic
+operation or fence with (at least) <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a> ordering semantics are now also properly
+synchronized with any non-atomic accesses that happen-after the atomic operation or fence with
+(at least) <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> ordering semantics.</p>
+<h3 id="memory-ordering"><a class="doc-anchor" href="#memory-ordering">§</a>Memory Ordering</h3>
+<p>A fence which has <a href="enum.Ordering.html#variant.SeqCst" title="variant wasmer_types::lib::std::sync::atomic::Ordering::SeqCst"><code>SeqCst</code></a> ordering, in addition to having both <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a> and <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a>
+semantics, participates in the global program order of the other <a href="enum.Ordering.html#variant.SeqCst" title="variant wasmer_types::lib::std::sync::atomic::Ordering::SeqCst"><code>SeqCst</code></a> operations and/or
+fences.</p>
 <p>Accepts <a href="enum.Ordering.html#variant.Acquire" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Acquire"><code>Acquire</code></a>, <a href="enum.Ordering.html#variant.Release" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Release"><code>Release</code></a>, <a href="enum.Ordering.html#variant.AcqRel" title="variant wasmer_types::lib::std::sync::atomic::Ordering::AcqRel"><code>AcqRel</code></a> and <a href="enum.Ordering.html#variant.SeqCst" title="variant wasmer_types::lib::std::sync::atomic::Ordering::SeqCst"><code>SeqCst</code></a> orderings.</p>
 <h2 id="panics"><a class="doc-anchor" href="#panics">§</a>Panics</h2>
 <p>Panics if <code>order</code> is <a href="enum.Ordering.html#variant.Relaxed" title="variant wasmer_types::lib::std::sync::atomic::Ordering::Relaxed"><code>Relaxed</code></a>.</p>

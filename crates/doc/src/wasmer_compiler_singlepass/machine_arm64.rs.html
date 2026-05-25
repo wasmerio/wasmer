@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine_arm64.rs`."><title>machine_arm64.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_singlepass/</div>machine_arm64.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::collections::HashMap;
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine_arm64.rs`."><title>machine_arm64.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_singlepass/</div>machine_arm64.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::collections::HashMap;
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>dynasmrt::{VecAssembler, aarch64::Aarch64Relocation};
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>fixedbitset::FixedBitSet;
@@ -414,7 +414,7 @@
 <a href=#414 id=414 data-nosnippet>414</a>        <span class="kw">let </span>src = <span class="self">self</span>.location_to_reg(sz, src, <span class="kw-2">&amp;mut </span>temps, src_imm, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#415 id=415 data-nosnippet>415</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(sz, dst, <span class="kw-2">&amp;mut </span>temps, ImmType::None, !putback, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#416 id=416 data-nosnippet>416</a>        op(<span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler, sz, src, dest)<span class="question-mark">?</span>;
-<a href=#417 id=417 data-nosnippet>417</a>        <span class="kw">if </span>dst != dest &amp;&amp; putback {
+<a href=#417 id=417 data-nosnippet>417</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest &amp;&amp; putback {
 <a href=#418 id=418 data-nosnippet>418</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#419 id=419 data-nosnippet>419</a>        }
 <a href=#420 id=420 data-nosnippet>420</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -434,7 +434,7 @@
 <a href=#434 id=434 data-nosnippet>434</a>        <span class="kw">let </span>src = <span class="self">self</span>.location_to_neon(sz, src, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 <a href=#435 id=435 data-nosnippet>435</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_neon(sz, dst, <span class="kw-2">&amp;mut </span>temps, ImmType::None, !putback)<span class="question-mark">?</span>;
 <a href=#436 id=436 data-nosnippet>436</a>        op(<span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler, sz, src, dest)<span class="question-mark">?</span>;
-<a href=#437 id=437 data-nosnippet>437</a>        <span class="kw">if </span>dst != dest &amp;&amp; putback {
+<a href=#437 id=437 data-nosnippet>437</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest &amp;&amp; putback {
 <a href=#438 id=438 data-nosnippet>438</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#439 id=439 data-nosnippet>439</a>        }
 <a href=#440 id=440 data-nosnippet>440</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -456,7 +456,7 @@
 <a href=#456 id=456 data-nosnippet>456</a>        <span class="kw">let </span>src2 = <span class="self">self</span>.location_to_reg(sz, src2, <span class="kw-2">&amp;mut </span>temps, allow_imm, <span class="bool-val">true</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#457 id=457 data-nosnippet>457</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(sz, dst, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#458 id=458 data-nosnippet>458</a>        op(<span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler, sz, src1, src2, dest)<span class="question-mark">?</span>;
-<a href=#459 id=459 data-nosnippet>459</a>        <span class="kw">if </span>dst != dest {
+<a href=#459 id=459 data-nosnippet>459</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#460 id=460 data-nosnippet>460</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#461 id=461 data-nosnippet>461</a>        }
 <a href=#462 id=462 data-nosnippet>462</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -478,7 +478,7 @@
 <a href=#478 id=478 data-nosnippet>478</a>        <span class="kw">let </span>src2 = <span class="self">self</span>.location_to_neon(sz, src2, <span class="kw-2">&amp;mut </span>temps, allow_imm, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 <a href=#479 id=479 data-nosnippet>479</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_neon(sz, dst, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#480 id=480 data-nosnippet>480</a>        op(<span class="kw-2">&amp;mut </span><span class="self">self</span>.assembler, sz, src1, src2, dest)<span class="question-mark">?</span>;
-<a href=#481 id=481 data-nosnippet>481</a>        <span class="kw">if </span>dst != dest {
+<a href=#481 id=481 data-nosnippet>481</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#482 id=482 data-nosnippet>482</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#483 id=483 data-nosnippet>483</a>        }
 <a href=#484 id=484 data-nosnippet>484</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -516,7 +516,7 @@
 <a href=#516 id=516 data-nosnippet>516</a>            }
 <a href=#517 id=517 data-nosnippet>517</a>            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_ldr64 unreachable"</span>),
 <a href=#518 id=518 data-nosnippet>518</a>        }
-<a href=#519 id=519 data-nosnippet>519</a>        <span class="kw">if </span>dst != dest {
+<a href=#519 id=519 data-nosnippet>519</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#520 id=520 data-nosnippet>520</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#521 id=521 data-nosnippet>521</a>        }
 <a href=#522 id=522 data-nosnippet>522</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -554,7 +554,7 @@
 <a href=#554 id=554 data-nosnippet>554</a>            }
 <a href=#555 id=555 data-nosnippet>555</a>            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_ldr32 unreachable"</span>),
 <a href=#556 id=556 data-nosnippet>556</a>        }
-<a href=#557 id=557 data-nosnippet>557</a>        <span class="kw">if </span>dst != dest {
+<a href=#557 id=557 data-nosnippet>557</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#558 id=558 data-nosnippet>558</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#559 id=559 data-nosnippet>559</a>        }
 <a href=#560 id=560 data-nosnippet>560</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -590,7 +590,7 @@
 <a href=#590 id=590 data-nosnippet>590</a>            }
 <a href=#591 id=591 data-nosnippet>591</a>            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singplepass emit_relaxed_ldr32s unreachable"</span>),
 <a href=#592 id=592 data-nosnippet>592</a>        }
-<a href=#593 id=593 data-nosnippet>593</a>        <span class="kw">if </span>dst != dest {
+<a href=#593 id=593 data-nosnippet>593</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#594 id=594 data-nosnippet>594</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#595 id=595 data-nosnippet>595</a>        }
 <a href=#596 id=596 data-nosnippet>596</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -626,7 +626,7 @@
 <a href=#626 id=626 data-nosnippet>626</a>            }
 <a href=#627 id=627 data-nosnippet>627</a>            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlpass emit_relaxed_ldr16 unreachable"</span>),
 <a href=#628 id=628 data-nosnippet>628</a>        }
-<a href=#629 id=629 data-nosnippet>629</a>        <span class="kw">if </span>dst != dest {
+<a href=#629 id=629 data-nosnippet>629</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#630 id=630 data-nosnippet>630</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#631 id=631 data-nosnippet>631</a>        }
 <a href=#632 id=632 data-nosnippet>632</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -662,7 +662,7 @@
 <a href=#662 id=662 data-nosnippet>662</a>            }
 <a href=#663 id=663 data-nosnippet>663</a>            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_ldr16s unreachable"</span>),
 <a href=#664 id=664 data-nosnippet>664</a>        }
-<a href=#665 id=665 data-nosnippet>665</a>        <span class="kw">if </span>dst != dest {
+<a href=#665 id=665 data-nosnippet>665</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#666 id=666 data-nosnippet>666</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#667 id=667 data-nosnippet>667</a>        }
 <a href=#668 id=668 data-nosnippet>668</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -698,7 +698,7 @@
 <a href=#698 id=698 data-nosnippet>698</a>            }
 <a href=#699 id=699 data-nosnippet>699</a>            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singplepass emit_relaxed_ldr8 unreachable"</span>),
 <a href=#700 id=700 data-nosnippet>700</a>        }
-<a href=#701 id=701 data-nosnippet>701</a>        <span class="kw">if </span>dst != dest {
+<a href=#701 id=701 data-nosnippet>701</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#702 id=702 data-nosnippet>702</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#703 id=703 data-nosnippet>703</a>        }
 <a href=#704 id=704 data-nosnippet>704</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -734,7 +734,7 @@
 <a href=#734 id=734 data-nosnippet>734</a>            }
 <a href=#735 id=735 data-nosnippet>735</a>            <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_ldr8s unreachable"</span>),
 <a href=#736 id=736 data-nosnippet>736</a>        }
-<a href=#737 id=737 data-nosnippet>737</a>        <span class="kw">if </span>dst != dest {
+<a href=#737 id=737 data-nosnippet>737</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#738 id=738 data-nosnippet>738</a>            <span class="self">self</span>.move_location(sz, dest, dst)<span class="question-mark">?</span>;
 <a href=#739 id=739 data-nosnippet>739</a>        }
 <a href=#740 id=740 data-nosnippet>740</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -1004,7 +1004,7 @@
 <a href=#1004 id=1004 data-nosnippet>1004</a>        </span><span class="self">self</span>.move_location(Size::S32, addr, Location::GPR(tmp_addr))<span class="question-mark">?</span>;
 <a href=#1005 id=1005 data-nosnippet>1005</a>
 <a href=#1006 id=1006 data-nosnippet>1006</a>        <span class="comment">// Add offset to memory address.
-<a href=#1007 id=1007 data-nosnippet>1007</a>        </span><span class="kw">if </span>memarg.offset != <span class="number">0 </span>{
+<a href=#1007 id=1007 data-nosnippet>1007</a>        </span><span class="kw">if </span>memarg.<span class="macro">offset !</span>= <span class="number">0 </span>{
 <a href=#1008 id=1008 data-nosnippet>1008</a>            <span class="kw">if </span><span class="self">self</span>.compatible_imm(memarg.offset <span class="kw">as _</span>, ImmType::Bits12) {
 <a href=#1009 id=1009 data-nosnippet>1009</a>                <span class="self">self</span>.assembler.emit_adds(
 <a href=#1010 id=1010 data-nosnippet>1010</a>                    Size::S32,
@@ -1057,7 +1057,7 @@
 <a href=#1057 id=1057 data-nosnippet>1057</a>        <span class="self">self</span>.release_gpr(tmp_base);
 <a href=#1058 id=1058 data-nosnippet>1058</a>
 <a href=#1059 id=1059 data-nosnippet>1059</a>        <span class="kw">let </span>align = value_size <span class="kw">as </span>u32;
-<a href=#1060 id=1060 data-nosnippet>1060</a>        <span class="kw">if </span>check_alignment &amp;&amp; align != <span class="number">1 </span>{
+<a href=#1060 id=1060 data-nosnippet>1060</a>        <span class="kw">if </span>check_alignment &amp;&amp; <span class="macro">align !</span>= <span class="number">1 </span>{
 <a href=#1061 id=1061 data-nosnippet>1061</a>            <span class="self">self</span>.assembler.emit_tst(
 <a href=#1062 id=1062 data-nosnippet>1062</a>                Size::S64,
 <a href=#1063 id=1063 data-nosnippet>1063</a>                Location::Imm32(align - <span class="number">1</span>),
@@ -1974,7 +1974,7 @@
 <a href=#1974 id=1974 data-nosnippet>1974</a>        size_op: Size,
 <a href=#1975 id=1975 data-nosnippet>1975</a>        dest: Location,
 <a href=#1976 id=1976 data-nosnippet>1976</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#1977 id=1977 data-nosnippet>1977</a>        <span class="kw">if </span>size_op != Size::S64 {
+<a href=#1977 id=1977 data-nosnippet>1977</a>        <span class="kw">if </span><span class="macro">size_op !</span>= Size::S64 {
 <a href=#1978 id=1978 data-nosnippet>1978</a>            <span class="macro">codegen_error!</span>(<span class="string">"singlepass move_location_extend unreachable"</span>);
 <a href=#1979 id=1979 data-nosnippet>1979</a>        }
 <a href=#1980 id=1980 data-nosnippet>1980</a>        <span class="kw">let </span><span class="kw-2">mut </span>temps = <span class="macro">vec!</span>[];
@@ -2038,10 +2038,10 @@
 <a href=#2038 id=2038 data-nosnippet>2038</a>                dest
 <a href=#2039 id=2039 data-nosnippet>2039</a>            ),
 <a href=#2040 id=2040 data-nosnippet>2040</a>        };
-<a href=#2041 id=2041 data-nosnippet>2041</a>        <span class="kw">if </span>src != dst {
+<a href=#2041 id=2041 data-nosnippet>2041</a>        <span class="kw">if </span><span class="macro">src !</span>= dst {
 <a href=#2042 id=2042 data-nosnippet>2042</a>            <span class="self">self</span>.move_location(size_op, src, dst)<span class="question-mark">?</span>;
 <a href=#2043 id=2043 data-nosnippet>2043</a>        }
-<a href=#2044 id=2044 data-nosnippet>2044</a>        <span class="kw">if </span>dst != dest {
+<a href=#2044 id=2044 data-nosnippet>2044</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#2045 id=2045 data-nosnippet>2045</a>            <span class="self">self</span>.move_location(size_op, dst, dest)<span class="question-mark">?</span>;
 <a href=#2046 id=2046 data-nosnippet>2046</a>        }
 <a href=#2047 id=2047 data-nosnippet>2047</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -2263,7 +2263,7 @@
 <a href=#2263 id=2263 data-nosnippet>2263</a>                <span class="kw">let </span>src = <span class="self">self</span>.location_to_neon(sz, input, <span class="kw-2">&amp;mut </span>tempn, ImmType::None, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 <a href=#2264 id=2264 data-nosnippet>2264</a>                <span class="kw">let </span>tmp = <span class="self">self</span>.location_to_neon(sz, output, <span class="kw-2">&amp;mut </span>tempn, ImmType::None, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#2265 id=2265 data-nosnippet>2265</a>                <span class="self">self</span>.assembler.emit_fmax(sz, src, src, tmp)<span class="question-mark">?</span>;
-<a href=#2266 id=2266 data-nosnippet>2266</a>                <span class="kw">if </span>tmp != output {
+<a href=#2266 id=2266 data-nosnippet>2266</a>                <span class="kw">if </span><span class="macro">tmp !</span>= output {
 <a href=#2267 id=2267 data-nosnippet>2267</a>                    <span class="self">self</span>.move_location(sz, tmp, output)<span class="question-mark">?</span>;
 <a href=#2268 id=2268 data-nosnippet>2268</a>                }
 <a href=#2269 id=2269 data-nosnippet>2269</a>            }
@@ -2359,7 +2359,7 @@
 <a href=#2359 id=2359 data-nosnippet>2359</a>        } <span class="kw">else </span>{
 <a href=#2360 id=2360 data-nosnippet>2360</a>            <span class="self">self</span>.assembler.emit_add(size, dst, src, dst)<span class="question-mark">?</span>;
 <a href=#2361 id=2361 data-nosnippet>2361</a>        }
-<a href=#2362 id=2362 data-nosnippet>2362</a>        <span class="kw">if </span>dst != dest {
+<a href=#2362 id=2362 data-nosnippet>2362</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#2363 id=2363 data-nosnippet>2363</a>            <span class="self">self</span>.move_location(size, dst, dest)<span class="question-mark">?</span>;
 <a href=#2364 id=2364 data-nosnippet>2364</a>        }
 <a href=#2365 id=2365 data-nosnippet>2365</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -2506,7 +2506,7 @@
 <a href=#2506 id=2506 data-nosnippet>2506</a>                    Size::S32 =&gt; <span class="self">self</span>.assembler.emit_sxtw(sz_dst, src, dest),
 <a href=#2507 id=2507 data-nosnippet>2507</a>                    <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass emit_relaxed_sign_extension unreachable"</span>),
 <a href=#2508 id=2508 data-nosnippet>2508</a>                }<span class="question-mark">?</span>;
-<a href=#2509 id=2509 data-nosnippet>2509</a>                <span class="kw">if </span>dst != dest {
+<a href=#2509 id=2509 data-nosnippet>2509</a>                <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#2510 id=2510 data-nosnippet>2510</a>                    <span class="self">self</span>.move_location(sz_dst, dest, dst)<span class="question-mark">?</span>;
 <a href=#2511 id=2511 data-nosnippet>2511</a>                }
 <a href=#2512 id=2512 data-nosnippet>2512</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -2581,7 +2581,7 @@
 <a href=#2581 id=2581 data-nosnippet>2581</a>            .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)<span class="question-mark">?</span>;
 <a href=#2582 id=2582 data-nosnippet>2582</a>        <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
 <a href=#2583 id=2583 data-nosnippet>2583</a>        <span class="self">self</span>.assembler.emit_udiv(Size::S32, src1, src2, dest)<span class="question-mark">?</span>;
-<a href=#2584 id=2584 data-nosnippet>2584</a>        <span class="kw">if </span>ret != dest {
+<a href=#2584 id=2584 data-nosnippet>2584</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#2585 id=2585 data-nosnippet>2585</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#2586 id=2586 data-nosnippet>2586</a>        }
 <a href=#2587 id=2587 data-nosnippet>2587</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -2624,7 +2624,7 @@
 <a href=#2624 id=2624 data-nosnippet>2624</a>        <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
 <a href=#2625 id=2625 data-nosnippet>2625</a>        <span class="self">self</span>.assembler.emit_label(label_nooverflow)<span class="question-mark">?</span>;
 <a href=#2626 id=2626 data-nosnippet>2626</a>        <span class="self">self</span>.assembler.emit_sdiv(Size::S32, src1, src2, dest)<span class="question-mark">?</span>;
-<a href=#2627 id=2627 data-nosnippet>2627</a>        <span class="kw">if </span>ret != dest {
+<a href=#2627 id=2627 data-nosnippet>2627</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#2628 id=2628 data-nosnippet>2628</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#2629 id=2629 data-nosnippet>2629</a>        }
 <a href=#2630 id=2630 data-nosnippet>2630</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -2662,7 +2662,7 @@
 <a href=#2662 id=2662 data-nosnippet>2662</a>        <span class="comment">// unsigned remainder : src1 - (src1/src2)*src2
 <a href=#2663 id=2663 data-nosnippet>2663</a>        </span><span class="self">self</span>.assembler
 <a href=#2664 id=2664 data-nosnippet>2664</a>            .emit_msub(Size::S32, dest, src2, src1, dest)<span class="question-mark">?</span>;
-<a href=#2665 id=2665 data-nosnippet>2665</a>        <span class="kw">if </span>ret != dest {
+<a href=#2665 id=2665 data-nosnippet>2665</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#2666 id=2666 data-nosnippet>2666</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#2667 id=2667 data-nosnippet>2667</a>        }
 <a href=#2668 id=2668 data-nosnippet>2668</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -2700,7 +2700,7 @@
 <a href=#2700 id=2700 data-nosnippet>2700</a>        <span class="comment">// unsigned remainder : src1 - (src1/src2)*src2
 <a href=#2701 id=2701 data-nosnippet>2701</a>        </span><span class="self">self</span>.assembler
 <a href=#2702 id=2702 data-nosnippet>2702</a>            .emit_msub(Size::S32, dest, src2, src1, dest)<span class="question-mark">?</span>;
-<a href=#2703 id=2703 data-nosnippet>2703</a>        <span class="kw">if </span>ret != dest {
+<a href=#2703 id=2703 data-nosnippet>2703</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#2704 id=2704 data-nosnippet>2704</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#2705 id=2705 data-nosnippet>2705</a>        }
 <a href=#2706 id=2706 data-nosnippet>2706</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -2857,7 +2857,7 @@
 <a href=#2857 id=2857 data-nosnippet>2857</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, dst, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#2858 id=2858 data-nosnippet>2858</a>        <span class="self">self</span>.assembler.emit_rbit(Size::S32, src, dest)<span class="question-mark">?</span>;
 <a href=#2859 id=2859 data-nosnippet>2859</a>        <span class="self">self</span>.assembler.emit_clz(Size::S32, dest, dest)<span class="question-mark">?</span>;
-<a href=#2860 id=2860 data-nosnippet>2860</a>        <span class="kw">if </span>dst != dest {
+<a href=#2860 id=2860 data-nosnippet>2860</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#2861 id=2861 data-nosnippet>2861</a>            <span class="self">self</span>.move_location(Size::S32, dest, dst)<span class="question-mark">?</span>;
 <a href=#2862 id=2862 data-nosnippet>2862</a>        }
 <a href=#2863 id=2863 data-nosnippet>2863</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -2888,7 +2888,7 @@
 <a href=#2888 id=2888 data-nosnippet>2888</a>            <span class="self">self</span>.assembler
 <a href=#2889 id=2889 data-nosnippet>2889</a>                .emit_fmov(Size::S32, Location::SIMD(neon_temp), Size::S32, dst_gpr)<span class="question-mark">?</span>;
 <a href=#2890 id=2890 data-nosnippet>2890</a>
-<a href=#2891 id=2891 data-nosnippet>2891</a>            <span class="kw">if </span>ret != dst_gpr {
+<a href=#2891 id=2891 data-nosnippet>2891</a>            <span class="kw">if </span><span class="macro">ret !</span>= dst_gpr {
 <a href=#2892 id=2892 data-nosnippet>2892</a>                <span class="self">self</span>.move_location(Size::S32, dst_gpr, ret)<span class="question-mark">?</span>;
 <a href=#2893 id=2893 data-nosnippet>2893</a>            }
 <a href=#2894 id=2894 data-nosnippet>2894</a>
@@ -2937,7 +2937,7 @@
 <a href=#2937 id=2937 data-nosnippet>2937</a>                .emit_lsl(Size::S32, src, Location::Imm8(<span class="number">1</span>), src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; 1 =&gt; src
 <a href=#2938 id=2938 data-nosnippet>2938</a>            </span><span class="self">self</span>.assembler.emit_cbnz_label(Size::S32, src, label_loop)<span class="question-mark">?</span>; <span class="comment">// if src!=0 goto loop
 <a href=#2939 id=2939 data-nosnippet>2939</a>            </span><span class="self">self</span>.assembler.emit_label(label_exit)<span class="question-mark">?</span>;
-<a href=#2940 id=2940 data-nosnippet>2940</a>            <span class="kw">if </span>ret != dest {
+<a href=#2940 id=2940 data-nosnippet>2940</a>            <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#2941 id=2941 data-nosnippet>2941</a>                <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#2942 id=2942 data-nosnippet>2942</a>            }
 <a href=#2943 id=2943 data-nosnippet>2943</a>            <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -3452,7 +3452,7 @@
 <a href=#3452 id=3452 data-nosnippet>3452</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#3453 id=3453 data-nosnippet>3453</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#3454 id=3454 data-nosnippet>3454</a>
-<a href=#3455 id=3455 data-nosnippet>3455</a>                <span class="kw">if </span>dst != ret {
+<a href=#3455 id=3455 data-nosnippet>3455</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#3456 id=3456 data-nosnippet>3456</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#3457 id=3457 data-nosnippet>3457</a>                }
 <a href=#3458 id=3458 data-nosnippet>3458</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -3513,7 +3513,7 @@
 <a href=#3513 id=3513 data-nosnippet>3513</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#3514 id=3514 data-nosnippet>3514</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#3515 id=3515 data-nosnippet>3515</a>
-<a href=#3516 id=3516 data-nosnippet>3516</a>                <span class="kw">if </span>dst != ret {
+<a href=#3516 id=3516 data-nosnippet>3516</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#3517 id=3517 data-nosnippet>3517</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#3518 id=3518 data-nosnippet>3518</a>                }
 <a href=#3519 id=3519 data-nosnippet>3519</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -3574,7 +3574,7 @@
 <a href=#3574 id=3574 data-nosnippet>3574</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#3575 id=3575 data-nosnippet>3575</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#3576 id=3576 data-nosnippet>3576</a>
-<a href=#3577 id=3577 data-nosnippet>3577</a>                <span class="kw">if </span>dst != ret {
+<a href=#3577 id=3577 data-nosnippet>3577</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#3578 id=3578 data-nosnippet>3578</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#3579 id=3579 data-nosnippet>3579</a>                }
 <a href=#3580 id=3580 data-nosnippet>3580</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -3635,7 +3635,7 @@
 <a href=#3635 id=3635 data-nosnippet>3635</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#3636 id=3636 data-nosnippet>3636</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#3637 id=3637 data-nosnippet>3637</a>
-<a href=#3638 id=3638 data-nosnippet>3638</a>                <span class="kw">if </span>dst != ret {
+<a href=#3638 id=3638 data-nosnippet>3638</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#3639 id=3639 data-nosnippet>3639</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#3640 id=3640 data-nosnippet>3640</a>                }
 <a href=#3641 id=3641 data-nosnippet>3641</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -3696,7 +3696,7 @@
 <a href=#3696 id=3696 data-nosnippet>3696</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#3697 id=3697 data-nosnippet>3697</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#3698 id=3698 data-nosnippet>3698</a>
-<a href=#3699 id=3699 data-nosnippet>3699</a>                <span class="kw">if </span>dst != ret {
+<a href=#3699 id=3699 data-nosnippet>3699</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#3700 id=3700 data-nosnippet>3700</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#3701 id=3701 data-nosnippet>3701</a>                }
 <a href=#3702 id=3702 data-nosnippet>3702</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -3757,7 +3757,7 @@
 <a href=#3757 id=3757 data-nosnippet>3757</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#3758 id=3758 data-nosnippet>3758</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#3759 id=3759 data-nosnippet>3759</a>
-<a href=#3760 id=3760 data-nosnippet>3760</a>                <span class="kw">if </span>dst != ret {
+<a href=#3760 id=3760 data-nosnippet>3760</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#3761 id=3761 data-nosnippet>3761</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#3762 id=3762 data-nosnippet>3762</a>                }
 <a href=#3763 id=3763 data-nosnippet>3763</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -3818,7 +3818,7 @@
 <a href=#3818 id=3818 data-nosnippet>3818</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#3819 id=3819 data-nosnippet>3819</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#3820 id=3820 data-nosnippet>3820</a>
-<a href=#3821 id=3821 data-nosnippet>3821</a>                <span class="kw">if </span>dst != ret {
+<a href=#3821 id=3821 data-nosnippet>3821</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#3822 id=3822 data-nosnippet>3822</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#3823 id=3823 data-nosnippet>3823</a>                }
 <a href=#3824 id=3824 data-nosnippet>3824</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -3879,7 +3879,7 @@
 <a href=#3879 id=3879 data-nosnippet>3879</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#3880 id=3880 data-nosnippet>3880</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#3881 id=3881 data-nosnippet>3881</a>
-<a href=#3882 id=3882 data-nosnippet>3882</a>                <span class="kw">if </span>dst != ret {
+<a href=#3882 id=3882 data-nosnippet>3882</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#3883 id=3883 data-nosnippet>3883</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#3884 id=3884 data-nosnippet>3884</a>                }
 <a href=#3885 id=3885 data-nosnippet>3885</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -3940,7 +3940,7 @@
 <a href=#3940 id=3940 data-nosnippet>3940</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#3941 id=3941 data-nosnippet>3941</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#3942 id=3942 data-nosnippet>3942</a>
-<a href=#3943 id=3943 data-nosnippet>3943</a>                <span class="kw">if </span>dst != ret {
+<a href=#3943 id=3943 data-nosnippet>3943</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#3944 id=3944 data-nosnippet>3944</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#3945 id=3945 data-nosnippet>3945</a>                }
 <a href=#3946 id=3946 data-nosnippet>3946</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4001,7 +4001,7 @@
 <a href=#4001 id=4001 data-nosnippet>4001</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#4002 id=4002 data-nosnippet>4002</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4003 id=4003 data-nosnippet>4003</a>
-<a href=#4004 id=4004 data-nosnippet>4004</a>                <span class="kw">if </span>dst != ret {
+<a href=#4004 id=4004 data-nosnippet>4004</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4005 id=4005 data-nosnippet>4005</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4006 id=4006 data-nosnippet>4006</a>                }
 <a href=#4007 id=4007 data-nosnippet>4007</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4062,7 +4062,7 @@
 <a href=#4062 id=4062 data-nosnippet>4062</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#4063 id=4063 data-nosnippet>4063</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4064 id=4064 data-nosnippet>4064</a>
-<a href=#4065 id=4065 data-nosnippet>4065</a>                <span class="kw">if </span>dst != ret {
+<a href=#4065 id=4065 data-nosnippet>4065</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4066 id=4066 data-nosnippet>4066</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4067 id=4067 data-nosnippet>4067</a>                }
 <a href=#4068 id=4068 data-nosnippet>4068</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4123,7 +4123,7 @@
 <a href=#4123 id=4123 data-nosnippet>4123</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#4124 id=4124 data-nosnippet>4124</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4125 id=4125 data-nosnippet>4125</a>
-<a href=#4126 id=4126 data-nosnippet>4126</a>                <span class="kw">if </span>dst != ret {
+<a href=#4126 id=4126 data-nosnippet>4126</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4127 id=4127 data-nosnippet>4127</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4128 id=4128 data-nosnippet>4128</a>                }
 <a href=#4129 id=4129 data-nosnippet>4129</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4184,7 +4184,7 @@
 <a href=#4184 id=4184 data-nosnippet>4184</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#4185 id=4185 data-nosnippet>4185</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4186 id=4186 data-nosnippet>4186</a>
-<a href=#4187 id=4187 data-nosnippet>4187</a>                <span class="kw">if </span>dst != ret {
+<a href=#4187 id=4187 data-nosnippet>4187</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4188 id=4188 data-nosnippet>4188</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4189 id=4189 data-nosnippet>4189</a>                }
 <a href=#4190 id=4190 data-nosnippet>4190</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4245,7 +4245,7 @@
 <a href=#4245 id=4245 data-nosnippet>4245</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#4246 id=4246 data-nosnippet>4246</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4247 id=4247 data-nosnippet>4247</a>
-<a href=#4248 id=4248 data-nosnippet>4248</a>                <span class="kw">if </span>dst != ret {
+<a href=#4248 id=4248 data-nosnippet>4248</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4249 id=4249 data-nosnippet>4249</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4250 id=4250 data-nosnippet>4250</a>                }
 <a href=#4251 id=4251 data-nosnippet>4251</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4306,7 +4306,7 @@
 <a href=#4306 id=4306 data-nosnippet>4306</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#4307 id=4307 data-nosnippet>4307</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4308 id=4308 data-nosnippet>4308</a>
-<a href=#4309 id=4309 data-nosnippet>4309</a>                <span class="kw">if </span>dst != ret {
+<a href=#4309 id=4309 data-nosnippet>4309</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4310 id=4310 data-nosnippet>4310</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4311 id=4311 data-nosnippet>4311</a>                }
 <a href=#4312 id=4312 data-nosnippet>4312</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4365,7 +4365,7 @@
 <a href=#4365 id=4365 data-nosnippet>4365</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp), reread)<span class="question-mark">?</span>;
 <a href=#4366 id=4366 data-nosnippet>4366</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4367 id=4367 data-nosnippet>4367</a>
-<a href=#4368 id=4368 data-nosnippet>4368</a>                <span class="kw">if </span>dst != ret {
+<a href=#4368 id=4368 data-nosnippet>4368</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4369 id=4369 data-nosnippet>4369</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4370 id=4370 data-nosnippet>4370</a>                }
 <a href=#4371 id=4371 data-nosnippet>4371</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4423,7 +4423,7 @@
 <a href=#4423 id=4423 data-nosnippet>4423</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp), reread)<span class="question-mark">?</span>;
 <a href=#4424 id=4424 data-nosnippet>4424</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4425 id=4425 data-nosnippet>4425</a>
-<a href=#4426 id=4426 data-nosnippet>4426</a>                <span class="kw">if </span>dst != ret {
+<a href=#4426 id=4426 data-nosnippet>4426</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4427 id=4427 data-nosnippet>4427</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4428 id=4428 data-nosnippet>4428</a>                }
 <a href=#4429 id=4429 data-nosnippet>4429</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4481,7 +4481,7 @@
 <a href=#4481 id=4481 data-nosnippet>4481</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp), reread)<span class="question-mark">?</span>;
 <a href=#4482 id=4482 data-nosnippet>4482</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4483 id=4483 data-nosnippet>4483</a>
-<a href=#4484 id=4484 data-nosnippet>4484</a>                <span class="kw">if </span>dst != ret {
+<a href=#4484 id=4484 data-nosnippet>4484</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4485 id=4485 data-nosnippet>4485</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4486 id=4486 data-nosnippet>4486</a>                }
 <a href=#4487 id=4487 data-nosnippet>4487</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4544,7 +4544,7 @@
 <a href=#4544 id=4544 data-nosnippet>4544</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4545 id=4545 data-nosnippet>4545</a>
 <a href=#4546 id=4546 data-nosnippet>4546</a>                this.emit_label(nosame)<span class="question-mark">?</span>;
-<a href=#4547 id=4547 data-nosnippet>4547</a>                <span class="kw">if </span>dst != ret {
+<a href=#4547 id=4547 data-nosnippet>4547</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4548 id=4548 data-nosnippet>4548</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4549 id=4549 data-nosnippet>4549</a>                }
 <a href=#4550 id=4550 data-nosnippet>4550</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4607,7 +4607,7 @@
 <a href=#4607 id=4607 data-nosnippet>4607</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4608 id=4608 data-nosnippet>4608</a>
 <a href=#4609 id=4609 data-nosnippet>4609</a>                this.emit_label(nosame)<span class="question-mark">?</span>;
-<a href=#4610 id=4610 data-nosnippet>4610</a>                <span class="kw">if </span>dst != ret {
+<a href=#4610 id=4610 data-nosnippet>4610</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4611 id=4611 data-nosnippet>4611</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4612 id=4612 data-nosnippet>4612</a>                }
 <a href=#4613 id=4613 data-nosnippet>4613</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4670,7 +4670,7 @@
 <a href=#4670 id=4670 data-nosnippet>4670</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#4671 id=4671 data-nosnippet>4671</a>
 <a href=#4672 id=4672 data-nosnippet>4672</a>                this.emit_label(nosame)<span class="question-mark">?</span>;
-<a href=#4673 id=4673 data-nosnippet>4673</a>                <span class="kw">if </span>dst != ret {
+<a href=#4673 id=4673 data-nosnippet>4673</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#4674 id=4674 data-nosnippet>4674</a>                    this.move_location(Size::S32, ret, dst)<span class="question-mark">?</span>;
 <a href=#4675 id=4675 data-nosnippet>4675</a>                }
 <a href=#4676 id=4676 data-nosnippet>4676</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4765,7 +4765,7 @@
 <a href=#4765 id=4765 data-nosnippet>4765</a>            .emit_cbz_label(Size::S64, src2, integer_division_by_zero)<span class="question-mark">?</span>;
 <a href=#4766 id=4766 data-nosnippet>4766</a>        <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
 <a href=#4767 id=4767 data-nosnippet>4767</a>        <span class="self">self</span>.assembler.emit_udiv(Size::S64, src1, src2, dest)<span class="question-mark">?</span>;
-<a href=#4768 id=4768 data-nosnippet>4768</a>        <span class="kw">if </span>ret != dest {
+<a href=#4768 id=4768 data-nosnippet>4768</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#4769 id=4769 data-nosnippet>4769</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
 <a href=#4770 id=4770 data-nosnippet>4770</a>        }
 <a href=#4771 id=4771 data-nosnippet>4771</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4808,7 +4808,7 @@
 <a href=#4808 id=4808 data-nosnippet>4808</a>        <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
 <a href=#4809 id=4809 data-nosnippet>4809</a>        <span class="self">self</span>.assembler.emit_label(label_nooverflow)<span class="question-mark">?</span>;
 <a href=#4810 id=4810 data-nosnippet>4810</a>        <span class="self">self</span>.assembler.emit_sdiv(Size::S64, src1, src2, dest)<span class="question-mark">?</span>;
-<a href=#4811 id=4811 data-nosnippet>4811</a>        <span class="kw">if </span>ret != dest {
+<a href=#4811 id=4811 data-nosnippet>4811</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#4812 id=4812 data-nosnippet>4812</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
 <a href=#4813 id=4813 data-nosnippet>4813</a>        }
 <a href=#4814 id=4814 data-nosnippet>4814</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4846,7 +4846,7 @@
 <a href=#4846 id=4846 data-nosnippet>4846</a>        <span class="comment">// unsigned remainder : src1 - (src1/src2)*src2
 <a href=#4847 id=4847 data-nosnippet>4847</a>        </span><span class="self">self</span>.assembler
 <a href=#4848 id=4848 data-nosnippet>4848</a>            .emit_msub(Size::S64, dest, src2, src1, dest)<span class="question-mark">?</span>;
-<a href=#4849 id=4849 data-nosnippet>4849</a>        <span class="kw">if </span>ret != dest {
+<a href=#4849 id=4849 data-nosnippet>4849</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#4850 id=4850 data-nosnippet>4850</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
 <a href=#4851 id=4851 data-nosnippet>4851</a>        }
 <a href=#4852 id=4852 data-nosnippet>4852</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -4884,7 +4884,7 @@
 <a href=#4884 id=4884 data-nosnippet>4884</a>        <span class="comment">// unsigned remainder : src1 - (src1/src2)*src2
 <a href=#4885 id=4885 data-nosnippet>4885</a>        </span><span class="self">self</span>.assembler
 <a href=#4886 id=4886 data-nosnippet>4886</a>            .emit_msub(Size::S64, dest, src2, src1, dest)<span class="question-mark">?</span>;
-<a href=#4887 id=4887 data-nosnippet>4887</a>        <span class="kw">if </span>ret != dest {
+<a href=#4887 id=4887 data-nosnippet>4887</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#4888 id=4888 data-nosnippet>4888</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
 <a href=#4889 id=4889 data-nosnippet>4889</a>        }
 <a href=#4890 id=4890 data-nosnippet>4890</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -5041,7 +5041,7 @@
 <a href=#5041 id=5041 data-nosnippet>5041</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S64, dst, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#5042 id=5042 data-nosnippet>5042</a>        <span class="self">self</span>.assembler.emit_rbit(Size::S64, src, dest)<span class="question-mark">?</span>;
 <a href=#5043 id=5043 data-nosnippet>5043</a>        <span class="self">self</span>.assembler.emit_clz(Size::S64, dest, dest)<span class="question-mark">?</span>;
-<a href=#5044 id=5044 data-nosnippet>5044</a>        <span class="kw">if </span>dst != dest {
+<a href=#5044 id=5044 data-nosnippet>5044</a>        <span class="kw">if </span><span class="macro">dst !</span>= dest {
 <a href=#5045 id=5045 data-nosnippet>5045</a>            <span class="self">self</span>.move_location(Size::S64, dest, dst)<span class="question-mark">?</span>;
 <a href=#5046 id=5046 data-nosnippet>5046</a>        }
 <a href=#5047 id=5047 data-nosnippet>5047</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -5072,7 +5072,7 @@
 <a href=#5072 id=5072 data-nosnippet>5072</a>            <span class="self">self</span>.assembler
 <a href=#5073 id=5073 data-nosnippet>5073</a>                .emit_fmov(Size::S64, Location::SIMD(neon_temp), Size::S64, dst_gpr)<span class="question-mark">?</span>;
 <a href=#5074 id=5074 data-nosnippet>5074</a>
-<a href=#5075 id=5075 data-nosnippet>5075</a>            <span class="kw">if </span>ret != dst_gpr {
+<a href=#5075 id=5075 data-nosnippet>5075</a>            <span class="kw">if </span><span class="macro">ret !</span>= dst_gpr {
 <a href=#5076 id=5076 data-nosnippet>5076</a>                <span class="self">self</span>.move_location(Size::S64, dst_gpr, ret)<span class="question-mark">?</span>;
 <a href=#5077 id=5077 data-nosnippet>5077</a>            }
 <a href=#5078 id=5078 data-nosnippet>5078</a>
@@ -5121,7 +5121,7 @@
 <a href=#5121 id=5121 data-nosnippet>5121</a>                .emit_lsl(Size::S64, src, Location::Imm8(<span class="number">1</span>), src)<span class="question-mark">?</span>; <span class="comment">// src &lt;&lt; 1 =&gt; src
 <a href=#5122 id=5122 data-nosnippet>5122</a>            </span><span class="self">self</span>.assembler.emit_cbnz_label(Size::S64, src, label_loop)<span class="question-mark">?</span>; <span class="comment">// src != 0, then goto label_loop
 <a href=#5123 id=5123 data-nosnippet>5123</a>            </span><span class="self">self</span>.assembler.emit_label(label_exit)<span class="question-mark">?</span>;
-<a href=#5124 id=5124 data-nosnippet>5124</a>            <span class="kw">if </span>ret != dest {
+<a href=#5124 id=5124 data-nosnippet>5124</a>            <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#5125 id=5125 data-nosnippet>5125</a>                <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
 <a href=#5126 id=5126 data-nosnippet>5126</a>            }
 <a href=#5127 id=5127 data-nosnippet>5127</a>            <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -5764,7 +5764,7 @@
 <a href=#5764 id=5764 data-nosnippet>5764</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#5765 id=5765 data-nosnippet>5765</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#5766 id=5766 data-nosnippet>5766</a>
-<a href=#5767 id=5767 data-nosnippet>5767</a>                <span class="kw">if </span>dst != ret {
+<a href=#5767 id=5767 data-nosnippet>5767</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#5768 id=5768 data-nosnippet>5768</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#5769 id=5769 data-nosnippet>5769</a>                }
 <a href=#5770 id=5770 data-nosnippet>5770</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -5825,7 +5825,7 @@
 <a href=#5825 id=5825 data-nosnippet>5825</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#5826 id=5826 data-nosnippet>5826</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#5827 id=5827 data-nosnippet>5827</a>
-<a href=#5828 id=5828 data-nosnippet>5828</a>                <span class="kw">if </span>dst != ret {
+<a href=#5828 id=5828 data-nosnippet>5828</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#5829 id=5829 data-nosnippet>5829</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#5830 id=5830 data-nosnippet>5830</a>                }
 <a href=#5831 id=5831 data-nosnippet>5831</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -5886,7 +5886,7 @@
 <a href=#5886 id=5886 data-nosnippet>5886</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#5887 id=5887 data-nosnippet>5887</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#5888 id=5888 data-nosnippet>5888</a>
-<a href=#5889 id=5889 data-nosnippet>5889</a>                <span class="kw">if </span>dst != ret {
+<a href=#5889 id=5889 data-nosnippet>5889</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#5890 id=5890 data-nosnippet>5890</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#5891 id=5891 data-nosnippet>5891</a>                }
 <a href=#5892 id=5892 data-nosnippet>5892</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -5947,7 +5947,7 @@
 <a href=#5947 id=5947 data-nosnippet>5947</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#5948 id=5948 data-nosnippet>5948</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#5949 id=5949 data-nosnippet>5949</a>
-<a href=#5950 id=5950 data-nosnippet>5950</a>                <span class="kw">if </span>dst != ret {
+<a href=#5950 id=5950 data-nosnippet>5950</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#5951 id=5951 data-nosnippet>5951</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#5952 id=5952 data-nosnippet>5952</a>                }
 <a href=#5953 id=5953 data-nosnippet>5953</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6008,7 +6008,7 @@
 <a href=#6008 id=6008 data-nosnippet>6008</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6009 id=6009 data-nosnippet>6009</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6010 id=6010 data-nosnippet>6010</a>
-<a href=#6011 id=6011 data-nosnippet>6011</a>                <span class="kw">if </span>dst != ret {
+<a href=#6011 id=6011 data-nosnippet>6011</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6012 id=6012 data-nosnippet>6012</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6013 id=6013 data-nosnippet>6013</a>                }
 <a href=#6014 id=6014 data-nosnippet>6014</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6069,7 +6069,7 @@
 <a href=#6069 id=6069 data-nosnippet>6069</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6070 id=6070 data-nosnippet>6070</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6071 id=6071 data-nosnippet>6071</a>
-<a href=#6072 id=6072 data-nosnippet>6072</a>                <span class="kw">if </span>dst != ret {
+<a href=#6072 id=6072 data-nosnippet>6072</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6073 id=6073 data-nosnippet>6073</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6074 id=6074 data-nosnippet>6074</a>                }
 <a href=#6075 id=6075 data-nosnippet>6075</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6130,7 +6130,7 @@
 <a href=#6130 id=6130 data-nosnippet>6130</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6131 id=6131 data-nosnippet>6131</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6132 id=6132 data-nosnippet>6132</a>
-<a href=#6133 id=6133 data-nosnippet>6133</a>                <span class="kw">if </span>dst != ret {
+<a href=#6133 id=6133 data-nosnippet>6133</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6134 id=6134 data-nosnippet>6134</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6135 id=6135 data-nosnippet>6135</a>                }
 <a href=#6136 id=6136 data-nosnippet>6136</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6191,7 +6191,7 @@
 <a href=#6191 id=6191 data-nosnippet>6191</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6192 id=6192 data-nosnippet>6192</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6193 id=6193 data-nosnippet>6193</a>
-<a href=#6194 id=6194 data-nosnippet>6194</a>                <span class="kw">if </span>dst != ret {
+<a href=#6194 id=6194 data-nosnippet>6194</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6195 id=6195 data-nosnippet>6195</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6196 id=6196 data-nosnippet>6196</a>                }
 <a href=#6197 id=6197 data-nosnippet>6197</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6252,7 +6252,7 @@
 <a href=#6252 id=6252 data-nosnippet>6252</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6253 id=6253 data-nosnippet>6253</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6254 id=6254 data-nosnippet>6254</a>
-<a href=#6255 id=6255 data-nosnippet>6255</a>                <span class="kw">if </span>dst != ret {
+<a href=#6255 id=6255 data-nosnippet>6255</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6256 id=6256 data-nosnippet>6256</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6257 id=6257 data-nosnippet>6257</a>                }
 <a href=#6258 id=6258 data-nosnippet>6258</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6313,7 +6313,7 @@
 <a href=#6313 id=6313 data-nosnippet>6313</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6314 id=6314 data-nosnippet>6314</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6315 id=6315 data-nosnippet>6315</a>
-<a href=#6316 id=6316 data-nosnippet>6316</a>                <span class="kw">if </span>dst != ret {
+<a href=#6316 id=6316 data-nosnippet>6316</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6317 id=6317 data-nosnippet>6317</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6318 id=6318 data-nosnippet>6318</a>                }
 <a href=#6319 id=6319 data-nosnippet>6319</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6374,7 +6374,7 @@
 <a href=#6374 id=6374 data-nosnippet>6374</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6375 id=6375 data-nosnippet>6375</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6376 id=6376 data-nosnippet>6376</a>
-<a href=#6377 id=6377 data-nosnippet>6377</a>                <span class="kw">if </span>dst != ret {
+<a href=#6377 id=6377 data-nosnippet>6377</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6378 id=6378 data-nosnippet>6378</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6379 id=6379 data-nosnippet>6379</a>                }
 <a href=#6380 id=6380 data-nosnippet>6380</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6435,7 +6435,7 @@
 <a href=#6435 id=6435 data-nosnippet>6435</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6436 id=6436 data-nosnippet>6436</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6437 id=6437 data-nosnippet>6437</a>
-<a href=#6438 id=6438 data-nosnippet>6438</a>                <span class="kw">if </span>dst != ret {
+<a href=#6438 id=6438 data-nosnippet>6438</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6439 id=6439 data-nosnippet>6439</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6440 id=6440 data-nosnippet>6440</a>                }
 <a href=#6441 id=6441 data-nosnippet>6441</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6496,7 +6496,7 @@
 <a href=#6496 id=6496 data-nosnippet>6496</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6497 id=6497 data-nosnippet>6497</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6498 id=6498 data-nosnippet>6498</a>
-<a href=#6499 id=6499 data-nosnippet>6499</a>                <span class="kw">if </span>dst != ret {
+<a href=#6499 id=6499 data-nosnippet>6499</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6500 id=6500 data-nosnippet>6500</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6501 id=6501 data-nosnippet>6501</a>                }
 <a href=#6502 id=6502 data-nosnippet>6502</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6557,7 +6557,7 @@
 <a href=#6557 id=6557 data-nosnippet>6557</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6558 id=6558 data-nosnippet>6558</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6559 id=6559 data-nosnippet>6559</a>
-<a href=#6560 id=6560 data-nosnippet>6560</a>                <span class="kw">if </span>dst != ret {
+<a href=#6560 id=6560 data-nosnippet>6560</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6561 id=6561 data-nosnippet>6561</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6562 id=6562 data-nosnippet>6562</a>                }
 <a href=#6563 id=6563 data-nosnippet>6563</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6618,7 +6618,7 @@
 <a href=#6618 id=6618 data-nosnippet>6618</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6619 id=6619 data-nosnippet>6619</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6620 id=6620 data-nosnippet>6620</a>
-<a href=#6621 id=6621 data-nosnippet>6621</a>                <span class="kw">if </span>dst != ret {
+<a href=#6621 id=6621 data-nosnippet>6621</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6622 id=6622 data-nosnippet>6622</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6623 id=6623 data-nosnippet>6623</a>                }
 <a href=#6624 id=6624 data-nosnippet>6624</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6679,7 +6679,7 @@
 <a href=#6679 id=6679 data-nosnippet>6679</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6680 id=6680 data-nosnippet>6680</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6681 id=6681 data-nosnippet>6681</a>
-<a href=#6682 id=6682 data-nosnippet>6682</a>                <span class="kw">if </span>dst != ret {
+<a href=#6682 id=6682 data-nosnippet>6682</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6683 id=6683 data-nosnippet>6683</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6684 id=6684 data-nosnippet>6684</a>                }
 <a href=#6685 id=6685 data-nosnippet>6685</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6740,7 +6740,7 @@
 <a href=#6740 id=6740 data-nosnippet>6740</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6741 id=6741 data-nosnippet>6741</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6742 id=6742 data-nosnippet>6742</a>
-<a href=#6743 id=6743 data-nosnippet>6743</a>                <span class="kw">if </span>dst != ret {
+<a href=#6743 id=6743 data-nosnippet>6743</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6744 id=6744 data-nosnippet>6744</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6745 id=6745 data-nosnippet>6745</a>                }
 <a href=#6746 id=6746 data-nosnippet>6746</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6801,7 +6801,7 @@
 <a href=#6801 id=6801 data-nosnippet>6801</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6802 id=6802 data-nosnippet>6802</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6803 id=6803 data-nosnippet>6803</a>
-<a href=#6804 id=6804 data-nosnippet>6804</a>                <span class="kw">if </span>dst != ret {
+<a href=#6804 id=6804 data-nosnippet>6804</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6805 id=6805 data-nosnippet>6805</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6806 id=6806 data-nosnippet>6806</a>                }
 <a href=#6807 id=6807 data-nosnippet>6807</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6862,7 +6862,7 @@
 <a href=#6862 id=6862 data-nosnippet>6862</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6863 id=6863 data-nosnippet>6863</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6864 id=6864 data-nosnippet>6864</a>
-<a href=#6865 id=6865 data-nosnippet>6865</a>                <span class="kw">if </span>dst != ret {
+<a href=#6865 id=6865 data-nosnippet>6865</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6866 id=6866 data-nosnippet>6866</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6867 id=6867 data-nosnippet>6867</a>                }
 <a href=#6868 id=6868 data-nosnippet>6868</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6923,7 +6923,7 @@
 <a href=#6923 id=6923 data-nosnippet>6923</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp2), reread)<span class="question-mark">?</span>;
 <a href=#6924 id=6924 data-nosnippet>6924</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6925 id=6925 data-nosnippet>6925</a>
-<a href=#6926 id=6926 data-nosnippet>6926</a>                <span class="kw">if </span>dst != ret {
+<a href=#6926 id=6926 data-nosnippet>6926</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6927 id=6927 data-nosnippet>6927</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6928 id=6928 data-nosnippet>6928</a>                }
 <a href=#6929 id=6929 data-nosnippet>6929</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -6982,7 +6982,7 @@
 <a href=#6982 id=6982 data-nosnippet>6982</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp), reread)<span class="question-mark">?</span>;
 <a href=#6983 id=6983 data-nosnippet>6983</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#6984 id=6984 data-nosnippet>6984</a>
-<a href=#6985 id=6985 data-nosnippet>6985</a>                <span class="kw">if </span>dst != ret {
+<a href=#6985 id=6985 data-nosnippet>6985</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#6986 id=6986 data-nosnippet>6986</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#6987 id=6987 data-nosnippet>6987</a>                }
 <a href=#6988 id=6988 data-nosnippet>6988</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7040,7 +7040,7 @@
 <a href=#7040 id=7040 data-nosnippet>7040</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp), reread)<span class="question-mark">?</span>;
 <a href=#7041 id=7041 data-nosnippet>7041</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#7042 id=7042 data-nosnippet>7042</a>
-<a href=#7043 id=7043 data-nosnippet>7043</a>                <span class="kw">if </span>dst != ret {
+<a href=#7043 id=7043 data-nosnippet>7043</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#7044 id=7044 data-nosnippet>7044</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#7045 id=7045 data-nosnippet>7045</a>                }
 <a href=#7046 id=7046 data-nosnippet>7046</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7098,7 +7098,7 @@
 <a href=#7098 id=7098 data-nosnippet>7098</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp), reread)<span class="question-mark">?</span>;
 <a href=#7099 id=7099 data-nosnippet>7099</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#7100 id=7100 data-nosnippet>7100</a>
-<a href=#7101 id=7101 data-nosnippet>7101</a>                <span class="kw">if </span>dst != ret {
+<a href=#7101 id=7101 data-nosnippet>7101</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#7102 id=7102 data-nosnippet>7102</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#7103 id=7103 data-nosnippet>7103</a>                }
 <a href=#7104 id=7104 data-nosnippet>7104</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7156,7 +7156,7 @@
 <a href=#7156 id=7156 data-nosnippet>7156</a>                    .emit_cbnz_label(Size::S32, Location::GPR(tmp), reread)<span class="question-mark">?</span>;
 <a href=#7157 id=7157 data-nosnippet>7157</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#7158 id=7158 data-nosnippet>7158</a>
-<a href=#7159 id=7159 data-nosnippet>7159</a>                <span class="kw">if </span>dst != ret {
+<a href=#7159 id=7159 data-nosnippet>7159</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#7160 id=7160 data-nosnippet>7160</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#7161 id=7161 data-nosnippet>7161</a>                }
 <a href=#7162 id=7162 data-nosnippet>7162</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7219,7 +7219,7 @@
 <a href=#7219 id=7219 data-nosnippet>7219</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#7220 id=7220 data-nosnippet>7220</a>
 <a href=#7221 id=7221 data-nosnippet>7221</a>                this.emit_label(nosame)<span class="question-mark">?</span>;
-<a href=#7222 id=7222 data-nosnippet>7222</a>                <span class="kw">if </span>dst != ret {
+<a href=#7222 id=7222 data-nosnippet>7222</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#7223 id=7223 data-nosnippet>7223</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#7224 id=7224 data-nosnippet>7224</a>                }
 <a href=#7225 id=7225 data-nosnippet>7225</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7282,7 +7282,7 @@
 <a href=#7282 id=7282 data-nosnippet>7282</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#7283 id=7283 data-nosnippet>7283</a>
 <a href=#7284 id=7284 data-nosnippet>7284</a>                this.emit_label(nosame)<span class="question-mark">?</span>;
-<a href=#7285 id=7285 data-nosnippet>7285</a>                <span class="kw">if </span>dst != ret {
+<a href=#7285 id=7285 data-nosnippet>7285</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#7286 id=7286 data-nosnippet>7286</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#7287 id=7287 data-nosnippet>7287</a>                }
 <a href=#7288 id=7288 data-nosnippet>7288</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7345,7 +7345,7 @@
 <a href=#7345 id=7345 data-nosnippet>7345</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#7346 id=7346 data-nosnippet>7346</a>
 <a href=#7347 id=7347 data-nosnippet>7347</a>                this.emit_label(nosame)<span class="question-mark">?</span>;
-<a href=#7348 id=7348 data-nosnippet>7348</a>                <span class="kw">if </span>dst != ret {
+<a href=#7348 id=7348 data-nosnippet>7348</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#7349 id=7349 data-nosnippet>7349</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#7350 id=7350 data-nosnippet>7350</a>                }
 <a href=#7351 id=7351 data-nosnippet>7351</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7408,7 +7408,7 @@
 <a href=#7408 id=7408 data-nosnippet>7408</a>                this.assembler.emit_dmb()<span class="question-mark">?</span>;
 <a href=#7409 id=7409 data-nosnippet>7409</a>
 <a href=#7410 id=7410 data-nosnippet>7410</a>                this.emit_label(nosame)<span class="question-mark">?</span>;
-<a href=#7411 id=7411 data-nosnippet>7411</a>                <span class="kw">if </span>dst != ret {
+<a href=#7411 id=7411 data-nosnippet>7411</a>                <span class="kw">if </span><span class="macro">dst !</span>= ret {
 <a href=#7412 id=7412 data-nosnippet>7412</a>                    this.move_location(Size::S64, ret, dst)<span class="question-mark">?</span>;
 <a href=#7413 id=7413 data-nosnippet>7413</a>                }
 <a href=#7414 id=7414 data-nosnippet>7414</a>                <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7549,7 +7549,7 @@
 <a href=#7549 id=7549 data-nosnippet>7549</a>        } <span class="kw">else </span>{
 <a href=#7550 id=7550 data-nosnippet>7550</a>            <span class="self">self</span>.assembler.emit_ucvtf(Size::S64, src, Size::S64, dest)<span class="question-mark">?</span>;
 <a href=#7551 id=7551 data-nosnippet>7551</a>        }
-<a href=#7552 id=7552 data-nosnippet>7552</a>        <span class="kw">if </span>ret != dest {
+<a href=#7552 id=7552 data-nosnippet>7552</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7553 id=7553 data-nosnippet>7553</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
 <a href=#7554 id=7554 data-nosnippet>7554</a>        }
 <a href=#7555 id=7555 data-nosnippet>7555</a>        <span class="kw">for </span>r <span class="kw">in </span>gprs {
@@ -7576,7 +7576,7 @@
 <a href=#7576 id=7576 data-nosnippet>7576</a>        } <span class="kw">else </span>{
 <a href=#7577 id=7577 data-nosnippet>7577</a>            <span class="self">self</span>.assembler.emit_ucvtf(Size::S32, src, Size::S64, dest)<span class="question-mark">?</span>;
 <a href=#7578 id=7578 data-nosnippet>7578</a>        }
-<a href=#7579 id=7579 data-nosnippet>7579</a>        <span class="kw">if </span>ret != dest {
+<a href=#7579 id=7579 data-nosnippet>7579</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7580 id=7580 data-nosnippet>7580</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
 <a href=#7581 id=7581 data-nosnippet>7581</a>        }
 <a href=#7582 id=7582 data-nosnippet>7582</a>        <span class="kw">for </span>r <span class="kw">in </span>gprs {
@@ -7603,7 +7603,7 @@
 <a href=#7603 id=7603 data-nosnippet>7603</a>        } <span class="kw">else </span>{
 <a href=#7604 id=7604 data-nosnippet>7604</a>            <span class="self">self</span>.assembler.emit_ucvtf(Size::S64, src, Size::S32, dest)<span class="question-mark">?</span>;
 <a href=#7605 id=7605 data-nosnippet>7605</a>        }
-<a href=#7606 id=7606 data-nosnippet>7606</a>        <span class="kw">if </span>ret != dest {
+<a href=#7606 id=7606 data-nosnippet>7606</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7607 id=7607 data-nosnippet>7607</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7608 id=7608 data-nosnippet>7608</a>        }
 <a href=#7609 id=7609 data-nosnippet>7609</a>        <span class="kw">for </span>r <span class="kw">in </span>gprs {
@@ -7630,7 +7630,7 @@
 <a href=#7630 id=7630 data-nosnippet>7630</a>        } <span class="kw">else </span>{
 <a href=#7631 id=7631 data-nosnippet>7631</a>            <span class="self">self</span>.assembler.emit_ucvtf(Size::S32, src, Size::S32, dest)<span class="question-mark">?</span>;
 <a href=#7632 id=7632 data-nosnippet>7632</a>        }
-<a href=#7633 id=7633 data-nosnippet>7633</a>        <span class="kw">if </span>ret != dest {
+<a href=#7633 id=7633 data-nosnippet>7633</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7634 id=7634 data-nosnippet>7634</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7635 id=7635 data-nosnippet>7635</a>        }
 <a href=#7636 id=7636 data-nosnippet>7636</a>        <span class="kw">for </span>r <span class="kw">in </span>gprs {
@@ -7669,7 +7669,7 @@
 <a href=#7669 id=7669 data-nosnippet>7669</a>        <span class="kw">if </span>!sat {
 <a href=#7670 id=7670 data-nosnippet>7670</a>            <span class="self">self</span>.trap_float_conversion_errors(old_fpcr, Size::S64, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
 <a href=#7671 id=7671 data-nosnippet>7671</a>        }
-<a href=#7672 id=7672 data-nosnippet>7672</a>        <span class="kw">if </span>ret != dest {
+<a href=#7672 id=7672 data-nosnippet>7672</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7673 id=7673 data-nosnippet>7673</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
 <a href=#7674 id=7674 data-nosnippet>7674</a>        }
 <a href=#7675 id=7675 data-nosnippet>7675</a>        <span class="kw">for </span>r <span class="kw">in </span>gprs {
@@ -7708,7 +7708,7 @@
 <a href=#7708 id=7708 data-nosnippet>7708</a>        <span class="kw">if </span>!sat {
 <a href=#7709 id=7709 data-nosnippet>7709</a>            <span class="self">self</span>.trap_float_conversion_errors(old_fpcr, Size::S64, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
 <a href=#7710 id=7710 data-nosnippet>7710</a>        }
-<a href=#7711 id=7711 data-nosnippet>7711</a>        <span class="kw">if </span>ret != dest {
+<a href=#7711 id=7711 data-nosnippet>7711</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7712 id=7712 data-nosnippet>7712</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7713 id=7713 data-nosnippet>7713</a>        }
 <a href=#7714 id=7714 data-nosnippet>7714</a>        <span class="kw">for </span>r <span class="kw">in </span>gprs {
@@ -7747,7 +7747,7 @@
 <a href=#7747 id=7747 data-nosnippet>7747</a>        <span class="kw">if </span>!sat {
 <a href=#7748 id=7748 data-nosnippet>7748</a>            <span class="self">self</span>.trap_float_conversion_errors(old_fpcr, Size::S32, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
 <a href=#7749 id=7749 data-nosnippet>7749</a>        }
-<a href=#7750 id=7750 data-nosnippet>7750</a>        <span class="kw">if </span>ret != dest {
+<a href=#7750 id=7750 data-nosnippet>7750</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7751 id=7751 data-nosnippet>7751</a>            <span class="self">self</span>.move_location(Size::S64, dest, ret)<span class="question-mark">?</span>;
 <a href=#7752 id=7752 data-nosnippet>7752</a>        }
 <a href=#7753 id=7753 data-nosnippet>7753</a>        <span class="kw">for </span>r <span class="kw">in </span>gprs {
@@ -7786,7 +7786,7 @@
 <a href=#7786 id=7786 data-nosnippet>7786</a>        <span class="kw">if </span>!sat {
 <a href=#7787 id=7787 data-nosnippet>7787</a>            <span class="self">self</span>.trap_float_conversion_errors(old_fpcr, Size::S32, src, <span class="kw-2">&amp;mut </span>gprs)<span class="question-mark">?</span>;
 <a href=#7788 id=7788 data-nosnippet>7788</a>        }
-<a href=#7789 id=7789 data-nosnippet>7789</a>        <span class="kw">if </span>ret != dest {
+<a href=#7789 id=7789 data-nosnippet>7789</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7790 id=7790 data-nosnippet>7790</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7791 id=7791 data-nosnippet>7791</a>        }
 <a href=#7792 id=7792 data-nosnippet>7792</a>        <span class="kw">for </span>r <span class="kw">in </span>gprs {
@@ -7881,7 +7881,7 @@
 <a href=#7881 id=7881 data-nosnippet>7881</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#7882 id=7882 data-nosnippet>7882</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_b, loc_a, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#7883 id=7883 data-nosnippet>7883</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Ls)<span class="question-mark">?</span>;
-<a href=#7884 id=7884 data-nosnippet>7884</a>        <span class="kw">if </span>ret != dest {
+<a href=#7884 id=7884 data-nosnippet>7884</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7885 id=7885 data-nosnippet>7885</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7886 id=7886 data-nosnippet>7886</a>        }
 <a href=#7887 id=7887 data-nosnippet>7887</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7900,7 +7900,7 @@
 <a href=#7900 id=7900 data-nosnippet>7900</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#7901 id=7901 data-nosnippet>7901</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_b, loc_a, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#7902 id=7902 data-nosnippet>7902</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Cc)<span class="question-mark">?</span>;
-<a href=#7903 id=7903 data-nosnippet>7903</a>        <span class="kw">if </span>ret != dest {
+<a href=#7903 id=7903 data-nosnippet>7903</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7904 id=7904 data-nosnippet>7904</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7905 id=7905 data-nosnippet>7905</a>        }
 <a href=#7906 id=7906 data-nosnippet>7906</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7919,7 +7919,7 @@
 <a href=#7919 id=7919 data-nosnippet>7919</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#7920 id=7920 data-nosnippet>7920</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_a, loc_b, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#7921 id=7921 data-nosnippet>7921</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Ls)<span class="question-mark">?</span>;
-<a href=#7922 id=7922 data-nosnippet>7922</a>        <span class="kw">if </span>ret != dest {
+<a href=#7922 id=7922 data-nosnippet>7922</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7923 id=7923 data-nosnippet>7923</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7924 id=7924 data-nosnippet>7924</a>        }
 <a href=#7925 id=7925 data-nosnippet>7925</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7938,7 +7938,7 @@
 <a href=#7938 id=7938 data-nosnippet>7938</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#7939 id=7939 data-nosnippet>7939</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_a, loc_b, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#7940 id=7940 data-nosnippet>7940</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Cc)<span class="question-mark">?</span>;
-<a href=#7941 id=7941 data-nosnippet>7941</a>        <span class="kw">if </span>ret != dest {
+<a href=#7941 id=7941 data-nosnippet>7941</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7942 id=7942 data-nosnippet>7942</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7943 id=7943 data-nosnippet>7943</a>        }
 <a href=#7944 id=7944 data-nosnippet>7944</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7957,7 +7957,7 @@
 <a href=#7957 id=7957 data-nosnippet>7957</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#7958 id=7958 data-nosnippet>7958</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_a, loc_b, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#7959 id=7959 data-nosnippet>7959</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Ne)<span class="question-mark">?</span>;
-<a href=#7960 id=7960 data-nosnippet>7960</a>        <span class="kw">if </span>ret != dest {
+<a href=#7960 id=7960 data-nosnippet>7960</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7961 id=7961 data-nosnippet>7961</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7962 id=7962 data-nosnippet>7962</a>        }
 <a href=#7963 id=7963 data-nosnippet>7963</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -7976,7 +7976,7 @@
 <a href=#7976 id=7976 data-nosnippet>7976</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S64, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#7977 id=7977 data-nosnippet>7977</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S64, loc_a, loc_b, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#7978 id=7978 data-nosnippet>7978</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Eq)<span class="question-mark">?</span>;
-<a href=#7979 id=7979 data-nosnippet>7979</a>        <span class="kw">if </span>ret != dest {
+<a href=#7979 id=7979 data-nosnippet>7979</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#7980 id=7980 data-nosnippet>7980</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#7981 id=7981 data-nosnippet>7981</a>        }
 <a href=#7982 id=7982 data-nosnippet>7982</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -8166,7 +8166,7 @@
 <a href=#8166 id=8166 data-nosnippet>8166</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#8167 id=8167 data-nosnippet>8167</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_b, loc_a, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#8168 id=8168 data-nosnippet>8168</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Ls)<span class="question-mark">?</span>;
-<a href=#8169 id=8169 data-nosnippet>8169</a>        <span class="kw">if </span>ret != dest {
+<a href=#8169 id=8169 data-nosnippet>8169</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#8170 id=8170 data-nosnippet>8170</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#8171 id=8171 data-nosnippet>8171</a>        }
 <a href=#8172 id=8172 data-nosnippet>8172</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -8185,7 +8185,7 @@
 <a href=#8185 id=8185 data-nosnippet>8185</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#8186 id=8186 data-nosnippet>8186</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_b, loc_a, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#8187 id=8187 data-nosnippet>8187</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Cc)<span class="question-mark">?</span>;
-<a href=#8188 id=8188 data-nosnippet>8188</a>        <span class="kw">if </span>ret != dest {
+<a href=#8188 id=8188 data-nosnippet>8188</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#8189 id=8189 data-nosnippet>8189</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#8190 id=8190 data-nosnippet>8190</a>        }
 <a href=#8191 id=8191 data-nosnippet>8191</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -8204,7 +8204,7 @@
 <a href=#8204 id=8204 data-nosnippet>8204</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#8205 id=8205 data-nosnippet>8205</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_a, loc_b, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#8206 id=8206 data-nosnippet>8206</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Ls)<span class="question-mark">?</span>;
-<a href=#8207 id=8207 data-nosnippet>8207</a>        <span class="kw">if </span>ret != dest {
+<a href=#8207 id=8207 data-nosnippet>8207</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#8208 id=8208 data-nosnippet>8208</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#8209 id=8209 data-nosnippet>8209</a>        }
 <a href=#8210 id=8210 data-nosnippet>8210</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -8223,7 +8223,7 @@
 <a href=#8223 id=8223 data-nosnippet>8223</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#8224 id=8224 data-nosnippet>8224</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_a, loc_b, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#8225 id=8225 data-nosnippet>8225</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Cc)<span class="question-mark">?</span>;
-<a href=#8226 id=8226 data-nosnippet>8226</a>        <span class="kw">if </span>ret != dest {
+<a href=#8226 id=8226 data-nosnippet>8226</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#8227 id=8227 data-nosnippet>8227</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#8228 id=8228 data-nosnippet>8228</a>        }
 <a href=#8229 id=8229 data-nosnippet>8229</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -8242,7 +8242,7 @@
 <a href=#8242 id=8242 data-nosnippet>8242</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#8243 id=8243 data-nosnippet>8243</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_a, loc_b, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#8244 id=8244 data-nosnippet>8244</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Ne)<span class="question-mark">?</span>;
-<a href=#8245 id=8245 data-nosnippet>8245</a>        <span class="kw">if </span>ret != dest {
+<a href=#8245 id=8245 data-nosnippet>8245</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#8246 id=8246 data-nosnippet>8246</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#8247 id=8247 data-nosnippet>8247</a>        }
 <a href=#8248 id=8248 data-nosnippet>8248</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -8261,7 +8261,7 @@
 <a href=#8261 id=8261 data-nosnippet>8261</a>        <span class="kw">let </span>dest = <span class="self">self</span>.location_to_reg(Size::S32, ret, <span class="kw-2">&amp;mut </span>temps, ImmType::None, <span class="bool-val">false</span>, <span class="prelude-val">None</span>)<span class="question-mark">?</span>;
 <a href=#8262 id=8262 data-nosnippet>8262</a>        <span class="self">self</span>.emit_relaxed_binop_neon(Assembler::emit_fcmp, Size::S32, loc_a, loc_b, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#8263 id=8263 data-nosnippet>8263</a>        <span class="self">self</span>.assembler.emit_cset(Size::S32, dest, Condition::Eq)<span class="question-mark">?</span>;
-<a href=#8264 id=8264 data-nosnippet>8264</a>        <span class="kw">if </span>ret != dest {
+<a href=#8264 id=8264 data-nosnippet>8264</a>        <span class="kw">if </span><span class="macro">ret !</span>= dest {
 <a href=#8265 id=8265 data-nosnippet>8265</a>            <span class="self">self</span>.move_location(Size::S32, dest, ret)<span class="question-mark">?</span>;
 <a href=#8266 id=8266 data-nosnippet>8266</a>        }
 <a href=#8267 id=8267 data-nosnippet>8267</a>        <span class="kw">for </span>r <span class="kw">in </span>temps {
@@ -8796,4 +8796,5 @@
 <a href=#8796 id=8796 data-nosnippet>8796</a>
 <a href=#8797 id=8797 data-nosnippet>8797</a>        <span class="prelude-val">Ok</span>(())
 <a href=#8798 id=8798 data-nosnippet>8798</a>    }
-<a href=#8799 id=8799 data-nosnippet>8799</a>}</code></pre></div></section></main></body></html>
+<a href=#8799 id=8799 data-nosnippet>8799</a>}
+</code></pre></div></section></main></body></html>

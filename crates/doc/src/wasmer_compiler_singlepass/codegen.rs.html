@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/codegen.rs`."><title>codegen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_singlepass/</div>codegen.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/codegen.rs`."><title>codegen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_singlepass/</div>codegen.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 <a href=#2 id=2 data-nosnippet>2</a></span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use crate</span>::{
@@ -341,14 +341,14 @@
 <a href=#341 id=341 data-nosnippet>341</a>        <span class="kw">let </span>Location::Memory(reg, offset) = loc <span class="kw">else </span>{
 <a href=#342 id=342 data-nosnippet>342</a>            <span class="macro">codegen_error!</span>(<span class="string">"Expected stack memory location"</span>);
 <a href=#343 id=343 data-nosnippet>343</a>        };
-<a href=#344 id=344 data-nosnippet>344</a>        <span class="kw">if </span>reg != <span class="kw-2">&amp;</span><span class="self">self</span>.machine.local_pointer() {
+<a href=#344 id=344 data-nosnippet>344</a>        <span class="kw">if </span><span class="macro">reg !</span>= <span class="kw-2">&amp;</span><span class="self">self</span>.machine.local_pointer() {
 <a href=#345 id=345 data-nosnippet>345</a>            <span class="macro">codegen_error!</span>(<span class="string">"Expected location pointer for value on stack"</span>);
 <a href=#346 id=346 data-nosnippet>346</a>        }
 <a href=#347 id=347 data-nosnippet>347</a>        <span class="kw">if </span><span class="kw-2">*</span>offset &gt;= <span class="number">0 </span>{
 <a href=#348 id=348 data-nosnippet>348</a>            <span class="macro">codegen_error!</span>(<span class="string">"Invalid memory offset {offset}"</span>);
 <a href=#349 id=349 data-nosnippet>349</a>        }
 <a href=#350 id=350 data-nosnippet>350</a>        <span class="kw">let </span>offset = offset.neg() <span class="kw">as </span>usize;
-<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">if </span>offset != expected_stack_offset {
+<a href=#351 id=351 data-nosnippet>351</a>        <span class="kw">if </span><span class="macro">offset !</span>= expected_stack_offset {
 <a href=#352 id=352 data-nosnippet>352</a>            <span class="macro">codegen_error!</span>(<span class="string">"Invalid memory offset {offset}!={}"</span>, <span class="self">self</span>.stack_offset);
 <a href=#353 id=353 data-nosnippet>353</a>        }
 <a href=#354 id=354 data-nosnippet>354</a>        <span class="prelude-val">Ok</span>(())
@@ -728,7 +728,7 @@
 <a href=#728 id=728 data-nosnippet>728</a>        <span class="comment">// Align stack to 16 bytes.
 <a href=#729 id=729 data-nosnippet>729</a>        </span><span class="kw">let </span>stack_unaligned =
 <a href=#730 id=730 data-nosnippet>730</a>            (<span class="self">self</span>.machine.round_stack_adjust(<span class="self">self</span>.stack_offset) + used_stack + stack_offset) % <span class="number">16</span>;
-<a href=#731 id=731 data-nosnippet>731</a>        <span class="kw">if </span>stack_unaligned != <span class="number">0 </span>{
+<a href=#731 id=731 data-nosnippet>731</a>        <span class="kw">if </span><span class="macro">stack_unaligned !</span>= <span class="number">0 </span>{
 <a href=#732 id=732 data-nosnippet>732</a>            stack_offset += <span class="number">16 </span>- stack_unaligned;
 <a href=#733 id=733 data-nosnippet>733</a>        }
 <a href=#734 id=734 data-nosnippet>734</a>        <span class="self">self</span>.machine.extend_stack(stack_offset <span class="kw">as </span>u32)<span class="question-mark">?</span>;
@@ -761,7 +761,7 @@
 <a href=#761 id=761 data-nosnippet>761</a>
 <a href=#762 id=762 data-nosnippet>762</a>        <span class="comment">// Emit register moves.
 <a href=#763 id=763 data-nosnippet>763</a>        </span><span class="kw">for </span>(loc, gpr, size) <span class="kw">in </span>call_movs {
-<a href=#764 id=764 data-nosnippet>764</a>            <span class="kw">if </span>loc != Location::GPR(gpr) {
+<a href=#764 id=764 data-nosnippet>764</a>            <span class="kw">if </span><span class="macro">loc !</span>= Location::GPR(gpr) {
 <a href=#765 id=765 data-nosnippet>765</a>                <span class="self">self</span>.machine
 <a href=#766 id=766 data-nosnippet>766</a>                    .move_location(Size::S64, loc, Location::GPR(gpr))<span class="question-mark">?</span>;
 <a href=#767 id=767 data-nosnippet>767</a>            }
@@ -844,7 +844,7 @@
 <a href=#844 id=844 data-nosnippet>844</a>            MemoryStyle::Dynamic { .. } =&gt; <span class="bool-val">true</span>,
 <a href=#845 id=845 data-nosnippet>845</a>        };
 <a href=#846 id=846 data-nosnippet>846</a>
-<a href=#847 id=847 data-nosnippet>847</a>        <span class="kw">let </span>offset = <span class="kw">if </span><span class="self">self</span>.module.num_imported_memories != <span class="number">0 </span>{
+<a href=#847 id=847 data-nosnippet>847</a>        <span class="kw">let </span>offset = <span class="kw">if </span><span class="self">self</span>.module.<span class="macro">num_imported_memories !</span>= <span class="number">0 </span>{
 <a href=#848 id=848 data-nosnippet>848</a>            <span class="self">self</span>.vmoffsets
 <a href=#849 id=849 data-nosnippet>849</a>                .vmctx_vmmemory_import_definition(MemoryIndex::new(<span class="number">0</span>))
 <a href=#850 id=850 data-nosnippet>850</a>        } <span class="kw">else </span>{
@@ -854,7 +854,7 @@
 <a href=#854 id=854 data-nosnippet>854</a>        cb(
 <a href=#855 id=855 data-nosnippet>855</a>            <span class="self">self</span>,
 <a href=#856 id=856 data-nosnippet>856</a>            need_check,
-<a href=#857 id=857 data-nosnippet>857</a>            <span class="self">self</span>.module.num_imported_memories != <span class="number">0</span>,
+<a href=#857 id=857 data-nosnippet>857</a>            <span class="self">self</span>.module.<span class="macro">num_imported_memories !</span>= <span class="number">0</span>,
 <a href=#858 id=858 data-nosnippet>858</a>            offset <span class="kw">as </span>i32,
 <a href=#859 id=859 data-nosnippet>859</a>            <span class="self">self</span>.special_labels.heap_access_oob,
 <a href=#860 id=860 data-nosnippet>860</a>            <span class="self">self</span>.special_labels.unaligned_atomic,
@@ -1942,7 +1942,7 @@
 <a href=#1942 id=1942 data-nosnippet>1942</a>                <span class="kw">if </span>!<span class="self">self</span>.config.enable_nan_canonicalization
 <a href=#1943 id=1943 data-nosnippet>1943</a>                    || <span class="macro">matches!</span>(canonicalize, CanonicalizeType::None)
 <a href=#1944 id=1944 data-nosnippet>1944</a>                {
-<a href=#1945 id=1945 data-nosnippet>1945</a>                    <span class="kw">if </span>loc != ret {
+<a href=#1945 id=1945 data-nosnippet>1945</a>                    <span class="kw">if </span><span class="macro">loc !</span>= ret {
 <a href=#1946 id=1946 data-nosnippet>1946</a>                        <span class="self">self</span>.machine.emit_relaxed_mov(Size::S32, loc, ret)<span class="question-mark">?</span>;
 <a href=#1947 id=1947 data-nosnippet>1947</a>                    }
 <a href=#1948 id=1948 data-nosnippet>1948</a>                } <span class="kw">else </span>{
@@ -1954,7 +1954,7 @@
 <a href=#1954 id=1954 data-nosnippet>1954</a>                <span class="kw">let </span>ret = <span class="self">self</span>.acquire_location(<span class="kw-2">&amp;</span>WpType::F32)<span class="question-mark">?</span>;
 <a href=#1955 id=1955 data-nosnippet>1955</a>                <span class="self">self</span>.value_stack.push((ret, CanonicalizeType::None));
 <a href=#1956 id=1956 data-nosnippet>1956</a>
-<a href=#1957 id=1957 data-nosnippet>1957</a>                <span class="kw">if </span>loc != ret {
+<a href=#1957 id=1957 data-nosnippet>1957</a>                <span class="kw">if </span><span class="macro">loc !</span>= ret {
 <a href=#1958 id=1958 data-nosnippet>1958</a>                    <span class="self">self</span>.machine.emit_relaxed_mov(Size::S32, loc, ret)<span class="question-mark">?</span>;
 <a href=#1959 id=1959 data-nosnippet>1959</a>                }
 <a href=#1960 id=1960 data-nosnippet>1960</a>            }
@@ -1967,7 +1967,7 @@
 <a href=#1967 id=1967 data-nosnippet>1967</a>                <span class="kw">if </span>!<span class="self">self</span>.config.enable_nan_canonicalization
 <a href=#1968 id=1968 data-nosnippet>1968</a>                    || <span class="macro">matches!</span>(canonicalize, CanonicalizeType::None)
 <a href=#1969 id=1969 data-nosnippet>1969</a>                {
-<a href=#1970 id=1970 data-nosnippet>1970</a>                    <span class="kw">if </span>loc != ret {
+<a href=#1970 id=1970 data-nosnippet>1970</a>                    <span class="kw">if </span><span class="macro">loc !</span>= ret {
 <a href=#1971 id=1971 data-nosnippet>1971</a>                        <span class="self">self</span>.machine.emit_relaxed_mov(Size::S64, loc, ret)<span class="question-mark">?</span>;
 <a href=#1972 id=1972 data-nosnippet>1972</a>                    }
 <a href=#1973 id=1973 data-nosnippet>1973</a>                } <span class="kw">else </span>{
@@ -1979,7 +1979,7 @@
 <a href=#1979 id=1979 data-nosnippet>1979</a>                <span class="kw">let </span>ret = <span class="self">self</span>.acquire_location(<span class="kw-2">&amp;</span>WpType::F64)<span class="question-mark">?</span>;
 <a href=#1980 id=1980 data-nosnippet>1980</a>                <span class="self">self</span>.value_stack.push((ret, CanonicalizeType::None));
 <a href=#1981 id=1981 data-nosnippet>1981</a>
-<a href=#1982 id=1982 data-nosnippet>1982</a>                <span class="kw">if </span>loc != ret {
+<a href=#1982 id=1982 data-nosnippet>1982</a>                <span class="kw">if </span><span class="macro">loc !</span>= ret {
 <a href=#1983 id=1983 data-nosnippet>1983</a>                    <span class="self">self</span>.machine.emit_relaxed_mov(Size::S64, loc, ret)<span class="question-mark">?</span>;
 <a href=#1984 id=1984 data-nosnippet>1984</a>                }
 <a href=#1985 id=1985 data-nosnippet>1985</a>            }
@@ -2416,7 +2416,7 @@
 <a href=#2416 id=2416 data-nosnippet>2416</a>                <span class="self">self</span>.machine.release_gpr(table_base);
 <a href=#2417 id=2417 data-nosnippet>2417</a>
 <a href=#2418 id=2418 data-nosnippet>2418</a>                <span class="kw">let </span>gpr_for_call = <span class="self">self</span>.machine.get_gpr_for_call();
-<a href=#2419 id=2419 data-nosnippet>2419</a>                <span class="kw">if </span>table_count != gpr_for_call {
+<a href=#2419 id=2419 data-nosnippet>2419</a>                <span class="kw">if </span><span class="macro">table_count !</span>= gpr_for_call {
 <a href=#2420 id=2420 data-nosnippet>2420</a>                    <span class="self">self</span>.machine.move_location(
 <a href=#2421 id=2421 data-nosnippet>2421</a>                        Size::S64,
 <a href=#2422 id=2422 data-nosnippet>2422</a>                        Location::GPR(table_count),
@@ -2581,7 +2581,7 @@
 <a href=#2581 id=2581 data-nosnippet>2581</a>                    &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(size) = canonicalize_a.to_size()
 <a href=#2582 id=2582 data-nosnippet>2582</a>                {
 <a href=#2583 id=2583 data-nosnippet>2583</a>                    <span class="self">self</span>.machine.canonicalize_nan(size, v_a, ret)<span class="question-mark">?</span>;
-<a href=#2584 id=2584 data-nosnippet>2584</a>                } <span class="kw">else if </span>v_a != ret {
+<a href=#2584 id=2584 data-nosnippet>2584</a>                } <span class="kw">else if </span><span class="macro">v_a !</span>= ret {
 <a href=#2585 id=2585 data-nosnippet>2585</a>                    <span class="self">self</span>.machine.emit_relaxed_mov(Size::S64, v_a, ret)<span class="question-mark">?</span>;
 <a href=#2586 id=2586 data-nosnippet>2586</a>                }
 <a href=#2587 id=2587 data-nosnippet>2587</a>                <span class="self">self</span>.machine.jmp_unconditional(end_label)<span class="question-mark">?</span>;
@@ -2590,7 +2590,7 @@
 <a href=#2590 id=2590 data-nosnippet>2590</a>                    &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(size) = canonicalize_b.to_size()
 <a href=#2591 id=2591 data-nosnippet>2591</a>                {
 <a href=#2592 id=2592 data-nosnippet>2592</a>                    <span class="self">self</span>.machine.canonicalize_nan(size, v_b, ret)<span class="question-mark">?</span>;
-<a href=#2593 id=2593 data-nosnippet>2593</a>                } <span class="kw">else if </span>v_b != ret {
+<a href=#2593 id=2593 data-nosnippet>2593</a>                } <span class="kw">else if </span><span class="macro">v_b !</span>= ret {
 <a href=#2594 id=2594 data-nosnippet>2594</a>                    <span class="self">self</span>.machine.emit_relaxed_mov(Size::S64, v_b, ret)<span class="question-mark">?</span>;
 <a href=#2595 id=2595 data-nosnippet>2595</a>                }
 <a href=#2596 id=2596 data-nosnippet>2596</a>                <span class="self">self</span>.machine.emit_label(end_label)<span class="question-mark">?</span>;
@@ -5964,4 +5964,5 @@
 <a href=#5964 id=5964 data-nosnippet>5964</a>        }
 <a href=#5965 id=5965 data-nosnippet>5965</a>    }
 <a href=#5966 id=5966 data-nosnippet>5966</a>    */
-<a href=#5967 id=5967 data-nosnippet>5967</a></span>}</code></pre></div></section></main></body></html>
+<a href=#5967 id=5967 data-nosnippet>5967</a></span>}
+</code></pre></div></section></main></body></html>

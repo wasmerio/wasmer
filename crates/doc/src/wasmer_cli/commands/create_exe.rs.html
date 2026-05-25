@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_exe.rs`."><title>create_exe.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.92.0 (ded5c06cf 2025-12-08)" data-channel="1.92.0" data-search-js="search-d69d8955.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/</div>create_exe.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_exe.rs`."><title>create_exe.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/</div>create_exe.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span><span class="kw">super</span>::CliCommand;
@@ -886,7 +886,7 @@
 <a href=#886 id=886 data-nosnippet>886</a>    }
 <a href=#887 id=887 data-nosnippet>887</a>
 <a href=#888 id=888 data-nosnippet>888</a>    <span class="comment">// On some compiler -target isn't implemented
-<a href=#889 id=889 data-nosnippet>889</a>    </span><span class="kw">if </span><span class="kw-2">*</span>target != Triple::host() {
+<a href=#889 id=889 data-nosnippet>889</a>    </span><span class="kw">if </span><span class="kw-2">*</span><span class="macro">target !</span>= Triple::host() {
 <a href=#890 id=890 data-nosnippet>890</a>        command = command.arg(<span class="string">"-target"</span>).arg(<span class="macro">format!</span>(<span class="string">"{target}"</span>));
 <a href=#891 id=891 data-nosnippet>891</a>    }
 <a href=#892 id=892 data-nosnippet>892</a>
@@ -1429,7 +1429,7 @@
 <a href=#1429 id=1429 data-nosnippet>1429</a>        .args(object_paths.iter().map(|path| path.canonicalize().unwrap()))
 <a href=#1430 id=1430 data-nosnippet>1430</a>        .arg(<span class="kw-2">&amp;</span>libwasmer_path);
 <a href=#1431 id=1431 data-nosnippet>1431</a>
-<a href=#1432 id=1432 data-nosnippet>1432</a>    <span class="kw">if </span><span class="kw-2">*</span>target != Triple::host() {
+<a href=#1432 id=1432 data-nosnippet>1432</a>    <span class="kw">if </span><span class="kw-2">*</span><span class="macro">target !</span>= Triple::host() {
 <a href=#1433 id=1433 data-nosnippet>1433</a>        command = command.arg(<span class="string">"-target"</span>);
 <a href=#1434 id=1434 data-nosnippet>1434</a>        command = command.arg(<span class="macro">format!</span>(<span class="string">"{target}"</span>));
 <a href=#1435 id=1435 data-nosnippet>1435</a>    }
@@ -1760,7 +1760,7 @@
 <a href=#1760 id=1760 data-nosnippet>1760</a>        }
 <a href=#1761 id=1761 data-nosnippet>1761</a>
 <a href=#1762 id=1762 data-nosnippet>1762</a>        <span class="kw">if </span>target.environment == Environment::Musl &amp;&amp; !filename.contains(<span class="string">"musl"</span>)
-<a href=#1763 id=1763 data-nosnippet>1763</a>            || filename.contains(<span class="string">"musl"</span>) &amp;&amp; target.environment != Environment::Musl
+<a href=#1763 id=1763 data-nosnippet>1763</a>            || filename.contains(<span class="string">"musl"</span>) &amp;&amp; target.<span class="macro">environment !</span>= Environment::Musl
 <a href=#1764 id=1764 data-nosnippet>1764</a>        {
 <a href=#1765 id=1765 data-nosnippet>1765</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#1766 id=1766 data-nosnippet>1766</a>        }
@@ -2166,7 +2166,7 @@
 <a href=#2166 id=2166 data-nosnippet>2166</a>            .map_err(anyhow::Error::new)
 <a href=#2167 id=2167 data-nosnippet>2167</a>            .context(<span class="string">"Could not retrieve wasmer release history body"</span>)<span class="question-mark">?</span>;
 <a href=#2168 id=2168 data-nosnippet>2168</a>
-<a href=#2169 id=2169 data-nosnippet>2169</a>        <span class="kw">if </span>status != reqwest::StatusCode::OK {
+<a href=#2169 id=2169 data-nosnippet>2169</a>        <span class="kw">if </span><span class="macro">status !</span>= reqwest::StatusCode::OK {
 <a href=#2170 id=2170 data-nosnippet>2170</a>            <span class="macro">log::warn!</span>(
 <a href=#2171 id=2171 data-nosnippet>2171</a>                <span class="string">"Warning: Github API replied with non-200 status code: {}. Response: {}"</span>,
 <a href=#2172 id=2172 data-nosnippet>2172</a>                status,
@@ -2354,4 +2354,5 @@
 <a href=#2354 id=2354 data-nosnippet>2354</a>        try_unpack_targz(tarball, target, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#2355 id=2355 data-nosnippet>2355</a>        <span class="prelude-val">Ok</span>(list_dir(target))
 <a href=#2356 id=2356 data-nosnippet>2356</a>    }
-<a href=#2357 id=2357 data-nosnippet>2357</a>}</code></pre></div></section></main></body></html>
+<a href=#2357 id=2357 data-nosnippet>2357</a>}
+</code></pre></div></section></main></body></html>
