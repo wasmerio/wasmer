@@ -179,7 +179,10 @@ impl MutableState {
                 max: MAX_WASI_TASK_ID as usize,
             });
         }
-        let id = self.process_seed.checked_add(1).expect("Invalid arithmetic operation");
+        let id = self
+            .process_seed
+            .checked_add(1)
+            .expect("Invalid arithmetic operation");
         self.process_seed = id;
         Ok(WasiProcessId::from(id))
     }
