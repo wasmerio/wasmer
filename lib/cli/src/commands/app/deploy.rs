@@ -380,13 +380,14 @@ impl CmdAppDeploy {
             mapping.remove("name");
         }
 
-        if mapping.get("name").is_none() && let Some(app_name) = &self.app_name {
+        if mapping.get("name").is_none()
+            && let Some(app_name) = &self.app_name
+        {
             mapping.insert("name".into(), app_name.to_string().into());
-        } else if mapping.get("name").is_none() && maybe_edge_app.is_some() {
-            mapping.insert(
-                "name".into(),
-                maybe_edge_app.as_ref().unwrap().name.to_string().into(),
-            );
+        } else if mapping.get("name").is_none()
+            && let Some(maybe_edge_app) = maybe_edge_app.as_ref()
+        {
+            mapping.insert("name".into(), maybe_edge_app.name.to_string().into());
         } else if mapping.get("name").is_none() {
             if !self.non_interactive {
                 let default_name = base_dir_path
@@ -661,20 +662,20 @@ impl AsyncCliCommand for CmdAppDeploy {
             }
         }
 
-        if app_yaml.get("name").is_none() && let Some(app_name) = &self.app_name {
-            app_yaml.as_mapping_mut().unwrap().insert(
-                "name".into(),
-                app_name.to_string().into(),
-            );
-        } else if app_yaml.get("name").is_none() && maybe_edge_app.is_some() {
-            app_yaml.as_mapping_mut().unwrap().insert(
-                "name".into(),
-                maybe_edge_app
-                    .as_ref()
-                    .map(|v| v.name.to_string())
-                    .unwrap()
-                    .into(),
-            );
+        if app_yaml.get("name").is_none()
+            && let Some(app_name) = &self.app_name
+        {
+            app_yaml
+                .as_mapping_mut()
+                .unwrap()
+                .insert("name".into(), app_name.to_string().into());
+        } else if app_yaml.get("name").is_none()
+            && let Some(maybe_edge_app) = maybe_edge_app.as_ref()
+        {
+            app_yaml
+                .as_mapping_mut()
+                .unwrap()
+                .insert("name".into(), maybe_edge_app.name.to_string().into());
         } else if app_yaml.get("name").is_none() {
             if !self.non_interactive {
                 let default_name = std::env::current_dir().ok().and_then(|dir| {

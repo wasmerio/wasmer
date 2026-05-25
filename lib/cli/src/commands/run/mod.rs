@@ -271,7 +271,9 @@ impl Run {
         tracing::info!("Executing on backend {engine_kind:?}");
 
         #[cfg(feature = "sys")]
-        if engine.is_sys() && let Some(stack_size) = self.stack_size {
+        if engine.is_sys()
+            && let Some(stack_size) = self.stack_size
+        {
             wasmer_vm::set_stack_size(stack_size);
         }
 
