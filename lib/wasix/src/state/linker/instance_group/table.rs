@@ -82,6 +82,11 @@ impl InstanceGroupState {
                 "Growing indirect function table"
             );
             table.grow(store, delta, Value::FuncRef(None))?;
+        } else {
+            let existing = table.get(store, index).unwrap();
+            if let Value::FuncRef(Some(_)) = existing {
+                panic!("Internal error: function table index {index} already occupied");
+            }
         }
 
         let ty = func.ty(store).to_string();
