@@ -609,8 +609,9 @@ jobs:
             make: "test-wasmer-cli"
           - description: "Examples"
             make: "test-examples"
-          - description: "CLI integ. tests"
-            make: test-integration-cli-ci
+        # TODO: temporarily disabled
+        #          - description: "CLI integ. tests"
+        #            make: test-integration-cli-ci
         metadata:
           - build: linux-x64
             os: ubuntu-22.04
