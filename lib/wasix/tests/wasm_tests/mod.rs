@@ -656,7 +656,6 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         // supported_engines.push(Engine::V8);
 
         // Cranelift EH support for macOS is still missing: #6419.
-        // Keep collecting LLVM trials so focused macOS filters do not silently report zero tests.
         if !cfg!(target_os = "macos") {
             supported_engines.push(Engine::Cranelift);
         }
@@ -673,7 +672,6 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                 for engine in &supported_engines {
                     let mut config = config.clone();
                     config.engine = *engine;
-                    
                     tests.push(libtest_mimic::Trial::ignorable_test(
                         config.full_test_name(),
                         move || {
