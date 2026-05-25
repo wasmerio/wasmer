@@ -156,14 +156,17 @@ mod tests {
 
     #[test]
     fn raw_value_zero_initialized() {
-        assert_eq!(RawValue::from(123i32), 123i64);
-        assert_eq!(RawValue::from(0.0f32), 0i64);
-        assert_eq!(RawValue::from(0.0f32), 0u128);
+        #[cfg(target_endian = "little")]
+        {
+            assert_eq!(RawValue::from(123i32), 123i64);
+            assert_eq!(RawValue::from(0.0f32), 0i64);
+            assert_eq!(RawValue::from(0.0f32), 0u128);
 
-        const VAL: f64 = 123.456;
-        assert_eq!(
-            RawValue::from(VAL),
-            u128::from(u64::from_ne_bytes(VAL.to_ne_bytes()))
-        );
+            const VAL: f64 = 123.456;
+            assert_eq!(
+                RawValue::from(VAL),
+                u128::from(u64::from_ne_bytes(VAL.to_ne_bytes()))
+            );
+        }
     }
 }
