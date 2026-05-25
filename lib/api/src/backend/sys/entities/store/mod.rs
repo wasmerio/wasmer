@@ -124,14 +124,12 @@ impl Interrupter {
         // are hard errors in the sense that retrying the interrupt at a later
         // point is *guaranteed* to fail again. Hence, we don't return any
         // indication of success or failure to embedder code.
-        match interrupt_registry::interrupt(self.store_id) {
-            Err(interrupt_registry::InterruptError::StoreNotRunning) => (),
-            _ => {
-                #[cfg(feature = "experimental-async")]
-                crate::backend::sys::async_runtime::notify_pending_futures_of_interrupt(
-                    self.store_id,
-                );
-            }
+        if !matches!(
+            interrupt_registry::interrupt(self.store_id),
+            Err(interrupt_registry::InterruptError::StoreNotRunning)
+        ) {
+            #[cfg(feature = "experimental-async")]
+            crate::backend::sys::async_runtime::notify_pending_futures_of_interrupt(self.store_id);
         }
     }
 }
