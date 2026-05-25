@@ -174,16 +174,12 @@ impl WasiControlPlane {
 impl MutableState {
     fn next_process_id(&mut self) -> Result<WasiProcessId, ControlPlaneError> {
         // TODO: reuse terminated ids, handle wrap-around, ...
-        let id = self.process_seed.checked_add(1).ok_or({
-            ControlPlaneError::TaskLimitReached {
-                max: MAX_WASI_TASK_ID as usize,
-            }
-        })?;
-        if id > MAX_WASI_TASK_ID {
+        if self.process_seed == MAX_WASI_TASK_ID {
             return Err(ControlPlaneError::TaskLimitReached {
                 max: MAX_WASI_TASK_ID as usize,
             });
         }
+        let id = self.process_seed.checked_add(1).expect("Invalid arithmetic operation");
         self.process_seed = id;
         Ok(WasiProcessId::from(id))
     }
