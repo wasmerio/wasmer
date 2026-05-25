@@ -649,6 +649,17 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let test_name = relative_test_path.display().to_string();
         let primary_sources = identify_primary_sources(entry.path())?;
 
+        let mut supported_engines = vec![Engine::LLVM];
+
+        // TODO: enable once the WASIX tests are green with V8
+        // #[cfg(feature = "v8")]
+        // supported_engines.push(Engine::V8);
+
+        // Cranelift EH support for macOS is still missing: #6419.
+        if !cfg!(target_os = "macos") {
+            supported_engines.push(Engine::Cranelift);
+        }
+
         for primary_source in primary_sources {
             let configs = parse_configs(&Config::new(
                 primary_source,
@@ -658,20 +669,9 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
             ))?;
 
             for config in configs {
-                for engine in [
-                    Engine::Cranelift,
-                    Engine::LLVM,
-                    // TODO: enable once the WASIX tests are green with V8
-                    //#[cfg(feature = "v8")]
-                    //Engine::V8,
-                ] {
-                    // The EH support for macOS is still missing: #6419
-                    if cfg!(target_os = "macos") {
-                        return Ok(());
-                    }
-
+                for engine in &supported_engines {
                     let mut config = config.clone();
-                    config.engine = engine;
+                    config.engine = *engine;
                     tests.push(libtest_mimic::Trial::ignorable_test(
                         config.full_test_name(),
                         move || {
