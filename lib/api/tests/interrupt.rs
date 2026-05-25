@@ -135,7 +135,7 @@ fn correct_store_is_interrupted_only() -> Result<()> {
     // Joining at this point will deadlock, wait for some time instead...
     thread::sleep(Duration::from_millis(500));
     // ... and make sure the code wasn't interrupted by checking the atomic
-    assert_eq!(finished.load(Ordering::SeqCst), false);
+    assert!(!finished.load(Ordering::SeqCst));
 
     interrupter_slot
         .lock()
@@ -144,7 +144,7 @@ fn correct_store_is_interrupted_only() -> Result<()> {
         .unwrap()
         .interrupt();
     let result = worker.join().unwrap().unwrap().unwrap_err();
-    assert_eq!(finished.load(Ordering::SeqCst), true);
+    assert!(finished.load(Ordering::SeqCst));
     assert_eq!(result.to_trap().unwrap(), TrapCode::HostInterrupt);
 
     Ok(())
@@ -187,7 +187,7 @@ fn imported_functions_are_interrupted_if_exception_is_thrown() -> Result<()> {
             let mut store = env.as_store_mut();
             let tag = Tag::new(&mut store, []);
             let exc = Exception::new(&mut store, &tag, &[]);
-            return Result::<(), _>::Err(RuntimeError::exception(&mut store, exc));
+            Result::<(), _>::Err(RuntimeError::exception(&store, exc))
         })
     })
 }
@@ -257,7 +257,7 @@ where
 
     // At this point, we're still waiting in the imported function, which can *not* be
     // interrupted.
-    assert_eq!(finished.load(Ordering::SeqCst), false);
+    assert!(!finished.load(Ordering::SeqCst));
 
     // Now send a message to the channel. This should unblock the imported function,
     // which will return control to the WASM code. Since the store was already interrupted,
@@ -265,7 +265,7 @@ where
     tx.send(()).unwrap();
 
     let result = worker.join().unwrap().unwrap().unwrap_err();
-    assert_eq!(finished.load(Ordering::SeqCst), true);
+    assert!(finished.load(Ordering::SeqCst));
     assert_eq!(result.to_trap().unwrap(), TrapCode::HostInterrupt);
 
     Ok(())

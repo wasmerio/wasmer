@@ -163,7 +163,7 @@ impl Module {
         let binary = binary.into_bytes();
         let module = ModuleHandle::new(engine, &binary)?;
         let info = crate::utils::polyfill::translate_module(&binary[..])
-            .unwrap()
+            .map_err(CompileError::Validate)?
             .info;
 
         Ok(Self {
@@ -292,8 +292,12 @@ impl Module {
                 }
 
                 let name = wasm_importtype_name(i as *const _);
-                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
-                let name_str = String::from_utf8_lossy(name).to_string();
+                let name_str = if (*name).size == 0 {
+                    String::new()
+                } else {
+                    let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
+                    String::from_utf8_lossy(name).to_string()
+                };
                 let module = wasm_importtype_module(i as *const _);
                 let module_str = if module.is_null()
                     || (*module).data.is_null()
@@ -338,7 +342,11 @@ impl Module {
 
             wasm_module_exports(module as *const _, &mut exports as *mut _);
 
-            let exports = std::slice::from_raw_parts(exports.data, exports.size).to_vec();
+            let exports = if exports.size == 0 {
+                Vec::new()
+            } else {
+                std::slice::from_raw_parts(exports.data, exports.size).to_vec()
+            };
             let mut wasmer_exports = vec![];
 
             for e in exports.into_iter() {
@@ -347,8 +355,12 @@ impl Module {
                 }
 
                 let name = wasm_exporttype_name(e as *const _);
-                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
-                let name_str = String::from_utf8_lossy(name).to_string();
+                let name_str = if (*name).size == 0 {
+                    String::new()
+                } else {
+                    let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
+                    String::from_utf8_lossy(name).to_string()
+                };
                 let ty = IntoWasmerExternType::into_wextt(wasm_exporttype_type(e as *const _));
                 if let Err(err) = ty {
                     panic!("{err}");
