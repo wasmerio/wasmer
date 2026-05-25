@@ -42,7 +42,6 @@
 //! `PrefilledFile:{relative_path}:{contents}` writes a file before the test runs.
 //!
 //! `ExpectedFile:{relative_path}:{contents}` checks a file after the test runs.
-//! 
 
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
