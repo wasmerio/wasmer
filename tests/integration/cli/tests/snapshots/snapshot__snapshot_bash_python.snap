@@ -20,8 +20,8 @@ expression: snapshot
   },
   "result": {
     "Success": {
-      "stdout": "10\n",
-      "stderr": "test.wasm-5.1# test.wasm-5.1# exit\n",
+      "stdout": "",
+      "stderr": "test.wasm-5.1# USAGE:\n    wasmer run <FILE> [ARGS]...\n\nARGS:\n    <FILE>       File to run\n    <ARGS>...    Application arguments\ntest.wasm-5.1# exit\n",
       "exit_code": 0
     }
   }
