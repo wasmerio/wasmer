@@ -1,5 +1,5 @@
 //! Data types, functions and traits for `v8` runtime's `Module` implementation.
-use std::{path::Path, sync::Arc};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use crate::{AsEngineRef, BackendModule, IntoBytes, Store, backend::v8::bindings::*};
 
@@ -135,8 +135,6 @@ impl Drop for ModuleHandle {
     }
 }
 
-const DYLINK_SECTION_NAME: &str = "dylink.0";
-
 #[derive(Clone, Debug, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
 pub(crate) struct V8ModuleInfo {
     name: Option<String>,
@@ -146,9 +144,9 @@ pub(crate) struct V8ModuleInfo {
     imports: Vec<ImportType>,
     exports: Vec<ExportType>,
     v8_module_bytes: Vec<u8>,
-    // Copy of the section data needed by the dynamic linker, since the current
-    // API cannot retrieve it later from the handle.
-    dylink_section_data: Option<Vec<u8>>,
+    // Copy of the custom sections, since the current API cannot retrieve them
+    // later from the handle.
+    custom_sections: HashMap<String, Vec<u8>>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -186,7 +184,7 @@ impl Module {
             .info;
         let imports = info.imports().collect();
         let exports = info.exports().collect();
-        let dylink_section_data = get_dylink_section_data(&binary)?;
+        let custom_sections = get_custom_sections(&binary)?;
         let v8_module_bytes = module.serialize().map_err(|err| {
             CompileError::Codegen(format!(
                 "Failed to serialize V8 module after compilation: {err}"
@@ -200,7 +198,7 @@ impl Module {
                 imports,
                 exports,
                 v8_module_bytes,
-                dylink_section_data,
+                custom_sections,
             },
         })
     }
@@ -298,16 +296,13 @@ impl Module {
         &'a self,
         name: &'a str,
     ) -> Box<dyn Iterator<Item = Box<[u8]>> + 'a> {
-        if name == DYLINK_SECTION_NAME {
-            Box::new(
-                self.info
-                    .dylink_section_data
-                    .iter()
-                    .map(|data| data.clone().into_boxed_slice()),
-            )
-        } else {
-            Box::new(std::iter::empty())
-        }
+        Box::new(
+            self.info
+                .custom_sections
+                .get(name)
+                .map(|data| data.clone().into_boxed_slice())
+                .into_iter(),
+        )
     }
 
     pub(crate) fn info(&self) -> &ModuleInfo {
@@ -315,16 +310,17 @@ impl Module {
     }
 }
 
-fn get_dylink_section_data(binary: &[u8]) -> Result<Option<Vec<u8>>, CompileError> {
+fn get_custom_sections(binary: &[u8]) -> Result<HashMap<String, Vec<u8>>, CompileError> {
+    let mut custom_sections = HashMap::new();
     for payload in Parser::new(0).parse_all(binary) {
         if let Payload::CustomSection(section) = payload.map_err(|err| {
             CompileError::Validate(format!("Failed to parse custom sections: {err}"))
-        })? && section.name() == DYLINK_SECTION_NAME
+        })?
         {
-            return Ok(Some(section.data().to_vec()));
+            custom_sections.insert(section.name().to_string(), section.data().to_vec());
         }
     }
-    Ok(None)
+    Ok(custom_sections)
 }
 
 impl crate::Module {
