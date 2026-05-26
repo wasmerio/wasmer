@@ -686,8 +686,7 @@ fn wasi_runner_on_disk_with_dependencies() {
         .unwrap()
         .text()
         .unwrap();
-    // This seems very susceptible to changes in the example HTML
-    assert!(html.contains("<title>Hello World</title>"), "{html}");
+    assert!(html.contains("<title>wasmer/hello</title>"), "{html}");
 
     // and make sure our request was logged
     child
