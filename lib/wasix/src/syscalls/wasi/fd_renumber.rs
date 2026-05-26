@@ -99,9 +99,7 @@ pub(crate) fn fd_renumber_internal(
             old_fd = fd_map.replace(to, new_fd_entry, &mut kind);
         } else {
             let mut from_kind = InodeKindWriteGuard::new(&from_inode);
-            let target_kind = target_inode
-                .as_ref()
-                .map(|inode| InodeKindWriteGuard::new(inode));
+            let target_kind = target_inode.as_ref().map(InodeKindWriteGuard::new);
 
             old_fd = if let Some(target_kind) = target_kind {
                 fd_map.remove(to, target_kind)

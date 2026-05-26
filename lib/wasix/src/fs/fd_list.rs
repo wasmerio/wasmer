@@ -151,7 +151,7 @@ impl FdList {
         exclusive: bool,
         idx: WasiFd,
         fd: Fd,
-        kind: InodeKindWriteGuard<'_>,
+        mut kind: InodeKindWriteGuard<'_>,
     ) -> bool {
         debug_assert!(Arc::ptr_eq(&fd.inode.inner, &kind.inode().inner));
         let idx = idx as usize;
@@ -175,14 +175,12 @@ impl FdList {
             if exclusive {
                 return false;
             } else if prev_fd.inode.same_inode_as(kind.inode()) {
-                prev_fd
-                    .inode
-                    .drop_one_handle_under_kind(kind.deref_mut());
+                prev_fd.inode.drop_one_handle_under_kind(kind.kind_mut());
             } else {
                 let mut prev_kind = InodeKindWriteGuard::new(&prev_fd.inode);
                 prev_fd
                     .inode
-                    .drop_one_handle_under_kind(prev_kind.deref_mut());
+                    .drop_one_handle_under_kind(prev_kind.kind_mut());
             }
         }
 
@@ -209,7 +207,7 @@ impl FdList {
                 _ => (),
             }
 
-            fd.inode.drop_one_handle_under_kind(kind.deref_mut());
+            fd.inode.drop_one_handle_under_kind(kind.kind_mut());
         }
 
         result
@@ -237,10 +235,10 @@ impl FdList {
 
         let old = self.fds.get_mut(idx).and_then(|slot| slot.take());
         if let Some(ref old_fd) = old {
-            old_fd.inode.drop_one_handle_under_kind(kind.deref_mut());
+            old_fd.inode.drop_one_handle_under_kind(kind.kind_mut());
         }
 
-        fd.inode().acquire_handle();
+        fd.inode.acquire_handle();
         self.fds[idx] = Some(fd);
 
         if self.first_free == Some(idx) {
@@ -254,7 +252,7 @@ impl FdList {
         for fd in self.fds.iter_mut() {
             if let Some(fd) = fd.take() {
                 let mut kind = InodeKindWriteGuard::new(&fd.inode);
-                fd.inode.drop_one_handle_under_kind(kind.deref_mut());
+                fd.inode.drop_one_handle_under_kind(kind.kind_mut());
             }
         }
 
@@ -768,7 +766,7 @@ mod tests {
         assert_panic!(
             {
                 let mut kind = InodeKindWriteGuard::new(&fd0.inode);
-                fd0.inode.drop_one_handle_under_kind(kind.deref_mut());
+                fd0.inode.drop_one_handle_under_kind(kind.kind_mut());
             },
             &str,
             "InodeGuard handle dropped too many times"
@@ -833,10 +831,7 @@ mod tests {
         assert_eq!(inode_a.handle_count(), 2);
         assert_eq!(inode_b.handle_count(), 0);
         assert!(l.get(1).is_some());
-        assert!(Arc::ptr_eq(
-            &l.get(1).unwrap().inode.inner,
-            &inode_a.inner
-        ));
+        assert!(Arc::ptr_eq(&l.get(1).unwrap().inode.inner, &inode_a.inner));
     }
 
     #[test]
@@ -878,7 +873,7 @@ mod tests {
 
         let fd = l.get(0).unwrap();
         let mut kind = InodeKindWriteGuard::new(&fd.inode);
-        fd.inode.drop_one_handle_under_kind(kind.deref_mut());
+        fd.inode.drop_one_handle_under_kind(kind.kind_mut());
         drop(kind);
 
         assert_panic!(drop(l), &str, "InodeGuard handle dropped too many times");

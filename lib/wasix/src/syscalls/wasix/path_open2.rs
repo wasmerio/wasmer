@@ -308,7 +308,7 @@ pub(crate) fn path_open_internal(
             return Ok(Err(Errno::Exist));
         }
 
-        match kind.deref_mut() {
+        match kind.kind_mut() {
             Kind::File {
                 handle, path, fd, ..
             } => {
@@ -439,7 +439,7 @@ pub(crate) fn path_open_internal(
             kind,
             with_fd,
         ));
-        return Ok(Ok(out_fd));
+        Ok(Ok(out_fd))
     } else if o_flags.contains(Oflags::CREATE) {
         if o_flags.contains(Oflags::DIRECTORY) {
             return Ok(Err(Errno::Notdir));
@@ -554,8 +554,8 @@ pub(crate) fn path_open_internal(
             kind,
             with_fd,
         ));
-        return Ok(Ok(out_fd));
+        Ok(Ok(out_fd))
     } else {
-        return Ok(Err(maybe_inode.unwrap_err()));
+        Ok(Err(maybe_inode.unwrap_err()))
     }
 }

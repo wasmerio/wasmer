@@ -264,9 +264,7 @@ fn apply_fd_op<M: MemorySize>(
                 fd_map.replace(op.fd, new_fd_entry, &mut kind);
             } else {
                 let mut src_kind = InodeKindWriteGuard::new(&src_inode);
-                let target_kind = target_inode
-                    .as_ref()
-                    .map(|inode| InodeKindWriteGuard::new(inode));
+                let target_kind = target_inode.as_ref().map(InodeKindWriteGuard::new);
 
                 if let Some(target_kind) = target_kind {
                     fd_map.remove(op.fd, target_kind);

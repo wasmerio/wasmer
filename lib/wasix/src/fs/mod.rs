@@ -240,10 +240,11 @@ impl<'a> InodeKindWriteGuard<'a> {
         self.inode
     }
 
-    pub fn deref_mut(&mut self) -> &mut Kind {
+    pub fn kind_mut(&mut self) -> &mut Kind {
         self.guard.deref_mut()
     }
 }
+
 impl std::ops::Deref for InodeGuard {
     type Target = InodeVal;
     fn deref(&self) -> &Self::Target {
