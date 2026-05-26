@@ -182,6 +182,9 @@ impl Memory {
 
         let memorytype = unsafe { wasm_memorytype_new(&limits) };
         let copied_memory = unsafe { wasm_memory_new(v8_store.inner, memorytype) };
+        unsafe {
+            wasm_memorytype_delete(memorytype);
+        }
         if copied_memory.is_null() {
             return Err(MemoryError::Generic(
                 "failed to allocate copied V8 memory".to_owned(),

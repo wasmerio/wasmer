@@ -194,8 +194,15 @@ impl VMMemory {
         let memory = self.as_memory();
         let memory_type = unsafe { wasm_memory_type(memory) };
         let limits = unsafe { wasm_memorytype_limits(memory_type) };
+
         if !unsafe { (*limits).shared } {
+            unsafe {
+                wasm_memorytype_delete(memory_type);
+            }
             return Err(MemoryError::MemoryNotShared);
+        }
+        unsafe {
+            wasm_memorytype_delete(memory_type);
         }
 
         let shared = unsafe { wasm_memory_share(memory) };
