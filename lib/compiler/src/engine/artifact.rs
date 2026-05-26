@@ -790,9 +790,7 @@ impl Artifact {
     /// function body in this artifact.
     ///
     /// Returns `None` for cross-compiled artifacts (where the artifact has not
-    /// been allocated into the host process). Returns `Some` with an empty vec
-    /// for statically-loaded artifacts where function lengths are not recorded,
-    /// or when the artifact's internal state is inconsistent.
+    /// been allocated into the host process).
     ///
     /// # Security
     ///
