@@ -173,7 +173,11 @@ impl InodeGuard {
         self.open_handles.load(Ordering::SeqCst) as u32
     }
 
-    pub fn acquire_handle(&self) {
+    pub fn same_inode_as(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.inner, &other.inner)
+    }
+
+    pub(crate) fn acquire_handle(&self) {
         let prev_handles = self.open_handles.fetch_add(1, Ordering::SeqCst);
         trace!(ino = %self.ino.0, new_count = %(prev_handles + 1), "acquiring handle for InodeGuard");
     }

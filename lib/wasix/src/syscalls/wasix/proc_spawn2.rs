@@ -223,16 +223,15 @@ fn apply_fd_op<M: MemorySize>(
             }
 
             let src_inode = src_fd_entry.inode.clone();
-            let mut src_kind = InodeKindWriteGuard::new(&src_inode);
             let target_inode = env
                 .state
                 .fs
                 .get_fd(op.fd)
                 .ok()
                 .map(|target_fd| target_fd.inode.clone());
-            let mut target_kind = target_inode
+            let same_inode = target_inode
                 .as_ref()
-                .map(|inode| InodeKindWriteGuard::new(inode));
+                .is_some_and(|inode| src_inode.same_inode_as(inode));
 
             let mut fd_map = env.state.fs.fd_map.write().unwrap();
             let fd_entry = fd_map.get(op.src_fd).ok_or(Errno::Badf)?;
@@ -260,16 +259,26 @@ fn apply_fd_op<M: MemorySize>(
                 ..*fd_entry
             };
 
-            if let Some(target_kind) = target_kind.take() {
-                fd_map.remove(op.fd, target_kind);
-            }
+            if same_inode {
+                let mut kind = InodeKindWriteGuard::new(&src_inode);
+                fd_map.replace(op.fd, new_fd_entry, &mut kind);
+            } else {
+                let mut src_kind = InodeKindWriteGuard::new(&src_inode);
+                let target_kind = target_inode
+                    .as_ref()
+                    .map(|inode| InodeKindWriteGuard::new(inode));
 
-            // Exclusive insert because we expect `to` to be free after removing it above
-            if !fd_map.insert(true, op.fd, new_fd_entry, src_kind) {
-                panic!(
-                    "Internal error: expected FD {} to be free after dup2 remove",
-                    op.fd
-                );
+                if let Some(target_kind) = target_kind {
+                    fd_map.remove(op.fd, target_kind);
+                }
+
+                // Exclusive insert because we expect `to` to be free after removing it above
+                if !fd_map.insert(true, op.fd, new_fd_entry, src_kind) {
+                    panic!(
+                        "Internal error: expected FD {} to be free after dup2 remove",
+                        op.fd
+                    );
+                }
             }
             Ok(())
         }

@@ -57,15 +57,14 @@ pub(crate) fn fd_renumber_internal(
         return Ok(Errno::Notsup);
     }
 
-    let mut from_kind = InodeKindWriteGuard::new(&from_inode);
     let target_inode = state
         .fs
         .get_fd(to)
         .ok()
         .map(|target_fd| target_fd.inode.clone());
-    let mut target_kind = target_inode
+    let same_inode = target_inode
         .as_ref()
-        .map(|inode| InodeKindWriteGuard::new(inode));
+        .is_some_and(|inode| from_inode.same_inode_as(inode));
 
     let old_fd;
     {
@@ -95,14 +94,24 @@ pub(crate) fn fd_renumber_internal(
             ..*fd_entry
         };
 
-        old_fd = if let Some(target_kind) = target_kind.take() {
-            fd_map.remove(to, target_kind)
+        if same_inode {
+            let mut kind = InodeKindWriteGuard::new(&from_inode);
+            old_fd = fd_map.replace(to, new_fd_entry, &mut kind);
         } else {
-            None
-        };
+            let mut from_kind = InodeKindWriteGuard::new(&from_inode);
+            let target_kind = target_inode
+                .as_ref()
+                .map(|inode| InodeKindWriteGuard::new(inode));
 
-        if !fd_map.insert(true, to, new_fd_entry, from_kind) {
-            panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
+            old_fd = if let Some(target_kind) = target_kind {
+                fd_map.remove(to, target_kind)
+            } else {
+                None
+            };
+
+            if !fd_map.insert(true, to, new_fd_entry, from_kind) {
+                panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
+            }
         }
     }
 

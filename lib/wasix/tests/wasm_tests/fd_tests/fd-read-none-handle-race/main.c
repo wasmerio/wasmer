@@ -1,3 +1,4 @@
+//#ExpectedStdout: race open/close test passed (20000 iterations)
 #include <errno.h>
 #include <fcntl.h>
 #include <pthread.h>

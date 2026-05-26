@@ -174,6 +174,10 @@ impl FdList {
         if let Some(ref prev_fd) = self.fds[idx] {
             if exclusive {
                 return false;
+            } else if prev_fd.inode.same_inode_as(kind.inode()) {
+                prev_fd
+                    .inode
+                    .drop_one_handle_under_kind(kind.deref_mut());
             } else {
                 let mut prev_kind = InodeKindWriteGuard::new(&prev_fd.inode);
                 prev_fd
@@ -209,6 +213,41 @@ impl FdList {
         }
 
         result
+    }
+
+    /// Replace the FD at `idx` under a single inode write guard.
+    ///
+    /// Used when renumber/dup2 copies one fd table slot onto another that may
+    /// refer to the same inode — acquiring a second write guard would deadlock.
+    pub fn replace(
+        &mut self,
+        idx: WasiFd,
+        fd: Fd,
+        kind: &mut InodeKindWriteGuard<'_>,
+    ) -> Option<Fd> {
+        debug_assert!(Arc::ptr_eq(&fd.inode.inner, &kind.inode().inner));
+        let idx = idx as usize;
+
+        if self.fds.len() <= idx {
+            if self.first_free.is_none() && idx > self.fds.len() {
+                self.first_free = Some(self.fds.len());
+            }
+            self.fds.resize(idx + 1, None);
+        }
+
+        let old = self.fds.get_mut(idx).and_then(|slot| slot.take());
+        if let Some(ref old_fd) = old {
+            old_fd.inode.drop_one_handle_under_kind(kind.deref_mut());
+        }
+
+        fd.inode().acquire_handle();
+        self.fds[idx] = Some(fd);
+
+        if self.first_free == Some(idx) {
+            self.first_free = self.first_free_after(idx as WasiFd + 1);
+        }
+
+        old
     }
 
     pub fn clear(&mut self) {
@@ -736,6 +775,98 @@ mod tests {
         );
 
         assert_panic!(drop(fd0.inode.write()), String, contains "PoisonError");
+    }
+
+    #[test]
+    fn replace_reuses_one_inode_write_guard() {
+        let mut l = FdList::new();
+        let shared_inode = useless_fd(0).inode.clone();
+        let fd0 = Fd {
+            inode: shared_inode.clone(),
+            ..useless_fd(0)
+        };
+        let fd1 = Fd {
+            inode: shared_inode.clone(),
+            ..useless_fd(1)
+        };
+
+        insert_first_free(&mut l, fd0);
+        insert_first_free(&mut l, fd1);
+        assert_eq!(shared_inode.handle_count(), 2);
+
+        let replacement = Fd {
+            inode: shared_inode.clone(),
+            ..useless_fd(2)
+        };
+        let mut kind = InodeKindWriteGuard::new(&shared_inode);
+        let replaced = l.replace(1, replacement, &mut kind);
+        assert!(replaced.is_some());
+        assert_eq!(shared_inode.handle_count(), 2);
+        assert_eq!(l.get(0).unwrap().inode.handle_count(), 2);
+    }
+
+    #[test]
+    fn renumber_cross_inode_replaces_target_slot() {
+        let mut l = FdList::new();
+        let fd0 = useless_fd(0);
+        let inode_a = fd0.inode.clone();
+        let fd1 = useless_fd(1);
+        let inode_b = fd1.inode.clone();
+
+        insert_first_free(&mut l, fd0);
+        insert_first_free(&mut l, fd1);
+        assert_eq!(inode_a.handle_count(), 1);
+        assert_eq!(inode_b.handle_count(), 1);
+
+        let replacement = Fd {
+            inode: inode_a.clone(),
+            ..useless_fd(2)
+        };
+
+        let target_kind = InodeKindWriteGuard::new(&inode_b);
+        let old = l.remove(1, target_kind);
+        assert!(old.is_some());
+
+        let from_kind = InodeKindWriteGuard::new(&inode_a);
+        assert!(l.insert(true, 1, replacement, from_kind));
+
+        assert_eq!(inode_a.handle_count(), 2);
+        assert_eq!(inode_b.handle_count(), 0);
+        assert!(l.get(1).is_some());
+        assert!(Arc::ptr_eq(
+            &l.get(1).unwrap().inode.inner,
+            &inode_a.inner
+        ));
+    }
+
+    #[test]
+    fn renumber_same_inode_replaces_target_slot() {
+        let mut l = FdList::new();
+        let shared_inode = useless_fd(0).inode.clone();
+        let fd0 = Fd {
+            inode: shared_inode.clone(),
+            ..useless_fd(0)
+        };
+        let fd1 = Fd {
+            inode: shared_inode.clone(),
+            ..useless_fd(1)
+        };
+
+        insert_first_free(&mut l, fd0);
+        insert_first_free(&mut l, fd1);
+        assert_eq!(shared_inode.handle_count(), 2);
+
+        let replacement = Fd {
+            inode: shared_inode.clone(),
+            ..useless_fd(2)
+        };
+        let mut kind = InodeKindWriteGuard::new(&shared_inode);
+        let old = l.replace(1, replacement, &mut kind);
+
+        assert!(old.is_some());
+        assert_eq!(shared_inode.handle_count(), 2);
+        assert!(l.get(0).is_some());
+        assert!(l.get(1).is_some());
     }
 
     #[test]
