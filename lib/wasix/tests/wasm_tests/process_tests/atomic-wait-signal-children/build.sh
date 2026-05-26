@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ##AbstractConfig: base
-##SkipEngine:V8:SharedMemoryOps are not support yet
+##SkipEngine:V8:SharedMemoryOps are not supported yet
 ##BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
 
 ##Config: targeted:base

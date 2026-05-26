@@ -175,7 +175,14 @@ impl VMMemory {
     pub(crate) fn obtain(&self, store: *mut wasm_store_t) -> Self {
         match self {
             Self::Attached(memory) => Self::Attached(*memory),
-            Self::Shared(shared) => Self::Attached(unsafe { wasm_memory_obtain(store, *shared) }),
+            Self::Shared(shared) => {
+                let memory = unsafe { wasm_memory_obtain(store, *shared) };
+                assert!(
+                    !memory.is_null(),
+                    "Failed to obtain V8 shared memory: wasm_memory_obtain returned null"
+                );
+                Self::Attached(memory)
+            }
         }
     }
 

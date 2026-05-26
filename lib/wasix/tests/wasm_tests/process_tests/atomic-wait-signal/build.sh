@@ -2,7 +2,7 @@
 ##BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
 ##MustFail: true
 ##ExpectedStdout: waiting
-##SkipEngine:V8:SharedMemoryOps are not support yet
+##SkipEngine:V8:SharedMemoryOps are not supported yet
 
 set -euo pipefail
 

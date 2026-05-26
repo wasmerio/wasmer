@@ -1,7 +1,7 @@
 //! Data types, functions and traits for `v8` runtime's `Memory` implementation.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
-use tracing::{debug, warn};
+use tracing::warn;
 pub use wasmer_types::MemoryError;
 use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
 
@@ -170,16 +170,16 @@ impl Memory {
         let store_ref = store.as_store_ref();
         let v8_store = store_ref.inner.store.as_v8();
 
-        let limits = Box::into_raw(Box::new(wasm_limits_t {
+        let limits = wasm_limits_t {
             min: ty.minimum.0,
             max: ty.maximum.unwrap_or(Pages::max_value()).0,
             // This copy is returned as a `SharedMemory` so it can be moved to
             // another store/thread and attached there. Keep the copied memory
             // independent from the source, but make the copy shareable.
             shared: true,
-        }));
+        };
 
-        let memorytype = unsafe { wasm_memorytype_new(limits) };
+        let memorytype = unsafe { wasm_memorytype_new(&limits) };
         let copied_memory = unsafe { wasm_memory_new(v8_store.inner, memorytype) };
         if copied_memory.is_null() {
             return Err(MemoryError::Generic(
