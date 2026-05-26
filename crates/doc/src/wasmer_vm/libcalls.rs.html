@@ -153,7 +153,7 @@
 <a href=#153 id=153 data-nosnippet>153</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
 <a href=#154 id=154 data-nosnippet>154</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_grow(
 <a href=#155 id=155 data-nosnippet>155</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#156 id=156 data-nosnippet>156</a>    delta: u32,
+<a href=#156 id=156 data-nosnippet>156</a>    delta_in_pages: u32,
 <a href=#157 id=157 data-nosnippet>157</a>    memory_index: u32,
 <a href=#158 id=158 data-nosnippet>158</a>) -&gt; u32 {
 <a href=#159 id=159 data-nosnippet>159</a>    <span class="kw">unsafe </span>{
@@ -162,7 +162,7 @@
 <a href=#162 id=162 data-nosnippet>162</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
 <a href=#163 id=163 data-nosnippet>163</a>
 <a href=#164 id=164 data-nosnippet>164</a>            instance
-<a href=#165 id=165 data-nosnippet>165</a>                .memory_grow(memory_index, delta)
+<a href=#165 id=165 data-nosnippet>165</a>                .memory_grow(memory_index, delta_in_pages)
 <a href=#166 id=166 data-nosnippet>166</a>                .map_or(u32::MAX, |pages| pages.<span class="number">0</span>)
 <a href=#167 id=167 data-nosnippet>167</a>        })
 <a href=#168 id=168 data-nosnippet>168</a>    }
@@ -176,7 +176,7 @@
 <a href=#176 id=176 data-nosnippet>176</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
 <a href=#177 id=177 data-nosnippet>177</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_grow(
 <a href=#178 id=178 data-nosnippet>178</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#179 id=179 data-nosnippet>179</a>    delta: u32,
+<a href=#179 id=179 data-nosnippet>179</a>    delta_in_pages: u32,
 <a href=#180 id=180 data-nosnippet>180</a>    memory_index: u32,
 <a href=#181 id=181 data-nosnippet>181</a>) -&gt; u32 {
 <a href=#182 id=182 data-nosnippet>182</a>    <span class="kw">unsafe </span>{
@@ -185,7 +185,7 @@
 <a href=#185 id=185 data-nosnippet>185</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
 <a href=#186 id=186 data-nosnippet>186</a>
 <a href=#187 id=187 data-nosnippet>187</a>            instance
-<a href=#188 id=188 data-nosnippet>188</a>                .imported_memory_grow(memory_index, delta)
+<a href=#188 id=188 data-nosnippet>188</a>                .imported_memory_grow(memory_index, delta_in_pages)
 <a href=#189 id=189 data-nosnippet>189</a>                .map_or(u32::MAX, |pages| pages.<span class="number">0</span>)
 <a href=#190 id=190 data-nosnippet>190</a>        })
 <a href=#191 id=191 data-nosnippet>191</a>    }
