@@ -1009,7 +1009,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         // --- Soft-float libcalls ---
         // compiler-rt / libgcc provides these on every std Rust target.
         // On wasm32 the JIT engine is never active, so these variants are unreachable.
-        lc @ (LibCall::Addsf3
+        _lc @ (LibCall::Addsf3
         | LibCall::Adddf3
         | LibCall::Subsf3
         | LibCall::Subdf3
