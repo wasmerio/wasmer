@@ -107,19 +107,6 @@ impl Table {
         self.0.is_from_store(store)
     }
 
-    /// Return true if this table is from the `v8` runtime.
-    pub fn is_v8(&self) -> bool {
-        #[cfg(feature = "v8")]
-        {
-            matches!(self.0, BackendTable::V8(_))
-        }
-
-        #[cfg(not(feature = "v8"))]
-        {
-            false
-        }
-    }
-
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
         self.0.to_vm_extern()
     }

@@ -82,9 +82,7 @@ impl InstanceGroupState {
                 "Growing indirect function table"
             );
             table.grow(store, delta, Value::FuncRef(None))?;
-        } else if !table.is_v8() {
-            // TODO: With V8 we might hit a table entry that is an internal placeholder
-            // used for lazy initialization, investigate more.
+        } else {
             let existing = table.get(store, index).unwrap();
             if let Value::FuncRef(Some(_)) = existing {
                 panic!("Internal error: function table index {index} already occupied");
