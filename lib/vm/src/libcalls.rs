@@ -1009,92 +1009,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         // --- Soft-float libcalls ---
         // compiler-rt / libgcc provides these on every std Rust target.
         // On wasm32 the JIT engine is never active, so these variants are unreachable.
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Addsf3 => __addsf3 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Adddf3 => __adddf3 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Subsf3 => __subsf3 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Subdf3 => __subdf3 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Mulsf3 => __mulsf3 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Muldf3 => __muldf3 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Divsf3 => __divsf3 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Divdf3 => __divdf3 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Negsf2 => __negsf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Negdf2 => __negdf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Extendsfdf2 => __extendsfdf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Truncdfsf2 => __truncdfsf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Fixsfsi => __fixsfsi as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Fixdfsi => __fixdfsi as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Fixsfdi => __fixsfdi as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Fixdfdi => __fixdfdi as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Fixunssfsi => __fixunssfsi as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Fixunsdfsi => __fixunsdfsi as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Fixunssfdi => __fixunssfdi as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Fixunsdfdi => __fixunsdfdi as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Floatsisf => __floatsisf as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Floatsidf => __floatsidf as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Floatdisf => __floatdisf as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Floatdidf => __floatdidf as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Floatunsisf => __floatunsisf as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Floatunsidf => __floatunsidf as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Floatundisf => __floatundisf as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Floatundidf => __floatundidf as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Unordsf2 => __unordsf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Unorddf2 => __unorddf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Eqsf2 => __eqsf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Eqdf2 => __eqdf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Nesf2 => __nesf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Nedf2 => __nedf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Gesf2 => __gesf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Gedf2 => __gedf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Ltsf2 => __ltsf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Ltdf2 => __ltdf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Lesf2 => __lesf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Ledf2 => __ledf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Gtsf2 => __gtsf2 as *const () as usize,
-        #[cfg(not(target_arch = "wasm32"))]
-        LibCall::Gtdf2 => __gtdf2 as *const () as usize,
-        #[cfg(target_arch = "wasm32")]
-        LibCall::Addsf3
+        lc @ (LibCall::Addsf3
         | LibCall::Adddf3
         | LibCall::Subsf3
         | LibCall::Subdf3
@@ -1135,8 +1050,55 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         | LibCall::Lesf2
         | LibCall::Ledf2
         | LibCall::Gtsf2
-        | LibCall::Gtdf2 => {
-            unreachable!("soft-float libcalls are not reachable on wasm32")
+        | LibCall::Gtdf2) => {
+            #[cfg(target_arch = "wasm32")]
+            unreachable!("soft-float libcalls are not reachable on wasm32");
+            #[cfg(not(target_arch = "wasm32"))]
+            match lc {
+                LibCall::Addsf3 => __addsf3 as *const () as usize,
+                LibCall::Adddf3 => __adddf3 as *const () as usize,
+                LibCall::Subsf3 => __subsf3 as *const () as usize,
+                LibCall::Subdf3 => __subdf3 as *const () as usize,
+                LibCall::Mulsf3 => __mulsf3 as *const () as usize,
+                LibCall::Muldf3 => __muldf3 as *const () as usize,
+                LibCall::Divsf3 => __divsf3 as *const () as usize,
+                LibCall::Divdf3 => __divdf3 as *const () as usize,
+                LibCall::Negsf2 => __negsf2 as *const () as usize,
+                LibCall::Negdf2 => __negdf2 as *const () as usize,
+                LibCall::Extendsfdf2 => __extendsfdf2 as *const () as usize,
+                LibCall::Truncdfsf2 => __truncdfsf2 as *const () as usize,
+                LibCall::Fixsfsi => __fixsfsi as *const () as usize,
+                LibCall::Fixdfsi => __fixdfsi as *const () as usize,
+                LibCall::Fixsfdi => __fixsfdi as *const () as usize,
+                LibCall::Fixdfdi => __fixdfdi as *const () as usize,
+                LibCall::Fixunssfsi => __fixunssfsi as *const () as usize,
+                LibCall::Fixunsdfsi => __fixunsdfsi as *const () as usize,
+                LibCall::Fixunssfdi => __fixunssfdi as *const () as usize,
+                LibCall::Fixunsdfdi => __fixunsdfdi as *const () as usize,
+                LibCall::Floatsisf => __floatsisf as *const () as usize,
+                LibCall::Floatsidf => __floatsidf as *const () as usize,
+                LibCall::Floatdisf => __floatdisf as *const () as usize,
+                LibCall::Floatdidf => __floatdidf as *const () as usize,
+                LibCall::Floatunsisf => __floatunsisf as *const () as usize,
+                LibCall::Floatunsidf => __floatunsidf as *const () as usize,
+                LibCall::Floatundisf => __floatundisf as *const () as usize,
+                LibCall::Floatundidf => __floatundidf as *const () as usize,
+                LibCall::Unordsf2 => __unordsf2 as *const () as usize,
+                LibCall::Unorddf2 => __unorddf2 as *const () as usize,
+                LibCall::Eqsf2 => __eqsf2 as *const () as usize,
+                LibCall::Eqdf2 => __eqdf2 as *const () as usize,
+                LibCall::Nesf2 => __nesf2 as *const () as usize,
+                LibCall::Nedf2 => __nedf2 as *const () as usize,
+                LibCall::Gesf2 => __gesf2 as *const () as usize,
+                LibCall::Gedf2 => __gedf2 as *const () as usize,
+                LibCall::Ltsf2 => __ltsf2 as *const () as usize,
+                LibCall::Ltdf2 => __ltdf2 as *const () as usize,
+                LibCall::Lesf2 => __lesf2 as *const () as usize,
+                LibCall::Ledf2 => __ledf2 as *const () as usize,
+                LibCall::Gtsf2 => __gtsf2 as *const () as usize,
+                LibCall::Gtdf2 => __gtdf2 as *const () as usize,
+                _ => unreachable!(),
+            }
         }
     }
 }
