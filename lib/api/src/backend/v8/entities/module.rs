@@ -1,5 +1,9 @@
 //! Data types, functions and traits for `v8` runtime's `Module` implementation.
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+    sync::Arc,
+};
 
 use crate::{AsEngineRef, BackendModule, IntoBytes, Store, backend::v8::bindings::*};
 
@@ -145,8 +149,9 @@ pub(crate) struct V8ModuleInfo {
     exports: Vec<ExportType>,
     v8_module_bytes: Vec<u8>,
     // Copy of the custom sections, since the current API cannot retrieve them
-    // later from the handle.
-    custom_sections: HashMap<String, Vec<u8>>,
+    // later from the handle. Use a BTreeMap to keep entries in deterministic order,
+    // producing stable serialized bytes.
+    custom_sections: BTreeMap<String, Vec<u8>>,
 }
 
 #[derive(Clone, PartialEq, Eq)]
@@ -310,13 +315,12 @@ impl Module {
     }
 }
 
-fn get_custom_sections(binary: &[u8]) -> Result<HashMap<String, Vec<u8>>, CompileError> {
-    let mut custom_sections = HashMap::new();
+fn get_custom_sections(binary: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, CompileError> {
+    let mut custom_sections = BTreeMap::new();
     for payload in Parser::new(0).parse_all(binary) {
         if let Payload::CustomSection(section) = payload.map_err(|err| {
             CompileError::Validate(format!("Failed to parse custom sections: {err}"))
-        })?
-        {
+        })? {
             custom_sections.insert(section.name().to_string(), section.data().to_vec());
         }
     }
