@@ -173,10 +173,7 @@ impl Memory {
         let limits = wasm_limits_t {
             min: ty.minimum.0,
             max: ty.maximum.unwrap_or(Pages::max_value()).0,
-            // This copy is returned as a `SharedMemory` so it can be moved to
-            // another store/thread and attached there. Keep the copied memory
-            // independent from the source, but make the copy shareable.
-            shared: true,
+            shared: ty.shared,
         };
 
         let memorytype = unsafe { wasm_memorytype_new(&limits) };
