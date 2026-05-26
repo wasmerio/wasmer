@@ -82,12 +82,15 @@ impl Memory {
         let memory_type: *mut wasm_memorytype_t =
             unsafe { wasm_memory_type(self.handle.as_memory()) };
         let limits: *const wasm_limits_t = unsafe { wasm_memorytype_limits(memory_type) };
+        unsafe {
+            wasm_memorytype_delete(memory_type);
+        }
 
         MemoryType {
             shared: unsafe { (*limits).shared },
             minimum: unsafe { wasmer_types::Pages((*limits).min) },
             maximum: unsafe { Some(wasmer_types::Pages((*limits).max)) },
-        }
+        };
     }
 
     pub fn size(&self, store: &impl AsStoreRef) -> Pages {
@@ -223,6 +226,10 @@ impl Memory {
     }
 
     pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
+        if !self.ty(store).shared {
+            return None;
+        }
+
         Some(SharedMemory::from_vm_memory(crate::vm::VMMemory::V8(
             self.handle.try_clone().ok()?,
         )))

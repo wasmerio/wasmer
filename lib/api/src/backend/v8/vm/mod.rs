@@ -194,16 +194,22 @@ impl VMMemory {
         let memory = self.as_memory();
         let memory_type = unsafe { wasm_memory_type(memory) };
         let limits = unsafe { wasm_memorytype_limits(memory_type) };
-        if !unsafe { (*limits).shared } {
-            return Err(MemoryError::MemoryNotShared);
+        if unsafe { (*limits).shared } {
+            let shared = unsafe { wasm_memory_share(memory) };
+            if shared.is_null() {
+                return Err(MemoryError::Generic(
+                    "Failed to share the memory".to_string(),
+                ));
+            }
+            Ok(Self::Shared(shared))
+        } else {
+            let cloned = unsafe { wasm_memory_copy(memory) };
+            if cloned.is_null() {
+                return Err(MemoryError::Generic(
+                    "Failed to clone the memory".to_string(),
+                ));
+            }
+            Ok(Self::Attached(cloned))
         }
-
-        let shared = unsafe { wasm_memory_share(memory) };
-        if shared.is_null() {
-            return Err(MemoryError::Generic(
-                "Failed to clone the memory".to_string(),
-            ));
-        }
-        Ok(Self::Shared(shared))
     }
 }
