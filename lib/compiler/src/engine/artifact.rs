@@ -801,14 +801,11 @@ impl Artifact {
         &self,
     ) -> Option<Vec<(LocalFunctionIndex, FunctionExtent)>> {
         let allocated = self.allocated.as_ref()?;
-        debug_assert_eq!(
+        assert_eq!(
             allocated.finished_functions.len(),
             allocated.finished_function_lengths.len(),
             "finished_functions and finished_function_lengths must have equal length"
         );
-        if allocated.finished_functions.len() != allocated.finished_function_lengths.len() {
-            return Some(vec![]);
-        }
         Some(
             allocated
                 .finished_functions
