@@ -7,7 +7,7 @@ fn build_v8() {
         sync::{LazyLock, Mutex},
     };
 
-    const WEE8_RELEASE_VERSION: &str = "11.9.5";
+    const WEE8_RELEASE_VERSION: &str = "11.9.6";
 
     let (asset_name, platform_name) = match (
         env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
