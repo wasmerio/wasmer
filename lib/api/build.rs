@@ -18,10 +18,9 @@ fn build_v8() {
     ) {
         ("macos", "aarch64", _) => ("v8-darwin-aarch64.tar.xz", "darwin-aarch64"),
         ("linux", "x86_64", "gnu") => ("v8-linux-amd64.tar.xz", "linux-amd64"),
-        ("linux", "x86_64", "musl") => ("v8-linux-musl-amd64.tar.xz", "linux-musl-amd64"),
+        ("linux", "x86_64", "musl") => ("v8-linux-musl.tar.xz", "linux-musl"),
+        ("windows", "x86_64", _) => ("v8-windows-amd64.tar.xz", "windows-amd64"),
         ("android", "aarch64", _) => ("v8-android-arm64.tar.xz", "android-arm64"),
-        // Not supported in 6.0.0-alpha1
-        //("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-windows-amd64.tar.xz",
         (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
     };
 
@@ -66,7 +65,7 @@ fn build_v8() {
                 .expect("failed to download v8")
                 .body_mut()
                 .with_config()
-                .limit(50 * 1024 * 1024) // 50MB
+                .limit(200 * 1024 * 1024) // Windows prebuilts are substantially larger.
                 .read_to_vec()
                 .expect("failed to download v8 lib");
 
