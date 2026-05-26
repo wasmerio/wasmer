@@ -1,5 +1,5 @@
 use assert_cmd::prelude::OutputAssertExt;
-use wasmer_integration_tests_cli::{fixtures, wasmer_command};
+use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
 
 #[test]
 fn wasmer_publish_bump() {
@@ -23,7 +23,7 @@ fn wasmer_publish_bump() {
     )
     .unwrap();
 
-    let mut cmd = wasmer_command();
+    let mut cmd = std::process::Command::new(get_wasmer_path());
     cmd.arg("publish")
         .arg("--quiet")
         .arg("--bump")
@@ -70,7 +70,7 @@ fn wasmer_publish() {
     )
     .unwrap();
 
-    let mut cmd = wasmer_command();
+    let mut cmd = std::process::Command::new(get_wasmer_path());
     cmd.arg("publish")
         .arg("--quiet")
         .arg("--registry=wasmer.wtf")

@@ -1,9 +1,9 @@
 use std::{fs::OpenOptions, io::Write, path::Path};
 
-use assert_cmd::prelude::OutputAssertExt;
+use assert_cmd::Command;
 use predicates::str::contains;
 use tempfile::TempDir;
-use wasmer_integration_tests_cli::wasmer_command;
+use wasmer_integration_tests_cli::get_wasmer_path;
 
 fn setup_wasmer_dir() -> TempDir {
     let temp = TempDir::new().unwrap();
@@ -45,8 +45,8 @@ fn contains_path(path: impl AsRef<Path>) -> predicates::str::ContainsPredicate {
     contains(expected)
 }
 
-fn wasmer_cmd(temp: &TempDir) -> std::process::Command {
-    let mut cmd = wasmer_command();
+fn wasmer_cmd(temp: &TempDir) -> Command {
+    let mut cmd = Command::new(get_wasmer_path());
     cmd.env("WASMER_DIR", temp.path());
     cmd
 }

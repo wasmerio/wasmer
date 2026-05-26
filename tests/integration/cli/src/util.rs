@@ -2,23 +2,6 @@ use anyhow::bail;
 use std::path::Path;
 use std::process::Command;
 
-use crate::assets::get_wasmer_path;
-
-pub const DEFAULT_WASMER_REGISTRY: &str = "https://registry.wasmer.io/graphql";
-
-pub fn wasmer_command() -> Command {
-    let mut cmd = Command::new(get_wasmer_path());
-    set_default_wasmer_registry(&mut cmd);
-    cmd
-}
-
-pub fn set_default_wasmer_registry(cmd: &mut Command) {
-    cmd.env(
-        "WASMER_REGISTRY",
-        std::env::var("DEFAULT_WASMER_REGISTRY").unwrap_or(DEFAULT_WASMER_REGISTRY.to_string()),
-    );
-}
-
 #[derive(Debug, Copy, Clone)]
 pub enum Compiler {
     Cranelift,

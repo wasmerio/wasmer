@@ -11,7 +11,7 @@ use futures::TryFutureExt;
 use insta::assert_json_snapshot;
 
 use tempfile::NamedTempFile;
-use wasmer_integration_tests_cli::{get_wasmer_path, set_default_wasmer_registry};
+use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct TestIncludeWeb {
@@ -282,7 +282,6 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     let wasm_path = build_test_file(code);
 
     let mut cmd = std::process::Command::new(wasmer_path());
-    set_default_wasmer_registry(&mut cmd);
 
     // let shell = xshell::Shell::new().unwrap();
     // let wasmer = wasmer_path();

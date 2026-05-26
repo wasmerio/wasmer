@@ -2,7 +2,8 @@ use assert_cmd::prelude::OutputAssertExt;
 use predicates::str::contains;
 use tempfile::TempDir;
 
-use wasmer_integration_tests_cli::wasmer_command;
+use std::process::Command;
+use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[test]
 fn login_works() {
@@ -19,7 +20,7 @@ fn login_works() {
     if ciuser_token.is_empty() {
         return;
     }
-    let assert = wasmer_command()
+    let assert = Command::new(get_wasmer_path())
         .arg("login")
         .arg("--registry=wasmer.wtf")
         .arg(ciuser_token)
@@ -48,7 +49,7 @@ fn run_whoami_works() {
         return;
     }
 
-    let assert = wasmer_command()
+    let assert = Command::new(get_wasmer_path())
         .arg("whoami")
         .arg("--registry=wasmer.wtf")
         .env("WASMER_TOKEN", &ciuser_token)

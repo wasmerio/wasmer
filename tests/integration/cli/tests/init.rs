@@ -4,7 +4,8 @@ extern crate pretty_assertions;
 use assert_cmd::prelude::OutputAssertExt;
 use tempfile::TempDir;
 
-use wasmer_integration_tests_cli::wasmer_command;
+use std::process::Command;
+use wasmer_integration_tests_cli::get_wasmer_path;
 
 // Test that wasmer init without arguments works
 #[test]
@@ -14,7 +15,7 @@ fn wasmer_init_works_1() {
     let path = tempdir.path().join("testfirstproject");
     std::fs::create_dir_all(&path).unwrap();
 
-    wasmer_command()
+    Command::new(get_wasmer_path())
         .arg("init")
         .arg("--namespace=ciuser")
         .current_dir(&path)
@@ -42,7 +43,7 @@ fn wasmer_init_works_2() {
     std::fs::create_dir_all(path.join("src")).unwrap();
     std::fs::write(path.join("src").join("main.rs"), b"fn main() { }").unwrap();
 
-    wasmer_command()
+    Command::new(get_wasmer_path())
         .arg("init")
         .arg("--namespace=ciuser")
         .current_dir(&path)

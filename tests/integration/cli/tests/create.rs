@@ -1,5 +1,5 @@
 use assert_cmd::prelude::OutputAssertExt;
-use wasmer_integration_tests_cli::wasmer_command;
+use wasmer_integration_tests_cli::get_wasmer_path;
 
 #[test]
 fn wasmer_create_package() -> anyhow::Result<()> {
@@ -11,7 +11,7 @@ fn wasmer_create_package() -> anyhow::Result<()> {
     let tempdir = tempfile::tempdir()?;
     let app_dir = tempdir.path();
 
-    let mut cmd = wasmer_command();
+    let mut cmd = std::process::Command::new(get_wasmer_path());
     cmd.arg("app")
         .arg("create")
         .arg("--quiet")
