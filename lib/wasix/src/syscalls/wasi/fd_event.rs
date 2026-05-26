@@ -53,6 +53,7 @@ pub fn fd_event_internal(
         | Rights::POLL_FD_READWRITE
         | Rights::FD_FDSTAT_SET_FLAGS;
     let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        let kind = InodeKindWriteGuard::new(&inode);
         state
             .fs
             .with_fd(
@@ -61,18 +62,19 @@ pub fn fd_event_internal(
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 0,
-                inode,
+                kind,
                 fd,
             )
             .map(|_| fd)
     } else {
+        let kind = InodeKindWriteGuard::new(&inode);
         state.fs.create_fd(
             rights,
             rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
             0,
-            inode,
+            kind,
         )
     });
 

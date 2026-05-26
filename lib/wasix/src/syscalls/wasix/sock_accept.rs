@@ -166,14 +166,16 @@ pub(crate) fn sock_accept_internal(
 
     let rights = Rights::all_socket();
     let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        let kind = InodeKindWriteGuard::new(&inode);
         state
             .fs
-            .with_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, inode, fd)
+            .with_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, kind, fd)
             .map(|_| fd)
     } else {
+        let kind = InodeKindWriteGuard::new(&inode);
         state
             .fs
-            .create_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, inode)
+            .create_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, kind)
     });
     Span::current().record("fd", fd);
 

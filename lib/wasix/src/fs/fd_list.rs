@@ -4,6 +4,9 @@
 //! Note, The Unix spec requires newly allocated FDs to always be the
 //! lowest-numbered FD available.
 
+use std::sync::Arc;
+
+use super::InodeKindWriteGuard;
 use super::fd::{Fd, FdInner};
 use wasmer_wasix_types::wasi::Fd as WasiFd;
 
@@ -64,8 +67,9 @@ impl FdList {
             .map(|x| &mut x.inner)
     }
 
-    pub fn insert_first_free(&mut self, fd: Fd) -> WasiFd {
-        fd.inode.acquire_handle();
+    pub fn insert_first_free(&mut self, fd: Fd, kind: InodeKindWriteGuard<'_>) -> WasiFd {
+        debug_assert!(Arc::ptr_eq(&fd.inode.inner, &kind.inode().inner));
+        kind.inode().acquire_handle();
         match self.first_free {
             Some(free) => {
                 assert!(self.fds[free].is_none());
@@ -83,11 +87,17 @@ impl FdList {
         }
     }
 
-    pub fn insert_first_free_after(&mut self, fd: Fd, after_or_equal: WasiFd) -> WasiFd {
+    pub fn insert_first_free_after(
+        &mut self,
+        fd: Fd,
+        after_or_equal: WasiFd,
+        kind: InodeKindWriteGuard<'_>,
+    ) -> WasiFd {
+        debug_assert!(Arc::ptr_eq(&fd.inode.inner, &kind.inode().inner));
         match self.first_free {
             // We're shorter than `after`, need to extend the list regardless of whether we have holes
             _ if self.fds.len() < after_or_equal as usize => {
-                if !self.insert(true, after_or_equal, fd) {
+                if !self.insert(true, after_or_equal, fd, kind) {
                     panic!(
                         "Internal error in FdList - expected {after_or_equal} to be unoccupied since the list wasn't long enough"
                     );
@@ -96,18 +106,17 @@ impl FdList {
             }
 
             // First free hole is suitable, we can insert there
-            Some(free) if free >= after_or_equal as usize => self.insert_first_free(fd),
+            Some(free) if free >= after_or_equal as usize => self.insert_first_free(fd, kind),
 
             // No holes, and we're longer than `after`, so insert at the end
-            None if self.fds.len() >= after_or_equal as usize => self.insert_first_free(fd),
+            None if self.fds.len() >= after_or_equal as usize => self.insert_first_free(fd, kind),
 
             // Keeping the compiler happy
             None => unreachable!("Both None cases were handled before"),
 
             // If there's a hole but its index is too low, we need to search
             Some(_) => {
-                // This is handled by insert or insert_first_free in every other case, but not this one
-                fd.inode.acquire_handle();
+                kind.inode().acquire_handle();
 
                 match self.first_free_after(after_or_equal) {
                     // Found a suitable hole, and it's guaranteed to not be the first since
@@ -137,7 +146,14 @@ impl FdList {
             .map(|idx| idx + skip)
     }
 
-    pub fn insert(&mut self, exclusive: bool, idx: WasiFd, fd: Fd) -> bool {
+    pub fn insert(
+        &mut self,
+        exclusive: bool,
+        idx: WasiFd,
+        fd: Fd,
+        kind: InodeKindWriteGuard<'_>,
+    ) -> bool {
+        debug_assert!(Arc::ptr_eq(&fd.inode.inner, &kind.inode().inner));
         let idx = idx as usize;
 
         if self.fds.len() <= idx {
@@ -159,11 +175,14 @@ impl FdList {
             if exclusive {
                 return false;
             } else {
-                prev_fd.inode.drop_one_handle();
+                let mut prev_kind = InodeKindWriteGuard::new(&prev_fd.inode);
+                prev_fd
+                    .inode
+                    .drop_one_handle_under_kind(prev_kind.deref_mut());
             }
         }
 
-        fd.inode.acquire_handle();
+        kind.inode().acquire_handle();
         self.fds[idx] = Some(fd);
 
         if self.first_free == Some(idx) {
@@ -173,28 +192,30 @@ impl FdList {
         true
     }
 
-    pub fn remove(&mut self, idx: WasiFd) -> Option<Fd> {
+    pub fn remove(&mut self, idx: WasiFd, mut kind: InodeKindWriteGuard<'_>) -> Option<Fd> {
         let idx = idx as usize;
 
         let result = self.fds.get_mut(idx).and_then(|fd| fd.take());
 
         if let Some(fd) = result.as_ref() {
+            debug_assert!(Arc::ptr_eq(&fd.inode.inner, &kind.inode().inner));
             match self.first_free {
                 None => self.first_free = Some(idx),
                 Some(x) if x > idx => self.first_free = Some(idx),
                 _ => (),
             }
 
-            fd.inode.drop_one_handle();
+            fd.inode.drop_one_handle_under_kind(kind.deref_mut());
         }
 
         result
     }
 
     pub fn clear(&mut self) {
-        for fd in &self.fds {
-            if let Some(fd) = fd.as_ref() {
-                fd.inode.drop_one_handle();
+        for fd in self.fds.iter_mut() {
+            if let Some(fd) = fd.take() {
+                let mut kind = InodeKindWriteGuard::new(&fd.inode);
+                fd.inode.drop_one_handle_under_kind(kind.deref_mut());
             }
         }
 
@@ -301,7 +322,7 @@ mod tests {
     use assert_panic::assert_panic;
     use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Rights};
 
-    use crate::fs::{Inode, InodeGuard, InodeVal, Kind, fd::FdInner};
+    use crate::fs::{Inode, InodeGuard, InodeKindWriteGuard, InodeVal, Kind, fd::FdInner};
 
     use super::{Fd, FdList, WasiFd};
 
@@ -329,6 +350,30 @@ mod tests {
         }
     }
 
+    fn insert_first_free(l: &mut FdList, mut fd: Fd) -> WasiFd {
+        let inode = fd.inode.clone();
+        let kind = InodeKindWriteGuard::new(&inode);
+        l.insert_first_free(fd, kind)
+    }
+
+    fn insert_first_free_after(l: &mut FdList, mut fd: Fd, after_or_equal: WasiFd) -> WasiFd {
+        let inode = fd.inode.clone();
+        let kind = InodeKindWriteGuard::new(&inode);
+        l.insert_first_free_after(fd, after_or_equal, kind)
+    }
+
+    fn insert(l: &mut FdList, exclusive: bool, idx: WasiFd, mut fd: Fd) -> bool {
+        let inode = fd.inode.clone();
+        let kind = InodeKindWriteGuard::new(&inode);
+        l.insert(exclusive, idx, fd, kind)
+    }
+
+    fn remove(l: &mut FdList, idx: WasiFd) -> Option<Fd> {
+        let fd = l.get(idx)?.clone();
+        let kind = InodeKindWriteGuard::new(&fd.inode);
+        l.remove(idx, kind)
+    }
+
     fn is_useless_fd(fd: &Fd, n: u16) -> bool {
         fd.inner.flags.bits() == n
     }
@@ -352,8 +397,8 @@ mod tests {
     #[test]
     fn can_append_fds() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
 
         assert_fds_match(&l, &[(0, 0), (1, 1)]);
     }
@@ -361,13 +406,13 @@ mod tests {
     #[test]
     fn can_append_in_holes() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
-        l.remove(1);
-        l.remove(2);
-        l.insert_first_free(useless_fd(4));
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
+        remove(&mut l, 1);
+        remove(&mut l, 2);
+        insert_first_free(&mut l, useless_fd(4));
 
         assert_fds_match(&l, &[(0, 0), (1, 4), (3, 3)]);
     }
@@ -375,15 +420,15 @@ mod tests {
     #[test]
     fn can_have_holes_in_different_places() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
-        l.insert_first_free(useless_fd(4));
-        l.remove(1);
-        l.remove(3);
-        l.insert_first_free(useless_fd(5));
-        l.insert_first_free(useless_fd(6));
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
+        insert_first_free(&mut l, useless_fd(4));
+        remove(&mut l, 1);
+        remove(&mut l, 3);
+        insert_first_free(&mut l, useless_fd(5));
+        insert_first_free(&mut l, useless_fd(6));
 
         assert_fds_match(&l, &[(0, 0), (1, 5), (2, 2), (3, 6), (4, 4)]);
     }
@@ -391,15 +436,15 @@ mod tests {
     #[test]
     fn hole_moves_back_correctly() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
-        l.remove(3);
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
+        remove(&mut l, 3);
         assert_eq!(l.first_free, Some(3));
-        l.remove(1);
+        remove(&mut l, 1);
         assert_eq!(l.first_free, Some(1));
-        l.insert_first_free(useless_fd(4));
+        insert_first_free(&mut l, useless_fd(4));
 
         assert_fds_match(&l, &[(0, 0), (1, 4), (2, 2)]);
     }
@@ -407,13 +452,13 @@ mod tests {
     #[test]
     fn insert_at_first_free_updates_first_free() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
-        l.remove(1);
-        l.remove(2);
-        assert!(l.insert(true, 1, useless_fd(4)));
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
+        remove(&mut l, 1);
+        remove(&mut l, 2);
+        assert!(insert(&mut l, true, 1, useless_fd(4)));
         assert_eq!(l.first_free, Some(2));
 
         assert_fds_match(&l, &[(0, 0), (1, 4), (3, 3)]);
@@ -426,24 +471,24 @@ mod tests {
         assert_eq!(l.next_free_fd(), 0);
         assert_eq!(l.last_fd(), None);
 
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
 
         assert_eq!(l.next_free_fd(), 2);
         assert_eq!(l.last_fd(), Some(1));
 
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
 
         assert_eq!(l.next_free_fd(), 4);
         assert_eq!(l.last_fd(), Some(3));
 
-        l.remove(3);
+        remove(&mut l, 3);
 
         assert_eq!(l.next_free_fd(), 3);
         assert_eq!(l.last_fd(), Some(2));
 
-        l.remove(1);
+        remove(&mut l, 1);
 
         assert_eq!(l.next_free_fd(), 1);
         assert_eq!(l.last_fd(), Some(2));
@@ -453,13 +498,13 @@ mod tests {
     fn get_works() {
         let mut l = FdList::new();
 
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
-        l.insert_first_free(useless_fd(4));
-        l.remove(1);
-        l.remove(3);
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
+        insert_first_free(&mut l, useless_fd(4));
+        remove(&mut l, 1);
+        remove(&mut l, 3);
 
         assert!(l.get(1).is_none());
         assert!(is_useless_fd(l.get(2).unwrap(), 2));
@@ -477,18 +522,18 @@ mod tests {
     fn insert_at_works() {
         let mut l = FdList::new();
 
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.remove(1);
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        remove(&mut l, 1);
 
-        assert!(l.insert(false, 2, useless_fd(3)));
+        assert!(insert(&mut l, false, 2, useless_fd(3)));
         assert!(is_useless_fd(l.get(2).unwrap(), 3));
 
-        assert!(!l.insert(true, 2, useless_fd(4)));
+        assert!(!insert(&mut l, true, 2, useless_fd(4)));
         assert!(is_useless_fd(l.get(2).unwrap(), 3));
 
-        assert!(l.insert(true, 1, useless_fd(5)));
+        assert!(insert(&mut l, true, 1, useless_fd(5)));
         assert!(is_useless_fd(l.get(1).unwrap(), 5));
     }
 
@@ -496,9 +541,9 @@ mod tests {
     fn insert_at_can_insert_beyond_end_of_list() {
         let mut l = FdList::new();
 
-        l.insert_first_free(useless_fd(0));
+        insert_first_free(&mut l, useless_fd(0));
 
-        assert!(l.insert(false, 1, useless_fd(1)));
+        assert!(insert(&mut l, false, 1, useless_fd(1)));
         assert!(is_useless_fd(l.get(1).unwrap(), 1));
 
         // Extending by exactly one element shouldn't change first_free
@@ -507,7 +552,7 @@ mod tests {
         assert!(l.first_free.is_none());
 
         // Now create a hole
-        assert!(l.insert(false, 5, useless_fd(5)));
+        assert!(insert(&mut l, false, 5, useless_fd(5)));
         assert!(is_useless_fd(l.get(5).unwrap(), 5));
 
         for i in 2..=4 {
@@ -523,74 +568,74 @@ mod tests {
     #[test]
     fn insert_first_free_after_beyond_end_of_empty_list() {
         let mut l = FdList::new();
-        assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
+        assert_eq!(insert_first_free_after(&mut l, useless_fd(1), 5), 5);
         assert!(is_useless_fd(l.get(5).unwrap(), 1));
     }
 
     #[test]
     fn insert_first_free_after_beyond_end_of_non_empty_list() {
         let mut l = FdList::new();
-        l.insert(false, 0, useless_fd(0));
-        assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
+        insert(&mut l, false, 0, useless_fd(0));
+        assert_eq!(insert_first_free_after(&mut l, useless_fd(1), 5), 5);
         assert!(is_useless_fd(l.get(5).unwrap(), 1));
     }
 
     #[test]
     fn insert_first_free_after_beyond_end_of_non_empty_list_with_hole() {
         let mut l = FdList::new();
-        l.insert(false, 0, useless_fd(0));
-        l.insert(false, 2, useless_fd(2));
-        assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
+        insert(&mut l, false, 0, useless_fd(0));
+        insert(&mut l, false, 2, useless_fd(2));
+        assert_eq!(insert_first_free_after(&mut l, useless_fd(1), 5), 5);
         assert!(is_useless_fd(l.get(5).unwrap(), 1));
     }
 
     #[test]
     fn insert_first_free_after_behind_hole() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
-        l.remove(2).unwrap();
-        assert_eq!(l.insert_first_free_after(useless_fd(5), 1), 2);
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
+        remove(&mut l, 2).unwrap();
+        assert_eq!(insert_first_free_after(&mut l, useless_fd(5), 1), 2);
         assert!(is_useless_fd(l.get(2).unwrap(), 5));
     }
 
     #[test]
     fn insert_first_free_after_behind_end_without_hole() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
-        assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 4);
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
+        assert_eq!(insert_first_free_after(&mut l, useless_fd(5), 2), 4);
         assert!(is_useless_fd(l.get(4).unwrap(), 5));
     }
 
     #[test]
     fn insert_first_free_after_between_hole_and_end_without_other_hole() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
-        l.insert_first_free(useless_fd(4));
-        l.remove(1).unwrap();
-        assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 5);
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
+        insert_first_free(&mut l, useless_fd(4));
+        remove(&mut l, 1).unwrap();
+        assert_eq!(insert_first_free_after(&mut l, useless_fd(5), 2), 5);
         assert!(is_useless_fd(l.get(5).unwrap(), 5));
     }
 
     #[test]
     fn insert_first_free_after_between_hole_and_end_with_other_hole() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.insert_first_free(useless_fd(3));
-        l.insert_first_free(useless_fd(4));
-        l.remove(1).unwrap();
-        l.remove(3).unwrap();
-        assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 3);
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        insert_first_free(&mut l, useless_fd(3));
+        insert_first_free(&mut l, useless_fd(4));
+        remove(&mut l, 1).unwrap();
+        remove(&mut l, 3).unwrap();
+        assert_eq!(insert_first_free_after(&mut l, useless_fd(5), 2), 3);
         assert!(is_useless_fd(l.get(3).unwrap(), 5));
     }
 
@@ -598,23 +643,23 @@ mod tests {
     fn remove_works() {
         let mut l = FdList::new();
 
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
 
-        assert!(is_useless_fd(&l.remove(1).unwrap(), 1));
-        assert!(l.remove(1).is_none());
-        assert!(l.remove(100000).is_none());
+        assert!(is_useless_fd(&remove(&mut l, 1).unwrap(), 1));
+        assert!(remove(&mut l, 1).is_none());
+        assert!(remove(&mut l, 100000).is_none());
     }
 
     #[test]
     fn clear_works() {
         let mut l = FdList::new();
 
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
-        l.insert_first_free(useless_fd(2));
-        l.remove(1);
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
+        insert_first_free(&mut l, useless_fd(2));
+        remove(&mut l, 1);
 
         l.clear();
 
@@ -627,8 +672,8 @@ mod tests {
     #[test]
     fn iter_mut_works() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
 
         let mut i = l.iter_mut();
 
@@ -649,8 +694,8 @@ mod tests {
     #[test]
     fn open_handles_are_updated_correctly() {
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
-        l.insert_first_free(useless_fd(1));
+        insert_first_free(&mut l, useless_fd(0));
+        insert_first_free(&mut l, useless_fd(1));
 
         let fd0 = l.get(0).unwrap().clone();
         assert_eq!(fd0.inode.handle_count(), 1);
@@ -658,7 +703,7 @@ mod tests {
         // Try removing an FD, should drop the handle
         let fd1 = l.get(1).unwrap().clone();
         assert_eq!(fd1.inode.handle_count(), 1);
-        l.remove(1).unwrap();
+        remove(&mut l, 1).unwrap();
         assert_eq!(fd1.inode.handle_count(), 0);
 
         // Existing FDs should get a new handle when cloning the list
@@ -682,7 +727,10 @@ mod tests {
         assert_eq!(fd0.inode.handle_count(), 0);
 
         assert_panic!(
-            fd0.inode.drop_one_handle(),
+            {
+                let mut kind = InodeKindWriteGuard::new(&fd0.inode);
+                fd0.inode.drop_one_handle_under_kind(kind.deref_mut());
+            },
             &str,
             "InodeGuard handle dropped too many times"
         );
@@ -695,10 +743,12 @@ mod tests {
         // We want to pin this behavior down, as not causing a panic
         // can lead to inconsistencies
         let mut l = FdList::new();
-        l.insert_first_free(useless_fd(0));
+        insert_first_free(&mut l, useless_fd(0));
 
         let fd = l.get(0).unwrap();
-        fd.inode.drop_one_handle();
+        let mut kind = InodeKindWriteGuard::new(&fd.inode);
+        fd.inode.drop_one_handle_under_kind(kind.deref_mut());
+        drop(kind);
 
         assert_panic!(drop(l), &str, "InodeGuard handle dropped too many times");
     }

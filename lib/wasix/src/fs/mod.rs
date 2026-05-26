@@ -178,28 +178,19 @@ impl InodeGuard {
         trace!(ino = %self.ino.0, new_count = %(prev_handles + 1), "acquiring handle for InodeGuard");
     }
 
-    pub fn drop_one_handle(&self) {
+    pub(crate) fn drop_one_handle_under_kind(&self, kind: &mut Kind) {
         let prev_handles = self.open_handles.fetch_sub(1, Ordering::SeqCst);
 
         trace!(ino = %self.ino.0, %prev_handles, "dropping handle for InodeGuard");
 
-        // If this wasn't the last handle, nothing else to do...
         if prev_handles > 1 {
             return;
         }
 
-        // ... otherwise, drop the VirtualFile reference
-        let mut guard = self.inner.write();
-
-        // Must have at least one open handle before we can drop.
-        // This check happens after `inner` is locked so we can
-        // poison the lock and keep people from using this (possibly
-        // corrupt) InodeGuard.
         if prev_handles != 1 {
             panic!("InodeGuard handle dropped too many times");
         }
 
-        // Re-check the open handles to account for race conditions
         if self.open_handles.load(Ordering::SeqCst) != 0 {
             return;
         }
@@ -207,7 +198,7 @@ impl InodeGuard {
         let ino = self.ino.0;
         trace!(%ino, "InodeGuard has no more open handles");
 
-        match guard.deref_mut() {
+        match kind {
             Kind::File { handle, .. } if handle.is_some() => {
                 let file_ref_count = Arc::strong_count(handle.as_ref().unwrap());
                 trace!(%file_ref_count, %ino, "dropping file handle");
@@ -223,6 +214,30 @@ impl InodeGuard {
             }
             _ => (),
         }
+    }
+}
+
+/// Pairs an [`InodeGuard`] with its [`Kind`] write lock so [`FdList`] insert/remove
+/// can keep handle setup, `acquire_handle`, and fd-table mutation in one section.
+pub struct InodeKindWriteGuard<'a> {
+    inode: &'a InodeGuard,
+    guard: std::sync::RwLockWriteGuard<'a, Kind>,
+}
+
+impl<'a> InodeKindWriteGuard<'a> {
+    pub fn new(inode: &'a InodeGuard) -> Self {
+        Self {
+            guard: inode.write(),
+            inode,
+        }
+    }
+
+    pub fn inode(&self) -> &InodeGuard {
+        self.inode
+    }
+
+    pub fn deref_mut(&mut self) -> &mut Kind {
+        self.guard.deref_mut()
     }
 }
 impl std::ops::Deref for InodeGuard {
@@ -683,12 +698,6 @@ impl WasiFs {
                 self.close_fd(*fd).ok();
             }
         });
-
-        if let Ok(mut map) = self.fd_map.write() {
-            for fd in &to_close {
-                map.remove(*fd);
-            }
-        }
     }
 
     /// Closes all the file handles.
@@ -885,13 +894,14 @@ impl WasiFs {
         }
 
         // TODO: review open flags (read, write); they were added without consideration
+        let kind = InodeKindWriteGuard::new(&cur_inode);
         self.create_fd(
             rights,
             rights_inheriting,
             flags,
             fd_flags,
             Fd::READ | Fd::WRITE,
-            cur_inode,
+            kind,
         )
         .map_err(fs_error_from_wasi_err)
     }
@@ -947,15 +957,9 @@ impl WasiFs {
                 }
 
                 // Here, we clone the inode so we can use it to overwrite the fd field below.
+                let kind = InodeKindWriteGuard::new(&inode);
                 let real_fd = self
-                    .create_fd(
-                        rights,
-                        rights_inheriting,
-                        flags,
-                        fd_flags,
-                        open_flags,
-                        inode.clone(),
-                    )
+                    .create_fd(rights, rights_inheriting, flags, fd_flags, open_flags, kind)
                     .map_err(fs_error_from_wasi_err)?;
 
                 {
@@ -1784,7 +1788,7 @@ impl WasiFs {
         fs_flags: Fdflags,
         fd_flags: Fdflagsext,
         open_flags: u16,
-        inode: InodeGuard,
+        kind: InodeKindWriteGuard<'_>,
     ) -> Result<WasiFd, Errno> {
         self.create_fd_ext(
             rights,
@@ -1792,7 +1796,7 @@ impl WasiFs {
             fs_flags,
             fd_flags,
             open_flags,
-            inode,
+            kind,
             None,
             false,
         )
@@ -1806,7 +1810,7 @@ impl WasiFs {
         fs_flags: Fdflags,
         fd_flags: Fdflagsext,
         open_flags: u16,
-        inode: InodeGuard,
+        kind: InodeKindWriteGuard<'_>,
         idx: WasiFd,
     ) -> Result<(), Errno> {
         self.create_fd_ext(
@@ -1815,7 +1819,7 @@ impl WasiFs {
             fs_flags,
             fd_flags,
             open_flags,
-            inode,
+            kind,
             Some(idx),
             true,
         )?;
@@ -1830,10 +1834,17 @@ impl WasiFs {
         fs_flags: Fdflags,
         fd_flags: Fdflagsext,
         open_flags: u16,
-        inode: InodeGuard,
+        kind: InodeKindWriteGuard<'_>,
         idx: Option<WasiFd>,
         exclusive: bool,
     ) -> Result<WasiFd, Errno> {
+        if let Some(idx) = idx
+            && idx > MAX_FD
+        {
+            return Err(Errno::Badf);
+        }
+
+        let inode = kind.inode().clone();
         let is_stdio = matches!(
             idx,
             Some(__WASI_STDIN_FILENO) | Some(__WASI_STDOUT_FILENO) | Some(__WASI_STDERR_FILENO)
@@ -1851,20 +1862,17 @@ impl WasiFs {
             is_stdio,
         };
 
-        let mut guard = self.fd_map.write().unwrap();
+        let mut fd_map = self.fd_map.write().unwrap();
 
         match idx {
             Some(idx) => {
-                if idx > MAX_FD {
-                    return Err(Errno::Badf);
-                }
-                if guard.insert(exclusive, idx, fd) {
+                if fd_map.insert(exclusive, idx, fd, kind) {
                     Ok(idx)
                 } else {
                     Err(Errno::Exist)
                 }
             }
-            None => Ok(guard.insert_first_free(fd)),
+            None => Ok(fd_map.insert_first_free(fd, kind)),
         }
     }
 
@@ -1882,6 +1890,8 @@ impl WasiFs {
         if min_result_fd > MAX_FD {
             return Err(Errno::Inval);
         }
+        let inode = fd.inode.clone();
+        let kind = InodeKindWriteGuard::new(&inode);
         Ok(self.fd_map.write().unwrap().insert_first_free_after(
             Fd {
                 inner: FdInner {
@@ -1899,10 +1909,11 @@ impl WasiFs {
                     },
                 },
                 open_flags: fd.open_flags,
-                inode: fd.inode,
+                inode: inode.clone(),
                 is_stdio: fd.is_stdio,
             },
             min_result_fd,
+            kind,
         ))
     }
 
@@ -1977,6 +1988,7 @@ impl WasiFs {
             & (!Rights::PATH_UNLINK_FILE)
             & (!Rights::PATH_REMOVE_DIRECTORY)
             */;
+        let kind = InodeKindWriteGuard::new(&self.root_inode);
         let fd = self
             .create_fd(
                 root_rights,
@@ -1984,7 +1996,7 @@ impl WasiFs {
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 Fd::READ,
-                self.root_inode.clone(),
+                kind,
             )
             .map_err(|e| format!("Could not create root fd: {e}"))?;
         self.preopen_fds.write().unwrap().push(fd);
@@ -2023,6 +2035,7 @@ impl WasiFs {
                     )
                 })?;
             let fd_flags = Fd::READ;
+            let kind = InodeKindWriteGuard::new(&inode);
             let fd = self
                 .create_fd(
                     rights,
@@ -2030,7 +2043,7 @@ impl WasiFs {
                     Fdflags::empty(),
                     Fdflagsext::empty(),
                     fd_flags,
-                    inode.clone(),
+                    kind,
                 )
                 .map_err(|e| format!("Could not open fd for file {preopen_name:?}: {e}"))?;
             {
@@ -2141,6 +2154,7 @@ impl WasiFs {
                 }
                 fd_flags
             };
+            let kind = InodeKindWriteGuard::new(&inode);
             let fd = self
                 .create_fd(
                     rights,
@@ -2148,7 +2162,7 @@ impl WasiFs {
                     Fdflags::empty(),
                     Fdflagsext::empty(),
                     fd_flags,
-                    inode.clone(),
+                    kind,
                 )
                 .map_err(|e| format!("Could not open fd for file {path:?}: {e}"))?;
             {
@@ -2200,6 +2214,7 @@ impl WasiFs {
                 kind: RwLock::new(kind),
             })
         };
+        let kind = InodeKindWriteGuard::new(&inode);
         self.fd_map.write().unwrap().insert(
             false,
             raw_fd,
@@ -2213,9 +2228,10 @@ impl WasiFs {
                 },
                 // since we're not calling open on this, we don't need open flags
                 open_flags: 0,
-                inode,
+                inode: inode.clone(),
                 is_stdio: true,
             },
+            kind,
         );
     }
 
@@ -2290,9 +2306,11 @@ impl WasiFs {
 
     /// Closes an open FD, handling all details such as FD being preopen
     pub(crate) fn close_fd(&self, fd: WasiFd) -> Result<(), Errno> {
+        let fd_entry = self.get_fd(fd)?;
+        let kind = InodeKindWriteGuard::new(&fd_entry.inode);
         let mut fd_map = self.fd_map.write().unwrap();
 
-        let pfd = fd_map.remove(fd).ok_or(Errno::Badf);
+        let pfd = fd_map.remove(fd, kind).ok_or(Errno::Badf);
         match pfd {
             Ok(fd_ref) => {
                 let inode = fd_ref.inode.ino().as_u64();

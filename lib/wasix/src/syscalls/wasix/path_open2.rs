@@ -1,5 +1,6 @@
 use super::*;
 use crate::VIRTUAL_ROOT_FD;
+use crate::fs::InodeKindWriteGuard;
 use crate::syscalls::*;
 
 /// ### `path_open()`
@@ -111,6 +112,39 @@ pub fn path_open2<M: MemorySize>(
     wasi_try_mem_ok!(fd_ref.write(out_fd));
 
     Ok(Errno::Success)
+}
+
+fn path_open_insert_fd(
+    state: &WasiState,
+    adjusted_rights: Rights,
+    adjusted_rights_inheriting: Rights,
+    fs_flags: Fdflags,
+    fd_flags: Fdflagsext,
+    open_flags: u16,
+    kind: InodeKindWriteGuard<'_>,
+    with_fd: Option<WasiFd>,
+) -> Result<WasiFd, Errno> {
+    if let Some(fd) = with_fd {
+        state.fs.with_fd(
+            adjusted_rights,
+            adjusted_rights_inheriting,
+            fs_flags,
+            fd_flags,
+            open_flags,
+            kind,
+            fd,
+        )?;
+        Ok(fd)
+    } else {
+        state.fs.create_fd(
+            adjusted_rights,
+            adjusted_rights_inheriting,
+            fs_flags,
+            fd_flags,
+            open_flags,
+            kind,
+        )
+    }
 }
 
 pub(crate) fn path_open_internal(
@@ -265,18 +299,16 @@ pub(crate) fn path_open_internal(
 
     let orig_path = path;
 
-    let inode = if let Ok(inode) = maybe_inode {
+    if let Ok(inode) = maybe_inode {
         // Happy path, we found the file we're trying to open
         let processing_inode = inode.clone();
-        let mut guard = processing_inode.write();
-
-        let deref_mut = guard.deref_mut();
+        let mut kind = InodeKindWriteGuard::new(&processing_inode);
 
         if o_flags.contains(Oflags::EXCL) && o_flags.contains(Oflags::CREATE) {
             return Ok(Err(Errno::Exist));
         }
 
-        match deref_mut {
+        match kind.deref_mut() {
             Kind::File {
                 handle, path, fd, ..
             } => {
@@ -396,144 +428,134 @@ pub(crate) fn path_open_internal(
                 );
             }
         }
-        inode
-    } else {
-        // less-happy path, we have to try to create the file
-        if o_flags.contains(Oflags::CREATE) {
-            if o_flags.contains(Oflags::DIRECTORY) {
-                return Ok(Err(Errno::Notdir));
-            }
 
-            // Trailing slash matters. But the underlying opener normalizes it away later.
-            if path.ends_with('/') {
-                return Ok(Err(Errno::Isdir));
-            }
-
-            // strip end file name
-
-            let (parent_inode, new_entity_name) =
-                wasi_try_ok_ok!(state.fs.get_parent_inode_at_path(
-                    inodes,
-                    effective_dirfd,
-                    &path_arg,
-                    follow_symlinks
-                ));
-            let new_file_host_path = {
-                let guard = parent_inode.read();
-                match guard.deref() {
-                    Kind::Dir { path, .. } => {
-                        let mut new_path = path.clone();
-                        new_path.push(&new_entity_name);
-                        new_path
-                    }
-                    Kind::Root { .. } => {
-                        let mut new_path = std::path::PathBuf::new();
-                        new_path.push(&new_entity_name);
-                        new_path
-                    }
-                    _ => return Ok(Err(Errno::Notdir)),
-                }
-            };
-            // once we got the data we need from the parent, we lookup the host file
-            // todo: extra check that opening with write access is okay
-            let handle = {
-                // We set create_new because the path already didn't resolve to an existing file,
-                // so it must be created.
-                let requested_config = open_options
-                    .read(minimum_rights.read)
-                    .append(minimum_rights.append)
-                    .write(minimum_rights.write)
-                    .create_new(true)
-                    .get_config();
-                let shared_config = virtual_fs::OpenOptionsConfig {
-                    read: true,
-                    write: true,
-                    ..requested_config.clone()
-                };
-
-                if minimum_rights.read {
-                    open_flags |= Fd::READ;
-                }
-                if minimum_rights.write {
-                    open_flags |= Fd::WRITE;
-                }
-                if minimum_rights.create_new {
-                    open_flags |= Fd::CREATE;
-                }
-                if minimum_rights.truncate {
-                    open_flags |= Fd::TRUNCATE;
-                }
-
-                match open_shared_file_handle(
-                    new_file_host_path.as_path(),
-                    requested_config,
-                    shared_config,
-                ) {
-                    Ok(handle) => Some(handle),
-                    Err(err) => {
-                        // Even though the file does not exist, it still failed to create with
-                        // `AlreadyExists` error.  This can happen if the path resolves to a
-                        // symlink that points outside the FS sandbox.
-                        if err == Errno::Exist {
-                            return Ok(Err(Errno::Perm));
-                        }
-
-                        return Ok(Err(err));
-                    }
-                }
-            };
-
-            let new_inode = {
-                let kind = Kind::File {
-                    handle: handle.map(|a| Arc::new(std::sync::RwLock::new(a))),
-                    path: new_file_host_path,
-                    fd: None,
-                };
-                wasi_try_ok_ok!(
-                    state
-                        .fs
-                        .create_inode(inodes, kind, false, new_entity_name.clone())
-                )
-            };
-
-            {
-                let mut guard = parent_inode.write();
-                if let Kind::Dir { entries, .. } = guard.deref_mut() {
-                    entries.insert(new_entity_name, new_inode.clone());
-                }
-            }
-
-            new_inode
-        } else {
-            return Ok(Err(maybe_inode.unwrap_err()));
-        }
-    };
-
-    // TODO: check and reduce these
-    // TODO: ensure a mutable fd to root can never be opened
-    let out_fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
-        state
-            .fs
-            .with_fd(
-                adjusted_rights,
-                adjusted_rights_inheriting,
-                fs_flags,
-                fd_flags,
-                open_flags,
-                inode,
-                fd,
-            )
-            .map(|_| fd)
-    } else {
-        state.fs.create_fd(
+        let out_fd = wasi_try_ok_ok!(path_open_insert_fd(
+            state,
             adjusted_rights,
             adjusted_rights_inheriting,
             fs_flags,
             fd_flags,
             open_flags,
-            inode,
-        )
-    });
+            kind,
+            with_fd,
+        ));
+        return Ok(Ok(out_fd));
+    } else if o_flags.contains(Oflags::CREATE) {
+        if o_flags.contains(Oflags::DIRECTORY) {
+            return Ok(Err(Errno::Notdir));
+        }
 
-    Ok(Ok(out_fd))
+        // Trailing slash matters. But the underlying opener normalizes it away later.
+        if path.ends_with('/') {
+            return Ok(Err(Errno::Isdir));
+        }
+
+        // strip end file name
+
+        let (parent_inode, new_entity_name) = wasi_try_ok_ok!(state.fs.get_parent_inode_at_path(
+            inodes,
+            effective_dirfd,
+            &path_arg,
+            follow_symlinks
+        ));
+        let new_file_host_path = {
+            let guard = parent_inode.read();
+            match guard.deref() {
+                Kind::Dir { path, .. } => {
+                    let mut new_path = path.clone();
+                    new_path.push(&new_entity_name);
+                    new_path
+                }
+                Kind::Root { .. } => {
+                    let mut new_path = std::path::PathBuf::new();
+                    new_path.push(&new_entity_name);
+                    new_path
+                }
+                _ => return Ok(Err(Errno::Notdir)),
+            }
+        };
+        // once we got the data we need from the parent, we lookup the host file
+        // todo: extra check that opening with write access is okay
+        let handle = {
+            // We set create_new because the path already didn't resolve to an existing file,
+            // so it must be created.
+            let requested_config = open_options
+                .read(minimum_rights.read)
+                .append(minimum_rights.append)
+                .write(minimum_rights.write)
+                .create_new(true)
+                .get_config();
+            let shared_config = virtual_fs::OpenOptionsConfig {
+                read: true,
+                write: true,
+                ..requested_config.clone()
+            };
+
+            if minimum_rights.read {
+                open_flags |= Fd::READ;
+            }
+            if minimum_rights.write {
+                open_flags |= Fd::WRITE;
+            }
+            if minimum_rights.create_new {
+                open_flags |= Fd::CREATE;
+            }
+            if minimum_rights.truncate {
+                open_flags |= Fd::TRUNCATE;
+            }
+
+            match open_shared_file_handle(
+                new_file_host_path.as_path(),
+                requested_config,
+                shared_config,
+            ) {
+                Ok(handle) => Some(handle),
+                Err(err) => {
+                    // Even though the file does not exist, it still failed to create with
+                    // `AlreadyExists` error.  This can happen if the path resolves to a
+                    // symlink that points outside the FS sandbox.
+                    if err == Errno::Exist {
+                        return Ok(Err(Errno::Perm));
+                    }
+
+                    return Ok(Err(err));
+                }
+            }
+        };
+
+        let new_inode = {
+            let kind = Kind::File {
+                handle: handle.map(|a| Arc::new(std::sync::RwLock::new(a))),
+                path: new_file_host_path,
+                fd: None,
+            };
+            wasi_try_ok_ok!(
+                state
+                    .fs
+                    .create_inode(inodes, kind, false, new_entity_name.clone())
+            )
+        };
+
+        {
+            let mut guard = parent_inode.write();
+            if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                entries.insert(new_entity_name, new_inode.clone());
+            }
+        }
+
+        let kind = InodeKindWriteGuard::new(&new_inode);
+        let out_fd = wasi_try_ok_ok!(path_open_insert_fd(
+            state,
+            adjusted_rights,
+            adjusted_rights_inheriting,
+            fs_flags,
+            fd_flags,
+            open_flags,
+            kind,
+            with_fd,
+        ));
+        return Ok(Ok(out_fd));
+    } else {
+        return Ok(Err(maybe_inode.unwrap_err()));
+    }
 }

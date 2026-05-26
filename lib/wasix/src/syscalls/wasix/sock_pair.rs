@@ -98,6 +98,7 @@ pub(crate) fn sock_pair_internal(
 
     let rights = Rights::all_socket();
     let fd1 = if let Some(fd) = with_fd1 {
+        let kind = InodeKindWriteGuard::new(&inode1);
         state
             .fs
             .with_fd(
@@ -106,21 +107,23 @@ pub(crate) fn sock_pair_internal(
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 0,
-                inode1,
+                kind,
                 fd,
             )
             .map(|_| fd)?
     } else {
+        let kind = InodeKindWriteGuard::new(&inode1);
         state.fs.create_fd(
             rights,
             rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
             0,
-            inode1,
+            kind,
         )?
     };
     let fd2 = if let Some(fd) = with_fd2 {
+        let kind = InodeKindWriteGuard::new(&inode2);
         state
             .fs
             .with_fd(
@@ -129,18 +132,19 @@ pub(crate) fn sock_pair_internal(
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 0,
-                inode2,
+                kind,
                 fd,
             )
             .map(|_| fd)?
     } else {
+        let kind = InodeKindWriteGuard::new(&inode2);
         state.fs.create_fd(
             rights,
             rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
             0,
-            inode2,
+            kind,
         )?
     };
     Span::current().record("end1", fd1);

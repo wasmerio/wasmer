@@ -208,23 +208,41 @@ fn apply_fd_op<M: MemorySize>(
                 return Err(Errno::Badf);
             }
 
-            let target_fd = env.state.fs.get_fd(op.fd).ok();
-            if let Some(fd) = target_fd.as_ref()
-                && !fd.is_stdio
-                && fd.inode.is_preopened
+            if op.src_fd == op.fd {
+                return Ok(());
+            }
+
+            let src_fd_entry = env.state.fs.get_fd(op.src_fd)?;
+
+            if let Some(target_fd) = env.state.fs.get_fd(op.fd).ok()
+                && !target_fd.is_stdio
+                && target_fd.inode.is_preopened
             {
                 warn!("Refusing dup2 FD action over pre-opened FD ({})", op.fd);
                 return Err(Errno::Notsup);
             }
 
-            // According to POSIX dup2 semantics, the target fd should always be closed before duplication
-            // EXCEPT when duplicating a fd to itself (src_fd == fd), which is a no-op.
-            if op.src_fd != op.fd && target_fd.is_some() {
-                env.state.fs.close_fd(op.fd)?;
-            }
+            let src_inode = src_fd_entry.inode.clone();
+            let mut src_kind = InodeKindWriteGuard::new(&src_inode);
+            let target_inode = env
+                .state
+                .fs
+                .get_fd(op.fd)
+                .ok()
+                .map(|target_fd| target_fd.inode.clone());
+            let mut target_kind = target_inode
+                .as_ref()
+                .map(|inode| InodeKindWriteGuard::new(inode));
 
             let mut fd_map = env.state.fs.fd_map.write().unwrap();
             let fd_entry = fd_map.get(op.src_fd).ok_or(Errno::Badf)?;
+
+            if let Some(target_fd) = fd_map.get(op.fd)
+                && !target_fd.is_stdio
+                && target_fd.inode.is_preopened
+            {
+                return Err(Errno::Notsup);
+            }
 
             let new_fd_entry = Fd {
                 // TODO: verify this is correct
@@ -242,8 +260,17 @@ fn apply_fd_op<M: MemorySize>(
                 ..*fd_entry
             };
 
-            // Exclusive insert because we expect `to` to be empty after closing it above
-            fd_map.insert(true, op.fd, new_fd_entry);
+            if let Some(target_kind) = target_kind.take() {
+                fd_map.remove(op.fd, target_kind);
+            }
+
+            // Exclusive insert because we expect `to` to be free after removing it above
+            if !fd_map.insert(true, op.fd, new_fd_entry, src_kind) {
+                panic!(
+                    "Internal error: expected FD {} to be free after dup2 remove",
+                    op.fd
+                );
+            }
             Ok(())
         }
         ProcSpawnFdOpName::Open => {

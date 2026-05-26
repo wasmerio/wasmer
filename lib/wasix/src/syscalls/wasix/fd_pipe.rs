@@ -86,6 +86,7 @@ pub fn fd_pipe_internal(
     let write_rights = rights | Rights::FD_WRITE;
 
     let read_fd = if let Some(fd) = with_read_fd {
+        let kind = InodeKindWriteGuard::new(&rx_inode);
         state
             .fs
             .with_fd(
@@ -94,22 +95,24 @@ pub fn fd_pipe_internal(
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 0,
-                rx_inode,
+                kind,
                 fd,
             )
             .map(|()| fd)?
     } else {
+        let kind = InodeKindWriteGuard::new(&rx_inode);
         state.fs.create_fd(
             read_rights,
             read_rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
             0,
-            rx_inode,
+            kind,
         )?
     };
 
     let write_fd = if let Some(fd) = with_write_fd {
+        let kind = InodeKindWriteGuard::new(&tx_inode);
         state
             .fs
             .with_fd(
@@ -118,18 +121,19 @@ pub fn fd_pipe_internal(
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 0,
-                tx_inode,
+                kind,
                 fd,
             )
             .map(|()| fd)?
     } else {
+        let kind = InodeKindWriteGuard::new(&tx_inode);
         state.fs.create_fd(
             write_rights,
             write_rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
             0,
-            tx_inode,
+            kind,
         )?
     };
 

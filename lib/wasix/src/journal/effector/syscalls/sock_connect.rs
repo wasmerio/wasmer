@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use wasmer_wasix_types::wasi::{Addressfamily, SockProto, Socktype};
 
 use crate::{
-    fs::Kind,
+    fs::{InodeKindWriteGuard, Kind},
     net::socket::{InodeSocket, InodeSocketKind, SocketProperties},
 };
 
@@ -72,6 +72,7 @@ impl JournalEffector {
             .create_inode_with_default_stat(inodes, kind, false, "socket".into());
 
         let rights = Rights::all_socket();
+        let kind = InodeKindWriteGuard::new(&inode);
         state
             .fs
             .with_fd(
@@ -80,7 +81,7 @@ impl JournalEffector {
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 0,
-                inode,
+                kind,
                 fd,
             )
             .map_err(|err| {

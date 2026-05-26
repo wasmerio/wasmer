@@ -172,21 +172,23 @@ pub fn proc_spawn_internal(
                     };
 
                     let rights = crate::net::socket::all_socket_rights();
+                    let parent_kind = InodeKindWriteGuard::new(&parent_end);
                     let pipe = ctx.data().state.fs.create_fd(
                         rights,
                         rights,
                         Fdflags::empty(),
                         Fdflagsext::empty(),
                         0,
-                        parent_end,
+                        parent_kind,
                     )?;
+                    let child_kind = InodeKindWriteGuard::new(&child_end);
                     child_state.fs.create_fd_ext(
                         rights,
                         rights,
                         Fdflags::empty(),
                         Fdflagsext::empty(),
                         0,
-                        child_end,
+                        child_kind,
                         Some(fd),
                         false,
                     )?;

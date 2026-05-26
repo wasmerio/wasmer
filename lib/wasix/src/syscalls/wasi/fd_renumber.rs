@@ -1,5 +1,5 @@
 use super::*;
-use crate::fs::{FlushPoller, MAX_FD};
+use crate::fs::{FlushPoller, InodeKindWriteGuard, MAX_FD};
 use crate::syscalls::*;
 
 /// ### `fd_renumber()`
@@ -44,25 +44,39 @@ pub(crate) fn fd_renumber_internal(
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
-    // Hold a single write lock for both the remove and insert to prevent
-    // another thread from allocating into the target slot between the two
-    // operations.
+    let from_inode = wasi_try_ok!(state.fs.get_fd(from)).inode.clone();
+    if from == to {
+        return Ok(Errno::Success);
+    }
+
+    if let Some(target_fd) = state.fs.get_fd(to).ok()
+        && !target_fd.is_stdio
+        && target_fd.inode.is_preopened
+    {
+        warn!("Refusing fd_renumber({from}, {to}) because FD {to} is pre-opened");
+        return Ok(Errno::Notsup);
+    }
+
+    let mut from_kind = InodeKindWriteGuard::new(&from_inode);
+    let target_inode = state
+        .fs
+        .get_fd(to)
+        .ok()
+        .map(|target_fd| target_fd.inode.clone());
+    let mut target_kind = target_inode
+        .as_ref()
+        .map(|inode| InodeKindWriteGuard::new(inode));
+
     let old_fd;
     {
         let mut fd_map = state.fs.fd_map.write().unwrap();
 
-        // Validate the source first. If `from` is invalid we must not mutate `to`.
         let fd_entry = wasi_try_ok!(fd_map.get(from).ok_or(Errno::Badf));
-        if from == to {
-            return Ok(Errno::Success);
-        }
 
-        // Never allow renumbering over preopens.
         if let Some(target_fd) = fd_map.get(to)
             && !target_fd.is_stdio
             && target_fd.inode.is_preopened
         {
-            warn!("Refusing fd_renumber({from}, {to}) because FD {to} is pre-opened");
             return Ok(Errno::Notsup);
         }
 
@@ -81,14 +95,17 @@ pub(crate) fn fd_renumber_internal(
             ..*fd_entry
         };
 
-        // Remove the target FD under the same lock (replaces the separate
-        // close_fd call which would acquire its own lock).
-        old_fd = fd_map.remove(to);
+        old_fd = if let Some(target_kind) = target_kind.take() {
+            fd_map.remove(to, target_kind)
+        } else {
+            None
+        };
 
-        if !fd_map.insert(true, to, new_fd_entry) {
+        if !fd_map.insert(true, to, new_fd_entry, from_kind) {
             panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
         }
     }
+
     // Flush and drop the old FD outside the lock. The flush is best-effort:
     // failures are intentionally ignored so fd_renumber result depends only on
     // descriptor map updates and validation.

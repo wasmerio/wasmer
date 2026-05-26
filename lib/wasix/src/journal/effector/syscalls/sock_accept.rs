@@ -3,7 +3,7 @@ use std::net::SocketAddr;
 use wasmer_wasix_types::wasi::{Addressfamily, SockProto, Socktype};
 
 use crate::{
-    fs::Kind,
+    fs::{InodeKindWriteGuard, Kind},
     net::socket::{InodeSocket, InodeSocketKind, SocketProperties},
 };
 
@@ -90,9 +90,10 @@ impl JournalEffector {
         }
 
         let rights = Rights::all_socket();
+        let kind = InodeKindWriteGuard::new(&inode);
         let ret = state
             .fs
-            .with_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, inode, fd);
+            .with_fd(rights, rights, new_flags, Fdflagsext::empty(), 0, kind, fd);
         ret.map_err(|err| {
             anyhow::format_err!(
                 "journal restore error: failed to create remote accepted socket - {err}"

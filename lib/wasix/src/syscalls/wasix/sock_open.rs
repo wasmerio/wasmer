@@ -101,6 +101,7 @@ pub(crate) fn sock_open_internal(
             .create_inode_with_default_stat(inodes, kind, false, "socket".to_string().into());
     let rights = Rights::all_socket();
     let fd = wasi_try_ok_ok!(if let Some(fd) = with_fd {
+        let kind = InodeKindWriteGuard::new(&inode);
         state
             .fs
             .with_fd(
@@ -109,18 +110,19 @@ pub(crate) fn sock_open_internal(
                 Fdflags::empty(),
                 Fdflagsext::empty(),
                 0,
-                inode,
+                kind,
                 fd,
             )
             .map(|_| fd)
     } else {
+        let kind = InodeKindWriteGuard::new(&inode);
         state.fs.create_fd(
             rights,
             rights,
             Fdflags::empty(),
             Fdflagsext::empty(),
             0,
-            inode,
+            kind,
         )
     });
     Span::current().record("sock", fd);
