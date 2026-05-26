@@ -789,35 +789,38 @@ impl Artifact {
     /// Returns the start address and byte length of each locally-defined
     /// function body in this artifact.
     ///
-    /// Returns an empty vec for cross-compiled or statically-loaded artifacts
-    /// (where function lengths are not recorded), and also when the artifact's
-    /// internal state is inconsistent.
+    /// Returns `None` for cross-compiled artifacts (where the artifact has not
+    /// been allocated into the host process). Returns `Some` with an empty vec
+    /// for statically-loaded artifacts where function lengths are not recorded,
+    /// or when the artifact's internal state is inconsistent.
     ///
     /// # Security
     ///
     /// The returned addresses are host-process pointers. They are not stable
     /// across runs and must not be forwarded to untrusted parties, as they
     /// reveal ASLR layout information.
-    pub fn finished_function_extents(&self) -> Vec<(LocalFunctionIndex, FunctionExtent)> {
-        let Some(allocated) = self.allocated.as_ref() else {
-            return vec![];
-        };
+    pub fn finished_function_extents(
+        &self,
+    ) -> Option<Vec<(LocalFunctionIndex, FunctionExtent)>> {
+        let allocated = self.allocated.as_ref()?;
         debug_assert_eq!(
             allocated.finished_functions.len(),
             allocated.finished_function_lengths.len(),
             "finished_functions and finished_function_lengths must have equal length"
         );
         if allocated.finished_functions.len() != allocated.finished_function_lengths.len() {
-            return vec![];
+            return Some(vec![]);
         }
-        allocated
-            .finished_functions
-            .iter()
-            .filter_map(|(index, &ptr)| {
-                let length = allocated.finished_function_lengths[index];
-                (length > 0).then_some((index, FunctionExtent { ptr, length }))
-            })
-            .collect()
+        Some(
+            allocated
+                .finished_functions
+                .iter()
+                .filter_map(|(index, &ptr)| {
+                    let length = allocated.finished_function_lengths[index];
+                    (length > 0).then_some((index, FunctionExtent { ptr, length }))
+                })
+                .collect(),
+        )
     }
 
     /// Returns the function call trampolines allocated in memory of this
@@ -1393,7 +1396,7 @@ mod tests {
     #[test]
     fn finished_function_extents_filters_zero_lengths() {
         let artifact = make_artifact(&[0, 64, 0]);
-        let extents = artifact.finished_function_extents();
+        let extents = artifact.finished_function_extents().expect("allocated artifact must return Some");
         assert_eq!(extents.len(), 1, "only the non-zero function should appear");
         assert_eq!(extents[0].0.as_u32(), 1, "index must match the non-zero function");
         assert_eq!(extents[0].1.length, 64);
@@ -1403,21 +1406,21 @@ mod tests {
     fn finished_function_extents_all_zero_returns_empty() {
         let artifact = make_artifact(&[0, 0, 0]);
         assert!(
-            artifact.finished_function_extents().is_empty(),
+            artifact.finished_function_extents().expect("allocated artifact must return Some").is_empty(),
             "all-zero lengths (static artifact) must yield no extents"
         );
     }
 
     #[test]
-    fn finished_function_extents_none_allocated_returns_empty() {
+    fn finished_function_extents_none_allocated_returns_none() {
         let artifact = Artifact {
             id: Default::default(),
             artifact: ArtifactBuildVariant::Plain(empty_artifact_build()),
             allocated: None,
         };
         assert!(
-            artifact.finished_function_extents().is_empty(),
-            "non-allocated artifact (cross-compilation target) must yield no extents"
+            artifact.finished_function_extents().is_none(),
+            "non-allocated artifact (cross-compilation target) must return None"
         );
     }
 }

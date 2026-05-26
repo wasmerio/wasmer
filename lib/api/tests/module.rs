@@ -338,7 +338,8 @@ mod function_extents_tests {
         let extents = module
             .sys_artifact()
             .expect("expected sys-backend module artifact")
-            .finished_function_extents();
+            .finished_function_extents()
+            .expect("JIT-compiled artifact must have function extents");
 
         assert_eq!(extents.len(), 3, "expected one extent per local function");
         let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
@@ -376,7 +377,8 @@ mod function_extents_tests {
         let extents = module
             .sys_artifact()
             .expect("expected sys-backend module artifact")
-            .finished_function_extents();
+            .finished_function_extents()
+            .expect("JIT-compiled artifact must have function extents");
 
         assert_eq!(
             extents.len(),
