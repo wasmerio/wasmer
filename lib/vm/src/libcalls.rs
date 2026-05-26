@@ -1054,7 +1054,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
             #[cfg(not(any(target_arch = "riscv32", target_arch = "riscv64")))]
             unreachable!("soft-float libcalls are not reachable on this target");
             #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
-            match lc {
+            match _lc {
                 LibCall::Addsf3 => __addsf3 as *const () as usize,
                 LibCall::Adddf3 => __adddf3 as *const () as usize,
                 LibCall::Subsf3 => __subsf3 as *const () as usize,
