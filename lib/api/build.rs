@@ -65,7 +65,8 @@ fn build_v8() {
                 .expect("failed to download v8")
                 .body_mut()
                 .with_config()
-                .limit(200 * 1024 * 1024) // Windows prebuilts are substantially larger.
+                // Windows prebuilts are substantially larger.
+                .limit(200 * 1024 * 1024)
                 .read_to_vec()
                 .expect("failed to download v8 lib");
 
