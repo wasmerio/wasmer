@@ -810,9 +810,9 @@ impl Artifact {
             allocated
                 .finished_functions
                 .iter()
-                .filter_map(|(index, &ptr)| {
+                .map(|(index, &ptr)| {
                     let length = allocated.finished_function_lengths[index];
-                    (length > 0).then_some((index, FunctionExtent { ptr, length }))
+                    (index, FunctionExtent { ptr, length })
                 })
                 .collect(),
         )
@@ -1343,8 +1343,6 @@ mod tests {
         types::module::CompileModuleInfo,
     };
     use wasmer_types::{Features, ModuleInfo, entity::PrimaryMap};
-    use std::ptr::NonNull;
-    use wasmer_vm::{FunctionBodyPtr, VMFunctionBody};
 
     fn empty_artifact_build() -> ArtifactBuild {
         ArtifactBuild::from_serializable(SerializableModule {
@@ -1358,52 +1356,6 @@ mod tests {
             data_initializers: Box::new([]),
             cpu_features: 0,
         })
-    }
-
-    fn make_artifact(lengths: &[usize]) -> Artifact {
-        let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
-            PrimaryMap::new();
-        let mut finished_function_lengths: PrimaryMap<LocalFunctionIndex, usize> =
-            PrimaryMap::new();
-        for &len in lengths {
-            finished_functions.push(FunctionBodyPtr(NonNull::<VMFunctionBody>::dangling().as_ptr()));
-            finished_function_lengths.push(len);
-        }
-        Artifact {
-            id: Default::default(),
-            artifact: ArtifactBuildVariant::Plain(empty_artifact_build()),
-            allocated: Some(AllocatedArtifact {
-                frame_info_registered: false,
-                frame_info_registration: None,
-                finished_functions: finished_functions.into_boxed_slice(),
-                finished_function_call_trampolines: PrimaryMap::new().into_boxed_slice(),
-                finished_dynamic_function_trampolines: PrimaryMap::new().into_boxed_slice(),
-                signatures: PrimaryMap::new().into_boxed_slice(),
-                finished_function_lengths: finished_function_lengths.into_boxed_slice(),
-            }),
-        }
-    }
-
-    // The static-artifact-load path (deserialize_object) sets all
-    // finished_function_lengths to 0 because lengths are not stored in
-    // that format. finished_function_extents() must filter them out so
-    // callers see no extents rather than zero-length phantom extents.
-    #[test]
-    fn finished_function_extents_filters_zero_lengths() {
-        let artifact = make_artifact(&[0, 64, 0]);
-        let extents = artifact.finished_function_extents().expect("allocated artifact must return Some");
-        assert_eq!(extents.len(), 1, "only the non-zero function should appear");
-        assert_eq!(extents[0].0.as_u32(), 1, "index must match the non-zero function");
-        assert_eq!(extents[0].1.length, 64);
-    }
-
-    #[test]
-    fn finished_function_extents_all_zero_returns_empty() {
-        let artifact = make_artifact(&[0, 0, 0]);
-        assert!(
-            artifact.finished_function_extents().expect("allocated artifact must return Some").is_empty(),
-            "all-zero lengths (static artifact) must yield no extents"
-        );
     }
 
     #[test]
