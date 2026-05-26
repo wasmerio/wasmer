@@ -35,3 +35,4 @@ link.tar.gz
 result
 result-*
 /lib/wasix/tests/wasm_tests/build/
+.env
