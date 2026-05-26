@@ -92,10 +92,8 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
-// Soft-float routines that LLVM emits for targets without hardware floating-point. Not needed on
-// x86-64 or AArch64 because LLVM lowers float and integer arithmetic to native instructions on
-// those targets, never to these helpers.
-#[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+// Soft-float routines emitted by LLVM for targets without hardware floating-point.
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     // §3.2.1 Arithmetic
     "__addsf3" => LibCall::Addsf3,
@@ -213,7 +211,7 @@ fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
     if let Some(&lc) = base.get(name) {
         return Some(lc);
     }
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
     if fmt == BinaryFormat::Elf {
         if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
             return Some(lc);
