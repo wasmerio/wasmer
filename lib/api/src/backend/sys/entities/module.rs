@@ -287,4 +287,21 @@ impl crate::Module {
             _ => panic!("Not a `sys` module!"),
         }
     }
+
+    /// Returns the compiled [`Artifact`] backing this module, or `None` if this
+    /// is not a `sys`-backend module.
+    ///
+    /// # Security
+    ///
+    /// The artifact exposes host-process memory addresses (e.g. via
+    /// [`Artifact::finished_function_extents`]). These are not stable across
+    /// runs and must not be forwarded to untrusted parties, as they reveal
+    /// ASLR layout information.
+    pub fn sys_artifact(&self) -> Option<&Artifact> {
+        match self.0 {
+            BackendModule::Sys(ref s) => Some(&s.artifact),
+            #[allow(unreachable_patterns)]
+            _ => None,
+        }
+    }
 }

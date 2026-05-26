@@ -1,4 +1,6 @@
 //#UnixOnly: true
+//#SkipEngine:V8:async functions are not supported yet
+
 // Minimal: 3 mutually recursive funcs, 3 contexts, circular pattern
 #include <assert.h>
 #include <stdio.h>

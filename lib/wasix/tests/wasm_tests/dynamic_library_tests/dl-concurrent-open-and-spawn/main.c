@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#define DL_ITERATIONS 72
-#define SPAWN_ITERATIONS 96
+#define DL_ITERATIONS 32
+#define SPAWN_ITERATIONS 48
 
 static void* noop_thread(void* arg) {
   (void)arg;

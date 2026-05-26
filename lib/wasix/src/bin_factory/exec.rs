@@ -381,8 +381,16 @@ fn call_module(
             Some(s) => s,
             None => {
                 let err_display = err.display(&mut store);
-                error!("{err_display}");
-                eprintln!("{err_display}");
+                if matches!(
+                    err,
+                    WasiRuntimeError::Runtime(runtime_err)
+                        if runtime_err.clone().to_trap() == Some(wasmer_types::TrapCode::HostInterrupt)
+                ) {
+                    debug!("{err_display}");
+                } else {
+                    error!("{err_display}");
+                    eprintln!("{err_display}");
+                }
                 Errno::Noexec.into()
             }
         }

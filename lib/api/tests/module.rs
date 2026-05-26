@@ -281,7 +281,6 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 
 #[engine_test]
 #[allow(unused_attributes)]
-#[cfg_attr(feature = "v8", ignore = "v8 does not support custom sections")]
 fn module_custom_sections() -> Result<(), String> {
     let store = Store::default();
     let custom_section_wasm_bytes = include_bytes!("simple-name-section.wasm");
@@ -294,6 +293,106 @@ fn module_custom_sections() -> Result<(), String> {
         vec![2, 2, 36, 105, 1, 0, 0, 0].into_boxed_slice()
     );
     Ok(())
+}
+
+#[cfg(all(
+    not(target_arch = "wasm32"),
+    any(feature = "cranelift", feature = "llvm", feature = "singlepass")
+))]
+mod function_extents_tests {
+    use super::*;
+
+    /// Returns a [`Store`] backed by the sys engine using whatever compiler is
+    /// available. Cranelift is preferred, then Singlepass, then LLVM.
+    fn sys_store() -> Store {
+        use wasmer::sys::NativeEngineExt as _;
+        #[cfg(feature = "cranelift")]
+        let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
+            .engine()
+            .into();
+        #[cfg(all(not(feature = "cranelift"), feature = "singlepass"))]
+        let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Singlepass::default())
+            .engine()
+            .into();
+        #[cfg(all(
+            not(feature = "cranelift"),
+            not(feature = "singlepass"),
+            feature = "llvm"
+        ))]
+        let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::LLVM::default())
+            .engine()
+            .into();
+        Store::new(engine)
+    }
+
+    #[test]
+    fn returns_one_entry_per_local_function() -> Result<(), String> {
+        let store = sys_store();
+        let wat = r#"(module
+            (func $f1 (result i32) i32.const 1)
+            (func $f2 (result i32) i32.const 2)
+            (func $f3 (param i32) (result i32) local.get 0)
+        )"#;
+        let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+        let extents = module
+            .sys_artifact()
+            .expect("expected sys-backend module artifact")
+            .finished_function_extents()
+            .expect("JIT-compiled artifact must have function extents");
+
+        assert_eq!(extents.len(), 3, "expected one extent per local function");
+        let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
+        assert_eq!(
+            indices,
+            vec![0, 1, 2],
+            "indices must be sequential starting from 0"
+        );
+        for (index, extent) in &extents {
+            assert!(
+                !extent.ptr.0.is_null(),
+                "function {} has null address",
+                index.as_u32()
+            );
+            assert_ne!(
+                extent.length,
+                0,
+                "function {} has zero length",
+                index.as_u32()
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn excludes_imported_functions() -> Result<(), String> {
+        let store = sys_store();
+        let wat = r#"(module
+            (import "env" "f" (func (param i32)))
+            (func $local1 (result i32) i32.const 42)
+            (func $local2 (param i32) (result i32) local.get 0)
+        )"#;
+        let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+        let extents = module
+            .sys_artifact()
+            .expect("expected sys-backend module artifact")
+            .finished_function_extents()
+            .expect("JIT-compiled artifact must have function extents");
+
+        assert_eq!(
+            extents.len(),
+            2,
+            "imported functions must not appear in extents"
+        );
+        let indices: Vec<u32> = extents.iter().map(|(i, _)| i.as_u32()).collect();
+        assert_eq!(
+            indices,
+            vec![0, 1],
+            "indices must be local (0-based), not global function indices"
+        );
+
+        Ok(())
+    }
 }
 
 #[test]

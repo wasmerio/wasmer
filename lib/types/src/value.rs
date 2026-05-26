@@ -21,27 +21,36 @@ pub union RawValue {
     pub bytes: [u8; 16],
 }
 
+impl RawValue {
+    #[inline]
+    fn with_zeroed_bytes(f: impl FnOnce(&mut Self)) -> Self {
+        let mut raw = Self::default();
+        f(&mut raw);
+        raw
+    }
+}
+
 impl From<i32> for RawValue {
     fn from(value: i32) -> Self {
-        Self { i32: value }
+        Self::with_zeroed_bytes(|raw| raw.i32 = value)
     }
 }
 
 impl From<i64> for RawValue {
     fn from(value: i64) -> Self {
-        Self { i64: value }
+        Self::with_zeroed_bytes(|raw| raw.i64 = value)
     }
 }
 
 impl From<f32> for RawValue {
     fn from(value: f32) -> Self {
-        Self { f32: value }
+        Self::with_zeroed_bytes(|raw| raw.f32 = value)
     }
 }
 
 impl From<f64> for RawValue {
     fn from(value: f64) -> Self {
-        Self { f64: value }
+        Self::with_zeroed_bytes(|raw| raw.f64 = value)
     }
 }
 
@@ -139,4 +148,25 @@ primitives! {
 unsafe impl<T: ?Sized> ValueType for PhantomData<T> {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RawValue;
+
+    #[test]
+    fn raw_value_zero_initialized() {
+        #[cfg(target_endian = "little")]
+        {
+            assert_eq!(RawValue::from(123i32), 123i64);
+            assert_eq!(RawValue::from(0.0f32), 0i64);
+            assert_eq!(RawValue::from(0.0f32), 0u128);
+
+            const VAL: f64 = 123.456;
+            assert_eq!(
+                RawValue::from(VAL),
+                u128::from(u64::from_ne_bytes(VAL.to_ne_bytes()))
+            );
+        }
+    }
 }

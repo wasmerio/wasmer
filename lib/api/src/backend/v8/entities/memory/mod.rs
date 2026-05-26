@@ -131,12 +131,14 @@ impl Memory {
     ) -> Result<(), MemoryError> {
         check_isolate(store);
         let store_mut = store.as_store_mut();
+        let min_size = Pages::from_bytes_rounded_up(min_size).ok_or_else(|| {
+            MemoryError::Generic("could not represent {min_size} in Pages".to_owned())
+        })?;
 
         unsafe {
-            let current = wasm_memory_size(self.handle.0);
-            let delta = (min_size as u32) - current;
-            if delta > 0 {
-                self.grow(store, delta)?;
+            let current_pages = wasm_memory_size(self.handle.0);
+            if min_size.0 > current_pages {
+                self.grow(store, Pages(min_size.0 - current_pages))?;
             }
         }
 

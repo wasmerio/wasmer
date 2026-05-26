@@ -153,7 +153,7 @@ pub extern "C" fn wasmer_vm_f64_nearest(x: f64) -> f64 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_memory32_grow(
     vmctx: *mut VMContext,
-    delta: u32,
+    delta_in_pages: u32,
     memory_index: u32,
 ) -> u32 {
     unsafe {
@@ -162,7 +162,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
             instance
-                .memory_grow(memory_index, delta)
+                .memory_grow(memory_index, delta_in_pages)
                 .map_or(u32::MAX, |pages| pages.0)
         })
     }
@@ -176,7 +176,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
     vmctx: *mut VMContext,
-    delta: u32,
+    delta_in_pages: u32,
     memory_index: u32,
 ) -> u32 {
     unsafe {
@@ -185,7 +185,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
             let memory_index = MemoryIndex::from_u32(memory_index);
 
             instance
-                .imported_memory_grow(memory_index, delta)
+                .imported_memory_grow(memory_index, delta_in_pages)
                 .map_or(u32::MAX, |pages| pages.0)
         })
     }
