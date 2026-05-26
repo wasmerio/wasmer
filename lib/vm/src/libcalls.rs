@@ -1051,9 +1051,9 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         | LibCall::Ledf2
         | LibCall::Gtsf2
         | LibCall::Gtdf2) => {
-            #[cfg(target_arch = "wasm32")]
-            unreachable!("soft-float libcalls are not reachable on wasm32");
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(not(any(target_arch = "riscv32", target_arch = "riscv64")))]
+            unreachable!("soft-float libcalls are not reachable on this target");
+            #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
             match lc {
                 LibCall::Addsf3 => __addsf3 as *const () as usize,
                 LibCall::Adddf3 => __adddf3 as *const () as usize,
@@ -1103,10 +1103,8 @@ pub fn function_pointer(libcall: LibCall) -> usize {
     }
 }
 
-// Soft-float arithmetic routines. Provided by compiler-rt / libgcc on every
-// standard non-wasm Rust target. Not declared on wasm32 where these symbols
-// do not exist and the JIT engine is never active.
-#[cfg(not(target_arch = "wasm32"))]
+// Soft-float arithmetic routines. Provided by compiler-rt / libgcc on riscv targets.
+#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
 unsafe extern "C" {
     // --- f32/f64 arithmetic ---
     fn __addsf3(a: f32, b: f32) -> f32;
