@@ -65,6 +65,8 @@ pub fn path_rename_internal(
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
+    let mut moved_ephemeral_symlink = false;
+
     {
         let source_fd = wasi_try_ok!(state.fs.get_fd(source_fd));
         if !source_fd.inner.rights.contains(Rights::PATH_RENAME_SOURCE) {
@@ -267,6 +269,7 @@ pub fn path_rename_internal(
                         new_path_to_symlink,
                         relative_path.clone(),
                     );
+                    moved_ephemeral_symlink = true;
                 }
             }
             Kind::Buffer { .. }
@@ -303,9 +306,11 @@ pub fn path_rename_internal(
 
     // If the rename replaced an existing destination entry, clear any stale
     // ephemeral symlink mapping for that path.
-    state
-        .fs
-        .unregister_ephemeral_symlink(host_adjusted_target_path.as_path());
+    if !moved_ephemeral_symlink {
+        state
+            .fs
+            .unregister_ephemeral_symlink(host_adjusted_target_path.as_path());
+    }
 
     Ok(Errno::Success)
 }

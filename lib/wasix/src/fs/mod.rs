@@ -2498,33 +2498,49 @@ impl WasiFs {
             Kind::Symlink {
                 base_po_dir,
                 path_to_symlink,
-                ..
+                relative_path,
             } => {
-                let guard = self.fd_map.read().unwrap();
-                let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
-                let guard = base_po_inode.read();
-                match guard.deref() {
-                    Kind::Root { .. } => self
-                        .root_fs
-                        .symlink_metadata(path_to_symlink)
-                        .map_err(fs_error_into_wasi_err)?,
-                    Kind::Dir { path, .. } => {
-                        let mut real_path = path.clone();
-                        // PHASE 1: ignore all possible symlinks in `relative_path`
-                        // TODO: walk the segments of `relative_path` via the entries of the Dir
-                        //       use helper function to avoid duplicating this logic (walking this will require
-                        //       &self to be &mut sel
-                        // TODO: adjust size of symlink, too
-                        //      for all paths adjusted think about this
-                        real_path.push(path_to_symlink);
-                        self.root_fs
-                            .symlink_metadata(&real_path)
-                            .map_err(fs_error_into_wasi_err)?
+                let symlink_path = {
+                    let guard = self.fd_map.read().unwrap();
+                    let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
+                    let guard = base_po_inode.read();
+                    let path_to_symlink =
+                        path_to_symlink.strip_prefix("/").unwrap_or(path_to_symlink);
+
+                    match guard.deref() {
+                        Kind::Root { .. } => {
+                            let mut symlink_path = PathBuf::from("/");
+                            symlink_path.push(path_to_symlink);
+                            symlink_path
+                        }
+                        Kind::Dir { path, .. } => {
+                            let mut symlink_path = path.clone();
+                            // PHASE 1: ignore all possible symlinks in `relative_path`
+                            // TODO: walk the segments of `relative_path` via the entries of the Dir
+                            //       use helper function to avoid duplicating this logic (walking this will require
+                            //       &self to be &mut sel
+                            symlink_path.push(path_to_symlink);
+                            symlink_path
+                        }
+                        // if this triggers, there's a bug in the symlink code
+                        _ => unreachable!(
+                            "Symlink pointing to something that's not a directory as its base preopened directory"
+                        ),
                     }
-                    // if this triggers, there's a bug in the symlink code
-                    _ => unreachable!(
-                        "Symlink pointing to something that's not a directory as its base preopened directory"
-                    ),
+                };
+
+                match self.root_fs.symlink_metadata(&symlink_path) {
+                    Ok(md) => md,
+                    Err(FsError::EntryNotFound)
+                        if self.ephemeral_symlink_at(&symlink_path).is_some() =>
+                    {
+                        return Ok(Filestat {
+                            st_filetype: Filetype::SymbolicLink,
+                            st_size: relative_path.as_os_str().len() as u64,
+                            ..Filestat::default()
+                        });
+                    }
+                    Err(err) => return Err(fs_error_into_wasi_err(err)),
                 }
             }
             _ => return Err(Errno::Io),
