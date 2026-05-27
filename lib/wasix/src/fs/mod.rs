@@ -247,6 +247,9 @@ impl<'a> InodeKindWriteGuard<'a> {
 
 /// Acquire inode write guards for dup2/renumber without self-deadlock on the
 /// same inode or conflicting lock order across two different inodes.
+///
+/// Lock order uses the stable `Arc` pointer address, not inode number, because
+/// multiple distinct inodes can share the same number (e.g. sockets).
 pub(crate) fn lock_inodes_for_renumber<'a>(
     from: &'a InodeGuard,
     target: Option<&'a InodeGuard>,
@@ -254,7 +257,7 @@ pub(crate) fn lock_inodes_for_renumber<'a>(
     match target {
         None => (InodeKindWriteGuard::new(from), None),
         Some(target) if from.same_inode_as(target) => (InodeKindWriteGuard::new(from), None),
-        Some(target) if from.ino().0 <= target.ino().0 => (
+        Some(target) if Arc::as_ptr(&from.inner) <= Arc::as_ptr(&target.inner) => (
             InodeKindWriteGuard::new(from),
             Some(InodeKindWriteGuard::new(target)),
         ),
@@ -1912,35 +1915,28 @@ impl WasiFs {
         min_result_fd: WasiFd,
         cloexec: Option<bool>,
     ) -> Result<WasiFd, Errno> {
-        let fd = self.get_fd(fd)?;
         if min_result_fd > MAX_FD {
             return Err(Errno::Inval);
         }
-        let inode = fd.inode.clone();
-        let kind = InodeKindWriteGuard::new(&inode);
-        Ok(self.fd_map.write().unwrap().insert_first_free_after(
-            Fd {
-                inner: FdInner {
-                    rights: fd.inner.rights,
-                    rights_inheriting: fd.inner.rights_inheriting,
-                    flags: fd.inner.flags,
-                    offset: fd.inner.offset.clone(),
-                    fd_flags: match cloexec {
-                        None => fd.inner.fd_flags,
-                        Some(cloexec) => {
-                            let mut f = fd.inner.fd_flags;
-                            f.set(Fdflagsext::CLOEXEC, cloexec);
-                            f
-                        }
-                    },
-                },
-                open_flags: fd.open_flags,
-                inode: inode.clone(),
-                is_stdio: fd.is_stdio,
-            },
-            min_result_fd,
-            kind,
-        ))
+
+        let expected_inode = {
+            let fd_map = self.fd_map.read().unwrap();
+            fd_map.get(fd).ok_or(Errno::Badf)?.inode.clone()
+        };
+
+        let kind = InodeKindWriteGuard::new(&expected_inode);
+        let mut fd_map = self.fd_map.write().unwrap();
+
+        let mut clone_fd = match fd_map.get(fd) {
+            Some(entry) if entry.inode.same_inode_as(&expected_inode) => entry.clone(),
+            Some(_) => return Err(Errno::Badf),
+            None => return Err(Errno::Badf),
+        };
+        if let Some(cloexec) = cloexec {
+            clone_fd.inner.fd_flags.set(Fdflagsext::CLOEXEC, cloexec);
+        }
+
+        Ok(fd_map.insert_first_free_after(clone_fd, min_result_fd, kind))
     }
 
     /// Low level function to remove an inode, that is it deletes the WASI FS's
