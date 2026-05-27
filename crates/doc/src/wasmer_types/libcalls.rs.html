@@ -146,69 +146,208 @@
 <a href=#146 id=146 data-nosnippet>146</a>    </span>DebugUsize,
 <a href=#147 id=147 data-nosnippet>147</a>    <span class="doccomment">/// debug_str
 <a href=#148 id=148 data-nosnippet>148</a>    </span>DebugStr,
-<a href=#149 id=149 data-nosnippet>149</a>}
-<a href=#150 id=150 data-nosnippet>150</a>
-<a href=#151 id=151 data-nosnippet>151</a><span class="kw">impl </span>LibCall {
-<a href=#152 id=152 data-nosnippet>152</a>    <span class="doccomment">/// Return the function name associated to the libcall.
-<a href=#153 id=153 data-nosnippet>153</a>    </span><span class="kw">pub fn </span>to_function_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-<a href=#154 id=154 data-nosnippet>154</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#155 id=155 data-nosnippet>155</a>            <span class="self">Self</span>::CeilF32 =&gt; <span class="string">"wasmer_vm_f32_ceil"</span>,
-<a href=#156 id=156 data-nosnippet>156</a>            <span class="self">Self</span>::CeilF64 =&gt; <span class="string">"wasmer_vm_f64_ceil"</span>,
-<a href=#157 id=157 data-nosnippet>157</a>            <span class="self">Self</span>::FloorF32 =&gt; <span class="string">"wasmer_vm_f32_floor"</span>,
-<a href=#158 id=158 data-nosnippet>158</a>            <span class="self">Self</span>::FloorF64 =&gt; <span class="string">"wasmer_vm_f64_floor"</span>,
-<a href=#159 id=159 data-nosnippet>159</a>            <span class="self">Self</span>::NearestF32 =&gt; <span class="string">"wasmer_vm_f32_nearest"</span>,
-<a href=#160 id=160 data-nosnippet>160</a>            <span class="self">Self</span>::NearestF64 =&gt; <span class="string">"wasmer_vm_f64_nearest"</span>,
-<a href=#161 id=161 data-nosnippet>161</a>            <span class="self">Self</span>::TruncF32 =&gt; <span class="string">"wasmer_vm_f32_trunc"</span>,
-<a href=#162 id=162 data-nosnippet>162</a>            <span class="self">Self</span>::TruncF64 =&gt; <span class="string">"wasmer_vm_f64_trunc"</span>,
-<a href=#163 id=163 data-nosnippet>163</a>            <span class="self">Self</span>::Memory32Size =&gt; <span class="string">"wasmer_vm_memory32_size"</span>,
-<a href=#164 id=164 data-nosnippet>164</a>            <span class="self">Self</span>::ImportedMemory32Size =&gt; <span class="string">"wasmer_vm_imported_memory32_size"</span>,
-<a href=#165 id=165 data-nosnippet>165</a>            <span class="self">Self</span>::TableCopy =&gt; <span class="string">"wasmer_vm_table_copy"</span>,
-<a href=#166 id=166 data-nosnippet>166</a>            <span class="self">Self</span>::TableInit =&gt; <span class="string">"wasmer_vm_table_init"</span>,
-<a href=#167 id=167 data-nosnippet>167</a>            <span class="self">Self</span>::TableFill =&gt; <span class="string">"wasmer_vm_table_fill"</span>,
-<a href=#168 id=168 data-nosnippet>168</a>            <span class="self">Self</span>::TableSize =&gt; <span class="string">"wasmer_vm_table_size"</span>,
-<a href=#169 id=169 data-nosnippet>169</a>            <span class="self">Self</span>::ImportedTableSize =&gt; <span class="string">"wasmer_vm_imported_table_size"</span>,
-<a href=#170 id=170 data-nosnippet>170</a>            <span class="self">Self</span>::TableGet =&gt; <span class="string">"wasmer_vm_table_get"</span>,
-<a href=#171 id=171 data-nosnippet>171</a>            <span class="self">Self</span>::ImportedTableGet =&gt; <span class="string">"wasmer_vm_imported_table_get"</span>,
-<a href=#172 id=172 data-nosnippet>172</a>            <span class="self">Self</span>::TableSet =&gt; <span class="string">"wasmer_vm_table_set"</span>,
-<a href=#173 id=173 data-nosnippet>173</a>            <span class="self">Self</span>::ImportedTableSet =&gt; <span class="string">"wasmer_vm_imported_table_set"</span>,
-<a href=#174 id=174 data-nosnippet>174</a>            <span class="self">Self</span>::TableGrow =&gt; <span class="string">"wasmer_vm_table_grow"</span>,
-<a href=#175 id=175 data-nosnippet>175</a>            <span class="self">Self</span>::ImportedTableGrow =&gt; <span class="string">"wasmer_vm_imported_table_grow"</span>,
-<a href=#176 id=176 data-nosnippet>176</a>            <span class="self">Self</span>::FuncRef =&gt; <span class="string">"wasmer_vm_func_ref"</span>,
-<a href=#177 id=177 data-nosnippet>177</a>            <span class="self">Self</span>::ElemDrop =&gt; <span class="string">"wasmer_vm_elem_drop"</span>,
-<a href=#178 id=178 data-nosnippet>178</a>            <span class="self">Self</span>::Memory32Copy =&gt; <span class="string">"wasmer_vm_memory32_copy"</span>,
-<a href=#179 id=179 data-nosnippet>179</a>            <span class="self">Self</span>::ImportedMemory32Copy =&gt; <span class="string">"wasmer_vm_imported_memory32_copy"</span>,
-<a href=#180 id=180 data-nosnippet>180</a>            <span class="self">Self</span>::Memory32Fill =&gt; <span class="string">"wasmer_vm_memory32_fill"</span>,
-<a href=#181 id=181 data-nosnippet>181</a>            <span class="self">Self</span>::ImportedMemory32Fill =&gt; <span class="string">"wasmer_vm_imported_memory32_fill"</span>,
-<a href=#182 id=182 data-nosnippet>182</a>            <span class="self">Self</span>::Memory32Init =&gt; <span class="string">"wasmer_vm_memory32_init"</span>,
-<a href=#183 id=183 data-nosnippet>183</a>            <span class="self">Self</span>::DataDrop =&gt; <span class="string">"wasmer_vm_data_drop"</span>,
-<a href=#184 id=184 data-nosnippet>184</a>            <span class="self">Self</span>::RaiseTrap =&gt; <span class="string">"wasmer_vm_raise_trap"</span>,
-<a href=#185 id=185 data-nosnippet>185</a>            <span class="comment">// We have to do this because macOS requires a leading `_` and it's not
-<a href=#186 id=186 data-nosnippet>186</a>            // a normal function, it's a static variable, so we have to do it manually.
-<a href=#187 id=187 data-nosnippet>187</a>            </span><span class="attr">#[cfg(target_vendor = <span class="string">"apple"</span>)]
-<a href=#188 id=188 data-nosnippet>188</a>            </span><span class="self">Self</span>::Probestack =&gt; <span class="string">"_wasmer_vm_probestack"</span>,
-<a href=#189 id=189 data-nosnippet>189</a>            <span class="attr">#[cfg(not(target_vendor = <span class="string">"apple"</span>))]
-<a href=#190 id=190 data-nosnippet>190</a>            </span><span class="self">Self</span>::Probestack =&gt; <span class="string">"wasmer_vm_probestack"</span>,
-<a href=#191 id=191 data-nosnippet>191</a>            <span class="self">Self</span>::Memory32AtomicWait32 =&gt; <span class="string">"wasmer_vm_memory32_atomic_wait32"</span>,
-<a href=#192 id=192 data-nosnippet>192</a>            <span class="self">Self</span>::ImportedMemory32AtomicWait32 =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_wait32"</span>,
-<a href=#193 id=193 data-nosnippet>193</a>            <span class="self">Self</span>::Memory32AtomicWait64 =&gt; <span class="string">"wasmer_vm_memory32_atomic_wait64"</span>,
-<a href=#194 id=194 data-nosnippet>194</a>            <span class="self">Self</span>::ImportedMemory32AtomicWait64 =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_wait64"</span>,
-<a href=#195 id=195 data-nosnippet>195</a>            <span class="self">Self</span>::Memory32AtomicNotify =&gt; <span class="string">"wasmer_vm_memory32_atomic_notify"</span>,
-<a href=#196 id=196 data-nosnippet>196</a>            <span class="self">Self</span>::ImportedMemory32AtomicNotify =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_notify"</span>,
-<a href=#197 id=197 data-nosnippet>197</a>            <span class="self">Self</span>::Throw =&gt; <span class="string">"wasmer_vm_throw"</span>,
-<a href=#198 id=198 data-nosnippet>198</a>            <span class="self">Self</span>::EHPersonality =&gt; <span class="string">"wasmer_eh_personality"</span>,
-<a href=#199 id=199 data-nosnippet>199</a>            <span class="self">Self</span>::EHPersonality2 =&gt; <span class="string">"wasmer_eh_personality2"</span>,
-<a href=#200 id=200 data-nosnippet>200</a>            <span class="self">Self</span>::AllocException =&gt; <span class="string">"wasmer_vm_alloc_exception"</span>,
-<a href=#201 id=201 data-nosnippet>201</a>            <span class="self">Self</span>::ReadExnRef =&gt; <span class="string">"wasmer_vm_read_exnref"</span>,
-<a href=#202 id=202 data-nosnippet>202</a>            <span class="self">Self</span>::LibunwindExceptionIntoExnRef =&gt; <span class="string">"wasmer_vm_exception_into_exnref"</span>,
-<a href=#203 id=203 data-nosnippet>203</a>            <span class="self">Self</span>::DebugUsize =&gt; <span class="string">"wasmer_vm_dbg_usize"</span>,
-<a href=#204 id=204 data-nosnippet>204</a>            <span class="self">Self</span>::DebugStr =&gt; <span class="string">"wasmer_vm_dbg_str"</span>,
-<a href=#205 id=205 data-nosnippet>205</a>        }
-<a href=#206 id=206 data-nosnippet>206</a>    }
-<a href=#207 id=207 data-nosnippet>207</a>}
-<a href=#208 id=208 data-nosnippet>208</a>
-<a href=#209 id=209 data-nosnippet>209</a><span class="kw">impl </span>fmt::Display <span class="kw">for </span>LibCall {
-<a href=#210 id=210 data-nosnippet>210</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-<a href=#211 id=211 data-nosnippet>211</a>        fmt::Debug::fmt(<span class="self">self</span>, f)
-<a href=#212 id=212 data-nosnippet>212</a>    }
-<a href=#213 id=213 data-nosnippet>213</a>}
+<a href=#149 id=149 data-nosnippet>149</a>
+<a href=#150 id=150 data-nosnippet>150</a>    <span class="comment">// Soft-float routines emitted by LLVM when targeting platforms without hardware floating-point.
+<a href=#151 id=151 data-nosnippet>151</a>    // Standard toolchains (compiler-rt / libgcc) provide these, but wasmer needs to know their
+<a href=#152 id=152 data-nosnippet>152</a>    // addresses to link JIT-compiled objects.
+<a href=#153 id=153 data-nosnippet>153</a>    // Ordered to match the GCC runtime library documentation (§3.2).
+<a href=#154 id=154 data-nosnippet>154</a>    // https://gcc.gnu.org/onlinedocs/gccint/Soft-float-library-routines.html
+<a href=#155 id=155 data-nosnippet>155</a>
+<a href=#156 id=156 data-nosnippet>156</a>    // §3.2.1 Arithmetic
+<a href=#157 id=157 data-nosnippet>157</a>    </span><span class="doccomment">/// __addsf3
+<a href=#158 id=158 data-nosnippet>158</a>    </span>Addsf3,
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="doccomment">/// __adddf3
+<a href=#160 id=160 data-nosnippet>160</a>    </span>Adddf3,
+<a href=#161 id=161 data-nosnippet>161</a>    <span class="doccomment">/// __subsf3
+<a href=#162 id=162 data-nosnippet>162</a>    </span>Subsf3,
+<a href=#163 id=163 data-nosnippet>163</a>    <span class="doccomment">/// __subdf3
+<a href=#164 id=164 data-nosnippet>164</a>    </span>Subdf3,
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="doccomment">/// __mulsf3
+<a href=#166 id=166 data-nosnippet>166</a>    </span>Mulsf3,
+<a href=#167 id=167 data-nosnippet>167</a>    <span class="doccomment">/// __muldf3
+<a href=#168 id=168 data-nosnippet>168</a>    </span>Muldf3,
+<a href=#169 id=169 data-nosnippet>169</a>    <span class="doccomment">/// __divsf3
+<a href=#170 id=170 data-nosnippet>170</a>    </span>Divsf3,
+<a href=#171 id=171 data-nosnippet>171</a>    <span class="doccomment">/// __divdf3
+<a href=#172 id=172 data-nosnippet>172</a>    </span>Divdf3,
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="doccomment">/// __negsf2
+<a href=#174 id=174 data-nosnippet>174</a>    </span>Negsf2,
+<a href=#175 id=175 data-nosnippet>175</a>    <span class="doccomment">/// __negdf2
+<a href=#176 id=176 data-nosnippet>176</a>    </span>Negdf2,
+<a href=#177 id=177 data-nosnippet>177</a>
+<a href=#178 id=178 data-nosnippet>178</a>    <span class="comment">// §3.2.2 Conversion
+<a href=#179 id=179 data-nosnippet>179</a>    </span><span class="doccomment">/// __extendsfdf2
+<a href=#180 id=180 data-nosnippet>180</a>    </span>Extendsfdf2,
+<a href=#181 id=181 data-nosnippet>181</a>    <span class="doccomment">/// __truncdfsf2
+<a href=#182 id=182 data-nosnippet>182</a>    </span>Truncdfsf2,
+<a href=#183 id=183 data-nosnippet>183</a>    <span class="doccomment">/// __fixsfsi
+<a href=#184 id=184 data-nosnippet>184</a>    </span>Fixsfsi,
+<a href=#185 id=185 data-nosnippet>185</a>    <span class="doccomment">/// __fixdfsi
+<a href=#186 id=186 data-nosnippet>186</a>    </span>Fixdfsi,
+<a href=#187 id=187 data-nosnippet>187</a>    <span class="doccomment">/// __fixsfdi
+<a href=#188 id=188 data-nosnippet>188</a>    </span>Fixsfdi,
+<a href=#189 id=189 data-nosnippet>189</a>    <span class="doccomment">/// __fixdfdi
+<a href=#190 id=190 data-nosnippet>190</a>    </span>Fixdfdi,
+<a href=#191 id=191 data-nosnippet>191</a>    <span class="doccomment">/// __fixunssfsi
+<a href=#192 id=192 data-nosnippet>192</a>    </span>Fixunssfsi,
+<a href=#193 id=193 data-nosnippet>193</a>    <span class="doccomment">/// __fixunsdfsi
+<a href=#194 id=194 data-nosnippet>194</a>    </span>Fixunsdfsi,
+<a href=#195 id=195 data-nosnippet>195</a>    <span class="doccomment">/// __fixunssfdi
+<a href=#196 id=196 data-nosnippet>196</a>    </span>Fixunssfdi,
+<a href=#197 id=197 data-nosnippet>197</a>    <span class="doccomment">/// __fixunsdfdi
+<a href=#198 id=198 data-nosnippet>198</a>    </span>Fixunsdfdi,
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="doccomment">/// __floatsisf
+<a href=#200 id=200 data-nosnippet>200</a>    </span>Floatsisf,
+<a href=#201 id=201 data-nosnippet>201</a>    <span class="doccomment">/// __floatsidf
+<a href=#202 id=202 data-nosnippet>202</a>    </span>Floatsidf,
+<a href=#203 id=203 data-nosnippet>203</a>    <span class="doccomment">/// __floatdisf
+<a href=#204 id=204 data-nosnippet>204</a>    </span>Floatdisf,
+<a href=#205 id=205 data-nosnippet>205</a>    <span class="doccomment">/// __floatdidf
+<a href=#206 id=206 data-nosnippet>206</a>    </span>Floatdidf,
+<a href=#207 id=207 data-nosnippet>207</a>    <span class="doccomment">/// __floatunsisf
+<a href=#208 id=208 data-nosnippet>208</a>    </span>Floatunsisf,
+<a href=#209 id=209 data-nosnippet>209</a>    <span class="doccomment">/// __floatunsidf
+<a href=#210 id=210 data-nosnippet>210</a>    </span>Floatunsidf,
+<a href=#211 id=211 data-nosnippet>211</a>    <span class="doccomment">/// __floatundisf
+<a href=#212 id=212 data-nosnippet>212</a>    </span>Floatundisf,
+<a href=#213 id=213 data-nosnippet>213</a>    <span class="doccomment">/// __floatundidf
+<a href=#214 id=214 data-nosnippet>214</a>    </span>Floatundidf,
+<a href=#215 id=215 data-nosnippet>215</a>
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="comment">// §3.2.3 Comparison
+<a href=#217 id=217 data-nosnippet>217</a>    </span><span class="doccomment">/// __unordsf2
+<a href=#218 id=218 data-nosnippet>218</a>    </span>Unordsf2,
+<a href=#219 id=219 data-nosnippet>219</a>    <span class="doccomment">/// __unorddf2
+<a href=#220 id=220 data-nosnippet>220</a>    </span>Unorddf2,
+<a href=#221 id=221 data-nosnippet>221</a>    <span class="doccomment">/// __eqsf2
+<a href=#222 id=222 data-nosnippet>222</a>    </span>Eqsf2,
+<a href=#223 id=223 data-nosnippet>223</a>    <span class="doccomment">/// __eqdf2
+<a href=#224 id=224 data-nosnippet>224</a>    </span>Eqdf2,
+<a href=#225 id=225 data-nosnippet>225</a>    <span class="doccomment">/// __nesf2
+<a href=#226 id=226 data-nosnippet>226</a>    </span>Nesf2,
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="doccomment">/// __nedf2
+<a href=#228 id=228 data-nosnippet>228</a>    </span>Nedf2,
+<a href=#229 id=229 data-nosnippet>229</a>    <span class="doccomment">/// __gesf2
+<a href=#230 id=230 data-nosnippet>230</a>    </span>Gesf2,
+<a href=#231 id=231 data-nosnippet>231</a>    <span class="doccomment">/// __gedf2
+<a href=#232 id=232 data-nosnippet>232</a>    </span>Gedf2,
+<a href=#233 id=233 data-nosnippet>233</a>    <span class="doccomment">/// __ltsf2
+<a href=#234 id=234 data-nosnippet>234</a>    </span>Ltsf2,
+<a href=#235 id=235 data-nosnippet>235</a>    <span class="doccomment">/// __ltdf2
+<a href=#236 id=236 data-nosnippet>236</a>    </span>Ltdf2,
+<a href=#237 id=237 data-nosnippet>237</a>    <span class="doccomment">/// __lesf2
+<a href=#238 id=238 data-nosnippet>238</a>    </span>Lesf2,
+<a href=#239 id=239 data-nosnippet>239</a>    <span class="doccomment">/// __ledf2
+<a href=#240 id=240 data-nosnippet>240</a>    </span>Ledf2,
+<a href=#241 id=241 data-nosnippet>241</a>    <span class="doccomment">/// __gtsf2
+<a href=#242 id=242 data-nosnippet>242</a>    </span>Gtsf2,
+<a href=#243 id=243 data-nosnippet>243</a>    <span class="doccomment">/// __gtdf2
+<a href=#244 id=244 data-nosnippet>244</a>    </span>Gtdf2,
+<a href=#245 id=245 data-nosnippet>245</a>}
+<a href=#246 id=246 data-nosnippet>246</a>
+<a href=#247 id=247 data-nosnippet>247</a><span class="kw">impl </span>LibCall {
+<a href=#248 id=248 data-nosnippet>248</a>    <span class="doccomment">/// Return the function name associated to the libcall.
+<a href=#249 id=249 data-nosnippet>249</a>    </span><span class="kw">pub fn </span>to_function_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+<a href=#250 id=250 data-nosnippet>250</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#251 id=251 data-nosnippet>251</a>            <span class="self">Self</span>::CeilF32 =&gt; <span class="string">"wasmer_vm_f32_ceil"</span>,
+<a href=#252 id=252 data-nosnippet>252</a>            <span class="self">Self</span>::CeilF64 =&gt; <span class="string">"wasmer_vm_f64_ceil"</span>,
+<a href=#253 id=253 data-nosnippet>253</a>            <span class="self">Self</span>::FloorF32 =&gt; <span class="string">"wasmer_vm_f32_floor"</span>,
+<a href=#254 id=254 data-nosnippet>254</a>            <span class="self">Self</span>::FloorF64 =&gt; <span class="string">"wasmer_vm_f64_floor"</span>,
+<a href=#255 id=255 data-nosnippet>255</a>            <span class="self">Self</span>::NearestF32 =&gt; <span class="string">"wasmer_vm_f32_nearest"</span>,
+<a href=#256 id=256 data-nosnippet>256</a>            <span class="self">Self</span>::NearestF64 =&gt; <span class="string">"wasmer_vm_f64_nearest"</span>,
+<a href=#257 id=257 data-nosnippet>257</a>            <span class="self">Self</span>::TruncF32 =&gt; <span class="string">"wasmer_vm_f32_trunc"</span>,
+<a href=#258 id=258 data-nosnippet>258</a>            <span class="self">Self</span>::TruncF64 =&gt; <span class="string">"wasmer_vm_f64_trunc"</span>,
+<a href=#259 id=259 data-nosnippet>259</a>            <span class="self">Self</span>::Memory32Size =&gt; <span class="string">"wasmer_vm_memory32_size"</span>,
+<a href=#260 id=260 data-nosnippet>260</a>            <span class="self">Self</span>::ImportedMemory32Size =&gt; <span class="string">"wasmer_vm_imported_memory32_size"</span>,
+<a href=#261 id=261 data-nosnippet>261</a>            <span class="self">Self</span>::TableCopy =&gt; <span class="string">"wasmer_vm_table_copy"</span>,
+<a href=#262 id=262 data-nosnippet>262</a>            <span class="self">Self</span>::TableInit =&gt; <span class="string">"wasmer_vm_table_init"</span>,
+<a href=#263 id=263 data-nosnippet>263</a>            <span class="self">Self</span>::TableFill =&gt; <span class="string">"wasmer_vm_table_fill"</span>,
+<a href=#264 id=264 data-nosnippet>264</a>            <span class="self">Self</span>::TableSize =&gt; <span class="string">"wasmer_vm_table_size"</span>,
+<a href=#265 id=265 data-nosnippet>265</a>            <span class="self">Self</span>::ImportedTableSize =&gt; <span class="string">"wasmer_vm_imported_table_size"</span>,
+<a href=#266 id=266 data-nosnippet>266</a>            <span class="self">Self</span>::TableGet =&gt; <span class="string">"wasmer_vm_table_get"</span>,
+<a href=#267 id=267 data-nosnippet>267</a>            <span class="self">Self</span>::ImportedTableGet =&gt; <span class="string">"wasmer_vm_imported_table_get"</span>,
+<a href=#268 id=268 data-nosnippet>268</a>            <span class="self">Self</span>::TableSet =&gt; <span class="string">"wasmer_vm_table_set"</span>,
+<a href=#269 id=269 data-nosnippet>269</a>            <span class="self">Self</span>::ImportedTableSet =&gt; <span class="string">"wasmer_vm_imported_table_set"</span>,
+<a href=#270 id=270 data-nosnippet>270</a>            <span class="self">Self</span>::TableGrow =&gt; <span class="string">"wasmer_vm_table_grow"</span>,
+<a href=#271 id=271 data-nosnippet>271</a>            <span class="self">Self</span>::ImportedTableGrow =&gt; <span class="string">"wasmer_vm_imported_table_grow"</span>,
+<a href=#272 id=272 data-nosnippet>272</a>            <span class="self">Self</span>::FuncRef =&gt; <span class="string">"wasmer_vm_func_ref"</span>,
+<a href=#273 id=273 data-nosnippet>273</a>            <span class="self">Self</span>::ElemDrop =&gt; <span class="string">"wasmer_vm_elem_drop"</span>,
+<a href=#274 id=274 data-nosnippet>274</a>            <span class="self">Self</span>::Memory32Copy =&gt; <span class="string">"wasmer_vm_memory32_copy"</span>,
+<a href=#275 id=275 data-nosnippet>275</a>            <span class="self">Self</span>::ImportedMemory32Copy =&gt; <span class="string">"wasmer_vm_imported_memory32_copy"</span>,
+<a href=#276 id=276 data-nosnippet>276</a>            <span class="self">Self</span>::Memory32Fill =&gt; <span class="string">"wasmer_vm_memory32_fill"</span>,
+<a href=#277 id=277 data-nosnippet>277</a>            <span class="self">Self</span>::ImportedMemory32Fill =&gt; <span class="string">"wasmer_vm_imported_memory32_fill"</span>,
+<a href=#278 id=278 data-nosnippet>278</a>            <span class="self">Self</span>::Memory32Init =&gt; <span class="string">"wasmer_vm_memory32_init"</span>,
+<a href=#279 id=279 data-nosnippet>279</a>            <span class="self">Self</span>::DataDrop =&gt; <span class="string">"wasmer_vm_data_drop"</span>,
+<a href=#280 id=280 data-nosnippet>280</a>            <span class="self">Self</span>::RaiseTrap =&gt; <span class="string">"wasmer_vm_raise_trap"</span>,
+<a href=#281 id=281 data-nosnippet>281</a>            <span class="comment">// We have to do this because macOS requires a leading `_` and it's not
+<a href=#282 id=282 data-nosnippet>282</a>            // a normal function, it's a static variable, so we have to do it manually.
+<a href=#283 id=283 data-nosnippet>283</a>            </span><span class="attr">#[cfg(target_vendor = <span class="string">"apple"</span>)]
+<a href=#284 id=284 data-nosnippet>284</a>            </span><span class="self">Self</span>::Probestack =&gt; <span class="string">"_wasmer_vm_probestack"</span>,
+<a href=#285 id=285 data-nosnippet>285</a>            <span class="attr">#[cfg(not(target_vendor = <span class="string">"apple"</span>))]
+<a href=#286 id=286 data-nosnippet>286</a>            </span><span class="self">Self</span>::Probestack =&gt; <span class="string">"wasmer_vm_probestack"</span>,
+<a href=#287 id=287 data-nosnippet>287</a>            <span class="self">Self</span>::Memory32AtomicWait32 =&gt; <span class="string">"wasmer_vm_memory32_atomic_wait32"</span>,
+<a href=#288 id=288 data-nosnippet>288</a>            <span class="self">Self</span>::ImportedMemory32AtomicWait32 =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_wait32"</span>,
+<a href=#289 id=289 data-nosnippet>289</a>            <span class="self">Self</span>::Memory32AtomicWait64 =&gt; <span class="string">"wasmer_vm_memory32_atomic_wait64"</span>,
+<a href=#290 id=290 data-nosnippet>290</a>            <span class="self">Self</span>::ImportedMemory32AtomicWait64 =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_wait64"</span>,
+<a href=#291 id=291 data-nosnippet>291</a>            <span class="self">Self</span>::Memory32AtomicNotify =&gt; <span class="string">"wasmer_vm_memory32_atomic_notify"</span>,
+<a href=#292 id=292 data-nosnippet>292</a>            <span class="self">Self</span>::ImportedMemory32AtomicNotify =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_notify"</span>,
+<a href=#293 id=293 data-nosnippet>293</a>            <span class="self">Self</span>::Throw =&gt; <span class="string">"wasmer_vm_throw"</span>,
+<a href=#294 id=294 data-nosnippet>294</a>            <span class="self">Self</span>::EHPersonality =&gt; <span class="string">"wasmer_eh_personality"</span>,
+<a href=#295 id=295 data-nosnippet>295</a>            <span class="self">Self</span>::EHPersonality2 =&gt; <span class="string">"wasmer_eh_personality2"</span>,
+<a href=#296 id=296 data-nosnippet>296</a>            <span class="self">Self</span>::AllocException =&gt; <span class="string">"wasmer_vm_alloc_exception"</span>,
+<a href=#297 id=297 data-nosnippet>297</a>            <span class="self">Self</span>::ReadExnRef =&gt; <span class="string">"wasmer_vm_read_exnref"</span>,
+<a href=#298 id=298 data-nosnippet>298</a>            <span class="self">Self</span>::LibunwindExceptionIntoExnRef =&gt; <span class="string">"wasmer_vm_exception_into_exnref"</span>,
+<a href=#299 id=299 data-nosnippet>299</a>            <span class="self">Self</span>::DebugUsize =&gt; <span class="string">"wasmer_vm_dbg_usize"</span>,
+<a href=#300 id=300 data-nosnippet>300</a>            <span class="self">Self</span>::DebugStr =&gt; <span class="string">"wasmer_vm_dbg_str"</span>,
+<a href=#301 id=301 data-nosnippet>301</a>            <span class="comment">// --- Soft-float libcalls ---
+<a href=#302 id=302 data-nosnippet>302</a>            </span><span class="self">Self</span>::Addsf3 =&gt; <span class="string">"__addsf3"</span>,
+<a href=#303 id=303 data-nosnippet>303</a>            <span class="self">Self</span>::Adddf3 =&gt; <span class="string">"__adddf3"</span>,
+<a href=#304 id=304 data-nosnippet>304</a>            <span class="self">Self</span>::Subsf3 =&gt; <span class="string">"__subsf3"</span>,
+<a href=#305 id=305 data-nosnippet>305</a>            <span class="self">Self</span>::Subdf3 =&gt; <span class="string">"__subdf3"</span>,
+<a href=#306 id=306 data-nosnippet>306</a>            <span class="self">Self</span>::Mulsf3 =&gt; <span class="string">"__mulsf3"</span>,
+<a href=#307 id=307 data-nosnippet>307</a>            <span class="self">Self</span>::Muldf3 =&gt; <span class="string">"__muldf3"</span>,
+<a href=#308 id=308 data-nosnippet>308</a>            <span class="self">Self</span>::Divsf3 =&gt; <span class="string">"__divsf3"</span>,
+<a href=#309 id=309 data-nosnippet>309</a>            <span class="self">Self</span>::Divdf3 =&gt; <span class="string">"__divdf3"</span>,
+<a href=#310 id=310 data-nosnippet>310</a>            <span class="self">Self</span>::Negsf2 =&gt; <span class="string">"__negsf2"</span>,
+<a href=#311 id=311 data-nosnippet>311</a>            <span class="self">Self</span>::Negdf2 =&gt; <span class="string">"__negdf2"</span>,
+<a href=#312 id=312 data-nosnippet>312</a>            <span class="self">Self</span>::Extendsfdf2 =&gt; <span class="string">"__extendsfdf2"</span>,
+<a href=#313 id=313 data-nosnippet>313</a>            <span class="self">Self</span>::Truncdfsf2 =&gt; <span class="string">"__truncdfsf2"</span>,
+<a href=#314 id=314 data-nosnippet>314</a>            <span class="self">Self</span>::Fixsfsi =&gt; <span class="string">"__fixsfsi"</span>,
+<a href=#315 id=315 data-nosnippet>315</a>            <span class="self">Self</span>::Fixdfsi =&gt; <span class="string">"__fixdfsi"</span>,
+<a href=#316 id=316 data-nosnippet>316</a>            <span class="self">Self</span>::Fixsfdi =&gt; <span class="string">"__fixsfdi"</span>,
+<a href=#317 id=317 data-nosnippet>317</a>            <span class="self">Self</span>::Fixdfdi =&gt; <span class="string">"__fixdfdi"</span>,
+<a href=#318 id=318 data-nosnippet>318</a>            <span class="self">Self</span>::Fixunssfsi =&gt; <span class="string">"__fixunssfsi"</span>,
+<a href=#319 id=319 data-nosnippet>319</a>            <span class="self">Self</span>::Fixunsdfsi =&gt; <span class="string">"__fixunsdfsi"</span>,
+<a href=#320 id=320 data-nosnippet>320</a>            <span class="self">Self</span>::Fixunssfdi =&gt; <span class="string">"__fixunssfdi"</span>,
+<a href=#321 id=321 data-nosnippet>321</a>            <span class="self">Self</span>::Fixunsdfdi =&gt; <span class="string">"__fixunsdfdi"</span>,
+<a href=#322 id=322 data-nosnippet>322</a>            <span class="self">Self</span>::Floatsisf =&gt; <span class="string">"__floatsisf"</span>,
+<a href=#323 id=323 data-nosnippet>323</a>            <span class="self">Self</span>::Floatsidf =&gt; <span class="string">"__floatsidf"</span>,
+<a href=#324 id=324 data-nosnippet>324</a>            <span class="self">Self</span>::Floatdisf =&gt; <span class="string">"__floatdisf"</span>,
+<a href=#325 id=325 data-nosnippet>325</a>            <span class="self">Self</span>::Floatdidf =&gt; <span class="string">"__floatdidf"</span>,
+<a href=#326 id=326 data-nosnippet>326</a>            <span class="self">Self</span>::Floatunsisf =&gt; <span class="string">"__floatunsisf"</span>,
+<a href=#327 id=327 data-nosnippet>327</a>            <span class="self">Self</span>::Floatunsidf =&gt; <span class="string">"__floatunsidf"</span>,
+<a href=#328 id=328 data-nosnippet>328</a>            <span class="self">Self</span>::Floatundisf =&gt; <span class="string">"__floatundisf"</span>,
+<a href=#329 id=329 data-nosnippet>329</a>            <span class="self">Self</span>::Floatundidf =&gt; <span class="string">"__floatundidf"</span>,
+<a href=#330 id=330 data-nosnippet>330</a>            <span class="self">Self</span>::Unordsf2 =&gt; <span class="string">"__unordsf2"</span>,
+<a href=#331 id=331 data-nosnippet>331</a>            <span class="self">Self</span>::Unorddf2 =&gt; <span class="string">"__unorddf2"</span>,
+<a href=#332 id=332 data-nosnippet>332</a>            <span class="self">Self</span>::Eqsf2 =&gt; <span class="string">"__eqsf2"</span>,
+<a href=#333 id=333 data-nosnippet>333</a>            <span class="self">Self</span>::Eqdf2 =&gt; <span class="string">"__eqdf2"</span>,
+<a href=#334 id=334 data-nosnippet>334</a>            <span class="self">Self</span>::Nesf2 =&gt; <span class="string">"__nesf2"</span>,
+<a href=#335 id=335 data-nosnippet>335</a>            <span class="self">Self</span>::Nedf2 =&gt; <span class="string">"__nedf2"</span>,
+<a href=#336 id=336 data-nosnippet>336</a>            <span class="self">Self</span>::Gesf2 =&gt; <span class="string">"__gesf2"</span>,
+<a href=#337 id=337 data-nosnippet>337</a>            <span class="self">Self</span>::Gedf2 =&gt; <span class="string">"__gedf2"</span>,
+<a href=#338 id=338 data-nosnippet>338</a>            <span class="self">Self</span>::Ltsf2 =&gt; <span class="string">"__ltsf2"</span>,
+<a href=#339 id=339 data-nosnippet>339</a>            <span class="self">Self</span>::Ltdf2 =&gt; <span class="string">"__ltdf2"</span>,
+<a href=#340 id=340 data-nosnippet>340</a>            <span class="self">Self</span>::Lesf2 =&gt; <span class="string">"__lesf2"</span>,
+<a href=#341 id=341 data-nosnippet>341</a>            <span class="self">Self</span>::Ledf2 =&gt; <span class="string">"__ledf2"</span>,
+<a href=#342 id=342 data-nosnippet>342</a>            <span class="self">Self</span>::Gtsf2 =&gt; <span class="string">"__gtsf2"</span>,
+<a href=#343 id=343 data-nosnippet>343</a>            <span class="self">Self</span>::Gtdf2 =&gt; <span class="string">"__gtdf2"</span>,
+<a href=#344 id=344 data-nosnippet>344</a>        }
+<a href=#345 id=345 data-nosnippet>345</a>    }
+<a href=#346 id=346 data-nosnippet>346</a>}
+<a href=#347 id=347 data-nosnippet>347</a>
+<a href=#348 id=348 data-nosnippet>348</a><span class="kw">impl </span>fmt::Display <span class="kw">for </span>LibCall {
+<a href=#349 id=349 data-nosnippet>349</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+<a href=#350 id=350 data-nosnippet>350</a>        fmt::Debug::fmt(<span class="self">self</span>, f)
+<a href=#351 id=351 data-nosnippet>351</a>    }
+<a href=#352 id=352 data-nosnippet>352</a>}
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Compiler"],"fn":["run_code"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_WASMER_REGISTRY"],"enum":["Compiler"],"fn":["run_code","set_default_wasmer_registry","wasmer_command"]};

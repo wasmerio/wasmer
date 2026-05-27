@@ -786,520 +786,552 @@
 <a href=#786 id=786 data-nosnippet>786</a>            .finished_functions
 <a href=#787 id=787 data-nosnippet>787</a>    }
 <a href=#788 id=788 data-nosnippet>788</a>
-<a href=#789 id=789 data-nosnippet>789</a>    <span class="doccomment">/// Returns the function call trampolines allocated in memory of this
-<a href=#790 id=790 data-nosnippet>790</a>    /// `Artifact`, ready to be run.
-<a href=#791 id=791 data-nosnippet>791</a>    </span><span class="kw">pub fn </span>finished_function_call_trampolines(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMTrampoline&gt; {
-<a href=#792 id=792 data-nosnippet>792</a>        <span class="kw-2">&amp;</span><span class="self">self
-<a href=#793 id=793 data-nosnippet>793</a>            </span>.allocated
-<a href=#794 id=794 data-nosnippet>794</a>            .as_ref()
-<a href=#795 id=795 data-nosnippet>795</a>            .expect(<span class="string">"It must be allocated"</span>)
-<a href=#796 id=796 data-nosnippet>796</a>            .finished_function_call_trampolines
-<a href=#797 id=797 data-nosnippet>797</a>    }
-<a href=#798 id=798 data-nosnippet>798</a>
-<a href=#799 id=799 data-nosnippet>799</a>    <span class="doccomment">/// Returns the dynamic function trampolines allocated in memory
-<a href=#800 id=800 data-nosnippet>800</a>    /// of this `Artifact`, ready to be run.
-<a href=#801 id=801 data-nosnippet>801</a>    </span><span class="kw">pub fn </span>finished_dynamic_function_trampolines(
-<a href=#802 id=802 data-nosnippet>802</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#803 id=803 data-nosnippet>803</a>    ) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;FunctionIndex, FunctionBodyPtr&gt; {
-<a href=#804 id=804 data-nosnippet>804</a>        <span class="kw-2">&amp;</span><span class="self">self
-<a href=#805 id=805 data-nosnippet>805</a>            </span>.allocated
-<a href=#806 id=806 data-nosnippet>806</a>            .as_ref()
-<a href=#807 id=807 data-nosnippet>807</a>            .expect(<span class="string">"It must be allocated"</span>)
-<a href=#808 id=808 data-nosnippet>808</a>            .finished_dynamic_function_trampolines
-<a href=#809 id=809 data-nosnippet>809</a>    }
-<a href=#810 id=810 data-nosnippet>810</a>
-<a href=#811 id=811 data-nosnippet>811</a>    <span class="doccomment">/// Returns the associated VM signatures for this `Artifact`.
-<a href=#812 id=812 data-nosnippet>812</a>    </span><span class="kw">pub fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMSignatureHash&gt; {
-<a href=#813 id=813 data-nosnippet>813</a>        <span class="kw-2">&amp;</span><span class="self">self
-<a href=#814 id=814 data-nosnippet>814</a>            </span>.allocated
-<a href=#815 id=815 data-nosnippet>815</a>            .as_ref()
-<a href=#816 id=816 data-nosnippet>816</a>            .expect(<span class="string">"It must be allocated"</span>)
-<a href=#817 id=817 data-nosnippet>817</a>            .signatures
-<a href=#818 id=818 data-nosnippet>818</a>    }
-<a href=#819 id=819 data-nosnippet>819</a>
-<a href=#820 id=820 data-nosnippet>820</a>    <span class="doccomment">/// Do preinstantiation logic that is executed before instantiating
-<a href=#821 id=821 data-nosnippet>821</a>    </span><span class="attr">#[allow(clippy::result_large_err)]
-<a href=#822 id=822 data-nosnippet>822</a>    </span><span class="kw">pub fn </span>preinstantiate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), InstantiationError&gt; {
-<a href=#823 id=823 data-nosnippet>823</a>        <span class="prelude-val">Ok</span>(())
-<a href=#824 id=824 data-nosnippet>824</a>    }
-<a href=#825 id=825 data-nosnippet>825</a>
-<a href=#826 id=826 data-nosnippet>826</a>    <span class="doccomment">/// Crate an `Instance` from this `Artifact`.
-<a href=#827 id=827 data-nosnippet>827</a>    ///
-<a href=#828 id=828 data-nosnippet>828</a>    /// # Safety
-<a href=#829 id=829 data-nosnippet>829</a>    ///
-<a href=#830 id=830 data-nosnippet>830</a>    /// See [`VMInstance::new`].
-<a href=#831 id=831 data-nosnippet>831</a>    </span><span class="attr">#[allow(clippy::result_large_err)]
-<a href=#832 id=832 data-nosnippet>832</a>    </span><span class="kw">pub unsafe fn </span>instantiate(
-<a href=#833 id=833 data-nosnippet>833</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#834 id=834 data-nosnippet>834</a>        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
-<a href=#835 id=835 data-nosnippet>835</a>        imports: <span class="kw-2">&amp;</span>[VMExtern],
-<a href=#836 id=836 data-nosnippet>836</a>        context: <span class="kw-2">&amp;mut </span>StoreObjects,
-<a href=#837 id=837 data-nosnippet>837</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMInstance, InstantiationError&gt; {
-<a href=#838 id=838 data-nosnippet>838</a>        <span class="kw">unsafe </span>{
-<a href=#839 id=839 data-nosnippet>839</a>            <span class="comment">// Validate the CPU features this module was compiled with against the
-<a href=#840 id=840 data-nosnippet>840</a>            // host CPU features.
-<a href=#841 id=841 data-nosnippet>841</a>            </span><span class="kw">let </span>host_cpu_features = CpuFeature::for_host();
-<a href=#842 id=842 data-nosnippet>842</a>            <span class="kw">if </span>!host_cpu_features.is_superset(<span class="self">self</span>.cpu_features()) {
-<a href=#843 id=843 data-nosnippet>843</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(InstantiationError::CpuFeature(<span class="macro">format!</span>(
-<a href=#844 id=844 data-nosnippet>844</a>                    <span class="string">"{:?}"</span>,
-<a href=#845 id=845 data-nosnippet>845</a>                    <span class="self">self</span>.cpu_features().difference(host_cpu_features)
-<a href=#846 id=846 data-nosnippet>846</a>                )));
-<a href=#847 id=847 data-nosnippet>847</a>            }
-<a href=#848 id=848 data-nosnippet>848</a>
-<a href=#849 id=849 data-nosnippet>849</a>            <span class="self">self</span>.preinstantiate()<span class="question-mark">?</span>;
-<a href=#850 id=850 data-nosnippet>850</a>
-<a href=#851 id=851 data-nosnippet>851</a>            <span class="kw">let </span>module = <span class="self">self</span>.create_module_info();
-<a href=#852 id=852 data-nosnippet>852</a>
-<a href=#853 id=853 data-nosnippet>853</a>            <span class="kw">let </span>tags = resolve_tags(<span class="kw-2">&amp;</span>module, imports, context).map_err(InstantiationError::Link)<span class="question-mark">?</span>;
-<a href=#854 id=854 data-nosnippet>854</a>
-<a href=#855 id=855 data-nosnippet>855</a>            <span class="kw">let </span>imports = resolve_imports(
-<a href=#856 id=856 data-nosnippet>856</a>                <span class="kw-2">&amp;</span>module,
-<a href=#857 id=857 data-nosnippet>857</a>                imports,
-<a href=#858 id=858 data-nosnippet>858</a>                context,
-<a href=#859 id=859 data-nosnippet>859</a>                <span class="self">self</span>.finished_dynamic_function_trampolines(),
-<a href=#860 id=860 data-nosnippet>860</a>                <span class="self">self</span>.memory_styles(),
-<a href=#861 id=861 data-nosnippet>861</a>                <span class="self">self</span>.table_styles(),
-<a href=#862 id=862 data-nosnippet>862</a>            )
-<a href=#863 id=863 data-nosnippet>863</a>            .map_err(InstantiationError::Link)<span class="question-mark">?</span>;
-<a href=#864 id=864 data-nosnippet>864</a>
-<a href=#865 id=865 data-nosnippet>865</a>            <span class="comment">// Get pointers to where metadata about local memories should live in VM memory.
-<a href=#866 id=866 data-nosnippet>866</a>            // Get pointers to where metadata about local tables should live in VM memory.
-<a href=#867 id=867 data-nosnippet>867</a>
-<a href=#868 id=868 data-nosnippet>868</a>            </span><span class="kw">let </span>(
-<a href=#869 id=869 data-nosnippet>869</a>                allocator,
-<a href=#870 id=870 data-nosnippet>870</a>                memory_definition_locations,
-<a href=#871 id=871 data-nosnippet>871</a>                table_definition_locations,
-<a href=#872 id=872 data-nosnippet>872</a>                global_definition_locations,
-<a href=#873 id=873 data-nosnippet>873</a>            ) = InstanceAllocator::new(<span class="kw-2">&amp;</span>module);
-<a href=#874 id=874 data-nosnippet>874</a>            <span class="kw">let </span>finished_memories = tunables
-<a href=#875 id=875 data-nosnippet>875</a>                .create_memories(
-<a href=#876 id=876 data-nosnippet>876</a>                    context,
-<a href=#877 id=877 data-nosnippet>877</a>                    <span class="kw-2">&amp;</span>module,
-<a href=#878 id=878 data-nosnippet>878</a>                    <span class="self">self</span>.memory_styles(),
-<a href=#879 id=879 data-nosnippet>879</a>                    <span class="kw-2">&amp;</span>memory_definition_locations,
-<a href=#880 id=880 data-nosnippet>880</a>                )
-<a href=#881 id=881 data-nosnippet>881</a>                .map_err(InstantiationError::Link)<span class="question-mark">?
-<a href=#882 id=882 data-nosnippet>882</a>                </span>.into_boxed_slice();
-<a href=#883 id=883 data-nosnippet>883</a>            <span class="kw">let </span>finished_tables = tunables
-<a href=#884 id=884 data-nosnippet>884</a>                .create_tables(
-<a href=#885 id=885 data-nosnippet>885</a>                    context,
-<a href=#886 id=886 data-nosnippet>886</a>                    <span class="kw-2">&amp;</span>module,
-<a href=#887 id=887 data-nosnippet>887</a>                    <span class="self">self</span>.table_styles(),
-<a href=#888 id=888 data-nosnippet>888</a>                    <span class="kw-2">&amp;</span>table_definition_locations,
-<a href=#889 id=889 data-nosnippet>889</a>                )
-<a href=#890 id=890 data-nosnippet>890</a>                .map_err(InstantiationError::Link)<span class="question-mark">?
-<a href=#891 id=891 data-nosnippet>891</a>                </span>.into_boxed_slice();
-<a href=#892 id=892 data-nosnippet>892</a>            <span class="kw">let </span>finished_globals = tunables
-<a href=#893 id=893 data-nosnippet>893</a>                .create_globals(context, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>global_definition_locations)
-<a href=#894 id=894 data-nosnippet>894</a>                .map_err(InstantiationError::Link)<span class="question-mark">?
-<a href=#895 id=895 data-nosnippet>895</a>                </span>.into_boxed_slice();
+<a href=#789 id=789 data-nosnippet>789</a>    <span class="doccomment">/// Returns the start address and byte length of each locally-defined
+<a href=#790 id=790 data-nosnippet>790</a>    /// function body in this artifact.
+<a href=#791 id=791 data-nosnippet>791</a>    ///
+<a href=#792 id=792 data-nosnippet>792</a>    /// Returns `None` for cross-compiled artifacts (where the artifact has not
+<a href=#793 id=793 data-nosnippet>793</a>    /// been allocated into the host process).
+<a href=#794 id=794 data-nosnippet>794</a>    ///
+<a href=#795 id=795 data-nosnippet>795</a>    /// # Security
+<a href=#796 id=796 data-nosnippet>796</a>    ///
+<a href=#797 id=797 data-nosnippet>797</a>    /// The returned addresses are host-process pointers. They are not stable
+<a href=#798 id=798 data-nosnippet>798</a>    /// across runs and must not be forwarded to untrusted parties, as they
+<a href=#799 id=799 data-nosnippet>799</a>    /// reveal ASLR layout information.
+<a href=#800 id=800 data-nosnippet>800</a>    </span><span class="kw">pub fn </span>finished_function_extents(
+<a href=#801 id=801 data-nosnippet>801</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#802 id=802 data-nosnippet>802</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;(LocalFunctionIndex, FunctionExtent)&gt;&gt; {
+<a href=#803 id=803 data-nosnippet>803</a>        <span class="kw">let </span>allocated = <span class="self">self</span>.allocated.as_ref()<span class="question-mark">?</span>;
+<a href=#804 id=804 data-nosnippet>804</a>        <span class="macro">assert_eq!</span>(
+<a href=#805 id=805 data-nosnippet>805</a>            allocated.finished_functions.len(),
+<a href=#806 id=806 data-nosnippet>806</a>            allocated.finished_function_lengths.len(),
+<a href=#807 id=807 data-nosnippet>807</a>            <span class="string">"finished_functions and finished_function_lengths must have equal length"
+<a href=#808 id=808 data-nosnippet>808</a>        </span>);
+<a href=#809 id=809 data-nosnippet>809</a>        <span class="prelude-val">Some</span>(
+<a href=#810 id=810 data-nosnippet>810</a>            allocated
+<a href=#811 id=811 data-nosnippet>811</a>                .finished_functions
+<a href=#812 id=812 data-nosnippet>812</a>                .iter()
+<a href=#813 id=813 data-nosnippet>813</a>                .map(|(index, <span class="kw-2">&amp;</span>ptr)| {
+<a href=#814 id=814 data-nosnippet>814</a>                    <span class="kw">let </span>length = allocated.finished_function_lengths[index];
+<a href=#815 id=815 data-nosnippet>815</a>                    (index, FunctionExtent { ptr, length })
+<a href=#816 id=816 data-nosnippet>816</a>                })
+<a href=#817 id=817 data-nosnippet>817</a>                .collect(),
+<a href=#818 id=818 data-nosnippet>818</a>        )
+<a href=#819 id=819 data-nosnippet>819</a>    }
+<a href=#820 id=820 data-nosnippet>820</a>
+<a href=#821 id=821 data-nosnippet>821</a>    <span class="doccomment">/// Returns the function call trampolines allocated in memory of this
+<a href=#822 id=822 data-nosnippet>822</a>    /// `Artifact`, ready to be run.
+<a href=#823 id=823 data-nosnippet>823</a>    </span><span class="kw">pub fn </span>finished_function_call_trampolines(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMTrampoline&gt; {
+<a href=#824 id=824 data-nosnippet>824</a>        <span class="kw-2">&amp;</span><span class="self">self
+<a href=#825 id=825 data-nosnippet>825</a>            </span>.allocated
+<a href=#826 id=826 data-nosnippet>826</a>            .as_ref()
+<a href=#827 id=827 data-nosnippet>827</a>            .expect(<span class="string">"It must be allocated"</span>)
+<a href=#828 id=828 data-nosnippet>828</a>            .finished_function_call_trampolines
+<a href=#829 id=829 data-nosnippet>829</a>    }
+<a href=#830 id=830 data-nosnippet>830</a>
+<a href=#831 id=831 data-nosnippet>831</a>    <span class="doccomment">/// Returns the dynamic function trampolines allocated in memory
+<a href=#832 id=832 data-nosnippet>832</a>    /// of this `Artifact`, ready to be run.
+<a href=#833 id=833 data-nosnippet>833</a>    </span><span class="kw">pub fn </span>finished_dynamic_function_trampolines(
+<a href=#834 id=834 data-nosnippet>834</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#835 id=835 data-nosnippet>835</a>    ) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;FunctionIndex, FunctionBodyPtr&gt; {
+<a href=#836 id=836 data-nosnippet>836</a>        <span class="kw-2">&amp;</span><span class="self">self
+<a href=#837 id=837 data-nosnippet>837</a>            </span>.allocated
+<a href=#838 id=838 data-nosnippet>838</a>            .as_ref()
+<a href=#839 id=839 data-nosnippet>839</a>            .expect(<span class="string">"It must be allocated"</span>)
+<a href=#840 id=840 data-nosnippet>840</a>            .finished_dynamic_function_trampolines
+<a href=#841 id=841 data-nosnippet>841</a>    }
+<a href=#842 id=842 data-nosnippet>842</a>
+<a href=#843 id=843 data-nosnippet>843</a>    <span class="doccomment">/// Returns the associated VM signatures for this `Artifact`.
+<a href=#844 id=844 data-nosnippet>844</a>    </span><span class="kw">pub fn </span>signatures(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMSignatureHash&gt; {
+<a href=#845 id=845 data-nosnippet>845</a>        <span class="kw-2">&amp;</span><span class="self">self
+<a href=#846 id=846 data-nosnippet>846</a>            </span>.allocated
+<a href=#847 id=847 data-nosnippet>847</a>            .as_ref()
+<a href=#848 id=848 data-nosnippet>848</a>            .expect(<span class="string">"It must be allocated"</span>)
+<a href=#849 id=849 data-nosnippet>849</a>            .signatures
+<a href=#850 id=850 data-nosnippet>850</a>    }
+<a href=#851 id=851 data-nosnippet>851</a>
+<a href=#852 id=852 data-nosnippet>852</a>    <span class="doccomment">/// Do preinstantiation logic that is executed before instantiating
+<a href=#853 id=853 data-nosnippet>853</a>    </span><span class="attr">#[allow(clippy::result_large_err)]
+<a href=#854 id=854 data-nosnippet>854</a>    </span><span class="kw">pub fn </span>preinstantiate(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), InstantiationError&gt; {
+<a href=#855 id=855 data-nosnippet>855</a>        <span class="prelude-val">Ok</span>(())
+<a href=#856 id=856 data-nosnippet>856</a>    }
+<a href=#857 id=857 data-nosnippet>857</a>
+<a href=#858 id=858 data-nosnippet>858</a>    <span class="doccomment">/// Crate an `Instance` from this `Artifact`.
+<a href=#859 id=859 data-nosnippet>859</a>    ///
+<a href=#860 id=860 data-nosnippet>860</a>    /// # Safety
+<a href=#861 id=861 data-nosnippet>861</a>    ///
+<a href=#862 id=862 data-nosnippet>862</a>    /// See [`VMInstance::new`].
+<a href=#863 id=863 data-nosnippet>863</a>    </span><span class="attr">#[allow(clippy::result_large_err)]
+<a href=#864 id=864 data-nosnippet>864</a>    </span><span class="kw">pub unsafe fn </span>instantiate(
+<a href=#865 id=865 data-nosnippet>865</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#866 id=866 data-nosnippet>866</a>        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
+<a href=#867 id=867 data-nosnippet>867</a>        imports: <span class="kw-2">&amp;</span>[VMExtern],
+<a href=#868 id=868 data-nosnippet>868</a>        context: <span class="kw-2">&amp;mut </span>StoreObjects,
+<a href=#869 id=869 data-nosnippet>869</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;VMInstance, InstantiationError&gt; {
+<a href=#870 id=870 data-nosnippet>870</a>        <span class="kw">unsafe </span>{
+<a href=#871 id=871 data-nosnippet>871</a>            <span class="comment">// Validate the CPU features this module was compiled with against the
+<a href=#872 id=872 data-nosnippet>872</a>            // host CPU features.
+<a href=#873 id=873 data-nosnippet>873</a>            </span><span class="kw">let </span>host_cpu_features = CpuFeature::for_host();
+<a href=#874 id=874 data-nosnippet>874</a>            <span class="kw">if </span>!host_cpu_features.is_superset(<span class="self">self</span>.cpu_features()) {
+<a href=#875 id=875 data-nosnippet>875</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(InstantiationError::CpuFeature(<span class="macro">format!</span>(
+<a href=#876 id=876 data-nosnippet>876</a>                    <span class="string">"{:?}"</span>,
+<a href=#877 id=877 data-nosnippet>877</a>                    <span class="self">self</span>.cpu_features().difference(host_cpu_features)
+<a href=#878 id=878 data-nosnippet>878</a>                )));
+<a href=#879 id=879 data-nosnippet>879</a>            }
+<a href=#880 id=880 data-nosnippet>880</a>
+<a href=#881 id=881 data-nosnippet>881</a>            <span class="self">self</span>.preinstantiate()<span class="question-mark">?</span>;
+<a href=#882 id=882 data-nosnippet>882</a>
+<a href=#883 id=883 data-nosnippet>883</a>            <span class="kw">let </span>module = <span class="self">self</span>.create_module_info();
+<a href=#884 id=884 data-nosnippet>884</a>
+<a href=#885 id=885 data-nosnippet>885</a>            <span class="kw">let </span>tags = resolve_tags(<span class="kw-2">&amp;</span>module, imports, context).map_err(InstantiationError::Link)<span class="question-mark">?</span>;
+<a href=#886 id=886 data-nosnippet>886</a>
+<a href=#887 id=887 data-nosnippet>887</a>            <span class="kw">let </span>imports = resolve_imports(
+<a href=#888 id=888 data-nosnippet>888</a>                <span class="kw-2">&amp;</span>module,
+<a href=#889 id=889 data-nosnippet>889</a>                imports,
+<a href=#890 id=890 data-nosnippet>890</a>                context,
+<a href=#891 id=891 data-nosnippet>891</a>                <span class="self">self</span>.finished_dynamic_function_trampolines(),
+<a href=#892 id=892 data-nosnippet>892</a>                <span class="self">self</span>.memory_styles(),
+<a href=#893 id=893 data-nosnippet>893</a>                <span class="self">self</span>.table_styles(),
+<a href=#894 id=894 data-nosnippet>894</a>            )
+<a href=#895 id=895 data-nosnippet>895</a>            .map_err(InstantiationError::Link)<span class="question-mark">?</span>;
 <a href=#896 id=896 data-nosnippet>896</a>
-<a href=#897 id=897 data-nosnippet>897</a>            <span class="kw">let </span>handle = VMInstance::new(
-<a href=#898 id=898 data-nosnippet>898</a>                allocator,
-<a href=#899 id=899 data-nosnippet>899</a>                module,
-<a href=#900 id=900 data-nosnippet>900</a>                context,
-<a href=#901 id=901 data-nosnippet>901</a>                <span class="self">self</span>.finished_functions().clone(),
-<a href=#902 id=902 data-nosnippet>902</a>                <span class="self">self</span>.finished_function_call_trampolines().clone(),
-<a href=#903 id=903 data-nosnippet>903</a>                finished_memories,
-<a href=#904 id=904 data-nosnippet>904</a>                finished_tables,
-<a href=#905 id=905 data-nosnippet>905</a>                finished_globals,
-<a href=#906 id=906 data-nosnippet>906</a>                tags,
-<a href=#907 id=907 data-nosnippet>907</a>                imports,
-<a href=#908 id=908 data-nosnippet>908</a>                <span class="self">self</span>.signatures().clone(),
-<a href=#909 id=909 data-nosnippet>909</a>            )
-<a href=#910 id=910 data-nosnippet>910</a>            .map_err(InstantiationError::Start)<span class="question-mark">?</span>;
-<a href=#911 id=911 data-nosnippet>911</a>            <span class="prelude-val">Ok</span>(handle)
-<a href=#912 id=912 data-nosnippet>912</a>        }
-<a href=#913 id=913 data-nosnippet>913</a>    }
-<a href=#914 id=914 data-nosnippet>914</a>
-<a href=#915 id=915 data-nosnippet>915</a>    <span class="doccomment">/// Finishes the instantiation of a just created `VMInstance`.
-<a href=#916 id=916 data-nosnippet>916</a>    ///
-<a href=#917 id=917 data-nosnippet>917</a>    /// # Safety
-<a href=#918 id=918 data-nosnippet>918</a>    ///
-<a href=#919 id=919 data-nosnippet>919</a>    /// See [`VMInstance::finish_instantiation`].
-<a href=#920 id=920 data-nosnippet>920</a>    </span><span class="attr">#[allow(clippy::result_large_err)]
-<a href=#921 id=921 data-nosnippet>921</a>    </span><span class="kw">pub unsafe fn </span>finish_instantiation(
-<a href=#922 id=922 data-nosnippet>922</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#923 id=923 data-nosnippet>923</a>        config: <span class="kw-2">&amp;</span>VMConfig,
-<a href=#924 id=924 data-nosnippet>924</a>        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
-<a href=#925 id=925 data-nosnippet>925</a>        handle: <span class="kw-2">&amp;mut </span>VMInstance,
-<a href=#926 id=926 data-nosnippet>926</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), InstantiationError&gt; {
-<a href=#927 id=927 data-nosnippet>927</a>        <span class="kw">unsafe </span>{
-<a href=#928 id=928 data-nosnippet>928</a>            <span class="kw">let </span>data_initializers = <span class="self">self
-<a href=#929 id=929 data-nosnippet>929</a>                </span>.data_initializers()
-<a href=#930 id=930 data-nosnippet>930</a>                .map(|init| DataInitializer {
-<a href=#931 id=931 data-nosnippet>931</a>                    location: init.location().clone_to_plain(),
-<a href=#932 id=932 data-nosnippet>932</a>                    data: init.data(),
-<a href=#933 id=933 data-nosnippet>933</a>                })
-<a href=#934 id=934 data-nosnippet>934</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#935 id=935 data-nosnippet>935</a>            handle
-<a href=#936 id=936 data-nosnippet>936</a>                .finish_instantiation(config, trap_handler, <span class="kw-2">&amp;</span>data_initializers)
-<a href=#937 id=937 data-nosnippet>937</a>                .map_err(InstantiationError::Start)
-<a href=#938 id=938 data-nosnippet>938</a>        }
-<a href=#939 id=939 data-nosnippet>939</a>    }
-<a href=#940 id=940 data-nosnippet>940</a>
-<a href=#941 id=941 data-nosnippet>941</a>    <span class="attr">#[allow(clippy::type_complexity)]
-<a href=#942 id=942 data-nosnippet>942</a>    #[cfg(feature = <span class="string">"static-artifact-create"</span>)]
-<a href=#943 id=943 data-nosnippet>943</a>    </span><span class="doccomment">/// Generate a compilation
-<a href=#944 id=944 data-nosnippet>944</a>    </span><span class="kw">pub fn </span>generate_metadata&lt;<span class="lifetime">'data</span>&gt;(
-<a href=#945 id=945 data-nosnippet>945</a>        data: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
-<a href=#946 id=946 data-nosnippet>946</a>        compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
-<a href=#947 id=947 data-nosnippet>947</a>        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
-<a href=#948 id=948 data-nosnippet>948</a>        features: <span class="kw-2">&amp;</span>Features,
-<a href=#949 id=949 data-nosnippet>949</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-<a href=#950 id=950 data-nosnippet>950</a>        (
-<a href=#951 id=951 data-nosnippet>951</a>            CompileModuleInfo,
-<a href=#952 id=952 data-nosnippet>952</a>            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'data</span>&gt;&gt;,
-<a href=#953 id=953 data-nosnippet>953</a>            Vec&lt;DataInitializer&lt;<span class="lifetime">'data</span>&gt;&gt;,
-<a href=#954 id=954 data-nosnippet>954</a>            <span class="prelude-ty">Option</span>&lt;ModuleTranslationState&gt;,
-<a href=#955 id=955 data-nosnippet>955</a>        ),
-<a href=#956 id=956 data-nosnippet>956</a>        CompileError,
-<a href=#957 id=957 data-nosnippet>957</a>    &gt; {
-<a href=#958 id=958 data-nosnippet>958</a>        <span class="kw">let </span>environ = ModuleEnvironment::new();
-<a href=#959 id=959 data-nosnippet>959</a>        <span class="kw">let </span>translation = environ.translate(data).map_err(CompileError::Wasm)<span class="question-mark">?</span>;
-<a href=#960 id=960 data-nosnippet>960</a>
-<a href=#961 id=961 data-nosnippet>961</a>        <span class="comment">// We try to apply the middleware first
-<a href=#962 id=962 data-nosnippet>962</a>        </span><span class="kw">use </span><span class="kw">crate</span>::translator::ModuleMiddlewareChain;
-<a href=#963 id=963 data-nosnippet>963</a>        <span class="kw">let </span><span class="kw-2">mut </span>module = translation.module;
-<a href=#964 id=964 data-nosnippet>964</a>        <span class="kw">let </span>middlewares = compiler.get_middlewares();
-<a href=#965 id=965 data-nosnippet>965</a>        middlewares
-<a href=#966 id=966 data-nosnippet>966</a>            .apply_on_module_info(<span class="kw-2">&amp;mut </span>module)
-<a href=#967 id=967 data-nosnippet>967</a>            .map_err(|e| CompileError::MiddlewareError(e.to_string()))<span class="question-mark">?</span>;
-<a href=#968 id=968 data-nosnippet>968</a>
-<a href=#969 id=969 data-nosnippet>969</a>        <span class="kw">let </span>memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt; = module
-<a href=#970 id=970 data-nosnippet>970</a>            .memories
-<a href=#971 id=971 data-nosnippet>971</a>            .values()
-<a href=#972 id=972 data-nosnippet>972</a>            .map(|memory_type| tunables.memory_style(memory_type))
-<a href=#973 id=973 data-nosnippet>973</a>            .collect();
-<a href=#974 id=974 data-nosnippet>974</a>        <span class="kw">let </span>table_styles: PrimaryMap&lt;TableIndex, TableStyle&gt; = module
-<a href=#975 id=975 data-nosnippet>975</a>            .tables
-<a href=#976 id=976 data-nosnippet>976</a>            .values()
-<a href=#977 id=977 data-nosnippet>977</a>            .map(|table_type| tunables.table_style(table_type))
-<a href=#978 id=978 data-nosnippet>978</a>            .collect();
-<a href=#979 id=979 data-nosnippet>979</a>
-<a href=#980 id=980 data-nosnippet>980</a>        <span class="kw">let </span>compile_info = CompileModuleInfo {
-<a href=#981 id=981 data-nosnippet>981</a>            module: Arc::new(module),
-<a href=#982 id=982 data-nosnippet>982</a>            features: features.clone(),
-<a href=#983 id=983 data-nosnippet>983</a>            memory_styles,
-<a href=#984 id=984 data-nosnippet>984</a>            table_styles,
-<a href=#985 id=985 data-nosnippet>985</a>        };
-<a href=#986 id=986 data-nosnippet>986</a>        <span class="prelude-val">Ok</span>((
-<a href=#987 id=987 data-nosnippet>987</a>            compile_info,
-<a href=#988 id=988 data-nosnippet>988</a>            translation.function_body_inputs,
-<a href=#989 id=989 data-nosnippet>989</a>            translation.data_initializers,
-<a href=#990 id=990 data-nosnippet>990</a>            translation.module_translation_state,
-<a href=#991 id=991 data-nosnippet>991</a>        ))
-<a href=#992 id=992 data-nosnippet>992</a>    }
-<a href=#993 id=993 data-nosnippet>993</a>
-<a href=#994 id=994 data-nosnippet>994</a>    <span class="doccomment">/// Generate the metadata object for the module
-<a href=#995 id=995 data-nosnippet>995</a>    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
-<a href=#996 id=996 data-nosnippet>996</a>    #[allow(clippy::type_complexity)]
-<a href=#997 id=997 data-nosnippet>997</a>    </span><span class="kw">pub fn </span>metadata&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#998 id=998 data-nosnippet>998</a>        compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
-<a href=#999 id=999 data-nosnippet>999</a>        data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
-<a href=#1000 id=1000 data-nosnippet>1000</a>        metadata_prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-<a href=#1001 id=1001 data-nosnippet>1001</a>        target: <span class="kw-2">&amp;</span>Target,
-<a href=#1002 id=1002 data-nosnippet>1002</a>        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
-<a href=#1003 id=1003 data-nosnippet>1003</a>        features: <span class="kw-2">&amp;</span>Features,
-<a href=#1004 id=1004 data-nosnippet>1004</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-<a href=#1005 id=1005 data-nosnippet>1005</a>        (
-<a href=#1006 id=1006 data-nosnippet>1006</a>            ModuleMetadata,
-<a href=#1007 id=1007 data-nosnippet>1007</a>            <span class="prelude-ty">Option</span>&lt;ModuleTranslationState&gt;,
-<a href=#1008 id=1008 data-nosnippet>1008</a>            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'a</span>&gt;&gt;,
-<a href=#1009 id=1009 data-nosnippet>1009</a>        ),
-<a href=#1010 id=1010 data-nosnippet>1010</a>        CompileError,
-<a href=#1011 id=1011 data-nosnippet>1011</a>    &gt; {
-<a href=#1012 id=1012 data-nosnippet>1012</a>        <span class="attr">#[allow(dead_code)]
-<a href=#1013 id=1013 data-nosnippet>1013</a>        </span><span class="kw">let </span>(compile_info, function_body_inputs, data_initializers, module_translation) =
-<a href=#1014 id=1014 data-nosnippet>1014</a>            <span class="self">Self</span>::generate_metadata(data, compiler, tunables, features)<span class="question-mark">?</span>;
-<a href=#1015 id=1015 data-nosnippet>1015</a>
-<a href=#1016 id=1016 data-nosnippet>1016</a>        <span class="kw">let </span>data_initializers = data_initializers
-<a href=#1017 id=1017 data-nosnippet>1017</a>            .iter()
-<a href=#1018 id=1018 data-nosnippet>1018</a>            .map(OwnedDataInitializer::new)
-<a href=#1019 id=1019 data-nosnippet>1019</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#1020 id=1020 data-nosnippet>1020</a>            .into_boxed_slice();
-<a href=#1021 id=1021 data-nosnippet>1021</a>
-<a href=#1022 id=1022 data-nosnippet>1022</a>        <span class="comment">// TODO: we currently supply all-zero function body lengths.
-<a href=#1023 id=1023 data-nosnippet>1023</a>        // We don't know the lengths until they're compiled, yet we have to
-<a href=#1024 id=1024 data-nosnippet>1024</a>        // supply the metadata as an input to the compile.
-<a href=#1025 id=1025 data-nosnippet>1025</a>        </span><span class="kw">let </span>function_body_lengths = function_body_inputs
-<a href=#1026 id=1026 data-nosnippet>1026</a>            .keys()
-<a href=#1027 id=1027 data-nosnippet>1027</a>            .map(|_function_body| <span class="number">0u64</span>)
-<a href=#1028 id=1028 data-nosnippet>1028</a>            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, u64&gt;&gt;();
-<a href=#1029 id=1029 data-nosnippet>1029</a>
-<a href=#1030 id=1030 data-nosnippet>1030</a>        <span class="kw">let </span>metadata = ModuleMetadata {
-<a href=#1031 id=1031 data-nosnippet>1031</a>            compile_info,
-<a href=#1032 id=1032 data-nosnippet>1032</a>            prefix: metadata_prefix.map(|s| s.to_string()).unwrap_or_default(),
-<a href=#1033 id=1033 data-nosnippet>1033</a>            data_initializers,
-<a href=#1034 id=1034 data-nosnippet>1034</a>            function_body_lengths,
-<a href=#1035 id=1035 data-nosnippet>1035</a>            cpu_features: target.cpu_features().as_u64(),
-<a href=#1036 id=1036 data-nosnippet>1036</a>        };
-<a href=#1037 id=1037 data-nosnippet>1037</a>
-<a href=#1038 id=1038 data-nosnippet>1038</a>        <span class="prelude-val">Ok</span>((metadata, module_translation, function_body_inputs))
-<a href=#1039 id=1039 data-nosnippet>1039</a>    }
-<a href=#1040 id=1040 data-nosnippet>1040</a>
-<a href=#1041 id=1041 data-nosnippet>1041</a>    <span class="doccomment">/// Compile a module into an object file, which can be statically linked against.
-<a href=#1042 id=1042 data-nosnippet>1042</a>    ///
-<a href=#1043 id=1043 data-nosnippet>1043</a>    /// The `metadata_prefix` is an optional prefix for the object name to make the
-<a href=#1044 id=1044 data-nosnippet>1044</a>    /// function names in the object file unique. When set, the function names will
-<a href=#1045 id=1045 data-nosnippet>1045</a>    /// be `wasmer_function_{prefix}_{id}` and the object metadata will be addressable
-<a href=#1046 id=1046 data-nosnippet>1046</a>    /// using `WASMER_METADATA_{prefix}_LENGTH` and `WASMER_METADATA_{prefix}_DATA`.
-<a href=#1047 id=1047 data-nosnippet>1047</a>    ///
-<a href=#1048 id=1048 data-nosnippet>1048</a>    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
-<a href=#1049 id=1049 data-nosnippet>1049</a>    </span><span class="kw">pub fn </span>generate_object&lt;<span class="lifetime">'data</span>&gt;(
-<a href=#1050 id=1050 data-nosnippet>1050</a>        compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
-<a href=#1051 id=1051 data-nosnippet>1051</a>        data: <span class="kw-2">&amp;</span>[u8],
-<a href=#1052 id=1052 data-nosnippet>1052</a>        metadata_prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-<a href=#1053 id=1053 data-nosnippet>1053</a>        target: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>Target,
-<a href=#1054 id=1054 data-nosnippet>1054</a>        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
-<a href=#1055 id=1055 data-nosnippet>1055</a>        features: <span class="kw-2">&amp;</span>Features,
-<a href=#1056 id=1056 data-nosnippet>1056</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;
-<a href=#1057 id=1057 data-nosnippet>1057</a>        (
-<a href=#1058 id=1058 data-nosnippet>1058</a>            ModuleInfo,
-<a href=#1059 id=1059 data-nosnippet>1059</a>            Object&lt;<span class="lifetime">'data</span>&gt;,
-<a href=#1060 id=1060 data-nosnippet>1060</a>            usize,
-<a href=#1061 id=1061 data-nosnippet>1061</a>            Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::types::symbols::SymbolRegistry&gt;,
-<a href=#1062 id=1062 data-nosnippet>1062</a>        ),
-<a href=#1063 id=1063 data-nosnippet>1063</a>        CompileError,
-<a href=#1064 id=1064 data-nosnippet>1064</a>    &gt; {
-<a href=#1065 id=1065 data-nosnippet>1065</a>        <span class="kw">use </span><span class="kw">crate</span>::types::symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry};
-<a href=#1066 id=1066 data-nosnippet>1066</a>
-<a href=#1067 id=1067 data-nosnippet>1067</a>        <span class="kw">fn </span>to_compile_error(err: <span class="kw">impl </span>std::error::Error) -&gt; CompileError {
-<a href=#1068 id=1068 data-nosnippet>1068</a>            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"{err}"</span>))
-<a href=#1069 id=1069 data-nosnippet>1069</a>        }
-<a href=#1070 id=1070 data-nosnippet>1070</a>
-<a href=#1071 id=1071 data-nosnippet>1071</a>        <span class="kw">let </span>target_triple = target.triple();
-<a href=#1072 id=1072 data-nosnippet>1072</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>metadata, module_translation, function_body_inputs) =
-<a href=#1073 id=1073 data-nosnippet>1073</a>            <span class="self">Self</span>::metadata(compiler, data, metadata_prefix, target, tunables, features)
-<a href=#1074 id=1074 data-nosnippet>1074</a>                .map_err(to_compile_error)<span class="question-mark">?</span>;
-<a href=#1075 id=1075 data-nosnippet>1075</a>
-<a href=#1076 id=1076 data-nosnippet>1076</a>        <span class="comment">/*
-<a href=#1077 id=1077 data-nosnippet>1077</a>        In the C file we need:
-<a href=#1078 id=1078 data-nosnippet>1078</a>        - imports
-<a href=#1079 id=1079 data-nosnippet>1079</a>        - exports
-<a href=#1080 id=1080 data-nosnippet>1080</a>
-<a href=#1081 id=1081 data-nosnippet>1081</a>        to construct an api::Module which is a Store (can be passed in via argument) and an
-<a href=#1082 id=1082 data-nosnippet>1082</a>        Arc&lt;dyn Artifact&gt; which means this struct which includes:
-<a href=#1083 id=1083 data-nosnippet>1083</a>        - CompileModuleInfo
-<a href=#1084 id=1084 data-nosnippet>1084</a>        - Features
-<a href=#1085 id=1085 data-nosnippet>1085</a>        - ModuleInfo
-<a href=#1086 id=1086 data-nosnippet>1086</a>        - MemoryIndex -&gt; MemoryStyle
-<a href=#1087 id=1087 data-nosnippet>1087</a>        - TableIndex -&gt; TableStyle
-<a href=#1088 id=1088 data-nosnippet>1088</a>        - LocalFunctionIndex -&gt; FunctionBodyPtr // finished functions
-<a href=#1089 id=1089 data-nosnippet>1089</a>        - FunctionIndex -&gt; FunctionBodyPtr // finished dynamic function trampolines
-<a href=#1090 id=1090 data-nosnippet>1090</a>        - SignatureIndex -&gt; VMSignatureHash // signatures
-<a href=#1091 id=1091 data-nosnippet>1091</a>         */
-<a href=#1092 id=1092 data-nosnippet>1092</a>
-<a href=#1093 id=1093 data-nosnippet>1093</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>metadata_builder =
-<a href=#1094 id=1094 data-nosnippet>1094</a>            ObjectMetadataBuilder::new(<span class="kw-2">&amp;</span>metadata, target_triple).map_err(to_compile_error)<span class="question-mark">?</span>;
-<a href=#1095 id=1095 data-nosnippet>1095</a>
-<a href=#1096 id=1096 data-nosnippet>1096</a>        <span class="kw">let </span>(_compile_info, symbol_registry) = metadata.split();
-<a href=#1097 id=1097 data-nosnippet>1097</a>
-<a href=#1098 id=1098 data-nosnippet>1098</a>        <span class="kw">let </span>compilation: <span class="kw">crate</span>::types::function::Compilation = compiler.compile_module(
-<a href=#1099 id=1099 data-nosnippet>1099</a>            target,
-<a href=#1100 id=1100 data-nosnippet>1100</a>            <span class="kw-2">&amp;</span>metadata.compile_info,
-<a href=#1101 id=1101 data-nosnippet>1101</a>            module_translation.as_ref().unwrap(),
-<a href=#1102 id=1102 data-nosnippet>1102</a>            function_body_inputs,
-<a href=#1103 id=1103 data-nosnippet>1103</a>            <span class="prelude-val">None</span>,
-<a href=#1104 id=1104 data-nosnippet>1104</a>        )<span class="question-mark">?</span>;
-<a href=#1105 id=1105 data-nosnippet>1105</a>        <span class="kw">let </span><span class="kw-2">mut </span>obj = get_object_for_target(target_triple).map_err(to_compile_error)<span class="question-mark">?</span>;
-<a href=#1106 id=1106 data-nosnippet>1106</a>
-<a href=#1107 id=1107 data-nosnippet>1107</a>        <span class="kw">let </span>object_name = ModuleMetadataSymbolRegistry {
-<a href=#1108 id=1108 data-nosnippet>1108</a>            prefix: metadata_prefix.unwrap_or_default().to_string(),
-<a href=#1109 id=1109 data-nosnippet>1109</a>        }
-<a href=#1110 id=1110 data-nosnippet>1110</a>        .symbol_to_name(<span class="kw">crate</span>::types::symbols::Symbol::Metadata);
-<a href=#1111 id=1111 data-nosnippet>1111</a>
-<a href=#1112 id=1112 data-nosnippet>1112</a>        <span class="kw">let </span>default_align = <span class="kw">match </span>target_triple.architecture {
-<a href=#1113 id=1113 data-nosnippet>1113</a>            target_lexicon::Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
-<a href=#1114 id=1114 data-nosnippet>1114</a>                <span class="kw">if </span><span class="macro">matches!</span>(
-<a href=#1115 id=1115 data-nosnippet>1115</a>                    target_triple.operating_system,
-<a href=#1116 id=1116 data-nosnippet>1116</a>                    target_lexicon::OperatingSystem::Darwin(<span class="kw">_</span>)
-<a href=#1117 id=1117 data-nosnippet>1117</a>                ) {
-<a href=#1118 id=1118 data-nosnippet>1118</a>                    <span class="number">8
-<a href=#1119 id=1119 data-nosnippet>1119</a>                </span>} <span class="kw">else </span>{
-<a href=#1120 id=1120 data-nosnippet>1120</a>                    <span class="number">4
-<a href=#1121 id=1121 data-nosnippet>1121</a>                </span>}
-<a href=#1122 id=1122 data-nosnippet>1122</a>            }
-<a href=#1123 id=1123 data-nosnippet>1123</a>            <span class="kw">_ </span>=&gt; <span class="number">1</span>,
-<a href=#1124 id=1124 data-nosnippet>1124</a>        };
-<a href=#1125 id=1125 data-nosnippet>1125</a>
-<a href=#1126 id=1126 data-nosnippet>1126</a>        <span class="comment">// MetadataHeader::parse requires that metadata must be aligned
-<a href=#1127 id=1127 data-nosnippet>1127</a>        // by 8 bytes.
-<a href=#1128 id=1128 data-nosnippet>1128</a>        </span><span class="kw">let </span>offset = emit_data(
-<a href=#1129 id=1129 data-nosnippet>1129</a>            <span class="kw-2">&amp;mut </span>obj,
-<a href=#1130 id=1130 data-nosnippet>1130</a>            object_name.as_bytes(),
-<a href=#1131 id=1131 data-nosnippet>1131</a>            metadata_builder.placeholder_data(),
-<a href=#1132 id=1132 data-nosnippet>1132</a>            std::cmp::max(<span class="number">8</span>, default_align),
-<a href=#1133 id=1133 data-nosnippet>1133</a>        )
-<a href=#1134 id=1134 data-nosnippet>1134</a>        .map_err(to_compile_error)<span class="question-mark">?</span>;
-<a href=#1135 id=1135 data-nosnippet>1135</a>        metadata_builder.set_section_offset(offset);
-<a href=#1136 id=1136 data-nosnippet>1136</a>
-<a href=#1137 id=1137 data-nosnippet>1137</a>        emit_compilation(
-<a href=#1138 id=1138 data-nosnippet>1138</a>            <span class="kw-2">&amp;mut </span>obj,
-<a href=#1139 id=1139 data-nosnippet>1139</a>            compilation,
-<a href=#1140 id=1140 data-nosnippet>1140</a>            <span class="kw-2">&amp;</span>symbol_registry,
-<a href=#1141 id=1141 data-nosnippet>1141</a>            target_triple,
-<a href=#1142 id=1142 data-nosnippet>1142</a>            <span class="kw-2">&amp;</span>metadata_builder,
-<a href=#1143 id=1143 data-nosnippet>1143</a>        )
-<a href=#1144 id=1144 data-nosnippet>1144</a>        .map_err(to_compile_error)<span class="question-mark">?</span>;
-<a href=#1145 id=1145 data-nosnippet>1145</a>        <span class="prelude-val">Ok</span>((
-<a href=#1146 id=1146 data-nosnippet>1146</a>            Arc::try_unwrap(metadata.compile_info.module).unwrap(),
-<a href=#1147 id=1147 data-nosnippet>1147</a>            obj,
-<a href=#1148 id=1148 data-nosnippet>1148</a>            metadata_builder.placeholder_data().len(),
-<a href=#1149 id=1149 data-nosnippet>1149</a>            Box::new(symbol_registry),
-<a href=#1150 id=1150 data-nosnippet>1150</a>        ))
-<a href=#1151 id=1151 data-nosnippet>1151</a>    }
-<a href=#1152 id=1152 data-nosnippet>1152</a>
-<a href=#1153 id=1153 data-nosnippet>1153</a>    <span class="doccomment">/// Deserialize a ArtifactBuild from an object file
-<a href=#1154 id=1154 data-nosnippet>1154</a>    ///
-<a href=#1155 id=1155 data-nosnippet>1155</a>    /// # Safety
-<a href=#1156 id=1156 data-nosnippet>1156</a>    /// The object must be a valid static object generated by wasmer.
-<a href=#1157 id=1157 data-nosnippet>1157</a>    </span><span class="attr">#[cfg(not(feature = <span class="string">"static-artifact-load"</span>))]
-<a href=#1158 id=1158 data-nosnippet>1158</a>    </span><span class="kw">pub unsafe fn </span>deserialize_object(
-<a href=#1159 id=1159 data-nosnippet>1159</a>        _engine: <span class="kw-2">&amp;</span>Engine,
-<a href=#1160 id=1160 data-nosnippet>1160</a>        _bytes: OwnedBuffer,
-<a href=#1161 id=1161 data-nosnippet>1161</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
-<a href=#1162 id=1162 data-nosnippet>1162</a>        <span class="prelude-val">Err</span>(DeserializeError::Compiler(
-<a href=#1163 id=1163 data-nosnippet>1163</a>            CompileError::UnsupportedFeature(<span class="string">"static load is not compiled in"</span>.to_string()),
-<a href=#1164 id=1164 data-nosnippet>1164</a>        ))
-<a href=#1165 id=1165 data-nosnippet>1165</a>    }
-<a href=#1166 id=1166 data-nosnippet>1166</a>
-<a href=#1167 id=1167 data-nosnippet>1167</a>    <span class="kw">fn </span>get_byte_slice(input: <span class="kw-2">&amp;</span>[u8], start: usize, end: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>[u8], DeserializeError&gt; {
-<a href=#1168 id=1168 data-nosnippet>1168</a>        <span class="kw">if </span>(start == end &amp;&amp; input.len() &gt; start)
-<a href=#1169 id=1169 data-nosnippet>1169</a>            || (start &lt; end &amp;&amp; input.len() &gt; start &amp;&amp; input.len() &gt;= end)
-<a href=#1170 id=1170 data-nosnippet>1170</a>        {
-<a href=#1171 id=1171 data-nosnippet>1171</a>            <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>input[start..end])
-<a href=#1172 id=1172 data-nosnippet>1172</a>        } <span class="kw">else </span>{
-<a href=#1173 id=1173 data-nosnippet>1173</a>            <span class="prelude-val">Err</span>(DeserializeError::InvalidByteLength {
-<a href=#1174 id=1174 data-nosnippet>1174</a>                expected: end - start,
-<a href=#1175 id=1175 data-nosnippet>1175</a>                got: input.len(),
-<a href=#1176 id=1176 data-nosnippet>1176</a>            })
-<a href=#1177 id=1177 data-nosnippet>1177</a>        }
-<a href=#1178 id=1178 data-nosnippet>1178</a>    }
-<a href=#1179 id=1179 data-nosnippet>1179</a>
-<a href=#1180 id=1180 data-nosnippet>1180</a>    <span class="doccomment">/// Deserialize a ArtifactBuild from an object file
-<a href=#1181 id=1181 data-nosnippet>1181</a>    ///
-<a href=#1182 id=1182 data-nosnippet>1182</a>    /// # Safety
-<a href=#1183 id=1183 data-nosnippet>1183</a>    /// The object must be a valid static object generated by wasmer.
-<a href=#1184 id=1184 data-nosnippet>1184</a>    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-load"</span>)]
-<a href=#1185 id=1185 data-nosnippet>1185</a>    </span><span class="kw">pub unsafe fn </span>deserialize_object(
-<a href=#1186 id=1186 data-nosnippet>1186</a>        engine: <span class="kw-2">&amp;</span>Engine,
-<a href=#1187 id=1187 data-nosnippet>1187</a>        bytes: OwnedBuffer,
-<a href=#1188 id=1188 data-nosnippet>1188</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
-<a href=#1189 id=1189 data-nosnippet>1189</a>        <span class="kw">unsafe </span>{
-<a href=#1190 id=1190 data-nosnippet>1190</a>            <span class="kw">let </span>bytes = bytes.as_slice();
-<a href=#1191 id=1191 data-nosnippet>1191</a>            <span class="kw">let </span>metadata_len = MetadataHeader::parse(bytes)<span class="question-mark">?</span>;
-<a href=#1192 id=1192 data-nosnippet>1192</a>            <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())<span class="question-mark">?</span>;
-<a href=#1193 id=1193 data-nosnippet>1193</a>            <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(metadata_slice, <span class="number">0</span>, metadata_len)<span class="question-mark">?</span>;
-<a href=#1194 id=1194 data-nosnippet>1194</a>            <span class="kw">let </span>metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)<span class="question-mark">?</span>;
-<a href=#1195 id=1195 data-nosnippet>1195</a>
-<a href=#1196 id=1196 data-nosnippet>1196</a>            <span class="kw">const </span>WORD_SIZE: usize = mem::size_of::&lt;usize&gt;();
-<a href=#1197 id=1197 data-nosnippet>1197</a>            <span class="kw">let </span><span class="kw-2">mut </span>byte_buffer = [<span class="number">0u8</span>; WORD_SIZE];
+<a href=#897 id=897 data-nosnippet>897</a>            <span class="comment">// Get pointers to where metadata about local memories should live in VM memory.
+<a href=#898 id=898 data-nosnippet>898</a>            // Get pointers to where metadata about local tables should live in VM memory.
+<a href=#899 id=899 data-nosnippet>899</a>
+<a href=#900 id=900 data-nosnippet>900</a>            </span><span class="kw">let </span>(
+<a href=#901 id=901 data-nosnippet>901</a>                allocator,
+<a href=#902 id=902 data-nosnippet>902</a>                memory_definition_locations,
+<a href=#903 id=903 data-nosnippet>903</a>                table_definition_locations,
+<a href=#904 id=904 data-nosnippet>904</a>                global_definition_locations,
+<a href=#905 id=905 data-nosnippet>905</a>            ) = InstanceAllocator::new(<span class="kw-2">&amp;</span>module);
+<a href=#906 id=906 data-nosnippet>906</a>            <span class="kw">let </span>finished_memories = tunables
+<a href=#907 id=907 data-nosnippet>907</a>                .create_memories(
+<a href=#908 id=908 data-nosnippet>908</a>                    context,
+<a href=#909 id=909 data-nosnippet>909</a>                    <span class="kw-2">&amp;</span>module,
+<a href=#910 id=910 data-nosnippet>910</a>                    <span class="self">self</span>.memory_styles(),
+<a href=#911 id=911 data-nosnippet>911</a>                    <span class="kw-2">&amp;</span>memory_definition_locations,
+<a href=#912 id=912 data-nosnippet>912</a>                )
+<a href=#913 id=913 data-nosnippet>913</a>                .map_err(InstantiationError::Link)<span class="question-mark">?
+<a href=#914 id=914 data-nosnippet>914</a>                </span>.into_boxed_slice();
+<a href=#915 id=915 data-nosnippet>915</a>            <span class="kw">let </span>finished_tables = tunables
+<a href=#916 id=916 data-nosnippet>916</a>                .create_tables(
+<a href=#917 id=917 data-nosnippet>917</a>                    context,
+<a href=#918 id=918 data-nosnippet>918</a>                    <span class="kw-2">&amp;</span>module,
+<a href=#919 id=919 data-nosnippet>919</a>                    <span class="self">self</span>.table_styles(),
+<a href=#920 id=920 data-nosnippet>920</a>                    <span class="kw-2">&amp;</span>table_definition_locations,
+<a href=#921 id=921 data-nosnippet>921</a>                )
+<a href=#922 id=922 data-nosnippet>922</a>                .map_err(InstantiationError::Link)<span class="question-mark">?
+<a href=#923 id=923 data-nosnippet>923</a>                </span>.into_boxed_slice();
+<a href=#924 id=924 data-nosnippet>924</a>            <span class="kw">let </span>finished_globals = tunables
+<a href=#925 id=925 data-nosnippet>925</a>                .create_globals(context, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>global_definition_locations)
+<a href=#926 id=926 data-nosnippet>926</a>                .map_err(InstantiationError::Link)<span class="question-mark">?
+<a href=#927 id=927 data-nosnippet>927</a>                </span>.into_boxed_slice();
+<a href=#928 id=928 data-nosnippet>928</a>
+<a href=#929 id=929 data-nosnippet>929</a>            <span class="kw">let </span>handle = VMInstance::new(
+<a href=#930 id=930 data-nosnippet>930</a>                allocator,
+<a href=#931 id=931 data-nosnippet>931</a>                module,
+<a href=#932 id=932 data-nosnippet>932</a>                context,
+<a href=#933 id=933 data-nosnippet>933</a>                <span class="self">self</span>.finished_functions().clone(),
+<a href=#934 id=934 data-nosnippet>934</a>                <span class="self">self</span>.finished_function_call_trampolines().clone(),
+<a href=#935 id=935 data-nosnippet>935</a>                finished_memories,
+<a href=#936 id=936 data-nosnippet>936</a>                finished_tables,
+<a href=#937 id=937 data-nosnippet>937</a>                finished_globals,
+<a href=#938 id=938 data-nosnippet>938</a>                tags,
+<a href=#939 id=939 data-nosnippet>939</a>                imports,
+<a href=#940 id=940 data-nosnippet>940</a>                <span class="self">self</span>.signatures().clone(),
+<a href=#941 id=941 data-nosnippet>941</a>            )
+<a href=#942 id=942 data-nosnippet>942</a>            .map_err(InstantiationError::Start)<span class="question-mark">?</span>;
+<a href=#943 id=943 data-nosnippet>943</a>            <span class="prelude-val">Ok</span>(handle)
+<a href=#944 id=944 data-nosnippet>944</a>        }
+<a href=#945 id=945 data-nosnippet>945</a>    }
+<a href=#946 id=946 data-nosnippet>946</a>
+<a href=#947 id=947 data-nosnippet>947</a>    <span class="doccomment">/// Finishes the instantiation of a just created `VMInstance`.
+<a href=#948 id=948 data-nosnippet>948</a>    ///
+<a href=#949 id=949 data-nosnippet>949</a>    /// # Safety
+<a href=#950 id=950 data-nosnippet>950</a>    ///
+<a href=#951 id=951 data-nosnippet>951</a>    /// See [`VMInstance::finish_instantiation`].
+<a href=#952 id=952 data-nosnippet>952</a>    </span><span class="attr">#[allow(clippy::result_large_err)]
+<a href=#953 id=953 data-nosnippet>953</a>    </span><span class="kw">pub unsafe fn </span>finish_instantiation(
+<a href=#954 id=954 data-nosnippet>954</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#955 id=955 data-nosnippet>955</a>        config: <span class="kw-2">&amp;</span>VMConfig,
+<a href=#956 id=956 data-nosnippet>956</a>        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
+<a href=#957 id=957 data-nosnippet>957</a>        handle: <span class="kw-2">&amp;mut </span>VMInstance,
+<a href=#958 id=958 data-nosnippet>958</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), InstantiationError&gt; {
+<a href=#959 id=959 data-nosnippet>959</a>        <span class="kw">unsafe </span>{
+<a href=#960 id=960 data-nosnippet>960</a>            <span class="kw">let </span>data_initializers = <span class="self">self
+<a href=#961 id=961 data-nosnippet>961</a>                </span>.data_initializers()
+<a href=#962 id=962 data-nosnippet>962</a>                .map(|init| DataInitializer {
+<a href=#963 id=963 data-nosnippet>963</a>                    location: init.location().clone_to_plain(),
+<a href=#964 id=964 data-nosnippet>964</a>                    data: init.data(),
+<a href=#965 id=965 data-nosnippet>965</a>                })
+<a href=#966 id=966 data-nosnippet>966</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#967 id=967 data-nosnippet>967</a>            handle
+<a href=#968 id=968 data-nosnippet>968</a>                .finish_instantiation(config, trap_handler, <span class="kw-2">&amp;</span>data_initializers)
+<a href=#969 id=969 data-nosnippet>969</a>                .map_err(InstantiationError::Start)
+<a href=#970 id=970 data-nosnippet>970</a>        }
+<a href=#971 id=971 data-nosnippet>971</a>    }
+<a href=#972 id=972 data-nosnippet>972</a>
+<a href=#973 id=973 data-nosnippet>973</a>    <span class="attr">#[allow(clippy::type_complexity)]
+<a href=#974 id=974 data-nosnippet>974</a>    #[cfg(feature = <span class="string">"static-artifact-create"</span>)]
+<a href=#975 id=975 data-nosnippet>975</a>    </span><span class="doccomment">/// Generate a compilation
+<a href=#976 id=976 data-nosnippet>976</a>    </span><span class="kw">pub fn </span>generate_metadata&lt;<span class="lifetime">'data</span>&gt;(
+<a href=#977 id=977 data-nosnippet>977</a>        data: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
+<a href=#978 id=978 data-nosnippet>978</a>        compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
+<a href=#979 id=979 data-nosnippet>979</a>        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
+<a href=#980 id=980 data-nosnippet>980</a>        features: <span class="kw-2">&amp;</span>Features,
+<a href=#981 id=981 data-nosnippet>981</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;
+<a href=#982 id=982 data-nosnippet>982</a>        (
+<a href=#983 id=983 data-nosnippet>983</a>            CompileModuleInfo,
+<a href=#984 id=984 data-nosnippet>984</a>            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'data</span>&gt;&gt;,
+<a href=#985 id=985 data-nosnippet>985</a>            Vec&lt;DataInitializer&lt;<span class="lifetime">'data</span>&gt;&gt;,
+<a href=#986 id=986 data-nosnippet>986</a>            <span class="prelude-ty">Option</span>&lt;ModuleTranslationState&gt;,
+<a href=#987 id=987 data-nosnippet>987</a>        ),
+<a href=#988 id=988 data-nosnippet>988</a>        CompileError,
+<a href=#989 id=989 data-nosnippet>989</a>    &gt; {
+<a href=#990 id=990 data-nosnippet>990</a>        <span class="kw">let </span>environ = ModuleEnvironment::new();
+<a href=#991 id=991 data-nosnippet>991</a>        <span class="kw">let </span>translation = environ.translate(data).map_err(CompileError::Wasm)<span class="question-mark">?</span>;
+<a href=#992 id=992 data-nosnippet>992</a>
+<a href=#993 id=993 data-nosnippet>993</a>        <span class="comment">// We try to apply the middleware first
+<a href=#994 id=994 data-nosnippet>994</a>        </span><span class="kw">use </span><span class="kw">crate</span>::translator::ModuleMiddlewareChain;
+<a href=#995 id=995 data-nosnippet>995</a>        <span class="kw">let </span><span class="kw-2">mut </span>module = translation.module;
+<a href=#996 id=996 data-nosnippet>996</a>        <span class="kw">let </span>middlewares = compiler.get_middlewares();
+<a href=#997 id=997 data-nosnippet>997</a>        middlewares
+<a href=#998 id=998 data-nosnippet>998</a>            .apply_on_module_info(<span class="kw-2">&amp;mut </span>module)
+<a href=#999 id=999 data-nosnippet>999</a>            .map_err(|e| CompileError::MiddlewareError(e.to_string()))<span class="question-mark">?</span>;
+<a href=#1000 id=1000 data-nosnippet>1000</a>
+<a href=#1001 id=1001 data-nosnippet>1001</a>        <span class="kw">let </span>memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt; = module
+<a href=#1002 id=1002 data-nosnippet>1002</a>            .memories
+<a href=#1003 id=1003 data-nosnippet>1003</a>            .values()
+<a href=#1004 id=1004 data-nosnippet>1004</a>            .map(|memory_type| tunables.memory_style(memory_type))
+<a href=#1005 id=1005 data-nosnippet>1005</a>            .collect();
+<a href=#1006 id=1006 data-nosnippet>1006</a>        <span class="kw">let </span>table_styles: PrimaryMap&lt;TableIndex, TableStyle&gt; = module
+<a href=#1007 id=1007 data-nosnippet>1007</a>            .tables
+<a href=#1008 id=1008 data-nosnippet>1008</a>            .values()
+<a href=#1009 id=1009 data-nosnippet>1009</a>            .map(|table_type| tunables.table_style(table_type))
+<a href=#1010 id=1010 data-nosnippet>1010</a>            .collect();
+<a href=#1011 id=1011 data-nosnippet>1011</a>
+<a href=#1012 id=1012 data-nosnippet>1012</a>        <span class="kw">let </span>compile_info = CompileModuleInfo {
+<a href=#1013 id=1013 data-nosnippet>1013</a>            module: Arc::new(module),
+<a href=#1014 id=1014 data-nosnippet>1014</a>            features: features.clone(),
+<a href=#1015 id=1015 data-nosnippet>1015</a>            memory_styles,
+<a href=#1016 id=1016 data-nosnippet>1016</a>            table_styles,
+<a href=#1017 id=1017 data-nosnippet>1017</a>        };
+<a href=#1018 id=1018 data-nosnippet>1018</a>        <span class="prelude-val">Ok</span>((
+<a href=#1019 id=1019 data-nosnippet>1019</a>            compile_info,
+<a href=#1020 id=1020 data-nosnippet>1020</a>            translation.function_body_inputs,
+<a href=#1021 id=1021 data-nosnippet>1021</a>            translation.data_initializers,
+<a href=#1022 id=1022 data-nosnippet>1022</a>            translation.module_translation_state,
+<a href=#1023 id=1023 data-nosnippet>1023</a>        ))
+<a href=#1024 id=1024 data-nosnippet>1024</a>    }
+<a href=#1025 id=1025 data-nosnippet>1025</a>
+<a href=#1026 id=1026 data-nosnippet>1026</a>    <span class="doccomment">/// Generate the metadata object for the module
+<a href=#1027 id=1027 data-nosnippet>1027</a>    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
+<a href=#1028 id=1028 data-nosnippet>1028</a>    #[allow(clippy::type_complexity)]
+<a href=#1029 id=1029 data-nosnippet>1029</a>    </span><span class="kw">pub fn </span>metadata&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#1030 id=1030 data-nosnippet>1030</a>        compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
+<a href=#1031 id=1031 data-nosnippet>1031</a>        data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
+<a href=#1032 id=1032 data-nosnippet>1032</a>        metadata_prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+<a href=#1033 id=1033 data-nosnippet>1033</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#1034 id=1034 data-nosnippet>1034</a>        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
+<a href=#1035 id=1035 data-nosnippet>1035</a>        features: <span class="kw-2">&amp;</span>Features,
+<a href=#1036 id=1036 data-nosnippet>1036</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;
+<a href=#1037 id=1037 data-nosnippet>1037</a>        (
+<a href=#1038 id=1038 data-nosnippet>1038</a>            ModuleMetadata,
+<a href=#1039 id=1039 data-nosnippet>1039</a>            <span class="prelude-ty">Option</span>&lt;ModuleTranslationState&gt;,
+<a href=#1040 id=1040 data-nosnippet>1040</a>            PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'a</span>&gt;&gt;,
+<a href=#1041 id=1041 data-nosnippet>1041</a>        ),
+<a href=#1042 id=1042 data-nosnippet>1042</a>        CompileError,
+<a href=#1043 id=1043 data-nosnippet>1043</a>    &gt; {
+<a href=#1044 id=1044 data-nosnippet>1044</a>        <span class="attr">#[allow(dead_code)]
+<a href=#1045 id=1045 data-nosnippet>1045</a>        </span><span class="kw">let </span>(compile_info, function_body_inputs, data_initializers, module_translation) =
+<a href=#1046 id=1046 data-nosnippet>1046</a>            <span class="self">Self</span>::generate_metadata(data, compiler, tunables, features)<span class="question-mark">?</span>;
+<a href=#1047 id=1047 data-nosnippet>1047</a>
+<a href=#1048 id=1048 data-nosnippet>1048</a>        <span class="kw">let </span>data_initializers = data_initializers
+<a href=#1049 id=1049 data-nosnippet>1049</a>            .iter()
+<a href=#1050 id=1050 data-nosnippet>1050</a>            .map(OwnedDataInitializer::new)
+<a href=#1051 id=1051 data-nosnippet>1051</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#1052 id=1052 data-nosnippet>1052</a>            .into_boxed_slice();
+<a href=#1053 id=1053 data-nosnippet>1053</a>
+<a href=#1054 id=1054 data-nosnippet>1054</a>        <span class="comment">// TODO: we currently supply all-zero function body lengths.
+<a href=#1055 id=1055 data-nosnippet>1055</a>        // We don't know the lengths until they're compiled, yet we have to
+<a href=#1056 id=1056 data-nosnippet>1056</a>        // supply the metadata as an input to the compile.
+<a href=#1057 id=1057 data-nosnippet>1057</a>        </span><span class="kw">let </span>function_body_lengths = function_body_inputs
+<a href=#1058 id=1058 data-nosnippet>1058</a>            .keys()
+<a href=#1059 id=1059 data-nosnippet>1059</a>            .map(|_function_body| <span class="number">0u64</span>)
+<a href=#1060 id=1060 data-nosnippet>1060</a>            .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, u64&gt;&gt;();
+<a href=#1061 id=1061 data-nosnippet>1061</a>
+<a href=#1062 id=1062 data-nosnippet>1062</a>        <span class="kw">let </span>metadata = ModuleMetadata {
+<a href=#1063 id=1063 data-nosnippet>1063</a>            compile_info,
+<a href=#1064 id=1064 data-nosnippet>1064</a>            prefix: metadata_prefix.map(|s| s.to_string()).unwrap_or_default(),
+<a href=#1065 id=1065 data-nosnippet>1065</a>            data_initializers,
+<a href=#1066 id=1066 data-nosnippet>1066</a>            function_body_lengths,
+<a href=#1067 id=1067 data-nosnippet>1067</a>            cpu_features: target.cpu_features().as_u64(),
+<a href=#1068 id=1068 data-nosnippet>1068</a>        };
+<a href=#1069 id=1069 data-nosnippet>1069</a>
+<a href=#1070 id=1070 data-nosnippet>1070</a>        <span class="prelude-val">Ok</span>((metadata, module_translation, function_body_inputs))
+<a href=#1071 id=1071 data-nosnippet>1071</a>    }
+<a href=#1072 id=1072 data-nosnippet>1072</a>
+<a href=#1073 id=1073 data-nosnippet>1073</a>    <span class="doccomment">/// Compile a module into an object file, which can be statically linked against.
+<a href=#1074 id=1074 data-nosnippet>1074</a>    ///
+<a href=#1075 id=1075 data-nosnippet>1075</a>    /// The `metadata_prefix` is an optional prefix for the object name to make the
+<a href=#1076 id=1076 data-nosnippet>1076</a>    /// function names in the object file unique. When set, the function names will
+<a href=#1077 id=1077 data-nosnippet>1077</a>    /// be `wasmer_function_{prefix}_{id}` and the object metadata will be addressable
+<a href=#1078 id=1078 data-nosnippet>1078</a>    /// using `WASMER_METADATA_{prefix}_LENGTH` and `WASMER_METADATA_{prefix}_DATA`.
+<a href=#1079 id=1079 data-nosnippet>1079</a>    ///
+<a href=#1080 id=1080 data-nosnippet>1080</a>    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
+<a href=#1081 id=1081 data-nosnippet>1081</a>    </span><span class="kw">pub fn </span>generate_object&lt;<span class="lifetime">'data</span>&gt;(
+<a href=#1082 id=1082 data-nosnippet>1082</a>        compiler: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Compiler,
+<a href=#1083 id=1083 data-nosnippet>1083</a>        data: <span class="kw-2">&amp;</span>[u8],
+<a href=#1084 id=1084 data-nosnippet>1084</a>        metadata_prefix: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+<a href=#1085 id=1085 data-nosnippet>1085</a>        target: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>Target,
+<a href=#1086 id=1086 data-nosnippet>1086</a>        tunables: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Tunables,
+<a href=#1087 id=1087 data-nosnippet>1087</a>        features: <span class="kw-2">&amp;</span>Features,
+<a href=#1088 id=1088 data-nosnippet>1088</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;
+<a href=#1089 id=1089 data-nosnippet>1089</a>        (
+<a href=#1090 id=1090 data-nosnippet>1090</a>            ModuleInfo,
+<a href=#1091 id=1091 data-nosnippet>1091</a>            Object&lt;<span class="lifetime">'data</span>&gt;,
+<a href=#1092 id=1092 data-nosnippet>1092</a>            usize,
+<a href=#1093 id=1093 data-nosnippet>1093</a>            Box&lt;<span class="kw">dyn </span><span class="kw">crate</span>::types::symbols::SymbolRegistry&gt;,
+<a href=#1094 id=1094 data-nosnippet>1094</a>        ),
+<a href=#1095 id=1095 data-nosnippet>1095</a>        CompileError,
+<a href=#1096 id=1096 data-nosnippet>1096</a>    &gt; {
+<a href=#1097 id=1097 data-nosnippet>1097</a>        <span class="kw">use </span><span class="kw">crate</span>::types::symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry};
+<a href=#1098 id=1098 data-nosnippet>1098</a>
+<a href=#1099 id=1099 data-nosnippet>1099</a>        <span class="kw">fn </span>to_compile_error(err: <span class="kw">impl </span>std::error::Error) -&gt; CompileError {
+<a href=#1100 id=1100 data-nosnippet>1100</a>            CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"{err}"</span>))
+<a href=#1101 id=1101 data-nosnippet>1101</a>        }
+<a href=#1102 id=1102 data-nosnippet>1102</a>
+<a href=#1103 id=1103 data-nosnippet>1103</a>        <span class="kw">let </span>target_triple = target.triple();
+<a href=#1104 id=1104 data-nosnippet>1104</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>metadata, module_translation, function_body_inputs) =
+<a href=#1105 id=1105 data-nosnippet>1105</a>            <span class="self">Self</span>::metadata(compiler, data, metadata_prefix, target, tunables, features)
+<a href=#1106 id=1106 data-nosnippet>1106</a>                .map_err(to_compile_error)<span class="question-mark">?</span>;
+<a href=#1107 id=1107 data-nosnippet>1107</a>
+<a href=#1108 id=1108 data-nosnippet>1108</a>        <span class="comment">/*
+<a href=#1109 id=1109 data-nosnippet>1109</a>        In the C file we need:
+<a href=#1110 id=1110 data-nosnippet>1110</a>        - imports
+<a href=#1111 id=1111 data-nosnippet>1111</a>        - exports
+<a href=#1112 id=1112 data-nosnippet>1112</a>
+<a href=#1113 id=1113 data-nosnippet>1113</a>        to construct an api::Module which is a Store (can be passed in via argument) and an
+<a href=#1114 id=1114 data-nosnippet>1114</a>        Arc&lt;dyn Artifact&gt; which means this struct which includes:
+<a href=#1115 id=1115 data-nosnippet>1115</a>        - CompileModuleInfo
+<a href=#1116 id=1116 data-nosnippet>1116</a>        - Features
+<a href=#1117 id=1117 data-nosnippet>1117</a>        - ModuleInfo
+<a href=#1118 id=1118 data-nosnippet>1118</a>        - MemoryIndex -&gt; MemoryStyle
+<a href=#1119 id=1119 data-nosnippet>1119</a>        - TableIndex -&gt; TableStyle
+<a href=#1120 id=1120 data-nosnippet>1120</a>        - LocalFunctionIndex -&gt; FunctionBodyPtr // finished functions
+<a href=#1121 id=1121 data-nosnippet>1121</a>        - FunctionIndex -&gt; FunctionBodyPtr // finished dynamic function trampolines
+<a href=#1122 id=1122 data-nosnippet>1122</a>        - SignatureIndex -&gt; VMSignatureHash // signatures
+<a href=#1123 id=1123 data-nosnippet>1123</a>         */
+<a href=#1124 id=1124 data-nosnippet>1124</a>
+<a href=#1125 id=1125 data-nosnippet>1125</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>metadata_builder =
+<a href=#1126 id=1126 data-nosnippet>1126</a>            ObjectMetadataBuilder::new(<span class="kw-2">&amp;</span>metadata, target_triple).map_err(to_compile_error)<span class="question-mark">?</span>;
+<a href=#1127 id=1127 data-nosnippet>1127</a>
+<a href=#1128 id=1128 data-nosnippet>1128</a>        <span class="kw">let </span>(_compile_info, symbol_registry) = metadata.split();
+<a href=#1129 id=1129 data-nosnippet>1129</a>
+<a href=#1130 id=1130 data-nosnippet>1130</a>        <span class="kw">let </span>compilation: <span class="kw">crate</span>::types::function::Compilation = compiler.compile_module(
+<a href=#1131 id=1131 data-nosnippet>1131</a>            target,
+<a href=#1132 id=1132 data-nosnippet>1132</a>            <span class="kw-2">&amp;</span>metadata.compile_info,
+<a href=#1133 id=1133 data-nosnippet>1133</a>            module_translation.as_ref().unwrap(),
+<a href=#1134 id=1134 data-nosnippet>1134</a>            function_body_inputs,
+<a href=#1135 id=1135 data-nosnippet>1135</a>            <span class="prelude-val">None</span>,
+<a href=#1136 id=1136 data-nosnippet>1136</a>        )<span class="question-mark">?</span>;
+<a href=#1137 id=1137 data-nosnippet>1137</a>        <span class="kw">let </span><span class="kw-2">mut </span>obj = get_object_for_target(target_triple).map_err(to_compile_error)<span class="question-mark">?</span>;
+<a href=#1138 id=1138 data-nosnippet>1138</a>
+<a href=#1139 id=1139 data-nosnippet>1139</a>        <span class="kw">let </span>object_name = ModuleMetadataSymbolRegistry {
+<a href=#1140 id=1140 data-nosnippet>1140</a>            prefix: metadata_prefix.unwrap_or_default().to_string(),
+<a href=#1141 id=1141 data-nosnippet>1141</a>        }
+<a href=#1142 id=1142 data-nosnippet>1142</a>        .symbol_to_name(<span class="kw">crate</span>::types::symbols::Symbol::Metadata);
+<a href=#1143 id=1143 data-nosnippet>1143</a>
+<a href=#1144 id=1144 data-nosnippet>1144</a>        <span class="kw">let </span>default_align = <span class="kw">match </span>target_triple.architecture {
+<a href=#1145 id=1145 data-nosnippet>1145</a>            target_lexicon::Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
+<a href=#1146 id=1146 data-nosnippet>1146</a>                <span class="kw">if </span><span class="macro">matches!</span>(
+<a href=#1147 id=1147 data-nosnippet>1147</a>                    target_triple.operating_system,
+<a href=#1148 id=1148 data-nosnippet>1148</a>                    target_lexicon::OperatingSystem::Darwin(<span class="kw">_</span>)
+<a href=#1149 id=1149 data-nosnippet>1149</a>                ) {
+<a href=#1150 id=1150 data-nosnippet>1150</a>                    <span class="number">8
+<a href=#1151 id=1151 data-nosnippet>1151</a>                </span>} <span class="kw">else </span>{
+<a href=#1152 id=1152 data-nosnippet>1152</a>                    <span class="number">4
+<a href=#1153 id=1153 data-nosnippet>1153</a>                </span>}
+<a href=#1154 id=1154 data-nosnippet>1154</a>            }
+<a href=#1155 id=1155 data-nosnippet>1155</a>            <span class="kw">_ </span>=&gt; <span class="number">1</span>,
+<a href=#1156 id=1156 data-nosnippet>1156</a>        };
+<a href=#1157 id=1157 data-nosnippet>1157</a>
+<a href=#1158 id=1158 data-nosnippet>1158</a>        <span class="comment">// MetadataHeader::parse requires that metadata must be aligned
+<a href=#1159 id=1159 data-nosnippet>1159</a>        // by 8 bytes.
+<a href=#1160 id=1160 data-nosnippet>1160</a>        </span><span class="kw">let </span>offset = emit_data(
+<a href=#1161 id=1161 data-nosnippet>1161</a>            <span class="kw-2">&amp;mut </span>obj,
+<a href=#1162 id=1162 data-nosnippet>1162</a>            object_name.as_bytes(),
+<a href=#1163 id=1163 data-nosnippet>1163</a>            metadata_builder.placeholder_data(),
+<a href=#1164 id=1164 data-nosnippet>1164</a>            std::cmp::max(<span class="number">8</span>, default_align),
+<a href=#1165 id=1165 data-nosnippet>1165</a>        )
+<a href=#1166 id=1166 data-nosnippet>1166</a>        .map_err(to_compile_error)<span class="question-mark">?</span>;
+<a href=#1167 id=1167 data-nosnippet>1167</a>        metadata_builder.set_section_offset(offset);
+<a href=#1168 id=1168 data-nosnippet>1168</a>
+<a href=#1169 id=1169 data-nosnippet>1169</a>        emit_compilation(
+<a href=#1170 id=1170 data-nosnippet>1170</a>            <span class="kw-2">&amp;mut </span>obj,
+<a href=#1171 id=1171 data-nosnippet>1171</a>            compilation,
+<a href=#1172 id=1172 data-nosnippet>1172</a>            <span class="kw-2">&amp;</span>symbol_registry,
+<a href=#1173 id=1173 data-nosnippet>1173</a>            target_triple,
+<a href=#1174 id=1174 data-nosnippet>1174</a>            <span class="kw-2">&amp;</span>metadata_builder,
+<a href=#1175 id=1175 data-nosnippet>1175</a>        )
+<a href=#1176 id=1176 data-nosnippet>1176</a>        .map_err(to_compile_error)<span class="question-mark">?</span>;
+<a href=#1177 id=1177 data-nosnippet>1177</a>        <span class="prelude-val">Ok</span>((
+<a href=#1178 id=1178 data-nosnippet>1178</a>            Arc::try_unwrap(metadata.compile_info.module).unwrap(),
+<a href=#1179 id=1179 data-nosnippet>1179</a>            obj,
+<a href=#1180 id=1180 data-nosnippet>1180</a>            metadata_builder.placeholder_data().len(),
+<a href=#1181 id=1181 data-nosnippet>1181</a>            Box::new(symbol_registry),
+<a href=#1182 id=1182 data-nosnippet>1182</a>        ))
+<a href=#1183 id=1183 data-nosnippet>1183</a>    }
+<a href=#1184 id=1184 data-nosnippet>1184</a>
+<a href=#1185 id=1185 data-nosnippet>1185</a>    <span class="doccomment">/// Deserialize a ArtifactBuild from an object file
+<a href=#1186 id=1186 data-nosnippet>1186</a>    ///
+<a href=#1187 id=1187 data-nosnippet>1187</a>    /// # Safety
+<a href=#1188 id=1188 data-nosnippet>1188</a>    /// The object must be a valid static object generated by wasmer.
+<a href=#1189 id=1189 data-nosnippet>1189</a>    </span><span class="attr">#[cfg(not(feature = <span class="string">"static-artifact-load"</span>))]
+<a href=#1190 id=1190 data-nosnippet>1190</a>    </span><span class="kw">pub unsafe fn </span>deserialize_object(
+<a href=#1191 id=1191 data-nosnippet>1191</a>        _engine: <span class="kw-2">&amp;</span>Engine,
+<a href=#1192 id=1192 data-nosnippet>1192</a>        _bytes: OwnedBuffer,
+<a href=#1193 id=1193 data-nosnippet>1193</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+<a href=#1194 id=1194 data-nosnippet>1194</a>        <span class="prelude-val">Err</span>(DeserializeError::Compiler(
+<a href=#1195 id=1195 data-nosnippet>1195</a>            CompileError::UnsupportedFeature(<span class="string">"static load is not compiled in"</span>.to_string()),
+<a href=#1196 id=1196 data-nosnippet>1196</a>        ))
+<a href=#1197 id=1197 data-nosnippet>1197</a>    }
 <a href=#1198 id=1198 data-nosnippet>1198</a>
-<a href=#1199 id=1199 data-nosnippet>1199</a>            <span class="kw">let </span><span class="kw-2">mut </span>cur_offset = MetadataHeader::LEN + metadata_len;
-<a href=#1200 id=1200 data-nosnippet>1200</a>
-<a href=#1201 id=1201 data-nosnippet>1201</a>            <span class="kw">let </span>byte_buffer_slice =
-<a href=#1202 id=1202 data-nosnippet>1202</a>                <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
-<a href=#1203 id=1203 data-nosnippet>1203</a>            byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-<a href=#1204 id=1204 data-nosnippet>1204</a>            cur_offset += WORD_SIZE;
-<a href=#1205 id=1205 data-nosnippet>1205</a>
-<a href=#1206 id=1206 data-nosnippet>1206</a>            <span class="kw">let </span>num_finished_functions = usize::from_ne_bytes(byte_buffer);
-<a href=#1207 id=1207 data-nosnippet>1207</a>            <span class="kw">let </span><span class="kw-2">mut </span>finished_functions: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyPtr&gt; =
-<a href=#1208 id=1208 data-nosnippet>1208</a>                PrimaryMap::new();
-<a href=#1209 id=1209 data-nosnippet>1209</a>
-<a href=#1210 id=1210 data-nosnippet>1210</a>            <span class="kw">let </span>engine_inner = engine.inner();
-<a href=#1211 id=1211 data-nosnippet>1211</a>            <span class="kw">let </span>signature_registry = engine_inner.signatures();
-<a href=#1212 id=1212 data-nosnippet>1212</a>
-<a href=#1213 id=1213 data-nosnippet>1213</a>            <span class="comment">// read finished functions in order now...
-<a href=#1214 id=1214 data-nosnippet>1214</a>            </span><span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..num_finished_functions {
-<a href=#1215 id=1215 data-nosnippet>1215</a>                <span class="kw">let </span>byte_buffer_slice =
-<a href=#1216 id=1216 data-nosnippet>1216</a>                    <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
-<a href=#1217 id=1217 data-nosnippet>1217</a>                byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-<a href=#1218 id=1218 data-nosnippet>1218</a>                <span class="kw">let </span>fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) <span class="kw">as _</span>);
-<a href=#1219 id=1219 data-nosnippet>1219</a>                cur_offset += WORD_SIZE;
-<a href=#1220 id=1220 data-nosnippet>1220</a>
-<a href=#1221 id=1221 data-nosnippet>1221</a>                <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.
-<a href=#1222 id=1222 data-nosnippet>1222</a>                </span>finished_functions.push(fp);
-<a href=#1223 id=1223 data-nosnippet>1223</a>            }
-<a href=#1224 id=1224 data-nosnippet>1224</a>
-<a href=#1225 id=1225 data-nosnippet>1225</a>            <span class="comment">// We register all the signatures
-<a href=#1226 id=1226 data-nosnippet>1226</a>            </span><span class="kw">let </span>signatures = {
-<a href=#1227 id=1227 data-nosnippet>1227</a>                <span class="kw">let </span>module = <span class="kw-2">&amp;</span>metadata.compile_info.module;
-<a href=#1228 id=1228 data-nosnippet>1228</a>                module
-<a href=#1229 id=1229 data-nosnippet>1229</a>                    .signatures
-<a href=#1230 id=1230 data-nosnippet>1230</a>                    .values()
-<a href=#1231 id=1231 data-nosnippet>1231</a>                    .zip(module.signature_hashes.values())
-<a href=#1232 id=1232 data-nosnippet>1232</a>                    .map(|(sig, sig_hash)| signature_registry.register(sig, <span class="kw-2">*</span>sig_hash))
-<a href=#1233 id=1233 data-nosnippet>1233</a>                    .collect::&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
-<a href=#1234 id=1234 data-nosnippet>1234</a>            };
-<a href=#1235 id=1235 data-nosnippet>1235</a>
-<a href=#1236 id=1236 data-nosnippet>1236</a>            <span class="comment">// read trampolines in order
-<a href=#1237 id=1237 data-nosnippet>1237</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>finished_function_call_trampolines = PrimaryMap::new();
-<a href=#1238 id=1238 data-nosnippet>1238</a>
-<a href=#1239 id=1239 data-nosnippet>1239</a>            <span class="kw">let </span>byte_buffer_slice =
-<a href=#1240 id=1240 data-nosnippet>1240</a>                <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
-<a href=#1241 id=1241 data-nosnippet>1241</a>            byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-<a href=#1242 id=1242 data-nosnippet>1242</a>            cur_offset += WORD_SIZE;
-<a href=#1243 id=1243 data-nosnippet>1243</a>            <span class="kw">let </span>num_function_trampolines = usize::from_ne_bytes(byte_buffer);
-<a href=#1244 id=1244 data-nosnippet>1244</a>            <span class="kw">for _ in </span><span class="number">0</span>..num_function_trampolines {
-<a href=#1245 id=1245 data-nosnippet>1245</a>                <span class="kw">let </span>byte_buffer_slice =
-<a href=#1246 id=1246 data-nosnippet>1246</a>                    <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
-<a href=#1247 id=1247 data-nosnippet>1247</a>                byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-<a href=#1248 id=1248 data-nosnippet>1248</a>                cur_offset += WORD_SIZE;
-<a href=#1249 id=1249 data-nosnippet>1249</a>                <span class="kw">let </span>trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
-<a href=#1250 id=1250 data-nosnippet>1250</a>                <span class="kw">let </span>trampoline = mem::transmute::&lt;usize, VMTrampoline&gt;(trampoline_ptr_bytes);
-<a href=#1251 id=1251 data-nosnippet>1251</a>                finished_function_call_trampolines.push(trampoline);
-<a href=#1252 id=1252 data-nosnippet>1252</a>                <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.
-<a href=#1253 id=1253 data-nosnippet>1253</a>            </span>}
-<a href=#1254 id=1254 data-nosnippet>1254</a>
-<a href=#1255 id=1255 data-nosnippet>1255</a>            <span class="comment">// read dynamic function trampolines in order now...
-<a href=#1256 id=1256 data-nosnippet>1256</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>finished_dynamic_function_trampolines = PrimaryMap::new();
-<a href=#1257 id=1257 data-nosnippet>1257</a>            <span class="kw">let </span>byte_buffer_slice =
-<a href=#1258 id=1258 data-nosnippet>1258</a>                <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
-<a href=#1259 id=1259 data-nosnippet>1259</a>            byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-<a href=#1260 id=1260 data-nosnippet>1260</a>            cur_offset += WORD_SIZE;
-<a href=#1261 id=1261 data-nosnippet>1261</a>            <span class="kw">let </span>num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
-<a href=#1262 id=1262 data-nosnippet>1262</a>            <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..num_dynamic_trampoline_functions {
-<a href=#1263 id=1263 data-nosnippet>1263</a>                <span class="kw">let </span>byte_buffer_slice =
-<a href=#1264 id=1264 data-nosnippet>1264</a>                    <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
-<a href=#1265 id=1265 data-nosnippet>1265</a>                byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
-<a href=#1266 id=1266 data-nosnippet>1266</a>                <span class="kw">let </span>fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) <span class="kw">as _</span>);
-<a href=#1267 id=1267 data-nosnippet>1267</a>                cur_offset += WORD_SIZE;
-<a href=#1268 id=1268 data-nosnippet>1268</a>
-<a href=#1269 id=1269 data-nosnippet>1269</a>                <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.
+<a href=#1199 id=1199 data-nosnippet>1199</a>    <span class="kw">fn </span>get_byte_slice(input: <span class="kw-2">&amp;</span>[u8], start: usize, end: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>[u8], DeserializeError&gt; {
+<a href=#1200 id=1200 data-nosnippet>1200</a>        <span class="kw">if </span>(start == end &amp;&amp; input.len() &gt; start)
+<a href=#1201 id=1201 data-nosnippet>1201</a>            || (start &lt; end &amp;&amp; input.len() &gt; start &amp;&amp; input.len() &gt;= end)
+<a href=#1202 id=1202 data-nosnippet>1202</a>        {
+<a href=#1203 id=1203 data-nosnippet>1203</a>            <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>input[start..end])
+<a href=#1204 id=1204 data-nosnippet>1204</a>        } <span class="kw">else </span>{
+<a href=#1205 id=1205 data-nosnippet>1205</a>            <span class="prelude-val">Err</span>(DeserializeError::InvalidByteLength {
+<a href=#1206 id=1206 data-nosnippet>1206</a>                expected: end - start,
+<a href=#1207 id=1207 data-nosnippet>1207</a>                got: input.len(),
+<a href=#1208 id=1208 data-nosnippet>1208</a>            })
+<a href=#1209 id=1209 data-nosnippet>1209</a>        }
+<a href=#1210 id=1210 data-nosnippet>1210</a>    }
+<a href=#1211 id=1211 data-nosnippet>1211</a>
+<a href=#1212 id=1212 data-nosnippet>1212</a>    <span class="doccomment">/// Deserialize a ArtifactBuild from an object file
+<a href=#1213 id=1213 data-nosnippet>1213</a>    ///
+<a href=#1214 id=1214 data-nosnippet>1214</a>    /// # Safety
+<a href=#1215 id=1215 data-nosnippet>1215</a>    /// The object must be a valid static object generated by wasmer.
+<a href=#1216 id=1216 data-nosnippet>1216</a>    </span><span class="attr">#[cfg(feature = <span class="string">"static-artifact-load"</span>)]
+<a href=#1217 id=1217 data-nosnippet>1217</a>    </span><span class="kw">pub unsafe fn </span>deserialize_object(
+<a href=#1218 id=1218 data-nosnippet>1218</a>        engine: <span class="kw-2">&amp;</span>Engine,
+<a href=#1219 id=1219 data-nosnippet>1219</a>        bytes: OwnedBuffer,
+<a href=#1220 id=1220 data-nosnippet>1220</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, DeserializeError&gt; {
+<a href=#1221 id=1221 data-nosnippet>1221</a>        <span class="kw">unsafe </span>{
+<a href=#1222 id=1222 data-nosnippet>1222</a>            <span class="kw">let </span>bytes = bytes.as_slice();
+<a href=#1223 id=1223 data-nosnippet>1223</a>            <span class="kw">let </span>metadata_len = MetadataHeader::parse(bytes)<span class="question-mark">?</span>;
+<a href=#1224 id=1224 data-nosnippet>1224</a>            <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())<span class="question-mark">?</span>;
+<a href=#1225 id=1225 data-nosnippet>1225</a>            <span class="kw">let </span>metadata_slice = <span class="self">Self</span>::get_byte_slice(metadata_slice, <span class="number">0</span>, metadata_len)<span class="question-mark">?</span>;
+<a href=#1226 id=1226 data-nosnippet>1226</a>            <span class="kw">let </span>metadata: ModuleMetadata = ModuleMetadata::deserialize(metadata_slice)<span class="question-mark">?</span>;
+<a href=#1227 id=1227 data-nosnippet>1227</a>
+<a href=#1228 id=1228 data-nosnippet>1228</a>            <span class="kw">const </span>WORD_SIZE: usize = mem::size_of::&lt;usize&gt;();
+<a href=#1229 id=1229 data-nosnippet>1229</a>            <span class="kw">let </span><span class="kw-2">mut </span>byte_buffer = [<span class="number">0u8</span>; WORD_SIZE];
+<a href=#1230 id=1230 data-nosnippet>1230</a>
+<a href=#1231 id=1231 data-nosnippet>1231</a>            <span class="kw">let </span><span class="kw-2">mut </span>cur_offset = MetadataHeader::LEN + metadata_len;
+<a href=#1232 id=1232 data-nosnippet>1232</a>
+<a href=#1233 id=1233 data-nosnippet>1233</a>            <span class="kw">let </span>byte_buffer_slice =
+<a href=#1234 id=1234 data-nosnippet>1234</a>                <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+<a href=#1235 id=1235 data-nosnippet>1235</a>            byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+<a href=#1236 id=1236 data-nosnippet>1236</a>            cur_offset += WORD_SIZE;
+<a href=#1237 id=1237 data-nosnippet>1237</a>
+<a href=#1238 id=1238 data-nosnippet>1238</a>            <span class="kw">let </span>num_finished_functions = usize::from_ne_bytes(byte_buffer);
+<a href=#1239 id=1239 data-nosnippet>1239</a>            <span class="kw">let </span><span class="kw-2">mut </span>finished_functions: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyPtr&gt; =
+<a href=#1240 id=1240 data-nosnippet>1240</a>                PrimaryMap::new();
+<a href=#1241 id=1241 data-nosnippet>1241</a>
+<a href=#1242 id=1242 data-nosnippet>1242</a>            <span class="kw">let </span>engine_inner = engine.inner();
+<a href=#1243 id=1243 data-nosnippet>1243</a>            <span class="kw">let </span>signature_registry = engine_inner.signatures();
+<a href=#1244 id=1244 data-nosnippet>1244</a>
+<a href=#1245 id=1245 data-nosnippet>1245</a>            <span class="comment">// read finished functions in order now...
+<a href=#1246 id=1246 data-nosnippet>1246</a>            </span><span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..num_finished_functions {
+<a href=#1247 id=1247 data-nosnippet>1247</a>                <span class="kw">let </span>byte_buffer_slice =
+<a href=#1248 id=1248 data-nosnippet>1248</a>                    <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+<a href=#1249 id=1249 data-nosnippet>1249</a>                byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+<a href=#1250 id=1250 data-nosnippet>1250</a>                <span class="kw">let </span>fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) <span class="kw">as _</span>);
+<a href=#1251 id=1251 data-nosnippet>1251</a>                cur_offset += WORD_SIZE;
+<a href=#1252 id=1252 data-nosnippet>1252</a>
+<a href=#1253 id=1253 data-nosnippet>1253</a>                <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.
+<a href=#1254 id=1254 data-nosnippet>1254</a>                </span>finished_functions.push(fp);
+<a href=#1255 id=1255 data-nosnippet>1255</a>            }
+<a href=#1256 id=1256 data-nosnippet>1256</a>
+<a href=#1257 id=1257 data-nosnippet>1257</a>            <span class="comment">// We register all the signatures
+<a href=#1258 id=1258 data-nosnippet>1258</a>            </span><span class="kw">let </span>signatures = {
+<a href=#1259 id=1259 data-nosnippet>1259</a>                <span class="kw">let </span>module = <span class="kw-2">&amp;</span>metadata.compile_info.module;
+<a href=#1260 id=1260 data-nosnippet>1260</a>                module
+<a href=#1261 id=1261 data-nosnippet>1261</a>                    .signatures
+<a href=#1262 id=1262 data-nosnippet>1262</a>                    .values()
+<a href=#1263 id=1263 data-nosnippet>1263</a>                    .zip(module.signature_hashes.values())
+<a href=#1264 id=1264 data-nosnippet>1264</a>                    .map(|(sig, sig_hash)| signature_registry.register(sig, <span class="kw-2">*</span>sig_hash))
+<a href=#1265 id=1265 data-nosnippet>1265</a>                    .collect::&lt;PrimaryMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()
+<a href=#1266 id=1266 data-nosnippet>1266</a>            };
+<a href=#1267 id=1267 data-nosnippet>1267</a>
+<a href=#1268 id=1268 data-nosnippet>1268</a>            <span class="comment">// read trampolines in order
+<a href=#1269 id=1269 data-nosnippet>1269</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>finished_function_call_trampolines = PrimaryMap::new();
 <a href=#1270 id=1270 data-nosnippet>1270</a>
-<a href=#1271 id=1271 data-nosnippet>1271</a>                </span>finished_dynamic_function_trampolines.push(fp);
-<a href=#1272 id=1272 data-nosnippet>1272</a>            }
-<a href=#1273 id=1273 data-nosnippet>1273</a>
-<a href=#1274 id=1274 data-nosnippet>1274</a>            <span class="kw">let </span>artifact = ArtifactBuild::from_serializable(SerializableModule {
-<a href=#1275 id=1275 data-nosnippet>1275</a>                compilation: SerializableCompilation::default(),
-<a href=#1276 id=1276 data-nosnippet>1276</a>                compile_info: metadata.compile_info,
-<a href=#1277 id=1277 data-nosnippet>1277</a>                data_initializers: metadata.data_initializers,
-<a href=#1278 id=1278 data-nosnippet>1278</a>                cpu_features: metadata.cpu_features,
-<a href=#1279 id=1279 data-nosnippet>1279</a>            });
-<a href=#1280 id=1280 data-nosnippet>1280</a>
-<a href=#1281 id=1281 data-nosnippet>1281</a>            <span class="kw">let </span>finished_function_lengths = finished_functions
-<a href=#1282 id=1282 data-nosnippet>1282</a>                .values()
-<a href=#1283 id=1283 data-nosnippet>1283</a>                .map(|<span class="kw">_</span>| <span class="number">0</span>)
-<a href=#1284 id=1284 data-nosnippet>1284</a>                .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, usize&gt;&gt;()
-<a href=#1285 id=1285 data-nosnippet>1285</a>                .into_boxed_slice();
+<a href=#1271 id=1271 data-nosnippet>1271</a>            <span class="kw">let </span>byte_buffer_slice =
+<a href=#1272 id=1272 data-nosnippet>1272</a>                <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+<a href=#1273 id=1273 data-nosnippet>1273</a>            byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+<a href=#1274 id=1274 data-nosnippet>1274</a>            cur_offset += WORD_SIZE;
+<a href=#1275 id=1275 data-nosnippet>1275</a>            <span class="kw">let </span>num_function_trampolines = usize::from_ne_bytes(byte_buffer);
+<a href=#1276 id=1276 data-nosnippet>1276</a>            <span class="kw">for _ in </span><span class="number">0</span>..num_function_trampolines {
+<a href=#1277 id=1277 data-nosnippet>1277</a>                <span class="kw">let </span>byte_buffer_slice =
+<a href=#1278 id=1278 data-nosnippet>1278</a>                    <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+<a href=#1279 id=1279 data-nosnippet>1279</a>                byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+<a href=#1280 id=1280 data-nosnippet>1280</a>                cur_offset += WORD_SIZE;
+<a href=#1281 id=1281 data-nosnippet>1281</a>                <span class="kw">let </span>trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
+<a href=#1282 id=1282 data-nosnippet>1282</a>                <span class="kw">let </span>trampoline = mem::transmute::&lt;usize, VMTrampoline&gt;(trampoline_ptr_bytes);
+<a href=#1283 id=1283 data-nosnippet>1283</a>                finished_function_call_trampolines.push(trampoline);
+<a href=#1284 id=1284 data-nosnippet>1284</a>                <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.
+<a href=#1285 id=1285 data-nosnippet>1285</a>            </span>}
 <a href=#1286 id=1286 data-nosnippet>1286</a>
-<a href=#1287 id=1287 data-nosnippet>1287</a>            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-<a href=#1288 id=1288 data-nosnippet>1288</a>                id: Default::default(),
-<a href=#1289 id=1289 data-nosnippet>1289</a>                artifact: ArtifactBuildVariant::Plain(artifact),
-<a href=#1290 id=1290 data-nosnippet>1290</a>                allocated: <span class="prelude-val">Some</span>(AllocatedArtifact {
-<a href=#1291 id=1291 data-nosnippet>1291</a>                    frame_info_registered: <span class="bool-val">false</span>,
-<a href=#1292 id=1292 data-nosnippet>1292</a>                    frame_info_registration: <span class="prelude-val">None</span>,
-<a href=#1293 id=1293 data-nosnippet>1293</a>                    finished_functions: finished_functions.into_boxed_slice(),
-<a href=#1294 id=1294 data-nosnippet>1294</a>                    finished_function_call_trampolines: finished_function_call_trampolines
-<a href=#1295 id=1295 data-nosnippet>1295</a>                        .into_boxed_slice(),
-<a href=#1296 id=1296 data-nosnippet>1296</a>                    finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
-<a href=#1297 id=1297 data-nosnippet>1297</a>                        .into_boxed_slice(),
-<a href=#1298 id=1298 data-nosnippet>1298</a>                    signatures: signatures.into_boxed_slice(),
-<a href=#1299 id=1299 data-nosnippet>1299</a>                    finished_function_lengths,
-<a href=#1300 id=1300 data-nosnippet>1300</a>                }),
-<a href=#1301 id=1301 data-nosnippet>1301</a>            })
-<a href=#1302 id=1302 data-nosnippet>1302</a>        }
-<a href=#1303 id=1303 data-nosnippet>1303</a>    }
-<a href=#1304 id=1304 data-nosnippet>1304</a>}
+<a href=#1287 id=1287 data-nosnippet>1287</a>            <span class="comment">// read dynamic function trampolines in order now...
+<a href=#1288 id=1288 data-nosnippet>1288</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>finished_dynamic_function_trampolines = PrimaryMap::new();
+<a href=#1289 id=1289 data-nosnippet>1289</a>            <span class="kw">let </span>byte_buffer_slice =
+<a href=#1290 id=1290 data-nosnippet>1290</a>                <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+<a href=#1291 id=1291 data-nosnippet>1291</a>            byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+<a href=#1292 id=1292 data-nosnippet>1292</a>            cur_offset += WORD_SIZE;
+<a href=#1293 id=1293 data-nosnippet>1293</a>            <span class="kw">let </span>num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
+<a href=#1294 id=1294 data-nosnippet>1294</a>            <span class="kw">for </span>_i <span class="kw">in </span><span class="number">0</span>..num_dynamic_trampoline_functions {
+<a href=#1295 id=1295 data-nosnippet>1295</a>                <span class="kw">let </span>byte_buffer_slice =
+<a href=#1296 id=1296 data-nosnippet>1296</a>                    <span class="self">Self</span>::get_byte_slice(bytes, cur_offset, cur_offset + WORD_SIZE)<span class="question-mark">?</span>;
+<a href=#1297 id=1297 data-nosnippet>1297</a>                byte_buffer[<span class="number">0</span>..WORD_SIZE].clone_from_slice(byte_buffer_slice);
+<a href=#1298 id=1298 data-nosnippet>1298</a>                <span class="kw">let </span>fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) <span class="kw">as _</span>);
+<a href=#1299 id=1299 data-nosnippet>1299</a>                cur_offset += WORD_SIZE;
+<a href=#1300 id=1300 data-nosnippet>1300</a>
+<a href=#1301 id=1301 data-nosnippet>1301</a>                <span class="comment">// TODO: we can read back the length here if we serialize it. This will improve debug output.
+<a href=#1302 id=1302 data-nosnippet>1302</a>
+<a href=#1303 id=1303 data-nosnippet>1303</a>                </span>finished_dynamic_function_trampolines.push(fp);
+<a href=#1304 id=1304 data-nosnippet>1304</a>            }
+<a href=#1305 id=1305 data-nosnippet>1305</a>
+<a href=#1306 id=1306 data-nosnippet>1306</a>            <span class="kw">let </span>artifact = ArtifactBuild::from_serializable(SerializableModule {
+<a href=#1307 id=1307 data-nosnippet>1307</a>                compilation: SerializableCompilation::default(),
+<a href=#1308 id=1308 data-nosnippet>1308</a>                compile_info: metadata.compile_info,
+<a href=#1309 id=1309 data-nosnippet>1309</a>                data_initializers: metadata.data_initializers,
+<a href=#1310 id=1310 data-nosnippet>1310</a>                cpu_features: metadata.cpu_features,
+<a href=#1311 id=1311 data-nosnippet>1311</a>            });
+<a href=#1312 id=1312 data-nosnippet>1312</a>
+<a href=#1313 id=1313 data-nosnippet>1313</a>            <span class="kw">let </span>finished_function_lengths = finished_functions
+<a href=#1314 id=1314 data-nosnippet>1314</a>                .values()
+<a href=#1315 id=1315 data-nosnippet>1315</a>                .map(|<span class="kw">_</span>| <span class="number">0</span>)
+<a href=#1316 id=1316 data-nosnippet>1316</a>                .collect::&lt;PrimaryMap&lt;LocalFunctionIndex, usize&gt;&gt;()
+<a href=#1317 id=1317 data-nosnippet>1317</a>                .into_boxed_slice();
+<a href=#1318 id=1318 data-nosnippet>1318</a>
+<a href=#1319 id=1319 data-nosnippet>1319</a>            <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+<a href=#1320 id=1320 data-nosnippet>1320</a>                id: Default::default(),
+<a href=#1321 id=1321 data-nosnippet>1321</a>                artifact: ArtifactBuildVariant::Plain(artifact),
+<a href=#1322 id=1322 data-nosnippet>1322</a>                allocated: <span class="prelude-val">Some</span>(AllocatedArtifact {
+<a href=#1323 id=1323 data-nosnippet>1323</a>                    frame_info_registered: <span class="bool-val">false</span>,
+<a href=#1324 id=1324 data-nosnippet>1324</a>                    frame_info_registration: <span class="prelude-val">None</span>,
+<a href=#1325 id=1325 data-nosnippet>1325</a>                    finished_functions: finished_functions.into_boxed_slice(),
+<a href=#1326 id=1326 data-nosnippet>1326</a>                    finished_function_call_trampolines: finished_function_call_trampolines
+<a href=#1327 id=1327 data-nosnippet>1327</a>                        .into_boxed_slice(),
+<a href=#1328 id=1328 data-nosnippet>1328</a>                    finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+<a href=#1329 id=1329 data-nosnippet>1329</a>                        .into_boxed_slice(),
+<a href=#1330 id=1330 data-nosnippet>1330</a>                    signatures: signatures.into_boxed_slice(),
+<a href=#1331 id=1331 data-nosnippet>1331</a>                    finished_function_lengths,
+<a href=#1332 id=1332 data-nosnippet>1332</a>                }),
+<a href=#1333 id=1333 data-nosnippet>1333</a>            })
+<a href=#1334 id=1334 data-nosnippet>1334</a>        }
+<a href=#1335 id=1335 data-nosnippet>1335</a>    }
+<a href=#1336 id=1336 data-nosnippet>1336</a>}
 </code></pre></div></section></main></body></html>

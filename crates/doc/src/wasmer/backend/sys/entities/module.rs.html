@@ -287,5 +287,22 @@
 <a href=#287 id=287 data-nosnippet>287</a>            <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` module!"</span>),
 <a href=#288 id=288 data-nosnippet>288</a>        }
 <a href=#289 id=289 data-nosnippet>289</a>    }
-<a href=#290 id=290 data-nosnippet>290</a>}
+<a href=#290 id=290 data-nosnippet>290</a>
+<a href=#291 id=291 data-nosnippet>291</a>    <span class="doccomment">/// Returns the compiled [`Artifact`] backing this module, or `None` if this
+<a href=#292 id=292 data-nosnippet>292</a>    /// is not a `sys`-backend module.
+<a href=#293 id=293 data-nosnippet>293</a>    ///
+<a href=#294 id=294 data-nosnippet>294</a>    /// # Security
+<a href=#295 id=295 data-nosnippet>295</a>    ///
+<a href=#296 id=296 data-nosnippet>296</a>    /// The artifact exposes host-process memory addresses (e.g. via
+<a href=#297 id=297 data-nosnippet>297</a>    /// [`Artifact::finished_function_extents`]). These are not stable across
+<a href=#298 id=298 data-nosnippet>298</a>    /// runs and must not be forwarded to untrusted parties, as they reveal
+<a href=#299 id=299 data-nosnippet>299</a>    /// ASLR layout information.
+<a href=#300 id=300 data-nosnippet>300</a>    </span><span class="kw">pub fn </span>sys_artifact(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Artifact&gt; {
+<a href=#301 id=301 data-nosnippet>301</a>        <span class="kw">match </span><span class="self">self</span>.<span class="number">0 </span>{
+<a href=#302 id=302 data-nosnippet>302</a>            BackendModule::Sys(<span class="kw-2">ref </span>s) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>s.artifact),
+<a href=#303 id=303 data-nosnippet>303</a>            <span class="attr">#[allow(unreachable_patterns)]
+<a href=#304 id=304 data-nosnippet>304</a>            </span><span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#305 id=305 data-nosnippet>305</a>        }
+<a href=#306 id=306 data-nosnippet>306</a>    }
+<a href=#307 id=307 data-nosnippet>307</a>}
 </code></pre></div></section></main></body></html>
