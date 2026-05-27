@@ -35,7 +35,11 @@ fn build_v8() {
         .join(platform_name);
     let archive_path = cache_dir.join(asset_name);
     let v8_lib_dir = cache_dir.join("lib");
-    let v8_lib_path = v8_lib_dir.join("libv8.a");
+    let v8_lib_path = v8_lib_dir.join(if cfg!(target_os = "windows") {
+        "libv8.lib"
+    } else {
+        "libv8.a"
+    });
 
     if !v8_lib_path.exists() {
         fs::create_dir_all(&cache_dir).unwrap_or_else(|err| {
