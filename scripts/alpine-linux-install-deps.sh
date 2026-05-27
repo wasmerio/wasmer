@@ -4,5 +4,5 @@
 # This script is used by the CI!
 
 apk update
-apk add bash make curl cmake ninja clang22 clang22-dev zstd-static llvm22-dev clang22-static llvm22-static ncurses-static zlib-static tar libxml2-static
+apk add bash make curl cmake ninja clang22 zstd-static llvm22-dev clang22-static llvm22-static ncurses-static zlib-static tar libxml2-static
 ln -s /usr/bin/llvm-config-22 /usr/bin/llvm-config

@@ -36,7 +36,7 @@ fn build_v8() {
     let archive_path = cache_dir.join(asset_name);
     let v8_lib_dir = cache_dir.join("lib");
     let v8_lib_path = v8_lib_dir.join(if cfg!(target_os = "windows") {
-        "libv8.lib"
+        "v8.lib"
     } else {
         "libv8.a"
     });
