@@ -1051,9 +1051,15 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         | LibCall::Ledf2
         | LibCall::Gtsf2
         | LibCall::Gtdf2) => {
-            #[cfg(not(all(any(target_arch = "riscv32", target_arch = "riscv64"), not(target_feature = "f"))))]
+            #[cfg(not(all(
+                any(target_arch = "riscv32", target_arch = "riscv64"),
+                not(target_feature = "f")
+            )))]
             unreachable!("soft-float libcalls are not reachable on this target");
-            #[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), not(target_feature = "f")))]
+            #[cfg(all(
+                any(target_arch = "riscv32", target_arch = "riscv64"),
+                not(target_feature = "f")
+            ))]
             match lc {
                 LibCall::Addsf3 => __addsf3 as *const () as usize,
                 LibCall::Adddf3 => __adddf3 as *const () as usize,
@@ -1104,7 +1110,10 @@ pub fn function_pointer(libcall: LibCall) -> usize {
 }
 
 // Soft-float arithmetic routines. Provided by compiler-rt / libgcc on riscv targets without hardware float.
-#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), not(target_feature = "f")))]
+#[cfg(all(
+    any(target_arch = "riscv32", target_arch = "riscv64"),
+    not(target_feature = "f")
+))]
 unsafe extern "C" {
     // --- f32/f64 arithmetic ---
     fn __addsf3(a: f32, b: f32) -> f32;
