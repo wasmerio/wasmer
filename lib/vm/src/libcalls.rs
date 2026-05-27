@@ -1009,7 +1009,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         // --- Soft-float libcalls ---
         // compiler-rt / libgcc provides these on every std Rust target.
         // On wasm32 the JIT engine is never active, so these variants are unreachable.
-        lc @ (LibCall::Addsf3
+        _lc @ (LibCall::Addsf3
         | LibCall::Adddf3
         | LibCall::Subsf3
         | LibCall::Subdf3
@@ -1054,7 +1054,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
             #[cfg(target_arch = "wasm32")]
             unreachable!("soft-float libcalls are not reachable on wasm32");
             #[cfg(not(target_arch = "wasm32"))]
-            match lc {
+            match _lc {
                 LibCall::Addsf3 => __addsf3 as *const () as usize,
                 LibCall::Adddf3 => __adddf3 as *const () as usize,
                 LibCall::Subsf3 => __subsf3 as *const () as usize,
