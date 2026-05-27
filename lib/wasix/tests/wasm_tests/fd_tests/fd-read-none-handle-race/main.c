@@ -34,6 +34,10 @@ static void* close_worker(void* arg) {
     int old_fd = atomic_load_explicit(&shared_fd, memory_order_acquire);
     if (close(old_fd) != 0) {
       fail_iteration("close(old_fd)", i, errno);
+      rc = pthread_barrier_wait(&end_barrier);
+      if (!(rc == 0 || rc == PTHREAD_BARRIER_SERIAL_THREAD)) {
+        fail_iteration("end barrier in close worker after close failure", i, rc);
+      }
       return (void*)1;
     }
 

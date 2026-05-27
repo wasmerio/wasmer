@@ -1,5 +1,5 @@
 use super::*;
-use crate::fs::{FlushPoller, InodeKindWriteGuard, MAX_FD};
+use crate::fs::{FlushPoller, InodeKindWriteGuard, MAX_FD, lock_inodes_for_renumber};
 use crate::syscalls::*;
 
 /// ### `fd_renumber()`
@@ -33,6 +33,23 @@ pub fn fd_renumber(
     Ok(ret)
 }
 
+fn dup_fd_entry(from: &Fd) -> Fd {
+    Fd {
+        inner: FdInner {
+            offset: from.inner.offset.clone(),
+            rights: from.inner.rights_inheriting,
+            fd_flags: {
+                let mut f = from.inner.fd_flags;
+                f.set(Fdflagsext::CLOEXEC, false);
+                f
+            },
+            ..from.inner
+        },
+        inode: from.inode.clone(),
+        ..*from
+    }
+}
+
 pub(crate) fn fd_renumber_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     from: WasiFd,
@@ -41,37 +58,48 @@ pub(crate) fn fd_renumber_internal(
     if to > MAX_FD {
         return Ok(Errno::Badf);
     }
+
+    if from == to {
+        let fd_map = ctx.data().state.fs.fd_map.read().unwrap();
+        return Ok(if fd_map.get(from).is_some() {
+            Errno::Success
+        } else {
+            Errno::Badf
+        });
+    }
+
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
-    let from_inode = wasi_try_ok!(state.fs.get_fd(from)).inode.clone();
-    if from == to {
-        return Ok(Errno::Success);
-    }
-
-    if let Some(target_fd) = state.fs.get_fd(to).ok()
-        && !target_fd.is_stdio
-        && target_fd.inode.is_preopened
-    {
-        warn!("Refusing fd_renumber({from}, {to}) because FD {to} is pre-opened");
-        return Ok(Errno::Notsup);
-    }
-
-    let target_inode = state
-        .fs
-        .get_fd(to)
-        .ok()
-        .map(|target_fd| target_fd.inode.clone());
-    let same_inode = target_inode
-        .as_ref()
-        .is_some_and(|inode| from_inode.same_inode_as(inode));
+    let (from_inode, target_inode, same_inode) = {
+        let fd_map = state.fs.fd_map.read().unwrap();
+        let from_entry = match fd_map.get(from) {
+            Some(entry) => entry,
+            None => return Ok(Errno::Badf),
+        };
+        if let Some(target_fd) = fd_map.get(to)
+            && !target_fd.is_stdio
+            && target_fd.inode.is_preopened
+        {
+            warn!("Refusing fd_renumber({from}, {to}) because FD {to} is pre-opened");
+            return Ok(Errno::Notsup);
+        }
+        let target_inode = fd_map.get(to).map(|entry| entry.inode.clone());
+        let same_inode = target_inode
+            .as_ref()
+            .is_some_and(|inode| from_entry.inode.same_inode_as(inode));
+        (from_entry.inode.clone(), target_inode, same_inode)
+    };
 
     let old_fd;
-    {
+    if same_inode {
+        let mut kind = InodeKindWriteGuard::new(&from_inode);
         let mut fd_map = state.fs.fd_map.write().unwrap();
 
-        let fd_entry = wasi_try_ok!(fd_map.get(from).ok_or(Errno::Badf));
-
+        let fd_entry = match fd_map.get(from) {
+            Some(entry) if entry.inode.same_inode_as(&from_inode) => entry,
+            _ => return Ok(Errno::Badf),
+        };
         if let Some(target_fd) = fd_map.get(to)
             && !target_fd.is_stdio
             && target_fd.inode.is_preopened
@@ -79,37 +107,42 @@ pub(crate) fn fd_renumber_internal(
             return Ok(Errno::Notsup);
         }
 
-        let new_fd_entry = Fd {
-            inner: FdInner {
-                offset: fd_entry.inner.offset.clone(),
-                rights: fd_entry.inner.rights_inheriting,
-                fd_flags: {
-                    let mut f = fd_entry.inner.fd_flags;
-                    f.set(Fdflagsext::CLOEXEC, false);
-                    f
-                },
-                ..fd_entry.inner
-            },
-            inode: fd_entry.inode.clone(),
-            ..*fd_entry
+        let new_fd_entry = dup_fd_entry(fd_entry);
+        old_fd = fd_map.replace(to, new_fd_entry, &mut kind);
+    } else {
+        let (from_kind, target_kind) =
+            lock_inodes_for_renumber(&from_inode, target_inode.as_ref());
+        let mut fd_map = state.fs.fd_map.write().unwrap();
+
+        let fd_entry = match fd_map.get(from) {
+            Some(entry) if entry.inode.same_inode_as(&from_inode) => entry,
+            _ => return Ok(Errno::Badf),
+        };
+        if let Some(target_fd) = fd_map.get(to)
+            && !target_fd.is_stdio
+            && target_fd.inode.is_preopened
+        {
+            return Ok(Errno::Notsup);
+        }
+
+        let new_fd_entry = dup_fd_entry(fd_entry);
+
+        old_fd = if let Some(expected_target) = target_inode.as_ref() {
+            match fd_map.get(to) {
+                Some(entry) if entry.inode.same_inode_as(expected_target) => {
+                    fd_map.remove(to, target_kind.expect("target guard"))
+                }
+                Some(_) => return Ok(Errno::Badf),
+                None => None,
+            }
+        } else if fd_map.get(to).is_some() {
+            return Ok(Errno::Badf);
+        } else {
+            None
         };
 
-        if same_inode {
-            let mut kind = InodeKindWriteGuard::new(&from_inode);
-            old_fd = fd_map.replace(to, new_fd_entry, &mut kind);
-        } else {
-            let mut from_kind = InodeKindWriteGuard::new(&from_inode);
-            let target_kind = target_inode.as_ref().map(InodeKindWriteGuard::new);
-
-            old_fd = if let Some(target_kind) = target_kind {
-                fd_map.remove(to, target_kind)
-            } else {
-                None
-            };
-
-            if !fd_map.insert(true, to, new_fd_entry, from_kind) {
-                panic!("Internal error: expected FD {to} to be free after closing in fd_renumber");
-            }
+        if !fd_map.insert(true, to, new_fd_entry, from_kind) {
+            return Ok(Errno::Badf);
         }
     }
 

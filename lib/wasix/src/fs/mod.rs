@@ -245,6 +245,27 @@ impl<'a> InodeKindWriteGuard<'a> {
     }
 }
 
+/// Acquire inode write guards for dup2/renumber without self-deadlock on the
+/// same inode or conflicting lock order across two different inodes.
+pub(crate) fn lock_inodes_for_renumber<'a>(
+    from: &'a InodeGuard,
+    target: Option<&'a InodeGuard>,
+) -> (InodeKindWriteGuard<'a>, Option<InodeKindWriteGuard<'a>>) {
+    match target {
+        None => (InodeKindWriteGuard::new(from), None),
+        Some(target) if from.same_inode_as(target) => (InodeKindWriteGuard::new(from), None),
+        Some(target) if from.ino().0 <= target.ino().0 => (
+            InodeKindWriteGuard::new(from),
+            Some(InodeKindWriteGuard::new(target)),
+        ),
+        Some(target) => {
+            let target_guard = InodeKindWriteGuard::new(target);
+            let from_guard = InodeKindWriteGuard::new(from);
+            (from_guard, Some(target_guard))
+        }
+    }
+}
+
 impl std::ops::Deref for InodeGuard {
     type Target = InodeVal;
     fn deref(&self) -> &Self::Target {
@@ -2311,9 +2332,18 @@ impl WasiFs {
 
     /// Closes an open FD, handling all details such as FD being preopen
     pub(crate) fn close_fd(&self, fd: WasiFd) -> Result<(), Errno> {
-        let fd_entry = self.get_fd(fd)?;
-        let kind = InodeKindWriteGuard::new(&fd_entry.inode);
+        let expected_inode = {
+            let fd_map = self.fd_map.read().unwrap();
+            fd_map.get(fd).ok_or(Errno::Badf)?.inode.clone()
+        };
+
+        let kind = InodeKindWriteGuard::new(&expected_inode);
         let mut fd_map = self.fd_map.write().unwrap();
+
+        let fd_entry = fd_map.get(fd).ok_or(Errno::Badf)?;
+        if !fd_entry.inode.same_inode_as(&expected_inode) {
+            return Err(Errno::Badf);
+        }
 
         let pfd = fd_map.remove(fd, kind).ok_or(Errno::Badf);
         match pfd {

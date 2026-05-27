@@ -4,7 +4,7 @@ use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
 use super::*;
 use crate::{
     VIRTUAL_ROOT_FD, WasiFs,
-    fs::MAX_FD,
+    fs::{MAX_FD, lock_inodes_for_renumber},
     os::task::{OwnedTaskStatus, TaskStatus},
     syscalls::*,
 };
@@ -208,74 +208,107 @@ fn apply_fd_op<M: MemorySize>(
                 return Err(Errno::Badf);
             }
 
+            env.state.fs.get_fd(op.src_fd)?;
+
             if op.src_fd == op.fd {
                 return Ok(());
             }
 
-            let src_fd_entry = env.state.fs.get_fd(op.src_fd)?;
-
-            if let Some(target_fd) = env.state.fs.get_fd(op.fd).ok()
-                && !target_fd.is_stdio
-                && target_fd.inode.is_preopened
-            {
-                warn!("Refusing dup2 FD action over pre-opened FD ({})", op.fd);
-                return Err(Errno::Notsup);
-            }
-
-            let src_inode = src_fd_entry.inode.clone();
-            let target_inode = env
-                .state
-                .fs
-                .get_fd(op.fd)
-                .ok()
-                .map(|target_fd| target_fd.inode.clone());
-            let same_inode = target_inode
-                .as_ref()
-                .is_some_and(|inode| src_inode.same_inode_as(inode));
-
-            let mut fd_map = env.state.fs.fd_map.write().unwrap();
-            let fd_entry = fd_map.get(op.src_fd).ok_or(Errno::Badf)?;
-
-            if let Some(target_fd) = fd_map.get(op.fd)
-                && !target_fd.is_stdio
-                && target_fd.inode.is_preopened
-            {
-                return Err(Errno::Notsup);
-            }
-
-            let new_fd_entry = Fd {
-                // TODO: verify this is correct
-                inner: FdInner {
-                    offset: fd_entry.inner.offset.clone(),
-                    rights: fd_entry.inner.rights_inheriting,
-                    fd_flags: {
-                        let mut f = fd_entry.inner.fd_flags;
-                        f.set(Fdflagsext::CLOEXEC, false);
-                        f
-                    },
-                    ..fd_entry.inner
-                },
-                inode: fd_entry.inode.clone(),
-                ..*fd_entry
+            let (src_inode, target_inode, same_inode) = {
+                let fd_map = env.state.fs.fd_map.read().unwrap();
+                let src_entry = match fd_map.get(op.src_fd) {
+                    Some(entry) => entry,
+                    None => return Err(Errno::Badf),
+                };
+                if let Some(target_fd) = fd_map.get(op.fd)
+                    && !target_fd.is_stdio
+                    && target_fd.inode.is_preopened
+                {
+                    warn!("Refusing dup2 FD action over pre-opened FD ({})", op.fd);
+                    return Err(Errno::Notsup);
+                }
+                let target_inode = fd_map.get(op.fd).map(|entry| entry.inode.clone());
+                let same_inode = target_inode
+                    .as_ref()
+                    .is_some_and(|inode| src_entry.inode.same_inode_as(inode));
+                (src_entry.inode.clone(), target_inode, same_inode)
             };
 
             if same_inode {
                 let mut kind = InodeKindWriteGuard::new(&src_inode);
-                fd_map.replace(op.fd, new_fd_entry, &mut kind);
-            } else {
-                let mut src_kind = InodeKindWriteGuard::new(&src_inode);
-                let target_kind = target_inode.as_ref().map(InodeKindWriteGuard::new);
+                let mut fd_map = env.state.fs.fd_map.write().unwrap();
 
-                if let Some(target_kind) = target_kind {
-                    fd_map.remove(op.fd, target_kind);
+                let fd_entry = match fd_map.get(op.src_fd) {
+                    Some(entry) if entry.inode.same_inode_as(&src_inode) => entry,
+                    _ => return Err(Errno::Badf),
+                };
+                if let Some(target_fd) = fd_map.get(op.fd)
+                    && !target_fd.is_stdio
+                    && target_fd.inode.is_preopened
+                {
+                    return Err(Errno::Notsup);
                 }
 
-                // Exclusive insert because we expect `to` to be free after removing it above
+                let new_fd_entry = Fd {
+                    inner: FdInner {
+                        offset: fd_entry.inner.offset.clone(),
+                        rights: fd_entry.inner.rights_inheriting,
+                        fd_flags: {
+                            let mut f = fd_entry.inner.fd_flags;
+                            f.set(Fdflagsext::CLOEXEC, false);
+                            f
+                        },
+                        ..fd_entry.inner
+                    },
+                    inode: fd_entry.inode.clone(),
+                    ..*fd_entry
+                };
+                fd_map.replace(op.fd, new_fd_entry, &mut kind);
+            } else {
+                let (src_kind, target_kind) =
+                    lock_inodes_for_renumber(&src_inode, target_inode.as_ref());
+                let mut fd_map = env.state.fs.fd_map.write().unwrap();
+
+                let fd_entry = match fd_map.get(op.src_fd) {
+                    Some(entry) if entry.inode.same_inode_as(&src_inode) => entry,
+                    _ => return Err(Errno::Badf),
+                };
+                if let Some(target_fd) = fd_map.get(op.fd)
+                    && !target_fd.is_stdio
+                    && target_fd.inode.is_preopened
+                {
+                    return Err(Errno::Notsup);
+                }
+
+                let new_fd_entry = Fd {
+                    inner: FdInner {
+                        offset: fd_entry.inner.offset.clone(),
+                        rights: fd_entry.inner.rights_inheriting,
+                        fd_flags: {
+                            let mut f = fd_entry.inner.fd_flags;
+                            f.set(Fdflagsext::CLOEXEC, false);
+                            f
+                        },
+                        ..fd_entry.inner
+                    },
+                    inode: fd_entry.inode.clone(),
+                    ..*fd_entry
+                };
+
+                if let Some(expected_target) = target_inode.as_ref() {
+                    match fd_map.get(op.fd) {
+                        Some(entry) if entry.inode.same_inode_as(expected_target) => {
+                            fd_map.remove(op.fd, target_kind.expect("target guard"));
+                        }
+                        Some(_) => return Err(Errno::Badf),
+                        None => {}
+                    }
+                } else if fd_map.get(op.fd).is_some() {
+                    return Err(Errno::Badf);
+                }
+
                 if !fd_map.insert(true, op.fd, new_fd_entry, src_kind) {
-                    panic!(
-                        "Internal error: expected FD {} to be free after dup2 remove",
-                        op.fd
-                    );
+                    return Err(Errno::Badf);
                 }
             }
             Ok(())

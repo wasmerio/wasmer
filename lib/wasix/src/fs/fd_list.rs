@@ -387,19 +387,19 @@ mod tests {
         }
     }
 
-    fn insert_first_free(l: &mut FdList, mut fd: Fd) -> WasiFd {
+    fn insert_first_free(l: &mut FdList, fd: Fd) -> WasiFd {
         let inode = fd.inode.clone();
         let kind = InodeKindWriteGuard::new(&inode);
         l.insert_first_free(fd, kind)
     }
 
-    fn insert_first_free_after(l: &mut FdList, mut fd: Fd, after_or_equal: WasiFd) -> WasiFd {
+    fn insert_first_free_after(l: &mut FdList, fd: Fd, after_or_equal: WasiFd) -> WasiFd {
         let inode = fd.inode.clone();
         let kind = InodeKindWriteGuard::new(&inode);
         l.insert_first_free_after(fd, after_or_equal, kind)
     }
 
-    fn insert(l: &mut FdList, exclusive: bool, idx: WasiFd, mut fd: Fd) -> bool {
+    fn insert(l: &mut FdList, exclusive: bool, idx: WasiFd, fd: Fd) -> bool {
         let inode = fd.inode.clone();
         let kind = InodeKindWriteGuard::new(&inode);
         l.insert(exclusive, idx, fd, kind)
