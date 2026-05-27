@@ -189,6 +189,7 @@ zip = { workspace = true, optional = true, features = ["deflate"] }
 [target.'cfg(not(target_env = "musl"))'.build-dependencies]
 bindgen = { workspace = true, default-features = true }
 
+# must does not support dlopen/dlsym functionality used by the bindgen (using libclang).
 [target.'cfg(target_env = "musl")'.build-dependencies]
 bindgen = { workspace = true, default-features = false, features = [
   "logging",
