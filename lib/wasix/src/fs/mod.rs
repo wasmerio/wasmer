@@ -263,6 +263,7 @@ struct EphemeralSymlinkEntry {
 }
 
 #[derive(Clone, Copy)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 enum PathComponent<'a> {
     RootDir,
     CurDir,
@@ -1123,19 +1124,73 @@ impl WasiFs {
         Ok((inode, current_dir))
     }
 
-    /// Internal part of the core path resolution function which implements path
-    /// traversal logic such as resolving relative path segments (such as
-    /// `.` and `..`) and resolving symlinks (while preventing infinite
-    /// loops/stack overflows).
+    /// Resolve a path in the POSIX namespace visible to the WASIX guest.
     ///
-    /// TODO: expand upon exactly what the state of the returned value is,
-    /// explaining lazy-loading from the real file system and synchronizing
-    /// between them.
+    /// This function intentionally resolves guest paths, not host-native paths.
+    /// A Windows host path may contain `\`, drive prefixes, or UNC prefixes, but
+    /// those belong to mount setup and backing filesystem access. Once a host
+    /// directory is mounted into WASIX, the guest observes a POSIX path tree
+    /// where `/` is the only separator. Raw syscall paths must therefore be
+    /// parsed with POSIX rules even when the runtime itself is running on
+    /// Windows.
     ///
-    /// This is where a lot of the magic happens, be very careful when editing
-    /// this code.
+    /// POSIX path resolution is stricter than Rust's `Path::components()`:
+    /// explicit `.`, explicit `..`, an empty pathname, and a trailing slash are
+    /// all observable. In particular, `file/` and `file/.` must fail with
+    /// `Errno::Notdir`, `lstat("symlink_to_dir/")` must follow the symlink to
+    /// prove the result is a directory, and `lstat("symlink_to_file/")` must
+    /// fail with `Errno::Notdir`. For that reason this function uses a small
+    /// POSIX component parser instead of `Path::components()`.
     ///
-    /// TODO: write more tests for this code
+    /// Symlink following follows the POSIX rule used by `openat`-style APIs:
+    /// intermediate symlinks are always followed, while the final component is
+    /// followed only when `follow_symlinks` is true. Recursive symlink
+    /// resolution increments `symlink_count`, and symlink depth exhaustion maps
+    /// to `Errno::Loop`.
+    ///
+    /// There are two loops here with different jobs. The outer loop walks the
+    /// parsed path components. The inner `component_lookup` loop normally runs
+    /// once, but has one virtual-root overlay case: when the current inode is
+    /// `Kind::Root` and a component is not found directly, it can jump through
+    /// the mounted `entries["/"]` inode and retry the same component. That is
+    /// WASIX virtual-root behavior, not plain POSIX filesystem traversal.
+    ///
+    /// Keep these edge cases intact when editing this function:
+    ///
+    /// - Empty pathnames are `Errno::Noent`; they do not resolve to the base
+    ///   inode unless a separate `AT_EMPTY_PATH`-style extension is introduced.
+    /// - Absolute paths resolve from `VIRTUAL_ROOT_FD`, independent of the
+    ///   caller-provided starting inode.
+    /// - The parent of root is root, so `/..` stays at `/`.
+    /// - `.` and `..` are semantic components: they require the current inode
+    ///   to be a directory or virtual root, otherwise they fail with
+    ///   `Errno::Notdir`.
+    /// - Special files may be returned only as the final component. As path
+    ///   prefixes, they fail with `Errno::Notdir`.
+    ///
+    /// The returned `InodeGuard` is the inode for the resolved final object in
+    /// the WASIX inode graph. It is not necessarily an already-open host file:
+    /// file inodes discovered here are normally created with `handle: None`,
+    /// and `path_open` or a similar caller opens the backing file later. If the
+    /// final object is a symlink and `follow_symlinks` is false, the returned
+    /// inode is the symlink itself; otherwise symlink targets are resolved
+    /// recursively and the returned inode is the target.
+    ///
+    /// Directory `entries` are a lazy cache over the backing filesystem. When a
+    /// child name is already present in the current `Kind::Dir` or `Kind::Root`,
+    /// that cached inode wins. When a child is missing from a `Kind::Dir`, this
+    /// resolver builds the backing path for that one component, checks the
+    /// ephemeral symlink table, then calls `root_fs.symlink_metadata()` without
+    /// following symlinks. Based on that metadata it materializes a `Kind::Dir`,
+    /// `Kind::File`, `Kind::Symlink`, or supported special-file inode. Persistent
+    /// backing entries are inserted into the parent directory cache; ephemeral
+    /// symlink inodes are transient and are not cached as directory entries.
+    ///
+    /// This function is therefore not a full synchronization pass. It observes
+    /// the backing filesystem on cache misses, but cached entries are reused
+    /// without re-statting. Syscalls that mutate the filesystem are responsible
+    /// for keeping the inode cache and ephemeral symlink map coherent with their
+    /// changes.
     fn get_inode_at_path_inner(
         &self,
         inodes: &WasiInodes,
@@ -1212,7 +1267,7 @@ impl WasiFs {
             // followed.
             let last_component = i == n_components - 1;
 
-            let component_string = match component {
+            let component_str = match component {
                 PathComponent::CurDir => {
                     let is_dir = {
                         let guard = cur_inode.read();
@@ -1270,7 +1325,7 @@ impl WasiFs {
                         }
                         Kind::Symlink { .. } => break 'component_lookup,
                         Kind::Root { entries } => {
-                            if let Some(entry) = entries.get(component_string) {
+                            if let Some(entry) = entries.get(component_str) {
                                 cur_inode = entry.clone();
                                 break 'component_lookup;
                             } else if let Some(root) = entries.get("/") {
@@ -1300,7 +1355,7 @@ impl WasiFs {
                             // Here we are handling all variants of directory
                             // children.
 
-                            if let Some(entry) = entries.get(component_string) {
+                            if let Some(entry) = entries.get(component_str) {
                                 // We found component in cached entries, so we
                                 // can continue. If it is a symlink it will be
                                 // resolved in next the step.
@@ -1312,13 +1367,13 @@ impl WasiFs {
                             // so we will create new inode for it.
                             let entry_path_buf = {
                                 let mut path_buf = cur_dir.clone();
-                                path_buf.push(component_string);
+                                path_buf.push(component_str);
                                 path_buf
                             };
 
                             // Current component of the path we're resolving, as
                             // a string...
-                            let entry_name = component_string.to_string();
+                            let entry_name = component_str.to_string();
 
                             // ...and its relevant path within current inode
                             // being the directory.

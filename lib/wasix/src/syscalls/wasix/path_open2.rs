@@ -113,6 +113,47 @@ pub fn path_open2<M: MemorySize>(
     Ok(Errno::Success)
 }
 
+/// Open or create a filesystem object in the WASIX POSIX guest namespace.
+///
+/// This function sits on top of `WasiFs::get_inode_at_path()`, so it must
+/// preserve that resolver's guest-path contract: raw syscall paths are POSIX
+/// paths where `/` is the only separator, absolute paths start from
+/// `VIRTUAL_ROOT_FD`, and intermediate symlinks are always resolved. Host paths
+/// only enter after an inode has been resolved to a backing `Kind::Dir` or
+/// `Kind::File`.
+///
+/// `dirflags` control lookup, not file-open mode. In particular,
+/// `__WASI_LOOKUP_SYMLINK_FOLLOW` decides whether the final component may be
+/// followed if it is a symlink. This matches the usual `openat`/`O_NOFOLLOW`
+/// shape: a symlink in the middle of the path is still traversed, but a final
+/// symlink with lookup-follow disabled is not opened as a symlink object. WASIX
+/// has no "open the symlink itself as a file" mode here, so a terminal symlink
+/// with no follow returns `Errno::Loop`. With lookup-follow enabled, the symlink
+/// target is resolved and `path_open_internal` restarts against that target.
+///
+/// `o_flags` and `fs_flags` apply after lookup. They decide whether the target
+/// must already exist, whether a missing final component should be created,
+/// whether the opened object must be a directory, and whether the backing file
+/// should be truncated or appended. POSIX trailing-slash semantics still matter
+/// at this layer: opening `file/` is `Errno::Notdir`, and creating `new_file/`
+/// is rejected before the backing opener can normalize the slash away.
+///
+/// The create path resolves only the parent with the requested symlink policy,
+/// then appends the new final component under that resolved parent. That keeps
+/// creation through symlinked directories working while still letting the final
+/// component be genuinely new. If the backing filesystem reports
+/// `AlreadyExists` after the resolver reported `Noent`, this may indicate that a
+/// symlink escaped the sandbox, so the error is mapped to `Errno::Perm`.
+///
+/// File inodes are also the cache boundary for open handles. The resolver may
+/// materialize a `Kind::File` with no handle, and this function opens the
+/// backing file when a descriptor is requested. Regular file handles are shared
+/// per inode when possible, and reopened with stronger rights when a later open
+/// requires write/create/truncate access that the existing handle may not have.
+///
+/// The outer `Result` reports runtime faults such as memory or trap-style WASI
+/// errors. The inner `Result<WasiFd, Errno>` is the syscall result that should
+/// be returned to the guest.
 pub(crate) fn path_open_internal(
     env: &WasiEnv,
     dirfd: WasiFd,
