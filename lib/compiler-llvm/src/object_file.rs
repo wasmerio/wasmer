@@ -93,7 +93,7 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
 };
 
 // Soft-float routines emitted by LLVM for targets without hardware floating-point.
-#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+#[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), not(target_feature = "f")))]
 static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     // §3.2.1 Arithmetic
     "__addsf3" => LibCall::Addsf3,
@@ -211,7 +211,7 @@ fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
     if let Some(&lc) = base.get(name) {
         return Some(lc);
     }
-    #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+    #[cfg(all(any(target_arch = "riscv32", target_arch = "riscv64"), not(target_feature = "f")))]
     if fmt == BinaryFormat::Elf {
         if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
             return Some(lc);
