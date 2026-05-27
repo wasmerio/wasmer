@@ -263,7 +263,9 @@ fn apply_fd_op<M: MemorySize>(
                     inode: fd_entry.inode.clone(),
                     ..*fd_entry
                 };
-                fd_map.replace(op.fd, new_fd_entry, &mut kind);
+                fd_map
+                    .replace(op.fd, new_fd_entry, &mut kind)
+                    .map_err(|()| Errno::Badf)?;
             } else {
                 let (src_kind, target_kind) =
                     lock_inodes_for_renumber(&src_inode, target_inode.as_ref());

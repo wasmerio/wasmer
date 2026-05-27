@@ -108,7 +108,10 @@ pub(crate) fn fd_renumber_internal(
         }
 
         let new_fd_entry = dup_fd_entry(fd_entry);
-        old_fd = fd_map.replace(to, new_fd_entry, &mut kind);
+        old_fd = match fd_map.replace(to, new_fd_entry, &mut kind) {
+            Ok(old) => old,
+            Err(()) => return Ok(Errno::Badf),
+        };
     } else {
         let (from_kind, target_kind) = lock_inodes_for_renumber(&from_inode, target_inode.as_ref());
         let mut fd_map = state.fs.fd_map.write().unwrap();
