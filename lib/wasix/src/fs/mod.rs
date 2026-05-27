@@ -1296,7 +1296,6 @@ impl WasiFs {
                                 // create a temporary inode for them.
                                 // We resolve them but don't cache them as dir
                                 // entries.
-                                symlink_count += 1;
                                 ComponentResolution::Create {
                                     kind: Kind::Symlink {
                                         base_po_dir,
@@ -1434,8 +1433,6 @@ impl WasiFs {
                         } => {
                             let (pre_open_dir_fd, path_to_symlink) =
                                 self.path_into_pre_open_and_relative_path(&file)?;
-                            symlink_count += 1;
-
                             let new_inode = self.create_inode(
                                 inodes,
                                 Kind::Symlink {
@@ -1460,21 +1457,28 @@ impl WasiFs {
                         }
                     };
 
-                let mut guard = cur_inode.write();
-                let Kind::Dir { entries, .. } = guard.deref_mut() else {
-                    unreachable!("Attempted to insert special device into non-directory");
-                };
+                {
+                    let mut guard = cur_inode.write();
+                    let Kind::Dir { entries, .. } = guard.deref_mut() else {
+                        unreachable!("Attempted to insert special device into non-directory");
+                    };
 
-                if should_insert {
-                    entries.insert(entry_name, new_inode.clone());
+                    if should_insert {
+                        entries.insert(entry_name, new_inode.clone());
+                    }
+
+                    if should_return {
+                        // Special files cannot be traversed further, so return the inode directly.
+                        return Ok(new_inode);
+                    }
                 }
 
-                if should_return {
-                    // Special files cannot be traversed further, so return the inode directly.
-                    return Ok(new_inode);
-                }
-
-                continue 'path_iter;
+                // Assign current inode and leave 'component_loop
+                // Note: this is a shortcut for doing next iteration matching
+                // Kind::Dir for same cur_inode and finding there matching entry
+                // that we just inserted, and exiting 'component_lookup.
+                cur_inode = new_inode;
+                break 'component_lookup;
             } // end of 'component_lookup loop
 
             // 3. Follow Symbolic Links
@@ -1482,12 +1486,12 @@ impl WasiFs {
             // We continue with Symlink resolution unless...
             if last_component && !follow_symlinks {
                 // ...this symlink is the very last component of the path to
-                // resolve, and symlink following is off.
+                // resolve, and symlink following is off,
+                // ...or this is not a symlink at all
                 continue 'path_iter;
             }
 
-            // The cur_inode is definitely a symlink (Kind::Symlink) at this
-            // stage.
+            // The cur_inode can be a symlink (Kind::Symlink) or something else.
             let (base_po_dir, path_to_symlink, relative_path) = {
                 let guard = cur_inode.read();
                 let Kind::Symlink {
@@ -1496,7 +1500,8 @@ impl WasiFs {
                     relative_path,
                 } = guard.deref()
                 else {
-                    unreachable!("Attempted to follow non-symlink");
+                    // not a symlink, so we continue with next path component
+                    continue 'path_iter;
                 };
                 (*base_po_dir, path_to_symlink.clone(), relative_path.clone())
             };
@@ -1537,7 +1542,7 @@ impl WasiFs {
                 symlink_count + 1,
                 follow_symlinks_inner,
             )?;
-            
+
             // The rest of the path resolution will be relative to resolved
             // symlink target.
             cur_inode = symlink_inode;
