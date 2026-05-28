@@ -498,7 +498,7 @@ WASM_API_EXTERN bool wasm_table_grow(wasm_table_t*, wasm_table_size_t delta, was
 
 // Memory Instances
 
-WASM_DECLARE_REF(memory)
+WASM_DECLARE_SHARABLE_REF(memory)
 
 typedef uint32_t wasm_memory_pages_t;
 

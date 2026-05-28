@@ -1,4 +1,4 @@
-use crate::macros::backend::match_rt;
+use crate::{AsStoreMut, macros::backend::match_rt};
 
 use super::*;
 
@@ -53,13 +53,44 @@ impl VMExternRef {
 }
 
 impl VMMemory {
-    /// Attempts to clone this memory handle.
-    pub(crate) fn try_clone(&self) -> Result<Self, wasmer_types::MemoryError> {
+    /// Attempts to share this memory and return a shared detached memory.
+    pub(crate) fn as_shared(&self) -> Result<VMSharedMemory, wasmer_types::MemoryError> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => s.try_clone().map(Self::Sys),
+            Self::Sys(s) => todo!(),
+            // Self::Sys(s) => s.as_shared().map(VMSharedMemory::Sys),
             #[cfg(feature = "v8")]
-            Self::V8(s) => s.try_clone().map(Self::V8),
+            Self::V8(s) => s.as_shared().map(VMSharedMemory::V8),
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.try_clone().map(Self::Js),
+        }
+    }
+}
+
+impl VMSharedMemory {
+    /// Clones this shared memory handle.
+    pub(crate) fn clone(&self) -> Self {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => todo!(),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => Self::V8(s.clone()),
+            // TODO
+            #[cfg(feature = "js")]
+            Self::Js(s) => s.try_clone().map(Self::Js),
+        }
+    }
+
+    pub(crate) fn into_vm_memory(self, store: &mut impl AsStoreMut) -> VMMemory {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => todo!(),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => {
+                let mut store = store.as_store_mut();
+                VMMemory::V8(s.into_vm_memory(store.inner.store.as_v8_mut()))
+            }
+            // TODO
             #[cfg(feature = "js")]
             Self::Js(s) => s.try_clone().map(Self::Js),
         }

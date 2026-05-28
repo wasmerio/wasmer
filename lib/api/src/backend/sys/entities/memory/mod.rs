@@ -108,33 +108,24 @@ impl Memory {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    pub(crate) fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
         if self.ty(store).shared {
             let mem = self.handle.get(store.as_store_ref().objects().as_sys());
-            let copied = mem.copy()?;
+            let copied = mem.copy().ok()?;
             let ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>> = copied
                 .thread_conditions()
                 .map(|conditions| Arc::new(conditions.downgrade()) as Arc<_>);
-            let memory = crate::vm::VMMemory::Sys(SysVMMemory::from(copied));
+            let memory = crate::vm::VMMemory::Sys(SysVMMemory::from(copied))
+                .as_shared()
+                .ok()?;
 
-            Ok(match ops {
-                Some(ops) => SharedMemory::from_vm_memory_and_ops(memory, ops),
-                None => SharedMemory::from_vm_memory(memory),
+            Some(match ops {
+                Some(ops) => SharedMemory::new_with_ops(memory, ops),
+                None => SharedMemory::new(memory),
             })
         } else {
-            Err(MemoryError::MemoryNotShared)
+            None
         }
-    }
-
-    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
-        let mem = self.handle.get(store.as_store_ref().objects().as_sys());
-        let conds = mem.thread_conditions()?.downgrade();
-        let cloned = mem.try_clone().ok()?;
-
-        Some(SharedMemory::from_vm_memory_and_ops(
-            crate::vm::VMMemory::Sys(cloned),
-            Arc::new(conds),
-        ))
     }
 
     /// To `VMExtern`.

@@ -217,7 +217,7 @@ impl BackendMemory {
     #[inline]
     pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         match_rt!(on self => s {
-            s.copy(store)
+            s.as_shared(store).ok_or_else(|| MemoryError::Generic("Cannot share a memory".to_owned()))
         })
     }
 
