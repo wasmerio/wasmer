@@ -1512,4 +1512,588 @@ mod tests {
             .expect("thread exit should return TLS-cached stack to the global pool");
         assert!(returned.size() >= size);
     }
+
+    // -----------------------------------------------------------------
+    // Test helpers
+    // -----------------------------------------------------------------
+
+    /// Clears the current thread's TLS slot so tests don't see state from
+    /// previous tests (they share the same thread under cargo test's
+    /// per-test serialization via `GLOBAL_STATE`).
+    fn clear_tls_stack() {
+        TLS_STACK.with(|cache| cache.0.set(None));
+    }
+
+    /// `base().get() - limit().get()` (i.e. `Stack::size`) is constant per
+    /// `DefaultStack` instance, but `base().get()` itself uniquely identifies
+    /// the mmap allocation. We use it as a cheap identity check to see which
+    /// stack was returned by acquire/release.
+    fn stack_id(stack: &DefaultStack) -> usize {
+        stack.base().get()
+    }
+
+    // -----------------------------------------------------------------
+    // acquire_stack mechanics
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn acquire_allocates_fresh_when_tls_and_pool_empty() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let stack = acquire_stack(size);
+        assert!(stack.size() >= size, "freshly allocated stack must satisfy min_size");
+
+        drop(stack);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn acquire_prefers_tls_over_pool() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let tls_stack = DefaultStack::new(size).unwrap();
+        let tls_id = stack_id(&tls_stack);
+        TLS_STACK.with(|cache| cache.0.set(Some(tls_stack)));
+
+        let pool_stack = DefaultStack::new(size).unwrap();
+        let pool_id = stack_id(&pool_stack);
+        STACK_POOL.push(pool_stack);
+
+        let got = acquire_stack(size);
+        assert_eq!(stack_id(&got), tls_id, "acquire must prefer TLS over pool");
+        assert_ne!(stack_id(&got), pool_id);
+
+        drop(got);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn acquire_uses_pool_when_tls_empty() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let pool_stack = DefaultStack::new(size).unwrap();
+        let pool_id = stack_id(&pool_stack);
+        STACK_POOL.push(pool_stack);
+
+        let got = acquire_stack(size);
+        assert_eq!(stack_id(&got), pool_id, "acquire must consume from pool when TLS is empty");
+        assert!(STACK_POOL.is_empty(), "pool stack must be removed when used");
+
+        drop(got);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn acquire_discards_undersized_tls_then_allocates() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let small_size = ByteSize::kib(512).as_u64() as usize;
+        let undersized = DefaultStack::new(small_size).unwrap();
+        let undersized_id = stack_id(&undersized);
+        TLS_STACK.with(|cache| cache.0.set(Some(undersized)));
+
+        let big_size = ByteSize::mib(2).as_u64() as usize;
+        let got = acquire_stack(big_size);
+        assert!(got.size() >= big_size, "acquired stack must satisfy big_size");
+        assert_ne!(stack_id(&got), undersized_id, "must not reuse the undersized TLS stack");
+        // The undersized TLS stack was discarded (not returned to pool), so
+        // pool stays empty.
+        assert!(STACK_POOL.is_empty(), "undersized TLS stack should be discarded, not pooled");
+
+        drop(got);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn acquire_discards_undersized_pool_then_allocates() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let small_size = ByteSize::kib(512).as_u64() as usize;
+        let undersized = DefaultStack::new(small_size).unwrap();
+        let undersized_id = stack_id(&undersized);
+        STACK_POOL.push(undersized);
+
+        let big_size = ByteSize::mib(2).as_u64() as usize;
+        let got = acquire_stack(big_size);
+        assert!(got.size() >= big_size, "acquired stack must satisfy big_size");
+        assert_ne!(stack_id(&got), undersized_id, "must not reuse the undersized pool stack");
+
+        drop(got);
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // release_stack mechanics
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn release_into_empty_tls_caches_there() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let stack = DefaultStack::new(size).unwrap();
+        let id = stack_id(&stack);
+        release_stack(stack);
+
+        let in_tls = TLS_STACK
+            .with(|cache| cache.0.take())
+            .expect("release into empty TLS should leave the stack in TLS");
+        assert_eq!(stack_id(&in_tls), id);
+        assert!(STACK_POOL.is_empty(), "pool must not be touched when TLS is empty");
+
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn release_into_occupied_tls_displaces_older_to_pool() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let size = get_stack_size();
+        let older = DefaultStack::new(size).unwrap();
+        let older_id = stack_id(&older);
+        TLS_STACK.with(|cache| cache.0.set(Some(older)));
+
+        let newer = DefaultStack::new(size).unwrap();
+        let newer_id = stack_id(&newer);
+        release_stack(newer);
+
+        let in_tls = TLS_STACK
+            .with(|cache| cache.0.take())
+            .expect("TLS should hold the newly-released stack");
+        assert_eq!(stack_id(&in_tls), newer_id, "newer stack must displace into TLS");
+
+        let displaced = STACK_POOL
+            .pop()
+            .expect("older stack should have been pushed to global pool");
+        assert_eq!(stack_id(&displaced), older_id, "displaced stack must be the older one");
+
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // drain_stack_pool extended semantics
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn drain_stack_pool_clears_calling_thread_tls_slot() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let stack = DefaultStack::new(get_stack_size()).unwrap();
+        TLS_STACK.with(|cache| cache.0.set(Some(stack)));
+
+        drain_stack_pool();
+
+        let tls_empty = TLS_STACK.with(|cache| cache.0.take().is_none());
+        assert!(tls_empty, "drain_stack_pool must also clear current thread's TLS slot");
+        assert!(STACK_POOL.is_empty());
+    }
+
+    // -----------------------------------------------------------------
+    // on_wasm_stack functional behavior
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn on_wasm_stack_passes_closure_value_back() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r = on_wasm_stack(get_stack_size(), None, || 12345u32);
+        assert_eq!(r.ok(), Some(12345));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn on_wasm_stack_passes_owning_result_back() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        // Use a heap-allocated value to verify the move-out path: the
+        // closure produces a `Vec<u8>` that must travel from the coroutine
+        // stack back to the host.
+        let r = on_wasm_stack(get_stack_size(), None, || vec![0u8, 1, 2, 3, 4]);
+        assert_eq!(r.ok(), Some(vec![0u8, 1, 2, 3, 4]));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn many_calls_do_not_grow_global_pool() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        // With TLS caching, repeated single-threaded calls must keep
+        // reusing the same TLS stack and never push to the global pool.
+        for _ in 0..1000 {
+            assert!(on_wasm_stack(get_stack_size(), None, || ()).is_ok());
+        }
+        assert!(
+            STACK_POOL.is_empty(),
+            "1000 sequential calls should not grow the global pool (TLS handles reuse)"
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // Trap and unwind paths
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn raise_user_trap_yields_err() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
+            unsafe {
+                raise_user_trap(Box::new(io::Error::other("user trap from test")));
+            }
+        });
+        assert!(r.is_err(), "raise_user_trap must produce Err");
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn raise_lib_trap_yields_err() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
+            unsafe {
+                raise_lib_trap(Trap::lib(TrapCode::IntegerDivisionByZero));
+            }
+        });
+        assert!(r.is_err(), "raise_lib_trap must produce Err");
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn resume_panic_yields_err_without_unwinding() {
+        // `resume_panic` packages the payload as `UnwindReason::Panic`. The
+        // host-side panic resumption lives in `UnwindReason::into_trap`,
+        // which we do NOT call here — `on_wasm_stack` itself just returns
+        // the Err, so the test does not actually panic.
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
+            unsafe {
+                resume_panic(Box::new("panic payload from test"));
+            }
+        });
+        assert!(r.is_err(), "resume_panic must surface as Err to on_wasm_stack");
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn trap_does_not_corrupt_subsequent_calls() {
+        // After a trap, the per-call coroutine is force-reset and dropped.
+        // The TLS stack cache and global pool must remain in a usable state
+        // so that subsequent calls succeed.
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let trapped: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
+            unsafe {
+                raise_user_trap(Box::new(io::Error::other("first call traps")));
+            }
+        });
+        assert!(trapped.is_err());
+
+        // Subsequent normal call must still succeed.
+        let ok = on_wasm_stack(get_stack_size(), None, || 7u32);
+        assert_eq!(ok.ok(), Some(7), "calls after a trap must still work");
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // on_host_stack
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn on_host_stack_outside_coroutine_runs_inline() {
+        // `on_host_stack` outside any wasm coroutine just runs `f()` directly
+        // (no stack switch); this asserts the no-yielder branch still works.
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let n = on_host_stack(|| 99i32);
+        assert_eq!(n, 99);
+    }
+
+    #[test]
+    fn on_host_stack_inside_wasm_switches_and_returns() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r = on_wasm_stack(get_stack_size(), None, || on_host_stack(|| 88i32));
+        assert_eq!(r.ok(), Some(88));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // Re-entrancy
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn reentrant_call_returns_value() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let outer = on_wasm_stack(get_stack_size(), None, || {
+            on_wasm_stack(get_stack_size(), None, || 42i32)
+                .ok()
+                .expect("inner must succeed")
+        });
+        assert_eq!(outer.ok(), Some(42));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn reentrant_calls_run_to_completion_under_pool_pressure() {
+        // The outer call's stack is held by its scopeguard for the duration
+        // of the call; the inner call must therefore pop a separate stack
+        // from the pool (or allocate one). With a pre-populated pool the
+        // inner call should consume that stack; either way the nested call
+        // chain must complete without deadlocking or panicking from
+        // corosensei.
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering as O};
+
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        // Pre-populate the pool with one stack so the inner call can grab
+        // it instead of allocating.
+        let pre = DefaultStack::new(get_stack_size()).unwrap();
+        STACK_POOL.push(pre);
+
+        let inner_completed = Arc::new(AtomicUsize::new(0));
+        let inner_completed_outer = inner_completed.clone();
+        let _ = on_wasm_stack(get_stack_size(), None, move || {
+            let inner_completed = inner_completed_outer.clone();
+            let inner = on_wasm_stack(get_stack_size(), None, move || {
+                inner_completed.fetch_add(1, O::Relaxed);
+            });
+            assert!(inner.is_ok(), "inner re-entrant call must succeed");
+        });
+        assert_eq!(
+            inner_completed.load(O::Relaxed),
+            1,
+            "inner closure must have executed exactly once",
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn reentrant_inner_trap_does_not_kill_outer() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let outer = on_wasm_stack(get_stack_size(), None, || {
+            let inner: Result<i32, UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
+                unsafe {
+                    raise_user_trap(Box::new(io::Error::other("inner trap")));
+                }
+            });
+            // Outer observes inner's Err and recovers.
+            match inner {
+                Err(_) => 1234i32,
+                Ok(_) => panic!("inner should have trapped"),
+            }
+        });
+        assert_eq!(
+            outer.ok(),
+            Some(1234),
+            "outer must recover after inner trap and run to completion"
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    #[test]
+    fn reentrant_with_on_host_stack_in_between() {
+        // Outer wasm → on_host_stack → inner wasm. This exercises the
+        // YIELDER save/restore in `unwind_with` / `on_host_stack` against
+        // a re-entrant boundary.
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        let r = on_wasm_stack(get_stack_size(), None, || {
+            on_host_stack(|| {
+                on_wasm_stack(get_stack_size(), None, || 5i32)
+                    .ok()
+                    .expect("nested inner must succeed")
+            })
+        });
+        assert_eq!(r.ok(), Some(5));
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // Concurrency
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn many_threads_in_parallel_all_succeed() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering as O};
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        const THREADS: usize = 8;
+        const CALLS_PER_THREAD: usize = 200;
+
+        let handles: Vec<_> = (0..THREADS)
+            .map(|_| {
+                let counter = counter.clone();
+                std::thread::spawn(move || {
+                    let size = get_stack_size();
+                    for _ in 0..CALLS_PER_THREAD {
+                        if on_wasm_stack(size, None, || 1u32).ok() == Some(1) {
+                            counter.fetch_add(1, O::Relaxed);
+                        }
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+
+        assert_eq!(counter.load(O::Relaxed), THREADS * CALLS_PER_THREAD);
+        // Pool should now hold at most `THREADS` stacks (one per thread that
+        // exited). Each thread also drops its TLS slot on exit, which pushes
+        // the stack to the pool.
+        let mut pooled = 0usize;
+        while STACK_POOL.pop().is_some() {
+            pooled += 1;
+        }
+        assert!(
+            pooled <= THREADS,
+            "pool should hold at most one stack per terminated thread (got {pooled} for {THREADS} threads)"
+        );
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
+
+    // -----------------------------------------------------------------
+    // Stack size dynamics
+    // -----------------------------------------------------------------
+
+    #[test]
+    fn growing_request_discards_smaller_tls_stack() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+        clear_tls_stack();
+
+        // First call at a small size populates TLS with a small stack.
+        let small = ByteSize::mib(1).as_u64() as usize;
+        set_stack_size(small);
+        assert!(on_wasm_stack(small, None, || ()).is_ok());
+
+        let cached_size = TLS_STACK
+            .with(|cache| {
+                let s = cache.0.take();
+                let sz = s.as_ref().map(|s| s.size()).unwrap_or(0);
+                cache.0.set(s);
+                sz
+            });
+        assert!(cached_size >= small, "TLS should hold the small-sized stack");
+
+        // Now request a larger stack. acquire_stack should discard the TLS
+        // entry and either pop a big-enough one from pool or allocate.
+        let big = ByteSize::mib(4).as_u64() as usize;
+        set_stack_size(big);
+        assert!(on_wasm_stack(big, None, || ()).is_ok());
+
+        // The TLS slot should now hold a stack that's big enough.
+        let cached_size = TLS_STACK
+            .with(|cache| {
+                let s = cache.0.take();
+                let sz = s.as_ref().map(|s| s.size()).unwrap_or(0);
+                cache.0.set(s);
+                sz
+            });
+        assert!(cached_size >= big, "TLS should hold the bigger stack after size bump");
+
+        clear_tls_stack();
+        drain_stack_pool();
+    }
 }
