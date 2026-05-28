@@ -88,22 +88,85 @@ pub fn get_stack_size() -> usize {
 }
 
 /// Pool of pre-allocated coroutine stacks to avoid repeated mmap syscalls.
+/// Acts as the cross-thread overflow store; per-thread reuse is served by
+/// `TLS_STACK` to keep the hot path atomic-free.
 static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
     LazyLock::new(crossbeam_queue::SegQueue::new);
+
+/// Per-thread cache holding a single ready-to-use coroutine stack. The hot
+/// path of `on_wasm_stack` pops from here without touching the global
+/// `STACK_POOL`'s atomics; only the first call on a thread or re-entrant
+/// nested calls fall back to the pool.
+///
+/// On thread exit the held stack (if any) is pushed to `STACK_POOL` so memory
+/// cycles correctly across thread lifetimes (no mmap leaks).
+struct StackCache(Cell<Option<DefaultStack>>);
+
+impl Drop for StackCache {
+    fn drop(&mut self) {
+        if let Some(stack) = self.0.take() {
+            STACK_POOL.push(stack);
+        }
+    }
+}
+
+thread_local! {
+    static TLS_STACK: StackCache = const { StackCache(Cell::new(None)) };
+}
+
+/// Acquire a coroutine stack large enough for `min_size`. Prefers the
+/// thread-local cache (no atomics), falls back to the global `STACK_POOL`,
+/// then allocates a fresh stack.
+fn acquire_stack(min_size: usize) -> DefaultStack {
+    // Fast path: thread-local cache. Steady-state per-thread reuse never
+    // touches the SegQueue.
+    if let Some(stack) = TLS_STACK.with(|cache| cache.0.take()) {
+        if stack.size() >= min_size {
+            return stack;
+        }
+        // Undersized — discard (mirrors the existing `STACK_POOL.pop().filter(...)`
+        // behavior of not holding undersized stacks in rotation).
+        drop(stack);
+    }
+    // Cross-thread overflow pool. Single pop, single filter — same semantics
+    // as the pre-TLS implementation.
+    STACK_POOL
+        .pop()
+        .filter(|s| s.size() >= min_size)
+        .unwrap_or_else(|| DefaultStack::new(min_size).unwrap())
+}
+
+/// Release a coroutine stack. Prefers the thread-local slot if empty (no
+/// atomics); otherwise pushes to the global `STACK_POOL` so the stack is
+/// still reusable by other threads.
+fn release_stack(stack: DefaultStack) {
+    let displaced = TLS_STACK.with(|cache| cache.0.replace(Some(stack)));
+    if let Some(displaced) = displaced {
+        STACK_POOL.push(displaced);
+    }
+}
 
 /// Drains the coroutine stack pool at the moment it runs.
 ///
 /// This is intended to be called before retrying with a larger stack size so
 /// that the pool does not keep serving cached undersized stacks.
 ///
-/// Note that `STACK_POOL` is a global, concurrently used queue. Other threads
-/// may push stacks back into the pool (for example, when their Wasm execution
-/// finishes) while or after this function is running. As a result, this
-/// function provides only a best-effort drain of the pool: there is no
-/// guarantee that no undersized stacks exist immediately after it returns
-/// unless the caller ensures, via external synchronization, that no other
-/// Wasm executions can return stacks to the pool while this function runs.
+/// Note that `STACK_POOL` is a global, concurrently used queue and that each
+/// thread also keeps a private cached stack in TLS. Other threads may push
+/// stacks back into the pool (for example, when their Wasm execution
+/// finishes) while or after this function is running, and TLS-cached stacks
+/// on other threads are not touched. As a result, this function provides
+/// only a best-effort drain: there is no guarantee that no undersized stacks
+/// exist immediately after it returns unless the caller ensures, via external
+/// synchronization, that no other Wasm executions can return stacks to the
+/// pool while this function runs. The current thread's TLS-cached stack is
+/// drained as part of this call.
 pub fn drain_stack_pool() {
+    // Drain the calling thread's TLS slot first (best-effort across threads
+    // still applies — other threads' caches aren't touched).
+    if let Some(stack) = TLS_STACK.with(|cache| cache.0.take()) {
+        drop(stack);
+    }
     while STACK_POOL.pop().is_some() {}
 }
 
@@ -1047,17 +1110,14 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
-    // Reuse a cached stack from the pool if it is large enough, otherwise
-    // allocate a fresh one. The size check prevents using undersized stacks
-    // that were returned by threads still running at the old size after
-    // `drain_stack_pool()` was called. `base() - limit()` is the full mmap
-    // region (including guard page), which is always >= the requested size
-    // for stacks allocated with that size.
-    let stack = STACK_POOL
-        .pop()
-        .filter(|s| s.size() >= stack_size)
-        .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
-    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
+    // Reuse a cached stack — TLS first (atomic-free hot path), then the
+    // cross-thread overflow pool, then allocate fresh. Size mismatches
+    // (e.g. after `drain_stack_pool()` + a stack-size change) are filtered
+    // inside `acquire_stack`. `base() - limit()` is the full mmap region
+    // (including guard page), which is always >= the requested size for
+    // stacks allocated with that size.
+    let stack = acquire_stack(stack_size);
+    let mut stack = scopeguard::guard(stack, release_stack);
 
     // Create a coroutine with a new stack to run the function on.
     let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
@@ -1378,14 +1438,78 @@ mod tests {
         let result = on_wasm_stack(big_size, None, || 42);
 
         assert_eq!(result.ok().expect("on_wasm_stack should succeed"), 42);
-        // The undersized stack was discarded; the pool should now contain
-        // the correctly-sized stack that was allocated for this call.
-        let returned = STACK_POOL
-            .pop()
-            .expect("stack should have been returned to pool");
+        // The undersized stack was discarded; the correctly-sized stack
+        // allocated for the call now lives in the TLS cache (the hot path).
+        // It will end up in the global pool only on thread exit or eviction.
+        let returned = TLS_STACK
+            .with(|cache| cache.0.take())
+            .or_else(|| STACK_POOL.pop())
+            .expect("stack should have been returned to TLS cache or pool");
         assert!(
             returned.size() >= big_size,
             "returned stack must be at least as large as the requested size"
         );
+    }
+
+    /// After a wasm call, the freshly-used stack stays in the thread-local
+    /// cache so subsequent calls on the same thread reuse it without touching
+    /// the global SegQueue.
+    #[test]
+    fn tls_stack_caches_after_first_call() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+
+        let size = get_stack_size();
+
+        // First call: TLS + pool both empty → allocate fresh; stack ends in TLS.
+        assert!(on_wasm_stack(size, None, || ()).is_ok());
+        assert!(STACK_POOL.is_empty(), "pool should still be empty after a TLS-served call");
+
+        // Verify TLS holds a stack, then put it back.
+        let cached_present = TLS_STACK.with(|cache| {
+            let taken = cache.0.take();
+            let present = taken.is_some();
+            cache.0.set(taken);
+            present
+        });
+        assert!(cached_present, "TLS slot should hold the post-call stack");
+
+        // Second call should consume from TLS; pool stays empty.
+        assert!(on_wasm_stack(size, None, || ()).is_ok());
+        assert!(STACK_POOL.is_empty(), "second call must not push to the global pool");
+        let still_cached = TLS_STACK.with(|cache| {
+            let taken = cache.0.take();
+            let present = taken.is_some();
+            cache.0.set(taken);
+            present
+        });
+        assert!(still_cached, "TLS slot should still hold a stack after the second call");
+
+        // Cleanup: clear TLS so we don't leak into other tests.
+        TLS_STACK.with(|cache| cache.0.set(None));
+    }
+
+    /// On thread exit, the TLS cache's `Drop` impl returns the held stack to
+    /// the global pool so memory cycles correctly across thread lifetimes.
+    #[test]
+    fn tls_stack_returns_to_pool_on_thread_exit() {
+        let _lock = GLOBAL_STATE.lock().unwrap();
+        let _restore = RestoreStackSize(get_stack_size());
+        drain_stack_pool();
+
+        let size = get_stack_size();
+
+        let handle = std::thread::spawn(move || {
+            assert!(on_wasm_stack(size, None, || ()).is_ok());
+        });
+        handle.join().unwrap();
+
+        // The spawned thread's TLS cache was dropped on join; the stack must
+        // have made it back to the global pool.
+        let returned = STACK_POOL
+            .pop()
+            .expect("thread exit should return TLS-cached stack to the global pool");
+        assert!(returned.size() >= size);
     }
 }
