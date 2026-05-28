@@ -108,23 +108,21 @@ impl Memory {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
+    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         if self.ty(store).shared {
             let mem = self.handle.get(store.as_store_ref().objects().as_sys());
-            let copied = mem.copy().ok()?;
+            let copied = mem.copy()?;
             let ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>> = copied
                 .thread_conditions()
                 .map(|conditions| Arc::new(conditions.downgrade()) as Arc<_>);
-            let memory = crate::vm::VMMemory::Sys(SysVMMemory::from(copied))
-                .as_shared()
-                .ok()?;
+            let memory = crate::vm::VMMemory::Sys(SysVMMemory::from(copied)).as_shared()?;
 
-            Some(match ops {
+            Ok(match ops {
                 Some(ops) => SharedMemory::new_with_ops(memory, ops),
                 None => SharedMemory::new(memory),
             })
         } else {
-            None
+            Err(MemoryError::MemoryNotShared)
         }
     }
 

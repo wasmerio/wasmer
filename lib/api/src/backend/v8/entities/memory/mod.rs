@@ -173,9 +173,9 @@ impl Memory {
         true
     }
 
-    pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
-        Some(SharedMemory::new(crate::vm::VMSharedMemory::V8(
-            self.handle.as_shared().ok()?,
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+        Ok(SharedMemory::new(crate::vm::VMSharedMemory::V8(
+            self.handle.as_shared()?,
         )))
     }
 }
