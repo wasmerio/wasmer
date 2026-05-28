@@ -1166,7 +1166,18 @@ impl WasiFs {
     ///   inode unless a separate `AT_EMPTY_PATH`-style extension is introduced.
     /// - Absolute paths resolve from `VIRTUAL_ROOT_FD`, independent of the
     ///   caller-provided starting inode.
-    /// - The parent of root is root, so `/..` stays at `/`.
+    /// - A literal root pathname (`/`, `//`, and so on) preserves historical
+    ///   WASIX behavior: if the virtual root contains a mounted `entries["/"]`
+    ///   directory, the literal root path resolves to that mounted directory.
+    ///   This special case is intentionally limited to an all-slashes pathname.
+    /// - Parent traversal is semantic, not a string rewrite. The virtual root's
+    ///   parent is itself, but a mounted directory whose guest name is `/` still
+    ///   has the virtual root as its parent. Therefore `/..` may resolve to
+    ///   `Kind::Root` after walking from the mounted `/` directory upward, and
+    ///   traversal that genuinely reaches `Kind::Root` must not be remapped
+    ///   back to `entries["/"]` at the end. That distinction lets WASI guests
+    ///   see the virtual root with all preopens via `..` without changing the
+    ///   behavior of opening literal `/`.
     /// - `.` and `..` are semantic components: they require the current inode
     ///   to be a directory or virtual root, otherwise they fail with
     ///   `Errno::Notdir`.
@@ -1190,6 +1201,12 @@ impl WasiFs {
     /// `Kind::File`, `Kind::Symlink`, or supported special-file inode. Persistent
     /// backing entries are inserted into the parent directory cache; ephemeral
     /// symlink inodes are transient and are not cached as directory entries.
+    ///
+    /// Cached directory entries are part of the guest-visible directory model,
+    /// not merely an implementation detail. A later `fd_readdir` over a backing
+    /// directory must merge these cached children with host children instead of
+    /// hiding non-preopen cache entries; otherwise cleanup and tree-walking code
+    /// can miss inodes that this resolver can still reach.
     ///
     /// This function is therefore not a full synchronization pass. It observes
     /// the backing filesystem on cache misses, but cached entries are reused
