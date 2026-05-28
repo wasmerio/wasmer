@@ -1761,46 +1761,53 @@ impl WasiFs {
                 .to_owned();
             symlink_relative.pop();
 
-            let contained_target =
-                Self::resolve_contained_symlink_path(symlink_relative, relative_path)?;
+            Self::ensure_relative_symlink_target_stays_within_base(
+                &symlink_relative,
+                relative_path,
+            )?;
             let mut resolved_path = mount_path;
-            if contained_target != Path::new(".") {
-                resolved_path.push(contained_target);
+            if !symlink_relative.as_os_str().is_empty() {
+                resolved_path.push(symlink_relative);
             }
+            resolved_path.push(relative_path);
 
             return Ok((VIRTUAL_ROOT_FD, resolved_path));
         }
 
         let mut symlink_relative = path_to_symlink.to_owned();
         symlink_relative.pop();
-        let normalized = Self::resolve_contained_symlink_path(symlink_relative, relative_path)?;
+        Self::ensure_relative_symlink_target_stays_within_base(&symlink_relative, relative_path)?;
+        symlink_relative.push(relative_path);
 
-        Ok((base_po_dir, normalized))
+        Ok((base_po_dir, symlink_relative))
     }
 
-    fn resolve_contained_symlink_path(
-        symlink_parent: PathBuf,
+    fn ensure_relative_symlink_target_stays_within_base(
+        symlink_parent: &Path,
         relative_path: &Path,
-    ) -> Result<PathBuf, Errno> {
-        let mut normalized = PathBuf::new();
-        for component in symlink_parent.components().chain(relative_path.components()) {
+    ) -> Result<(), Errno> {
+        let mut depth = symlink_parent
+            .components()
+            .fold(0usize, |depth, component| {
+                if matches!(component, Component::Normal(_)) {
+                    depth + 1
+                } else {
+                    depth
+                }
+            });
+
+        for component in relative_path.components() {
             match component {
                 Component::CurDir => {}
-                Component::Normal(component) => normalized.push(component),
+                Component::Normal(_) => depth += 1,
                 Component::ParentDir => {
-                    if !normalized.pop() {
-                        return Err(Errno::Perm);
-                    }
+                    depth = depth.checked_sub(1).ok_or(Errno::Perm)?;
                 }
                 Component::RootDir | Component::Prefix(_) => return Err(Errno::Perm),
             }
         }
 
-        if normalized.as_os_str().is_empty() {
-            normalized.push(".");
-        }
-
-        Ok(normalized)
+        Ok(())
     }
 
     /// gets a host file from a base directory and a path
@@ -3080,7 +3087,35 @@ mod tests {
                 Path::new("../README.md"),
             )
             .unwrap();
-        assert_eq!(contained_symlink_target, Path::new("README.md"));
+        assert_eq!(
+            contained_symlink_target,
+            Path::new("fs_sandbox_symlink.dir/../README.md")
+        );
+
+        root.create_dir(Path::new("/outerdir")).unwrap();
+        root.create_dir(Path::new("/outerdir/dest")).unwrap();
+        root.new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/outerdir/evil"))
+            .unwrap();
+        root.create_symlink(Path::new("."), Path::new("/outerdir/dest/current"))
+            .unwrap();
+        root.create_symlink(Path::new("current/.."), Path::new("/outerdir/dest/parent"))
+            .unwrap();
+
+        let parent_symlink_target = wasi_fs
+            .get_inode_at_path(
+                &inodes,
+                crate::VIRTUAL_ROOT_FD,
+                "/outerdir/dest/parent/evil",
+                true,
+            )
+            .unwrap();
+        assert!(matches!(
+            parent_symlink_target.read().deref(),
+            Kind::File { path, .. } if path == Path::new("/outerdir/evil")
+        ));
 
         let file_dot = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/file/.", true)
