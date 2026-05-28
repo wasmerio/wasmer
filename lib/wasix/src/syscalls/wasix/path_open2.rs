@@ -454,6 +454,58 @@ pub(crate) fn path_open_internal(
                 return Ok(Err(Errno::Isdir));
             }
 
+            // The follow-style lookup above may have failed because the final
+            // component is a symlink whose target does not exist yet. POSIX
+            // create opens should follow that final symlink and create the
+            // target, while O_EXCL still treats the symlink itself as an
+            // existing path.
+            if follow_symlinks {
+                let final_symlink_target = state
+                    .fs
+                    .get_inode_at_path(inodes, effective_dirfd, path, false)
+                    .ok()
+                    .and_then(|inode| {
+                        let guard = inode.read();
+                        if let Kind::Symlink {
+                            base_po_dir,
+                            path_to_symlink,
+                            relative_path,
+                        } = guard.deref()
+                        {
+                            let (resolved_base_fd, resolved_path) = if relative_path.is_absolute() {
+                                (VIRTUAL_ROOT_FD, relative_path.clone())
+                            } else {
+                                let mut resolved_path = path_to_symlink.clone();
+                                resolved_path.pop();
+                                resolved_path.push(relative_path);
+                                (*base_po_dir, resolved_path)
+                            };
+                            Some((resolved_base_fd, resolved_path))
+                        } else {
+                            None
+                        }
+                    });
+
+                if let Some((resolved_base_fd, resolved_path)) = final_symlink_target {
+                    if o_flags.contains(Oflags::EXCL) {
+                        return Ok(Err(Errno::Exist));
+                    }
+
+                    return path_open_internal(
+                        env,
+                        resolved_base_fd,
+                        __WASI_LOOKUP_SYMLINK_FOLLOW,
+                        &resolved_path.to_string_lossy(),
+                        o_flags,
+                        fs_rights_base,
+                        fs_rights_inheriting,
+                        fs_flags,
+                        fd_flags,
+                        with_fd,
+                    );
+                }
+            }
+
             // strip end file name
 
             let (parent_inode, new_entity_name) =
