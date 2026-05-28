@@ -162,26 +162,31 @@ pub(crate) fn path_link_internal(
             Err(err) => return Err(fs_error_into_wasi_err(err)),
         }
 
-        state
-            .fs
-            .root_fs
-            .hard_link(&source_path, &target_path)
-            .map_err(fs_error_into_wasi_err)?;
-
-        let kind = Kind::File {
-            handle: None,
-            path: target_path.clone(),
-            fd: None,
-        };
-        match state
-            .fs
-            .create_inode(inodes, kind, false, new_entry_name.clone())
-        {
-            Ok(inode) => inode,
-            Err(err) => {
-                let _ = state.fs.root_fs.remove_file(&target_path);
-                return Err(err);
+        match state.fs.root_fs.hard_link(&source_path, &target_path) {
+            Ok(()) => {
+                let kind = Kind::File {
+                    handle: None,
+                    path: target_path.clone(),
+                    fd: None,
+                };
+                match state
+                    .fs
+                    .create_inode(inodes, kind, false, new_entry_name.clone())
+                {
+                    Ok(inode) => inode,
+                    Err(err) => {
+                        let _ = state.fs.root_fs.remove_file(&target_path);
+                        return Err(err);
+                    }
+                }
             }
+            Err(virtual_fs::FsError::Unsupported) => {
+                // Some virtual filesystems cannot materialize hard links in
+                // their backing store. Preserve the old WASIX behavior there
+                // by linking the target directory entry to the same inode.
+                source_inode.clone()
+            }
+            Err(err) => return Err(fs_error_into_wasi_err(err)),
         }
     } else {
         source_inode.clone()
