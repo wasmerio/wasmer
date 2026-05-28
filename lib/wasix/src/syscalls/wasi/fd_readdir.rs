@@ -71,7 +71,12 @@ pub fn fd_readdir<M: MemorySize>(
                 entry_vec.extend(
                     entries
                         .iter()
-                        .filter(|(name, _)| !entry_names.contains(*name))
+                        .filter(|(name, inode)| {
+                            if entry_names.contains(*name) {
+                                return false;
+                            }
+                            inode.is_preopened || inode.stat.read().unwrap().st_nlink > 1
+                        })
                         .map(|(name, inode)| {
                             let stat = inode.stat.read().unwrap();
                             (name.clone(), stat.st_filetype, stat.st_ino)

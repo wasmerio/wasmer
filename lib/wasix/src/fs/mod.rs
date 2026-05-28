@@ -1288,7 +1288,6 @@ impl WasiFs {
                         let guard = cur_inode.read();
                         match guard.deref() {
                             Kind::Root { .. } => None,
-                            Kind::Dir { path, parent, .. } if path == Path::new("/") => None,
                             Kind::Dir { parent, .. } => {
                                 Some(parent.upgrade().ok_or(Errno::Access)?)
                             }
@@ -1653,12 +1652,6 @@ impl WasiFs {
             // The rest of the path resolution will be relative to resolved
             // symlink target.
             cur_inode = symlink_inode;
-        }
-
-        if let Kind::Root { entries } = cur_inode.read().deref()
-            && let Some(root_entry) = entries.get("/")
-        {
-            return Ok(root_entry.clone());
         }
 
         Ok(cur_inode)
@@ -2999,10 +2992,7 @@ mod tests {
         let root_parent = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/..", true)
             .unwrap();
-        assert!(matches!(
-            root_parent.read().deref(),
-            Kind::Dir { path, .. } if path == Path::new("/")
-        ));
+        assert!(matches!(root_parent.read().deref(), Kind::Root { .. }));
 
         let file_dot = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/file/.", true)
