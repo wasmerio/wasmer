@@ -1547,13 +1547,13 @@ impl WasiFs {
                             link_value,
                             entry_name,
                         } => {
-                            let (pre_open_dir_fd, path_to_symlink) =
+                            let (pre_open_dir_fd, _) =
                                 self.path_into_pre_open_and_relative_path(&file)?;
                             let new_inode = self.create_inode(
                                 inodes,
                                 Kind::Symlink {
                                     base_po_dir: pre_open_dir_fd,
-                                    path_to_symlink: path_to_symlink.to_owned(),
+                                    path_to_symlink: file.clone(),
                                     relative_path: link_value,
                                 },
                                 false,
@@ -1625,28 +1625,10 @@ impl WasiFs {
                 (*base_po_dir, path_to_symlink.clone(), relative_path.clone())
             };
 
-            let (new_base_inode, new_path) = if relative_path.is_absolute() {
-                // Absolute symlink targets must resolve from the virtual root
-                // rather than from the directory containing the symlink.
-                (
-                    self.get_fd_inode(VIRTUAL_ROOT_FD)?,
-                    relative_path.to_string_lossy().to_string(),
-                )
-            } else {
-                let new_base_inode = self.get_fd_inode(base_po_dir)?;
-                let new_path = {
-                    /*if let Kind::Root { .. } = self.inodes[base_po_dir].kind {
-                        assert!(false, "symlinks should never be relative to the root");
-                    }*/
-                    let mut base = path_to_symlink;
-                    // remove the symlink file itself from the path, leaving just the path from the base
-                    // to the dir containing the symlink
-                    base.pop();
-                    base.push(relative_path);
-                    base.to_string_lossy().to_string()
-                };
-                (new_base_inode, new_path)
-            };
+            let (new_base_fd, new_path) =
+                self.resolve_symlink_target_path(base_po_dir, &path_to_symlink, &relative_path)?;
+            let new_base_inode = self.get_fd_inode(new_base_fd)?;
+            let new_path = new_path.to_string_lossy().to_string();
 
             // We want to always follow symlinks unless we're resolving very
             // last path component, then and only then we want to stop symlink
@@ -1750,6 +1732,75 @@ impl WasiFs {
     ) -> Result<(WasiFd, PathBuf), Errno> {
         let (fd, rel_path) = self.path_into_pre_open_and_relative_path(path)?;
         Ok((fd, rel_path.to_owned()))
+    }
+
+    pub(crate) fn resolve_symlink_target_path(
+        &self,
+        base_po_dir: WasiFd,
+        path_to_symlink: &Path,
+        relative_path: &Path,
+    ) -> Result<(WasiFd, PathBuf), Errno> {
+        if relative_path.is_absolute() {
+            return Ok((VIRTUAL_ROOT_FD, relative_path.to_owned()));
+        }
+
+        if path_to_symlink.is_absolute() {
+            let mount_path = self
+                .root_fs
+                .root()
+                .mount_entries()
+                .into_iter()
+                .filter(|entry| path_to_symlink.strip_prefix(&entry.path).is_ok())
+                .max_by_key(|entry| entry.path.as_os_str().len())
+                .map(|entry| entry.path)
+                .unwrap_or_else(|| PathBuf::from("/"));
+
+            let mut symlink_relative = path_to_symlink
+                .strip_prefix(&mount_path)
+                .unwrap_or_else(|_| path_to_symlink.strip_prefix("/").unwrap_or(path_to_symlink))
+                .to_owned();
+            symlink_relative.pop();
+
+            let contained_target =
+                Self::resolve_contained_symlink_path(symlink_relative, relative_path)?;
+            let mut resolved_path = mount_path;
+            if contained_target != Path::new(".") {
+                resolved_path.push(contained_target);
+            }
+
+            return Ok((VIRTUAL_ROOT_FD, resolved_path));
+        }
+
+        let mut symlink_relative = path_to_symlink.to_owned();
+        symlink_relative.pop();
+        let normalized = Self::resolve_contained_symlink_path(symlink_relative, relative_path)?;
+
+        Ok((base_po_dir, normalized))
+    }
+
+    fn resolve_contained_symlink_path(
+        symlink_parent: PathBuf,
+        relative_path: &Path,
+    ) -> Result<PathBuf, Errno> {
+        let mut normalized = PathBuf::new();
+        for component in symlink_parent.components().chain(relative_path.components()) {
+            match component {
+                Component::CurDir => {}
+                Component::Normal(component) => normalized.push(component),
+                Component::ParentDir => {
+                    if !normalized.pop() {
+                        return Err(Errno::Perm);
+                    }
+                }
+                Component::RootDir | Component::Prefix(_) => return Err(Errno::Perm),
+            }
+        }
+
+        if normalized.as_os_str().is_empty() {
+            normalized.push(".");
+        }
+
+        Ok(normalized)
     }
 
     /// gets a host file from a base directory and a path
@@ -2533,7 +2584,9 @@ impl WasiFs {
                 path_to_symlink,
                 relative_path,
             } => {
-                let symlink_path = {
+                let symlink_path = if path_to_symlink.is_absolute() {
+                    path_to_symlink.clone()
+                } else {
                     let guard = self.fd_map.read().unwrap();
                     let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
                     let guard = base_po_inode.read();
@@ -3010,6 +3063,24 @@ mod tests {
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/..", true)
             .unwrap();
         assert!(matches!(root_parent.read().deref(), Kind::Root { .. }));
+
+        let escaped_symlink_target = wasi_fs
+            .resolve_symlink_target_path(
+                crate::VIRTUAL_ROOT_FD,
+                Path::new("fs_sandbox_symlink.dir/link"),
+                Path::new("../../README.md"),
+            )
+            .unwrap_err();
+        assert_eq!(escaped_symlink_target, Errno::Perm);
+
+        let (_, contained_symlink_target) = wasi_fs
+            .resolve_symlink_target_path(
+                crate::VIRTUAL_ROOT_FD,
+                Path::new("fs_sandbox_symlink.dir/link"),
+                Path::new("../README.md"),
+            )
+            .unwrap();
+        assert_eq!(contained_symlink_target, Path::new("README.md"));
 
         let file_dot = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/file/.", true)

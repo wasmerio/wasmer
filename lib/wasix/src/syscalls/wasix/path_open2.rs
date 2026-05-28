@@ -419,13 +419,13 @@ pub(crate) fn path_open_internal(
 
                 // Resolve the symlink via the existing path traversal logic and restart
                 // path_open with lookup-follow semantics for this resolved path.
-                let (resolved_base_fd, resolved_path) = if relative_path.is_absolute() {
-                    (VIRTUAL_ROOT_FD, relative_path.clone())
-                } else {
-                    let mut resolved_path = path_to_symlink.clone();
-                    resolved_path.pop();
-                    resolved_path.push(relative_path);
-                    (*base_po_dir, resolved_path)
+                let (resolved_base_fd, resolved_path) = match state.fs.resolve_symlink_target_path(
+                    *base_po_dir,
+                    path_to_symlink,
+                    relative_path,
+                ) {
+                    Ok(resolved) => resolved,
+                    Err(err) => return Ok(Err(err)),
                 };
                 return path_open_internal(
                     env,
@@ -460,31 +460,33 @@ pub(crate) fn path_open_internal(
             // target, while O_EXCL still treats the symlink itself as an
             // existing path.
             if follow_symlinks {
-                let final_symlink_target = state
-                    .fs
-                    .get_inode_at_path(inodes, effective_dirfd, path, false)
-                    .ok()
-                    .and_then(|inode| {
+                let final_symlink_target_lookup =
+                    state
+                        .fs
+                        .get_inode_at_path(inodes, effective_dirfd, path, false);
+                let final_symlink_target = match final_symlink_target_lookup {
+                    Ok(inode) => {
                         let guard = inode.read();
-                        if let Kind::Symlink {
-                            base_po_dir,
-                            path_to_symlink,
-                            relative_path,
-                        } = guard.deref()
-                        {
-                            let (resolved_base_fd, resolved_path) = if relative_path.is_absolute() {
-                                (VIRTUAL_ROOT_FD, relative_path.clone())
-                            } else {
-                                let mut resolved_path = path_to_symlink.clone();
-                                resolved_path.pop();
-                                resolved_path.push(relative_path);
-                                (*base_po_dir, resolved_path)
-                            };
-                            Some((resolved_base_fd, resolved_path))
-                        } else {
-                            None
+                        match guard.deref() {
+                            Kind::Symlink {
+                                base_po_dir,
+                                path_to_symlink,
+                                relative_path,
+                            } => {
+                                match state.fs.resolve_symlink_target_path(
+                                    *base_po_dir,
+                                    path_to_symlink,
+                                    relative_path,
+                                ) {
+                                    Ok(resolved) => Some(resolved),
+                                    Err(err) => return Ok(Err(err)),
+                                }
+                            }
+                            _ => None,
                         }
-                    });
+                    }
+                    Err(_) => None,
+                };
 
                 if let Some((resolved_base_fd, resolved_path)) = final_symlink_target {
                     if o_flags.contains(Oflags::EXCL) {
@@ -523,11 +525,7 @@ pub(crate) fn path_open_internal(
                         new_path.push(&new_entity_name);
                         new_path
                     }
-                    Kind::Root { .. } => {
-                        let mut new_path = std::path::PathBuf::new();
-                        new_path.push(&new_entity_name);
-                        new_path
-                    }
+                    Kind::Root { .. } => return Ok(Err(Errno::Perm)),
                     _ => return Ok(Err(Errno::Notdir)),
                 }
             };
