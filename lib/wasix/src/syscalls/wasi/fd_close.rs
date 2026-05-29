@@ -2,6 +2,28 @@ use super::*;
 use crate::fs::FlushPoller;
 use crate::syscalls::*;
 
+/// Best-effort flush of a file handle captured before fd removal.
+pub(crate) fn flush_captured_handle(
+    env: &WasiEnv,
+    flush_target: Option<
+        std::sync::Arc<std::sync::RwLock<Box<dyn virtual_fs::VirtualFile + Send + Sync>>>,
+    >,
+) -> Result<Errno, WasiError> {
+    let Some(file) = flush_target else {
+        return Ok(Errno::Success);
+    };
+
+    match __asyncify_light(env, None, FlushPoller { file })? {
+        Ok(_)
+        | Err(Errno::Isdir)
+        | Err(Errno::Io)
+        | Err(Errno::Access)
+        // EINVAL is returned by e.g. pipe-backed stdio and is safe to ignore.
+        | Err(Errno::Inval) => Ok(Errno::Success),
+        Err(e) => Ok(e),
+    }
+}
+
 /// ### `fd_close()`
 /// Close an open file descriptor
 /// For sockets this will flush the data before the socket is closed
@@ -19,54 +41,19 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
 
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
-    let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
 
-    // We don't want to allow programs that blindly close all FDs in a loop
-    // to be able to close pre-opens, as that breaks wasix-libc in rather
-    // spectacular fashion.
-    if !fd_entry.is_stdio && fd_entry.inode.is_preopened {
+    let outcome = state.fs.close_fd_and_capture_flush(fd);
+
+    if outcome.skipped_preopen {
         trace!("Skipping fd_close for pre-opened FD ({})", fd);
         return Ok(Errno::Success);
     }
-    // Keep stdio behavior unchanged: flush before close.
-    if fd <= __WASI_STDERR_FILENO {
-        match __asyncify_light(env, None, state.fs.flush(fd))? {
-            Ok(_)
-            | Err(Errno::Isdir)
-            | Err(Errno::Io)
-            | Err(Errno::Access)
-            // EINVAL is returned by e.g. pipe-backed stdio and is safe to ignore.
-            | Err(Errno::Inval) => {}
-            Err(e) => {
-                return Ok(e);
-            }
-        }
-        wasi_try_ok!(state.fs.close_fd(fd));
-    } else {
-        // Capture the file handle before removing the fd, then close first.
-        // This avoids an fd-number reuse race where an async pre-close flush
-        // can end up closing a newly allocated descriptor with the same number.
-        let flush_target = {
-            let guard = fd_entry.inode.read();
-            match guard.deref() {
-                Kind::File {
-                    handle: Some(file), ..
-                } => Some(file.clone()),
-                _ => None,
-            }
-        };
 
-        wasi_try_ok!(state.fs.close_fd(fd));
-
-        if let Some(file) = flush_target {
-            match __asyncify_light(env, None, FlushPoller { file })? {
-                Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
-                Err(e) => {
-                    return Ok(e);
-                }
-            }
-        }
+    if !outcome.removed {
+        return Ok(Errno::Badf);
     }
+
+    flush_captured_handle(env, outcome.flush_target)?;
 
     #[cfg(feature = "journal")]
     if env.enable_journal {

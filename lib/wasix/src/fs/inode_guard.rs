@@ -15,7 +15,7 @@ use wasmer_wasix_types::{
     wasi::{Errno, EventFdReadwrite, Eventrwflags, Subscription},
 };
 
-use super::{InodeGuard, Kind, notification::NotificationInner};
+use super::{InodeGuard, Kind, VirtualFileLock, notification::NotificationInner};
 use crate::{
     net::socket::{InodeSocketInner, InodeSocketKind},
     state::{PollEvent, PollEventSet, WasiState, iterate_poll_events},
@@ -25,7 +25,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub(crate) enum InodeValFilePollGuardMode {
-    File(Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>),
+    File(VirtualFileLock),
     EventNotifications(Arc<NotificationInner>),
     Socket { inner: Arc<InodeSocketInner> },
     PipeRx { rx: Arc<RwLock<Box<PipeRx>>> },
@@ -397,7 +397,7 @@ pub(crate) struct InodeValFileReadGuard {
 }
 
 impl InodeValFileReadGuard {
-    pub(crate) fn new(file: &Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>) -> Self {
+    pub(crate) fn new(file: &VirtualFileLock) -> Self {
         Self {
             guard: crate::utils::read_owned(file).unwrap(),
         }
@@ -417,7 +417,7 @@ pub struct InodeValFileWriteGuard {
 }
 
 impl InodeValFileWriteGuard {
-    pub(crate) fn new(file: &Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>) -> Self {
+    pub(crate) fn new(file: &VirtualFileLock) -> Self {
         Self {
             guard: crate::utils::write_owned(file).unwrap(),
         }

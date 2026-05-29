@@ -15,6 +15,9 @@ use crate::os::epoll::EpollState;
 
 use super::{InodeGuard, InodeWeakGuard, NotificationInner};
 
+/// Shared handle to an open [`VirtualFile`].
+pub(crate) type VirtualFileLock = Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>;
+
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Fd {
@@ -89,7 +92,7 @@ pub enum Kind {
     File {
         /// The open file, if it's open
         #[cfg_attr(feature = "enable-serde", serde(skip))]
-        handle: Option<Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>>,
+        handle: Option<VirtualFileLock>,
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
         path: PathBuf,

@@ -4,6 +4,15 @@
 // only way we can get to a file on a FileSystem instance is by going
 // through its respective FileOpener and giving it a path as input.
 // TODO: refactor away the InodeVal type
+//
+// ## FD map / inode lock order
+//
+// When both locks are needed: acquire `fd_map` before `inode`, never the reverse.
+// Do not hold an `inode` lock while waiting on `fd_map`. Mutations that install or
+// remove map entries (`insert`, `remove`, `acquire_handle`, `drop_one_handle`) must
+// run under `fd_map.write()`. Capture `VirtualFile` handles (or cloned `Fd` data)
+// under the map lock before any `await`; never resolve I/O by fd number after dropping
+// the lock.
 
 mod fd;
 mod fd_list;
@@ -23,7 +32,6 @@ use std::{
     task::{Context, Poll},
 };
 
-use self::fd_list::FdList;
 use crate::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
@@ -31,7 +39,7 @@ use crate::{
 use futures::{Future, future::BoxFuture};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use tracing::{debug, trace};
+use tracing::{debug, trace, warn};
 use virtual_fs::{
     ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
     TmpFileSystem, VirtualFile, limiter::DynFsMemoryLimiter,
@@ -45,7 +53,9 @@ use wasmer_wasix_types::{
     },
 };
 
+pub(crate) use self::fd::VirtualFileLock;
 pub use self::fd::{Fd, FdInner, InodeVal, Kind};
+pub(crate) use self::fd_list::FdList;
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
     InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
@@ -59,7 +69,25 @@ use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
 pub(crate) const MAX_FD: WasiFd = (64 * 1024) - 1;
 
 pub(crate) struct FlushPoller {
-    pub(crate) file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
+    pub(crate) file: VirtualFileLock,
+}
+
+/// Result of removing an fd under `fd_map.write()`, with an optional flush target
+/// captured before `drop_one_handle` may clear the inode handle.
+pub(crate) struct CloseFdOutcome {
+    pub skipped_preopen: bool,
+    pub removed: bool,
+    pub flush_target: Option<VirtualFileLock>,
+}
+
+impl CloseFdOutcome {
+    fn not_found() -> Self {
+        Self {
+            skipped_preopen: false,
+            removed: false,
+            flush_target: None,
+        }
+    }
 }
 
 impl Future for FlushPoller {
@@ -533,6 +561,11 @@ impl FileSystem for WasiFsRoot {
 
 /// Warning, modifying these fields directly may cause invariants to break and
 /// should be considered unsafe.  These fields may be made private in a future release
+///
+/// Lock order when touching both the fd map and an inode: **`fd_map` first, then
+/// `inode`**. Prefer the `*_locked` helpers on [`WasiFs`] (`insert_fd_locked`,
+/// `clone_fd_locked`, `close_fd_locked`, `dup2_at`) so handle counts and map slots
+/// stay consistent under concurrency.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiFs {
     //pub repo: Repo,
@@ -655,63 +688,67 @@ impl WasiFs {
         }
     }
 
-    /// Closes all the file handles.
+    /// Closes all file descriptors marked CLOEXEC (except stdio and preopens).
     pub async fn close_cloexec_fds(&self) {
-        let to_close = {
-            if let Ok(map) = self.fd_map.read() {
-                map.iter()
-                    .filter_map(|(k, v)| {
-                        if v.inner.fd_flags.contains(Fdflagsext::CLOEXEC)
-                            && !v.is_stdio
-                            && !v.inode.is_preopened
-                        {
-                            tracing::trace!(fd = %k, "Closing FD due to CLOEXEC flag");
-                            Some(k)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect::<HashSet<_>>()
-            } else {
-                HashSet::new()
+        let flush_targets = {
+            let mut fd_map = self.fd_map.write().unwrap();
+            let to_close: Vec<WasiFd> = fd_map
+                .iter()
+                .filter_map(|(k, v)| {
+                    if v.inner.fd_flags.contains(Fdflagsext::CLOEXEC)
+                        && !v.is_stdio
+                        && !v.inode.is_preopened
+                    {
+                        tracing::trace!(fd = %k, "Closing FD due to CLOEXEC flag");
+                        Some(k)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            let mut flush_targets = Vec::new();
+            for fd in to_close {
+                let outcome = Self::close_fd_locked(&mut fd_map, fd);
+                if let Some(target) = outcome.flush_target {
+                    flush_targets.push(target);
+                }
             }
+            flush_targets
         };
 
-        let _ = tokio::join!(async {
-            for fd in &to_close {
-                self.flush(*fd).await.ok();
-                self.close_fd(*fd).ok();
-            }
-        });
-
-        if let Ok(mut map) = self.fd_map.write() {
-            for fd in &to_close {
-                map.remove(*fd);
-            }
+        for file in flush_targets {
+            Self::flush_file_best_effort(file).await;
         }
     }
 
-    /// Closes all the file handles.
+    /// Closes all file descriptors, flushing captured handles after dropping the map lock.
     pub async fn close_all(&self) {
-        let mut to_close = {
-            if let Ok(map) = self.fd_map.read() {
-                map.keys().collect::<HashSet<_>>()
-            } else {
-                HashSet::new()
+        let flush_targets = {
+            let mut fd_map = self.fd_map.write().unwrap();
+            let mut fds: HashSet<WasiFd> = fd_map.keys().collect();
+            fds.insert(__WASI_STDOUT_FILENO);
+            fds.insert(__WASI_STDERR_FILENO);
+
+            let mut flush_targets = Vec::new();
+            for fd in fds {
+                let outcome = Self::close_fd_locked(&mut fd_map, fd);
+                if let Some(target) = outcome.flush_target {
+                    flush_targets.push(target);
+                }
             }
+
+            // Preopens skipped by close_fd_locked remain until clear().
+            for (_fd, fd_ref) in fd_map.iter().collect::<Vec<_>>() {
+                if let Some(target) = Self::file_flush_target(&fd_ref.inode) {
+                    flush_targets.push(target);
+                }
+            }
+            fd_map.clear();
+            flush_targets
         };
-        to_close.insert(__WASI_STDOUT_FILENO);
-        to_close.insert(__WASI_STDERR_FILENO);
 
-        let _ = tokio::join!(async {
-            for fd in to_close {
-                self.flush(fd).await.ok();
-                self.close_fd(fd).ok();
-            }
-        });
-
-        if let Ok(mut map) = self.fd_map.write() {
-            map.clear();
+        for file in flush_targets {
+            Self::flush_file_best_effort(file).await;
         }
     }
 
@@ -1546,18 +1583,7 @@ impl WasiFs {
             .cloned();
 
         if ret.is_err() && fd == VIRTUAL_ROOT_FD {
-            Ok(Fd {
-                inner: FdInner {
-                    rights: ALL_RIGHTS,
-                    rights_inheriting: ALL_RIGHTS,
-                    flags: Fdflags::empty(),
-                    offset: Arc::new(AtomicU64::new(0)),
-                    fd_flags: Fdflagsext::empty(),
-                },
-                open_flags: 0,
-                inode: self.root_inode.clone(),
-                is_stdio: false,
-            })
+            Ok(Self::virtual_root_fd(self.root_inode.clone()))
         } else {
             ret
         }
@@ -1670,31 +1696,6 @@ impl WasiFs {
         }
     }
 
-    pub async fn flush(&self, fd: WasiFd) -> Result<(), Errno> {
-        let fd_entry = self.get_fd(fd)?;
-        if !fd_entry.inner.rights.contains(Rights::FD_DATASYNC) {
-            return Err(Errno::Access);
-        }
-
-        let file = {
-            let guard = fd_entry.inode.read();
-            match guard.deref() {
-                Kind::File {
-                    handle: Some(file), ..
-                } => file.clone(),
-                // TODO: verify this behavior
-                Kind::Dir { .. } => return Err(Errno::Isdir),
-                Kind::Buffer { .. } => return Ok(()),
-                // Linux fsync(2) returns EINVAL for fds "bound to a special
-                // file (e.g., a pipe, FIFO, or socket) which does not support
-                // synchronization.", mirror that behaviour
-                _ => return Err(Errno::Inval),
-            }
-        };
-        drop(fd_entry);
-        FlushPoller { file }.await
-    }
-
     /// Creates an inode and inserts it given a Kind and some extra data
     pub(crate) fn create_inode(
         &self,
@@ -1777,6 +1778,210 @@ impl WasiFs {
         })
     }
 
+    fn make_fd(
+        rights: Rights,
+        rights_inheriting: Rights,
+        fs_flags: Fdflags,
+        fd_flags: Fdflagsext,
+        open_flags: u16,
+        inode: InodeGuard,
+        idx: Option<WasiFd>,
+    ) -> Fd {
+        let is_stdio = matches!(
+            idx,
+            Some(__WASI_STDIN_FILENO) | Some(__WASI_STDOUT_FILENO) | Some(__WASI_STDERR_FILENO)
+        );
+        Fd {
+            inner: FdInner {
+                rights,
+                rights_inheriting,
+                flags: fs_flags,
+                offset: Arc::new(AtomicU64::new(0)),
+                fd_flags,
+            },
+            open_flags,
+            inode,
+            is_stdio,
+        }
+    }
+
+    /// Insert a new fd into an already write-locked fd map.
+    ///
+    /// Lock order: callers must hold `fd_map.write()` and must not hold any inode
+    /// lock while acquiring the fd map lock.
+    #[allow(clippy::too_many_arguments)]
+    pub(crate) fn insert_fd_locked(
+        fd_map: &mut FdList,
+        rights: Rights,
+        rights_inheriting: Rights,
+        fs_flags: Fdflags,
+        fd_flags: Fdflagsext,
+        open_flags: u16,
+        inode: InodeGuard,
+        idx: Option<WasiFd>,
+        exclusive: bool,
+    ) -> Result<WasiFd, Errno> {
+        let fd = Self::make_fd(
+            rights,
+            rights_inheriting,
+            fs_flags,
+            fd_flags,
+            open_flags,
+            inode,
+            idx,
+        );
+
+        match idx {
+            Some(idx) => {
+                if idx > MAX_FD {
+                    return Err(Errno::Badf);
+                }
+                if fd_map.insert(exclusive, idx, fd) {
+                    Ok(idx)
+                } else {
+                    Err(Errno::Exist)
+                }
+            }
+            None => Ok(fd_map.insert_first_free(fd)),
+        }
+    }
+
+    /// Duplicate an fd into an already write-locked fd map.
+    pub(crate) fn clone_fd_locked(
+        fs: &WasiFs,
+        fd_map: &mut FdList,
+        fd: WasiFd,
+        min_result_fd: WasiFd,
+        cloexec: Option<bool>,
+    ) -> Result<WasiFd, Errno> {
+        let fd = Self::get_fd_from_locked_map(fs, fd_map, fd)?;
+        Self::ensure_file_handle_present(&fd)?;
+        if min_result_fd > MAX_FD {
+            return Err(Errno::Inval);
+        }
+        Ok(fd_map.insert_first_free_after(
+            Fd {
+                inner: FdInner {
+                    rights: fd.inner.rights,
+                    rights_inheriting: fd.inner.rights_inheriting,
+                    flags: fd.inner.flags,
+                    offset: fd.inner.offset.clone(),
+                    fd_flags: match cloexec {
+                        None => fd.inner.fd_flags,
+                        Some(cloexec) => {
+                            let mut f = fd.inner.fd_flags;
+                            f.set(Fdflagsext::CLOEXEC, cloexec);
+                            f
+                        }
+                    },
+                },
+                open_flags: fd.open_flags,
+                inode: fd.inode,
+                is_stdio: fd.is_stdio,
+            },
+            min_result_fd,
+        ))
+    }
+
+    /// Resolve an fd from a write-locked map (includes [`VIRTUAL_ROOT_FD`] fallback).
+    pub(crate) fn get_fd_from_locked_map(
+        fs: &WasiFs,
+        fd_map: &FdList,
+        fd: WasiFd,
+    ) -> Result<Fd, Errno> {
+        match fd_map.get(fd) {
+            Some(fd) => Ok(fd.clone()),
+            None if fd == VIRTUAL_ROOT_FD => Ok(Self::virtual_root_fd(fs.root_inode.clone())),
+            None => Err(Errno::Badf),
+        }
+    }
+
+    fn virtual_root_fd(root_inode: InodeGuard) -> Fd {
+        Fd {
+            inner: FdInner {
+                rights: ALL_RIGHTS,
+                rights_inheriting: ALL_RIGHTS,
+                flags: Fdflags::empty(),
+                offset: Arc::new(AtomicU64::new(0)),
+                fd_flags: Fdflagsext::empty(),
+            },
+            open_flags: 0,
+            inode: root_inode,
+            is_stdio: false,
+        }
+    }
+
+    fn ensure_file_handle_present(fd: &Fd) -> Result<(), Errno> {
+        let guard = fd.inode.read();
+        match guard.deref() {
+            Kind::File { handle: None, .. } => Err(Errno::Badf),
+            _ => Ok(()),
+        }
+    }
+
+    /// POSIX dup2: copy `src` onto exact slot `dst`, replacing any existing entry.
+    ///
+    /// Holds `fd_map.write()` for the full remove+insert. Returns a flush target for
+    /// the replaced `dst` entry (if any), captured while the lock is held and before
+    /// `remove` calls `drop_one_handle`, which may clear the inode's file handle.
+    pub(crate) fn dup2_at(
+        &self,
+        src: WasiFd,
+        dst: WasiFd,
+    ) -> Result<Option<VirtualFileLock>, Errno> {
+        if dst > MAX_FD {
+            return Err(Errno::Badf);
+        }
+
+        let flush_target = {
+            let mut fd_map = self.fd_map.write().unwrap();
+
+            let fd_entry = fd_map.get(src).ok_or(Errno::Badf)?;
+            Self::ensure_file_handle_present(fd_entry)?;
+
+            if src == dst {
+                return Ok(None);
+            }
+
+            if let Some(target_fd) = fd_map.get(dst)
+                && !target_fd.is_stdio
+                && target_fd.inode.is_preopened
+            {
+                warn!("Refusing dup2({src}, {dst}) because FD {dst} is pre-opened");
+                return Err(Errno::Notsup);
+            }
+
+            let new_fd_entry = Fd {
+                inner: FdInner {
+                    offset: fd_entry.inner.offset.clone(),
+                    rights: fd_entry.inner.rights_inheriting,
+                    fd_flags: {
+                        let mut f = fd_entry.inner.fd_flags;
+                        f.set(Fdflagsext::CLOEXEC, false);
+                        f
+                    },
+                    ..fd_entry.inner
+                },
+                inode: fd_entry.inode.clone(),
+                ..*fd_entry
+            };
+
+            let flush_target = fd_map
+                .get(dst)
+                .and_then(|fd| Self::file_flush_target(&fd.inode));
+
+            fd_map.remove(dst);
+
+            if !fd_map.insert(true, dst, new_fd_entry) {
+                panic!("Internal error: expected FD {dst} to be free after remove in dup2_at");
+            }
+
+            flush_target
+        };
+
+        Ok(flush_target)
+    }
+
     pub fn create_fd(
         &self,
         rights: Rights,
@@ -1834,38 +2039,18 @@ impl WasiFs {
         idx: Option<WasiFd>,
         exclusive: bool,
     ) -> Result<WasiFd, Errno> {
-        let is_stdio = matches!(
-            idx,
-            Some(__WASI_STDIN_FILENO) | Some(__WASI_STDOUT_FILENO) | Some(__WASI_STDERR_FILENO)
-        );
-        let fd = Fd {
-            inner: FdInner {
-                rights,
-                rights_inheriting,
-                flags: fs_flags,
-                offset: Arc::new(AtomicU64::new(0)),
-                fd_flags,
-            },
+        let mut fd_map = self.fd_map.write().unwrap();
+        Self::insert_fd_locked(
+            &mut fd_map,
+            rights,
+            rights_inheriting,
+            fs_flags,
+            fd_flags,
             open_flags,
             inode,
-            is_stdio,
-        };
-
-        let mut guard = self.fd_map.write().unwrap();
-
-        match idx {
-            Some(idx) => {
-                if idx > MAX_FD {
-                    return Err(Errno::Badf);
-                }
-                if guard.insert(exclusive, idx, fd) {
-                    Ok(idx)
-                } else {
-                    Err(Errno::Exist)
-                }
-            }
-            None => Ok(guard.insert_first_free(fd)),
-        }
+            idx,
+            exclusive,
+        )
     }
 
     pub fn clone_fd(&self, fd: WasiFd) -> Result<WasiFd, Errno> {
@@ -1878,32 +2063,8 @@ impl WasiFs {
         min_result_fd: WasiFd,
         cloexec: Option<bool>,
     ) -> Result<WasiFd, Errno> {
-        let fd = self.get_fd(fd)?;
-        if min_result_fd > MAX_FD {
-            return Err(Errno::Inval);
-        }
-        Ok(self.fd_map.write().unwrap().insert_first_free_after(
-            Fd {
-                inner: FdInner {
-                    rights: fd.inner.rights,
-                    rights_inheriting: fd.inner.rights_inheriting,
-                    flags: fd.inner.flags,
-                    offset: fd.inner.offset.clone(),
-                    fd_flags: match cloexec {
-                        None => fd.inner.fd_flags,
-                        Some(cloexec) => {
-                            let mut f = fd.inner.fd_flags;
-                            f.set(Fdflagsext::CLOEXEC, cloexec);
-                            f
-                        }
-                    },
-                },
-                open_flags: fd.open_flags,
-                inode: fd.inode,
-                is_stdio: fd.is_stdio,
-            },
-            min_result_fd,
-        ))
+        let mut fd_map = self.fd_map.write().unwrap();
+        Self::clone_fd_locked(self, &mut fd_map, fd, min_result_fd, cloexec)
     }
 
     /// Low level function to remove an inode, that is it deletes the WASI FS's
@@ -2288,13 +2449,34 @@ impl WasiFs {
         })
     }
 
-    /// Closes an open FD, handling all details such as FD being preopen
-    pub(crate) fn close_fd(&self, fd: WasiFd) -> Result<(), Errno> {
+    /// Closes an open FD under `fd_map.write()`, capturing a file handle for
+    /// post-close flush while the map lock is held.
+    ///
+    /// Lock order: `fd_map` write, then inode read (never the reverse).
+    pub(crate) fn close_fd_and_capture_flush(&self, fd: WasiFd) -> CloseFdOutcome {
         let mut fd_map = self.fd_map.write().unwrap();
+        Self::close_fd_locked(&mut fd_map, fd)
+    }
 
-        let pfd = fd_map.remove(fd).ok_or(Errno::Badf);
-        match pfd {
-            Ok(fd_ref) => {
+    /// Closes an open FD in an already write-locked fd map.
+    fn close_fd_locked(fd_map: &mut FdList, fd: WasiFd) -> CloseFdOutcome {
+        let Some(fd_ref) = fd_map.get(fd) else {
+            trace!(%fd, "closing file descriptor failed - {}", Errno::Badf);
+            return CloseFdOutcome::not_found();
+        };
+
+        if !fd_ref.is_stdio && fd_ref.inode.is_preopened {
+            return CloseFdOutcome {
+                skipped_preopen: true,
+                removed: false,
+                flush_target: None,
+            };
+        }
+
+        let flush_target = Self::file_flush_target(&fd_ref.inode);
+
+        match fd_map.remove(fd) {
+            Some(fd_ref) => {
                 let inode = fd_ref.inode.ino().as_u64();
                 let ref_cnt = fd_ref.inode.ref_cnt();
                 if ref_cnt == 1 {
@@ -2303,10 +2485,45 @@ impl WasiFs {
                     trace!(%fd, %inode, %ref_cnt, "weakening file descriptor");
                 }
             }
-            Err(err) => {
-                trace!(%fd, "closing file descriptor failed - {}", err);
+            None => {
+                trace!(%fd, "closing file descriptor failed - {}", Errno::Badf);
+                return CloseFdOutcome::not_found();
             }
         }
+
+        CloseFdOutcome {
+            skipped_preopen: false,
+            removed: true,
+            flush_target,
+        }
+    }
+
+    pub(crate) async fn flush_file_best_effort(file: VirtualFileLock) {
+        let result = FlushPoller { file }.await;
+        match result {
+            Ok(())
+            | Err(Errno::Isdir)
+            | Err(Errno::Io)
+            | Err(Errno::Access)
+            // EINVAL is returned by e.g. pipe-backed stdio and is safe to ignore.
+            | Err(Errno::Inval) => {}
+            Err(err) => trace!("flush during bulk close failed - {}", err),
+        }
+    }
+
+    fn file_flush_target(inode: &InodeGuard) -> Option<VirtualFileLock> {
+        let guard = inode.read();
+        match guard.deref() {
+            Kind::File {
+                handle: Some(file), ..
+            } => Some(file.clone()),
+            _ => None,
+        }
+    }
+
+    /// Closes an open FD, handling all details such as FD being preopen
+    pub(crate) fn close_fd(&self, fd: WasiFd) -> Result<(), Errno> {
+        let _ = self.close_fd_and_capture_flush(fd);
         Ok(())
     }
 }
