@@ -51,7 +51,6 @@ pub(crate) fn fd_dup_internal(
     cloexec: bool,
 ) -> Result<WasiFd, Errno> {
     let env = ctx.data();
-    let (memory, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
-    let fd = state.fs.clone_fd_ext(fd, min_result_fd, Some(cloexec))?;
-    Ok(fd)
+    let (_, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    state.fs.clone_fd_ext(fd, min_result_fd, Some(cloexec))
 }
