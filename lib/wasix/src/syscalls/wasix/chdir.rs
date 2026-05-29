@@ -61,7 +61,7 @@ pub fn chdir_internal(env: &WasiEnv, path: &str) -> Result<(), Errno> {
     let resolved_path = {
         let guard = inode.read();
         match guard.deref() {
-            Kind::Dir { path, .. } => path.to_string_lossy().into_owned(),
+            Kind::Dir { path, .. } => crate::fs::guest_path_to_string(path),
             Kind::Root { .. } => "/".to_string(),
             _ => return Err(Errno::Notdir),
         }

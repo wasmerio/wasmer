@@ -129,7 +129,10 @@ pub(crate) fn path_link_internal(
 
                 Some((
                     source_path.clone(),
-                    target_parent_path.join(&new_entry_name),
+                    crate::fs::join_guest_paths(
+                        target_parent_path,
+                        std::path::Path::new(&new_entry_name),
+                    ),
                 ))
             }
             (_, Kind::Dir { entries, .. }) => {

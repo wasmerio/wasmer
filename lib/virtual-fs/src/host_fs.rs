@@ -138,17 +138,6 @@ impl crate::FileSystem for FileSystem {
         fs::create_dir(path).map_err(Into::into)
     }
 
-    fn hard_link(&self, source: &Path, target: &Path) -> Result<()> {
-        let source = self.prepare_path(source)?;
-        let target = self.prepare_path(target)?;
-
-        if target.parent().is_none() {
-            return Err(FsError::BaseNotDirectory);
-        }
-
-        fs::hard_link(source, target).map_err(Into::into)
-    }
-
     fn remove_dir(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 

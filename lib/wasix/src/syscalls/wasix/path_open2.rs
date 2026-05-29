@@ -167,6 +167,35 @@ pub(crate) fn path_open_internal(
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
+    path_open_internal_with_symlink_depth(
+        env,
+        dirfd,
+        dirflags,
+        path,
+        o_flags,
+        fs_rights_base,
+        fs_rights_inheriting,
+        fs_flags,
+        fd_flags,
+        with_fd,
+        0,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn path_open_internal_with_symlink_depth(
+    env: &WasiEnv,
+    dirfd: WasiFd,
+    dirflags: LookupFlags,
+    path: &str,
+    o_flags: Oflags,
+    fs_rights_base: Rights,
+    fs_rights_inheriting: Rights,
+    fs_flags: Fdflags,
+    fd_flags: Fdflagsext,
+    with_fd: Option<WasiFd>,
+    symlink_depth: u32,
+) -> Result<Result<WasiFd, Errno>, WasiError> {
     fn implied_fd_rights(has_read_access: bool, has_write_access: bool) -> Rights {
         let mut rights = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
 
@@ -312,31 +341,41 @@ pub(crate) fn path_open_internal(
         {
             let guard = inode.read();
             if let Kind::Symlink {
-                base_po_dir,
+                symlink_kind,
                 path_to_symlink,
                 relative_path,
             } = guard.deref()
             {
-                let (resolved_base_fd, resolved_path) = if relative_path.is_absolute() {
-                    (VIRTUAL_ROOT_FD, relative_path.clone())
-                } else {
-                    let mut resolved_path = path_to_symlink.clone();
-                    resolved_path.pop();
-                    resolved_path.push(relative_path);
-                    (*base_po_dir, resolved_path)
+                if !follow_symlinks {
+                    return Ok(Err(Errno::Loop));
+                }
+
+                let (resolved_base_fd, resolved_path) = match state.fs.resolve_symlink_target_path(
+                    *symlink_kind,
+                    path_to_symlink,
+                    relative_path,
+                ) {
+                    Ok(resolved) => resolved,
+                    Err(err) => return Ok(Err(err)),
                 };
+                let next_symlink_depth = symlink_depth + 1;
+                if next_symlink_depth > MAX_SYMLINKS {
+                    return Ok(Err(Errno::Loop));
+                }
+                let resolved_path = crate::fs::guest_path_to_string(&resolved_path);
                 drop(guard);
-                return path_open_internal(
+                return path_open_internal_with_symlink_depth(
                     env,
                     resolved_base_fd,
                     __WASI_LOOKUP_SYMLINK_FOLLOW,
-                    &resolved_path.to_string_lossy(),
+                    &resolved_path,
                     o_flags,
                     fs_rights_base,
                     fs_rights_inheriting,
                     fs_flags,
                     fd_flags,
                     with_fd,
+                    next_symlink_depth,
                 );
             }
         }
@@ -487,7 +526,6 @@ pub(crate) fn path_open_internal(
             | Kind::PipeRx { .. }
             | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
-
             | Kind::Epoll { .. } => {
                 drop(guard);
                 wasi_try_ok_ok!(insert_fd_locked(
@@ -502,40 +540,7 @@ pub(crate) fn path_open_internal(
                     with_fd,
                 ))
             }
-            Kind::Symlink {
-                base_po_dir,
-                path_to_symlink,
-                relative_path,
-            } => {
-                if !follow_symlinks {
-                    return Ok(Err(Errno::Loop));
-                }
-
-                // Resolve the symlink via the existing path traversal logic and restart
-                // path_open with lookup-follow semantics for this resolved path.
-                let (resolved_base_fd, resolved_path) = match state.fs.resolve_symlink_target_path(
-                    *base_po_dir,
-                    path_to_symlink,
-                    relative_path,
-                ) {
-                    Ok(resolved) => resolved,
-                    Err(err) => return Ok(Err(err)),
-                };
-                return path_open_internal(
-                    env,
-                    resolved_base_fd,
-                    __WASI_LOOKUP_SYMLINK_FOLLOW,
-                    &resolved_path.to_string_lossy(),
-                    o_flags,
-                    fs_rights_base,
-                    fs_rights_inheriting,
-                    fs_flags,
-                    fd_flags,
-                    open_flags,
-                    inode,
-                    with_fd,
-                ))
-            }
+            Kind::Symlink { .. } => return Ok(Err(Errno::Loop)),
         };
         Ok(Ok(out_fd))
     } else {
@@ -565,12 +570,12 @@ pub(crate) fn path_open_internal(
                         let guard = inode.read();
                         match guard.deref() {
                             Kind::Symlink {
-                                base_po_dir,
+                                symlink_kind,
                                 path_to_symlink,
                                 relative_path,
                             } => {
                                 match state.fs.resolve_symlink_target_path(
-                                    *base_po_dir,
+                                    *symlink_kind,
                                     path_to_symlink,
                                     relative_path,
                                 ) {
@@ -589,17 +594,23 @@ pub(crate) fn path_open_internal(
                         return Ok(Err(Errno::Exist));
                     }
 
-                    return path_open_internal(
+                    let resolved_path = crate::fs::guest_path_to_string(&resolved_path);
+                    let next_symlink_depth = symlink_depth + 1;
+                    if next_symlink_depth > MAX_SYMLINKS {
+                        return Ok(Err(Errno::Loop));
+                    }
+                    return path_open_internal_with_symlink_depth(
                         env,
                         resolved_base_fd,
                         __WASI_LOOKUP_SYMLINK_FOLLOW,
-                        &resolved_path.to_string_lossy(),
+                        &resolved_path,
                         o_flags,
                         fs_rights_base,
                         fs_rights_inheriting,
                         fs_flags,
                         fd_flags,
                         with_fd,
+                        next_symlink_depth,
                     );
                 }
             }
@@ -617,9 +628,7 @@ pub(crate) fn path_open_internal(
                 let guard = parent_inode.read();
                 match guard.deref() {
                     Kind::Dir { path, .. } => {
-                        let mut new_path = path.clone();
-                        new_path.push(&new_entity_name);
-                        new_path
+                        crate::fs::join_guest_paths(path, std::path::Path::new(&new_entity_name))
                     }
                     Kind::Root { .. } => return Ok(Err(Errno::Perm)),
                     _ => return Ok(Err(Errno::Notdir)),
