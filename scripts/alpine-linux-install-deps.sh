@@ -4,7 +4,7 @@
 # This script is used by the CI!
 
 apk update
-apk add bash make curl cmake ninja clang22 lld22 zstd-static llvm22-dev clang22-static llvm22-static ncurses-static zlib-static tar libxml2-static
+apk add build-base bash make curl cmake ninja clang22 lld22 zstd-static llvm22-dev clang22-static llvm22-static ncurses-static zlib-static tar libxml2-static
 ln -sf /usr/bin/llvm-config-22 /usr/bin/llvm-config
 
 echo "Installed compiler/linker tools:"
@@ -45,3 +45,11 @@ for tool in cc clang clang-22 gcc ld ld.lld ld.lld-22 llvm-config llvm-config-22
 done
 echo "cc version:"
 cc --version
+
+echo "C runtime startup files:"
+find /usr/lib -name crtbeginS.o -o -name crtendS.o
+
+echo "Checking cc can link a native executable..."
+printf '%s\n' 'int main(void) { return 0; }' > /tmp/wasmer-cc-smoke.c
+cc /tmp/wasmer-cc-smoke.c -o /tmp/wasmer-cc-smoke
+/tmp/wasmer-cc-smoke
