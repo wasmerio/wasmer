@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["path_open2","path_open_internal"]};
+window.SIDEBAR_ITEMS = {"fn":["insert_fd_locked","path_open2","path_open_internal"]};

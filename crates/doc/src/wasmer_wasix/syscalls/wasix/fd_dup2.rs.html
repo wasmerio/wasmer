@@ -51,8 +51,7 @@
 <a href=#51 id=51 data-nosnippet>51</a>    cloexec: bool,
 <a href=#52 id=52 data-nosnippet>52</a>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt; {
 <a href=#53 id=53 data-nosnippet>53</a>    <span class="kw">let </span>env = ctx.data();
-<a href=#54 id=54 data-nosnippet>54</a>    <span class="kw">let </span>(memory, state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-<a href=#55 id=55 data-nosnippet>55</a>    <span class="kw">let </span>fd = state.fs.clone_fd_ext(fd, min_result_fd, <span class="prelude-val">Some</span>(cloexec))<span class="question-mark">?</span>;
-<a href=#56 id=56 data-nosnippet>56</a>    <span class="prelude-val">Ok</span>(fd)
-<a href=#57 id=57 data-nosnippet>57</a>}
+<a href=#54 id=54 data-nosnippet>54</a>    <span class="kw">let </span>(<span class="kw">_</span>, state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+<a href=#55 id=55 data-nosnippet>55</a>    state.fs.clone_fd_ext(fd, min_result_fd, <span class="prelude-val">Some</span>(cloexec))
+<a href=#56 id=56 data-nosnippet>56</a>}
 </code></pre></div></section></main></body></html>

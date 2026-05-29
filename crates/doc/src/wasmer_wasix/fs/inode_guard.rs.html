@@ -15,7 +15,7 @@
 <a href=#15 id=15 data-nosnippet>15</a>    wasi::{Errno, EventFdReadwrite, Eventrwflags, Subscription},
 <a href=#16 id=16 data-nosnippet>16</a>};
 <a href=#17 id=17 data-nosnippet>17</a>
-<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use super</span>::{InodeGuard, Kind, notification::NotificationInner};
+<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use super</span>::{InodeGuard, Kind, VirtualFileLock, notification::NotificationInner};
 <a href=#19 id=19 data-nosnippet>19</a><span class="kw">use crate</span>::{
 <a href=#20 id=20 data-nosnippet>20</a>    net::socket::{InodeSocketInner, InodeSocketKind},
 <a href=#21 id=21 data-nosnippet>21</a>    state::{PollEvent, PollEventSet, WasiState, iterate_poll_events},
@@ -25,7 +25,7 @@
 <a href=#25 id=25 data-nosnippet>25</a>
 <a href=#26 id=26 data-nosnippet>26</a><span class="attr">#[derive(Debug, Clone)]
 <a href=#27 id=27 data-nosnippet>27</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum </span>InodeValFilePollGuardMode {
-<a href=#28 id=28 data-nosnippet>28</a>    File(Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;&gt;),
+<a href=#28 id=28 data-nosnippet>28</a>    File(VirtualFileLock),
 <a href=#29 id=29 data-nosnippet>29</a>    EventNotifications(Arc&lt;NotificationInner&gt;),
 <a href=#30 id=30 data-nosnippet>30</a>    Socket { inner: Arc&lt;InodeSocketInner&gt; },
 <a href=#31 id=31 data-nosnippet>31</a>    PipeRx { rx: Arc&lt;RwLock&lt;Box&lt;PipeRx&gt;&gt;&gt; },
@@ -397,7 +397,7 @@
 <a href=#397 id=397 data-nosnippet>397</a>}
 <a href=#398 id=398 data-nosnippet>398</a>
 <a href=#399 id=399 data-nosnippet>399</a><span class="kw">impl </span>InodeValFileReadGuard {
-<a href=#400 id=400 data-nosnippet>400</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(file: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;&gt;) -&gt; <span class="self">Self </span>{
+<a href=#400 id=400 data-nosnippet>400</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(file: <span class="kw-2">&amp;</span>VirtualFileLock) -&gt; <span class="self">Self </span>{
 <a href=#401 id=401 data-nosnippet>401</a>        <span class="self">Self </span>{
 <a href=#402 id=402 data-nosnippet>402</a>            guard: <span class="kw">crate</span>::utils::read_owned(file).unwrap(),
 <a href=#403 id=403 data-nosnippet>403</a>        }
@@ -417,7 +417,7 @@
 <a href=#417 id=417 data-nosnippet>417</a>}
 <a href=#418 id=418 data-nosnippet>418</a>
 <a href=#419 id=419 data-nosnippet>419</a><span class="kw">impl </span>InodeValFileWriteGuard {
-<a href=#420 id=420 data-nosnippet>420</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(file: <span class="kw-2">&amp;</span>Arc&lt;RwLock&lt;Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;&gt;&gt;) -&gt; <span class="self">Self </span>{
+<a href=#420 id=420 data-nosnippet>420</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(file: <span class="kw-2">&amp;</span>VirtualFileLock) -&gt; <span class="self">Self </span>{
 <a href=#421 id=421 data-nosnippet>421</a>        <span class="self">Self </span>{
 <a href=#422 id=422 data-nosnippet>422</a>            guard: <span class="kw">crate</span>::utils::write_owned(file).unwrap(),
 <a href=#423 id=423 data-nosnippet>423</a>        }
