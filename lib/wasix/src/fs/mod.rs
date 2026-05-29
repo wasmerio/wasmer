@@ -424,9 +424,7 @@ pub(crate) fn join_guest_paths(base: &Path, relative: &Path) -> PathBuf {
         return PathBuf::from(base.as_ref());
     }
 
-    if relative.starts_with('/') {
-        PathBuf::from(relative.as_ref())
-    } else if base.is_empty() || base == "." {
+    if relative.starts_with('/') || base.is_empty() || base == "." {
         PathBuf::from(relative.as_ref())
     } else if base == "/" {
         PathBuf::from(format!("/{relative}"))
