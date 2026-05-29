@@ -135,27 +135,27 @@
 <a href=#135 id=135 data-nosnippet>135</a>        _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#136 id=136 data-nosnippet>136</a>        buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">'_</span>&gt;,
 <a href=#137 id=137 data-nosnippet>137</a>    ) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
-<a href=#138 id=138 data-nosnippet>138</a>        <span class="kw">let </span>bytes = <span class="self">self
-<a href=#139 id=139 data-nosnippet>139</a>            </span>.volumes
-<a href=#140 id=140 data-nosnippet>140</a>            .get(<span class="kw-2">&amp;</span><span class="self">self</span>.volume)
-<a href=#141 id=141 data-nosnippet>141</a>            .ok_or_else(|| {
-<a href=#142 id=142 data-nosnippet>142</a>                IoError::new(
-<a href=#143 id=143 data-nosnippet>143</a>                    IoErrorKind::NotFound,
-<a href=#144 id=144 data-nosnippet>144</a>                    <span class="macro">anyhow!</span>(<span class="string">"Unknown volume {:?}"</span>, <span class="self">self</span>.volume),
-<a href=#145 id=145 data-nosnippet>145</a>                )
-<a href=#146 id=146 data-nosnippet>146</a>            })<span class="question-mark">?
-<a href=#147 id=147 data-nosnippet>147</a>            </span>.get_file_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>.entry)
-<a href=#148 id=148 data-nosnippet>148</a>            .map_err(|e| IoError::new(IoErrorKind::NotFound, e))<span class="question-mark">?</span>;
-<a href=#149 id=149 data-nosnippet>149</a>
-<a href=#150 id=150 data-nosnippet>150</a>        <span class="kw">let </span>cursor: usize = <span class="self">self</span>.cursor.try_into().unwrap_or(u32::MAX <span class="kw">as </span>usize);
-<a href=#151 id=151 data-nosnippet>151</a>        <span class="kw">let </span>_start = cursor.min(bytes.len());
-<a href=#152 id=152 data-nosnippet>152</a>        <span class="kw">let </span>bytes = <span class="kw-2">&amp;</span>bytes[cursor..];
-<a href=#153 id=153 data-nosnippet>153</a>
-<a href=#154 id=154 data-nosnippet>154</a>        <span class="kw">if </span>bytes.len() &gt; buf.remaining() {
-<a href=#155 id=155 data-nosnippet>155</a>            <span class="kw">let </span>remaining = buf.remaining();
-<a href=#156 id=156 data-nosnippet>156</a>            buf.put_slice(<span class="kw-2">&amp;</span>bytes[..remaining]);
-<a href=#157 id=157 data-nosnippet>157</a>        } <span class="kw">else </span>{
-<a href=#158 id=158 data-nosnippet>158</a>            buf.put_slice(bytes);
+<a href=#138 id=138 data-nosnippet>138</a>        <span class="kw">let </span>this = <span class="self">self</span>.get_mut();
+<a href=#139 id=139 data-nosnippet>139</a>        <span class="kw">let </span>bytes = this
+<a href=#140 id=140 data-nosnippet>140</a>            .volumes
+<a href=#141 id=141 data-nosnippet>141</a>            .get(<span class="kw-2">&amp;</span>this.volume)
+<a href=#142 id=142 data-nosnippet>142</a>            .ok_or_else(|| {
+<a href=#143 id=143 data-nosnippet>143</a>                IoError::new(
+<a href=#144 id=144 data-nosnippet>144</a>                    IoErrorKind::NotFound,
+<a href=#145 id=145 data-nosnippet>145</a>                    <span class="macro">anyhow!</span>(<span class="string">"Unknown volume {:?}"</span>, this.volume),
+<a href=#146 id=146 data-nosnippet>146</a>                )
+<a href=#147 id=147 data-nosnippet>147</a>            })<span class="question-mark">?
+<a href=#148 id=148 data-nosnippet>148</a>            </span>.get_file_bytes(<span class="kw-2">&amp;</span>this.entry)
+<a href=#149 id=149 data-nosnippet>149</a>            .map_err(|e| IoError::new(IoErrorKind::NotFound, e))<span class="question-mark">?</span>;
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a>        <span class="kw">let </span>cursor: usize = this.cursor.try_into().unwrap_or(u32::MAX <span class="kw">as </span>usize);
+<a href=#152 id=152 data-nosnippet>152</a>        <span class="kw">let </span>start = cursor.min(bytes.len());
+<a href=#153 id=153 data-nosnippet>153</a>        <span class="kw">let </span>bytes = <span class="kw-2">&amp;</span>bytes[start..];
+<a href=#154 id=154 data-nosnippet>154</a>        <span class="kw">let </span>bytes_read = bytes.len().min(buf.remaining());
+<a href=#155 id=155 data-nosnippet>155</a>
+<a href=#156 id=156 data-nosnippet>156</a>        <span class="kw">if </span>bytes_read &gt; <span class="number">0 </span>{
+<a href=#157 id=157 data-nosnippet>157</a>            buf.put_slice(<span class="kw-2">&amp;</span>bytes[..bytes_read]);
+<a href=#158 id=158 data-nosnippet>158</a>            this.cursor = this.cursor.saturating_add(bytes_read <span class="kw">as </span>u64);
 <a href=#159 id=159 data-nosnippet>159</a>        }
 <a href=#160 id=160 data-nosnippet>160</a>        Poll::Ready(<span class="prelude-val">Ok</span>(()))
 <a href=#161 id=161 data-nosnippet>161</a>    }
@@ -402,4 +402,60 @@
 <a href=#402 id=402 data-nosnippet>402</a>        fifo: <span class="bool-val">false</span>,
 <a href=#403 id=403 data-nosnippet>403</a>    }
 <a href=#404 id=404 data-nosnippet>404</a>}
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a><span class="attr">#[cfg(test)]
+<a href=#407 id=407 data-nosnippet>407</a></span><span class="kw">mod </span>tests {
+<a href=#408 id=408 data-nosnippet>408</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#409 id=409 data-nosnippet>409</a>    <span class="kw">use </span>indexmap::IndexMap;
+<a href=#410 id=410 data-nosnippet>410</a>    <span class="kw">use </span>std::path::Path;
+<a href=#411 id=411 data-nosnippet>411</a>    <span class="kw">use </span>tokio::io::AsyncReadExt;
+<a href=#412 id=412 data-nosnippet>412</a>    <span class="kw">use </span>webc::{
+<a href=#413 id=413 data-nosnippet>413</a>        metadata::Manifest,
+<a href=#414 id=414 data-nosnippet>414</a>        v1::{DirOrFile, Volume, WebC},
+<a href=#415 id=415 data-nosnippet>415</a>    };
+<a href=#416 id=416 data-nosnippet>416</a>
+<a href=#417 id=417 data-nosnippet>417</a>    <span class="kw">fn </span>fileblock_with_wasm_file() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[u8] {
+<a href=#418 id=418 data-nosnippet>418</a>        <span class="kw">let </span>volume_bytes = Volume::serialize_files(
+<a href=#419 id=419 data-nosnippet>419</a>            [(
+<a href=#420 id=420 data-nosnippet>420</a>                DirOrFile::File(Path::new(<span class="string">"lib/python.wasm"</span>).to_path_buf()),
+<a href=#421 id=421 data-nosnippet>421</a>                <span class="macro">vec!</span>[<span class="number">0</span>, <span class="number">97</span>, <span class="number">115</span>, <span class="number">109</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
+<a href=#422 id=422 data-nosnippet>422</a>            )]
+<a href=#423 id=423 data-nosnippet>423</a>            .into_iter()
+<a href=#424 id=424 data-nosnippet>424</a>            .collect(),
+<a href=#425 id=425 data-nosnippet>425</a>        );
+<a href=#426 id=426 data-nosnippet>426</a>
+<a href=#427 id=427 data-nosnippet>427</a>        <span class="kw">let </span><span class="kw-2">mut </span>volumes = IndexMap::new();
+<a href=#428 id=428 data-nosnippet>428</a>        volumes.insert(<span class="string">"atom"</span>.to_string(), Volume::parse(<span class="kw-2">&amp;</span>volume_bytes).unwrap());
+<a href=#429 id=429 data-nosnippet>429</a>
+<a href=#430 id=430 data-nosnippet>430</a>        <span class="kw">let </span>fileblock = WebC {
+<a href=#431 id=431 data-nosnippet>431</a>            version: <span class="number">1</span>,
+<a href=#432 id=432 data-nosnippet>432</a>            checksum: <span class="prelude-val">None</span>,
+<a href=#433 id=433 data-nosnippet>433</a>            signature: <span class="prelude-val">None</span>,
+<a href=#434 id=434 data-nosnippet>434</a>            manifest: Manifest::default(),
+<a href=#435 id=435 data-nosnippet>435</a>            atoms: Volume::parse(<span class="kw-2">&amp;</span>volume_bytes).unwrap(),
+<a href=#436 id=436 data-nosnippet>436</a>            volumes,
+<a href=#437 id=437 data-nosnippet>437</a>        }
+<a href=#438 id=438 data-nosnippet>438</a>        .get_volumes_as_fileblock();
+<a href=#439 id=439 data-nosnippet>439</a>
+<a href=#440 id=440 data-nosnippet>440</a>        Box::leak(fileblock.into_boxed_slice())
+<a href=#441 id=441 data-nosnippet>441</a>    }
+<a href=#442 id=442 data-nosnippet>442</a>
+<a href=#443 id=443 data-nosnippet>443</a>    <span class="attr">#[tokio::test]
+<a href=#444 id=444 data-nosnippet>444</a>    </span><span class="kw">async fn </span>static_webc_reads_advance_the_cursor() {
+<a href=#445 id=445 data-nosnippet>445</a>        <span class="kw">let </span>fs = StaticFileSystem::init(fileblock_with_wasm_file(), <span class="string">"python"</span>).unwrap();
+<a href=#446 id=446 data-nosnippet>446</a>        <span class="kw">let </span><span class="kw-2">mut </span>file = fs
+<a href=#447 id=447 data-nosnippet>447</a>            .new_open_options()
+<a href=#448 id=448 data-nosnippet>448</a>            .read(<span class="bool-val">true</span>)
+<a href=#449 id=449 data-nosnippet>449</a>            .open(<span class="string">"/lib/python.wasm"</span>)
+<a href=#450 id=450 data-nosnippet>450</a>            .unwrap();
+<a href=#451 id=451 data-nosnippet>451</a>
+<a href=#452 id=452 data-nosnippet>452</a>        <span class="kw">let </span><span class="kw-2">mut </span>first = [<span class="number">0</span>; <span class="number">4</span>];
+<a href=#453 id=453 data-nosnippet>453</a>        file.read_exact(<span class="kw-2">&amp;mut </span>first).<span class="kw">await</span>.unwrap();
+<a href=#454 id=454 data-nosnippet>454</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>first, <span class="string">b"\0asm"</span>);
+<a href=#455 id=455 data-nosnippet>455</a>
+<a href=#456 id=456 data-nosnippet>456</a>        <span class="kw">let </span><span class="kw-2">mut </span>second = [<span class="number">0</span>; <span class="number">4</span>];
+<a href=#457 id=457 data-nosnippet>457</a>        file.read_exact(<span class="kw-2">&amp;mut </span>second).<span class="kw">await</span>.unwrap();
+<a href=#458 id=458 data-nosnippet>458</a>        <span class="macro">assert_eq!</span>(second, [<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
+<a href=#459 id=459 data-nosnippet>459</a>    }
+<a href=#460 id=460 data-nosnippet>460</a>}
 </code></pre></div></section></main></body></html>
