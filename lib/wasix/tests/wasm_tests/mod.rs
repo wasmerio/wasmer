@@ -931,9 +931,8 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
         let mut supported_engines = vec![Engine::LLVM];
 
-        // TODO: enable once the WASIX tests are green with V8
-        // #[cfg(feature = "v8")]
-        // supported_engines.push(Engine::V8);
+        #[cfg(feature = "v8")]
+        supported_engines.push(Engine::V8);
 
         // Cranelift EH support for macOS is still missing: #6419.
         if !cfg!(target_os = "macos") {
