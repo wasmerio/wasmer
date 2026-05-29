@@ -1464,7 +1464,10 @@ mod tests {
 
         // First call: TLS + pool both empty → allocate fresh; stack ends in TLS.
         assert!(on_wasm_stack(size, None, || ()).is_ok());
-        assert!(STACK_POOL.is_empty(), "pool should still be empty after a TLS-served call");
+        assert!(
+            STACK_POOL.is_empty(),
+            "pool should still be empty after a TLS-served call"
+        );
 
         // Verify TLS holds a stack, then put it back.
         let cached_present = TLS_STACK.with(|cache| {
@@ -1477,14 +1480,20 @@ mod tests {
 
         // Second call should consume from TLS; pool stays empty.
         assert!(on_wasm_stack(size, None, || ()).is_ok());
-        assert!(STACK_POOL.is_empty(), "second call must not push to the global pool");
+        assert!(
+            STACK_POOL.is_empty(),
+            "second call must not push to the global pool"
+        );
         let still_cached = TLS_STACK.with(|cache| {
             let taken = cache.0.take();
             let present = taken.is_some();
             cache.0.set(taken);
             present
         });
-        assert!(still_cached, "TLS slot should still hold a stack after the second call");
+        assert!(
+            still_cached,
+            "TLS slot should still hold a stack after the second call"
+        );
 
         // Cleanup: clear TLS so we don't leak into other tests.
         TLS_STACK.with(|cache| cache.0.set(None));
@@ -1545,7 +1554,10 @@ mod tests {
 
         let size = get_stack_size();
         let stack = acquire_stack(size);
-        assert!(stack.size() >= size, "freshly allocated stack must satisfy min_size");
+        assert!(
+            stack.size() >= size,
+            "freshly allocated stack must satisfy min_size"
+        );
 
         drop(stack);
         clear_tls_stack();
@@ -1590,8 +1602,15 @@ mod tests {
         STACK_POOL.push(pool_stack);
 
         let got = acquire_stack(size);
-        assert_eq!(stack_id(&got), pool_id, "acquire must consume from pool when TLS is empty");
-        assert!(STACK_POOL.is_empty(), "pool stack must be removed when used");
+        assert_eq!(
+            stack_id(&got),
+            pool_id,
+            "acquire must consume from pool when TLS is empty"
+        );
+        assert!(
+            STACK_POOL.is_empty(),
+            "pool stack must be removed when used"
+        );
 
         drop(got);
         clear_tls_stack();
@@ -1619,14 +1638,20 @@ mod tests {
         // The meaningful semantic is that the undersized stack was taken
         // out of rotation (TLS empty, not silently pushed to the pool) and
         // the returned stack is sized correctly.
-        assert!(got.size() >= big_size, "acquired stack must satisfy big_size");
+        assert!(
+            got.size() >= big_size,
+            "acquired stack must satisfy big_size"
+        );
         let tls_empty = TLS_STACK.with(|cache| {
             let s = cache.0.take();
             let empty = s.is_none();
             cache.0.set(s);
             empty
         });
-        assert!(tls_empty, "undersized TLS stack must have been taken and discarded");
+        assert!(
+            tls_empty,
+            "undersized TLS stack must have been taken and discarded"
+        );
         assert!(
             STACK_POOL.is_empty(),
             "undersized TLS stack must be discarded, not pushed to the pool",
@@ -1655,7 +1680,10 @@ mod tests {
         // address of the dropped undersized stack for the new big stack,
         // so we verify the semantic outcome — the pool was drained of the
         // undersized entry and the returned stack is sized correctly.
-        assert!(got.size() >= big_size, "acquired stack must satisfy big_size");
+        assert!(
+            got.size() >= big_size,
+            "acquired stack must satisfy big_size"
+        );
         assert!(
             STACK_POOL.is_empty(),
             "undersized pool stack must have been popped, filtered out and dropped",
@@ -1685,7 +1713,10 @@ mod tests {
             .with(|cache| cache.0.take())
             .expect("release into empty TLS should leave the stack in TLS");
         assert_eq!(stack_id(&in_tls), id);
-        assert!(STACK_POOL.is_empty(), "pool must not be touched when TLS is empty");
+        assert!(
+            STACK_POOL.is_empty(),
+            "pool must not be touched when TLS is empty"
+        );
 
         drain_stack_pool();
     }
@@ -1708,12 +1739,20 @@ mod tests {
         let in_tls = TLS_STACK
             .with(|cache| cache.0.take())
             .expect("TLS should hold the newly-released stack");
-        assert_eq!(stack_id(&in_tls), newer_id, "newer stack must displace into TLS");
+        assert_eq!(
+            stack_id(&in_tls),
+            newer_id,
+            "newer stack must displace into TLS"
+        );
 
         let displaced = STACK_POOL
             .pop()
             .expect("older stack should have been pushed to global pool");
-        assert_eq!(stack_id(&displaced), older_id, "displaced stack must be the older one");
+        assert_eq!(
+            stack_id(&displaced),
+            older_id,
+            "displaced stack must be the older one"
+        );
 
         drain_stack_pool();
     }
@@ -1734,7 +1773,10 @@ mod tests {
         drain_stack_pool();
 
         let tls_empty = TLS_STACK.with(|cache| cache.0.take().is_none());
-        assert!(tls_empty, "drain_stack_pool must also clear current thread's TLS slot");
+        assert!(
+            tls_empty,
+            "drain_stack_pool must also clear current thread's TLS slot"
+        );
         assert!(STACK_POOL.is_empty());
     }
 
@@ -1805,10 +1847,8 @@ mod tests {
         drain_stack_pool();
         clear_tls_stack();
 
-        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
-            unsafe {
-                raise_user_trap(Box::new(io::Error::other("user trap from test")));
-            }
+        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || unsafe {
+            raise_user_trap(Box::new(io::Error::other("user trap from test")));
         });
         assert!(r.is_err(), "raise_user_trap must produce Err");
 
@@ -1823,10 +1863,8 @@ mod tests {
         drain_stack_pool();
         clear_tls_stack();
 
-        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
-            unsafe {
-                raise_lib_trap(Trap::lib(TrapCode::IntegerDivisionByZero));
-            }
+        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || unsafe {
+            raise_lib_trap(Trap::lib(TrapCode::IntegerDivisionByZero));
         });
         assert!(r.is_err(), "raise_lib_trap must produce Err");
 
@@ -1845,12 +1883,13 @@ mod tests {
         drain_stack_pool();
         clear_tls_stack();
 
-        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
-            unsafe {
-                resume_panic(Box::new("panic payload from test"));
-            }
+        let r: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || unsafe {
+            resume_panic(Box::new("panic payload from test"));
         });
-        assert!(r.is_err(), "resume_panic must surface as Err to on_wasm_stack");
+        assert!(
+            r.is_err(),
+            "resume_panic must surface as Err to on_wasm_stack"
+        );
 
         clear_tls_stack();
         drain_stack_pool();
@@ -1866,10 +1905,8 @@ mod tests {
         drain_stack_pool();
         clear_tls_stack();
 
-        let trapped: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
-            unsafe {
-                raise_user_trap(Box::new(io::Error::other("first call traps")));
-            }
+        let trapped: Result<(), UnwindReason> = on_wasm_stack(get_stack_size(), None, || unsafe {
+            raise_user_trap(Box::new(io::Error::other("first call traps")));
         });
         assert!(trapped.is_err());
 
@@ -1978,11 +2015,10 @@ mod tests {
         clear_tls_stack();
 
         let outer = on_wasm_stack(get_stack_size(), None, || {
-            let inner: Result<i32, UnwindReason> = on_wasm_stack(get_stack_size(), None, || {
-                unsafe {
+            let inner: Result<i32, UnwindReason> =
+                on_wasm_stack(get_stack_size(), None, || unsafe {
                     raise_user_trap(Box::new(io::Error::other("inner trap")));
-                }
-            });
+                });
             // Outer observes inner's Err and recovers.
             match inner {
                 Err(_) => 1234i32,
@@ -2089,14 +2125,16 @@ mod tests {
         set_stack_size(small);
         assert!(on_wasm_stack(small, None, || ()).is_ok());
 
-        let cached_size = TLS_STACK
-            .with(|cache| {
-                let s = cache.0.take();
-                let sz = s.as_ref().map(|s| s.size()).unwrap_or(0);
-                cache.0.set(s);
-                sz
-            });
-        assert!(cached_size >= small, "TLS should hold the small-sized stack");
+        let cached_size = TLS_STACK.with(|cache| {
+            let s = cache.0.take();
+            let sz = s.as_ref().map(|s| s.size()).unwrap_or(0);
+            cache.0.set(s);
+            sz
+        });
+        assert!(
+            cached_size >= small,
+            "TLS should hold the small-sized stack"
+        );
 
         // Now request a larger stack. acquire_stack should discard the TLS
         // entry and either pop a big-enough one from pool or allocate.
@@ -2105,14 +2143,16 @@ mod tests {
         assert!(on_wasm_stack(big, None, || ()).is_ok());
 
         // The TLS slot should now hold a stack that's big enough.
-        let cached_size = TLS_STACK
-            .with(|cache| {
-                let s = cache.0.take();
-                let sz = s.as_ref().map(|s| s.size()).unwrap_or(0);
-                cache.0.set(s);
-                sz
-            });
-        assert!(cached_size >= big, "TLS should hold the bigger stack after size bump");
+        let cached_size = TLS_STACK.with(|cache| {
+            let s = cache.0.take();
+            let sz = s.as_ref().map(|s| s.size()).unwrap_or(0);
+            cache.0.set(s);
+            sz
+        });
+        assert!(
+            cached_size >= big,
+            "TLS should hold the bigger stack after size bump"
+        );
 
         clear_tls_stack();
         drain_stack_pool();
