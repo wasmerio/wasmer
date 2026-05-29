@@ -5,4 +5,29 @@
 
 apk update
 apk add bash make curl cmake ninja clang22 zstd-static llvm22-dev clang22-static llvm22-static ncurses-static zlib-static tar libxml2-static
-ln -s /usr/bin/llvm-config-22 /usr/bin/llvm-config
+ln -sf /usr/bin/llvm-config-22 /usr/bin/llvm-config
+
+echo "Installed compiler/linker tools:"
+for tool in cc clang clang-22 gcc llvm-config llvm-config-22; do
+    printf "  which %s: " "$tool"
+    which "$tool" || true
+done
+
+if ! which cc >/dev/null 2>&1; then
+    echo "cc was not found; checking for clang-22..."
+    if which clang-22 >/dev/null 2>&1; then
+        ln -sf "$(which clang-22)" /usr/bin/cc
+        echo "Created /usr/bin/cc -> $(which clang-22)"
+    else
+        echo "error: neither cc nor clang-22 was found after installing Alpine dependencies." >&2
+        exit 1
+    fi
+fi
+
+echo "Final compiler/linker tools:"
+for tool in cc clang clang-22 gcc llvm-config llvm-config-22; do
+    printf "  which %s: " "$tool"
+    which "$tool" || true
+done
+echo "cc version:"
+cc --version
