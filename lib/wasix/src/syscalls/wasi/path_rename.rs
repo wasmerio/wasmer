@@ -256,9 +256,25 @@ pub fn path_rename_internal(
                 }
 
                 let (new_base_po_dir, new_path_to_symlink) =
-                    wasi_try_ok!(state.fs.path_into_pre_open_and_relative_path_owned(
-                        host_adjusted_target_path.as_path()
-                    ));
+                    if *base_po_dir == crate::VIRTUAL_ROOT_FD {
+                        (
+                            crate::VIRTUAL_ROOT_FD,
+                            host_adjusted_target_path
+                                .strip_prefix("/")
+                                .unwrap_or(host_adjusted_target_path.as_path())
+                                .to_owned(),
+                        )
+                    } else if path_to_symlink.is_absolute() {
+                        let (new_base_po_dir, _) =
+                            wasi_try_ok!(state.fs.path_into_pre_open_and_relative_path_owned(
+                                host_adjusted_target_path.as_path()
+                            ));
+                        (new_base_po_dir, host_adjusted_target_path.clone())
+                    } else {
+                        wasi_try_ok!(state.fs.path_into_pre_open_and_relative_path_owned(
+                            host_adjusted_target_path.as_path()
+                        ))
+                    };
                 *base_po_dir = new_base_po_dir;
                 *path_to_symlink = new_path_to_symlink.clone();
                 if is_ephemeral {

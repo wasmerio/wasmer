@@ -90,11 +90,15 @@ pub fn path_symlink_internal(
         }
     };
 
-    // Resolve symlink location to (preopen fd, relative path within that preopen)
-    // so runtime-created symlinks behave the same as symlinks discovered via readlink().
-    let (base_po_dir, path_to_symlink) = state
-        .fs
-        .path_into_pre_open_and_relative_path_owned(&symlink_path)?;
+    // Guest-created symlinks live in the virtual filesystem namespace. Keep
+    // their location relative to the virtual root so targets like
+    // `/temp/link -> ../hamlet/file` can cross sibling preopens without
+    // escaping the guest sandbox.
+    let base_po_dir = crate::VIRTUAL_ROOT_FD;
+    let path_to_symlink = symlink_path
+        .strip_prefix("/")
+        .unwrap_or(symlink_path.as_path())
+        .to_owned();
     let relative_path = std::path::PathBuf::from(old_path);
 
     // short circuit if anything is wrong, before we create an inode
