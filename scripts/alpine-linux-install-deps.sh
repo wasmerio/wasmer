@@ -9,7 +9,7 @@ apk update
 # build scripts (proc-macro2, quote, libc, serde_core, ...). Without it,
 # `cargo build` fails with `error: linker 'cc' not found` on alpine:edge
 # images that no longer ship a host C toolchain by default.
-apk add build-base bash make curl cmake ninja clang22 zstd-static llvm22-dev clang22-static llvm22-static ncurses-static zlib-static tar libxml2-static
+apk add build-base bash make curl cmake ninja clang22 zstd-static llvm22-dev clang22-static llvm22-static ncurses-static zlib-static tar libxml2-static xz-static
 
 # A workardound for an unreleased clang-sys crate fix:
 # https://github.com/rust-lang/rust-bindgen/issues/2360#issuecomment-2367084230
