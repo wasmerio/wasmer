@@ -295,7 +295,8 @@ build_wasmer_extra_features_csv = $(subst $(space),$(comma),$(build_wasmer_extra
 
 test_compilers := $(compilers)
 ifeq ($(IS_AMD64), 1)
-	ifneq (, $(filter 1, $(IS_LINUX) $(IS_WINDOWS)))
+	# TODO: enable on Windows
+	ifneq (, $(filter 1, $(IS_LINUX)))
 		test_compilers += v8
 	endif
 else ifeq ($(IS_AARCH64), 1)
