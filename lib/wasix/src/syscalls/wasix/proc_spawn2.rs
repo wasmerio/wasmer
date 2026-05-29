@@ -1,6 +1,6 @@
+use virtual_mio::block_on;
 use wasmer::FromToNativeWasmType;
 use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
-use virtual_mio::block_on;
 
 use super::*;
 use crate::{

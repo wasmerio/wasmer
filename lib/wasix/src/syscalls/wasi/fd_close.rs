@@ -5,9 +5,9 @@ use crate::syscalls::*;
 /// Best-effort flush of a file handle captured before fd removal.
 pub(crate) fn flush_captured_handle(
     env: &WasiEnv,
-    flush_target: Option<std::sync::Arc<
-        std::sync::RwLock<Box<dyn virtual_fs::VirtualFile + Send + Sync>>,
-    >>,
+    flush_target: Option<
+        std::sync::Arc<std::sync::RwLock<Box<dyn virtual_fs::VirtualFile + Send + Sync>>>,
+    >,
 ) -> Result<Errno, WasiError> {
     let Some(file) = flush_target else {
         return Ok(Errno::Success);

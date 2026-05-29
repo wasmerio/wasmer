@@ -16,7 +16,10 @@ impl JournalEffector {
         }
 
         if !outcome.removed {
-            bail!("journal restore error: failed to close descriptor (fd={fd}) - {}", Errno::Badf);
+            bail!(
+                "journal restore error: failed to close descriptor (fd={fd}) - {}",
+                Errno::Badf
+            );
         }
 
         flush_captured_handle(env, outcome.flush_target).map_err(|err| {

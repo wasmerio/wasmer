@@ -53,6 +53,7 @@ use wasmer_wasix_types::{
     },
 };
 
+pub(crate) use self::fd::VirtualFileLock;
 pub use self::fd::{Fd, FdInner, InodeVal, Kind};
 pub(crate) use self::fd_list::FdList;
 pub(crate) use self::inode_guard::{
@@ -68,7 +69,7 @@ use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
 pub(crate) const MAX_FD: WasiFd = (64 * 1024) - 1;
 
 pub(crate) struct FlushPoller {
-    pub(crate) file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
+    pub(crate) file: VirtualFileLock,
 }
 
 /// Result of removing an fd under `fd_map.write()`, with an optional flush target
@@ -76,7 +77,7 @@ pub(crate) struct FlushPoller {
 pub(crate) struct CloseFdOutcome {
     pub skipped_preopen: bool,
     pub removed: bool,
-    pub flush_target: Option<Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>>,
+    pub flush_target: Option<VirtualFileLock>,
 }
 
 impl CloseFdOutcome {
@@ -1927,7 +1928,7 @@ impl WasiFs {
         &self,
         src: WasiFd,
         dst: WasiFd,
-    ) -> Result<Option<Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>>, Errno> {
+    ) -> Result<Option<VirtualFileLock>, Errno> {
         if dst > MAX_FD {
             return Err(Errno::Badf);
         }
@@ -2497,9 +2498,7 @@ impl WasiFs {
         }
     }
 
-    pub(crate) async fn flush_file_best_effort(
-        file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
-    ) {
+    pub(crate) async fn flush_file_best_effort(file: VirtualFileLock) {
         let result = FlushPoller { file }.await;
         match result {
             Ok(())
@@ -2512,9 +2511,7 @@ impl WasiFs {
         }
     }
 
-    fn file_flush_target(
-        inode: &InodeGuard,
-    ) -> Option<Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>> {
+    fn file_flush_target(inode: &InodeGuard) -> Option<VirtualFileLock> {
         let guard = inode.read();
         match guard.deref() {
             Kind::File {

@@ -316,9 +316,8 @@ pub(crate) fn path_open_internal(
             write: true,
             ..file_requested_config.clone()
         };
-        let requires_stronger_handle = minimum_rights.write
-            || minimum_rights.truncate
-            || minimum_rights.create;
+        let requires_stronger_handle =
+            minimum_rights.write || minimum_rights.truncate || minimum_rights.create;
         let mut file_open_flags = open_flags;
         if minimum_rights.read {
             file_open_flags |= Fd::READ;
@@ -358,22 +357,22 @@ pub(crate) fn path_open_internal(
                     return Ok(Err(Errno::Notdir));
                 }
 
-                if let Some(file_handle) = handle.as_ref() {
-                    if let Some(special_fd) = {
+                if let Some(file_handle) = handle.as_ref()
+                    && let Some(special_fd) = {
                         let file = file_handle.read().unwrap();
                         file.get_special_fd()
-                    } {
-                        drop(guard);
-                        let dup_fd = wasi_try_ok_ok!(WasiFs::clone_fd_locked(
-                            &state.fs,
-                            &mut fd_map,
-                            special_fd,
-                            0,
-                            None,
-                        ));
-                        trace!(%dup_fd);
-                        return Ok(Ok(dup_fd));
                     }
+                {
+                    drop(guard);
+                    let dup_fd = wasi_try_ok_ok!(WasiFs::clone_fd_locked(
+                        &state.fs,
+                        &mut fd_map,
+                        special_fd,
+                        0,
+                        None,
+                    ));
+                    trace!(%dup_fd);
+                    return Ok(Ok(dup_fd));
                 }
 
                 if handle.is_none() || requires_stronger_handle {
