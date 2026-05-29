@@ -226,6 +226,7 @@ impl Memory {
     }
 
     pub fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+        check_isolate(store);
         Ok(SharedMemory::new(crate::vm::VMSharedMemory::V8(
             self.handle.as_shared()?,
         )))
