@@ -156,7 +156,7 @@ impl Memory {
     }
 
     pub fn copy(&self, _store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
-        Ok(SharedMemory::from_vm_memory(crate::vm::VMMemory::Js(
+        Ok(SharedMemory::new(crate::vm::VMSharedMemory::Js(
             self.handle.copy()?,
         )))
     }
@@ -165,13 +165,13 @@ impl Memory {
         true
     }
 
-    pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         if !self.ty(store).shared {
-            return None;
+            return Err(MemoryError::MemoryNotShared);
         }
 
-        Some(SharedMemory::from_vm_memory(crate::vm::VMMemory::Js(
-            self.handle.try_clone().ok()?,
+        Ok(SharedMemory::new(crate::vm::VMSharedMemory::Js(
+            self.handle.try_clone()?,
         )))
     }
 }

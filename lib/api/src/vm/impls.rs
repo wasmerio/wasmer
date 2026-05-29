@@ -1,5 +1,4 @@
 use crate::{AsStoreMut, macros::backend::match_rt};
-use wasmer_vm::LinearMemory;
 
 use super::*;
 
@@ -62,7 +61,7 @@ impl VMMemory {
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_shared().map(VMSharedMemory::V8),
             #[cfg(feature = "js")]
-            Self::Js(s) => s.try_clone().map(Self::Js),
+            Self::Js(s) => s.try_clone().map(VMSharedMemory::Js),
         }
     }
 }
@@ -75,9 +74,11 @@ impl VMSharedMemory {
             Self::Sys(s) => Self::Sys(s.clone()),
             #[cfg(feature = "v8")]
             Self::V8(s) => Self::V8(s.clone()),
-            // TODO
             #[cfg(feature = "js")]
-            Self::Js(s) => s.try_clone().map(Self::Js),
+            Self::Js(s) => Self::Js(
+                s.try_clone()
+                    .expect("cloning JavaScript shared memory should not fail"),
+            ),
         }
     }
 
@@ -90,9 +91,8 @@ impl VMSharedMemory {
                 let mut store = store.as_store_mut();
                 VMMemory::V8(s.into_vm_memory(store.inner.store.as_v8_mut()))
             }
-            // TODO
             #[cfg(feature = "js")]
-            Self::Js(s) => s.try_clone().map(Self::Js),
+            Self::Js(s) => VMMemory::Js(s),
         }
     }
 }
