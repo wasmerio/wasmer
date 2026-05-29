@@ -2344,26 +2344,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gumdrop"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5bc700f989d2f6f0248546222d9b4258f5b02a171a431f8285a81c08142629e3"
-dependencies = [
- "gumdrop_derive",
-]
-
-[[package]]
-name = "gumdrop_derive"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "729f9bd3449d77e7831a18abfb7ba2f99ee813dfd15b8c2167c9a54ba20aa99d"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
-
-[[package]]
 name = "h2"
 version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6680,18 +6660,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ccf3ec651a847eb01de73ccad15eb7d99f80485de043efb2f370cd654f4ea44b"
 
 [[package]]
-name = "wasi-test-generator"
-version = "7.2.0-alpha.2"
-dependencies = [
- "glob",
- "gumdrop",
- "serde",
- "serde_json",
- "tempfile",
- "wast",
-]
-
-[[package]]
 name = "wasip2"
 version = "1.0.3+wasi-0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7712,16 +7680,9 @@ name = "wasmer-wast"
 version = "7.2.0-alpha.2"
 dependencies = [
  "anyhow",
- "fs_extra",
- "futures",
  "serde",
- "tempfile",
  "thiserror 2.0.18",
- "tokio",
- "virtual-fs",
  "wasmer",
- "wasmer-types",
- "wasmer-wasix",
  "wast",
 ]
 

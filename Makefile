@@ -660,7 +660,7 @@ test-wasi-unit:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/wasi/Cargo.toml --release --locked
 
 test-wasi:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- wasi::wasitests
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) -p wasmer-wasix --features sys --test wasm_tests --locked -- wasi_wast
 
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci: require-nextest build-wasmer
@@ -670,10 +670,6 @@ test-integration-cli-ci: require-nextest build-wasmer
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios --locked
 
-generate-wasi-tests:
-# Uncomment the following for installing the toolchain
-#   cargo run -p wasi-test-generator -- -s
-	$(CARGO_BINARY) run $(CARGO_TARGET_FLAG) -p wasi-test-generator -- -g
 #####
 #
 # Packaging.
