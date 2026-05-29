@@ -1607,16 +1607,30 @@ mod tests {
 
         let small_size = ByteSize::kib(512).as_u64() as usize;
         let undersized = DefaultStack::new(small_size).unwrap();
-        let undersized_id = stack_id(&undersized);
         TLS_STACK.with(|cache| cache.0.set(Some(undersized)));
 
         let big_size = ByteSize::mib(2).as_u64() as usize;
         let got = acquire_stack(big_size);
+
+        // The acquired stack must be at least the requested size. We do NOT
+        // compare base addresses: the OS can reuse a freshly munmap'd
+        // virtual address for the next mmap, so pointer identity is not a
+        // reliable "is this a different stack" check across a drop+alloc.
+        // The meaningful semantic is that the undersized stack was taken
+        // out of rotation (TLS empty, not silently pushed to the pool) and
+        // the returned stack is sized correctly.
         assert!(got.size() >= big_size, "acquired stack must satisfy big_size");
-        assert_ne!(stack_id(&got), undersized_id, "must not reuse the undersized TLS stack");
-        // The undersized TLS stack was discarded (not returned to pool), so
-        // pool stays empty.
-        assert!(STACK_POOL.is_empty(), "undersized TLS stack should be discarded, not pooled");
+        let tls_empty = TLS_STACK.with(|cache| {
+            let s = cache.0.take();
+            let empty = s.is_none();
+            cache.0.set(s);
+            empty
+        });
+        assert!(tls_empty, "undersized TLS stack must have been taken and discarded");
+        assert!(
+            STACK_POOL.is_empty(),
+            "undersized TLS stack must be discarded, not pushed to the pool",
+        );
 
         drop(got);
         clear_tls_stack();
@@ -1632,13 +1646,20 @@ mod tests {
 
         let small_size = ByteSize::kib(512).as_u64() as usize;
         let undersized = DefaultStack::new(small_size).unwrap();
-        let undersized_id = stack_id(&undersized);
         STACK_POOL.push(undersized);
 
         let big_size = ByteSize::mib(2).as_u64() as usize;
         let got = acquire_stack(big_size);
+
+        // Same caveat as the TLS variant: mmap may reuse the virtual
+        // address of the dropped undersized stack for the new big stack,
+        // so we verify the semantic outcome — the pool was drained of the
+        // undersized entry and the returned stack is sized correctly.
         assert!(got.size() >= big_size, "acquired stack must satisfy big_size");
-        assert_ne!(stack_id(&got), undersized_id, "must not reuse the undersized pool stack");
+        assert!(
+            STACK_POOL.is_empty(),
+            "undersized pool stack must have been popped, filtered out and dropped",
+        );
 
         drop(got);
         clear_tls_stack();
