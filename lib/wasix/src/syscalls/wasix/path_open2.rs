@@ -357,6 +357,23 @@ pub(crate) fn path_open_internal(
                     return Ok(Err(Errno::Notdir));
                 }
 
+                // Install or refresh the shared inode handle before checking for special
+                // stdio paths (/dev/stdin, /dev/stdout, /dev/stderr). DeviceFile stubs
+                // only report get_special_fd() once the backing open has run.
+                if handle.is_none() || requires_stronger_handle {
+                    let file = wasi_try_ok_ok!(open_shared_file_handle(
+                        path.as_path(),
+                        file_requested_config.clone(),
+                        file_shared_config.clone(),
+                    ));
+                    if handle.is_none() {
+                        *handle = Some(Arc::new(std::sync::RwLock::new(file)));
+                    } else {
+                        let mut existing = handle.as_ref().unwrap().write().unwrap();
+                        *existing = file;
+                    }
+                }
+
                 if let Some(file_handle) = handle.as_ref()
                     && let Some(special_fd) = {
                         let file = file_handle.read().unwrap();
@@ -373,20 +390,6 @@ pub(crate) fn path_open_internal(
                     ));
                     trace!(%dup_fd);
                     return Ok(Ok(dup_fd));
-                }
-
-                if handle.is_none() || requires_stronger_handle {
-                    let file = wasi_try_ok_ok!(open_shared_file_handle(
-                        path.as_path(),
-                        file_requested_config.clone(),
-                        file_shared_config.clone(),
-                    ));
-                    if handle.is_none() {
-                        *handle = Some(Arc::new(std::sync::RwLock::new(file)));
-                    } else {
-                        let mut existing = handle.as_ref().unwrap().write().unwrap();
-                        *existing = file;
-                    }
                 }
 
                 let out_fd = wasi_try_ok_ok!(insert_fd_locked(
