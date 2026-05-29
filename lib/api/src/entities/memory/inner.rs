@@ -217,7 +217,7 @@ impl BackendMemory {
     #[inline]
     pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         match_rt!(on self => s {
-            s.as_shared(store)
+            s.copy(store)
         })
     }
 

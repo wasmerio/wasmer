@@ -108,7 +108,7 @@ impl Memory {
         self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
-    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+    pub(crate) fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         if self.ty(store).shared {
             let mem = self.handle.get(store.as_store_ref().objects().as_sys());
             let copied = mem.copy()?;
@@ -124,6 +124,20 @@ impl Memory {
         } else {
             Err(MemoryError::MemoryNotShared)
         }
+    }
+
+    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+        let mem = self.handle.get(store.as_store_ref().objects().as_sys());
+        let conds = mem
+            .thread_conditions()
+            .ok_or(MemoryError::MemoryNotShared)?
+            .downgrade();
+        let cloned = mem.try_clone()?;
+
+        Ok(SharedMemory::new_with_ops(
+            crate::vm::VMMemory::Sys(cloned).as_shared()?,
+            Arc::new(conds),
+        ))
     }
 
     /// To `VMExtern`.

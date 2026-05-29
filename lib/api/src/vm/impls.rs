@@ -1,4 +1,5 @@
 use crate::{AsStoreMut, macros::backend::match_rt};
+use wasmer_vm::LinearMemory;
 
 use super::*;
 
@@ -57,8 +58,7 @@ impl VMMemory {
     pub(crate) fn as_shared(&self) -> Result<VMSharedMemory, wasmer_types::MemoryError> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => todo!(),
-            // Self::Sys(s) => s.as_shared().map(VMSharedMemory::Sys),
+            Self::Sys(s) => s.as_shared().map(VMSharedMemory::Sys),
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_shared().map(VMSharedMemory::V8),
             #[cfg(feature = "js")]
@@ -72,7 +72,7 @@ impl VMSharedMemory {
     pub(crate) fn clone(&self) -> Self {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => todo!(),
+            Self::Sys(s) => Self::Sys(s.clone()),
             #[cfg(feature = "v8")]
             Self::V8(s) => Self::V8(s.clone()),
             // TODO
@@ -84,7 +84,7 @@ impl VMSharedMemory {
     pub(crate) fn into_vm_memory(self, store: &mut impl AsStoreMut) -> VMMemory {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => todo!(),
+            Self::Sys(s) => VMMemory::Sys(s.into()),
             #[cfg(feature = "v8")]
             Self::V8(s) => {
                 let mut store = store.as_store_mut();
