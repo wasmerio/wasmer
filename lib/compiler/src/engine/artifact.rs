@@ -67,6 +67,23 @@ pub struct AllocatedArtifact {
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
+impl AllocatedArtifact {
+    fn function_extents(&self) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
+        assert_eq!(
+            self.finished_functions.len(),
+            self.finished_function_lengths.len(),
+            "finished_functions and finished_function_lengths must have equal length"
+        );
+        self.finished_functions
+            .iter()
+            .map(|(index, &ptr)| {
+                let length = self.finished_function_lengths[index];
+                FunctionExtent { ptr, length }
+            })
+            .collect()
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[repr(transparent)]
@@ -726,19 +743,7 @@ impl Artifact {
             .allocated
             .as_ref()
             .expect("It must be allocated")
-            .finished_functions
-            .values()
-            .copied()
-            .zip(
-                self.allocated
-                    .as_ref()
-                    .expect("It must be allocated")
-                    .finished_function_lengths
-                    .values()
-                    .copied(),
-            )
-            .map(|(ptr, length)| FunctionExtent { ptr, length })
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .function_extents()
             .into_boxed_slice();
 
         let frame_info_registration = &mut self
@@ -801,21 +806,7 @@ impl Artifact {
         &self,
     ) -> Option<Vec<(LocalFunctionIndex, FunctionExtent)>> {
         let allocated = self.allocated.as_ref()?;
-        assert_eq!(
-            allocated.finished_functions.len(),
-            allocated.finished_function_lengths.len(),
-            "finished_functions and finished_function_lengths must have equal length"
-        );
-        Some(
-            allocated
-                .finished_functions
-                .iter()
-                .map(|(index, &ptr)| {
-                    let length = allocated.finished_function_lengths[index];
-                    (index, FunctionExtent { ptr, length })
-                })
-                .collect(),
-        )
+        Some(allocated.function_extents().into_iter().collect())
     }
 
     /// Returns the function call trampolines allocated in memory of this
