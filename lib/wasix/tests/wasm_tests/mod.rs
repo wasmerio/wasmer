@@ -40,7 +40,7 @@
 //! `Ignored:{reason}` marks the configuration as ignored with the given reason.
 //!
 //! `SkipEngine:{engine}:{reason}` marks the configuration as ignored for
-//! a given engine (LLVM, Cranelift, V8).
+//! a given engine (LLVM, Cranelift, V8, Singlepass).
 //!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
 //!
@@ -65,7 +65,6 @@
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::fs::{self, File, create_dir_all, read_dir, remove_dir_all};
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -399,6 +398,16 @@ fn process_directive(
                         Some(Engine::V8)
                     }
                     #[cfg(not(feature = "v8"))]
+                    {
+                        None
+                    }
+                }
+                "singlepass" => {
+                    #[cfg(feature = "singlepass")]
+                    {
+                        Some(Engine::Singlepass)
+                    }
+                    #[cfg(not(feature = "singlepass"))]
                     {
                         None
                     }
@@ -959,7 +968,12 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                     // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
                     // but we can still run selectively some tests with Singlepass.
                     #[cfg(feature = "singlepass")]
-                    if entry.path().file_name() != Some(OsStr::new("wasi_fyi"))
+                    if entry
+                        .path()
+                        .file_name()
+                        .expect("must be valid filename")
+                        .to_string_lossy()
+                        != "wasi_fyi"
                         && *engine == Engine::Singlepass
                     {
                         continue;

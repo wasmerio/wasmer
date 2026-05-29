@@ -287,7 +287,8 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
         }
         #[cfg(feature = "singlepass")]
         Engine::Singlepass => {
-            let config = wasmer::sys::Singlepass::default();
+            let mut config = wasmer::sys::Singlepass::default();
+            config.num_threads(NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
         #[cfg(feature = "v8")]
