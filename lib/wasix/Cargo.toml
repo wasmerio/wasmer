@@ -233,6 +233,7 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
+singlepass = ["wasmer/singlepass"]
 v8 = ["wasmer/v8"]
 
 js = [
