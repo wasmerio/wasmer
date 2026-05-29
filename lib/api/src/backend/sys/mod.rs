@@ -16,7 +16,7 @@ pub use wasmer_compiler::{
     CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware, wasmparser,
 };
 
-pub use wasmer_compiler::{Artifact, EngineBuilder, Features, Tunables};
+pub use wasmer_compiler::{Artifact, EngineBuilder, Features, FunctionExtent, Tunables};
 
 pub use wasmer_types::MiddlewareError;
 pub use wasmer_types::target::{Architecture, CpuFeature, OperatingSystem, Target, Triple};

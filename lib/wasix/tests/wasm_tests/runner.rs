@@ -306,6 +306,8 @@ pub(crate) fn run_wasm_with_runner_config(
     wasm_path: &PathBuf,
     dir: &Path,
     compiler: Engine,
+    program_name: Option<&str>,
+    include_default_mounts: bool,
     configure_runner: impl FnOnce(&mut WasiRunner),
 ) -> Result<WasmRunResult, anyhow::Error> {
     // Load the compiled WASM module
@@ -313,6 +315,9 @@ pub(crate) fn run_wasm_with_runner_config(
     let engine = create_engine_for_wasm(&wasm_bytes, compiler);
     let module_data = HashedModuleData::new(wasm_bytes);
     let hash = *module_data.hash();
+    let program_name = program_name
+        .map(str::to_owned)
+        .unwrap_or_else(|| wasm_path.to_string_lossy().to_string());
 
     // Create buffers to capture stdout and stderr
     let stdout_buffer = Arc::new(Mutex::new(Vec::new()));
@@ -355,29 +360,27 @@ pub(crate) fn run_wasm_with_runner_config(
             tokio::task::block_in_place(move || {
                 // Run the WASM module using WasiRunner
                 let mut runner = WasiRunner::new();
+                if include_default_mounts {
+                    runner
+                        .with_mapped_directories([MappedDirectory {
+                            guest: dir.to_string_lossy().to_string(),
+                            host: dir.to_path_buf(),
+                        }])
+                        .with_mapped_directories([MappedDirectory {
+                            guest: "/lib".to_string(),
+                            host: dir.to_path_buf(),
+                        }])
+                        .with_mapped_directories([MappedDirectory {
+                            guest: "/data".to_string(),
+                            host: dir.to_path_buf(),
+                        }])
+                        .with_current_dir(dir.to_string_lossy().to_string());
+                }
                 runner
-                    .with_mapped_directories([MappedDirectory {
-                        guest: dir.to_string_lossy().to_string(),
-                        host: dir.to_path_buf(),
-                    }])
-                    .with_mapped_directories([MappedDirectory {
-                        guest: "/lib".to_string(),
-                        host: dir.to_path_buf(),
-                    }])
-                    .with_mapped_directories([MappedDirectory {
-                        guest: "/data".to_string(),
-                        host: dir.to_path_buf(),
-                    }])
-                    .with_current_dir(dir.to_string_lossy().to_string())
                     .with_stdout(stdout_capture)
                     .with_stderr(stderr_capture);
                 configure_runner(&mut runner);
-                runner.run_wasm(
-                    RuntimeOrEngine::Engine(engine),
-                    wasm_path.to_string_lossy().as_ref(),
-                    module,
-                    hash,
-                )
+                runner.run_wasm(RuntimeOrEngine::Engine(engine), &program_name, module, hash)
             })
         })
     });
@@ -415,7 +418,7 @@ pub(crate) fn run_wasm_with_runner_config(
     })
 }
 
-pub(super) fn format_captured_output(result: &WasmRunResult) -> String {
+pub(crate) fn format_captured_output(result: &WasmRunResult) -> String {
     let mut message = format!(
         "exit_code={:?}\nstdout:\n{}\nstderr:\n{}\ntrace:\n{}",
         result.exit_code,

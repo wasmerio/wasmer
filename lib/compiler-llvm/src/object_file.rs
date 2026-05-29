@@ -92,6 +92,59 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
+// Soft-float routines emitted by LLVM for targets without hardware floating-point.
+#[cfg(all(
+    any(target_arch = "riscv32", target_arch = "riscv64"),
+    not(target_feature = "f")
+))]
+static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
+    // §3.2.1 Arithmetic
+    "__addsf3" => LibCall::Addsf3,
+    "__adddf3" => LibCall::Adddf3,
+    "__subsf3" => LibCall::Subsf3,
+    "__subdf3" => LibCall::Subdf3,
+    "__mulsf3" => LibCall::Mulsf3,
+    "__muldf3" => LibCall::Muldf3,
+    "__divsf3" => LibCall::Divsf3,
+    "__divdf3" => LibCall::Divdf3,
+    "__negsf2" => LibCall::Negsf2,
+    "__negdf2" => LibCall::Negdf2,
+    // §3.2.2 Conversion
+    "__extendsfdf2" => LibCall::Extendsfdf2,
+    "__truncdfsf2" => LibCall::Truncdfsf2,
+    "__fixsfsi" => LibCall::Fixsfsi,
+    "__fixdfsi" => LibCall::Fixdfsi,
+    "__fixsfdi" => LibCall::Fixsfdi,
+    "__fixdfdi" => LibCall::Fixdfdi,
+    "__fixunssfsi" => LibCall::Fixunssfsi,
+    "__fixunsdfsi" => LibCall::Fixunsdfsi,
+    "__fixunssfdi" => LibCall::Fixunssfdi,
+    "__fixunsdfdi" => LibCall::Fixunsdfdi,
+    "__floatsisf" => LibCall::Floatsisf,
+    "__floatsidf" => LibCall::Floatsidf,
+    "__floatdisf" => LibCall::Floatdisf,
+    "__floatdidf" => LibCall::Floatdidf,
+    "__floatunsisf" => LibCall::Floatunsisf,
+    "__floatunsidf" => LibCall::Floatunsidf,
+    "__floatundisf" => LibCall::Floatundisf,
+    "__floatundidf" => LibCall::Floatundidf,
+    // §3.2.3 Comparison
+    "__unordsf2" => LibCall::Unordsf2,
+    "__unorddf2" => LibCall::Unorddf2,
+    "__eqsf2" => LibCall::Eqsf2,
+    "__eqdf2" => LibCall::Eqdf2,
+    "__nesf2" => LibCall::Nesf2,
+    "__nedf2" => LibCall::Nedf2,
+    "__gesf2" => LibCall::Gesf2,
+    "__gedf2" => LibCall::Gedf2,
+    "__ltsf2" => LibCall::Ltsf2,
+    "__ltdf2" => LibCall::Ltdf2,
+    "__lesf2" => LibCall::Lesf2,
+    "__ledf2" => LibCall::Ledf2,
+    "__gtsf2" => LibCall::Gtsf2,
+    "__gtdf2" => LibCall::Gtdf2,
+};
+
 static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_ceilf" => LibCall::CeilF32,
     "_ceil" => LibCall::CeilF64,
@@ -152,6 +205,27 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
+fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
+    let base = match fmt {
+        BinaryFormat::Elf => &LIBCALLS_ELF,
+        BinaryFormat::Macho => &LIBCALLS_MACHO,
+        _ => return None,
+    };
+    if let Some(&lc) = base.get(name) {
+        return Some(lc);
+    }
+    #[cfg(all(
+        any(target_arch = "riscv32", target_arch = "riscv64"),
+        not(target_feature = "f")
+    ))]
+    if fmt == BinaryFormat::Elf {
+        if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
+            return Some(lc);
+        }
+    }
+    None
+}
+
 pub fn load_object_file<F>(
     contents: &[u8],
     root_section: &str,
@@ -164,15 +238,11 @@ where
 {
     let obj = object::File::parse(contents).map_err(map_object_err)?;
 
-    let libcalls = match binary_fmt {
-        BinaryFormat::Elf => &LIBCALLS_ELF,
-        BinaryFormat::Macho => &LIBCALLS_MACHO,
-        _ => {
-            return Err(CompileError::UnsupportedTarget(format!(
-                "Unsupported binary format {binary_fmt:?}"
-            )));
-        }
-    };
+    if !matches!(binary_fmt, BinaryFormat::Elf | BinaryFormat::Macho) {
+        return Err(CompileError::UnsupportedTarget(format!(
+            "Unsupported binary format {binary_fmt:?}"
+        )));
+    }
 
     let mut worklist: Vec<object::read::SectionIndex> = Vec::new();
     let mut section_targets: HashMap<object::read::SectionIndex, RelocationTarget> = HashMap::new();
@@ -298,8 +368,8 @@ where
                             }
                         }
                         // Maybe a libcall then?
-                    } else if let Some(libcall) = libcalls.get(symbol_name) {
-                        RelocationTarget::LibCall(*libcall)
+                    } else if let Some(libcall) = lookup_libcall(symbol_name, binary_fmt) {
+                        RelocationTarget::LibCall(libcall)
                     } else if let Ok(Some(reloc_target)) =
                         symbol_name_to_relocation_target(symbol_name)
                     {
