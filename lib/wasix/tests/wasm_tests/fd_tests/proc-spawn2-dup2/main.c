@@ -76,6 +76,7 @@ static void test_dup2_replaces_occupied_target(void) {
   assert(WIFEXITED(status));
   assert(WEXITSTATUS(status) == 0);
 
+  assert(close(TARGET_FD) == 0);
   assert(close(src_fd) == 0);
 }
 

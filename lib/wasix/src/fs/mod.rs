@@ -1921,7 +1921,8 @@ impl WasiFs {
     /// POSIX dup2: copy `src` onto exact slot `dst`, replacing any existing entry.
     ///
     /// Holds `fd_map.write()` for the full remove+insert. Returns a flush target for
-    /// the replaced `dst` entry (if any), captured before the map lock is released.
+    /// the replaced `dst` entry (if any), captured while the lock is held and before
+    /// `remove` calls `drop_one_handle`, which may clear the inode's file handle.
     pub(crate) fn dup2_at(
         &self,
         src: WasiFd,
@@ -1931,7 +1932,7 @@ impl WasiFs {
             return Err(Errno::Badf);
         }
 
-        let old_fd = {
+        let flush_target = {
             let mut fd_map = self.fd_map.write().unwrap();
 
             let fd_entry = fd_map.get(src).ok_or(Errno::Badf)?;
@@ -1964,16 +1965,20 @@ impl WasiFs {
                 ..*fd_entry
             };
 
-            let old_fd = fd_map.remove(dst);
+            let flush_target = fd_map
+                .get(dst)
+                .and_then(|fd| Self::file_flush_target(&fd.inode));
+
+            fd_map.remove(dst);
 
             if !fd_map.insert(true, dst, new_fd_entry) {
                 panic!("Internal error: expected FD {dst} to be free after remove in dup2_at");
             }
 
-            old_fd
+            flush_target
         };
 
-        Ok(old_fd.and_then(|fd| Self::file_flush_target(&fd.inode)))
+        Ok(flush_target)
     }
 
     pub fn create_fd(

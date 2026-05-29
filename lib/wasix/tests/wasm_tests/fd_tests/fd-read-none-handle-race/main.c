@@ -70,19 +70,22 @@ int main(void) {
     return 1;
   }
 
-  if (pthread_barrier_init(&start_barrier, NULL, 2) != 0) {
-    perror("pthread_barrier_init(start)");
+  int rc = pthread_barrier_init(&start_barrier, NULL, 2);
+  if (rc != 0) {
+    fprintf(stderr, "pthread_barrier_init(start): %s\n", strerror(rc));
     return 1;
   }
-  if (pthread_barrier_init(&end_barrier, NULL, 2) != 0) {
-    perror("pthread_barrier_init(end)");
+  rc = pthread_barrier_init(&end_barrier, NULL, 2);
+  if (rc != 0) {
+    fprintf(stderr, "pthread_barrier_init(end): %s\n", strerror(rc));
     return 1;
   }
   atomic_store_explicit(&shared_fd, -1, memory_order_release);
 
   pthread_t closer;
-  if (pthread_create(&closer, NULL, close_worker, NULL) != 0) {
-    perror("pthread_create(close_worker)");
+  rc = pthread_create(&closer, NULL, close_worker, NULL);
+  if (rc != 0) {
+    fprintf(stderr, "pthread_create(close_worker): %s\n", strerror(rc));
     return 1;
   }
 
@@ -94,7 +97,7 @@ int main(void) {
     }
     atomic_store_explicit(&shared_fd, old_fd, memory_order_release);
 
-    int rc = pthread_barrier_wait(&start_barrier);
+    rc = pthread_barrier_wait(&start_barrier);
     if (!(rc == 0 || rc == PTHREAD_BARRIER_SERIAL_THREAD)) {
       fail_iteration("start barrier in main", i, rc);
       return 1;
@@ -141,8 +144,9 @@ int main(void) {
   }
 
   void* worker_ret = NULL;
-  if (pthread_join(closer, &worker_ret) != 0) {
-    perror("pthread_join(close_worker)");
+  rc = pthread_join(closer, &worker_ret);
+  if (rc != 0) {
+    fprintf(stderr, "pthread_join(close_worker): %s\n", strerror(rc));
     return 1;
   }
   if (worker_ret != NULL) {
@@ -150,12 +154,14 @@ int main(void) {
     return 1;
   }
 
-  if (pthread_barrier_destroy(&start_barrier) != 0) {
-    perror("pthread_barrier_destroy(start)");
+  rc = pthread_barrier_destroy(&start_barrier);
+  if (rc != 0) {
+    fprintf(stderr, "pthread_barrier_destroy(start): %s\n", strerror(rc));
     return 1;
   }
-  if (pthread_barrier_destroy(&end_barrier) != 0) {
-    perror("pthread_barrier_destroy(end)");
+  rc = pthread_barrier_destroy(&end_barrier);
+  if (rc != 0) {
+    fprintf(stderr, "pthread_barrier_destroy(end): %s\n", strerror(rc));
     return 1;
   }
 
