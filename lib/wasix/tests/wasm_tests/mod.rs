@@ -65,6 +65,7 @@
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::fs::{self, File, create_dir_all, read_dir, remove_dir_all};
 use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
@@ -120,6 +121,8 @@ struct MappedDirectory {
 pub enum Engine {
     Cranelift,
     LLVM,
+    #[cfg(feature = "singlepass")]
+    Singlepass,
     #[cfg(feature = "v8")]
     V8,
 }
@@ -129,6 +132,8 @@ impl Engine {
         match self {
             Self::Cranelift => "cranelift",
             Self::LLVM => "llvm",
+            #[cfg(feature = "singlepass")]
+            Self::Singlepass => "singlepass",
             #[cfg(feature = "v8")]
             Self::V8 => "v8",
         }
@@ -930,6 +935,8 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let primary_sources = identify_primary_sources(entry.path())?;
 
         let mut supported_engines = vec![Engine::LLVM];
+        #[cfg(feature = "singlepass")]
+        supported_engines.push(Engine::Singlepass);
 
         // TODO: enable once the WASIX tests are green with V8
         // #[cfg(feature = "v8")]
@@ -950,6 +957,15 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
             for config in configs {
                 for engine in &supported_engines {
+                    // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
+                    // but we can still run selectively some tests with Singlepass.
+                    #[cfg(feature = "singlepass")]
+                    if entry.path().file_name() != Some(OsStr::new("wasi_fyi"))
+                        && *engine == Engine::Singlepass
+                    {
+                        continue;
+                    }
+
                     let mut config = config.clone();
                     config.engine = *engine;
                     tests.push(libtest_mimic::Trial::ignorable_test(

@@ -265,6 +265,8 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
     let backend = match engine {
         Engine::Cranelift => wasmer::BackendKind::Cranelift,
         Engine::LLVM => wasmer::BackendKind::LLVM,
+        #[cfg(feature = "singlepass")]
+        Engine::Singlepass => wasmer::BackendKind::Singlepass,
         #[cfg(feature = "v8")]
         Engine::V8 => wasmer::BackendKind::V8,
     };
@@ -281,6 +283,11 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
         Engine::LLVM => {
             let mut config = wasmer::sys::LLVM::default();
             config.num_threads(NonZero::new(1).unwrap());
+            EngineBuilder::new(config)
+        }
+        #[cfg(feature = "singlepass")]
+        Engine::Singlepass => {
+            let config = wasmer::sys::Singlepass::default();
             EngineBuilder::new(config)
         }
         #[cfg(feature = "v8")]
