@@ -77,15 +77,12 @@ pub fn path_symlink_internal(
         let guard = target_parent_inode.read();
         match guard.deref() {
             Kind::Dir { path, .. } => {
-                let mut symlink_path = path.clone();
-                symlink_path.push(&entry_name);
-                symlink_path
+                crate::fs::join_guest_paths(path, std::path::Path::new(&entry_name))
             }
-            Kind::Root { .. } => {
-                let mut symlink_path = std::path::PathBuf::from("/");
-                symlink_path.push(&entry_name);
-                symlink_path
-            }
+            Kind::Root { .. } => crate::fs::join_guest_paths(
+                std::path::Path::new("/"),
+                std::path::Path::new(&entry_name),
+            ),
             _ => unreachable!("parent inode should be a directory"),
         }
     };
@@ -95,10 +92,7 @@ pub fn path_symlink_internal(
     // `/temp/link -> ../hamlet/file` can cross sibling preopens without
     // escaping the guest sandbox.
     let base_po_dir = crate::VIRTUAL_ROOT_FD;
-    let path_to_symlink = symlink_path
-        .strip_prefix("/")
-        .unwrap_or(symlink_path.as_path())
-        .to_owned();
+    let path_to_symlink = crate::fs::strip_guest_root_prefix(&symlink_path);
     let relative_path = std::path::PathBuf::from(old_path);
 
     // short circuit if anything is wrong, before we create an inode

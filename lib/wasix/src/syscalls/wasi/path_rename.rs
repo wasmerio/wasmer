@@ -104,7 +104,9 @@ pub fn path_rename_internal(
     let host_adjusted_source_path = {
         let guard = source_parent_inode.read();
         match guard.deref() {
-            Kind::Dir { path, .. } => path.join(&source_entry_name),
+            Kind::Dir { path, .. } => {
+                crate::fs::join_guest_paths(path, Path::new(&source_entry_name))
+            }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
             | Kind::PipeTx { .. }
@@ -126,7 +128,7 @@ pub fn path_rename_internal(
                 if entries.contains_key(&target_entry_name) {
                     need_create = false;
                 }
-                path.join(&target_entry_name)
+                crate::fs::join_guest_paths(path, Path::new(&target_entry_name))
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
@@ -259,12 +261,9 @@ pub fn path_rename_internal(
                     if *base_po_dir == crate::VIRTUAL_ROOT_FD {
                         (
                             crate::VIRTUAL_ROOT_FD,
-                            host_adjusted_target_path
-                                .strip_prefix("/")
-                                .unwrap_or(host_adjusted_target_path.as_path())
-                                .to_owned(),
+                            crate::fs::strip_guest_root_prefix(&host_adjusted_target_path),
                         )
-                    } else if path_to_symlink.is_absolute() {
+                    } else if crate::fs::guest_path_is_absolute(path_to_symlink) {
                         let (new_base_po_dir, _) =
                             wasi_try_ok!(state.fs.path_into_pre_open_and_relative_path_owned(
                                 host_adjusted_target_path.as_path()
