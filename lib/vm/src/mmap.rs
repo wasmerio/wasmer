@@ -67,10 +67,24 @@ impl Mmap {
     }
 
     /// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.
+    ///
+    /// Mappings returned from this constructor are excluded from the
+    /// per-thread Mmap pool. The only caller is `CodeMemory`, which
+    /// calls `region::protect` directly to make pages read-execute
+    /// after writing function bodies in. That protection change happens
+    /// outside the `Mmap` API surface, so the pool cannot track it; a
+    /// recycled mapping would still be PROT_READ_EXECUTE when the next
+    /// caller tried to write to it, faulting on the first store. See
+    /// `lib/compiler/src/engine/code_memory.rs::publish`.
     pub fn with_at_least(size: usize) -> Result<Self, String> {
         let page_size = region::page::size();
         let rounded_size = size.next_multiple_of(page_size);
-        Self::accessible_reserved(rounded_size, rounded_size, None, MmapType::Private)
+        let mut m = Self::accessible_reserved(rounded_size, rounded_size, None, MmapType::Private)?;
+        #[cfg(target_os = "linux")]
+        {
+            m.poolable = false;
+        }
+        Ok(m)
     }
 
     /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,

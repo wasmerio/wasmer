@@ -726,6 +726,48 @@ mod tests {
         drop(m);
     }
 
+    /// **`with_at_least` mappings must not be pooled.** They are used
+    /// by `CodeMemory`, which calls `region::protect(.., READ_EXECUTE)`
+    /// directly to publish executable function bodies. That protection
+    /// change happens outside the `Mmap` API surface so the pool
+    /// cannot detect it. If a `with_at_least` mapping went into the
+    /// pool, the next caller would receive memory that still had
+    /// `READ_EXECUTE` over the first part and would SIGSEGV the moment
+    /// it tried to write to it.
+    ///
+    /// Regression test for a headless-deserialize segfault on first
+    /// run of this branch.
+    #[test]
+    fn with_at_least_mappings_are_not_pooled() {
+        let ps = page_size();
+
+        // Two cycles. If `with_at_least` produced poolable mappings,
+        // the second one would come from the pool with whatever
+        // protection state was left on the first. Externally mprotect
+        // the first to READ_EXECUTE before dropping (this is what
+        // `CodeMemory::publish` does). On the second take, we write
+        // through the slice. If pool returned the first mapping, the
+        // mprotect-RX state survives recycling and the write SIGSEGVs.
+        let mut m1 = Mmap::with_at_least(ps * 4).unwrap();
+        // Touch a byte so the kernel actually fault-installs a PTE
+        // before we change protection.
+        unsafe {
+            m1.as_mut_ptr().write_volatile(0);
+        }
+        unsafe {
+            region::protect(m1.as_mut_ptr(), ps * 4, region::Protection::READ_EXECUTE).unwrap();
+        }
+        drop(m1);
+
+        // Second take. We MUST get a writable mapping. If the pool
+        // recycled the previous one with PROT_RX, this write segfaults.
+        let mut m2 = Mmap::with_at_least(ps * 4).unwrap();
+        unsafe {
+            m2.as_mut_ptr().write_volatile(0xAB);
+        }
+        drop(m2);
+    }
+
     /// Thread exit must drain its pool without recursing forever, and
     /// without crashing. Spawn a thread, build and drop several
     /// poolable mappings, let the thread exit, and ensure the parent
