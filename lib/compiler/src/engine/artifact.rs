@@ -42,6 +42,7 @@ use wasmer_types::{
     target::{CpuFeature, Target},
 };
 
+use wasmer_types::VMOffsets;
 use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
     VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline,
@@ -65,6 +66,17 @@ pub struct AllocatedArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
+
+    /// Precomputed `VMOffsets` for this artifact's module.
+    ///
+    /// `VMOffsets::new(pointer_size, module_info)` is deterministic and
+    /// the module info is immutable after compile, so it's safe to cache
+    /// the result. `Instance::new` clones this instead of recomputing,
+    /// which was ~9% of `Instance::new` time in profile traces of a
+    /// per-request wasm host calling `Module::instantiate` in a tight
+    /// loop.
+    #[cfg_attr(feature = "artifact-size", loupe(skip))]
+    vm_offsets: VMOffsets,
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -487,6 +499,14 @@ impl Artifact {
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
 
+        // Cache `VMOffsets` so the per-instance `Instance::new` path can
+        // skip recomputing them. Safe because (a) `module_info` is
+        // immutable for the lifetime of this artifact (only `name` is
+        // mutable via `set_module_info_name`, and `name` is not part of
+        // `VMOffsets`'s inputs), and (b) the host's pointer size doesn't
+        // change at runtime.
+        let vm_offsets = VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info);
+
         let mut artifact = Self {
             id: Default::default(),
             artifact,
@@ -498,6 +518,7 @@ impl Artifact {
                 finished_dynamic_function_trampolines,
                 signatures,
                 finished_function_lengths,
+                vm_offsets,
             }),
         };
 
@@ -897,12 +918,24 @@ impl Artifact {
             // Get pointers to where metadata about local memories should live in VM memory.
             // Get pointers to where metadata about local tables should live in VM memory.
 
+            // Use the `VMOffsets` cached at compile time on the
+            // `AllocatedArtifact` rather than recomputing them in
+            // `InstanceAllocator::new`. The cached value is deterministic
+            // from `module_info` (and the host's `pointer_size`), both
+            // of which are immutable for the artifact's lifetime, so the
+            // result is byte-identical to a fresh `VMOffsets::new` call.
+            let cached_offsets = self
+                .allocated
+                .as_ref()
+                .map(|a| a.vm_offsets.clone())
+                .expect("Artifact::instantiate called on a non-host artifact");
+
             let (
                 allocator,
                 memory_definition_locations,
                 table_definition_locations,
                 global_definition_locations,
-            ) = InstanceAllocator::new(&module);
+            ) = InstanceAllocator::new_with_offsets(cached_offsets, &module);
             let finished_memories = tunables
                 .create_memories(
                     context,
@@ -1316,9 +1349,18 @@ impl Artifact {
                 .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
                 .into_boxed_slice();
 
+            // Build the variant first so we can compute VMOffsets from
+            // its ModuleInfo before moving the variant into Self. Same
+            // caching rationale as `Artifact::from_parts` above.
+            let artifact_variant = ArtifactBuildVariant::Plain(artifact);
+            let vm_offsets = VMOffsets::new(
+                std::mem::size_of::<usize>() as u8,
+                artifact_variant.module_info(),
+            );
+
             Ok(Self {
                 id: Default::default(),
-                artifact: ArtifactBuildVariant::Plain(artifact),
+                artifact: artifact_variant,
                 allocated: Some(AllocatedArtifact {
                     frame_info_registered: false,
                     frame_info_registration: None,
@@ -1329,6 +1371,7 @@ impl Artifact {
                         .into_boxed_slice(),
                     signatures: signatures.into_boxed_slice(),
                     finished_function_lengths,
+                    vm_offsets,
                 }),
             })
         }
