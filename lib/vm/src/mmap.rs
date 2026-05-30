@@ -101,12 +101,11 @@ impl Mmap {
         // bypasses the pool and falls through to a fresh mmap. See
         // `mmap_pool` for the security argument.
         #[cfg(target_os = "linux")]
+        if backing_file.is_none()
+            && memory_type == MmapType::Private
+            && let Some(pooled) = crate::mmap_pool::try_take(accessible_size, mapping_size)
         {
-            if backing_file.is_none() && memory_type == MmapType::Private {
-                if let Some(pooled) = crate::mmap_pool::try_take(accessible_size, mapping_size) {
-                    return Ok(pooled);
-                }
-            }
+            return Ok(pooled);
         }
 
         // If there is a backing file, resize the file so that its at least

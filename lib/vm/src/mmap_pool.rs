@@ -77,8 +77,6 @@
 //! semantics of `MADV_DONTNEED` differ across BSD lineages and we have
 //! not verified the zero-fill guarantee there.
 
-use crate::mmap::Mmap;
-
 /// Per-(accessible_size, mapping_size) bucket key. We index by exact
 /// shape so the consumer sees a mapping with identical layout to what
 /// they asked for. Most wasm modules instantiated repeatedly fit one
