@@ -23,6 +23,7 @@ mod imports;
 mod instance;
 mod memory;
 mod mmap;
+mod mmap_pool;
 mod probestack;
 mod sig_registry;
 mod store;

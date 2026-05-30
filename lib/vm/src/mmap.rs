@@ -22,6 +22,21 @@ pub struct Mmap {
     accessible_size: usize,
     #[cfg_attr(target_os = "windows", allow(dead_code))]
     sync_on_drop: bool,
+    /// True iff this Mmap was created in a way that makes it safe to
+    /// return to the per-thread pool on Drop: anonymous PRIVATE mapping,
+    /// no backing file, no MAP_SHARED. Set to false for any mapping the
+    /// pool cannot guarantee tenant isolation for.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
+    poolable: bool,
+    /// True iff `make_accessible` was called with a range that extends
+    /// beyond the original `accessible_size`. Tracks whether the
+    /// guard region has been promoted to PROT_RW so the pool knows
+    /// whether it needs to mprotect it back to PROT_NONE on recycle.
+    /// Initial setup calls into `make_accessible(0, accessible_size)`
+    /// during construction; that call does NOT extend beyond the
+    /// declared accessible size, so it leaves this flag false.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
+    extended_beyond_accessible: bool,
 }
 
 /// The type of mmap to create
@@ -46,6 +61,8 @@ impl Mmap {
             total_size: 0,
             accessible_size: 0,
             sync_on_drop: false,
+            poolable: false,
+            extended_beyond_accessible: false,
         }
     }
 
@@ -77,6 +94,21 @@ impl Mmap {
         // special-case that.
         if mapping_size == 0 {
             return Ok(Self::new());
+        }
+
+        // Per-thread Mmap pool fast path. Only the simple anonymous
+        // private case is poolable; any backing file or shared mapping
+        // bypasses the pool and falls through to a fresh mmap. See
+        // `mmap_pool` for the security argument.
+        #[cfg(target_os = "linux")]
+        {
+            if backing_file.is_none() && memory_type == MmapType::Private {
+                if let Some(pooled) =
+                    crate::mmap_pool::try_take(accessible_size, mapping_size)
+                {
+                    return Ok(pooled);
+                }
+            }
         }
 
         // If there is a backing file, resize the file so that its at least
@@ -145,6 +177,8 @@ impl Mmap {
                 total_size: mapping_size,
                 accessible_size,
                 sync_on_drop: memory_fd != -1 && memory_type == MmapType::Shared,
+                poolable: memory_fd == -1 && memory_type == MmapType::Private,
+                extended_beyond_accessible: false,
             }
         } else {
             // Reserve the mapping size.
@@ -167,6 +201,8 @@ impl Mmap {
                 total_size: mapping_size,
                 accessible_size,
                 sync_on_drop: memory_fd != -1 && memory_type == MmapType::Shared,
+                poolable: memory_fd == -1 && memory_type == MmapType::Private,
+                extended_beyond_accessible: false,
             };
 
             if accessible_size != 0 {
@@ -222,6 +258,8 @@ impl Mmap {
                 total_size: mapping_size,
                 accessible_size,
                 sync_on_drop: false,
+                poolable: false,
+                extended_beyond_accessible: false,
             }
         } else {
             // Reserve the mapping size.
@@ -236,6 +274,8 @@ impl Mmap {
                 total_size: mapping_size,
                 accessible_size,
                 sync_on_drop: false,
+                poolable: false,
+                extended_beyond_accessible: false,
             };
 
             if accessible_size != 0 {
@@ -257,6 +297,17 @@ impl Mmap {
         assert_eq!(len & (page_size - 1), 0);
         assert_le!(len, self.total_size);
         assert_le!(start, self.total_size - len);
+
+        // Track whether this call extends RW protection past the
+        // originally-declared `accessible_size`. The Mmap pool uses
+        // this to decide whether the guard region needs to be
+        // re-mprotect'd back to PROT_NONE before recycling. The
+        // initial construction call is `make_accessible(0, accessible_size)`
+        // whose end is exactly `accessible_size`, so it leaves the
+        // flag false. Only memory.grow style extensions set it.
+        if start + len > self.accessible_size {
+            self.extended_beyond_accessible = true;
+        }
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
@@ -342,6 +393,35 @@ impl Mmap {
         self.total_size
     }
 
+    // Accessors used by `mmap_pool` to inspect this mapping when
+    // deciding whether and how to recycle it. Crate-private; the pool
+    // is the only code that has any business reading these directly.
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn raw_ptr_for_pool(&self) -> usize {
+        self.ptr
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn accessible_size_for_pool(&self) -> usize {
+        self.accessible_size
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn total_size_for_pool(&self) -> usize {
+        self.total_size
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn was_extended_for_pool(&self) -> bool {
+        self.extended_beyond_accessible
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn clear_extended_for_pool(&mut self) {
+        self.extended_beyond_accessible = false;
+    }
+
     /// Return whether any memory has been allocated.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
@@ -373,20 +453,61 @@ impl Mmap {
 impl Drop for Mmap {
     #[cfg(not(target_os = "windows"))]
     fn drop(&mut self) {
-        if self.total_size != 0 {
-            if self.sync_on_drop {
-                let r = unsafe {
-                    libc::msync(
-                        self.ptr as *mut libc::c_void,
-                        self.total_size,
-                        libc::MS_SYNC | libc::MS_INVALIDATE,
-                    )
-                };
-                assert_eq!(r, 0, "msync failed: {}", io::Error::last_os_error());
-            }
+        if self.total_size == 0 {
+            return;
+        }
+        if self.sync_on_drop {
+            let r = unsafe {
+                libc::msync(
+                    self.ptr as *mut libc::c_void,
+                    self.total_size,
+                    libc::MS_SYNC | libc::MS_INVALIDATE,
+                )
+            };
+            assert_eq!(r, 0, "msync failed: {}", io::Error::last_os_error());
             let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.total_size) };
             assert_eq!(r, 0, "munmap failed: {}", io::Error::last_os_error());
+            return;
         }
+
+        // Pool path: anonymous private mappings only. The pool returns
+        // `Some(mmap)` if it could not accept the mapping (full, draining,
+        // reset error), in which case we munmap normally.
+        #[cfg(target_os = "linux")]
+        {
+            if self.poolable {
+                let owned = std::mem::replace(self, Self::new());
+                match crate::mmap_pool::try_pool(owned) {
+                    None => {
+                        // Successfully pooled. `self` is now a benign
+                        // empty Mmap that will no-op on drop.
+                        return;
+                    }
+                    Some(unpooled) => {
+                        // Pool refused. Unmap manually and prevent
+                        // `unpooled`'s own Drop from doing it a second
+                        // time.
+                        let r = unsafe {
+                            libc::munmap(
+                                unpooled.raw_ptr_for_pool() as *mut libc::c_void,
+                                unpooled.total_size_for_pool(),
+                            )
+                        };
+                        assert_eq!(
+                            r,
+                            0,
+                            "munmap failed: {}",
+                            io::Error::last_os_error()
+                        );
+                        std::mem::forget(unpooled);
+                        return;
+                    }
+                }
+            }
+        }
+
+        let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.total_size) };
+        assert_eq!(r, 0, "munmap failed: {}", io::Error::last_os_error());
     }
 
     #[cfg(target_os = "windows")]
