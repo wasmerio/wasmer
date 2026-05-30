@@ -67,6 +67,40 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     ret
 }
 
+fn path_suffix_to_guest_absolute(stripped: &Path) -> PathBuf {
+    let mut stripped = stripped.to_string_lossy().into_owned();
+    if std::path::MAIN_SEPARATOR == '\\' {
+        stripped = stripped.replace('\\', "/");
+    }
+
+    PathBuf::from(format!("/{}", stripped.trim_start_matches('/')))
+}
+
+fn strip_host_root(root: &Path, target: &Path) -> Option<PathBuf> {
+    target
+        .strip_prefix(root)
+        .ok()
+        .map(path_suffix_to_guest_absolute)
+}
+
+fn host_root_relative_target(root: &Path, target: PathBuf) -> PathBuf {
+    if root == Path::new("/") || !target.is_absolute() {
+        return target;
+    }
+
+    if let Some(target) = strip_host_root(root, &target) {
+        return target;
+    }
+
+    if let Ok(canonical_target) = canonicalize(&target)
+        && let Some(target) = strip_host_root(root, &canonical_target)
+    {
+        return target;
+    }
+
+    target
+}
+
 impl FileSystem {
     pub fn new(handle: Handle, root: impl Into<PathBuf>) -> Result<Self> {
         let root = canonicalize(&root.into())?;
@@ -97,7 +131,8 @@ impl crate::FileSystem for FileSystem {
     fn readlink(&self, path: &Path) -> Result<PathBuf> {
         let path = self.prepare_path(path)?;
 
-        fs::read_link(path).map_err(Into::into)
+        let target = fs::read_link(path)?;
+        Ok(host_root_relative_target(&self.root, target))
     }
 
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {

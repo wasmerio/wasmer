@@ -1659,7 +1659,7 @@ impl WasiFs {
         relative_path: &Path,
     ) -> Result<(WasiFd, PathBuf), Errno> {
         let relative_posix = PosixPath::from_path(relative_path);
-        if relative_posix.is_absolute() {
+        if matches!(symlink_kind, SymlinkKind::Virtual) && relative_posix.is_absolute() {
             return Ok((VIRTUAL_ROOT_FD, relative_path.to_owned()));
         }
 
@@ -1671,7 +1671,7 @@ impl WasiFs {
                 let symlink_path_buf =
                     PosixPath::new("/").join(&PosixPath::from_path(path_to_symlink));
                 let symlink_path = symlink_path_buf.as_posix_path();
-                let mount_path = self
+                let mount_entry = self
                     .root_fs
                     .root()
                     .mount_entries()
@@ -1682,18 +1682,25 @@ impl WasiFs {
                             .is_some()
                     })
                     .max_by_key(|entry| PosixPath::from_path(&entry.path).as_str().len())
-                    .map(|entry| entry.path)
                     .ok_or(Errno::Perm)?;
+                let mount_path = mount_entry.path;
 
                 let symlink_relative = symlink_path
                     .strip_prefix(&PosixPath::from_path(&mount_path))
                     .ok_or(Errno::Perm)?;
                 let symlink_parent = symlink_relative.parent().into_path_buf();
-                let contained_target = PosixPathBuf::resolve_relative(
-                    &PosixPath::from_path(&symlink_parent),
-                    &relative_posix,
-                    false,
-                )?;
+                let contained_target = if relative_posix.is_absolute() {
+                    let stripped = relative_posix
+                        .strip_prefix(&PosixPath::from_path(&mount_entry.source_path))
+                        .ok_or(Errno::Perm)?;
+                    PosixPathBuf::from(stripped.as_str().to_owned())
+                } else {
+                    PosixPathBuf::resolve_relative(
+                        &PosixPath::from_path(&symlink_parent),
+                        &relative_posix,
+                        false,
+                    )?
+                };
 
                 return Ok((
                     VIRTUAL_ROOT_FD,
@@ -3002,6 +3009,78 @@ mod tests {
         };
 
         assert_eq!(path, std::path::Path::new("/hamlet"));
+    }
+
+    #[cfg(all(unix, feature = "host-fs", feature = "sys"))]
+    #[tokio::test]
+    async fn backing_absolute_host_symlink_targets_stay_within_guest_mount() {
+        let root_dir = tempfile::Builder::new()
+            .prefix("wasix-backing-symlink")
+            .tempdir_in("/tmp")
+            .unwrap();
+        let dir1 = root_dir.path().join("dir1");
+        let dir2 = root_dir.path().join("dir2");
+        std::fs::create_dir_all(&dir1).unwrap();
+        std::fs::write(dir1.join("file1"), b"hello").unwrap();
+        std::os::unix::fs::symlink(&dir1, &dir2).unwrap();
+
+        let host_fs = virtual_fs::host_fs::FileSystem::new(
+            tokio::runtime::Handle::current(),
+            root_dir.path(),
+        )
+        .unwrap();
+        let mount_fs = virtual_fs::MountFileSystem::new();
+        mount_fs
+            .mount(
+                Path::new("/"),
+                Arc::new(RootFileSystemBuilder::default().build_tmp()),
+            )
+            .unwrap();
+        mount_fs
+            .mount(
+                Path::new("/host"),
+                Arc::new(host_fs) as Arc<dyn FileSystem + Send + Sync>,
+            )
+            .unwrap();
+
+        let inodes = WasiInodes::new();
+        let fs_backing = WasiFsRoot::from_mount_fs(mount_fs);
+        let wasi_fs =
+            WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
+
+        let literal_link = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/host/dir2", false)
+            .unwrap();
+        assert!(matches!(
+            literal_link.read().deref(),
+            Kind::Symlink {
+                symlink_kind: SymlinkKind::Backing,
+                relative_path,
+                ..
+            } if relative_path == Path::new("/dir1")
+        ));
+
+        let followed_dir = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/host/dir2", true)
+            .unwrap();
+        let followed_dir_path = {
+            let guard = followed_dir.read();
+            let Kind::Dir { path, .. } = guard.deref() else {
+                panic!("expected followed backing symlink to resolve to a directory");
+            };
+            assert_eq!(path, Path::new("/host/dir1"));
+            path.clone()
+        };
+        let mut entries = wasi_fs.root_fs.read_dir(&followed_dir_path).unwrap();
+        assert!(entries.any(|entry| entry.unwrap().path() == Path::new("/host/dir1/file1")));
+
+        let child = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/host/dir2/file1", true)
+            .unwrap();
+        assert!(matches!(
+            child.read().deref(),
+            Kind::File { path, .. } if path == Path::new("/host/dir1/file1")
+        ));
     }
 
     #[tokio::test]
