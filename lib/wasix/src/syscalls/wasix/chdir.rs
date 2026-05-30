@@ -49,10 +49,15 @@ pub fn chdir<M: MemorySize>(
 /// make later relative lookups re-enter symlink paths and would diverge from the
 /// directory object that `chdir` actually selected.
 ///
-/// The final `read_dir` check refreshes the backing filesystem view enough to
-/// reject stale cached directories that can no longer be listed.
+/// For resolved non-root directories, the final `read_dir` check refreshes the
+/// backing filesystem view enough to reject stale cached directories that can no
+/// longer be listed.
 pub fn chdir_internal(env: &WasiEnv, path: &str) -> Result<(), Errno> {
     let state = &env.state;
+    if path.is_empty() {
+        return Err(Errno::Noent);
+    }
+
     let path = state.fs.relative_path_to_absolute(path.to_string());
     let inode = state
         .fs
@@ -61,20 +66,22 @@ pub fn chdir_internal(env: &WasiEnv, path: &str) -> Result<(), Errno> {
     let resolved_path = {
         let guard = inode.read();
         match guard.deref() {
-            Kind::Dir { path, .. } => crate::fs::guest_path_to_string(path),
+            Kind::Dir { path, .. } => {
+                let resolved_path = crate::fs::guest_path_to_string(path);
+                if state
+                    .fs
+                    .root_fs
+                    .read_dir(Path::new(&resolved_path))
+                    .is_err()
+                {
+                    return Err(Errno::Noent);
+                }
+                resolved_path
+            }
             Kind::Root { .. } => "/".to_string(),
             _ => return Err(Errno::Notdir),
         }
     };
-
-    if state
-        .fs
-        .root_fs
-        .read_dir(Path::new(&resolved_path))
-        .is_err()
-    {
-        return Err(Errno::Noent);
-    }
 
     state.fs.set_current_dir(&resolved_path);
     Ok(())
