@@ -103,9 +103,7 @@ impl Mmap {
         #[cfg(target_os = "linux")]
         {
             if backing_file.is_none() && memory_type == MmapType::Private {
-                if let Some(pooled) =
-                    crate::mmap_pool::try_take(accessible_size, mapping_size)
-                {
+                if let Some(pooled) = crate::mmap_pool::try_take(accessible_size, mapping_size) {
                     return Ok(pooled);
                 }
             }
@@ -493,12 +491,7 @@ impl Drop for Mmap {
                                 unpooled.total_size_for_pool(),
                             )
                         };
-                        assert_eq!(
-                            r,
-                            0,
-                            "munmap failed: {}",
-                            io::Error::last_os_error()
-                        );
+                        assert_eq!(r, 0, "munmap failed: {}", io::Error::last_os_error());
                         std::mem::forget(unpooled);
                         return;
                     }

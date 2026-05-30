@@ -266,13 +266,8 @@ mod imp {
             // `accessible_size`. Release backing of the entire mapping,
             // then mprotect the guard region back.
             if total > 0 {
-                let r = unsafe {
-                    libc::madvise(
-                        ptr as *mut libc::c_void,
-                        total,
-                        libc::MADV_DONTNEED,
-                    )
-                };
+                let r =
+                    unsafe { libc::madvise(ptr as *mut libc::c_void, total, libc::MADV_DONTNEED) };
                 if r != 0 {
                     return Err(std::io::Error::last_os_error());
                 }
@@ -281,11 +276,7 @@ mod imp {
                 let guard_start = ptr + accessible;
                 let guard_len = total - accessible;
                 let r = unsafe {
-                    libc::mprotect(
-                        guard_start as *mut libc::c_void,
-                        guard_len,
-                        libc::PROT_NONE,
-                    )
+                    libc::mprotect(guard_start as *mut libc::c_void, guard_len, libc::PROT_NONE)
                 };
                 if r != 0 {
                     return Err(std::io::Error::last_os_error());
@@ -299,11 +290,7 @@ mod imp {
             // is needed.
             if accessible > 0 {
                 let r = unsafe {
-                    libc::madvise(
-                        ptr as *mut libc::c_void,
-                        accessible,
-                        libc::MADV_DONTNEED,
-                    )
+                    libc::madvise(ptr as *mut libc::c_void, accessible, libc::MADV_DONTNEED)
                 };
                 if r != 0 {
                     return Err(std::io::Error::last_os_error());
@@ -395,9 +382,10 @@ mod tests {
 
         // Round 1: a reserve-and-extend mapping. Extend access to the
         // entire mapping_size, so all pages are RW. Then drop.
-        let mut m1 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private)
+        let mut m1 =
+            Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private).unwrap();
+        m1.make_accessible(accessible, mapping - accessible)
             .unwrap();
-        m1.make_accessible(accessible, mapping - accessible).unwrap();
         // Sanity: writing to the extended range must succeed BEFORE the drop.
         unsafe {
             (m1.as_mut_ptr().add(mapping - 1)).write_volatile(0xCD);
@@ -407,8 +395,7 @@ mod tests {
         // Round 2: same shape. The bytes in (accessible..mapping) must
         // now be protected. We verify by forking a child that tries to
         // write into the guard region and observe it die with SIGSEGV.
-        let m2 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private)
-            .unwrap();
+        let m2 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private).unwrap();
         let guard_ptr = unsafe { m2.as_ptr().add(accessible) as usize };
 
         let child = unsafe { libc::fork() };
@@ -475,14 +462,12 @@ mod tests {
         let accessible = ps * 2;
         let mapping = ps * 8;
 
-        let m1 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private)
-            .unwrap();
+        let m1 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private).unwrap();
         assert_eq!(m1.len(), mapping);
         let addr1 = m1.as_ptr() as usize;
         drop(m1);
 
-        let m2 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private)
-            .unwrap();
+        let m2 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private).unwrap();
         assert_eq!(
             m2.len(),
             mapping,
@@ -535,9 +520,10 @@ mod tests {
 
         // Round 1: tenant A grows then writes a sentinel into every
         // byte of the extended range.
-        let mut m1 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private)
+        let mut m1 =
+            Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private).unwrap();
+        m1.make_accessible(accessible, mapping - accessible)
             .unwrap();
-        m1.make_accessible(accessible, mapping - accessible).unwrap();
         unsafe {
             let p = m1.as_mut_ptr();
             for off in accessible..mapping {
@@ -551,15 +537,17 @@ mod tests {
         // [accessible..mapping) is restored to PROT_NONE. Tenant B
         // grows by mprotecting [accessible..mapping) back to PROT_RW,
         // then reads. Every byte MUST be zero.
-        let mut m2 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private)
+        let mut m2 =
+            Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private).unwrap();
+        m2.make_accessible(accessible, mapping - accessible)
             .unwrap();
-        m2.make_accessible(accessible, mapping - accessible).unwrap();
         let slice = unsafe {
             std::slice::from_raw_parts(m2.as_ptr().add(accessible), mapping - accessible)
         };
         for (i, &byte) in slice.iter().enumerate() {
             assert_eq!(
-                byte, 0,
+                byte,
+                0,
                 "byte at extended offset {} should be zero but is {:#x} \
                  (cross-tenant leak through the grown region)",
                 accessible + i,
@@ -681,13 +669,8 @@ mod tests {
 
         let producer = thread::spawn(move || {
             for tid in 1..=50u8 {
-                let mut m = Mmap::accessible_reserved(
-                    accessible,
-                    mapping,
-                    None,
-                    MmapType::Private,
-                )
-                .unwrap();
+                let mut m = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private)
+                    .unwrap();
                 unsafe {
                     std::ptr::write_bytes(m.as_mut_ptr(), tid, accessible);
                 }
@@ -702,13 +685,8 @@ mod tests {
                 // The dropped Mmap goes into THIS thread's pool with
                 // its reset already complete. A new alloc of the same
                 // shape may come from that pool entry; it must be zero.
-                let m2 = Mmap::accessible_reserved(
-                    accessible,
-                    mapping,
-                    None,
-                    MmapType::Private,
-                )
-                .unwrap();
+                let m2 = Mmap::accessible_reserved(accessible, mapping, None, MmapType::Private)
+                    .unwrap();
                 for (i, &b) in m2.as_slice_accessible().iter().enumerate() {
                     if b != 0 {
                         eprintln!("cross-thread leak at {i}: {b:#x}");
@@ -740,9 +718,7 @@ mod tests {
         // completes without panic.
         let mut held = Vec::new();
         for _ in 0..(POOL_PER_BUCKET_MAX + 4) {
-            held.push(
-                Mmap::accessible_reserved(ps, ps, None, MmapType::Private).unwrap(),
-            );
+            held.push(Mmap::accessible_reserved(ps, ps, None, MmapType::Private).unwrap());
         }
         drop(held);
 
@@ -761,8 +737,7 @@ mod tests {
         let ps = page_size();
         let handle = std::thread::spawn(move || {
             for _ in 0..32 {
-                let m =
-                    Mmap::accessible_reserved(ps * 2, ps * 2, None, MmapType::Private).unwrap();
+                let m = Mmap::accessible_reserved(ps * 2, ps * 2, None, MmapType::Private).unwrap();
                 drop(m);
             }
         });
