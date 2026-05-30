@@ -96,10 +96,10 @@ impl InstanceAllocator {
     ///
     /// `offsets` MUST equal `VMOffsets::new(size_of::<usize>() as u8, module)`
     /// for the same `module`. Passing offsets computed for a different
-    /// module — or with a different pointer size — will produce a
-    /// mis-sized allocation and undefined behavior. Callers that cache
-    /// the offsets should key the cache by the same `ModuleInfo` they
-    /// pass here.
+    /// module, or with a different pointer size, will produce an
+    /// incorrectly sized allocation and undefined behavior. Callers that
+    /// cache the offsets should key the cache by the same `ModuleInfo`
+    /// they pass here.
     #[allow(clippy::type_complexity)]
     pub fn new_with_offsets(
         offsets: VMOffsets,
@@ -310,7 +310,7 @@ mod tests {
         let a = VMOffsets::new(ps, &module);
         let b = VMOffsets::new(ps, &module);
 
-        // Use Debug repr for comparison — VMOffsets doesn't impl `PartialEq`
+        // Use Debug repr for comparison, VMOffsets doesn't impl `PartialEq`
         // upstream, but its layout is constant for a given input so the
         // textual debug form is a sufficient identity check.
         let a_dbg = format!("{a:?}");
@@ -352,7 +352,7 @@ mod tests {
         assert_eq!(
             a.offsets.size_of_vmctx(),
             b.offsets.size_of_vmctx(),
-            "size_of_vmctx mismatch — caching broke the layout invariant"
+            "size_of_vmctx mismatch, caching broke the layout invariant"
         );
     }
 
