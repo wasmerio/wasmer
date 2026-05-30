@@ -115,24 +115,27 @@ impl Memory {
             let ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>> = copied
                 .thread_conditions()
                 .map(|conditions| Arc::new(conditions.downgrade()) as Arc<_>);
-            let memory = crate::vm::VMMemory::Sys(SysVMMemory::from(copied));
+            let memory = crate::vm::VMMemory::Sys(SysVMMemory::from(copied)).as_shared()?;
 
             Ok(match ops {
-                Some(ops) => SharedMemory::from_vm_memory_and_ops(memory, ops),
-                None => SharedMemory::from_vm_memory(memory),
+                Some(ops) => SharedMemory::new_with_ops(memory, ops),
+                None => SharedMemory::new(memory),
             })
         } else {
             Err(MemoryError::MemoryNotShared)
         }
     }
 
-    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
+    pub(crate) fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         let mem = self.handle.get(store.as_store_ref().objects().as_sys());
-        let conds = mem.thread_conditions()?.downgrade();
-        let cloned = mem.try_clone().ok()?;
+        let conds = mem
+            .thread_conditions()
+            .ok_or(MemoryError::MemoryNotShared)?
+            .downgrade();
+        let cloned = mem.try_clone()?;
 
-        Some(SharedMemory::from_vm_memory_and_ops(
-            crate::vm::VMMemory::Sys(cloned),
+        Ok(SharedMemory::new_with_ops(
+            crate::vm::VMMemory::Sys(cloned).as_shared()?,
             Arc::new(conds),
         ))
     }

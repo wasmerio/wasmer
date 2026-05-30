@@ -5,12 +5,13 @@ use crate::{
     error::AtomicsError,
     location::{MemoryLocation, SharedMemoryOps},
     vm::VMMemory,
+    vm::VMSharedMemory,
 };
 
 /// A shared memory instance that can be shared across multiple stores and threads,
 /// not attached to any specific store.
 pub struct SharedMemory {
-    memory: VMMemory,
+    memory: VMSharedMemory,
     ops: Option<Arc<dyn SharedMemoryOps + Send + Sync>>,
 }
 
@@ -22,25 +23,22 @@ impl std::fmt::Debug for SharedMemory {
 
 impl Clone for SharedMemory {
     fn clone(&self) -> Self {
-        let Ok(memory) = self.memory.try_clone() else {
-            unreachable!("Internal error: shared memory is always cloneable");
-        };
         Self {
-            memory,
+            memory: self.memory.clone(),
             ops: self.ops.clone(),
         }
     }
 }
 
 impl SharedMemory {
-    /// Create a new shared memory from an existing VMMemory.
-    pub(crate) fn from_vm_memory(memory: VMMemory) -> Self {
+    /// Create a new shared memory.
+    pub(crate) fn new(memory: VMSharedMemory) -> Self {
         Self { memory, ops: None }
     }
 
-    /// Create a new shared memory from an existing VMMemory.
-    pub(crate) fn from_vm_memory_and_ops(
-        memory: VMMemory,
+    /// Create a new shared memory with memory operations.
+    pub(crate) fn new_with_ops(
+        memory: VMSharedMemory,
         ops: Arc<dyn SharedMemoryOps + Send + Sync>,
     ) -> Self {
         Self {
@@ -51,7 +49,8 @@ impl SharedMemory {
 
     /// Attach this shared memory to the provided store.
     pub fn attach(self, store: &mut impl AsStoreMut) -> Memory {
-        Memory::new_from_existing(store, self.memory)
+        let memory = self.memory.into_vm_memory(store);
+        Memory::new_from_existing(store, memory)
     }
 
     #[inline]

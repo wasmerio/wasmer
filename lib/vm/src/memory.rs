@@ -452,6 +452,11 @@ impl LinearMemory for VMOwnedMemory {
         let forked = Self::copy(self)?;
         Ok(Box::new(forked))
     }
+
+    /// Return a concrete shared memory handle for detached API sharing.
+    fn as_shared(&self) -> Result<VMSharedMemory, MemoryError> {
+        Err(MemoryError::MemoryNotShared)
+    }
 }
 
 /// A shared linear memory instance.
@@ -606,6 +611,11 @@ impl LinearMemory for VMSharedMemory {
         Ok(Box::new(forked))
     }
 
+    /// Return a concrete shared memory handle for detached API sharing.
+    fn as_shared(&self) -> Result<VMSharedMemory, MemoryError> {
+        Ok(self.clone())
+    }
+
     // Add current thread to waiter list
     unsafe fn do_wait(
         &mut self,
@@ -706,6 +716,10 @@ impl LinearMemory for VMMemory {
     /// Copies this memory to a new memory
     fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
         self.0.copy()
+    }
+
+    fn as_shared(&self) -> Result<VMSharedMemory, MemoryError> {
+        self.0.as_shared()
     }
 
     // Add current thread to waiter list
@@ -870,6 +884,11 @@ where
 
     /// Copies this memory to a new memory
     fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError>;
+
+    /// Returns a concrete shared memory handle if this memory is shared.
+    fn as_shared(&self) -> Result<VMSharedMemory, MemoryError> {
+        Err(MemoryError::MemoryNotShared)
+    }
 
     /// Add current thread to the waiter hash, and wait until notified or timeout.
     /// Return 0 if the waiter has been notified, 1 if there was a value mismatch,

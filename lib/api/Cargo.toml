@@ -185,7 +185,17 @@ ureq = { workspace = true, optional = true }
 which = { workspace = true, optional = true }
 xz = { workspace = true, optional = true }
 zip = { workspace = true, optional = true, features = ["deflate"] }
-bindgen.workspace = true
+
+[target.'cfg(not(target_env = "musl"))'.build-dependencies]
+bindgen = { workspace = true, default-features = true }
+
+# musl does not support dlopen/dlsym functionality used by the bindgen (using libclang).
+[target.'cfg(target_env = "musl")'.build-dependencies]
+bindgen = { workspace = true, default-features = false, features = [
+  "logging",
+  "prettyplease",
+  "static",
+] }
 
 [package.metadata.docs.rs]
 features = [

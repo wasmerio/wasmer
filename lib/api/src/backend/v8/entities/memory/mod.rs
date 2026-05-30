@@ -162,10 +162,62 @@ impl Memory {
     pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         check_isolate(store);
 
-        // FIXME: implement memory copying
-        Err(MemoryError::UnsupportedOperation {
-            message: "copy is not supported for V8 memory because the wasm C API can only clone the memory reference".to_owned(),
-        })
+        let ty = self.ty(store);
+        if !ty.shared {
+            return Err(MemoryError::MemoryNotShared);
+        }
+
+        let store_ref = store.as_store_ref();
+        let v8_store = store_ref.inner.store.as_v8();
+
+        let limits = wasm_limits_t {
+            min: ty.minimum.0,
+            max: ty.maximum.unwrap_or(Pages::max_value()).0,
+            shared: ty.shared,
+        };
+
+        let memorytype = unsafe { wasm_memorytype_new(&limits) };
+        let copied_memory = unsafe { wasm_memory_new(v8_store.inner, memorytype) };
+        unsafe {
+            wasm_memorytype_delete(memorytype);
+        }
+        if copied_memory.is_null() {
+            return Err(MemoryError::Generic(
+                "failed to allocate copied V8 memory".to_owned(),
+            ));
+        }
+
+        let copied = Self {
+            handle: VMMemory(copied_memory),
+        };
+
+        let src_view = self.view(store);
+        let dst_view = copied.view(store);
+        let src_pages = src_view.size();
+        let dst_pages = dst_view.size();
+
+        if src_pages > dst_pages {
+            let delta = src_pages.0.checked_sub(dst_pages.0).ok_or_else(|| {
+                MemoryError::Generic("failed to calculate V8 memory copy growth".to_owned())
+            })?;
+
+            if !unsafe { wasm_memory_grow(copied.handle.0, delta) } {
+                return Err(MemoryError::CouldNotGrow {
+                    current: dst_pages,
+                    attempted_delta: Pages(delta),
+                });
+            }
+        }
+
+        let src_view = self.view(store);
+        let dst_view = copied.view(store);
+        src_view
+            .copy_to_memory(src_view.data_size(), &dst_view)
+            .map_err(|err| MemoryError::Generic(format!("failed to copy V8 memory: {err}")))?;
+
+        Ok(SharedMemory::new(crate::vm::VMSharedMemory::V8(
+            copied.handle.as_shared()?,
+        )))
     }
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
@@ -173,9 +225,10 @@ impl Memory {
         true
     }
 
-    pub fn as_shared(&self, store: &impl AsStoreRef) -> Option<SharedMemory> {
-        Some(SharedMemory::from_vm_memory(crate::vm::VMMemory::V8(
-            self.handle.try_clone().ok()?,
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+        check_isolate(store);
+        Ok(SharedMemory::new(crate::vm::VMSharedMemory::V8(
+            self.handle.as_shared()?,
         )))
     }
 }

@@ -256,7 +256,7 @@ impl BackendMemory {
         }
 
         match_rt!(on self => s {
-            s.as_shared(store)
+            s.as_shared(store).ok()
         })
     }
 
