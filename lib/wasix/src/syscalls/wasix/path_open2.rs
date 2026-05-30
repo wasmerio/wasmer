@@ -362,7 +362,9 @@ fn path_open_internal_with_symlink_depth(
                 if next_symlink_depth > MAX_SYMLINKS {
                     return Ok(Err(Errno::Loop));
                 }
-                let resolved_path = crate::fs::guest_path_to_string(&resolved_path);
+                let resolved_path = crate::fs::PosixPath::from_path(&resolved_path)
+                    .as_str()
+                    .to_owned();
                 drop(guard);
                 return path_open_internal_with_symlink_depth(
                     env,
@@ -594,7 +596,9 @@ fn path_open_internal_with_symlink_depth(
                         return Ok(Err(Errno::Exist));
                     }
 
-                    let resolved_path = crate::fs::guest_path_to_string(&resolved_path);
+                    let resolved_path = crate::fs::PosixPath::from_path(&resolved_path)
+                        .as_str()
+                        .to_owned();
                     let next_symlink_depth = symlink_depth + 1;
                     if next_symlink_depth > MAX_SYMLINKS {
                         return Ok(Err(Errno::Loop));
@@ -627,9 +631,9 @@ fn path_open_internal_with_symlink_depth(
             let new_file_host_path = {
                 let guard = parent_inode.read();
                 match guard.deref() {
-                    Kind::Dir { path, .. } => {
-                        crate::fs::join_guest_paths(path, std::path::Path::new(&new_entity_name))
-                    }
+                    Kind::Dir { path, .. } => crate::fs::PosixPath::from_path(path)
+                        .join(&crate::fs::PosixPath::new(&new_entity_name))
+                        .into_path_buf(),
                     Kind::Root { .. } => return Ok(Err(Errno::Perm)),
                     _ => return Ok(Err(Errno::Notdir)),
                 }

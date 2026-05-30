@@ -18,6 +18,7 @@ mod fd;
 mod fd_list;
 mod inode_guard;
 mod notification;
+mod path_posix;
 
 use std::{
     borrow::Cow,
@@ -61,6 +62,7 @@ pub(crate) use self::inode_guard::{
     InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
 };
 pub use self::notification::NotificationInner;
+pub(crate) use self::path_posix::{PosixPath, PosixPathBuf, PosixPathComponent};
 use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
 
 // POSIX bounds descriptor numbers by the process fd limit (`OPEN_MAX`,
@@ -289,14 +291,6 @@ struct EphemeralSymlinkEntry {
     relative_path: PathBuf,
 }
 
-#[derive(Clone, Copy)]
-enum GuestPathComponent<'a> {
-    RootDir,
-    CurDir,
-    ParentDir,
-    Normal(&'a str),
-}
-
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 enum ComponentResolution {
@@ -329,183 +323,6 @@ struct WasiInodesProtected {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiInodes {
     protected: Arc<RwLock<WasiInodesProtected>>,
-}
-
-// Normalize only already-resolved virtual symlink locations for use as map
-// keys. This is not a POSIX path resolver: callers must resolve parent
-// components, including symlinks, before using this helper.
-fn normalize_virtual_symlink_key(path: &Path) -> PathBuf {
-    let path_str = path.to_string_lossy();
-    let mut normalized = Vec::new();
-
-    for component in collect_guest_path_components(&path_str, false, false) {
-        match component {
-            GuestPathComponent::RootDir | GuestPathComponent::CurDir => {}
-            GuestPathComponent::ParentDir => {
-                normalized.pop();
-            }
-            GuestPathComponent::Normal(component) => normalized.push(component.to_owned()),
-        }
-    }
-
-    path_buf_from_guest_components(path_str.starts_with('/'), &normalized, "/")
-}
-
-fn collect_guest_path_components(
-    path_str: &str,
-    include_root: bool,
-    preserve_trailing_slash: bool,
-) -> Vec<GuestPathComponent<'_>> {
-    let mut components = Vec::new();
-
-    if include_root && path_str.starts_with('/') {
-        components.push(GuestPathComponent::RootDir);
-    }
-
-    for component in path_str
-        .split('/')
-        .filter(|component| !component.is_empty())
-    {
-        components.push(match component {
-            "." => GuestPathComponent::CurDir,
-            ".." => GuestPathComponent::ParentDir,
-            component => GuestPathComponent::Normal(component),
-        });
-    }
-
-    if preserve_trailing_slash && path_str.ends_with('/') {
-        components.push(GuestPathComponent::CurDir);
-    }
-
-    components
-}
-
-pub(crate) fn guest_path_to_string(path: &Path) -> String {
-    path.to_string_lossy().into_owned()
-}
-
-pub(crate) fn strip_guest_root_prefix(path: &Path) -> PathBuf {
-    let path_str = path.to_string_lossy();
-    PathBuf::from(path_str.strip_prefix('/').unwrap_or(&path_str))
-}
-
-pub(crate) fn guest_path_is_absolute(path: &Path) -> bool {
-    path.to_string_lossy().starts_with('/')
-}
-
-fn guest_path_parent(path: &Path) -> PathBuf {
-    let path_str = path.to_string_lossy();
-    let trimmed = path_str.trim_end_matches('/');
-    let parent = trimmed
-        .rsplit_once('/')
-        .map(|(parent, _)| parent)
-        .unwrap_or_default();
-    PathBuf::from(parent)
-}
-
-pub(crate) fn guest_path_strip_prefix<'a>(path: &'a str, prefix: &str) -> Option<&'a str> {
-    if prefix == "/" {
-        return path.strip_prefix('/');
-    }
-
-    if path == prefix {
-        return Some("");
-    }
-
-    let suffix = path.strip_prefix(prefix)?;
-    suffix.strip_prefix('/')
-}
-
-pub(crate) fn join_guest_paths(base: &Path, relative: &Path) -> PathBuf {
-    let base = base.to_string_lossy();
-    let relative = relative.to_string_lossy();
-
-    if relative.is_empty() || relative == "." {
-        return PathBuf::from(base.as_ref());
-    }
-
-    if relative.starts_with('/') || base.is_empty() || base == "." {
-        PathBuf::from(relative.as_ref())
-    } else if base == "/" {
-        PathBuf::from(format!("/{relative}"))
-    } else if base.ends_with('/') {
-        PathBuf::from(format!("{base}{relative}"))
-    } else {
-        PathBuf::from(format!("{base}/{relative}"))
-    }
-}
-
-fn visit_relative_guest_components<F>(path: &Path, mut visit: F) -> Result<(), Errno>
-where
-    F: for<'a> FnMut(GuestPathComponent<'a>) -> Result<(), Errno>,
-{
-    let path_str = path.to_string_lossy();
-    if path_str.starts_with('/') {
-        return Err(Errno::Perm);
-    }
-
-    for component in collect_guest_path_components(&path_str, false, false) {
-        visit(component)?;
-    }
-
-    Ok(())
-}
-
-fn push_normalized_relative_guest_component(
-    resolved: &mut Vec<String>,
-    component: GuestPathComponent<'_>,
-) -> Result<(), Errno> {
-    match component {
-        GuestPathComponent::RootDir | GuestPathComponent::CurDir => {}
-        GuestPathComponent::Normal(component) => resolved.push(component.to_owned()),
-        GuestPathComponent::ParentDir => {
-            resolved.pop().ok_or(Errno::Perm)?;
-        }
-    }
-    Ok(())
-}
-
-fn push_normalized_relative_guest_path(
-    resolved: &mut Vec<String>,
-    path: &Path,
-) -> Result<(), Errno> {
-    visit_relative_guest_components(path, |component| {
-        push_normalized_relative_guest_component(resolved, component)
-    })
-}
-
-fn path_buf_from_guest_components(
-    is_absolute: bool,
-    components: &[String],
-    empty_path: &str,
-) -> PathBuf {
-    if components.is_empty() {
-        PathBuf::from(empty_path)
-    } else if is_absolute {
-        PathBuf::from(format!("/{}", components.join("/")))
-    } else {
-        PathBuf::from(components.join("/"))
-    }
-}
-
-fn guest_parent_path_and_name(path: &Path) -> Result<(PathBuf, String), Errno> {
-    let path_str = path.to_string_lossy();
-    let trimmed = path_str.trim_end_matches('/');
-    if trimmed.is_empty() {
-        return Err(Errno::Inval);
-    }
-
-    let (parent, name) = match trimmed.rsplit_once('/') {
-        Some(("", name)) if path_str.starts_with('/') => ("/", name),
-        Some((parent, name)) => (parent, name),
-        None => ("", trimmed),
-    };
-
-    if name.is_empty() {
-        return Err(Errno::Inval);
-    }
-
-    Ok((PathBuf::from(parent), name.to_string()))
 }
 
 impl WasiInodes {
@@ -809,9 +626,13 @@ impl WasiFs {
     ) {
         let mut guard = self.ephemeral_symlinks.write().unwrap();
         guard.insert(
-            normalize_virtual_symlink_key(&full_path),
+            PosixPath::from_path(&full_path)
+                .normalize_virtual_symlink_key()
+                .into_path_buf(),
             EphemeralSymlinkEntry {
-                path_to_symlink: normalize_virtual_symlink_key(&path_to_symlink),
+                path_to_symlink: PosixPath::from_path(&path_to_symlink)
+                    .normalize_virtual_symlink_key()
+                    .into_path_buf(),
                 relative_path,
             },
         );
@@ -819,13 +640,19 @@ impl WasiFs {
 
     pub(crate) fn ephemeral_symlink_at(&self, full_path: &Path) -> Option<(PathBuf, PathBuf)> {
         let guard = self.ephemeral_symlinks.read().unwrap();
-        let entry = guard.get(&normalize_virtual_symlink_key(full_path))?;
+        let key = PosixPath::from_path(full_path)
+            .normalize_virtual_symlink_key()
+            .into_path_buf();
+        let entry = guard.get(&key)?;
         Some((entry.path_to_symlink.clone(), entry.relative_path.clone()))
     }
 
     pub(crate) fn unregister_ephemeral_symlink(&self, full_path: &Path) {
         let mut guard = self.ephemeral_symlinks.write().unwrap();
-        guard.remove(&normalize_virtual_symlink_key(full_path));
+        let key = PosixPath::from_path(full_path)
+            .normalize_virtual_symlink_key()
+            .into_path_buf();
+        guard.remove(&key);
     }
 
     pub(crate) fn move_ephemeral_symlink(
@@ -835,15 +662,21 @@ impl WasiFs {
         path_to_symlink: PathBuf,
         relative_path: PathBuf,
     ) {
-        let old_key = normalize_virtual_symlink_key(old_full_path);
-        let new_key = normalize_virtual_symlink_key(new_full_path);
+        let old_key = PosixPath::from_path(old_full_path)
+            .normalize_virtual_symlink_key()
+            .into_path_buf();
+        let new_key = PosixPath::from_path(new_full_path)
+            .normalize_virtual_symlink_key()
+            .into_path_buf();
 
         let mut guard = self.ephemeral_symlinks.write().unwrap();
         guard.remove(&old_key);
         guard.insert(
             new_key,
             EphemeralSymlinkEntry {
-                path_to_symlink: normalize_virtual_symlink_key(&path_to_symlink),
+                path_to_symlink: PosixPath::from_path(&path_to_symlink)
+                    .normalize_virtual_symlink_key()
+                    .into_path_buf(),
                 relative_path,
             },
         );
@@ -1425,7 +1258,8 @@ impl WasiFs {
         // POSIX path resolution is stricter than `Path::components()`: explicit
         // `.`/`..` and a trailing slash are observable because they require the
         // current result to be a directory after symlink resolution.
-        let components = collect_guest_path_components(path_str, true, true);
+        let path = PosixPath::new(path_str);
+        let components = path.components(true, true);
 
         let n_components = components.len();
 
@@ -1436,7 +1270,7 @@ impl WasiFs {
             // Since we're resolving the path against the given inode, we want to
             // assume '/a/b' to be the same as `a/b` relative to the inode, so
             // we skip over the RootDir component.
-            if matches!(component, GuestPathComponent::RootDir) {
+            if matches!(component, PosixPathComponent::RootDir) {
                 continue 'path_iter;
             }
 
@@ -1450,7 +1284,7 @@ impl WasiFs {
             let last_component = i == n_components - 1;
 
             let component_str = match component {
-                GuestPathComponent::CurDir => {
+                PosixPathComponent::CurDir => {
                     let is_dir = {
                         let guard = cur_inode.read();
                         matches!(guard.deref(), Kind::Dir { .. } | Kind::Root { .. })
@@ -1460,7 +1294,7 @@ impl WasiFs {
                     }
                     return Err(Errno::Notdir);
                 }
-                GuestPathComponent::ParentDir => {
+                PosixPathComponent::ParentDir => {
                     let parent_inode = {
                         let guard = cur_inode.read();
                         match guard.deref() {
@@ -1476,8 +1310,8 @@ impl WasiFs {
                     }
                     continue 'path_iter;
                 }
-                GuestPathComponent::Normal(component) => component,
-                GuestPathComponent::RootDir => unreachable!("RootDir is handled above"),
+                PosixPathComponent::Normal(component) => component,
+                PosixPathComponent::RootDir => unreachable!("RootDir is handled above"),
             };
 
             'component_lookup: loop {
@@ -1546,8 +1380,9 @@ impl WasiFs {
 
                             // We did not find the component in cached entries,
                             // so we will create new inode for it.
-                            let entry_path_buf =
-                                join_guest_paths(cur_dir, Path::new(component_str));
+                            let entry_path_buf = PosixPath::from_path(cur_dir)
+                                .join(&PosixPath::new(component_str))
+                                .into_path_buf();
 
                             // Current component of the path we're resolving, as
                             // a string...
@@ -1708,7 +1543,9 @@ impl WasiFs {
                                 inodes,
                                 Kind::Symlink {
                                     symlink_kind: SymlinkKind::Backing,
-                                    path_to_symlink: strip_guest_root_prefix(&file),
+                                    path_to_symlink: PosixPath::from_path(&file)
+                                        .strip_root_prefix()
+                                        .into_path_buf(),
                                     relative_path: link_value,
                                 },
                                 false,
@@ -1787,7 +1624,7 @@ impl WasiFs {
             let (new_base_fd, new_path) =
                 self.resolve_symlink_target_path(symlink_kind, &path_to_symlink, &relative_path)?;
             let new_base_inode = self.get_fd_inode(new_base_fd)?;
-            let new_path = guest_path_to_string(&new_path);
+            let new_path = PosixPath::from_path(&new_path).as_str().to_owned();
 
             // We want to always follow symlinks unless we're resolving very
             // last path component, then and only then we want to stop symlink
@@ -1821,101 +1658,67 @@ impl WasiFs {
         path_to_symlink: &Path,
         relative_path: &Path,
     ) -> Result<(WasiFd, PathBuf), Errno> {
-        if guest_path_is_absolute(relative_path) {
+        let relative_posix = PosixPath::from_path(relative_path);
+        if relative_posix.is_absolute() {
             return Ok((VIRTUAL_ROOT_FD, relative_path.to_owned()));
         }
 
         let symlink_parent = match symlink_kind {
-            SymlinkKind::Virtual => guest_path_parent(path_to_symlink),
+            SymlinkKind::Virtual => PosixPath::from_path(path_to_symlink)
+                .parent()
+                .into_path_buf(),
             SymlinkKind::Backing => {
-                let symlink_path = join_guest_paths(Path::new("/"), path_to_symlink);
-                let symlink_path_str = guest_path_to_string(&symlink_path);
+                let symlink_path_buf =
+                    PosixPath::new("/").join(&PosixPath::from_path(path_to_symlink));
+                let symlink_path = symlink_path_buf.as_posix_path();
                 let mount_path = self
                     .root_fs
                     .root()
                     .mount_entries()
                     .into_iter()
                     .filter(|entry| {
-                        let mount_path_str = guest_path_to_string(&entry.path);
-                        guest_path_strip_prefix(&symlink_path_str, &mount_path_str).is_some()
+                        symlink_path
+                            .strip_prefix(&PosixPath::from_path(&entry.path))
+                            .is_some()
                     })
-                    .max_by_key(|entry| guest_path_to_string(&entry.path).len())
+                    .max_by_key(|entry| PosixPath::from_path(&entry.path).as_str().len())
                     .map(|entry| entry.path)
                     .ok_or(Errno::Perm)?;
 
-                let mount_path_str = guest_path_to_string(&mount_path);
-                let symlink_relative = guest_path_strip_prefix(&symlink_path_str, &mount_path_str)
-                    .map(PathBuf::from)
+                let symlink_relative = symlink_path
+                    .strip_prefix(&PosixPath::from_path(&mount_path))
                     .ok_or(Errno::Perm)?;
-                let symlink_parent = guest_path_parent(&symlink_relative);
-                let contained_target =
-                    Self::resolve_relative_symlink_path(symlink_parent, relative_path, false)?;
+                let symlink_parent = symlink_relative.parent().into_path_buf();
+                let contained_target = PosixPathBuf::resolve_relative(
+                    &PosixPath::from_path(&symlink_parent),
+                    &relative_posix,
+                    false,
+                )?;
 
                 return Ok((
                     VIRTUAL_ROOT_FD,
-                    join_guest_paths(&mount_path, &contained_target),
+                    PosixPath::from_path(&mount_path)
+                        .join(&contained_target.as_posix_path())
+                        .into_path_buf(),
                 ));
             }
         };
 
         Ok((
             VIRTUAL_ROOT_FD,
-            Self::resolve_relative_symlink_path(symlink_parent, relative_path, true)?,
+            PosixPathBuf::resolve_relative(
+                &PosixPath::from_path(&symlink_parent),
+                &relative_posix,
+                true,
+            )?
+            .into_path_buf(),
         ))
     }
 
     pub(crate) fn rebase_symlink_location(&self, new_symlink_path: &Path) -> PathBuf {
-        strip_guest_root_prefix(new_symlink_path)
-    }
-
-    fn resolve_relative_symlink_path(
-        symlink_parent: PathBuf,
-        relative_path: &Path,
-        preserve_after_first_normal: bool,
-    ) -> Result<PathBuf, Errno> {
-        let mut resolved = Vec::new();
-        push_normalized_relative_guest_path(&mut resolved, &symlink_parent)?;
-
-        if !preserve_after_first_normal {
-            push_normalized_relative_guest_path(&mut resolved, relative_path)?;
-            return Ok(path_buf_from_guest_components(false, &resolved, "."));
-        }
-
-        let mut validation = resolved.clone();
-        push_normalized_relative_guest_path(&mut validation, relative_path)?;
-
-        let mut remaining = Vec::new();
-        let mut preserve_remaining = false;
-
-        visit_relative_guest_components(relative_path, |component| {
-            if preserve_remaining {
-                match component {
-                    GuestPathComponent::RootDir => {}
-                    GuestPathComponent::CurDir => remaining.push(".".to_owned()),
-                    GuestPathComponent::ParentDir => remaining.push("..".to_owned()),
-                    GuestPathComponent::Normal(component) => remaining.push(component.to_owned()),
-                }
-                return Ok(());
-            }
-
-            match component {
-                GuestPathComponent::RootDir | GuestPathComponent::CurDir => {}
-                GuestPathComponent::ParentDir => {
-                    resolved.pop().ok_or(Errno::Perm)?;
-                }
-                GuestPathComponent::Normal(component) => {
-                    remaining.push(component.to_owned());
-                    preserve_remaining = true;
-                }
-            }
-            Ok(())
-        })?;
-
-        if !remaining.is_empty() {
-            resolved.extend(remaining);
-        }
-
-        Ok(path_buf_from_guest_components(false, &resolved, "."))
+        PosixPath::from_path(new_symlink_path)
+            .strip_root_prefix()
+            .into_path_buf()
     }
 
     /// gets a host file from a base directory and a path
@@ -1968,17 +1771,12 @@ impl WasiFs {
         path: &Path,
         follow_symlinks: bool,
     ) -> Result<(InodeGuard, String), Errno> {
-        let (parent_dir, new_entity_name) = guest_parent_path_and_name(path)?;
-        if parent_dir.as_os_str().is_empty() {
+        let (parent_dir, new_entity_name) = PosixPath::from_path(path).parent_path_and_name()?;
+        if parent_dir.as_str().is_empty() {
             return self.get_fd_inode(base).map(|v| (v, new_entity_name));
         }
-        self.get_inode_at_path(
-            inodes,
-            base,
-            &guest_path_to_string(&parent_dir),
-            follow_symlinks,
-        )
-        .map(|v| (v, new_entity_name))
+        self.get_inode_at_path(inodes, base, parent_dir.as_str(), follow_symlinks)
+            .map(|v| (v, new_entity_name))
     }
 
     pub fn get_fd(&self, fd: WasiFd) -> Result<Fd, Errno> {
@@ -2816,7 +2614,9 @@ impl WasiFs {
                 relative_path,
                 ..
             } => {
-                let symlink_path = join_guest_paths(Path::new("/"), path_to_symlink);
+                let symlink_path = PosixPath::new("/")
+                    .join(&PosixPath::from_path(path_to_symlink))
+                    .into_path_buf();
 
                 match self.root_fs.symlink_metadata(&symlink_path) {
                     Ok(md) => md,

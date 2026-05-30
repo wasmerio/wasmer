@@ -80,7 +80,9 @@ pub fn path_symlink_internal(
                 if entries.contains_key(&entry_name) {
                     return Err(Errno::Exist);
                 }
-                crate::fs::join_guest_paths(path, std::path::Path::new(&entry_name))
+                crate::fs::PosixPath::from_path(path)
+                    .join(&crate::fs::PosixPath::new(&entry_name))
+                    .into_path_buf()
             }
             Kind::Root { .. } => return Err(Errno::Notcapable),
             Kind::Socket { .. }
@@ -99,7 +101,9 @@ pub fn path_symlink_internal(
     // their location relative to the virtual root so targets like
     // `/temp/link -> ../hamlet/file` can cross sibling preopens without
     // escaping the guest sandbox.
-    let path_to_symlink = crate::fs::strip_guest_root_prefix(&symlink_path);
+    let path_to_symlink = crate::fs::PosixPath::from_path(&symlink_path)
+        .strip_root_prefix()
+        .into_path_buf();
     let relative_path = std::path::PathBuf::from(old_path);
 
     let source_path = std::path::Path::new(old_path);

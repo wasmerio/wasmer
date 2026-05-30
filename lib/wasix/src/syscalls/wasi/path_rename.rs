@@ -104,9 +104,9 @@ pub fn path_rename_internal(
     let source_guest_path = {
         let guard = source_parent_inode.read();
         match guard.deref() {
-            Kind::Dir { path, .. } => {
-                crate::fs::join_guest_paths(path, Path::new(&source_entry_name))
-            }
+            Kind::Dir { path, .. } => crate::fs::PosixPath::from_path(path)
+                .join(&crate::fs::PosixPath::new(&source_entry_name))
+                .into_path_buf(),
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
             | Kind::PipeTx { .. }
@@ -128,7 +128,9 @@ pub fn path_rename_internal(
                 if entries.contains_key(&target_entry_name) {
                     need_create = false;
                 }
-                crate::fs::join_guest_paths(path, Path::new(&target_entry_name))
+                crate::fs::PosixPath::from_path(path)
+                    .join(&crate::fs::PosixPath::new(&target_entry_name))
+                    .into_path_buf()
             }
             Kind::Root { .. } => return Ok(Errno::Notcapable),
             Kind::Socket { .. }
@@ -154,10 +156,9 @@ pub fn path_rename_internal(
         let guard = source_inode.read();
         matches!(guard.deref(), Kind::Dir { .. })
     };
-    let source_guest_path_str = crate::fs::guest_path_to_string(&source_guest_path);
-    let target_guest_path_str = crate::fs::guest_path_to_string(&target_guest_path);
     if source_is_dir
-        && crate::fs::guest_path_strip_prefix(&target_guest_path_str, &source_guest_path_str)
+        && crate::fs::PosixPath::from_path(&target_guest_path)
+            .strip_prefix(&crate::fs::PosixPath::from_path(&source_guest_path))
             .is_some()
     {
         return Ok(Errno::Inval);
@@ -338,10 +339,13 @@ fn rename_inode_tree(inode: &InodeGuard, source_dir_path: &Path, target_dir_path
 }
 
 fn adjust_path(path: &Path, source_dir_path: &Path, target_dir_path: &Path) -> PathBuf {
-    let path_str = crate::fs::guest_path_to_string(path);
-    let source_dir_path_str = crate::fs::guest_path_to_string(source_dir_path);
-    let relative_path = crate::fs::guest_path_strip_prefix(&path_str, &source_dir_path_str)
+    let path = crate::fs::PosixPath::from_path(path);
+    let source_dir_path = crate::fs::PosixPath::from_path(source_dir_path);
+    let relative_path = path
+        .strip_prefix(&source_dir_path)
         .with_context(|| format!("Expected path {path:?} to be a subpath of {source_dir_path:?}"))
         .expect("Fatal filesystem error");
-    crate::fs::join_guest_paths(target_dir_path, Path::new(relative_path))
+    crate::fs::PosixPath::from_path(target_dir_path)
+        .join(&relative_path)
+        .into_path_buf()
 }
