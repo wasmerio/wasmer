@@ -441,11 +441,11 @@ impl VirtualFile for FileHandle {
     }
 
     fn poll_write_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        if !self.readable {
+        if !self.writable {
             return Poll::Ready(Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
                 format!(
-                    "the file (inode `{}) doesn't have the `read` permission",
+                    "the file (inode `{}) doesn't have the `write` permission",
                     self.inode
                 ),
             )));
@@ -465,14 +465,14 @@ impl VirtualFile for FileHandle {
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
                 let file = Pin::new(file.as_mut());
-                file.poll_read_ready(cx)
+                file.poll_write_ready(cx)
             }
             Some(Node::ArcFile(_)) => {
                 drop(fs);
                 match self.lazy_load_arc_file_mut() {
                     Ok(file) => {
                         let file = Pin::new(file);
-                        file.poll_read_ready(cx)
+                        file.poll_write_ready(cx)
                     }
                     Err(_) => Poll::Ready(Err(io::Error::new(
                         io::ErrorKind::NotFound,
@@ -536,7 +536,9 @@ impl VirtualFile for FileHandle {
 
 #[cfg(test)]
 mod test_virtual_file {
-    use crate::{FileSystem as FS, mem_fs::*};
+    use crate::{BufferFile, FileSystem as FS, mem_fs::*};
+    use std::pin::Pin;
+    use std::task::{Context, Poll, Waker};
     use std::thread::sleep;
     use std::time::Duration;
 
@@ -708,6 +710,44 @@ mod test_virtual_file {
                 "`/` is empty",
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_poll_write_ready_for_write_only_file() {
+        let fs = FileSystem::default();
+        let mut file = fs
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to create a new file");
+        let waker = Waker::noop();
+        let mut cx = Context::from_waker(waker);
+
+        assert!(matches!(
+            Pin::new(file.as_mut()).poll_write_ready(&mut cx),
+            Poll::Ready(Ok(8192))
+        ));
+    }
+
+    #[tokio::test]
+    async fn test_poll_write_ready_for_custom_device_file() {
+        let fs = FileSystem::default();
+        fs.insert_device_file(path!("/dev").to_path_buf(), Box::<BufferFile>::default())
+            .expect("failed to insert a device file");
+
+        let mut file = fs
+            .new_open_options()
+            .write(true)
+            .open(path!("/dev"))
+            .expect("failed to open device file");
+        let waker = Waker::noop();
+        let mut cx = Context::from_waker(waker);
+
+        assert!(matches!(
+            Pin::new(file.as_mut()).poll_write_ready(&mut cx),
+            Poll::Ready(Ok(8192))
+        ));
     }
 }
 
