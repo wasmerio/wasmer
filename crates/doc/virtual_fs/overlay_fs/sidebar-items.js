@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["open_copy_on_write","should_continue"],"struct":["OverlayFileSystem"]};
+window.SIDEBAR_ITEMS = {"fn":["open_copy_on_write","should_continue","unlink_overlay_path"],"struct":["OverlayFileSystem","SecondaryFile"]};
