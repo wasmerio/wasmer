@@ -215,7 +215,7 @@ impl<T> WasmRefAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {
-    /// Returns a reference to an unitialized reference to this value
+    /// Returns a reference to an uninitialized reference to this value
     pub fn as_mut_uninit(&mut self) -> &mut MaybeUninit<T> {
         let ret: &mut T = self.buf.as_mut();
         let ret: &mut MaybeUninit<T> = unsafe { std::mem::transmute(ret) };

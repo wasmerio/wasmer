@@ -67,15 +67,47 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     ret
 }
 
+fn path_suffix_to_guest_absolute(stripped: &Path) -> PathBuf {
+    let mut stripped = stripped.to_string_lossy().into_owned();
+    if std::path::MAIN_SEPARATOR == '\\' {
+        stripped = stripped.replace('\\', "/");
+    }
+
+    PathBuf::from(format!("/{}", stripped.trim_start_matches('/')))
+}
+
+fn strip_host_root(root: &Path, target: &Path) -> Option<PathBuf> {
+    target
+        .strip_prefix(root)
+        .ok()
+        .map(path_suffix_to_guest_absolute)
+}
+
+fn host_root_relative_target(root: &Path, target: PathBuf) -> PathBuf {
+    if root == Path::new("/") || !target.is_absolute() {
+        return target;
+    }
+
+    if let Some(target) = strip_host_root(root, &target) {
+        return target;
+    }
+
+    if let Ok(canonical_target) = canonicalize(&target)
+        && let Some(target) = strip_host_root(root, &canonical_target)
+    {
+        return target;
+    }
+
+    target
+}
+
 impl FileSystem {
     pub fn new(handle: Handle, root: impl Into<PathBuf>) -> Result<Self> {
         let root = canonicalize(&root.into())?;
 
         Ok(FileSystem { handle, root })
     }
-}
 
-impl FileSystem {
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
         let path = normalize_path(path);
 
@@ -99,7 +131,8 @@ impl crate::FileSystem for FileSystem {
     fn readlink(&self, path: &Path) -> Result<PathBuf> {
         let path = self.prepare_path(path)?;
 
-        fs::read_link(path).map_err(Into::into)
+        let target = fs::read_link(path)?;
+        Ok(host_root_relative_target(&self.root, target))
     }
 
     fn read_dir(&self, path: &Path) -> Result<ReadDir> {
@@ -117,7 +150,7 @@ impl crate::FileSystem for FileSystem {
                     .to_owned();
                 let path = Path::new("/").join(path);
 
-                let metadata = entry.metadata()?;
+                let metadata = fs::symlink_metadata(entry.path())?;
 
                 Ok(DirEntry {
                     path,
@@ -1314,7 +1347,7 @@ mod tests {
         let root_metadata = fs.metadata(Path::new("/")).unwrap();
 
         assert!(root_metadata.ft.dir);
-        // it seems created is not evailable on musl, at least on CI testing.
+        // it seems created is not available on musl, at least on CI testing.
         #[cfg(not(target_env = "musl"))]
         assert_eq!(root_metadata.accessed, root_metadata.created);
         #[cfg(not(target_env = "musl"))]
@@ -1358,10 +1391,14 @@ mod tests {
     #[tokio::test]
     async fn test_rejects_host_absolute_paths_inside_root() {
         let temp = TempDir::new().unwrap();
-        let file_path = temp.path().join("foo.txt");
+        // Some platforms (e.g. mac) symlink /tmp to /private/tmp, so we need to canonicalize
+        // the path to get the real one, making sure the guest and host paths line up.
+        let temp_canon = super::canonicalize(temp.path()).expect("canonicalize temp dir");
+
+        let file_path = temp_canon.join("foo.txt");
         std::fs::write(&file_path, b"hello").unwrap();
 
-        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
+        let fs = FileSystem::new(Handle::current(), &temp_canon).expect("get filesystem");
 
         assert_eq!(fs.metadata(&file_path), Err(FsError::InvalidInput));
         assert!(matches!(

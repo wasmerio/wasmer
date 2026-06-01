@@ -1200,7 +1200,7 @@ impl MachineARM64 {
     }
 
     fn set_default_nan(&mut self, temps: &mut Vec<GPR>) -> Result<GPR, CompileError> {
-        // temporarly set FPCR to DefaultNan
+        // temporarily set FPCR to DefaultNan
         let old_fpcr = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
@@ -1230,7 +1230,7 @@ impl MachineARM64 {
         Ok(old_fpcr)
     }
     fn set_trap_enabled(&mut self, temps: &mut Vec<GPR>) -> Result<GPR, CompileError> {
-        // temporarly set FPCR to DefaultNan
+        // temporarily set FPCR to DefaultNan
         let old_fpcr = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
@@ -1273,7 +1273,7 @@ impl MachineARM64 {
         Ok(fpsr)
     }
 
-    fn trap_float_convertion_errors(
+    fn trap_float_conversion_errors(
         &mut self,
         old_fpcr: GPR,
         sz: Size,
@@ -2246,7 +2246,7 @@ impl Machine for MachineARM64 {
         let mut tempn = vec![];
         let mut temps = vec![];
         let old_fpcr = self.set_default_nan(&mut temps)?;
-        // use FMAX (input, intput) => output to automaticaly normalize the NaN
+        // use FMAX (input, input) => output to automatically normalize the NaN
         match (sz, input, output) {
             (Size::S32, Location::SIMD(_), Location::SIMD(_)) => {
                 self.assembler.emit_fmax(sz, input, input, output)?;
@@ -7667,7 +7667,7 @@ impl Machine for MachineARM64 {
                 .emit_fcvtzu(Size::S64, src, Size::S64, dest)?;
         }
         if !sat {
-            self.trap_float_convertion_errors(old_fpcr, Size::S64, src, &mut gprs)?;
+            self.trap_float_conversion_errors(old_fpcr, Size::S64, src, &mut gprs)?;
         }
         if ret != dest {
             self.move_location(Size::S64, dest, ret)?;
@@ -7706,7 +7706,7 @@ impl Machine for MachineARM64 {
                 .emit_fcvtzu(Size::S64, src, Size::S32, dest)?;
         }
         if !sat {
-            self.trap_float_convertion_errors(old_fpcr, Size::S64, src, &mut gprs)?;
+            self.trap_float_conversion_errors(old_fpcr, Size::S64, src, &mut gprs)?;
         }
         if ret != dest {
             self.move_location(Size::S32, dest, ret)?;
@@ -7745,7 +7745,7 @@ impl Machine for MachineARM64 {
                 .emit_fcvtzu(Size::S32, src, Size::S64, dest)?;
         }
         if !sat {
-            self.trap_float_convertion_errors(old_fpcr, Size::S32, src, &mut gprs)?;
+            self.trap_float_conversion_errors(old_fpcr, Size::S32, src, &mut gprs)?;
         }
         if ret != dest {
             self.move_location(Size::S64, dest, ret)?;
@@ -7784,7 +7784,7 @@ impl Machine for MachineARM64 {
                 .emit_fcvtzu(Size::S32, src, Size::S32, dest)?;
         }
         if !sat {
-            self.trap_float_convertion_errors(old_fpcr, Size::S32, src, &mut gprs)?;
+            self.trap_float_conversion_errors(old_fpcr, Size::S32, src, &mut gprs)?;
         }
         if ret != dest {
             self.move_location(Size::S32, dest, ret)?;

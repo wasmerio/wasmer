@@ -39,7 +39,7 @@ pub struct Binfmt {
 }
 
 // Quick safety check:
-// This folder isn't world writeable (or else its sticky bit is set), and neither are its parents.
+// This folder isn't world writable (or else its sticky bit is set), and neither are its parents.
 //
 // If somebody mounted /tmp wrong, this might result in a TOCTOU problem.
 fn seccheck(path: &Path) -> Result<()> {
@@ -51,7 +51,7 @@ fn seccheck(path: &Path) -> Result<()> {
     use unix_mode::*;
     anyhow::ensure!(
         !is_allowed(Accessor::Other, Access::Write, m.mode()) || is_sticky(m.mode()),
-        "{} is world writeable and not sticky ({m:?})",
+        "{} is world writable and not sticky ({m:?})",
         path.to_string_lossy()
     );
     Ok(())

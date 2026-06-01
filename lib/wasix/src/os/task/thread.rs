@@ -315,7 +315,9 @@ impl WasiThread {
     /// just return that earlier set exit code
     pub fn set_or_get_exit_code_for_signal(&self, sig: Signal) -> ExitCode {
         let default_exitcode: ExitCode = match sig {
-            Signal::Sigquit | Signal::Sigabrt => Errno::Success.into(),
+            Signal::Sigquit => Errno::Success.into(),
+            // Match the POSIX shell convention for signal termination.
+            Signal::Sigabrt => ExitCode::from(128 + sig as i32),
             Signal::Sigpipe => Errno::Pipe.into(),
             _ => Errno::Intr.into(),
         };
@@ -539,11 +541,8 @@ impl WasiThread {
                     snapshot.store_data.clone(),
                 ));
             }
-            if let Some(next) = pstack.next.as_ref() {
-                pstack = next.deref();
-            } else {
-                return None;
-            }
+            let next = pstack.next.as_ref()?;
+            pstack = next.deref();
         }
     }
 

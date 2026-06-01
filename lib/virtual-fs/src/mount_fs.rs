@@ -1,15 +1,19 @@
 //! A mount-topology filesystem that routes operations by path,
 //! its not as simple as TmpFs. not currently used but was used by
-//! the previoulsy implementation of Deploy - now using TmpFs
+//! the previously implementation of Deploy - now using TmpFs
 
 use crate::*;
 
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     ffi::OsString,
     path::{Path, PathBuf},
     sync::{Arc, RwLock},
+    time::{SystemTime, UNIX_EPOCH},
 };
+
+const MIN_METADATA_TIMESTAMP: u64 = 1_000_000_000; // 1 second in nano seconds
 
 type DynFileSystem = Arc<dyn FileSystem + Send + Sync>;
 
@@ -28,6 +32,9 @@ struct MountedFileSystem {
 
 #[derive(Debug, Default)]
 struct MountNode {
+    /// Creation timestamp in nanoseconds since the Unix epoch.
+    /// Set once when the node is first inserted into the tree.
+    created_at: u64,
     mount: Option<MountedFileSystem>,
     children: BTreeMap<OsString, MountNode>,
 }
@@ -38,6 +45,10 @@ struct ExactNode {
     fs: Option<DynFileSystem>,
     source_path: PathBuf,
     child_names: BTreeSet<OsString>,
+    /// Timestamp reported for this node in nanoseconds since the Unix epoch.
+    /// For synthetic non-mounted nodes, this may be generated at lookup time
+    /// rather than representing an original creation event.
+    created_at: u64,
 }
 
 impl ExactNode {
@@ -84,14 +95,26 @@ impl MountPoint {
 
 /// Allows different filesystems of different types
 /// to be mounted at various mount points
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MountFileSystem {
     root: RwLock<MountNode>,
 }
 
+impl Default for MountFileSystem {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MountFileSystem {
     pub fn new() -> Self {
-        Self::default()
+        let ts = Self::now_nanos();
+        Self {
+            root: RwLock::new(MountNode {
+                created_at: ts,
+                ..MountNode::default()
+            }),
+        }
     }
 
     pub fn mount(
@@ -110,8 +133,9 @@ impl MountFileSystem {
     ) -> Result<()> {
         let path = self.prepare_path(path.as_ref())?;
         let source_path = Self::normalize_source_path(source_path.as_ref());
+        let ts = Self::now_nanos();
         let mut root = self.root.write().unwrap();
-        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path));
+        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path), ts);
 
         if node.mount.is_some() {
             Err(FsError::AlreadyExists)
@@ -129,7 +153,10 @@ impl MountFileSystem {
     }
 
     pub fn clear(&mut self) {
-        *self.root.write().unwrap() = MountNode::default();
+        *self.root.write().unwrap() = MountNode {
+            created_at: Self::now_nanos(),
+            ..MountNode::default()
+        };
     }
 
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
@@ -171,12 +198,19 @@ impl MountFileSystem {
         normalized
     }
 
-    fn directory_metadata() -> Metadata {
+    fn now_nanos() -> u64 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |d| d.as_nanos() as u64)
+            .max(MIN_METADATA_TIMESTAMP)
+    }
+
+    fn directory_metadata_at(ts: u64) -> Metadata {
         Metadata {
             ft: FileType::new_dir(),
-            accessed: 0,
-            created: 0,
-            modified: 0,
+            accessed: ts,
+            created: ts,
+            modified: ts,
             len: 0,
         }
     }
@@ -188,10 +222,10 @@ impl MountFileSystem {
         )
     }
 
-    fn synthetic_entry(name: OsString, base: &Path) -> DirEntry {
+    fn synthetic_entry(name: OsString, base: &Path, ts: u64) -> DirEntry {
         DirEntry {
             path: base.join(PathBuf::from(name)),
-            metadata: Ok(Self::directory_metadata()),
+            metadata: Ok(Self::directory_metadata_at(ts)),
         }
     }
 
@@ -233,6 +267,7 @@ impl MountFileSystem {
         Some(ExactNode {
             path: visible_path.clone(),
             fs: mounted.as_ref().map(|mount| mount.fs.clone()),
+            created_at: node.created_at,
             source_path: mounted
                 .map(|mount| mount.source_path)
                 .unwrap_or_else(|| PathBuf::from("/")),
@@ -240,8 +275,8 @@ impl MountFileSystem {
         })
     }
 
-    fn resolve_mount(&self, path: PathBuf) -> Option<ResolvedMount> {
-        let path = self.prepare_path(&path).ok()?;
+    fn resolve_mount(&self, path: impl AsRef<Path>) -> Option<ResolvedMount> {
+        let path = self.prepare_path(path.as_ref()).ok()?;
         let components = Self::path_components(&path);
         let root = self.root.read().unwrap();
         let mut node = &*root;
@@ -292,10 +327,24 @@ impl MountFileSystem {
     fn read_dir_from_exact_node(&self, node: &ExactNode) -> Result<ReadDir> {
         let mut entries = Vec::new();
 
-        if let Some(fs) = &node.fs {
-            match fs.read_dir(&node.source_path) {
+        let backing = if let Some(fs) = &node.fs {
+            Some((
+                fs.read_dir(&node.source_path),
+                Cow::Borrowed(node.source_path.as_path()),
+            ))
+        } else {
+            self.resolve_mount(&node.path).map(|resolved| {
+                (
+                    resolved.fs.read_dir(&resolved.delegated_path),
+                    Cow::Owned(resolved.delegated_path),
+                )
+            })
+        };
+
+        if let Some((base_entries, source_path)) = backing {
+            match base_entries {
                 Ok(mut base_entries) => {
-                    Self::rebase_entries(&mut base_entries, &node.source_path, &node.path);
+                    Self::rebase_entries(&mut base_entries, &source_path, &node.path);
                     entries.extend(base_entries.data.into_iter().filter(|entry| {
                         entry
                             .path
@@ -304,6 +353,7 @@ impl MountFileSystem {
                             .unwrap_or(true)
                     }));
                 }
+                Err(FsError::EntryNotFound) if node.has_children() => {}
                 Err(error)
                     if node.has_children() && Self::should_fallback_to_synthetic_dir(&error) => {}
                 Err(error) => return Err(error),
@@ -314,16 +364,26 @@ impl MountFileSystem {
             node.child_names
                 .iter()
                 .cloned()
-                .map(|name| Self::synthetic_entry(name, &node.path)),
+                .map(|name| Self::synthetic_entry(name, &node.path, node.created_at)),
         );
 
         Ok(ReadDir::new(entries))
     }
 
-    fn mount_node_mut<'a>(node: &'a mut MountNode, components: &[OsString]) -> &'a mut MountNode {
+    fn mount_node_mut<'a>(
+        node: &'a mut MountNode,
+        components: &[OsString],
+        ts: u64,
+    ) -> &'a mut MountNode {
         let mut node = node;
         for component in components {
-            node = node.children.entry(component.clone()).or_default();
+            node = node
+                .children
+                .entry(component.clone())
+                .or_insert_with(|| MountNode {
+                    created_at: ts,
+                    ..MountNode::default()
+                });
         }
 
         node
@@ -340,8 +400,9 @@ impl MountFileSystem {
         fs: Arc<dyn FileSystem + Send + Sync>,
     ) -> Result<()> {
         let path = self.prepare_path(path.as_ref())?;
+        let ts = Self::now_nanos();
         let mut root = self.root.write().unwrap();
-        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path));
+        let node = Self::mount_node_mut(&mut root, &Self::path_components(&path), ts);
         node.mount = Some(MountedFileSystem {
             fs,
             source_path: PathBuf::from("/"),
@@ -373,10 +434,12 @@ impl MountFileSystem {
                         continue;
                     }
                     ExactMountConflictMode::ReplaceExisting => {
+                        let ts = Self::now_nanos();
                         let mut root = self.root.write().unwrap();
                         let node = Self::mount_node_mut(
                             &mut root,
                             &Self::path_components(&self.prepare_path(&entry.path)?),
+                            ts,
                         );
                         Self::clear_descendants(node);
                         node.mount = Some(MountedFileSystem {
@@ -496,6 +559,37 @@ impl FileSystem for MountFileSystem {
         }
     }
 
+    fn hard_link(&self, source: &Path, target: &Path) -> Result<()> {
+        let source = self.prepare_path(source)?;
+        let target = self.prepare_path(target)?;
+
+        if source.as_os_str().is_empty() {
+            return Err(FsError::PermissionDenied);
+        }
+
+        if target.as_os_str().is_empty() {
+            return Err(FsError::AlreadyExists);
+        }
+
+        if let Some(node) = self.exact_node(&target)
+            && (node.fs.is_some() || node.has_children())
+        {
+            return Err(FsError::AlreadyExists);
+        }
+
+        match (self.resolve_mount(source), self.resolve_mount(target)) {
+            (Some(source_mount), Some(target_mount))
+                if source_mount.mount_path == target_mount.mount_path =>
+            {
+                source_mount
+                    .fs
+                    .hard_link(&source_mount.delegated_path, &target_mount.delegated_path)
+            }
+            (Some(_), Some(_)) => Err(FsError::Unsupported),
+            _ => Err(FsError::EntryNotFound),
+        }
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 
@@ -568,13 +662,13 @@ impl FileSystem for MountFileSystem {
             return if let Some(fs) = node.fs {
                 fs.metadata(&node.source_path).or_else(|error| {
                     if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata())
+                        Ok(Self::directory_metadata_at(node.created_at))
                     } else {
                         Err(error)
                     }
                 })
             } else if node.has_children() {
-                Ok(Self::directory_metadata())
+                Ok(Self::directory_metadata_at(node.created_at))
             } else {
                 Err(FsError::EntryNotFound)
             };
@@ -593,13 +687,13 @@ impl FileSystem for MountFileSystem {
             return if let Some(fs) = node.fs {
                 fs.symlink_metadata(&node.source_path).or_else(|error| {
                     if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata())
+                        Ok(Self::directory_metadata_at(node.created_at))
                     } else {
                         Err(error)
                     }
                 })
             } else if node.has_children() {
-                Ok(Self::directory_metadata())
+                Ok(Self::directory_metadata_at(node.created_at))
             } else {
                 Err(FsError::EntryNotFound)
             };
@@ -1153,8 +1247,22 @@ mod tests {
         )
         .unwrap();
 
-        assert!(fs.metadata(Path::new("/opaque")).unwrap().is_dir());
-        assert!(fs.symlink_metadata(Path::new("/opaque")).unwrap().is_dir());
+        let meta1 = fs.metadata(Path::new("/opaque")).unwrap();
+        let sym1 = fs.symlink_metadata(Path::new("/opaque")).unwrap();
+        assert!(meta1.is_dir());
+        assert!(sym1.is_dir());
+
+        // Timestamps must be non-zero (regression guard against the old `0` placeholders).
+        assert!(meta1.created > 0, "created timestamp must be non-zero");
+        assert!(meta1.modified > 0, "modified timestamp must be non-zero");
+        assert!(meta1.accessed > 0, "accessed timestamp must be non-zero");
+
+        // Repeated calls must return the same stable timestamps (not re-sampled each time).
+        let meta2 = fs.metadata(Path::new("/opaque")).unwrap();
+        assert_eq!(meta1.created, meta2.created, "created must be stable");
+        assert_eq!(meta1.modified, meta2.modified, "modified must be stable");
+        assert_eq!(meta1.accessed, meta2.accessed, "accessed must be stable");
+
         assert_eq!(fs.create_dir(Path::new("/opaque")), Ok(()));
     }
 
@@ -1493,6 +1601,74 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_nested_mount_inside_tree_preserves_sibling_files() {
+        let fs = MountFileSystem::new();
+
+        let python = mem_fs::FileSystem::default();
+        create_dir_all(&python, Path::new("/usr/local/lib/python3.13/encodings"));
+        python
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/usr/local/lib/python3.13/encodings/__init__.py"))
+            .unwrap();
+
+        let host = mem_fs::FileSystem::default();
+        host.new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/marker.txt"))
+            .unwrap();
+
+        fs.mount(Path::new("/"), Arc::new(python)).unwrap();
+        fs.mount(Path::new("/usr/local/lib/python3.13/test"), Arc::new(host))
+            .unwrap();
+
+        assert!(
+            fs.metadata(Path::new("/usr/local/lib/python3.13/encodings/__init__.py"))
+                .unwrap()
+                .is_file()
+        );
+        assert!(
+            fs.metadata(Path::new("/usr/local/lib/python3.13/test/marker.txt"))
+                .unwrap()
+                .is_file()
+        );
+
+        fs.new_open_options()
+            .read(true)
+            .open(Path::new("/usr/local/lib/python3.13/encodings/__init__.py"))
+            .unwrap();
+        fs.new_open_options()
+            .read(true)
+            .open(Path::new("/usr/local/lib/python3.13/test/marker.txt"))
+            .unwrap();
+
+        let mut entries = read_dir_names(&fs, "/usr/local/lib/python3.13");
+        entries.sort();
+        assert_eq!(entries, vec!["encodings".to_string(), "test".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn test_synthetic_parent_without_backing_dir_lists_child_mount() {
+        let fs = MountFileSystem::new();
+        fs.mount(Path::new("/"), Arc::new(mem_fs::FileSystem::default()))
+            .unwrap();
+
+        let child = mem_fs::FileSystem::default();
+        child
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/marker.txt"))
+            .unwrap();
+        fs.mount(Path::new("/foo/bar"), Arc::new(child)).unwrap();
+
+        let entries = read_dir_names(&fs, "/foo");
+        assert_eq!(entries, vec!["bar".to_string()]);
+    }
+
+    #[tokio::test]
     async fn test_import_mounts_allows_shared_prefix_without_exact_mount_conflict() {
         let primary = MountFileSystem::new();
         let bin = mem_fs::FileSystem::default();
@@ -1682,6 +1858,18 @@ mod tests {
             .unwrap()
             .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
             .collect::<Vec<_>>()
+    }
+
+    fn create_dir_all(fs: &mem_fs::FileSystem, path: &Path) {
+        let mut current = PathBuf::from("/");
+
+        for component in path.iter().skip(1) {
+            current.push(component);
+
+            if fs.metadata(&current).is_err() {
+                fs.create_dir(&current).unwrap();
+            }
+        }
     }
 
     #[tokio::test]
@@ -2031,102 +2219,4 @@ mod tests {
 
         let _ = fs_extra::remove_items(&["./test_readdir"]);
     }
-
-    /*
-    #[tokio::test]
-    async fn test_canonicalize() {
-        let fs = gen_filesystem();
-
-        let root_dir = env!("CARGO_MANIFEST_DIR");
-
-        let _ = fs_extra::remove_items(&["./test_canonicalize"]);
-
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize")),
-            Ok(()),
-            "creating `test_canonicalize`"
-        );
-
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo")),
-            Ok(()),
-            "creating `foo`"
-        );
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo/bar")),
-            Ok(()),
-            "creating `bar`"
-        );
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo/bar/baz")),
-            Ok(()),
-            "creating `baz`",
-        );
-        assert_eq!(
-            fs.create_dir(Path::new("./test_canonicalize/foo/bar/baz/qux")),
-            Ok(()),
-            "creating `qux`",
-        );
-        assert!(
-            matches!(
-                fs.new_open_options()
-                    .write(true)
-                    .create_new(true)
-                    .open(Path::new("./test_canonicalize/foo/bar/baz/qux/hello.txt")),
-                Ok(_)
-            ),
-            "creating `hello.txt`",
-        );
-
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize")).to_path_buf()),
-            "canonicalizing `/`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("foo")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `foo`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/././././foo/")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo")).to_path_buf()),
-            "canonicalizing `/././././foo/`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/foo/bar//")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar")).to_path_buf()),
-            "canonicalizing `/foo/bar//`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../bar")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar")).to_path_buf()),
-            "canonicalizing `/foo/bar/../bar`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("./test_canonicalize/foo/bar/../..")),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize")).to_path_buf()),
-            "canonicalizing `/foo/bar/../..`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("/foo/bar/../../..")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `/foo/bar/../../..`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new("C:/foo/")),
-            Err(FsError::InvalidInput),
-            "canonicalizing `C:/foo/`",
-        );
-        assert_eq!(
-            fs.canonicalize(Path::new(
-                "./test_canonicalize/foo/./../foo/bar/../../foo/bar/./baz/./../baz/qux/../../baz/./qux/hello.txt"
-            )),
-            Ok(Path::new(&format!("{root_dir}/test_canonicalize/foo/bar/baz/qux/hello.txt")).to_path_buf()),
-            "canonicalizing a crazily stupid path name",
-        );
-
-        let _ = fs_extra::remove_items(&["./test_canonicalize"]);
-    }
-    */
 }

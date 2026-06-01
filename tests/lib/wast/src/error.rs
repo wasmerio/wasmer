@@ -15,7 +15,7 @@ pub struct DirectiveError {
 /// A structure holding the list of all executed directives
 #[derive(Error, Debug)]
 pub struct DirectiveErrors {
-    /// The filename where the error occured
+    /// The filename where the error occurred
     pub filename: String,
     /// The list of errors
     pub errors: Vec<DirectiveError>,

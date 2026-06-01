@@ -376,7 +376,7 @@ impl crate::FileOpener for FileSystem {
             None => None,
         };
 
-        let mut cursor = 0u64;
+        let cursor = 0u64;
         let (inode_of_file, handle_lifecycle) = match maybe_inode_of_file {
             // The file already exists, and a _new_ one _must_ be
             // created; it's not OK.
@@ -403,11 +403,6 @@ impl crate::FileOpener for FileSystem {
                             metadata.len = 0;
                         }
 
-                        // Move the cursor to the end if needed.
-                        if append {
-                            cursor = file.len() as u64;
-                        }
-
                         lifecycle.clone()
                     }
 
@@ -424,11 +419,6 @@ impl crate::FileOpener for FileSystem {
                         if truncate {
                             file.truncate();
                             metadata.len = 0;
-                        }
-
-                        // Move the cursor to the end if needed.
-                        if append {
-                            cursor = file.len();
                         }
 
                         lifecycle.clone()
@@ -457,11 +447,6 @@ impl crate::FileOpener for FileSystem {
                             node.metadata.len = 0;
                         }
 
-                        // Move the cursor to the end if needed.
-                        if append {
-                            cursor = file.size();
-                        }
-
                         node.lifecycle.clone()
                     }
 
@@ -484,11 +469,6 @@ impl crate::FileOpener for FileSystem {
                         if truncate {
                             file.set_len(0)?;
                             node.metadata.len = 0;
-                        }
-
-                        // Move the cursor to the end if needed.
-                        if append {
-                            cursor = file.size();
                         }
 
                         node.lifecycle.clone()

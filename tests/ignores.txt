@@ -1,4 +1,14 @@
 # Compilers
+# V8 is a runtime backend, not a wasmer-compiler CompilerConfig, so these
+# sys-compiler-specific tests do not apply.
+v8 middlewares
+v8 metering
+v8 deterministic
+v8 issues::reports_progress_steps
+v8 issues::progress_can_abort
+v8 imports::dynamic_function
+v8 serialize::test_deserialize
+
 # SIMD
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 singlepass relaxed # Singlepass doesn't support relaxed SIMD yet
@@ -18,6 +28,7 @@ macos+cranelift wasmer::exception_handling
 
 # Misc
 singlepass wide_arithmetic
+v8 wide_arithmetic
 singlepass spec::linking
 cranelift spec::linking
 llvm spec::linking
@@ -49,7 +60,7 @@ singlepass+aarch64+macos traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
 cranelift+aarch64+macos    traps::trap_display_multi_module
 windows+singlepass   traps::trap_display_multi_module
-singlepass traps::call_signature_mismatch   # Need to investigate, get foo (a[0]:0x33) instead of 0x30 for inderect call
+singlepass traps::call_signature_mismatch   # Need to investigate, get foo (a[0]:0x33) instead of 0x30 for indirect call
 llvm       traps::call_signature_mismatch
 macos+aarch64    traps::call_signature_mismatch
 singlepass+aarch64+macos traps::start_trap_pretty
@@ -65,21 +76,21 @@ llvm+loongarch64  spec::skip_stack_guard_page
 llvm+windows      issues::huge_number_of_arguments_fn
 
 # riscv support is still early, function call ABI needs some work
-llvm+riscv64      static_function::llvm::universal
-llvm+riscv64      static_function_with_env::llvm::universal
-llvm+riscv64      static_function_with_results::llvm::universal
-llvm+riscv64      spec::f32::llvm::universal
-llvm+riscv64      spec::f64::llvm::universal
-llvm+riscv64      spec::float_misc::llvm::universal
-llvm+riscv64      spec::memory_copy::llvm::universal
-llvm+riscv64      spec::memory_init::llvm::universal
-llvm+riscv64      spec::memory_trap::llvm::universal
-llvm+riscv64      spec::multi_value::binary::llvm::universal
-llvm+riscv64      spec::multi_value::block::llvm::universal
-llvm+riscv64      spec::simd::simd_align::llvm::universal
-llvm+riscv64      spec::simd::simd_f32x4_rounding::llvm::universal
-llvm+riscv64      spec::simd::simd_f64x2_rounding::llvm::universal
-llvm+riscv64      wasmer::nan_canonicalization::llvm::universal
+llvm+riscv64      static_function::llvm
+llvm+riscv64      static_function_with_env::llvm
+llvm+riscv64      static_function_with_results::llvm
+llvm+riscv64      spec::f32::llvm
+llvm+riscv64      spec::f64::llvm
+llvm+riscv64      spec::float_misc::llvm
+llvm+riscv64      spec::memory_copy::llvm
+llvm+riscv64      spec::memory_init::llvm
+llvm+riscv64      spec::memory_trap::llvm
+llvm+riscv64      spec::multi_value::binary::llvm
+llvm+riscv64      spec::multi_value::block::llvm
+llvm+riscv64      spec::simd::simd_align::llvm
+llvm+riscv64      spec::simd::simd_f32x4_rounding::llvm
+llvm+riscv64      spec::simd::simd_f64x2_rounding::llvm
+llvm+riscv64      wasmer::nan_canonicalization::llvm
 
 #6032
 llvm+riscv64      wasmer::stack_overflow_sret::llvm
@@ -98,22 +109,22 @@ cranelift+riscv64 wasmer::simd_generated_ext_ops
 cranelift+riscv64 wasmer::simd
 
 # loongarch64 support is still early, function call ABI needs some work
-llvm+loongarch64  static_function::llvm::universal
-llvm+loongarch64  static_function_with_env::llvm::universal
-llvm+loongarch64  static_function_with_results::llvm::universal
-llvm+loongarch64  spec::f32::llvm::universal
-llvm+loongarch64  spec::f64::llvm::universal
-llvm+loongarch64  spec::float_misc::llvm::universal
-llvm+loongarch64  spec::memory_copy::llvm::universal
-llvm+loongarch64  spec::memory_init::llvm::universal
-llvm+loongarch64  spec::memory_trap::llvm::universal
-llvm+loongarch64  spec::multi_value::binary::llvm::universal
-llvm+loongarch64  spec::multi_value::block::llvm::universal
-llvm+loongarch64  spec::simd::simd_align::llvm::universal
-llvm+loongarch64  spec::simd::simd_f32x4_rounding::llvm::universal
-llvm+loongarch64  spec::simd::simd_f64x2_rounding::llvm::universal
-llvm+loongarch64  wasmer::nan_canonicalization::llvm::universal
-llvm+loongarch64  wasmer::stack_overflow_sret::llvm::universal
+llvm+loongarch64  static_function::llvm
+llvm+loongarch64  static_function_with_env::llvm
+llvm+loongarch64  static_function_with_results::llvm
+llvm+loongarch64  spec::f32::llvm
+llvm+loongarch64  spec::f64::llvm
+llvm+loongarch64  spec::float_misc::llvm
+llvm+loongarch64  spec::memory_copy::llvm
+llvm+loongarch64  spec::memory_init::llvm
+llvm+loongarch64  spec::memory_trap::llvm
+llvm+loongarch64  spec::multi_value::binary::llvm
+llvm+loongarch64  spec::multi_value::block::llvm
+llvm+loongarch64  spec::simd::simd_align::llvm
+llvm+loongarch64  spec::simd::simd_f32x4_rounding::llvm
+llvm+loongarch64  spec::simd::simd_f64x2_rounding::llvm
+llvm+loongarch64  wasmer::nan_canonicalization::llvm
+llvm+loongarch64  wasmer::stack_overflow_sret::llvm
 
 # #6017 - a crash in the LLVM compiler
 llvm+loongarch64  spec::simd::simd_f32x4::llvm
@@ -187,11 +198,11 @@ wasitests::unstable::mem_fs::fd_close
 
 ### failing because we're operating on stdout which is now overridden.
 ### TODO: check WasiFile implementation
-### Alterative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
+### Alternative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
 wasitests::unstable::host_fs::poll_oneoff
 wasitests::unstable::mem_fs::poll_oneoff
 
-### randomly failed, mainly on windows but also on macos, due to a race condition when concurently testing multiple compiler / engines
+### randomly failed, mainly on windows but also on macos, due to a race condition when concurrently testing multiple compiler / engines
 wasitests::snapshot1::host_fs::fd_rename_path
 
 # This tests are disabled for now
@@ -426,3 +437,10 @@ llvm+windows      multi_value_imports
 llvm+loongarch64  multi_value_imports
 llvm+riscv64      multi_value_imports
 llvm+windows      static_function_with_results
+
+# V8 ignores
+v8                  table64
+v8                  wasmer::nan_canonicalization
+#6571
+v8                  spec::global
+v8                  spec::table_grow

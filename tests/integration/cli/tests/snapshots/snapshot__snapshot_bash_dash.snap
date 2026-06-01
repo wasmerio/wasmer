@@ -1,21 +1,15 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1209
 expression: snapshot
 ---
 {
   "spec": {
     "name": "snapshot::test_snapshot_bash_dash",
     "use_packages": [
-      "sharrattj/dash"
+      "wasmer/bash"
     ],
-    "include_webcs": [
-      {
-        "name": "sharrattj/dash@1.0.16"
-      },
-      {
-        "name": "sharrattj/coreutils@1.0.11"
-      }
-    ],
+    "include_webcs": [],
     "cli_args": [],
     "stdin_hash": "702da725f176c20024965c8830b620ae",
     "enable_threads": true,
@@ -24,7 +18,7 @@ expression: snapshot
   "result": {
     "Success": {
       "stdout": "hi\n",
-      "stderr": "test.wasm-5.1# # # test.wasm-5.1# exit\n",
+      "stderr": "test.wasm-5.1# test.wasm-5.1# test.wasm-5.1# exit\n",
       "exit_code": 0
     }
   }

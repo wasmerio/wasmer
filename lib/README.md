@@ -4,9 +4,9 @@ The philosophy of Wasmer is to be very modular by design. It's
 composed of a set of crates. We can group them as follows:
 
 * `api` — The public Rust or JS API exposes everything a user needs to use Wasmer
-  programatically through the `wasmer` crate,
+  programmatically through the `wasmer` crate,
 * `c-api` — The public C API exposes everything a C user needs to use
-  Wasmer programatically,
+  Wasmer programmatically,
 * `cache` — The traits and types to cache compiled WebAssembly
   modules,
 * `cli` — The Wasmer CLI itself,
@@ -29,7 +29,7 @@ composed of a set of crates. We can group them as follows:
   same compiler, the runtime performance will be approximately the
   same, however the way it stores and loads the executable code will
   differ:
-  * `engine-universal` — stores the code in a custom file format, and
+  * `engine` — stores the code in a custom file format, and
     loads it in memory,
   * `object` — A library to cross-generate native objects for various
     platforms.

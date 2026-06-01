@@ -81,7 +81,7 @@ pub use tokio::io::{AsyncRead, AsyncReadExt};
 pub use tokio::io::{AsyncSeek, AsyncSeekExt};
 pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-pub trait ClonableVirtualFile: VirtualFile + Clone {}
+pub trait CloneableVirtualFile: VirtualFile + Clone {}
 
 pub use ops::{copy_reference, copy_reference_ext, create_dir_all, walk};
 
@@ -90,6 +90,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
     fn create_symlink(&self, _source: &Path, _target: &Path) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
+    fn hard_link(&self, _source: &Path, _target: &Path) -> Result<()> {
         Err(FsError::Unsupported)
     }
     fn remove_dir(&self, path: &Path) -> Result<()>;

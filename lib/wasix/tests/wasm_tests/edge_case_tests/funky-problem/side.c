@@ -14,7 +14,7 @@ void repro() {
   // Take the address and assign it to a global variable to prevent
   // the compiler from optimizing it away.
   keep = &cool_fn;
-  // Printing afterwards is neccessary. Maybe any call to the main module works?
+  // Printing afterwards is necessary. Maybe any call to the main module works?
   printf(".");
   int after = !!cool_fn;
   if (before == after) {

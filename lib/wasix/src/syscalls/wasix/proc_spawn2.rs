@@ -1,3 +1,4 @@
+use virtual_mio::block_on;
 use wasmer::FromToNativeWasmType;
 use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
 
@@ -203,42 +204,10 @@ fn apply_fd_op<M: MemorySize>(
             env.state.fs.close_fd(op.fd)
         }
         ProcSpawnFdOpName::Dup2 => {
-            let target_fd = env.state.fs.get_fd(op.fd).ok();
-            if let Some(fd) = target_fd.as_ref()
-                && !fd.is_stdio
-                && fd.inode.is_preopened
-            {
-                warn!("Refusing dup2 FD action over pre-opened FD ({})", op.fd);
-                return Err(Errno::Notsup);
+            let flush_target = env.state.fs.dup2_at(op.src_fd, op.fd)?;
+            if let Some(file) = flush_target {
+                block_on(WasiFs::flush_file_best_effort(file));
             }
-
-            // According to POSIX dup2 semantics, the target fd should always be closed before duplication
-            // EXCEPT when duplicating a fd to itself (src_fd == fd), which is a no-op.
-            if op.src_fd != op.fd && target_fd.is_some() {
-                env.state.fs.close_fd(op.fd)?;
-            }
-
-            let mut fd_map = env.state.fs.fd_map.write().unwrap();
-            let fd_entry = fd_map.get(op.src_fd).ok_or(Errno::Badf)?;
-
-            let new_fd_entry = Fd {
-                // TODO: verify this is correct
-                inner: FdInner {
-                    offset: fd_entry.inner.offset.clone(),
-                    rights: fd_entry.inner.rights_inheriting,
-                    fd_flags: {
-                        let mut f = fd_entry.inner.fd_flags;
-                        f.set(Fdflagsext::CLOEXEC, false);
-                        f
-                    },
-                    ..fd_entry.inner
-                },
-                inode: fd_entry.inode.clone(),
-                ..*fd_entry
-            };
-
-            // Exclusive insert because we expect `to` to be empty after closing it above
-            fd_map.insert(true, op.fd, new_fd_entry);
             Ok(())
         }
         ProcSpawnFdOpName::Open => {

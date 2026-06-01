@@ -25,7 +25,7 @@ pub enum SnapshotTrigger {
     Sigtstp,
     /// The SIGSTOP signal instructs the operating system to stop a process for later resumption.
     Sigstop,
-    /// When a non-determinstic call is made
+    /// When a non-deterministic call is made
     NonDeterministicCall,
     /// Bootstrapping process
     Bootstrap,

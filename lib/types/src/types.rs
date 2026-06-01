@@ -120,8 +120,9 @@ impl From<&[u8]> for V128 {
 ///
 /// This list can be found in [`ImportType`] or [`ExportType`], so these types
 /// can either be imported or exported.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[rkyv(derive(Debug))]
 pub enum ExternType {
     /// This external type is the type of a WebAssembly function.
     Function(FunctionType),
@@ -702,7 +703,7 @@ impl fmt::Display for MemoryType {
 /// API. Each `ImportType` describes an import into the wasm module
 /// with the module/name that it's imported from as well as the type
 /// of item that's being imported.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ImportType<T = ExternType> {
     module: String,
@@ -749,7 +750,7 @@ impl<T> ImportType<T> {
 /// The `<T>` refefers to `ExternType`, however it can also refer to use
 /// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of
 /// use.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, RkyvSerialize, RkyvDeserialize, Archive)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ExportType<T = ExternType> {
     name: String,

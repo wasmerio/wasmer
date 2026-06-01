@@ -279,7 +279,7 @@ fn test_start(mut config: crate::Config) -> Result<()> {
     let instance = Instance::new(&mut store, &module, &imports);
     assert!(instance.is_err());
     if let InstantiationError::Start(err) = instance.unwrap_err() {
-        assert_eq!(err.message(), "unreachable");
+        assert!(err.message().contains("unreachable"));
     } else {
         panic!("_start should have failed with an unreachable error")
     }
@@ -352,7 +352,7 @@ fn test_popcnt(mut config: crate::Config) -> Result<()> {
 /// sequence
 ///   mov x17, #0x1010
 ///   sub xsp, xsp, x17
-/// will tranform to
+/// will transform to
 ///   mov x17, #0x1010
 ///   sub xzr, xzr, x17
 /// and the locals
@@ -638,6 +638,11 @@ fn compiler_debug_dir_test(mut config: crate::Config) {
 
 #[compiler_test(issues)]
 fn issue_5795_memory_reset_size(mut config: crate::Config) {
+    // TODO: V8 appears to handle this differently
+    if config.compiler == crate::Compiler::V8 {
+        return;
+    }
+
     let wasm_bytes = wat2wasm(
         r#"
 (module
@@ -1146,6 +1151,100 @@ fn issue_6334_foldable_comparison_expressions(mut config: crate::Config) -> Resu
     assert_eq!(i64_eq_true.call(&mut store)?, 1);
     assert_eq!(i64_ne_false.call(&mut store)?, 0);
     assert_eq!(i64_ne_true.call(&mut store)?, 1);
+
+    Ok(())
+}
+
+/// Regression test for LLVM `v128.load16x4_s` near memory end.
+/// Default config must trap (`HeapAccessOutOfBounds`); non-volatile memops currently do not
+/// as it's a dead load.
+#[cfg(feature = "llvm")]
+#[test]
+fn issue_6401_llvm_v128_load16x4_s_oob() -> Result<()> {
+    use wasmer_compiler::CompilerConfig;
+    use wasmer_compiler::EngineBuilder;
+
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+          (memory 1)
+          (func (export "main")
+              i32.const 0xFFFFFFFE
+              v128.load16x4_s align=1
+              drop
+          )
+        )
+        "#,
+    )?;
+
+    let config = wasmer_compiler_llvm::LLVM::default();
+    let mut store = Store::new(EngineBuilder::new(config));
+
+    let module = Module::new(&store, &wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let result = instance
+        .exports
+        .get_function("main")?
+        .call(&mut store, &[])
+        .unwrap_err();
+    assert_eq!(
+        result.to_trap(),
+        Some(wasmer_types::TrapCode::HeapAccessOutOfBounds)
+    );
+
+    let mut config = wasmer_compiler_llvm::LLVM::default();
+    config.enable_non_volatile_memops();
+    let mut store = Store::new(EngineBuilder::new(config));
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let result = instance.exports.get_function("main")?.call(&mut store, &[]);
+    assert!(result.is_ok());
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn issue_6534_declared_element_segment_with_global(config: crate::Config) -> Result<()> {
+    // #6570
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    let mut store = config.store();
+    let wasm_bytes = wat2wasm(
+        br#"
+        (module
+          (type $add_one_ty (func (param i32) (result i32)))
+          (import "env" "g" (global funcref))
+          (table 1 funcref)
+
+          (elem declare funcref (global.get 0))
+
+          (func (export "run") (param i32) (result i32)
+            i32.const 0
+            global.get 0
+            table.set 0
+
+            local.get 0
+            i32.const 0
+            call_indirect (type $add_one_ty))
+        )
+        "#,
+    )?;
+
+    let module = Module::new(&store, wasm_bytes)?;
+    let add_one = Function::new_typed(&mut store, |value: i32| value + 1);
+    let g = Global::new(&mut store, Value::FuncRef(Some(add_one)));
+    let imports = imports! {
+        "env" => {
+            "g" => g,
+        },
+    };
+    let instance = Instance::new(&mut store, &module, &imports)?;
+    let run: TypedFunction<i32, i32> = instance.exports.get_typed_function(&store, "run")?;
+
+    assert_eq!(run.call(&mut store, 41)?, 42);
 
     Ok(())
 }

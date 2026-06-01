@@ -78,10 +78,10 @@ impl BackendModule {
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
         let mut module = Self::new(engine, wasm_bytes)?;
-        // Set the module name to the absolute path of the filename.
-        // This is useful for debugging the stack traces.
-        let filename = canonical.as_path().to_str().unwrap();
-        module.set_name(filename);
+        // Set the module name to the absolute canonical path as a lossy UTF-8 string.
+        // This is useful for debugging stack traces, and lossy conversion is necessary
+        // because filesystem paths are not always valid UTF-8.
+        module.set_name(canonical.to_string_lossy().as_ref());
         Ok(module)
     }
 
@@ -98,16 +98,6 @@ impl BackendModule {
                 crate::backend::sys::entities::module::Module::from_binary(engine, binary)?,
             )),
 
-            #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
-                crate::backend::wamr::entities::module::Module::from_binary(engine, binary)?,
-            )),
-
-            #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
-                crate::backend::wasmi::entities::module::Module::from_binary(engine, binary)?,
-            )),
-
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => Ok(Self::V8(
                 crate::backend::v8::entities::module::Module::from_binary(engine, binary)?,
@@ -116,11 +106,6 @@ impl BackendModule {
             #[cfg(feature = "js")]
             crate::BackendEngine::Js(_) => Ok(Self::Js(
                 crate::backend::js::entities::module::Module::from_binary(engine, binary)?,
-            )),
-
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
-                crate::backend::jsc::entities::module::Module::from_binary(engine, binary)?,
             )),
         }
     }
@@ -149,26 +134,6 @@ impl BackendModule {
                 Ok(Self::Sys(module))
             }
 
-            #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => {
-                let module = unsafe {
-                    crate::backend::wamr::entities::module::Module::from_binary_unchecked(
-                        engine, binary,
-                    )?
-                };
-                Ok(Self::Wamr(module))
-            }
-
-            #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => {
-                let module = unsafe {
-                    crate::backend::wasmi::entities::module::Module::from_binary_unchecked(
-                        engine, binary,
-                    )?
-                };
-                Ok(Self::Wasmi(module))
-            }
-
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => {
                 let module = unsafe {
@@ -187,15 +152,6 @@ impl BackendModule {
                 };
                 Ok(Self::Js(module))
             }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::from_binary_unchecked(
-                        engine, binary,
-                    )?
-                };
-                Ok(Self::Jsc(module))
-            }
         }
     }
 
@@ -212,15 +168,6 @@ impl BackendModule {
             crate::BackendEngine::Sys(_) => {
                 crate::backend::sys::entities::module::Module::validate(engine, binary)?
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => {
-                crate::backend::wamr::entities::module::Module::validate(engine, binary)?
-            }
-
-            #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => {
-                crate::backend::wasmi::entities::module::Module::validate(engine, binary)?
-            }
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => {
                 crate::backend::v8::entities::module::Module::validate(engine, binary)?
@@ -228,10 +175,6 @@ impl BackendModule {
             #[cfg(feature = "js")]
             crate::BackendEngine::Js(_) => {
                 crate::backend::js::entities::module::Module::validate(engine, binary)?
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                crate::backend::jsc::entities::module::Module::validate(engine, binary)?
             }
         }
         Ok(())
@@ -330,25 +273,6 @@ impl BackendModule {
                 };
                 Ok(Self::Sys(module))
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => {
-                let module = unsafe {
-                    crate::backend::wamr::entities::module::Module::deserialize_unchecked(
-                        engine, bytes,
-                    )?
-                };
-                Ok(Self::Wamr(module))
-            }
-
-            #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => {
-                let module = unsafe {
-                    crate::backend::wasmi::entities::module::Module::deserialize_unchecked(
-                        engine, bytes,
-                    )?
-                };
-                Ok(Self::Wasmi(module))
-            }
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => {
                 let module = unsafe {
@@ -366,15 +290,6 @@ impl BackendModule {
                     )?
                 };
                 Ok(Self::Js(module))
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::deserialize_unchecked(
-                        engine, bytes,
-                    )?
-                };
-                Ok(Self::Jsc(module))
             }
         }
     }
@@ -417,21 +332,6 @@ impl BackendModule {
                 };
                 Ok(Self::Sys(module))
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => {
-                let module = unsafe {
-                    crate::backend::wamr::entities::module::Module::deserialize(engine, bytes)?
-                };
-                Ok(Self::Wamr(module))
-            }
-
-            #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => {
-                let module = unsafe {
-                    crate::backend::wasmi::entities::module::Module::deserialize(engine, bytes)?
-                };
-                Ok(Self::Wasmi(module))
-            }
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => {
                 let module = unsafe {
@@ -445,13 +345,6 @@ impl BackendModule {
                     crate::backend::js::entities::module::Module::deserialize(engine, bytes)?
                 };
                 Ok(Self::Js(module))
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::deserialize(engine, bytes)?
-                };
-                Ok(Self::Jsc(module))
             }
         }
     }
@@ -488,25 +381,6 @@ impl BackendModule {
                 };
                 Ok(Self::Sys(module))
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => {
-                let module = unsafe {
-                    crate::backend::wamr::entities::module::Module::deserialize_from_file(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Wamr(module))
-            }
-
-            #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => {
-                let module = unsafe {
-                    crate::backend::wasmi::entities::module::Module::deserialize_from_file(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Wasmi(module))
-            }
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => {
                 let module = unsafe {
@@ -524,15 +398,6 @@ impl BackendModule {
                     )?
                 };
                 Ok(Self::Js(module))
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::deserialize_from_file(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Jsc(module))
             }
         }
     }
@@ -571,25 +436,6 @@ impl BackendModule {
                 };
                 Ok(Self::Sys(module))
             }
-            #[cfg(feature = "wamr")]
-            crate::BackendEngine::Wamr(_) => {
-                let module = unsafe {
-                    crate::backend::wamr::entities::module::Module::deserialize_from_file_unchecked(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Wamr(module))
-            }
-
-            #[cfg(feature = "wasmi")]
-            crate::BackendEngine::Wasmi(_) => {
-                let module = unsafe {
-                    crate::backend::wasmi::entities::module::Module::deserialize_from_file_unchecked(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Wasmi(module))
-            }
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => {
                 let module = unsafe {
@@ -607,15 +453,6 @@ impl BackendModule {
                     )?
                 };
                 Ok(Self::Js(module))
-            }
-            #[cfg(feature = "jsc")]
-            crate::BackendEngine::Jsc(_) => {
-                let module = unsafe {
-                    crate::backend::jsc::entities::module::Module::deserialize_from_file_unchecked(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Jsc(module))
             }
         }
     }

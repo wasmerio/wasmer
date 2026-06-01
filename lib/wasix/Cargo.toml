@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.702.0-alpha.1"
+version = "0.702.0-alpha.2"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -12,24 +12,30 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 
+[[test]]
+name = "wasm_tests"
+path = "tests/wasm_tests/mod.rs"
+harness = false
+required-features = ["sys-thread"]
+
 [dependencies]
 wasmer-package.workspace = true
-wasmer-wasix-types = { path = "../wasi-types", version = "0.702.0-alpha.1", features = [
-	"enable-serde",
+wasmer-wasix-types = { path = "../wasi-types", version = "0.702.0-alpha.2", features = [
+  "enable-serde",
 ] }
-wasmer-types = { path = "../types", version = "=7.2.0-alpha.1", default-features = false }
-wasmer = { path = "../api", version = "=7.2.0-alpha.1", default-features = false, features = [
-	"experimental-async",
+wasmer-types = { path = "../types", version = "=7.2.0-alpha.2", default-features = false }
+wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = [
+  "experimental-async",
 ] }
-virtual-mio = { path = "../virtual-io", version = "0.702.0-alpha.1", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.702.0-alpha.1", default-features = false, features = [
-	"webc-fs",
+virtual-mio = { path = "../virtual-io", version = "0.702.0-alpha.2", default-features = false }
+virtual-fs = { path = "../virtual-fs", version = "0.702.0-alpha.2", default-features = false, features = [
+  "webc-fs",
 ] }
-virtual-net = { path = "../virtual-net", version = "0.702.0-alpha.1", default-features = false, features = [
-	"rkyv",
+virtual-net = { path = "../virtual-net", version = "0.702.0-alpha.2", default-features = false, features = [
+  "rkyv",
 ] }
-wasmer-journal = { path = "../journal", version = "0.702.0-alpha.1", default-features = false }
-wasmer-config = { version = "0.702.0-alpha.1", path = "../config" }
+wasmer-journal = { path = "../journal", version = "0.702.0-alpha.2", default-features = false }
+wasmer-config = { version = "0.702.0-alpha.2", path = "../config" }
 
 http.workspace = true
 dashmap.workspace = true
@@ -53,9 +59,9 @@ typetag = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 bincode.workspace = true
 chrono = { workspace = true, default-features = false, features = [
-	"wasmbind",
-	"std",
-	"clock",
+  "wasmbind",
+  "std",
+  "clock",
 ], optional = true }
 bytes.workspace = true
 anyhow.workspace = true
@@ -64,10 +70,10 @@ waker-fn.workspace = true
 cooked-waker.workspace = true
 rand.workspace = true
 tokio = { workspace = true, features = [
-	"sync",
-	"macros",
-	"time",
-	"rt",
+  "sync",
+  "macros",
+  "time",
+  "rt",
 ], default-features = false }
 tokio-stream = { workspace = true, features = ["sync"] }
 futures.workspace = true
@@ -89,10 +95,10 @@ num_enum.workspace = true
 wcgi = { workspace = true, optional = true }
 wcgi-host = { workspace = true, optional = true }
 tower-http = { workspace = true, features = [
-	"trace",
-	"util",
-	"catch-panic",
-	"cors",
+  "trace",
+  "util",
+  "catch-panic",
+  "cors",
 ], optional = true }
 tower = { workspace = true, features = ["make", "util"], optional = true }
 url.workspace = true
@@ -106,20 +112,20 @@ wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
 wasm-bindgen-futures = { workspace = true, optional = true }
 web-sys = { workspace = true, features = [
-	"Request",
-	"RequestInit",
-	"Window",
-	"WorkerGlobalScope",
-	"RequestMode",
-	"Response",
-	"Headers",
+  "Request",
+  "RequestInit",
+  "Window",
+  "WorkerGlobalScope",
+  "RequestMode",
+  "Response",
+  "Headers",
 ], optional = true }
 hyper-util = { workspace = true, features = [
-	"server",
-	"server-graceful",
-	"tokio",
-	"service",
-	"client",
+  "server",
+  "server-graceful",
+  "tokio",
+  "service",
+  "client",
 ], optional = true }
 http-body-util = { workspace = true, optional = true }
 toml.workspace = true
@@ -127,6 +133,10 @@ pin-utils.workspace = true
 wasmparser.workspace = true
 crossbeam-channel.workspace = true
 bus.workspace = true
+libtest-mimic.workspace = true
+walkdir.workspace = true
+fs_extra.workspace = true
+itertools.workspace = true
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true
@@ -148,7 +158,7 @@ termios.workspace = true
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { workspace = true, features = [
-	"Win32_System_SystemInformation",
+  "Win32_System_SystemInformation",
 ] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -156,17 +166,18 @@ terminal_size.workspace = true
 zstd.workspace = true
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=7.2.0-alpha.1", default-features = false, features = [
-	"wat",
-	"js-serializable-module",
+wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = [
+  "wat",
+  "js-serializable-module",
 ] }
 tokio = { workspace = true, features = [
-	"sync",
-	"macros",
-	"rt",
+  "sync",
+  "macros",
+  "rt",
 ], default-features = false }
 pretty_assertions.workspace = true
 tracing-test.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 wasm-bindgen-test.workspace = true
 env_logger = { workspace = true, default-features = false }
 log.workspace = true
@@ -178,12 +189,11 @@ wasm-bindgen-test.workspace = true
 tracing-wasm.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tracing-subscriber.workspace = true
-wasmer = { path = "../api", version = "=7.2.0-alpha.1", default-features = false, features = [
-	"wat",
-	"js-serializable-module",
-	"cranelift",
-	"llvm",
+wasmer = { path = "../api", version = "=7.2.0-alpha.2", default-features = false, features = [
+  "wat",
+  "js-serializable-module",
+  "cranelift",
+  "llvm",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom03]
@@ -197,42 +207,23 @@ default = ["sys-default"]
 
 time = ["tokio/time"]
 ctrlc = ["tokio/signal"]
-
-webc_runner_rt_wcgi = [
-	"hyper",
-	"hyper-util",
-	"http-body-util",
-	"wcgi",
-	"wcgi-host",
-	"tower",
-	"tower-http",
-]
-webc_runner_rt_dcgi = ["webc_runner_rt_wcgi", "journal"]
-webc_runner_rt_dproxy = [
-	"hyper",
-	"hyper-util",
-	"http-body-util",
-	"tower",
-	"tower-http",
-	"journal",
-]
 # the minimal sys implementation
 sys-minimal = ["wasmer/sys", "sys-thread", "tokio/fs"]
 sys = [
-	"webc/mmap",
-	"time",
-	"virtual-mio/sys",
-	"logging",
-	"host-fs",
-	"journal",
-	"sys-poll",
-	"sys-thread",
-	"host-vnet",
-	"host-threads",
-	"host-reqwest",
-	"ctrlc",
-	"wasmer/wat",
-	"wasmer/js-serializable-module",
+  "webc/mmap",
+  "time",
+  "virtual-mio/sys",
+  "logging",
+  "host-fs",
+  "journal",
+  "sys-poll",
+  "sys-thread",
+  "host-vnet",
+  "host-threads",
+  "host-reqwest",
+  "ctrlc",
+  "wasmer/wat",
+  "wasmer/js-serializable-module",
 ]
 sys-default = ["sys", "wasmer/sys"]
 sys-poll = []
@@ -242,19 +233,20 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
+v8 = ["wasmer/v8"]
 
 js = [
-	"virtual-fs/js",
-	"getrandom/wasm_js",
-	"chrono",
-	"js-sys",
-	"wasm-bindgen",
-	"wasm-bindgen-futures",
-	"web-sys",
-	"wasmer/js-default",
-	"wasmer/wasm-types-polyfill",
-	"wasmer/wat",
-	"wasmer/js-serializable-module",
+  "virtual-fs/js",
+  "getrandom/wasm_js",
+  "chrono",
+  "js-sys",
+  "wasm-bindgen",
+  "wasm-bindgen-futures",
+  "web-sys",
+  "wasmer/js-default",
+  "wasmer/wasm-types-polyfill",
+  "wasmer/wat",
+  "wasmer/js-serializable-module",
 ]
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
@@ -268,19 +260,12 @@ remote-vnet = ["virtual-net/remote"]
 logging = ["tracing/log"]
 disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
 enable-serde = [
-	"typetag",
-	"virtual-fs/enable-serde",
-	"wasmer-wasix-types/enable-serde",
-	"wasmer/enable-serde",
+  "typetag",
+  "virtual-fs/enable-serde",
+  "wasmer-wasix-types/enable-serde",
+  "wasmer/enable-serde",
 ]
 
 [package.metadata.docs.rs]
-features = [
-	"wasmer/sys",
-	"wasmer/cranelift",
-	"webc_runner_rt_wcgi",
-	"webc_runner_rt_dcgi",
-	"webc_runner_rt_dproxy",
-	"sys-default",
-]
+features = ["wasmer/sys", "wasmer/cranelift", "sys-default"]
 rustc-args = ["--cfg", "docsrs"]

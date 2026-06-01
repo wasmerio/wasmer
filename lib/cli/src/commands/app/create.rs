@@ -856,7 +856,7 @@ impl AsyncCliCommand for CmdAppCreate {
                 login_user(
                     &self.env,
                     !self.non_interactive,
-                    "retrieve informations about the owner of the app",
+                    "retrieve information about the owner of the app",
                 )
                 .await?,
             )

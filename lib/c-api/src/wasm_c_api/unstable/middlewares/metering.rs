@@ -211,7 +211,7 @@ pub unsafe extern "C" fn wasmer_metering_get_remaining_points(
     }
 }
 
-/// Returns true if the remaning points are exhausted, false otherwise.
+/// Returns true if the remaining points are exhausted, false otherwise.
 ///
 /// # Example
 ///

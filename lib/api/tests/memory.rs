@@ -6,8 +6,6 @@ use wasmer::{Instance, Memory, MemoryLocation, MemoryType, Module, Store, import
 
 #[test]
 #[allow(unused_attributes)]
-#[cfg_attr(feature = "wamr", ignore = "wamr ignores import memories")]
-#[cfg_attr(feature = "wasmi", ignore = "wasmi does not support threads")]
 #[cfg_attr(
     feature = "v8",
     ignore = "v8 does not currently support shared memory through wasm_c_api"
@@ -85,6 +83,24 @@ fn test_shared_memory_disable_atomics() {
     assert_eq!(err, AtomicsError::AtomicsDisabled);
 }
 
+#[cfg(feature = "sys")]
+#[test]
+fn test_shared_memory_copy_is_independent() {
+    let mut store = Store::default();
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(2), true)).unwrap();
+
+    memory.view(&store).write(0, b"before").unwrap();
+
+    let mut copy_store = Store::default();
+    let copied = memory.copy(&store).unwrap().attach(&mut copy_store);
+
+    memory.view(&store).write(0, b"after!").unwrap();
+
+    let mut buf = [0; 6];
+    copied.view(&copy_store).read(0, &mut buf).unwrap();
+    assert_eq!(&buf, b"before");
+}
+
 /// See https://github.com/wasmerio/wasmer/issues/5444
 #[test]
 #[cfg(feature = "sys")]
@@ -117,10 +133,6 @@ fn test_wasm_slice_issue_5444() {
     ))
 }
 
-#[cfg_attr(
-    feature = "wamr",
-    ignore = "wamr reports memory size incorrectly in this scenario"
-)]
 #[test]
 fn test_wasm_memory_size() {
     let mut store = Store::default();
@@ -133,8 +145,7 @@ fn test_wasm_memory_size() {
         assert_eq!(memory.size(&store).0, 11);
     }
 
-    // ... and once with shared memory, since JS and JSC (at least) have different
-    // representations for it
+    // ... and once with shared memory, since JS has different representations for it
     {
         let memory = Memory::new(&mut store, MemoryType::new(10, Some(65536), true)).unwrap();
         assert_eq!(memory.size(&store).0, 10);

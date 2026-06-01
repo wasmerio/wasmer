@@ -70,7 +70,7 @@ pub struct ModuleMetadata {
 
 /// A simple metadata registry
 pub struct ModuleMetadataSymbolRegistry {
-    /// Symbol prefix stirng
+    /// Symbol prefix string
     pub prefix: String,
 }
 

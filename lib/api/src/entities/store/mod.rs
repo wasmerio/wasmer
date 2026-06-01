@@ -48,7 +48,7 @@ use wasmer_vm::TrapHandlerFn;
 /// The [`Store`] is tied to the underlying [`Engine`] that is — among many things — used to
 /// compile the Wasm bytes into a valid module artifact.
 ///
-/// For more informations, check out the [related WebAssembly specification]
+/// For more information, check out the [related WebAssembly specification]
 /// [related WebAssembly specification]: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) inner: Box<StoreInner>,
@@ -64,14 +64,6 @@ impl Store {
             BackendEngine::Sys(_) => {
                 BackendStore::Sys(crate::backend::sys::entities::store::Store::new(engine))
             }
-            #[cfg(feature = "wamr")]
-            BackendEngine::Wamr(_) => {
-                BackendStore::Wamr(crate::backend::wamr::entities::store::Store::new(engine))
-            }
-            #[cfg(feature = "wasmi")]
-            BackendEngine::Wasmi(_) => {
-                BackendStore::Wasmi(crate::backend::wasmi::entities::store::Store::new(engine))
-            }
             #[cfg(feature = "v8")]
             BackendEngine::V8(_) => {
                 BackendStore::V8(crate::backend::v8::entities::store::Store::new(engine))
@@ -79,10 +71,6 @@ impl Store {
             #[cfg(feature = "js")]
             BackendEngine::Js(_) => {
                 BackendStore::Js(crate::backend::js::entities::store::Store::new(engine))
-            }
-            #[cfg(feature = "jsc")]
-            BackendEngine::Jsc(_) => {
-                BackendStore::Jsc(crate::backend::jsc::entities::store::Store::new(engine))
             }
         };
 
@@ -173,11 +161,6 @@ impl PartialEq for Store {
         Self::same(self, other)
     }
 }
-
-// This is required to be able to set the trap_handler in the
-// Store.
-unsafe impl Send for Store {}
-unsafe impl Sync for Store {}
 
 impl Default for Store {
     fn default() -> Self {

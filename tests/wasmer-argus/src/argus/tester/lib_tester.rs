@@ -154,7 +154,7 @@ impl<'a> Tester for LibRunner<'a> {
             self.get_id(),
             self.get_version(),
             self.config.compiler_backend.to_string(),
-            start - time::Instant::now(),
+            start.elapsed(),
             outcome,
         ))
     }

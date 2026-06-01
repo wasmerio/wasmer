@@ -54,6 +54,12 @@ pub trait CompilerConfig {
     /// (but are not 100% SPEC compliant).
     fn enable_non_volatile_memops(&mut self) {}
 
+    /// Enable run-time handling of potentially unaligned memory accesses.
+    ///
+    /// This feature is experimental and currently supports only Cranelift scalar types
+    /// and Singlepass on RISC-V for integral types.
+    fn enable_experimental_unaligned_memory_accesses(&mut self) {}
+
     /// Enables treating eligible funcref tables as read-only so the backend can
     /// place them in read-only data.
     fn enable_readonly_funcref_table(&mut self) {}
@@ -121,7 +127,7 @@ pub trait Compiler: Send + std::fmt::Debug {
 
     /// Validates a module.
     ///
-    /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
+    /// It returns the a successful Result in case is valid, `CompileError` in case is not.
     #[cfg(feature = "translator")]
     fn validate_module(&self, features: &Features, data: &[u8]) -> Result<(), CompileError> {
         let mut wasm_features = WasmFeatures::empty();
@@ -172,7 +178,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         false
     }
 
-    /// Get the CpuFeatues used by the compiler
+    /// Get the CpuFeatures used by the compiler
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
         *cpu_features
     }

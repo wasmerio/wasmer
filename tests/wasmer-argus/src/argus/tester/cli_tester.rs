@@ -90,7 +90,7 @@ impl<'a> CLIRunner<'a> {
             String::from("wasmer_cli"),
             version,
             self.config.compiler_backend.to_string(),
-            start_time - Instant::now(),
+            start_time.elapsed(),
             Ok(String::from("test passed")),
         ))
     }
@@ -106,7 +106,7 @@ impl<'a> CLIRunner<'a> {
             String::from("wasmer_cli"),
             version,
             self.config.compiler_backend.to_string(),
-            start_time - Instant::now(),
+            start_time.elapsed(),
             Err(message),
         ))
     }

@@ -1,4 +1,5 @@
 #!/bin/bash
+##ExpectedStdout: other_func returned 42
 set -ex
 
 $CXX -c main.cpp -o main.o

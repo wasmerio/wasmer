@@ -15,6 +15,16 @@ pub(crate) mod view;
 pub(crate) use inner::*;
 pub use view::*;
 
+#[inline]
+pub(crate) fn shared_memory_detach_error() -> MemoryError {
+    MemoryError::Generic(
+        "could not detach shared WebAssembly memory for use outside the store: duplicating the \
+         backing handle failed, synchronization support may be unavailable, or the backend does \
+         not support exposing this shared memory independently of its store"
+            .into(),
+    )
+}
+
 /// A WebAssembly `memory` instance.
 ///
 /// A memory instance is the runtime representation of a linear memory.
@@ -151,14 +161,17 @@ impl Memory {
         self.0.reset(store)
     }
 
-    /// Attempts to duplicate this memory (if its clonable) in a new store
-    /// (copied memory)
+    /// Attempts to duplicate this memory in a new store with a byte-for-byte copy
+    ///
+    /// Since Wasmer 8.0, this function can no longer be used for stores
+    /// in different threads; for that, use `copy`, and then `attach`
+    /// on the thread owning the other `Store`.
     pub fn copy_to_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        self.0.copy_to_store(store, new_store).map(Self)
+        self.copy(store).map(|memory| memory.attach(new_store))
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
@@ -170,24 +183,33 @@ impl Memory {
         self.0.is_from_store(store)
     }
 
-    /// Attempt to create a new reference to the underlying memory; this new reference can then be
-    /// used within a different store (from the same implementer).
+    /// Attempts to create a detached copied memory handle that can later be
+    /// attached to a different store.
     ///
-    /// # Errors
-    ///
-    /// Fails if the underlying memory is not clonable.
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        self.0.try_clone(store)
+    /// If the memory is shared, this returns a shared handle. Otherwise, it
+    /// creates an independent byte-for-byte copy.
+    pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+        self.0.copy(store)
     }
 
-    /// Attempts to clone this memory (if its clonable) in a new store
+    /// Attempts to clone this memory (if its cloneable) in a new store
     /// (cloned memory will be shared between those that clone it)
+    ///
+    /// Since Wasmer 8.0, this function can no longer be used for stores
+    /// in different threads; for that, use `as_shared`, and then `attach`
+    /// on the thread owning the other `Store`.
     pub fn share_in_store(
         &self,
         store: &impl AsStoreRef,
         new_store: &mut impl AsStoreMut,
     ) -> Result<Self, MemoryError> {
-        self.0.share_in_store(store, new_store).map(Self)
+        if !self.ty(store).shared {
+            return Err(MemoryError::MemoryNotShared);
+        }
+
+        self.as_shared(store)
+            .ok_or_else(shared_memory_detach_error)
+            .map(|memory| memory.attach(new_store))
     }
 
     /// Get a [`SharedMemory`].

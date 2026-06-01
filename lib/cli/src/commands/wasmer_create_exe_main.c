@@ -94,7 +94,7 @@ static void handle_arguments(wasi_config_t* wasi_config, int argc, char* argv[],
       if ((i + 1) < argc) {
         i++;
       } else {
-        fprintf(stderr, "--command expects a commmand name\n");
+        fprintf(stderr, "--command expects a command name\n");
         exit(-1);
       }
     } else {
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
           command_was_invoked = true;
           break;
         } else {
-          fprintf(stderr, "--command expects a commmand name\n");
+          fprintf(stderr, "--command expects a command name\n");
           exit(-1);
         }
       }

@@ -471,14 +471,14 @@ impl Function {
             return Err(RuntimeError::new(format!(
                 "Parameters of type [{}] did not match signature {}",
                 format_types_for_error_message(params),
-                &signature
+                signature
             )));
         }
         if signature.results().len() != results.len() {
             return Err(RuntimeError::new(format!(
                 "Results of type [{}] did not match signature {}",
                 format_types_for_error_message(results),
-                &signature,
+                signature,
             )));
         }
 
@@ -490,8 +490,7 @@ impl Function {
             if arg.ty() != *ty {
                 let param_types = format_types_for_error_message(params);
                 return Err(RuntimeError::new(format!(
-                    "Parameters of type [{}] did not match signature {}",
-                    param_types, &signature,
+                    "Parameters of type [{param_types}] did not match signature {signature}",
                 )));
             }
             if !arg.is_from_store(store) {

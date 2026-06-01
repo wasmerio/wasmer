@@ -73,7 +73,6 @@ pub struct CreateExe {
     ///
     /// - "x86_64-linux-gnu"
     /// - "aarch64-linux-gnu"
-    /// - "x86_64-apple-darwin"
     /// - "arm64-apple-darwin"
     /// - "x86_64-windows-gnu"
     #[clap(long = "target")]
@@ -542,6 +541,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
                         );
                     }
                 }
+                Metadata::Symlink { .. } => {}
             }
 
             path.pop();
@@ -1360,7 +1360,7 @@ fn link_exe_from_dir(
     if zig_triple.contains("macos") {
         // need to link with Security framework when using zig, but zig
         // doesn't include it, so we need to bring a copy of the dtb file
-        // which is basicaly the collection of exported symbol for the libs
+        // which is basically the collection of exported symbol for the libs
         let framework = include_bytes!("security_framework.tgz").to_vec();
         // extract files
         let tar = flate2::read::GzDecoder::new(framework.as_slice());
@@ -1744,7 +1744,7 @@ pub(super) mod utils {
         //
         // The filename scheme:
         // FILENAME := "wasmer-" [ FEATURE ] OS  PLATFORM  .
-        // FEATURE  := "wamr-" | "v8-" | "wasmi-" .
+        // FEATURE  := "v8-" .
         // OS       := "darwin" | "linux" | "linux-musl" | "windows" .
         // PLATFORM := "aarch64" | "amd64" | "gnu64" .
         //
@@ -1756,7 +1756,7 @@ pub(super) mod utils {
             return None;
         }
 
-        if filename.contains("wamr") || filename.contains("v8") || filename.contains("wasmi") {
+        if filename.contains("v8") {
             return None;
         }
 
@@ -2022,7 +2022,6 @@ pub(super) mod utils {
     fn test_filter_tarball() {
         use std::str::FromStr;
         let test_paths = [
-            "/test/wasmer-darwin-amd64.tar.gz",
             "/test/wasmer-darwin-arm64.tar.gz",
             "/test/wasmer-linux-aarch64.tar.gz",
             "/test/wasmer-linux-amd64.tar.gz",
@@ -2066,17 +2065,6 @@ pub(super) mod utils {
                 ))
                 .collect::<Vec<_>>(),
             vec![&Path::new("/test/wasmer-windows-gnu64.tar.gz")],
-        );
-
-        assert_eq!(
-            paths
-                .iter()
-                .filter(|p| crate::commands::utils::filter_tarball(
-                    p,
-                    &Triple::from_str("x86_64-darwin").unwrap()
-                ))
-                .collect::<Vec<_>>(),
-            vec![&Path::new("/test/wasmer-darwin-amd64.tar.gz")],
         );
 
         assert_eq!(

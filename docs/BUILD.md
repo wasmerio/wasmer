@@ -47,15 +47,14 @@ For reproducible builds, set `WASMER_REPRODUCIBLE_BUILD=1` in the build
 environment. This removes the build timestamp from `wasmer --version -v`
 by omitting the verbose `commit-date:` line.
 
-First, let's clone Wasmer:
+First, let's clone Wasmer along with its submodules:
 
 ```text
-git clone https://github.com/wasmerio/wasmer.git
+git clone --recursive https://github.com/wasmerio/wasmer.git
 cd wasmer
 ```
 
-Wasmer supports six different backends at the moment: `singlepass`,
-`cranelift`, `LLVM`, `V8`, `wasmi` and `wamr`.
+Wasmer supports different backends at the moment: `singlepass`, `cranelift`, `LLVM` and `V8`.
 
 ### Singlepass Compiler
 
@@ -113,19 +112,17 @@ make build-wasmer
 
 You may disable the LLVM compiler with `export ENABLE_LLVM=0`.
 
-### V8, wasmi and wamr
+### V8
 
-To enable any of these backends, you can set the according `ENABLE_<backend>=1`
+To enable the backend, you can set the according `ENABLE_<backend>=1`
 flag at build time. The build script itself will download the necessary
 libraries at build time.
 
 Note, however, that these backends are not supported on all the platforms that
 Wasmer can run on.
 
-For example, to have a Wasmer build with all three backends enabled you can run:
-
 ```text
-ENABLE_V8=1 ENABLE_WASMI=1 ENABLE_WAMR=1 make build-wasmer
+ENABLE_V8=1 make build-wasmer
 ```
 
 ### All compilers

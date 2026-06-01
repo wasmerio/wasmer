@@ -1119,6 +1119,65 @@ mod tests {
         );
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn serialize_package_with_symlinks() {
+        let temp = TempDir::new().unwrap();
+        let wasmer_toml = r#"
+                [package]
+                name = "some/package"
+                version = "0.0.0"
+                description = "Test package"
+
+                [fs]
+                "/assets" = "assets"
+            "#;
+        let manifest = temp.path().join("wasmer.toml");
+        std::fs::write(&manifest, wasmer_toml).unwrap();
+
+        let assets = temp.path().join("assets");
+        std::fs::create_dir(&assets).unwrap();
+        let target = assets.join("target.txt");
+        let target_dir = assets.join("target-dir");
+
+        std::fs::write(&target, "target").unwrap();
+        std::fs::create_dir(&target_dir).unwrap();
+        std::os::unix::fs::symlink("target.txt", assets.join("file-link")).unwrap();
+        std::os::unix::fs::symlink("target-dir", assets.join("dir-link")).unwrap();
+        std::os::unix::fs::symlink("subdir/../target.txt", assets.join("nested-link")).unwrap();
+        std::os::unix::fs::symlink("missing.txt", assets.join("broken-link")).unwrap();
+
+        let package = Package::from_manifest(manifest).unwrap();
+        let webc = from_bytes(package.serialize().unwrap()).unwrap();
+        let volume = webc.get_volume("/assets").unwrap();
+
+        assert!(volume.read_file("/file-link").is_none());
+        assert_eq!(
+            volume.read_link("/file-link").unwrap().0,
+            "target.txt".to_string()
+        );
+        assert_eq!(
+            volume.read_link("/dir-link").unwrap().0,
+            "target-dir".to_string()
+        );
+        assert_eq!(
+            volume.read_link("/nested-link").unwrap().0,
+            "subdir/../target.txt".to_string()
+        );
+        assert_eq!(
+            volume.read_link("/broken-link").unwrap().0,
+            "missing.txt".to_string()
+        );
+        assert!(volume.metadata("/broken-link").unwrap().is_symlink());
+        assert!(
+            volume
+                .read_dir("/")
+                .unwrap()
+                .iter()
+                .any(|(name, _, meta)| name.as_str() == "file-link" && meta.is_symlink())
+        );
+    }
+
     #[test]
     fn serialize_package_with_metadata_files() {
         let temp = TempDir::new().unwrap();

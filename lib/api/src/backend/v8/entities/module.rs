@@ -1,17 +1,19 @@
 //! Data types, functions and traits for `v8` runtime's `Module` implementation.
-use std::{path::Path, sync::Arc};
-
-use crate::{
-    AsEngineRef, BackendModule, IntoBytes, Store, backend::v8::bindings::*,
-    v8::utils::convert::IntoWasmerExternType,
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::Path,
+    sync::Arc,
 };
+
+use crate::{AsEngineRef, BackendModule, IntoBytes, Store, backend::v8::bindings::*};
 
 use bytes::Bytes;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
-    GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
-    SerializeError, TableType, Type,
+    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
+    ModuleInfo, SerializeError,
 };
+use wasmparser::{Parser, Payload};
 
 #[derive(Debug)]
 pub(crate) struct ModuleHandle {
@@ -115,14 +117,19 @@ impl ModuleHandle {
         let bytes = unsafe {
             wasm_module_serialize(handle, &mut bytes as *mut _);
             if bytes.data.is_null() || bytes.size == 0 {
+                wasm_module_delete(handle);
                 return Err(SerializeError::Generic(String::from(
                     "V8 returned an empty vector as serialized module",
                 )));
             }
-            std::slice::from_raw_parts(bytes.data as *mut u8, bytes.size)
+            let serialized_bytes =
+                std::slice::from_raw_parts(bytes.data as *mut u8, bytes.size).to_vec();
+            wasm_byte_vec_delete(&mut bytes);
+            wasm_module_delete(handle);
+            serialized_bytes
         };
 
-        Ok(bytes.to_vec())
+        Ok(bytes)
     }
 }
 
@@ -132,11 +139,26 @@ impl Drop for ModuleHandle {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
+pub(crate) struct V8ModuleInfo {
+    name: Option<String>,
+    // Cache imports and exports instead of calling `wasm_module_imports` or
+    // `wasm_module_exports`: a `Module` can be queried from a different thread
+    // (store) than the one V8 associated with the module, which can crash.
+    imports: Vec<ImportType>,
+    exports: Vec<ExportType>,
+    v8_module_bytes: Vec<u8>,
+    // Copy of the custom sections, since the current API cannot retrieve them
+    // later from the handle. Use a BTreeMap to keep entries in deterministic order,
+    // producing stable serialized bytes.
+    custom_sections: BTreeMap<String, Vec<u8>>,
+}
+
 #[derive(Clone, PartialEq, Eq)]
 /// A WebAssembly `module` in the `v8` runtime.
 pub struct Module {
     pub(crate) handle: Arc<ModuleHandle>,
-    name: Option<String>,
+    info: V8ModuleInfo,
 }
 
 unsafe impl Send for Module {}
@@ -163,12 +185,26 @@ impl Module {
         let binary = binary.into_bytes();
         let module = ModuleHandle::new(engine, &binary)?;
         let info = crate::utils::polyfill::translate_module(&binary[..])
-            .unwrap()
+            .map_err(CompileError::Validate)?
             .info;
+        let imports = info.imports().collect();
+        let exports = info.exports().collect();
+        let custom_sections = get_custom_sections(&binary)?;
+        let v8_module_bytes = module.serialize().map_err(|err| {
+            CompileError::Codegen(format!(
+                "Failed to serialize V8 module after compilation: {err}"
+            ))
+        })?;
 
         Ok(Self {
             handle: Arc::new(module),
-            name: info.name,
+            info: V8ModuleInfo {
+                name: info.name,
+                imports,
+                exports,
+                v8_module_bytes,
+                custom_sections,
+            },
         })
     }
 
@@ -192,26 +228,15 @@ impl Module {
     }
 
     pub fn name(&self) -> Option<&str> {
-        self.name.as_ref().map(|s| s.as_ref())
+        self.info.name.as_ref().map(|s| s.as_ref())
     }
 
     #[tracing::instrument(skip(self))]
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
-        let mut raw_bytes = self
-            .name
-            .clone()
-            .unwrap_or_default()
-            .bytes()
-            .collect::<Vec<u8>>();
-        let raw_bytes_off = raw_bytes.len();
-        let mut v8_module_bytes = self.handle.serialize()?;
-
-        let mut data = raw_bytes_off.to_ne_bytes().to_vec();
-
-        data.append(&mut raw_bytes);
-        data.append(&mut v8_module_bytes);
-
-        Ok(data.into())
+        let info = rkyv::to_bytes::<rkyv::rancor::Error>(&self.info)
+            .map_err(|err| SerializeError::Generic(format!("{err:?}")))?
+            .to_vec();
+        Ok(info.into())
     }
 
     #[allow(clippy::arc_with_non_send_sync)]
@@ -221,16 +246,14 @@ impl Module {
     ) -> Result<Self, DeserializeError> {
         tracing::info!("Creating module from deserialize_unchecked");
         let binary = bytes.into_bytes();
-        let off = &binary[0..8];
-        let off = usize::from_ne_bytes(off.try_into().unwrap());
-        let name_bytes = &binary[8..(8 + off)];
-        let name = String::from_utf8_lossy(name_bytes).to_string();
-        let mod_bytes = &binary[(8 + off)..];
-        let module = ModuleHandle::deserialize(engine, mod_bytes)?;
+        let info = rkyv::access::<ArchivedV8ModuleInfo, rkyv::rancor::Error>(&binary)
+            .and_then(rkyv::deserialize::<V8ModuleInfo, rkyv::rancor::Error>)
+            .map_err(|err| DeserializeError::CorruptedBinary(format!("{err:?}")))?;
+        let module = ModuleHandle::deserialize(engine, &info.v8_module_bytes)?;
 
         Ok(Self {
             handle: Arc::new(module),
-            name: Some(name),
+            info,
         })
     }
 
@@ -258,108 +281,18 @@ impl Module {
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {
-        self.name = Some(name.to_string());
+        self.info.name = Some(name.to_string());
         true
     }
 
     pub fn imports<'a>(&'a self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + 'a>> {
-        let mut imports = wasm_importtype_vec_t {
-            size: 0,
-            data: std::ptr::null_mut(),
-        };
-
-        let store = self.handle.orig_store.as_v8().inner;
-        let shared_handle = self.handle.v8_shared_module_handle;
-        let imports = unsafe {
-            let module = wasm_module_obtain(store, shared_handle);
-            if module.is_null() {
-                panic!("Could not get imports: underlying module is null!");
-            }
-
-            wasm_module_imports(module as *const _, &mut imports as *mut _);
-
-            let imports =
-                if imports.data.is_null() || !imports.data.is_aligned() || imports.size == 0 {
-                    vec![]
-                } else {
-                    std::slice::from_raw_parts(imports.data, imports.size).to_vec()
-                };
-            let mut wasmer_imports = vec![];
-
-            for i in imports.into_iter() {
-                if i.is_null() {
-                    panic!("null import returned from V8!");
-                }
-
-                let name = wasm_importtype_name(i as *const _);
-                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
-                let name_str = String::from_utf8_lossy(name).to_string();
-                let module = wasm_importtype_module(i as *const _);
-                let module_str = if module.is_null()
-                    || (*module).data.is_null()
-                    || !(*module).data.is_aligned()
-                    || (*module).size == 0
-                {
-                    String::new()
-                } else {
-                    let str =
-                        std::slice::from_raw_parts((*module).data as *const u8, (*module).size);
-                    String::from_utf8_lossy(str).to_string()
-                };
-
-                let ty = IntoWasmerExternType::into_wextt(wasm_importtype_type(i as *const _));
-                if let Err(err) = ty {
-                    panic!("{err}");
-                }
-
-                let ty = ty.unwrap();
-                wasmer_imports.push(ImportType::new(&module_str, &name_str, ty))
-            }
-
-            wasmer_imports
-        };
+        let imports = self.info.imports.clone();
         let len = imports.len();
         wasmer_types::ImportsIterator::new(Box::new(imports.into_iter()), len)
     }
 
     pub fn exports<'a>(&'a self) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + 'a>> {
-        let mut exports = wasm_exporttype_vec_t {
-            size: 0,
-            data: std::ptr::null_mut(),
-        };
-
-        let store = self.handle.orig_store.as_v8().inner;
-        let shared_handle = self.handle.v8_shared_module_handle;
-        let exports = unsafe {
-            let module = wasm_module_obtain(store, shared_handle);
-            if module.is_null() {
-                panic!("Could not get imports: underlying module is null!");
-            }
-
-            wasm_module_exports(module as *const _, &mut exports as *mut _);
-
-            let exports = std::slice::from_raw_parts(exports.data, exports.size).to_vec();
-            let mut wasmer_exports = vec![];
-
-            for e in exports.into_iter() {
-                if e.is_null() {
-                    panic!("null import returned from V8!");
-                }
-
-                let name = wasm_exporttype_name(e as *const _);
-                let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
-                let name_str = String::from_utf8_lossy(name).to_string();
-                let ty = IntoWasmerExternType::into_wextt(wasm_exporttype_type(e as *const _));
-                if let Err(err) = ty {
-                    panic!("{err}");
-                }
-
-                let ty = ty.unwrap();
-                wasmer_exports.push(ExportType::new(&name_str, ty))
-            }
-
-            wasmer_exports
-        };
+        let exports = self.info.exports.clone();
         let len = exports.len();
         wasmer_types::ExportsIterator::new(Box::new(exports.into_iter()), len)
     }
@@ -368,12 +301,30 @@ impl Module {
         &'a self,
         name: &'a str,
     ) -> Box<dyn Iterator<Item = Box<[u8]>> + 'a> {
-        Box::new(vec![].into_iter())
+        Box::new(
+            self.info
+                .custom_sections
+                .get(name)
+                .map(|data| data.clone().into_boxed_slice())
+                .into_iter(),
+        )
     }
 
     pub(crate) fn info(&self) -> &ModuleInfo {
         panic!("no info for V8 modules")
     }
+}
+
+fn get_custom_sections(binary: &[u8]) -> Result<BTreeMap<String, Vec<u8>>, CompileError> {
+    let mut custom_sections = BTreeMap::new();
+    for payload in Parser::new(0).parse_all(binary) {
+        if let Payload::CustomSection(section) = payload.map_err(|err| {
+            CompileError::Validate(format!("Failed to parse custom sections: {err}"))
+        })? {
+            custom_sections.insert(section.name().to_string(), section.data().to_vec());
+        }
+    }
+    Ok(custom_sections)
 }
 
 impl crate::Module {

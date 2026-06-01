@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     #[should_panic]
-    pub fn cant_parse_nagative_duration() {
+    pub fn cant_parse_negative_duration() {
         _ = "-12s".parse::<PrettyDuration>().unwrap();
     }
 }

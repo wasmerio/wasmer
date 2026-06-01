@@ -39,20 +39,20 @@ fn analyze_function_readonly_table(
         match reader.read_operator()? {
             wasmparser::Operator::TableSet { table }
             | wasmparser::Operator::TableFill { table }
-            | wasmparser::Operator::TableGrow { table } => {
-                if TableIndex::from_u32(table) == table_index {
-                    return Ok(false);
-                }
+            | wasmparser::Operator::TableGrow { table }
+                if TableIndex::from_u32(table) == table_index =>
+            {
+                return Ok(false);
             }
-            wasmparser::Operator::TableCopy { dst_table, .. } => {
-                if TableIndex::from_u32(dst_table) == table_index {
-                    return Ok(false);
-                }
+            wasmparser::Operator::TableCopy { dst_table, .. }
+                if TableIndex::from_u32(dst_table) == table_index =>
+            {
+                return Ok(false);
             }
-            wasmparser::Operator::TableInit { table, .. } => {
-                if TableIndex::from_u32(table) == table_index {
-                    return Ok(false);
-                }
+            wasmparser::Operator::TableInit { table, .. }
+                if TableIndex::from_u32(table) == table_index =>
+            {
+                return Ok(false);
             }
             wasmparser::Operator::ElemDrop { .. } => return Ok(false),
             _ => {}
@@ -221,7 +221,7 @@ pub fn translate_module<'data>(
             Payload::UnknownSection { .. } => unreachable!(),
             k => {
                 return Err(WasmError::Unsupported(format!(
-                    "Unsupported paylod kind: {k:?}"
+                    "Unsupported payload kind: {k:?}"
                 )));
             }
         }

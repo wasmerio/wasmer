@@ -22,7 +22,7 @@ impl CompactingTransactionJournal<Box<DynWritableJournal>, Box<DynReadableJourna
     /// Creates a compacting transactional journal which will hold events in
     /// memory until the journal is either committed or rolled back.
     ///
-    /// When the journal is commited it will perform a compaction of the events
+    /// When the journal is committed it will perform a compaction of the events
     /// before they are misseeed to the underlying journal
     pub fn new<J>(inner: J) -> Self
     where

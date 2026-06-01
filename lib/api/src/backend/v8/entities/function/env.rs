@@ -113,12 +113,12 @@ where
 }
 
 impl<T: Send + 'static> FunctionEnvMut<'_, T> {
-    /// Returns a reference to the host state in this function environement.
+    /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         self.func_env.as_ref(&self.store_mut)
     }
 
-    /// Returns a mutable- reference to the host state in this function environement.
+    /// Returns a mutable- reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         self.func_env.as_mut(&mut self.store_mut)
     }
@@ -147,12 +147,6 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         (data, self.store_mut.as_store_mut())
     }
 }
-
-//impl<T> Into<crate::FunctionEnv<T>> for FunctionEnv<T> {
-//    fn into(self) -> crate::FunctionEnv<T> {
-//        crate::FunctionEnv::Wamr(self)
-//    }
-//}
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
     fn as_store_ref(&self) -> StoreRef<'_> {

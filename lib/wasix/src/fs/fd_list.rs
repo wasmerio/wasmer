@@ -3,6 +3,12 @@
 //! than doing a linear search of the entire array each time.
 //! Note, The Unix spec requires newly allocated FDs to always be the
 //! lowest-numbered FD available.
+//!
+//! Mutating methods (`insert`, `remove`, `insert_first_free`, etc.) update
+//! `InodeGuard` handle counts via `acquire_handle` / `drop_one_handle`. Callers
+//! must hold `WasiFs::fd_map` write-locked for the duration of any sequence that
+//! must be atomic with respect to concurrent open/close. Lock order: fd map before
+//! inode (see module comment in `mod.rs`).
 
 use super::fd::{Fd, FdInner};
 use wasmer_wasix_types::wasi::Fd as WasiFd;

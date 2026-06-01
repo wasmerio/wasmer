@@ -217,7 +217,10 @@ impl SinglepassCompiler {
                         generator.finalize(input, arch)
                     }
                     Architecture::Riscv64(_) => {
-                        let machine = MachineRiscv::new(Some(target.clone()))?;
+                        let machine = MachineRiscv::new(
+                            Some(target.clone()),
+                            self.config.allow_experimental_unaligned_memory_accesses,
+                        )?;
                         let mut generator = FuncGen::new(
                             module,
                             &self.config,
@@ -479,7 +482,7 @@ mod tests {
     }
 
     #[test]
-    fn errors_for_unsuported_cpufeatures() {
+    fn errors_for_unsupported_cpufeatures() {
         let compiler = SinglepassCompiler::new(Singlepass::default());
         let mut features =
             CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;

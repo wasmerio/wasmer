@@ -111,6 +111,9 @@ pub fn proc_fork<M: MemorySize>(
             // We first fork the environment and replace the current environment
             // so that the process can continue to prepare for the real fork as
             // if it had actually forked
+            if let Some(memory) = ctx.data().process.lock().memory.clone() {
+                child_env.process.register_memory(memory);
+            }
             child_env.swap_inner(ctx.data_mut());
             std::mem::swap(ctx.data_mut(), &mut child_env);
             let previous_vfork = ctx.data_mut().vfork.replace(WasiVFork {
@@ -177,7 +180,10 @@ pub fn proc_fork<M: MemorySize>(
         let instance_handles = env_inner.static_module_instance_handles().unwrap();
         let module = instance_handles.module_clone();
         let memory = instance_handles.memory_clone();
-        let spawn_type = SpawnType::CopyMemory(memory, ctx.as_store_ref());
+        let spawn_type = SpawnType::AttachMemory(match memory.copy(&ctx.as_store_ref()) {
+            Ok(shared) => shared,
+            Err(e) => return OnCalledAction::Trap(Box::new(e)),
+        });
 
         // Spawn a new process with this current execution environment
         let signaler = Box::new(child_env.process.clone());

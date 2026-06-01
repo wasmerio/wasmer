@@ -1560,7 +1560,7 @@ impl EmitterRiscv for Assembler {
         match cond {
             Location::GPR(cond) => {
                 // Use the negative condition to jump after the "j" instruction that will
-                // go to the requsted `label`.
+                // go to the requested `label`.
                 dynasm!(self; bnez X(cond), => cont);
             }
             _ if cond.is_imm() => {
