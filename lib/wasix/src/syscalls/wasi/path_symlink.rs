@@ -76,35 +76,13 @@ pub fn path_symlink_internal(
     let symlink_path = {
         let guard = target_parent_inode.read();
         match guard.deref() {
-            Kind::Dir { path, .. } => {
-                let mut symlink_path = path.clone();
-                symlink_path.push(&entry_name);
-                symlink_path
-            }
-            Kind::Root { .. } => {
-                let mut symlink_path = std::path::PathBuf::from("/");
-                symlink_path.push(&entry_name);
-                symlink_path
-            }
-            _ => unreachable!("parent inode should be a directory"),
-        }
-    };
-
-    // Resolve symlink location to (preopen fd, relative path within that preopen)
-    // so runtime-created symlinks behave the same as symlinks discovered via readlink().
-    let (base_po_dir, path_to_symlink) = state
-        .fs
-        .path_into_pre_open_and_relative_path_owned(&symlink_path)?;
-    let relative_path = std::path::PathBuf::from(old_path);
-
-    // short circuit if anything is wrong, before we create an inode
-    {
-        let guard = target_parent_inode.read();
-        match guard.deref() {
-            Kind::Dir { entries, .. } => {
+            Kind::Dir { entries, path, .. } => {
                 if entries.contains_key(&entry_name) {
                     return Err(Errno::Exist);
                 }
+                crate::fs::PosixPath::from_path(path)
+                    .join(&crate::fs::PosixPath::new(&entry_name))
+                    .into_path_buf()
             }
             Kind::Root { .. } => return Err(Errno::Notcapable),
             Kind::Socket { .. }
@@ -117,7 +95,16 @@ pub fn path_symlink_internal(
                 unreachable!("get_parent_inode_at_path returned something other than a Dir or Root")
             }
         }
-    }
+    };
+
+    // Guest-created symlinks live in the virtual filesystem namespace. Keep
+    // their location relative to the virtual root so targets like
+    // `/temp/link -> ../hamlet/file` can cross sibling preopens without
+    // escaping the guest sandbox.
+    let path_to_symlink = crate::fs::PosixPath::from_path(&symlink_path)
+        .strip_root_prefix()
+        .into_path_buf();
+    let relative_path = std::path::PathBuf::from(old_path);
 
     let source_path = std::path::Path::new(old_path);
     let target_path = symlink_path.as_path();
@@ -130,7 +117,7 @@ pub fn path_symlink_internal(
     };
 
     let kind = Kind::Symlink {
-        base_po_dir,
+        symlink_kind: crate::fs::SymlinkKind::Virtual,
         path_to_symlink: path_to_symlink.clone(),
         relative_path: relative_path.clone(),
     };
@@ -148,12 +135,9 @@ pub fn path_symlink_internal(
 
     // Keep transient map in sync with the backing outcome.
     if needs_ephemeral_fallback {
-        state.fs.register_ephemeral_symlink(
-            symlink_path,
-            base_po_dir,
-            path_to_symlink,
-            relative_path,
-        );
+        state
+            .fs
+            .register_ephemeral_symlink(symlink_path, path_to_symlink, relative_path);
     } else {
         state.fs.unregister_ephemeral_symlink(target_path);
     }
