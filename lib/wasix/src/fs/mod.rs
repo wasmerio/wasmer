@@ -2887,6 +2887,40 @@ mod tests {
     use crate::WasiEnvBuilder;
     use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
 
+    fn webc_symlink_fs() -> virtual_fs::WebcVolumeFileSystem {
+        let timestamps = webc::v3::Timestamps::default();
+        let dir = webc::v3::write::Directory::new(
+            std::collections::BTreeMap::from_iter([
+                (
+                    webc::PathSegment::parse("target.txt").unwrap(),
+                    webc::v3::write::DirEntry::File(webc::v3::write::FileEntry::borrowed(
+                        b"target", timestamps,
+                    )),
+                ),
+                (
+                    webc::PathSegment::parse("link").unwrap(),
+                    webc::v3::write::DirEntry::Symlink(webc::v3::write::SymlinkEntry::borrowed(
+                        "target.txt",
+                        timestamps,
+                    )),
+                ),
+            ]),
+            timestamps,
+        );
+        let manifest = webc::metadata::Manifest::default();
+        let mut writer = webc::v3::write::Writer::new(webc::v3::ChecksumAlgorithm::Sha256)
+            .write_manifest(&manifest)
+            .unwrap()
+            .write_atoms(std::collections::BTreeMap::new())
+            .unwrap();
+        writer.write_volume("atom", dir).unwrap();
+        let webc = writer.finish(webc::v3::SignatureAlgorithm::None).unwrap();
+        let container = wasmer_package::utils::from_bytes(webc).unwrap();
+        let volume = container.volumes()["atom"].clone();
+
+        virtual_fs::WebcVolumeFileSystem::new(volume)
+    }
+
     #[tokio::test]
     async fn test_relative_path_to_absolute() {
         let inodes = WasiInodes::new();
@@ -3160,6 +3194,33 @@ mod tests {
         assert!(matches!(
             child_without_final_follow.read().deref(),
             Kind::File { path, .. } if path == Path::new("/orig/child.txt")
+        ));
+    }
+
+    #[tokio::test]
+    async fn webc_backing_symlink_resolves_to_target_entry() {
+        let inodes = WasiInodes::new();
+        let fs_backing = WasiFsRoot::from_filesystem(Arc::new(webc_symlink_fs()));
+        let wasi_fs =
+            WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
+
+        let literal_link = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", false)
+            .unwrap();
+        assert!(matches!(
+            literal_link.read().deref(),
+            Kind::Symlink {
+                relative_path,
+                ..
+            } if relative_path == Path::new("target.txt")
+        ));
+
+        let followed_file = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", true)
+            .unwrap();
+        assert!(matches!(
+            followed_file.read().deref(),
+            Kind::File { path, .. } if path == Path::new("/target.txt")
         ));
     }
 

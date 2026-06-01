@@ -219,6 +219,10 @@ impl AbstractVolume for MemoryVolume {
     fn metadata(&self, path: &PathSegments) -> Option<Metadata> {
         self.node.find_meta(path)
     }
+
+    fn read_link(&self, _path: &PathSegments) -> Option<(String, Option<[u8; 32]>)> {
+        None
+    }
 }
 
 impl WasmerPackageVolume for MemoryVolume {
