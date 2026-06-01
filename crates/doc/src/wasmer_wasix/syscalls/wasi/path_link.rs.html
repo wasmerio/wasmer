@@ -102,34 +102,126 @@
 <a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">let </span>(target_parent_inode, new_entry_name) =
 <a href=#103 id=103 data-nosnippet>103</a>        state
 <a href=#104 id=104 data-nosnippet>104</a>            .fs
-<a href=#105 id=105 data-nosnippet>105</a>            .get_parent_inode_at_path(inodes, new_fd, <span class="kw-2">&amp;</span>target_path_arg, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+<a href=#105 id=105 data-nosnippet>105</a>            .get_parent_inode_at_path(inodes, new_fd, <span class="kw-2">&amp;</span>target_path_arg, <span class="bool-val">true</span>)<span class="question-mark">?</span>;
 <a href=#106 id=106 data-nosnippet>106</a>
 <a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">if </span>source_inode.stat.write().unwrap().st_nlink == Linkcount::MAX {
 <a href=#108 id=108 data-nosnippet>108</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Mlink);
 <a href=#109 id=109 data-nosnippet>109</a>    }
-<a href=#110 id=110 data-nosnippet>110</a>    {
-<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">let </span><span class="kw-2">mut </span>guard = target_parent_inode.write();
-<a href=#112 id=112 data-nosnippet>112</a>        <span class="kw">match </span>guard.deref_mut() {
-<a href=#113 id=113 data-nosnippet>113</a>            Kind::Dir { entries, .. } =&gt; {
-<a href=#114 id=114 data-nosnippet>114</a>                <span class="kw">if </span>entries.contains_key(<span class="kw-2">&amp;</span>new_entry_name) {
-<a href=#115 id=115 data-nosnippet>115</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
-<a href=#116 id=116 data-nosnippet>116</a>                }
-<a href=#117 id=117 data-nosnippet>117</a>                entries.insert(new_entry_name, source_inode.clone());
-<a href=#118 id=118 data-nosnippet>118</a>            }
-<a href=#119 id=119 data-nosnippet>119</a>            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
-<a href=#120 id=120 data-nosnippet>120</a>            Kind::File { .. }
-<a href=#121 id=121 data-nosnippet>121</a>            | Kind::Symlink { .. }
-<a href=#122 id=122 data-nosnippet>122</a>            | Kind::Buffer { .. }
-<a href=#123 id=123 data-nosnippet>123</a>            | Kind::Socket { .. }
-<a href=#124 id=124 data-nosnippet>124</a>            | Kind::PipeTx { .. }
-<a href=#125 id=125 data-nosnippet>125</a>            | Kind::PipeRx { .. }
-<a href=#126 id=126 data-nosnippet>126</a>            | Kind::DuplexPipe { .. }
-<a href=#127 id=127 data-nosnippet>127</a>            | Kind::EventNotifications { .. }
-<a href=#128 id=128 data-nosnippet>128</a>            | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir),
-<a href=#129 id=129 data-nosnippet>129</a>        }
-<a href=#130 id=130 data-nosnippet>130</a>    }
-<a href=#131 id=131 data-nosnippet>131</a>    source_inode.stat.write().unwrap().st_nlink += <span class="number">1</span>;
-<a href=#132 id=132 data-nosnippet>132</a>
-<a href=#133 id=133 data-nosnippet>133</a>    <span class="prelude-val">Ok</span>(())
-<a href=#134 id=134 data-nosnippet>134</a>}
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a>    <span class="kw">let </span>materialized_paths = {
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="kw">let </span>source_guard = source_inode.read();
+<a href=#113 id=113 data-nosnippet>113</a>        <span class="kw">let </span>target_parent_guard = target_parent_inode.read();
+<a href=#114 id=114 data-nosnippet>114</a>
+<a href=#115 id=115 data-nosnippet>115</a>        <span class="kw">match </span>(source_guard.deref(), target_parent_guard.deref()) {
+<a href=#116 id=116 data-nosnippet>116</a>            (
+<a href=#117 id=117 data-nosnippet>117</a>                Kind::File {
+<a href=#118 id=118 data-nosnippet>118</a>                    path: source_path, ..
+<a href=#119 id=119 data-nosnippet>119</a>                },
+<a href=#120 id=120 data-nosnippet>120</a>                Kind::Dir {
+<a href=#121 id=121 data-nosnippet>121</a>                    path: target_parent_path,
+<a href=#122 id=122 data-nosnippet>122</a>                    entries,
+<a href=#123 id=123 data-nosnippet>123</a>                    ..
+<a href=#124 id=124 data-nosnippet>124</a>                },
+<a href=#125 id=125 data-nosnippet>125</a>            ) =&gt; {
+<a href=#126 id=126 data-nosnippet>126</a>                <span class="kw">if </span>entries.contains_key(<span class="kw-2">&amp;</span>new_entry_name) {
+<a href=#127 id=127 data-nosnippet>127</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
+<a href=#128 id=128 data-nosnippet>128</a>                }
+<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#130 id=130 data-nosnippet>130</a>                <span class="prelude-val">Some</span>((
+<a href=#131 id=131 data-nosnippet>131</a>                    source_path.clone(),
+<a href=#132 id=132 data-nosnippet>132</a>                    <span class="kw">crate</span>::fs::PosixPath::from_path(target_parent_path)
+<a href=#133 id=133 data-nosnippet>133</a>                        .join(<span class="kw-2">&amp;</span><span class="kw">crate</span>::fs::PosixPath::new(<span class="kw-2">&amp;</span>new_entry_name))
+<a href=#134 id=134 data-nosnippet>134</a>                        .into_path_buf(),
+<a href=#135 id=135 data-nosnippet>135</a>                ))
+<a href=#136 id=136 data-nosnippet>136</a>            }
+<a href=#137 id=137 data-nosnippet>137</a>            (<span class="kw">_</span>, Kind::Dir { entries, .. }) =&gt; {
+<a href=#138 id=138 data-nosnippet>138</a>                <span class="kw">if </span>entries.contains_key(<span class="kw-2">&amp;</span>new_entry_name) {
+<a href=#139 id=139 data-nosnippet>139</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
+<a href=#140 id=140 data-nosnippet>140</a>                }
+<a href=#141 id=141 data-nosnippet>141</a>
+<a href=#142 id=142 data-nosnippet>142</a>                <span class="prelude-val">None
+<a href=#143 id=143 data-nosnippet>143</a>            </span>}
+<a href=#144 id=144 data-nosnippet>144</a>            (<span class="kw">_</span>, Kind::Root { .. }) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
+<a href=#145 id=145 data-nosnippet>145</a>            (
+<a href=#146 id=146 data-nosnippet>146</a>                <span class="kw">_</span>,
+<a href=#147 id=147 data-nosnippet>147</a>                Kind::File { .. }
+<a href=#148 id=148 data-nosnippet>148</a>                | Kind::Symlink { .. }
+<a href=#149 id=149 data-nosnippet>149</a>                | Kind::Buffer { .. }
+<a href=#150 id=150 data-nosnippet>150</a>                | Kind::Socket { .. }
+<a href=#151 id=151 data-nosnippet>151</a>                | Kind::PipeTx { .. }
+<a href=#152 id=152 data-nosnippet>152</a>                | Kind::PipeRx { .. }
+<a href=#153 id=153 data-nosnippet>153</a>                | Kind::DuplexPipe { .. }
+<a href=#154 id=154 data-nosnippet>154</a>                | Kind::EventNotifications { .. }
+<a href=#155 id=155 data-nosnippet>155</a>                | Kind::Epoll { .. },
+<a href=#156 id=156 data-nosnippet>156</a>            ) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir),
+<a href=#157 id=157 data-nosnippet>157</a>        }
+<a href=#158 id=158 data-nosnippet>158</a>    };
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>    <span class="kw">let </span>target_inode = <span class="kw">if let </span><span class="prelude-val">Some</span>((source_path, target_path)) = materialized_paths {
+<a href=#161 id=161 data-nosnippet>161</a>        <span class="kw">match </span>state.fs.root_fs.symlink_metadata(<span class="kw-2">&amp;</span>target_path) {
+<a href=#162 id=162 data-nosnippet>162</a>            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist),
+<a href=#163 id=163 data-nosnippet>163</a>            <span class="prelude-val">Err</span>(virtual_fs::FsError::EntryNotFound) =&gt; {}
+<a href=#164 id=164 data-nosnippet>164</a>            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(fs_error_into_wasi_err(err)),
+<a href=#165 id=165 data-nosnippet>165</a>        }
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a>        <span class="kw">match </span>state.fs.root_fs.hard_link(<span class="kw-2">&amp;</span>source_path, <span class="kw-2">&amp;</span>target_path) {
+<a href=#168 id=168 data-nosnippet>168</a>            <span class="prelude-val">Ok</span>(()) =&gt; {
+<a href=#169 id=169 data-nosnippet>169</a>                <span class="kw">let </span>kind = Kind::File {
+<a href=#170 id=170 data-nosnippet>170</a>                    handle: <span class="prelude-val">None</span>,
+<a href=#171 id=171 data-nosnippet>171</a>                    path: target_path.clone(),
+<a href=#172 id=172 data-nosnippet>172</a>                    fd: <span class="prelude-val">None</span>,
+<a href=#173 id=173 data-nosnippet>173</a>                };
+<a href=#174 id=174 data-nosnippet>174</a>                <span class="kw">match </span>state
+<a href=#175 id=175 data-nosnippet>175</a>                    .fs
+<a href=#176 id=176 data-nosnippet>176</a>                    .create_inode(inodes, kind, <span class="bool-val">false</span>, new_entry_name.clone())
+<a href=#177 id=177 data-nosnippet>177</a>                {
+<a href=#178 id=178 data-nosnippet>178</a>                    <span class="prelude-val">Ok</span>(inode) =&gt; inode,
+<a href=#179 id=179 data-nosnippet>179</a>                    <span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#180 id=180 data-nosnippet>180</a>                        <span class="kw">let _ </span>= state.fs.root_fs.remove_file(<span class="kw-2">&amp;</span>target_path);
+<a href=#181 id=181 data-nosnippet>181</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(err);
+<a href=#182 id=182 data-nosnippet>182</a>                    }
+<a href=#183 id=183 data-nosnippet>183</a>                }
+<a href=#184 id=184 data-nosnippet>184</a>            }
+<a href=#185 id=185 data-nosnippet>185</a>            <span class="prelude-val">Err</span>(virtual_fs::FsError::Unsupported) =&gt; {
+<a href=#186 id=186 data-nosnippet>186</a>                <span class="comment">// Some virtual filesystems cannot materialize hard links in
+<a href=#187 id=187 data-nosnippet>187</a>                // their backing store. Preserve the old WASIX behavior there
+<a href=#188 id=188 data-nosnippet>188</a>                // by linking the target directory entry to the same inode.
+<a href=#189 id=189 data-nosnippet>189</a>                </span>source_inode.clone()
+<a href=#190 id=190 data-nosnippet>190</a>            }
+<a href=#191 id=191 data-nosnippet>191</a>            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(fs_error_into_wasi_err(err)),
+<a href=#192 id=192 data-nosnippet>192</a>        }
+<a href=#193 id=193 data-nosnippet>193</a>    } <span class="kw">else </span>{
+<a href=#194 id=194 data-nosnippet>194</a>        source_inode.clone()
+<a href=#195 id=195 data-nosnippet>195</a>    };
+<a href=#196 id=196 data-nosnippet>196</a>
+<a href=#197 id=197 data-nosnippet>197</a>    {
+<a href=#198 id=198 data-nosnippet>198</a>        <span class="kw">let </span><span class="kw-2">mut </span>guard = target_parent_inode.write();
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="kw">match </span>guard.deref_mut() {
+<a href=#200 id=200 data-nosnippet>200</a>            Kind::Dir { entries, .. } =&gt; {
+<a href=#201 id=201 data-nosnippet>201</a>                <span class="kw">if </span>entries.contains_key(<span class="kw-2">&amp;</span>new_entry_name) {
+<a href=#202 id=202 data-nosnippet>202</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Exist);
+<a href=#203 id=203 data-nosnippet>203</a>                }
+<a href=#204 id=204 data-nosnippet>204</a>                entries.insert(new_entry_name, target_inode.clone());
+<a href=#205 id=205 data-nosnippet>205</a>            }
+<a href=#206 id=206 data-nosnippet>206</a>            Kind::Root { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Inval),
+<a href=#207 id=207 data-nosnippet>207</a>            Kind::File { .. }
+<a href=#208 id=208 data-nosnippet>208</a>            | Kind::Symlink { .. }
+<a href=#209 id=209 data-nosnippet>209</a>            | Kind::Buffer { .. }
+<a href=#210 id=210 data-nosnippet>210</a>            | Kind::Socket { .. }
+<a href=#211 id=211 data-nosnippet>211</a>            | Kind::PipeTx { .. }
+<a href=#212 id=212 data-nosnippet>212</a>            | Kind::PipeRx { .. }
+<a href=#213 id=213 data-nosnippet>213</a>            | Kind::DuplexPipe { .. }
+<a href=#214 id=214 data-nosnippet>214</a>            | Kind::EventNotifications { .. }
+<a href=#215 id=215 data-nosnippet>215</a>            | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notdir),
+<a href=#216 id=216 data-nosnippet>216</a>        }
+<a href=#217 id=217 data-nosnippet>217</a>    }
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="kw">let </span>new_link_count = {
+<a href=#219 id=219 data-nosnippet>219</a>        <span class="kw">let </span><span class="kw-2">mut </span>stat = source_inode.stat.write().unwrap();
+<a href=#220 id=220 data-nosnippet>220</a>        stat.st_nlink += <span class="number">1</span>;
+<a href=#221 id=221 data-nosnippet>221</a>        stat.st_nlink
+<a href=#222 id=222 data-nosnippet>222</a>    };
+<a href=#223 id=223 data-nosnippet>223</a>    target_inode.stat.write().unwrap().st_nlink = new_link_count;
+<a href=#224 id=224 data-nosnippet>224</a>
+<a href=#225 id=225 data-nosnippet>225</a>    <span class="prelude-val">Ok</span>(())
+<a href=#226 id=226 data-nosnippet>226</a>}
 </code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["Kind"],"struct":["Fd","FdInner","InodeVal"],"type":["VirtualFileLock"]};
+window.SIDEBAR_ITEMS = {"enum":["Kind","SymlinkKind"],"struct":["Fd","FdInner","InodeVal"],"type":["VirtualFileLock"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_BUF_SIZE_HINT"],"fn":["canonicalize","default_handle","default_stderr","default_stdin","default_stdout","normalize_path"],"struct":["File","FileSystem","Stderr","Stdin","Stdout"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_BUF_SIZE_HINT"],"fn":["canonicalize","default_handle","default_stderr","default_stdin","default_stdout","host_root_relative_target","normalize_path","path_suffix_to_guest_absolute","strip_host_root"],"struct":["File","FileSystem","Stderr","Stdin","Stdout"]};
