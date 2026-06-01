@@ -56,23 +56,23 @@ pub struct SocketProperties {
 }
 
 impl SocketProperties {
-    fn placeholder_from(existing: &Self) -> Self {
+    fn snapshot_for_bound(&self) -> Self {
         Self {
-            family: existing.family,
-            ty: existing.ty,
-            pt: existing.pt,
-            only_v6: false,
-            reuse_port: false,
-            reuse_addr: false,
-            no_delay: None,
-            keep_alive: None,
-            dont_route: None,
-            send_buf_size: None,
-            recv_buf_size: None,
-            write_timeout: None,
-            read_timeout: None,
-            accept_timeout: None,
-            connect_timeout: None,
+            family: self.family,
+            ty: self.ty,
+            pt: self.pt,
+            only_v6: self.only_v6,
+            reuse_port: self.reuse_port,
+            reuse_addr: self.reuse_addr,
+            no_delay: self.no_delay,
+            keep_alive: self.keep_alive,
+            dont_route: self.dont_route,
+            send_buf_size: self.send_buf_size,
+            recv_buf_size: self.recv_buf_size,
+            write_timeout: self.write_timeout,
+            read_timeout: self.read_timeout,
+            accept_timeout: self.accept_timeout,
+            connect_timeout: self.connect_timeout,
             handler: None,
         }
     }
@@ -324,9 +324,7 @@ impl InodeSocket {
         enum PendingBind {
             Tcp {
                 addr: SocketAddr,
-                only_v6: bool,
-                reuse_port: bool,
-                reuse_addr: bool,
+                props: SocketProperties,
             },
             Udp {
                 addr: SocketAddr,
@@ -367,9 +365,7 @@ impl InodeSocket {
                     match props.ty {
                         Socktype::Stream => PendingBind::Tcp {
                             addr,
-                            only_v6: props.only_v6,
-                            reuse_port: props.reuse_port,
-                            reuse_addr: props.reuse_addr,
+                            props: props.snapshot_for_bound(),
                         },
                         Socktype::Dgram => PendingBind::Udp {
                             addr,
@@ -429,22 +425,21 @@ impl InodeSocket {
         };
 
         match bind {
-            PendingBind::Tcp {
-                addr,
-                only_v6,
-                reuse_port,
-                reuse_addr,
-            } => {
+            PendingBind::Tcp { addr, mut props } => {
                 tokio::select! {
-                    socket = net.bind_tcp(addr, only_v6, reuse_port, reuse_addr) => {
+                    socket = net.bind_tcp(
+                        addr,
+                        props.only_v6,
+                        props.reuse_port,
+                        props.reuse_addr,
+                    ) => {
                         match socket {
                             Ok(socket) => {
-                                let props = {
+                                props.handler = {
                                     let mut inner = self.inner.protected.write().unwrap();
                                     match &mut inner.kind {
-                                        InodeSocketKind::PreSocket { props, .. } => {
-                                            let placeholder = SocketProperties::placeholder_from(props);
-                                            std::mem::replace(props, placeholder)
+                                        InodeSocketKind::PreSocket { props: live_props, .. } => {
+                                            live_props.handler.take()
                                         }
                                         _ => return Err(Errno::Inval),
                                     }

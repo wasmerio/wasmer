@@ -210,7 +210,7 @@ impl VirtualNetworking for LoopbackNetworking {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "tokio"))]
 impl LoopbackNetworking {
     pub(crate) fn exhaust_tcp_ephemeral_ports_for_test(&self, ip: IpAddr) {
         let mut state = self.state.lock().unwrap();

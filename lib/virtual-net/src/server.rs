@@ -189,7 +189,7 @@ impl RemoteNetworkingServer {
         Self::new(tx, rx, rx_work, inner)
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "tokio"))]
     pub(crate) fn socket_count_for_test(&self) -> usize {
         self.common.sockets.lock().unwrap().len()
     }
