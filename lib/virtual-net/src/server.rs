@@ -910,7 +910,7 @@ impl RemoteNetworkingServerDriver {
                             },
                             _ => Err(NetworkError::Unsupported),
                         },
-                        _ => Err(NetworkError::Unsupported),
+                        None => Err(NetworkError::InvalidFd),
                     }
                 };
                 req_id.and_then(|req_id| {
@@ -937,7 +937,7 @@ impl RemoteNetworkingServerDriver {
                             },
                             _ => Err(NetworkError::Unsupported),
                         },
-                        _ => Err(NetworkError::Unsupported),
+                        None => Err(NetworkError::InvalidFd),
                     }
                 };
                 req_id.and_then(|req_id| {
