@@ -49,8 +49,18 @@ impl WebcVolumeFileSystem {
 }
 
 impl FileSystem for WebcVolumeFileSystem {
-    fn readlink(&self, _path: &Path) -> crate::Result<PathBuf> {
-        Err(FsError::InvalidInput)
+    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+        let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
+
+        match self.volume().metadata(&path) {
+            Some(meta) if !meta.is_symlink() => Err(FsError::InvalidInput),
+            Some(_) => self
+                .volume()
+                .read_link(&path)
+                .map(|(target, _)| PathBuf::from(target))
+                .ok_or(FsError::EntryNotFound),
+            None => Err(FsError::EntryNotFound),
+        }
     }
 
     fn read_dir(&self, path: &Path) -> Result<crate::ReadDir, FsError> {
@@ -326,6 +336,18 @@ fn compat_meta(meta: WebcMetadata) -> Metadata {
             modified: get_modified(timestamps),
             ..Default::default()
         },
+        WebcMetadata::Symlink {
+            target_length,
+            timestamps,
+        } => Metadata {
+            ft: FileType {
+                symlink: true,
+                ..Default::default()
+            },
+            len: target_length.try_into().unwrap(),
+            modified: get_modified(timestamps),
+            ..Default::default()
+        },
     }
 }
 
@@ -350,12 +372,48 @@ fn normalize(path: &Path) -> Result<PathSegments, PathSegmentError> {
 mod tests {
     use super::*;
     use crate::DirEntry;
+    use std::collections::BTreeMap;
     use std::convert::TryFrom;
     use tokio::io::AsyncReadExt;
     use wasmer_package::utils::from_bytes;
+    use webc::PathSegment;
 
     const PYTHON_WEBC: &[u8] =
         include_bytes!("../../../wasmer-test-files/examples/python-0.1.0.wasmer");
+
+    fn symlink_fs() -> WebcVolumeFileSystem {
+        let timestamps = webc::v3::Timestamps::default();
+        let dir = webc::v3::write::Directory::new(
+            BTreeMap::from_iter([
+                (
+                    PathSegment::parse("target.txt").unwrap(),
+                    webc::v3::write::DirEntry::File(webc::v3::write::FileEntry::borrowed(
+                        b"target", timestamps,
+                    )),
+                ),
+                (
+                    PathSegment::parse("link").unwrap(),
+                    webc::v3::write::DirEntry::Symlink(webc::v3::write::SymlinkEntry::borrowed(
+                        "target.txt",
+                        timestamps,
+                    )),
+                ),
+            ]),
+            timestamps,
+        );
+        let manifest = webc::metadata::Manifest::default();
+        let mut writer = webc::v3::write::Writer::new(webc::v3::ChecksumAlgorithm::Sha256)
+            .write_manifest(&manifest)
+            .unwrap()
+            .write_atoms(BTreeMap::new())
+            .unwrap();
+        writer.write_volume("atom", dir).unwrap();
+        let webc = writer.finish(webc::v3::SignatureAlgorithm::None).unwrap();
+        let container = from_bytes(webc).unwrap();
+        let volume = container.volumes()["atom"].clone();
+
+        WebcVolumeFileSystem::new(volume)
+    }
 
     #[test]
     fn normalize_paths() {
@@ -413,6 +471,43 @@ mod tests {
         for path in paths {
             assert!(normalize(path.as_ref()).is_err(), "{}", path);
         }
+    }
+
+    #[test]
+    fn symlink_metadata_and_readlink() {
+        let fs = symlink_fs();
+
+        let link = fs.symlink_metadata("/link".as_ref()).unwrap();
+        assert!(link.ft.is_symlink());
+        assert_eq!(link.len(), "target.txt".len() as u64);
+        assert_eq!(
+            fs.readlink("/link".as_ref()).unwrap(),
+            Path::new("target.txt")
+        );
+        assert_eq!(
+            fs.new_open_options().read(true).open("/link").unwrap_err(),
+            FsError::NotAFile,
+        );
+
+        let entries: Vec<_> = fs
+            .read_dir("/".as_ref())
+            .unwrap()
+            .map(|entry| entry.unwrap())
+            .collect();
+        let link_entry = entries
+            .iter()
+            .find(|entry| entry.path == Path::new("/link"))
+            .unwrap();
+        assert!(link_entry.metadata().unwrap().ft.is_symlink());
+
+        assert_eq!(
+            fs.readlink("/target.txt".as_ref()).unwrap_err(),
+            FsError::InvalidInput
+        );
+        assert_eq!(
+            fs.readlink("/missing".as_ref()).unwrap_err(),
+            FsError::EntryNotFound
+        );
     }
 
     #[test]

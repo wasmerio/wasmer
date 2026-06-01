@@ -541,6 +541,7 @@ fn serialize_volume_to_webc_v1(volume: &WebcVolume) -> Vec<u8> {
                         );
                     }
                 }
+                Metadata::Symlink { .. } => {}
             }
 
             path.pop();

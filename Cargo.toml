@@ -92,7 +92,7 @@ wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
 
 # Wasmer-owned crates
-webc = "=11.0.0"
+webc = "=12.0.0"
 shared-buffer = "0.1.4"
 loupe = "0.2.0"
 
