@@ -538,7 +538,7 @@ impl VirtualFile for FileHandle {
 
 #[cfg(test)]
 mod test_virtual_file {
-    use crate::{BufferFile, FileSystem as FS, mem_fs::*};
+    use crate::{BufferFile, FileSystem as FS, FsError, mem_fs::*};
     use std::io;
     use std::pin::Pin;
     use std::task::{Context, Poll, Waker};
