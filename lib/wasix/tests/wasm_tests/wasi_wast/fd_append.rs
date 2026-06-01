@@ -1,4 +1,5 @@
 //#DefaultMappedDirectories: false
+//#FileSystems: host,mem,tmp,passthru,union,root
 //#CurrentDirectory: /tmp
 //#MappedDirectory: $temp:/tmp
 //#ExpectedStdoutFile: fd_append.stdout

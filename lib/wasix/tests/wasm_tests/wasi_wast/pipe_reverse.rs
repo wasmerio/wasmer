@@ -1,4 +1,5 @@
 //#DefaultMappedDirectories: false
+//#FileSystems: host,mem,tmp,passthru,union,root
 //#CurrentDirectory: /
 //#Stdin: Hello, world!
 //#ExpectedStdoutFile: pipe_reverse.stdout

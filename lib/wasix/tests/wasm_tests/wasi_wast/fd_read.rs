@@ -1,4 +1,5 @@
 //#DefaultMappedDirectories: false
+//#FileSystems: host,mem,tmp,passthru,union,root
 //#CurrentDirectory: /
 //#MappedDirectory: test_fs/hamlet:/hamlet
 //#ExpectedStdoutFile: fd_read.stdout

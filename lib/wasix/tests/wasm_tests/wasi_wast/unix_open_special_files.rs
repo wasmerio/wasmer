@@ -1,4 +1,5 @@
 //#DefaultMappedDirectories: false
+//#FileSystems: host
 //#CurrentDirectory: /
 //#MappedDirectory: /dev:/dev
 //#ExpectedStdoutFile: unix_open_special_files.stdout

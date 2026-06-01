@@ -1,4 +1,5 @@
 //#DefaultMappedDirectories: false
+//#FileSystems: host,mem,tmp,passthru,union,root
 //#CurrentDirectory: /
 //#ExpectedStdoutFile: fs_sandbox_test.stdout
 
