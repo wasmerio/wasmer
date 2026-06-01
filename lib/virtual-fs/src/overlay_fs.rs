@@ -241,6 +241,22 @@ where
         self.primary.create_symlink(source, target)
     }
 
+    fn hard_link(&self, source: &Path, target: &Path) -> Result<(), FsError> {
+        if ops::is_white_out(source).is_some() || ops::is_white_out(target).is_some() {
+            return Err(FsError::InvalidInput);
+        }
+
+        ops::remove_white_out(self.primary.as_ref(), target);
+
+        if let Some(parent) = target.parent()
+            && self.read_dir(parent).is_ok()
+        {
+            ops::create_dir_all(&self.primary, parent).ok();
+        }
+
+        self.primary.hard_link(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         // Whiteout files can not be removed, instead the original directory
         // must be removed or recreated.

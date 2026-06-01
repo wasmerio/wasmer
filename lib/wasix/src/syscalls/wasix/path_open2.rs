@@ -114,6 +114,47 @@ pub fn path_open2<M: MemorySize>(
     Ok(Errno::Success)
 }
 
+/// Open or create a filesystem object in the WASIX POSIX guest namespace.
+///
+/// This function sits on top of `WasiFs::get_inode_at_path()`, so it must
+/// preserve that resolver's guest-path contract: raw syscall paths are POSIX
+/// paths where `/` is the only separator, absolute paths start from
+/// `VIRTUAL_ROOT_FD`, and intermediate symlinks are always resolved. Host paths
+/// only enter after an inode has been resolved to a backing `Kind::Dir` or
+/// `Kind::File`.
+///
+/// `dirflags` control lookup, not file-open mode. In particular,
+/// `__WASI_LOOKUP_SYMLINK_FOLLOW` decides whether the final component may be
+/// followed if it is a symlink. This matches the usual `openat`/`O_NOFOLLOW`
+/// shape: a symlink in the middle of the path is still traversed, but a final
+/// symlink with lookup-follow disabled is not opened as a symlink object. WASIX
+/// has no "open the symlink itself as a file" mode here, so a terminal symlink
+/// with no follow returns `Errno::Loop`. With lookup-follow enabled, the symlink
+/// target is resolved and `path_open_internal` restarts against that target.
+///
+/// `o_flags` and `fs_flags` apply after lookup. They decide whether the target
+/// must already exist, whether a missing final component should be created,
+/// whether the opened object must be a directory, and whether the backing file
+/// should be truncated or appended. POSIX trailing-slash semantics still matter
+/// at this layer: opening `file/` is `Errno::Notdir`, and creating `new_file/`
+/// is rejected before the backing opener can normalize the slash away.
+///
+/// The create path resolves only the parent with the requested symlink policy,
+/// then appends the new final component under that resolved parent. That keeps
+/// creation through symlinked directories working while still letting the final
+/// component be genuinely new. If the backing filesystem reports
+/// `AlreadyExists` after the resolver reported `Noent`, this may indicate that a
+/// symlink escaped the sandbox, so the error is mapped to `Errno::Perm`.
+///
+/// File inodes are also the cache boundary for open handles. The resolver may
+/// materialize a `Kind::File` with no handle, and this function opens the
+/// backing file when a descriptor is requested. Regular file handles are shared
+/// per inode when possible, and reopened with stronger rights when a later open
+/// requires write/create/truncate access that the existing handle may not have.
+///
+/// The outer `Result` reports runtime faults such as memory or trap-style WASI
+/// errors. The inner `Result<WasiFd, Errno>` is the syscall result that should
+/// be returned to the guest.
 pub(crate) fn path_open_internal(
     env: &WasiEnv,
     dirfd: WasiFd,
@@ -125,6 +166,35 @@ pub(crate) fn path_open_internal(
     fs_flags: Fdflags,
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
+) -> Result<Result<WasiFd, Errno>, WasiError> {
+    path_open_internal_with_symlink_depth(
+        env,
+        dirfd,
+        dirflags,
+        path,
+        o_flags,
+        fs_rights_base,
+        fs_rights_inheriting,
+        fs_flags,
+        fd_flags,
+        with_fd,
+        0,
+    )
+}
+
+#[allow(clippy::too_many_arguments)]
+fn path_open_internal_with_symlink_depth(
+    env: &WasiEnv,
+    dirfd: WasiFd,
+    dirflags: LookupFlags,
+    path: &str,
+    o_flags: Oflags,
+    fs_rights_base: Rights,
+    fs_rights_inheriting: Rights,
+    fs_flags: Fdflags,
+    fd_flags: Fdflagsext,
+    with_fd: Option<WasiFd>,
+    symlink_depth: u32,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
     fn implied_fd_rights(has_read_access: bool, has_write_access: bool) -> Rights {
         let mut rights = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
@@ -271,31 +341,43 @@ pub(crate) fn path_open_internal(
         {
             let guard = inode.read();
             if let Kind::Symlink {
-                base_po_dir,
+                symlink_kind,
                 path_to_symlink,
                 relative_path,
             } = guard.deref()
             {
-                let (resolved_base_fd, resolved_path) = if relative_path.is_absolute() {
-                    (VIRTUAL_ROOT_FD, relative_path.clone())
-                } else {
-                    let mut resolved_path = path_to_symlink.clone();
-                    resolved_path.pop();
-                    resolved_path.push(relative_path);
-                    (*base_po_dir, resolved_path)
+                if !follow_symlinks {
+                    return Ok(Err(Errno::Loop));
+                }
+
+                let (resolved_base_fd, resolved_path) = match state.fs.resolve_symlink_target_path(
+                    *symlink_kind,
+                    path_to_symlink,
+                    relative_path,
+                ) {
+                    Ok(resolved) => resolved,
+                    Err(err) => return Ok(Err(err)),
                 };
+                let next_symlink_depth = symlink_depth + 1;
+                if next_symlink_depth > MAX_SYMLINKS {
+                    return Ok(Err(Errno::Loop));
+                }
+                let resolved_path = crate::fs::PosixPath::from_path(&resolved_path)
+                    .as_str()
+                    .to_owned();
                 drop(guard);
-                return path_open_internal(
+                return path_open_internal_with_symlink_depth(
                     env,
                     resolved_base_fd,
                     __WASI_LOOKUP_SYMLINK_FOLLOW,
-                    &resolved_path.to_string_lossy(),
+                    &resolved_path,
                     o_flags,
                     fs_rights_base,
                     fs_rights_inheriting,
                     fs_flags,
                     fd_flags,
                     with_fd,
+                    next_symlink_depth,
                 );
             }
         }
@@ -460,7 +542,7 @@ pub(crate) fn path_open_internal(
                     with_fd,
                 ))
             }
-            Kind::Symlink { .. } => unreachable!("symlinks are resolved in phase A"),
+            Kind::Symlink { .. } => return Ok(Err(Errno::Loop)),
         };
         Ok(Ok(out_fd))
     } else {
@@ -475,6 +557,68 @@ pub(crate) fn path_open_internal(
                 return Ok(Err(Errno::Isdir));
             }
 
+            // The follow-style lookup above may have failed because the final
+            // component is a symlink whose target does not exist yet. POSIX
+            // create opens should follow that final symlink and create the
+            // target, while O_EXCL still treats the symlink itself as an
+            // existing path.
+            if follow_symlinks {
+                let final_symlink_target_lookup =
+                    state
+                        .fs
+                        .get_inode_at_path(inodes, effective_dirfd, path, false);
+                let final_symlink_target = match final_symlink_target_lookup {
+                    Ok(inode) => {
+                        let guard = inode.read();
+                        match guard.deref() {
+                            Kind::Symlink {
+                                symlink_kind,
+                                path_to_symlink,
+                                relative_path,
+                            } => {
+                                match state.fs.resolve_symlink_target_path(
+                                    *symlink_kind,
+                                    path_to_symlink,
+                                    relative_path,
+                                ) {
+                                    Ok(resolved) => Some(resolved),
+                                    Err(err) => return Ok(Err(err)),
+                                }
+                            }
+                            _ => None,
+                        }
+                    }
+                    Err(_) => None,
+                };
+
+                if let Some((resolved_base_fd, resolved_path)) = final_symlink_target {
+                    if o_flags.contains(Oflags::EXCL) {
+                        return Ok(Err(Errno::Exist));
+                    }
+
+                    let resolved_path = crate::fs::PosixPath::from_path(&resolved_path)
+                        .as_str()
+                        .to_owned();
+                    let next_symlink_depth = symlink_depth + 1;
+                    if next_symlink_depth > MAX_SYMLINKS {
+                        return Ok(Err(Errno::Loop));
+                    }
+                    return path_open_internal_with_symlink_depth(
+                        env,
+                        resolved_base_fd,
+                        __WASI_LOOKUP_SYMLINK_FOLLOW,
+                        &resolved_path,
+                        o_flags,
+                        fs_rights_base,
+                        fs_rights_inheriting,
+                        fs_flags,
+                        fd_flags,
+                        with_fd,
+                        next_symlink_depth,
+                    );
+                }
+            }
+
             // strip end file name
 
             let (parent_inode, new_entity_name) =
@@ -487,16 +631,10 @@ pub(crate) fn path_open_internal(
             let new_file_host_path = {
                 let guard = parent_inode.read();
                 match guard.deref() {
-                    Kind::Dir { path, .. } => {
-                        let mut new_path = path.clone();
-                        new_path.push(&new_entity_name);
-                        new_path
-                    }
-                    Kind::Root { .. } => {
-                        let mut new_path = std::path::PathBuf::new();
-                        new_path.push(&new_entity_name);
-                        new_path
-                    }
+                    Kind::Dir { path, .. } => crate::fs::PosixPath::from_path(path)
+                        .join(&crate::fs::PosixPath::new(&new_entity_name))
+                        .into_path_buf(),
+                    Kind::Root { .. } => return Ok(Err(Errno::Perm)),
                     _ => return Ok(Err(Errno::Notdir)),
                 }
             };
