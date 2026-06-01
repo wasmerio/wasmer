@@ -447,9 +447,14 @@ impl InodeSocket {
                                 Ok(Some(InodeSocket::new(InodeSocketKind::BoundTcp { socket, props })))
                             }
                             Err(NetworkError::Unsupported) => {
-                                // Fallback for backends that still only materialize TCP state at
-                                // listen/connect time.
-                                Ok(None)
+                                tracing::debug!(
+                                    "bind_tcp unsupported by networking backend; leaving socket unbound"
+                                );
+                                let mut inner = self.inner.protected.write().unwrap();
+                                if let InodeSocketKind::PreSocket { addr, .. } = &mut inner.kind {
+                                    addr.take();
+                                }
+                                Err(Errno::Notsup)
                             }
                             Err(err) => {
                                 // Roll back the pre-set address so the socket stays unbound,
@@ -866,25 +871,18 @@ impl InodeSocket {
 
     pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
-        Ok(match &inner.kind {
-            InodeSocketKind::PreSocket { props, .. } => SocketAddr::new(
+        match &inner.kind {
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Notconn),
+            InodeSocketKind::PreSocket { props, .. } => Ok(SocketAddr::new(
                 match props.family {
                     Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                     Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                     _ => return Err(Errno::Inval),
                 },
                 0,
-            ),
-            InodeSocketKind::BoundTcp { props, .. } => SocketAddr::new(
-                match props.family {
-                    Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                    Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                    _ => return Err(Errno::Inval),
-                },
-                0,
-            ),
+            )),
             InodeSocketKind::TcpStream { socket, .. } => {
-                socket.addr_peer().map_err(net_error_into_wasi_err)?
+                socket.addr_peer().map_err(net_error_into_wasi_err)
             }
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .addr_peer()
@@ -903,10 +901,10 @@ impl InodeSocket {
                                 0,
                             )
                         })
-                })?,
-            InodeSocketKind::RemoteSocket { peer_addr, .. } => *peer_addr,
-            _ => return Err(Errno::Notsup),
-        })
+                }),
+            InodeSocketKind::RemoteSocket { peer_addr, .. } => Ok(*peer_addr),
+            _ => Err(Errno::Notsup),
+        }
     }
 
     pub fn set_opt_flag(&mut self, option: WasiSocketOption, val: bool) -> Result<(), Errno> {
@@ -1723,9 +1721,9 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.poll_write_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
-            // A bound-but-not-yet-listening TCP socket is writable immediately,
-            // matching Linux select()/poll() semantics.
-            InodeSocketKind::BoundTcp { .. } => Poll::Ready(Ok(0)),
+            // Bound-but-not-connected TCP sockets are writable immediately on Linux.
+            // Use a non-zero value so poll/select does not treat this as a hangup.
+            InodeSocketKind::BoundTcp { .. } => Poll::Ready(Ok(1)),
             InodeSocketKind::PreSocket { .. } => Poll::Pending,
             InodeSocketKind::RemoteSocket { is_dead, .. } => match is_dead {
                 true => Poll::Ready(Ok(0)),
