@@ -351,7 +351,7 @@ impl Module {
         let exports = WebAssembly::Module::exports(&self.module);
         // Check exports
         if exports.length() as usize != type_hints.exports.len() {
-            return Err("The exports length must match the type hints lenght".to_owned());
+            return Err("The exports length must match the type hints length".to_owned());
         }
         for (i, val) in exports.iter().enumerate() {
             // Annotation is here to prevent spurious IDE warnings.

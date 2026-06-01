@@ -1,22 +1,6 @@
 use super::*;
+use crate::fs::FlushPoller;
 use crate::syscalls::*;
-use std::{future::Future, pin::Pin, sync::Arc, task::Context, task::Poll};
-use virtual_fs::VirtualFile;
-
-struct FlushPoller {
-    file: Arc<std::sync::RwLock<Box<dyn VirtualFile + Send + Sync>>>,
-}
-
-impl Future for FlushPoller {
-    type Output = Result<(), Errno>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut file = self.file.write().unwrap();
-        Pin::new(file.as_mut())
-            .poll_flush(cx)
-            .map_err(|_| Errno::Io)
-    }
-}
 
 /// ### `fd_close()`
 /// Close an open file descriptor
@@ -35,22 +19,24 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
 
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
-    let fd_entry = state.fs.get_fd(fd).ok();
+    let fd_entry = wasi_try_ok!(state.fs.get_fd(fd));
 
     // We don't want to allow programs that blindly close all FDs in a loop
     // to be able to close pre-opens, as that breaks wasix-libc in rather
     // spectacular fashion.
-    if let Some(pfd) = fd_entry.as_ref()
-        && !pfd.is_stdio
-        && pfd.inode.is_preopened
-    {
+    if !fd_entry.is_stdio && fd_entry.inode.is_preopened {
         trace!("Skipping fd_close for pre-opened FD ({})", fd);
         return Ok(Errno::Success);
     }
     // Keep stdio behavior unchanged: flush before close.
     if fd <= __WASI_STDERR_FILENO {
         match __asyncify_light(env, None, state.fs.flush(fd))? {
-            Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
+            Ok(_)
+            | Err(Errno::Isdir)
+            | Err(Errno::Io)
+            | Err(Errno::Access)
+            // EINVAL is returned by e.g. pipe-backed stdio and is safe to ignore.
+            | Err(Errno::Inval) => {}
             Err(e) => {
                 return Ok(e);
             }
@@ -60,7 +46,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
         // Capture the file handle before removing the fd, then close first.
         // This avoids an fd-number reuse race where an async pre-close flush
         // can end up closing a newly allocated descriptor with the same number.
-        let flush_target = fd_entry.as_ref().and_then(|fd_entry| {
+        let flush_target = {
             let guard = fd_entry.inode.read();
             match guard.deref() {
                 Kind::File {
@@ -68,7 +54,7 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
                 } => Some(file.clone()),
                 _ => None,
             }
-        });
+        };
 
         wasi_try_ok!(state.fs.close_fd(fd));
 

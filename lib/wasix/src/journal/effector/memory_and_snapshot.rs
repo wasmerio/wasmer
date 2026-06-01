@@ -141,7 +141,7 @@ impl JournalEffector {
         // Combine regions together that are next to each other
         regions.clear();
         let mut last_end = None;
-        for (region, _) in regions_phase2.iter() {
+        for region in regions_phase2.keys() {
             if Some(region.start) == last_end {
                 regions.last_mut().unwrap().end = region.end;
             } else {
@@ -165,7 +165,7 @@ impl JournalEffector {
             // UNSAFE:
             //
             // This is only unsafe while the WASM process itself is running and using this
-            // method avoids a memory copy before its compressed, this also signficantly
+            // method avoids a memory copy before its compressed, this also significantly
             // reduces the memory process
             #[cfg(feature = "sys")]
             let compressed_data = compress_prepend_size(unsafe {

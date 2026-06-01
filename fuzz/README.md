@@ -31,10 +31,10 @@ This directory provides multiple fuzzers, like for example `validate`. You can r
 $ cargo fuzz run validate
 ```
 
-Another example with the `universal_cranelift` fuzzer:
+Another example with the `cranelift` fuzzer:
 
 ```sh
-$ cargo fuzz run universal_cranelift
+$ cargo fuzz run cranelift
 ```
 
 See the
@@ -57,9 +57,9 @@ You should see output that looks something like this:
 
 It will continue to generate random inputs forever, until it finds a
 bug or is terminated. The testcases for bugs it finds go into
-`fuzz/artifacts/universal_cranelift` and you can rerun the fuzzer on a
+`fuzz/artifacts/cranelift` and you can rerun the fuzzer on a
 single input by passing it on the command line `cargo fuzz run
-universal_cranelift /path/to/testcase`.
+cranelift /path/to/testcase`.
 
 ## The corpus
 
@@ -74,7 +74,7 @@ work for this purpose because we use a custom configuration to our
 `DUMP_TESTCASE=path`. For example:
 
 ```sh
-$ DUMP_TESTCASE=/tmp/crash.wasm cargo fuzz run --features=universal,singlepass universal_singlepass fuzz/artifacts/universal_singlepass/crash-0966412eab4f89c52ce5d681807c8030349470f6
+$ DUMP_TESTCASE=/tmp/crash.wasm cargo fuzz run --features=singlepass singlepass fuzz/artifacts/singlepass/crash-0966412eab4f89c52ce5d681807c8030349470f6
 ```
 
 [`cargo-fuzz`]: https://github.com/rust-fuzz/cargo-fuzz

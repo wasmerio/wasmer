@@ -2,7 +2,7 @@
 // It is impossible to fix them with the current setup, since a hard
 // link must point to the actual file rather than its path, but the
 // only way we can get to a file on a FileSystem instance is by going
-// through its repective FileOpener and giving it a path as input.
+// through its respective FileOpener and giving it a path as input.
 // TODO: refactor away the InodeVal type
 
 mod fd;
@@ -31,7 +31,6 @@ use crate::{
 use futures::{Future, future::BoxFuture};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
 use virtual_fs::{
     ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
@@ -52,8 +51,27 @@ pub(crate) use self::inode_guard::{
     InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard,
 };
 pub use self::notification::NotificationInner;
-use crate::syscalls::map_io_err;
 use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
+
+// POSIX bounds descriptor numbers by the process fd limit (`OPEN_MAX`,
+// `RLIMIT_NOFILE` on Linux). Other OSes commonly override the default, so
+// use a Linux-like 64k ceiling until WASIX models per-process fd limits.
+pub(crate) const MAX_FD: WasiFd = (64 * 1024) - 1;
+
+pub(crate) struct FlushPoller {
+    pub(crate) file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
+}
+
+impl Future for FlushPoller {
+    type Output = Result<(), Errno>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let mut file = self.file.write().unwrap();
+        Pin::new(file.as_mut())
+            .poll_flush(cx)
+            .map_err(|_| Errno::Io)
+    }
+}
 
 /// the fd value of the virtual root
 ///
@@ -105,7 +123,7 @@ const STDOUT_DEFAULT_RIGHTS: Rights = {
 };
 const STDERR_DEFAULT_RIGHTS: Rights = STDOUT_DEFAULT_RIGHTS;
 
-/// A completely aribtrary "big enough" number used as the upper limit for
+/// A completely arbitrary "big enough" number used as the upper limit for
 /// the number of symlinks that can be traversed when resolving a path
 pub const MAX_SYMLINKS: u32 = 128;
 
@@ -313,19 +331,11 @@ impl WasiInodes {
         }
     }
 
-    /// Get the `VirtualFile` object at stdout
-    pub(crate) fn stdout(fd_map: &RwLock<FdList>) -> Result<InodeValFileReadGuard, FsError> {
-        Self::std_dev_get(fd_map, __WASI_STDOUT_FILENO)
-    }
     /// Get the `VirtualFile` object at stdout mutably
     pub(crate) fn stdout_mut(fd_map: &RwLock<FdList>) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDOUT_FILENO)
     }
 
-    /// Get the `VirtualFile` object at stderr
-    pub(crate) fn stderr(fd_map: &RwLock<FdList>) -> Result<InodeValFileReadGuard, FsError> {
-        Self::std_dev_get(fd_map, __WASI_STDERR_FILENO)
-    }
     /// Get the `VirtualFile` object at stderr mutably
     pub(crate) fn stderr_mut(fd_map: &RwLock<FdList>) -> Result<InodeValFileWriteGuard, FsError> {
         Self::std_dev_get_mut(fd_map, __WASI_STDERR_FILENO)
@@ -814,7 +824,7 @@ impl WasiFs {
     /// # Safety
     /// - Virtual directories created with this function must not conflict with
     ///   the standard operation of the WASI filesystem.  This is vague and
-    ///   unlikely in pratice.  [Join the discussion](https://github.com/wasmerio/wasmer/issues/1219)
+    ///   unlikely in practice.  [Join the discussion](https://github.com/wasmerio/wasmer/issues/1219)
     ///   for what the newer, safer WASI FS APIs should look like.
     #[allow(dead_code)]
     #[allow(clippy::too_many_arguments)]
@@ -1492,6 +1502,16 @@ impl WasiFs {
         self.get_inode_at_path_inner(inodes, base_inode, path, 0, follow_symlinks)
     }
 
+    pub(crate) fn get_inode_at_path_from_inode(
+        &self,
+        inodes: &WasiInodes,
+        base_inode: InodeGuard,
+        path: &str,
+        follow_symlinks: bool,
+    ) -> Result<InodeGuard, Errno> {
+        self.get_inode_at_path_inner(inodes, base_inode, path, 0, follow_symlinks)
+    }
+
     /// Returns the parent Dir or Root that the file at a given path is in and the file name
     /// stripped off
     pub(crate) fn get_parent_inode_at_path(
@@ -1650,56 +1670,29 @@ impl WasiFs {
         }
     }
 
-    #[allow(clippy::await_holding_lock)]
     pub async fn flush(&self, fd: WasiFd) -> Result<(), Errno> {
-        match fd {
-            __WASI_STDIN_FILENO => (),
-            __WASI_STDOUT_FILENO => {
-                let mut file =
-                    WasiInodes::stdout_mut(&self.fd_map).map_err(fs_error_into_wasi_err)?;
-                file.flush().await.map_err(map_io_err)?
-            }
-            __WASI_STDERR_FILENO => {
-                let mut file =
-                    WasiInodes::stderr_mut(&self.fd_map).map_err(fs_error_into_wasi_err)?;
-                file.flush().await.map_err(map_io_err)?
-            }
-            _ => {
-                let fd = self.get_fd(fd)?;
-                if !fd.inner.rights.contains(Rights::FD_DATASYNC) {
-                    return Err(Errno::Access);
-                }
-
-                let file = {
-                    let guard = fd.inode.read();
-                    match guard.deref() {
-                        Kind::File {
-                            handle: Some(file), ..
-                        } => file.clone(),
-                        // TODO: verify this behavior
-                        Kind::Dir { .. } => return Err(Errno::Isdir),
-                        Kind::Buffer { .. } => return Ok(()),
-                        _ => return Err(Errno::Io),
-                    }
-                };
-                drop(fd);
-
-                struct FlushPoller {
-                    file: Arc<RwLock<Box<dyn VirtualFile + Send + Sync>>>,
-                }
-                impl Future for FlushPoller {
-                    type Output = Result<(), Errno>;
-                    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-                        let mut file = self.file.write().unwrap();
-                        Pin::new(file.as_mut())
-                            .poll_flush(cx)
-                            .map_err(|_| Errno::Io)
-                    }
-                }
-                FlushPoller { file }.await?;
-            }
+        let fd_entry = self.get_fd(fd)?;
+        if !fd_entry.inner.rights.contains(Rights::FD_DATASYNC) {
+            return Err(Errno::Access);
         }
-        Ok(())
+
+        let file = {
+            let guard = fd_entry.inode.read();
+            match guard.deref() {
+                Kind::File {
+                    handle: Some(file), ..
+                } => file.clone(),
+                // TODO: verify this behavior
+                Kind::Dir { .. } => return Err(Errno::Isdir),
+                Kind::Buffer { .. } => return Ok(()),
+                // Linux fsync(2) returns EINVAL for fds "bound to a special
+                // file (e.g., a pipe, FIFO, or socket) which does not support
+                // synchronization.", mirror that behaviour
+                _ => return Err(Errno::Inval),
+            }
+        };
+        drop(fd_entry);
+        FlushPoller { file }.await
     }
 
     /// Creates an inode and inserts it given a Kind and some extra data
@@ -1862,6 +1855,9 @@ impl WasiFs {
 
         match idx {
             Some(idx) => {
+                if idx > MAX_FD {
+                    return Err(Errno::Badf);
+                }
                 if guard.insert(exclusive, idx, fd) {
                     Ok(idx)
                 } else {
@@ -1883,6 +1879,9 @@ impl WasiFs {
         cloexec: Option<bool>,
     ) -> Result<WasiFd, Errno> {
         let fd = self.get_fd(fd)?;
+        if min_result_fd > MAX_FD {
+            return Err(Errno::Inval);
+        }
         Ok(self.fd_map.write().unwrap().insert_first_free_after(
             Fd {
                 inner: FdInner {
@@ -1959,7 +1958,7 @@ impl WasiFs {
     pub(crate) fn create_rootfd(&self) -> Result<(), String> {
         // create virtual root
         let all_rights = ALL_RIGHTS;
-        // TODO: make this a list of positive rigths instead of negative ones
+        // TODO: make this a list of positive rights instead of negative ones
         // root gets all right for now
         let root_rights = all_rights
             /*
@@ -2073,7 +2072,7 @@ impl WasiFs {
             } else {
                 return Err(format!(
                     "WASI only supports pre-opened directories right now; found \"{}\"",
-                    &path.to_string_lossy()
+                    path.to_string_lossy()
                 ));
             };
 

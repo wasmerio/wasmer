@@ -1,6 +1,6 @@
-use std::{path::PathBuf, process::Command};
+use std::path::PathBuf;
 
-use wasmer_integration_tests_cli::{fixtures, get_wasmer_path};
+use wasmer_integration_tests_cli::{fixtures, wasmer_command};
 
 #[test]
 fn gen_c_header_works_pirita() -> anyhow::Result<()> {
@@ -10,7 +10,7 @@ fn gen_c_header_works_pirita() -> anyhow::Result<()> {
     let wasm_path = operating_dir.join(fixtures::wabt());
     let out_path = temp_dir.path().join("header.h");
 
-    let _ = Command::new(get_wasmer_path())
+    let _ = wasmer_command()
         .arg("gen-c-header")
         .arg(&wasm_path)
         .arg("-o")
@@ -28,7 +28,7 @@ fn gen_c_header_works_pirita() -> anyhow::Result<()> {
         "no wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_0 in file"
     );
 
-    let cmd = Command::new(get_wasmer_path())
+    let cmd = wasmer_command()
         .arg("gen-c-header")
         .arg(&wasm_path)
         .arg("-o")

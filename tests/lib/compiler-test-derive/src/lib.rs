@@ -94,7 +94,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
     let construct_compiler_test =
         |func: &::syn::ItemFn, compiler_name: &str| -> ::proc_macro2::TokenStream {
             let mod_name = ::quote::format_ident!("{}", compiler_name.to_lowercase());
-            let universal_engine_test = construct_engine_test(
+            let engine_test = construct_engine_test(
                 func,
                 compiler_name,
                 compiler_name,
@@ -107,7 +107,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
                 mod #mod_name {
                     use super::*;
 
-                    #universal_engine_test
+                    #engine_test
                 }
             }
         };
@@ -115,6 +115,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
     let singlepass_compiler_test = construct_compiler_test(&my_fn, "Singlepass");
     let cranelift_compiler_test = construct_compiler_test(&my_fn, "Cranelift");
     let llvm_compiler_test = construct_compiler_test(&my_fn, "LLVM");
+    let v8_compiler_test = construct_compiler_test(&my_fn, "V8");
 
     // We remove the method decorators
     my_fn.attrs = vec![];
@@ -130,6 +131,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
             #singlepass_compiler_test
             #cranelift_compiler_test
             #llvm_compiler_test
+            #v8_compiler_test
         }
     };
 

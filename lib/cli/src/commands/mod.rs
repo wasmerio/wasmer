@@ -203,7 +203,7 @@ impl WasmerCmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),
             },
             #[cfg(feature = "static-artifact-create")]
-            Some(Cmd::GenCHeader(gen_heder)) => gen_heder.execute(),
+            Some(Cmd::GenCHeader(gen_header)) => gen_header.execute(),
             #[cfg(feature = "wast")]
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]
@@ -385,7 +385,6 @@ enum Cmd {
     //
     // - "x86_64-linux-gnu"
     // - "aarch64-linux-gnu"
-    // - "x86_64-apple-darwin"
     // - "arm64-apple-darwin"
     // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
     // #[clap(name = "create-exe", verbatim_doc_comment)]
@@ -417,7 +416,6 @@ enum Cmd {
     ///
     /// - "x86_64-linux-gnu"
     /// - "aarch64-linux-gnu"
-    /// - "x86_64-apple-darwin"
     /// - "arm64-apple-darwin"
     // #[cfg(feature = "static-artifact-create")]
     // #[structopt(name = "create-obj", verbatim_doc_comment)]
@@ -560,12 +558,6 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     }
     if cfg!(feature = "llvm") {
         runtimes.push("LLVM");
-    }
-    if cfg!(feature = "wamr") {
-        runtimes.push("WAMR");
-    }
-    if cfg!(feature = "wasmi") {
-        runtimes.push("Wasmi");
     }
     if cfg!(feature = "v8") {
         runtimes.push("V8");

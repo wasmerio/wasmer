@@ -17,7 +17,7 @@ use crate::{
     ReadDir, VirtualFile, ops,
 };
 
-/// A primary filesystem and chain of secondary filesystems that are overlayed
+/// A primary filesystem and chain of secondary filesystems that are overlaid
 /// on top of each other.
 ///
 /// # Precedence
@@ -1280,10 +1280,10 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn listed_files_appear_overlayed() {
+    async fn listed_files_appear_overlaid() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        let secondary_overlayed = MemFS::default();
+        let secondary_overlaid = MemFS::default();
         ops::create_dir_all(&primary, "/primary").unwrap();
         ops::touch(&primary, "/primary/read.txt").unwrap();
         ops::touch(&primary, "/primary/write.txt").unwrap();
@@ -1292,10 +1292,10 @@ mod tests {
         ops::touch(&secondary, "/secondary/write.txt").unwrap();
         // This second "secondary" filesystem should share the same folders as
         // the first one.
-        ops::create_dir_all(&secondary_overlayed, "/secondary").unwrap();
-        ops::touch(&secondary_overlayed, "/secondary/overlayed.txt").unwrap();
+        ops::create_dir_all(&secondary_overlaid, "/secondary").unwrap();
+        ops::touch(&secondary_overlaid, "/secondary/overlayed.txt").unwrap();
 
-        let fs = OverlayFileSystem::new(primary, [secondary, secondary_overlayed]);
+        let fs = OverlayFileSystem::new(primary, [secondary, secondary_overlaid]);
 
         let paths: Vec<_> = ops::walk(&fs, "/").map(|entry| entry.path()).collect();
         assert_eq!(

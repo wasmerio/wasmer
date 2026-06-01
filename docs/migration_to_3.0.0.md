@@ -57,7 +57,7 @@ A lot of types were moved to `wasmer-types` crate. There are no `engine` crates 
 
 ### `WasmerEnv` is removed in favor of `FunctionEnv`
 
-`WasmerEnv` has been removed in Wasmer 3.0 in favor of `FunctionEnv`, which is now shareable automatically between functions without requiring the environment to be clonable.
+`WasmerEnv` has been removed in Wasmer 3.0 in favor of `FunctionEnv`, which is now shareable automatically between functions without requiring the environment to be cloneable.
 
 ```rust
 let my_counter = 0_i32;

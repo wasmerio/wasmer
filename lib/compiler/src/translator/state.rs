@@ -75,7 +75,7 @@ impl SingleOrMultiValue<'_> {
         }
     }
 
-    /// Iterate ofer the value types.
+    /// Iterate offer the value types.
     pub fn iter(&self) -> SingleOrMultiValueIterator<'_> {
         match self {
             SingleOrMultiValue::Single(v) => SingleOrMultiValueIterator::Single(v),

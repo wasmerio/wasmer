@@ -15,7 +15,7 @@ version.workspace = true
 [dependencies]
 memoffset.workspace = true
 dashmap.workspace = true
-wasmer-types = { path = "../types", version = "=7.2.0-alpha.1" }
+wasmer-types = { path = "../types", version = "=7.2.0-alpha.2" }
 libc.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true
@@ -45,10 +45,10 @@ mach2.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { workspace = true, features = [
-	"Win32_System_Diagnostics_Debug",
-	"Win32_System_Threading",
-	"Win32_System_Kernel",
-	"Win32_System_Memory",
+  "Win32_System_Diagnostics_Debug",
+  "Win32_System_Threading",
+  "Win32_System_Kernel",
+  "Win32_System_Memory",
 ] }
 
 [build-dependencies]

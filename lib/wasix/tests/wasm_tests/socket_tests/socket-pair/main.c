@@ -2,6 +2,8 @@
 // socket pairs and using a duplex pipe underneath, which
 // creates huge potential for edge cases and errors.
 
+//#Ignored: flaky test (#6366)
+
 #include <errno.h>
 #include <fcntl.h>
 #include <memory.h>

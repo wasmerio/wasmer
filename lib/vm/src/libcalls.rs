@@ -153,7 +153,7 @@ pub extern "C" fn wasmer_vm_f64_nearest(x: f64) -> f64 {
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_memory32_grow(
     vmctx: *mut VMContext,
-    delta: u32,
+    delta_in_pages: u32,
     memory_index: u32,
 ) -> u32 {
     unsafe {
@@ -162,7 +162,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
             instance
-                .memory_grow(memory_index, delta)
+                .memory_grow(memory_index, delta_in_pages)
                 .map_or(u32::MAX, |pages| pages.0)
         })
     }
@@ -176,7 +176,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
     vmctx: *mut VMContext,
-    delta: u32,
+    delta_in_pages: u32,
     memory_index: u32,
 ) -> u32 {
     unsafe {
@@ -185,7 +185,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_grow(
             let memory_index = MemoryIndex::from_u32(memory_index);
 
             instance
-                .imported_memory_grow(memory_index, delta)
+                .imported_memory_grow(memory_index, delta_in_pages)
                 .map_or(u32::MAX, |pages| pages.0)
         })
     }
@@ -924,7 +924,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_notify(
     }
 }
 
-/// Implementation of memory.notfy for imported 32-bit memories.
+/// Implementation of memory.notify for imported 32-bit memories.
 ///
 /// # Safety
 ///
@@ -1006,5 +1006,149 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         }
         LibCall::DebugUsize => wasmer_vm_dbg_usize as *const () as usize,
         LibCall::DebugStr => wasmer_vm_dbg_str as *const () as usize,
+        // --- Soft-float libcalls ---
+        // compiler-rt / libgcc provides these on every std Rust target.
+        // On wasm32 the JIT engine is never active, so these variants are unreachable.
+        _lc @ (LibCall::Addsf3
+        | LibCall::Adddf3
+        | LibCall::Subsf3
+        | LibCall::Subdf3
+        | LibCall::Mulsf3
+        | LibCall::Muldf3
+        | LibCall::Divsf3
+        | LibCall::Divdf3
+        | LibCall::Negsf2
+        | LibCall::Negdf2
+        | LibCall::Extendsfdf2
+        | LibCall::Truncdfsf2
+        | LibCall::Fixsfsi
+        | LibCall::Fixdfsi
+        | LibCall::Fixsfdi
+        | LibCall::Fixdfdi
+        | LibCall::Fixunssfsi
+        | LibCall::Fixunsdfsi
+        | LibCall::Fixunssfdi
+        | LibCall::Fixunsdfdi
+        | LibCall::Floatsisf
+        | LibCall::Floatsidf
+        | LibCall::Floatdisf
+        | LibCall::Floatdidf
+        | LibCall::Floatunsisf
+        | LibCall::Floatunsidf
+        | LibCall::Floatundisf
+        | LibCall::Floatundidf
+        | LibCall::Unordsf2
+        | LibCall::Unorddf2
+        | LibCall::Eqsf2
+        | LibCall::Eqdf2
+        | LibCall::Nesf2
+        | LibCall::Nedf2
+        | LibCall::Gesf2
+        | LibCall::Gedf2
+        | LibCall::Ltsf2
+        | LibCall::Ltdf2
+        | LibCall::Lesf2
+        | LibCall::Ledf2
+        | LibCall::Gtsf2
+        | LibCall::Gtdf2) => {
+            #[cfg(target_arch = "wasm32")]
+            unreachable!("soft-float libcalls are not reachable on wasm32");
+            #[cfg(not(target_arch = "wasm32"))]
+            match _lc {
+                LibCall::Addsf3 => __addsf3 as *const () as usize,
+                LibCall::Adddf3 => __adddf3 as *const () as usize,
+                LibCall::Subsf3 => __subsf3 as *const () as usize,
+                LibCall::Subdf3 => __subdf3 as *const () as usize,
+                LibCall::Mulsf3 => __mulsf3 as *const () as usize,
+                LibCall::Muldf3 => __muldf3 as *const () as usize,
+                LibCall::Divsf3 => __divsf3 as *const () as usize,
+                LibCall::Divdf3 => __divdf3 as *const () as usize,
+                LibCall::Negsf2 => __negsf2 as *const () as usize,
+                LibCall::Negdf2 => __negdf2 as *const () as usize,
+                LibCall::Extendsfdf2 => __extendsfdf2 as *const () as usize,
+                LibCall::Truncdfsf2 => __truncdfsf2 as *const () as usize,
+                LibCall::Fixsfsi => __fixsfsi as *const () as usize,
+                LibCall::Fixdfsi => __fixdfsi as *const () as usize,
+                LibCall::Fixsfdi => __fixsfdi as *const () as usize,
+                LibCall::Fixdfdi => __fixdfdi as *const () as usize,
+                LibCall::Fixunssfsi => __fixunssfsi as *const () as usize,
+                LibCall::Fixunsdfsi => __fixunsdfsi as *const () as usize,
+                LibCall::Fixunssfdi => __fixunssfdi as *const () as usize,
+                LibCall::Fixunsdfdi => __fixunsdfdi as *const () as usize,
+                LibCall::Floatsisf => __floatsisf as *const () as usize,
+                LibCall::Floatsidf => __floatsidf as *const () as usize,
+                LibCall::Floatdisf => __floatdisf as *const () as usize,
+                LibCall::Floatdidf => __floatdidf as *const () as usize,
+                LibCall::Floatunsisf => __floatunsisf as *const () as usize,
+                LibCall::Floatunsidf => __floatunsidf as *const () as usize,
+                LibCall::Floatundisf => __floatundisf as *const () as usize,
+                LibCall::Floatundidf => __floatundidf as *const () as usize,
+                LibCall::Unordsf2 => __unordsf2 as *const () as usize,
+                LibCall::Unorddf2 => __unorddf2 as *const () as usize,
+                LibCall::Eqsf2 => __eqsf2 as *const () as usize,
+                LibCall::Eqdf2 => __eqdf2 as *const () as usize,
+                LibCall::Nesf2 => __nesf2 as *const () as usize,
+                LibCall::Nedf2 => __nedf2 as *const () as usize,
+                LibCall::Gesf2 => __gesf2 as *const () as usize,
+                LibCall::Gedf2 => __gedf2 as *const () as usize,
+                LibCall::Ltsf2 => __ltsf2 as *const () as usize,
+                LibCall::Ltdf2 => __ltdf2 as *const () as usize,
+                LibCall::Lesf2 => __lesf2 as *const () as usize,
+                LibCall::Ledf2 => __ledf2 as *const () as usize,
+                LibCall::Gtsf2 => __gtsf2 as *const () as usize,
+                LibCall::Gtdf2 => __gtdf2 as *const () as usize,
+                _ => unreachable!(),
+            }
+        }
     }
+}
+
+// Soft-float arithmetic routines. Provided by compiler-rt / libgcc on all non-wasm targets.
+#[cfg(not(target_arch = "wasm32"))]
+unsafe extern "C" {
+    // --- f32/f64 arithmetic ---
+    fn __addsf3(a: f32, b: f32) -> f32;
+    fn __adddf3(a: f64, b: f64) -> f64;
+    fn __subsf3(a: f32, b: f32) -> f32;
+    fn __subdf3(a: f64, b: f64) -> f64;
+    fn __mulsf3(a: f32, b: f32) -> f32;
+    fn __muldf3(a: f64, b: f64) -> f64;
+    fn __divsf3(a: f32, b: f32) -> f32;
+    fn __divdf3(a: f64, b: f64) -> f64;
+    fn __negsf2(a: f32) -> f32;
+    fn __negdf2(a: f64) -> f64;
+    // --- f32/f64 conversions ---
+    fn __extendsfdf2(a: f32) -> f64;
+    fn __truncdfsf2(a: f64) -> f32;
+    fn __fixsfsi(a: f32) -> i32;
+    fn __fixdfsi(a: f64) -> i32;
+    fn __fixsfdi(a: f32) -> i64;
+    fn __fixdfdi(a: f64) -> i64;
+    fn __fixunssfsi(a: f32) -> u32;
+    fn __fixunsdfsi(a: f64) -> u32;
+    fn __fixunssfdi(a: f32) -> u64;
+    fn __fixunsdfdi(a: f64) -> u64;
+    fn __floatsisf(i: i32) -> f32;
+    fn __floatsidf(i: i32) -> f64;
+    fn __floatdisf(i: i64) -> f32;
+    fn __floatdidf(i: i64) -> f64;
+    fn __floatunsisf(i: u32) -> f32;
+    fn __floatunsidf(i: u32) -> f64;
+    fn __floatundisf(i: u64) -> f32;
+    fn __floatundidf(i: u64) -> f64;
+    // --- f32/f64 comparisons (return 0 / nonzero / negative per GCC ABI) ---
+    fn __unordsf2(a: f32, b: f32) -> i32;
+    fn __unorddf2(a: f64, b: f64) -> i32;
+    fn __eqsf2(a: f32, b: f32) -> i32;
+    fn __eqdf2(a: f64, b: f64) -> i32;
+    fn __nesf2(a: f32, b: f32) -> i32;
+    fn __nedf2(a: f64, b: f64) -> i32;
+    fn __gesf2(a: f32, b: f32) -> i32;
+    fn __gedf2(a: f64, b: f64) -> i32;
+    fn __ltsf2(a: f32, b: f32) -> i32;
+    fn __ltdf2(a: f64, b: f64) -> i32;
+    fn __lesf2(a: f32, b: f32) -> i32;
+    fn __ledf2(a: f64, b: f64) -> i32;
+    fn __gtsf2(a: f32, b: f32) -> i32;
+    fn __gtdf2(a: f64, b: f64) -> i32;
 }

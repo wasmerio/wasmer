@@ -1,3 +1,4 @@
+//#ExpectedStdout: bind port 0 keeps the same ephemeral port across connect
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>

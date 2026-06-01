@@ -51,7 +51,7 @@ impl FromStr for Hash {
         })?;
         if bytes.len() != 32 {
             return Err(DeserializeError::Generic(
-                "Prehashed keys must deserialze into exactly 32 bytes".to_string(),
+                "Prehashed keys must deserialize into exactly 32 bytes".to_string(),
             ));
         }
         Ok(Self(bytes[0..32].try_into().map_err(|e| {

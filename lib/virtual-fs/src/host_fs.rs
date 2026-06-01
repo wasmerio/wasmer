@@ -73,9 +73,7 @@ impl FileSystem {
 
         Ok(FileSystem { handle, root })
     }
-}
 
-impl FileSystem {
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
         let path = normalize_path(path);
 
@@ -1314,7 +1312,7 @@ mod tests {
         let root_metadata = fs.metadata(Path::new("/")).unwrap();
 
         assert!(root_metadata.ft.dir);
-        // it seems created is not evailable on musl, at least on CI testing.
+        // it seems created is not available on musl, at least on CI testing.
         #[cfg(not(target_env = "musl"))]
         assert_eq!(root_metadata.accessed, root_metadata.created);
         #[cfg(not(target_env = "musl"))]
@@ -1358,10 +1356,14 @@ mod tests {
     #[tokio::test]
     async fn test_rejects_host_absolute_paths_inside_root() {
         let temp = TempDir::new().unwrap();
-        let file_path = temp.path().join("foo.txt");
+        // Some platforms (e.g. mac) symlink /tmp to /private/tmp, so we need to canonicalize
+        // the path to get the real one, making sure the guest and host paths line up.
+        let temp_canon = super::canonicalize(temp.path()).expect("canonicalize temp dir");
+
+        let file_path = temp_canon.join("foo.txt");
         std::fs::write(&file_path, b"hello").unwrap();
 
-        let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
+        let fs = FileSystem::new(Handle::current(), &temp_canon).expect("get filesystem");
 
         assert_eq!(fs.metadata(&file_path), Err(FsError::InvalidInput));
         assert!(matches!(

@@ -49,9 +49,6 @@ const WASI_FEATURE_AS_C_DEFINE: &str = "WASMER_WASI_ENABLED";
 #[allow(unused)]
 const MIDDLEWARES_FEATURE_AS_C_DEFINE: &str = "WASMER_MIDDLEWARES_ENABLED";
 
-#[allow(unused)]
-const JSC_FEATURE_AS_C_DEFINE: &str = "WASMER_JSC_BACKEND";
-
 macro_rules! map_feature_as_c_define {
     ($feature:expr, $c_define:ident, $accumulator:ident) => {
         #[cfg(feature = $feature)]
@@ -144,7 +141,6 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 {PRE_HEADER}"#,
     );
 
-    map_feature_as_c_define!("jsc", JSC_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("compiler", UNIVERSAL_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("compiler", COMPILER_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("wasi", WASI_FEATURE_AS_C_DEFINE, pre_header);

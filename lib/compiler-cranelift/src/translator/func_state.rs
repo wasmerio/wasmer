@@ -210,7 +210,7 @@ impl ControlStackFrame {
         // (see also `FuncTranslationState::push_if`).
         // Yet, the original_stack_size member accounts for them only once, so that the else
         // block can see the same number of parameters as the consequent block. As a matter of
-        // fact, we need to substract an extra number of parameter values for if blocks.
+        // fact, we need to subtract an extra number of parameter values for if blocks.
         let num_duplicated_params = match self {
             &Self::If {
                 num_param_values, ..

@@ -13,7 +13,7 @@ fn main() {
     };
 
     let mut filehandle = std::fs::OpenOptions::new()
-        .read(false) // <- should only be writeable, not readable
+        .read(false) // <- should only be writable, not readable
         .write(true)
         .create(true)
         .open(&file)

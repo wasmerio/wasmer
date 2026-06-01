@@ -31,4 +31,8 @@ link.tar.gz
 .direnv
 .envrc
 /tests/tmp
- 
+.codex
+result
+result-*
+/lib/wasix/tests/wasm_tests/build/
+.env

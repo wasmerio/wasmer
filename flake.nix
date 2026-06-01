@@ -2,31 +2,56 @@
   description = "Wasmer Webassembly runtime";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
-    rust-overlay.url = "github:oxalica/rust-overlay";
-    flakeutils = {
-      url = "github:numtide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+    crane.url = "github:ipetkov/crane";
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
+    wasinix = {
+      url = "github:wasix-org/wasinix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    flake-utils.url = "github:numtide/flake-utils";
+    self.submodules = true;
   };
 
-  outputs = { self, nixpkgs, flakeutils, rust-overlay }:
-    flakeutils.lib.eachDefaultSystem (system:
-      let
+  outputs = {
+    self,
+    nixpkgs,
+    flake-utils,
+    crane,
+    rust-overlay,
+    wasinix,
+  }:
+    flake-utils.lib.eachDefaultSystem (
+      system: let
         NAME = "wasmer";
 
         pkgs = import nixpkgs {
           inherit system;
-          overlays = [ (import rust-overlay) ];
+          overlays = [(import rust-overlay)];
         };
 
         rust-toolchain = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-      in
-      rec {
-        packages.${NAME} = import ./scripts/nix/pkg.nix pkgs;
-        defaultPackage = pkgs.callPackage packages.${NAME} pkgs;
+
+        craneLib = (crane.mkLib pkgs).overrideToolchain rust-toolchain;
+
+        withV8 =
+          (pkgs.stdenv.hostPlatform.isLinux && pkgs.stdenv.hostPlatform.isx86_64)
+          || (pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isAarch64);
+        withLLVM = pkgs.stdenv.hostPlatform.isLinux || (pkgs.stdenv.hostPlatform.isDarwin && pkgs.stdenv.hostPlatform.isx86_64);
+
+        v8Prebuilt = pkgs.callPackage ./scripts/nix/v8-prebuilt.nix {};
+        wasmerPkg = pkgs.callPackage ./scripts/nix/pkg.nix {inherit craneLib v8Prebuilt withV8 withLLVM;};
+      in rec {
+        packages =
+          {${NAME} = wasmerPkg;}
+          // pkgs.lib.optionalAttrs withV8 {v8-prebuilt = v8Prebuilt;};
+        defaultPackage = packages.${NAME};
 
         # For `nix run`.
-        apps.${NAME} = flakeutils.lib.mkApp {
+        apps.${NAME} = flake-utils.lib.mkApp {
           drv = packages.${NAME};
         };
         defaultApp = apps.${NAME};
@@ -45,17 +70,17 @@
             llvmPackages_22.llvm
             llvmPackages_22.llvm.dev
             llvmPackages_22.libclang.dev
+            llvmPackages_22.compiler-rt-libc
             libxml2
             libffi
             cmake
             ninja
-            webkitgtk_4_1
-
+            webkitgtk_4_1.dev
 
             # Rust tooling
             (rust-toolchain.override {
-              targets = [ "wasm32-unknown-unknown" ];
-              extensions = [ "clippy" "rustfmt" "rust-analyzer" "rust-src" ];
+              targets = ["wasm32-unknown-unknown"];
+              extensions = ["clippy" "rustfmt" "rust-analyzer" "rust-src"];
             })
 
             # Snapshot testing
@@ -81,34 +106,25 @@
             # (partial overlap with "wabt")
             # https://github.com/bytecodealliance/wasm-tools
             wasm-tools
+
+            # WASIX C compiler
+            wasinix.packages.${system}.wasixcc
+
+            rustPlatform.bindgenHook
           ];
 
-          shellHook = ''
-            export LLVM_SYS_221_PREFIX="${pkgs.llvmPackages_22.llvm.dev}"
-            export LIBCLANG_PATH="${pkgs.llvmPackages_22.libclang.lib}/lib"
-            export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_1.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
-            export LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"
-            export LD_LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
-            if [ -z "$V8_INCLUDE_DIR" ] || [ -z "$V8_LIB_DIR" ]; then
-              for candidate in /nix/store/*-ubi-v8-prebuilt-11.9.2; do
-                if [ -d "$candidate/include" ] && [ -d "$candidate/lib" ]; then
-                  export V8_INCLUDE_DIR="$candidate/include"
-                  export V8_LIB_DIR="$candidate/lib"
-                  break
-                fi
-              done
-            fi
-            export BINDGEN_EXTRA_CLANG_ARGS="$(
-                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libc-crt1-cflags
-                ) $(
-                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libc-cflags
-                ) $(
-                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/cc-cflags
-                ) $(
-                  < ${pkgs.llvmPackages_22.stdenv.cc}/nix-support/libcxx-cxxflags
-                ) \
-                -isystem ${pkgs.glibc.dev}/include \
-                -idirafter ${pkgs.llvmPackages_22.clang}/lib/clang/${pkgs.lib.getVersion pkgs.llvmPackages_22.clang}/include"
+          shellHook =
+            ''
+              export LLVM_SYS_221_PREFIX="${pkgs.llvmPackages_22.llvm.dev}"
+              export LIBCLANG_PATH="${pkgs.llvmPackages_22.libclang.lib}/lib"
+              export LD_LIBRARY_PATH="${pkgs.llvmPackages_22.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
+
+              # These can cause unexpected behaviour when running tests. Bindgen should find LLVM regardless
+              unset CC CXX
+            ''
+            + pkgs.lib.optionalString withV8 ''
+              export NAPI_V8_INCLUDE_DIR="${v8Prebuilt}/include"
+              export V8_LIB_DIR="${v8Prebuilt}/lib"
             '';
         };
       }

@@ -1,4 +1,7 @@
 #!/bin/bash
+##Ignored: Currently broken - wasm-ld does not support recursive linking yet
+##ExpectedStdout: The shared library returned: 42
+
 set -ex
 
 # NOTE: This test requires recursive linking - the main executable links against

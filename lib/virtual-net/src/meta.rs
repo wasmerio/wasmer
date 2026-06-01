@@ -140,7 +140,7 @@ pub enum RequestType {
     /// Returns the local address of this TCP listener
     GetAddrLocal,
     /// Returns the address (IP and Port) of the peer socket that this
-    /// is conencted to
+    /// is connected to
     GetAddrPeer,
     /// Sets how many network hops the packets are permitted for new connections
     SetTtl(u32),
@@ -164,7 +164,7 @@ pub enum RequestType {
     /// will receive all packets even if they are not destined for the
     /// local interface
     GetPromiscuous,
-    /// Sets the receive buffer size which acts as a trottle for how
+    /// Sets the receive buffer size which acts as a throttle for how
     /// much data is buffered on this side of the pipe
     SetRecvBufSize(u64),
     /// Size of the receive buffer that holds all data that has not

@@ -63,7 +63,7 @@ impl Engine {
         features.simd(true);
         features.threads(true);
         features.multi_value(true);
-        features.exceptions(false);
+        features.exceptions(true);
         features
     }
 

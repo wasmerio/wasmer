@@ -1,0 +1,55 @@
+[files]
+extend-exclude = [
+  "target",
+  "Cargo.lock",
+  ".git",
+  "node_modules",
+  # Exclude non english docs
+  "docs/cn",
+  "docs/de",
+  "docs/es",
+  "docs/fr",
+  "docs/ja",
+  "docs/ko",
+  "wasmer-test-files",
+  "assets",
+  # Exclude specific test data that isn't code
+  "*.stdout",
+  "*.stderr",
+  "*.stdin",
+  "*.wasm",
+  "*.wast",
+  "*.out",
+  "*.inc",
+  "*.txt",
+  "*.md.out",
+  "tests/wast/spec/",
+  "CHANGELOG.md",
+  "**/CHANGELOG.md",
+  # external submodule
+  "lib/napi",
+
+]
+
+[default.extend-words]
+# Global technical terms and valid abbreviations
+FPR = "FPR"
+fpr = "fpr"
+alow = "alow"
+fle = "fle"
+OLT = "OLT"
+Ot = "Ot"
+daa = "daa"
+HOM = "HOM"
+oOtQIDI7q = "oOtQIDI7q"
+_oOtQIDI7q = "_oOtQIDI7q"
+lala_oOtQIDI7q = "lala_oOtQIDI7q"
+existant = "existant"
+fourty = "fourty"
+# Scene ID
+tne = "tne"
+
+[default.extend-identifiers]
+as_slice_arbitary = "as_slice_arbitary"
+test_named_sems = "test_named_sems"
+__WASI_ERRNO_ACCES = "__WASI_ERRNO_ACCES"

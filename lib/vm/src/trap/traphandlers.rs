@@ -47,7 +47,7 @@ pub struct VMConfig {
 
 // TrapInformation can be stored in the "Undefined Instruction" itself.
 // On x86_64, 0xC? select a "Register" for the Mod R/M part of "ud1" (so with no other bytes after)
-// On Arm64, the udf alows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
+// On Arm64, the udf allows for a 16bits values, so we'll use the same 0xC? to store the trapinfo
 static MAGIC: u8 = 0xc0;
 
 static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(ByteSize::mib(1).as_u64() as usize);
@@ -57,7 +57,7 @@ static DEFAULT_STACK_SIZE: AtomicUsize = AtomicUsize::new(ByteSize::mib(1).as_u6
 pub const MAX_STACK_SIZE: usize = ByteSize::mib(100).as_u64() as usize;
 
 // Current definition of `ucontext_t` in the `libc` crate is incorrect
-// on aarch64-apple-drawin so it's defined here with a more accurate definition.
+// on aarch64-apple-drawing so it's defined here with a more accurate definition.
 #[repr(C)]
 #[cfg(all(target_arch = "aarch64", target_os = "macos"))]
 #[allow(non_camel_case_types)]
@@ -970,7 +970,7 @@ impl<T> TrapHandlerContextInner<T> {
 
             // Don't try to generate a backtrace for stack overflows: unwinding
             // information is often not precise enough to properly describe what is
-            // happenning during a function prologue, which can lead the unwinder to
+            // happening during a function prologue, which can lead the unwinder to
             // read invalid memory addresses.
             //
             // See: https://github.com/rust-lang/backtrace-rs/pull/357
@@ -1092,7 +1092,7 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
 }
 
 /// When executing on the Wasm stack, temporarily switch back to the host stack
-/// to perform an operation that should not be constrainted by the Wasm stack
+/// to perform an operation that should not be constrained by the Wasm stack
 /// limits.
 ///
 /// This is particularly important since the usage of the Wasm stack is under

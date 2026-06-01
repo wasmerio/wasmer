@@ -1,3 +1,4 @@
+//#ExpectedStdout: bind port 0 allocates an ephemeral port
 #include <arpa/inet.h>
 #include <stdio.h>
 #include <string.h>

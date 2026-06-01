@@ -1,22 +1,6 @@
 use super::*;
+use crate::fs::{FlushPoller, MAX_FD};
 use crate::syscalls::*;
-use std::{future::Future, pin::Pin, sync::Arc, task::Context, task::Poll};
-use virtual_fs::VirtualFile;
-
-struct FlushPoller {
-    file: Arc<std::sync::RwLock<Box<dyn VirtualFile + Send + Sync>>>,
-}
-
-impl Future for FlushPoller {
-    type Output = Result<(), Errno>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut file = self.file.write().unwrap();
-        Pin::new(file.as_mut())
-            .poll_flush(cx)
-            .map_err(|_| Errno::Io)
-    }
-}
 
 /// ### `fd_renumber()`
 /// Atomically copy file descriptor
@@ -54,8 +38,8 @@ pub(crate) fn fd_renumber_internal(
     from: WasiFd,
     to: WasiFd,
 ) -> Result<Errno, WasiError> {
-    if from == to {
-        return Ok(Errno::Success);
+    if to > MAX_FD {
+        return Ok(Errno::Badf);
     }
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
@@ -69,6 +53,9 @@ pub(crate) fn fd_renumber_internal(
 
         // Validate the source first. If `from` is invalid we must not mutate `to`.
         let fd_entry = wasi_try_ok!(fd_map.get(from).ok_or(Errno::Badf));
+        if from == to {
+            return Ok(Errno::Success);
+        }
 
         // Never allow renumbering over preopens.
         if let Some(target_fd) = fd_map.get(to)

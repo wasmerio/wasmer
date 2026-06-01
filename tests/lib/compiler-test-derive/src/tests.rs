@@ -89,6 +89,19 @@ gen_tests! {
                     ))
                 }
             }
+
+            #[cfg(feature = "v8")]
+            mod v8 {
+                use super:: * ;
+                #[test_log::test]
+                #[cold]
+                #[cfg(feature = "v8")]
+                fn v8() {
+                    foo(crate::Config::new(
+                        crate::Compiler::V8
+                    ))
+                }
+            }
         }
     };
 }

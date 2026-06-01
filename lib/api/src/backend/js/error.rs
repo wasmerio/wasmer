@@ -142,7 +142,7 @@ fn downcast_from_ptr(value: &JsValue) -> Option<Trap> {
             .and_then(|ret| ret.as_f64())?;
 
         Some(<Trap as wasm_bindgen::convert::FromWasmAbi>::from_abi(
-            ptr as u32,
+            wasm_bindgen::__rt::WasmPtr::from_usize(ptr as u32 as usize),
         ))
     }
 }

@@ -6,7 +6,7 @@ use super::{
     memory::Memory, table::Table,
 };
 use crate::{AsStoreMut, BackendFunction, BackendGlobal, BackendMemory, BackendTable, Extern};
-use wasmer_types::RawValue;
+use wasmer_types::{MemoryError, RawValue};
 
 pub use super::error::Trap;
 
@@ -25,10 +25,6 @@ pub(crate) type VMExternFunction = *mut wasm_func_t;
 
 pub(crate) type VMGlobal = *mut wasm_global_t;
 pub(crate) type VMExternGlobal = *mut wasm_global_t;
-
-pub(crate) type VMMemory = *mut wasm_memory_t;
-pub type VMSharedMemory = VMMemory;
-pub(crate) type VMExternMemory = *mut wasm_memory_t;
 
 pub(crate) type VMTable = *mut wasm_table_t;
 pub(crate) type VMExternTable = *mut wasm_table_t;
@@ -146,5 +142,33 @@ impl VMExceptionRef {
     /// `raw` must be a valid `VMExceptionRef` instance.
     pub unsafe fn from_raw(_raw: RawValue) -> Option<Self> {
         unimplemented!();
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct VMMemory(pub(super) *mut wasm_memory_t);
+pub type VMSharedMemory = VMMemory;
+pub(crate) type VMExternMemory = *mut wasm_memory_t;
+
+/// # SAFETY: WASM memories are safe to send across thread boundaries.
+unsafe impl Send for VMMemory {}
+/// # SAFETY: WASM memories are safe to send across thread boundaries.
+unsafe impl Sync for VMMemory {}
+
+impl VMMemory {
+    pub(crate) fn try_clone(&self) -> Result<Self, MemoryError> {
+        let memory_type = unsafe { wasm_memory_type(self.0) };
+        let limits = unsafe { wasm_memorytype_limits(memory_type) };
+        if !unsafe { (*limits).shared } {
+            return Err(MemoryError::MemoryNotShared);
+        }
+
+        let cloned = unsafe { wasm_memory_copy(self.0) };
+        if cloned.is_null() {
+            return Err(MemoryError::Generic(
+                "Failed to clone the memory".to_string(),
+            ));
+        }
+        Ok(Self(cloned))
     }
 }

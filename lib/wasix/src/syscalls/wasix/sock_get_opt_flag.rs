@@ -2,7 +2,7 @@ use super::*;
 use crate::syscalls::*;
 
 /// ### `sock_get_opt_flag()`
-/// Retrieve status of particular socket seting
+/// Retrieve status of particular socket setting
 /// Note: This is similar to `getsockopt` in POSIX for SO_REUSEADDR
 ///
 /// ## Parameters

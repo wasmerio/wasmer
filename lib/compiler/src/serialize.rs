@@ -61,9 +61,9 @@ impl SerializableCompilation {
 pub struct SerializableModule {
     /// The main serializable compilation object
     pub compilation: SerializableCompilation,
-    /// Compilation informations
+    /// Compilation information
     pub compile_info: CompileModuleInfo,
-    /// Datas initializers
+    /// Data initializers
     pub data_initializers: Box<[OwnedDataInitializer]>,
     /// CPU Feature flags for this compilation
     pub cpu_features: u64,

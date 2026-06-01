@@ -1,3 +1,4 @@
+//#MustFail: true
 // Assert that the edgecases when unlinking a semaphore work the same as on
 // native
 

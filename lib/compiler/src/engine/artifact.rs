@@ -49,12 +49,12 @@ use wasmer_vm::{
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct AllocatedArtifact {
-    // This shows if the frame info has been regestered already or not.
-    // Because the 'GlobalFrameInfoRegistration' ownership can be transfered to EngineInner
+    // This shows if the frame info has been registered already or not.
+    // Because the 'GlobalFrameInfoRegistration' ownership can be transferred to EngineInner
     // this bool is needed to track the status, as 'frame_info_registration' will be None
-    // after the ownership is transfered.
+    // after the ownership is transferred.
     frame_info_registered: bool,
-    // frame_info_registered is not staying there but transfered to CodeMemory from EngineInner
+    // frame_info_registered is not staying there but transferred to CodeMemory from EngineInner
     // using 'Artifact::take_frame_info_registration' method
     // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
@@ -78,7 +78,7 @@ pub struct ArtifactId {
 impl ArtifactId {
     /// Format this identifier as a string.
     pub fn id(&self) -> String {
-        format!("{}", &self.id)
+        format!("{}", self.id)
     }
 }
 
@@ -215,7 +215,7 @@ impl Artifact {
                     }
                     Err(e) => {
                         return Err(DeserializeError::Incompatible(format!(
-                            "The provided bytes are not wasmer-universal: {e}"
+                            "The provided bytes are not a Wasmer engine artifact: {e}"
                         )));
                     }
                 }
@@ -262,7 +262,7 @@ impl Artifact {
                     }
                     Err(e) => {
                         return Err(DeserializeError::Incompatible(format!(
-                            "The provided bytes are not wasmer-universal: {e}"
+                            "The provided bytes are not a Wasmer engine artifact: {e}"
                         )));
                     }
                 }
@@ -784,6 +784,38 @@ impl Artifact {
             .as_ref()
             .expect("It must be allocated")
             .finished_functions
+    }
+
+    /// Returns the start address and byte length of each locally-defined
+    /// function body in this artifact.
+    ///
+    /// Returns `None` for cross-compiled artifacts (where the artifact has not
+    /// been allocated into the host process).
+    ///
+    /// # Security
+    ///
+    /// The returned addresses are host-process pointers. They are not stable
+    /// across runs and must not be forwarded to untrusted parties, as they
+    /// reveal ASLR layout information.
+    pub fn finished_function_extents(
+        &self,
+    ) -> Option<Vec<(LocalFunctionIndex, FunctionExtent)>> {
+        let allocated = self.allocated.as_ref()?;
+        assert_eq!(
+            allocated.finished_functions.len(),
+            allocated.finished_function_lengths.len(),
+            "finished_functions and finished_function_lengths must have equal length"
+        );
+        Some(
+            allocated
+                .finished_functions
+                .iter()
+                .map(|(index, &ptr)| {
+                    let length = allocated.finished_function_lengths[index];
+                    (index, FunctionExtent { ptr, length })
+                })
+                .collect(),
+        )
     }
 
     /// Returns the function call trampolines allocated in memory of this

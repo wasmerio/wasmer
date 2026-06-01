@@ -28,3 +28,13 @@
     ref.null exn
     i32.const 0)
 )
+
+(module
+(func (export "exnref_is_null") (result i32)
+    (local $e exnref)
+    local.get $e
+    ref.is_null
+  )
+)
+
+(assert_return (invoke "exnref_is_null") (i32.const 1))

@@ -72,9 +72,9 @@ pub(crate) fn path_filestat_get_internal(
     if !root_dir.inner.rights.contains(Rights::PATH_FILESTAT_GET) {
         return Err(Errno::Access);
     }
-    let file_inode = state.fs.get_inode_at_path(
+    let file_inode = state.fs.get_inode_at_path_from_inode(
         inodes,
-        fd,
+        root_dir.inode,
         path_string,
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     )?;

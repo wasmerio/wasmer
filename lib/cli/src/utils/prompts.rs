@@ -223,7 +223,7 @@ pub fn prompt_for_namespace(
 }
 
 /// Prompt for an app name.
-/// If an api provided, will check if an app with the givne alias already exists.
+/// If an api provided, will check if an app with the given alias already exists.
 #[allow(dead_code)]
 pub async fn prompt_new_app_name(
     message: &str,
@@ -262,7 +262,7 @@ pub async fn prompt_new_app_name(
 }
 
 /// Prompt for an app name.
-/// If an api provided, will check if an app with the givne alias already exists.
+/// If an api provided, will check if an app with the given alias already exists.
 #[allow(dead_code)]
 pub async fn prompt_new_app_alias(
     message: &str,

@@ -106,6 +106,7 @@ pub enum CraneliftOptLevel {
 #[derive(Debug, Clone)]
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
+    pub(crate) allow_experimental_unaligned_memory_accesses: bool,
     enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     enable_pic: bool,
@@ -123,6 +124,7 @@ impl Cranelift {
     pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: false,
+            allow_experimental_unaligned_memory_accesses: false,
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
@@ -139,6 +141,16 @@ impl Cranelift {
     /// deterministically across different architectures.
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
+        self
+    }
+
+    /// Enable run-time handling of potentially unaligned memory accesses.
+    /// Unaligned memory accesses occur when you try to read N bytes of data starting
+    /// from an address that is not evenly divisible by N.
+    ///
+    /// This feature is experimental and currently supports only scalar types.
+    pub fn allow_experimental_unaligned_memory_accesses(&mut self, enable: bool) -> &mut Self {
+        self.allow_experimental_unaligned_memory_accesses = enable;
         self
     }
 
@@ -227,7 +239,6 @@ impl Cranelift {
             flags.enable("is_pic").expect("should be a valid flag");
         }
 
-        // We set up libcall trampolines in engine-universal.
         // These trampolines are always reachable through short jumps.
         flags
             .enable("use_colocated_libcalls")
@@ -284,6 +295,10 @@ impl CompilerConfig for Cranelift {
 
     fn enable_perfmap(&mut self) {
         self.enable_perfmap = true;
+    }
+
+    fn enable_experimental_unaligned_memory_accesses(&mut self) {
+        self.allow_experimental_unaligned_memory_accesses = true;
     }
 
     fn canonicalize_nans(&mut self, enable: bool) {

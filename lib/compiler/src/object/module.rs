@@ -492,7 +492,7 @@ pub fn emit_compilation(
 
                     let libcall_fn_name = libcall_fn_name.as_bytes();
 
-                    // We add the symols lazily as we see them
+                    // We add the symbols lazily as we see them
                     let target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
                         obj.add_symbol(ObjSymbol {
                             name: libcall_fn_name.to_vec(),
@@ -609,8 +609,8 @@ pub fn emit_serialized(
 /// an object. In addition, it also relies on information from ModuleInfo
 /// to build a table of function pointers, trmampolines and dynamic function
 /// trampoline pointers. ObjectMetadataBuilder takes care of setting up
-/// relocations, so a linker can automatically fill in actuall addesses of
-/// all relavant functions. There is no need to piece the information together
+/// relocations, so a linker can automatically fill in actual addresses of
+/// all relevant functions. There is no need to piece the information together
 /// in the glue C file.
 pub struct ObjectMetadataBuilder {
     placeholder_data: Vec<u8>,
