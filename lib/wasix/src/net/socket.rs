@@ -451,10 +451,26 @@ impl InodeSocket {
                                 // listen/connect time.
                                 Ok(None)
                             }
-                            Err(err) => Err(net_error_into_wasi_err(err)),
+                            Err(err) => {
+                                // Roll back the pre-set address so the socket stays unbound,
+                                // matching Linux semantics where a failed bind(2) leaves the
+                                // socket unbound.
+                                let mut inner = self.inner.protected.write().unwrap();
+                                if let InodeSocketKind::PreSocket { addr, .. } = &mut inner.kind {
+                                    addr.take();
+                                }
+                                Err(net_error_into_wasi_err(err))
+                            }
                         }
                     },
-                    _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+                    _ = tasks.sleep_now(timeout) => {
+                        // Bind timed out; roll back the pre-set address for the same reason.
+                        let mut inner = self.inner.protected.write().unwrap();
+                        if let InodeSocketKind::PreSocket { addr, .. } = &mut inner.kind {
+                            addr.take();
+                        }
+                        Err(Errno::Timedout)
+                    }
                 }
             }
             PendingBind::Udp {
@@ -1707,7 +1723,9 @@ impl InodeSocketProtected {
             InodeSocketKind::UdpSocket { socket, .. } => socket.poll_write_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_write_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_write_ready(cx),
-            InodeSocketKind::BoundTcp { .. } => Poll::Pending,
+            // A bound-but-not-yet-listening TCP socket is writable immediately,
+            // matching Linux select()/poll() semantics.
+            InodeSocketKind::BoundTcp { .. } => Poll::Ready(Ok(0)),
             InodeSocketKind::PreSocket { .. } => Poll::Pending,
             InodeSocketKind::RemoteSocket { is_dead, .. } => match is_dead {
                 true => Poll::Ready(Ok(0)),
@@ -1761,7 +1779,6 @@ pub(crate) fn all_socket_rights() -> Rights {
 #[cfg(test)]
 mod tests {
     use super::{InodeSocket, InodeSocketKind, SocketProperties, WasiSocketStatus};
-    use crate::runtime::task_manager::tokio::TokioTaskManager;
     use std::{
         future::pending,
         mem::MaybeUninit,
@@ -2038,6 +2055,7 @@ mod tests {
         assert_eq!(ttl.load(Ordering::Relaxed), 42);
     }
 
+    #[cfg(feature = "sys")]
     #[tokio::test(flavor = "current_thread")]
     async fn inode_socket_tcp_bind_respects_bind_timeout() {
         let inode = InodeSocket::new(InodeSocketKind::PreSocket {
@@ -2061,7 +2079,7 @@ mod tests {
             },
             addr: None,
         });
-        let tasks = TokioTaskManager::default();
+        let tasks = crate::runtime::task_manager::tokio::TokioTaskManager::default();
         let net = PendingBindNetworking;
 
         let err = inode

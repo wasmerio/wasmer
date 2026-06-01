@@ -911,7 +911,7 @@ async fn test_loopback_bind_tcp_reserves_port_before_listen() {
 #[traced_test]
 #[tokio::test]
 #[serial_test::serial]
-async fn test_loopback_bind_tcp_releases_reservation_after_connect() {
+async fn test_loopback_connected_socket_holds_local_port_reservation() {
     let server_networking = LoopbackNetworking::new();
     let listener = server_networking
         .listen_tcp(
@@ -931,8 +931,20 @@ async fn test_loopback_bind_tcp_releases_reservation_after_connect() {
         .await
         .unwrap();
 
-    let _socket = bound.connect(peer).unwrap();
+    let socket = bound.connect(peer).unwrap();
 
+    // While the connected socket is alive the local port must stay reserved.
+    let err = client_networking
+        .bind_tcp(bind_addr, false, false, false)
+        .await
+        .unwrap_err();
+    assert!(
+        matches!(err, NetworkError::AddressInUse),
+        "expected AddressInUse while connected socket holds the port, got {err:?}"
+    );
+
+    // After the connected socket is dropped the port must be released.
+    drop(socket);
     client_networking
         .bind_tcp(bind_addr, false, false, false)
         .await

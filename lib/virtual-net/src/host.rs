@@ -29,6 +29,14 @@ use virtual_mio::{
     HandlerGuardState, InterestGuard, InterestHandler, InterestType, Selector, state_as_waker_map,
 };
 
+/// Use the platform's maximum listen backlog where available so that
+/// `LocalTcpBoundSocket::listen` preserves the same accept capacity as
+/// the previous `std::net::TcpListener`-based implementation.
+#[cfg(all(target_family = "unix", feature = "libc"))]
+const LISTEN_BACKLOG: i32 = libc::SOMAXCONN;
+#[cfg(not(all(target_family = "unix", feature = "libc")))]
+const LISTEN_BACKLOG: i32 = 128;
+
 #[derive(Debug)]
 pub struct LocalNetworking {
     selector: Arc<Selector>,
@@ -78,6 +86,7 @@ fn tcp_socket_domain(addr: SocketAddr) -> socket2::Domain {
     }
 }
 
+#[allow(clippy::needless_bool)]
 fn tcp_connect_in_progress(err: &io::Error) -> bool {
     if matches!(
         err.kind(),
@@ -453,7 +462,9 @@ impl VirtualTcpBoundSocket for LocalTcpBoundSocket {
 
     fn listen(&mut self) -> Result<Box<dyn VirtualTcpListener + Sync>> {
         let socket = self.socket.take().ok_or(NetworkError::InvalidFd)?;
-        socket.listen(128).map_err(io_err_into_net_error)?;
+        socket
+            .listen(LISTEN_BACKLOG)
+            .map_err(io_err_into_net_error)?;
         let listener = mio::net::TcpListener::from_std(socket.into());
         Ok(Box::new(LocalTcpListener {
             stream: listener,
