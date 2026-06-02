@@ -38,9 +38,7 @@ features = ["wasm_js"]
 
 [dev-dependencies]
 memoffset.workspace = true
-# Workspace default has default-features = false (no HTML report
-# dep on plotters/rayon). Keeps Cargo.lock unchanged.
-criterion = { workspace = true }
+criterion.workspace = true
 
 [[bench]]
 name = "store_id_alloc"
