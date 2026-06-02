@@ -220,6 +220,10 @@ endif
 compilers := $(strip $(compilers))
 build_compilers := $(strip $(build_compilers) $(compilers))
 
+ifeq ($(IS_WINDOWS), 1)
+	build_compilers := $(filter-out llvm,$(build_compilers))
+endif
+
 
 #####
 #
@@ -304,6 +308,9 @@ else ifeq ($(IS_AARCH64), 1)
 	endif
 endif
 test_compilers := $(strip $(test_compilers))
+ifeq ($(IS_WINDOWS), 1)
+	test_compilers := $(filter-out llvm,$(test_compilers))
+endif
 
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
