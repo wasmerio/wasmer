@@ -1,5 +1,5 @@
 //#DefaultMappedDirectories: false
-//#FileSystems: host,mem,tmp,passthru,union,root
+//#FileSystems: all
 //#CurrentDirectory: /
 //#MappedDirectory: $temp:/temp
 //#ExpectedStdoutFile: path_rename.stdout

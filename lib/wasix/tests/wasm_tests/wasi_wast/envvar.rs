@@ -1,5 +1,5 @@
 //#DefaultMappedDirectories: false
-//#FileSystems: host,mem,tmp,passthru,union,root
+//#FileSystems: all
 //#CurrentDirectory: /
 //#Env: DOG=1
 //#Env: CAT=2

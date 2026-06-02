@@ -1,5 +1,5 @@
 //#DefaultMappedDirectories: false
-//#FileSystems: host,mem,tmp,passthru,union,root
+//#FileSystems: all
 //#CurrentDirectory: /
 //#MappedDirectory: test_fs/hamlet/act1:/act1
 //#MappedDirectory: test_fs/hamlet/act2:/act2
