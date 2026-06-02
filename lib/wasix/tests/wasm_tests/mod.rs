@@ -641,7 +641,8 @@ fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
                 create_dir_all(parent)
                     .with_context(|| format!("failed to create {}", parent.display()))?;
             }
-            copy_symlink(entry.path(), &target)?;
+            copy_symlink(entry.path(), &target)
+                .with_context(|| format!("cannot copy symlink: {}", to))?;
         }
     }
 
