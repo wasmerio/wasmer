@@ -1427,6 +1427,7 @@ mod tests {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
         drain_stack_pool();
+        clear_tls_stack();
 
         // Push an undersized stack into the pool.
         let small_size = ByteSize::kib(500).as_u64() as usize;
@@ -1449,6 +1450,11 @@ mod tests {
             returned.size() >= big_size,
             "returned stack must be at least as large as the requested size"
         );
+
+        // Ensure no residual TLS state leaks into other tests sharing the
+        // runner thread. `take()` above already cleared the slot, but be
+        // explicit so future edits cannot drop this guarantee silently.
+        clear_tls_stack();
     }
 
     /// After a wasm call, the freshly-used stack stays in the thread-local
@@ -1459,6 +1465,7 @@ mod tests {
         let _lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
         drain_stack_pool();
+        clear_tls_stack();
 
         let size = get_stack_size();
 
@@ -1495,25 +1502,43 @@ mod tests {
             "TLS slot should still hold a stack after the second call"
         );
 
-        // Cleanup: clear TLS so we don't leak into other tests.
-        TLS_STACK.with(|cache| cache.0.set(None));
+        // Cleanup: clear TLS so we don't leak into other tests. The cached
+        // stack here is dropped rather than returned to the pool; the next
+        // test starts with `drain_stack_pool()` anyway, so there is no
+        // observable difference.
+        clear_tls_stack();
     }
 
     /// On thread exit, the TLS cache's `Drop` impl returns the held stack to
     /// the global pool so memory cycles correctly across thread lifetimes.
     #[test]
     fn tls_stack_returns_to_pool_on_thread_exit() {
-        let _lock = GLOBAL_STATE.lock().unwrap();
+        // GLOBAL_STATE is the test-suite mutex used to serialize tests that
+        // touch shared global state (STACK_POOL, the configured stack size).
+        // The spawned worker thread does NOT touch GLOBAL_STATE — it only
+        // calls `on_wasm_stack`, which takes neither this mutex nor any
+        // other lock that could contend with us.
+        //
+        // Even so, holding the guard across `handle.join()` is unnecessary:
+        // the only thing that needs to be serialized against other tests is
+        // the assertion on `STACK_POOL.pop()` AFTER the join. We release the
+        // guard before joining so future edits to `on_wasm_stack` that
+        // happen to touch this lock can't introduce a hard-to-debug
+        // deadlock here.
+        let lock = GLOBAL_STATE.lock().unwrap();
         let _restore = RestoreStackSize(get_stack_size());
         drain_stack_pool();
+        clear_tls_stack();
 
         let size = get_stack_size();
+        drop(lock);
 
         let handle = std::thread::spawn(move || {
             assert!(on_wasm_stack(size, None, || ()).is_ok());
         });
         handle.join().unwrap();
 
+        let _lock = GLOBAL_STATE.lock().unwrap();
         // The spawned thread's TLS cache was dropped on join; the stack must
         // have made it back to the global pool.
         let returned = STACK_POOL
