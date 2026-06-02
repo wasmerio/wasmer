@@ -93,10 +93,9 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
 };
 
 // Soft-float routines emitted by LLVM for targets without hardware floating-point.
-#[cfg(all(
-    any(target_arch = "riscv32", target_arch = "riscv64"),
-    not(target_feature = "f")
-))]
+// This map is intentionally unconditional: `load_object_file` runs on the host, but the
+// ELF it processes was compiled for the LLVM *output* target (a runtime value). Wasmer
+// may cross-compile to soft-float RISC-V from any host, so the table must always be present.
 static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     // §3.2.1 Arithmetic
     "__addsf3" => LibCall::Addsf3,
@@ -214,10 +213,6 @@ fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
     if let Some(&lc) = base.get(name) {
         return Some(lc);
     }
-    #[cfg(all(
-        any(target_arch = "riscv32", target_arch = "riscv64"),
-        not(target_feature = "f")
-    ))]
     if fmt == BinaryFormat::Elf {
         if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
             return Some(lc);
