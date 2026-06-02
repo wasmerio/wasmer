@@ -75,7 +75,7 @@ type WasmI32Arg = u32;
 /// value.  Truncating to `u32` recovers the correct lower 32 bits.  On other
 /// targets `WasmI32Arg` is already `u32` and this is an identity operation.
 #[inline(always)]
-#[allow(trivial_numeric_casts)]
+#[allow(clippy::unnecessary_cast)]
 fn trunc_u32(x: WasmI32Arg) -> u32 {
     x as u32
 }
