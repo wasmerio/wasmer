@@ -485,10 +485,27 @@ impl InodeSocket {
             } => {
                 tokio::select! {
                     socket = net.bind_udp(addr, reuse_port, reuse_addr) => {
-                        let socket = socket.map_err(net_error_into_wasi_err)?;
-                        Ok(Some(InodeSocket::new(InodeSocketKind::UdpSocket { socket, peer: None })))
+                        match socket {
+                            Ok(socket) => Ok(Some(InodeSocket::new(InodeSocketKind::UdpSocket {
+                                socket,
+                                peer: None,
+                            }))),
+                            Err(err) => {
+                                let mut inner = self.inner.protected.write().unwrap();
+                                if let InodeSocketKind::PreSocket { addr, .. } = &mut inner.kind {
+                                    addr.take();
+                                }
+                                Err(net_error_into_wasi_err(err))
+                            }
+                        }
                     },
-                    _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+                    _ = tasks.sleep_now(timeout) => {
+                        let mut inner = self.inner.protected.write().unwrap();
+                        if let InodeSocketKind::PreSocket { addr, .. } = &mut inner.kind {
+                            addr.take();
+                        }
+                        Err(Errno::Timedout)
+                    }
                 }
             }
         }

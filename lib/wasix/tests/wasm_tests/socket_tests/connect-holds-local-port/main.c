@@ -36,7 +36,11 @@ int main(void) {
   }
 
   int one = 1;
-  setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  if (setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0) {
+    perror("setsockopt(server, SO_REUSEADDR)");
+    close(server);
+    return 1;
+  }
 
   struct sockaddr_in srv_addr;
   memset(&srv_addr, 0, sizeof(srv_addr));
@@ -94,7 +98,12 @@ int main(void) {
     close(client);
     return 1;
   }
-  setsockopt(client, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  if (setsockopt(client, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0) {
+    perror("setsockopt(client, SO_REUSEADDR)");
+    close(server);
+    close(client);
+    return 1;
+  }
 
   if (bind(client, (struct sockaddr*)&cli_bind, sizeof(cli_bind)) < 0) {
     perror("bind(client)");
@@ -167,7 +176,12 @@ int main(void) {
     close(server);
     return 1;
   }
-  setsockopt(probe2, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one));
+  if (setsockopt(probe2, SOL_SOCKET, SO_REUSEADDR, &one, sizeof(one)) < 0) {
+    perror("setsockopt(probe2, SO_REUSEADDR)");
+    close(probe2);
+    close(server);
+    return 1;
+  }
 
   if (bind(probe2, (struct sockaddr*)&cli_local, sizeof(cli_local)) < 0) {
     fprintf(stderr,

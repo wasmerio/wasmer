@@ -28,12 +28,23 @@ pub fn sock_bind<M: MemorySize>(
 
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {
-        let effective_addr = wasi_try_ok!(__sock_actor(
+        let effective_addr = match __sock_actor(
             &mut ctx,
             sock,
             Rights::empty(),
-            |socket, _| socket.addr_local()
-        ));
+            |socket, _| socket.addr_local(),
+        ) {
+            Ok(effective_addr) => effective_addr,
+            Err(err) => {
+                tracing::warn!(
+                    "failed to determine effective local socket address for journaling; \
+                     falling back to requested bind address {:?}: {}",
+                    addr,
+                    err
+                );
+                addr
+            }
+        };
         JournalEffector::save_sock_bind(&mut ctx, sock, effective_addr).map_err(|err| {
             tracing::error!("failed to save sock_bind event - {}", err);
             WasiError::Exit(ExitCode::from(Errno::Fault))

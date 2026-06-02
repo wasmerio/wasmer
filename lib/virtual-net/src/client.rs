@@ -1000,6 +1000,14 @@ impl RemoteSocket {
 
         if let Some((child_id, _)) = self.pending_accept.take() {
             self.common.recv_tx.lock().unwrap().remove(&child_id);
+            self.common
+                .recv_with_addr_tx
+                .lock()
+                .unwrap()
+                .remove(&child_id);
+            self.common.accept_tx.lock().unwrap().remove(&child_id);
+            self.common.sent_tx.lock().unwrap().remove(&child_id);
+            self.common.handlers.lock().unwrap().remove(&child_id);
         }
     }
 

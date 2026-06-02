@@ -66,8 +66,9 @@ impl LoopbackNetworking {
             ip => SocketAddr::new(ip, port),
         };
 
+        let peer_key = Self::normalize_listener_addr(peer_addr);
         let state = self.state.lock().unwrap();
-        if let Some(listener) = state.tcp_listeners.get(&peer_addr) {
+        if let Some(listener) = state.tcp_listeners.get(&peer_key) {
             Some(listener.connect_to(local_addr))
         } else {
             state
@@ -94,13 +95,14 @@ impl LoopbackNetworking {
                 let candidate_addr = SocketAddr::new(addr.ip(), candidate);
                 if is_available(candidate_addr, state) {
                     addr.set_port(candidate);
-                    state.tcp_bound.insert(Self::normalize_listener_addr(addr));
+                    let normalized = Self::normalize_listener_addr(addr);
+                    state.tcp_bound.insert(normalized);
                     state.next_ephemeral_port = if candidate == u16::MAX {
                         LOOPBACK_EPHEMERAL_PORT_START
                     } else {
                         candidate + 1
                     };
-                    return Ok(addr);
+                    return Ok(normalized);
                 }
 
                 candidate = if candidate == u16::MAX {
@@ -121,7 +123,7 @@ impl LoopbackNetworking {
             return Err(NetworkError::AddressInUse);
         }
         state.tcp_bound.insert(reservation_key);
-        Ok(addr)
+        Ok(reservation_key)
     }
 
     fn normalize_listener_addr(mut addr: SocketAddr) -> SocketAddr {
@@ -198,16 +200,17 @@ impl VirtualNetworking for LoopbackNetworking {
     async fn bind_tcp(
         &self,
         addr: SocketAddr,
-        _only_v6: bool,
-        _reuse_port: bool,
-        _reuse_addr: bool,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
     ) -> crate::Result<Box<dyn VirtualTcpBoundSocket + Sync>> {
+        let _ = (only_v6, reuse_port, reuse_addr);
         let mut state = self.state.lock().unwrap();
         let addr = Self::allocate_tcp_bind_addr(&mut state, addr)?;
         Ok(Box::new(LoopbackTcpBoundSocket {
             networking: self.clone(),
             local_addr: addr,
-            reservation_key: Some(Self::normalize_listener_addr(addr)),
+            reservation_key: Some(addr),
             ttl: 64,
         }))
     }
