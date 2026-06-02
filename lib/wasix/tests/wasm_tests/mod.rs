@@ -642,7 +642,7 @@ fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
                     .with_context(|| format!("failed to create {}", parent.display()))?;
             }
             copy_symlink(entry.path(), &target)
-                .with_context(|| format!("cannot copy symlink: {}", to))?;
+                .with_context(|| format!("cannot copy symlink: {}", entry.path().display()))?;
         }
     }
 
