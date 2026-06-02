@@ -11,6 +11,7 @@ homepage.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+exclude = ["tests/wasm_tests/*/**"]
 
 [[test]]
 name = "wasm_tests"
@@ -234,6 +235,7 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
+singlepass = ["wasmer/singlepass"]
 v8 = ["wasmer/v8"]
 
 js = [

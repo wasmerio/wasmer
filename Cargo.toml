@@ -446,6 +446,10 @@ harness = false
 name = "import_functions"
 harness = false
 
+[[bench]]
+name = "typed_call"
+harness = false
+
 [[example]]
 name = "early-exit"
 path = "examples/early_exit.rs"
