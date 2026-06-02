@@ -92,10 +92,10 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
-// Soft-float routines emitted by LLVM for targets without hardware floating-point.
-// This map is intentionally unconditional: `load_object_file` runs on the host, but the
-// ELF it processes was compiled for the LLVM *output* target (a runtime value). Wasmer
-// may cross-compile to soft-float RISC-V from any host, so the table must always be present.
+// Soft-float routines that LLVM may emit for RISC-V ELF targets.  The map is
+// unconditional because `load_object_file` runs on the host while the ELF it
+// processes was compiled for the LLVM output target (a runtime value); gating
+// on host target_arch would break cross-compilation (e.g. macOS → riscv64).
 static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     // §3.2.1 Arithmetic
     "__addsf3" => LibCall::Addsf3,
@@ -213,9 +213,10 @@ fn lookup_libcall(name: &str, fmt: BinaryFormat, triple: &Triple) -> Option<LibC
     if let Some(&lc) = base.get(name) {
         return Some(lc);
     }
-    // Soft-float libcalls are only emitted by LLVM when targeting RISC-V without
-    // hardware floating-point.  Check the runtime LLVM output triple rather than
-    // the host target_arch, so cross-compilation (e.g. macOS → riscv64) works.
+    // Consult the soft-float table for any RISC-V ELF target.  We check
+    // architecture only and not whether hardware-float is enabled: if the target
+    // does have hardware float, LLVM will not emit these symbols and the lookup
+    // simply misses — so over-including is harmless.
     if fmt == BinaryFormat::Elf
         && matches!(
             triple.architecture,
