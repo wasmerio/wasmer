@@ -468,12 +468,8 @@ impl Future for RemoteNetworkingClientDriver {
                                     addr,
                                 }) {
                                     Ok(()) => {
-                                        if let Some(h) = self
-                                            .common
-                                            .handlers
-                                            .lock()
-                                            .unwrap()
-                                            .get_mut(&socket_id)
+                                        if let Some(h) =
+                                            self.common.handlers.lock().unwrap().get_mut(&socket_id)
                                         {
                                             h.push_interest(InterestType::Readable)
                                         }

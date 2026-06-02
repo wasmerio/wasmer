@@ -28,12 +28,9 @@ pub fn sock_bind<M: MemorySize>(
 
     #[cfg(feature = "journal")]
     if ctx.data().enable_journal {
-        let effective_addr = match __sock_actor(
-            &mut ctx,
-            sock,
-            Rights::empty(),
-            |socket, _| socket.addr_local(),
-        ) {
+        let effective_addr = match __sock_actor(&mut ctx, sock, Rights::empty(), |socket, _| {
+            socket.addr_local()
+        }) {
             Ok(effective_addr) => effective_addr,
             Err(err) => {
                 tracing::warn!(
