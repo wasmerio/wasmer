@@ -1,6 +1,5 @@
-//#DefaultMappedDirectories: false
-//#FileSystems: host
-//#CurrentDirectory: /
+//#AbstractConfigFile: wasi-wast.config
+//#FileSystems: Host
 //#MappedDirectory: /dev:/dev
 //#ExpectedStdoutFile: unix_open_special_files.stdout
 

@@ -1,6 +1,4 @@
-//#DefaultMappedDirectories: false
-//#FileSystems: all
-//#CurrentDirectory: /
+//#AbstractConfigFile: wasi-wast.config
 //#MappedDirectory: test_fs/hamlet:/hamlet
 //#ExpectedStdoutFile: mapdir_with_leading_slash.stdout
 

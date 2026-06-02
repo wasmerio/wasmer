@@ -1,6 +1,4 @@
-//#DefaultMappedDirectories: false
-//#FileSystems: all
-//#CurrentDirectory: /
+//#AbstractConfigFile: wasi-wast.config
 //#MappedDirectory: $temp:/temp
 //#ExpectedStdoutFile: path_rename.stdout
 

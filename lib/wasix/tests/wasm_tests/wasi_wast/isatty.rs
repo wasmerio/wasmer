@@ -1,6 +1,4 @@
-//#DefaultMappedDirectories: false
-//#FileSystems: all
-//#CurrentDirectory: /
+//#AbstractConfigFile: wasi-wast.config
 //#ExpectedStdoutFile: isatty.stdout
 
 // We don't have access to libc, so we just use isatty

@@ -1,6 +1,4 @@
-//#DefaultMappedDirectories: false
-//#FileSystems: all
-//#CurrentDirectory: /
+//#AbstractConfigFile: wasi-wast.config
 //#Stdin: Hello, world!
 //#ExpectedStdoutFile: pipe_reverse.stdout
 

@@ -1,5 +1,4 @@
-//#DefaultMappedDirectories: false
-//#FileSystems: all
+//#AbstractConfigFile: wasi-wast.config
 //#CurrentDirectory: /tmp
 //#MappedDirectory: $temp:/tmp
 //#ExpectedStdoutFile: fd_sync.stdout

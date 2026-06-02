@@ -63,7 +63,7 @@
 //! `DefaultMappedDirectories:{bool}` controls the harness default directory mappings.
 //!
 //! `FileSystems:{kind}` selects the filesystem backend. Supported values are
-//! `host`, `mem`, `tmp`, `passthru`, `union`, `root`, and `all`.
+//! `Host`, `InMemory`, `Tmp`, `PassthruMemory`, `Union`, `Root`, and `all`.
 
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
@@ -73,6 +73,7 @@ use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
+use strum::IntoEnumIterator;
 
 use anyhow::bail;
 use libtest_mimic::Trial;
@@ -126,71 +127,23 @@ struct MappedDirectory {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
 #[strum(ascii_case_insensitive)]
 pub enum Engine {
-    #[strum(serialize = "cranelift")]
     Cranelift,
-    #[strum(serialize = "llvm")]
     LLVM,
     #[cfg(feature = "singlepass")]
-    #[strum(serialize = "singlepass")]
     Singlepass,
     #[cfg(feature = "v8")]
-    #[strum(serialize = "v8")]
     V8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter, strum::EnumString)]
 #[strum(ascii_case_insensitive)]
 enum FileSystemKind {
-    #[strum(serialize = "host")]
     Host,
-    #[strum(serialize = "mem")]
     InMemory,
-    #[strum(serialize = "tmp")]
     Tmp,
-    #[strum(serialize = "passthru")]
     PassthruMemory,
-    #[strum(serialize = "union")]
     Union,
-    #[strum(serialize = "root")]
     Root,
-}
-
-const ALL_FILE_SYSTEMS: &[FileSystemKind] = &[
-    FileSystemKind::Host,
-    FileSystemKind::InMemory,
-    FileSystemKind::Tmp,
-    FileSystemKind::PassthruMemory,
-    FileSystemKind::Union,
-    FileSystemKind::Root,
-];
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum FileSystemSelection {
-    Default,
-    Selected(FileSystemKind),
-    All,
-}
-
-impl FileSystemSelection {
-    fn kinds(&self) -> &[FileSystemKind] {
-        match self {
-            Self::Default => &[FileSystemKind::Host],
-            Self::Selected(kind) => std::slice::from_ref(kind),
-            Self::All => ALL_FILE_SYSTEMS,
-        }
-    }
-
-    fn selected(&self) -> FileSystemKind {
-        match self {
-            Self::Default => FileSystemKind::Host,
-            Self::Selected(kind) => *kind,
-            Self::All => unreachable!("all filesystem selection must be expanded before running"),
-        }
-    }
-
-    fn include_in_name(&self) -> bool {
-        !matches!(self, Self::Default)
-    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -203,7 +156,7 @@ struct Config {
     test_name: String,
     config_name: String,
     engine: Engine,
-    file_systems: FileSystemSelection,
+    file_systems: Option<Vec<FileSystemKind>>,
     is_abstract: bool,
 
     nonzero_exit_code: bool,
@@ -239,7 +192,7 @@ impl Config {
             test_name,
             config_name: "default".to_owned(),
             engine: Engine::Cranelift,
-            file_systems: FileSystemSelection::Default,
+            file_systems: None,
             is_abstract: false,
             arguments: Vec::new(),
             build_env: Vec::new(),
@@ -265,14 +218,27 @@ impl Config {
         self.tests_build_root.join(self.full_test_name())
     }
 
+    fn file_system_kinds(&self) -> &[FileSystemKind] {
+        self.file_systems
+            .as_deref()
+            .unwrap_or(&[FileSystemKind::Host])
+    }
+
+    fn current_file_system(&self) -> FileSystemKind {
+        *self
+            .file_system_kinds()
+            .first()
+            .expect("test config must have at least one filesystem")
+    }
+
     fn full_test_name(&self) -> String {
         let mut parts = vec!["wasm".to_owned(), self.test_name.clone()];
         if !self.source.is_default() {
             parts.push(self.source.config_name());
         }
         parts.push(self.config_name.clone());
-        if self.file_systems.include_in_name() {
-            parts.push(self.file_systems.selected().to_string());
+        if self.file_systems.is_some() {
+            parts.push(self.current_file_system().to_string());
         }
         parts.push(self.engine.to_string());
         parts.join("/")
@@ -439,21 +405,30 @@ fn process_directive(
             let (engine, reason) = arg
                 .split_once(':')
                 .ok_or_else(|| anyhow!("missing colon separator for SkipEngine"))?;
-            if let Some(engine) = match engine.parse::<Engine>() {
-                Ok(engine) => Some(engine),
-                Err(_) if engine.eq_ignore_ascii_case("v8") => {
+            if let Some(engine) = match engine.to_lowercase().as_str() {
+                "llvm" => Some(Engine::LLVM),
+                "cranelift" => Some(Engine::Cranelift),
+                "v8" => {
                     #[cfg(feature = "v8")]
-                    bail!("unsupported engine: '{engine}'");
+                    {
+                        Some(Engine::V8)
+                    }
                     #[cfg(not(feature = "v8"))]
-                    None
+                    {
+                        None
+                    }
                 }
-                Err(_) if engine.eq_ignore_ascii_case("singlepass") => {
+                "singlepass" => {
                     #[cfg(feature = "singlepass")]
-                    bail!("unsupported engine: '{engine}'");
+                    {
+                        Some(Engine::Singlepass)
+                    }
                     #[cfg(not(feature = "singlepass"))]
-                    None
+                    {
+                        None
+                    }
                 }
-                Err(_) => bail!("unsupported engine: '{engine}'"),
+                _ => bail!("unsupported engine: '{engine}'"),
             } {
                 config.skipped_engines.push((engine, reason.to_owned()));
             }
@@ -511,14 +486,14 @@ fn process_directive(
                 !arg.contains(','),
                 "FileSystems accepts a single filesystem kind or `all`"
             );
-            config.file_systems = if arg.eq_ignore_ascii_case("all") {
-                FileSystemSelection::All
+            config.file_systems = Some(if arg.eq_ignore_ascii_case("all") {
+                FileSystemKind::iter().collect()
             } else {
-                FileSystemSelection::Selected(
+                vec![
                     arg.parse::<FileSystemKind>()
                         .map_err(|_| anyhow!("unsupported filesystem: '{arg}'"))?,
-                )
-            };
+                ]
+            });
         }
         other => bail!("Unknown directive '{other}'"),
     }
@@ -656,14 +631,23 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     Ok(build_test_path.join("main"))
 }
 
-fn copy_host_tree(
+struct CopyHostTreeActions<CreateDirectory, CopyFile, CopyLink> {
+    create_directory: CreateDirectory,
+    copy_file: CopyFile,
+    copy_link: CopyLink,
+}
+
+fn copy_host_tree<CreateDirectory, CopyFile, CopyLink>(
     from: &Path,
     to: &Path,
-    mut create_directory: impl FnMut(&Path) -> Result<()>,
-    mut copy_file: impl FnMut(&Path, &Path) -> Result<()>,
-    mut copy_link: impl FnMut(&Path, &Path) -> Result<()>,
-) -> Result<()> {
-    create_directory(to)?;
+    mut actions: CopyHostTreeActions<CreateDirectory, CopyFile, CopyLink>,
+) -> Result<()>
+where
+    CreateDirectory: FnMut(&Path) -> Result<()>,
+    CopyFile: FnMut(&Path, &Path) -> Result<()>,
+    CopyLink: FnMut(&Path, &Path) -> Result<()>,
+{
+    (actions.create_directory)(to)?;
 
     for entry in WalkDir::new(from).min_depth(1).follow_links(false) {
         let entry = entry?;
@@ -672,15 +656,15 @@ fn copy_host_tree(
         let file_type = entry.file_type();
 
         if file_type.is_dir() {
-            create_directory(&target)?;
+            (actions.create_directory)(&target)?;
         } else {
             if let Some(parent) = target.parent() {
-                create_directory(parent)?;
+                (actions.create_directory)(parent)?;
             }
             if file_type.is_file() {
-                copy_file(entry.path(), &target)?;
+                (actions.copy_file)(entry.path(), &target)?;
             } else if file_type.is_symlink() {
-                copy_link(entry.path(), &target)?;
+                (actions.copy_link)(entry.path(), &target)?;
             }
         }
     }
@@ -692,18 +676,22 @@ fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
     copy_host_tree(
         from,
         to,
-        |path| create_dir_all(path).with_context(|| format!("failed to create {}", path.display())),
-        |source, target| {
-            fs::copy(source, target).with_context(|| {
-                format!(
-                    "failed to copy {} to {}",
-                    source.display(),
-                    target.display()
-                )
-            })?;
-            Ok(())
+        CopyHostTreeActions {
+            create_directory: |path: &Path| {
+                create_dir_all(path).with_context(|| format!("failed to create {}", path.display()))
+            },
+            copy_file: |source: &Path, target: &Path| {
+                fs::copy(source, target).with_context(|| {
+                    format!(
+                        "failed to copy {} to {}",
+                        source.display(),
+                        target.display()
+                    )
+                })?;
+                Ok(())
+            },
+            copy_link: copy_symlink,
         },
-        copy_symlink,
     )
 }
 
@@ -726,44 +714,48 @@ fn copy_host_tree_to_virtual_fs(
     copy_host_tree(
         host_root,
         guest_root,
-        |path| {
-            create_virtual_dir_all(fs, path).with_context(|| {
-                format!(
-                    "failed to create mapped directory {} in virtual filesystem",
-                    path.display()
-                )
-            })
-        },
-        |source, target| {
-            let bytes = fs::read(source)
-                .with_context(|| format!("failed to read mapped fixture {}", source.display()))?;
-            let mut file = fs
-                .new_open_options()
-                .write(true)
-                .create(true)
-                .truncate(true)
-                .open(target)
-                .with_context(|| {
+        CopyHostTreeActions {
+            create_directory: |path: &Path| {
+                create_virtual_dir_all(fs, path).with_context(|| {
                     format!(
-                        "failed to open mapped fixture {} in virtual filesystem",
+                        "failed to create mapped directory {} in virtual filesystem",
+                        path.display()
+                    )
+                })
+            },
+            copy_file: |source: &Path, target: &Path| {
+                let bytes = fs::read(source).with_context(|| {
+                    format!("failed to read mapped fixture {}", source.display())
+                })?;
+                let mut file = fs
+                    .new_open_options()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(target)
+                    .with_context(|| {
+                        format!(
+                            "failed to open mapped fixture {} in virtual filesystem",
+                            target.display()
+                        )
+                    })?;
+                block_on(async {
+                    file.write_all(&bytes).await.with_context(|| {
+                        format!("failed to write mapped fixture {}", target.display())
+                    })
+                })
+            },
+            copy_link: |source: &Path, target: &Path| {
+                let link_target = fs::read_link(source).with_context(|| {
+                    format!("failed to read symlink fixture {}", source.display())
+                })?;
+                fs.create_symlink(&link_target, target).with_context(|| {
+                    format!(
+                        "failed to create symlink fixture {} in virtual filesystem",
                         target.display()
                     )
-                })?;
-            block_on(async {
-                file.write_all(&bytes)
-                    .await
-                    .with_context(|| format!("failed to write mapped fixture {}", target.display()))
-            })
-        },
-        |source, target| {
-            let link_target = fs::read_link(source)
-                .with_context(|| format!("failed to read symlink fixture {}", source.display()))?;
-            fs.create_symlink(&link_target, target).with_context(|| {
-                format!(
-                    "failed to create symlink fixture {} in virtual filesystem",
-                    target.display()
-                )
-            })
+                })
+            },
         },
     )
 }
@@ -806,7 +798,7 @@ fn configure_mapped_directories(
     config: &Config,
     extra_temporary_folders: &mut Vec<tempfile::TempDir>,
 ) -> Result<()> {
-    let file_system = config.file_systems.selected();
+    let file_system = config.current_file_system();
     if config.mapped_directories.is_empty() {
         if file_system != FileSystemKind::Host {
             runner.with_mount("/".to_owned(), create_filesystem(file_system));
@@ -1171,7 +1163,8 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
             ))?;
 
             for config in configs {
-                for file_system in config.file_systems.kinds() {
+                let file_systems = config.file_system_kinds().to_vec();
+                for file_system in file_systems {
                     for engine in &supported_engines {
                         // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
                         // but we can still run selectively some tests with Singlepass.
@@ -1189,10 +1182,10 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
                         let mut config = config.clone();
                         config.engine = *engine;
-                        config.file_systems = if config.file_systems.include_in_name() {
-                            FileSystemSelection::Selected(*file_system)
+                        config.file_systems = if config.file_systems.is_some() {
+                            Some(vec![file_system])
                         } else {
-                            FileSystemSelection::Default
+                            None
                         };
                         tests.push(libtest_mimic::Trial::ignorable_test(
                             config.full_test_name(),

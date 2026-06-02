@@ -1,6 +1,4 @@
-//#DefaultMappedDirectories: false
-//#FileSystems: all
-//#CurrentDirectory: /
+//#AbstractConfigFile: wasi-wast.config
 //#Env: DOG=1
 //#Env: CAT=2
 //#ExpectedStdoutFile: envvar.stdout

@@ -1,6 +1,4 @@
-//#DefaultMappedDirectories: false
-//#FileSystems: all
-//#CurrentDirectory: /
+//#AbstractConfigFile: wasi-wast.config
 //#MappedDirectory: $temp:/temp
 //#MappedDirectory: test_fs/hamlet:/hamlet
 //#ExpectedStdoutFile: path_symlink.stdout

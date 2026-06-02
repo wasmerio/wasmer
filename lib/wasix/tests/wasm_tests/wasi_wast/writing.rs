@@ -1,6 +1,4 @@
-//#DefaultMappedDirectories: false
-//#FileSystems: all
-//#CurrentDirectory: /
+//#AbstractConfigFile: wasi-wast.config
 //#MappedDirectory: test_fs/hamlet/act1:/act1
 //#MappedDirectory: test_fs/hamlet/act2:/act2
 //#MappedDirectory: test_fs/hamlet/act1:/act1-again
