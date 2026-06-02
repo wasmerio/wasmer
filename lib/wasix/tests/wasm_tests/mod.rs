@@ -616,8 +616,14 @@ fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
 
     // Preserve symlink fixtures, including broken links, when staging tests.
     for entry in WalkDir::new(from).min_depth(1).follow_links(false) {
-        let entry = entry?;
-        let relative = entry.path().strip_prefix(from)?;
+        let entry = entry.with_context(|| anyhow!("cannot get dir entry"))?;
+        let relative = entry.path().strip_prefix(from).with_context(|| {
+            anyhow!(
+                "cannot strip prefix: {} from {}",
+                from.display(),
+                entry.path().display()
+            )
+        })?;
         let target = to.join(relative);
         let file_type = entry.file_type();
 
