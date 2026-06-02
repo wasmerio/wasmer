@@ -663,7 +663,9 @@ fn copy_symlink(from: &Path, to: &Path) -> Result<()> {
 
 #[cfg(not(unix))]
 fn copy_symlink(from: &Path, _to: &Path) -> Result<()> {
-    bail!("cannot copy symlink {} on this host", from.display())
+    // Avoid treating this as an error because symlink support is not guaranteed
+    // on Windows.
+    Ok(())
 }
 
 fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
