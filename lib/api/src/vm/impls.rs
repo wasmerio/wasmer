@@ -1,4 +1,4 @@
-use crate::macros::backend::match_rt;
+use crate::{AsStoreMut, macros::backend::match_rt};
 
 use super::*;
 
@@ -53,15 +53,46 @@ impl VMExternRef {
 }
 
 impl VMMemory {
-    /// Attempts to clone this memory handle.
-    pub(crate) fn try_clone(&self) -> Result<Self, wasmer_types::MemoryError> {
+    /// Attempts to share this memory and return a shared detached memory.
+    pub(crate) fn as_shared(&self) -> Result<VMSharedMemory, wasmer_types::MemoryError> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => s.try_clone().map(Self::Sys),
+            Self::Sys(s) => s.0.as_shared().map(VMSharedMemory::Sys),
             #[cfg(feature = "v8")]
-            Self::V8(s) => s.try_clone().map(Self::V8),
+            Self::V8(s) => s.as_shared().map(VMSharedMemory::V8),
             #[cfg(feature = "js")]
-            Self::Js(s) => s.try_clone().map(Self::Js),
+            Self::Js(s) => s.try_clone().map(VMSharedMemory::Js),
+        }
+    }
+}
+
+impl VMSharedMemory {
+    /// Clones this shared memory handle.
+    pub(crate) fn clone(&self) -> Self {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => Self::Sys(s.clone()),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => Self::V8(s.clone()),
+            #[cfg(feature = "js")]
+            Self::Js(s) => Self::Js(
+                s.try_clone()
+                    .expect("cloning JavaScript shared memory should not fail"),
+            ),
+        }
+    }
+
+    pub(crate) fn into_vm_memory(self, store: &mut impl AsStoreMut) -> VMMemory {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => VMMemory::Sys(s.into()),
+            #[cfg(feature = "v8")]
+            Self::V8(s) => {
+                let mut store = store.as_store_mut();
+                VMMemory::V8(s.into_vm_memory(store.inner.store.as_v8_mut()))
+            }
+            #[cfg(feature = "js")]
+            Self::Js(s) => VMMemory::Js(s),
         }
     }
 }

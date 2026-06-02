@@ -38,6 +38,10 @@ impl FileSystem for ArcFileSystem {
         self.fs.create_symlink(source, target)
     }
 
+    fn hard_link(&self, source: &Path, target: &Path) -> Result<()> {
+        self.fs.hard_link(source, target)
+    }
+
     fn remove_dir(&self, path: &Path) -> Result<()> {
         self.fs.remove_dir(path)
     }

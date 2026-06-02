@@ -92,6 +92,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn create_symlink(&self, _source: &Path, _target: &Path) -> Result<()> {
         Err(FsError::Unsupported)
     }
+    fn hard_link(&self, _source: &Path, _target: &Path) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
     fn remove_dir(&self, path: &Path) -> Result<()>;
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
     fn metadata(&self, path: &Path) -> Result<Metadata>;
@@ -358,7 +361,11 @@ pub trait VirtualFile:
     /// the extra bytes will be allocated and zeroed
     fn set_len(&mut self, new_size: u64) -> Result<()>;
 
-    /// Request deletion of the file
+    /// Remove the file from the filesystem namespace.
+    ///
+    /// Existing open handles may continue to operate after this call.
+    /// Backends may defer final storage reclamation until the last open
+    /// handle is dropped.
     fn unlink(&mut self) -> Result<()>;
 
     /// Indicates if the file is opened or closed. This function must not block

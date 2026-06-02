@@ -293,14 +293,15 @@ space := $() $()
 comma := ,
 build_wasmer_extra_features_csv = $(subst $(space),$(comma),$(build_wasmer_extra_features))
 
-# Right now, we do not support V8 for all our targets and it will change with:
-# https://github.com/wasmerio/v8-custom-builds/pull/12
 test_compilers := $(compilers)
-ifeq ($(IS_LINUX), 1)
-	ifeq ($(IS_AMD64), 1)
-		ifneq ($(LIBC), musl)
-			test_compilers += v8
-		endif
+ifeq ($(IS_AMD64), 1)
+	# TODO: enable on Windows
+	ifneq (, $(filter 1, $(IS_LINUX)))
+		test_compilers += v8
+	endif
+else ifeq ($(IS_AARCH64), 1)
+	ifeq ($(IS_DARWIN), 1)
+		test_compilers += v8
 	endif
 endif
 test_compilers := $(strip $(test_compilers))

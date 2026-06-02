@@ -40,7 +40,7 @@
 //! `Ignored:{reason}` marks the configuration as ignored with the given reason.
 //!
 //! `SkipEngine:{engine}:{reason}` marks the configuration as ignored for
-//! a given engine (LLVM, Cranelift, V8).
+//! a given engine (LLVM, Cranelift, V8, Singlepass).
 //!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
 //!
@@ -120,6 +120,8 @@ struct MappedDirectory {
 pub enum Engine {
     Cranelift,
     LLVM,
+    #[cfg(feature = "singlepass")]
+    Singlepass,
     #[cfg(feature = "v8")]
     V8,
 }
@@ -129,6 +131,8 @@ impl Engine {
         match self {
             Self::Cranelift => "cranelift",
             Self::LLVM => "llvm",
+            #[cfg(feature = "singlepass")]
+            Self::Singlepass => "singlepass",
             #[cfg(feature = "v8")]
             Self::V8 => "v8",
         }
@@ -394,6 +398,16 @@ fn process_directive(
                         Some(Engine::V8)
                     }
                     #[cfg(not(feature = "v8"))]
+                    {
+                        None
+                    }
+                }
+                "singlepass" => {
+                    #[cfg(feature = "singlepass")]
+                    {
+                        Some(Engine::Singlepass)
+                    }
+                    #[cfg(not(feature = "singlepass"))]
                     {
                         None
                     }
@@ -930,10 +944,11 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let primary_sources = identify_primary_sources(entry.path())?;
 
         let mut supported_engines = vec![Engine::LLVM];
+        #[cfg(feature = "singlepass")]
+        supported_engines.push(Engine::Singlepass);
 
-        // TODO: enable once the WASIX tests are green with V8
-        // #[cfg(feature = "v8")]
-        // supported_engines.push(Engine::V8);
+        #[cfg(feature = "v8")]
+        supported_engines.push(Engine::V8);
 
         // Cranelift EH support for macOS is still missing: #6419.
         if !cfg!(target_os = "macos") {
@@ -950,6 +965,20 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
             for config in configs {
                 for engine in &supported_engines {
+                    // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
+                    // but we can still run selectively some tests with Singlepass.
+                    #[cfg(feature = "singlepass")]
+                    if entry
+                        .path()
+                        .file_name()
+                        .expect("must be valid filename")
+                        .to_string_lossy()
+                        != "wasi_fyi"
+                        && *engine == Engine::Singlepass
+                    {
+                        continue;
+                    }
+
                     let mut config = config.clone();
                     config.engine = *engine;
                     tests.push(libtest_mimic::Trial::ignorable_test(

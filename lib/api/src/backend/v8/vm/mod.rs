@@ -1,11 +1,16 @@
 mod env;
+use std::sync::Arc;
+
 pub use env::*;
 
 use super::{
     bindings::*, entities::function::env::FunctionEnv, function::Function, global::Global,
     memory::Memory, table::Table,
 };
-use crate::{AsStoreMut, BackendFunction, BackendGlobal, BackendMemory, BackendTable, Extern};
+use crate::{
+    AsStoreMut, BackendFunction, BackendGlobal, BackendMemory, BackendTable, Extern,
+    v8::store::Store,
+};
 use wasmer_types::{MemoryError, RawValue};
 
 pub use super::error::Trap;
@@ -147,28 +152,72 @@ impl VMExceptionRef {
 
 #[derive(Debug, Clone)]
 pub struct VMMemory(pub(super) *mut wasm_memory_t);
-pub type VMSharedMemory = VMMemory;
+struct SharedMemoryPointer(*mut wasm_shared_memory_t);
+pub struct VMSharedMemory(Arc<SharedMemoryPointer>);
 pub(crate) type VMExternMemory = *mut wasm_memory_t;
 
-/// # SAFETY: WASM memories are safe to send across thread boundaries.
+impl SharedMemoryPointer {
+    fn new(ptr: *mut wasm_shared_memory_t) -> Self {
+        Self(ptr)
+    }
+}
+
+impl Drop for SharedMemoryPointer {
+    fn drop(&mut self) {
+        unsafe {
+            wasm_shared_memory_delete(self.0);
+        }
+    }
+}
+
+/// # SAFETY: The WASM V8 memory is attached to a Store and cannot be accessed
+/// from a different thread (long-term goal would removal of the unsafe Send/Sync).
 unsafe impl Send for VMMemory {}
-/// # SAFETY: WASM memories are safe to send across thread boundaries.
 unsafe impl Sync for VMMemory {}
 
+/// # SAFETY: Shared memory handles are safe to send across thread boundaries.
+unsafe impl Send for SharedMemoryPointer {}
+unsafe impl Sync for SharedMemoryPointer {}
+
 impl VMMemory {
-    pub(crate) fn try_clone(&self) -> Result<Self, MemoryError> {
+    /// Created a shared detached memory that can be attached in another Store.
+    pub(crate) fn as_shared(&self) -> Result<VMSharedMemory, MemoryError> {
         let memory_type = unsafe { wasm_memory_type(self.0) };
         let limits = unsafe { wasm_memorytype_limits(memory_type) };
         if !unsafe { (*limits).shared } {
+            unsafe {
+                wasm_memorytype_delete(memory_type);
+            }
             return Err(MemoryError::MemoryNotShared);
         }
+        unsafe {
+            wasm_memorytype_delete(memory_type);
+        }
 
-        let cloned = unsafe { wasm_memory_copy(self.0) };
-        if cloned.is_null() {
+        let shared = unsafe { wasm_memory_share(self.0) };
+        if shared.is_null() {
             return Err(MemoryError::Generic(
                 "Failed to clone the memory".to_string(),
             ));
         }
-        Ok(Self(cloned))
+
+        Ok(VMSharedMemory(Arc::new(SharedMemoryPointer::new(shared))))
+    }
+}
+
+impl VMSharedMemory {
+    /// We can clone a shared memory handle as we want.
+    pub(crate) fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+
+    /// Attach the shared memory handle to a new Store and convert it to VMMemory
+    pub(crate) fn into_vm_memory(self, store: &mut Store) -> VMMemory {
+        let memory = unsafe { wasm_memory_obtain(store.inner, self.0.0) };
+        assert!(
+            !memory.is_null(),
+            "Failed to obtain V8 shared memory: wasm_memory_obtain returned null"
+        );
+        VMMemory(memory)
     }
 }

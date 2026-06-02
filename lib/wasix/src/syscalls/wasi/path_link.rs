@@ -102,11 +102,98 @@ pub(crate) fn path_link_internal(
     let (target_parent_inode, new_entry_name) =
         state
             .fs
-            .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, false)?;
+            .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, true)?;
 
     if source_inode.stat.write().unwrap().st_nlink == Linkcount::MAX {
         return Err(Errno::Mlink);
     }
+
+    let materialized_paths = {
+        let source_guard = source_inode.read();
+        let target_parent_guard = target_parent_inode.read();
+
+        match (source_guard.deref(), target_parent_guard.deref()) {
+            (
+                Kind::File {
+                    path: source_path, ..
+                },
+                Kind::Dir {
+                    path: target_parent_path,
+                    entries,
+                    ..
+                },
+            ) => {
+                if entries.contains_key(&new_entry_name) {
+                    return Err(Errno::Exist);
+                }
+
+                Some((
+                    source_path.clone(),
+                    crate::fs::PosixPath::from_path(target_parent_path)
+                        .join(&crate::fs::PosixPath::new(&new_entry_name))
+                        .into_path_buf(),
+                ))
+            }
+            (_, Kind::Dir { entries, .. }) => {
+                if entries.contains_key(&new_entry_name) {
+                    return Err(Errno::Exist);
+                }
+
+                None
+            }
+            (_, Kind::Root { .. }) => return Err(Errno::Inval),
+            (
+                _,
+                Kind::File { .. }
+                | Kind::Symlink { .. }
+                | Kind::Buffer { .. }
+                | Kind::Socket { .. }
+                | Kind::PipeTx { .. }
+                | Kind::PipeRx { .. }
+                | Kind::DuplexPipe { .. }
+                | Kind::EventNotifications { .. }
+                | Kind::Epoll { .. },
+            ) => return Err(Errno::Notdir),
+        }
+    };
+
+    let target_inode = if let Some((source_path, target_path)) = materialized_paths {
+        match state.fs.root_fs.symlink_metadata(&target_path) {
+            Ok(_) => return Err(Errno::Exist),
+            Err(virtual_fs::FsError::EntryNotFound) => {}
+            Err(err) => return Err(fs_error_into_wasi_err(err)),
+        }
+
+        match state.fs.root_fs.hard_link(&source_path, &target_path) {
+            Ok(()) => {
+                let kind = Kind::File {
+                    handle: None,
+                    path: target_path.clone(),
+                    fd: None,
+                };
+                match state
+                    .fs
+                    .create_inode(inodes, kind, false, new_entry_name.clone())
+                {
+                    Ok(inode) => inode,
+                    Err(err) => {
+                        let _ = state.fs.root_fs.remove_file(&target_path);
+                        return Err(err);
+                    }
+                }
+            }
+            Err(virtual_fs::FsError::Unsupported) => {
+                // Some virtual filesystems cannot materialize hard links in
+                // their backing store. Preserve the old WASIX behavior there
+                // by linking the target directory entry to the same inode.
+                source_inode.clone()
+            }
+            Err(err) => return Err(fs_error_into_wasi_err(err)),
+        }
+    } else {
+        source_inode.clone()
+    };
+
     {
         let mut guard = target_parent_inode.write();
         match guard.deref_mut() {
@@ -114,7 +201,7 @@ pub(crate) fn path_link_internal(
                 if entries.contains_key(&new_entry_name) {
                     return Err(Errno::Exist);
                 }
-                entries.insert(new_entry_name, source_inode.clone());
+                entries.insert(new_entry_name, target_inode.clone());
             }
             Kind::Root { .. } => return Err(Errno::Inval),
             Kind::File { .. }
@@ -128,7 +215,12 @@ pub(crate) fn path_link_internal(
             | Kind::Epoll { .. } => return Err(Errno::Notdir),
         }
     }
-    source_inode.stat.write().unwrap().st_nlink += 1;
+    let new_link_count = {
+        let mut stat = source_inode.stat.write().unwrap();
+        stat.st_nlink += 1;
+        stat.st_nlink
+    };
+    target_inode.stat.write().unwrap().st_nlink = new_link_count;
 
     Ok(())
 }
