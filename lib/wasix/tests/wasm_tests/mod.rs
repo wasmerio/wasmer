@@ -1008,7 +1008,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                         config.full_test_name(),
                         move || {
                             run_integration_test(config)
-                                .map_err(|e| libtest_mimic::Failed::from(format!("{e:#}")))
+                                .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
                         },
                     ));
                 }
