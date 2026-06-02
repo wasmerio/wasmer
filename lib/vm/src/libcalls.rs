@@ -63,9 +63,9 @@ use wasmer_types::{
 /// as `u64` and truncating with `as u32` restores the correct lower 32 bits
 /// regardless of what LLVM placed in the upper half.  On all other targets
 /// `WasmAddr` aliases `u32` and the casts are no-ops.
-#[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
+#[cfg(target_arch = "riscv64")]
 type WasmAddr = u64;
-#[cfg(not(any(target_arch = "riscv32", target_arch = "riscv64")))]
+#[cfg(not(target_arch = "riscv64"))]
 type WasmAddr = u32;
 
 /// Truncates a `WasmAddr` to `u32`.
