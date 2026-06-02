@@ -986,6 +986,13 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                         continue;
                     }
 
+                    // WASIXCC toolchain does not cover Windows yet.
+                    if cfg!(target_os = "windows")
+                        && !matches!(config.source, PrimarySource::RustSourceFile(..))
+                    {
+                        continue;
+                    }
+
                     let mut config = config.clone();
                     config.engine = *engine;
                     tests.push(libtest_mimic::Trial::ignorable_test(
