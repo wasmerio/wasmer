@@ -55,6 +55,15 @@ windows-sys = { workspace = true, features = [
 cc.workspace = true
 rustversion.workspace = true
 
+# Workspace default has default-features = false (no plotters HTML
+# report dep). Bench still runs and prints stats to stdout.
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "mmap_pool_alloc"
+harness = false
+
 [badges]
 maintenance = { status = "actively-developed" }
 
