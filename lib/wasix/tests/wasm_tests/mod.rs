@@ -119,6 +119,7 @@ struct MappedDirectory {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Engine {
     Cranelift,
+    #[cfg(feature = "llvm")]
     LLVM,
     #[cfg(feature = "singlepass")]
     Singlepass,
@@ -130,6 +131,7 @@ impl Engine {
     pub fn name(self) -> &'static str {
         match self {
             Self::Cranelift => "cranelift",
+            #[cfg(feature = "llvm")]
             Self::LLVM => "llvm",
             #[cfg(feature = "singlepass")]
             Self::Singlepass => "singlepass",
@@ -390,7 +392,16 @@ fn process_directive(
                 .split_once(':')
                 .ok_or_else(|| anyhow!("missing colon separator for SkipEngine"))?;
             if let Some(engine) = match engine.to_lowercase().as_str() {
-                "llvm" => Some(Engine::LLVM),
+                "llvm" => {
+                    #[cfg(feature = "llvm")]
+                    {
+                        Some(Engine::LLVM)
+                    }
+                    #[cfg(not(feature = "llvm"))]
+                    {
+                        None
+                    }
+                }
                 "cranelift" => Some(Engine::Cranelift),
                 "v8" => {
                     #[cfg(feature = "v8")]
@@ -921,11 +932,6 @@ fn has_primary_source_file(path: &Path) -> bool {
 }
 
 fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
-    // Windows runtime support is still limited, so skip these tests on that platform.
-    if cfg!(target_os = "windows") {
-        return Ok(());
-    }
-
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
 
@@ -943,10 +949,11 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let test_name = relative_test_path.display().to_string();
         let primary_sources = identify_primary_sources(entry.path())?;
 
-        let mut supported_engines = vec![Engine::LLVM];
+        let mut supported_engines = vec![];
+        #[cfg(feature = "llvm")]
+        supported_engines.push(Engine::LLVM);
         #[cfg(feature = "singlepass")]
         supported_engines.push(Engine::Singlepass);
-
         #[cfg(feature = "v8")]
         supported_engines.push(Engine::V8);
 
