@@ -524,9 +524,14 @@ where
         rx: mpsc::Receiver<T>,
         wakers: RemoteTxWakers,
     },
+    UnboundedMpsc {
+        rx: mpsc::UnboundedReceiver<T>,
+        wakers: RemoteTxWakers,
+    },
     Stream {
         #[debug(ignore)]
         rx: Pin<Box<dyn Stream<Item = std::io::Result<T>> + Send + 'static>>,
+        wakers: RemoteTxWakers,
     },
     #[cfg(feature = "hyper")]
     HyperWebSocket {
@@ -557,8 +562,18 @@ where
                     }
                     ret
                 }
-                RemoteRx::Stream { rx } => match rx.as_mut().poll_next(cx) {
-                    Poll::Ready(Some(Ok(msg))) => Poll::Ready(Some(msg)),
+                RemoteRx::UnboundedMpsc { rx, wakers } => {
+                    let ret = Pin::new(rx).poll_recv(cx);
+                    if ret.is_ready() {
+                        wakers.wake();
+                    }
+                    ret
+                }
+                RemoteRx::Stream { rx, wakers } => match rx.as_mut().poll_next(cx) {
+                    Poll::Ready(Some(Ok(msg))) => {
+                        wakers.wake();
+                        Poll::Ready(Some(msg))
+                    }
                     Poll::Ready(Some(Err(err))) => {
                         tracing::debug!("failed to read from channel - {}", err);
                         Poll::Ready(None)

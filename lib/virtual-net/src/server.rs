@@ -155,13 +155,40 @@ impl RemoteNetworkingServer {
             };
 
         let (tx_work, rx_work) = mpsc::unbounded_channel();
+        let tx_wakers = RemoteTxWakers::default();
 
         let tx = RemoteTx::Stream {
             tx: Arc::new(tokio::sync::Mutex::new(tx)),
             work: tx_work,
-            wakers: RemoteTxWakers::default(),
+            wakers: tx_wakers.clone(),
         };
-        let rx = RemoteRx::Stream { rx };
+
+        // Dedicated reader so inbound frames are drained even when outbound sends
+        // are backpressured on a small duplex (see issue #4425).
+        let (inbound_tx, inbound_rx) = mpsc::unbounded_channel();
+        let wakers_for_reader = tx_wakers.clone();
+        tokio::spawn(async move {
+            use futures_util::StreamExt;
+            let mut rx_stream = rx;
+            while let Some(item) = rx_stream.next().await {
+                match item {
+                    Ok(msg) => {
+                        wakers_for_reader.wake();
+                        if inbound_tx.send(msg).is_err() {
+                            break;
+                        }
+                    }
+                    Err(err) => {
+                        tracing::debug!("failed to read from channel - {}", err);
+                        break;
+                    }
+                }
+            }
+        });
+        let rx = RemoteRx::UnboundedMpsc {
+            rx: inbound_rx,
+            wakers: tx_wakers,
+        };
         Self::new(tx, rx, rx_work, inner)
     }
 
@@ -366,6 +393,25 @@ impl Future for RemoteNetworkingServerDriver {
                 self.tasks.push_back(work);
             }
 
+            // Drain inbound before outbound work so a full duplex can make progress
+            // under backpressure (see issue #4425).
+            let msg = {
+                let mut rx_guard = self.common.rx.lock().unwrap();
+                rx_guard.poll(cx)
+            };
+            match msg {
+                Poll::Ready(Some(msg)) => {
+                    if let Some(task) = self.process(msg) {
+                        // With some messages we process there are background tasks that need to
+                        // be further driver to completion by the driver
+                        self.tasks.push_back(task)
+                    };
+                    continue;
+                }
+                Poll::Ready(None) => return Poll::Ready(()),
+                Poll::Pending => {}
+            }
+
             // Background work basically stalls the stream until its all processed
             // which creates back pressure on the client so that they don't overload
             // the system
@@ -380,31 +426,15 @@ impl Future for RemoteNetworkingServerDriver {
                             not_stalled_guard.replace(guard);
                         }
                         _ => {
-                            // Another task holds the stall lock; still poll rx below so
-                            // the peer duplex can drain under backpressure.
+                            // Another task holds the stall lock; still poll rx above on
+                            // the next iteration so the peer duplex can drain.
                         }
                     }
                 }
                 Poll::Pending => {}
             };
 
-            // We grab the next message sent by the client to us
-            let msg = {
-                let mut rx_guard = self.common.rx.lock().unwrap();
-                rx_guard.poll(cx)
-            };
-            return match msg {
-                Poll::Ready(Some(msg)) => {
-                    if let Some(task) = self.process(msg) {
-                        // With some messages we process there are background tasks that need to
-                        // be further driver to completion by the driver
-                        self.tasks.push_back(task)
-                    };
-                    continue;
-                }
-                Poll::Ready(None) => Poll::Ready(()),
-                Poll::Pending => Poll::Pending,
-            };
+            return Poll::Pending;
         }
     }
 }
@@ -631,7 +661,9 @@ impl RemoteNetworkingServerDriver {
         // Now we attach the handler to the main listening socket
         let mut handler = Box::new(self.common.handler.clone().for_socket(socket_id));
         handler.push_interest(virtual_mio::InterestType::Readable);
-        self.process_inner_noop(
+        let common = self.common.clone();
+        let listen_id = socket_id;
+        let setup_task = self.process_inner_noop(
             move |socket| match socket {
                 RemoteAdapterSocket::TcpListener {
                     socket: s,
@@ -652,7 +684,24 @@ impl RemoteNetworkingServerDriver {
             },
             socket_id,
             req_id,
-        )
+        );
+
+        // A client may connect before BeginAccept completes; accept immediately if the
+        // backlog already has a connection (see issue #4425).
+        Some(Box::pin(async move {
+            if let Some(task) = setup_task {
+                task.await;
+            }
+            let drain = {
+                let mut guard = common.sockets.lock().unwrap();
+                guard
+                    .get_mut(&listen_id)
+                    .and_then(|s| s.drain_reads_and_accepts(&common, listen_id))
+            };
+            if let Some(task) = drain {
+                task.await;
+            }
+        }))
     }
 
     fn process_interface(&mut self, req: RequestType, req_id: Option<u64>) -> BackgroundTask {
