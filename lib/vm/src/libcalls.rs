@@ -62,21 +62,21 @@ use wasmer_types::{
 /// the expected zero-extended 32-bit value.  Declaring address/length parameters
 /// as `u64` and truncating with `as u32` restores the correct lower 32 bits
 /// regardless of what LLVM placed in the upper half.  On all other targets
-/// `WasmAddr` aliases `u32` and the casts are no-ops.
+/// `WasmI32Arg` aliases `u32` and the casts are no-ops.
 #[cfg(target_arch = "riscv64")]
-type WasmAddr = u64;
+type WasmI32Arg = u64;
 #[cfg(not(target_arch = "riscv64"))]
-type WasmAddr = u32;
+type WasmI32Arg = u32;
 
-/// Truncates a `WasmAddr` to `u32`.
+/// Truncates a `WasmI32Arg` to `u32`.
 ///
 /// On RISC-V the caller sign-extends every `i32` argument into a 64-bit
 /// register, so a memory address with bit 31 set arrives as a large negative
 /// value.  Truncating to `u32` recovers the correct lower 32 bits.  On other
-/// targets `WasmAddr` is already `u32` and this is an identity operation.
+/// targets `WasmI32Arg` is already `u32` and this is an identity operation.
 #[inline(always)]
 #[allow(trivial_numeric_casts)]
-fn addr32(x: WasmAddr) -> u32 {
+fn trunc_u32(x: WasmI32Arg) -> u32 {
     x as u32
 }
 
@@ -259,11 +259,11 @@ pub unsafe extern "C" fn wasmer_vm_table_copy(
     vmctx: *mut VMContext,
     dst_table_index: u32,
     src_table_index: u32,
-    dst: WasmAddr,
-    src: WasmAddr,
-    len: WasmAddr,
+    dst: WasmI32Arg,
+    src: WasmI32Arg,
+    len: WasmI32Arg,
 ) {
-    let (dst, src, len) = (addr32(dst), addr32(src), addr32(len));
+    let (dst, src, len) = (trunc_u32(dst), trunc_u32(src), trunc_u32(len));
     unsafe {
         let result = {
             let dst_table_index = TableIndex::from_u32(dst_table_index);
@@ -288,11 +288,11 @@ pub unsafe extern "C" fn wasmer_vm_table_init(
     vmctx: *mut VMContext,
     table_index: u32,
     elem_index: u32,
-    dst: WasmAddr,
-    src: WasmAddr,
-    len: WasmAddr,
+    dst: WasmI32Arg,
+    src: WasmI32Arg,
+    len: WasmI32Arg,
 ) {
-    let (dst, src, len) = (addr32(dst), addr32(src), addr32(len));
+    let (dst, src, len) = (trunc_u32(dst), trunc_u32(src), trunc_u32(len));
     unsafe {
         let result = {
             let table_index = TableIndex::from_u32(table_index);
@@ -315,11 +315,11 @@ pub unsafe extern "C" fn wasmer_vm_table_init(
 pub unsafe extern "C" fn wasmer_vm_table_fill(
     vmctx: *mut VMContext,
     table_index: u32,
-    start_idx: WasmAddr,
+    start_idx: WasmI32Arg,
     item: RawTableElement,
-    len: WasmAddr,
+    len: WasmI32Arg,
 ) {
-    let (start_idx, len) = (addr32(start_idx), addr32(len));
+    let (start_idx, len) = (trunc_u32(start_idx), trunc_u32(len));
     unsafe {
         let result = {
             let table_index = TableIndex::from_u32(table_index);
@@ -586,11 +586,11 @@ pub unsafe extern "C" fn wasmer_vm_elem_drop(vmctx: *mut VMContext, elem_index: 
 pub unsafe extern "C" fn wasmer_vm_memory32_copy(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
-    src: WasmAddr,
-    len: WasmAddr,
+    dst: WasmI32Arg,
+    src: WasmI32Arg,
+    len: WasmI32Arg,
 ) {
-    let (dst, src, len) = (addr32(dst), addr32(src), addr32(len));
+    let (dst, src, len) = (trunc_u32(dst), trunc_u32(src), trunc_u32(len));
     unsafe {
         let result = {
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
@@ -612,11 +612,11 @@ pub unsafe extern "C" fn wasmer_vm_memory32_copy(
 pub unsafe extern "C" fn wasmer_vm_imported_memory32_copy(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
-    src: WasmAddr,
-    len: WasmAddr,
+    dst: WasmI32Arg,
+    src: WasmI32Arg,
+    len: WasmI32Arg,
 ) {
-    let (dst, src, len) = (addr32(dst), addr32(src), addr32(len));
+    let (dst, src, len) = (trunc_u32(dst), trunc_u32(src), trunc_u32(len));
     unsafe {
         let result = {
             let memory_index = MemoryIndex::from_u32(memory_index);
@@ -638,11 +638,11 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_copy(
 pub unsafe extern "C" fn wasmer_vm_memory32_fill(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
-    val: WasmAddr,
-    len: WasmAddr,
+    dst: WasmI32Arg,
+    val: WasmI32Arg,
+    len: WasmI32Arg,
 ) {
-    let (dst, val, len) = (addr32(dst), addr32(val), addr32(len));
+    let (dst, val, len) = (trunc_u32(dst), trunc_u32(val), trunc_u32(len));
     unsafe {
         let result = {
             let memory_index = LocalMemoryIndex::from_u32(memory_index);
@@ -664,11 +664,11 @@ pub unsafe extern "C" fn wasmer_vm_memory32_fill(
 pub unsafe extern "C" fn wasmer_vm_imported_memory32_fill(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
-    val: WasmAddr,
-    len: WasmAddr,
+    dst: WasmI32Arg,
+    val: WasmI32Arg,
+    len: WasmI32Arg,
 ) {
-    let (dst, val, len) = (addr32(dst), addr32(val), addr32(len));
+    let (dst, val, len) = (trunc_u32(dst), trunc_u32(val), trunc_u32(len));
     unsafe {
         let result = {
             let memory_index = MemoryIndex::from_u32(memory_index);
@@ -691,11 +691,11 @@ pub unsafe extern "C" fn wasmer_vm_memory32_init(
     vmctx: *mut VMContext,
     memory_index: u32,
     data_index: u32,
-    dst: WasmAddr,
-    src: WasmAddr,
-    len: WasmAddr,
+    dst: WasmI32Arg,
+    src: WasmI32Arg,
+    len: WasmI32Arg,
 ) {
-    let (dst, src, len) = (addr32(dst), addr32(src), addr32(len));
+    let (dst, src, len) = (trunc_u32(dst), trunc_u32(src), trunc_u32(len));
     unsafe {
         let result = {
             let memory_index = MemoryIndex::from_u32(memory_index);
@@ -832,11 +832,11 @@ pub static WASMER_VM_PROBESTACK: unsafe extern "C" fn() = PROBESTACK;
 pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait32(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
-    val: WasmAddr,
+    dst: WasmI32Arg,
+    val: WasmI32Arg,
     timeout: i64,
 ) -> u32 {
-    let (dst, val) = (addr32(dst), addr32(val));
+    let (dst, val) = (trunc_u32(dst), trunc_u32(val));
     unsafe {
         let result = {
             let instance = (*vmctx).instance_mut();
@@ -860,11 +860,11 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait32(
 pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait32(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
-    val: WasmAddr,
+    dst: WasmI32Arg,
+    val: WasmI32Arg,
     timeout: i64,
 ) -> u32 {
-    let (dst, val) = (addr32(dst), addr32(val));
+    let (dst, val) = (trunc_u32(dst), trunc_u32(val));
     unsafe {
         let result = {
             let instance = (*vmctx).instance_mut();
@@ -888,11 +888,11 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait32(
 pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait64(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
+    dst: WasmI32Arg,
     val: u64,
     timeout: i64,
 ) -> u32 {
-    let dst = addr32(dst);
+    let dst = trunc_u32(dst);
     unsafe {
         let result = {
             let instance = (*vmctx).instance_mut();
@@ -916,11 +916,11 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait64(
 pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait64(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
+    dst: WasmI32Arg,
     val: u64,
     timeout: i64,
 ) -> u32 {
-    let dst = addr32(dst);
+    let dst = trunc_u32(dst);
     unsafe {
         let result = {
             let instance = (*vmctx).instance_mut();
@@ -944,10 +944,10 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait64(
 pub unsafe extern "C" fn wasmer_vm_memory32_atomic_notify(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
-    cnt: WasmAddr,
+    dst: WasmI32Arg,
+    cnt: WasmI32Arg,
 ) -> u32 {
-    let (dst, cnt) = (addr32(dst), addr32(cnt));
+    let (dst, cnt) = (trunc_u32(dst), trunc_u32(cnt));
     unsafe {
         let result = {
             let instance = (*vmctx).instance_mut();
@@ -971,10 +971,10 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_notify(
 pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_notify(
     vmctx: *mut VMContext,
     memory_index: u32,
-    dst: WasmAddr,
-    cnt: WasmAddr,
+    dst: WasmI32Arg,
+    cnt: WasmI32Arg,
 ) -> u32 {
-    let (dst, cnt) = (addr32(dst), addr32(cnt));
+    let (dst, cnt) = (trunc_u32(dst), trunc_u32(cnt));
     unsafe {
         let result = {
             let instance = (*vmctx).instance_mut();
