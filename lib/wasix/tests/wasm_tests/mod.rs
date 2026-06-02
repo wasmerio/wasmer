@@ -522,6 +522,18 @@ fn read_fixture_bytes(test_src_dir: &Path, arg: &str, directive: &str) -> Result
         .with_context(|| format!("failed to read {directive} {}", path.display()))
 }
 
+fn rustc_command(toolchain: Option<&str>) -> Command {
+    if let Some(toolchain) = toolchain {
+        // rustc +version multiplexing is unsupported on Windows, use the documented approach:
+        // https://rust-lang.github.io/rustup/concepts/toolchains.html#custom-toolchains
+        let mut cmd = Command::new("rustup");
+        cmd.arg("run").arg(toolchain).arg("rustc");
+        cmd
+    } else {
+        Command::new("rustc")
+    }
+}
+
 fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     // First, copy the test source directory to the 'build' subfolder that will
     // be unique for each configuration of a test.
@@ -573,10 +585,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
             let primary_source = build_test_path.join(filename);
             let source = std::fs::read_to_string(&primary_source)
                 .with_context(|| format!("Failed to read {}", primary_source.display()))?;
-            let mut cmd = Command::new("rustc");
-            if source.contains("#![feature(") {
-                cmd.arg("+nightly");
-            }
+            let mut cmd = rustc_command(source.contains("#![feature(").then(|| "nightly"));
             cmd.arg("--target=wasm32-wasip1")
                 .arg("-o")
                 .arg("main")
