@@ -180,10 +180,12 @@ where
                     Poll::Ready(Err(err)) => return Poll::Ready(Err(io_err_into_net_error(err))),
                     Poll::Pending => return Poll::Pending,
                 }
+                let job_wakers = wakers.clone();
                 let mut job = Box::pin(async move {
                     if let Err(err) = tx_guard.send(req).await.map_err(io_err_into_net_error) {
                         tracing::error!("failed to send remaining bytes for request - {}", err);
                     }
+                    job_wakers.wake();
                 });
 
                 // First we try to finish it synchronously
@@ -197,7 +199,8 @@ where
                     tracing::error!("failed to send remaining bytes for request - {}", err);
                     NetworkError::ConnectionAborted
                 })?;
-                Poll::Ready(Ok(()))
+                wakers.add(cx.waker());
+                Poll::Pending
             }
             #[cfg(feature = "hyper")]
             RemoteTx::HyperWebSocket {
@@ -236,6 +239,7 @@ where
                     }
                 };
 
+                let job_wakers = wakers.clone();
                 let mut job = Box::pin(async move {
                     if let Err(err) = tx_guard
                         .send(hyper_tungstenite::tungstenite::Message::Binary(
@@ -245,6 +249,7 @@ where
                     {
                         tracing::error!("failed to send remaining bytes for request - {}", err);
                     }
+                    job_wakers.wake();
                 });
 
                 // First we try to finish it synchronously
@@ -258,7 +263,8 @@ where
                     tracing::error!("failed to send remaining bytes for request - {}", err);
                     NetworkError::ConnectionAborted
                 })?;
-                Poll::Ready(Ok(()))
+                wakers.add(cx.waker());
+                Poll::Pending
             }
             #[cfg(feature = "tokio-tungstenite")]
             RemoteTx::TokioWebSocket {
@@ -297,6 +303,7 @@ where
                     }
                 };
 
+                let job_wakers = wakers.clone();
                 let mut job = Box::pin(async move {
                     if let Err(err) = tx_guard
                         .send(tokio_tungstenite::tungstenite::Message::Binary(
@@ -306,6 +313,7 @@ where
                     {
                         tracing::error!("failed to send remaining bytes for request - {}", err);
                     }
+                    job_wakers.wake();
                 });
 
                 // First we try to finish it synchronously
@@ -319,7 +327,8 @@ where
                     tracing::error!("failed to send remaining bytes for request - {}", err);
                     NetworkError::ConnectionAborted
                 })?;
-                Poll::Ready(Ok(()))
+                wakers.add(cx.waker());
+                Poll::Pending
             }
         }
     }
@@ -338,14 +347,16 @@ where
                     Ok(())
                 }
             },
-            RemoteTx::Stream { tx, work, .. } => {
+            RemoteTx::Stream { tx, work, wakers } => {
                 let mut tx_guard = match tx.clone().try_lock_owned() {
                     Ok(lock) => lock,
                     Err(_) => {
                         let tx = tx.clone();
+                        let wakers = wakers.clone();
                         work.send(Box::pin(async move {
                             let mut tx_guard = tx.lock().await;
                             tx_guard.send(req).await.ok();
+                            wakers.wake();
                         }))
                         .ok();
                         return Ok(());
@@ -355,10 +366,12 @@ where
                 let waker = Waker::noop();
                 let mut cx = Context::from_waker(waker);
 
+                let job_wakers = wakers.clone();
                 let mut job = Box::pin(async move {
                     if let Err(err) = tx_guard.send(req).await.map_err(io_err_into_net_error) {
                         tracing::error!("failed to send remaining bytes for request - {}", err);
                     }
+                    job_wakers.wake();
                 });
 
                 // First we try to finish it synchronously

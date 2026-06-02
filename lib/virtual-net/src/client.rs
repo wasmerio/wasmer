@@ -321,7 +321,8 @@ impl Future for RemoteNetworkingClientDriver {
                             not_stalled_guard.replace(guard);
                         }
                         _ => {
-                            return Poll::Pending;
+                            // Another task holds the stall lock; still poll rx below so
+                            // the peer duplex can drain under backpressure.
                         }
                     }
                 }
@@ -346,15 +347,28 @@ impl Future for RemoteNetworkingClientDriver {
                                     }
                                 }
                             };
-                            let common = self.common.clone();
-                            self.tasks.push_back(Box::pin(async move {
-                                tx.send(data).await.ok();
-
-                                if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
-                                {
-                                    h.push_interest(InterestType::Readable)
+                            match tx.try_send(data) {
+                                Ok(()) => {
+                                    if let Some(h) =
+                                        self.common.handlers.lock().unwrap().get_mut(&socket_id)
+                                    {
+                                        h.push_interest(InterestType::Readable)
+                                    }
                                 }
-                            }));
+                                Err(tokio::sync::mpsc::error::TrySendError::Full(data)) => {
+                                    let common = self.common.clone();
+                                    self.tasks.push_back(Box::pin(async move {
+                                        tx.send(data).await.ok();
+
+                                        if let Some(h) =
+                                            common.handlers.lock().unwrap().get_mut(&socket_id)
+                                        {
+                                            h.push_interest(InterestType::Readable)
+                                        }
+                                    }));
+                                }
+                                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+                            }
                         }
                         MessageResponse::RecvWithAddr {
                             socket_id,
@@ -368,15 +382,28 @@ impl Future for RemoteNetworkingClientDriver {
                                     None => continue,
                                 }
                             };
-                            let common = self.common.clone();
-                            self.tasks.push_back(Box::pin(async move {
-                                tx.send(DataWithAddr { data, addr }).await.ok();
-
-                                if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
-                                {
-                                    h.push_interest(InterestType::Readable)
+                            match tx.try_send(DataWithAddr { data, addr }) {
+                                Ok(()) => {
+                                    if let Some(h) =
+                                        self.common.handlers.lock().unwrap().get_mut(&socket_id)
+                                    {
+                                        h.push_interest(InterestType::Readable)
+                                    }
                                 }
-                            }));
+                                Err(tokio::sync::mpsc::error::TrySendError::Full(msg)) => {
+                                    let common = self.common.clone();
+                                    self.tasks.push_back(Box::pin(async move {
+                                        tx.send(msg).await.ok();
+
+                                        if let Some(h) =
+                                            common.handlers.lock().unwrap().get_mut(&socket_id)
+                                        {
+                                            h.push_interest(InterestType::Readable)
+                                        }
+                                    }));
+                                }
+                                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+                            }
                         }
                         MessageResponse::Sent {
                             socket_id, amount, ..
@@ -388,9 +415,15 @@ impl Future for RemoteNetworkingClientDriver {
                                     None => continue,
                                 }
                             };
-                            self.tasks.push_back(Box::pin(async move {
-                                tx.send(amount).await.ok();
-                            }));
+                            match tx.try_send(amount) {
+                                Ok(()) => {}
+                                Err(tokio::sync::mpsc::error::TrySendError::Full(amount)) => {
+                                    self.tasks.push_back(Box::pin(async move {
+                                        tx.send(amount).await.ok();
+                                    }));
+                                }
+                                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+                            }
                             if let Some(h) =
                                 self.common.handlers.lock().unwrap().get_mut(&socket_id)
                             {
@@ -422,23 +455,44 @@ impl Future for RemoteNetworkingClientDriver {
                             child_id,
                             addr,
                         } => {
-                            let common = self.common.clone();
-                            self.tasks.push_back(Box::pin(async move {
-                                let tx = common.accept_tx.lock().unwrap().get(&socket_id).cloned();
-                                if let Some(tx) = tx {
-                                    tx.send(SocketWithAddr {
-                                        socket: child_id,
-                                        addr,
-                                    })
-                                    .await
-                                    .ok();
-                                }
+                            let tx = self
+                                .common
+                                .accept_tx
+                                .lock()
+                                .unwrap()
+                                .get(&socket_id)
+                                .cloned();
+                            if let Some(tx) = tx {
+                                match tx.try_send(SocketWithAddr {
+                                    socket: child_id,
+                                    addr,
+                                }) {
+                                    Ok(()) => {
+                                        if let Some(h) = self
+                                            .common
+                                            .handlers
+                                            .lock()
+                                            .unwrap()
+                                            .get_mut(&socket_id)
+                                        {
+                                            h.push_interest(InterestType::Readable)
+                                        }
+                                    }
+                                    Err(tokio::sync::mpsc::error::TrySendError::Full(msg)) => {
+                                        let common = self.common.clone();
+                                        self.tasks.push_back(Box::pin(async move {
+                                            tx.send(msg).await.ok();
 
-                                if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
-                                {
-                                    h.push_interest(InterestType::Readable)
+                                            if let Some(h) =
+                                                common.handlers.lock().unwrap().get_mut(&socket_id)
+                                            {
+                                                h.push_interest(InterestType::Readable)
+                                            }
+                                        }));
+                                    }
+                                    Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
                                 }
-                            }));
+                            }
                         }
                         MessageResponse::Closed { socket_id } => {
                             if let Some(h) =

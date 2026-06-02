@@ -380,7 +380,8 @@ impl Future for RemoteNetworkingServerDriver {
                             not_stalled_guard.replace(guard);
                         }
                         _ => {
-                            return Poll::Pending;
+                            // Another task holds the stall lock; still poll rx below so
+                            // the peer duplex can drain under backpressure.
                         }
                     }
                 }
