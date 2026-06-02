@@ -1,5 +1,5 @@
 use object::{Object, ObjectSection, ObjectSymbol};
-use target_lexicon::BinaryFormat;
+use target_lexicon::{Architecture, BinaryFormat, Triple};
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -204,7 +204,7 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
-fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
+fn lookup_libcall(name: &str, fmt: BinaryFormat, triple: &Triple) -> Option<LibCall> {
     let base = match fmt {
         BinaryFormat::Elf => &LIBCALLS_ELF,
         BinaryFormat::Macho => &LIBCALLS_MACHO,
@@ -213,7 +213,15 @@ fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
     if let Some(&lc) = base.get(name) {
         return Some(lc);
     }
-    if fmt == BinaryFormat::Elf {
+    // Soft-float libcalls are only emitted by LLVM when targeting RISC-V without
+    // hardware floating-point.  Check the runtime LLVM output triple rather than
+    // the host target_arch, so cross-compilation (e.g. macOS → riscv64) works.
+    if fmt == BinaryFormat::Elf
+        && matches!(
+            triple.architecture,
+            Architecture::Riscv32(_) | Architecture::Riscv64(_)
+        )
+    {
         if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
             return Some(lc);
         }
@@ -227,6 +235,7 @@ pub fn load_object_file<F>(
     root_section_reloc_target: RelocationTarget,
     mut symbol_name_to_relocation_target: F,
     binary_fmt: BinaryFormat,
+    triple: &Triple,
 ) -> Result<CompiledFunction, CompileError>
 where
     F: FnMut(&str) -> Result<Option<RelocationTarget>, CompileError>,
@@ -363,7 +372,7 @@ where
                             }
                         }
                         // Maybe a libcall then?
-                    } else if let Some(libcall) = lookup_libcall(symbol_name, binary_fmt) {
+                    } else if let Some(libcall) = lookup_libcall(symbol_name, binary_fmt, triple) {
                         RelocationTarget::LibCall(libcall)
                     } else if let Ok(Some(reloc_target)) =
                         symbol_name_to_relocation_target(symbol_name)

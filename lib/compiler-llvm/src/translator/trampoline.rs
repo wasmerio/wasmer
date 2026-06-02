@@ -217,6 +217,7 @@ impl FuncTrampoline {
                 )))
             },
             self.binary_fmt,
+            &self.target_triple,
         )?;
         let mut all_sections_are_eh_sections = true;
         let mut unwind_section_indices = eh_frame_section_indices;
@@ -368,6 +369,7 @@ impl FuncTrampoline {
                 )))
             },
             self.binary_fmt,
+            &self.target_triple,
         )?;
 
         if !compiled_function.relocations.is_empty() {
