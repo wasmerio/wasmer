@@ -47,13 +47,23 @@ const CHUNK_SIZE: usize = 256;
 /// `NonZeroUsize`).
 static NEXT_CHUNK_START: AtomicUsize = AtomicUsize::new(1);
 
+/// Per-thread chunk cursor. `next` is the ID we hand out on the next
+/// `Default::default` call; `end` is the exclusive upper bound of the
+/// currently-held chunk. `next == end` (initially `0 == 0`) signals
+/// that the thread must reserve a fresh chunk from the global counter.
+#[derive(Clone, Copy)]
+struct ChunkCursor {
+    next: usize,
+    end: usize,
+}
+
+impl ChunkCursor {
+    const EMPTY: Self = Self { next: 0, end: 0 };
+}
+
 thread_local! {
     /// Per-thread cursor inside the currently-held chunk.
-    ///
-    /// Tuple is `(next_id_to_hand_out, end_of_chunk_exclusive)`. The
-    /// initial `(0, 0)` triggers a chunk reservation on the first
-    /// `Default::default` call for this thread.
-    static LOCAL_CURSOR: Cell<(usize, usize)> = const { Cell::new((0, 0)) };
+    static LOCAL_CURSOR: Cell<ChunkCursor> = const { Cell::new(ChunkCursor::EMPTY) };
 }
 
 impl Default for StoreId {
@@ -64,13 +74,15 @@ impl Default for StoreId {
         // `Store::new` per nanosecond on every core would still take
         // centuries.
         let raw = LOCAL_CURSOR.with(|cell| {
-            let (mut next, mut end) = cell.get();
-            if next == end {
-                next = NEXT_CHUNK_START.fetch_add(CHUNK_SIZE, Ordering::Relaxed);
-                end = next + CHUNK_SIZE;
+            let mut cursor = cell.get();
+            if cursor.next == cursor.end {
+                cursor.next = NEXT_CHUNK_START.fetch_add(CHUNK_SIZE, Ordering::Relaxed);
+                cursor.end = cursor.next + CHUNK_SIZE;
             }
-            cell.set((next + 1, end));
-            next
+            let id = cursor.next;
+            cursor.next += 1;
+            cell.set(cursor);
+            id
         });
         Self(NonZeroUsize::new(raw).expect("chunked allocator never returns 0"))
     }
