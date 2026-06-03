@@ -293,6 +293,7 @@ struct EphemeralSymlinkEntry {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[warn(unused)]
 enum ComponentResolution {
     Create {
         kind: Kind,
@@ -305,7 +306,6 @@ enum ComponentResolution {
         link_value: PathBuf,
         entry_name: String,
     },
-    #[warn(unused)]
     Special {
         kind: Kind,
         name: Cow<'static, str>,
