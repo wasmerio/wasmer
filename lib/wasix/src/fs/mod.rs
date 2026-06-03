@@ -305,6 +305,7 @@ enum ComponentResolution {
         link_value: PathBuf,
         entry_name: String,
     },
+    #[warn(unused)]
     Special {
         kind: Kind,
         name: Cow<'static, str>,
