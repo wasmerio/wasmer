@@ -8,6 +8,7 @@
  * if the first getaddrinfo() result is an IPv6 sockaddr.
  */
 #include <netdb.h>
+#include <netinet/in.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -52,7 +53,7 @@ static int check_results(const char *host, struct addrinfo *res) {
 }
 
 static int connect_first_af_inet(struct addrinfo *res) {
-  int fd = socket(AF_INET, SOCK_STREAM, 0);
+  int fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd < 0) {
     perror("socket");
     return 1;
@@ -76,10 +77,10 @@ int main(void) {
 
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_INET;
-  hints.ai_socktype = SOCK_STREAM;
+  hints.ai_socktype = SOCK_DGRAM;
 
   for (const char **host = hosts; *host; host++) {
-    err = getaddrinfo(*host, "0", &hints, &res);
+    err = getaddrinfo(*host, "65535", &hints, &res);
     if (err != 0) {
       fprintf(stderr, "getaddrinfo(%s) failed: %s\n", *host, gai_strerror(err));
       return 1;
