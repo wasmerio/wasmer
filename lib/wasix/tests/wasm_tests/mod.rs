@@ -735,7 +735,10 @@ fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
                 })?;
                 Ok(())
             },
-            copy_link: copy_symlink,
+            copy_link: |source: &Path, target: &Path| {
+                copy_symlink(source, target)
+                    .with_context(|| format!("cannot copy symlink: {}", source.display()))
+            },
         },
     )
 }

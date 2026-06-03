@@ -316,6 +316,10 @@ endif
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 build_compiler_features = --features $(subst $(space),$(comma),$(build_compilers))$(if $(build_wasmer_extra_features_csv),$(comma)$(build_wasmer_extra_features_csv)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+wasix_wasm_test_features := sys
+ifeq ($(IS_DARWIN), 1)
+	wasix_wasm_test_features := sys$(comma)llvm
+endif
 capi_compilers_engines_exclude :=
 
 # Define the compiler Cargo features for the C API. It always excludes
@@ -667,7 +671,7 @@ test-wasi-unit:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/wasi/Cargo.toml --release --locked
 
 test-wasi:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) -p wasmer-wasix --features sys --test wasm_tests --locked -- wasi_wast
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) -p wasmer-wasix --features $(wasix_wasm_test_features) --test wasm_tests --locked -- wasi_wast
 
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci: require-nextest build-wasmer
