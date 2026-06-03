@@ -89,8 +89,6 @@ impl RemoteNetworkingClient {
             socket_seed: AtomicU64::new(1),
             recv_tx: Default::default(),
             recv_with_addr_tx: Default::default(),
-            pending_recv: Default::default(),
-            pending_recv_with_addr: Default::default(),
             accept_tx: Default::default(),
             sent_tx: Default::default(),
             handlers: Default::default(),
@@ -192,34 +190,9 @@ impl RemoteNetworkingClient {
         let tx = RemoteTx::Stream {
             tx: Arc::new(tokio::sync::Mutex::new(tx)),
             work: tx_work,
-            wakers: tx_wakers.clone(),
-        };
-
-        // Dedicated reader so inbound frames are drained even when outbound sends
-        // are backpressured on a small duplex (see issue #4425).
-        let (inbound_tx, inbound_rx) = mpsc::unbounded_channel();
-        let wakers_for_reader = tx_wakers.clone();
-        tokio::spawn(async move {
-            let mut rx_stream = rx;
-            while let Some(item) = rx_stream.next().await {
-                match item {
-                    Ok(msg) => {
-                        wakers_for_reader.wake();
-                        if inbound_tx.send(msg).is_err() {
-                            break;
-                        }
-                    }
-                    Err(err) => {
-                        tracing::debug!("failed to read from channel - {}", err);
-                        break;
-                    }
-                }
-            }
-        });
-        let rx = RemoteRx::UnboundedMpsc {
-            rx: inbound_rx,
             wakers: tx_wakers,
         };
+        let rx = RemoteRx::Stream { rx };
 
         Self::new(tx, rx, rx_work)
     }
@@ -280,10 +253,10 @@ impl RemoteNetworkingClient {
 
     fn new_socket(&self, id: SocketId) -> RemoteSocket {
         let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-        self.common.register_recv_channel(id, tx);
+        self.common.recv_tx.lock().unwrap().insert(id, tx);
 
         let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
-        self.common.register_recv_with_addr_channel(id, tx);
+        self.common.recv_with_addr_tx.lock().unwrap().insert(id, tx);
 
         let (tx, rx_accept) = tokio::sync::mpsc::channel(100);
         self.common.accept_tx.lock().unwrap().insert(id, tx);
@@ -335,24 +308,75 @@ impl Future for RemoteNetworkingClientDriver {
                 self.tasks.push_back(work);
             }
 
-            // Drain inbound before outbound work so a full duplex can make progress
-            // under backpressure (see issue #4425).
+            // Background work basically stalls the stream until its all processed
+            // which makes the back pressure system work properly
+            match self.tasks.poll_next_unpin(cx) {
+                Poll::Ready(Some(_)) => continue,
+                Poll::Ready(None) => {
+                    not_stalled_guard.take();
+                }
+                Poll::Pending if not_stalled_guard.is_none() => {
+                    match self.common.stall.clone().try_lock_owned() {
+                        Ok(guard) => {
+                            not_stalled_guard.replace(guard);
+                        }
+                        _ => {
+                            return Poll::Pending;
+                        }
+                    }
+                }
+                Poll::Pending => {}
+            };
+
+            // We grab the next message sent by the server to us
             let msg = {
                 let mut rx_guard = self.common.rx.lock().unwrap();
                 rx_guard.poll(cx)
             };
-            match msg {
+            return match msg {
                 Poll::Ready(Some(msg)) => {
                     match msg {
                         MessageResponse::Recv { socket_id, data } => {
-                            self.common.deliver_recv(socket_id, data);
+                            let tx = {
+                                let guard = self.common.recv_tx.lock().unwrap();
+                                match guard.get(&socket_id) {
+                                    Some(tx) => tx.clone(),
+                                    None => {
+                                        continue;
+                                    }
+                                }
+                            };
+                            let common = self.common.clone();
+                            self.tasks.push_back(Box::pin(async move {
+                                tx.send(data).await.ok();
+
+                                if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
+                                {
+                                    h.push_interest(InterestType::Readable)
+                                }
+                            }));
                         }
                         MessageResponse::RecvWithAddr {
                             socket_id,
                             data,
                             addr,
                         } => {
-                            self.common.deliver_recv_with_addr(socket_id, data, addr);
+                            let tx = {
+                                let guard = self.common.recv_with_addr_tx.lock().unwrap();
+                                match guard.get(&socket_id) {
+                                    Some(tx) => tx.clone(),
+                                    None => continue,
+                                }
+                            };
+                            let common = self.common.clone();
+                            self.tasks.push_back(Box::pin(async move {
+                                tx.send(DataWithAddr { data, addr }).await.ok();
+
+                                if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
+                                {
+                                    h.push_interest(InterestType::Readable)
+                                }
+                            }));
                         }
                         MessageResponse::Sent {
                             socket_id, amount, ..
@@ -364,15 +388,9 @@ impl Future for RemoteNetworkingClientDriver {
                                     None => continue,
                                 }
                             };
-                            match tx.try_send(amount) {
-                                Ok(()) => {}
-                                Err(tokio::sync::mpsc::error::TrySendError::Full(amount)) => {
-                                    self.tasks.push_back(Box::pin(async move {
-                                        tx.send(amount).await.ok();
-                                    }));
-                                }
-                                Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
-                            }
+                            self.tasks.push_back(Box::pin(async move {
+                                tx.send(amount).await.ok();
+                            }));
                             if let Some(h) =
                                 self.common.handlers.lock().unwrap().get_mut(&socket_id)
                             {
@@ -404,40 +422,23 @@ impl Future for RemoteNetworkingClientDriver {
                             child_id,
                             addr,
                         } => {
-                            let tx = self
-                                .common
-                                .accept_tx
-                                .lock()
-                                .unwrap()
-                                .get(&socket_id)
-                                .cloned();
-                            if let Some(tx) = tx {
-                                match tx.try_send(SocketWithAddr {
-                                    socket: child_id,
-                                    addr,
-                                }) {
-                                    Ok(()) => {
-                                        if let Some(h) =
-                                            self.common.handlers.lock().unwrap().get_mut(&socket_id)
-                                        {
-                                            h.push_interest(InterestType::Readable)
-                                        }
-                                    }
-                                    Err(tokio::sync::mpsc::error::TrySendError::Full(msg)) => {
-                                        let common = self.common.clone();
-                                        self.tasks.push_back(Box::pin(async move {
-                                            tx.send(msg).await.ok();
-
-                                            if let Some(h) =
-                                                common.handlers.lock().unwrap().get_mut(&socket_id)
-                                            {
-                                                h.push_interest(InterestType::Readable)
-                                            }
-                                        }));
-                                    }
-                                    Err(tokio::sync::mpsc::error::TrySendError::Closed(_)) => {}
+                            let common = self.common.clone();
+                            self.tasks.push_back(Box::pin(async move {
+                                let tx = common.accept_tx.lock().unwrap().get(&socket_id).cloned();
+                                if let Some(tx) = tx {
+                                    tx.send(SocketWithAddr {
+                                        socket: child_id,
+                                        addr,
+                                    })
+                                    .await
+                                    .ok();
                                 }
-                            }
+
+                                if let Some(h) = common.handlers.lock().unwrap().get_mut(&socket_id)
+                                {
+                                    h.push_interest(InterestType::Readable)
+                                }
+                            }));
                         }
                         MessageResponse::Closed { socket_id } => {
                             if let Some(h) =
@@ -455,32 +456,9 @@ impl Future for RemoteNetworkingClientDriver {
                     }
                     continue;
                 }
-                Poll::Ready(None) => return Poll::Ready(()),
-                Poll::Pending => {}
-            }
-
-            // Background work basically stalls the stream until its all processed
-            // which makes the back pressure system work properly
-            match self.tasks.poll_next_unpin(cx) {
-                Poll::Ready(Some(_)) => continue,
-                Poll::Ready(None) => {
-                    not_stalled_guard.take();
-                }
-                Poll::Pending if not_stalled_guard.is_none() => {
-                    match self.common.stall.clone().try_lock_owned() {
-                        Ok(guard) => {
-                            not_stalled_guard.replace(guard);
-                        }
-                        _ => {
-                            // Another task holds the stall lock; still poll rx above on
-                            // the next iteration so the peer duplex can drain.
-                        }
-                    }
-                }
-                Poll::Pending => {}
+                Poll::Ready(None) => Poll::Ready(()),
+                Poll::Pending => Poll::Pending,
             };
-
-            return Poll::Pending;
         }
     }
 }
@@ -567,9 +545,6 @@ struct RemoteCommon {
     socket_seed: AtomicU64,
     recv_tx: Mutex<SocketMap<mpsc::Sender<Vec<u8>>>>,
     recv_with_addr_tx: Mutex<SocketMap<mpsc::Sender<DataWithAddr>>>,
-    /// Inbound data that arrived before the per-socket recv channel was registered.
-    pending_recv: Mutex<SocketMap<Vec<Vec<u8>>>>,
-    pending_recv_with_addr: Mutex<SocketMap<Vec<DataWithAddr>>>,
     accept_tx: Mutex<SocketMap<mpsc::Sender<SocketWithAddr>>>,
     sent_tx: Mutex<SocketMap<mpsc::Sender<u64>>>,
     #[debug(ignore)]
@@ -581,122 +556,6 @@ struct RemoteCommon {
 }
 
 impl RemoteCommon {
-    fn deliver_recv(&self, socket_id: SocketId, data: Vec<u8>) {
-        let tx = {
-            let guard = self.recv_tx.lock().unwrap();
-            guard.get(&socket_id).cloned()
-        };
-        match tx {
-            Some(tx) => match tx.try_send(data) {
-                Ok(()) => {
-                    if let Some(h) = self.handlers.lock().unwrap().get_mut(&socket_id) {
-                        h.push_interest(InterestType::Readable);
-                    }
-                }
-                Err(TrySendError::Full(data)) => {
-                    self.pending_recv
-                        .lock()
-                        .unwrap()
-                        .entry(socket_id)
-                        .or_default()
-                        .push(data);
-                    if let Some(h) = self.handlers.lock().unwrap().get_mut(&socket_id) {
-                        h.push_interest(InterestType::Readable);
-                    }
-                }
-                Err(TrySendError::Closed(_)) => {}
-            },
-            None => {
-                self.pending_recv
-                    .lock()
-                    .unwrap()
-                    .entry(socket_id)
-                    .or_default()
-                    .push(data);
-                if let Some(h) = self.handlers.lock().unwrap().get_mut(&socket_id) {
-                    h.push_interest(InterestType::Readable);
-                }
-            }
-        }
-    }
-
-    fn deliver_recv_with_addr(&self, socket_id: SocketId, data: Vec<u8>, addr: SocketAddr) {
-        let msg = DataWithAddr { data, addr };
-        let tx = {
-            let guard = self.recv_with_addr_tx.lock().unwrap();
-            guard.get(&socket_id).cloned()
-        };
-        match tx {
-            Some(tx) => match tx.try_send(msg) {
-                Ok(()) => {
-                    if let Some(h) = self.handlers.lock().unwrap().get_mut(&socket_id) {
-                        h.push_interest(InterestType::Readable);
-                    }
-                }
-                Err(TrySendError::Full(msg)) => {
-                    self.pending_recv_with_addr
-                        .lock()
-                        .unwrap()
-                        .entry(socket_id)
-                        .or_default()
-                        .push(msg);
-                    if let Some(h) = self.handlers.lock().unwrap().get_mut(&socket_id) {
-                        h.push_interest(InterestType::Readable);
-                    }
-                }
-                Err(TrySendError::Closed(_)) => {}
-            },
-            None => {
-                self.pending_recv_with_addr
-                    .lock()
-                    .unwrap()
-                    .entry(socket_id)
-                    .or_default()
-                    .push(msg);
-                if let Some(h) = self.handlers.lock().unwrap().get_mut(&socket_id) {
-                    h.push_interest(InterestType::Readable);
-                }
-            }
-        }
-    }
-
-    fn register_recv_channel(&self, socket_id: SocketId, tx: mpsc::Sender<Vec<u8>>) {
-        self.recv_tx.lock().unwrap().insert(socket_id, tx.clone());
-        let pending = self
-            .pending_recv
-            .lock()
-            .unwrap()
-            .remove(&socket_id)
-            .unwrap_or_default();
-        for data in pending {
-            if tx.try_send(data).is_ok()
-                && let Some(h) = self.handlers.lock().unwrap().get_mut(&socket_id)
-            {
-                h.push_interest(InterestType::Readable);
-            }
-        }
-    }
-
-    fn register_recv_with_addr_channel(&self, socket_id: SocketId, tx: mpsc::Sender<DataWithAddr>) {
-        self.recv_with_addr_tx
-            .lock()
-            .unwrap()
-            .insert(socket_id, tx.clone());
-        let pending = self
-            .pending_recv_with_addr
-            .lock()
-            .unwrap()
-            .remove(&socket_id)
-            .unwrap_or_default();
-        for msg in pending {
-            if tx.try_send(msg).is_ok()
-                && let Some(h) = self.handlers.lock().unwrap().get_mut(&socket_id)
-            {
-                h.push_interest(InterestType::Readable);
-            }
-        }
-    }
-
     async fn io_iface(&self, req: RequestType) -> ResponseType {
         let req_id = self.request_seed.fetch_add(1, Ordering::SeqCst);
         let mut req_rx = {
@@ -893,7 +752,7 @@ impl VirtualNetworking for RemoteNetworkingClient {
             ResponseType::None => Ok(Box::new(self.new_socket(socket_id))),
             ResponseType::Socket(socket_id) => {
                 let mut socket = self.new_socket(socket_id);
-                socket.touch_begin_accept_async().await.ok();
+                socket.touch_begin_accept().ok();
                 Ok(Box::new(socket))
             }
             res => {
@@ -1078,16 +937,6 @@ impl RemoteSocket {
             .unwrap()
             .remove(&self.socket_id);
         self.common
-            .pending_recv
-            .lock()
-            .unwrap()
-            .remove(&self.socket_id);
-        self.common
-            .pending_recv_with_addr
-            .lock()
-            .unwrap()
-            .remove(&self.socket_id);
-        self.common
             .accept_tx
             .lock()
             .unwrap()
@@ -1097,20 +946,6 @@ impl RemoteSocket {
 
         if let Some((child_id, _)) = self.pending_accept.take() {
             self.common.recv_tx.lock().unwrap().remove(&child_id);
-            self.common
-                .recv_with_addr_tx
-                .lock()
-                .unwrap()
-                .remove(&child_id);
-            self.common.pending_recv.lock().unwrap().remove(&child_id);
-            self.common
-                .pending_recv_with_addr
-                .lock()
-                .unwrap()
-                .remove(&child_id);
-            self.common.accept_tx.lock().unwrap().remove(&child_id);
-            self.common.sent_tx.lock().unwrap().remove(&child_id);
-            self.common.handlers.lock().unwrap().remove(&child_id);
         }
     }
 
@@ -1145,12 +980,7 @@ impl RemoteSocket {
         })
     }
 
-    /// Registers the next child socket and waits until the server has processed
-    /// `BeginAccept`. Used when creating a listener so the first accept can proceed.
-    ///
-    /// Must be awaited (not `block_on`) — this runs on the tokio runtime and blocking
-    /// here can starve the remote driver tasks (see issue #4425).
-    async fn touch_begin_accept_async(&mut self) -> Result<()> {
+    fn touch_begin_accept(&mut self) -> Result<()> {
         if self.pending_accept.is_some() {
             return Ok(());
         }
@@ -1159,38 +989,13 @@ impl RemoteSocket {
             .socket_seed
             .fetch_add(1, Ordering::SeqCst)
             .into();
-        match self.io_socket(RequestType::BeginAccept(child_id)).await {
-            ResponseType::None => {}
-            ResponseType::Err(err) => return Err(err),
-            res => {
-                tracing::debug!("invalid response to begin accept request - {res:?}");
-                return Err(NetworkError::IOError);
-            }
-        }
+        self.io_socket_fire_and_forget(RequestType::BeginAccept(child_id))?;
 
         let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-        self.common.register_recv_channel(child_id, tx);
+        self.common.recv_tx.lock().unwrap().insert(child_id, tx);
 
         self.pending_accept.replace((child_id, rx_recv));
         Ok(())
-    }
-
-    /// Sync entry point for non-async callers (e.g. bound `listen()`).
-    fn touch_begin_accept(&mut self) -> Result<()> {
-        block_on(self.touch_begin_accept_async())
-    }
-
-    /// Queues the next `BeginAccept` without blocking `accept()` from returning.
-    fn schedule_begin_accept(&mut self) -> Result<()> {
-        let child_id: SocketId = self
-            .common
-            .socket_seed
-            .fetch_add(1, Ordering::SeqCst)
-            .into();
-        let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-        self.common.register_recv_channel(child_id, tx);
-        self.pending_accept.replace((child_id, rx_recv));
-        self.io_socket_fire_and_forget(RequestType::BeginAccept(child_id))
     }
 
     fn transition_socket(&mut self) -> RemoteSocket {
@@ -1228,20 +1033,6 @@ impl VirtualIoSource for RemoteSocket {
         if !self.rx_buffer.is_empty() {
             return Poll::Ready(Ok(self.rx_buffer.len()));
         }
-        if let Some(pending) = self
-            .common
-            .pending_recv
-            .lock()
-            .unwrap()
-            .remove(&self.socket_id)
-        {
-            for data in pending {
-                self.rx_buffer.extend_from_slice(&data);
-            }
-            if !self.rx_buffer.is_empty() {
-                return Poll::Ready(Ok(self.rx_buffer.len()));
-            }
-        }
         match self.rx_recv.poll_recv(cx) {
             Poll::Ready(Some(data)) => {
                 self.rx_buffer.extend_from_slice(&data);
@@ -1249,15 +1040,6 @@ impl VirtualIoSource for RemoteSocket {
             }
             Poll::Ready(None) => return Poll::Ready(Ok(0)),
             Poll::Pending => {}
-        }
-        if let Some(pending) = self
-            .common
-            .pending_recv_with_addr
-            .lock()
-            .unwrap()
-            .remove(&self.socket_id)
-        {
-            self.buffer_recv_with_addr.extend(pending);
         }
         if !self.buffer_recv_with_addr.is_empty() {
             let total = self
@@ -1353,9 +1135,7 @@ impl VirtualSocket for RemoteSocket {
 impl VirtualTcpListener for RemoteSocket {
     fn try_accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
         // We may already have accepted a connection in the `poll_read_ready` method
-        if self.pending_accept.is_none() {
-            self.schedule_begin_accept()?;
-        }
+        self.touch_begin_accept()?;
         let accepted = if let Some(child) = self.buffer_accept.pop_front() {
             child
         } else {
@@ -1368,21 +1148,32 @@ impl VirtualTcpListener for RemoteSocket {
         // This placed here will mean there is always an accept request pending at the
         // server as the constructor invokes this method and we invoke it here after
         // receiving a child connection.
-        let rx_recv = match self.pending_accept.as_ref() {
-            Some((rx_socket, _)) if *rx_socket == accepted.socket => {
-                self.pending_accept.take().unwrap().1
-            }
-            _ => {
+        let mut rx_recv = None;
+        if let Some((rx_socket, existing_rx_recv)) = self.pending_accept.take()
+            && accepted.socket == rx_socket
+        {
+            rx_recv.replace(existing_rx_recv);
+        }
+        let rx_recv = match rx_recv {
+            Some(rx_recv) => rx_recv,
+            None => {
                 let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-                self.common.register_recv_channel(accepted.socket, tx);
+                self.common
+                    .recv_tx
+                    .lock()
+                    .unwrap()
+                    .insert(accepted.socket, tx);
                 rx_recv
             }
         };
-        self.schedule_begin_accept()?;
+        self.touch_begin_accept().ok();
 
         let (tx, rx_recv_with_addr) = tokio::sync::mpsc::channel(100);
         self.common
-            .register_recv_with_addr_channel(accepted.socket, tx);
+            .recv_with_addr_tx
+            .lock()
+            .unwrap()
+            .insert(accepted.socket, tx);
 
         let (tx, rx_accept) = tokio::sync::mpsc::channel(100);
         self.common
