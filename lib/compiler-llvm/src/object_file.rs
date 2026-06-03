@@ -231,10 +231,11 @@ fn lookup_libcall(name: &str, fmt: BinaryFormat, triple: &Triple) -> Option<LibC
     // Soft-float libcalls are only emitted by LLVM for RISC-V targets without
     // hardware floating-point.  We use the runtime LLVM output triple rather than
     // the host target_arch so that cross-compilation (e.g. macOS → riscv64) works.
-    if fmt == BinaryFormat::Elf && is_riscv_softfloat(&triple.architecture) {
-        if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
-            return Some(lc);
-        }
+    if fmt == BinaryFormat::Elf
+        && is_riscv_softfloat(&triple.architecture)
+        && let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name)
+    {
+        return Some(lc);
     }
     None
 }
