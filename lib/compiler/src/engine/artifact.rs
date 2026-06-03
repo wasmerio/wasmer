@@ -67,14 +67,18 @@ pub struct AllocatedArtifact {
     signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 
-    /// Precomputed `VMOffsets` for this artifact's module.
+    /// Precomputed `VMOffsets` for this artifact's module, cloned by
+    /// `Artifact::instantiate` instead of recomputing on every call.
     ///
-    /// `VMOffsets::new(pointer_size, module_info)` is deterministic and
-    /// the module info is immutable after compile, so it's safe to cache
-    /// the result. `Instance::new` clones this instead of recomputing,
-    /// which was ~9% of `Instance::new` time in profile traces of a
-    /// per-request wasm host calling `Module::instantiate` in a tight
-    /// loop.
+    /// Safe to cache because `VMOffsets::new(pointer_size, module_info)`
+    /// is deterministic, `module_info` is immutable after compile (the
+    /// only mutable field `name` is not a `VMOffsets` input), and the
+    /// host's pointer size is a runtime constant.
+    ///
+    /// Built once in `from_parts` and in the deserialization path
+    /// (`deserialize_object_native`); `VMOffsets::new` was ~9% of
+    /// `Instance::new` time on profile traces of a per-request wasm
+    /// host calling `Module::instantiate` in a tight loop.
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
 }
@@ -499,12 +503,6 @@ impl Artifact {
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
 
-        // Cache `VMOffsets` so the per-instance `Instance::new` path can
-        // skip recomputing them. Safe because (a) `module_info` is
-        // immutable for the lifetime of this artifact (only `name` is
-        // mutable via `set_module_info_name`, and `name` is not part of
-        // `VMOffsets`'s inputs), and (b) the host's pointer size doesn't
-        // change at runtime.
         let vm_offsets = VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info);
 
         let mut artifact = Self {
@@ -918,12 +916,6 @@ impl Artifact {
             // Get pointers to where metadata about local memories should live in VM memory.
             // Get pointers to where metadata about local tables should live in VM memory.
 
-            // Use the `VMOffsets` cached at compile time on the
-            // `AllocatedArtifact` rather than recomputing them in
-            // `InstanceAllocator::new`. The cached value is deterministic
-            // from `module_info` (and the host's `pointer_size`), both
-            // of which are immutable for the artifact's lifetime, so the
-            // result is byte-identical to a fresh `VMOffsets::new` call.
             let cached_offsets = self
                 .allocated
                 .as_ref()
@@ -1349,9 +1341,8 @@ impl Artifact {
                 .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
                 .into_boxed_slice();
 
-            // Build the variant first so we can compute VMOffsets from
-            // its ModuleInfo before moving the variant into Self. Same
-            // caching rationale as `Artifact::from_parts` above.
+            // Variant is built first so its module_info is available for
+            // the cached VMOffsets before it is moved into Self.
             let artifact_variant = ArtifactBuildVariant::Plain(artifact);
             let vm_offsets = VMOffsets::new(
                 std::mem::size_of::<usize>() as u8,
