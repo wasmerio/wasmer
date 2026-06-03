@@ -1,5 +1,5 @@
 use object::{Object, ObjectSection, ObjectSymbol};
-use target_lexicon::{Architecture, BinaryFormat, Triple};
+use target_lexicon::{Architecture, BinaryFormat, Riscv32Architecture, Riscv64Architecture, Triple};
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -204,6 +204,21 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
+/// Returns whether `arch` is a RISC-V variant that lacks hardware floating-point
+/// (i.e. does not include the F/D ISA extensions, either explicitly or via the `gc` profile).
+fn is_riscv_softfloat(arch: &Architecture) -> bool {
+    match arch {
+        Architecture::Riscv64(
+            Riscv64Architecture::Riscv64gc | Riscv64Architecture::Riscv64a23,
+        )
+        | Architecture::Riscv32(
+            Riscv32Architecture::Riscv32gc | Riscv32Architecture::Riscv32imafc,
+        ) => false,
+        Architecture::Riscv64(_) | Architecture::Riscv32(_) => true,
+        _ => false,
+    }
+}
+
 fn lookup_libcall(name: &str, fmt: BinaryFormat, triple: &Triple) -> Option<LibCall> {
     let base = match fmt {
         BinaryFormat::Elf => &LIBCALLS_ELF,
@@ -213,16 +228,10 @@ fn lookup_libcall(name: &str, fmt: BinaryFormat, triple: &Triple) -> Option<LibC
     if let Some(&lc) = base.get(name) {
         return Some(lc);
     }
-    // Consult the soft-float table for any RISC-V ELF target.  We check
-    // architecture only and not whether hardware-float is enabled: if the target
-    // does have hardware float, LLVM will not emit these symbols and the lookup
-    // simply misses — so over-including is harmless.
-    if fmt == BinaryFormat::Elf
-        && matches!(
-            triple.architecture,
-            Architecture::Riscv32(_) | Architecture::Riscv64(_)
-        )
-    {
+    // Soft-float libcalls are only emitted by LLVM for RISC-V targets without
+    // hardware floating-point.  We use the runtime LLVM output triple rather than
+    // the host target_arch so that cross-compilation (e.g. macOS → riscv64) works.
+    if fmt == BinaryFormat::Elf && is_riscv_softfloat(&triple.architecture) {
         if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
             return Some(lc);
         }
