@@ -7508,6 +7508,7 @@ version = "7.2.0-alpha.3"
 dependencies = [
  "bytecheck",
  "crc32fast",
+ "criterion",
  "enum-iterator",
  "enumset",
  "getrandom 0.4.2",

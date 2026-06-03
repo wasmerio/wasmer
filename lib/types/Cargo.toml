@@ -38,6 +38,11 @@ features = ["wasm_js"]
 
 [dev-dependencies]
 memoffset.workspace = true
+criterion.workspace = true
+
+[[bench]]
+name = "store_id_alloc"
+harness = false
 
 [features]
 default = ["std"]

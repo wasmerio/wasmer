@@ -1,4 +1,5 @@
 //#AbstractConfigFile: wasi-fyi.config
+//#UnixOnly: true
 //#ExpectedStdoutFile: ported_readlink.stdout
 // WASI:
 // dir: test_fs

@@ -2,7 +2,7 @@ use crate::error::{DirectiveError, DirectiveErrors};
 use crate::spectest::spectest_importobject;
 use anyhow::{Result, anyhow, bail};
 use std::collections::{HashMap, HashSet};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str;
 use wasmer::*;
 use wast::core::{AbstractHeapType, HeapType, WastArgCore, WastRetCore};
@@ -24,7 +24,7 @@ pub struct Wast {
     /// Allowed failures (ideally this should be empty)
     allowed_instantiation_failures: HashSet<String>,
     /// Allowed directive failures in a specific file at a specific 1-based line.
-    allowed_directive_failures: HashSet<(String, usize, String)>,
+    allowed_directive_failures: HashSet<(PathBuf, usize, String)>,
     /// If the (expected from .wast, actual) message pair is in this list,
     /// treat the strings as matching.
     match_trap_messages: Vec<(String, String)>,
@@ -70,8 +70,11 @@ impl Wast {
 
     /// A directive failure to allow in a specific file at a specific 1-based line.
     pub fn allow_directive_failures_at_line(&mut self, line: usize, filename: &str, failure: &str) {
-        self.allowed_directive_failures
-            .insert((filename.to_string(), line, failure.to_string()));
+        self.allowed_directive_failures.insert((
+            PathBuf::from(filename),
+            line,
+            failure.to_string(),
+        ));
     }
 
     /// A list of alternative messages to permit for a trap failure.

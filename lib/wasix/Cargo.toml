@@ -195,7 +195,6 @@ wasmer = { path = "../api", version = "=7.2.0-alpha.3", default-features = false
   "wat",
   "js-serializable-module",
   "cranelift",
-  "llvm",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom03]
@@ -235,8 +234,10 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
+
 singlepass = ["wasmer/singlepass"]
 v8 = ["wasmer/v8"]
+llvm = ["wasmer/llvm"]
 
 js = [
   "virtual-fs/js",
