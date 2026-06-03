@@ -63,7 +63,8 @@
 //! `DefaultMappedDirectories:{bool}` controls the harness default directory mappings.
 //!
 //! `FileSystems:{kind}` selects the filesystem backend. Supported values are
-//! `Host`, `InMemory`, `Tmp`, `PassthruMemory`, `Union`, `Root`, and `all`.
+//! `host`, `inmemory`, `tmp`, `passthrumemory`, `union`, `root`, comma-separated
+//! lists of those values, and `all`.
 
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
@@ -125,7 +126,7 @@ struct MappedDirectory {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
-#[strum(ascii_case_insensitive)]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
 pub enum Engine {
     Cranelift,
     LLVM,
@@ -136,7 +137,7 @@ pub enum Engine {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter, strum::EnumString)]
-#[strum(ascii_case_insensitive)]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
 enum FileSystemKind {
     Host,
     InMemory,
@@ -156,7 +157,8 @@ struct Config {
     test_name: String,
     config_name: String,
     engine: Engine,
-    file_systems: Option<Vec<FileSystemKind>>,
+    file_systems: Vec<FileSystemKind>,
+    explicit_file_systems: bool,
     is_abstract: bool,
 
     nonzero_exit_code: bool,
@@ -192,7 +194,8 @@ impl Config {
             test_name,
             config_name: "default".to_owned(),
             engine: Engine::Cranelift,
-            file_systems: None,
+            file_systems: vec![FileSystemKind::Host],
+            explicit_file_systems: false,
             is_abstract: false,
             arguments: Vec::new(),
             build_env: Vec::new(),
@@ -219,9 +222,7 @@ impl Config {
     }
 
     fn file_system_kinds(&self) -> &[FileSystemKind] {
-        self.file_systems
-            .as_deref()
-            .unwrap_or(&[FileSystemKind::Host])
+        &self.file_systems
     }
 
     fn current_file_system(&self) -> FileSystemKind {
@@ -237,7 +238,7 @@ impl Config {
             parts.push(self.source.config_name());
         }
         parts.push(self.config_name.clone());
-        if self.file_systems.is_some() {
+        if self.explicit_file_systems {
             parts.push(self.current_file_system().to_string());
         }
         parts.push(self.engine.to_string());
@@ -483,17 +484,21 @@ fn process_directive(
         "FileSystems" => {
             ensure!(!arg.is_empty(), "FileSystems must not be empty");
             ensure!(
-                !arg.contains(','),
-                "FileSystems accepts a single filesystem kind or `all`"
+                arg.split(',').all(|kind| !kind.trim().is_empty()),
+                "FileSystems must not contain empty filesystem kinds"
             );
-            config.file_systems = Some(if arg.eq_ignore_ascii_case("all") {
+            config.file_systems = if arg.eq_ignore_ascii_case("all") {
                 FileSystemKind::iter().collect()
             } else {
-                vec![
-                    arg.parse::<FileSystemKind>()
-                        .map_err(|_| anyhow!("unsupported filesystem: '{arg}'"))?,
-                ]
-            });
+                arg.split(',')
+                    .map(|kind| {
+                        let kind = kind.trim();
+                        kind.parse::<FileSystemKind>()
+                            .map_err(|_| anyhow!("unsupported filesystem: '{kind}'"))
+                    })
+                    .collect::<Result<Vec<_>>>()?
+            };
+            config.explicit_file_systems = true;
         }
         other => bail!("Unknown directive '{other}'"),
     }
@@ -1182,11 +1187,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
                         let mut config = config.clone();
                         config.engine = *engine;
-                        config.file_systems = if config.file_systems.is_some() {
-                            Some(vec![file_system])
-                        } else {
-                            None
-                        };
+                        config.file_systems = vec![file_system];
                         tests.push(libtest_mimic::Trial::ignorable_test(
                             config.full_test_name(),
                             move || {
