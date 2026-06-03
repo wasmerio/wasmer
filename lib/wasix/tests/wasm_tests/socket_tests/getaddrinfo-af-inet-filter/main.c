@@ -14,37 +14,36 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-static int check_results(const char *host, struct addrinfo *res) {
+static int check_results(const char* host, struct addrinfo* res) {
   if (!res) {
     fprintf(stderr, "getaddrinfo(%s) returned no results\n", host);
     return 1;
   }
 
   if (res->ai_family != AF_INET) {
-    fprintf(stderr,
-            "getaddrinfo(%s) first result has family %d, expected AF_INET (%d)\n",
-            host, res->ai_family, AF_INET);
+    fprintf(
+        stderr,
+        "getaddrinfo(%s) first result has family %d, expected AF_INET (%d)\n",
+        host, res->ai_family, AF_INET);
     return 1;
   }
 
   if (res->ai_addrlen != sizeof(struct sockaddr_in)) {
     fprintf(stderr,
-            "getaddrinfo(%s) first result has addrlen %u, expected %zu\n",
-            host, (unsigned)res->ai_addrlen, sizeof(struct sockaddr_in));
+            "getaddrinfo(%s) first result has addrlen %u, expected %zu\n", host,
+            (unsigned)res->ai_addrlen, sizeof(struct sockaddr_in));
     return 1;
   }
 
-  for (struct addrinfo *ai = res; ai; ai = ai->ai_next) {
+  for (struct addrinfo* ai = res; ai; ai = ai->ai_next) {
     if (ai->ai_family != AF_INET) {
-      fprintf(stderr,
-              "getaddrinfo(%s) returned family %d in result chain\n", host,
-              ai->ai_family);
+      fprintf(stderr, "getaddrinfo(%s) returned family %d in result chain\n",
+              host, ai->ai_family);
       return 1;
     }
     if (ai->ai_addrlen != sizeof(struct sockaddr_in)) {
-      fprintf(stderr,
-              "getaddrinfo(%s) returned addrlen %u in result chain\n", host,
-              (unsigned)ai->ai_addrlen);
+      fprintf(stderr, "getaddrinfo(%s) returned addrlen %u in result chain\n",
+              host, (unsigned)ai->ai_addrlen);
       return 1;
     }
   }
@@ -52,7 +51,7 @@ static int check_results(const char *host, struct addrinfo *res) {
   return 0;
 }
 
-static int connect_first_af_inet(struct addrinfo *res) {
+static int connect_first_af_inet(struct addrinfo* res) {
   int fd = socket(AF_INET, SOCK_DGRAM, 0);
   if (fd < 0) {
     perror("socket");
@@ -71,15 +70,15 @@ static int connect_first_af_inet(struct addrinfo *res) {
 
 int main(void) {
   struct addrinfo hints;
-  struct addrinfo *res = NULL;
+  struct addrinfo* res = NULL;
   int err;
-  const char *hosts[] = {"localhost", "127.0.0.1", NULL};
+  const char* hosts[] = {"localhost", "127.0.0.1", NULL};
 
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_DGRAM;
 
-  for (const char **host = hosts; *host; host++) {
+  for (const char** host = hosts; *host; host++) {
     err = getaddrinfo(*host, "65535", &hints, &res);
     if (err != 0) {
       fprintf(stderr, "getaddrinfo(%s) failed: %s\n", *host, gai_strerror(err));
