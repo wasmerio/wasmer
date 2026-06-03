@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["StoreId"]};
+window.SIDEBAR_ITEMS = {"constant":["CHUNK_SIZE","LOCAL_CURSOR"],"static":["NEXT_CHUNK_START"],"struct":["ChunkCursor","StoreId"]};
