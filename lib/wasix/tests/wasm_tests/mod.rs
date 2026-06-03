@@ -173,8 +173,7 @@ struct Config {
     test_name: String,
     config_name: String,
     engine: Engine,
-    file_systems: Vec<FileSystemKind>,
-    explicit_file_systems: bool,
+    file_systems: Option<Vec<FileSystemKind>>,
     is_abstract: bool,
 
     nonzero_exit_code: bool,
@@ -210,8 +209,7 @@ impl Config {
             test_name,
             config_name: "default".to_owned(),
             engine: Engine::Cranelift,
-            file_systems: vec![FileSystemKind::Host],
-            explicit_file_systems: false,
+            file_systems: None,
             is_abstract: false,
             arguments: Vec::new(),
             build_env: Vec::new(),
@@ -237,15 +235,12 @@ impl Config {
         self.tests_build_root.join(self.full_test_name())
     }
 
-    fn file_system_kinds(&self) -> &[FileSystemKind] {
-        &self.file_systems
-    }
-
     fn current_file_system(&self) -> FileSystemKind {
-        *self
-            .file_system_kinds()
-            .first()
-            .expect("test config must have at least one filesystem")
+        self.file_systems
+            .as_ref()
+            .and_then(|file_systems| file_systems.first())
+            .copied()
+            .unwrap_or(FileSystemKind::Host)
     }
 
     fn full_test_name(&self) -> String {
@@ -254,7 +249,7 @@ impl Config {
             parts.push(self.source.config_name());
         }
         parts.push(self.config_name.clone());
-        if self.explicit_file_systems {
+        if self.file_systems.is_some() {
             parts.push(self.current_file_system().to_string());
         }
         parts.push(self.engine.to_string());
@@ -507,23 +502,16 @@ fn process_directive(
             config.default_mapped_directories = arg.parse::<bool>()?;
         }
         "FileSystems" => {
-            ensure!(!arg.is_empty(), "FileSystems must not be empty");
-            ensure!(
-                arg.split(',').all(|kind| !kind.trim().is_empty()),
-                "FileSystems must not contain empty filesystem kinds"
-            );
-            config.file_systems = if arg.eq_ignore_ascii_case("all") {
+            config.file_systems = Some(if arg == "all" {
                 FileSystemKind::iter().collect()
             } else {
                 arg.split(',')
                     .map(|kind| {
-                        let kind = kind.trim();
                         kind.parse::<FileSystemKind>()
                             .map_err(|_| anyhow!("unsupported filesystem: '{kind}'"))
                     })
                     .collect::<Result<Vec<_>>>()?
-            };
-            config.explicit_file_systems = true;
+            });
         }
         other => bail!("Unknown directive '{other}'"),
     }
@@ -1209,21 +1197,24 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
             ))?;
 
             for config in configs {
-                let file_systems = config.file_system_kinds().to_vec();
+                let file_systems = config
+                    .file_systems
+                    .clone()
+                    .unwrap_or_else(|| vec![FileSystemKind::Host]);
                 for file_system in file_systems {
                     for engine in &supported_engines {
                         // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
                         // but we can still run selectively some tests with Singlepass.
                         #[cfg(feature = "singlepass")]
                         {
-                            let test_name = entry
+                            let filename = entry
                                 .path()
                                 .file_name()
                                 .expect("must be valid filename")
-                                .to_string_lossy()
-                                .to_string();
-                            if *engine == Engine::Singlepass
-                                && !["wasi_fyi", "wasi_wast"].contains(&test_name.as_str())
+                                .to_string_lossy();
+                            if filename != "wasi_fyi"
+                                && filename != "wasi_wast"
+                                && *engine == Engine::Singlepass
                             {
                                 continue;
                             }
@@ -1238,7 +1229,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
                         let mut config = config.clone();
                         config.engine = *engine;
-                        config.file_systems = vec![file_system];
+                        config.file_systems = Some(vec![file_system]);
                         tests.push(libtest_mimic::Trial::ignorable_test(
                             config.full_test_name(),
                             move || {
