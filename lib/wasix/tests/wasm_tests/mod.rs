@@ -119,6 +119,7 @@ struct MappedDirectory {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Engine {
     Cranelift,
+    #[cfg(feature = "llvm")]
     LLVM,
     #[cfg(feature = "singlepass")]
     Singlepass,
@@ -130,6 +131,7 @@ impl Engine {
     pub fn name(self) -> &'static str {
         match self {
             Self::Cranelift => "cranelift",
+            #[cfg(feature = "llvm")]
             Self::LLVM => "llvm",
             #[cfg(feature = "singlepass")]
             Self::Singlepass => "singlepass",
@@ -390,7 +392,16 @@ fn process_directive(
                 .split_once(':')
                 .ok_or_else(|| anyhow!("missing colon separator for SkipEngine"))?;
             if let Some(engine) = match engine.to_lowercase().as_str() {
-                "llvm" => Some(Engine::LLVM),
+                "llvm" => {
+                    #[cfg(feature = "llvm")]
+                    {
+                        Some(Engine::LLVM)
+                    }
+                    #[cfg(not(feature = "llvm"))]
+                    {
+                        None
+                    }
+                }
                 "cranelift" => Some(Engine::Cranelift),
                 "v8" => {
                     #[cfg(feature = "v8")]
@@ -522,6 +533,18 @@ fn read_fixture_bytes(test_src_dir: &Path, arg: &str, directive: &str) -> Result
         .with_context(|| format!("failed to read {directive} {}", path.display()))
 }
 
+fn rustc_command(toolchain: Option<&str>) -> Command {
+    if let Some(toolchain) = toolchain {
+        // rustc +version multiplexing is unsupported on Windows, use the documented approach:
+        // https://rust-lang.github.io/rustup/concepts/toolchains.html#custom-toolchains
+        let mut cmd = Command::new("rustup");
+        cmd.arg("run").arg(toolchain).arg("rustc");
+        cmd
+    } else {
+        Command::new("rustc")
+    }
+}
+
 fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     // First, copy the test source directory to the 'build' subfolder that will
     // be unique for each configuration of a test.
@@ -573,10 +596,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
             let primary_source = build_test_path.join(filename);
             let source = std::fs::read_to_string(&primary_source)
                 .with_context(|| format!("Failed to read {}", primary_source.display()))?;
-            let mut cmd = Command::new("rustc");
-            if source.contains("#![feature(") {
-                cmd.arg("+nightly");
-            }
+            let mut cmd = rustc_command(source.contains("#![feature(").then(|| "nightly"));
             cmd.arg("--target=wasm32-wasip1")
                 .arg("-o")
                 .arg("main")
@@ -605,8 +625,14 @@ fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
 
     // Preserve symlink fixtures, including broken links, when staging tests.
     for entry in WalkDir::new(from).min_depth(1).follow_links(false) {
-        let entry = entry?;
-        let relative = entry.path().strip_prefix(from)?;
+        let entry = entry.with_context(|| anyhow!("cannot get dir entry"))?;
+        let relative = entry.path().strip_prefix(from).with_context(|| {
+            anyhow!(
+                "cannot strip prefix: {} from {}",
+                from.display(),
+                entry.path().display()
+            )
+        })?;
         let target = to.join(relative);
         let file_type = entry.file_type();
 
@@ -630,7 +656,8 @@ fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
                 create_dir_all(parent)
                     .with_context(|| format!("failed to create {}", parent.display()))?;
             }
-            copy_symlink(entry.path(), &target)?;
+            copy_symlink(entry.path(), &target)
+                .with_context(|| format!("cannot copy symlink: {}", entry.path().display()))?;
         }
     }
 
@@ -645,7 +672,9 @@ fn copy_symlink(from: &Path, to: &Path) -> Result<()> {
 
 #[cfg(not(unix))]
 fn copy_symlink(from: &Path, _to: &Path) -> Result<()> {
-    bail!("cannot copy symlink {} on this host", from.display())
+    // Avoid treating this as an error because symlink support is not guaranteed
+    // on Windows.
+    Ok(())
 }
 
 fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
@@ -921,11 +950,6 @@ fn has_primary_source_file(path: &Path) -> bool {
 }
 
 fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
-    // Windows runtime support is still limited, so skip these tests on that platform.
-    if cfg!(target_os = "windows") {
-        return Ok(());
-    }
-
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
 
@@ -943,10 +967,11 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let test_name = relative_test_path.display().to_string();
         let primary_sources = identify_primary_sources(entry.path())?;
 
-        let mut supported_engines = vec![Engine::LLVM];
+        let mut supported_engines = vec![];
+        #[cfg(feature = "llvm")]
+        supported_engines.push(Engine::LLVM);
         #[cfg(feature = "singlepass")]
         supported_engines.push(Engine::Singlepass);
-
         #[cfg(feature = "v8")]
         supported_engines.push(Engine::V8);
 
@@ -979,13 +1004,20 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                         continue;
                     }
 
+                    // WASIXCC toolchain does not cover Windows yet.
+                    if cfg!(target_os = "windows")
+                        && !matches!(config.source, PrimarySource::RustSourceFile(..))
+                    {
+                        continue;
+                    }
+
                     let mut config = config.clone();
                     config.engine = *engine;
                     tests.push(libtest_mimic::Trial::ignorable_test(
                         config.full_test_name(),
                         move || {
                             run_integration_test(config)
-                                .map_err(|e| libtest_mimic::Failed::from(e.to_string()))
+                                .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
                         },
                     ));
                 }

@@ -1,4 +1,5 @@
 //#AbstractConfigFile: wasi-fyi.config
+//#UnixOnly: true
 #[link(wasm_import_module = "wasi_snapshot_preview1")]
 extern "C" {
     pub fn path_open(
