@@ -677,11 +677,7 @@ impl RemoteCommon {
         }
     }
 
-    fn register_recv_with_addr_channel(
-        &self,
-        socket_id: SocketId,
-        tx: mpsc::Sender<DataWithAddr>,
-    ) {
+    fn register_recv_with_addr_channel(&self, socket_id: SocketId, tx: mpsc::Sender<DataWithAddr>) {
         self.recv_with_addr_tx
             .lock()
             .unwrap()
@@ -897,7 +893,7 @@ impl VirtualNetworking for RemoteNetworkingClient {
             ResponseType::None => Ok(Box::new(self.new_socket(socket_id))),
             ResponseType::Socket(socket_id) => {
                 let mut socket = self.new_socket(socket_id);
-                socket.touch_begin_accept().ok();
+                socket.touch_begin_accept_async().await.ok();
                 Ok(Box::new(socket))
             }
             res => {
@@ -1081,7 +1077,11 @@ impl RemoteSocket {
             .lock()
             .unwrap()
             .remove(&self.socket_id);
-        self.common.pending_recv.lock().unwrap().remove(&self.socket_id);
+        self.common
+            .pending_recv
+            .lock()
+            .unwrap()
+            .remove(&self.socket_id);
         self.common
             .pending_recv_with_addr
             .lock()
@@ -1145,9 +1145,12 @@ impl RemoteSocket {
         })
     }
 
-    /// Registers the next child socket and blocks until the server has processed
+    /// Registers the next child socket and waits until the server has processed
     /// `BeginAccept`. Used when creating a listener so the first accept can proceed.
-    fn touch_begin_accept(&mut self) -> Result<()> {
+    ///
+    /// Must be awaited (not `block_on`) — this runs on the tokio runtime and blocking
+    /// here can starve the remote driver tasks (see issue #4425).
+    async fn touch_begin_accept_async(&mut self) -> Result<()> {
         if self.pending_accept.is_some() {
             return Ok(());
         }
@@ -1156,7 +1159,7 @@ impl RemoteSocket {
             .socket_seed
             .fetch_add(1, Ordering::SeqCst)
             .into();
-        match block_on(self.io_socket(RequestType::BeginAccept(child_id))) {
+        match self.io_socket(RequestType::BeginAccept(child_id)).await {
             ResponseType::None => {}
             ResponseType::Err(err) => return Err(err),
             res => {
@@ -1170,6 +1173,11 @@ impl RemoteSocket {
 
         self.pending_accept.replace((child_id, rx_recv));
         Ok(())
+    }
+
+    /// Sync entry point for non-async callers (e.g. bound `listen()`).
+    fn touch_begin_accept(&mut self) -> Result<()> {
+        block_on(self.touch_begin_accept_async())
     }
 
     /// Queues the next `BeginAccept` without blocking `accept()` from returning.
@@ -1345,7 +1353,9 @@ impl VirtualSocket for RemoteSocket {
 impl VirtualTcpListener for RemoteSocket {
     fn try_accept(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
         // We may already have accepted a connection in the `poll_read_ready` method
-        self.touch_begin_accept()?;
+        if self.pending_accept.is_none() {
+            self.schedule_begin_accept()?;
+        }
         let accepted = if let Some(child) = self.buffer_accept.pop_front() {
             child
         } else {
@@ -1364,8 +1374,7 @@ impl VirtualTcpListener for RemoteSocket {
             }
             _ => {
                 let (tx, rx_recv) = tokio::sync::mpsc::channel(100);
-                self.common
-                    .register_recv_channel(accepted.socket, tx);
+                self.common.register_recv_channel(accepted.socket, tx);
                 rx_recv
             }
         };

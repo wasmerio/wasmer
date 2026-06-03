@@ -528,6 +528,7 @@ where
         rx: mpsc::UnboundedReceiver<T>,
         wakers: RemoteTxWakers,
     },
+    #[allow(dead_code)]
     Stream {
         #[debug(ignore)]
         rx: Pin<Box<dyn Stream<Item = std::io::Result<T>> + Send + 'static>>,
