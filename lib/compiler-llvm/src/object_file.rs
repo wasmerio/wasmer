@@ -1,5 +1,7 @@
 use object::{Object, ObjectSection, ObjectSymbol};
-use target_lexicon::{Architecture, BinaryFormat, Riscv32Architecture, Riscv64Architecture, Triple};
+use target_lexicon::{
+    Architecture, BinaryFormat, Riscv32Architecture, Riscv64Architecture, Triple,
+};
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -208,9 +210,7 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
 /// (i.e. does not include the F/D ISA extensions, either explicitly or via the `gc` profile).
 fn is_riscv_softfloat(arch: &Architecture) -> bool {
     match arch {
-        Architecture::Riscv64(
-            Riscv64Architecture::Riscv64gc | Riscv64Architecture::Riscv64a23,
-        )
+        Architecture::Riscv64(Riscv64Architecture::Riscv64gc | Riscv64Architecture::Riscv64a23)
         | Architecture::Riscv32(
             Riscv32Architecture::Riscv32gc | Riscv32Architecture::Riscv32imafc,
         ) => false,
