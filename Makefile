@@ -663,9 +663,6 @@ test-capi-integration-%:
 	# Test the Wasmer C API examples
 	cd lib/c-api/examples; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
 
-test-wasi-unit:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/wasi/Cargo.toml --release --locked
-
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci: require-nextest build-wasmer
 	rustup target add wasm32-wasip1
