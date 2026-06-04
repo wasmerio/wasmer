@@ -1,5 +1,7 @@
 use object::{Object, ObjectSection, ObjectSymbol};
-use target_lexicon::BinaryFormat;
+use target_lexicon::{
+    Architecture, BinaryFormat, Riscv32Architecture, Riscv64Architecture, Triple,
+};
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
@@ -92,11 +94,10 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
-// Soft-float routines emitted by LLVM for targets without hardware floating-point.
-#[cfg(all(
-    any(target_arch = "riscv32", target_arch = "riscv64"),
-    not(target_feature = "f")
-))]
+// Soft-float routines that LLVM may emit for RISC-V ELF targets.  The map is
+// unconditional because `load_object_file` runs on the host while the ELF it
+// processes was compiled for the LLVM output target (a runtime value); gating
+// on host target_arch would break cross-compilation (e.g. macOS → riscv64).
 static SOFTFLOAT_LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     // §3.2.1 Arithmetic
     "__addsf3" => LibCall::Addsf3,
@@ -205,7 +206,20 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
-fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
+/// Returns whether `arch` is a RISC-V variant that lacks hardware floating-point
+/// (i.e. does not include the F/D ISA extensions, either explicitly or via the `gc` profile).
+fn is_riscv_softfloat(arch: &Architecture) -> bool {
+    match arch {
+        Architecture::Riscv64(Riscv64Architecture::Riscv64gc | Riscv64Architecture::Riscv64a23)
+        | Architecture::Riscv32(
+            Riscv32Architecture::Riscv32gc | Riscv32Architecture::Riscv32imafc,
+        ) => false,
+        Architecture::Riscv64(_) | Architecture::Riscv32(_) => true,
+        _ => false,
+    }
+}
+
+fn lookup_libcall(name: &str, fmt: BinaryFormat, triple: &Triple) -> Option<LibCall> {
     let base = match fmt {
         BinaryFormat::Elf => &LIBCALLS_ELF,
         BinaryFormat::Macho => &LIBCALLS_MACHO,
@@ -214,14 +228,14 @@ fn lookup_libcall(name: &str, fmt: BinaryFormat) -> Option<LibCall> {
     if let Some(&lc) = base.get(name) {
         return Some(lc);
     }
-    #[cfg(all(
-        any(target_arch = "riscv32", target_arch = "riscv64"),
-        not(target_feature = "f")
-    ))]
-    if fmt == BinaryFormat::Elf {
-        if let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name) {
-            return Some(lc);
-        }
+    // Soft-float libcalls are only emitted by LLVM for RISC-V targets without
+    // hardware floating-point.  We use the runtime LLVM output triple rather than
+    // the host target_arch so that cross-compilation (e.g. macOS → riscv64) works.
+    if fmt == BinaryFormat::Elf
+        && is_riscv_softfloat(&triple.architecture)
+        && let Some(&lc) = SOFTFLOAT_LIBCALLS_ELF.get(name)
+    {
+        return Some(lc);
     }
     None
 }
@@ -232,6 +246,7 @@ pub fn load_object_file<F>(
     root_section_reloc_target: RelocationTarget,
     mut symbol_name_to_relocation_target: F,
     binary_fmt: BinaryFormat,
+    triple: &Triple,
 ) -> Result<CompiledFunction, CompileError>
 where
     F: FnMut(&str) -> Result<Option<RelocationTarget>, CompileError>,
@@ -368,7 +383,7 @@ where
                             }
                         }
                         // Maybe a libcall then?
-                    } else if let Some(libcall) = lookup_libcall(symbol_name, binary_fmt) {
+                    } else if let Some(libcall) = lookup_libcall(symbol_name, binary_fmt, triple) {
                         RelocationTarget::LibCall(libcall)
                     } else if let Ok(Some(reloc_target)) =
                         symbol_name_to_relocation_target(symbol_name)
