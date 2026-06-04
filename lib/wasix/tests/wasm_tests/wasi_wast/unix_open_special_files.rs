@@ -2,6 +2,7 @@
 //#FileSystems: host
 //#MappedDirectory: /dev:/dev
 //#ExpectedStdoutFile: unix_open_special_files.stdout
+//#UnixOnly: true
 
 use std::fs;
 use std::io::Write;
