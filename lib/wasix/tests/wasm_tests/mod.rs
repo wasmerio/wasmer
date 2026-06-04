@@ -635,7 +635,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
             let primary_source = build_test_path.join(filename);
             let source = std::fs::read_to_string(&primary_source)
                 .with_context(|| format!("Failed to read {}", primary_source.display()))?;
-            let mut cmd = rustc_command(source.contains("#![feature(").then(|| "nightly"));
+            let mut cmd = rustc_command(source.contains("#![feature(").then_some("nightly"));
             cmd.arg("--target=wasm32-wasip1")
                 .arg("-o")
                 .arg("main")
@@ -739,7 +739,7 @@ fn copy_symlink(from: &Path, to: &Path) -> Result<()> {
 }
 
 #[cfg(not(unix))]
-fn copy_symlink(from: &Path, _to: &Path) -> Result<()> {
+fn copy_symlink(_from: &Path, _to: &Path) -> Result<()> {
     // Avoid treating this as an error because symlink support is not guaranteed
     // on Windows.
     Ok(())

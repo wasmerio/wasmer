@@ -305,7 +305,6 @@ mod function_extents_tests {
     /// Returns a [`Store`] backed by the sys engine using whatever compiler is
     /// available. Cranelift is preferred, then Singlepass, then LLVM.
     fn sys_store() -> Store {
-        use wasmer::sys::NativeEngineExt as _;
         #[cfg(feature = "cranelift")]
         let engine: Engine = wasmer::sys::EngineBuilder::new(wasmer::sys::Cranelift::default())
             .engine()

@@ -2152,7 +2152,7 @@ mod tests {
 
         let cached_size = TLS_STACK.with(|cache| {
             let s = cache.0.take();
-            let sz = s.as_ref().map(|s| s.size()).unwrap_or(0);
+            let sz = s.as_ref().map_or(0, |s| s.size());
             cache.0.set(s);
             sz
         });
@@ -2170,7 +2170,7 @@ mod tests {
         // The TLS slot should now hold a stack that's big enough.
         let cached_size = TLS_STACK.with(|cache| {
             let s = cache.0.take();
-            let sz = s.as_ref().map(|s| s.size()).unwrap_or(0);
+            let sz = s.as_ref().map_or(0, |s| s.size());
             cache.0.set(s);
             sz
         });
