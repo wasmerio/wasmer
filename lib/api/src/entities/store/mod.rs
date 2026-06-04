@@ -33,7 +33,7 @@ mod obj;
 pub use obj::*;
 
 use crate::{AsEngineRef, BackendEngine, Engine, EngineRef};
-pub use context::CothreadResumeGuard;
+pub use context::CoroutineStoreGuard;
 pub(crate) use context::*;
 pub(crate) use inner::*;
 use wasmer_types::StoreId;
@@ -120,17 +120,21 @@ impl Store {
         self.inner.objects.id()
     }
 
-    /// Returns a [`CothreadResumeGuard`] that installs this store's context
-    /// on the thread-local stack for the duration of a coroutine `resume()`
-    /// call, and removes it when the guard is dropped.
+    /// Returns a [`CoroutineStoreGuard`] that installs this store's context
+    /// on the thread-local stack and removes it when the guard is dropped.
+    ///
+    /// Use this to bracket a coroutine `resume()` call when this store is
+    /// held by a suspended coroutine.
     ///
     /// # Safety
     ///
-    /// Caller must ensure exactly one `StorePtrWrapper` derived from this
-    /// store is alive on a suspended coroutine's stack.
+    /// Caller must ensure:
+    /// - The store is not currently active on this thread's context stack.
+    /// - Exactly one `StorePtrWrapper` derived from this store is alive on
+    ///   a suspended coroutine's stack.
     #[cfg(feature = "sys")]
-    pub unsafe fn cothread_resume_guard(&mut self) -> CothreadResumeGuard {
-        unsafe { CothreadResumeGuard::new(self.inner.as_mut() as *mut _) }
+    pub unsafe fn coroutine_store_guard(&mut self) -> CoroutineStoreGuard {
+        unsafe { CoroutineStoreGuard::new(self.inner.as_mut() as *mut _) }
     }
 
     /// Builds an [`Interrupter`] for this store. Calling [`Interrupter::interrupt`]

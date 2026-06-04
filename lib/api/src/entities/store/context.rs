@@ -324,34 +324,40 @@ impl StoreContext {
     }
 }
 
-/// RAII guard that installs a suspended cothread's store context for the
-/// duration of a [`resume`](corosensei::Coroutine::resume) call and removes
-/// it in `Drop`. Construct via [`Store::cothread_resume_guard`].
-pub struct CothreadResumeGuard {
+/// RAII guard that installs a store's context on the thread-local stack for
+/// the duration of a coroutine resume and removes it in `Drop`. Construct
+/// via [`Store::coroutine_store_guard`].
+///
+/// Use this whenever a store reference is held on a suspended coroutine's
+/// stack and you need to resume that coroutine: the guard reinstalls the
+/// context before the resume and removes it when the resume returns (whether
+/// the coroutine yielded, finished, or panicked).
+pub struct CoroutineStoreGuard {
     store_id: StoreId,
-    installed: bool,
 }
 
-impl CothreadResumeGuard {
+impl CoroutineStoreGuard {
     /// # Safety
     ///
-    /// Caller must ensure exactly one `StorePtrWrapper` derived from
-    /// `store_ptr` is alive on a suspended coroutine's stack.
+    /// Caller must ensure:
+    /// - The store is not currently active on this thread's context stack.
+    /// - Exactly one `StorePtrWrapper` derived from `store_ptr` is alive on
+    ///   a suspended coroutine's stack.
     pub(crate) unsafe fn new(store_ptr: *mut StoreInner) -> Self {
         let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
-        let installed = !StoreContext::is_active(store_id);
-        if installed {
-            StoreContext::install_cothread(store_id, store_ptr);
-        }
-        Self { store_id, installed }
+        assert!(
+            !StoreContext::is_active(store_id),
+            "store is already active on this thread; \
+             CoroutineStoreGuard must only be used when the store is suspended"
+        );
+        StoreContext::install_cothread(store_id, store_ptr);
+        Self { store_id }
     }
 }
 
-impl Drop for CothreadResumeGuard {
+impl Drop for CoroutineStoreGuard {
     fn drop(&mut self) {
-        if self.installed {
-            StoreContext::uninstall_cothread(self.store_id);
-        }
+        StoreContext::uninstall_cothread(self.store_id);
     }
 }
 
