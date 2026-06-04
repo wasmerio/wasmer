@@ -1042,15 +1042,19 @@ impl VirtualIoSource for RemoteSocket {
             Poll::Pending => {}
         }
         if !self.buffer_recv_with_addr.is_empty() {
-            let total = self
+            let len = self
                 .buffer_recv_with_addr
-                .iter()
+                .front()
                 .map(|a| a.data.len())
-                .sum();
-            return Poll::Ready(Ok(total));
+                .unwrap_or_default();
+            return Poll::Ready(Ok(len));
         }
         match self.rx_recv_with_addr.poll_recv(cx) {
-            Poll::Ready(Some(data)) => self.buffer_recv_with_addr.push_back(data),
+            Poll::Ready(Some(data)) => {
+                let len = data.data.len();
+                self.buffer_recv_with_addr.push_back(data);
+                return Poll::Ready(Ok(len));
+            }
             Poll::Ready(None) => return Poll::Ready(Ok(0)),
             Poll::Pending => {}
         }
@@ -1382,22 +1386,34 @@ impl VirtualConnectionlessSocket for RemoteSocket {
         buf: &mut [std::mem::MaybeUninit<u8>],
         peek: bool,
     ) -> Result<(usize, SocketAddr)> {
-        // FIXME: A proper peek implementation would require correct use of a
-        // buffer. We don't use this implementation AFAIK, so I'll skip over it
-        // for the time being.
-        if peek {
-            return Err(NetworkError::Unsupported);
+        if let Some(received) = self.buffer_recv_with_addr.front() {
+            let amt = buf.len().min(received.data.len());
+            let addr = received.addr;
+            let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
+            buf[..amt].copy_from_slice(&received.data[..amt]);
+
+            if !peek {
+                self.buffer_recv_with_addr.pop_front();
+            }
+
+            return Ok((amt, addr));
         }
 
-        match self.rx_recv_with_addr.try_recv() {
-            Ok(received) => {
-                let amt = buf.len().min(received.data.len());
-                let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-                buf[..amt].copy_from_slice(&received.data[..amt]);
-                Ok((amt, received.addr))
-            }
-            Err(TryRecvError::Disconnected) => Err(NetworkError::ConnectionAborted),
-            Err(TryRecvError::Empty) => Err(NetworkError::WouldBlock),
+        let received = self.rx_recv_with_addr.try_recv().map_err(|err| match err {
+            TryRecvError::Disconnected => NetworkError::ConnectionAborted,
+            TryRecvError::Empty => NetworkError::WouldBlock,
+        })?;
+
+        let amt = buf.len().min(received.data.len());
+        let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
+        buf[..amt].copy_from_slice(&received.data[..amt]);
+        let addr = received.addr;
+
+        if peek {
+            self.buffer_recv_with_addr.push_back(received);
+            Ok((amt, addr))
+        } else {
+            Ok((amt, addr))
         }
     }
 }
