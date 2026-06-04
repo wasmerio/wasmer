@@ -925,6 +925,16 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
         peek: bool,
     ) -> Result<(usize, SocketAddr)> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
+        if let Some((packet, addr)) = self.backlog.front() {
+            let amt = buf.len().min(packet.len());
+            let addr = *addr;
+            buf[..amt].copy_from_slice(&packet[..amt]);
+            if !peek {
+                self.backlog.pop_front();
+            }
+            return Ok((amt, addr));
+        }
+
         if peek {
             self.socket.peek_from(buf)
         } else {
@@ -1009,8 +1019,8 @@ impl VirtualIoSource for LocalUdpSocket {
 
     fn poll_read_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
         if !self.backlog.is_empty() {
-            let total = self.backlog.iter().map(|a| a.0.len()).sum();
-            return Poll::Ready(Ok(total));
+            let len = self.backlog.front().map(|a| a.0.len()).unwrap_or_default();
+            return Poll::Ready(Ok(len));
         }
 
         let (state, selector, socket) = self.split_borrow();
@@ -1024,7 +1034,10 @@ impl VirtualIoSource for LocalUdpSocket {
         let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
 
         match self.socket.recv_from(uninit_unsafe) {
-            Ok((0, _)) => Poll::Ready(Ok(0)),
+            Ok((0, peer)) => {
+                self.backlog.push_back((buffer, peer));
+                Poll::Ready(Ok(0))
+            }
             Ok((amt, peer)) => {
                 unsafe {
                     buffer.set_len(amt);
