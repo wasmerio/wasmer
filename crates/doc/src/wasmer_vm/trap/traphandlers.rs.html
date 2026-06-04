@@ -2152,7 +2152,7 @@
 <a href=#2152 id=2152 data-nosnippet>2152</a>
 <a href=#2153 id=2153 data-nosnippet>2153</a>        <span class="kw">let </span>cached_size = TLS_STACK.with(|cache| {
 <a href=#2154 id=2154 data-nosnippet>2154</a>            <span class="kw">let </span>s = cache.<span class="number">0</span>.take();
-<a href=#2155 id=2155 data-nosnippet>2155</a>            <span class="kw">let </span>sz = s.as_ref().map(|s| s.size()).unwrap_or(<span class="number">0</span>);
+<a href=#2155 id=2155 data-nosnippet>2155</a>            <span class="kw">let </span>sz = s.as_ref().map_or(<span class="number">0</span>, |s| s.size());
 <a href=#2156 id=2156 data-nosnippet>2156</a>            cache.<span class="number">0</span>.set(s);
 <a href=#2157 id=2157 data-nosnippet>2157</a>            sz
 <a href=#2158 id=2158 data-nosnippet>2158</a>        });
@@ -2170,7 +2170,7 @@
 <a href=#2170 id=2170 data-nosnippet>2170</a>        <span class="comment">// The TLS slot should now hold a stack that's big enough.
 <a href=#2171 id=2171 data-nosnippet>2171</a>        </span><span class="kw">let </span>cached_size = TLS_STACK.with(|cache| {
 <a href=#2172 id=2172 data-nosnippet>2172</a>            <span class="kw">let </span>s = cache.<span class="number">0</span>.take();
-<a href=#2173 id=2173 data-nosnippet>2173</a>            <span class="kw">let </span>sz = s.as_ref().map(|s| s.size()).unwrap_or(<span class="number">0</span>);
+<a href=#2173 id=2173 data-nosnippet>2173</a>            <span class="kw">let </span>sz = s.as_ref().map_or(<span class="number">0</span>, |s| s.size());
 <a href=#2174 id=2174 data-nosnippet>2174</a>            cache.<span class="number">0</span>.set(s);
 <a href=#2175 id=2175 data-nosnippet>2175</a>            sz
 <a href=#2176 id=2176 data-nosnippet>2176</a>        });
