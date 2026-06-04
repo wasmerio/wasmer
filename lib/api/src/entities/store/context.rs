@@ -149,6 +149,25 @@ impl StoreContext {
         })
     }
 
+    fn install_cothread(id: StoreId, store_ptr: *mut StoreInner) {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            stack.push(Self {
+                id,
+                borrow_count: 1,
+                entry: UnsafeCell::new(StoreContextEntry::Sync(store_ptr)),
+            });
+        });
+    }
+
+    fn uninstall_cothread(id: StoreId) {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack.pop().expect("store context stack underflow");
+            assert_eq!(top.id, id, "mismatched store context on cothread uninstall");
+        });
+    }
+
     /// Returns true if there are no active store context entries.
     pub(crate) fn is_empty() -> bool {
         STORE_CONTEXT_STACK.with(|cell| {
@@ -302,6 +321,37 @@ impl StoreContext {
                 }
             }
         })
+    }
+}
+
+/// RAII guard that installs a suspended cothread's store context for the
+/// duration of a [`resume`](corosensei::Coroutine::resume) call and removes
+/// it in `Drop`. Construct via [`Store::cothread_resume_guard`].
+pub struct CothreadResumeGuard {
+    store_id: StoreId,
+    installed: bool,
+}
+
+impl CothreadResumeGuard {
+    /// # Safety
+    ///
+    /// Caller must ensure exactly one `StorePtrWrapper` derived from
+    /// `store_ptr` is alive on a suspended coroutine's stack.
+    pub(crate) unsafe fn new(store_ptr: *mut StoreInner) -> Self {
+        let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
+        let installed = !StoreContext::is_active(store_id);
+        if installed {
+            StoreContext::install_cothread(store_id, store_ptr);
+        }
+        Self { store_id, installed }
+    }
+}
+
+impl Drop for CothreadResumeGuard {
+    fn drop(&mut self) {
+        if self.installed {
+            StoreContext::uninstall_cothread(self.store_id);
+        }
     }
 }
 
