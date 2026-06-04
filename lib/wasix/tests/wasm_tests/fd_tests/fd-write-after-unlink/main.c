@@ -94,15 +94,15 @@ static int verify_path_pattern(const char* path, char fill, const char* label) {
   return 0;
 }
 
-int main() {
-  int fd1 = open("/tmp/test.txt", O_CREAT | O_RDWR | O_TRUNC, 0644);
+int main(void) {
+  int fd1 = open("fixture", O_CREAT | O_RDWR | O_TRUNC, 0644);
   if (fd1 == -1) {
     perror("open first");
     return 1;
   }
   printf("open succeeded\n");
 
-  if (unlink("/tmp/test.txt") == -1) {
+  if (unlink("fixture") == -1) {
     perror("unlink");
     return 1;
   }
@@ -115,7 +115,7 @@ int main() {
   }
   printf("fdopen succeeded\n");
 
-  int fd2 = open("/tmp/test.txt", O_CREAT | O_RDWR | O_TRUNC, 0644);
+  int fd2 = open("fixture", O_CREAT | O_RDWR | O_TRUNC, 0644);
   if (fd2 == -1) {
     perror("open second");
     return 1;
@@ -141,12 +141,12 @@ int main() {
   if (verify_fp_pattern(first, 'a', "first file") != 0) {
     return 1;
   }
-  if (verify_path_pattern("/tmp/test.txt", 'b', "second file") != 0) {
+  if (verify_path_pattern("fixture", 'b', "second file") != 0) {
     return 1;
   }
   printf("verification succeeded\n");
 
-  if (unlink("/tmp/test.txt") == -1) {
+  if (unlink("fixture") == -1) {
     perror("unlink second");
     return 1;
   }
