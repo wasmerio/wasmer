@@ -2,6 +2,7 @@
 //#MappedDirectory: test_fs:/test_fs
 //#ExpectedStdoutFile: readlink.stdout
 //#ExpectedStderrFile: readlink.stderr
+//#UnixOnly: true
 
 use std::io::Read;
 
