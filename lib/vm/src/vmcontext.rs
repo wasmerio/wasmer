@@ -15,7 +15,7 @@ use crate::{VMBuiltinFunctionIndex, VMFunction};
 use std::convert::TryFrom;
 use std::hash::{Hash, Hasher};
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{AtomicPtr, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, Ordering};
 use wasmer_types::RawValue;
 
 /// Union representing the first parameter passed when calling a function.
@@ -411,8 +411,7 @@ pub(crate) unsafe fn memory32_atomic_check32(
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
         let dst = mem.base.offset(dst) as *mut u32;
-        let atomic_dst = AtomicPtr::new(dst);
-        let read_val = *atomic_dst.load(Ordering::Acquire);
+        let read_val = AtomicU32::from_ptr(dst).load(Ordering::Acquire);
         let ret = if read_val == val { 0 } else { 1 };
         Ok(ret)
     }
@@ -444,8 +443,7 @@ pub(crate) unsafe fn memory32_atomic_check64(
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
         let dst = mem.base.offset(dst) as *mut u64;
-        let atomic_dst = AtomicPtr::new(dst);
-        let read_val = *atomic_dst.load(Ordering::Acquire);
+        let read_val = AtomicU64::from_ptr(dst).load(Ordering::Acquire);
         let ret = if read_val == val { 0 } else { 1 };
         Ok(ret)
     }
