@@ -24,7 +24,7 @@ impl DummyUnwindRegistry {
         Ok(())
     }
 
-    /// Publishes all registered functions.
+    /// Publishes EH frame unwind information. No-op on platforms without unwind support.
     pub fn publish_eh_frame(&mut self, _eh_frame: Option<&[u8]>) -> Result<(), String> {
         // Do nothing
         Ok(())
