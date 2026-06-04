@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"constant":["BASE_TEST_DIR","TEMP_ROOT"],"enum":["WasiFileSystemKind"],"fn":["get_stdio_output","map_host_fs_to_mem_fs"],"mod":["wasi_kw"],"struct":["Args","AssertReturn","AssertStderr","AssertStdout","Envs","MapDirs","OutputCapturerer","Preopens","Stdin","TempDirs","WasiTest"]};

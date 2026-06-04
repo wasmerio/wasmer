@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["WasiVersion"],"fn":["build","install_toolchains","main"],"mod":["set_up_toolchain","util","wasi_version","wasitests"],"static":["ALL_WASI_VERSIONS","LATEST_WASI_VERSION","NIGHTLY_VERSION"],"struct":["TestGenOptions","WasiOptions","WasiTest"]};

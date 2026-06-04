@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["install_toolchain","install_toolchains"]};
