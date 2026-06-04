@@ -1215,15 +1215,18 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                         // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
                         // but we can still run selectively some tests with Singlepass.
                         #[cfg(feature = "singlepass")]
-                        if entry
-                            .path()
-                            .file_name()
-                            .expect("must be valid filename")
-                            .to_string_lossy()
-                            != "wasi_fyi"
-                            && *engine == Engine::Singlepass
                         {
-                            continue;
+                            let test_name = entry
+                                .path()
+                                .file_name()
+                                .expect("must be valid filename")
+                                .to_string_lossy()
+                                .to_string();
+                            if *engine == Engine::Singlepass
+                                && !["wasi_fyi", "wasi_wast"].contains(&test_name.as_str())
+                            {
+                                continue;
+                            }
                         }
 
                         // WASIXCC toolchain does not cover Windows yet.
