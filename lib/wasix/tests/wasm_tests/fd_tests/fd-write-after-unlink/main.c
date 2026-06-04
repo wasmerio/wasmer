@@ -94,7 +94,7 @@ static int verify_path_pattern(const char* path, char fill, const char* label) {
   return 0;
 }
 
-int main() {
+int main(void) {
   int fd1 = open("/tmp/test.txt", O_CREAT | O_RDWR | O_TRUNC, 0644);
   if (fd1 == -1) {
     perror("open first");
