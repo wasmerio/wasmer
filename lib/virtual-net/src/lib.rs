@@ -7,6 +7,8 @@ pub mod composite;
 pub mod host;
 pub mod loopback;
 pub mod meta;
+#[cfg(feature = "host-net")]
+mod multicast;
 pub mod ruleset;
 #[cfg(feature = "remote")]
 pub mod rx_tx;
