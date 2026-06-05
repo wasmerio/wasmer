@@ -825,6 +825,9 @@ pub enum NetworkError {
     /// The provided data is invalid
     #[error("invalid input")]
     InvalidInput,
+    /// The message is too large to send as one packet
+    #[error("message too large")]
+    MessageSize,
     /// Could not perform the operation because there was not an open connection
     #[error("connection is not open")]
     NotConnected,
@@ -894,6 +897,7 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
                     libc::EACCES => NetworkError::PermissionDenied,
                     libc::ENODEV => NetworkError::NoDevice,
                     libc::EINVAL => NetworkError::InvalidInput,
+                    libc::EMSGSIZE => NetworkError::MessageSize,
                     libc::EPIPE => NetworkError::BrokenPipe,
                     err => {
                         tracing::trace!("unknown os error {}", err);
@@ -925,6 +929,7 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::Interrupted => ErrorKind::Interrupted.into(),
         NetworkError::InvalidData => ErrorKind::InvalidData.into(),
         NetworkError::InvalidInput => ErrorKind::InvalidInput.into(),
+        NetworkError::MessageSize => ErrorKind::InvalidInput.into(),
         NetworkError::NotConnected => ErrorKind::NotConnected.into(),
         NetworkError::NoDevice => ErrorKind::BrokenPipe.into(),
         NetworkError::PermissionDenied => ErrorKind::PermissionDenied.into(),

@@ -387,6 +387,7 @@ pub fn net_error_into_wasi_err(net_error: NetworkError) -> Errno {
         NetworkError::Interrupted => Errno::Intr,
         NetworkError::InvalidData => Errno::Io,
         NetworkError::InvalidInput => Errno::Inval,
+        NetworkError::MessageSize => Errno::Msgsize,
         NetworkError::NotConnected => Errno::Notconn,
         NetworkError::NoDevice => Errno::Nodev,
         NetworkError::PermissionDenied => Errno::Perm,
