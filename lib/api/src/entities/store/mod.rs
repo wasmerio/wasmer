@@ -33,6 +33,7 @@ mod obj;
 pub use obj::*;
 
 use crate::{AsEngineRef, BackendEngine, Engine, EngineRef};
+#[cfg(feature = "sys")]
 pub use context::CoroutineStoreGuard;
 pub(crate) use context::*;
 pub(crate) use inner::*;

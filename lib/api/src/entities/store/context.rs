@@ -334,6 +334,7 @@ impl StoreContext {
     }
 }
 
+#[cfg(feature = "sys")]
 /// RAII guard that installs the store context on the thread-local stack when
 /// created and removes it on drop. See [`crate::Store::coroutine_store_guard`].
 pub struct CoroutineStoreGuard<'a> {
@@ -341,6 +342,7 @@ pub struct CoroutineStoreGuard<'a> {
     _store: std::marker::PhantomData<&'a mut StoreInner>,
 }
 
+#[cfg(feature = "sys")]
 impl<'a> CoroutineStoreGuard<'a> {
     /// # Panics
     /// Panics if the store is already on the context stack of this thread.
@@ -359,6 +361,7 @@ impl<'a> CoroutineStoreGuard<'a> {
     }
 }
 
+#[cfg(feature = "sys")]
 impl Drop for CoroutineStoreGuard<'_> {
     fn drop(&mut self) {
         StoreContext::uninstall_cothread(self.store_id);
