@@ -134,9 +134,10 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.132.0", default-features = false }
-cranelift-entity = { version = "=0.132.0", default-features = false }
-cranelift-frontend = { version = "=0.132.0", default-features = false }
+cranelift-codegen = { path = "../wasmtime/cranelift/codegen", default-features = false }
+cranelift-entity = { path = "../wasmtime/cranelift/entity", default-features = false }
+cranelift-frontend = { path = "../wasmtime/cranelift/frontend", default-features = false }
+regalloc2 = "0.15.1"
 crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
