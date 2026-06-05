@@ -163,8 +163,18 @@ impl StoreContext {
     fn uninstall_cothread(id: StoreId) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
-            let top = stack.pop().expect("store context stack underflow");
-            assert_eq!(top.id, id, "mismatched store context on cothread uninstall");
+            match stack.pop() {
+                Some(top) if top.id == id => {}
+                Some(top) => {
+                    // Don't clean up an entry that isn't ours; put it back and
+                    // let its own guard handle it.
+                    debug_assert_eq!(top.id, id, "mismatched store context on cothread uninstall");
+                    stack.push(top);
+                }
+                None => {
+                    debug_assert!(false, "store context stack underflow on cothread uninstall");
+                }
+            }
         });
     }
 
@@ -351,9 +361,6 @@ impl<'a> CoroutineStoreGuard<'a> {
 
 impl Drop for CoroutineStoreGuard<'_> {
     fn drop(&mut self) {
-        if std::thread::panicking() {
-            return;
-        }
         StoreContext::uninstall_cothread(self.store_id);
     }
 }
