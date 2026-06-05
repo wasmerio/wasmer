@@ -1386,35 +1386,27 @@ impl VirtualConnectionlessSocket for RemoteSocket {
         buf: &mut [std::mem::MaybeUninit<u8>],
         peek: bool,
     ) -> Result<(usize, SocketAddr)> {
-        if let Some(received) = self.buffer_recv_with_addr.front() {
-            let amt = buf.len().min(received.data.len());
-            let addr = received.addr;
-            let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-            buf[..amt].copy_from_slice(&received.data[..amt]);
-
-            if !peek {
-                self.buffer_recv_with_addr.pop_front();
-            }
-
-            return Ok((amt, addr));
+        if self.buffer_recv_with_addr.is_empty() {
+            let received = self.rx_recv_with_addr.try_recv().map_err(|err| match err {
+                TryRecvError::Disconnected => NetworkError::ConnectionAborted,
+                TryRecvError::Empty => NetworkError::WouldBlock,
+            })?;
+            self.buffer_recv_with_addr.push_back(received);
         }
 
-        let received = self.rx_recv_with_addr.try_recv().map_err(|err| match err {
-            TryRecvError::Disconnected => NetworkError::ConnectionAborted,
-            TryRecvError::Empty => NetworkError::WouldBlock,
-        })?;
-
+        let Some(received) = self.buffer_recv_with_addr.front() else {
+            return Err(NetworkError::WouldBlock);
+        };
         let amt = buf.len().min(received.data.len());
+        let addr = received.addr;
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
         buf[..amt].copy_from_slice(&received.data[..amt]);
-        let addr = received.addr;
 
-        if peek {
-            self.buffer_recv_with_addr.push_back(received);
-            Ok((amt, addr))
-        } else {
-            Ok((amt, addr))
+        if !peek {
+            self.buffer_recv_with_addr.pop_front();
         }
+
+        Ok((amt, addr))
     }
 }
 

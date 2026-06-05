@@ -1516,10 +1516,15 @@ impl InodeSocket {
                         }
                         InodeSocketKind::UdpSocket { socket, peer } => {
                             if let Some(peer) = peer {
-                                match socket.try_recv_from(self.data, peek) {
-                                    Ok((amt, addr)) if addr == *peer => Ok(amt),
-                                    Ok(_) => Err(NetworkError::WouldBlock),
-                                    Err(err) => Err(err),
+                                loop {
+                                    match socket.try_recv_from(self.data, peek) {
+                                        Ok((amt, addr)) if addr == *peer => break Ok(amt),
+                                        Ok(_) if peek => {
+                                            let _ = socket.try_recv_from(self.data, false);
+                                        }
+                                        Ok(_) => continue,
+                                        Err(err) => break Err(err),
+                                    }
                                 }
                             } else {
                                 match socket.try_recv_from(self.data, peek) {
