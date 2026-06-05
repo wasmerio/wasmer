@@ -1,5 +1,6 @@
 use crate::{NetworkError, Result};
-use crossbeam_queue::SegQueue;
+use crossbeam_queue::ArrayQueue;
+use dashmap::DashMap;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
@@ -10,7 +11,8 @@ use std::task::Waker;
 use virtual_mio::{InterestHandler, InterestType};
 
 const MULTICAST_SEG_PACKET_CAPACITY: usize = 64;
-const MULTICAST_READY_SEG_CAPACITY: usize = 1024;
+const MULTICAST_WRITE_QUEUE_CAPACITY: usize = 64;
+const MULTICAST_READY_SEG_CAPACITY: usize = 256;
 
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq)]
 pub(crate) struct MulticastKey {
@@ -42,6 +44,20 @@ impl MulticastKey {
 struct MulticastPacket {
     data: Arc<[u8]>,
     from: SocketAddr,
+    group_addr: IpAddr,
+    sender_id: u64,
+}
+
+impl MulticastPacket {
+    fn is_deliverable_to(&self, socket_id: u64, loop_v4: bool, loop_v6: bool) -> bool {
+        if self.sender_id != socket_id {
+            return true;
+        }
+        match self.group_addr {
+            IpAddr::V4(_) => loop_v4,
+            IpAddr::V6(_) => loop_v6,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -64,6 +80,10 @@ impl PacketSeg {
         self.len += 1;
     }
 
+    fn is_full(&self) -> bool {
+        self.len == MULTICAST_SEG_PACKET_CAPACITY
+    }
+
     fn is_empty(&self) -> bool {
         self.len == 0
     }
@@ -74,14 +94,20 @@ impl PacketSeg {
         }
         self.packets[index].clone()
     }
+
+    fn has_deliverable_for(&self, socket_id: u64, loop_v4: bool, loop_v6: bool) -> bool {
+        self.packets[..self.len]
+            .iter()
+            .flatten()
+            .any(|packet| packet.is_deliverable_to(socket_id, loop_v4, loop_v6))
+    }
 }
 
 #[derive(Debug)]
 struct MulticastReadState {
     read_seg: Option<Arc<PacketSeg>>,
     read_index: usize,
-    queued_segs: usize,
-    ready_segs: SegQueue<Arc<PacketSeg>>,
+    ready_segs: ArrayQueue<Arc<PacketSeg>>,
 }
 
 impl Default for MulticastReadState {
@@ -89,24 +115,16 @@ impl Default for MulticastReadState {
         Self {
             read_seg: None,
             read_index: 0,
-            queued_segs: 0,
-            ready_segs: SegQueue::new(),
+            ready_segs: ArrayQueue::new(MULTICAST_READY_SEG_CAPACITY),
         }
     }
 }
 
 impl MulticastReadState {
     fn enqueue(&mut self, seg: Arc<PacketSeg>) {
-        while self.queued_segs >= MULTICAST_READY_SEG_CAPACITY {
-            if self.ready_segs.pop().is_some() {
-                self.queued_segs -= 1;
-            } else {
-                self.queued_segs = 0;
-                break;
-            }
+        if let Some(_dropped) = self.ready_segs.force_push(seg) {
+            // UDP drops are expected when a subscriber cannot keep up.
         }
-        self.ready_segs.push(seg);
-        self.queued_segs += 1;
     }
 
     fn ensure_read_seg(&mut self) -> Option<()> {
@@ -118,7 +136,6 @@ impl MulticastReadState {
             }
             self.read_seg = None;
             let seg = self.ready_segs.pop()?;
-            self.queued_segs = self.queued_segs.saturating_sub(1);
             self.read_index = 0;
             if !seg.is_empty() {
                 self.read_seg = Some(seg);
@@ -126,85 +143,198 @@ impl MulticastReadState {
         }
     }
 
-    fn next_packet_len(&mut self) -> Option<usize> {
-        self.ensure_read_seg()?;
-        self.read_seg
-            .as_ref()?
-            .packet(self.read_index)
+    fn next_packet(
+        &mut self,
+        socket_id: u64,
+        loop_v4: bool,
+        loop_v6: bool,
+        peek: bool,
+    ) -> Option<MulticastPacket> {
+        loop {
+            self.ensure_read_seg()?;
+            let packet = self.read_seg.as_ref()?.packet(self.read_index)?;
+            if !packet.is_deliverable_to(socket_id, loop_v4, loop_v6) {
+                self.read_index += 1;
+                continue;
+            }
+            if !peek {
+                self.read_index += 1;
+            }
+            return Some(packet);
+        }
+    }
+
+    fn next_packet_len(&mut self, socket_id: u64, loop_v4: bool, loop_v6: bool) -> Option<usize> {
+        self.next_packet(socket_id, loop_v4, loop_v6, true)
             .map(|packet| packet.data.len())
     }
 
-    fn recv(&mut self, peek: bool) -> Option<MulticastPacket> {
-        self.ensure_read_seg()?;
-        let packet = self.read_seg.as_ref()?.packet(self.read_index)?;
-        if !peek {
-            self.read_index += 1;
-        }
-        Some(packet)
+    fn recv(
+        &mut self,
+        socket_id: u64,
+        loop_v4: bool,
+        loop_v6: bool,
+        peek: bool,
+    ) -> Option<MulticastPacket> {
+        self.next_packet(socket_id, loop_v4, loop_v6, peek)
     }
 }
 
 #[derive(Debug)]
 struct MulticastGroup {
-    write_seg: Mutex<Box<PacketSeg>>,
-    members: Mutex<HashMap<u64, Weak<LocalUdpSocketShared>>>,
+    write_queue: ArrayQueue<MulticastPacket>,
+    flushing: AtomicBool,
+    members: DashMap<u64, Weak<LocalUdpSocketShared>>,
 }
 
 impl Default for MulticastGroup {
     fn default() -> Self {
         Self {
-            write_seg: Mutex::new(Box::new(PacketSeg::new())),
+            write_queue: ArrayQueue::new(MULTICAST_WRITE_QUEUE_CAPACITY),
+            flushing: AtomicBool::new(false),
             members: Default::default(),
         }
     }
 }
 
 impl MulticastGroup {
-    fn publish(&self, data: &[u8], from: SocketAddr) -> Option<Arc<PacketSeg>> {
-        let packet = MulticastPacket {
+    fn publish(
+        &self,
+        key: MulticastKey,
+        sender: &Arc<LocalUdpSocketShared>,
+        data: &[u8],
+        from: SocketAddr,
+    ) -> Vec<Arc<LocalUdpSocketShared>> {
+        let mut packet = MulticastPacket {
             data: Arc::from(data),
             from,
+            group_addr: key.addr,
+            sender_id: sender.id,
         };
+        let mut subscribers = self.subscribers_for_packet(&packet);
 
-        let mut write_seg = self.write_seg.lock();
-        write_seg.push(packet);
-
-        // UDP readiness must become visible after each send, so seal the current
-        // segment immediately. Later batching can seal only on full/timer flush.
-        let sealed = std::mem::replace(&mut *write_seg, Box::new(PacketSeg::new()));
-        if sealed.is_empty() {
-            None
-        } else {
-            Some(Arc::from(sealed))
+        loop {
+            match self.write_queue.push(packet) {
+                Ok(()) => break,
+                Err(returned) => {
+                    packet = returned;
+                    subscribers.extend(self.flush(key));
+                    if self.write_queue.is_full() {
+                        let _ = self.write_queue.pop();
+                    }
+                }
+            }
         }
+
+        subscribers
+    }
+
+    fn flush(&self, key: MulticastKey) -> Vec<Arc<LocalUdpSocketShared>> {
+        if self
+            .flushing
+            .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+            .is_err()
+        {
+            return Vec::new();
+        }
+
+        let mut subscribers = Vec::new();
+        while let Some(seg) = self.pop_segment() {
+            subscribers.extend(self.fanout(key, seg));
+        }
+        self.flushing.store(false, Ordering::Release);
+
+        if !self.write_queue.is_empty() {
+            subscribers.extend(self.flush(key));
+        }
+        subscribers
+    }
+
+    fn pop_segment(&self) -> Option<Arc<PacketSeg>> {
+        let mut seg = PacketSeg::new();
+        let first = self.write_queue.pop()?;
+        seg.push(first);
+        while !seg.is_full() {
+            let Some(packet) = self.write_queue.pop() else {
+                break;
+            };
+            seg.push(packet);
+        }
+        Some(Arc::new(seg))
+    }
+
+    fn fanout(&self, key: MulticastKey, seg: Arc<PacketSeg>) -> Vec<Arc<LocalUdpSocketShared>> {
+        let mut stale = Vec::new();
+        let mut subscribers = Vec::new();
+        for member in self.members.iter() {
+            let id = *member.key();
+            let Some(member) = member.value().upgrade() else {
+                stale.push(id);
+                continue;
+            };
+            if !seg.has_deliverable_for(
+                member.id,
+                member.multicast_loop_v4(),
+                member.multicast_loop_v6(),
+            ) {
+                continue;
+            }
+            member.enqueue_multicast_segment(key, seg.clone());
+            subscribers.push(member);
+        }
+        for id in stale {
+            self.members.remove(&id);
+        }
+        subscribers
+    }
+
+    fn subscribers_for_packet(&self, packet: &MulticastPacket) -> Vec<Arc<LocalUdpSocketShared>> {
+        let mut stale = Vec::new();
+        let mut subscribers = Vec::new();
+        for member in self.members.iter() {
+            let id = *member.key();
+            let Some(member) = member.value().upgrade() else {
+                stale.push(id);
+                continue;
+            };
+            if packet.is_deliverable_to(
+                member.id,
+                member.multicast_loop_v4(),
+                member.multicast_loop_v6(),
+            ) {
+                subscribers.push(member);
+            }
+        }
+        for id in stale {
+            self.members.remove(&id);
+        }
+        subscribers
     }
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct MulticastCoordinator {
-    groups: Mutex<HashMap<MulticastKey, Arc<MulticastGroup>>>,
+    groups: DashMap<MulticastKey, Arc<MulticastGroup>>,
 }
 
 impl MulticastCoordinator {
     pub(crate) fn join(&self, socket: &Arc<LocalUdpSocketShared>, key: MulticastKey) {
-        let group = self.groups.lock().entry(key).or_default().clone();
-        group
-            .members
-            .lock()
-            .insert(socket.id, Arc::downgrade(socket));
+        let group = self
+            .groups
+            .entry(key)
+            .or_insert_with(|| Arc::new(MulticastGroup::default()))
+            .clone();
+        group.members.insert(socket.id, Arc::downgrade(socket));
         socket.join_multicast(key);
     }
 
     pub(crate) fn leave(&self, socket: &Arc<LocalUdpSocketShared>, key: MulticastKey) {
-        let group = self.groups.lock().get(&key).cloned();
+        let group = self.groups.get(&key).map(|group| group.clone());
         if let Some(group) = group {
-            let is_empty = {
-                let mut members = group.members.lock();
-                members.remove(&socket.id);
-                members.is_empty()
-            };
-            if is_empty {
-                self.groups.lock().remove(&key);
+            group.members.remove(&socket.id);
+            if group.members.is_empty() {
+                self.groups
+                    .remove_if(&key, |_, group| group.members.is_empty());
             }
         }
         socket.leave_multicast(key);
@@ -220,42 +350,18 @@ impl MulticastCoordinator {
         let Some(key) = MulticastKey::from_socket_addr(to) else {
             return Vec::new();
         };
-        let Some(group) = self.groups.lock().get(&key).cloned() else {
+        let Some(group) = self.groups.get(&key).map(|group| group.clone()) else {
             return Vec::new();
         };
 
-        let Some(seg) = group.publish(data, from) else {
-            return Vec::new();
-        };
-
-        let mut stale = Vec::new();
-        let mut subscribers = Vec::new();
-        {
-            let members = group.members.lock();
-            for (&id, member) in members.iter() {
-                let Some(member) = member.upgrade() else {
-                    stale.push(id);
-                    continue;
-                };
-                if Arc::ptr_eq(sender, &member) && !member.multicast_loop_for(key.addr) {
-                    continue;
-                }
-                member.enqueue_multicast_segment(key, seg.clone());
-                subscribers.push(member);
-            }
-        }
-        if !stale.is_empty() {
-            let mut members = group.members.lock();
-            for id in stale {
-                if members.get(&id).and_then(Weak::upgrade).is_none() {
-                    members.remove(&id);
-                }
-            }
-        }
-        subscribers
+        group.publish(key, sender, data, from)
     }
 
     pub(crate) fn next_packet_len(&self, socket: &Arc<LocalUdpSocketShared>) -> Option<usize> {
+        if let Some(len) = socket.next_multicast_packet_len() {
+            return Some(len);
+        }
+        self.flush_socket_groups(socket);
         socket.next_multicast_packet_len()
     }
 
@@ -265,14 +371,34 @@ impl MulticastCoordinator {
         buf: &mut [MaybeUninit<u8>],
         peek: bool,
     ) -> Result<(usize, SocketAddr)> {
-        let Some(packet) = socket.recv_multicast_packet(peek) else {
-            return Err(NetworkError::WouldBlock);
+        let packet = match socket.recv_multicast_packet(peek) {
+            Some(packet) => packet,
+            None => {
+                self.flush_socket_groups(socket);
+                let Some(packet) = socket.recv_multicast_packet(peek) else {
+                    return Err(NetworkError::WouldBlock);
+                };
+                packet
+            }
         };
 
         let amt = buf.len().min(packet.data.len());
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
         buf[..amt].copy_from_slice(&packet.data[..amt]);
         Ok((amt, packet.from))
+    }
+
+    fn flush_socket_groups(&self, socket: &Arc<LocalUdpSocketShared>) {
+        for key in socket.joined_keys() {
+            let Some(group) = self.groups.get(&key).map(|group| group.clone()) else {
+                continue;
+            };
+            for subscriber in group.flush(key) {
+                if !Arc::ptr_eq(&subscriber, socket) {
+                    subscriber.notify_readable();
+                }
+            }
+        }
     }
 }
 
@@ -327,8 +453,11 @@ impl LocalUdpSocketShared {
     }
 
     fn next_multicast_packet_len(&self) -> Option<usize> {
+        let socket_id = self.id;
+        let loop_v4 = self.multicast_loop_v4();
+        let loop_v6 = self.multicast_loop_v6();
         for state in self.multicast_reads.lock().values_mut() {
-            if let Some(len) = state.next_packet_len() {
+            if let Some(len) = state.next_packet_len(socket_id, loop_v4, loop_v6) {
                 return Some(len);
             }
         }
@@ -336,8 +465,11 @@ impl LocalUdpSocketShared {
     }
 
     fn recv_multicast_packet(&self, peek: bool) -> Option<MulticastPacket> {
+        let socket_id = self.id;
+        let loop_v4 = self.multicast_loop_v4();
+        let loop_v6 = self.multicast_loop_v6();
         for state in self.multicast_reads.lock().values_mut() {
-            if let Some(packet) = state.recv(peek) {
+            if let Some(packet) = state.recv(socket_id, loop_v4, loop_v6, peek) {
                 return Some(packet);
             }
         }
@@ -372,13 +504,6 @@ impl LocalUdpSocketShared {
         let mut wakers = self.read_wakers.lock();
         if !wakers.iter().any(|existing| existing.will_wake(waker)) {
             wakers.push(waker.clone());
-        }
-    }
-
-    fn multicast_loop_for(&self, addr: IpAddr) -> bool {
-        match addr {
-            IpAddr::V4(_) => self.multicast_loop_v4(),
-            IpAddr::V6(_) => self.multicast_loop_v6(),
         }
     }
 
