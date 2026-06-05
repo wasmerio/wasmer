@@ -790,9 +790,9 @@ impl Linker {
             trace!(?module_handle, "Instantiating existing side module");
             let prepared = {
                 let mut guard = instance_group_state.lock().unwrap();
-                let group = guard.as_mut().expect(
-                    "Internal error: instance group state was cleared during spawn",
-                );
+                let group = guard
+                    .as_mut()
+                    .expect("Internal error: instance group state was cleared during spawn");
                 group.prepare_side_module_from_linker(
                     &ls_write,
                     store,
@@ -804,18 +804,15 @@ impl Linker {
 
             // Guest code may reenter the linker (e.g. via sched_yield); do not hold the
             // instance-group mutex across __wasix_init_tls.
-            let tls_base = call_initialization_function::<i32>(
-                &prepared.instance,
-                store,
-                "__wasix_init_tls",
-            )?
-            .map(|v| v as u64);
+            let tls_base =
+                call_initialization_function::<i32>(&prepared.instance, store, "__wasix_init_tls")?
+                    .map(|v| v as u64);
 
             {
                 let mut guard = instance_group_state.lock().unwrap();
-                let group = guard.as_mut().expect(
-                    "Internal error: instance group state was cleared during spawn",
-                );
+                let group = guard
+                    .as_mut()
+                    .expect("Internal error: instance group state was cleared during spawn");
                 group.complete_side_module_from_linker(prepared, tls_base, store)?;
             }
         }
@@ -823,18 +820,18 @@ impl Linker {
         trace!("Finalizing pending functions");
         {
             let guard = instance_group_state.lock().unwrap();
-            let group = guard.as_ref().expect(
-                "Internal error: instance group state was cleared during spawn",
-            );
+            let group = guard
+                .as_ref()
+                .expect("Internal error: instance group state was cleared during spawn");
             group.finalize_pending_resolutions_from_linker(&pending_resolutions, store)?;
         }
 
         trace!("Applying externally-requested function table entries");
         {
             let guard = instance_group_state.lock().unwrap();
-            let group = guard.as_ref().expect(
-                "Internal error: instance group state was cleared during spawn",
-            );
+            let group = guard
+                .as_ref()
+                .expect("Internal error: instance group state was cleared during spawn");
             group.apply_requested_symbols_from_linker(store, &ls_write)?;
         }
 
