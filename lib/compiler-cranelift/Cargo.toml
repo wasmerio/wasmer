@@ -14,20 +14,16 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=7.2.0-alpha.2", default-features = false, features = [
-	"translator",
-	"compiler",
+wasmer-compiler = { path = "../compiler", version = "=7.2.0-alpha.3", default-features = false, features = [
+  "translator",
+  "compiler",
 ] }
-wasmer-types = { path = "../types", version = "=7.2.0-alpha.2", default-features = false, features = [
-	"std",
+wasmer-types = { path = "../types", version = "=7.2.0-alpha.3", default-features = false, features = [
+  "std",
 ] }
 
 cranelift-entity.workspace = true
-cranelift-codegen = { workspace = true, features = [
-	"x86",
-	"arm64",
-	"riscv64",
-] }
+cranelift-codegen = { workspace = true, features = ["x86", "arm64", "riscv64"] }
 cranelift-frontend.workspace = true
 
 itertools.workspace = true
@@ -52,10 +48,10 @@ default = ["std", "unwind", "rayon"]
 wasm = ["std", "unwind"]
 unwind = ["cranelift-codegen/unwind", "gimli"]
 std = [
-	"cranelift-codegen/std",
-	"cranelift-frontend/std",
-	"wasmer-compiler/std",
-	"wasmer-types/std",
+  "cranelift-codegen/std",
+  "cranelift-frontend/std",
+  "wasmer-compiler/std",
+  "wasmer-types/std",
 ]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
 enable-serde = []

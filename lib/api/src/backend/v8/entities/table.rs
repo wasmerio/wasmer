@@ -28,7 +28,7 @@ impl Table {
 
         let limits = Box::into_raw(Box::new(wasm_limits_t {
             min: ty.minimum,
-            max: ty.maximum.unwrap_or_default(),
+            max: ty.maximum.unwrap_or(wasm_limits_max_default),
             shared: false,
         }));
 
@@ -71,7 +71,7 @@ impl Table {
             ty: table_type.into_wt(),
             minimum: unsafe { (*table_limits).min },
             maximum: unsafe {
-                if (*table_limits).max == 0 {
+                if (*table_limits).max == wasm_limits_max_default {
                     None
                 } else {
                     Some((*table_limits).max)
@@ -85,11 +85,19 @@ impl Table {
         check_isolate(store);
         let store_mut = store.as_store_mut();
 
+        if index >= self.size(store) {
+            return None;
+        }
+
         unsafe {
             let ref_ = wasm_table_get(self.handle, index);
 
             if ref_.is_null() {
-                return None;
+                return match self.ty(store).ty {
+                    wasmer_types::Type::ExternRef => Some(Value::ExceptionRef(None)),
+                    wasmer_types::Type::FuncRef => Some(Value::FuncRef(None)),
+                    ty => panic!("unsupported table type: {ty:?}"),
+                };
             }
 
             let kind = match self.ty(store).ty {

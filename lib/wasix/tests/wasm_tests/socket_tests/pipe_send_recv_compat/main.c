@@ -1,3 +1,4 @@
+//#ExpectedStdout: pipe send/recv works
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>

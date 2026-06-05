@@ -388,7 +388,7 @@ pub extern "C" fn wasi_env_delete(state: Option<Box<wasi_env_t>>) {
 
 /// Set the memory on a [`wasi_env_t`].
 // NOTE: Only here to not break the C API.
-// This was previosly supported, but is no longer possible due to WASIX changes.
+// This was previously supported, but is no longer possible due to WASIX changes.
 // Customizing memories should be done through the builder or the runtime.
 #[unsafe(no_mangle)]
 #[deprecated(since = "4.0.0")]
@@ -575,7 +575,7 @@ unsafe fn wasi_get_imports_inner(
     };
     let memory = {
         let mut store_mut = unsafe { store.store_mut() };
-        tasks.build_memory(&mut store_mut, &spawn_type).unwrap()
+        tasks.build_memory(&mut store_mut, spawn_type).unwrap()
     };
 
     if let Some(memory) = memory {

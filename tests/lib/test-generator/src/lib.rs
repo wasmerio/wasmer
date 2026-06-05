@@ -7,7 +7,7 @@
 //! > https://github.com/bytecodealliance/wasmtime/blob/master/build.rs
 mod processors;
 
-pub use crate::processors::{wasi_processor, wast_processor};
+pub use crate::processors::wast_processor;
 use anyhow::Context;
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
@@ -41,8 +41,7 @@ fn write_test(out: &mut Testsuite, testname: &str, body: &str) -> anyhow::Result
     )?;
     writeln!(
         out.buffer,
-        "fn r#{}(config: crate::Config) -> anyhow::Result<()> {{",
-        &testname
+        "fn r#{testname}(config: crate::Config) -> anyhow::Result<()> {{",
     )?;
     writeln!(out.buffer, "{body}")?;
     writeln!(out.buffer, "}}")?;

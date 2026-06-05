@@ -444,7 +444,7 @@ impl Errno {
 }
 impl core::fmt::Debug for Errno {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "Errno::{}", &self.name())
+        write!(f, "Errno::{}", self.name())
     }
 }
 impl core::fmt::Display for Errno {
@@ -996,7 +996,7 @@ pub enum Socktype {
 impl core::fmt::Debug for Socktype {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Socktype::Unknown => f.debug_tuple("Socktype::Uknown").finish(),
+            Socktype::Unknown => f.debug_tuple("Socktype::Unknown").finish(),
             Socktype::Stream => f.debug_tuple("Socktype::Stream").finish(),
             Socktype::Dgram => f.debug_tuple("Socktype::Dgram").finish(),
             Socktype::Raw => f.debug_tuple("Socktype::Raw").finish(),
@@ -2654,7 +2654,7 @@ impl JoinFlags {
         Self { bits }
     }
 }
-#[doc = " What has happened with the proccess when we joined on it"]
+#[doc = " What has happened with the process when we joined on it"]
 #[repr(u8)]
 #[derive(Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]

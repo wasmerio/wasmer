@@ -27,7 +27,7 @@ pub struct CmdConnect {
     /// One or more static IP address to assign the interface
     #[clap(long)]
     pub ip: Vec<IpAddr>,
-    /// Thr URL we will be connecting to
+    /// The URL we will be connecting to
     #[clap(index = 1)]
     pub url: url::Url,
 }

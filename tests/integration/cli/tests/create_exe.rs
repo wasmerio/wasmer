@@ -52,6 +52,7 @@ impl Default for WasmerCreateExe {
 impl WasmerCreateExe {
     fn run(&self) -> anyhow::Result<Vec<u8>> {
         let mut output = Command::new(&self.wasmer_path);
+        set_default_wasmer_registry(&mut output);
         output.current_dir(&self.current_dir);
         output.arg("create-exe");
         output.arg(&self.wasm_path.canonicalize()?);
@@ -127,6 +128,7 @@ impl Default for WasmerCreateObj {
 impl WasmerCreateObj {
     fn run(&self) -> anyhow::Result<Vec<u8>> {
         let mut output = Command::new(&self.wasmer_path);
+        set_default_wasmer_registry(&mut output);
         output.current_dir(&self.current_dir);
         output.arg("create-obj");
         output.arg(&self.wasm_path.canonicalize()?);
@@ -160,7 +162,7 @@ fn test_create_exe_with_pirita_works_1() {
     let tempdir = TempDir::new().unwrap();
     let path = tempdir.path();
     let wasm_out = path.join("out.obj");
-    let cmd = Command::new(get_wasmer_path())
+    let cmd = wasmer_command()
         .arg("create-obj")
         .arg(fixtures::wabt())
         .arg("-o")
@@ -186,7 +188,7 @@ fn test_create_exe_with_pirita_works_1() {
 
     assert!(!cmd.status.success());
 
-    let cmd = Command::new(get_wasmer_path())
+    let cmd = wasmer_command()
         .arg("create-obj")
         .arg(fixtures::wabt())
         .arg("--atom")
@@ -222,7 +224,7 @@ fn test_create_exe_with_precompiled_works_1() {
     let tempdir = TempDir::new().unwrap();
     let path = tempdir.path();
     let wasm_out = path.join("out.obj");
-    let _ = Command::new(get_wasmer_path())
+    let _ = wasmer_command()
         .arg("create-obj")
         .arg(fixtures::qjs())
         .arg("--prefix")
@@ -244,7 +246,7 @@ fn test_create_exe_with_precompiled_works_1() {
             || names.contains(&"wasmer_function_sha123123_1".to_string())
     );
 
-    let _ = Command::new(get_wasmer_path())
+    let _ = wasmer_command()
         .arg("create-obj")
         .arg(fixtures::qjs())
         .arg("-o")
@@ -723,7 +725,7 @@ fn test_wasmer_create_exe_pirita_works() {
 
     println!("compiling to target {native_target}");
 
-    let mut cmd = Command::new(get_wasmer_path());
+    let mut cmd = wasmer_command();
     cmd.arg("create-exe");
     cmd.arg(&python_wasmer_path);
     cmd.arg("--tarball");
@@ -804,7 +806,7 @@ fn test_cross_compile_python_windows() {
                 Ok(_) => Some(assert_tarball_is_present_local(t).unwrap()),
                 Err(_) => None,
             };
-            let mut cmd = Command::new(get_wasmer_path());
+            let mut cmd = wasmer_command();
 
             cmd.arg("create-exe");
             cmd.arg(fixtures::python());

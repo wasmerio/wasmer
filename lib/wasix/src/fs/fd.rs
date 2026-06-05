@@ -8,12 +8,15 @@ use std::{
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
-use wasmer_wasix_types::wasi::{Fd as WasiFd, Fdflags, Fdflagsext, Filestat, Rights};
+use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Filestat, Rights};
 
 use crate::net::socket::InodeSocket;
 use crate::os::epoll::EpollState;
 
 use super::{InodeGuard, InodeWeakGuard, NotificationInner};
+
+/// Shared handle to an open [`VirtualFile`].
+pub(crate) type VirtualFileLock = Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>;
 
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -89,14 +92,14 @@ pub enum Kind {
     File {
         /// The open file, if it's open
         #[cfg_attr(feature = "enable-serde", serde(skip))]
-        handle: Option<Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>>,
+        handle: Option<VirtualFileLock>,
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
         path: PathBuf,
         /// Marks the file as a special file that only one `fd` can exist for
         /// This is useful when dealing with host-provided special files that
         /// should be looked up by path
-        /// TOOD: clarify here?
+        /// TODO: clarify here?
         fd: Option<u32>,
     },
     #[cfg_attr(feature = "enable-serde", serde(skip))]
@@ -136,16 +139,15 @@ pub enum Kind {
     Root {
         entries: HashMap<String, InodeGuard>,
     },
-    /// The first two fields are data _about_ the symlink
-    /// the last field is the data _inside_ the symlink
-    ///
-    /// `base_po_dir` should never be the root because:
-    /// - Right now symlinks are not allowed in the immutable root
-    /// - There is always a closer pre-opened dir to the symlink file (by definition of the root being a collection of preopened dirs)
+    /// The first two fields are data _about_ the symlink; the last field is
+    /// the data _inside_ the symlink.
     Symlink {
-        /// The preopened dir that this symlink file is relative to (via `path_to_symlink`)
-        base_po_dir: WasiFd,
-        /// The path to the symlink from the `base_po_dir`
+        /// Whether the link came from the backing filesystem or from a WASI
+        /// `path_symlink` call. Backing links are resolved within their mount;
+        /// virtual links are resolved from the WASIX virtual root.
+        symlink_kind: SymlinkKind,
+        /// Full path to the symlink from the WASIX virtual root, with no
+        /// leading slash.
         path_to_symlink: PathBuf,
         /// the value of the symlink as a relative path
         relative_path: PathBuf,
@@ -156,4 +158,11 @@ pub enum Kind {
     EventNotifications {
         inner: Arc<NotificationInner>,
     },
+}
+
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub enum SymlinkKind {
+    Backing,
+    Virtual,
 }

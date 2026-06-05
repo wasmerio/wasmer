@@ -74,6 +74,8 @@ jobs:
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-22
           echo '/opt/llvm-22/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_221_PREFIX=/opt/llvm-22' >> $GITHUB_ENV
+      - name: Install taplo
+        run: curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin /usr/local/bin/taplo
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
@@ -147,112 +149,10 @@ jobs:
       - name: make test-js
         run: |
           make test-js
-  test_wasi_fyi:
-    name: Wasi-fyi
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: nightly
-          targets: "wasm32-wasip1"
-      - name: Install wasm-pack
-        run: |
-          curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-      - name: Install LLVM 22
-        run: |
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          mkdir ${LLVM_DIR}
-          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
-          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
-          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-        env:
-          LLVM_DIR: .llvm
-      - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-wasi-fyi
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
-      - name: make test-wasi-fyi
-        run: |
-          make test-wasi-fyi
         # The no_std functionality doesn't work at the moment - no point in testing it.
         # - name: make test-js-core
         #   run: |
         #     make test-js-core
-  test_wasix:
-    name: WASIX
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: true
-      - uses: ./.github/actions/load_toolchain
-        id: load_toolchain
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
-      - name: Install Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y git make lld curl
-      - name: Install wasixcc
-        uses: wasix-org/wasixcc@v0.4.3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          sysroot-tag: v2026-02-16.1
-          version: v0.4.3
-      - name: Tool versions
-        run: |
-          echo "wasixcc version: $(wasixcc --version)"
-          echo "llvm version: $(wasixcc -- --version)"
-          echo "wasm-opt version: $(wasm-opt --version)"
-      - name: Install LLVM 22 (for building Wasmer)
-        run: |
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          mkdir ${LLVM_DIR}
-          tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
-          echo "ENABLE_LLVM=1" >> $GITHUB_ENV
-          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
-          echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
-        env:
-          LLVM_DIR: .llvm
-      - name: Cache
-        # TODO: v3 is unable to Restore the cache for some reason
-        uses: whywaita/actions-cache-s3@v2
-        with:
-          path: |
-            ~/.cargo/*
-            ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-wasix
-          aws-s3-bucket: wasmer-rust-artifacts-cache
-          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
-          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
-          aws-region: auto
-          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
-          aws-s3-bucket-endpoint: false
-          aws-s3-force-path-style: true
-      - name: make test-wasix
-        run: WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
@@ -315,11 +215,7 @@ jobs:
         if: startsWith(matrix.metadata.build, 'windows-')
       - name: Lint ${{ matrix.build-what.key }}
         run: ${{ matrix.build-what.lint-cmd }}
-      - name: Test V8 API (Linux + clang)
-        if: ${{ matrix.build-what.key == 'v8' && startsWith(matrix.metadata.build, 'linux-')}}
-        run: RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=lld" CARGO_TERM_VERBOSE=true ${{ matrix.build-what.build-cmd }}
       - name: Test V8 API
-        if: ${{ matrix.build-what.key == 'v8' && !startsWith(matrix.metadata.build, 'linux-')}}
         run: ${{ matrix.build-what.build-cmd }}
   test_build_docs_rs:
     name: Build docs.rs
@@ -359,7 +255,7 @@ jobs:
       matrix:
         build-what:
           - key: wast-tests
-            build-cmd: "make test-stage-0-wast"
+            build-cmd: "make test-wast"
             name: "WAST tests"
           - key: capi
             build-cmd: "make build-capi && make package-capi"
@@ -631,7 +527,7 @@ jobs:
       - name: Test C-API integration
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu') }}
-        run: export WASMER_DIR=`pwd`/package && make test-stage-7-capi-integration-tests
+        run: export WASMER_DIR=`pwd`/package && make test-capi-integration-tests
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
@@ -660,18 +556,14 @@ jobs:
         skip_macos:
           - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
         stage:
-          - description: "WAST (all comp.)"
-            make: "test-stage-0-wast"
-          - description: "Packages - std"
-            make: "test-stage-1-test-all"
-          - description: "Cranelift - no-std"
-            make: "test-stage-2-test-compiler-cranelift-nostd"
-          - description: "Singlepass - no-std"
-            make: "test-stage-3-test-compiler-singlepass-nostd"
+          - description: "All tests"
+            make: "test-all"
+          - description: "Compilers (std only)"
+            make: "check-compilers-only-std"
           - description: "Wasmer-cli"
-            make: "test-stage-4-wasmer-cli"
+            make: "test-wasmer-cli"
           - description: "Examples"
-            make: "test-stage-5-test-examples"
+            make: "test-examples"
           - description: "CLI integ. tests"
             make: test-integration-cli-ci
         metadata:
@@ -761,6 +653,12 @@ jobs:
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.metadata.target }}
+      - name: Install Rust WASI targets
+        if: matrix.stage.make == 'test-all'
+        shell: bash
+        run: |
+          rustup target add wasm32-wasip1
+          rustup toolchain install nightly --profile minimal --target wasm32-wasip1
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Install wasixcc
@@ -768,7 +666,6 @@ jobs:
         uses: wasix-org/wasixcc@v0.4.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          sysroot-tag: v2026-02-16.1
           version: v0.4.3
       - name: Install LLVM
         shell: bash
@@ -793,6 +690,9 @@ jobs:
           target = "${{ matrix.metadata.target }}"
           EOF
         if: matrix.metadata.target
+      - name: Install wasixcc
+        uses: wasix-org/wasixcc@v0.4.3
+        if: matrix.description == 'CLI integ. tests' && startsWith(matrix.metadata.build, 'linux')
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
@@ -800,7 +700,7 @@ jobs:
           path: |
             ~/.cargo/*
             ./target/*
-          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-make-test-stage-${{ matrix.stage.make }}-${{ matrix.metadata.build }}
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-test-${{ matrix.stage.make }}-${{ matrix.metadata.build }}
           aws-s3-bucket: wasmer-rust-artifacts-cache
           aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
           aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
@@ -815,3 +715,23 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
+  ci_success:
+    name: Tests CI
+    runs-on: ubuntu-22.04
+    needs:
+      - setup
+      - lint
+      - cargo_deny
+      - test_nodejs
+      - test_interpreter_api
+      - test_build_docs_rs
+      - build_linux_riscv64
+      - build
+      - test
+    if: ${{ always() }}
+    steps:
+      - name: Check required jobs
+        if: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped') }}
+        run: exit 1
+      - name: Required jobs passed
+        run: echo "All required jobs passed"

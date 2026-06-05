@@ -44,7 +44,7 @@ impl FrameInfo {
         self.func_index
     }
 
-    /// Returns the identifer of the module that this frame is for.
+    /// Returns the identifier of the module that this frame is for.
     ///
     /// ModuleInfo identifiers are present in the `name` section of a WebAssembly
     /// binary, but this may not return the exact item in the `name` section.

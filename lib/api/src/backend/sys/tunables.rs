@@ -137,13 +137,13 @@ mod tests {
             }
         }
 
-        fn try_clone(&self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        fn try_clone(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
             Err(MemoryError::InvalidMemory {
                 reason: "VMTinyMemory can not be cloned".to_string(),
             })
         }
 
-        fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError> {
+        fn copy(&self) -> Result<Box<dyn LinearMemory + Send + Sync + 'static>, MemoryError> {
             let mem = self.mem.clone();
             Ok(Box::new(Self {
                 memory_definition: Some(UnsafeCell::new(VMMemoryDefinition {

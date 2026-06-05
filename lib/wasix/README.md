@@ -57,7 +57,7 @@ $ wasmer run hello.wasm Gordon
 Hello, Some("Gordon")
 ```
 
-… and programatically with the `wasmer` and the `wasmer-wasi` libraries:
+… and programmatically with the `wasmer` and the `wasmer-wasi` libraries:
 
 ```rust
 use std::io::Read;

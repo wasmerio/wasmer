@@ -661,7 +661,7 @@ impl AsyncCliCommand for PackageTag {
                 eprintln!("{} Package URL: {url}", "𖥔".yellow().bold());
             }
             PackageIdent::Hash(ref h) => {
-                eprintln!("{} Succesfully tagged package ({h})", "✔".green().bold());
+                eprintln!("{} Successfully tagged package ({h})", "✔".green().bold());
             }
         }
 

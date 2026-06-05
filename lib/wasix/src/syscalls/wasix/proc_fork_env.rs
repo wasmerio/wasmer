@@ -51,6 +51,9 @@ pub fn proc_fork_env<M: MemorySize>(
             return Ok(Errno::Perm);
         }
     };
+    if let Some(memory) = env.process.lock().memory.clone() {
+        child_env.process.register_memory(memory);
+    }
 
     // Write the child's PID to the provided pointer
     let memory = unsafe { env.memory_view(&ctx) };

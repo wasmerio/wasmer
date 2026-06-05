@@ -1,3 +1,4 @@
+
 #include <stdio.h>
 #ifdef STATIC_THROWER
 #include "thrower.cpp"

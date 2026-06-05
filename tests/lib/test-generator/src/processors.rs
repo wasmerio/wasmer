@@ -1,4 +1,4 @@
-//! Here we define the processors usable for each test genrator
+//! Here we define the processors usable for each test generator
 use crate::{Test, Testsuite, extract_name};
 use std::path::PathBuf;
 
@@ -20,39 +20,6 @@ pub fn wast_processor(_out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 
     // The implementation of `run_wast` lives in /tests/spectest.rs
     let body = format!("crate::run_wast(config, r#\"{}\"#)", p.display());
-
-    Some(Test {
-        name: testname,
-        body,
-    })
-}
-
-/// Given a Testsuite and a path, process the path in case is a WASI
-/// wasm file.
-pub fn wasi_processor(
-    _out: &mut Testsuite,
-    p: PathBuf,
-    wasi_filesystem_kind: &str,
-) -> Option<Test> {
-    let ext = p.extension()?;
-    // Only look at wast files.
-    if ext != "wast" {
-        return None;
-    }
-
-    let wasm_dir = {
-        let mut inner = p.clone();
-        inner.pop();
-        inner
-    };
-    let testname = extract_name(&p);
-
-    let body = format!(
-        "crate::run_wasi(config, r#\"{}\"#, \"{}\", crate::{})",
-        p.display(),
-        wasm_dir.display(),
-        wasi_filesystem_kind,
-    );
 
     Some(Test {
         name: testname,

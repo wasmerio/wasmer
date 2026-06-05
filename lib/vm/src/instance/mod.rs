@@ -418,7 +418,7 @@ impl Instance {
         unsafe {
             // Even though we already know the type of the function we need to call, in certain
             // specific cases trampoline prepare callee arguments for specific optimizations, such
-            // as passing g0 and m0_base_ptr as paramters.
+            // as passing g0 and m0_base_ptr as parameters.
             wasmer_call_trampoline(
                 trap_handler,
                 config,
@@ -440,7 +440,7 @@ impl Instance {
     pub(crate) fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
         let begin: *const VMTableDefinition = self.tables_ptr() as *const _;
         let end: *const VMTableDefinition = table;
-        // TODO: Use `offset_from` once it stablizes.
+        // TODO: Use `offset_from` once it stabilizes.
         let index = LocalTableIndex::new(
             (end as usize - begin as usize) / mem::size_of::<VMTableDefinition>(),
         );
@@ -452,7 +452,7 @@ impl Instance {
     pub(crate) fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
         let begin: *const VMMemoryDefinition = self.memories_ptr() as *const _;
         let end: *const VMMemoryDefinition = memory;
-        // TODO: Use `offset_from` once it stablizes.
+        // TODO: Use `offset_from` once it stabilizes.
         let index = LocalMemoryIndex::new(
             (end as usize - begin as usize) / mem::size_of::<VMMemoryDefinition>(),
         );
@@ -931,11 +931,7 @@ impl Instance {
         };
         match unsafe { memory.do_wait(dst, expected, timeout) } {
             Ok(count) => Ok(count),
-            Err(_err) => {
-                // ret is None if there is more than 2^32 waiter in queue or some other error
-                // TODO: why THIS specific trap code tho? -.-
-                Err(Trap::lib(TrapCode::TableAccessOutOfBounds))
-            }
+            Err(_err) => Err(Trap::lib(TrapCode::HostInterrupt)),
         }
     }
 
@@ -1099,7 +1095,7 @@ pub struct VMInstance {
 
 /// VMInstance are created with an InstanceAllocator
 /// and it will "consume" the memory
-/// So the Drop here actualy free it (else it would be leaked)
+/// So the Drop here actually free it (else it would be leaked)
 impl Drop for VMInstance {
     fn drop(&mut self) {
         let instance_ptr = self.instance.as_ptr();

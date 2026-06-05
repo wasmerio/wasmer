@@ -83,6 +83,24 @@ fn test_shared_memory_disable_atomics() {
     assert_eq!(err, AtomicsError::AtomicsDisabled);
 }
 
+#[cfg(feature = "sys")]
+#[test]
+fn test_shared_memory_copy_is_independent() {
+    let mut store = Store::default();
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(2), true)).unwrap();
+
+    memory.view(&store).write(0, b"before").unwrap();
+
+    let mut copy_store = Store::default();
+    let copied = memory.copy(&store).unwrap().attach(&mut copy_store);
+
+    memory.view(&store).write(0, b"after!").unwrap();
+
+    let mut buf = [0; 6];
+    copied.view(&copy_store).read(0, &mut buf).unwrap();
+    assert_eq!(&buf, b"before");
+}
+
 /// See https://github.com/wasmerio/wasmer/issues/5444
 #[test]
 #[cfg(feature = "sys")]

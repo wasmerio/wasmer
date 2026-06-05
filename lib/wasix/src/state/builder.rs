@@ -86,7 +86,7 @@ pub struct WasiEnvBuilder {
     /// List of builtin commands to register in the WASI instance.
     pub(super) builtin_commands: Vec<(String, Arc<dyn VirtualCommand + Send + Sync + 'static>)>,
 
-    pub(super) capabilites: Capabilities,
+    pub(super) capabilities: Capabilities,
 
     #[cfg(feature = "journal")]
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
@@ -182,7 +182,7 @@ impl WasiEnvBuilder {
     }
 
     /// Attaches a ctrl-c handler which will send signals to the
-    /// process rather than immediately termiante it
+    /// process rather than immediately terminate it
     #[cfg(feature = "ctrlc")]
     pub fn attach_ctrl_c(mut self) -> Self {
         self.attach_ctrl_c = true;
@@ -670,7 +670,7 @@ impl WasiEnvBuilder {
         Ok(())
     }
 
-    /// Preopen directorys with a different names exposed to the WASI.
+    /// Preopen directories with a different names exposed to the WASI.
     pub fn map_dirs<I, P>(mut self, mapped_dirs: I) -> Result<Self, WasiStateCreationError>
     where
         I: IntoIterator<Item = (String, P)>,
@@ -828,11 +828,11 @@ impl WasiEnvBuilder {
     }
 
     pub fn capabilities_mut(&mut self) -> &mut Capabilities {
-        &mut self.capabilites
+        &mut self.capabilities
     }
 
     pub fn set_capabilities(&mut self, capabilities: Capabilities) {
-        self.capabilites = capabilities;
+        self.capabilities = capabilities;
     }
 
     #[cfg(feature = "journal")]
@@ -861,7 +861,7 @@ impl WasiEnvBuilder {
     ///
     /// NOTE: You should prefer to not work directly with [`WasiEnvInit`].
     /// Use [`WasiEnvBuilder::build`] or [`WasiEnvBuilder::instantiate`] instead
-    /// to ensure proper invokation of WASI modules.
+    /// to ensure proper invocation of WASI modules.
     pub fn build_init(mut self) -> Result<WasiEnvInit, WasiStateCreationError> {
         for arg in self.args.iter() {
             for b in arg.as_bytes().iter() {
@@ -1054,7 +1054,7 @@ impl WasiEnvBuilder {
             bin_factory.register_builtin_command_with_path_shared(command, path);
         }
 
-        let capabilities = self.capabilites;
+        let capabilities = self.capabilities;
 
         let plane_config = ControlPlaneConfig {
             max_task_count: capabilities.threading.max_threads,

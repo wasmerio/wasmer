@@ -533,8 +533,8 @@ type PackageVersion implements Node & PackageReleaseInterface & PackageInstance 
   isSigned: Boolean!
   moduleInterfaces: [InterfaceVersion!]!
   modules: [PackageVersionModule!]!
-  getPiritaContents(volume: String! = "atom", base: String! = ""): [PiritaFilesystemItem!]! @deprecated(reason: "File exploration is of the webc is not supported anymore, please get the files directly fromt he webc")
-  getWebcContents(volume: String! = "atom", base: String! = "/"): [WEBCFilesystemItem!]! @deprecated(reason: "File exploration is of the webc is not supported anymore, please get the files directly fromt he webc")
+  getPiritaContents(volume: String! = "atom", base: String! = ""): [PiritaFilesystemItem!]! @deprecated(reason: "File exploration is of the webc is not supported anymore, please get the files directly from the webc")
+  getWebcContents(volume: String! = "atom", base: String! = "/"): [WEBCFilesystemItem!]! @deprecated(reason: "File exploration is of the webc is not supported anymore, please get the files directly from the webc")
   nativeExecutables(triple: String, wasmerCompilerVersion: String): [NativeExecutable]
   bindings: [PackageVersionLanguageBinding]!
   npmBindings: PackageVersionNPMBinding

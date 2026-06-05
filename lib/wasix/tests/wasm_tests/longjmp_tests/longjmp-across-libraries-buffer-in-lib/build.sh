@@ -1,4 +1,5 @@
 #!/bin/bash
+##ExpectedStdout: abc
 set -ex
 
 $CC -c library.c -o library.o

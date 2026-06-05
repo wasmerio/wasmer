@@ -15,16 +15,27 @@
 //!
 //! Ready?
 
-use wasmer::{Instance, Module, Store};
+use wasmer::{Instance, Module, Store, wat2wasm};
 use wasmer_wasix::WasiEnv;
 
+const HELLO_WASI_WAT: &[u8] = br#"
+(module
+  (import "wasi_snapshot_preview1" "fd_write"
+    (func $fd_write (param i32 i32 i32 i32) (result i32)))
+  (memory (export "memory") 1)
+  (data (i32.const 0) "\10\00\00\00\0e\00\00\00")
+  (data (i32.const 16) "Hello, world!\0a")
+  (func (export "_start")
+    i32.const 1
+    i32.const 0
+    i32.const 1
+    i32.const 8
+    call $fd_write
+    drop))
+"#;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let wasm_path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/wasi-wast/wasi/unstable/hello.wasm"
-    );
-    // Let's declare the Wasm module with the text representation.
-    let wasm_bytes = std::fs::read(wasm_path)?;
+    let wasm_bytes = wat2wasm(HELLO_WASI_WAT)?;
 
     // Create a Store.
     let mut store = Store::default();

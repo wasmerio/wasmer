@@ -541,11 +541,8 @@ impl WasiThread {
                     snapshot.store_data.clone(),
                 ));
             }
-            if let Some(next) = pstack.next.as_ref() {
-                pstack = next.deref();
-            } else {
-                return None;
-            }
+            let next = pstack.next.as_ref()?;
+            pstack = next.deref();
         }
     }
 

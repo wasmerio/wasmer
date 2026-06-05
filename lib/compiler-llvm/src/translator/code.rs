@@ -509,6 +509,7 @@ impl FuncTranslator {
                 })
             },
             self.binary_fmt,
+            &self.target_triple,
         )
     }
 }
@@ -1893,7 +1894,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
         tag_glbl.set_linkage(Linkage::External);
         tag_glbl.set_constant(true);
-        // Why set this to a specific section? On macOS it would land on a specifc read only data
+        // Why set this to a specific section? On macOS it would land on a specific read only data
         // section. GOT-based relocations will probably be generated with a non-zero addend, making
         // some EH-related intricacies not working.
         //
@@ -2172,7 +2173,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             m0_param.is_some(),
         )?;
 
-        // Apply pending canonicalizations.
+        // Apply pending canonicalization.
         let params = params
             .iter()
             .zip(func_type.params().iter())
@@ -3223,7 +3224,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 // If the pending bits of v1 and v2 are the same, we can pass
                 // them along to the result. Otherwise, apply pending
-                // canonicalizations now.
+                // canonicalization now.
                 let (v1, i1, v2, i2) = if i1.has_pending_f32_nan() != i2.has_pending_f32_nan()
                     || i1.has_pending_f64_nan() != i2.has_pending_f64_nan()
                 {
@@ -3300,7 +3301,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 */
                 let params = self.state.popn_save_extra(func_type.params().len())?;
 
-                // Apply pending canonicalizations.
+                // Apply pending canonicalization.
                 let params = params
                     .iter()
                     .zip(func_type.params().iter())
@@ -9496,7 +9497,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             //     let res = self
             //         .builder
             //         .build_signed_int_to_float(v, self.intrinsics.f64x2_ty, "");
-            //     let res = chck_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
+            //     let res = check_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
             //     self.state.push1(res);
             // }
             // Operator::F64x2ConvertI64x2U => {
@@ -9508,7 +9509,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             //     let res = self
             //         .builder
             //         .build_unsigned_int_to_float(v, self.intrinsics.f64x2_ty, "");
-            //     let res = chck_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
+            //     let res = check_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
             //     self.state.push1(res);
             // }
             Operator::I32ReinterpretF32 => {
@@ -11183,8 +11184,19 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(ty.const_zero());
             }
             Operator::RefIsNull => {
-                let value = self.state.pop1()?.into_pointer_value();
-                let is_null = err!(self.builder.build_is_null(value, ""));
+                let value = self.state.pop1()?;
+                let is_null = match value {
+                    BasicValueEnum::IntValue(value) => err!(self.builder.build_int_compare(
+                        IntPredicate::EQ,
+                        value,
+                        value.get_type().const_zero(),
+                        "",
+                    )),
+                    BasicValueEnum::PointerValue(value) => {
+                        err!(self.builder.build_is_null(value, ""))
+                    }
+                    _ => unreachable!("ref.is_null only accepts reference types"),
+                };
                 let is_null = err!(self.builder.build_int_z_extend(
                     is_null,
                     self.intrinsics.i32_ty,
@@ -11566,7 +11578,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     // just re-allocate a new exception.
                     //
                     // Note that this is different from how it's done in C++ land, where the
-                    // exception object is kept around for rethrowing; this discrepency exists
+                    // exception object is kept around for rethrowing; this discrepancy exists
                     // because in C++, exception handling is lexical (i.e. there's an implicit
                     // "current exception" in catch blocks) whereas in WASM, you rethrow with
                     // an exnref that may very well have come from somewhere else; consider this
@@ -11827,7 +11839,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 // Move back to current block
                 self.builder.position_at_end(current_block);
 
-                // Note: catch_tag_values also containes outer tags, but zipping with
+                // Note: catch_tag_values also contains outer tags, but zipping with
                 // catch_blocks will let us ignore the extra ones.
                 let catch_tags_and_blocks = catch_tag_values
                     .into_iter()

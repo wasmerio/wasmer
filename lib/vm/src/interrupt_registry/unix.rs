@@ -1,5 +1,3 @@
-#![cfg(unix)]
-
 use std::{
     cell::UnsafeCell,
     ffi::CStr,
@@ -131,11 +129,7 @@ pub(super) fn uninstall(store_id: StoreId) {
         match borrow.active_stores.pop_if(|x| *x == store_id) {
             Some(_) => {
                 borrow.current_active_store.store(
-                    borrow
-                        .active_stores
-                        .last()
-                        .map(|x| x.as_raw().get())
-                        .unwrap_or(0),
+                    borrow.active_stores.last().map_or(0, |x| x.as_raw().get()),
                     Ordering::Release,
                 );
                 borrow.active_stores.contains(&store_id)
@@ -170,7 +164,7 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
     };
     let store_state = store_state.get_mut();
 
-    if let Err(_) = store_state
+    if store_state
         .thread_current_signal_target_store
         .compare_exchange(
             0,
@@ -178,6 +172,7 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
             Ordering::SeqCst,
             Ordering::SeqCst,
         )
+        .is_err()
     {
         return Err(InterruptError::OtherInterruptInProgress);
     }
@@ -213,12 +208,16 @@ pub(crate) fn on_interrupted() -> bool {
             current_signal_target_store, 0,
             "current_signal_target_store should be set before signalling the WASM thread"
         );
-        if let Err(_) = state.current_signal_target_store.compare_exchange(
-            current_signal_target_store,
-            0,
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-        ) {
+        if state
+            .current_signal_target_store
+            .compare_exchange(
+                current_signal_target_store,
+                0,
+                Ordering::SeqCst,
+                Ordering::SeqCst,
+            )
+            .is_err()
+        {
             unreachable!("current_signal_target_store isn't changed unless it's zero");
         }
 

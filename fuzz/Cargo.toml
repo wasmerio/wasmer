@@ -21,9 +21,9 @@ wasmer-middlewares = { path = "../lib/middlewares" }
 wasmprinter.workspace = true
 
 [features]
-cranelift = [ "wasmer-compiler-cranelift" ]
-llvm = [ "wasmer-compiler-llvm" ]
-singlepass = [ "wasmer-compiler-singlepass" ]
+cranelift = ["wasmer-compiler-cranelift"]
+llvm = ["wasmer-compiler-llvm"]
+singlepass = ["wasmer-compiler-singlepass"]
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-compiler/static-artifact-load"]

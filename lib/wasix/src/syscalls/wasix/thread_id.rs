@@ -3,7 +3,7 @@ use crate::syscalls::*;
 
 /// ### `thread_id()`
 /// Returns the index of the current thread
-/// (threads indices are sequencial from zero)
+/// (threads indices are sequential from zero)
 #[instrument(level = "trace", skip_all, fields(tid = field::Empty), ret)]
 pub fn thread_id<M: MemorySize>(
     ctx: FunctionEnvMut<'_, WasiEnv>,

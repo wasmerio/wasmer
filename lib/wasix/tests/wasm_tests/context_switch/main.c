@@ -1,3 +1,5 @@
+//#SkipEngine:V8:async functions are not supported yet
+
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>

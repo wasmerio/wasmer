@@ -116,7 +116,7 @@ impl WasmerEnv {
     /// Retrieve the specified token.
     ///
     /// NOTE: In contrast to [`Self::token`], this will not fall back to loading
-    /// the token from the confg file.
+    /// the token from the config file.
     #[allow(unused)]
     pub fn get_token_opt(&self) -> Option<&str> {
         self.token.as_deref()

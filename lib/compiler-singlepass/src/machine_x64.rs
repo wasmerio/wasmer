@@ -465,8 +465,8 @@ impl MachineX86_64 {
         unaligned_atomic: Label,
         cb: F,
     ) -> Result<(), CompileError> {
-        // This function as been re-writen to use only 2 temporary register instead of 3
-        // without compromisong on the perfomances.
+        // This function as been re-written to use only 2 temporary register instead of 3
+        // without compromisong on the performances.
         // The number of memory move should be equivalent to previous 3-temp regs version
         // Register pressure is high on x86_64, and this is needed to be able to use
         // instruction that neead RAX, like cmpxchg for example
@@ -5144,7 +5144,7 @@ impl Machine for MachineX86_64 {
                         )?; // clear upper bits
                     }
                     _ => {
-                        codegen_error!("singlepass i64_load_32u unreacahble");
+                        codegen_error!("singlepass i64_load_32u unreachable");
                     }
                 }
                 this.emit_relaxed_binop(

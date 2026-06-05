@@ -12,6 +12,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
+    state::PreparedInstanceGroupData,
     syscalls::platform_clock_time_get,
 };
 use futures::future::BoxFuture;
@@ -467,7 +468,7 @@ impl WasiEnv {
         memory: Option<Memory>,
         update_layout: bool,
         call_initialize: bool,
-        parent_linker_and_ctx: Option<(Linker, &mut FunctionEnvMut<WasiEnv>)>,
+        linker_instance_group_data: Option<PreparedInstanceGroupData>,
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
         let pid = self.process.pid();
 
@@ -477,8 +478,10 @@ impl WasiEnv {
 
         let is_dl = super::linker::is_dynamically_linked(&module);
         if is_dl {
-            let linker = match parent_linker_and_ctx {
-                Some((linker, ctx)) => linker.create_instance_group(ctx, &mut store, &mut func_env),
+            let linker = match linker_instance_group_data {
+                Some(instance_group_data) => {
+                    Linker::create_instance_group(instance_group_data, &mut store, &mut func_env)
+                }
                 None => {
                     // FIXME: should we be storing envs as raw byte arrays?
                     let ld_library_path_owned;
@@ -697,7 +700,7 @@ impl WasiEnv {
         Ok(())
     }
 
-    /// Porcesses any signals that are batched up or any forced exit codes
+    /// Processes any signals that are batched up or any forced exit codes
     pub fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
@@ -734,7 +737,7 @@ impl WasiEnv {
         Self::process_signals(ctx)
     }
 
-    /// Porcesses any signals that are batched up
+    /// Processes any signals that are batched up
     pub(crate) fn process_signals(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
         // differently
@@ -1087,6 +1090,10 @@ impl WasiEnv {
         (state, inodes)
     }
 
+    pub(crate) fn get_wasi_state(&self) -> &WasiState {
+        self.state.deref()
+    }
+
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
         block_on(self.use_package_async(pkg))
     }
@@ -1283,25 +1290,27 @@ impl WasiEnv {
             let timeout = self.tasks().sleep_now(CLEANUP_TIMEOUT);
             let state = self.state.clone();
             Box::pin(async move {
-                if !disable_fs_cleanup {
-                    tracing::trace!(pid = %pid, "cleaning up open file handles");
+                if process.try_start_cleanup() {
+                    if !disable_fs_cleanup {
+                        tracing::trace!(pid = %pid, "cleaning up open file handles");
 
-                    // Perform the clean operation using the asynchronous runtime
-                    tokio::select! {
-                        _ = timeout => {
-                            tracing::debug!(
-                                "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
-                            );
-                        },
-                        _ = state.fs.close_all() => { }
+                        // Perform the clean operation using the asynchronous runtime
+                        tokio::select! {
+                            _ = timeout => {
+                                tracing::debug!(
+                                    "WasiEnv::cleanup has timed out after {CLEANUP_TIMEOUT:?}"
+                                );
+                            },
+                            _ = state.fs.close_all() => { }
+                        }
                     }
 
                     // Now send a signal that the thread is terminated
                     process.signal_process(Signal::Sigquit);
-                }
 
-                // Terminate the process
-                process.terminate(process_exit_code);
+                    // Terminate the process
+                    process.terminate(process_exit_code);
+                }
             })
         } else {
             Box::pin(async {})

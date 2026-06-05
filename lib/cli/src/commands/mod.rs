@@ -203,7 +203,7 @@ impl WasmerCmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),
             },
             #[cfg(feature = "static-artifact-create")]
-            Some(Cmd::GenCHeader(gen_heder)) => gen_heder.execute(),
+            Some(Cmd::GenCHeader(gen_header)) => gen_header.execute(),
             #[cfg(feature = "wast")]
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]

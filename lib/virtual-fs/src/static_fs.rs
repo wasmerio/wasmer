@@ -135,27 +135,27 @@ impl AsyncRead for WebCFile {
         _cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        let bytes = self
+        let this = self.get_mut();
+        let bytes = this
             .volumes
-            .get(&self.volume)
+            .get(&this.volume)
             .ok_or_else(|| {
                 IoError::new(
                     IoErrorKind::NotFound,
-                    anyhow!("Unknown volume {:?}", self.volume),
+                    anyhow!("Unknown volume {:?}", this.volume),
                 )
             })?
-            .get_file_bytes(&self.entry)
+            .get_file_bytes(&this.entry)
             .map_err(|e| IoError::new(IoErrorKind::NotFound, e))?;
 
-        let cursor: usize = self.cursor.try_into().unwrap_or(u32::MAX as usize);
-        let _start = cursor.min(bytes.len());
-        let bytes = &bytes[cursor..];
+        let cursor: usize = this.cursor.try_into().unwrap_or(u32::MAX as usize);
+        let start = cursor.min(bytes.len());
+        let bytes = &bytes[start..];
+        let bytes_read = bytes.len().min(buf.remaining());
 
-        if bytes.len() > buf.remaining() {
-            let remaining = buf.remaining();
-            buf.put_slice(&bytes[..remaining]);
-        } else {
-            buf.put_slice(bytes);
+        if bytes_read > 0 {
+            buf.put_slice(&bytes[..bytes_read]);
+            this.cursor = this.cursor.saturating_add(bytes_read as u64);
         }
         Poll::Ready(Ok(()))
     }
@@ -400,5 +400,61 @@ fn translate_file_type(f: FsEntryType) -> crate::FileType {
         block_device: false,
         socket: false,
         fifo: false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use indexmap::IndexMap;
+    use std::path::Path;
+    use tokio::io::AsyncReadExt;
+    use webc::{
+        metadata::Manifest,
+        v1::{DirOrFile, Volume, WebC},
+    };
+
+    fn fileblock_with_wasm_file() -> &'static [u8] {
+        let volume_bytes = Volume::serialize_files(
+            [(
+                DirOrFile::File(Path::new("lib/python.wasm").to_path_buf()),
+                vec![0, 97, 115, 109, 1, 0, 0, 0],
+            )]
+            .into_iter()
+            .collect(),
+        );
+
+        let mut volumes = IndexMap::new();
+        volumes.insert("atom".to_string(), Volume::parse(&volume_bytes).unwrap());
+
+        let fileblock = WebC {
+            version: 1,
+            checksum: None,
+            signature: None,
+            manifest: Manifest::default(),
+            atoms: Volume::parse(&volume_bytes).unwrap(),
+            volumes,
+        }
+        .get_volumes_as_fileblock();
+
+        Box::leak(fileblock.into_boxed_slice())
+    }
+
+    #[tokio::test]
+    async fn static_webc_reads_advance_the_cursor() {
+        let fs = StaticFileSystem::init(fileblock_with_wasm_file(), "python").unwrap();
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .open("/lib/python.wasm")
+            .unwrap();
+
+        let mut first = [0; 4];
+        file.read_exact(&mut first).await.unwrap();
+        assert_eq!(&first, b"\0asm");
+
+        let mut second = [0; 4];
+        file.read_exact(&mut second).await.unwrap();
+        assert_eq!(second, [1, 0, 0, 0]);
     }
 }

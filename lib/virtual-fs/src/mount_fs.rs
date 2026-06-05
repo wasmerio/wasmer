@@ -1,6 +1,6 @@
 //! A mount-topology filesystem that routes operations by path,
 //! its not as simple as TmpFs. not currently used but was used by
-//! the previoulsy implementation of Deploy - now using TmpFs
+//! the previously implementation of Deploy - now using TmpFs
 
 use crate::*;
 
@@ -556,6 +556,37 @@ impl FileSystem for MountFileSystem {
         match self.resolve_mount(target) {
             Some(resolved) => resolved.fs.create_symlink(source, &resolved.delegated_path),
             None => Err(FsError::EntryNotFound),
+        }
+    }
+
+    fn hard_link(&self, source: &Path, target: &Path) -> Result<()> {
+        let source = self.prepare_path(source)?;
+        let target = self.prepare_path(target)?;
+
+        if source.as_os_str().is_empty() {
+            return Err(FsError::PermissionDenied);
+        }
+
+        if target.as_os_str().is_empty() {
+            return Err(FsError::AlreadyExists);
+        }
+
+        if let Some(node) = self.exact_node(&target)
+            && (node.fs.is_some() || node.has_children())
+        {
+            return Err(FsError::AlreadyExists);
+        }
+
+        match (self.resolve_mount(source), self.resolve_mount(target)) {
+            (Some(source_mount), Some(target_mount))
+                if source_mount.mount_path == target_mount.mount_path =>
+            {
+                source_mount
+                    .fs
+                    .hard_link(&source_mount.delegated_path, &target_mount.delegated_path)
+            }
+            (Some(_), Some(_)) => Err(FsError::Unsupported),
+            _ => Err(FsError::EntryNotFound),
         }
     }
 

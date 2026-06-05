@@ -953,7 +953,6 @@ mod tests {
     }
 
     #[tokio::test]
-    #[ignore = "TODO: Re-order the way commands are resolved"]
     async fn commands_in_root_shadow_their_dependencies() {
         let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
         let dep_id = PackageId::new_named("dep", "1.0.0".parse().unwrap());
@@ -986,7 +985,7 @@ mod tests {
                         package: builder.get(&root_id).package_id(),
                      },
                 },
-                entrypoint: None,
+                entrypoint: Some("command".to_string()),
                 filesystem: Vec::new(),
             }
         );

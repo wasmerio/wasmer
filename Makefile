@@ -220,6 +220,10 @@ endif
 compilers := $(strip $(compilers))
 build_compilers := $(strip $(build_compilers) $(compilers))
 
+ifeq ($(IS_WINDOWS), 1)
+	build_compilers := $(filter-out llvm,$(build_compilers))
+endif
+
 
 #####
 #
@@ -245,7 +249,7 @@ endif
 ##
 
 ifeq ($(ENABLE_LLVM), 1)
-	ifneq (, $(filter 1, $(IS_WINDOWS) $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm
 		else ifeq ($(IS_AARCH64), 1)
@@ -293,8 +297,26 @@ space := $() $()
 comma := ,
 build_wasmer_extra_features_csv = $(subst $(space),$(comma),$(build_wasmer_extra_features))
 
+test_compilers := $(compilers)
+ifeq ($(IS_AMD64), 1)
+	ifneq (, $(filter 1, $(IS_LINUX) $(IS_WINDOWS)))
+		test_compilers += v8
+	endif
+else ifeq ($(IS_AARCH64), 1)
+	ifeq ($(IS_DARWIN), 1)
+		test_compilers += v8
+	endif
+endif
+test_compilers := $(strip $(test_compilers))
+ifeq ($(IS_WINDOWS), 1)
+	test_compilers := $(filter-out llvm,$(test_compilers))
+endif
+
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+# virtual-net integration tests in src/tests.rs are gated on the crate's `tokio` feature.
+virtual_net_test_features := --features tokio
 build_compiler_features = --features $(subst $(space),$(comma),$(build_compilers))$(if $(build_wasmer_extra_features_csv),$(comma)$(build_wasmer_extra_features_csv)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 capi_compilers_engines_exclude :=
 
@@ -550,39 +572,29 @@ build-capi-headless-ios:
 #
 #####
 
-# test compilers (intentionally not using nextest as it runs tests in separate processes)
-test-stage-0-wast:
+# intentionally not using nextest as it runs tests in separate processes
+test-wast:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
-
-# test packages
-test-stage-1-test-all:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --features experimental-async,experimental-host-interrupt --locked && \
-	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(compiler_features) --features experimental-async,experimental-host-interrupt --locked
-test-stage-2-test-compiler-cranelift-nostd:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std --locked
-test-stage-3-test-compiler-singlepass-nostd:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std --locked
-test-stage-4-wasmer-cli:
+test-all:
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features experimental-async,experimental-host-interrupt --locked && \
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-net/Cargo.toml --release $(virtual_net_test_features) --locked && \
+	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features experimental-async,experimental-host-interrupt --locked
+check-compilers-only-std:
+	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std --locked && \
+	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std --locked
+test-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-fs/Cargo.toml --release --locked && \
-$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release --locked
-
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release --locked
 # test examples
-test-stage-5-test-examples:
+test-examples:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) $(compiler_features) --features wasi --examples --locked
-test-stage-6-test-examples-release:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --features wasi --examples --locked
-
-test-stage-7-capi-integration-tests:
+test-capi-integration-tests:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --package wasmer-c-api-test-runner --locked && \
-$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --package wasmer-capi-examples-runner --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --package wasmer-capi-examples-runner --locked
 
-test: test-compilers test-packages test-examples
+test: test-all test-examples
 
-test-compilers: test-stage-0-wast
-
-test-packages: test-stage-1-test-all test-stage-2-test-compiler-cranelift-nostd test-stage-3-test-compiler-singlepass-nostd test-stage-4-wasmer-cli
-
-test-examples: test-stage-5-test-examples test-stage-6-test-examples-release
+test-packages: test-all check-compilers-only-std test-wasmer-cli
 
 
 test-v8: test-v8-api
@@ -654,20 +666,6 @@ test-capi-integration-%:
 	# Test the Wasmer C API examples
 	cd lib/c-api/examples; WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-integration-//) WASMER_DIR=`pwd`/../../../package make run
 
-test-wasi-unit:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/wasi/Cargo.toml --release --locked
-
-test-wasi:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --tests $(compiler_features) --locked -- wasi::wasitests
-
-test-wasi-fyi: build-wasmer
-	cd tests/wasi-fyi; \
-	./test.sh
-
-test-wasix: build-wasmer
-	cd tests/wasix; \
-	./test.sh
-
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci: require-nextest build-wasmer
 	rustup target add wasm32-wasip1
@@ -676,10 +674,6 @@ test-integration-cli-ci: require-nextest build-wasmer
 test-integration-ios:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios --locked
 
-generate-wasi-tests:
-# Uncomment the following for installing the toolchain
-#   cargo run -p wasi-test-generator -- -s
-	$(CARGO_BINARY) run $(CARGO_TARGET_FLAG) -p wasi-test-generator -- -g
 #####
 #
 # Packaging.
@@ -904,6 +898,8 @@ lint-clang-format:
 	find . \( -path './lib/napi' -o -path './target' \) -prune -o -type f \( -name '*.c' -o -name '*.cpp' \) -exec clang-format --dry-run --color -Werror {} +
 lint-yamlfmt:
 	yamlfmt -lint .github
+lint-taplo:
+	taplo format --check --diff
 
 lint-v8:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="v8-default" --locked -- -D clippy::all
@@ -915,7 +911,7 @@ lint-formatting:
 	cargo fmt --all -- --check
 	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
-lint: lint-yamlfmt lint-clang-format lint-formatting lint-packages
+lint: lint-yamlfmt lint-clang-format lint-formatting lint-packages lint-taplo
 
 lint-all: lint-formatting lint-packages lint-v8 lint-capi-ci lint-package-crate
 

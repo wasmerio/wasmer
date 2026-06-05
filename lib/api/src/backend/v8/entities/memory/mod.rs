@@ -6,8 +6,7 @@ pub use wasmer_types::MemoryError;
 use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError,
-    shared::SharedMemory,
+    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError, SharedMemory,
     v8::{bindings::*, vm::VMMemory},
     vm::{VMExtern, VMExternMemory},
 };
@@ -22,9 +21,6 @@ use super::check_isolate;
 pub struct Memory {
     pub(crate) handle: VMMemory,
 }
-
-unsafe impl Send for Memory {}
-unsafe impl Sync for Memory {}
 
 impl Memory {
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
@@ -61,7 +57,9 @@ impl Memory {
         let memorytype = unsafe { wasm_memorytype_new(limits) };
         let c_memory = unsafe { wasm_memory_new(v8_store.inner, memorytype) };
 
-        Ok(Self { handle: c_memory })
+        Ok(Self {
+            handle: VMMemory(c_memory),
+        })
     }
 
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
@@ -71,14 +69,14 @@ impl Memory {
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::V8(unsafe { wasm_memory_as_extern(self.handle) })
+        VMExtern::V8(unsafe { wasm_memory_as_extern(self.handle.0) })
     }
 
     pub fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
         check_isolate(store);
         let store = store.as_store_ref();
 
-        let memory_type: *mut wasm_memorytype_t = unsafe { wasm_memory_type(self.handle) };
+        let memory_type: *mut wasm_memorytype_t = unsafe { wasm_memory_type(self.handle.0) };
         let limits: *const wasm_limits_t = unsafe { wasm_memorytype_limits(memory_type) };
 
         MemoryType {
@@ -90,7 +88,7 @@ impl Memory {
 
     pub fn size(&self, store: &impl AsStoreRef) -> Pages {
         check_isolate(store);
-        let size = unsafe { wasm_memory_size(self.handle) };
+        let size = unsafe { wasm_memory_size(self.handle.0) };
         Pages(size)
     }
 
@@ -113,9 +111,9 @@ impl Memory {
         let store_mut = store.as_store_mut();
         unsafe {
             let delta: Pages = delta.into();
-            let current = Pages(wasm_memory_size(self.handle));
+            let current = Pages(wasm_memory_size(self.handle.0));
 
-            if !wasm_memory_grow(self.handle, delta.0) {
+            if !wasm_memory_grow(self.handle.0, delta.0) {
                 Err(MemoryError::CouldNotGrow {
                     current,
                     attempted_delta: delta,
@@ -133,12 +131,14 @@ impl Memory {
     ) -> Result<(), MemoryError> {
         check_isolate(store);
         let store_mut = store.as_store_mut();
+        let min_size = Pages::from_bytes_rounded_up(min_size).ok_or_else(|| {
+            MemoryError::Generic("could not represent {min_size} in Pages".to_owned())
+        })?;
 
         unsafe {
-            let current = wasm_memory_size(self.handle);
-            let delta = (min_size as u32) - current;
-            if delta > 0 {
-                self.grow(store, delta)?;
+            let current_pages = wasm_memory_size(self.handle.0);
+            if min_size.0 > current_pages {
+                self.grow(store, Pages(min_size.0 - current_pages))?;
             }
         }
 
@@ -147,61 +147,77 @@ impl Memory {
 
     pub fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
         check_isolate(store);
-        Ok(())
-    }
-
-    pub fn copy_to_store(
-        &self,
-        store: &impl AsStoreRef,
-        new_store: &mut impl AsStoreMut,
-    ) -> Result<Self, MemoryError> {
-        unimplemented!();
-        // let view = self.view(store);
-        // let ty = self.ty(store);
-        // let amount = view.data_size() as usize;
-
-        // let new_memory = Self::new(new_store, ty)?;
-        // let mut new_view = new_memory.view(&new_store);
-        // let new_view_size = new_view.data_size() as usize;
-        // if amount > new_view_size {
-        //     let delta = amount - new_view_size;
-        //     let pages = ((delta - 1) / wasmer_types::WASM_PAGE_SIZE) + 1;
-        //     new_memory.grow(new_store, Pages(pages as u32))?;
-        //     new_view = new_memory.view(&new_store);
-        // }
-
-        // // Copy the bytes
-        // view.copy_to_memory(amount as u64, &new_view)
-        //     .map_err(|err| MemoryError::Generic(err.to_string()))?;
-        // // // Return the new memory
-        // Ok(new_memory)
+        Err(MemoryError::UnsupportedOperation {
+            message: "reset not supported for V8 memory".to_owned(),
+        })
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, internal: VMExternMemory) -> Self {
         check_isolate(store);
         Self {
-            handle: internal.unwrap_v_8(),
+            handle: VMMemory(internal.unwrap_v_8()),
         }
     }
 
-    /// Cloning memory will create another reference to the same memory that
-    /// can be put into a new store
-    pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        check_isolate(store);
-        Ok(self.handle)
-    }
-
-    /// Copying the memory will actually copy all the bytes in the memory to
-    /// a identical byte copy of the original that can be put into a new store
-    pub fn try_copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
+    pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         check_isolate(store);
 
-        let res = unsafe { wasm_memory_copy(self.handle) };
-        if res.is_null() {
-            Err(MemoryError::Generic("memory copy failed".to_owned()))
-        } else {
-            Ok(res)
+        let ty = self.ty(store);
+        if !ty.shared {
+            return Err(MemoryError::MemoryNotShared);
         }
+
+        let store_ref = store.as_store_ref();
+        let v8_store = store_ref.inner.store.as_v8();
+
+        let limits = wasm_limits_t {
+            min: ty.minimum.0,
+            max: ty.maximum.unwrap_or(Pages::max_value()).0,
+            shared: ty.shared,
+        };
+
+        let memorytype = unsafe { wasm_memorytype_new(&limits) };
+        let copied_memory = unsafe { wasm_memory_new(v8_store.inner, memorytype) };
+        unsafe {
+            wasm_memorytype_delete(memorytype);
+        }
+        if copied_memory.is_null() {
+            return Err(MemoryError::Generic(
+                "failed to allocate copied V8 memory".to_owned(),
+            ));
+        }
+
+        let copied = Self {
+            handle: VMMemory(copied_memory),
+        };
+
+        let src_view = self.view(store);
+        let dst_view = copied.view(store);
+        let src_pages = src_view.size();
+        let dst_pages = dst_view.size();
+
+        if src_pages > dst_pages {
+            let delta = src_pages.0.checked_sub(dst_pages.0).ok_or_else(|| {
+                MemoryError::Generic("failed to calculate V8 memory copy growth".to_owned())
+            })?;
+
+            if !unsafe { wasm_memory_grow(copied.handle.0, delta) } {
+                return Err(MemoryError::CouldNotGrow {
+                    current: dst_pages,
+                    attempted_delta: Pages(delta),
+                });
+            }
+        }
+
+        let src_view = self.view(store);
+        let dst_view = copied.view(store);
+        src_view
+            .copy_to_memory(src_view.data_size(), &dst_view)
+            .map_err(|err| MemoryError::Generic(format!("failed to copy V8 memory: {err}")))?;
+
+        Ok(SharedMemory::new(crate::vm::VMSharedMemory::V8(
+            copied.handle.as_shared()?,
+        )))
     }
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
@@ -209,21 +225,17 @@ impl Memory {
         true
     }
 
-    #[allow(unused)]
-    pub fn duplicate(&mut self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        unimplemented!();
-        // self.handle.duplicate(store)
-    }
-
-    pub fn as_shared(&self, _store: &impl AsStoreRef) -> Option<SharedMemory> {
-        // Not supported.
-        None
+    pub fn as_shared(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+        check_isolate(store);
+        Ok(SharedMemory::new(crate::vm::VMSharedMemory::V8(
+            self.handle.as_shared()?,
+        )))
     }
 }
 
 impl std::cmp::PartialEq for Memory {
     fn eq(&self, other: &Self) -> bool {
-        self.handle == other.handle
+        self.handle.0 == other.handle.0
     }
 }
 

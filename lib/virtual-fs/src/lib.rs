@@ -81,7 +81,7 @@ pub use tokio::io::{AsyncRead, AsyncReadExt};
 pub use tokio::io::{AsyncSeek, AsyncSeekExt};
 pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
-pub trait ClonableVirtualFile: VirtualFile + Clone {}
+pub trait CloneableVirtualFile: VirtualFile + Clone {}
 
 pub use ops::{copy_reference, copy_reference_ext, create_dir_all, walk};
 
@@ -90,6 +90,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
     fn create_dir(&self, path: &Path) -> Result<()>;
     fn create_symlink(&self, _source: &Path, _target: &Path) -> Result<()> {
+        Err(FsError::Unsupported)
+    }
+    fn hard_link(&self, _source: &Path, _target: &Path) -> Result<()> {
         Err(FsError::Unsupported)
     }
     fn remove_dir(&self, path: &Path) -> Result<()>;
@@ -358,7 +361,11 @@ pub trait VirtualFile:
     /// the extra bytes will be allocated and zeroed
     fn set_len(&mut self, new_size: u64) -> Result<()>;
 
-    /// Request deletion of the file
+    /// Remove the file from the filesystem namespace.
+    ///
+    /// Existing open handles may continue to operate after this call.
+    /// Backends may defer final storage reclamation until the last open
+    /// handle is dropped.
     fn unlink(&mut self) -> Result<()>;
 
     /// Indicates if the file is opened or closed. This function must not block

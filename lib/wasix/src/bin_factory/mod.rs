@@ -170,7 +170,7 @@ impl BinFactory {
         {
             let cache = self.local.read().unwrap();
             if let Some(data) = cache.get(&name) {
-                data.clone().map(Executable::BinaryPackage);
+                return data.clone().map(Executable::BinaryPackage);
             }
         }
 

@@ -12,15 +12,27 @@ version.workspace = true
 wasmer_lib = ["dep:wasmer"]
 
 [dependencies]
-wasmer = { version = "7.2.0-alpha.2", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
+wasmer = { version = "7.2.0-alpha.3", path = "../../lib/api", features = [
+  "core",
+  "singlepass",
+  "cranelift",
+  "llvm",
+], optional = true }
 indicatif.workspace = true
 anyhow.workspace = true
 log.workspace = true
 cynic.workspace = true
 url.workspace = true
 futures.workspace = true
-tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread", "sync", "time", "fs"] }
-clap = {workspace = true, features = ["derive", "string"]}
+tokio = { workspace = true, features = [
+  "rt",
+  "macros",
+  "rt-multi-thread",
+  "sync",
+  "time",
+  "fs",
+] }
+clap = { workspace = true, features = ["derive", "string"] }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 serde.workspace = true

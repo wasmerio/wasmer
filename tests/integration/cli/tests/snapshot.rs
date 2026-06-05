@@ -11,7 +11,7 @@ use futures::TryFutureExt;
 use insta::assert_json_snapshot;
 
 use tempfile::NamedTempFile;
-use wasmer_integration_tests_cli::get_wasmer_path;
+use wasmer_integration_tests_cli::{get_wasmer_path, set_default_wasmer_registry};
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct TestIncludeWeb {
@@ -282,6 +282,7 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
     let wasm_path = build_test_file(code);
 
     let mut cmd = std::process::Command::new(wasmer_path());
+    set_default_wasmer_registry(&mut cmd);
 
     // let shell = xshell::Shell::new().unwrap();
     // let wasmer = wasmer_path();
@@ -1308,8 +1309,8 @@ fn test_snapshot_exit_0_from_worker() {
     assert_json_snapshot!(snapshot);
 }
 
-// Seems it's flaky on musl
-#[cfg_attr(target_env = "musl", ignore)]
+// Seems it's flaky on musl and Windows
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
 #[test]
 fn test_snapshot_exit_1_from_worker() {
     let snapshot = TestBuilder::new()

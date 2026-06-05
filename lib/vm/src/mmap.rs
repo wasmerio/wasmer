@@ -322,7 +322,7 @@ impl Mmap {
     }
 
     /// Return the allocated memory as a mutable slice of u8.
-    pub fn as_mut_slice_arbitary(&mut self, size: usize) -> &mut [u8] {
+    pub fn as_mut_slice_arbitrary(&mut self, size: usize) -> &mut [u8] {
         let size = usize::min(size, self.total_size);
         unsafe { slice::from_raw_parts_mut(self.ptr as *mut u8, size) }
     }
@@ -349,12 +349,12 @@ impl Mmap {
 
     /// Duplicate in a new memory mapping.
     #[deprecated = "use `copy` instead"]
-    pub fn duplicate(&mut self, size_hint: Option<usize>) -> Result<Self, String> {
+    pub fn duplicate(&self, size_hint: Option<usize>) -> Result<Self, String> {
         self.copy(size_hint)
     }
 
     /// Duplicate in a new memory mapping.
-    pub fn copy(&mut self, size_hint: Option<usize>) -> Result<Self, String> {
+    pub fn copy(&self, size_hint: Option<usize>) -> Result<Self, String> {
         // NOTE: accessible_size != used size as the value is not
         //       automatically updated when the pre-provisioned space is used
         let mut copy_size = self.accessible_size;
@@ -364,7 +364,7 @@ impl Mmap {
 
         let mut new =
             Self::accessible_reserved(copy_size, self.total_size, None, MmapType::Private)?;
-        new.as_mut_slice_arbitary(copy_size)
+        new.as_mut_slice_arbitrary(copy_size)
             .copy_from_slice(self.as_slice_arbitary(copy_size));
         Ok(new)
     }
