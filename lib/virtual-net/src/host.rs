@@ -381,7 +381,7 @@ impl VirtualIoSource for LocalTcpListener {
 enum ConnectState {
     Unknown,
     Opened,
-    Failed,
+    Failed(NetworkError),
 }
 
 #[derive(Debug)]
@@ -619,16 +619,15 @@ impl VirtualSocket for LocalTcpStream {
         let mut connect_state = self.connect_state.lock().unwrap();
         match *connect_state {
             ConnectState::Opened => return Ok(SocketStatus::Opened),
-            ConnectState::Failed => return Ok(SocketStatus::Failed),
+            ConnectState::Failed(_) => return Ok(SocketStatus::Failed),
             ConnectState::Unknown => {}
         }
 
-        if self
+        if let Some(err) = self
             .with_sock_ref(|sockref| sockref.take_error())
             .map_err(io_err_into_net_error)?
-            .is_some()
         {
-            *connect_state = ConnectState::Failed;
+            *connect_state = ConnectState::Failed(io_err_into_net_error(err));
             return Ok(SocketStatus::Failed); // connect error on the socket
         }
         match self.stream.peer_addr() {
@@ -643,12 +642,19 @@ impl VirtualSocket for LocalTcpStream {
                 ) {
                     Ok(SocketStatus::Opening) // The connect is still in progress
                 } else {
-                    // TODO: Store the concrete err so we can return it later on
-                    *connect_state = ConnectState::Failed;
+                    *connect_state = ConnectState::Failed(io_err_into_net_error(err));
                     Ok(SocketStatus::Failed) // Any other error means the socket is unusable
                 }
             }
         }
+    }
+
+    fn last_error(&self) -> Result<Option<NetworkError>> {
+        let connect_state = self.connect_state.lock().unwrap();
+        Ok(match *connect_state {
+            ConnectState::Failed(err) => Some(err),
+            _ => None,
+        })
     }
 
     fn set_handler(&mut self, mut handler: Box<dyn InterestHandler + Send + Sync>) -> Result<()> {
