@@ -121,12 +121,17 @@ impl Store {
     }
 
     /// Installs this store's context for the duration of a coroutine resume.
-    /// Drop the guard when the resume returns to remove it.
+    /// The guard removes the context when dropped; hold it for exactly the
+    /// duration of the resume() call.
+    ///
+    /// # Panics
+    /// Panics if the store is already active on the current thread.
     ///
     /// # Safety
-    /// The store must not be active on this thread. Exactly one
-    /// `StorePtrWrapper` from this store must be alive on the suspended
-    /// coroutine's stack.
+    /// - The store must outlive the guard. The guard holds a raw pointer into
+    ///   the store; dropping the store while the guard is live is UB.
+    /// - Exactly one `StorePtrWrapper` derived from this store must be alive
+    ///   on the suspended coroutine's stack for the duration of the guard.
     #[cfg(feature = "sys")]
     pub unsafe fn coroutine_store_guard(&mut self) -> CoroutineStoreGuard {
         unsafe { CoroutineStoreGuard::new(self.inner.as_mut() as *mut _) }

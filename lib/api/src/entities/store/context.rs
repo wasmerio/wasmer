@@ -324,17 +324,20 @@ impl StoreContext {
     }
 }
 
-/// Installs a store's context for the duration of a coroutine resume.
-/// See [`Store::coroutine_store_guard`].
+/// RAII guard that installs the store context on the thread-local stack when
+/// created and removes it on drop. See [`crate::Store::coroutine_store_guard`].
 pub struct CoroutineStoreGuard {
     store_id: StoreId,
 }
 
 impl CoroutineStoreGuard {
+    /// # Panics
+    /// Panics if the store is already active on the current thread.
+    ///
     /// # Safety
-    /// The store must not be active on this thread. Exactly one
-    /// `StorePtrWrapper` from `store_ptr` must be alive on the suspended
-    /// coroutine's stack.
+    /// - The store behind `store_ptr` must outlive the guard.
+    /// - Exactly one `StorePtrWrapper` derived from `store_ptr` must be alive
+    ///   on the suspended coroutine's stack for the duration of the guard.
     pub(crate) unsafe fn new(store_ptr: *mut StoreInner) -> Self {
         let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
         assert!(
