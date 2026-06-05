@@ -207,6 +207,12 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
         self.len == 0
     }
 
+    /// Returns `true` if accessing this slice requires an owned host buffer.
+    #[inline]
+    pub fn is_owned(self) -> bool {
+        self.buffer.is_owned()
+    }
+
     /// Get a `WasmRef` to an element in the slice.
     #[inline]
     pub fn index(self, idx: u64) -> WasmRef<'a, T> {
