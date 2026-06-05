@@ -183,6 +183,18 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
         Err(NetworkError::Unsupported)
     }
 
+    /// Binds a TCP socket to a specific IP and port without immediately
+    /// listening for connections or connecting to a peer.
+    async fn bind_tcp(
+        &self,
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualTcpBoundSocket + Sync>> {
+        Err(NetworkError::Unsupported)
+    }
+
     /// Opens a UDP socket that listens on a specific IP and Port combination
     /// Multiple servers (processes or threads) can bind to the same port if they each set
     /// the reuse-port and-or reuse-addr flags
@@ -239,6 +251,23 @@ pub trait VirtualTcpListener: VirtualIoSource + fmt::Debug + Send + Sync + 'stat
 
     /// Returns the maximum number of network hops before packets are dropped
     fn ttl(&self) -> Result<u8>;
+}
+
+pub trait VirtualTcpBoundSocket: fmt::Debug + Send + Sync + 'static {
+    /// Returns the local address of this bound TCP socket.
+    fn addr_local(&self) -> Result<SocketAddr>;
+
+    /// Places the socket into listening mode.
+    fn listen(&mut self) -> Result<Box<dyn VirtualTcpListener + Sync>>;
+
+    /// Initiates a TCP connection using the already-bound local address.
+    fn connect(&mut self, peer: SocketAddr) -> Result<Box<dyn VirtualTcpSocket + Sync>>;
+
+    /// Sets how many network hops the packets are permitted for this socket.
+    fn set_ttl(&mut self, ttl: u32) -> Result<()>;
+
+    /// Returns the maximum number of network hops before packets are dropped.
+    fn ttl(&self) -> Result<u32>;
 }
 
 #[async_trait::async_trait]
