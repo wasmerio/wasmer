@@ -126,7 +126,8 @@ impl Store {
     /// duration of the resume() call.
     ///
     /// # Panics
-    /// Panics if the store is already active on the current thread.
+    /// Panics if the store is anywhere on the current thread's context stack
+    /// (active or suspended).
     ///
     /// # Safety
     /// Exactly one `StorePtrWrapper` derived from this store must be alive on

@@ -341,7 +341,8 @@ pub struct CoroutineStoreGuard<'a> {
 #[cfg(feature = "sys")]
 impl<'a> CoroutineStoreGuard<'a> {
     /// # Panics
-    /// Panics if the store is already on the context stack of this thread.
+    /// Panics if the store is anywhere on the current thread's context stack
+    /// (active or suspended).
     ///
     /// # Safety
     /// Exactly one `StorePtrWrapper` derived from `store` must be alive on
@@ -350,7 +351,7 @@ impl<'a> CoroutineStoreGuard<'a> {
         let store_id = store.objects.id();
         assert!(
             !StoreContext::is_active(store_id) && !StoreContext::is_suspended(store_id),
-            "store is already on the context stack of this thread"
+            "store is already on the current thread's context stack (active or suspended)"
         );
         StoreContext::install_cothread(store_id, NonNull::from(store));
         Self {
