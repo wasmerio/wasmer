@@ -100,6 +100,18 @@ pub extern "C" fn wasmer_vm_f32_nearest(x: f32) -> f32 {
     }
 }
 
+/// Implementation of f32.sqrt
+#[unsafe(no_mangle)]
+pub extern "C" fn wasmer_vm_f32_sqrt(x: f32) -> f32 {
+    x.sqrt()
+}
+
+/// Implementation of f64.sqrt
+#[unsafe(no_mangle)]
+pub extern "C" fn wasmer_vm_f64_sqrt(x: f64) -> f64 {
+    x.sqrt()
+}
+
 /// Implementation of f64.ceil
 #[unsafe(no_mangle)]
 pub extern "C" fn wasmer_vm_f64_ceil(x: f64) -> f64 {
@@ -959,6 +971,8 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::FloorF64 => wasmer_vm_f64_floor as *const () as usize,
         LibCall::NearestF32 => wasmer_vm_f32_nearest as *const () as usize,
         LibCall::NearestF64 => wasmer_vm_f64_nearest as *const () as usize,
+        LibCall::SqrtF32 => wasmer_vm_f32_sqrt as *const () as usize,
+        LibCall::SqrtF64 => wasmer_vm_f64_sqrt as *const () as usize,
         LibCall::TruncF32 => wasmer_vm_f32_trunc as *const () as usize,
         LibCall::TruncF64 => wasmer_vm_f64_trunc as *const () as usize,
         LibCall::Memory32Size => wasmer_vm_memory32_size as *const () as usize,
