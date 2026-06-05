@@ -849,6 +849,20 @@ impl InodeSocket {
         })
     }
 
+    pub fn last_error(&self) -> Result<Errno, Errno> {
+        self.status()?;
+
+        let inner = self.inner.protected.read().unwrap();
+        match &inner.kind {
+            InodeSocketKind::TcpStream { socket, .. } => socket
+                .last_error()
+                .map_err(net_error_into_wasi_err)
+                .map(|err| err.map(net_error_into_wasi_err).unwrap_or(Errno::Success)),
+            InodeSocketKind::RemoteSocket { is_dead, .. } if *is_dead => Ok(Errno::Pipe),
+            _ => Ok(Errno::Success),
+        }
+    }
+
     pub fn addr_local(&self) -> Result<SocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
