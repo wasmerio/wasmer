@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ConnectState"],"fn":["libc_poll"],"struct":["LocalNetworking","LocalTcpListener","LocalTcpStream","LocalUdpSocket"]};
+window.SIDEBAR_ITEMS = {"constant":["LISTEN_BACKLOG"],"enum":["ConnectState"],"fn":["libc_poll","sock_addr_into_socket_addr","tcp_connect_in_progress","tcp_socket_domain"],"struct":["LocalNetworking","LocalTcpBoundSocket","LocalTcpListener","LocalTcpStream","LocalUdpSocket"]};

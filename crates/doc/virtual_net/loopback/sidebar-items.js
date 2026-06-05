@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["DEFAULT_MAX_BUFFER_SIZE"],"struct":["LoopbackNetworking","LoopbackNetworkingState","LoopbackTcpListener","LoopbackTcpListenerState"]};
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_MAX_BUFFER_SIZE","LOOPBACK_EPHEMERAL_PORT_START"],"struct":["LoopbackConnectedSocket","LoopbackNetworking","LoopbackNetworkingState","LoopbackTcpBoundSocket","LoopbackTcpListener","LoopbackTcpListenerState"]};

@@ -97,243 +97,255 @@
 <a href=#97 id=97 data-nosnippet>97</a>        reuse_port: bool,
 <a href=#98 id=98 data-nosnippet>98</a>        reuse_addr: bool,
 <a href=#99 id=99 data-nosnippet>99</a>    },
-<a href=#100 id=100 data-nosnippet>100</a>    <span class="doccomment">/// Opens a UDP socket that listens on a specific IP and Port combination
-<a href=#101 id=101 data-nosnippet>101</a>    /// Multiple servers (processes or threads) can bind to the same port if they each set
-<a href=#102 id=102 data-nosnippet>102</a>    /// the reuse-port and-or reuse-addr flags
-<a href=#103 id=103 data-nosnippet>103</a>    </span>BindUdp {
-<a href=#104 id=104 data-nosnippet>104</a>        socket_id: SocketId,
-<a href=#105 id=105 data-nosnippet>105</a>        addr: SocketAddr,
-<a href=#106 id=106 data-nosnippet>106</a>        reuse_port: bool,
-<a href=#107 id=107 data-nosnippet>107</a>        reuse_addr: bool,
-<a href=#108 id=108 data-nosnippet>108</a>    },
-<a href=#109 id=109 data-nosnippet>109</a>    <span class="doccomment">/// Creates a socket that can be used to send and receive ICMP packets
-<a href=#110 id=110 data-nosnippet>110</a>    /// from a paritcular IP address
-<a href=#111 id=111 data-nosnippet>111</a>    </span>BindIcmp { socket_id: SocketId, addr: IpAddr },
-<a href=#112 id=112 data-nosnippet>112</a>    <span class="doccomment">/// Opens a TCP connection to a particular destination IP address and port
-<a href=#113 id=113 data-nosnippet>113</a>    </span>ConnectTcp {
-<a href=#114 id=114 data-nosnippet>114</a>        socket_id: SocketId,
-<a href=#115 id=115 data-nosnippet>115</a>        addr: SocketAddr,
-<a href=#116 id=116 data-nosnippet>116</a>        peer: SocketAddr,
-<a href=#117 id=117 data-nosnippet>117</a>    },
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="doccomment">/// Performs DNS resolution for a specific hostname
-<a href=#119 id=119 data-nosnippet>119</a>    </span>Resolve {
-<a href=#120 id=120 data-nosnippet>120</a>        host: String,
-<a href=#121 id=121 data-nosnippet>121</a>        port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
-<a href=#122 id=122 data-nosnippet>122</a>        dns_server: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
-<a href=#123 id=123 data-nosnippet>123</a>    },
-<a href=#124 id=124 data-nosnippet>124</a>    <span class="doccomment">/// Closes the socket
-<a href=#125 id=125 data-nosnippet>125</a>    </span>Close,
-<a href=#126 id=126 data-nosnippet>126</a>    <span class="doccomment">/// Begins the process of accepting a socket and returns it later
-<a href=#127 id=127 data-nosnippet>127</a>    </span>BeginAccept(SocketId),
-<a href=#128 id=128 data-nosnippet>128</a>    <span class="doccomment">/// Returns the local address of this TCP listener
-<a href=#129 id=129 data-nosnippet>129</a>    </span>GetAddrLocal,
-<a href=#130 id=130 data-nosnippet>130</a>    <span class="doccomment">/// Returns the address (IP and Port) of the peer socket that this
-<a href=#131 id=131 data-nosnippet>131</a>    /// is connected to
-<a href=#132 id=132 data-nosnippet>132</a>    </span>GetAddrPeer,
-<a href=#133 id=133 data-nosnippet>133</a>    <span class="doccomment">/// Sets how many network hops the packets are permitted for new connections
-<a href=#134 id=134 data-nosnippet>134</a>    </span>SetTtl(u32),
-<a href=#135 id=135 data-nosnippet>135</a>    <span class="doccomment">/// Returns the maximum number of network hops before packets are dropped
-<a href=#136 id=136 data-nosnippet>136</a>    </span>GetTtl,
-<a href=#137 id=137 data-nosnippet>137</a>    <span class="doccomment">/// Returns the status/state of the socket
-<a href=#138 id=138 data-nosnippet>138</a>    </span>GetStatus,
-<a href=#139 id=139 data-nosnippet>139</a>    <span class="doccomment">/// Determines how long the socket will remain in a TIME_WAIT
-<a href=#140 id=140 data-nosnippet>140</a>    /// after it disconnects (only the one that initiates the close will
-<a href=#141 id=141 data-nosnippet>141</a>    /// be in a TIME_WAIT state thus the clients should always do this rather
-<a href=#142 id=142 data-nosnippet>142</a>    /// than the server)
-<a href=#143 id=143 data-nosnippet>143</a>    </span>SetLinger(<span class="prelude-ty">Option</span>&lt;Duration&gt;),
-<a href=#144 id=144 data-nosnippet>144</a>    <span class="doccomment">/// Returns how long the socket will remain in a TIME_WAIT
-<a href=#145 id=145 data-nosnippet>145</a>    /// after it disconnects
-<a href=#146 id=146 data-nosnippet>146</a>    </span>GetLinger,
-<a href=#147 id=147 data-nosnippet>147</a>    <span class="doccomment">/// Tells the raw socket and its backing switch that all packets
-<a href=#148 id=148 data-nosnippet>148</a>    /// should be received by this socket even if they are not
-<a href=#149 id=149 data-nosnippet>149</a>    /// destined for this device
-<a href=#150 id=150 data-nosnippet>150</a>    </span>SetPromiscuous(bool),
-<a href=#151 id=151 data-nosnippet>151</a>    <span class="doccomment">/// Returns if the socket is running in promiscuous mode whereby it
-<a href=#152 id=152 data-nosnippet>152</a>    /// will receive all packets even if they are not destined for the
-<a href=#153 id=153 data-nosnippet>153</a>    /// local interface
-<a href=#154 id=154 data-nosnippet>154</a>    </span>GetPromiscuous,
-<a href=#155 id=155 data-nosnippet>155</a>    <span class="doccomment">/// Sets the receive buffer size which acts as a throttle for how
-<a href=#156 id=156 data-nosnippet>156</a>    /// much data is buffered on this side of the pipe
-<a href=#157 id=157 data-nosnippet>157</a>    </span>SetRecvBufSize(u64),
-<a href=#158 id=158 data-nosnippet>158</a>    <span class="doccomment">/// Size of the receive buffer that holds all data that has not
-<a href=#159 id=159 data-nosnippet>159</a>    /// yet been read
-<a href=#160 id=160 data-nosnippet>160</a>    </span>GetRecvBufSize,
-<a href=#161 id=161 data-nosnippet>161</a>    <span class="doccomment">/// Sets the size of the send buffer which will hold the bytes of
-<a href=#162 id=162 data-nosnippet>162</a>    /// data while they are being sent over to the peer
-<a href=#163 id=163 data-nosnippet>163</a>    </span>SetSendBufSize(u64),
-<a href=#164 id=164 data-nosnippet>164</a>    <span class="doccomment">/// Size of the send buffer that holds all data that is currently
-<a href=#165 id=165 data-nosnippet>165</a>    /// being transmitted.
-<a href=#166 id=166 data-nosnippet>166</a>    </span>GetSendBufSize,
-<a href=#167 id=167 data-nosnippet>167</a>    <span class="doccomment">/// When NO_DELAY is set the data that needs to be transmitted to
-<a href=#168 id=168 data-nosnippet>168</a>    /// the peer is sent immediately rather than waiting for a bigger
-<a href=#169 id=169 data-nosnippet>169</a>    /// batch of data, this reduces latency but increases encapsulation
-<a href=#170 id=170 data-nosnippet>170</a>    /// overhead.
-<a href=#171 id=171 data-nosnippet>171</a>    </span>SetNoDelay(bool),
-<a href=#172 id=172 data-nosnippet>172</a>    <span class="doccomment">/// Indicates if the NO_DELAY flag is set which means that data
-<a href=#173 id=173 data-nosnippet>173</a>    /// is immediately sent to the peer without waiting. This reduces
-<a href=#174 id=174 data-nosnippet>174</a>    /// latency but increases encapsulation overhead.
-<a href=#175 id=175 data-nosnippet>175</a>    </span>GetNoDelay,
-<a href=#176 id=176 data-nosnippet>176</a>    <span class="doccomment">/// When KEEP_ALIVE is set the connection will periodically send
-<a href=#177 id=177 data-nosnippet>177</a>    /// an empty data packet to the server to make sure the connection
-<a href=#178 id=178 data-nosnippet>178</a>    /// stays alive.
-<a href=#179 id=179 data-nosnippet>179</a>    </span>SetKeepAlive(bool),
-<a href=#180 id=180 data-nosnippet>180</a>    <span class="doccomment">/// Indicates if the KEEP_ALIVE flag is set which means that the
-<a href=#181 id=181 data-nosnippet>181</a>    /// socket will periodically send an empty data packet to keep
-<a href=#182 id=182 data-nosnippet>182</a>    /// the connection alive.
-<a href=#183 id=183 data-nosnippet>183</a>    </span>GetKeepAlive,
-<a href=#184 id=184 data-nosnippet>184</a>    <span class="doccomment">/// When DONT_ROUTE is set the packet will be sent directly
-<a href=#185 id=185 data-nosnippet>185</a>    /// to the interface without passing through the routing logic.
-<a href=#186 id=186 data-nosnippet>186</a>    </span>SetDontRoute(bool),
-<a href=#187 id=187 data-nosnippet>187</a>    <span class="doccomment">/// Indicates if the packet will pass straight through to
-<a href=#188 id=188 data-nosnippet>188</a>    /// the interface bypassing the routing logic.
-<a href=#189 id=189 data-nosnippet>189</a>    </span>GetDontRoute,
-<a href=#190 id=190 data-nosnippet>190</a>    <span class="doccomment">/// Shuts down either the READER or WRITER sides of the socket
-<a href=#191 id=191 data-nosnippet>191</a>    /// connection.
-<a href=#192 id=192 data-nosnippet>192</a>    </span>Shutdown(Shutdown),
-<a href=#193 id=193 data-nosnippet>193</a>    <span class="doccomment">/// Return true if the socket is closed
-<a href=#194 id=194 data-nosnippet>194</a>    </span>IsClosed,
-<a href=#195 id=195 data-nosnippet>195</a>    <span class="doccomment">/// Sets a flag that means that the UDP socket is able
-<a href=#196 id=196 data-nosnippet>196</a>    /// to receive and process broadcast packets.
-<a href=#197 id=197 data-nosnippet>197</a>    </span>SetBroadcast(bool),
-<a href=#198 id=198 data-nosnippet>198</a>    <span class="doccomment">/// Indicates if the SO_BROADCAST flag is set which means
-<a href=#199 id=199 data-nosnippet>199</a>    /// that the UDP socket will receive and process broadcast
-<a href=#200 id=200 data-nosnippet>200</a>    /// packets
-<a href=#201 id=201 data-nosnippet>201</a>    </span>GetBroadcast,
-<a href=#202 id=202 data-nosnippet>202</a>    <span class="doccomment">/// Sets a flag that indicates if multicast packets that
-<a href=#203 id=203 data-nosnippet>203</a>    /// this socket is a member of will be looped back to
-<a href=#204 id=204 data-nosnippet>204</a>    /// the sending socket. This applies to IPv4 addresses
-<a href=#205 id=205 data-nosnippet>205</a>    </span>SetMulticastLoopV4(bool),
-<a href=#206 id=206 data-nosnippet>206</a>    <span class="doccomment">/// Gets a flag that indicates if multicast packets that
-<a href=#207 id=207 data-nosnippet>207</a>    /// this socket is a member of will be looped back to
-<a href=#208 id=208 data-nosnippet>208</a>    /// the sending socket. This applies to IPv4 addresses
-<a href=#209 id=209 data-nosnippet>209</a>    </span>GetMulticastLoopV4,
-<a href=#210 id=210 data-nosnippet>210</a>    <span class="doccomment">/// Sets a flag that indicates if multicast packets that
-<a href=#211 id=211 data-nosnippet>211</a>    /// this socket is a member of will be looped back to
-<a href=#212 id=212 data-nosnippet>212</a>    /// the sending socket. This applies to IPv6 addresses
-<a href=#213 id=213 data-nosnippet>213</a>    </span>SetMulticastLoopV6(bool),
-<a href=#214 id=214 data-nosnippet>214</a>    <span class="doccomment">/// Gets a flag that indicates if multicast packets that
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="doccomment">/// Binds a TCP socket without immediately listening or connecting.
+<a href=#101 id=101 data-nosnippet>101</a>    </span>BindTcp {
+<a href=#102 id=102 data-nosnippet>102</a>        socket_id: SocketId,
+<a href=#103 id=103 data-nosnippet>103</a>        addr: SocketAddr,
+<a href=#104 id=104 data-nosnippet>104</a>        only_v6: bool,
+<a href=#105 id=105 data-nosnippet>105</a>        reuse_port: bool,
+<a href=#106 id=106 data-nosnippet>106</a>        reuse_addr: bool,
+<a href=#107 id=107 data-nosnippet>107</a>    },
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="doccomment">/// Opens a UDP socket that listens on a specific IP and Port combination
+<a href=#109 id=109 data-nosnippet>109</a>    /// Multiple servers (processes or threads) can bind to the same port if they each set
+<a href=#110 id=110 data-nosnippet>110</a>    /// the reuse-port and-or reuse-addr flags
+<a href=#111 id=111 data-nosnippet>111</a>    </span>BindUdp {
+<a href=#112 id=112 data-nosnippet>112</a>        socket_id: SocketId,
+<a href=#113 id=113 data-nosnippet>113</a>        addr: SocketAddr,
+<a href=#114 id=114 data-nosnippet>114</a>        reuse_port: bool,
+<a href=#115 id=115 data-nosnippet>115</a>        reuse_addr: bool,
+<a href=#116 id=116 data-nosnippet>116</a>    },
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="doccomment">/// Creates a socket that can be used to send and receive ICMP packets
+<a href=#118 id=118 data-nosnippet>118</a>    /// from a paritcular IP address
+<a href=#119 id=119 data-nosnippet>119</a>    </span>BindIcmp { socket_id: SocketId, addr: IpAddr },
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="doccomment">/// Opens a TCP connection to a particular destination IP address and port
+<a href=#121 id=121 data-nosnippet>121</a>    </span>ConnectTcp {
+<a href=#122 id=122 data-nosnippet>122</a>        socket_id: SocketId,
+<a href=#123 id=123 data-nosnippet>123</a>        addr: SocketAddr,
+<a href=#124 id=124 data-nosnippet>124</a>        peer: SocketAddr,
+<a href=#125 id=125 data-nosnippet>125</a>    },
+<a href=#126 id=126 data-nosnippet>126</a>    <span class="doccomment">/// Performs DNS resolution for a specific hostname
+<a href=#127 id=127 data-nosnippet>127</a>    </span>Resolve {
+<a href=#128 id=128 data-nosnippet>128</a>        host: String,
+<a href=#129 id=129 data-nosnippet>129</a>        port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+<a href=#130 id=130 data-nosnippet>130</a>        dns_server: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
+<a href=#131 id=131 data-nosnippet>131</a>    },
+<a href=#132 id=132 data-nosnippet>132</a>    <span class="doccomment">/// Closes the socket
+<a href=#133 id=133 data-nosnippet>133</a>    </span>Close,
+<a href=#134 id=134 data-nosnippet>134</a>    <span class="doccomment">/// Converts a bound TCP socket into a listening socket.
+<a href=#135 id=135 data-nosnippet>135</a>    </span>ListenBound,
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="doccomment">/// Converts a bound TCP socket into a connected TCP stream.
+<a href=#137 id=137 data-nosnippet>137</a>    </span>ConnectBound { peer: SocketAddr },
+<a href=#138 id=138 data-nosnippet>138</a>    <span class="doccomment">/// Begins the process of accepting a socket and returns it later
+<a href=#139 id=139 data-nosnippet>139</a>    </span>BeginAccept(SocketId),
+<a href=#140 id=140 data-nosnippet>140</a>    <span class="doccomment">/// Returns the local address of this TCP listener
+<a href=#141 id=141 data-nosnippet>141</a>    </span>GetAddrLocal,
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="doccomment">/// Returns the address (IP and Port) of the peer socket that this
+<a href=#143 id=143 data-nosnippet>143</a>    /// is connected to
+<a href=#144 id=144 data-nosnippet>144</a>    </span>GetAddrPeer,
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="doccomment">/// Sets how many network hops the packets are permitted for new connections
+<a href=#146 id=146 data-nosnippet>146</a>    </span>SetTtl(u32),
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="doccomment">/// Returns the maximum number of network hops before packets are dropped
+<a href=#148 id=148 data-nosnippet>148</a>    </span>GetTtl,
+<a href=#149 id=149 data-nosnippet>149</a>    <span class="doccomment">/// Returns the status/state of the socket
+<a href=#150 id=150 data-nosnippet>150</a>    </span>GetStatus,
+<a href=#151 id=151 data-nosnippet>151</a>    <span class="doccomment">/// Determines how long the socket will remain in a TIME_WAIT
+<a href=#152 id=152 data-nosnippet>152</a>    /// after it disconnects (only the one that initiates the close will
+<a href=#153 id=153 data-nosnippet>153</a>    /// be in a TIME_WAIT state thus the clients should always do this rather
+<a href=#154 id=154 data-nosnippet>154</a>    /// than the server)
+<a href=#155 id=155 data-nosnippet>155</a>    </span>SetLinger(<span class="prelude-ty">Option</span>&lt;Duration&gt;),
+<a href=#156 id=156 data-nosnippet>156</a>    <span class="doccomment">/// Returns how long the socket will remain in a TIME_WAIT
+<a href=#157 id=157 data-nosnippet>157</a>    /// after it disconnects
+<a href=#158 id=158 data-nosnippet>158</a>    </span>GetLinger,
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="doccomment">/// Tells the raw socket and its backing switch that all packets
+<a href=#160 id=160 data-nosnippet>160</a>    /// should be received by this socket even if they are not
+<a href=#161 id=161 data-nosnippet>161</a>    /// destined for this device
+<a href=#162 id=162 data-nosnippet>162</a>    </span>SetPromiscuous(bool),
+<a href=#163 id=163 data-nosnippet>163</a>    <span class="doccomment">/// Returns if the socket is running in promiscuous mode whereby it
+<a href=#164 id=164 data-nosnippet>164</a>    /// will receive all packets even if they are not destined for the
+<a href=#165 id=165 data-nosnippet>165</a>    /// local interface
+<a href=#166 id=166 data-nosnippet>166</a>    </span>GetPromiscuous,
+<a href=#167 id=167 data-nosnippet>167</a>    <span class="doccomment">/// Sets the receive buffer size which acts as a throttle for how
+<a href=#168 id=168 data-nosnippet>168</a>    /// much data is buffered on this side of the pipe
+<a href=#169 id=169 data-nosnippet>169</a>    </span>SetRecvBufSize(u64),
+<a href=#170 id=170 data-nosnippet>170</a>    <span class="doccomment">/// Size of the receive buffer that holds all data that has not
+<a href=#171 id=171 data-nosnippet>171</a>    /// yet been read
+<a href=#172 id=172 data-nosnippet>172</a>    </span>GetRecvBufSize,
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="doccomment">/// Sets the size of the send buffer which will hold the bytes of
+<a href=#174 id=174 data-nosnippet>174</a>    /// data while they are being sent over to the peer
+<a href=#175 id=175 data-nosnippet>175</a>    </span>SetSendBufSize(u64),
+<a href=#176 id=176 data-nosnippet>176</a>    <span class="doccomment">/// Size of the send buffer that holds all data that is currently
+<a href=#177 id=177 data-nosnippet>177</a>    /// being transmitted.
+<a href=#178 id=178 data-nosnippet>178</a>    </span>GetSendBufSize,
+<a href=#179 id=179 data-nosnippet>179</a>    <span class="doccomment">/// When NO_DELAY is set the data that needs to be transmitted to
+<a href=#180 id=180 data-nosnippet>180</a>    /// the peer is sent immediately rather than waiting for a bigger
+<a href=#181 id=181 data-nosnippet>181</a>    /// batch of data, this reduces latency but increases encapsulation
+<a href=#182 id=182 data-nosnippet>182</a>    /// overhead.
+<a href=#183 id=183 data-nosnippet>183</a>    </span>SetNoDelay(bool),
+<a href=#184 id=184 data-nosnippet>184</a>    <span class="doccomment">/// Indicates if the NO_DELAY flag is set which means that data
+<a href=#185 id=185 data-nosnippet>185</a>    /// is immediately sent to the peer without waiting. This reduces
+<a href=#186 id=186 data-nosnippet>186</a>    /// latency but increases encapsulation overhead.
+<a href=#187 id=187 data-nosnippet>187</a>    </span>GetNoDelay,
+<a href=#188 id=188 data-nosnippet>188</a>    <span class="doccomment">/// When KEEP_ALIVE is set the connection will periodically send
+<a href=#189 id=189 data-nosnippet>189</a>    /// an empty data packet to the server to make sure the connection
+<a href=#190 id=190 data-nosnippet>190</a>    /// stays alive.
+<a href=#191 id=191 data-nosnippet>191</a>    </span>SetKeepAlive(bool),
+<a href=#192 id=192 data-nosnippet>192</a>    <span class="doccomment">/// Indicates if the KEEP_ALIVE flag is set which means that the
+<a href=#193 id=193 data-nosnippet>193</a>    /// socket will periodically send an empty data packet to keep
+<a href=#194 id=194 data-nosnippet>194</a>    /// the connection alive.
+<a href=#195 id=195 data-nosnippet>195</a>    </span>GetKeepAlive,
+<a href=#196 id=196 data-nosnippet>196</a>    <span class="doccomment">/// When DONT_ROUTE is set the packet will be sent directly
+<a href=#197 id=197 data-nosnippet>197</a>    /// to the interface without passing through the routing logic.
+<a href=#198 id=198 data-nosnippet>198</a>    </span>SetDontRoute(bool),
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="doccomment">/// Indicates if the packet will pass straight through to
+<a href=#200 id=200 data-nosnippet>200</a>    /// the interface bypassing the routing logic.
+<a href=#201 id=201 data-nosnippet>201</a>    </span>GetDontRoute,
+<a href=#202 id=202 data-nosnippet>202</a>    <span class="doccomment">/// Shuts down either the READER or WRITER sides of the socket
+<a href=#203 id=203 data-nosnippet>203</a>    /// connection.
+<a href=#204 id=204 data-nosnippet>204</a>    </span>Shutdown(Shutdown),
+<a href=#205 id=205 data-nosnippet>205</a>    <span class="doccomment">/// Return true if the socket is closed
+<a href=#206 id=206 data-nosnippet>206</a>    </span>IsClosed,
+<a href=#207 id=207 data-nosnippet>207</a>    <span class="doccomment">/// Sets a flag that means that the UDP socket is able
+<a href=#208 id=208 data-nosnippet>208</a>    /// to receive and process broadcast packets.
+<a href=#209 id=209 data-nosnippet>209</a>    </span>SetBroadcast(bool),
+<a href=#210 id=210 data-nosnippet>210</a>    <span class="doccomment">/// Indicates if the SO_BROADCAST flag is set which means
+<a href=#211 id=211 data-nosnippet>211</a>    /// that the UDP socket will receive and process broadcast
+<a href=#212 id=212 data-nosnippet>212</a>    /// packets
+<a href=#213 id=213 data-nosnippet>213</a>    </span>GetBroadcast,
+<a href=#214 id=214 data-nosnippet>214</a>    <span class="doccomment">/// Sets a flag that indicates if multicast packets that
 <a href=#215 id=215 data-nosnippet>215</a>    /// this socket is a member of will be looped back to
-<a href=#216 id=216 data-nosnippet>216</a>    /// the sending socket. This applies to IPv6 addresses
-<a href=#217 id=217 data-nosnippet>217</a>    </span>GetMulticastLoopV6,
-<a href=#218 id=218 data-nosnippet>218</a>    <span class="doccomment">/// Sets the TTL for IPv4 multicast packets which is the
-<a href=#219 id=219 data-nosnippet>219</a>    /// number of network hops before the packet is dropped
-<a href=#220 id=220 data-nosnippet>220</a>    </span>SetMulticastTtlV4(u32),
-<a href=#221 id=221 data-nosnippet>221</a>    <span class="doccomment">/// Gets the TTL for IPv4 multicast packets which is the
-<a href=#222 id=222 data-nosnippet>222</a>    /// number of network hops before the packet is dropped
-<a href=#223 id=223 data-nosnippet>223</a>    </span>GetMulticastTtlV4,
-<a href=#224 id=224 data-nosnippet>224</a>    <span class="doccomment">/// Tells this interface that it will subscribe to a
-<a href=#225 id=225 data-nosnippet>225</a>    /// particular multicast address. This applies to IPv4 addresses
-<a href=#226 id=226 data-nosnippet>226</a>    </span>JoinMulticastV4 {
-<a href=#227 id=227 data-nosnippet>227</a>        multiaddr: Ipv4Addr,
-<a href=#228 id=228 data-nosnippet>228</a>        iface: Ipv4Addr,
-<a href=#229 id=229 data-nosnippet>229</a>    },
-<a href=#230 id=230 data-nosnippet>230</a>    <span class="doccomment">/// Tells this interface that it will unsubscribe to a
-<a href=#231 id=231 data-nosnippet>231</a>    /// particular multicast address. This applies to IPv4 addresses
-<a href=#232 id=232 data-nosnippet>232</a>    </span>LeaveMulticastV4 {
-<a href=#233 id=233 data-nosnippet>233</a>        multiaddr: Ipv4Addr,
-<a href=#234 id=234 data-nosnippet>234</a>        iface: Ipv4Addr,
-<a href=#235 id=235 data-nosnippet>235</a>    },
+<a href=#216 id=216 data-nosnippet>216</a>    /// the sending socket. This applies to IPv4 addresses
+<a href=#217 id=217 data-nosnippet>217</a>    </span>SetMulticastLoopV4(bool),
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="doccomment">/// Gets a flag that indicates if multicast packets that
+<a href=#219 id=219 data-nosnippet>219</a>    /// this socket is a member of will be looped back to
+<a href=#220 id=220 data-nosnippet>220</a>    /// the sending socket. This applies to IPv4 addresses
+<a href=#221 id=221 data-nosnippet>221</a>    </span>GetMulticastLoopV4,
+<a href=#222 id=222 data-nosnippet>222</a>    <span class="doccomment">/// Sets a flag that indicates if multicast packets that
+<a href=#223 id=223 data-nosnippet>223</a>    /// this socket is a member of will be looped back to
+<a href=#224 id=224 data-nosnippet>224</a>    /// the sending socket. This applies to IPv6 addresses
+<a href=#225 id=225 data-nosnippet>225</a>    </span>SetMulticastLoopV6(bool),
+<a href=#226 id=226 data-nosnippet>226</a>    <span class="doccomment">/// Gets a flag that indicates if multicast packets that
+<a href=#227 id=227 data-nosnippet>227</a>    /// this socket is a member of will be looped back to
+<a href=#228 id=228 data-nosnippet>228</a>    /// the sending socket. This applies to IPv6 addresses
+<a href=#229 id=229 data-nosnippet>229</a>    </span>GetMulticastLoopV6,
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="doccomment">/// Sets the TTL for IPv4 multicast packets which is the
+<a href=#231 id=231 data-nosnippet>231</a>    /// number of network hops before the packet is dropped
+<a href=#232 id=232 data-nosnippet>232</a>    </span>SetMulticastTtlV4(u32),
+<a href=#233 id=233 data-nosnippet>233</a>    <span class="doccomment">/// Gets the TTL for IPv4 multicast packets which is the
+<a href=#234 id=234 data-nosnippet>234</a>    /// number of network hops before the packet is dropped
+<a href=#235 id=235 data-nosnippet>235</a>    </span>GetMulticastTtlV4,
 <a href=#236 id=236 data-nosnippet>236</a>    <span class="doccomment">/// Tells this interface that it will subscribe to a
-<a href=#237 id=237 data-nosnippet>237</a>    /// particular multicast address. This applies to IPv6 addresses
-<a href=#238 id=238 data-nosnippet>238</a>    </span>JoinMulticastV6 { multiaddr: Ipv6Addr, iface: u32 },
-<a href=#239 id=239 data-nosnippet>239</a>    <span class="doccomment">/// Tells this interface that it will unsubscribe to a
-<a href=#240 id=240 data-nosnippet>240</a>    /// particular multicast address. This applies to IPv6 addresses
-<a href=#241 id=241 data-nosnippet>241</a>    </span>LeaveMulticastV6 { multiaddr: Ipv6Addr, iface: u32 },
-<a href=#242 id=242 data-nosnippet>242</a>}
-<a href=#243 id=243 data-nosnippet>243</a>
-<a href=#244 id=244 data-nosnippet>244</a><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
-<a href=#245 id=245 data-nosnippet>245</a></span><span class="kw">pub enum </span>ResponseType {
-<a href=#246 id=246 data-nosnippet>246</a>    <span class="doccomment">/// Nothing is returned (or noop)
-<a href=#247 id=247 data-nosnippet>247</a>    </span><span class="prelude-val">None</span>,
-<a href=#248 id=248 data-nosnippet>248</a>    <span class="doccomment">/// An error has occurred
-<a href=#249 id=249 data-nosnippet>249</a>    </span><span class="prelude-val">Err</span>(NetworkError),
-<a href=#250 id=250 data-nosnippet>250</a>    <span class="doccomment">/// Represents a duration of time
-<a href=#251 id=251 data-nosnippet>251</a>    </span>Duration(Duration),
-<a href=#252 id=252 data-nosnippet>252</a>    <span class="doccomment">/// Represents an amount (e.g. amount of bytes)
-<a href=#253 id=253 data-nosnippet>253</a>    </span>Amount(u64),
-<a href=#254 id=254 data-nosnippet>254</a>    <span class="doccomment">/// Returns a flag of true or false
-<a href=#255 id=255 data-nosnippet>255</a>    </span>Flag(bool),
-<a href=#256 id=256 data-nosnippet>256</a>    <span class="doccomment">/// List of IP addresses
-<a href=#257 id=257 data-nosnippet>257</a>    </span>IpAddressList(Vec&lt;IpAddr&gt;),
-<a href=#258 id=258 data-nosnippet>258</a>    <span class="doccomment">/// A single IP address
-<a href=#259 id=259 data-nosnippet>259</a>    </span>IpAddress(IpAddr),
-<a href=#260 id=260 data-nosnippet>260</a>    <span class="doccomment">/// List of socket addresses
-<a href=#261 id=261 data-nosnippet>261</a>    </span>SocketAddrList(Vec&lt;SocketAddr&gt;),
-<a href=#262 id=262 data-nosnippet>262</a>    <span class="doccomment">/// A single IP address
-<a href=#263 id=263 data-nosnippet>263</a>    </span>SocketAddr(SocketAddr),
-<a href=#264 id=264 data-nosnippet>264</a>    <span class="doccomment">/// Represents a MAC address
-<a href=#265 id=265 data-nosnippet>265</a>    </span>Mac([u8; <span class="number">6</span>]),
-<a href=#266 id=266 data-nosnippet>266</a>    <span class="doccomment">/// List of CIDR routes from a routing table
-<a href=#267 id=267 data-nosnippet>267</a>    </span>CidrList(Vec&lt;IpCidr&gt;),
-<a href=#268 id=268 data-nosnippet>268</a>    <span class="doccomment">/// List of IP routes from a routing table
-<a href=#269 id=269 data-nosnippet>269</a>    </span>RouteList(Vec&lt;IpRoute&gt;),
-<a href=#270 id=270 data-nosnippet>270</a>    <span class="doccomment">/// Reference to a socket
-<a href=#271 id=271 data-nosnippet>271</a>    </span>Socket(SocketId),
-<a href=#272 id=272 data-nosnippet>272</a>    <span class="doccomment">/// The TTL of a packet
-<a href=#273 id=273 data-nosnippet>273</a>    </span>Ttl(u32),
-<a href=#274 id=274 data-nosnippet>274</a>    <span class="doccomment">/// The status of the socket
-<a href=#275 id=275 data-nosnippet>275</a>    </span>Status(SocketStatus),
-<a href=#276 id=276 data-nosnippet>276</a>}
-<a href=#277 id=277 data-nosnippet>277</a>
-<a href=#278 id=278 data-nosnippet>278</a><span class="doccomment">/// Message sent by the client to the server
-<a href=#279 id=279 data-nosnippet>279</a></span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
-<a href=#280 id=280 data-nosnippet>280</a></span><span class="kw">pub enum </span>MessageRequest {
-<a href=#281 id=281 data-nosnippet>281</a>    Interface {
-<a href=#282 id=282 data-nosnippet>282</a>        req: RequestType,
-<a href=#283 id=283 data-nosnippet>283</a>        req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-<a href=#284 id=284 data-nosnippet>284</a>    },
-<a href=#285 id=285 data-nosnippet>285</a>    Socket {
-<a href=#286 id=286 data-nosnippet>286</a>        socket: SocketId,
-<a href=#287 id=287 data-nosnippet>287</a>        req: RequestType,
-<a href=#288 id=288 data-nosnippet>288</a>        req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-<a href=#289 id=289 data-nosnippet>289</a>    },
-<a href=#290 id=290 data-nosnippet>290</a>    Send {
-<a href=#291 id=291 data-nosnippet>291</a>        socket: SocketId,
-<a href=#292 id=292 data-nosnippet>292</a>        data: Vec&lt;u8&gt;,
-<a href=#293 id=293 data-nosnippet>293</a>        req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-<a href=#294 id=294 data-nosnippet>294</a>    },
-<a href=#295 id=295 data-nosnippet>295</a>    SendTo {
-<a href=#296 id=296 data-nosnippet>296</a>        socket: SocketId,
-<a href=#297 id=297 data-nosnippet>297</a>        data: Vec&lt;u8&gt;,
-<a href=#298 id=298 data-nosnippet>298</a>        addr: SocketAddr,
-<a href=#299 id=299 data-nosnippet>299</a>        req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-<a href=#300 id=300 data-nosnippet>300</a>    },
-<a href=#301 id=301 data-nosnippet>301</a>    Reconnect,
-<a href=#302 id=302 data-nosnippet>302</a>}
-<a href=#303 id=303 data-nosnippet>303</a>
-<a href=#304 id=304 data-nosnippet>304</a><span class="doccomment">/// Message sent by the server back to a client
-<a href=#305 id=305 data-nosnippet>305</a></span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
-<a href=#306 id=306 data-nosnippet>306</a></span><span class="kw">pub enum </span>MessageResponse {
-<a href=#307 id=307 data-nosnippet>307</a>    ResponseToRequest {
-<a href=#308 id=308 data-nosnippet>308</a>        req_id: u64,
-<a href=#309 id=309 data-nosnippet>309</a>        res: ResponseType,
-<a href=#310 id=310 data-nosnippet>310</a>    },
-<a href=#311 id=311 data-nosnippet>311</a>    Recv {
-<a href=#312 id=312 data-nosnippet>312</a>        socket_id: SocketId,
-<a href=#313 id=313 data-nosnippet>313</a>        data: Vec&lt;u8&gt;,
-<a href=#314 id=314 data-nosnippet>314</a>    },
-<a href=#315 id=315 data-nosnippet>315</a>    RecvWithAddr {
-<a href=#316 id=316 data-nosnippet>316</a>        socket_id: SocketId,
-<a href=#317 id=317 data-nosnippet>317</a>        data: Vec&lt;u8&gt;,
-<a href=#318 id=318 data-nosnippet>318</a>        addr: SocketAddr,
-<a href=#319 id=319 data-nosnippet>319</a>    },
-<a href=#320 id=320 data-nosnippet>320</a>    Sent {
-<a href=#321 id=321 data-nosnippet>321</a>        socket_id: SocketId,
-<a href=#322 id=322 data-nosnippet>322</a>        req_id: u64,
-<a href=#323 id=323 data-nosnippet>323</a>        amount: u64,
-<a href=#324 id=324 data-nosnippet>324</a>    },
-<a href=#325 id=325 data-nosnippet>325</a>    SendError {
-<a href=#326 id=326 data-nosnippet>326</a>        socket_id: SocketId,
-<a href=#327 id=327 data-nosnippet>327</a>        req_id: u64,
-<a href=#328 id=328 data-nosnippet>328</a>        error: NetworkError,
-<a href=#329 id=329 data-nosnippet>329</a>    },
-<a href=#330 id=330 data-nosnippet>330</a>    FinishAccept {
-<a href=#331 id=331 data-nosnippet>331</a>        socket_id: SocketId,
-<a href=#332 id=332 data-nosnippet>332</a>        child_id: SocketId,
-<a href=#333 id=333 data-nosnippet>333</a>        addr: SocketAddr,
-<a href=#334 id=334 data-nosnippet>334</a>    },
-<a href=#335 id=335 data-nosnippet>335</a>    Closed {
-<a href=#336 id=336 data-nosnippet>336</a>        socket_id: SocketId,
-<a href=#337 id=337 data-nosnippet>337</a>    },
-<a href=#338 id=338 data-nosnippet>338</a>}
+<a href=#237 id=237 data-nosnippet>237</a>    /// particular multicast address. This applies to IPv4 addresses
+<a href=#238 id=238 data-nosnippet>238</a>    </span>JoinMulticastV4 {
+<a href=#239 id=239 data-nosnippet>239</a>        multiaddr: Ipv4Addr,
+<a href=#240 id=240 data-nosnippet>240</a>        iface: Ipv4Addr,
+<a href=#241 id=241 data-nosnippet>241</a>    },
+<a href=#242 id=242 data-nosnippet>242</a>    <span class="doccomment">/// Tells this interface that it will unsubscribe to a
+<a href=#243 id=243 data-nosnippet>243</a>    /// particular multicast address. This applies to IPv4 addresses
+<a href=#244 id=244 data-nosnippet>244</a>    </span>LeaveMulticastV4 {
+<a href=#245 id=245 data-nosnippet>245</a>        multiaddr: Ipv4Addr,
+<a href=#246 id=246 data-nosnippet>246</a>        iface: Ipv4Addr,
+<a href=#247 id=247 data-nosnippet>247</a>    },
+<a href=#248 id=248 data-nosnippet>248</a>    <span class="doccomment">/// Tells this interface that it will subscribe to a
+<a href=#249 id=249 data-nosnippet>249</a>    /// particular multicast address. This applies to IPv6 addresses
+<a href=#250 id=250 data-nosnippet>250</a>    </span>JoinMulticastV6 { multiaddr: Ipv6Addr, iface: u32 },
+<a href=#251 id=251 data-nosnippet>251</a>    <span class="doccomment">/// Tells this interface that it will unsubscribe to a
+<a href=#252 id=252 data-nosnippet>252</a>    /// particular multicast address. This applies to IPv6 addresses
+<a href=#253 id=253 data-nosnippet>253</a>    </span>LeaveMulticastV6 { multiaddr: Ipv6Addr, iface: u32 },
+<a href=#254 id=254 data-nosnippet>254</a>}
+<a href=#255 id=255 data-nosnippet>255</a>
+<a href=#256 id=256 data-nosnippet>256</a><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
+<a href=#257 id=257 data-nosnippet>257</a></span><span class="kw">pub enum </span>ResponseType {
+<a href=#258 id=258 data-nosnippet>258</a>    <span class="doccomment">/// Nothing is returned (or noop)
+<a href=#259 id=259 data-nosnippet>259</a>    </span><span class="prelude-val">None</span>,
+<a href=#260 id=260 data-nosnippet>260</a>    <span class="doccomment">/// An error has occurred
+<a href=#261 id=261 data-nosnippet>261</a>    </span><span class="prelude-val">Err</span>(NetworkError),
+<a href=#262 id=262 data-nosnippet>262</a>    <span class="doccomment">/// Represents a duration of time
+<a href=#263 id=263 data-nosnippet>263</a>    </span>Duration(Duration),
+<a href=#264 id=264 data-nosnippet>264</a>    <span class="doccomment">/// Represents an amount (e.g. amount of bytes)
+<a href=#265 id=265 data-nosnippet>265</a>    </span>Amount(u64),
+<a href=#266 id=266 data-nosnippet>266</a>    <span class="doccomment">/// Returns a flag of true or false
+<a href=#267 id=267 data-nosnippet>267</a>    </span>Flag(bool),
+<a href=#268 id=268 data-nosnippet>268</a>    <span class="doccomment">/// List of IP addresses
+<a href=#269 id=269 data-nosnippet>269</a>    </span>IpAddressList(Vec&lt;IpAddr&gt;),
+<a href=#270 id=270 data-nosnippet>270</a>    <span class="doccomment">/// A single IP address
+<a href=#271 id=271 data-nosnippet>271</a>    </span>IpAddress(IpAddr),
+<a href=#272 id=272 data-nosnippet>272</a>    <span class="doccomment">/// List of socket addresses
+<a href=#273 id=273 data-nosnippet>273</a>    </span>SocketAddrList(Vec&lt;SocketAddr&gt;),
+<a href=#274 id=274 data-nosnippet>274</a>    <span class="doccomment">/// A single IP address
+<a href=#275 id=275 data-nosnippet>275</a>    </span>SocketAddr(SocketAddr),
+<a href=#276 id=276 data-nosnippet>276</a>    <span class="doccomment">/// Represents a MAC address
+<a href=#277 id=277 data-nosnippet>277</a>    </span>Mac([u8; <span class="number">6</span>]),
+<a href=#278 id=278 data-nosnippet>278</a>    <span class="doccomment">/// List of CIDR routes from a routing table
+<a href=#279 id=279 data-nosnippet>279</a>    </span>CidrList(Vec&lt;IpCidr&gt;),
+<a href=#280 id=280 data-nosnippet>280</a>    <span class="doccomment">/// List of IP routes from a routing table
+<a href=#281 id=281 data-nosnippet>281</a>    </span>RouteList(Vec&lt;IpRoute&gt;),
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="doccomment">/// Reference to a socket
+<a href=#283 id=283 data-nosnippet>283</a>    </span>Socket(SocketId),
+<a href=#284 id=284 data-nosnippet>284</a>    <span class="doccomment">/// The TTL of a packet
+<a href=#285 id=285 data-nosnippet>285</a>    </span>Ttl(u32),
+<a href=#286 id=286 data-nosnippet>286</a>    <span class="doccomment">/// The status of the socket
+<a href=#287 id=287 data-nosnippet>287</a>    </span>Status(SocketStatus),
+<a href=#288 id=288 data-nosnippet>288</a>}
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a><span class="doccomment">/// Message sent by the client to the server
+<a href=#291 id=291 data-nosnippet>291</a></span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
+<a href=#292 id=292 data-nosnippet>292</a></span><span class="kw">pub enum </span>MessageRequest {
+<a href=#293 id=293 data-nosnippet>293</a>    Interface {
+<a href=#294 id=294 data-nosnippet>294</a>        req: RequestType,
+<a href=#295 id=295 data-nosnippet>295</a>        req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#296 id=296 data-nosnippet>296</a>    },
+<a href=#297 id=297 data-nosnippet>297</a>    Socket {
+<a href=#298 id=298 data-nosnippet>298</a>        socket: SocketId,
+<a href=#299 id=299 data-nosnippet>299</a>        req: RequestType,
+<a href=#300 id=300 data-nosnippet>300</a>        req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#301 id=301 data-nosnippet>301</a>    },
+<a href=#302 id=302 data-nosnippet>302</a>    Send {
+<a href=#303 id=303 data-nosnippet>303</a>        socket: SocketId,
+<a href=#304 id=304 data-nosnippet>304</a>        data: Vec&lt;u8&gt;,
+<a href=#305 id=305 data-nosnippet>305</a>        req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#306 id=306 data-nosnippet>306</a>    },
+<a href=#307 id=307 data-nosnippet>307</a>    SendTo {
+<a href=#308 id=308 data-nosnippet>308</a>        socket: SocketId,
+<a href=#309 id=309 data-nosnippet>309</a>        data: Vec&lt;u8&gt;,
+<a href=#310 id=310 data-nosnippet>310</a>        addr: SocketAddr,
+<a href=#311 id=311 data-nosnippet>311</a>        req_id: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#312 id=312 data-nosnippet>312</a>    },
+<a href=#313 id=313 data-nosnippet>313</a>    Reconnect,
+<a href=#314 id=314 data-nosnippet>314</a>}
+<a href=#315 id=315 data-nosnippet>315</a>
+<a href=#316 id=316 data-nosnippet>316</a><span class="doccomment">/// Message sent by the server back to a client
+<a href=#317 id=317 data-nosnippet>317</a></span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
+<a href=#318 id=318 data-nosnippet>318</a></span><span class="kw">pub enum </span>MessageResponse {
+<a href=#319 id=319 data-nosnippet>319</a>    ResponseToRequest {
+<a href=#320 id=320 data-nosnippet>320</a>        req_id: u64,
+<a href=#321 id=321 data-nosnippet>321</a>        res: ResponseType,
+<a href=#322 id=322 data-nosnippet>322</a>    },
+<a href=#323 id=323 data-nosnippet>323</a>    Recv {
+<a href=#324 id=324 data-nosnippet>324</a>        socket_id: SocketId,
+<a href=#325 id=325 data-nosnippet>325</a>        data: Vec&lt;u8&gt;,
+<a href=#326 id=326 data-nosnippet>326</a>    },
+<a href=#327 id=327 data-nosnippet>327</a>    RecvWithAddr {
+<a href=#328 id=328 data-nosnippet>328</a>        socket_id: SocketId,
+<a href=#329 id=329 data-nosnippet>329</a>        data: Vec&lt;u8&gt;,
+<a href=#330 id=330 data-nosnippet>330</a>        addr: SocketAddr,
+<a href=#331 id=331 data-nosnippet>331</a>    },
+<a href=#332 id=332 data-nosnippet>332</a>    Sent {
+<a href=#333 id=333 data-nosnippet>333</a>        socket_id: SocketId,
+<a href=#334 id=334 data-nosnippet>334</a>        req_id: u64,
+<a href=#335 id=335 data-nosnippet>335</a>        amount: u64,
+<a href=#336 id=336 data-nosnippet>336</a>    },
+<a href=#337 id=337 data-nosnippet>337</a>    SendError {
+<a href=#338 id=338 data-nosnippet>338</a>        socket_id: SocketId,
+<a href=#339 id=339 data-nosnippet>339</a>        req_id: u64,
+<a href=#340 id=340 data-nosnippet>340</a>        error: NetworkError,
+<a href=#341 id=341 data-nosnippet>341</a>    },
+<a href=#342 id=342 data-nosnippet>342</a>    FinishAccept {
+<a href=#343 id=343 data-nosnippet>343</a>        socket_id: SocketId,
+<a href=#344 id=344 data-nosnippet>344</a>        child_id: SocketId,
+<a href=#345 id=345 data-nosnippet>345</a>        addr: SocketAddr,
+<a href=#346 id=346 data-nosnippet>346</a>    },
+<a href=#347 id=347 data-nosnippet>347</a>    Closed {
+<a href=#348 id=348 data-nosnippet>348</a>        socket_id: SocketId,
+<a href=#349 id=349 data-nosnippet>349</a>    },
+<a href=#350 id=350 data-nosnippet>350</a>}
 </code></pre></div></section></main></body></html>
