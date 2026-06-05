@@ -194,6 +194,8 @@ struct Config {
     expected_files: Vec<(PathBuf, String)>,
     program_name: Option<String>,
     default_mapped_directories: bool,
+    // Used for configuration display name purpose.
+    sysroot_version: Option<&'static str>,
 }
 
 impl Config {
@@ -230,6 +232,7 @@ impl Config {
             expected_files: Vec::new(),
             program_name: None,
             default_mapped_directories: true,
+            sysroot_version: None,
         }
     }
 
@@ -246,8 +249,19 @@ impl Config {
         if self.selected_file_system != FileSystemKind::Host {
             parts.push(self.selected_file_system.to_string());
         }
+        if let Some(sysroot_version) = &self.sysroot_version {
+            parts.push(sysroot_version.to_string());
+        }
         parts.push(self.engine.to_string());
         parts.join("/")
+    }
+
+    fn set_sysroot(&mut self, sysroot_version: &'static str) {
+        self.sysroot_version = Some(sysroot_version);
+        self.build_env.push((
+            "WASIXCC_SYSROOT_PREFIX".to_owned(),
+            format!("/home/marxin/.wasixcc/sysroot-{}", sysroot_version),
+        ));
     }
 }
 
@@ -1229,16 +1243,22 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                             continue;
                         }
 
-                        let mut config = config.clone();
-                        config.engine = *engine;
-                        config.selected_file_system = *file_system;
-                        tests.push(libtest_mimic::Trial::ignorable_test(
-                            config.full_test_name(),
-                            move || {
-                                run_integration_test(config)
-                                    .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
-                            },
-                        ));
+                        for sysroot in [None, Some("v2026-05-12.1")] {
+                            let mut config = config.clone();
+                            config.engine = *engine;
+                            config.selected_file_system = *file_system;
+                            if let Some(sysroot_version) = sysroot {
+                                config.set_sysroot(sysroot_version);
+                            }
+
+                            tests.push(libtest_mimic::Trial::ignorable_test(
+                                config.full_test_name(),
+                                move || {
+                                    run_integration_test(config)
+                                        .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
+                                },
+                            ));
+                        }
                     }
                 }
             }
