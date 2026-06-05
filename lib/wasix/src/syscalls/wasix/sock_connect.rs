@@ -75,9 +75,7 @@ pub(crate) fn sock_connect_internal(
         Rights::SOCK_CONNECT,
         move |socket, flags| async move {
             // Auto-bind UDP
-            let bound_socket = socket
-                .auto_bind_udp(tasks.deref(), net.deref())
-                .await?;
+            let bound_socket = socket.auto_bind_udp(tasks.deref(), net.deref()).await?;
             let mut socket = bound_socket.clone().unwrap_or(socket);
             let connected_socket = socket
                 .connect(

@@ -747,24 +747,30 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.addr_peer().map_err(net_error_into_wasi_err)?
             }
-            InodeSocketKind::UdpSocket { socket, .. } => socket
-                .addr_peer()
-                .map_err(net_error_into_wasi_err)?
-                .map(Ok)
-                .unwrap_or_else(|| {
+            InodeSocketKind::UdpSocket { socket, peer } => {
+                if let Some(peer) = peer {
+                    *peer
+                } else {
                     socket
-                        .addr_local()
-                        .map_err(net_error_into_wasi_err)
-                        .map(|addr| {
-                            SocketAddr::new(
-                                match addr {
-                                    SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                                    SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                                },
-                                0,
-                            )
-                        })
-                })?,
+                        .addr_peer()
+                        .map_err(net_error_into_wasi_err)?
+                        .map(Ok)
+                        .unwrap_or_else(|| {
+                            socket
+                                .addr_local()
+                                .map_err(net_error_into_wasi_err)
+                                .map(|addr| {
+                                    SocketAddr::new(
+                                        match addr {
+                                            SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
+                                            SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
+                                        },
+                                        0,
+                                    )
+                                })
+                        })?
+                }
+            }
             InodeSocketKind::RemoteSocket { peer_addr, .. } => *peer_addr,
             _ => return Err(Errno::Notsup),
         })
