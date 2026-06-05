@@ -169,7 +169,10 @@ impl StoreContext {
             if let Some(pos) = stack.iter().rposition(|ctx| ctx.id == id) {
                 stack.remove(pos);
             } else {
-                debug_assert!(false, "CoroutineStoreGuard::drop: entry not found in context stack");
+                panic!(
+                    "CoroutineStoreGuard::drop: entry not found in context stack; \
+                        the store context stack is corrupted"
+                );
             }
         });
     }
