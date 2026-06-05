@@ -73,13 +73,13 @@ pub(crate) fn sock_connect_internal(
         ctx,
         sock,
         Rights::SOCK_CONNECT,
-        move |mut socket, flags| async move {
+        move |socket, flags| async move {
             // Auto-bind UDP
-            socket = socket
+            let bound_socket = socket
                 .auto_bind_udp(tasks.deref(), net.deref())
-                .await?
-                .unwrap_or(socket);
-            socket
+                .await?;
+            let mut socket = bound_socket.clone().unwrap_or(socket);
+            let connected_socket = socket
                 .connect(
                     tasks.deref(),
                     net.deref(),
@@ -87,7 +87,9 @@ pub(crate) fn sock_connect_internal(
                     None,
                     flags.contains(Fdflags::NONBLOCK),
                 )
-                .await
+                .await?;
+
+            Ok(connected_socket.or(bound_socket))
         }
     ));
 
