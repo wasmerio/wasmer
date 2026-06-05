@@ -326,30 +326,30 @@ impl StoreContext {
 
 /// RAII guard that installs the store context on the thread-local stack when
 /// created and removes it on drop. See [`crate::Store::coroutine_store_guard`].
-pub struct CoroutineStoreGuard {
+pub struct CoroutineStoreGuard<'a> {
     store_id: StoreId,
+    _store: std::marker::PhantomData<&'a mut StoreInner>,
 }
 
-impl CoroutineStoreGuard {
+impl<'a> CoroutineStoreGuard<'a> {
     /// # Panics
-    /// Panics if the store is already active on the current thread.
+    /// Panics if the store is already on the context stack of this thread.
     ///
     /// # Safety
-    /// - The store behind `store_ptr` must outlive the guard.
-    /// - Exactly one `StorePtrWrapper` derived from `store_ptr` must be alive
-    ///   on the suspended coroutine's stack for the duration of the guard.
-    pub(crate) unsafe fn new(store_ptr: *mut StoreInner) -> Self {
-        let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
+    /// Exactly one `StorePtrWrapper` derived from `store` must be alive on
+    /// the suspended coroutine's stack for the duration of the guard.
+    pub(crate) unsafe fn new(store: &'a mut StoreInner) -> Self {
+        let store_id = store.objects.id();
         assert!(
             !StoreContext::is_active(store_id) && !StoreContext::is_suspended(store_id),
             "store is already on the context stack of this thread"
         );
-        StoreContext::install_cothread(store_id, store_ptr);
-        Self { store_id }
+        StoreContext::install_cothread(store_id, store as *mut StoreInner);
+        Self { store_id, _store: std::marker::PhantomData }
     }
 }
 
-impl Drop for CoroutineStoreGuard {
+impl Drop for CoroutineStoreGuard<'_> {
     fn drop(&mut self) {
         if std::thread::panicking() {
             return;

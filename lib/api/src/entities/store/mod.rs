@@ -128,13 +128,11 @@ impl Store {
     /// Panics if the store is already active on the current thread.
     ///
     /// # Safety
-    /// - The store must outlive the guard. The guard holds a raw pointer into
-    ///   the store; dropping the store while the guard is live is UB.
-    /// - Exactly one `StorePtrWrapper` derived from this store must be alive
-    ///   on the suspended coroutine's stack for the duration of the guard.
+    /// Exactly one `StorePtrWrapper` derived from this store must be alive on
+    /// the suspended coroutine's stack for the duration of the guard.
     #[cfg(feature = "sys")]
-    pub unsafe fn coroutine_store_guard(&mut self) -> CoroutineStoreGuard {
-        unsafe { CoroutineStoreGuard::new(self.inner.as_mut() as *mut _) }
+    pub unsafe fn coroutine_store_guard(&mut self) -> CoroutineStoreGuard<'_> {
+        unsafe { CoroutineStoreGuard::new(self.inner.as_mut()) }
     }
 
     /// Builds an [`Interrupter`] for this store. Calling [`Interrupter::interrupt`]
