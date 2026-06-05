@@ -164,17 +164,12 @@ impl StoreContext {
     fn uninstall_cothread(id: StoreId) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
-            match stack.pop() {
-                Some(top) if top.id == id => {}
-                Some(top) => {
-                    // Don't clean up an entry that isn't ours; put it back and
-                    // let its own guard handle it.
-                    debug_assert_eq!(top.id, id, "mismatched store context on cothread uninstall");
-                    stack.push(top);
-                }
-                None => {
-                    debug_assert!(false, "store context stack underflow on cothread uninstall");
-                }
+            // Search from the top so we find our entry even if the stack has
+            // been disturbed (e.g. another guard panicked mid-flight).
+            if let Some(pos) = stack.iter().rposition(|ctx| ctx.id == id) {
+                stack.remove(pos);
+            } else {
+                debug_assert!(false, "CoroutineStoreGuard::drop: entry not found in context stack");
             }
         });
     }
