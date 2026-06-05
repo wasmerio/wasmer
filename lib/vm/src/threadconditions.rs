@@ -1,8 +1,7 @@
 use std::{
-    sync::atomic::AtomicPtr,
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -143,14 +142,12 @@ impl ThreadConditions {
             ExpectedValue::None => true,
             ExpectedValue::U32(expected_val) => unsafe {
                 let src = dst.memory_base.offset(dst.address as isize) as *mut u32;
-                let atomic_src = AtomicPtr::new(src);
-                let read_val = *atomic_src.load(Ordering::Acquire);
+                let read_val = AtomicU32::from_ptr(src).load(Ordering::Acquire);
                 read_val == expected_val
             },
             ExpectedValue::U64(expected_val) => unsafe {
                 let src = dst.memory_base.offset(dst.address as isize) as *mut u64;
-                let atomic_src = AtomicPtr::new(src);
-                let read_val = *atomic_src.load(Ordering::Acquire);
+                let read_val = AtomicU64::from_ptr(src).load(Ordering::Acquire);
                 read_val == expected_val
             },
         };
