@@ -38,7 +38,7 @@ pub struct LocalNetworking {
     selector: Arc<Selector>,
     handle: Handle,
     ruleset: Option<Ruleset>,
-    multicast: Arc<Mutex<MulticastCoordinator>>,
+    multicast: Arc<MulticastCoordinator>,
     next_udp_socket_id: Arc<AtomicU64>,
 }
 
@@ -817,16 +817,15 @@ pub struct LocalUdpSocket {
     handler_guard: HandlerGuardState,
     backlog: VecDeque<(BytesMut, SocketAddr)>,
     ruleset: Option<Ruleset>,
-    multicast: Arc<Mutex<MulticastCoordinator>>,
+    multicast: Arc<MulticastCoordinator>,
     shared: Arc<LocalUdpSocketShared>,
 }
 
 impl Drop for LocalUdpSocket {
     fn drop(&mut self) {
         let keys = self.shared.joined_keys();
-        let mut multicast = self.multicast.lock().unwrap();
         for key in keys {
-            multicast.leave(&self.shared, key);
+            self.multicast.leave(&self.shared, key);
         }
     }
 }
@@ -879,8 +878,6 @@ impl VirtualUdpSocket for LocalUdpSocket {
     fn join_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
         let port = self.addr_local()?.port();
         self.multicast
-            .lock()
-            .unwrap()
             .join(&self.shared, MulticastKey::new(IpAddr::V4(multiaddr), port));
         Ok(())
     }
@@ -888,8 +885,6 @@ impl VirtualUdpSocket for LocalUdpSocket {
     fn leave_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
         let port = self.addr_local()?.port();
         self.multicast
-            .lock()
-            .unwrap()
             .leave(&self.shared, MulticastKey::new(IpAddr::V4(multiaddr), port));
         Ok(())
     }
@@ -897,8 +892,6 @@ impl VirtualUdpSocket for LocalUdpSocket {
     fn join_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<()> {
         let port = self.addr_local()?.port();
         self.multicast
-            .lock()
-            .unwrap()
             .join(&self.shared, MulticastKey::new(IpAddr::V6(multiaddr), port));
         Ok(())
     }
@@ -906,8 +899,6 @@ impl VirtualUdpSocket for LocalUdpSocket {
     fn leave_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<()> {
         let port = self.addr_local()?.port();
         self.multicast
-            .lock()
-            .unwrap()
             .leave(&self.shared, MulticastKey::new(IpAddr::V6(multiaddr), port));
         Ok(())
     }
@@ -932,10 +923,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
         let multicast_subscribers = match MulticastKey::from_socket_addr(addr) {
             Some(_) => {
                 let from = self.addr_local().unwrap_or(self.addr);
-                self.multicast
-                    .lock()
-                    .unwrap()
-                    .send(&self.shared, data, from, addr)
+                self.multicast.send(&self.shared, data, from, addr)
             }
             None => Vec::new(),
         };
@@ -977,7 +965,7 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
             return Ok((amt, addr));
         }
 
-        match self.multicast.lock().unwrap().recv(&self.shared, buf, peek) {
+        match self.multicast.recv(&self.shared, buf, peek) {
             Ok(ret) => return Ok(ret),
             Err(NetworkError::WouldBlock) => {}
             Err(err) => return Err(err),
@@ -1075,7 +1063,7 @@ impl VirtualIoSource for LocalUdpSocket {
             let len = self.backlog.front().map(|a| a.0.len()).unwrap_or_default();
             return Poll::Ready(Ok(len));
         }
-        if let Some(len) = self.multicast.lock().unwrap().next_packet_len(&self.shared) {
+        if let Some(len) = self.multicast.next_packet_len(&self.shared) {
             return Poll::Ready(Ok(len));
         }
 

@@ -31,6 +31,8 @@ serde = { workspace = true, default-features = false, features = ["derive"] }
 pin-project-lite.workspace = true
 futures-util.workspace = true
 anyhow.workspace = true
+crossbeam-queue.workspace = true
+parking_lot.workspace = true
 tokio-serde = { workspace = true, features = ["bincode"], optional = true }
 tokio-util = { workspace = true, features = ["codec"], optional = true }
 hyper-tungstenite = { workspace = true, optional = true }
