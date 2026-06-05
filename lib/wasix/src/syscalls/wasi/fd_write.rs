@@ -254,14 +254,19 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                         .map_err(mem_error_to_wasi)?
                                         .access()
                                         .map_err(mem_error_to_wasi)?;
-                                    let local_sent = socket
+                                    let local_sent = match socket
                                         .send(
                                             tasks.deref(),
                                             buf.as_ref(),
                                             Some(timeout),
                                             nonblocking,
                                         )
-                                        .await?;
+                                        .await
+                                    {
+                                        Ok(sent) => sent,
+                                        Err(_) if sent > 0 => break,
+                                        Err(err) => return Err(err),
+                                    };
                                     sent += local_sent;
                                     if local_sent != buf.len() {
                                         break;
