@@ -349,6 +349,9 @@ impl CoroutineStoreGuard {
 
 impl Drop for CoroutineStoreGuard {
     fn drop(&mut self) {
+        if std::thread::panicking() {
+            return;
+        }
         StoreContext::uninstall_cothread(self.store_id);
     }
 }
