@@ -358,7 +358,10 @@ impl<'a> CoroutineStoreGuard<'a> {
             "store is already on the context stack of this thread"
         );
         StoreContext::install_cothread(store_id, NonNull::from(store));
-        Self { store_id, _store: std::marker::PhantomData }
+        Self {
+            store_id,
+            _store: std::marker::PhantomData,
+        }
     }
 }
 
