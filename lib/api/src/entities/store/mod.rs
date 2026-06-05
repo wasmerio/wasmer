@@ -120,18 +120,13 @@ impl Store {
         self.inner.objects.id()
     }
 
-    /// Returns a [`CoroutineStoreGuard`] that installs this store's context
-    /// on the thread-local stack and removes it when the guard is dropped.
-    ///
-    /// Use this to bracket a coroutine `resume()` call when this store is
-    /// held by a suspended coroutine.
+    /// Installs this store's context for the duration of a coroutine resume.
+    /// Drop the guard when the resume returns to remove it.
     ///
     /// # Safety
-    ///
-    /// Caller must ensure:
-    /// - The store is not currently active on this thread's context stack.
-    /// - Exactly one `StorePtrWrapper` derived from this store is alive on
-    ///   a suspended coroutine's stack.
+    /// The store must not be active on this thread. Exactly one
+    /// `StorePtrWrapper` from this store must be alive on the suspended
+    /// coroutine's stack.
     #[cfg(feature = "sys")]
     pub unsafe fn coroutine_store_guard(&mut self) -> CoroutineStoreGuard {
         unsafe { CoroutineStoreGuard::new(self.inner.as_mut() as *mut _) }
