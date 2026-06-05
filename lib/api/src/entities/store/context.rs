@@ -45,6 +45,7 @@ use std::{
     borrow::BorrowMut,
     cell::{RefCell, UnsafeCell},
     mem::MaybeUninit,
+    ptr::NonNull,
 };
 
 #[cfg(feature = "experimental-async")]
@@ -149,13 +150,13 @@ impl StoreContext {
         })
     }
 
-    fn install_cothread(id: StoreId, store_ptr: *mut StoreInner) {
+    fn install_cothread(id: StoreId, store_ptr: NonNull<StoreInner>) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             stack.push(Self {
                 id,
                 borrow_count: 1,
-                entry: UnsafeCell::new(StoreContextEntry::Sync(store_ptr)),
+                entry: UnsafeCell::new(StoreContextEntry::Sync(store_ptr.as_ptr())),
             });
         });
     }
@@ -356,7 +357,7 @@ impl<'a> CoroutineStoreGuard<'a> {
             !StoreContext::is_active(store_id) && !StoreContext::is_suspended(store_id),
             "store is already on the context stack of this thread"
         );
-        StoreContext::install_cothread(store_id, store as *mut StoreInner);
+        StoreContext::install_cothread(store_id, NonNull::from(store));
         Self { store_id, _store: std::marker::PhantomData }
     }
 }
