@@ -901,6 +901,9 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.addr_peer().map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::UdpSocket {
+                peer: Some(peer), ..
+            } => Ok(*peer),
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .addr_peer()
                 .map_err(net_error_into_wasi_err)?
