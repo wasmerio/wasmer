@@ -341,9 +341,8 @@ impl CoroutineStoreGuard {
     pub(crate) unsafe fn new(store_ptr: *mut StoreInner) -> Self {
         let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
         assert!(
-            !StoreContext::is_active(store_id),
-            "store is already active on this thread; \
-             CoroutineStoreGuard must only be used when the store is suspended"
+            !StoreContext::is_active(store_id) && !StoreContext::is_suspended(store_id),
+            "store is already on the context stack of this thread"
         );
         StoreContext::install_cothread(store_id, store_ptr);
         Self { store_id }
