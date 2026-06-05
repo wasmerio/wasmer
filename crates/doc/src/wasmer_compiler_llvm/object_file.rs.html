@@ -45,966 +45,974 @@
 <a href=#45 id=45 data-nosnippet>45</a>    <span class="string">"floor" </span>=&gt; LibCall::FloorF64,
 <a href=#46 id=46 data-nosnippet>46</a>    <span class="string">"nearbyintf" </span>=&gt; LibCall::NearestF32,
 <a href=#47 id=47 data-nosnippet>47</a>    <span class="string">"nearbyint" </span>=&gt; LibCall::NearestF64,
-<a href=#48 id=48 data-nosnippet>48</a>    <span class="string">"truncf" </span>=&gt; LibCall::TruncF32,
-<a href=#49 id=49 data-nosnippet>49</a>    <span class="string">"trunc" </span>=&gt; LibCall::TruncF64,
-<a href=#50 id=50 data-nosnippet>50</a>    <span class="string">"__chkstk" </span>=&gt; LibCall::Probestack,
-<a href=#51 id=51 data-nosnippet>51</a>    <span class="string">"wasmer_vm_f32_ceil" </span>=&gt; LibCall::CeilF32,
-<a href=#52 id=52 data-nosnippet>52</a>    <span class="string">"wasmer_vm_f64_ceil" </span>=&gt; LibCall::CeilF64,
-<a href=#53 id=53 data-nosnippet>53</a>    <span class="string">"wasmer_vm_f32_floor" </span>=&gt; LibCall::FloorF32,
-<a href=#54 id=54 data-nosnippet>54</a>    <span class="string">"wasmer_vm_f64_floor" </span>=&gt; LibCall::FloorF64,
-<a href=#55 id=55 data-nosnippet>55</a>    <span class="string">"wasmer_vm_f32_nearest" </span>=&gt; LibCall::NearestF32,
-<a href=#56 id=56 data-nosnippet>56</a>    <span class="string">"wasmer_vm_f64_nearest" </span>=&gt; LibCall::NearestF64,
-<a href=#57 id=57 data-nosnippet>57</a>    <span class="string">"wasmer_vm_f32_trunc" </span>=&gt; LibCall::TruncF32,
-<a href=#58 id=58 data-nosnippet>58</a>    <span class="string">"wasmer_vm_f64_trunc" </span>=&gt; LibCall::TruncF64,
-<a href=#59 id=59 data-nosnippet>59</a>    <span class="string">"wasmer_vm_memory32_size" </span>=&gt; LibCall::Memory32Size,
-<a href=#60 id=60 data-nosnippet>60</a>    <span class="string">"wasmer_vm_imported_memory32_size" </span>=&gt; LibCall::ImportedMemory32Size,
-<a href=#61 id=61 data-nosnippet>61</a>    <span class="string">"wasmer_vm_table_copy" </span>=&gt; LibCall::TableCopy,
-<a href=#62 id=62 data-nosnippet>62</a>    <span class="string">"wasmer_vm_table_init" </span>=&gt; LibCall::TableInit,
-<a href=#63 id=63 data-nosnippet>63</a>    <span class="string">"wasmer_vm_table_fill" </span>=&gt; LibCall::TableFill,
-<a href=#64 id=64 data-nosnippet>64</a>    <span class="string">"wasmer_vm_table_size" </span>=&gt; LibCall::TableSize,
-<a href=#65 id=65 data-nosnippet>65</a>    <span class="string">"wasmer_vm_imported_table_size" </span>=&gt; LibCall::ImportedTableSize,
-<a href=#66 id=66 data-nosnippet>66</a>    <span class="string">"wasmer_vm_table_get" </span>=&gt; LibCall::TableGet,
-<a href=#67 id=67 data-nosnippet>67</a>    <span class="string">"wasmer_vm_imported_table_get" </span>=&gt; LibCall::ImportedTableGet,
-<a href=#68 id=68 data-nosnippet>68</a>    <span class="string">"wasmer_vm_table_set" </span>=&gt; LibCall::TableSet,
-<a href=#69 id=69 data-nosnippet>69</a>    <span class="string">"wasmer_vm_imported_table_set" </span>=&gt; LibCall::ImportedTableSet,
-<a href=#70 id=70 data-nosnippet>70</a>    <span class="string">"wasmer_vm_table_grow" </span>=&gt; LibCall::TableGrow,
-<a href=#71 id=71 data-nosnippet>71</a>    <span class="string">"wasmer_vm_imported_table_grow" </span>=&gt; LibCall::ImportedTableGrow,
-<a href=#72 id=72 data-nosnippet>72</a>    <span class="string">"wasmer_vm_func_ref" </span>=&gt; LibCall::FuncRef,
-<a href=#73 id=73 data-nosnippet>73</a>    <span class="string">"wasmer_vm_elem_drop" </span>=&gt; LibCall::ElemDrop,
-<a href=#74 id=74 data-nosnippet>74</a>    <span class="string">"wasmer_vm_memory32_copy" </span>=&gt; LibCall::Memory32Copy,
-<a href=#75 id=75 data-nosnippet>75</a>    <span class="string">"wasmer_vm_imported_memory32_copy" </span>=&gt; LibCall::ImportedMemory32Copy,
-<a href=#76 id=76 data-nosnippet>76</a>    <span class="string">"wasmer_vm_memory32_fill" </span>=&gt; LibCall::Memory32Fill,
-<a href=#77 id=77 data-nosnippet>77</a>    <span class="string">"wasmer_vm_imported_memory32_fill" </span>=&gt; LibCall::ImportedMemory32Fill,
-<a href=#78 id=78 data-nosnippet>78</a>    <span class="string">"wasmer_vm_memory32_init" </span>=&gt; LibCall::Memory32Init,
-<a href=#79 id=79 data-nosnippet>79</a>    <span class="string">"wasmer_vm_data_drop" </span>=&gt; LibCall::DataDrop,
-<a href=#80 id=80 data-nosnippet>80</a>    <span class="string">"wasmer_vm_raise_trap" </span>=&gt; LibCall::RaiseTrap,
-<a href=#81 id=81 data-nosnippet>81</a>    <span class="string">"wasmer_vm_memory32_atomic_wait32" </span>=&gt; LibCall::Memory32AtomicWait32,
-<a href=#82 id=82 data-nosnippet>82</a>    <span class="string">"wasmer_vm_imported_memory32_atomic_wait32" </span>=&gt; LibCall::ImportedMemory32AtomicWait32,
-<a href=#83 id=83 data-nosnippet>83</a>    <span class="string">"wasmer_vm_memory32_atomic_wait64" </span>=&gt; LibCall::Memory32AtomicWait64,
-<a href=#84 id=84 data-nosnippet>84</a>    <span class="string">"wasmer_vm_imported_memory32_atomic_wait64" </span>=&gt; LibCall::ImportedMemory32AtomicWait64,
-<a href=#85 id=85 data-nosnippet>85</a>    <span class="string">"wasmer_vm_memory32_atomic_notify" </span>=&gt; LibCall::Memory32AtomicNotify,
-<a href=#86 id=86 data-nosnippet>86</a>    <span class="string">"wasmer_vm_imported_memory32_atomic_notify" </span>=&gt; LibCall::ImportedMemory32AtomicNotify,
-<a href=#87 id=87 data-nosnippet>87</a>    <span class="string">"wasmer_vm_throw" </span>=&gt; LibCall::Throw,
-<a href=#88 id=88 data-nosnippet>88</a>    <span class="string">"wasmer_vm_alloc_exception" </span>=&gt; LibCall::AllocException,
-<a href=#89 id=89 data-nosnippet>89</a>    <span class="string">"wasmer_vm_read_exnref" </span>=&gt; LibCall::ReadExnRef,
-<a href=#90 id=90 data-nosnippet>90</a>    <span class="string">"wasmer_vm_exception_into_exnref" </span>=&gt; LibCall::LibunwindExceptionIntoExnRef,
-<a href=#91 id=91 data-nosnippet>91</a>    <span class="string">"wasmer_eh_personality" </span>=&gt; LibCall::EHPersonality,
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="string">"wasmer_eh_personality2" </span>=&gt; LibCall::EHPersonality2,
-<a href=#93 id=93 data-nosnippet>93</a>    <span class="string">"wasmer_vm_dbg_usize" </span>=&gt; LibCall::DebugUsize,
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="string">"wasmer_vm_dbg_str" </span>=&gt; LibCall::DebugStr,
-<a href=#95 id=95 data-nosnippet>95</a>};
-<a href=#96 id=96 data-nosnippet>96</a>
-<a href=#97 id=97 data-nosnippet>97</a><span class="comment">// Soft-float routines that LLVM may emit for RISC-V ELF targets.  The map is
-<a href=#98 id=98 data-nosnippet>98</a>// unconditional because `load_object_file` runs on the host while the ELF it
-<a href=#99 id=99 data-nosnippet>99</a>// processes was compiled for the LLVM output target (a runtime value); gating
-<a href=#100 id=100 data-nosnippet>100</a>// on host target_arch would break cross-compilation (e.g. macOS → riscv64).
-<a href=#101 id=101 data-nosnippet>101</a></span><span class="kw">static </span>SOFTFLOAT_LIBCALLS_ELF: phf::Map&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, LibCall&gt; = <span class="macro">phf::phf_map!</span> {
-<a href=#102 id=102 data-nosnippet>102</a>    <span class="comment">// §3.2.1 Arithmetic
-<a href=#103 id=103 data-nosnippet>103</a>    </span><span class="string">"__addsf3" </span>=&gt; LibCall::Addsf3,
-<a href=#104 id=104 data-nosnippet>104</a>    <span class="string">"__adddf3" </span>=&gt; LibCall::Adddf3,
-<a href=#105 id=105 data-nosnippet>105</a>    <span class="string">"__subsf3" </span>=&gt; LibCall::Subsf3,
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="string">"__subdf3" </span>=&gt; LibCall::Subdf3,
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="string">"__mulsf3" </span>=&gt; LibCall::Mulsf3,
-<a href=#108 id=108 data-nosnippet>108</a>    <span class="string">"__muldf3" </span>=&gt; LibCall::Muldf3,
-<a href=#109 id=109 data-nosnippet>109</a>    <span class="string">"__divsf3" </span>=&gt; LibCall::Divsf3,
-<a href=#110 id=110 data-nosnippet>110</a>    <span class="string">"__divdf3" </span>=&gt; LibCall::Divdf3,
-<a href=#111 id=111 data-nosnippet>111</a>    <span class="string">"__negsf2" </span>=&gt; LibCall::Negsf2,
-<a href=#112 id=112 data-nosnippet>112</a>    <span class="string">"__negdf2" </span>=&gt; LibCall::Negdf2,
-<a href=#113 id=113 data-nosnippet>113</a>    <span class="comment">// §3.2.2 Conversion
-<a href=#114 id=114 data-nosnippet>114</a>    </span><span class="string">"__extendsfdf2" </span>=&gt; LibCall::Extendsfdf2,
-<a href=#115 id=115 data-nosnippet>115</a>    <span class="string">"__truncdfsf2" </span>=&gt; LibCall::Truncdfsf2,
-<a href=#116 id=116 data-nosnippet>116</a>    <span class="string">"__fixsfsi" </span>=&gt; LibCall::Fixsfsi,
-<a href=#117 id=117 data-nosnippet>117</a>    <span class="string">"__fixdfsi" </span>=&gt; LibCall::Fixdfsi,
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="string">"__fixsfdi" </span>=&gt; LibCall::Fixsfdi,
-<a href=#119 id=119 data-nosnippet>119</a>    <span class="string">"__fixdfdi" </span>=&gt; LibCall::Fixdfdi,
-<a href=#120 id=120 data-nosnippet>120</a>    <span class="string">"__fixunssfsi" </span>=&gt; LibCall::Fixunssfsi,
-<a href=#121 id=121 data-nosnippet>121</a>    <span class="string">"__fixunsdfsi" </span>=&gt; LibCall::Fixunsdfsi,
-<a href=#122 id=122 data-nosnippet>122</a>    <span class="string">"__fixunssfdi" </span>=&gt; LibCall::Fixunssfdi,
-<a href=#123 id=123 data-nosnippet>123</a>    <span class="string">"__fixunsdfdi" </span>=&gt; LibCall::Fixunsdfdi,
-<a href=#124 id=124 data-nosnippet>124</a>    <span class="string">"__floatsisf" </span>=&gt; LibCall::Floatsisf,
-<a href=#125 id=125 data-nosnippet>125</a>    <span class="string">"__floatsidf" </span>=&gt; LibCall::Floatsidf,
-<a href=#126 id=126 data-nosnippet>126</a>    <span class="string">"__floatdisf" </span>=&gt; LibCall::Floatdisf,
-<a href=#127 id=127 data-nosnippet>127</a>    <span class="string">"__floatdidf" </span>=&gt; LibCall::Floatdidf,
-<a href=#128 id=128 data-nosnippet>128</a>    <span class="string">"__floatunsisf" </span>=&gt; LibCall::Floatunsisf,
-<a href=#129 id=129 data-nosnippet>129</a>    <span class="string">"__floatunsidf" </span>=&gt; LibCall::Floatunsidf,
-<a href=#130 id=130 data-nosnippet>130</a>    <span class="string">"__floatundisf" </span>=&gt; LibCall::Floatundisf,
-<a href=#131 id=131 data-nosnippet>131</a>    <span class="string">"__floatundidf" </span>=&gt; LibCall::Floatundidf,
-<a href=#132 id=132 data-nosnippet>132</a>    <span class="comment">// §3.2.3 Comparison
-<a href=#133 id=133 data-nosnippet>133</a>    </span><span class="string">"__unordsf2" </span>=&gt; LibCall::Unordsf2,
-<a href=#134 id=134 data-nosnippet>134</a>    <span class="string">"__unorddf2" </span>=&gt; LibCall::Unorddf2,
-<a href=#135 id=135 data-nosnippet>135</a>    <span class="string">"__eqsf2" </span>=&gt; LibCall::Eqsf2,
-<a href=#136 id=136 data-nosnippet>136</a>    <span class="string">"__eqdf2" </span>=&gt; LibCall::Eqdf2,
-<a href=#137 id=137 data-nosnippet>137</a>    <span class="string">"__nesf2" </span>=&gt; LibCall::Nesf2,
-<a href=#138 id=138 data-nosnippet>138</a>    <span class="string">"__nedf2" </span>=&gt; LibCall::Nedf2,
-<a href=#139 id=139 data-nosnippet>139</a>    <span class="string">"__gesf2" </span>=&gt; LibCall::Gesf2,
-<a href=#140 id=140 data-nosnippet>140</a>    <span class="string">"__gedf2" </span>=&gt; LibCall::Gedf2,
-<a href=#141 id=141 data-nosnippet>141</a>    <span class="string">"__ltsf2" </span>=&gt; LibCall::Ltsf2,
-<a href=#142 id=142 data-nosnippet>142</a>    <span class="string">"__ltdf2" </span>=&gt; LibCall::Ltdf2,
-<a href=#143 id=143 data-nosnippet>143</a>    <span class="string">"__lesf2" </span>=&gt; LibCall::Lesf2,
-<a href=#144 id=144 data-nosnippet>144</a>    <span class="string">"__ledf2" </span>=&gt; LibCall::Ledf2,
-<a href=#145 id=145 data-nosnippet>145</a>    <span class="string">"__gtsf2" </span>=&gt; LibCall::Gtsf2,
-<a href=#146 id=146 data-nosnippet>146</a>    <span class="string">"__gtdf2" </span>=&gt; LibCall::Gtdf2,
-<a href=#147 id=147 data-nosnippet>147</a>};
-<a href=#148 id=148 data-nosnippet>148</a>
-<a href=#149 id=149 data-nosnippet>149</a><span class="kw">static </span>LIBCALLS_MACHO: phf::Map&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, LibCall&gt; = <span class="macro">phf::phf_map!</span> {
-<a href=#150 id=150 data-nosnippet>150</a>    <span class="string">"_ceilf" </span>=&gt; LibCall::CeilF32,
-<a href=#151 id=151 data-nosnippet>151</a>    <span class="string">"_ceil" </span>=&gt; LibCall::CeilF64,
-<a href=#152 id=152 data-nosnippet>152</a>    <span class="string">"_floorf" </span>=&gt; LibCall::FloorF32,
-<a href=#153 id=153 data-nosnippet>153</a>    <span class="string">"_floor" </span>=&gt; LibCall::FloorF64,
-<a href=#154 id=154 data-nosnippet>154</a>    <span class="string">"_nearbyintf" </span>=&gt; LibCall::NearestF32,
-<a href=#155 id=155 data-nosnippet>155</a>    <span class="string">"_nearbyint" </span>=&gt; LibCall::NearestF64,
-<a href=#156 id=156 data-nosnippet>156</a>    <span class="string">"_truncf" </span>=&gt; LibCall::TruncF32,
-<a href=#157 id=157 data-nosnippet>157</a>    <span class="string">"_trunc" </span>=&gt; LibCall::TruncF64,
-<a href=#158 id=158 data-nosnippet>158</a>    <span class="string">"_wasmer_vm_f32_ceil" </span>=&gt; LibCall::CeilF32,
-<a href=#159 id=159 data-nosnippet>159</a>    <span class="string">"_wasmer_vm_f64_ceil" </span>=&gt; LibCall::CeilF64,
-<a href=#160 id=160 data-nosnippet>160</a>    <span class="string">"_wasmer_vm_f32_floor" </span>=&gt; LibCall::FloorF32,
-<a href=#161 id=161 data-nosnippet>161</a>    <span class="string">"_wasmer_vm_f64_floor" </span>=&gt; LibCall::FloorF64,
-<a href=#162 id=162 data-nosnippet>162</a>    <span class="string">"_wasmer_vm_f32_nearest" </span>=&gt; LibCall::NearestF32,
-<a href=#163 id=163 data-nosnippet>163</a>    <span class="string">"_wasmer_vm_f64_nearest" </span>=&gt; LibCall::NearestF64,
-<a href=#164 id=164 data-nosnippet>164</a>    <span class="string">"_wasmer_vm_f32_trunc" </span>=&gt; LibCall::TruncF32,
-<a href=#165 id=165 data-nosnippet>165</a>    <span class="string">"_wasmer_vm_f64_trunc" </span>=&gt; LibCall::TruncF64,
-<a href=#166 id=166 data-nosnippet>166</a>    <span class="string">"_wasmer_vm_memory32_size" </span>=&gt; LibCall::Memory32Size,
-<a href=#167 id=167 data-nosnippet>167</a>    <span class="string">"_wasmer_vm_imported_memory32_size" </span>=&gt; LibCall::ImportedMemory32Size,
-<a href=#168 id=168 data-nosnippet>168</a>    <span class="string">"_wasmer_vm_table_copy" </span>=&gt; LibCall::TableCopy,
-<a href=#169 id=169 data-nosnippet>169</a>    <span class="string">"_wasmer_vm_table_init" </span>=&gt; LibCall::TableInit,
-<a href=#170 id=170 data-nosnippet>170</a>    <span class="string">"_wasmer_vm_table_fill" </span>=&gt; LibCall::TableFill,
-<a href=#171 id=171 data-nosnippet>171</a>    <span class="string">"_wasmer_vm_table_size" </span>=&gt; LibCall::TableSize,
-<a href=#172 id=172 data-nosnippet>172</a>    <span class="string">"_wasmer_vm_imported_table_size" </span>=&gt; LibCall::ImportedTableSize,
-<a href=#173 id=173 data-nosnippet>173</a>    <span class="string">"_wasmer_vm_table_get" </span>=&gt; LibCall::TableGet,
-<a href=#174 id=174 data-nosnippet>174</a>    <span class="string">"_wasmer_vm_imported_table_get" </span>=&gt; LibCall::ImportedTableGet,
-<a href=#175 id=175 data-nosnippet>175</a>    <span class="string">"_wasmer_vm_table_set" </span>=&gt; LibCall::TableSet,
-<a href=#176 id=176 data-nosnippet>176</a>    <span class="string">"_wasmer_vm_imported_table_set" </span>=&gt; LibCall::ImportedTableSet,
-<a href=#177 id=177 data-nosnippet>177</a>    <span class="string">"_wasmer_vm_table_grow" </span>=&gt; LibCall::TableGrow,
-<a href=#178 id=178 data-nosnippet>178</a>    <span class="string">"_wasmer_vm_imported_table_grow" </span>=&gt; LibCall::ImportedTableGrow,
-<a href=#179 id=179 data-nosnippet>179</a>    <span class="string">"_wasmer_vm_func_ref" </span>=&gt; LibCall::FuncRef,
-<a href=#180 id=180 data-nosnippet>180</a>    <span class="string">"_wasmer_vm_elem_drop" </span>=&gt; LibCall::ElemDrop,
-<a href=#181 id=181 data-nosnippet>181</a>    <span class="string">"_wasmer_vm_memory32_copy" </span>=&gt; LibCall::Memory32Copy,
-<a href=#182 id=182 data-nosnippet>182</a>    <span class="string">"_wasmer_vm_imported_memory32_copy" </span>=&gt; LibCall::ImportedMemory32Copy,
-<a href=#183 id=183 data-nosnippet>183</a>    <span class="string">"_wasmer_vm_memory32_fill" </span>=&gt; LibCall::Memory32Fill,
-<a href=#184 id=184 data-nosnippet>184</a>    <span class="string">"_wasmer_vm_imported_memory32_fill" </span>=&gt; LibCall::ImportedMemory32Fill,
-<a href=#185 id=185 data-nosnippet>185</a>    <span class="string">"_wasmer_vm_memory32_init" </span>=&gt; LibCall::Memory32Init,
-<a href=#186 id=186 data-nosnippet>186</a>    <span class="string">"_wasmer_vm_data_drop" </span>=&gt; LibCall::DataDrop,
-<a href=#187 id=187 data-nosnippet>187</a>    <span class="string">"_wasmer_vm_raise_trap" </span>=&gt; LibCall::RaiseTrap,
-<a href=#188 id=188 data-nosnippet>188</a>    <span class="string">"_wasmer_vm_memory32_atomic_wait32" </span>=&gt; LibCall::Memory32AtomicWait32,
-<a href=#189 id=189 data-nosnippet>189</a>    <span class="string">"_wasmer_vm_imported_memory32_atomic_wait32" </span>=&gt; LibCall::ImportedMemory32AtomicWait32,
-<a href=#190 id=190 data-nosnippet>190</a>    <span class="string">"_wasmer_vm_memory32_atomic_wait64" </span>=&gt; LibCall::Memory32AtomicWait64,
-<a href=#191 id=191 data-nosnippet>191</a>    <span class="string">"_wasmer_vm_imported_memory32_atomic_wait64" </span>=&gt; LibCall::ImportedMemory32AtomicWait64,
-<a href=#192 id=192 data-nosnippet>192</a>    <span class="string">"_wasmer_vm_memory32_atomic_notify" </span>=&gt; LibCall::Memory32AtomicNotify,
-<a href=#193 id=193 data-nosnippet>193</a>    <span class="string">"_wasmer_vm_imported_memory32_atomic_notify" </span>=&gt; LibCall::ImportedMemory32AtomicNotify,
-<a href=#194 id=194 data-nosnippet>194</a>
-<a href=#195 id=195 data-nosnippet>195</a>    <span class="string">"_wasmer_vm_throw" </span>=&gt; LibCall::Throw,
-<a href=#196 id=196 data-nosnippet>196</a>    <span class="string">"_wasmer_vm_alloc_exception" </span>=&gt; LibCall::AllocException,
-<a href=#197 id=197 data-nosnippet>197</a>    <span class="string">"_wasmer_vm_read_exnref" </span>=&gt; LibCall::ReadExnRef,
-<a href=#198 id=198 data-nosnippet>198</a>    <span class="string">"_wasmer_vm_exception_into_exnref" </span>=&gt; LibCall::LibunwindExceptionIntoExnRef,
-<a href=#199 id=199 data-nosnippet>199</a>    <span class="comment">// Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
-<a href=#200 id=200 data-nosnippet>200</a>    // will generate things differently than "normal", wreaking havoc.
-<a href=#201 id=201 data-nosnippet>201</a>    //
-<a href=#202 id=202 data-nosnippet>202</a>    // todo: find out if it is a bug in LLVM or it is expected.
-<a href=#203 id=203 data-nosnippet>203</a>    </span><span class="string">"___gxx_personality_v0" </span>=&gt; LibCall::EHPersonality,
-<a href=#204 id=204 data-nosnippet>204</a>    <span class="string">"_wasmer_eh_personality2" </span>=&gt; LibCall::EHPersonality2,
-<a href=#205 id=205 data-nosnippet>205</a>    <span class="string">"_wasmer_vm_dbg_usize" </span>=&gt; LibCall::DebugUsize,
-<a href=#206 id=206 data-nosnippet>206</a>    <span class="string">"_wasmer_vm_dbg_str" </span>=&gt; LibCall::DebugStr,
-<a href=#207 id=207 data-nosnippet>207</a>};
-<a href=#208 id=208 data-nosnippet>208</a>
-<a href=#209 id=209 data-nosnippet>209</a><span class="doccomment">/// Returns whether `arch` is a RISC-V variant that lacks hardware floating-point
-<a href=#210 id=210 data-nosnippet>210</a>/// (i.e. does not include the F/D ISA extensions, either explicitly or via the `gc` profile).
-<a href=#211 id=211 data-nosnippet>211</a></span><span class="kw">fn </span>is_riscv_softfloat(arch: <span class="kw-2">&amp;</span>Architecture) -&gt; bool {
-<a href=#212 id=212 data-nosnippet>212</a>    <span class="kw">match </span>arch {
-<a href=#213 id=213 data-nosnippet>213</a>        Architecture::Riscv64(Riscv64Architecture::Riscv64gc | Riscv64Architecture::Riscv64a23)
-<a href=#214 id=214 data-nosnippet>214</a>        | Architecture::Riscv32(
-<a href=#215 id=215 data-nosnippet>215</a>            Riscv32Architecture::Riscv32gc | Riscv32Architecture::Riscv32imafc,
-<a href=#216 id=216 data-nosnippet>216</a>        ) =&gt; <span class="bool-val">false</span>,
-<a href=#217 id=217 data-nosnippet>217</a>        Architecture::Riscv64(<span class="kw">_</span>) | Architecture::Riscv32(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
-<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
-<a href=#219 id=219 data-nosnippet>219</a>    }
-<a href=#220 id=220 data-nosnippet>220</a>}
-<a href=#221 id=221 data-nosnippet>221</a>
-<a href=#222 id=222 data-nosnippet>222</a><span class="kw">fn </span>lookup_libcall(name: <span class="kw-2">&amp;</span>str, fmt: BinaryFormat, triple: <span class="kw-2">&amp;</span>Triple) -&gt; <span class="prelude-ty">Option</span>&lt;LibCall&gt; {
-<a href=#223 id=223 data-nosnippet>223</a>    <span class="kw">let </span>base = <span class="kw">match </span>fmt {
-<a href=#224 id=224 data-nosnippet>224</a>        BinaryFormat::Elf =&gt; <span class="kw-2">&amp;</span>LIBCALLS_ELF,
-<a href=#225 id=225 data-nosnippet>225</a>        BinaryFormat::Macho =&gt; <span class="kw-2">&amp;</span>LIBCALLS_MACHO,
-<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
-<a href=#227 id=227 data-nosnippet>227</a>    };
-<a href=#228 id=228 data-nosnippet>228</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>lc) = base.get(name) {
-<a href=#229 id=229 data-nosnippet>229</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(lc);
-<a href=#230 id=230 data-nosnippet>230</a>    }
-<a href=#231 id=231 data-nosnippet>231</a>    <span class="comment">// Soft-float libcalls are only emitted by LLVM for RISC-V targets without
-<a href=#232 id=232 data-nosnippet>232</a>    // hardware floating-point.  We use the runtime LLVM output triple rather than
-<a href=#233 id=233 data-nosnippet>233</a>    // the host target_arch so that cross-compilation (e.g. macOS → riscv64) works.
-<a href=#234 id=234 data-nosnippet>234</a>    </span><span class="kw">if </span>fmt == BinaryFormat::Elf
-<a href=#235 id=235 data-nosnippet>235</a>        &amp;&amp; is_riscv_softfloat(<span class="kw-2">&amp;</span>triple.architecture)
-<a href=#236 id=236 data-nosnippet>236</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>lc) = SOFTFLOAT_LIBCALLS_ELF.get(name)
-<a href=#237 id=237 data-nosnippet>237</a>    {
-<a href=#238 id=238 data-nosnippet>238</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(lc);
-<a href=#239 id=239 data-nosnippet>239</a>    }
-<a href=#240 id=240 data-nosnippet>240</a>    <span class="prelude-val">None
-<a href=#241 id=241 data-nosnippet>241</a></span>}
-<a href=#242 id=242 data-nosnippet>242</a>
-<a href=#243 id=243 data-nosnippet>243</a><span class="kw">pub fn </span>load_object_file&lt;F&gt;(
-<a href=#244 id=244 data-nosnippet>244</a>    contents: <span class="kw-2">&amp;</span>[u8],
-<a href=#245 id=245 data-nosnippet>245</a>    root_section: <span class="kw-2">&amp;</span>str,
-<a href=#246 id=246 data-nosnippet>246</a>    root_section_reloc_target: RelocationTarget,
-<a href=#247 id=247 data-nosnippet>247</a>    <span class="kw-2">mut </span>symbol_name_to_relocation_target: F,
-<a href=#248 id=248 data-nosnippet>248</a>    binary_fmt: BinaryFormat,
-<a href=#249 id=249 data-nosnippet>249</a>    triple: <span class="kw-2">&amp;</span>Triple,
-<a href=#250 id=250 data-nosnippet>250</a>) -&gt; <span class="prelude-ty">Result</span>&lt;CompiledFunction, CompileError&gt;
-<a href=#251 id=251 data-nosnippet>251</a><span class="kw">where
-<a href=#252 id=252 data-nosnippet>252</a>    </span>F: FnMut(<span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RelocationTarget&gt;, CompileError&gt;,
-<a href=#253 id=253 data-nosnippet>253</a>{
-<a href=#254 id=254 data-nosnippet>254</a>    <span class="kw">let </span>obj = object::File::parse(contents).map_err(map_object_err)<span class="question-mark">?</span>;
-<a href=#255 id=255 data-nosnippet>255</a>
-<a href=#256 id=256 data-nosnippet>256</a>    <span class="kw">if </span>!<span class="macro">matches!</span>(binary_fmt, BinaryFormat::Elf | BinaryFormat::Macho) {
-<a href=#257 id=257 data-nosnippet>257</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(<span class="macro">format!</span>(
-<a href=#258 id=258 data-nosnippet>258</a>            <span class="string">"Unsupported binary format {binary_fmt:?}"
-<a href=#259 id=259 data-nosnippet>259</a>        </span>)));
-<a href=#260 id=260 data-nosnippet>260</a>    }
-<a href=#261 id=261 data-nosnippet>261</a>
-<a href=#262 id=262 data-nosnippet>262</a>    <span class="kw">let </span><span class="kw-2">mut </span>worklist: Vec&lt;object::read::SectionIndex&gt; = Vec::new();
-<a href=#263 id=263 data-nosnippet>263</a>    <span class="kw">let </span><span class="kw-2">mut </span>section_targets: HashMap&lt;object::read::SectionIndex, RelocationTarget&gt; = HashMap::new();
-<a href=#264 id=264 data-nosnippet>264</a>
-<a href=#265 id=265 data-nosnippet>265</a>    <span class="kw">let </span>root_section_index = obj
-<a href=#266 id=266 data-nosnippet>266</a>        .section_by_name(root_section)
-<a href=#267 id=267 data-nosnippet>267</a>        .ok_or_else(|| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"no section named {root_section}"</span>)))<span class="question-mark">?
-<a href=#268 id=268 data-nosnippet>268</a>        </span>.index();
+<a href=#48 id=48 data-nosnippet>48</a>    <span class="string">"sqrtf" </span>=&gt; LibCall::SqrtF32,
+<a href=#49 id=49 data-nosnippet>49</a>    <span class="string">"sqrt" </span>=&gt; LibCall::SqrtF64,
+<a href=#50 id=50 data-nosnippet>50</a>    <span class="string">"truncf" </span>=&gt; LibCall::TruncF32,
+<a href=#51 id=51 data-nosnippet>51</a>    <span class="string">"trunc" </span>=&gt; LibCall::TruncF64,
+<a href=#52 id=52 data-nosnippet>52</a>    <span class="string">"__chkstk" </span>=&gt; LibCall::Probestack,
+<a href=#53 id=53 data-nosnippet>53</a>    <span class="string">"wasmer_vm_f32_ceil" </span>=&gt; LibCall::CeilF32,
+<a href=#54 id=54 data-nosnippet>54</a>    <span class="string">"wasmer_vm_f64_ceil" </span>=&gt; LibCall::CeilF64,
+<a href=#55 id=55 data-nosnippet>55</a>    <span class="string">"wasmer_vm_f32_floor" </span>=&gt; LibCall::FloorF32,
+<a href=#56 id=56 data-nosnippet>56</a>    <span class="string">"wasmer_vm_f64_floor" </span>=&gt; LibCall::FloorF64,
+<a href=#57 id=57 data-nosnippet>57</a>    <span class="string">"wasmer_vm_f32_nearest" </span>=&gt; LibCall::NearestF32,
+<a href=#58 id=58 data-nosnippet>58</a>    <span class="string">"wasmer_vm_f64_nearest" </span>=&gt; LibCall::NearestF64,
+<a href=#59 id=59 data-nosnippet>59</a>    <span class="string">"wasmer_vm_f32_sqrt" </span>=&gt; LibCall::SqrtF32,
+<a href=#60 id=60 data-nosnippet>60</a>    <span class="string">"wasmer_vm_f64_sqrt" </span>=&gt; LibCall::SqrtF64,
+<a href=#61 id=61 data-nosnippet>61</a>    <span class="string">"wasmer_vm_f32_trunc" </span>=&gt; LibCall::TruncF32,
+<a href=#62 id=62 data-nosnippet>62</a>    <span class="string">"wasmer_vm_f64_trunc" </span>=&gt; LibCall::TruncF64,
+<a href=#63 id=63 data-nosnippet>63</a>    <span class="string">"wasmer_vm_memory32_size" </span>=&gt; LibCall::Memory32Size,
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="string">"wasmer_vm_imported_memory32_size" </span>=&gt; LibCall::ImportedMemory32Size,
+<a href=#65 id=65 data-nosnippet>65</a>    <span class="string">"wasmer_vm_table_copy" </span>=&gt; LibCall::TableCopy,
+<a href=#66 id=66 data-nosnippet>66</a>    <span class="string">"wasmer_vm_table_init" </span>=&gt; LibCall::TableInit,
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="string">"wasmer_vm_table_fill" </span>=&gt; LibCall::TableFill,
+<a href=#68 id=68 data-nosnippet>68</a>    <span class="string">"wasmer_vm_table_size" </span>=&gt; LibCall::TableSize,
+<a href=#69 id=69 data-nosnippet>69</a>    <span class="string">"wasmer_vm_imported_table_size" </span>=&gt; LibCall::ImportedTableSize,
+<a href=#70 id=70 data-nosnippet>70</a>    <span class="string">"wasmer_vm_table_get" </span>=&gt; LibCall::TableGet,
+<a href=#71 id=71 data-nosnippet>71</a>    <span class="string">"wasmer_vm_imported_table_get" </span>=&gt; LibCall::ImportedTableGet,
+<a href=#72 id=72 data-nosnippet>72</a>    <span class="string">"wasmer_vm_table_set" </span>=&gt; LibCall::TableSet,
+<a href=#73 id=73 data-nosnippet>73</a>    <span class="string">"wasmer_vm_imported_table_set" </span>=&gt; LibCall::ImportedTableSet,
+<a href=#74 id=74 data-nosnippet>74</a>    <span class="string">"wasmer_vm_table_grow" </span>=&gt; LibCall::TableGrow,
+<a href=#75 id=75 data-nosnippet>75</a>    <span class="string">"wasmer_vm_imported_table_grow" </span>=&gt; LibCall::ImportedTableGrow,
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="string">"wasmer_vm_func_ref" </span>=&gt; LibCall::FuncRef,
+<a href=#77 id=77 data-nosnippet>77</a>    <span class="string">"wasmer_vm_elem_drop" </span>=&gt; LibCall::ElemDrop,
+<a href=#78 id=78 data-nosnippet>78</a>    <span class="string">"wasmer_vm_memory32_copy" </span>=&gt; LibCall::Memory32Copy,
+<a href=#79 id=79 data-nosnippet>79</a>    <span class="string">"wasmer_vm_imported_memory32_copy" </span>=&gt; LibCall::ImportedMemory32Copy,
+<a href=#80 id=80 data-nosnippet>80</a>    <span class="string">"wasmer_vm_memory32_fill" </span>=&gt; LibCall::Memory32Fill,
+<a href=#81 id=81 data-nosnippet>81</a>    <span class="string">"wasmer_vm_imported_memory32_fill" </span>=&gt; LibCall::ImportedMemory32Fill,
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="string">"wasmer_vm_memory32_init" </span>=&gt; LibCall::Memory32Init,
+<a href=#83 id=83 data-nosnippet>83</a>    <span class="string">"wasmer_vm_data_drop" </span>=&gt; LibCall::DataDrop,
+<a href=#84 id=84 data-nosnippet>84</a>    <span class="string">"wasmer_vm_raise_trap" </span>=&gt; LibCall::RaiseTrap,
+<a href=#85 id=85 data-nosnippet>85</a>    <span class="string">"wasmer_vm_memory32_atomic_wait32" </span>=&gt; LibCall::Memory32AtomicWait32,
+<a href=#86 id=86 data-nosnippet>86</a>    <span class="string">"wasmer_vm_imported_memory32_atomic_wait32" </span>=&gt; LibCall::ImportedMemory32AtomicWait32,
+<a href=#87 id=87 data-nosnippet>87</a>    <span class="string">"wasmer_vm_memory32_atomic_wait64" </span>=&gt; LibCall::Memory32AtomicWait64,
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="string">"wasmer_vm_imported_memory32_atomic_wait64" </span>=&gt; LibCall::ImportedMemory32AtomicWait64,
+<a href=#89 id=89 data-nosnippet>89</a>    <span class="string">"wasmer_vm_memory32_atomic_notify" </span>=&gt; LibCall::Memory32AtomicNotify,
+<a href=#90 id=90 data-nosnippet>90</a>    <span class="string">"wasmer_vm_imported_memory32_atomic_notify" </span>=&gt; LibCall::ImportedMemory32AtomicNotify,
+<a href=#91 id=91 data-nosnippet>91</a>    <span class="string">"wasmer_vm_throw" </span>=&gt; LibCall::Throw,
+<a href=#92 id=92 data-nosnippet>92</a>    <span class="string">"wasmer_vm_alloc_exception" </span>=&gt; LibCall::AllocException,
+<a href=#93 id=93 data-nosnippet>93</a>    <span class="string">"wasmer_vm_read_exnref" </span>=&gt; LibCall::ReadExnRef,
+<a href=#94 id=94 data-nosnippet>94</a>    <span class="string">"wasmer_vm_exception_into_exnref" </span>=&gt; LibCall::LibunwindExceptionIntoExnRef,
+<a href=#95 id=95 data-nosnippet>95</a>    <span class="string">"wasmer_eh_personality" </span>=&gt; LibCall::EHPersonality,
+<a href=#96 id=96 data-nosnippet>96</a>    <span class="string">"wasmer_eh_personality2" </span>=&gt; LibCall::EHPersonality2,
+<a href=#97 id=97 data-nosnippet>97</a>    <span class="string">"wasmer_vm_dbg_usize" </span>=&gt; LibCall::DebugUsize,
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="string">"wasmer_vm_dbg_str" </span>=&gt; LibCall::DebugStr,
+<a href=#99 id=99 data-nosnippet>99</a>};
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a><span class="comment">// Soft-float routines that LLVM may emit for RISC-V ELF targets.  The map is
+<a href=#102 id=102 data-nosnippet>102</a>// unconditional because `load_object_file` runs on the host while the ELF it
+<a href=#103 id=103 data-nosnippet>103</a>// processes was compiled for the LLVM output target (a runtime value); gating
+<a href=#104 id=104 data-nosnippet>104</a>// on host target_arch would break cross-compilation (e.g. macOS → riscv64).
+<a href=#105 id=105 data-nosnippet>105</a></span><span class="kw">static </span>SOFTFLOAT_LIBCALLS_ELF: phf::Map&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, LibCall&gt; = <span class="macro">phf::phf_map!</span> {
+<a href=#106 id=106 data-nosnippet>106</a>    <span class="comment">// §3.2.1 Arithmetic
+<a href=#107 id=107 data-nosnippet>107</a>    </span><span class="string">"__addsf3" </span>=&gt; LibCall::Addsf3,
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="string">"__adddf3" </span>=&gt; LibCall::Adddf3,
+<a href=#109 id=109 data-nosnippet>109</a>    <span class="string">"__subsf3" </span>=&gt; LibCall::Subsf3,
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="string">"__subdf3" </span>=&gt; LibCall::Subdf3,
+<a href=#111 id=111 data-nosnippet>111</a>    <span class="string">"__mulsf3" </span>=&gt; LibCall::Mulsf3,
+<a href=#112 id=112 data-nosnippet>112</a>    <span class="string">"__muldf3" </span>=&gt; LibCall::Muldf3,
+<a href=#113 id=113 data-nosnippet>113</a>    <span class="string">"__divsf3" </span>=&gt; LibCall::Divsf3,
+<a href=#114 id=114 data-nosnippet>114</a>    <span class="string">"__divdf3" </span>=&gt; LibCall::Divdf3,
+<a href=#115 id=115 data-nosnippet>115</a>    <span class="string">"__negsf2" </span>=&gt; LibCall::Negsf2,
+<a href=#116 id=116 data-nosnippet>116</a>    <span class="string">"__negdf2" </span>=&gt; LibCall::Negdf2,
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="comment">// §3.2.2 Conversion
+<a href=#118 id=118 data-nosnippet>118</a>    </span><span class="string">"__extendsfdf2" </span>=&gt; LibCall::Extendsfdf2,
+<a href=#119 id=119 data-nosnippet>119</a>    <span class="string">"__truncdfsf2" </span>=&gt; LibCall::Truncdfsf2,
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="string">"__fixsfsi" </span>=&gt; LibCall::Fixsfsi,
+<a href=#121 id=121 data-nosnippet>121</a>    <span class="string">"__fixdfsi" </span>=&gt; LibCall::Fixdfsi,
+<a href=#122 id=122 data-nosnippet>122</a>    <span class="string">"__fixsfdi" </span>=&gt; LibCall::Fixsfdi,
+<a href=#123 id=123 data-nosnippet>123</a>    <span class="string">"__fixdfdi" </span>=&gt; LibCall::Fixdfdi,
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="string">"__fixunssfsi" </span>=&gt; LibCall::Fixunssfsi,
+<a href=#125 id=125 data-nosnippet>125</a>    <span class="string">"__fixunsdfsi" </span>=&gt; LibCall::Fixunsdfsi,
+<a href=#126 id=126 data-nosnippet>126</a>    <span class="string">"__fixunssfdi" </span>=&gt; LibCall::Fixunssfdi,
+<a href=#127 id=127 data-nosnippet>127</a>    <span class="string">"__fixunsdfdi" </span>=&gt; LibCall::Fixunsdfdi,
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="string">"__floatsisf" </span>=&gt; LibCall::Floatsisf,
+<a href=#129 id=129 data-nosnippet>129</a>    <span class="string">"__floatsidf" </span>=&gt; LibCall::Floatsidf,
+<a href=#130 id=130 data-nosnippet>130</a>    <span class="string">"__floatdisf" </span>=&gt; LibCall::Floatdisf,
+<a href=#131 id=131 data-nosnippet>131</a>    <span class="string">"__floatdidf" </span>=&gt; LibCall::Floatdidf,
+<a href=#132 id=132 data-nosnippet>132</a>    <span class="string">"__floatunsisf" </span>=&gt; LibCall::Floatunsisf,
+<a href=#133 id=133 data-nosnippet>133</a>    <span class="string">"__floatunsidf" </span>=&gt; LibCall::Floatunsidf,
+<a href=#134 id=134 data-nosnippet>134</a>    <span class="string">"__floatundisf" </span>=&gt; LibCall::Floatundisf,
+<a href=#135 id=135 data-nosnippet>135</a>    <span class="string">"__floatundidf" </span>=&gt; LibCall::Floatundidf,
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="comment">// §3.2.3 Comparison
+<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="string">"__unordsf2" </span>=&gt; LibCall::Unordsf2,
+<a href=#138 id=138 data-nosnippet>138</a>    <span class="string">"__unorddf2" </span>=&gt; LibCall::Unorddf2,
+<a href=#139 id=139 data-nosnippet>139</a>    <span class="string">"__eqsf2" </span>=&gt; LibCall::Eqsf2,
+<a href=#140 id=140 data-nosnippet>140</a>    <span class="string">"__eqdf2" </span>=&gt; LibCall::Eqdf2,
+<a href=#141 id=141 data-nosnippet>141</a>    <span class="string">"__nesf2" </span>=&gt; LibCall::Nesf2,
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="string">"__nedf2" </span>=&gt; LibCall::Nedf2,
+<a href=#143 id=143 data-nosnippet>143</a>    <span class="string">"__gesf2" </span>=&gt; LibCall::Gesf2,
+<a href=#144 id=144 data-nosnippet>144</a>    <span class="string">"__gedf2" </span>=&gt; LibCall::Gedf2,
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="string">"__ltsf2" </span>=&gt; LibCall::Ltsf2,
+<a href=#146 id=146 data-nosnippet>146</a>    <span class="string">"__ltdf2" </span>=&gt; LibCall::Ltdf2,
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="string">"__lesf2" </span>=&gt; LibCall::Lesf2,
+<a href=#148 id=148 data-nosnippet>148</a>    <span class="string">"__ledf2" </span>=&gt; LibCall::Ledf2,
+<a href=#149 id=149 data-nosnippet>149</a>    <span class="string">"__gtsf2" </span>=&gt; LibCall::Gtsf2,
+<a href=#150 id=150 data-nosnippet>150</a>    <span class="string">"__gtdf2" </span>=&gt; LibCall::Gtdf2,
+<a href=#151 id=151 data-nosnippet>151</a>};
+<a href=#152 id=152 data-nosnippet>152</a>
+<a href=#153 id=153 data-nosnippet>153</a><span class="kw">static </span>LIBCALLS_MACHO: phf::Map&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, LibCall&gt; = <span class="macro">phf::phf_map!</span> {
+<a href=#154 id=154 data-nosnippet>154</a>    <span class="string">"_ceilf" </span>=&gt; LibCall::CeilF32,
+<a href=#155 id=155 data-nosnippet>155</a>    <span class="string">"_ceil" </span>=&gt; LibCall::CeilF64,
+<a href=#156 id=156 data-nosnippet>156</a>    <span class="string">"_floorf" </span>=&gt; LibCall::FloorF32,
+<a href=#157 id=157 data-nosnippet>157</a>    <span class="string">"_floor" </span>=&gt; LibCall::FloorF64,
+<a href=#158 id=158 data-nosnippet>158</a>    <span class="string">"_nearbyintf" </span>=&gt; LibCall::NearestF32,
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="string">"_nearbyint" </span>=&gt; LibCall::NearestF64,
+<a href=#160 id=160 data-nosnippet>160</a>    <span class="string">"_sqrtf" </span>=&gt; LibCall::SqrtF32,
+<a href=#161 id=161 data-nosnippet>161</a>    <span class="string">"_sqrt" </span>=&gt; LibCall::SqrtF64,
+<a href=#162 id=162 data-nosnippet>162</a>    <span class="string">"_truncf" </span>=&gt; LibCall::TruncF32,
+<a href=#163 id=163 data-nosnippet>163</a>    <span class="string">"_trunc" </span>=&gt; LibCall::TruncF64,
+<a href=#164 id=164 data-nosnippet>164</a>    <span class="string">"_wasmer_vm_f32_ceil" </span>=&gt; LibCall::CeilF32,
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="string">"_wasmer_vm_f64_ceil" </span>=&gt; LibCall::CeilF64,
+<a href=#166 id=166 data-nosnippet>166</a>    <span class="string">"_wasmer_vm_f32_floor" </span>=&gt; LibCall::FloorF32,
+<a href=#167 id=167 data-nosnippet>167</a>    <span class="string">"_wasmer_vm_f64_floor" </span>=&gt; LibCall::FloorF64,
+<a href=#168 id=168 data-nosnippet>168</a>    <span class="string">"_wasmer_vm_f32_nearest" </span>=&gt; LibCall::NearestF32,
+<a href=#169 id=169 data-nosnippet>169</a>    <span class="string">"_wasmer_vm_f64_nearest" </span>=&gt; LibCall::NearestF64,
+<a href=#170 id=170 data-nosnippet>170</a>    <span class="string">"_wasmer_vm_f32_sqrt" </span>=&gt; LibCall::SqrtF32,
+<a href=#171 id=171 data-nosnippet>171</a>    <span class="string">"_wasmer_vm_f64_sqrt" </span>=&gt; LibCall::SqrtF64,
+<a href=#172 id=172 data-nosnippet>172</a>    <span class="string">"_wasmer_vm_f32_trunc" </span>=&gt; LibCall::TruncF32,
+<a href=#173 id=173 data-nosnippet>173</a>    <span class="string">"_wasmer_vm_f64_trunc" </span>=&gt; LibCall::TruncF64,
+<a href=#174 id=174 data-nosnippet>174</a>    <span class="string">"_wasmer_vm_memory32_size" </span>=&gt; LibCall::Memory32Size,
+<a href=#175 id=175 data-nosnippet>175</a>    <span class="string">"_wasmer_vm_imported_memory32_size" </span>=&gt; LibCall::ImportedMemory32Size,
+<a href=#176 id=176 data-nosnippet>176</a>    <span class="string">"_wasmer_vm_table_copy" </span>=&gt; LibCall::TableCopy,
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="string">"_wasmer_vm_table_init" </span>=&gt; LibCall::TableInit,
+<a href=#178 id=178 data-nosnippet>178</a>    <span class="string">"_wasmer_vm_table_fill" </span>=&gt; LibCall::TableFill,
+<a href=#179 id=179 data-nosnippet>179</a>    <span class="string">"_wasmer_vm_table_size" </span>=&gt; LibCall::TableSize,
+<a href=#180 id=180 data-nosnippet>180</a>    <span class="string">"_wasmer_vm_imported_table_size" </span>=&gt; LibCall::ImportedTableSize,
+<a href=#181 id=181 data-nosnippet>181</a>    <span class="string">"_wasmer_vm_table_get" </span>=&gt; LibCall::TableGet,
+<a href=#182 id=182 data-nosnippet>182</a>    <span class="string">"_wasmer_vm_imported_table_get" </span>=&gt; LibCall::ImportedTableGet,
+<a href=#183 id=183 data-nosnippet>183</a>    <span class="string">"_wasmer_vm_table_set" </span>=&gt; LibCall::TableSet,
+<a href=#184 id=184 data-nosnippet>184</a>    <span class="string">"_wasmer_vm_imported_table_set" </span>=&gt; LibCall::ImportedTableSet,
+<a href=#185 id=185 data-nosnippet>185</a>    <span class="string">"_wasmer_vm_table_grow" </span>=&gt; LibCall::TableGrow,
+<a href=#186 id=186 data-nosnippet>186</a>    <span class="string">"_wasmer_vm_imported_table_grow" </span>=&gt; LibCall::ImportedTableGrow,
+<a href=#187 id=187 data-nosnippet>187</a>    <span class="string">"_wasmer_vm_func_ref" </span>=&gt; LibCall::FuncRef,
+<a href=#188 id=188 data-nosnippet>188</a>    <span class="string">"_wasmer_vm_elem_drop" </span>=&gt; LibCall::ElemDrop,
+<a href=#189 id=189 data-nosnippet>189</a>    <span class="string">"_wasmer_vm_memory32_copy" </span>=&gt; LibCall::Memory32Copy,
+<a href=#190 id=190 data-nosnippet>190</a>    <span class="string">"_wasmer_vm_imported_memory32_copy" </span>=&gt; LibCall::ImportedMemory32Copy,
+<a href=#191 id=191 data-nosnippet>191</a>    <span class="string">"_wasmer_vm_memory32_fill" </span>=&gt; LibCall::Memory32Fill,
+<a href=#192 id=192 data-nosnippet>192</a>    <span class="string">"_wasmer_vm_imported_memory32_fill" </span>=&gt; LibCall::ImportedMemory32Fill,
+<a href=#193 id=193 data-nosnippet>193</a>    <span class="string">"_wasmer_vm_memory32_init" </span>=&gt; LibCall::Memory32Init,
+<a href=#194 id=194 data-nosnippet>194</a>    <span class="string">"_wasmer_vm_data_drop" </span>=&gt; LibCall::DataDrop,
+<a href=#195 id=195 data-nosnippet>195</a>    <span class="string">"_wasmer_vm_raise_trap" </span>=&gt; LibCall::RaiseTrap,
+<a href=#196 id=196 data-nosnippet>196</a>    <span class="string">"_wasmer_vm_memory32_atomic_wait32" </span>=&gt; LibCall::Memory32AtomicWait32,
+<a href=#197 id=197 data-nosnippet>197</a>    <span class="string">"_wasmer_vm_imported_memory32_atomic_wait32" </span>=&gt; LibCall::ImportedMemory32AtomicWait32,
+<a href=#198 id=198 data-nosnippet>198</a>    <span class="string">"_wasmer_vm_memory32_atomic_wait64" </span>=&gt; LibCall::Memory32AtomicWait64,
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="string">"_wasmer_vm_imported_memory32_atomic_wait64" </span>=&gt; LibCall::ImportedMemory32AtomicWait64,
+<a href=#200 id=200 data-nosnippet>200</a>    <span class="string">"_wasmer_vm_memory32_atomic_notify" </span>=&gt; LibCall::Memory32AtomicNotify,
+<a href=#201 id=201 data-nosnippet>201</a>    <span class="string">"_wasmer_vm_imported_memory32_atomic_notify" </span>=&gt; LibCall::ImportedMemory32AtomicNotify,
+<a href=#202 id=202 data-nosnippet>202</a>
+<a href=#203 id=203 data-nosnippet>203</a>    <span class="string">"_wasmer_vm_throw" </span>=&gt; LibCall::Throw,
+<a href=#204 id=204 data-nosnippet>204</a>    <span class="string">"_wasmer_vm_alloc_exception" </span>=&gt; LibCall::AllocException,
+<a href=#205 id=205 data-nosnippet>205</a>    <span class="string">"_wasmer_vm_read_exnref" </span>=&gt; LibCall::ReadExnRef,
+<a href=#206 id=206 data-nosnippet>206</a>    <span class="string">"_wasmer_vm_exception_into_exnref" </span>=&gt; LibCall::LibunwindExceptionIntoExnRef,
+<a href=#207 id=207 data-nosnippet>207</a>    <span class="comment">// Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
+<a href=#208 id=208 data-nosnippet>208</a>    // will generate things differently than "normal", wreaking havoc.
+<a href=#209 id=209 data-nosnippet>209</a>    //
+<a href=#210 id=210 data-nosnippet>210</a>    // todo: find out if it is a bug in LLVM or it is expected.
+<a href=#211 id=211 data-nosnippet>211</a>    </span><span class="string">"___gxx_personality_v0" </span>=&gt; LibCall::EHPersonality,
+<a href=#212 id=212 data-nosnippet>212</a>    <span class="string">"_wasmer_eh_personality2" </span>=&gt; LibCall::EHPersonality2,
+<a href=#213 id=213 data-nosnippet>213</a>    <span class="string">"_wasmer_vm_dbg_usize" </span>=&gt; LibCall::DebugUsize,
+<a href=#214 id=214 data-nosnippet>214</a>    <span class="string">"_wasmer_vm_dbg_str" </span>=&gt; LibCall::DebugStr,
+<a href=#215 id=215 data-nosnippet>215</a>};
+<a href=#216 id=216 data-nosnippet>216</a>
+<a href=#217 id=217 data-nosnippet>217</a><span class="doccomment">/// Returns whether `arch` is a RISC-V variant that lacks hardware floating-point
+<a href=#218 id=218 data-nosnippet>218</a>/// (i.e. does not include the F/D ISA extensions, either explicitly or via the `gc` profile).
+<a href=#219 id=219 data-nosnippet>219</a></span><span class="kw">fn </span>is_riscv_softfloat(arch: <span class="kw-2">&amp;</span>Architecture) -&gt; bool {
+<a href=#220 id=220 data-nosnippet>220</a>    <span class="kw">match </span>arch {
+<a href=#221 id=221 data-nosnippet>221</a>        Architecture::Riscv64(Riscv64Architecture::Riscv64gc | Riscv64Architecture::Riscv64a23)
+<a href=#222 id=222 data-nosnippet>222</a>        | Architecture::Riscv32(
+<a href=#223 id=223 data-nosnippet>223</a>            Riscv32Architecture::Riscv32gc | Riscv32Architecture::Riscv32imafc,
+<a href=#224 id=224 data-nosnippet>224</a>        ) =&gt; <span class="bool-val">false</span>,
+<a href=#225 id=225 data-nosnippet>225</a>        Architecture::Riscv64(<span class="kw">_</span>) | Architecture::Riscv32(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
+<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+<a href=#227 id=227 data-nosnippet>227</a>    }
+<a href=#228 id=228 data-nosnippet>228</a>}
+<a href=#229 id=229 data-nosnippet>229</a>
+<a href=#230 id=230 data-nosnippet>230</a><span class="kw">fn </span>lookup_libcall(name: <span class="kw-2">&amp;</span>str, fmt: BinaryFormat, triple: <span class="kw-2">&amp;</span>Triple) -&gt; <span class="prelude-ty">Option</span>&lt;LibCall&gt; {
+<a href=#231 id=231 data-nosnippet>231</a>    <span class="kw">let </span>base = <span class="kw">match </span>fmt {
+<a href=#232 id=232 data-nosnippet>232</a>        BinaryFormat::Elf =&gt; <span class="kw-2">&amp;</span>LIBCALLS_ELF,
+<a href=#233 id=233 data-nosnippet>233</a>        BinaryFormat::Macho =&gt; <span class="kw-2">&amp;</span>LIBCALLS_MACHO,
+<a href=#234 id=234 data-nosnippet>234</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+<a href=#235 id=235 data-nosnippet>235</a>    };
+<a href=#236 id=236 data-nosnippet>236</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>lc) = base.get(name) {
+<a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(lc);
+<a href=#238 id=238 data-nosnippet>238</a>    }
+<a href=#239 id=239 data-nosnippet>239</a>    <span class="comment">// Soft-float libcalls are only emitted by LLVM for RISC-V targets without
+<a href=#240 id=240 data-nosnippet>240</a>    // hardware floating-point.  We use the runtime LLVM output triple rather than
+<a href=#241 id=241 data-nosnippet>241</a>    // the host target_arch so that cross-compilation (e.g. macOS → riscv64) works.
+<a href=#242 id=242 data-nosnippet>242</a>    </span><span class="kw">if </span>fmt == BinaryFormat::Elf
+<a href=#243 id=243 data-nosnippet>243</a>        &amp;&amp; is_riscv_softfloat(<span class="kw-2">&amp;</span>triple.architecture)
+<a href=#244 id=244 data-nosnippet>244</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>lc) = SOFTFLOAT_LIBCALLS_ELF.get(name)
+<a href=#245 id=245 data-nosnippet>245</a>    {
+<a href=#246 id=246 data-nosnippet>246</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(lc);
+<a href=#247 id=247 data-nosnippet>247</a>    }
+<a href=#248 id=248 data-nosnippet>248</a>    <span class="prelude-val">None
+<a href=#249 id=249 data-nosnippet>249</a></span>}
+<a href=#250 id=250 data-nosnippet>250</a>
+<a href=#251 id=251 data-nosnippet>251</a><span class="kw">pub fn </span>load_object_file&lt;F&gt;(
+<a href=#252 id=252 data-nosnippet>252</a>    contents: <span class="kw-2">&amp;</span>[u8],
+<a href=#253 id=253 data-nosnippet>253</a>    root_section: <span class="kw-2">&amp;</span>str,
+<a href=#254 id=254 data-nosnippet>254</a>    root_section_reloc_target: RelocationTarget,
+<a href=#255 id=255 data-nosnippet>255</a>    <span class="kw-2">mut </span>symbol_name_to_relocation_target: F,
+<a href=#256 id=256 data-nosnippet>256</a>    binary_fmt: BinaryFormat,
+<a href=#257 id=257 data-nosnippet>257</a>    triple: <span class="kw-2">&amp;</span>Triple,
+<a href=#258 id=258 data-nosnippet>258</a>) -&gt; <span class="prelude-ty">Result</span>&lt;CompiledFunction, CompileError&gt;
+<a href=#259 id=259 data-nosnippet>259</a><span class="kw">where
+<a href=#260 id=260 data-nosnippet>260</a>    </span>F: FnMut(<span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;RelocationTarget&gt;, CompileError&gt;,
+<a href=#261 id=261 data-nosnippet>261</a>{
+<a href=#262 id=262 data-nosnippet>262</a>    <span class="kw">let </span>obj = object::File::parse(contents).map_err(map_object_err)<span class="question-mark">?</span>;
+<a href=#263 id=263 data-nosnippet>263</a>
+<a href=#264 id=264 data-nosnippet>264</a>    <span class="kw">if </span>!<span class="macro">matches!</span>(binary_fmt, BinaryFormat::Elf | BinaryFormat::Macho) {
+<a href=#265 id=265 data-nosnippet>265</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(<span class="macro">format!</span>(
+<a href=#266 id=266 data-nosnippet>266</a>            <span class="string">"Unsupported binary format {binary_fmt:?}"
+<a href=#267 id=267 data-nosnippet>267</a>        </span>)));
+<a href=#268 id=268 data-nosnippet>268</a>    }
 <a href=#269 id=269 data-nosnippet>269</a>
-<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">let </span><span class="kw-2">mut </span>section_to_custom_section = HashMap::new();
-<a href=#271 id=271 data-nosnippet>271</a>
-<a href=#272 id=272 data-nosnippet>272</a>    section_targets.insert(root_section_index, root_section_reloc_target);
-<a href=#273 id=273 data-nosnippet>273</a>
-<a href=#274 id=274 data-nosnippet>274</a>    <span class="kw">let </span><span class="kw-2">mut </span>next_custom_section: u32 = <span class="number">0</span>;
-<a href=#275 id=275 data-nosnippet>275</a>
-<a href=#276 id=276 data-nosnippet>276</a>    <span class="kw">let </span><span class="kw-2">mut </span>elf_section_to_target = |elf_section_index: object::read::SectionIndex| {
-<a href=#277 id=277 data-nosnippet>277</a>        <span class="kw-2">*</span>section_targets.entry(elf_section_index).or_insert_with(|| {
-<a href=#278 id=278 data-nosnippet>278</a>            <span class="kw">let </span>next = SectionIndex::from_u32(next_custom_section);
-<a href=#279 id=279 data-nosnippet>279</a>            section_to_custom_section.insert(elf_section_index, next);
-<a href=#280 id=280 data-nosnippet>280</a>            <span class="kw">let </span>target = RelocationTarget::CustomSection(next);
-<a href=#281 id=281 data-nosnippet>281</a>            next_custom_section += <span class="number">1</span>;
-<a href=#282 id=282 data-nosnippet>282</a>            target
-<a href=#283 id=283 data-nosnippet>283</a>        })
-<a href=#284 id=284 data-nosnippet>284</a>    };
-<a href=#285 id=285 data-nosnippet>285</a>
-<a href=#286 id=286 data-nosnippet>286</a>    <span class="comment">// From elf section index to list of Relocations. Although we use a Vec,
-<a href=#287 id=287 data-nosnippet>287</a>    // the order of relocations is not important.
-<a href=#288 id=288 data-nosnippet>288</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>relocations: HashMap&lt;object::read::SectionIndex, Vec&lt;Relocation&gt;&gt; = HashMap::new();
-<a href=#289 id=289 data-nosnippet>289</a>
-<a href=#290 id=290 data-nosnippet>290</a>    <span class="comment">// Each iteration of this loop pulls a section and the relocations
-<a href=#291 id=291 data-nosnippet>291</a>    // that apply to it. We begin with the ".root_section"
-<a href=#292 id=292 data-nosnippet>292</a>    // section, and then parse all relocation sections that apply to that
-<a href=#293 id=293 data-nosnippet>293</a>    // section. Those relocations may refer to additional sections which we
-<a href=#294 id=294 data-nosnippet>294</a>    // then add to the worklist until we've visited the closure of
-<a href=#295 id=295 data-nosnippet>295</a>    // everything needed to run the code in ".root_section".
-<a href=#296 id=296 data-nosnippet>296</a>    //
-<a href=#297 id=297 data-nosnippet>297</a>    // `worklist` is the list of sections we have yet to visit. It never
-<a href=#298 id=298 data-nosnippet>298</a>    // contains any duplicates or sections we've already visited. `visited`
-<a href=#299 id=299 data-nosnippet>299</a>    // contains all the sections we've ever added to the worklist in a set
-<a href=#300 id=300 data-nosnippet>300</a>    // so that we can quickly check whether a section is new before adding
-<a href=#301 id=301 data-nosnippet>301</a>    // it to worklist. `section_to_custom_section` is filled in with all
-<a href=#302 id=302 data-nosnippet>302</a>    // the sections we want to include.
-<a href=#303 id=303 data-nosnippet>303</a>    </span>worklist.push(root_section_index);
-<a href=#304 id=304 data-nosnippet>304</a>
-<a href=#305 id=305 data-nosnippet>305</a>    <span class="comment">// Add any .eh_frame sections.
-<a href=#306 id=306 data-nosnippet>306</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_indices = <span class="macro">vec!</span>[];
-<a href=#307 id=307 data-nosnippet>307</a>
-<a href=#308 id=308 data-nosnippet>308</a>    <span class="comment">// Add macos-specific unwind sections.
-<a href=#309 id=309 data-nosnippet>309</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_indices = <span class="macro">vec!</span>[];
-<a href=#310 id=310 data-nosnippet>310</a>
-<a href=#311 id=311 data-nosnippet>311</a>    <span class="comment">// .gcc_except_table sections, which contain the actual LSDA data.
-<a href=#312 id=312 data-nosnippet>312</a>    // We don't need the actual sections for anything (yet), but trampoline
-<a href=#313 id=313 data-nosnippet>313</a>    // codegen checks custom section counts to verify there aren't any
-<a href=#314 id=314 data-nosnippet>314</a>    // unexpected custom sections, so we do a bit of book-keeping here.
-<a href=#315 id=315 data-nosnippet>315</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>gcc_except_table_section_indices = <span class="macro">vec!</span>[];
-<a href=#316 id=316 data-nosnippet>316</a>
-<a href=#317 id=317 data-nosnippet>317</a>    <span class="kw">let </span><span class="kw-2">mut </span>data_dw_ref_personality_section_indices = <span class="macro">vec!</span>[];
+<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">let </span><span class="kw-2">mut </span>worklist: Vec&lt;object::read::SectionIndex&gt; = Vec::new();
+<a href=#271 id=271 data-nosnippet>271</a>    <span class="kw">let </span><span class="kw-2">mut </span>section_targets: HashMap&lt;object::read::SectionIndex, RelocationTarget&gt; = HashMap::new();
+<a href=#272 id=272 data-nosnippet>272</a>
+<a href=#273 id=273 data-nosnippet>273</a>    <span class="kw">let </span>root_section_index = obj
+<a href=#274 id=274 data-nosnippet>274</a>        .section_by_name(root_section)
+<a href=#275 id=275 data-nosnippet>275</a>        .ok_or_else(|| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"no section named {root_section}"</span>)))<span class="question-mark">?
+<a href=#276 id=276 data-nosnippet>276</a>        </span>.index();
+<a href=#277 id=277 data-nosnippet>277</a>
+<a href=#278 id=278 data-nosnippet>278</a>    <span class="kw">let </span><span class="kw-2">mut </span>section_to_custom_section = HashMap::new();
+<a href=#279 id=279 data-nosnippet>279</a>
+<a href=#280 id=280 data-nosnippet>280</a>    section_targets.insert(root_section_index, root_section_reloc_target);
+<a href=#281 id=281 data-nosnippet>281</a>
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="kw">let </span><span class="kw-2">mut </span>next_custom_section: u32 = <span class="number">0</span>;
+<a href=#283 id=283 data-nosnippet>283</a>
+<a href=#284 id=284 data-nosnippet>284</a>    <span class="kw">let </span><span class="kw-2">mut </span>elf_section_to_target = |elf_section_index: object::read::SectionIndex| {
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw-2">*</span>section_targets.entry(elf_section_index).or_insert_with(|| {
+<a href=#286 id=286 data-nosnippet>286</a>            <span class="kw">let </span>next = SectionIndex::from_u32(next_custom_section);
+<a href=#287 id=287 data-nosnippet>287</a>            section_to_custom_section.insert(elf_section_index, next);
+<a href=#288 id=288 data-nosnippet>288</a>            <span class="kw">let </span>target = RelocationTarget::CustomSection(next);
+<a href=#289 id=289 data-nosnippet>289</a>            next_custom_section += <span class="number">1</span>;
+<a href=#290 id=290 data-nosnippet>290</a>            target
+<a href=#291 id=291 data-nosnippet>291</a>        })
+<a href=#292 id=292 data-nosnippet>292</a>    };
+<a href=#293 id=293 data-nosnippet>293</a>
+<a href=#294 id=294 data-nosnippet>294</a>    <span class="comment">// From elf section index to list of Relocations. Although we use a Vec,
+<a href=#295 id=295 data-nosnippet>295</a>    // the order of relocations is not important.
+<a href=#296 id=296 data-nosnippet>296</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>relocations: HashMap&lt;object::read::SectionIndex, Vec&lt;Relocation&gt;&gt; = HashMap::new();
+<a href=#297 id=297 data-nosnippet>297</a>
+<a href=#298 id=298 data-nosnippet>298</a>    <span class="comment">// Each iteration of this loop pulls a section and the relocations
+<a href=#299 id=299 data-nosnippet>299</a>    // that apply to it. We begin with the ".root_section"
+<a href=#300 id=300 data-nosnippet>300</a>    // section, and then parse all relocation sections that apply to that
+<a href=#301 id=301 data-nosnippet>301</a>    // section. Those relocations may refer to additional sections which we
+<a href=#302 id=302 data-nosnippet>302</a>    // then add to the worklist until we've visited the closure of
+<a href=#303 id=303 data-nosnippet>303</a>    // everything needed to run the code in ".root_section".
+<a href=#304 id=304 data-nosnippet>304</a>    //
+<a href=#305 id=305 data-nosnippet>305</a>    // `worklist` is the list of sections we have yet to visit. It never
+<a href=#306 id=306 data-nosnippet>306</a>    // contains any duplicates or sections we've already visited. `visited`
+<a href=#307 id=307 data-nosnippet>307</a>    // contains all the sections we've ever added to the worklist in a set
+<a href=#308 id=308 data-nosnippet>308</a>    // so that we can quickly check whether a section is new before adding
+<a href=#309 id=309 data-nosnippet>309</a>    // it to worklist. `section_to_custom_section` is filled in with all
+<a href=#310 id=310 data-nosnippet>310</a>    // the sections we want to include.
+<a href=#311 id=311 data-nosnippet>311</a>    </span>worklist.push(root_section_index);
+<a href=#312 id=312 data-nosnippet>312</a>
+<a href=#313 id=313 data-nosnippet>313</a>    <span class="comment">// Add any .eh_frame sections.
+<a href=#314 id=314 data-nosnippet>314</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>eh_frame_section_indices = <span class="macro">vec!</span>[];
+<a href=#315 id=315 data-nosnippet>315</a>
+<a href=#316 id=316 data-nosnippet>316</a>    <span class="comment">// Add macos-specific unwind sections.
+<a href=#317 id=317 data-nosnippet>317</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>compact_unwind_section_indices = <span class="macro">vec!</span>[];
 <a href=#318 id=318 data-nosnippet>318</a>
-<a href=#319 id=319 data-nosnippet>319</a>    <span class="kw">for </span>section <span class="kw">in </span>obj.sections() {
-<a href=#320 id=320 data-nosnippet>320</a>        <span class="kw">let </span>index = section.index();
-<a href=#321 id=321 data-nosnippet>321</a>        <span class="kw">let </span><span class="prelude-val">Ok</span>(section_name) = section.name() <span class="kw">else </span>{
-<a href=#322 id=322 data-nosnippet>322</a>            <span class="kw">continue</span>;
-<a href=#323 id=323 data-nosnippet>323</a>        };
+<a href=#319 id=319 data-nosnippet>319</a>    <span class="comment">// .gcc_except_table sections, which contain the actual LSDA data.
+<a href=#320 id=320 data-nosnippet>320</a>    // We don't need the actual sections for anything (yet), but trampoline
+<a href=#321 id=321 data-nosnippet>321</a>    // codegen checks custom section counts to verify there aren't any
+<a href=#322 id=322 data-nosnippet>322</a>    // unexpected custom sections, so we do a bit of book-keeping here.
+<a href=#323 id=323 data-nosnippet>323</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>gcc_except_table_section_indices = <span class="macro">vec!</span>[];
 <a href=#324 id=324 data-nosnippet>324</a>
-<a href=#325 id=325 data-nosnippet>325</a>        <span class="kw">match </span>section_name {
-<a href=#326 id=326 data-nosnippet>326</a>            <span class="string">"__eh_frame" </span>| <span class="string">".eh_frame" </span>=&gt; {
-<a href=#327 id=327 data-nosnippet>327</a>                worklist.push(index);
-<a href=#328 id=328 data-nosnippet>328</a>                eh_frame_section_indices.push(index);
-<a href=#329 id=329 data-nosnippet>329</a>
-<a href=#330 id=330 data-nosnippet>330</a>                <span class="comment">// This allocates a custom section index for the ELF section.
-<a href=#331 id=331 data-nosnippet>331</a>                </span>elf_section_to_target(index);
-<a href=#332 id=332 data-nosnippet>332</a>            }
-<a href=#333 id=333 data-nosnippet>333</a>            <span class="string">"__compact_unwind" </span>=&gt; {
-<a href=#334 id=334 data-nosnippet>334</a>                worklist.push(index);
-<a href=#335 id=335 data-nosnippet>335</a>                compact_unwind_section_indices.push(index);
-<a href=#336 id=336 data-nosnippet>336</a>
-<a href=#337 id=337 data-nosnippet>337</a>                elf_section_to_target(index);
-<a href=#338 id=338 data-nosnippet>338</a>            }
-<a href=#339 id=339 data-nosnippet>339</a>            <span class="string">".gcc_except_table" </span>=&gt; {
-<a href=#340 id=340 data-nosnippet>340</a>                worklist.push(index);
-<a href=#341 id=341 data-nosnippet>341</a>                gcc_except_table_section_indices.push(index);
-<a href=#342 id=342 data-nosnippet>342</a>
-<a href=#343 id=343 data-nosnippet>343</a>                elf_section_to_target(index);
-<a href=#344 id=344 data-nosnippet>344</a>            }
-<a href=#345 id=345 data-nosnippet>345</a>            <span class="string">".data.DW.ref.wasmer_eh_personality" </span>=&gt; {
-<a href=#346 id=346 data-nosnippet>346</a>                worklist.push(index);
-<a href=#347 id=347 data-nosnippet>347</a>                data_dw_ref_personality_section_indices.push(index);
-<a href=#348 id=348 data-nosnippet>348</a>
-<a href=#349 id=349 data-nosnippet>349</a>                elf_section_to_target(index);
-<a href=#350 id=350 data-nosnippet>350</a>            }
-<a href=#351 id=351 data-nosnippet>351</a>            <span class="kw">_ </span>=&gt; {}
-<a href=#352 id=352 data-nosnippet>352</a>        }
-<a href=#353 id=353 data-nosnippet>353</a>    }
-<a href=#354 id=354 data-nosnippet>354</a>
-<a href=#355 id=355 data-nosnippet>355</a>    <span class="kw">let </span><span class="kw-2">mut </span>visited: HashSet&lt;<span class="kw">_</span>&gt; = HashSet::from_iter(worklist.iter().copied());
-<a href=#356 id=356 data-nosnippet>356</a>    <span class="kw">while let </span><span class="prelude-val">Some</span>(section_index) = worklist.pop() {
-<a href=#357 id=357 data-nosnippet>357</a>        <span class="kw">let </span>sec = obj
-<a href=#358 id=358 data-nosnippet>358</a>            .section_by_index(section_index)
-<a href=#359 id=359 data-nosnippet>359</a>            .map_err(map_object_err)<span class="question-mark">?</span>;
-<a href=#360 id=360 data-nosnippet>360</a>        <span class="kw">let </span>relocs = sec.relocations();
-<a href=#361 id=361 data-nosnippet>361</a>        <span class="kw">for </span>(offset, reloc) <span class="kw">in </span>relocs {
-<a href=#362 id=362 data-nosnippet>362</a>            <span class="kw">let </span><span class="kw-2">mut </span>addend = reloc.addend();
-<a href=#363 id=363 data-nosnippet>363</a>            <span class="kw">let </span>target = <span class="kw">match </span>reloc.target() {
-<a href=#364 id=364 data-nosnippet>364</a>                object::read::RelocationTarget::Symbol(index) =&gt; {
-<a href=#365 id=365 data-nosnippet>365</a>                    <span class="kw">let </span>symbol = obj.symbol_by_index(index).map_err(map_object_err)<span class="question-mark">?</span>;
-<a href=#366 id=366 data-nosnippet>366</a>                    <span class="kw">let </span>symbol_name = symbol.name().map_err(map_object_err)<span class="question-mark">?</span>;
-<a href=#367 id=367 data-nosnippet>367</a>                    <span class="kw">if </span>symbol.kind() == object::SymbolKind::Section {
-<a href=#368 id=368 data-nosnippet>368</a>                        <span class="kw">match </span>symbol.section() {
-<a href=#369 id=369 data-nosnippet>369</a>                            object::SymbolSection::Section(section_index) =&gt; {
-<a href=#370 id=370 data-nosnippet>370</a>                                <span class="kw">if </span>section_index == root_section_index {
-<a href=#371 id=371 data-nosnippet>371</a>                                    root_section_reloc_target
-<a href=#372 id=372 data-nosnippet>372</a>                                } <span class="kw">else </span>{
-<a href=#373 id=373 data-nosnippet>373</a>                                    <span class="kw">if </span>visited.insert(section_index) {
-<a href=#374 id=374 data-nosnippet>374</a>                                        worklist.push(section_index);
-<a href=#375 id=375 data-nosnippet>375</a>                                    }
-<a href=#376 id=376 data-nosnippet>376</a>                                    elf_section_to_target(section_index)
-<a href=#377 id=377 data-nosnippet>377</a>                                }
-<a href=#378 id=378 data-nosnippet>378</a>                            }
-<a href=#379 id=379 data-nosnippet>379</a>                            <span class="kw">_ </span>=&gt; {
-<a href=#380 id=380 data-nosnippet>380</a>                                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#381 id=381 data-nosnippet>381</a>                                    <span class="string">"relocation targets unknown section {reloc:?}"</span>,
-<a href=#382 id=382 data-nosnippet>382</a>                                )));
-<a href=#383 id=383 data-nosnippet>383</a>                            }
-<a href=#384 id=384 data-nosnippet>384</a>                        }
-<a href=#385 id=385 data-nosnippet>385</a>                        <span class="comment">// Maybe a libcall then?
-<a href=#386 id=386 data-nosnippet>386</a>                    </span>} <span class="kw">else if let </span><span class="prelude-val">Some</span>(libcall) = lookup_libcall(symbol_name, binary_fmt, triple) {
-<a href=#387 id=387 data-nosnippet>387</a>                        RelocationTarget::LibCall(libcall)
-<a href=#388 id=388 data-nosnippet>388</a>                    } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(reloc_target)) =
-<a href=#389 id=389 data-nosnippet>389</a>                        symbol_name_to_relocation_target(symbol_name)
-<a href=#390 id=390 data-nosnippet>390</a>                    {
-<a href=#391 id=391 data-nosnippet>391</a>                        reloc_target
-<a href=#392 id=392 data-nosnippet>392</a>                    } <span class="kw">else if let </span>object::SymbolSection::Section(section_index) = symbol.section() {
-<a href=#393 id=393 data-nosnippet>393</a>                        <span class="kw">if </span><span class="macro">matches!</span>(
-<a href=#394 id=394 data-nosnippet>394</a>                            reloc.flags(),
-<a href=#395 id=395 data-nosnippet>395</a>                            object::RelocationFlags::MachO {
-<a href=#396 id=396 data-nosnippet>396</a>                                r_type: object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
-<a href=#397 id=397 data-nosnippet>397</a>                                r_pcrel: <span class="bool-val">false</span>,
-<a href=#398 id=398 data-nosnippet>398</a>                                ..
-<a href=#399 id=399 data-nosnippet>399</a>                            } | object::RelocationFlags::MachO {
-<a href=#400 id=400 data-nosnippet>400</a>                                r_type: object::macho::ARM64_RELOC_POINTER_TO_GOT,
-<a href=#401 id=401 data-nosnippet>401</a>                                r_pcrel: <span class="bool-val">true</span>,
-<a href=#402 id=402 data-nosnippet>402</a>                                ..
-<a href=#403 id=403 data-nosnippet>403</a>                            } | object::RelocationFlags::MachO {
-<a href=#404 id=404 data-nosnippet>404</a>                                r_type: object::macho::ARM64_RELOC_GOT_LOAD_PAGE21,
-<a href=#405 id=405 data-nosnippet>405</a>                                r_pcrel: <span class="bool-val">true</span>,
+<a href=#325 id=325 data-nosnippet>325</a>    <span class="kw">let </span><span class="kw-2">mut </span>data_dw_ref_personality_section_indices = <span class="macro">vec!</span>[];
+<a href=#326 id=326 data-nosnippet>326</a>
+<a href=#327 id=327 data-nosnippet>327</a>    <span class="kw">for </span>section <span class="kw">in </span>obj.sections() {
+<a href=#328 id=328 data-nosnippet>328</a>        <span class="kw">let </span>index = section.index();
+<a href=#329 id=329 data-nosnippet>329</a>        <span class="kw">let </span><span class="prelude-val">Ok</span>(section_name) = section.name() <span class="kw">else </span>{
+<a href=#330 id=330 data-nosnippet>330</a>            <span class="kw">continue</span>;
+<a href=#331 id=331 data-nosnippet>331</a>        };
+<a href=#332 id=332 data-nosnippet>332</a>
+<a href=#333 id=333 data-nosnippet>333</a>        <span class="kw">match </span>section_name {
+<a href=#334 id=334 data-nosnippet>334</a>            <span class="string">"__eh_frame" </span>| <span class="string">".eh_frame" </span>=&gt; {
+<a href=#335 id=335 data-nosnippet>335</a>                worklist.push(index);
+<a href=#336 id=336 data-nosnippet>336</a>                eh_frame_section_indices.push(index);
+<a href=#337 id=337 data-nosnippet>337</a>
+<a href=#338 id=338 data-nosnippet>338</a>                <span class="comment">// This allocates a custom section index for the ELF section.
+<a href=#339 id=339 data-nosnippet>339</a>                </span>elf_section_to_target(index);
+<a href=#340 id=340 data-nosnippet>340</a>            }
+<a href=#341 id=341 data-nosnippet>341</a>            <span class="string">"__compact_unwind" </span>=&gt; {
+<a href=#342 id=342 data-nosnippet>342</a>                worklist.push(index);
+<a href=#343 id=343 data-nosnippet>343</a>                compact_unwind_section_indices.push(index);
+<a href=#344 id=344 data-nosnippet>344</a>
+<a href=#345 id=345 data-nosnippet>345</a>                elf_section_to_target(index);
+<a href=#346 id=346 data-nosnippet>346</a>            }
+<a href=#347 id=347 data-nosnippet>347</a>            <span class="string">".gcc_except_table" </span>=&gt; {
+<a href=#348 id=348 data-nosnippet>348</a>                worklist.push(index);
+<a href=#349 id=349 data-nosnippet>349</a>                gcc_except_table_section_indices.push(index);
+<a href=#350 id=350 data-nosnippet>350</a>
+<a href=#351 id=351 data-nosnippet>351</a>                elf_section_to_target(index);
+<a href=#352 id=352 data-nosnippet>352</a>            }
+<a href=#353 id=353 data-nosnippet>353</a>            <span class="string">".data.DW.ref.wasmer_eh_personality" </span>=&gt; {
+<a href=#354 id=354 data-nosnippet>354</a>                worklist.push(index);
+<a href=#355 id=355 data-nosnippet>355</a>                data_dw_ref_personality_section_indices.push(index);
+<a href=#356 id=356 data-nosnippet>356</a>
+<a href=#357 id=357 data-nosnippet>357</a>                elf_section_to_target(index);
+<a href=#358 id=358 data-nosnippet>358</a>            }
+<a href=#359 id=359 data-nosnippet>359</a>            <span class="kw">_ </span>=&gt; {}
+<a href=#360 id=360 data-nosnippet>360</a>        }
+<a href=#361 id=361 data-nosnippet>361</a>    }
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>    <span class="kw">let </span><span class="kw-2">mut </span>visited: HashSet&lt;<span class="kw">_</span>&gt; = HashSet::from_iter(worklist.iter().copied());
+<a href=#364 id=364 data-nosnippet>364</a>    <span class="kw">while let </span><span class="prelude-val">Some</span>(section_index) = worklist.pop() {
+<a href=#365 id=365 data-nosnippet>365</a>        <span class="kw">let </span>sec = obj
+<a href=#366 id=366 data-nosnippet>366</a>            .section_by_index(section_index)
+<a href=#367 id=367 data-nosnippet>367</a>            .map_err(map_object_err)<span class="question-mark">?</span>;
+<a href=#368 id=368 data-nosnippet>368</a>        <span class="kw">let </span>relocs = sec.relocations();
+<a href=#369 id=369 data-nosnippet>369</a>        <span class="kw">for </span>(offset, reloc) <span class="kw">in </span>relocs {
+<a href=#370 id=370 data-nosnippet>370</a>            <span class="kw">let </span><span class="kw-2">mut </span>addend = reloc.addend();
+<a href=#371 id=371 data-nosnippet>371</a>            <span class="kw">let </span>target = <span class="kw">match </span>reloc.target() {
+<a href=#372 id=372 data-nosnippet>372</a>                object::read::RelocationTarget::Symbol(index) =&gt; {
+<a href=#373 id=373 data-nosnippet>373</a>                    <span class="kw">let </span>symbol = obj.symbol_by_index(index).map_err(map_object_err)<span class="question-mark">?</span>;
+<a href=#374 id=374 data-nosnippet>374</a>                    <span class="kw">let </span>symbol_name = symbol.name().map_err(map_object_err)<span class="question-mark">?</span>;
+<a href=#375 id=375 data-nosnippet>375</a>                    <span class="kw">if </span>symbol.kind() == object::SymbolKind::Section {
+<a href=#376 id=376 data-nosnippet>376</a>                        <span class="kw">match </span>symbol.section() {
+<a href=#377 id=377 data-nosnippet>377</a>                            object::SymbolSection::Section(section_index) =&gt; {
+<a href=#378 id=378 data-nosnippet>378</a>                                <span class="kw">if </span>section_index == root_section_index {
+<a href=#379 id=379 data-nosnippet>379</a>                                    root_section_reloc_target
+<a href=#380 id=380 data-nosnippet>380</a>                                } <span class="kw">else </span>{
+<a href=#381 id=381 data-nosnippet>381</a>                                    <span class="kw">if </span>visited.insert(section_index) {
+<a href=#382 id=382 data-nosnippet>382</a>                                        worklist.push(section_index);
+<a href=#383 id=383 data-nosnippet>383</a>                                    }
+<a href=#384 id=384 data-nosnippet>384</a>                                    elf_section_to_target(section_index)
+<a href=#385 id=385 data-nosnippet>385</a>                                }
+<a href=#386 id=386 data-nosnippet>386</a>                            }
+<a href=#387 id=387 data-nosnippet>387</a>                            <span class="kw">_ </span>=&gt; {
+<a href=#388 id=388 data-nosnippet>388</a>                                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#389 id=389 data-nosnippet>389</a>                                    <span class="string">"relocation targets unknown section {reloc:?}"</span>,
+<a href=#390 id=390 data-nosnippet>390</a>                                )));
+<a href=#391 id=391 data-nosnippet>391</a>                            }
+<a href=#392 id=392 data-nosnippet>392</a>                        }
+<a href=#393 id=393 data-nosnippet>393</a>                        <span class="comment">// Maybe a libcall then?
+<a href=#394 id=394 data-nosnippet>394</a>                    </span>} <span class="kw">else if let </span><span class="prelude-val">Some</span>(libcall) = lookup_libcall(symbol_name, binary_fmt, triple) {
+<a href=#395 id=395 data-nosnippet>395</a>                        RelocationTarget::LibCall(libcall)
+<a href=#396 id=396 data-nosnippet>396</a>                    } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(reloc_target)) =
+<a href=#397 id=397 data-nosnippet>397</a>                        symbol_name_to_relocation_target(symbol_name)
+<a href=#398 id=398 data-nosnippet>398</a>                    {
+<a href=#399 id=399 data-nosnippet>399</a>                        reloc_target
+<a href=#400 id=400 data-nosnippet>400</a>                    } <span class="kw">else if let </span>object::SymbolSection::Section(section_index) = symbol.section() {
+<a href=#401 id=401 data-nosnippet>401</a>                        <span class="kw">if </span><span class="macro">matches!</span>(
+<a href=#402 id=402 data-nosnippet>402</a>                            reloc.flags(),
+<a href=#403 id=403 data-nosnippet>403</a>                            object::RelocationFlags::MachO {
+<a href=#404 id=404 data-nosnippet>404</a>                                r_type: object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
+<a href=#405 id=405 data-nosnippet>405</a>                                r_pcrel: <span class="bool-val">false</span>,
 <a href=#406 id=406 data-nosnippet>406</a>                                ..
 <a href=#407 id=407 data-nosnippet>407</a>                            } | object::RelocationFlags::MachO {
-<a href=#408 id=408 data-nosnippet>408</a>                                r_type: object::macho::ARM64_RELOC_PAGE21,
+<a href=#408 id=408 data-nosnippet>408</a>                                r_type: object::macho::ARM64_RELOC_POINTER_TO_GOT,
 <a href=#409 id=409 data-nosnippet>409</a>                                r_pcrel: <span class="bool-val">true</span>,
 <a href=#410 id=410 data-nosnippet>410</a>                                ..
 <a href=#411 id=411 data-nosnippet>411</a>                            } | object::RelocationFlags::MachO {
-<a href=#412 id=412 data-nosnippet>412</a>                                r_type: object::macho::ARM64_RELOC_PAGEOFF12,
-<a href=#413 id=413 data-nosnippet>413</a>                                r_pcrel: <span class="bool-val">false</span>,
+<a href=#412 id=412 data-nosnippet>412</a>                                r_type: object::macho::ARM64_RELOC_GOT_LOAD_PAGE21,
+<a href=#413 id=413 data-nosnippet>413</a>                                r_pcrel: <span class="bool-val">true</span>,
 <a href=#414 id=414 data-nosnippet>414</a>                                ..
-<a href=#415 id=415 data-nosnippet>415</a>                            }
-<a href=#416 id=416 data-nosnippet>416</a>                        ) {
-<a href=#417 id=417 data-nosnippet>417</a>                            <span class="comment">// (caveat: this comment comes from a point in time after the `addend`
-<a href=#418 id=418 data-nosnippet>418</a>                            // math in the else branch)
-<a href=#419 id=419 data-nosnippet>419</a>                            //
-<a href=#420 id=420 data-nosnippet>420</a>                            // (caveat2: this is mach-o + aarch64 only)
-<a href=#421 id=421 data-nosnippet>421</a>                            //
-<a href=#422 id=422 data-nosnippet>422</a>                            // The tampering with the addend in the else branch causes some
-<a href=#423 id=423 data-nosnippet>423</a>                            // problems with GOT-based relocs, as a non-zero addend has no meaning
-<a href=#424 id=424 data-nosnippet>424</a>                            // when dealing with GOT entries, for our use-case.
-<a href=#425 id=425 data-nosnippet>425</a>                            //
-<a href=#426 id=426 data-nosnippet>426</a>                            // However, for some reasons, it happens that we conceptually need to
-<a href=#427 id=427 data-nosnippet>427</a>                            // have relocations that pretty much mean "the contents of this GOT
-<a href=#428 id=428 data-nosnippet>428</a>                            // entry plus a non-zero addend". When in this case, we will later
-<a href=#429 id=429 data-nosnippet>429</a>                            // perform what is known as "GOT relaxation", i.e. we can change the
-<a href=#430 id=430 data-nosnippet>430</a>                            // `ldr` opcode to an `add`.
-<a href=#431 id=431 data-nosnippet>431</a>                            //
-<a href=#432 id=432 data-nosnippet>432</a>                            // For this to make sense we need to fix the addend to be the delta
-<a href=#433 id=433 data-nosnippet>433</a>                            // between the section whose address is an entry of the GOT and the
-<a href=#434 id=434 data-nosnippet>434</a>                            // symbol that is the target of the relocation.
-<a href=#435 id=435 data-nosnippet>435</a>
-<a href=#436 id=436 data-nosnippet>436</a>                            </span><span class="kw">let </span>symbol_sec = obj
-<a href=#437 id=437 data-nosnippet>437</a>                                .section_by_index(section_index)
-<a href=#438 id=438 data-nosnippet>438</a>                                .map_err(map_object_err)<span class="question-mark">?</span>;
-<a href=#439 id=439 data-nosnippet>439</a>
-<a href=#440 id=440 data-nosnippet>440</a>                            addend = addend
-<a href=#441 id=441 data-nosnippet>441</a>                                .wrapping_add((symbol.address() - symbol_sec.address()) <span class="kw">as </span>i64);
-<a href=#442 id=442 data-nosnippet>442</a>                        } <span class="kw">else </span>{
-<a href=#443 id=443 data-nosnippet>443</a>                            <span class="comment">// TODO: Encode symbol address into addend, I think this is a bit hacky.
-<a href=#444 id=444 data-nosnippet>444</a>                            </span>addend = addend.wrapping_add(symbol.address() <span class="kw">as </span>i64);
-<a href=#445 id=445 data-nosnippet>445</a>                        }
-<a href=#446 id=446 data-nosnippet>446</a>
-<a href=#447 id=447 data-nosnippet>447</a>                        <span class="kw">if </span>section_index == root_section_index {
-<a href=#448 id=448 data-nosnippet>448</a>                            root_section_reloc_target
-<a href=#449 id=449 data-nosnippet>449</a>                        } <span class="kw">else </span>{
-<a href=#450 id=450 data-nosnippet>450</a>                            <span class="kw">if </span>visited.insert(section_index) {
-<a href=#451 id=451 data-nosnippet>451</a>                                worklist.push(section_index);
-<a href=#452 id=452 data-nosnippet>452</a>                            }
-<a href=#453 id=453 data-nosnippet>453</a>
-<a href=#454 id=454 data-nosnippet>454</a>                            elf_section_to_target(section_index)
-<a href=#455 id=455 data-nosnippet>455</a>                        }
-<a href=#456 id=456 data-nosnippet>456</a>                    } <span class="kw">else </span>{
-<a href=#457 id=457 data-nosnippet>457</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#458 id=458 data-nosnippet>458</a>                            <span class="string">"relocation {reloc:?} targets unknown symbol '{symbol:?}'"</span>,
-<a href=#459 id=459 data-nosnippet>459</a>                        )));
-<a href=#460 id=460 data-nosnippet>460</a>                    }
-<a href=#461 id=461 data-nosnippet>461</a>                }
-<a href=#462 id=462 data-nosnippet>462</a>
-<a href=#463 id=463 data-nosnippet>463</a>                object::read::RelocationTarget::Section(index) =&gt; {
-<a href=#464 id=464 data-nosnippet>464</a>                    <span class="kw">if </span>index == root_section_index {
-<a href=#465 id=465 data-nosnippet>465</a>                        root_section_reloc_target
-<a href=#466 id=466 data-nosnippet>466</a>                    } <span class="kw">else </span>{
-<a href=#467 id=467 data-nosnippet>467</a>                        <span class="kw">if </span>visited.insert(index) {
-<a href=#468 id=468 data-nosnippet>468</a>                            worklist.push(index);
-<a href=#469 id=469 data-nosnippet>469</a>                        }
-<a href=#470 id=470 data-nosnippet>470</a>                        elf_section_to_target(index)
-<a href=#471 id=471 data-nosnippet>471</a>                    }
-<a href=#472 id=472 data-nosnippet>472</a>                }
-<a href=#473 id=473 data-nosnippet>473</a>
-<a href=#474 id=474 data-nosnippet>474</a>                object::read::RelocationTarget::Absolute =&gt; {
-<a href=#475 id=475 data-nosnippet>475</a>                    <span class="comment">// Wasm-produced object files should never have absolute
-<a href=#476 id=476 data-nosnippet>476</a>                    // addresses in them because none of the parts of the Wasm
-<a href=#477 id=477 data-nosnippet>477</a>                    // VM, nor the generated code are loaded at fixed addresses.
-<a href=#478 id=478 data-nosnippet>478</a>                    </span><span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#479 id=479 data-nosnippet>479</a>                        <span class="string">"relocation targets absolute address {reloc:?}"</span>,
-<a href=#480 id=480 data-nosnippet>480</a>                    )));
-<a href=#481 id=481 data-nosnippet>481</a>                }
-<a href=#482 id=482 data-nosnippet>482</a>
-<a href=#483 id=483 data-nosnippet>483</a>                <span class="comment">// `object::read::RelocationTarget` is a
-<a href=#484 id=484 data-nosnippet>484</a>                // non-exhaustive enum (`#[non_exhaustive]`), so it
-<a href=#485 id=485 data-nosnippet>485</a>                // could have additional variants added in the
-<a href=#486 id=486 data-nosnippet>486</a>                // future. Therefore, when matching against variants
-<a href=#487 id=487 data-nosnippet>487</a>                // of non-exhaustive enums, an extra wildcard arm must
-<a href=#488 id=488 data-nosnippet>488</a>                // be added to account for any future variants.
-<a href=#489 id=489 data-nosnippet>489</a>                </span>t =&gt; {
-<a href=#490 id=490 data-nosnippet>490</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#491 id=491 data-nosnippet>491</a>                        <span class="string">"relocation target is unknown `{t:?}`"</span>,
-<a href=#492 id=492 data-nosnippet>492</a>                    )));
-<a href=#493 id=493 data-nosnippet>493</a>                }
-<a href=#494 id=494 data-nosnippet>494</a>            };
-<a href=#495 id=495 data-nosnippet>495</a>            <span class="kw">let </span>kind = <span class="kw">match </span>(obj.architecture(), reloc.flags(), reloc.size()) {
-<a href=#496 id=496 data-nosnippet>496</a>                (
-<a href=#497 id=497 data-nosnippet>497</a>                    <span class="kw">_</span>,
-<a href=#498 id=498 data-nosnippet>498</a>                    object::RelocationFlags::Elf {
-<a href=#499 id=499 data-nosnippet>499</a>                        r_type: object::elf::R_X86_64_64,
-<a href=#500 id=500 data-nosnippet>500</a>                    },
-<a href=#501 id=501 data-nosnippet>501</a>                    <span class="number">64</span>,
-<a href=#502 id=502 data-nosnippet>502</a>                ) =&gt; RelocationKind::Abs8,
-<a href=#503 id=503 data-nosnippet>503</a>                (
-<a href=#504 id=504 data-nosnippet>504</a>                    object::Architecture::X86_64,
-<a href=#505 id=505 data-nosnippet>505</a>                    object::RelocationFlags::Elf {
-<a href=#506 id=506 data-nosnippet>506</a>                        r_type: object::elf::R_X86_64_PC64,
-<a href=#507 id=507 data-nosnippet>507</a>                    },
-<a href=#508 id=508 data-nosnippet>508</a>                    <span class="number">0</span>,
-<a href=#509 id=509 data-nosnippet>509</a>                ) =&gt; RelocationKind::PCRel8,
-<a href=#510 id=510 data-nosnippet>510</a>                (
-<a href=#511 id=511 data-nosnippet>511</a>                    object::Architecture::Aarch64,
-<a href=#512 id=512 data-nosnippet>512</a>                    object::RelocationFlags::Elf {
-<a href=#513 id=513 data-nosnippet>513</a>                        r_type: object::elf::R_AARCH64_CALL26,
-<a href=#514 id=514 data-nosnippet>514</a>                    },
-<a href=#515 id=515 data-nosnippet>515</a>                    <span class="number">26</span>,
-<a href=#516 id=516 data-nosnippet>516</a>                ) =&gt; RelocationKind::Arm64Call,
-<a href=#517 id=517 data-nosnippet>517</a>                (
-<a href=#518 id=518 data-nosnippet>518</a>                    object::Architecture::Aarch64,
-<a href=#519 id=519 data-nosnippet>519</a>                    object::RelocationFlags::Elf {
-<a href=#520 id=520 data-nosnippet>520</a>                        r_type: object::elf::R_AARCH64_JUMP26,
-<a href=#521 id=521 data-nosnippet>521</a>                    },
-<a href=#522 id=522 data-nosnippet>522</a>                    <span class="number">0</span>,
-<a href=#523 id=523 data-nosnippet>523</a>                ) =&gt; RelocationKind::Arm64Call,
-<a href=#524 id=524 data-nosnippet>524</a>                (
-<a href=#525 id=525 data-nosnippet>525</a>                    object::Architecture::Aarch64,
-<a href=#526 id=526 data-nosnippet>526</a>                    object::RelocationFlags::Elf {
-<a href=#527 id=527 data-nosnippet>527</a>                        r_type: object::elf::R_AARCH64_MOVW_UABS_G0_NC,
-<a href=#528 id=528 data-nosnippet>528</a>                    },
-<a href=#529 id=529 data-nosnippet>529</a>                    <span class="number">0</span>,
-<a href=#530 id=530 data-nosnippet>530</a>                ) =&gt; RelocationKind::Arm64Movw0,
-<a href=#531 id=531 data-nosnippet>531</a>                (
-<a href=#532 id=532 data-nosnippet>532</a>                    object::Architecture::Aarch64,
-<a href=#533 id=533 data-nosnippet>533</a>                    object::RelocationFlags::Elf {
-<a href=#534 id=534 data-nosnippet>534</a>                        r_type: object::elf::R_AARCH64_MOVW_UABS_G1_NC,
-<a href=#535 id=535 data-nosnippet>535</a>                    },
-<a href=#536 id=536 data-nosnippet>536</a>                    <span class="number">0</span>,
-<a href=#537 id=537 data-nosnippet>537</a>                ) =&gt; RelocationKind::Arm64Movw1,
-<a href=#538 id=538 data-nosnippet>538</a>                (
-<a href=#539 id=539 data-nosnippet>539</a>                    object::Architecture::Aarch64,
-<a href=#540 id=540 data-nosnippet>540</a>                    object::RelocationFlags::Elf {
-<a href=#541 id=541 data-nosnippet>541</a>                        r_type: object::elf::R_AARCH64_MOVW_UABS_G2_NC,
-<a href=#542 id=542 data-nosnippet>542</a>                    },
-<a href=#543 id=543 data-nosnippet>543</a>                    <span class="number">0</span>,
-<a href=#544 id=544 data-nosnippet>544</a>                ) =&gt; RelocationKind::Arm64Movw2,
-<a href=#545 id=545 data-nosnippet>545</a>                (
-<a href=#546 id=546 data-nosnippet>546</a>                    object::Architecture::Aarch64,
-<a href=#547 id=547 data-nosnippet>547</a>                    object::RelocationFlags::Elf {
-<a href=#548 id=548 data-nosnippet>548</a>                        r_type: object::elf::R_AARCH64_MOVW_UABS_G3,
-<a href=#549 id=549 data-nosnippet>549</a>                    },
-<a href=#550 id=550 data-nosnippet>550</a>                    <span class="number">0</span>,
-<a href=#551 id=551 data-nosnippet>551</a>                ) =&gt; RelocationKind::Arm64Movw3,
-<a href=#552 id=552 data-nosnippet>552</a>                (
-<a href=#553 id=553 data-nosnippet>553</a>                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
-<a href=#554 id=554 data-nosnippet>554</a>                    object::RelocationFlags::Elf {
-<a href=#555 id=555 data-nosnippet>555</a>                        r_type: object::elf::R_RISCV_64,
-<a href=#556 id=556 data-nosnippet>556</a>                    },
-<a href=#557 id=557 data-nosnippet>557</a>                    <span class="number">64</span>,
-<a href=#558 id=558 data-nosnippet>558</a>                ) =&gt; RelocationKind::Abs8,
-<a href=#559 id=559 data-nosnippet>559</a>                (
-<a href=#560 id=560 data-nosnippet>560</a>                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
-<a href=#561 id=561 data-nosnippet>561</a>                    object::RelocationFlags::Elf {
-<a href=#562 id=562 data-nosnippet>562</a>                        r_type: object::elf::R_RISCV_CALL_PLT,
-<a href=#563 id=563 data-nosnippet>563</a>                    },
-<a href=#564 id=564 data-nosnippet>564</a>                    <span class="number">0</span>,
-<a href=#565 id=565 data-nosnippet>565</a>                ) =&gt; RelocationKind::RiscvCall,
-<a href=#566 id=566 data-nosnippet>566</a>                (
-<a href=#567 id=567 data-nosnippet>567</a>                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
-<a href=#568 id=568 data-nosnippet>568</a>                    object::RelocationFlags::Elf {
-<a href=#569 id=569 data-nosnippet>569</a>                        r_type: object::elf::R_RISCV_PCREL_HI20,
-<a href=#570 id=570 data-nosnippet>570</a>                    },
-<a href=#571 id=571 data-nosnippet>571</a>                    <span class="number">0</span>,
-<a href=#572 id=572 data-nosnippet>572</a>                ) =&gt; RelocationKind::RiscvPCRelHi20,
-<a href=#573 id=573 data-nosnippet>573</a>                (
-<a href=#574 id=574 data-nosnippet>574</a>                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
-<a href=#575 id=575 data-nosnippet>575</a>                    object::RelocationFlags::Elf {
-<a href=#576 id=576 data-nosnippet>576</a>                        r_type: object::elf::R_RISCV_PCREL_LO12_I,
-<a href=#577 id=577 data-nosnippet>577</a>                    },
-<a href=#578 id=578 data-nosnippet>578</a>                    <span class="number">0</span>,
-<a href=#579 id=579 data-nosnippet>579</a>                ) =&gt; RelocationKind::RiscvPCRelLo12I,
-<a href=#580 id=580 data-nosnippet>580</a>                (
-<a href=#581 id=581 data-nosnippet>581</a>                    object::Architecture::Riscv64,
-<a href=#582 id=582 data-nosnippet>582</a>                    object::RelocationFlags::Elf {
-<a href=#583 id=583 data-nosnippet>583</a>                        r_type: object::elf::R_RISCV_ADD8,
-<a href=#584 id=584 data-nosnippet>584</a>                    },
-<a href=#585 id=585 data-nosnippet>585</a>                    <span class="number">0</span>,
-<a href=#586 id=586 data-nosnippet>586</a>                ) =&gt; RelocationKind::Add,
-<a href=#587 id=587 data-nosnippet>587</a>                (
-<a href=#588 id=588 data-nosnippet>588</a>                    object::Architecture::Riscv64,
-<a href=#589 id=589 data-nosnippet>589</a>                    object::RelocationFlags::Elf {
-<a href=#590 id=590 data-nosnippet>590</a>                        r_type: object::elf::R_RISCV_ADD16,
-<a href=#591 id=591 data-nosnippet>591</a>                    },
-<a href=#592 id=592 data-nosnippet>592</a>                    <span class="number">0</span>,
-<a href=#593 id=593 data-nosnippet>593</a>                ) =&gt; RelocationKind::Add2,
-<a href=#594 id=594 data-nosnippet>594</a>                (
-<a href=#595 id=595 data-nosnippet>595</a>                    object::Architecture::Riscv64,
-<a href=#596 id=596 data-nosnippet>596</a>                    object::RelocationFlags::Elf {
-<a href=#597 id=597 data-nosnippet>597</a>                        r_type: object::elf::R_RISCV_ADD32,
-<a href=#598 id=598 data-nosnippet>598</a>                    },
-<a href=#599 id=599 data-nosnippet>599</a>                    <span class="number">0</span>,
-<a href=#600 id=600 data-nosnippet>600</a>                ) =&gt; RelocationKind::Add4,
-<a href=#601 id=601 data-nosnippet>601</a>                (
-<a href=#602 id=602 data-nosnippet>602</a>                    object::Architecture::Riscv64,
-<a href=#603 id=603 data-nosnippet>603</a>                    object::RelocationFlags::Elf {
-<a href=#604 id=604 data-nosnippet>604</a>                        r_type: object::elf::R_RISCV_ADD64,
-<a href=#605 id=605 data-nosnippet>605</a>                    },
-<a href=#606 id=606 data-nosnippet>606</a>                    <span class="number">0</span>,
-<a href=#607 id=607 data-nosnippet>607</a>                ) =&gt; RelocationKind::Add8,
-<a href=#608 id=608 data-nosnippet>608</a>                (
-<a href=#609 id=609 data-nosnippet>609</a>                    object::Architecture::Riscv64,
-<a href=#610 id=610 data-nosnippet>610</a>                    object::RelocationFlags::Elf {
-<a href=#611 id=611 data-nosnippet>611</a>                        r_type: object::elf::R_RISCV_SUB6,
-<a href=#612 id=612 data-nosnippet>612</a>                    },
-<a href=#613 id=613 data-nosnippet>613</a>                    <span class="number">0</span>,
-<a href=#614 id=614 data-nosnippet>614</a>                ) =&gt; RelocationKind::Sub6Bits,
-<a href=#615 id=615 data-nosnippet>615</a>                (
-<a href=#616 id=616 data-nosnippet>616</a>                    object::Architecture::Riscv64,
-<a href=#617 id=617 data-nosnippet>617</a>                    object::RelocationFlags::Elf {
-<a href=#618 id=618 data-nosnippet>618</a>                        r_type: object::elf::R_RISCV_SUB8,
-<a href=#619 id=619 data-nosnippet>619</a>                    },
-<a href=#620 id=620 data-nosnippet>620</a>                    <span class="number">0</span>,
-<a href=#621 id=621 data-nosnippet>621</a>                ) =&gt; RelocationKind::Sub,
-<a href=#622 id=622 data-nosnippet>622</a>                (
-<a href=#623 id=623 data-nosnippet>623</a>                    object::Architecture::Riscv64,
-<a href=#624 id=624 data-nosnippet>624</a>                    object::RelocationFlags::Elf {
-<a href=#625 id=625 data-nosnippet>625</a>                        r_type: object::elf::R_RISCV_SUB16,
-<a href=#626 id=626 data-nosnippet>626</a>                    },
-<a href=#627 id=627 data-nosnippet>627</a>                    <span class="number">0</span>,
-<a href=#628 id=628 data-nosnippet>628</a>                ) =&gt; RelocationKind::Sub2,
-<a href=#629 id=629 data-nosnippet>629</a>                (
-<a href=#630 id=630 data-nosnippet>630</a>                    object::Architecture::Riscv64,
-<a href=#631 id=631 data-nosnippet>631</a>                    object::RelocationFlags::Elf {
-<a href=#632 id=632 data-nosnippet>632</a>                        r_type: object::elf::R_RISCV_SUB32,
-<a href=#633 id=633 data-nosnippet>633</a>                    },
-<a href=#634 id=634 data-nosnippet>634</a>                    <span class="number">0</span>,
-<a href=#635 id=635 data-nosnippet>635</a>                ) =&gt; RelocationKind::Sub4,
-<a href=#636 id=636 data-nosnippet>636</a>                (
-<a href=#637 id=637 data-nosnippet>637</a>                    object::Architecture::Riscv64,
-<a href=#638 id=638 data-nosnippet>638</a>                    object::RelocationFlags::Elf {
-<a href=#639 id=639 data-nosnippet>639</a>                        r_type: object::elf::R_RISCV_SUB64,
-<a href=#640 id=640 data-nosnippet>640</a>                    },
-<a href=#641 id=641 data-nosnippet>641</a>                    <span class="number">0</span>,
-<a href=#642 id=642 data-nosnippet>642</a>                ) =&gt; RelocationKind::Sub8,
-<a href=#643 id=643 data-nosnippet>643</a>                (
-<a href=#644 id=644 data-nosnippet>644</a>                    object::Architecture::Riscv64,
-<a href=#645 id=645 data-nosnippet>645</a>                    object::RelocationFlags::Elf {
-<a href=#646 id=646 data-nosnippet>646</a>                        r_type: object::elf::R_RISCV_SET6,
-<a href=#647 id=647 data-nosnippet>647</a>                    },
-<a href=#648 id=648 data-nosnippet>648</a>                    <span class="number">0</span>,
-<a href=#649 id=649 data-nosnippet>649</a>                ) =&gt; RelocationKind::Abs6Bits,
-<a href=#650 id=650 data-nosnippet>650</a>                (
-<a href=#651 id=651 data-nosnippet>651</a>                    object::Architecture::Riscv64,
-<a href=#652 id=652 data-nosnippet>652</a>                    object::RelocationFlags::Elf {
-<a href=#653 id=653 data-nosnippet>653</a>                        r_type: object::elf::R_RISCV_SET8,
-<a href=#654 id=654 data-nosnippet>654</a>                    },
-<a href=#655 id=655 data-nosnippet>655</a>                    <span class="number">0</span>,
-<a href=#656 id=656 data-nosnippet>656</a>                ) =&gt; RelocationKind::Abs,
-<a href=#657 id=657 data-nosnippet>657</a>                (
-<a href=#658 id=658 data-nosnippet>658</a>                    object::Architecture::Riscv64,
-<a href=#659 id=659 data-nosnippet>659</a>                    object::RelocationFlags::Elf {
-<a href=#660 id=660 data-nosnippet>660</a>                        r_type: object::elf::R_RISCV_SET16,
-<a href=#661 id=661 data-nosnippet>661</a>                    },
-<a href=#662 id=662 data-nosnippet>662</a>                    <span class="number">0</span>,
-<a href=#663 id=663 data-nosnippet>663</a>                ) =&gt; RelocationKind::Abs2,
-<a href=#664 id=664 data-nosnippet>664</a>                (
-<a href=#665 id=665 data-nosnippet>665</a>                    object::Architecture::Riscv64,
-<a href=#666 id=666 data-nosnippet>666</a>                    object::RelocationFlags::Elf {
-<a href=#667 id=667 data-nosnippet>667</a>                        r_type: object::elf::R_RISCV_SET32,
-<a href=#668 id=668 data-nosnippet>668</a>                    },
-<a href=#669 id=669 data-nosnippet>669</a>                    <span class="number">0</span>,
-<a href=#670 id=670 data-nosnippet>670</a>                ) =&gt; RelocationKind::Abs4,
-<a href=#671 id=671 data-nosnippet>671</a>                (
-<a href=#672 id=672 data-nosnippet>672</a>                    object::Architecture::Riscv64,
-<a href=#673 id=673 data-nosnippet>673</a>                    object::RelocationFlags::Elf {
-<a href=#674 id=674 data-nosnippet>674</a>                        r_type: object::elf::R_RISCV_32,
-<a href=#675 id=675 data-nosnippet>675</a>                    },
-<a href=#676 id=676 data-nosnippet>676</a>                    <span class="number">32</span>,
-<a href=#677 id=677 data-nosnippet>677</a>                ) =&gt; RelocationKind::Abs4,
-<a href=#678 id=678 data-nosnippet>678</a>                (
-<a href=#679 id=679 data-nosnippet>679</a>                    object::Architecture::Riscv64,
-<a href=#680 id=680 data-nosnippet>680</a>                    object::RelocationFlags::Elf {
-<a href=#681 id=681 data-nosnippet>681</a>                        r_type: object::elf::R_RISCV_32_PCREL,
-<a href=#682 id=682 data-nosnippet>682</a>                    },
-<a href=#683 id=683 data-nosnippet>683</a>                    <span class="number">0</span>,
-<a href=#684 id=684 data-nosnippet>684</a>                ) =&gt; RelocationKind::PCRel4,
-<a href=#685 id=685 data-nosnippet>685</a>                (
-<a href=#686 id=686 data-nosnippet>686</a>                    object::Architecture::LoongArch64,
-<a href=#687 id=687 data-nosnippet>687</a>                    object::RelocationFlags::Elf {
-<a href=#688 id=688 data-nosnippet>688</a>                        r_type: object::elf::R_LARCH_ABS_HI20,
-<a href=#689 id=689 data-nosnippet>689</a>                    },
-<a href=#690 id=690 data-nosnippet>690</a>                    <span class="number">0</span>,
-<a href=#691 id=691 data-nosnippet>691</a>                ) =&gt; RelocationKind::LArchAbsHi20,
-<a href=#692 id=692 data-nosnippet>692</a>                (
-<a href=#693 id=693 data-nosnippet>693</a>                    object::Architecture::LoongArch64,
-<a href=#694 id=694 data-nosnippet>694</a>                    object::RelocationFlags::Elf {
-<a href=#695 id=695 data-nosnippet>695</a>                        r_type: object::elf::R_LARCH_ABS_LO12,
-<a href=#696 id=696 data-nosnippet>696</a>                    },
-<a href=#697 id=697 data-nosnippet>697</a>                    <span class="number">0</span>,
-<a href=#698 id=698 data-nosnippet>698</a>                ) =&gt; RelocationKind::LArchAbsLo12,
-<a href=#699 id=699 data-nosnippet>699</a>                (
-<a href=#700 id=700 data-nosnippet>700</a>                    object::Architecture::LoongArch64,
-<a href=#701 id=701 data-nosnippet>701</a>                    object::RelocationFlags::Elf {
-<a href=#702 id=702 data-nosnippet>702</a>                        r_type: object::elf::R_LARCH_ABS64_HI12,
-<a href=#703 id=703 data-nosnippet>703</a>                    },
-<a href=#704 id=704 data-nosnippet>704</a>                    <span class="number">0</span>,
-<a href=#705 id=705 data-nosnippet>705</a>                ) =&gt; RelocationKind::LArchAbs64Hi12,
-<a href=#706 id=706 data-nosnippet>706</a>                (
-<a href=#707 id=707 data-nosnippet>707</a>                    object::Architecture::LoongArch64,
-<a href=#708 id=708 data-nosnippet>708</a>                    object::RelocationFlags::Elf {
-<a href=#709 id=709 data-nosnippet>709</a>                        r_type: object::elf::R_LARCH_ABS64_LO20,
-<a href=#710 id=710 data-nosnippet>710</a>                    },
-<a href=#711 id=711 data-nosnippet>711</a>                    <span class="number">0</span>,
-<a href=#712 id=712 data-nosnippet>712</a>                ) =&gt; RelocationKind::LArchAbs64Lo20,
-<a href=#713 id=713 data-nosnippet>713</a>                (
-<a href=#714 id=714 data-nosnippet>714</a>                    object::Architecture::LoongArch64,
-<a href=#715 id=715 data-nosnippet>715</a>                    object::RelocationFlags::Elf {
-<a href=#716 id=716 data-nosnippet>716</a>                        r_type: object::elf::R_LARCH_CALL36,
-<a href=#717 id=717 data-nosnippet>717</a>                    },
-<a href=#718 id=718 data-nosnippet>718</a>                    <span class="number">0</span>,
-<a href=#719 id=719 data-nosnippet>719</a>                ) =&gt; RelocationKind::LArchCall36,
-<a href=#720 id=720 data-nosnippet>720</a>                (
-<a href=#721 id=721 data-nosnippet>721</a>                    object::Architecture::LoongArch64,
-<a href=#722 id=722 data-nosnippet>722</a>                    object::RelocationFlags::Elf {
-<a href=#723 id=723 data-nosnippet>723</a>                        r_type: object::elf::R_LARCH_PCALA_HI20,
-<a href=#724 id=724 data-nosnippet>724</a>                    },
-<a href=#725 id=725 data-nosnippet>725</a>                    <span class="number">0</span>,
-<a href=#726 id=726 data-nosnippet>726</a>                ) =&gt; RelocationKind::LArchPCAlaHi20,
-<a href=#727 id=727 data-nosnippet>727</a>                (
-<a href=#728 id=728 data-nosnippet>728</a>                    object::Architecture::LoongArch64,
-<a href=#729 id=729 data-nosnippet>729</a>                    object::RelocationFlags::Elf {
-<a href=#730 id=730 data-nosnippet>730</a>                        r_type: object::elf::R_LARCH_PCALA_LO12,
-<a href=#731 id=731 data-nosnippet>731</a>                    },
-<a href=#732 id=732 data-nosnippet>732</a>                    <span class="number">0</span>,
-<a href=#733 id=733 data-nosnippet>733</a>                ) =&gt; RelocationKind::LArchPCAlaLo12,
-<a href=#734 id=734 data-nosnippet>734</a>                (
-<a href=#735 id=735 data-nosnippet>735</a>                    object::Architecture::LoongArch64,
-<a href=#736 id=736 data-nosnippet>736</a>                    object::RelocationFlags::Elf {
-<a href=#737 id=737 data-nosnippet>737</a>                        r_type: object::elf::R_LARCH_PCALA64_HI12,
-<a href=#738 id=738 data-nosnippet>738</a>                    },
-<a href=#739 id=739 data-nosnippet>739</a>                    <span class="number">0</span>,
-<a href=#740 id=740 data-nosnippet>740</a>                ) =&gt; RelocationKind::LArchPCAla64Hi12,
-<a href=#741 id=741 data-nosnippet>741</a>                (
-<a href=#742 id=742 data-nosnippet>742</a>                    object::Architecture::LoongArch64,
-<a href=#743 id=743 data-nosnippet>743</a>                    object::RelocationFlags::Elf {
-<a href=#744 id=744 data-nosnippet>744</a>                        r_type: object::elf::R_LARCH_PCALA64_LO20,
-<a href=#745 id=745 data-nosnippet>745</a>                    },
-<a href=#746 id=746 data-nosnippet>746</a>                    <span class="number">0</span>,
-<a href=#747 id=747 data-nosnippet>747</a>                ) =&gt; RelocationKind::LArchPCAla64Lo20,
-<a href=#748 id=748 data-nosnippet>748</a>                (
-<a href=#749 id=749 data-nosnippet>749</a>                    object::Architecture::Aarch64,
-<a href=#750 id=750 data-nosnippet>750</a>                    object::RelocationFlags::Elf {
-<a href=#751 id=751 data-nosnippet>751</a>                        r_type: object::elf::R_AARCH64_ADR_PREL_LO21,
-<a href=#752 id=752 data-nosnippet>752</a>                    },
-<a href=#753 id=753 data-nosnippet>753</a>                    <span class="number">0</span>,
-<a href=#754 id=754 data-nosnippet>754</a>                ) =&gt; RelocationKind::Aarch64AdrPrelLo21,
-<a href=#755 id=755 data-nosnippet>755</a>                (
-<a href=#756 id=756 data-nosnippet>756</a>                    object::Architecture::LoongArch64,
-<a href=#757 id=757 data-nosnippet>757</a>                    object::RelocationFlags::Elf {
-<a href=#758 id=758 data-nosnippet>758</a>                        r_type: object::elf::R_LARCH_64,
-<a href=#759 id=759 data-nosnippet>759</a>                    },
-<a href=#760 id=760 data-nosnippet>760</a>                    <span class="number">64</span>,
-<a href=#761 id=761 data-nosnippet>761</a>                ) =&gt; RelocationKind::Abs8,
-<a href=#762 id=762 data-nosnippet>762</a>                (
-<a href=#763 id=763 data-nosnippet>763</a>                    object::Architecture::LoongArch64,
-<a href=#764 id=764 data-nosnippet>764</a>                    object::RelocationFlags::Elf {
-<a href=#765 id=765 data-nosnippet>765</a>                        r_type: object::elf::R_LARCH_32_PCREL,
-<a href=#766 id=766 data-nosnippet>766</a>                    },
-<a href=#767 id=767 data-nosnippet>767</a>                    <span class="number">32</span>,
-<a href=#768 id=768 data-nosnippet>768</a>                ) =&gt; RelocationKind::PCRel4,
-<a href=#769 id=769 data-nosnippet>769</a>                (
-<a href=#770 id=770 data-nosnippet>770</a>                    object::Architecture::Aarch64,
-<a href=#771 id=771 data-nosnippet>771</a>                    object::RelocationFlags::Elf {
-<a href=#772 id=772 data-nosnippet>772</a>                        r_type: object::elf::R_AARCH64_ADR_PREL_PG_HI21,
-<a href=#773 id=773 data-nosnippet>773</a>                    },
-<a href=#774 id=774 data-nosnippet>774</a>                    <span class="number">0</span>,
-<a href=#775 id=775 data-nosnippet>775</a>                ) =&gt; RelocationKind::Aarch64AdrPrelPgHi21,
-<a href=#776 id=776 data-nosnippet>776</a>                (
-<a href=#777 id=777 data-nosnippet>777</a>                    object::Architecture::Aarch64,
-<a href=#778 id=778 data-nosnippet>778</a>                    object::RelocationFlags::Elf {
-<a href=#779 id=779 data-nosnippet>779</a>                        r_type: object::elf::R_AARCH64_LDST128_ABS_LO12_NC,
-<a href=#780 id=780 data-nosnippet>780</a>                    },
-<a href=#781 id=781 data-nosnippet>781</a>                    <span class="number">0</span>,
-<a href=#782 id=782 data-nosnippet>782</a>                ) =&gt; RelocationKind::Aarch64Ldst128AbsLo12Nc,
-<a href=#783 id=783 data-nosnippet>783</a>                (
-<a href=#784 id=784 data-nosnippet>784</a>                    object::Architecture::Aarch64,
-<a href=#785 id=785 data-nosnippet>785</a>                    object::RelocationFlags::Elf {
-<a href=#786 id=786 data-nosnippet>786</a>                        r_type: object::elf::R_AARCH64_ADD_ABS_LO12_NC,
-<a href=#787 id=787 data-nosnippet>787</a>                    },
-<a href=#788 id=788 data-nosnippet>788</a>                    <span class="number">0</span>,
-<a href=#789 id=789 data-nosnippet>789</a>                ) =&gt; RelocationKind::Aarch64AddAbsLo12Nc,
-<a href=#790 id=790 data-nosnippet>790</a>                (
-<a href=#791 id=791 data-nosnippet>791</a>                    object::Architecture::Aarch64,
-<a href=#792 id=792 data-nosnippet>792</a>                    object::RelocationFlags::Elf {
-<a href=#793 id=793 data-nosnippet>793</a>                        r_type: object::elf::R_AARCH64_LDST64_ABS_LO12_NC,
-<a href=#794 id=794 data-nosnippet>794</a>                    },
-<a href=#795 id=795 data-nosnippet>795</a>                    <span class="number">0</span>,
-<a href=#796 id=796 data-nosnippet>796</a>                ) =&gt; RelocationKind::Aarch64Ldst64AbsLo12Nc,
-<a href=#797 id=797 data-nosnippet>797</a>                (
-<a href=#798 id=798 data-nosnippet>798</a>                    object::Architecture::Aarch64,
-<a href=#799 id=799 data-nosnippet>799</a>                    object::RelocationFlags::Elf {
-<a href=#800 id=800 data-nosnippet>800</a>                        r_type: object::elf::R_AARCH64_PREL64,
-<a href=#801 id=801 data-nosnippet>801</a>                    },
-<a href=#802 id=802 data-nosnippet>802</a>                    <span class="number">64</span>,
-<a href=#803 id=803 data-nosnippet>803</a>                ) =&gt; RelocationKind::PCRel8,
-<a href=#804 id=804 data-nosnippet>804</a>                (
-<a href=#805 id=805 data-nosnippet>805</a>                    object::Architecture::Aarch64,
-<a href=#806 id=806 data-nosnippet>806</a>                    object::RelocationFlags::Elf {
-<a href=#807 id=807 data-nosnippet>807</a>                        r_type: object::elf::R_AARCH64_ABS64,
-<a href=#808 id=808 data-nosnippet>808</a>                    },
-<a href=#809 id=809 data-nosnippet>809</a>                    <span class="number">64</span>,
-<a href=#810 id=810 data-nosnippet>810</a>                ) =&gt; RelocationKind::Abs8,
-<a href=#811 id=811 data-nosnippet>811</a>                (
-<a href=#812 id=812 data-nosnippet>812</a>                    object::Architecture::Aarch64,
-<a href=#813 id=813 data-nosnippet>813</a>                    object::RelocationFlags::MachO { r_type: value, .. },
-<a href=#814 id=814 data-nosnippet>814</a>                    <span class="kw">_</span>,
-<a href=#815 id=815 data-nosnippet>815</a>                ) =&gt; <span class="kw">match </span>value {
-<a href=#816 id=816 data-nosnippet>816</a>                    object::macho::ARM64_RELOC_UNSIGNED =&gt; RelocationKind::MachoArm64RelocUnsigned,
-<a href=#817 id=817 data-nosnippet>817</a>                    object::macho::ARM64_RELOC_SUBTRACTOR =&gt; {
-<a href=#818 id=818 data-nosnippet>818</a>                        RelocationKind::MachoArm64RelocSubtractor
-<a href=#819 id=819 data-nosnippet>819</a>                    }
-<a href=#820 id=820 data-nosnippet>820</a>                    object::macho::ARM64_RELOC_BRANCH26 =&gt; RelocationKind::MachoArm64RelocBranch26,
-<a href=#821 id=821 data-nosnippet>821</a>                    object::macho::ARM64_RELOC_PAGE21 =&gt; RelocationKind::MachoArm64RelocPage21,
-<a href=#822 id=822 data-nosnippet>822</a>                    object::macho::ARM64_RELOC_PAGEOFF12 =&gt; {
-<a href=#823 id=823 data-nosnippet>823</a>                        RelocationKind::MachoArm64RelocPageoff12
-<a href=#824 id=824 data-nosnippet>824</a>                    }
-<a href=#825 id=825 data-nosnippet>825</a>                    object::macho::ARM64_RELOC_GOT_LOAD_PAGE21 =&gt; {
-<a href=#826 id=826 data-nosnippet>826</a>                        RelocationKind::MachoArm64RelocGotLoadPage21
+<a href=#415 id=415 data-nosnippet>415</a>                            } | object::RelocationFlags::MachO {
+<a href=#416 id=416 data-nosnippet>416</a>                                r_type: object::macho::ARM64_RELOC_PAGE21,
+<a href=#417 id=417 data-nosnippet>417</a>                                r_pcrel: <span class="bool-val">true</span>,
+<a href=#418 id=418 data-nosnippet>418</a>                                ..
+<a href=#419 id=419 data-nosnippet>419</a>                            } | object::RelocationFlags::MachO {
+<a href=#420 id=420 data-nosnippet>420</a>                                r_type: object::macho::ARM64_RELOC_PAGEOFF12,
+<a href=#421 id=421 data-nosnippet>421</a>                                r_pcrel: <span class="bool-val">false</span>,
+<a href=#422 id=422 data-nosnippet>422</a>                                ..
+<a href=#423 id=423 data-nosnippet>423</a>                            }
+<a href=#424 id=424 data-nosnippet>424</a>                        ) {
+<a href=#425 id=425 data-nosnippet>425</a>                            <span class="comment">// (caveat: this comment comes from a point in time after the `addend`
+<a href=#426 id=426 data-nosnippet>426</a>                            // math in the else branch)
+<a href=#427 id=427 data-nosnippet>427</a>                            //
+<a href=#428 id=428 data-nosnippet>428</a>                            // (caveat2: this is mach-o + aarch64 only)
+<a href=#429 id=429 data-nosnippet>429</a>                            //
+<a href=#430 id=430 data-nosnippet>430</a>                            // The tampering with the addend in the else branch causes some
+<a href=#431 id=431 data-nosnippet>431</a>                            // problems with GOT-based relocs, as a non-zero addend has no meaning
+<a href=#432 id=432 data-nosnippet>432</a>                            // when dealing with GOT entries, for our use-case.
+<a href=#433 id=433 data-nosnippet>433</a>                            //
+<a href=#434 id=434 data-nosnippet>434</a>                            // However, for some reasons, it happens that we conceptually need to
+<a href=#435 id=435 data-nosnippet>435</a>                            // have relocations that pretty much mean "the contents of this GOT
+<a href=#436 id=436 data-nosnippet>436</a>                            // entry plus a non-zero addend". When in this case, we will later
+<a href=#437 id=437 data-nosnippet>437</a>                            // perform what is known as "GOT relaxation", i.e. we can change the
+<a href=#438 id=438 data-nosnippet>438</a>                            // `ldr` opcode to an `add`.
+<a href=#439 id=439 data-nosnippet>439</a>                            //
+<a href=#440 id=440 data-nosnippet>440</a>                            // For this to make sense we need to fix the addend to be the delta
+<a href=#441 id=441 data-nosnippet>441</a>                            // between the section whose address is an entry of the GOT and the
+<a href=#442 id=442 data-nosnippet>442</a>                            // symbol that is the target of the relocation.
+<a href=#443 id=443 data-nosnippet>443</a>
+<a href=#444 id=444 data-nosnippet>444</a>                            </span><span class="kw">let </span>symbol_sec = obj
+<a href=#445 id=445 data-nosnippet>445</a>                                .section_by_index(section_index)
+<a href=#446 id=446 data-nosnippet>446</a>                                .map_err(map_object_err)<span class="question-mark">?</span>;
+<a href=#447 id=447 data-nosnippet>447</a>
+<a href=#448 id=448 data-nosnippet>448</a>                            addend = addend
+<a href=#449 id=449 data-nosnippet>449</a>                                .wrapping_add((symbol.address() - symbol_sec.address()) <span class="kw">as </span>i64);
+<a href=#450 id=450 data-nosnippet>450</a>                        } <span class="kw">else </span>{
+<a href=#451 id=451 data-nosnippet>451</a>                            <span class="comment">// TODO: Encode symbol address into addend, I think this is a bit hacky.
+<a href=#452 id=452 data-nosnippet>452</a>                            </span>addend = addend.wrapping_add(symbol.address() <span class="kw">as </span>i64);
+<a href=#453 id=453 data-nosnippet>453</a>                        }
+<a href=#454 id=454 data-nosnippet>454</a>
+<a href=#455 id=455 data-nosnippet>455</a>                        <span class="kw">if </span>section_index == root_section_index {
+<a href=#456 id=456 data-nosnippet>456</a>                            root_section_reloc_target
+<a href=#457 id=457 data-nosnippet>457</a>                        } <span class="kw">else </span>{
+<a href=#458 id=458 data-nosnippet>458</a>                            <span class="kw">if </span>visited.insert(section_index) {
+<a href=#459 id=459 data-nosnippet>459</a>                                worklist.push(section_index);
+<a href=#460 id=460 data-nosnippet>460</a>                            }
+<a href=#461 id=461 data-nosnippet>461</a>
+<a href=#462 id=462 data-nosnippet>462</a>                            elf_section_to_target(section_index)
+<a href=#463 id=463 data-nosnippet>463</a>                        }
+<a href=#464 id=464 data-nosnippet>464</a>                    } <span class="kw">else </span>{
+<a href=#465 id=465 data-nosnippet>465</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#466 id=466 data-nosnippet>466</a>                            <span class="string">"relocation {reloc:?} targets unknown symbol '{symbol:?}'"</span>,
+<a href=#467 id=467 data-nosnippet>467</a>                        )));
+<a href=#468 id=468 data-nosnippet>468</a>                    }
+<a href=#469 id=469 data-nosnippet>469</a>                }
+<a href=#470 id=470 data-nosnippet>470</a>
+<a href=#471 id=471 data-nosnippet>471</a>                object::read::RelocationTarget::Section(index) =&gt; {
+<a href=#472 id=472 data-nosnippet>472</a>                    <span class="kw">if </span>index == root_section_index {
+<a href=#473 id=473 data-nosnippet>473</a>                        root_section_reloc_target
+<a href=#474 id=474 data-nosnippet>474</a>                    } <span class="kw">else </span>{
+<a href=#475 id=475 data-nosnippet>475</a>                        <span class="kw">if </span>visited.insert(index) {
+<a href=#476 id=476 data-nosnippet>476</a>                            worklist.push(index);
+<a href=#477 id=477 data-nosnippet>477</a>                        }
+<a href=#478 id=478 data-nosnippet>478</a>                        elf_section_to_target(index)
+<a href=#479 id=479 data-nosnippet>479</a>                    }
+<a href=#480 id=480 data-nosnippet>480</a>                }
+<a href=#481 id=481 data-nosnippet>481</a>
+<a href=#482 id=482 data-nosnippet>482</a>                object::read::RelocationTarget::Absolute =&gt; {
+<a href=#483 id=483 data-nosnippet>483</a>                    <span class="comment">// Wasm-produced object files should never have absolute
+<a href=#484 id=484 data-nosnippet>484</a>                    // addresses in them because none of the parts of the Wasm
+<a href=#485 id=485 data-nosnippet>485</a>                    // VM, nor the generated code are loaded at fixed addresses.
+<a href=#486 id=486 data-nosnippet>486</a>                    </span><span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#487 id=487 data-nosnippet>487</a>                        <span class="string">"relocation targets absolute address {reloc:?}"</span>,
+<a href=#488 id=488 data-nosnippet>488</a>                    )));
+<a href=#489 id=489 data-nosnippet>489</a>                }
+<a href=#490 id=490 data-nosnippet>490</a>
+<a href=#491 id=491 data-nosnippet>491</a>                <span class="comment">// `object::read::RelocationTarget` is a
+<a href=#492 id=492 data-nosnippet>492</a>                // non-exhaustive enum (`#[non_exhaustive]`), so it
+<a href=#493 id=493 data-nosnippet>493</a>                // could have additional variants added in the
+<a href=#494 id=494 data-nosnippet>494</a>                // future. Therefore, when matching against variants
+<a href=#495 id=495 data-nosnippet>495</a>                // of non-exhaustive enums, an extra wildcard arm must
+<a href=#496 id=496 data-nosnippet>496</a>                // be added to account for any future variants.
+<a href=#497 id=497 data-nosnippet>497</a>                </span>t =&gt; {
+<a href=#498 id=498 data-nosnippet>498</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#499 id=499 data-nosnippet>499</a>                        <span class="string">"relocation target is unknown `{t:?}`"</span>,
+<a href=#500 id=500 data-nosnippet>500</a>                    )));
+<a href=#501 id=501 data-nosnippet>501</a>                }
+<a href=#502 id=502 data-nosnippet>502</a>            };
+<a href=#503 id=503 data-nosnippet>503</a>            <span class="kw">let </span>kind = <span class="kw">match </span>(obj.architecture(), reloc.flags(), reloc.size()) {
+<a href=#504 id=504 data-nosnippet>504</a>                (
+<a href=#505 id=505 data-nosnippet>505</a>                    <span class="kw">_</span>,
+<a href=#506 id=506 data-nosnippet>506</a>                    object::RelocationFlags::Elf {
+<a href=#507 id=507 data-nosnippet>507</a>                        r_type: object::elf::R_X86_64_64,
+<a href=#508 id=508 data-nosnippet>508</a>                    },
+<a href=#509 id=509 data-nosnippet>509</a>                    <span class="number">64</span>,
+<a href=#510 id=510 data-nosnippet>510</a>                ) =&gt; RelocationKind::Abs8,
+<a href=#511 id=511 data-nosnippet>511</a>                (
+<a href=#512 id=512 data-nosnippet>512</a>                    object::Architecture::X86_64,
+<a href=#513 id=513 data-nosnippet>513</a>                    object::RelocationFlags::Elf {
+<a href=#514 id=514 data-nosnippet>514</a>                        r_type: object::elf::R_X86_64_PC64,
+<a href=#515 id=515 data-nosnippet>515</a>                    },
+<a href=#516 id=516 data-nosnippet>516</a>                    <span class="number">0</span>,
+<a href=#517 id=517 data-nosnippet>517</a>                ) =&gt; RelocationKind::PCRel8,
+<a href=#518 id=518 data-nosnippet>518</a>                (
+<a href=#519 id=519 data-nosnippet>519</a>                    object::Architecture::Aarch64,
+<a href=#520 id=520 data-nosnippet>520</a>                    object::RelocationFlags::Elf {
+<a href=#521 id=521 data-nosnippet>521</a>                        r_type: object::elf::R_AARCH64_CALL26,
+<a href=#522 id=522 data-nosnippet>522</a>                    },
+<a href=#523 id=523 data-nosnippet>523</a>                    <span class="number">26</span>,
+<a href=#524 id=524 data-nosnippet>524</a>                ) =&gt; RelocationKind::Arm64Call,
+<a href=#525 id=525 data-nosnippet>525</a>                (
+<a href=#526 id=526 data-nosnippet>526</a>                    object::Architecture::Aarch64,
+<a href=#527 id=527 data-nosnippet>527</a>                    object::RelocationFlags::Elf {
+<a href=#528 id=528 data-nosnippet>528</a>                        r_type: object::elf::R_AARCH64_JUMP26,
+<a href=#529 id=529 data-nosnippet>529</a>                    },
+<a href=#530 id=530 data-nosnippet>530</a>                    <span class="number">0</span>,
+<a href=#531 id=531 data-nosnippet>531</a>                ) =&gt; RelocationKind::Arm64Call,
+<a href=#532 id=532 data-nosnippet>532</a>                (
+<a href=#533 id=533 data-nosnippet>533</a>                    object::Architecture::Aarch64,
+<a href=#534 id=534 data-nosnippet>534</a>                    object::RelocationFlags::Elf {
+<a href=#535 id=535 data-nosnippet>535</a>                        r_type: object::elf::R_AARCH64_MOVW_UABS_G0_NC,
+<a href=#536 id=536 data-nosnippet>536</a>                    },
+<a href=#537 id=537 data-nosnippet>537</a>                    <span class="number">0</span>,
+<a href=#538 id=538 data-nosnippet>538</a>                ) =&gt; RelocationKind::Arm64Movw0,
+<a href=#539 id=539 data-nosnippet>539</a>                (
+<a href=#540 id=540 data-nosnippet>540</a>                    object::Architecture::Aarch64,
+<a href=#541 id=541 data-nosnippet>541</a>                    object::RelocationFlags::Elf {
+<a href=#542 id=542 data-nosnippet>542</a>                        r_type: object::elf::R_AARCH64_MOVW_UABS_G1_NC,
+<a href=#543 id=543 data-nosnippet>543</a>                    },
+<a href=#544 id=544 data-nosnippet>544</a>                    <span class="number">0</span>,
+<a href=#545 id=545 data-nosnippet>545</a>                ) =&gt; RelocationKind::Arm64Movw1,
+<a href=#546 id=546 data-nosnippet>546</a>                (
+<a href=#547 id=547 data-nosnippet>547</a>                    object::Architecture::Aarch64,
+<a href=#548 id=548 data-nosnippet>548</a>                    object::RelocationFlags::Elf {
+<a href=#549 id=549 data-nosnippet>549</a>                        r_type: object::elf::R_AARCH64_MOVW_UABS_G2_NC,
+<a href=#550 id=550 data-nosnippet>550</a>                    },
+<a href=#551 id=551 data-nosnippet>551</a>                    <span class="number">0</span>,
+<a href=#552 id=552 data-nosnippet>552</a>                ) =&gt; RelocationKind::Arm64Movw2,
+<a href=#553 id=553 data-nosnippet>553</a>                (
+<a href=#554 id=554 data-nosnippet>554</a>                    object::Architecture::Aarch64,
+<a href=#555 id=555 data-nosnippet>555</a>                    object::RelocationFlags::Elf {
+<a href=#556 id=556 data-nosnippet>556</a>                        r_type: object::elf::R_AARCH64_MOVW_UABS_G3,
+<a href=#557 id=557 data-nosnippet>557</a>                    },
+<a href=#558 id=558 data-nosnippet>558</a>                    <span class="number">0</span>,
+<a href=#559 id=559 data-nosnippet>559</a>                ) =&gt; RelocationKind::Arm64Movw3,
+<a href=#560 id=560 data-nosnippet>560</a>                (
+<a href=#561 id=561 data-nosnippet>561</a>                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
+<a href=#562 id=562 data-nosnippet>562</a>                    object::RelocationFlags::Elf {
+<a href=#563 id=563 data-nosnippet>563</a>                        r_type: object::elf::R_RISCV_64,
+<a href=#564 id=564 data-nosnippet>564</a>                    },
+<a href=#565 id=565 data-nosnippet>565</a>                    <span class="number">64</span>,
+<a href=#566 id=566 data-nosnippet>566</a>                ) =&gt; RelocationKind::Abs8,
+<a href=#567 id=567 data-nosnippet>567</a>                (
+<a href=#568 id=568 data-nosnippet>568</a>                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
+<a href=#569 id=569 data-nosnippet>569</a>                    object::RelocationFlags::Elf {
+<a href=#570 id=570 data-nosnippet>570</a>                        r_type: object::elf::R_RISCV_CALL_PLT,
+<a href=#571 id=571 data-nosnippet>571</a>                    },
+<a href=#572 id=572 data-nosnippet>572</a>                    <span class="number">0</span>,
+<a href=#573 id=573 data-nosnippet>573</a>                ) =&gt; RelocationKind::RiscvCall,
+<a href=#574 id=574 data-nosnippet>574</a>                (
+<a href=#575 id=575 data-nosnippet>575</a>                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
+<a href=#576 id=576 data-nosnippet>576</a>                    object::RelocationFlags::Elf {
+<a href=#577 id=577 data-nosnippet>577</a>                        r_type: object::elf::R_RISCV_PCREL_HI20,
+<a href=#578 id=578 data-nosnippet>578</a>                    },
+<a href=#579 id=579 data-nosnippet>579</a>                    <span class="number">0</span>,
+<a href=#580 id=580 data-nosnippet>580</a>                ) =&gt; RelocationKind::RiscvPCRelHi20,
+<a href=#581 id=581 data-nosnippet>581</a>                (
+<a href=#582 id=582 data-nosnippet>582</a>                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
+<a href=#583 id=583 data-nosnippet>583</a>                    object::RelocationFlags::Elf {
+<a href=#584 id=584 data-nosnippet>584</a>                        r_type: object::elf::R_RISCV_PCREL_LO12_I,
+<a href=#585 id=585 data-nosnippet>585</a>                    },
+<a href=#586 id=586 data-nosnippet>586</a>                    <span class="number">0</span>,
+<a href=#587 id=587 data-nosnippet>587</a>                ) =&gt; RelocationKind::RiscvPCRelLo12I,
+<a href=#588 id=588 data-nosnippet>588</a>                (
+<a href=#589 id=589 data-nosnippet>589</a>                    object::Architecture::Riscv64,
+<a href=#590 id=590 data-nosnippet>590</a>                    object::RelocationFlags::Elf {
+<a href=#591 id=591 data-nosnippet>591</a>                        r_type: object::elf::R_RISCV_ADD8,
+<a href=#592 id=592 data-nosnippet>592</a>                    },
+<a href=#593 id=593 data-nosnippet>593</a>                    <span class="number">0</span>,
+<a href=#594 id=594 data-nosnippet>594</a>                ) =&gt; RelocationKind::Add,
+<a href=#595 id=595 data-nosnippet>595</a>                (
+<a href=#596 id=596 data-nosnippet>596</a>                    object::Architecture::Riscv64,
+<a href=#597 id=597 data-nosnippet>597</a>                    object::RelocationFlags::Elf {
+<a href=#598 id=598 data-nosnippet>598</a>                        r_type: object::elf::R_RISCV_ADD16,
+<a href=#599 id=599 data-nosnippet>599</a>                    },
+<a href=#600 id=600 data-nosnippet>600</a>                    <span class="number">0</span>,
+<a href=#601 id=601 data-nosnippet>601</a>                ) =&gt; RelocationKind::Add2,
+<a href=#602 id=602 data-nosnippet>602</a>                (
+<a href=#603 id=603 data-nosnippet>603</a>                    object::Architecture::Riscv64,
+<a href=#604 id=604 data-nosnippet>604</a>                    object::RelocationFlags::Elf {
+<a href=#605 id=605 data-nosnippet>605</a>                        r_type: object::elf::R_RISCV_ADD32,
+<a href=#606 id=606 data-nosnippet>606</a>                    },
+<a href=#607 id=607 data-nosnippet>607</a>                    <span class="number">0</span>,
+<a href=#608 id=608 data-nosnippet>608</a>                ) =&gt; RelocationKind::Add4,
+<a href=#609 id=609 data-nosnippet>609</a>                (
+<a href=#610 id=610 data-nosnippet>610</a>                    object::Architecture::Riscv64,
+<a href=#611 id=611 data-nosnippet>611</a>                    object::RelocationFlags::Elf {
+<a href=#612 id=612 data-nosnippet>612</a>                        r_type: object::elf::R_RISCV_ADD64,
+<a href=#613 id=613 data-nosnippet>613</a>                    },
+<a href=#614 id=614 data-nosnippet>614</a>                    <span class="number">0</span>,
+<a href=#615 id=615 data-nosnippet>615</a>                ) =&gt; RelocationKind::Add8,
+<a href=#616 id=616 data-nosnippet>616</a>                (
+<a href=#617 id=617 data-nosnippet>617</a>                    object::Architecture::Riscv64,
+<a href=#618 id=618 data-nosnippet>618</a>                    object::RelocationFlags::Elf {
+<a href=#619 id=619 data-nosnippet>619</a>                        r_type: object::elf::R_RISCV_SUB6,
+<a href=#620 id=620 data-nosnippet>620</a>                    },
+<a href=#621 id=621 data-nosnippet>621</a>                    <span class="number">0</span>,
+<a href=#622 id=622 data-nosnippet>622</a>                ) =&gt; RelocationKind::Sub6Bits,
+<a href=#623 id=623 data-nosnippet>623</a>                (
+<a href=#624 id=624 data-nosnippet>624</a>                    object::Architecture::Riscv64,
+<a href=#625 id=625 data-nosnippet>625</a>                    object::RelocationFlags::Elf {
+<a href=#626 id=626 data-nosnippet>626</a>                        r_type: object::elf::R_RISCV_SUB8,
+<a href=#627 id=627 data-nosnippet>627</a>                    },
+<a href=#628 id=628 data-nosnippet>628</a>                    <span class="number">0</span>,
+<a href=#629 id=629 data-nosnippet>629</a>                ) =&gt; RelocationKind::Sub,
+<a href=#630 id=630 data-nosnippet>630</a>                (
+<a href=#631 id=631 data-nosnippet>631</a>                    object::Architecture::Riscv64,
+<a href=#632 id=632 data-nosnippet>632</a>                    object::RelocationFlags::Elf {
+<a href=#633 id=633 data-nosnippet>633</a>                        r_type: object::elf::R_RISCV_SUB16,
+<a href=#634 id=634 data-nosnippet>634</a>                    },
+<a href=#635 id=635 data-nosnippet>635</a>                    <span class="number">0</span>,
+<a href=#636 id=636 data-nosnippet>636</a>                ) =&gt; RelocationKind::Sub2,
+<a href=#637 id=637 data-nosnippet>637</a>                (
+<a href=#638 id=638 data-nosnippet>638</a>                    object::Architecture::Riscv64,
+<a href=#639 id=639 data-nosnippet>639</a>                    object::RelocationFlags::Elf {
+<a href=#640 id=640 data-nosnippet>640</a>                        r_type: object::elf::R_RISCV_SUB32,
+<a href=#641 id=641 data-nosnippet>641</a>                    },
+<a href=#642 id=642 data-nosnippet>642</a>                    <span class="number">0</span>,
+<a href=#643 id=643 data-nosnippet>643</a>                ) =&gt; RelocationKind::Sub4,
+<a href=#644 id=644 data-nosnippet>644</a>                (
+<a href=#645 id=645 data-nosnippet>645</a>                    object::Architecture::Riscv64,
+<a href=#646 id=646 data-nosnippet>646</a>                    object::RelocationFlags::Elf {
+<a href=#647 id=647 data-nosnippet>647</a>                        r_type: object::elf::R_RISCV_SUB64,
+<a href=#648 id=648 data-nosnippet>648</a>                    },
+<a href=#649 id=649 data-nosnippet>649</a>                    <span class="number">0</span>,
+<a href=#650 id=650 data-nosnippet>650</a>                ) =&gt; RelocationKind::Sub8,
+<a href=#651 id=651 data-nosnippet>651</a>                (
+<a href=#652 id=652 data-nosnippet>652</a>                    object::Architecture::Riscv64,
+<a href=#653 id=653 data-nosnippet>653</a>                    object::RelocationFlags::Elf {
+<a href=#654 id=654 data-nosnippet>654</a>                        r_type: object::elf::R_RISCV_SET6,
+<a href=#655 id=655 data-nosnippet>655</a>                    },
+<a href=#656 id=656 data-nosnippet>656</a>                    <span class="number">0</span>,
+<a href=#657 id=657 data-nosnippet>657</a>                ) =&gt; RelocationKind::Abs6Bits,
+<a href=#658 id=658 data-nosnippet>658</a>                (
+<a href=#659 id=659 data-nosnippet>659</a>                    object::Architecture::Riscv64,
+<a href=#660 id=660 data-nosnippet>660</a>                    object::RelocationFlags::Elf {
+<a href=#661 id=661 data-nosnippet>661</a>                        r_type: object::elf::R_RISCV_SET8,
+<a href=#662 id=662 data-nosnippet>662</a>                    },
+<a href=#663 id=663 data-nosnippet>663</a>                    <span class="number">0</span>,
+<a href=#664 id=664 data-nosnippet>664</a>                ) =&gt; RelocationKind::Abs,
+<a href=#665 id=665 data-nosnippet>665</a>                (
+<a href=#666 id=666 data-nosnippet>666</a>                    object::Architecture::Riscv64,
+<a href=#667 id=667 data-nosnippet>667</a>                    object::RelocationFlags::Elf {
+<a href=#668 id=668 data-nosnippet>668</a>                        r_type: object::elf::R_RISCV_SET16,
+<a href=#669 id=669 data-nosnippet>669</a>                    },
+<a href=#670 id=670 data-nosnippet>670</a>                    <span class="number">0</span>,
+<a href=#671 id=671 data-nosnippet>671</a>                ) =&gt; RelocationKind::Abs2,
+<a href=#672 id=672 data-nosnippet>672</a>                (
+<a href=#673 id=673 data-nosnippet>673</a>                    object::Architecture::Riscv64,
+<a href=#674 id=674 data-nosnippet>674</a>                    object::RelocationFlags::Elf {
+<a href=#675 id=675 data-nosnippet>675</a>                        r_type: object::elf::R_RISCV_SET32,
+<a href=#676 id=676 data-nosnippet>676</a>                    },
+<a href=#677 id=677 data-nosnippet>677</a>                    <span class="number">0</span>,
+<a href=#678 id=678 data-nosnippet>678</a>                ) =&gt; RelocationKind::Abs4,
+<a href=#679 id=679 data-nosnippet>679</a>                (
+<a href=#680 id=680 data-nosnippet>680</a>                    object::Architecture::Riscv64,
+<a href=#681 id=681 data-nosnippet>681</a>                    object::RelocationFlags::Elf {
+<a href=#682 id=682 data-nosnippet>682</a>                        r_type: object::elf::R_RISCV_32,
+<a href=#683 id=683 data-nosnippet>683</a>                    },
+<a href=#684 id=684 data-nosnippet>684</a>                    <span class="number">32</span>,
+<a href=#685 id=685 data-nosnippet>685</a>                ) =&gt; RelocationKind::Abs4,
+<a href=#686 id=686 data-nosnippet>686</a>                (
+<a href=#687 id=687 data-nosnippet>687</a>                    object::Architecture::Riscv64,
+<a href=#688 id=688 data-nosnippet>688</a>                    object::RelocationFlags::Elf {
+<a href=#689 id=689 data-nosnippet>689</a>                        r_type: object::elf::R_RISCV_32_PCREL,
+<a href=#690 id=690 data-nosnippet>690</a>                    },
+<a href=#691 id=691 data-nosnippet>691</a>                    <span class="number">0</span>,
+<a href=#692 id=692 data-nosnippet>692</a>                ) =&gt; RelocationKind::PCRel4,
+<a href=#693 id=693 data-nosnippet>693</a>                (
+<a href=#694 id=694 data-nosnippet>694</a>                    object::Architecture::LoongArch64,
+<a href=#695 id=695 data-nosnippet>695</a>                    object::RelocationFlags::Elf {
+<a href=#696 id=696 data-nosnippet>696</a>                        r_type: object::elf::R_LARCH_ABS_HI20,
+<a href=#697 id=697 data-nosnippet>697</a>                    },
+<a href=#698 id=698 data-nosnippet>698</a>                    <span class="number">0</span>,
+<a href=#699 id=699 data-nosnippet>699</a>                ) =&gt; RelocationKind::LArchAbsHi20,
+<a href=#700 id=700 data-nosnippet>700</a>                (
+<a href=#701 id=701 data-nosnippet>701</a>                    object::Architecture::LoongArch64,
+<a href=#702 id=702 data-nosnippet>702</a>                    object::RelocationFlags::Elf {
+<a href=#703 id=703 data-nosnippet>703</a>                        r_type: object::elf::R_LARCH_ABS_LO12,
+<a href=#704 id=704 data-nosnippet>704</a>                    },
+<a href=#705 id=705 data-nosnippet>705</a>                    <span class="number">0</span>,
+<a href=#706 id=706 data-nosnippet>706</a>                ) =&gt; RelocationKind::LArchAbsLo12,
+<a href=#707 id=707 data-nosnippet>707</a>                (
+<a href=#708 id=708 data-nosnippet>708</a>                    object::Architecture::LoongArch64,
+<a href=#709 id=709 data-nosnippet>709</a>                    object::RelocationFlags::Elf {
+<a href=#710 id=710 data-nosnippet>710</a>                        r_type: object::elf::R_LARCH_ABS64_HI12,
+<a href=#711 id=711 data-nosnippet>711</a>                    },
+<a href=#712 id=712 data-nosnippet>712</a>                    <span class="number">0</span>,
+<a href=#713 id=713 data-nosnippet>713</a>                ) =&gt; RelocationKind::LArchAbs64Hi12,
+<a href=#714 id=714 data-nosnippet>714</a>                (
+<a href=#715 id=715 data-nosnippet>715</a>                    object::Architecture::LoongArch64,
+<a href=#716 id=716 data-nosnippet>716</a>                    object::RelocationFlags::Elf {
+<a href=#717 id=717 data-nosnippet>717</a>                        r_type: object::elf::R_LARCH_ABS64_LO20,
+<a href=#718 id=718 data-nosnippet>718</a>                    },
+<a href=#719 id=719 data-nosnippet>719</a>                    <span class="number">0</span>,
+<a href=#720 id=720 data-nosnippet>720</a>                ) =&gt; RelocationKind::LArchAbs64Lo20,
+<a href=#721 id=721 data-nosnippet>721</a>                (
+<a href=#722 id=722 data-nosnippet>722</a>                    object::Architecture::LoongArch64,
+<a href=#723 id=723 data-nosnippet>723</a>                    object::RelocationFlags::Elf {
+<a href=#724 id=724 data-nosnippet>724</a>                        r_type: object::elf::R_LARCH_CALL36,
+<a href=#725 id=725 data-nosnippet>725</a>                    },
+<a href=#726 id=726 data-nosnippet>726</a>                    <span class="number">0</span>,
+<a href=#727 id=727 data-nosnippet>727</a>                ) =&gt; RelocationKind::LArchCall36,
+<a href=#728 id=728 data-nosnippet>728</a>                (
+<a href=#729 id=729 data-nosnippet>729</a>                    object::Architecture::LoongArch64,
+<a href=#730 id=730 data-nosnippet>730</a>                    object::RelocationFlags::Elf {
+<a href=#731 id=731 data-nosnippet>731</a>                        r_type: object::elf::R_LARCH_PCALA_HI20,
+<a href=#732 id=732 data-nosnippet>732</a>                    },
+<a href=#733 id=733 data-nosnippet>733</a>                    <span class="number">0</span>,
+<a href=#734 id=734 data-nosnippet>734</a>                ) =&gt; RelocationKind::LArchPCAlaHi20,
+<a href=#735 id=735 data-nosnippet>735</a>                (
+<a href=#736 id=736 data-nosnippet>736</a>                    object::Architecture::LoongArch64,
+<a href=#737 id=737 data-nosnippet>737</a>                    object::RelocationFlags::Elf {
+<a href=#738 id=738 data-nosnippet>738</a>                        r_type: object::elf::R_LARCH_PCALA_LO12,
+<a href=#739 id=739 data-nosnippet>739</a>                    },
+<a href=#740 id=740 data-nosnippet>740</a>                    <span class="number">0</span>,
+<a href=#741 id=741 data-nosnippet>741</a>                ) =&gt; RelocationKind::LArchPCAlaLo12,
+<a href=#742 id=742 data-nosnippet>742</a>                (
+<a href=#743 id=743 data-nosnippet>743</a>                    object::Architecture::LoongArch64,
+<a href=#744 id=744 data-nosnippet>744</a>                    object::RelocationFlags::Elf {
+<a href=#745 id=745 data-nosnippet>745</a>                        r_type: object::elf::R_LARCH_PCALA64_HI12,
+<a href=#746 id=746 data-nosnippet>746</a>                    },
+<a href=#747 id=747 data-nosnippet>747</a>                    <span class="number">0</span>,
+<a href=#748 id=748 data-nosnippet>748</a>                ) =&gt; RelocationKind::LArchPCAla64Hi12,
+<a href=#749 id=749 data-nosnippet>749</a>                (
+<a href=#750 id=750 data-nosnippet>750</a>                    object::Architecture::LoongArch64,
+<a href=#751 id=751 data-nosnippet>751</a>                    object::RelocationFlags::Elf {
+<a href=#752 id=752 data-nosnippet>752</a>                        r_type: object::elf::R_LARCH_PCALA64_LO20,
+<a href=#753 id=753 data-nosnippet>753</a>                    },
+<a href=#754 id=754 data-nosnippet>754</a>                    <span class="number">0</span>,
+<a href=#755 id=755 data-nosnippet>755</a>                ) =&gt; RelocationKind::LArchPCAla64Lo20,
+<a href=#756 id=756 data-nosnippet>756</a>                (
+<a href=#757 id=757 data-nosnippet>757</a>                    object::Architecture::Aarch64,
+<a href=#758 id=758 data-nosnippet>758</a>                    object::RelocationFlags::Elf {
+<a href=#759 id=759 data-nosnippet>759</a>                        r_type: object::elf::R_AARCH64_ADR_PREL_LO21,
+<a href=#760 id=760 data-nosnippet>760</a>                    },
+<a href=#761 id=761 data-nosnippet>761</a>                    <span class="number">0</span>,
+<a href=#762 id=762 data-nosnippet>762</a>                ) =&gt; RelocationKind::Aarch64AdrPrelLo21,
+<a href=#763 id=763 data-nosnippet>763</a>                (
+<a href=#764 id=764 data-nosnippet>764</a>                    object::Architecture::LoongArch64,
+<a href=#765 id=765 data-nosnippet>765</a>                    object::RelocationFlags::Elf {
+<a href=#766 id=766 data-nosnippet>766</a>                        r_type: object::elf::R_LARCH_64,
+<a href=#767 id=767 data-nosnippet>767</a>                    },
+<a href=#768 id=768 data-nosnippet>768</a>                    <span class="number">64</span>,
+<a href=#769 id=769 data-nosnippet>769</a>                ) =&gt; RelocationKind::Abs8,
+<a href=#770 id=770 data-nosnippet>770</a>                (
+<a href=#771 id=771 data-nosnippet>771</a>                    object::Architecture::LoongArch64,
+<a href=#772 id=772 data-nosnippet>772</a>                    object::RelocationFlags::Elf {
+<a href=#773 id=773 data-nosnippet>773</a>                        r_type: object::elf::R_LARCH_32_PCREL,
+<a href=#774 id=774 data-nosnippet>774</a>                    },
+<a href=#775 id=775 data-nosnippet>775</a>                    <span class="number">32</span>,
+<a href=#776 id=776 data-nosnippet>776</a>                ) =&gt; RelocationKind::PCRel4,
+<a href=#777 id=777 data-nosnippet>777</a>                (
+<a href=#778 id=778 data-nosnippet>778</a>                    object::Architecture::Aarch64,
+<a href=#779 id=779 data-nosnippet>779</a>                    object::RelocationFlags::Elf {
+<a href=#780 id=780 data-nosnippet>780</a>                        r_type: object::elf::R_AARCH64_ADR_PREL_PG_HI21,
+<a href=#781 id=781 data-nosnippet>781</a>                    },
+<a href=#782 id=782 data-nosnippet>782</a>                    <span class="number">0</span>,
+<a href=#783 id=783 data-nosnippet>783</a>                ) =&gt; RelocationKind::Aarch64AdrPrelPgHi21,
+<a href=#784 id=784 data-nosnippet>784</a>                (
+<a href=#785 id=785 data-nosnippet>785</a>                    object::Architecture::Aarch64,
+<a href=#786 id=786 data-nosnippet>786</a>                    object::RelocationFlags::Elf {
+<a href=#787 id=787 data-nosnippet>787</a>                        r_type: object::elf::R_AARCH64_LDST128_ABS_LO12_NC,
+<a href=#788 id=788 data-nosnippet>788</a>                    },
+<a href=#789 id=789 data-nosnippet>789</a>                    <span class="number">0</span>,
+<a href=#790 id=790 data-nosnippet>790</a>                ) =&gt; RelocationKind::Aarch64Ldst128AbsLo12Nc,
+<a href=#791 id=791 data-nosnippet>791</a>                (
+<a href=#792 id=792 data-nosnippet>792</a>                    object::Architecture::Aarch64,
+<a href=#793 id=793 data-nosnippet>793</a>                    object::RelocationFlags::Elf {
+<a href=#794 id=794 data-nosnippet>794</a>                        r_type: object::elf::R_AARCH64_ADD_ABS_LO12_NC,
+<a href=#795 id=795 data-nosnippet>795</a>                    },
+<a href=#796 id=796 data-nosnippet>796</a>                    <span class="number">0</span>,
+<a href=#797 id=797 data-nosnippet>797</a>                ) =&gt; RelocationKind::Aarch64AddAbsLo12Nc,
+<a href=#798 id=798 data-nosnippet>798</a>                (
+<a href=#799 id=799 data-nosnippet>799</a>                    object::Architecture::Aarch64,
+<a href=#800 id=800 data-nosnippet>800</a>                    object::RelocationFlags::Elf {
+<a href=#801 id=801 data-nosnippet>801</a>                        r_type: object::elf::R_AARCH64_LDST64_ABS_LO12_NC,
+<a href=#802 id=802 data-nosnippet>802</a>                    },
+<a href=#803 id=803 data-nosnippet>803</a>                    <span class="number">0</span>,
+<a href=#804 id=804 data-nosnippet>804</a>                ) =&gt; RelocationKind::Aarch64Ldst64AbsLo12Nc,
+<a href=#805 id=805 data-nosnippet>805</a>                (
+<a href=#806 id=806 data-nosnippet>806</a>                    object::Architecture::Aarch64,
+<a href=#807 id=807 data-nosnippet>807</a>                    object::RelocationFlags::Elf {
+<a href=#808 id=808 data-nosnippet>808</a>                        r_type: object::elf::R_AARCH64_PREL64,
+<a href=#809 id=809 data-nosnippet>809</a>                    },
+<a href=#810 id=810 data-nosnippet>810</a>                    <span class="number">64</span>,
+<a href=#811 id=811 data-nosnippet>811</a>                ) =&gt; RelocationKind::PCRel8,
+<a href=#812 id=812 data-nosnippet>812</a>                (
+<a href=#813 id=813 data-nosnippet>813</a>                    object::Architecture::Aarch64,
+<a href=#814 id=814 data-nosnippet>814</a>                    object::RelocationFlags::Elf {
+<a href=#815 id=815 data-nosnippet>815</a>                        r_type: object::elf::R_AARCH64_ABS64,
+<a href=#816 id=816 data-nosnippet>816</a>                    },
+<a href=#817 id=817 data-nosnippet>817</a>                    <span class="number">64</span>,
+<a href=#818 id=818 data-nosnippet>818</a>                ) =&gt; RelocationKind::Abs8,
+<a href=#819 id=819 data-nosnippet>819</a>                (
+<a href=#820 id=820 data-nosnippet>820</a>                    object::Architecture::Aarch64,
+<a href=#821 id=821 data-nosnippet>821</a>                    object::RelocationFlags::MachO { r_type: value, .. },
+<a href=#822 id=822 data-nosnippet>822</a>                    <span class="kw">_</span>,
+<a href=#823 id=823 data-nosnippet>823</a>                ) =&gt; <span class="kw">match </span>value {
+<a href=#824 id=824 data-nosnippet>824</a>                    object::macho::ARM64_RELOC_UNSIGNED =&gt; RelocationKind::MachoArm64RelocUnsigned,
+<a href=#825 id=825 data-nosnippet>825</a>                    object::macho::ARM64_RELOC_SUBTRACTOR =&gt; {
+<a href=#826 id=826 data-nosnippet>826</a>                        RelocationKind::MachoArm64RelocSubtractor
 <a href=#827 id=827 data-nosnippet>827</a>                    }
-<a href=#828 id=828 data-nosnippet>828</a>                    object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12 =&gt; {
-<a href=#829 id=829 data-nosnippet>829</a>                        RelocationKind::MachoArm64RelocGotLoadPageoff12
-<a href=#830 id=830 data-nosnippet>830</a>                    }
-<a href=#831 id=831 data-nosnippet>831</a>                    object::macho::ARM64_RELOC_POINTER_TO_GOT =&gt; {
-<a href=#832 id=832 data-nosnippet>832</a>                        RelocationKind::MachoArm64RelocPointerToGot
-<a href=#833 id=833 data-nosnippet>833</a>                    }
-<a href=#834 id=834 data-nosnippet>834</a>                    object::macho::ARM64_RELOC_TLVP_LOAD_PAGE21 =&gt; {
-<a href=#835 id=835 data-nosnippet>835</a>                        RelocationKind::MachoArm64RelocTlvpLoadPage21
-<a href=#836 id=836 data-nosnippet>836</a>                    }
-<a href=#837 id=837 data-nosnippet>837</a>                    object::macho::ARM64_RELOC_TLVP_LOAD_PAGEOFF12 =&gt; {
-<a href=#838 id=838 data-nosnippet>838</a>                        RelocationKind::MachoArm64RelocTlvpLoadPageoff12
-<a href=#839 id=839 data-nosnippet>839</a>                    }
-<a href=#840 id=840 data-nosnippet>840</a>                    object::macho::ARM64_RELOC_ADDEND =&gt; RelocationKind::MachoArm64RelocAddend,
-<a href=#841 id=841 data-nosnippet>841</a>                    <span class="kw">_ </span>=&gt; {
-<a href=#842 id=842 data-nosnippet>842</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#843 id=843 data-nosnippet>843</a>                            <span class="string">"unknown relocation {reloc:?}"</span>,
-<a href=#844 id=844 data-nosnippet>844</a>                        )));
-<a href=#845 id=845 data-nosnippet>845</a>                    }
-<a href=#846 id=846 data-nosnippet>846</a>                },
-<a href=#847 id=847 data-nosnippet>847</a>                (
-<a href=#848 id=848 data-nosnippet>848</a>                    object::Architecture::X86_64,
-<a href=#849 id=849 data-nosnippet>849</a>                    object::RelocationFlags::MachO { r_type: value, .. },
-<a href=#850 id=850 data-nosnippet>850</a>                    <span class="kw">_</span>,
-<a href=#851 id=851 data-nosnippet>851</a>                ) =&gt; <span class="kw">match </span>value {
-<a href=#852 id=852 data-nosnippet>852</a>                    object::macho::X86_64_RELOC_UNSIGNED =&gt; {
-<a href=#853 id=853 data-nosnippet>853</a>                        RelocationKind::MachoX86_64RelocUnsigned
-<a href=#854 id=854 data-nosnippet>854</a>                    }
-<a href=#855 id=855 data-nosnippet>855</a>                    object::macho::X86_64_RELOC_SIGNED =&gt; RelocationKind::MachoX86_64RelocSigned,
-<a href=#856 id=856 data-nosnippet>856</a>                    object::macho::X86_64_RELOC_BRANCH =&gt; RelocationKind::MachoX86_64RelocBranch,
-<a href=#857 id=857 data-nosnippet>857</a>                    object::macho::X86_64_RELOC_GOT_LOAD =&gt; RelocationKind::MachoX86_64RelocGotLoad,
-<a href=#858 id=858 data-nosnippet>858</a>                    object::macho::X86_64_RELOC_GOT =&gt; RelocationKind::MachoX86_64RelocGot,
-<a href=#859 id=859 data-nosnippet>859</a>                    object::macho::X86_64_RELOC_SUBTRACTOR =&gt; {
-<a href=#860 id=860 data-nosnippet>860</a>                        RelocationKind::MachoX86_64RelocSubtractor
-<a href=#861 id=861 data-nosnippet>861</a>                    }
-<a href=#862 id=862 data-nosnippet>862</a>                    object::macho::X86_64_RELOC_SIGNED_1 =&gt; RelocationKind::MachoX86_64RelocSigned1,
-<a href=#863 id=863 data-nosnippet>863</a>                    object::macho::X86_64_RELOC_SIGNED_2 =&gt; RelocationKind::MachoX86_64RelocSigned2,
-<a href=#864 id=864 data-nosnippet>864</a>                    object::macho::X86_64_RELOC_SIGNED_4 =&gt; RelocationKind::MachoX86_64RelocSigned4,
-<a href=#865 id=865 data-nosnippet>865</a>                    object::macho::X86_64_RELOC_TLV =&gt; RelocationKind::MachoX86_64RelocTlv,
-<a href=#866 id=866 data-nosnippet>866</a>                    <span class="kw">_ </span>=&gt; {
-<a href=#867 id=867 data-nosnippet>867</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#868 id=868 data-nosnippet>868</a>                            <span class="string">"unknown relocation {reloc:?}"
-<a href=#869 id=869 data-nosnippet>869</a>                        </span>)));
-<a href=#870 id=870 data-nosnippet>870</a>                    }
-<a href=#871 id=871 data-nosnippet>871</a>                },
-<a href=#872 id=872 data-nosnippet>872</a>                <span class="kw">_ </span>=&gt; {
-<a href=#873 id=873 data-nosnippet>873</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#874 id=874 data-nosnippet>874</a>                        <span class="string">"unknown relocation {reloc:?}"</span>,
-<a href=#875 id=875 data-nosnippet>875</a>                    )));
-<a href=#876 id=876 data-nosnippet>876</a>                }
-<a href=#877 id=877 data-nosnippet>877</a>            };
-<a href=#878 id=878 data-nosnippet>878</a>
-<a href=#879 id=879 data-nosnippet>879</a>            relocations
-<a href=#880 id=880 data-nosnippet>880</a>                .entry(section_index)
-<a href=#881 id=881 data-nosnippet>881</a>                .or_default()
-<a href=#882 id=882 data-nosnippet>882</a>                .push(Relocation {
-<a href=#883 id=883 data-nosnippet>883</a>                    kind,
-<a href=#884 id=884 data-nosnippet>884</a>                    reloc_target: target,
-<a href=#885 id=885 data-nosnippet>885</a>                    offset: offset.try_into().map_err(map_tryfromint_err)<span class="question-mark">?</span>,
-<a href=#886 id=886 data-nosnippet>886</a>                    addend,
-<a href=#887 id=887 data-nosnippet>887</a>                });
-<a href=#888 id=888 data-nosnippet>888</a>        }
-<a href=#889 id=889 data-nosnippet>889</a>    }
-<a href=#890 id=890 data-nosnippet>890</a>
-<a href=#891 id=891 data-nosnippet>891</a>    <span class="kw">let </span>eh_frame_section_indices = eh_frame_section_indices
-<a href=#892 id=892 data-nosnippet>892</a>        .iter()
-<a href=#893 id=893 data-nosnippet>893</a>        .map(|index| {
-<a href=#894 id=894 data-nosnippet>894</a>            section_to_custom_section.get(index).map_or_else(
-<a href=#895 id=895 data-nosnippet>895</a>                || {
-<a href=#896 id=896 data-nosnippet>896</a>                    <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#897 id=897 data-nosnippet>897</a>                        <span class="string">".eh_frame section with index={index:?} was never loaded"</span>,
-<a href=#898 id=898 data-nosnippet>898</a>                    )))
-<a href=#899 id=899 data-nosnippet>899</a>                },
-<a href=#900 id=900 data-nosnippet>900</a>                |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
-<a href=#901 id=901 data-nosnippet>901</a>            )
-<a href=#902 id=902 data-nosnippet>902</a>        })
-<a href=#903 id=903 data-nosnippet>903</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;SectionIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
-<a href=#904 id=904 data-nosnippet>904</a>
-<a href=#905 id=905 data-nosnippet>905</a>    <span class="kw">let </span>compact_unwind_section_indices = compact_unwind_section_indices
-<a href=#906 id=906 data-nosnippet>906</a>        .iter()
-<a href=#907 id=907 data-nosnippet>907</a>        .map(|index| {
-<a href=#908 id=908 data-nosnippet>908</a>            section_to_custom_section.get(index).map_or_else(
-<a href=#909 id=909 data-nosnippet>909</a>                || {
-<a href=#910 id=910 data-nosnippet>910</a>                    <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#911 id=911 data-nosnippet>911</a>                        <span class="string">"_compact_unwind section with index={index:?} was never loaded"</span>,
-<a href=#912 id=912 data-nosnippet>912</a>                    )))
-<a href=#913 id=913 data-nosnippet>913</a>                },
-<a href=#914 id=914 data-nosnippet>914</a>                |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
-<a href=#915 id=915 data-nosnippet>915</a>            )
-<a href=#916 id=916 data-nosnippet>916</a>        })
-<a href=#917 id=917 data-nosnippet>917</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;SectionIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
-<a href=#918 id=918 data-nosnippet>918</a>
-<a href=#919 id=919 data-nosnippet>919</a>    <span class="kw">let </span>gcc_except_table_section_indices = gcc_except_table_section_indices
-<a href=#920 id=920 data-nosnippet>920</a>        .iter()
-<a href=#921 id=921 data-nosnippet>921</a>        .map(|index| {
-<a href=#922 id=922 data-nosnippet>922</a>            section_to_custom_section.get(index).map_or_else(
-<a href=#923 id=923 data-nosnippet>923</a>                || {
-<a href=#924 id=924 data-nosnippet>924</a>                    <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#925 id=925 data-nosnippet>925</a>                        <span class="string">".gcc_except_table section with index={index:?} was never loaded"</span>,
-<a href=#926 id=926 data-nosnippet>926</a>                    )))
-<a href=#927 id=927 data-nosnippet>927</a>                },
-<a href=#928 id=928 data-nosnippet>928</a>                |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
-<a href=#929 id=929 data-nosnippet>929</a>            )
-<a href=#930 id=930 data-nosnippet>930</a>        })
-<a href=#931 id=931 data-nosnippet>931</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;SectionIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
-<a href=#932 id=932 data-nosnippet>932</a>
-<a href=#933 id=933 data-nosnippet>933</a>    <span class="kw">let </span>data_dw_ref_personality_section_indices = data_dw_ref_personality_section_indices
-<a href=#934 id=934 data-nosnippet>934</a>        .iter()
-<a href=#935 id=935 data-nosnippet>935</a>        .map(|index| {
-<a href=#936 id=936 data-nosnippet>936</a>            section_to_custom_section.get(index).map_or_else(
-<a href=#937 id=937 data-nosnippet>937</a>                || {
-<a href=#938 id=938 data-nosnippet>938</a>                    <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#939 id=939 data-nosnippet>939</a>                        <span class="string">".data.DW.ref.wasmer_eh_personality section with index={index:?} was never loaded"</span>,
-<a href=#940 id=940 data-nosnippet>940</a>                    )))
-<a href=#941 id=941 data-nosnippet>941</a>                },
-<a href=#942 id=942 data-nosnippet>942</a>                |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
-<a href=#943 id=943 data-nosnippet>943</a>            )
-<a href=#944 id=944 data-nosnippet>944</a>        })
-<a href=#945 id=945 data-nosnippet>945</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;SectionIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
-<a href=#946 id=946 data-nosnippet>946</a>
-<a href=#947 id=947 data-nosnippet>947</a>    <span class="kw">let </span><span class="kw-2">mut </span>custom_sections = section_to_custom_section
-<a href=#948 id=948 data-nosnippet>948</a>        .iter()
-<a href=#949 id=949 data-nosnippet>949</a>        .map(|(elf_section_index, custom_section_index)| {
-<a href=#950 id=950 data-nosnippet>950</a>            <span class="kw">let </span>section = obj.section_by_index(<span class="kw-2">*</span>elf_section_index).unwrap();
-<a href=#951 id=951 data-nosnippet>951</a>            (
-<a href=#952 id=952 data-nosnippet>952</a>                custom_section_index,
-<a href=#953 id=953 data-nosnippet>953</a>                CustomSection {
-<a href=#954 id=954 data-nosnippet>954</a>                    protection: CustomSectionProtection::Read,
-<a href=#955 id=955 data-nosnippet>955</a>                    alignment: <span class="prelude-val">Some</span>(section.align()),
-<a href=#956 id=956 data-nosnippet>956</a>                    bytes: SectionBody::new_with_vec(section.data().unwrap().to_vec()),
-<a href=#957 id=957 data-nosnippet>957</a>                    relocations: relocations
-<a href=#958 id=958 data-nosnippet>958</a>                        .remove_entry(elf_section_index)
-<a href=#959 id=959 data-nosnippet>959</a>                        .map_or(<span class="macro">vec!</span>[], |(<span class="kw">_</span>, v)| v),
-<a href=#960 id=960 data-nosnippet>960</a>                },
-<a href=#961 id=961 data-nosnippet>961</a>            )
-<a href=#962 id=962 data-nosnippet>962</a>        })
-<a href=#963 id=963 data-nosnippet>963</a>        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#964 id=964 data-nosnippet>964</a>    custom_sections.sort_unstable_by_key(|a| a.<span class="number">0</span>);
-<a href=#965 id=965 data-nosnippet>965</a>    <span class="kw">let </span>custom_sections = custom_sections
-<a href=#966 id=966 data-nosnippet>966</a>        .into_iter()
-<a href=#967 id=967 data-nosnippet>967</a>        .map(|(<span class="kw">_</span>, v)| v)
-<a href=#968 id=968 data-nosnippet>968</a>        .collect::&lt;PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt;&gt;();
-<a href=#969 id=969 data-nosnippet>969</a>
-<a href=#970 id=970 data-nosnippet>970</a>    <span class="kw">let </span>function_body = FunctionBody {
-<a href=#971 id=971 data-nosnippet>971</a>        body: obj
-<a href=#972 id=972 data-nosnippet>972</a>            .section_by_index(root_section_index)
-<a href=#973 id=973 data-nosnippet>973</a>            .unwrap()
-<a href=#974 id=974 data-nosnippet>974</a>            .data()
-<a href=#975 id=975 data-nosnippet>975</a>            .unwrap()
-<a href=#976 id=976 data-nosnippet>976</a>            .to_vec(),
-<a href=#977 id=977 data-nosnippet>977</a>        unwind_info: <span class="prelude-val">None</span>,
-<a href=#978 id=978 data-nosnippet>978</a>    };
-<a href=#979 id=979 data-nosnippet>979</a>
-<a href=#980 id=980 data-nosnippet>980</a>    <span class="kw">let </span>address_map = FunctionAddressMap {
-<a href=#981 id=981 data-nosnippet>981</a>        instructions: <span class="macro">vec!</span>[InstructionAddressMap {
-<a href=#982 id=982 data-nosnippet>982</a>            srcloc: SourceLoc::default(),
-<a href=#983 id=983 data-nosnippet>983</a>            code_offset: <span class="number">0</span>,
-<a href=#984 id=984 data-nosnippet>984</a>            code_len: function_body.body.len(),
-<a href=#985 id=985 data-nosnippet>985</a>        }],
-<a href=#986 id=986 data-nosnippet>986</a>        start_srcloc: SourceLoc::default(),
-<a href=#987 id=987 data-nosnippet>987</a>        end_srcloc: SourceLoc::default(),
-<a href=#988 id=988 data-nosnippet>988</a>        body_offset: <span class="number">0</span>,
-<a href=#989 id=989 data-nosnippet>989</a>        body_len: function_body.body.len(),
-<a href=#990 id=990 data-nosnippet>990</a>    };
-<a href=#991 id=991 data-nosnippet>991</a>
-<a href=#992 id=992 data-nosnippet>992</a>    <span class="prelude-val">Ok</span>(CompiledFunction {
-<a href=#993 id=993 data-nosnippet>993</a>        compiled_function: wasmer_compiler::types::function::CompiledFunction {
-<a href=#994 id=994 data-nosnippet>994</a>            body: function_body,
-<a href=#995 id=995 data-nosnippet>995</a>            relocations: relocations
-<a href=#996 id=996 data-nosnippet>996</a>                .remove_entry(<span class="kw-2">&amp;</span>root_section_index)
-<a href=#997 id=997 data-nosnippet>997</a>                .map_or(<span class="macro">vec!</span>[], |(<span class="kw">_</span>, v)| v),
-<a href=#998 id=998 data-nosnippet>998</a>            frame_info: CompiledFunctionFrameInfo {
-<a href=#999 id=999 data-nosnippet>999</a>                address_map,
-<a href=#1000 id=1000 data-nosnippet>1000</a>                traps: <span class="macro">vec!</span>[],
-<a href=#1001 id=1001 data-nosnippet>1001</a>            },
-<a href=#1002 id=1002 data-nosnippet>1002</a>        },
-<a href=#1003 id=1003 data-nosnippet>1003</a>        custom_sections,
-<a href=#1004 id=1004 data-nosnippet>1004</a>        eh_frame_section_indices,
-<a href=#1005 id=1005 data-nosnippet>1005</a>        compact_unwind_section_indices,
-<a href=#1006 id=1006 data-nosnippet>1006</a>        gcc_except_table_section_indices,
-<a href=#1007 id=1007 data-nosnippet>1007</a>        data_dw_ref_personality_section_indices,
-<a href=#1008 id=1008 data-nosnippet>1008</a>    })
-<a href=#1009 id=1009 data-nosnippet>1009</a>}
+<a href=#828 id=828 data-nosnippet>828</a>                    object::macho::ARM64_RELOC_BRANCH26 =&gt; RelocationKind::MachoArm64RelocBranch26,
+<a href=#829 id=829 data-nosnippet>829</a>                    object::macho::ARM64_RELOC_PAGE21 =&gt; RelocationKind::MachoArm64RelocPage21,
+<a href=#830 id=830 data-nosnippet>830</a>                    object::macho::ARM64_RELOC_PAGEOFF12 =&gt; {
+<a href=#831 id=831 data-nosnippet>831</a>                        RelocationKind::MachoArm64RelocPageoff12
+<a href=#832 id=832 data-nosnippet>832</a>                    }
+<a href=#833 id=833 data-nosnippet>833</a>                    object::macho::ARM64_RELOC_GOT_LOAD_PAGE21 =&gt; {
+<a href=#834 id=834 data-nosnippet>834</a>                        RelocationKind::MachoArm64RelocGotLoadPage21
+<a href=#835 id=835 data-nosnippet>835</a>                    }
+<a href=#836 id=836 data-nosnippet>836</a>                    object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12 =&gt; {
+<a href=#837 id=837 data-nosnippet>837</a>                        RelocationKind::MachoArm64RelocGotLoadPageoff12
+<a href=#838 id=838 data-nosnippet>838</a>                    }
+<a href=#839 id=839 data-nosnippet>839</a>                    object::macho::ARM64_RELOC_POINTER_TO_GOT =&gt; {
+<a href=#840 id=840 data-nosnippet>840</a>                        RelocationKind::MachoArm64RelocPointerToGot
+<a href=#841 id=841 data-nosnippet>841</a>                    }
+<a href=#842 id=842 data-nosnippet>842</a>                    object::macho::ARM64_RELOC_TLVP_LOAD_PAGE21 =&gt; {
+<a href=#843 id=843 data-nosnippet>843</a>                        RelocationKind::MachoArm64RelocTlvpLoadPage21
+<a href=#844 id=844 data-nosnippet>844</a>                    }
+<a href=#845 id=845 data-nosnippet>845</a>                    object::macho::ARM64_RELOC_TLVP_LOAD_PAGEOFF12 =&gt; {
+<a href=#846 id=846 data-nosnippet>846</a>                        RelocationKind::MachoArm64RelocTlvpLoadPageoff12
+<a href=#847 id=847 data-nosnippet>847</a>                    }
+<a href=#848 id=848 data-nosnippet>848</a>                    object::macho::ARM64_RELOC_ADDEND =&gt; RelocationKind::MachoArm64RelocAddend,
+<a href=#849 id=849 data-nosnippet>849</a>                    <span class="kw">_ </span>=&gt; {
+<a href=#850 id=850 data-nosnippet>850</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#851 id=851 data-nosnippet>851</a>                            <span class="string">"unknown relocation {reloc:?}"</span>,
+<a href=#852 id=852 data-nosnippet>852</a>                        )));
+<a href=#853 id=853 data-nosnippet>853</a>                    }
+<a href=#854 id=854 data-nosnippet>854</a>                },
+<a href=#855 id=855 data-nosnippet>855</a>                (
+<a href=#856 id=856 data-nosnippet>856</a>                    object::Architecture::X86_64,
+<a href=#857 id=857 data-nosnippet>857</a>                    object::RelocationFlags::MachO { r_type: value, .. },
+<a href=#858 id=858 data-nosnippet>858</a>                    <span class="kw">_</span>,
+<a href=#859 id=859 data-nosnippet>859</a>                ) =&gt; <span class="kw">match </span>value {
+<a href=#860 id=860 data-nosnippet>860</a>                    object::macho::X86_64_RELOC_UNSIGNED =&gt; {
+<a href=#861 id=861 data-nosnippet>861</a>                        RelocationKind::MachoX86_64RelocUnsigned
+<a href=#862 id=862 data-nosnippet>862</a>                    }
+<a href=#863 id=863 data-nosnippet>863</a>                    object::macho::X86_64_RELOC_SIGNED =&gt; RelocationKind::MachoX86_64RelocSigned,
+<a href=#864 id=864 data-nosnippet>864</a>                    object::macho::X86_64_RELOC_BRANCH =&gt; RelocationKind::MachoX86_64RelocBranch,
+<a href=#865 id=865 data-nosnippet>865</a>                    object::macho::X86_64_RELOC_GOT_LOAD =&gt; RelocationKind::MachoX86_64RelocGotLoad,
+<a href=#866 id=866 data-nosnippet>866</a>                    object::macho::X86_64_RELOC_GOT =&gt; RelocationKind::MachoX86_64RelocGot,
+<a href=#867 id=867 data-nosnippet>867</a>                    object::macho::X86_64_RELOC_SUBTRACTOR =&gt; {
+<a href=#868 id=868 data-nosnippet>868</a>                        RelocationKind::MachoX86_64RelocSubtractor
+<a href=#869 id=869 data-nosnippet>869</a>                    }
+<a href=#870 id=870 data-nosnippet>870</a>                    object::macho::X86_64_RELOC_SIGNED_1 =&gt; RelocationKind::MachoX86_64RelocSigned1,
+<a href=#871 id=871 data-nosnippet>871</a>                    object::macho::X86_64_RELOC_SIGNED_2 =&gt; RelocationKind::MachoX86_64RelocSigned2,
+<a href=#872 id=872 data-nosnippet>872</a>                    object::macho::X86_64_RELOC_SIGNED_4 =&gt; RelocationKind::MachoX86_64RelocSigned4,
+<a href=#873 id=873 data-nosnippet>873</a>                    object::macho::X86_64_RELOC_TLV =&gt; RelocationKind::MachoX86_64RelocTlv,
+<a href=#874 id=874 data-nosnippet>874</a>                    <span class="kw">_ </span>=&gt; {
+<a href=#875 id=875 data-nosnippet>875</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#876 id=876 data-nosnippet>876</a>                            <span class="string">"unknown relocation {reloc:?}"
+<a href=#877 id=877 data-nosnippet>877</a>                        </span>)));
+<a href=#878 id=878 data-nosnippet>878</a>                    }
+<a href=#879 id=879 data-nosnippet>879</a>                },
+<a href=#880 id=880 data-nosnippet>880</a>                <span class="kw">_ </span>=&gt; {
+<a href=#881 id=881 data-nosnippet>881</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#882 id=882 data-nosnippet>882</a>                        <span class="string">"unknown relocation {reloc:?}"</span>,
+<a href=#883 id=883 data-nosnippet>883</a>                    )));
+<a href=#884 id=884 data-nosnippet>884</a>                }
+<a href=#885 id=885 data-nosnippet>885</a>            };
+<a href=#886 id=886 data-nosnippet>886</a>
+<a href=#887 id=887 data-nosnippet>887</a>            relocations
+<a href=#888 id=888 data-nosnippet>888</a>                .entry(section_index)
+<a href=#889 id=889 data-nosnippet>889</a>                .or_default()
+<a href=#890 id=890 data-nosnippet>890</a>                .push(Relocation {
+<a href=#891 id=891 data-nosnippet>891</a>                    kind,
+<a href=#892 id=892 data-nosnippet>892</a>                    reloc_target: target,
+<a href=#893 id=893 data-nosnippet>893</a>                    offset: offset.try_into().map_err(map_tryfromint_err)<span class="question-mark">?</span>,
+<a href=#894 id=894 data-nosnippet>894</a>                    addend,
+<a href=#895 id=895 data-nosnippet>895</a>                });
+<a href=#896 id=896 data-nosnippet>896</a>        }
+<a href=#897 id=897 data-nosnippet>897</a>    }
+<a href=#898 id=898 data-nosnippet>898</a>
+<a href=#899 id=899 data-nosnippet>899</a>    <span class="kw">let </span>eh_frame_section_indices = eh_frame_section_indices
+<a href=#900 id=900 data-nosnippet>900</a>        .iter()
+<a href=#901 id=901 data-nosnippet>901</a>        .map(|index| {
+<a href=#902 id=902 data-nosnippet>902</a>            section_to_custom_section.get(index).map_or_else(
+<a href=#903 id=903 data-nosnippet>903</a>                || {
+<a href=#904 id=904 data-nosnippet>904</a>                    <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#905 id=905 data-nosnippet>905</a>                        <span class="string">".eh_frame section with index={index:?} was never loaded"</span>,
+<a href=#906 id=906 data-nosnippet>906</a>                    )))
+<a href=#907 id=907 data-nosnippet>907</a>                },
+<a href=#908 id=908 data-nosnippet>908</a>                |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
+<a href=#909 id=909 data-nosnippet>909</a>            )
+<a href=#910 id=910 data-nosnippet>910</a>        })
+<a href=#911 id=911 data-nosnippet>911</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;SectionIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#912 id=912 data-nosnippet>912</a>
+<a href=#913 id=913 data-nosnippet>913</a>    <span class="kw">let </span>compact_unwind_section_indices = compact_unwind_section_indices
+<a href=#914 id=914 data-nosnippet>914</a>        .iter()
+<a href=#915 id=915 data-nosnippet>915</a>        .map(|index| {
+<a href=#916 id=916 data-nosnippet>916</a>            section_to_custom_section.get(index).map_or_else(
+<a href=#917 id=917 data-nosnippet>917</a>                || {
+<a href=#918 id=918 data-nosnippet>918</a>                    <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#919 id=919 data-nosnippet>919</a>                        <span class="string">"_compact_unwind section with index={index:?} was never loaded"</span>,
+<a href=#920 id=920 data-nosnippet>920</a>                    )))
+<a href=#921 id=921 data-nosnippet>921</a>                },
+<a href=#922 id=922 data-nosnippet>922</a>                |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
+<a href=#923 id=923 data-nosnippet>923</a>            )
+<a href=#924 id=924 data-nosnippet>924</a>        })
+<a href=#925 id=925 data-nosnippet>925</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;SectionIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#926 id=926 data-nosnippet>926</a>
+<a href=#927 id=927 data-nosnippet>927</a>    <span class="kw">let </span>gcc_except_table_section_indices = gcc_except_table_section_indices
+<a href=#928 id=928 data-nosnippet>928</a>        .iter()
+<a href=#929 id=929 data-nosnippet>929</a>        .map(|index| {
+<a href=#930 id=930 data-nosnippet>930</a>            section_to_custom_section.get(index).map_or_else(
+<a href=#931 id=931 data-nosnippet>931</a>                || {
+<a href=#932 id=932 data-nosnippet>932</a>                    <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#933 id=933 data-nosnippet>933</a>                        <span class="string">".gcc_except_table section with index={index:?} was never loaded"</span>,
+<a href=#934 id=934 data-nosnippet>934</a>                    )))
+<a href=#935 id=935 data-nosnippet>935</a>                },
+<a href=#936 id=936 data-nosnippet>936</a>                |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
+<a href=#937 id=937 data-nosnippet>937</a>            )
+<a href=#938 id=938 data-nosnippet>938</a>        })
+<a href=#939 id=939 data-nosnippet>939</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;SectionIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#940 id=940 data-nosnippet>940</a>
+<a href=#941 id=941 data-nosnippet>941</a>    <span class="kw">let </span>data_dw_ref_personality_section_indices = data_dw_ref_personality_section_indices
+<a href=#942 id=942 data-nosnippet>942</a>        .iter()
+<a href=#943 id=943 data-nosnippet>943</a>        .map(|index| {
+<a href=#944 id=944 data-nosnippet>944</a>            section_to_custom_section.get(index).map_or_else(
+<a href=#945 id=945 data-nosnippet>945</a>                || {
+<a href=#946 id=946 data-nosnippet>946</a>                    <span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#947 id=947 data-nosnippet>947</a>                        <span class="string">".data.DW.ref.wasmer_eh_personality section with index={index:?} was never loaded"</span>,
+<a href=#948 id=948 data-nosnippet>948</a>                    )))
+<a href=#949 id=949 data-nosnippet>949</a>                },
+<a href=#950 id=950 data-nosnippet>950</a>                |idx| <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>idx),
+<a href=#951 id=951 data-nosnippet>951</a>            )
+<a href=#952 id=952 data-nosnippet>952</a>        })
+<a href=#953 id=953 data-nosnippet>953</a>        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;SectionIndex&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+<a href=#954 id=954 data-nosnippet>954</a>
+<a href=#955 id=955 data-nosnippet>955</a>    <span class="kw">let </span><span class="kw-2">mut </span>custom_sections = section_to_custom_section
+<a href=#956 id=956 data-nosnippet>956</a>        .iter()
+<a href=#957 id=957 data-nosnippet>957</a>        .map(|(elf_section_index, custom_section_index)| {
+<a href=#958 id=958 data-nosnippet>958</a>            <span class="kw">let </span>section = obj.section_by_index(<span class="kw-2">*</span>elf_section_index).unwrap();
+<a href=#959 id=959 data-nosnippet>959</a>            (
+<a href=#960 id=960 data-nosnippet>960</a>                custom_section_index,
+<a href=#961 id=961 data-nosnippet>961</a>                CustomSection {
+<a href=#962 id=962 data-nosnippet>962</a>                    protection: CustomSectionProtection::Read,
+<a href=#963 id=963 data-nosnippet>963</a>                    alignment: <span class="prelude-val">Some</span>(section.align()),
+<a href=#964 id=964 data-nosnippet>964</a>                    bytes: SectionBody::new_with_vec(section.data().unwrap().to_vec()),
+<a href=#965 id=965 data-nosnippet>965</a>                    relocations: relocations
+<a href=#966 id=966 data-nosnippet>966</a>                        .remove_entry(elf_section_index)
+<a href=#967 id=967 data-nosnippet>967</a>                        .map_or(<span class="macro">vec!</span>[], |(<span class="kw">_</span>, v)| v),
+<a href=#968 id=968 data-nosnippet>968</a>                },
+<a href=#969 id=969 data-nosnippet>969</a>            )
+<a href=#970 id=970 data-nosnippet>970</a>        })
+<a href=#971 id=971 data-nosnippet>971</a>        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#972 id=972 data-nosnippet>972</a>    custom_sections.sort_unstable_by_key(|a| a.<span class="number">0</span>);
+<a href=#973 id=973 data-nosnippet>973</a>    <span class="kw">let </span>custom_sections = custom_sections
+<a href=#974 id=974 data-nosnippet>974</a>        .into_iter()
+<a href=#975 id=975 data-nosnippet>975</a>        .map(|(<span class="kw">_</span>, v)| v)
+<a href=#976 id=976 data-nosnippet>976</a>        .collect::&lt;PrimaryMap&lt;SectionIndex, <span class="kw">_</span>&gt;&gt;();
+<a href=#977 id=977 data-nosnippet>977</a>
+<a href=#978 id=978 data-nosnippet>978</a>    <span class="kw">let </span>function_body = FunctionBody {
+<a href=#979 id=979 data-nosnippet>979</a>        body: obj
+<a href=#980 id=980 data-nosnippet>980</a>            .section_by_index(root_section_index)
+<a href=#981 id=981 data-nosnippet>981</a>            .unwrap()
+<a href=#982 id=982 data-nosnippet>982</a>            .data()
+<a href=#983 id=983 data-nosnippet>983</a>            .unwrap()
+<a href=#984 id=984 data-nosnippet>984</a>            .to_vec(),
+<a href=#985 id=985 data-nosnippet>985</a>        unwind_info: <span class="prelude-val">None</span>,
+<a href=#986 id=986 data-nosnippet>986</a>    };
+<a href=#987 id=987 data-nosnippet>987</a>
+<a href=#988 id=988 data-nosnippet>988</a>    <span class="kw">let </span>address_map = FunctionAddressMap {
+<a href=#989 id=989 data-nosnippet>989</a>        instructions: <span class="macro">vec!</span>[InstructionAddressMap {
+<a href=#990 id=990 data-nosnippet>990</a>            srcloc: SourceLoc::default(),
+<a href=#991 id=991 data-nosnippet>991</a>            code_offset: <span class="number">0</span>,
+<a href=#992 id=992 data-nosnippet>992</a>            code_len: function_body.body.len(),
+<a href=#993 id=993 data-nosnippet>993</a>        }],
+<a href=#994 id=994 data-nosnippet>994</a>        start_srcloc: SourceLoc::default(),
+<a href=#995 id=995 data-nosnippet>995</a>        end_srcloc: SourceLoc::default(),
+<a href=#996 id=996 data-nosnippet>996</a>        body_offset: <span class="number">0</span>,
+<a href=#997 id=997 data-nosnippet>997</a>        body_len: function_body.body.len(),
+<a href=#998 id=998 data-nosnippet>998</a>    };
+<a href=#999 id=999 data-nosnippet>999</a>
+<a href=#1000 id=1000 data-nosnippet>1000</a>    <span class="prelude-val">Ok</span>(CompiledFunction {
+<a href=#1001 id=1001 data-nosnippet>1001</a>        compiled_function: wasmer_compiler::types::function::CompiledFunction {
+<a href=#1002 id=1002 data-nosnippet>1002</a>            body: function_body,
+<a href=#1003 id=1003 data-nosnippet>1003</a>            relocations: relocations
+<a href=#1004 id=1004 data-nosnippet>1004</a>                .remove_entry(<span class="kw-2">&amp;</span>root_section_index)
+<a href=#1005 id=1005 data-nosnippet>1005</a>                .map_or(<span class="macro">vec!</span>[], |(<span class="kw">_</span>, v)| v),
+<a href=#1006 id=1006 data-nosnippet>1006</a>            frame_info: CompiledFunctionFrameInfo {
+<a href=#1007 id=1007 data-nosnippet>1007</a>                address_map,
+<a href=#1008 id=1008 data-nosnippet>1008</a>                traps: <span class="macro">vec!</span>[],
+<a href=#1009 id=1009 data-nosnippet>1009</a>            },
+<a href=#1010 id=1010 data-nosnippet>1010</a>        },
+<a href=#1011 id=1011 data-nosnippet>1011</a>        custom_sections,
+<a href=#1012 id=1012 data-nosnippet>1012</a>        eh_frame_section_indices,
+<a href=#1013 id=1013 data-nosnippet>1013</a>        compact_unwind_section_indices,
+<a href=#1014 id=1014 data-nosnippet>1014</a>        gcc_except_table_section_indices,
+<a href=#1015 id=1015 data-nosnippet>1015</a>        data_dw_ref_personality_section_indices,
+<a href=#1016 id=1016 data-nosnippet>1016</a>    })
+<a href=#1017 id=1017 data-nosnippet>1017</a>}
 </code></pre></div></section></main></body></html>
