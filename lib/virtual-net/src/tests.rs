@@ -1,6 +1,7 @@
 #![allow(unused)]
 use std::{
-    net::{Ipv4Addr, SocketAddrV4},
+    mem::MaybeUninit,
+    net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4},
     sync::atomic::{AtomicU16, Ordering},
 };
 
@@ -67,6 +68,104 @@ async fn setup_pipe(
     tokio::task::spawn(server_driver);
 
     (client, server)
+}
+
+fn recv_udp_packet(socket: &mut Box<dyn VirtualUdpSocket + Sync>) -> Result<Vec<u8>> {
+    let mut buf = [MaybeUninit::<u8>::uninit(); 64];
+    let (len, _) = socket.try_recv_from(&mut buf, false)?;
+    let bytes: &[u8] = unsafe { std::mem::transmute(&buf[..len]) };
+    Ok(bytes.to_vec())
+}
+
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_local_udp_multicast_fans_out_between_virtual_sockets() {
+    let networking = LocalNetworking::new();
+    let any = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+    let mut a = networking.bind_udp(any, true, true).await.unwrap();
+    let port = a.addr_local().unwrap().port();
+    let mut c = networking
+        .bind_udp(
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port),
+            true,
+            true,
+        )
+        .await
+        .unwrap();
+    let mut sender = networking.bind_udp(any, true, true).await.unwrap();
+    let group = Ipv4Addr::new(239, 255, 0, 1);
+
+    a.join_multicast_v4(group, Ipv4Addr::UNSPECIFIED).unwrap();
+    c.join_multicast_v4(group, Ipv4Addr::UNSPECIFIED).unwrap();
+
+    let target = SocketAddr::new(IpAddr::V4(group), port);
+    assert_eq!(sender.try_send_to(b"hello multicast", target).unwrap(), 15);
+
+    assert_eq!(recv_udp_packet(&mut a).unwrap(), b"hello multicast");
+    assert_eq!(recv_udp_packet(&mut c).unwrap(), b"hello multicast");
+}
+
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_local_udp_multicast_loop_flag_skips_sender_only() {
+    let networking = LocalNetworking::new();
+    let any = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+    let mut a = networking.bind_udp(any, true, true).await.unwrap();
+    let port = a.addr_local().unwrap().port();
+    let mut c = networking
+        .bind_udp(
+            SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), port),
+            true,
+            true,
+        )
+        .await
+        .unwrap();
+    let group = Ipv4Addr::new(239, 255, 0, 2);
+
+    a.join_multicast_v4(group, Ipv4Addr::UNSPECIFIED).unwrap();
+    c.join_multicast_v4(group, Ipv4Addr::UNSPECIFIED).unwrap();
+    a.set_multicast_loop_v4(false).unwrap();
+
+    let target = SocketAddr::new(IpAddr::V4(group), port);
+    assert_eq!(a.try_send_to(b"loop filtered", target).unwrap(), 13);
+
+    assert_eq!(recv_udp_packet(&mut c).unwrap(), b"loop filtered");
+    assert!(matches!(
+        a.try_recv_from(&mut [MaybeUninit::<u8>::uninit(); 64], false),
+        Err(NetworkError::WouldBlock)
+    ));
+}
+
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_local_udp_multicast_wakes_pending_receiver() {
+    let networking = LocalNetworking::new();
+    let any = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
+    let mut receiver = networking.bind_udp(any, true, true).await.unwrap();
+    let port = receiver.addr_local().unwrap().port();
+    let mut sender = networking.bind_udp(any, true, true).await.unwrap();
+    let group = Ipv4Addr::new(239, 255, 0, 3);
+
+    receiver
+        .join_multicast_v4(group, Ipv4Addr::UNSPECIFIED)
+        .unwrap();
+
+    let mut buf = [MaybeUninit::<u8>::uninit(); 64];
+    let mut recv = Box::pin(receiver.recv_from(&mut buf, false));
+    assert!(matches!(
+        futures_util::poll!(&mut recv),
+        std::task::Poll::Pending
+    ));
+
+    let target = SocketAddr::new(IpAddr::V4(group), port);
+    assert_eq!(sender.try_send_to(b"wake receiver", target).unwrap(), 13);
+
+    let (len, _) = recv.await.unwrap();
+    let bytes: &[u8] = unsafe { std::mem::transmute(&buf[..len]) };
+    assert_eq!(bytes, b"wake receiver");
 }
 
 #[cfg(feature = "remote")]
