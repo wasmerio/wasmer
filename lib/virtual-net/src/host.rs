@@ -930,23 +930,21 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
         buf: &mut [MaybeUninit<u8>],
         peek: bool,
     ) -> Result<(usize, SocketAddr)> {
-        let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-        if let Some((packet, addr)) = self.backlog.front() {
-            let amt = buf.len().min(packet.len());
-            let addr = *addr;
-            buf[..amt].copy_from_slice(&packet[..amt]);
-            if !peek {
-                self.backlog.pop_front();
-            }
-            return Ok((amt, addr));
+        if self.backlog.is_empty() {
+            self.recv_into_backlog().map_err(io_err_into_net_error)?;
         }
 
-        if peek {
-            self.socket.peek_from(buf)
-        } else {
-            self.socket.recv_from(buf)
+        let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
+        let Some((packet, addr)) = self.backlog.front() else {
+            return Err(NetworkError::WouldBlock);
+        };
+        let amt = buf.len().min(packet.len());
+        let addr = *addr;
+        buf[..amt].copy_from_slice(&packet[..amt]);
+        if !peek {
+            self.backlog.pop_front();
         }
-        .map_err(io_err_into_net_error)
+        Ok((amt, addr))
     }
 }
 
@@ -997,6 +995,20 @@ impl VirtualSocket for LocalUdpSocket {
 }
 
 impl LocalUdpSocket {
+    fn recv_into_backlog(&mut self) -> io::Result<()> {
+        let mut buffer = BytesMut::default();
+        buffer.reserve(10240);
+        let uninit: &mut [MaybeUninit<u8>] = buffer.spare_capacity_mut();
+        let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
+
+        let (amt, peer) = self.socket.recv_from(uninit_unsafe)?;
+        unsafe {
+            buffer.set_len(amt);
+        }
+        self.backlog.push_back((buffer, peer));
+        Ok(())
+    }
+
     fn split_borrow(
         &mut self,
     ) -> (
@@ -1034,22 +1046,10 @@ impl VirtualIoSource for LocalUdpSocket {
         map.pop(InterestType::Readable);
         map.add(InterestType::Readable, cx.waker());
 
-        let mut buffer = BytesMut::default();
-        buffer.reserve(10240);
-        let uninit: &mut [MaybeUninit<u8>] = buffer.spare_capacity_mut();
-        let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
-
-        match self.socket.recv_from(uninit_unsafe) {
-            Ok((0, peer)) => {
-                self.backlog.push_back((buffer, peer));
-                Poll::Ready(Ok(0))
-            }
-            Ok((amt, peer)) => {
-                unsafe {
-                    buffer.set_len(amt);
-                }
-                self.backlog.push_back((buffer, peer));
-                Poll::Ready(Ok(amt))
+        match self.recv_into_backlog() {
+            Ok(()) => {
+                let len = self.backlog.front().map(|a| a.0.len()).unwrap_or_default();
+                Poll::Ready(Ok(len))
             }
             Err(err) if err.kind() == io::ErrorKind::ConnectionAborted => Poll::Ready(Ok(0)),
             Err(err) if err.kind() == io::ErrorKind::ConnectionReset => Poll::Ready(Ok(0)),
