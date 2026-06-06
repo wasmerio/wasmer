@@ -1,20 +1,23 @@
 use std::{
+    collections::{HashMap, VecDeque},
     future::Future,
     io,
     mem::MaybeUninit,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     pin::Pin,
-    sync::{Arc, RwLock, RwLockWriteGuard},
-    task::{Context, Poll},
+    sync::{Arc, Mutex, RwLock, RwLockWriteGuard, Weak},
+    task::{Context, Poll, Waker},
     time::Duration,
 };
 
+use once_cell::sync::Lazy;
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
-use virtual_mio::InterestHandler;
+use virtual_mio::{InterestHandler, InterestType};
 use virtual_net::{
-    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
-    VirtualTcpSocket, VirtualUdpSocket, net_error_into_io_err,
+    NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualSocket,
+    VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket, net_error_into_io_err,
+    tcp_pair::TcpSocketHalf,
 };
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockoption, Socktype};
@@ -58,17 +61,21 @@ pub enum InodeSocketKind {
     PreSocket {
         props: SocketProperties,
         addr: Option<SocketAddr>,
+        unix_path: Option<Arc<str>>,
     },
     Icmp(Box<dyn VirtualIcmpSocket + Sync>),
     Raw(Box<dyn VirtualRawSocket + Sync>),
     TcpListener {
         socket: Box<dyn VirtualTcpListener + Sync>,
         accept_timeout: Option<Duration>,
+        local_unix_path: Option<Arc<str>>,
     },
     TcpStream {
         socket: Box<dyn VirtualTcpSocket + Sync>,
         write_timeout: Option<Duration>,
         read_timeout: Option<Duration>,
+        local_unix_path: Option<Arc<str>>,
+        peer_unix_path: Option<Arc<str>>,
     },
     UdpSocket {
         socket: Box<dyn VirtualUdpSocket + Sync>,
@@ -198,6 +205,148 @@ impl From<wasmer_journal::SocketOptTimeType> for TimeType {
     }
 }
 
+const UNIX_STREAM_BUFFER_SIZE: usize = 1_048_576;
+
+static UNIX_STREAM_LISTENERS: Lazy<Mutex<HashMap<Arc<str>, Weak<Mutex<UnixStreamListenerState>>>>> =
+    Lazy::new(|| Mutex::new(HashMap::new()));
+
+fn unix_stream_local_addr() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)
+}
+
+fn unix_stream_peer_addr() -> SocketAddr {
+    SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 0)
+}
+
+#[derive(Debug)]
+struct UnixStreamListenerState {
+    path: Arc<str>,
+    backlog: VecDeque<TcpSocketHalf>,
+    handler: Option<Box<dyn InterestHandler + Send + Sync>>,
+    wakers: Vec<Waker>,
+}
+
+#[derive(Debug)]
+struct UnixStreamListener {
+    state: Arc<Mutex<UnixStreamListenerState>>,
+}
+
+impl UnixStreamListener {
+    fn listen(path: Arc<str>) -> Result<Self, Errno> {
+        let state = Arc::new(Mutex::new(UnixStreamListenerState {
+            path: path.clone(),
+            backlog: VecDeque::new(),
+            handler: None,
+            wakers: Vec::new(),
+        }));
+
+        let mut listeners = UNIX_STREAM_LISTENERS.lock().unwrap();
+        if listeners.get(&path).and_then(Weak::upgrade).is_some() {
+            return Err(Errno::Addrinuse);
+        }
+        listeners.insert(path, Arc::downgrade(&state));
+        Ok(Self { state })
+    }
+
+    fn connect(path: &Arc<str>) -> Result<TcpSocketHalf, Errno> {
+        let state = {
+            let mut listeners = UNIX_STREAM_LISTENERS.lock().unwrap();
+            let Some(state) = listeners.get(path).and_then(Weak::upgrade) else {
+                listeners.remove(path);
+                return Err(Errno::Connrefused);
+            };
+            state
+        };
+
+        let (server, client) = TcpSocketHalf::channel(
+            UNIX_STREAM_BUFFER_SIZE,
+            unix_stream_local_addr(),
+            unix_stream_peer_addr(),
+        );
+        let mut state = state.lock().unwrap();
+        state.backlog.push_back(server);
+        if let Some(handler) = state.handler.as_mut() {
+            handler.push_interest(InterestType::Readable);
+        }
+        state.wakers.drain(..).for_each(|w| w.wake());
+        Ok(client)
+    }
+}
+
+impl Drop for UnixStreamListener {
+    fn drop(&mut self) {
+        let path = self.state.lock().unwrap().path.clone();
+        let weak = Arc::downgrade(&self.state);
+        let mut listeners = UNIX_STREAM_LISTENERS.lock().unwrap();
+        if listeners
+            .get(&path)
+            .map(|existing| existing.ptr_eq(&weak))
+            .unwrap_or(false)
+        {
+            listeners.remove(&path);
+        }
+    }
+}
+
+impl virtual_net::VirtualIoSource for UnixStreamListener {
+    fn remove_handler(&mut self) {
+        let mut state = self.state.lock().unwrap();
+        state.handler.take();
+    }
+
+    fn poll_read_ready(&mut self, cx: &mut Context<'_>) -> Poll<virtual_net::Result<usize>> {
+        let mut state = self.state.lock().unwrap();
+        if !state.backlog.is_empty() {
+            return Poll::Ready(Ok(state.backlog.len()));
+        }
+        if !state.wakers.iter().any(|w| w.will_wake(cx.waker())) {
+            state.wakers.push(cx.waker().clone());
+        }
+        Poll::Pending
+    }
+
+    fn poll_write_ready(&mut self, _cx: &mut Context<'_>) -> Poll<virtual_net::Result<usize>> {
+        Poll::Pending
+    }
+}
+
+impl VirtualTcpListener for UnixStreamListener {
+    fn try_accept(
+        &mut self,
+    ) -> virtual_net::Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
+        let mut state = self.state.lock().unwrap();
+        let Some(next) = state.backlog.pop_front() else {
+            return Err(NetworkError::WouldBlock);
+        };
+        let peer = next.addr_peer()?;
+        Ok((Box::new(next), peer))
+    }
+
+    fn set_handler(
+        &mut self,
+        mut handler: Box<dyn InterestHandler + Send + Sync>,
+    ) -> virtual_net::Result<()> {
+        let mut state = self.state.lock().unwrap();
+        if !state.backlog.is_empty() {
+            handler.push_interest(InterestType::Readable);
+        }
+        state.handler.replace(handler);
+        Ok(())
+    }
+
+    fn addr_local(&self) -> virtual_net::Result<SocketAddr> {
+        Ok(unix_stream_local_addr())
+    }
+
+    fn set_ttl(&mut self, _ttl: u8) -> virtual_net::Result<()> {
+        Ok(())
+    }
+
+    fn ttl(&self) -> virtual_net::Result<u8> {
+        Ok(64)
+    }
+}
+
 #[derive(Debug)]
 //#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct InodeSocketProtected {
@@ -278,6 +427,26 @@ impl InodeSocket {
             .unwrap_or(Duration::from_secs(30));
         let inner = self.inner.protected.write().unwrap();
         Self::bind_internal(tasks, net, set_addr, timeout, inner).await
+    }
+
+    pub fn bind_unix(&self, path: Arc<str>) -> Result<(), Errno> {
+        let mut inner = self.inner.protected.write().unwrap();
+        match &mut inner.kind {
+            InodeSocketKind::PreSocket {
+                props, unix_path, ..
+            } if props.family == Addressfamily::Unix && props.ty == Socktype::Stream => {
+                unix_path.replace(path);
+                Ok(())
+            }
+            InodeSocketKind::PreSocket { props, .. } if props.family == Addressfamily::Unix => {
+                tracing::warn!(
+                    "wasi[?]::sock_bind - failed - unsupported Unix socket type {:?}",
+                    props.ty
+                );
+                Err(Errno::Notsup)
+            }
+            _ => Err(Errno::Notsup),
+        }
     }
 
     // The lock is dropped before awaiting, but clippy doesn't realize it
@@ -448,8 +617,26 @@ impl InodeSocket {
         let socket = {
             let inner = self.inner.protected.read().unwrap();
             match &inner.kind {
-                InodeSocketKind::PreSocket { props, addr, .. } => match props.ty {
+                InodeSocketKind::PreSocket {
+                    props,
+                    addr,
+                    unix_path,
+                    ..
+                } => match props.ty {
                     Socktype::Stream => {
+                        if props.family == Addressfamily::Unix {
+                            let Some(path) = unix_path.clone() else {
+                                tracing::warn!("wasi[?]::sock_listen - failed - Unix path not set");
+                                return Err(Errno::Inval);
+                            };
+                            drop(inner);
+                            let listener = UnixStreamListener::listen(path.clone())?;
+                            return Ok(Some(InodeSocket::new(InodeSocketKind::TcpListener {
+                                socket: Box::new(listener),
+                                accept_timeout: Some(timeout),
+                                local_unix_path: Some(path),
+                            })));
+                        }
                         if addr.is_none() {
                             tracing::warn!("wasi[?]::sock_listen - failed - address not set");
                             return Err(Errno::Inval);
@@ -523,6 +710,7 @@ impl InodeSocket {
                 Ok(Some(InodeSocket::new(InodeSocketKind::TcpListener {
                     socket,
                     accept_timeout: Some(timeout),
+                    local_unix_path: None,
                 })))
             },
             _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
@@ -534,7 +722,15 @@ impl InodeSocket {
         tasks: &dyn VirtualTaskManager,
         nonblocking: bool,
         timeout: Option<Duration>,
-    ) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno> {
+    ) -> Result<
+        (
+            Box<dyn VirtualTcpSocket + Sync>,
+            SocketAddr,
+            Option<Arc<str>>,
+            Option<Arc<str>>,
+        ),
+        Errno,
+    > {
         struct SocketAccepter<'a> {
             sock: &'a InodeSocket,
             nonblocking: bool,
@@ -549,7 +745,15 @@ impl InodeSocket {
             }
         }
         impl Future for SocketAccepter<'_> {
-            type Output = Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno>;
+            type Output = Result<
+                (
+                    Box<dyn VirtualTcpSocket + Sync>,
+                    SocketAddr,
+                    Option<Arc<str>>,
+                    Option<Arc<str>>,
+                ),
+                Errno,
+            >;
             fn poll(
                 mut self: Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
@@ -557,8 +761,14 @@ impl InodeSocket {
                 loop {
                     let mut inner = self.sock.inner.protected.write().unwrap();
                     return match &mut inner.kind {
-                        InodeSocketKind::TcpListener { socket, .. } => match socket.try_accept() {
-                            Ok((child, addr)) => Poll::Ready(Ok((child, addr))),
+                        InodeSocketKind::TcpListener {
+                            socket,
+                            local_unix_path,
+                            ..
+                        } => match socket.try_accept() {
+                            Ok((child, addr)) => {
+                                Poll::Ready(Ok((child, addr, local_unix_path.clone(), None)))
+                            }
                             Err(NetworkError::WouldBlock) if self.nonblocking => {
                                 Poll::Ready(Err(Errno::Again))
                             }
@@ -700,9 +910,56 @@ impl InodeSocket {
             socket,
             write_timeout: new_write_timeout,
             read_timeout: new_read_timeout,
+            local_unix_path: None,
+            peer_unix_path: None,
         });
 
         Ok(Some(socket))
+    }
+
+    pub fn connect_unix(
+        &mut self,
+        peer_path: Arc<str>,
+        nonblocking: bool,
+    ) -> Result<Option<InodeSocket>, Errno> {
+        let new_write_timeout;
+        let new_read_timeout;
+        let local_unix_path;
+        let handler;
+
+        {
+            let mut inner = self.inner.protected.write().unwrap();
+            match &mut inner.kind {
+                InodeSocketKind::PreSocket {
+                    props, unix_path, ..
+                } if props.family == Addressfamily::Unix && props.ty == Socktype::Stream => {
+                    handler = props.handler.take();
+                    new_write_timeout = props.write_timeout;
+                    new_read_timeout = props.read_timeout;
+                    local_unix_path = unix_path.clone();
+                }
+                InodeSocketKind::PreSocket { props, .. } if props.family == Addressfamily::Unix => {
+                    return Err(Errno::Notsup);
+                }
+                _ => return Err(Errno::Notsup),
+            }
+        }
+
+        let mut socket = UnixStreamListener::connect(&peer_path)?;
+        if let Some(handler) = handler {
+            socket
+                .set_handler(handler)
+                .map_err(net_error_into_wasi_err)?;
+        }
+
+        let _ = nonblocking;
+        Ok(Some(InodeSocket::new(InodeSocketKind::TcpStream {
+            socket: Box::new(socket),
+            write_timeout: new_write_timeout,
+            read_timeout: new_read_timeout,
+            local_unix_path,
+            peer_unix_path: Some(peer_path),
+        })))
     }
 
     pub fn status(&self) -> Result<WasiSocketStatus, Errno> {
@@ -774,6 +1031,22 @@ impl InodeSocket {
         })
     }
 
+    pub fn addr_local_unix_path(&self) -> Option<Arc<str>> {
+        let inner = self.inner.protected.read().ok()?;
+        match &inner.kind {
+            InodeSocketKind::PreSocket {
+                props, unix_path, ..
+            } if props.family == Addressfamily::Unix => unix_path.clone(),
+            InodeSocketKind::TcpListener {
+                local_unix_path, ..
+            } => local_unix_path.clone(),
+            InodeSocketKind::TcpStream {
+                local_unix_path, ..
+            } => local_unix_path.clone(),
+            _ => None,
+        }
+    }
+
     pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
@@ -815,6 +1088,14 @@ impl InodeSocket {
             InodeSocketKind::RemoteSocket { peer_addr, .. } => *peer_addr,
             _ => return Err(Errno::Notsup),
         })
+    }
+
+    pub fn addr_peer_unix_path(&self) -> Option<Arc<str>> {
+        let inner = self.inner.protected.read().ok()?;
+        match &inner.kind {
+            InodeSocketKind::TcpStream { peer_unix_path, .. } => peer_unix_path.clone(),
+            _ => None,
+        }
     }
 
     pub fn set_opt_flag(&mut self, option: WasiSocketOption, val: bool) -> Result<(), Errno> {
@@ -1827,6 +2108,8 @@ mod tests {
             }),
             write_timeout: None,
             read_timeout: None,
+            local_unix_path: None,
+            peer_unix_path: None,
         });
 
         let waker = futures::task::noop_waker();
@@ -1849,6 +2132,8 @@ mod tests {
             }),
             write_timeout: None,
             read_timeout: None,
+            local_unix_path: None,
+            peer_unix_path: None,
         });
 
         assert!(matches!(inode.status().unwrap(), WasiSocketStatus::Opening));

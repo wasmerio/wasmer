@@ -90,6 +90,7 @@ pub(crate) fn sock_open_internal(
                     handler: None,
                 },
                 addr: None,
+                unix_path: None,
             }),
         },
         _ => return Ok(Err(Errno::Notsup)),

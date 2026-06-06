@@ -1,6 +1,7 @@
 use std::{
     mem::transmute,
-    net::{IpAddr, Ipv4Addr, Ipv6Addr},
+    net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
+    sync::Arc,
     time::Duration,
 };
 
@@ -17,6 +18,12 @@ use wasmer_wasix_types::{
 };
 
 pub mod socket;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum WasiSocketAddr {
+    Ip(SocketAddr),
+    Unix(Arc<str>),
+}
 
 #[allow(dead_code)]
 pub(crate) fn read_ip<M: MemorySize>(
@@ -165,20 +172,41 @@ pub(crate) fn read_ip_port<M: MemorySize>(
     memory: &MemoryView,
     ptr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<(IpAddr, u16), Errno> {
+    match read_socket_addr(memory, ptr)? {
+        WasiSocketAddr::Ip(addr) => Ok((addr.ip(), addr.port())),
+        WasiSocketAddr::Unix(_) => Err(Errno::Inval),
+    }
+}
+
+pub(crate) fn read_socket_addr<M: MemorySize>(
+    memory: &MemoryView,
+    ptr: WasmPtr<__wasi_addr_port_t, M>,
+) -> Result<WasiSocketAddr, Errno> {
     let addr_ptr = ptr.deref(memory);
     let addr = addr_ptr.read().map_err(crate::mem_error_to_wasi)?;
     let o = addr.u.octs;
     Ok(match addr.tag {
         Addressfamily::Inet4 => {
             let port = u16::from_ne_bytes([o[0], o[1]]);
-            (IpAddr::V4(Ipv4Addr::new(o[2], o[3], o[4], o[5])), port)
+            WasiSocketAddr::Ip(SocketAddr::new(
+                IpAddr::V4(Ipv4Addr::new(o[2], o[3], o[4], o[5])),
+                port,
+            ))
         }
         Addressfamily::Inet6 => {
             let octets: [u8; 16] = o[2..18].try_into().unwrap();
-            (
+            WasiSocketAddr::Ip(SocketAddr::new(
                 IpAddr::V6(Ipv6Addr::from(octets)),
                 u16::from_ne_bytes([o[0], o[1]]),
-            )
+            ))
+        }
+        Addressfamily::Unix => {
+            let len = o.iter().position(|&b| b == 0).unwrap_or(o.len());
+            if len == 0 {
+                return Err(Errno::Inval);
+            }
+            let path = std::str::from_utf8(&o[..len]).map_err(|_| Errno::Inval)?;
+            WasiSocketAddr::Unix(Arc::from(path))
         }
         _ => {
             tracing::debug!("invalid address family ({})", addr.tag as u8);
@@ -198,33 +226,53 @@ pub(crate) fn write_ip_port<M: MemorySize>(
     let ipport = match ip {
         IpAddr::V4(ip) => {
             let o = ip.octets();
+            let mut octs = [0; 108];
+            octs[..6].copy_from_slice(&[p[0], p[1], o[0], o[1], o[2], o[3]]);
             __wasi_addr_port_t {
                 tag: Addressfamily::Inet4,
                 _padding: 0,
-                u: __wasi_addr_port_u {
-                    octs: [
-                        p[0], p[1], o[0], o[1], o[2], o[3], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                    ],
-                },
+                u: __wasi_addr_port_u { octs },
             }
         }
         IpAddr::V6(ip) => {
             let o = ip.octets();
+            let mut octs = [0; 108];
+            octs[..18].copy_from_slice(&[
+                p[0], p[1], o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9], o[10],
+                o[11], o[12], o[13], o[14], o[15],
+            ]);
             __wasi_addr_port_t {
                 tag: Addressfamily::Inet6,
                 _padding: 0,
-                u: __wasi_addr_port_u {
-                    octs: [
-                        p[0], p[1], o[0], o[1], o[2], o[3], o[4], o[5], o[6], o[7], o[8], o[9],
-                        o[10], o[11], o[12], o[13], o[14], o[15],
-                    ],
-                },
+                u: __wasi_addr_port_u { octs },
             }
         }
     };
 
     let addr_ptr = ptr.deref(memory);
     addr_ptr.write(ipport).map_err(crate::mem_error_to_wasi)?;
+    Ok(())
+}
+
+pub(crate) fn write_unix_path<M: MemorySize>(
+    memory: &MemoryView,
+    ptr: WasmPtr<__wasi_addr_port_t, M>,
+    path: &str,
+) -> Result<(), Errno> {
+    let bytes = path.as_bytes();
+    if bytes.is_empty() || bytes.len() >= 108 {
+        return Err(Errno::Inval);
+    }
+    let mut octs = [0; 108];
+    octs[..bytes.len()].copy_from_slice(bytes);
+    let addr = __wasi_addr_port_t {
+        tag: Addressfamily::Unix,
+        _padding: 0,
+        u: __wasi_addr_port_u { octs },
+    };
+
+    let addr_ptr = ptr.deref(memory);
+    addr_ptr.write(addr).map_err(crate::mem_error_to_wasi)?;
     Ok(())
 }
 

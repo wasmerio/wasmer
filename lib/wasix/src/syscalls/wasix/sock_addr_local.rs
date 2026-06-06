@@ -18,6 +18,19 @@ pub fn sock_addr_local<M: MemorySize>(
     sock: WasiFd,
     ret_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Errno {
+    let unix_path = wasi_try!(__sock_actor(
+        &mut ctx,
+        sock,
+        Rights::empty(),
+        |socket, _| Ok(socket.addr_local_unix_path())
+    ));
+    if let Some(path) = unix_path {
+        Span::current().record("addr", format!("unix:{path:?}"));
+        let memory = unsafe { ctx.data().memory_view(&ctx) };
+        wasi_try!(crate::net::write_unix_path(&memory, ret_addr, &path));
+        return Errno::Success;
+    }
+
     let addr = wasi_try!(__sock_actor(
         &mut ctx,
         sock,

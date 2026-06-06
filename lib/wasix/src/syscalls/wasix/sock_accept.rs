@@ -121,33 +121,36 @@ pub(crate) fn sock_accept_internal(
     let inodes = &state.inodes;
 
     let tasks = env.tasks().clone();
-    let (child, local_addr, peer_addr, fd_flags) = wasi_try_ok_ok!(__sock_asyncify(
-        env,
-        sock,
-        Rights::SOCK_ACCEPT,
-        move |socket, fd| async move {
-            if fd.inner.flags.contains(Fdflags::NONBLOCK) {
-                fd_flags.set(Fdflags::NONBLOCK, true);
-                nonblocking = true;
-            }
-            let timeout = socket
-                .opt_time(TimeType::AcceptTimeout)
-                .ok()
-                .flatten()
-                .unwrap_or(Duration::from_secs(30));
-            let local_addr = socket.addr_local()?;
-            socket
-                .accept(tasks.deref(), nonblocking, Some(timeout))
-                .await
-                .map(|a| (a.0, local_addr, a.1, fd_flags))
-        },
-    ));
+    let (child, local_addr, peer_addr, fd_flags, local_unix_path, peer_unix_path) =
+        wasi_try_ok_ok!(__sock_asyncify(
+            env,
+            sock,
+            Rights::SOCK_ACCEPT,
+            move |socket, fd| async move {
+                if fd.inner.flags.contains(Fdflags::NONBLOCK) {
+                    fd_flags.set(Fdflags::NONBLOCK, true);
+                    nonblocking = true;
+                }
+                let timeout = socket
+                    .opt_time(TimeType::AcceptTimeout)
+                    .ok()
+                    .flatten()
+                    .unwrap_or(Duration::from_secs(30));
+                let local_addr = socket.addr_local()?;
+                socket
+                    .accept(tasks.deref(), nonblocking, Some(timeout))
+                    .await
+                    .map(|a| (a.0, local_addr, a.1, fd_flags, a.2, a.3))
+            },
+        ));
 
     let kind = Kind::Socket {
         socket: InodeSocket::new(InodeSocketKind::TcpStream {
             socket: child,
             write_timeout: None,
             read_timeout: None,
+            local_unix_path,
+            peer_unix_path,
         }),
     };
     let inode = state

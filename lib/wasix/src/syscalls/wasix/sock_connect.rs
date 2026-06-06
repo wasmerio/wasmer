@@ -23,14 +23,19 @@ pub fn sock_connect<M: MemorySize>(
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
-    let addr = wasi_try_ok!(crate::net::read_ip_port(&memory, addr));
-    let peer_addr = SocketAddr::new(addr.0, addr.1);
-    Span::current().record("addr", format!("{peer_addr:?}"));
+    let addr = wasi_try_ok!(crate::net::read_socket_addr(&memory, addr));
+    Span::current().record("addr", format!("{addr:?}"));
 
-    wasi_try_ok!(sock_connect_internal(&mut ctx, sock, peer_addr)?);
+    let journal_addr = match &addr {
+        crate::net::WasiSocketAddr::Ip(addr) => Some(*addr),
+        crate::net::WasiSocketAddr::Unix(_) => None,
+    };
+
+    wasi_try_ok!(sock_connect_addr_internal(&mut ctx, sock, addr)?);
 
     #[cfg(feature = "journal")]
-    if ctx.data().enable_journal {
+    if ctx.data().enable_journal && journal_addr.is_some() {
+        let peer_addr = journal_addr.unwrap();
         let local_addr = wasi_try_ok!(__sock_actor(
             &mut ctx,
             sock,
@@ -62,6 +67,14 @@ pub(crate) fn sock_connect_internal(
     sock: WasiFd,
     addr: SocketAddr,
 ) -> Result<Result<(), Errno>, WasiError> {
+    sock_connect_addr_internal(ctx, sock, crate::net::WasiSocketAddr::Ip(addr))
+}
+
+pub(crate) fn sock_connect_addr_internal(
+    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    sock: WasiFd,
+    addr: crate::net::WasiSocketAddr,
+) -> Result<Result<(), Errno>, WasiError> {
     let env = ctx.data();
     let net = env.net().clone();
     let tasks = ctx.data().tasks().clone();
@@ -69,27 +82,41 @@ pub(crate) fn sock_connect_internal(
         Ok(fd_entry) => fd_entry.inner.flags.contains(Fdflags::NONBLOCK),
         Err(err) => return Ok(Err(err)),
     };
-    wasi_try_ok_ok!(__sock_upgrade(
-        ctx,
-        sock,
-        Rights::SOCK_CONNECT,
-        move |socket, flags| async move {
-            // Auto-bind UDP
-            let bound_socket = socket.auto_bind_udp(tasks.deref(), net.deref()).await?;
-            let mut socket = bound_socket.clone().unwrap_or(socket);
-            let connected_socket = socket
-                .connect(
-                    tasks.deref(),
-                    net.deref(),
-                    addr,
-                    None,
-                    flags.contains(Fdflags::NONBLOCK),
-                )
-                .await?;
+    match addr {
+        crate::net::WasiSocketAddr::Ip(addr) => {
+            wasi_try_ok_ok!(__sock_upgrade(
+                ctx,
+                sock,
+                Rights::SOCK_CONNECT,
+                move |socket, flags| async move {
+                    // Auto-bind UDP
+                    let bound_socket = socket.auto_bind_udp(tasks.deref(), net.deref()).await?;
+                    let mut socket = bound_socket.clone().unwrap_or(socket);
+                    let connected_socket = socket
+                        .connect(
+                            tasks.deref(),
+                            net.deref(),
+                            addr,
+                            None,
+                            flags.contains(Fdflags::NONBLOCK),
+                        )
+                        .await?;
 
-            Ok(connected_socket.or(bound_socket))
+                    Ok(connected_socket.or(bound_socket))
+                }
+            ));
         }
-    ));
+        crate::net::WasiSocketAddr::Unix(path) => {
+            wasi_try_ok_ok!(__sock_upgrade(
+                ctx,
+                sock,
+                Rights::SOCK_CONNECT,
+                move |mut socket, flags| async move {
+                    socket.connect_unix(path, flags.contains(Fdflags::NONBLOCK))
+                }
+            ));
+        }
+    }
 
     if nonblocking {
         let status = match __sock_actor(ctx, sock, Rights::empty(), |socket, _| socket.status()) {
