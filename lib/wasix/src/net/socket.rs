@@ -289,6 +289,47 @@ impl InodeSocket {
         timeout: Duration,
         mut inner: RwLockWriteGuard<'_, InodeSocketProtected>,
     ) -> Result<Option<InodeSocket>, Errno> {
+        if let InodeSocketKind::PreSocket { props, addr, .. } = &mut inner.kind
+            && props.ty == Socktype::Stream
+        {
+            match props.family {
+                Addressfamily::Inet4 => {
+                    if !set_addr.is_ipv4() {
+                        tracing::debug!(
+                            "IP address is the wrong type IPv4 ({set_addr}) vs IPv6 family"
+                        );
+                        return Err(Errno::Inval);
+                    }
+                }
+                Addressfamily::Inet6 => {
+                    if !set_addr.is_ipv6() {
+                        tracing::debug!(
+                            "IP address is the wrong type IPv6 ({set_addr}) vs IPv4 family"
+                        );
+                        return Err(Errno::Inval);
+                    }
+                }
+                _ => {
+                    return Err(Errno::Notsup);
+                }
+            }
+
+            addr.replace(set_addr);
+            let addr = (*addr).unwrap();
+            let only_v6 = props.only_v6;
+            let reuse_port = props.reuse_port;
+            let reuse_addr = props.reuse_addr;
+            drop(inner);
+
+            return tokio::select! {
+                socket = net.listen_tcp(addr, only_v6, reuse_port, reuse_addr) => {
+                    socket.map_err(net_error_into_wasi_err)?;
+                    Ok(None)
+                },
+                _ = tasks.sleep_now(timeout) => Err(Errno::Timedout)
+            };
+        }
+
         let socket = {
             match &mut inner.kind {
                 InodeSocketKind::PreSocket { props, addr, .. } => {

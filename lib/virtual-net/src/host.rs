@@ -76,6 +76,24 @@ impl Default for LocalNetworking {
     }
 }
 
+fn is_in_progress_connect(err: &io::Error) -> bool {
+    if err.kind() == io::ErrorKind::WouldBlock {
+        return true;
+    }
+
+    #[cfg(all(target_family = "unix", feature = "libc"))]
+    {
+        if matches!(
+            err.raw_os_error(),
+            Some(libc::EINPROGRESS) | Some(libc::EALREADY)
+        ) {
+            return true;
+        }
+    }
+
+    false
+}
+
 #[async_trait::async_trait]
 #[allow(unused_variables)]
 impl VirtualNetworking for LocalNetworking {
@@ -152,6 +170,7 @@ impl VirtualNetworking for LocalNetworking {
         #[allow(unused_mut)]
         let mut ret = LocalUdpSocket {
             selector: self.selector.clone(),
+            handle: self.handle.clone(),
             socket,
             addr,
             handler_guard: HandlerGuardState::None,
@@ -179,7 +198,7 @@ impl VirtualNetworking for LocalNetworking {
 
     async fn connect_tcp(
         &self,
-        _addr: SocketAddr,
+        addr: SocketAddr,
         mut peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         if let Some(ruleset) = self.ruleset.as_ref()
@@ -189,7 +208,29 @@ impl VirtualNetworking for LocalNetworking {
             return Err(NetworkError::PermissionDenied);
         }
 
-        let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
+        let stream = {
+            use socket2::{Domain, Protocol, Socket, Type};
+
+            let domain = if peer.is_ipv4() {
+                Domain::IPV4
+            } else {
+                Domain::IPV6
+            };
+            let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))
+                .map_err(io_err_into_net_error)?;
+            socket
+                .set_nonblocking(true)
+                .map_err(io_err_into_net_error)?;
+            if addr.port() != 0 || !addr.ip().is_unspecified() {
+                socket.bind(&addr.into()).map_err(io_err_into_net_error)?;
+            }
+            match socket.connect(&peer.into()) {
+                Ok(()) => {}
+                Err(err) if is_in_progress_connect(&err) => {}
+                Err(err) => return Err(io_err_into_net_error(err)),
+            }
+            mio::net::TcpStream::from_std(socket.into())
+        };
 
         if let Ok(p) = stream.peer_addr() {
             peer = p;
@@ -814,6 +855,7 @@ pub struct LocalUdpSocket {
     #[allow(dead_code)]
     addr: SocketAddr,
     selector: Arc<Selector>,
+    handle: Handle,
     handler_guard: HandlerGuardState,
     backlog: VecDeque<(BytesMut, SocketAddr)>,
     ruleset: Option<Ruleset>,
@@ -877,9 +919,13 @@ impl VirtualUdpSocket for LocalUdpSocket {
 
     fn join_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
         let port = self.addr_local()?.port();
-        self.multicast
-            .join(&self.shared, MulticastKey::new(IpAddr::V4(multiaddr), port));
-        Ok(())
+        self.multicast.join_external_v4(
+            &self.shared,
+            MulticastKey::new(IpAddr::V4(multiaddr), port),
+            multiaddr,
+            iface,
+            &self.handle,
+        )
     }
 
     fn leave_multicast_v4(&mut self, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<()> {
@@ -891,9 +937,13 @@ impl VirtualUdpSocket for LocalUdpSocket {
 
     fn join_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<()> {
         let port = self.addr_local()?.port();
-        self.multicast
-            .join(&self.shared, MulticastKey::new(IpAddr::V6(multiaddr), port));
-        Ok(())
+        self.multicast.join_external_v6(
+            &self.shared,
+            MulticastKey::new(IpAddr::V6(multiaddr), port),
+            multiaddr,
+            iface,
+            &self.handle,
+        )
     }
 
     fn leave_multicast_v6(&mut self, multiaddr: Ipv6Addr, iface: u32) -> Result<()> {

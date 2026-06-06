@@ -616,6 +616,39 @@ async fn test_connect_tcp_returns_immediately_for_in_progress_connect() {
 #[traced_test]
 #[tokio::test]
 #[serial_test::serial]
+async fn test_connect_tcp_preserves_requested_local_port() {
+    use tokio::time::{Duration, timeout};
+
+    let networking = LocalNetworking::new();
+    let mut listener = networking
+        .listen_tcp(
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+            false,
+            false,
+            true,
+        )
+        .await
+        .unwrap();
+    let peer = listener.addr_local().unwrap();
+
+    let reserved = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let local_addr = reserved.local_addr().unwrap();
+    drop(reserved);
+
+    let socket = networking.connect_tcp(local_addr, peer).await.unwrap();
+    let (_, accepted_addr) = timeout(Duration::from_secs(1), listener.accept())
+        .await
+        .unwrap()
+        .unwrap();
+
+    assert_eq!(socket.addr_local().unwrap().port(), local_addr.port());
+    assert_eq!(accepted_addr.port(), local_addr.port());
+}
+
+#[cfg(not(target_os = "windows"))]
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
 async fn test_failed_connect_status_stays_failed() {
     use tokio::time::{Duration, Instant, sleep};
 
