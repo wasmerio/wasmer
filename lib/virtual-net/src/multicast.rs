@@ -1,13 +1,15 @@
-use crate::{NetworkError, Result};
+use crate::{NetworkError, Result, io_err_into_net_error};
 use crossbeam_queue::ArrayQueue;
 use dashmap::DashMap;
 use parking_lot::Mutex;
 use std::collections::HashMap;
 use std::mem::MaybeUninit;
-use std::net::{IpAddr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Weak};
 use std::task::Waker;
+use tokio::runtime::Handle;
+use tokio::task::JoinHandle;
 use virtual_mio::{InterestHandler, InterestType};
 
 const MULTICAST_SEG_PACKET_CAPACITY: usize = 64;
@@ -45,12 +47,12 @@ struct MulticastPacket {
     data: Arc<[u8]>,
     from: SocketAddr,
     group_addr: IpAddr,
-    sender_id: u64,
+    sender_id: Option<u64>,
 }
 
 impl MulticastPacket {
     fn is_deliverable_to(&self, socket_id: u64, loop_v4: bool, loop_v6: bool) -> bool {
-        if self.sender_id != socket_id {
+        if self.sender_id != Some(socket_id) {
             return true;
         }
         match self.group_addr {
@@ -185,6 +187,7 @@ struct MulticastGroup {
     write_queue: ArrayQueue<MulticastPacket>,
     flushing: AtomicBool,
     members: DashMap<u64, Weak<LocalUdpSocketShared>>,
+    external_pump: Mutex<Option<ExternalPump>>,
 }
 
 impl Default for MulticastGroup {
@@ -193,6 +196,7 @@ impl Default for MulticastGroup {
             write_queue: ArrayQueue::new(MULTICAST_WRITE_QUEUE_CAPACITY),
             flushing: AtomicBool::new(false),
             members: Default::default(),
+            external_pump: Default::default(),
         }
     }
 }
@@ -209,7 +213,7 @@ impl MulticastGroup {
             data: Arc::from(data),
             from,
             group_addr: key.addr,
-            sender_id: sender.id,
+            sender_id: Some(sender.id),
         };
         let mut subscribers = self.subscribers_for_packet(&packet);
 
@@ -227,6 +231,72 @@ impl MulticastGroup {
         }
 
         subscribers
+    }
+
+    fn publish_external(
+        &self,
+        key: MulticastKey,
+        data: &[u8],
+        from: SocketAddr,
+    ) -> Vec<Arc<LocalUdpSocketShared>> {
+        let packet = MulticastPacket {
+            data: Arc::from(data),
+            from,
+            group_addr: key.addr,
+            sender_id: None,
+        };
+        self.publish_packet(key, packet)
+    }
+
+    fn publish_packet(
+        &self,
+        key: MulticastKey,
+        mut packet: MulticastPacket,
+    ) -> Vec<Arc<LocalUdpSocketShared>> {
+        let mut subscribers = self.subscribers_for_packet(&packet);
+
+        loop {
+            match self.write_queue.push(packet) {
+                Ok(()) => break,
+                Err(returned) => {
+                    packet = returned;
+                    subscribers.extend(self.flush(key));
+                    if self.write_queue.is_full() {
+                        let _ = self.write_queue.pop();
+                    }
+                }
+            }
+        }
+
+        subscribers
+    }
+
+    fn ensure_external_pump_v4(
+        self: &Arc<Self>,
+        key: MulticastKey,
+        multiaddr: Ipv4Addr,
+        iface: Ipv4Addr,
+        handle: &Handle,
+    ) -> Result<()> {
+        let mut pump = self.external_pump.lock();
+        if pump.is_none() {
+            *pump = Some(ExternalPump::spawn_v4(handle, self, key, multiaddr, iface)?);
+        }
+        Ok(())
+    }
+
+    fn ensure_external_pump_v6(
+        self: &Arc<Self>,
+        key: MulticastKey,
+        multiaddr: Ipv6Addr,
+        iface: u32,
+        handle: &Handle,
+    ) -> Result<()> {
+        let mut pump = self.external_pump.lock();
+        if pump.is_none() {
+            *pump = Some(ExternalPump::spawn_v6(handle, self, key, multiaddr, iface)?);
+        }
+        Ok(())
     }
 
     fn flush(&self, key: MulticastKey) -> Vec<Arc<LocalUdpSocketShared>> {
@@ -312,20 +382,157 @@ impl MulticastGroup {
     }
 }
 
+#[derive(Debug)]
+struct ExternalPump {
+    task: JoinHandle<()>,
+}
+
+impl Drop for ExternalPump {
+    fn drop(&mut self) {
+        self.task.abort();
+    }
+}
+
+impl ExternalPump {
+    fn spawn_v4(
+        handle: &Handle,
+        group: &Arc<MulticastGroup>,
+        key: MulticastKey,
+        multiaddr: Ipv4Addr,
+        iface: Ipv4Addr,
+    ) -> Result<Self> {
+        let socket = Self::bind_v4(key.port, multiaddr, iface)?;
+        Ok(Self::spawn(handle, group, key, socket))
+    }
+
+    fn spawn_v6(
+        handle: &Handle,
+        group: &Arc<MulticastGroup>,
+        key: MulticastKey,
+        multiaddr: Ipv6Addr,
+        iface: u32,
+    ) -> Result<Self> {
+        let socket = Self::bind_v6(key.port, multiaddr, iface)?;
+        Ok(Self::spawn(handle, group, key, socket))
+    }
+
+    fn spawn(
+        handle: &Handle,
+        group: &Arc<MulticastGroup>,
+        key: MulticastKey,
+        socket: tokio::net::UdpSocket,
+    ) -> Self {
+        let group = Arc::downgrade(group);
+        let task = handle.spawn(async move {
+            let mut buf = vec![0u8; 65536];
+            loop {
+                let (amt, from) = match socket.recv_from(&mut buf).await {
+                    Ok(ret) => ret,
+                    Err(err) => {
+                        tracing::debug!(%err, ?key, "external multicast pump stopped");
+                        break;
+                    }
+                };
+                let Some(group) = group.upgrade() else {
+                    break;
+                };
+                for subscriber in group.publish_external(key, &buf[..amt], from) {
+                    subscriber.notify_readable();
+                }
+            }
+        });
+        Self { task }
+    }
+
+    fn bind_v4(port: u16, multiaddr: Ipv4Addr, iface: Ipv4Addr) -> Result<tokio::net::UdpSocket> {
+        use socket2::{Domain, Socket, Type};
+
+        let socket = Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(io_err_into_net_error)?;
+        socket
+            .set_reuse_address(true)
+            .map_err(io_err_into_net_error)?;
+        #[cfg(not(windows))]
+        socket.set_reuse_port(true).map_err(io_err_into_net_error)?;
+        socket
+            .bind(&SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)).into())
+            .map_err(io_err_into_net_error)?;
+
+        let socket: std::net::UdpSocket = socket.into();
+        socket
+            .join_multicast_v4(&multiaddr, &iface)
+            .map_err(io_err_into_net_error)?;
+        socket
+            .set_nonblocking(true)
+            .map_err(io_err_into_net_error)?;
+        tokio::net::UdpSocket::from_std(socket).map_err(io_err_into_net_error)
+    }
+
+    fn bind_v6(port: u16, multiaddr: Ipv6Addr, iface: u32) -> Result<tokio::net::UdpSocket> {
+        use socket2::{Domain, Socket, Type};
+
+        let socket = Socket::new(Domain::IPV6, Type::DGRAM, None).map_err(io_err_into_net_error)?;
+        socket
+            .set_reuse_address(true)
+            .map_err(io_err_into_net_error)?;
+        #[cfg(not(windows))]
+        socket.set_reuse_port(true).map_err(io_err_into_net_error)?;
+        socket
+            .bind(&SocketAddr::from((Ipv6Addr::UNSPECIFIED, port)).into())
+            .map_err(io_err_into_net_error)?;
+
+        let socket: std::net::UdpSocket = socket.into();
+        socket
+            .join_multicast_v6(&multiaddr, iface)
+            .map_err(io_err_into_net_error)?;
+        socket
+            .set_nonblocking(true)
+            .map_err(io_err_into_net_error)?;
+        tokio::net::UdpSocket::from_std(socket).map_err(io_err_into_net_error)
+    }
+}
+
 #[derive(Debug, Default)]
 pub(crate) struct MulticastCoordinator {
     groups: DashMap<MulticastKey, Arc<MulticastGroup>>,
 }
 
 impl MulticastCoordinator {
-    pub(crate) fn join(&self, socket: &Arc<LocalUdpSocketShared>, key: MulticastKey) {
+    pub(crate) fn join_external_v4(
+        &self,
+        socket: &Arc<LocalUdpSocketShared>,
+        key: MulticastKey,
+        multiaddr: Ipv4Addr,
+        iface: Ipv4Addr,
+        handle: &Handle,
+    ) -> Result<()> {
         let group = self
             .groups
             .entry(key)
             .or_insert_with(|| Arc::new(MulticastGroup::default()))
             .clone();
+        group.ensure_external_pump_v4(key, multiaddr, iface, handle)?;
         group.members.insert(socket.id, Arc::downgrade(socket));
         socket.join_multicast(key);
+        Ok(())
+    }
+
+    pub(crate) fn join_external_v6(
+        &self,
+        socket: &Arc<LocalUdpSocketShared>,
+        key: MulticastKey,
+        multiaddr: Ipv6Addr,
+        iface: u32,
+        handle: &Handle,
+    ) -> Result<()> {
+        let group = self
+            .groups
+            .entry(key)
+            .or_insert_with(|| Arc::new(MulticastGroup::default()))
+            .clone();
+        group.ensure_external_pump_v6(key, multiaddr, iface, handle)?;
+        group.members.insert(socket.id, Arc::downgrade(socket));
+        socket.join_multicast(key);
+        Ok(())
     }
 
     pub(crate) fn leave(&self, socket: &Arc<LocalUdpSocketShared>, key: MulticastKey) {
