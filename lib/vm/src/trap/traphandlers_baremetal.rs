@@ -144,14 +144,15 @@ pub unsafe fn wasmer_call_trampoline(
             // with identical layout and calling-convention treatment on all
             // supported targets.  The transmute changes only the Rust type
             // checker's view of the pointer types, not the generated machine
-            // code.
+            // code.  We transmute to `unsafe extern "C" fn` to preserve the
+            // unsafety at the call site.
             mem::transmute::<
                 unsafe extern "C" fn(
                     *mut VMContext,
                     *const VMFunctionBody,
                     *mut wasmer_types::RawValue,
                 ),
-                extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
+                unsafe extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
             >(trampoline)(vmctx, callee, values_vec);
         })
     }
