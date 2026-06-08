@@ -47,6 +47,8 @@ pub struct TableData {
     pub inline_anyfunc: bool,
 }
 
+pub(crate) const TABLE_ALIAS_REGION: u32 = 0;
+
 impl TableData {
     /// Return a CLIF value containing a native pointer to the beginning of the
     /// given index within this table.
@@ -56,7 +58,7 @@ impl TableData {
         mut index: ir::Value,
         addr_ty: ir::Type,
         enable_table_access_spectre_mitigation: bool,
-    ) -> (ir::Value, ir::MemFlags) {
+    ) -> (ir::Value, ir::MemFlagsData) {
         let index_ty = pos.func.dfg.value_type(index);
 
         // Start with the bounds check. Trap if `index + 1 > bound`.
@@ -94,9 +96,9 @@ impl TableData {
 
         let element_addr = pos.ins().iadd(base, offset);
 
-        let base_flags = ir::MemFlags::new()
+        let base_flags = ir::MemFlagsData::new()
             .with_aligned()
-            .with_alias_region(Some(ir::AliasRegion::Table));
+            .with_alias_region(Some(ir::AliasRegion::from_u32(TABLE_ALIAS_REGION)));
         if enable_table_access_spectre_mitigation {
             // Short-circuit the computed table element address to a null pointer
             // when out-of-bounds. The consumer of this address will trap when

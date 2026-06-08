@@ -11,7 +11,7 @@ use cranelift_codegen::{
     cursor::FuncCursor,
     ir::{
         self, AbiParam, ArgumentPurpose, BlockArg, Endianness, ExceptionTableData,
-        ExceptionTableItem, ExceptionTag, Function, InstBuilder, MemFlags, Signature,
+        ExceptionTableItem, ExceptionTag, Function, InstBuilder, MemFlagsData, Signature,
         UserExternalName,
         condcodes::IntCC,
         immediates::{Offset32, Uimm64},
@@ -29,6 +29,10 @@ use wasmer_types::{
     VMBuiltinFunctionIndex, VMOffsets, WasmError, WasmResult,
     entity::{EntityRef, PrimaryMap, SecondaryMap},
 };
+
+fn insert_mem_flags(func: &mut Function, flags: ir::MemFlagsData) -> ir::MemFlags {
+    func.dfg.mem_flags.insert(flags).unwrap()
+}
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func: &mut Function, func_index: FunctionIndex) -> ir::ExternalName {
@@ -286,11 +290,12 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                         (vmctx, base_offset, current_elements_offset)
                     } else {
                         let from_offset = self.offsets.vmctx_vmtable_import(index);
+                        let flags = insert_mem_flags(func, MemFlagsData::trusted().with_readonly());
                         let table = func.create_global_value(ir::GlobalValueData::Load {
                             base: vmctx,
                             offset: Offset32::new(i32::try_from(from_offset).unwrap()),
                             global_type: pointer_type,
-                            flags: MemFlags::trusted().with_readonly(),
+                            flags,
                         });
                         let base_offset = i32::from(self.offsets.vmtable_definition_base());
                         let current_elements_offset =
@@ -299,17 +304,18 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                     }
                 };
 
+                let flags = if Some(table.minimum) == table.maximum {
+                    // A fixed-size table can't be resized so its base address won't
+                    // change.
+                    insert_mem_flags(func, MemFlagsData::trusted().with_readonly())
+                } else {
+                    insert_mem_flags(func, MemFlagsData::trusted())
+                };
                 let base_gv = func.create_global_value(ir::GlobalValueData::Load {
                     base: ptr,
                     offset: Offset32::new(base_offset),
                     global_type: pointer_type,
-                    flags: if Some(table.minimum) == table.maximum {
-                        // A fixed-size table can't be resized so its base address won't
-                        // change.
-                        MemFlags::trusted().with_readonly()
-                    } else {
-                        MemFlags::trusted()
-                    },
+                    flags,
                 });
 
                 let bound = if Some(table.minimum) == table.maximum {
@@ -317,6 +323,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                         bound: table.minimum,
                     }
                 } else {
+                    let flags = insert_mem_flags(func, MemFlagsData::trusted());
                     TableSize::Dynamic {
                         bound_gv: func.create_global_value(ir::GlobalValueData::Load {
                             base: ptr,
@@ -327,7 +334,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                                 ) * 8,
                             )
                             .unwrap(),
-                            flags: MemFlags::trusted(),
+                            flags,
                         }),
                     }
                 };
@@ -1312,7 +1319,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         let vmctx = self.vmctx(pos.func);
         let base = pos.ins().global_value(pointer_type, vmctx);
 
-        let mut mem_flags = ir::MemFlags::trusted();
+        let mut mem_flags = ir::MemFlagsData::trusted();
         mem_flags.set_readonly();
 
         // Load the callee address.
@@ -1548,11 +1555,12 @@ impl FuncEnvironment<'_> {
                 (vmctx, base_offset, current_length_offset)
             } else {
                 let from_offset = self.offsets.vmctx_vmmemory_import_definition(index);
+                let flags = insert_mem_flags(func, ir::MemFlagsData::trusted().with_readonly());
                 let memory = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
                     offset: Offset32::new(i32::try_from(from_offset).unwrap()),
                     global_type: pointer_type,
-                    flags: ir::MemFlags::trusted().with_readonly(),
+                    flags,
                 });
                 let base_offset = i32::from(self.offsets.vmmemory_definition_base());
                 let current_length_offset =
@@ -1565,11 +1573,12 @@ impl FuncEnvironment<'_> {
         // allocated up front and never moved.
         let (offset_guard_size, heap_style, readonly_base) = match self.memory_styles[index] {
             MemoryStyle::Dynamic { offset_guard_size } => {
+                let flags = insert_mem_flags(func, ir::MemFlagsData::trusted());
                 let heap_bound = func.create_global_value(ir::GlobalValueData::Load {
                     base: ptr,
                     offset: Offset32::new(current_length_offset),
                     global_type: pointer_type,
-                    flags: ir::MemFlags::trusted(),
+                    flags,
                 });
                 (
                     Uimm64::new(offset_guard_size),
@@ -1591,15 +1600,16 @@ impl FuncEnvironment<'_> {
             ),
         };
 
+        let flags = if readonly_base {
+            insert_mem_flags(func, ir::MemFlagsData::trusted().with_readonly())
+        } else {
+            insert_mem_flags(func, ir::MemFlagsData::trusted())
+        };
         let heap_base = func.create_global_value(ir::GlobalValueData::Load {
             base: ptr,
             offset: Offset32::new(base_offset),
             global_type: pointer_type,
-            flags: if readonly_base {
-                ir::MemFlags::trusted().with_readonly()
-            } else {
-                ir::MemFlags::trusted()
-            },
+            flags,
         });
         Ok(self.heaps.push(HeapData {
             base: heap_base,
@@ -1628,11 +1638,12 @@ impl FuncEnvironment<'_> {
                 (global, i32::try_from(from_offset).unwrap())
             } else {
                 let from_offset = self.offsets.vmctx_vmglobal_import_definition(index);
+                let flags = insert_mem_flags(func, MemFlagsData::trusted());
                 let global = func.create_global_value(ir::GlobalValueData::Load {
                     base: vmctx,
                     offset: Offset32::new(i32::try_from(from_offset).unwrap()),
                     global_type: pointer_type,
-                    flags: MemFlags::trusted(),
+                    flags,
                 });
                 (global, 0)
             }
@@ -1697,7 +1708,7 @@ impl FuncEnvironment<'_> {
             self.get_or_init_funcref_table_elem(builder, table_index, callee);
 
         // Dereference table_entry_addr to get the function address.
-        let mem_flags = ir::MemFlags::trusted();
+        let mem_flags = ir::MemFlagsData::trusted();
 
         // check if the funcref is null
         if !inline_anyfunc {
@@ -1729,7 +1740,7 @@ impl FuncEnvironment<'_> {
                 );
 
                 // Load the callee ID.
-                let mem_flags = ir::MemFlags::trusted();
+                let mem_flags = ir::MemFlagsData::trusted();
                 let callee_sig_hash = builder.ins().load(
                     sig_hash_type,
                     mem_flags,
@@ -1813,7 +1824,7 @@ impl FuncEnvironment<'_> {
         let vmctx = self.vmctx(builder.func);
         let base = builder.ins().global_value(pointer_type, vmctx);
 
-        let mem_flags = ir::MemFlags::trusted();
+        let mem_flags = ir::MemFlagsData::trusted();
 
         // Load the callee address.
         let body_offset =
@@ -1882,7 +1893,7 @@ impl FuncEnvironment<'_> {
         let payload_ptr = builder.inst_results(read_exnref_call)[0];
 
         let mut values = SmallVec::<[ir::Value; 4]>::with_capacity(layout.fields.len());
-        let data_flags = ir::MemFlags::trusted();
+        let data_flags = ir::MemFlagsData::trusted();
         for field in &layout.fields {
             let value = builder.ins().load(
                 field.ty,
@@ -1933,7 +1944,7 @@ impl FuncEnvironment<'_> {
                 .call_indirect(read_exnref_sig, read_exnref_addr, &[vmctx, exnref]);
         let payload_ptr = builder.inst_results(read_exnref_call)[0];
 
-        let store_flags = ir::MemFlags::trusted();
+        let store_flags = ir::MemFlagsData::trusted();
         for (field, value) in layout.fields.iter().zip(args.iter()) {
             debug_assert_eq!(
                 builder.func.dfg.value_type(*value),
@@ -2003,7 +2014,7 @@ impl FuncEnvironment<'_> {
         let exn_arg = if exn_ty == pointer_type {
             exn_ptr
         } else {
-            let mut flags = MemFlags::new();
+            let mut flags = MemFlagsData::new();
             flags.set_endianness(Endianness::Little);
             builder.ins().bitcast(pointer_type, flags, exn_ptr)
         };
