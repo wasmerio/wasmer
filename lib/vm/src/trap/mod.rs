@@ -6,6 +6,10 @@
 
 #[allow(clippy::module_inception)]
 mod trap;
+#[cfg(not(feature = "baremetal"))]
+mod traphandlers;
+#[cfg(feature = "baremetal")]
+#[path = "traphandlers_baremetal.rs"]
 mod traphandlers;
 
 pub use trap::Trap;
@@ -13,5 +17,7 @@ pub use traphandlers::{
     MAX_STACK_SIZE, TrapHandlerFn, VMConfig, catch_traps, drain_stack_pool, get_stack_size,
     on_host_stack, raise_lib_trap, raise_user_trap, set_stack_size, wasmer_call_trampoline,
 };
+#[cfg(feature = "baremetal")]
+pub use traphandlers::{UnwindReason, install_unwinder};
 pub use traphandlers::{init_traps, resume_panic};
 pub use wasmer_types::TrapCode;
