@@ -172,8 +172,10 @@ enable-serde = [
 # AddressSanitizer support
 sanitizer = ["wasmer-vm/sanitizer"]
 
-# Use the baremetal trap-handler backend (no OS signal infrastructure required).
-# Enable when targeting bare-metal or ZK-VM environments.
+# Use the signal-free trap-handler backend (no OS signal infrastructure required).
+# Enable when targeting ZK virtual machines, embedded RTOSes, or similar
+# environments that provide std but lack Unix/Windows signal delivery.
+# Does NOT imply no_std support.
 baremetal = ["wasmer-vm/baremetal"]
 
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]

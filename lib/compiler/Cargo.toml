@@ -75,6 +75,7 @@ std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
 artifact-size = ["dep:loupe"]
+# Signal-free trap-handler backend; see wasmer-vm's baremetal feature for details.
 baremetal = ["wasmer-vm/baremetal"]
 
 [badges]

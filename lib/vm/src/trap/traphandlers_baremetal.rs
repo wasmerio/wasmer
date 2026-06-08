@@ -1,9 +1,15 @@
-//! Trap handling for bare-metal targets.
+//! Trap handling for targets without OS signal infrastructure.
 //!
 //! On conventional operating systems, Wasmer's trap handler uses OS signal
 //! infrastructure (`SIGSEGV`, `SIGFPE`, …) together with coroutine stacks
-//! managed by `corosensei`.  That machinery does not exist on bare-metal
-//! targets (e.g. embedded systems or ZK virtual machines).
+//! managed by `corosensei`.  That machinery is absent on targets such as ZK
+//! virtual machines or embedded RTOSes that provide a Rust `std` environment
+//! but no Unix/Windows signal delivery.
+//!
+//! > **`std` is still required.**  This module uses `std::sync::{Arc, Mutex}`
+//! > and `thread_local!`.  It targets environments where the *signal* layer is
+//! > missing, not environments where the standard library itself is missing.
+//! > True `no_std` support would require a separate effort.
 //!
 //! This module provides the same public API as `traphandlers.rs` but with
 //! all OS-specific parts replaced by no-ops or panics.  The one meaningful
