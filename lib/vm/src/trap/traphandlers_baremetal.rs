@@ -65,15 +65,23 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     f()
 }
 
-/// Run `closure`, returning its result or a [`Trap`] if the closure raises one.
+/// Run `closure` on the current stack.
 ///
-/// In baremetal mode there is no signal-based trap detection, so the closure
-/// runs directly.  Any trap raised via [`raise_lib_trap`] or
-/// [`raise_user_trap`] will invoke the installed unwinder (see
-/// [`install_unwinder`]) before this function returns.
+/// **This function never returns `Err`.**  In baremetal mode there is no
+/// signal-based trap detection, so the `Result` return type is kept only for
+/// API compatibility with the OS trap-handler backend.
 ///
-/// `trap_handler` and `config` are accepted for API compatibility and are not
-/// used.
+/// Trap recovery is fully delegated to the unwinder installed via
+/// [`install_unwinder`]:
+/// * Explicit traps ([`raise_lib_trap`], [`raise_user_trap`]) invoke the
+///   unwinder directly and bypass this call frame.
+/// * Rust panics propagate as normal Rust panics — they are not caught here
+///   and are not converted to `Err`.
+/// * Hardware faults (divide-by-zero, misaligned access, …) are not detected
+///   and will terminate the process or produce undefined behaviour.
+///
+/// `trap_handler` and `config` are accepted for API compatibility and are
+/// ignored.
 pub unsafe fn catch_traps<F, R: 'static>(
     _trap_handler: Option<*const TrapHandlerFn<'static>>,
     _config: &VMConfig,
