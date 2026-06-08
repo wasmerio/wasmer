@@ -574,7 +574,7 @@ fn minimal_libc_skip_reason(config: &Config) -> Result<Option<String>> {
         version_compare::Cmp::Ge,
     )
     .map_err(|_| anyhow!("cannot parse version strings: {sysroot_version}, {minimal_libc}"))?;
-    Ok(if !is_supported {
+    Ok(if is_supported {
         None
     } else {
         Some(format!(
