@@ -26,12 +26,11 @@
 //! before the raise.
 //!
 //! In baremetal mode there is no coroutine boundary.  When the installed
-//! unwinder exits — whether by `process::abort`, `longjmp`, or any other
-//! non-local transfer — **destructors are skipped for every Rust frame above
-//! the unwinder's landing site**, not just those inside a Wasm coroutine.
-//! The coding pattern from `libcalls.rs` is therefore even more important
-//! here: all libcall-owned values must be dropped in a nested block *before*
-//! any call to [`raise_lib_trap`] or [`raise_user_trap`].
+//! unwinder exits — whether by `process::abort` or any other  non-local transfer
+//!  — **destructors are skipped for every Rust frame above the unwinder's landing
+//! site**, not just those inside a Wasm coroutine. The coding pattern from
+//! `libcalls.rs` is therefore even more important here: all libcall-owned values
+//! must be dropped in a nested block *before* any call to [`raise_lib_trap`] or [`raise_user_trap`].
 
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
@@ -40,7 +39,7 @@ use std::cell::Cell;
 use std::error::Error;
 use std::fmt;
 use std::mem;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 // ---------------------------------------------------------------------------
 // Types that mirror the OS traphandlers API
@@ -219,16 +218,18 @@ impl UnwindReason {
     }
 }
 
-// The unwinder is stored behind an Arc so that `unwind_with` can clone the
-// reference before releasing the lock, allowing the callback to call
-// `install_unwinder` without deadlocking.
-static UNWINDER: Mutex<Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>> = Mutex::new(None);
+// Only `Send` is required: `Mutex` provides exclusive access, so the stored
+// value need not be `Sync` — the mutex itself satisfies the `Sync` bound
+// needed for a static.  The lock is held across the call in `unwind_with`,
+// which is safe because that function is `-> !` — the callback never returns,
+// so there is no risk of re-locking or deadlock.
+static UNWINDER: Mutex<Option<Box<dyn Fn(UnwindReason) + Send>>> = Mutex::new(None);
 
 /// Install (or remove) the trap unwinder for baremetal targets.
 ///
 /// The callback receives an [`UnwindReason`] and **must not return** — it
 /// should transfer control out of the current call stack via
-/// `process::abort`, a `longjmp`, or equivalent.  Returning from the callback
+/// `process::abort` or equivalent.  Returning from the callback
 /// is treated as a bug and will trigger `unreachable!`.
 ///
 /// Note: the callback signature is `Fn(UnwindReason)` rather than
@@ -245,7 +246,11 @@ static UNWINDER: Mutex<Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>> = Mutex:
 /// execution is non-deterministic: a trap raised during the swap may be
 /// handled by either the old or the new unwinder.  Install the unwinder
 /// before starting Wasm execution to avoid this.
-pub fn install_unwinder(unwinder: Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>) {
+///
+/// The callback must not call `install_unwinder` — [`unwind_with`] holds the
+/// internal mutex for the duration of the callback, so any attempt to acquire
+/// it again from within the callback will deadlock.
+pub fn install_unwinder(unwinder: Option<Box<dyn Fn(UnwindReason) + Send>>) {
     *UNWINDER
         .lock()
         .expect("baremetal unwinder mutex poisoned in install_unwinder") = unwinder;
@@ -290,19 +295,18 @@ fn unwind_with(reason: UnwindReason) -> ! {
         panic!("wasm trap raised inside the baremetal unwinder (re-entrant unwinding): {reason}");
     };
 
-    // Clone the Arc while holding the lock, then release the lock before
-    // invoking the callback so the callback can call `install_unwinder`
-    // without deadlocking.
-    let unwinder = UNWINDER
+    // Hold the lock across the call.  This is safe because unwind_with is
+    // `-> !`: the callback must not return, so the lock is never released on
+    // the normal path.  If the callback does return anyway we hit unreachable!,
+    // which panics and drops the guard, releasing the lock cleanly.
+    let guard = UNWINDER
         .lock()
-        .expect("baremetal unwinder mutex poisoned in unwind_with")
-        .clone();
+        .expect("baremetal unwinder mutex poisoned in unwind_with");
 
-    match unwinder {
+    match guard.as_ref() {
         Some(f) => {
             // Capture the display string before moving `reason` into the
-            // callback, so the unreachable! message retains diagnostic context
-            // even though `f` must not return.
+            // callback so the unreachable! message retains diagnostic context.
             let display = reason.to_string();
             f(reason);
             unreachable!("baremetal unwinder must not return (trap was: {display})");
