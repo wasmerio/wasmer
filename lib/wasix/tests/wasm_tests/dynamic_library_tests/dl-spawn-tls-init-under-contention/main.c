@@ -9,8 +9,13 @@
 #error "NUM_SIDES must be defined by build.sh"
 #endif
 
-#define SPAWN_BATCH 32
-#define SPAWN_ROUNDS 64
+#ifndef SPAWN_BATCH
+#error "SPAWN_BATCH must be defined by build.sh"
+#endif
+
+#ifndef SPAWN_ROUNDS
+#error "SPAWN_ROUNDS must be defined by build.sh"
+#endif
 
 static atomic_int stop_pressure = 0;
 
@@ -80,7 +85,8 @@ int main(void) {
       if (pthread_create(&spawned[i], NULL, noop_thread, NULL) != 0) {
         atomic_store(&stop_pressure, 1);
         pthread_join(pressure, NULL);
-        fprintf(stderr, "pthread_create failed at round %d thread %d\n", round, i);
+        fprintf(stderr, "pthread_create failed at round %d thread %d\n", round,
+                i);
         return 3;
       }
     }
@@ -88,7 +94,8 @@ int main(void) {
       if (pthread_join(spawned[i], NULL) != 0) {
         atomic_store(&stop_pressure, 1);
         pthread_join(pressure, NULL);
-        fprintf(stderr, "pthread_join failed at round %d thread %d\n", round, i);
+        fprintf(stderr, "pthread_join failed at round %d thread %d\n", round,
+                i);
         return 4;
       }
     }
