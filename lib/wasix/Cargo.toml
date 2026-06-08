@@ -225,6 +225,7 @@ sys = [
   "ctrlc",
   "wasmer/wat",
   "wasmer/js-serializable-module",
+  "wasmer/sys",
 ]
 sys-default = ["sys", "wasmer/sys"]
 sys-poll = []
