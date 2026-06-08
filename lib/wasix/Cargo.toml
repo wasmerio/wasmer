@@ -186,6 +186,7 @@ assert-panic.workspace = true
 ciborium.workspace = true
 strum.workspace = true
 dirs.workspace = true
+version-compare.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test.workspace = true

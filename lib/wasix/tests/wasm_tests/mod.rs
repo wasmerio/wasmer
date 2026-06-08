@@ -44,6 +44,9 @@
 //!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
 //!
+//! `MinimalLibc:{version}` ignores the configuration when the selected sysroot
+//! version is older than the given minimal libc version.
+//!
 //! `MappedDirectory:{host}:{guest}` maps a host directory into the guest. Relative
 //!  host paths are resolved from the test source directory; `$temp` creates a fresh
 //!  temporary host directory.
@@ -196,6 +199,7 @@ struct Config {
     expected_files: Vec<(PathBuf, String)>,
     program_name: Option<String>,
     default_mapped_directories: bool,
+    minimal_libc: Option<String>,
     // Used for configuration display name purpose.
     sysroot_version: Option<&'static str>,
 }
@@ -234,6 +238,7 @@ impl Config {
             expected_files: Vec::new(),
             program_name: None,
             default_mapped_directories: true,
+            minimal_libc: None,
             sysroot_version: None,
         }
     }
@@ -477,6 +482,10 @@ fn process_directive(
             }
         }
         "UnixOnly" => config.unix_only = arg.parse::<bool>()?,
+        "MinimalLibc" => {
+            ensure!(!arg.is_empty(), "MinimalLibc version must not be empty");
+            config.minimal_libc = Some(arg.to_owned());
+        }
         "MappedDirectory" => {
             let (host, guest) = arg
                 .split_once(':')
@@ -545,6 +554,33 @@ fn process_directive(
         other => bail!("Unknown directive '{other}'"),
     }
     Ok(())
+}
+
+fn normalize_libc_version(version: &str) -> &str {
+    version.trim().strip_prefix('v').unwrap_or(version.trim())
+}
+
+fn minimal_libc_skip_reason(config: &Config) -> Result<Option<String>> {
+    let Some(minimal_libc) = &config.minimal_libc else {
+        return Ok(None);
+    };
+    let Some(sysroot_version) = config.sysroot_version else {
+        return Ok(None);
+    };
+
+    let is_supported = version_compare::compare_to(
+        normalize_libc_version(sysroot_version),
+        normalize_libc_version(minimal_libc),
+        version_compare::Cmp::Ge,
+    )
+    .map_err(|_| anyhow!("cannot parse version strings: {sysroot_version}, {minimal_libc}"))?;
+    Ok(if !is_supported {
+        None
+    } else {
+        Some(format!(
+            "selected libc version {sysroot_version} is older than required {minimal_libc}"
+        ))
+    })
 }
 
 fn process_directive_file(
@@ -950,6 +986,9 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     {
         return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
     }
+    if let Some(reason) = minimal_libc_skip_reason(&config)? {
+        return Ok(libtest_mimic::Completion::ignored_with(reason));
+    }
 
     let wasm = run_build_script(&config)?;
     let run_dir = &config.build_path();
@@ -1258,6 +1297,12 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                         }
 
                         for sysroot in TESTED_LIBC_VERSIONS {
+                            // For performance reasons, run the wasix-libc compatibility tests
+                            // only with the Cranelift compiler.
+                            if !(*engine == Engine::Cranelift && !sysroot.is_none()) {
+                                continue;
+                            }
+
                             let mut config = config.clone();
                             config.engine = *engine;
                             config.selected_file_system = *file_system;
