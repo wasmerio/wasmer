@@ -264,6 +264,7 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
     let target = Target::default();
     let backend = match engine {
         Engine::Cranelift => wasmer::BackendKind::Cranelift,
+        #[cfg(feature = "llvm")]
         Engine::LLVM => wasmer::BackendKind::LLVM,
         #[cfg(feature = "singlepass")]
         Engine::Singlepass => wasmer::BackendKind::Singlepass,
@@ -280,6 +281,7 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
             config.num_threads(NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
+        #[cfg(feature = "llvm")]
         Engine::LLVM => {
             let mut config = wasmer::sys::LLVM::default();
             config.num_threads(NonZero::new(1).unwrap());
@@ -316,7 +318,7 @@ pub(crate) fn run_wasm_with_runner_config(
     compiler: Engine,
     program_name: Option<&str>,
     include_default_mounts: bool,
-    configure_runner: impl FnOnce(&mut WasiRunner),
+    configure_runner: impl FnOnce(&mut WasiRunner) -> Result<(), anyhow::Error>,
 ) -> Result<WasmRunResult, anyhow::Error> {
     // Load the compiled WASM module
     let wasm_bytes = std::fs::read(wasm_path)?;
@@ -387,7 +389,7 @@ pub(crate) fn run_wasm_with_runner_config(
                 runner
                     .with_stdout(stdout_capture)
                     .with_stderr(stderr_capture);
-                configure_runner(&mut runner);
+                configure_runner(&mut runner)?;
                 runner.run_wasm(RuntimeOrEngine::Engine(engine), &program_name, module, hash)
             })
         })

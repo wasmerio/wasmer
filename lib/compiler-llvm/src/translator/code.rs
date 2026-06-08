@@ -509,6 +509,7 @@ impl FuncTranslator {
                 })
             },
             self.binary_fmt,
+            &self.target_triple,
         )
     }
 }

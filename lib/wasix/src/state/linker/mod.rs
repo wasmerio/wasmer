@@ -757,29 +757,11 @@ impl Linker {
 
         instance_group.main_instance = Some(main_instance.clone());
 
-        for side in &ls_write.side_modules {
-            trace!(module_handle = ?side.0, "Instantiating existing side module");
-            instance_group.instantiate_side_module_from_linker(
-                &ls_write,
-                store,
-                &func_env.env,
-                *side.0,
-                &mut pending_resolutions,
-            )?;
-        }
-
-        trace!("Finalizing pending functions");
-        instance_group.finalize_pending_resolutions_from_linker(&pending_resolutions, store)?;
-
-        trace!("Applying externally-requested function table entries");
-        instance_group.apply_requested_symbols_from_linker(store, &ls_write)?;
-
-        drop(ls_write);
-        drop(topology_hold);
+        let instance_group_state = Arc::new(Mutex::new(Some(instance_group)));
 
         let linker = Self {
-            shared: linker_shared,
-            instance_group_state: Arc::new(Mutex::new(Some(instance_group))),
+            shared: linker_shared.clone(),
+            instance_group_state: instance_group_state.clone(),
         };
 
         let module_handles = WasiModuleTreeHandles::Dynamic {
@@ -801,6 +783,60 @@ impl Linker {
                 false,
             )
             .map_err(LinkError::MainModuleHandleInitFailed)?;
+
+        let side_module_handles: Vec<ModuleHandle> =
+            ls_write.side_modules.keys().copied().collect();
+        for module_handle in side_module_handles {
+            trace!(?module_handle, "Instantiating existing side module");
+            let prepared = {
+                let mut guard = instance_group_state.lock().unwrap();
+                let group = guard
+                    .as_mut()
+                    .expect("Internal error: instance group state was cleared during spawn");
+                group.prepare_side_module_from_linker(
+                    &ls_write,
+                    store,
+                    &func_env.env,
+                    module_handle,
+                    &mut pending_resolutions,
+                )?
+            };
+
+            // Guest code may reenter the linker (e.g. via sched_yield); do not hold the
+            // instance-group mutex across __wasix_init_tls.
+            let tls_base =
+                call_initialization_function::<i32>(&prepared.instance, store, "__wasix_init_tls")?
+                    .map(|v| v as u64);
+
+            {
+                let mut guard = instance_group_state.lock().unwrap();
+                let group = guard
+                    .as_mut()
+                    .expect("Internal error: instance group state was cleared during spawn");
+                group.complete_side_module_from_linker(prepared, tls_base, store)?;
+            }
+        }
+
+        trace!("Finalizing pending functions");
+        {
+            let guard = instance_group_state.lock().unwrap();
+            let group = guard
+                .as_ref()
+                .expect("Internal error: instance group state was cleared during spawn");
+            group.finalize_pending_resolutions_from_linker(&pending_resolutions, store)?;
+        }
+
+        trace!("Applying externally-requested function table entries");
+        {
+            let guard = instance_group_state.lock().unwrap();
+            let group = guard
+                .as_ref()
+                .expect("Internal error: instance group state was cleared during spawn");
+            group.apply_requested_symbols_from_linker(store, &ls_write)?;
+        }
+
+        drop(ls_write);
+        drop(topology_hold);
 
         trace!("Instance group spawned successfully");
 

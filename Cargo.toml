@@ -69,7 +69,6 @@ members = [
   "tests/integration/ios",
   "tests/lib/compiler-test-derive",
   "tests/lib/wast",
-  "tests/wasi-wast",
   "tests/wasmer-argus",
 ]
 exclude = ["./lib/cli/tests/packages/axum"]
@@ -264,6 +263,7 @@ slab = "0.4"
 smallvec = "1.6"
 smoltcp = { version = "0.13.0", default-features = false }
 socket2 = { version = "0.6.1", features = ["all"] }
+strum = { version = "0.27", features = ["derive"] }
 syn = { version = "2", default-features = false }
 tar = "0.4.40"
 target-lexicon = { version = "0.13.3", default-features = false }
@@ -528,17 +528,17 @@ required-features = ["cranelift"]
 [[example]]
 name = "wasi"
 path = "examples/wasi.rs"
-required-features = ["wasi"]
+required-features = ["wasi", "wat"]
 
 [[example]]
 name = "wasi-manual-setup"
 path = "examples/wasi_manual_setup.rs"
-required-features = ["tokio", "backend", "wasi"]
+required-features = ["tokio", "backend", "wasi", "wat"]
 
 [[example]]
 name = "wasi-pipes"
 path = "examples/wasi_pipes.rs"
-required-features = ["tokio", "backend", "wasi"]
+required-features = ["tokio", "backend", "wasi", "wat"]
 
 [[example]]
 name = "table"

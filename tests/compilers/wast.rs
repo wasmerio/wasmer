@@ -2,18 +2,6 @@ use ::wasmer::sys::Features;
 use std::path::Path;
 use wasmer_wast::Wast;
 
-// The generated tests (from build.rs) look like:
-// #[cfg(test)]
-// mod [compiler] {
-//     mod [spec] {
-//         mod [vfs] {
-//             #[test]
-//             fn [test_name]() -> anyhow::Result<()> {
-//                 crate::run_wasi("tests/spectests/[test_name].wast", "[compiler]", WasiFileSystemKind::[vfs])
-//             }
-//         }
-//     }
-// }
 include!(concat!(env!("OUT_DIR"), "/generated_spectests.rs"));
 
 pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()> {

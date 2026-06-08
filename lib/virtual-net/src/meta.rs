@@ -97,6 +97,14 @@ pub enum RequestType {
         reuse_port: bool,
         reuse_addr: bool,
     },
+    /// Binds a TCP socket without immediately listening or connecting.
+    BindTcp {
+        socket_id: SocketId,
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    },
     /// Opens a UDP socket that listens on a specific IP and Port combination
     /// Multiple servers (processes or threads) can bind to the same port if they each set
     /// the reuse-port and-or reuse-addr flags
@@ -123,6 +131,10 @@ pub enum RequestType {
     },
     /// Closes the socket
     Close,
+    /// Converts a bound TCP socket into a listening socket.
+    ListenBound,
+    /// Converts a bound TCP socket into a connected TCP stream.
+    ConnectBound { peer: SocketAddr },
     /// Begins the process of accepting a socket and returns it later
     BeginAccept(SocketId),
     /// Returns the local address of this TCP listener

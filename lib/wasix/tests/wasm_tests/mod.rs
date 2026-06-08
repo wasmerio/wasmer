@@ -21,6 +21,9 @@
 //!
 //! `BuildEnv:{key}={value}` sets an environment variable before building.
 //!
+//! The harness also sets `WASMER_BACKEND` to the engine name (`cranelift`, `v8`,
+//! etc.) before every build so shell scripts can tune compile-time parameters per backend.
+//!
 //! `Env:{key}={value}` sets an environment variable before running.
 //!
 //! `ExpectedStdout:{line}` appends one expected stdout line.
@@ -61,6 +64,10 @@
 //! `ProgramName:{name}` overrides argv[0].
 //!
 //! `DefaultMappedDirectories:{bool}` controls the harness default directory mappings.
+//!
+//! `FileSystems:{kind}` selects the filesystem backend. Supported values are
+//! `host`, `inmemory`, `tmp`, `passthrumemory`, `union`, `root`, comma-separated
+//! lists of those values, and `all`.
 
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
@@ -70,11 +77,17 @@ use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
+use std::sync::Arc;
+use strum::IntoEnumIterator;
 
 use anyhow::bail;
 use libtest_mimic::Trial;
 use walkdir::WalkDir;
-use wasmer_wasix::virtual_fs::StaticFile;
+use wasmer_wasix::runtime::task_manager::block_on;
+use wasmer_wasix::virtual_fs::{
+    AsyncWriteExt, FileSystem, MountFileSystem, PassthruFileSystem, RootFileSystemBuilder,
+    StaticFile, TmpFileSystem, create_dir_all as create_virtual_dir_all, mem_fs,
+};
 
 mod runner;
 
@@ -116,9 +129,11 @@ struct MappedDirectory {
     guest: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
 pub enum Engine {
     Cranelift,
+    #[cfg(feature = "llvm")]
     LLVM,
     #[cfg(feature = "singlepass")]
     Singlepass,
@@ -126,10 +141,22 @@ pub enum Engine {
     V8,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter, strum::EnumString)]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
+enum FileSystemKind {
+    Host,
+    InMemory,
+    Tmp,
+    PassthruMemory,
+    Union,
+    Root,
+}
+
 impl Engine {
     pub fn name(self) -> &'static str {
         match self {
             Self::Cranelift => "cranelift",
+            #[cfg(feature = "llvm")]
             Self::LLVM => "llvm",
             #[cfg(feature = "singlepass")]
             Self::Singlepass => "singlepass",
@@ -149,6 +176,8 @@ struct Config {
     test_name: String,
     config_name: String,
     engine: Engine,
+    selected_file_system: FileSystemKind,
+    file_systems: Option<Vec<FileSystemKind>>,
     is_abstract: bool,
 
     nonzero_exit_code: bool,
@@ -184,6 +213,8 @@ impl Config {
             test_name,
             config_name: "default".to_owned(),
             engine: Engine::Cranelift,
+            file_systems: None,
+            selected_file_system: FileSystemKind::Host,
             is_abstract: false,
             arguments: Vec::new(),
             build_env: Vec::new(),
@@ -210,22 +241,16 @@ impl Config {
     }
 
     fn full_test_name(&self) -> String {
-        if self.source.is_default() {
-            format!(
-                "wasm/{}/{}/{}",
-                self.test_name,
-                self.config_name,
-                self.engine.name(),
-            )
-        } else {
-            format!(
-                "wasm/{}/{}/{}/{}",
-                self.test_name,
-                self.source.config_name(),
-                self.config_name,
-                self.engine.name(),
-            )
+        let mut parts = vec!["wasm".to_owned(), self.test_name.clone()];
+        if !self.source.is_default() {
+            parts.push(self.source.config_name());
         }
+        parts.push(self.config_name.clone());
+        if self.selected_file_system != FileSystemKind::Host {
+            parts.push(self.selected_file_system.to_string());
+        }
+        parts.push(self.engine.to_string());
+        parts.join("/")
     }
 }
 
@@ -390,7 +415,16 @@ fn process_directive(
                 .split_once(':')
                 .ok_or_else(|| anyhow!("missing colon separator for SkipEngine"))?;
             if let Some(engine) = match engine.to_lowercase().as_str() {
-                "llvm" => Some(Engine::LLVM),
+                "llvm" => {
+                    #[cfg(feature = "llvm")]
+                    {
+                        Some(Engine::LLVM)
+                    }
+                    #[cfg(not(feature = "llvm"))]
+                    {
+                        None
+                    }
+                }
                 "cranelift" => Some(Engine::Cranelift),
                 "v8" => {
                     #[cfg(feature = "v8")]
@@ -464,6 +498,25 @@ fn process_directive(
         "DefaultMappedDirectories" => {
             config.default_mapped_directories = arg.parse::<bool>()?;
         }
+        "FileSystems" => {
+            config.file_systems = Some(if arg == "all" {
+                FileSystemKind::iter().collect()
+            } else {
+                let file_systems = arg
+                    .split(',')
+                    .map(|kind| {
+                        kind.trim()
+                            .parse::<FileSystemKind>()
+                            .map_err(|_| anyhow!("unsupported filesystem: '{kind}'"))
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                ensure!(
+                    !file_systems.is_empty(),
+                    "at least one file system must be selected"
+                );
+                file_systems
+            });
+        }
         other => bail!("Unknown directive '{other}'"),
     }
     Ok(())
@@ -522,6 +575,18 @@ fn read_fixture_bytes(test_src_dir: &Path, arg: &str, directive: &str) -> Result
         .with_context(|| format!("failed to read {directive} {}", path.display()))
 }
 
+fn rustc_command(toolchain: Option<&str>) -> Command {
+    if let Some(toolchain) = toolchain {
+        // rustc +version multiplexing is unsupported on Windows, use the documented approach:
+        // https://rust-lang.github.io/rustup/concepts/toolchains.html#custom-toolchains
+        let mut cmd = Command::new("rustup");
+        cmd.arg("run").arg(toolchain).arg("rustc");
+        cmd
+    } else {
+        Command::new("rustc")
+    }
+}
+
 fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     // First, copy the test source directory to the 'build' subfolder that will
     // be unique for each configuration of a test.
@@ -573,10 +638,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
             let primary_source = build_test_path.join(filename);
             let source = std::fs::read_to_string(&primary_source)
                 .with_context(|| format!("Failed to read {}", primary_source.display()))?;
-            let mut cmd = Command::new("rustc");
-            if source.contains("#![feature(") {
-                cmd.arg("+nightly");
-            }
+            let mut cmd = rustc_command(source.contains("#![feature(").then_some("nightly"));
             cmd.arg("--target=wasm32-wasip1")
                 .arg("-o")
                 .arg("main")
@@ -589,6 +651,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     for (k, v) in &config.build_env {
         cmd.env(k, v);
     }
+    cmd.env("WASMER_BACKEND", config.engine.name());
     let output = cmd.output()?;
 
     if !output.status.success() {
@@ -600,41 +663,77 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     Ok(build_test_path.join("main"))
 }
 
-fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
-    create_dir_all(to).with_context(|| format!("failed to create {}", to.display()))?;
+struct CopyHostTreeActions<CreateDirectory, CopyFile, CopyLink> {
+    create_directory: CreateDirectory,
+    copy_file: CopyFile,
+    copy_link: CopyLink,
+}
 
-    // Preserve symlink fixtures, including broken links, when staging tests.
+fn copy_host_tree<CreateDirectory, CopyFile, CopyLink>(
+    from: &Path,
+    to: &Path,
+    mut actions: CopyHostTreeActions<CreateDirectory, CopyFile, CopyLink>,
+) -> Result<()>
+where
+    CreateDirectory: FnMut(&Path) -> Result<()>,
+    CopyFile: FnMut(&Path, &Path) -> Result<()>,
+    CopyLink: FnMut(&Path, &Path) -> Result<()>,
+{
+    (actions.create_directory)(to)?;
+
     for entry in WalkDir::new(from).min_depth(1).follow_links(false) {
-        let entry = entry?;
-        let relative = entry.path().strip_prefix(from)?;
+        let entry = entry.with_context(|| anyhow!("cannot get dir entry"))?;
+        let relative = entry.path().strip_prefix(from).with_context(|| {
+            anyhow!(
+                "cannot strip prefix: {} from {}",
+                from.display(),
+                entry.path().display()
+            )
+        })?;
         let target = to.join(relative);
         let file_type = entry.file_type();
 
         if file_type.is_dir() {
-            create_dir_all(&target)
-                .with_context(|| format!("failed to create {}", target.display()))?;
-        } else if file_type.is_file() {
+            (actions.create_directory)(&target)?;
+        } else {
             if let Some(parent) = target.parent() {
-                create_dir_all(parent)
-                    .with_context(|| format!("failed to create {}", parent.display()))?;
+                (actions.create_directory)(parent)?;
             }
-            fs::copy(entry.path(), &target).with_context(|| {
-                format!(
-                    "failed to copy {} to {}",
-                    entry.path().display(),
-                    target.display()
-                )
-            })?;
-        } else if file_type.is_symlink() {
-            if let Some(parent) = target.parent() {
-                create_dir_all(parent)
-                    .with_context(|| format!("failed to create {}", parent.display()))?;
+            if file_type.is_file() {
+                (actions.copy_file)(entry.path(), &target)?;
+            } else if file_type.is_symlink() {
+                (actions.copy_link)(entry.path(), &target)?;
             }
-            copy_symlink(entry.path(), &target)?;
         }
     }
 
     Ok(())
+}
+
+fn copy_test_tree(from: &Path, to: &Path) -> Result<()> {
+    copy_host_tree(
+        from,
+        to,
+        CopyHostTreeActions {
+            create_directory: |path: &Path| {
+                create_dir_all(path).with_context(|| format!("failed to create {}", path.display()))
+            },
+            copy_file: |source: &Path, target: &Path| {
+                fs::copy(source, target).with_context(|| {
+                    format!(
+                        "failed to copy {} to {}",
+                        source.display(),
+                        target.display()
+                    )
+                })?;
+                Ok(())
+            },
+            copy_link: |source: &Path, target: &Path| {
+                copy_symlink(source, target)
+                    .with_context(|| format!("cannot copy symlink: {}", source.display()))
+            },
+        },
+    )
 }
 
 #[cfg(unix)]
@@ -644,8 +743,173 @@ fn copy_symlink(from: &Path, to: &Path) -> Result<()> {
 }
 
 #[cfg(not(unix))]
-fn copy_symlink(from: &Path, _to: &Path) -> Result<()> {
-    bail!("cannot copy symlink {} on this host", from.display())
+fn copy_symlink(_from: &Path, _to: &Path) -> Result<()> {
+    // Avoid treating this as an error because symlink support is not guaranteed
+    // on Windows.
+    Ok(())
+}
+
+fn copy_host_tree_to_virtual_fs(
+    fs: &(dyn FileSystem + Send + Sync),
+    host_root: &Path,
+    guest_root: &Path,
+) -> Result<()> {
+    copy_host_tree(
+        host_root,
+        guest_root,
+        CopyHostTreeActions {
+            create_directory: |path: &Path| {
+                create_virtual_dir_all(fs, path).with_context(|| {
+                    format!(
+                        "failed to create mapped directory {} in virtual filesystem",
+                        path.display()
+                    )
+                })
+            },
+            copy_file: |source: &Path, target: &Path| {
+                let bytes = fs::read(source).with_context(|| {
+                    format!("failed to read mapped fixture {}", source.display())
+                })?;
+                let mut file = fs
+                    .new_open_options()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(target)
+                    .with_context(|| {
+                        format!(
+                            "failed to open mapped fixture {} in virtual filesystem",
+                            target.display()
+                        )
+                    })?;
+                block_on(async {
+                    file.write_all(&bytes).await.with_context(|| {
+                        format!("failed to write mapped fixture {}", target.display())
+                    })
+                })
+            },
+            copy_link: |source: &Path, target: &Path| {
+                let link_target = fs::read_link(source).with_context(|| {
+                    format!("failed to read symlink fixture {}", source.display())
+                })?;
+                fs.create_symlink(&link_target, target).with_context(|| {
+                    format!(
+                        "failed to create symlink fixture {} in virtual filesystem",
+                        target.display()
+                    )
+                })
+            },
+        },
+    )
+}
+
+fn create_filesystem(kind: FileSystemKind) -> Arc<dyn FileSystem + Send + Sync> {
+    match kind {
+        FileSystemKind::Host => unreachable!("host filesystem uses host directory mappings"),
+        FileSystemKind::InMemory => Arc::<mem_fs::FileSystem>::default(),
+        FileSystemKind::Tmp => Arc::new(TmpFileSystem::new()),
+        FileSystemKind::PassthruMemory => {
+            let fs = Arc::<mem_fs::FileSystem>::default();
+            Arc::new(PassthruFileSystem::new_arc(fs))
+        }
+        FileSystemKind::Union => {
+            let root = MountFileSystem::new();
+            root.mount(Path::new("/"), Arc::new(TmpFileSystem::new()))
+                .expect("mounting the root fs on an empty mount fs should succeed");
+            Arc::new(root)
+        }
+        FileSystemKind::Root => Arc::new(
+            RootFileSystemBuilder::new()
+                // Fixture-backed tests assert mapped root listings exactly.
+                .default_root_dirs(false)
+                .build(),
+        ),
+    }
+}
+
+fn create_empty_dir_in_virtual_fs(fs: &(dyn FileSystem + Send + Sync), guest: &Path) -> Result<()> {
+    create_virtual_dir_all(fs, guest).with_context(|| {
+        format!(
+            "failed to create empty mapped directory {} in virtual filesystem",
+            guest.display()
+        )
+    })
+}
+
+fn configure_mapped_directories(
+    runner: &mut wasmer_wasix::runners::wasi::WasiRunner,
+    config: &Config,
+    extra_temporary_folders: &mut Vec<tempfile::TempDir>,
+) -> Result<()> {
+    let file_system = config.selected_file_system;
+    if config.mapped_directories.is_empty() {
+        if file_system != FileSystemKind::Host {
+            runner.with_mount("/".to_owned(), create_filesystem(file_system));
+        }
+        return Ok(());
+    }
+
+    let mut host_mapped_directories = Vec::new();
+    let mut filesystem_by_host_path: HashMap<PathBuf, Arc<dyn FileSystem + Send + Sync>> =
+        HashMap::new();
+
+    for directory in &config.mapped_directories {
+        if file_system == FileSystemKind::Host {
+            let host = match &directory.host {
+                HostMappedLocation::HostPath(host) => {
+                    let host = PathBuf::from(host);
+                    if host.is_absolute() {
+                        host
+                    } else {
+                        config.build_path().join(host)
+                    }
+                }
+                HostMappedLocation::TemporaryFolder => {
+                    let temp = tempfile::tempdir().expect("temporary directory must exist");
+                    let host = temp.path().to_path_buf();
+                    extra_temporary_folders.push(temp);
+                    host
+                }
+            };
+            host_mapped_directories.push(wasmer_wasix::runners::MappedDirectory {
+                host,
+                guest: directory.guest.clone(),
+            });
+        } else {
+            let fs = match &directory.host {
+                HostMappedLocation::HostPath(host) => {
+                    let host = PathBuf::from(host);
+                    ensure!(
+                        !host.is_absolute(),
+                        "{} filesystem does not support absolute host mapping {}",
+                        file_system,
+                        host.display()
+                    );
+                    let host = config.build_path().join(host);
+                    if let Some(fs) = filesystem_by_host_path.get(&host) {
+                        fs.clone()
+                    } else {
+                        let fs = create_filesystem(file_system);
+                        copy_host_tree_to_virtual_fs(&*fs, &host, Path::new("/"))?;
+                        filesystem_by_host_path.insert(host, fs.clone());
+                        fs
+                    }
+                }
+                HostMappedLocation::TemporaryFolder => {
+                    let fs = create_filesystem(file_system);
+                    create_empty_dir_in_virtual_fs(&*fs, Path::new("/"))?;
+                    fs
+                }
+            };
+            runner.with_mount(directory.guest.clone(), fs);
+        }
+    }
+
+    if file_system == FileSystemKind::Host {
+        runner.with_mapped_directories(host_mapped_directories);
+    }
+
+    Ok(())
 }
 
 fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
@@ -691,33 +955,11 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
                 runner.with_stdin(Box::new(StaticFile::new(stdin)));
             }
 
-            let mapped_directories = config.mapped_directories.iter().map(|directory| {
-                let host = match &directory.host {
-                    HostMappedLocation::HostPath(host) => {
-                        let host = PathBuf::from(host);
-                        if host.is_absolute() {
-                            host
-                        } else {
-                            config.build_path().join(host)
-                        }
-                    }
-                    HostMappedLocation::TemporaryFolder => {
-                        let temp = tempfile::tempdir().expect("temporary directory must exist");
-                        let host = temp.path().to_path_buf();
-                        extra_temporary_folders.push(temp);
-                        host
-                    }
-                };
-
-                wasmer_wasix::runners::MappedDirectory {
-                    host,
-                    guest: directory.guest.clone(),
-                }
-            });
-            runner.with_mapped_directories(mapped_directories);
+            configure_mapped_directories(runner, &config, &mut extra_temporary_folders)?;
             if let Some(current_directory) = &config.current_directory {
                 runner.with_current_dir(current_directory.clone());
             }
+            Ok(())
         },
     )?;
 
@@ -921,11 +1163,6 @@ fn has_primary_source_file(path: &Path) -> bool {
 }
 
 fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
-    // Windows runtime support is still limited, so skip these tests on that platform.
-    if cfg!(target_os = "windows") {
-        return Ok(());
-    }
-
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
 
@@ -943,10 +1180,11 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let test_name = relative_test_path.display().to_string();
         let primary_sources = identify_primary_sources(entry.path())?;
 
-        let mut supported_engines = vec![Engine::LLVM];
+        let mut supported_engines = vec![];
+        #[cfg(feature = "llvm")]
+        supported_engines.push(Engine::LLVM);
         #[cfg(feature = "singlepass")]
         supported_engines.push(Engine::Singlepass);
-
         #[cfg(feature = "v8")]
         supported_engines.push(Engine::V8);
 
@@ -955,6 +1193,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
             supported_engines.push(Engine::Cranelift);
         }
 
+        let default_file_systems = vec![FileSystemKind::Host];
         for primary_source in primary_sources {
             let configs = parse_configs(&Config::new(
                 primary_source,
@@ -964,30 +1203,47 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
             ))?;
 
             for config in configs {
-                for engine in &supported_engines {
-                    // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
-                    // but we can still run selectively some tests with Singlepass.
-                    #[cfg(feature = "singlepass")]
-                    if entry
-                        .path()
-                        .file_name()
-                        .expect("must be valid filename")
-                        .to_string_lossy()
-                        != "wasi_fyi"
-                        && *engine == Engine::Singlepass
-                    {
-                        continue;
-                    }
+                for file_system in config
+                    .file_systems
+                    .as_ref()
+                    .unwrap_or_else(|| &default_file_systems)
+                {
+                    for engine in &supported_engines {
+                        // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
+                        // but we can still run selectively some tests with Singlepass.
+                        #[cfg(feature = "singlepass")]
+                        {
+                            let test_name = entry
+                                .path()
+                                .file_name()
+                                .expect("must be valid filename")
+                                .to_string_lossy()
+                                .to_string();
+                            if *engine == Engine::Singlepass
+                                && !["wasi_fyi", "wasi_wast"].contains(&test_name.as_str())
+                            {
+                                continue;
+                            }
+                        }
 
-                    let mut config = config.clone();
-                    config.engine = *engine;
-                    tests.push(libtest_mimic::Trial::ignorable_test(
-                        config.full_test_name(),
-                        move || {
-                            run_integration_test(config)
-                                .map_err(|e| libtest_mimic::Failed::from(e.to_string()))
-                        },
-                    ));
+                        // WASIXCC toolchain does not cover Windows yet.
+                        if cfg!(target_os = "windows")
+                            && !matches!(config.source, PrimarySource::RustSourceFile(..))
+                        {
+                            continue;
+                        }
+
+                        let mut config = config.clone();
+                        config.engine = *engine;
+                        config.selected_file_system = *file_system;
+                        tests.push(libtest_mimic::Trial::ignorable_test(
+                            config.full_test_name(),
+                            move || {
+                                run_integration_test(config)
+                                    .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
+                            },
+                        ));
+                    }
                 }
             }
         }

@@ -32,7 +32,6 @@ pub enum LibCall {
 
     /// nearest.f64
     NearestF64,
-
     /// trunc.f32
     TruncF32,
 
@@ -242,6 +241,13 @@ pub enum LibCall {
     Gtsf2,
     /// __gtdf2
     Gtdf2,
+
+    // TODO: move earlier during a artifact format version bump
+    /// sqrt.f32
+    SqrtF32,
+
+    /// sqrt.f64
+    SqrtF64,
 }
 
 impl LibCall {
@@ -254,6 +260,8 @@ impl LibCall {
             Self::FloorF64 => "wasmer_vm_f64_floor",
             Self::NearestF32 => "wasmer_vm_f32_nearest",
             Self::NearestF64 => "wasmer_vm_f64_nearest",
+            Self::SqrtF32 => "wasmer_vm_f32_sqrt",
+            Self::SqrtF64 => "wasmer_vm_f64_sqrt",
             Self::TruncF32 => "wasmer_vm_f32_trunc",
             Self::TruncF64 => "wasmer_vm_f64_trunc",
             Self::Memory32Size => "wasmer_vm_memory32_size",

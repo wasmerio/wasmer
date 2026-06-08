@@ -77,6 +77,7 @@ ignore = [
 
   "RUSTSEC-2024-0436", # unmaintained 'paste' crate
   "RUSTSEC-2025-0141", # unmaintained 'bincode' crate
+  "RUSTSEC-2026-0173", # unmaintained 'proc-macro-error2'
 ]
 # If this is true, then cargo deny will use the git executable to fetch advisory database.
 # If this is false, then it uses a built-in git library.
