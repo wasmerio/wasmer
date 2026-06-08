@@ -21,6 +21,9 @@
 //!
 //! `BuildEnv:{key}={value}` sets an environment variable before building.
 //!
+//! The harness also sets `WASMER_BACKEND` to the engine name (`cranelift`, `v8`,
+//! etc.) before every build so shell scripts can tune compile-time parameters per backend.
+//!
 //! `Env:{key}={value}` sets an environment variable before running.
 //!
 //! `ExpectedStdout:{line}` appends one expected stdout line.
@@ -648,6 +651,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     for (k, v) in &config.build_env {
         cmd.env(k, v);
     }
+    cmd.env("WASMER_BACKEND", config.engine.name());
     let output = cmd.output()?;
 
     if !output.status.success() {
