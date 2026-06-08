@@ -30,7 +30,9 @@
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
 use std::any::Any;
+use std::cell::Cell;
 use std::error::Error;
+use std::fmt;
 use std::mem;
 use std::sync::{Arc, Mutex};
 
@@ -38,15 +40,21 @@ use std::sync::{Arc, Mutex};
 // Types that mirror the OS traphandlers API
 // ---------------------------------------------------------------------------
 
-/// Dummy trap-handler callback type.
+/// Signal-handler callback type.
 ///
-/// On OS targets this is a platform-specific signal-handler signature; on
-/// bare-metal targets there are no signals, so the type degrades to `()`.
-pub type TrapHandlerFn<'a> = ();
+/// On OS targets this is a platform-specific `dyn Fn` signature that a caller
+/// can use to intercept raw signals.  On bare-metal targets there are no
+/// signals, so this is an **uninhabited** marker type: it cannot be
+/// constructed, and any `Option<*const TrapHandlerFn<'_>>` must be `None`.
+/// Attempting to form a real handler value will produce a compile error.
+pub enum TrapHandlerFn<'a> {
+    #[doc(hidden)]
+    _Uninhabited(std::convert::Infallible, std::marker::PhantomData<&'a ()>),
+}
 
 /// Runtime VM configuration.
 pub struct VMConfig {
-    /// Optional stack size hint. Ignored in baremetal mode (there is no
+    /// Optional stack size hint.  Ignored in baremetal mode (there is no
     /// separate Wasm coroutine stack), but kept for API compatibility.
     pub wasm_stack_size: Option<usize>,
 }
@@ -76,7 +84,8 @@ pub fn init_traps() {}
 /// Run `f` directly on the current stack.
 ///
 /// On OS targets this switches to a dedicated Wasm coroutine stack.  In
-/// baremetal mode there is only one stack, so `f` runs in-place.
+/// baremetal mode there is no Wasm coroutine stack to switch to, so `f` runs
+/// in-place.
 pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     f()
 }
@@ -90,7 +99,7 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
 /// Trap recovery is fully delegated to the unwinder installed via
 /// [`install_unwinder`]:
 /// * Explicit traps ([`raise_lib_trap`], [`raise_user_trap`]) invoke the
-///   unwinder directly and bypass this call frame.
+///   unwinder directly and bypass this call frame entirely.
 /// * Rust panics propagate as normal Rust panics — they are not caught here
 ///   and are not converted to `Err`.
 /// * Hardware faults (divide-by-zero, misaligned access, …) are not detected
@@ -98,6 +107,12 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
 ///
 /// `trap_handler` and `config` are accepted for API compatibility and are
 /// ignored.
+///
+/// # Safety
+///
+/// The closure must not rely on its destructor running if a trap is raised
+/// inside it; the unwinder's non-local exit will skip all destructors above
+/// its landing site.  See the module-level documentation.
 pub unsafe fn catch_traps<F, R: 'static>(
     _trap_handler: Option<*const TrapHandlerFn<'static>>,
     _config: &VMConfig,
@@ -124,6 +139,12 @@ pub unsafe fn wasmer_call_trampoline(
 ) -> Result<(), Trap> {
     unsafe {
         catch_traps(trap_handler, config, move || {
+            // SAFETY: `VMFunctionContext` is a `*mut VMContext` newtype and
+            // `*mut u8` / `*mut RawValue` are both opaque byte-array pointers
+            // with identical layout and calling-convention treatment on all
+            // supported targets.  The transmute changes only the Rust type
+            // checker's view of the pointer types, not the generated machine
+            // code.
             mem::transmute::<
                 unsafe extern "C" fn(
                     *mut VMContext,
@@ -143,9 +164,22 @@ pub unsafe fn wasmer_call_trampoline(
 /// The reason a Wasm execution is being unwound.
 ///
 /// Passed to the callback registered with [`install_unwinder`].
+///
+/// # Structural divergence from the OS backend
+///
+/// The OS backend's internal `UnwindReason` has a fourth `WasmTrap` variant
+/// produced by signal handlers.  That variant cannot exist in baremetal mode
+/// (there are no signal handlers), so it is omitted here.  This type is
+/// `#[non_exhaustive]` to allow adding variants in future without a breaking
+/// change; match arms should include a wildcard to remain forward-compatible.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum UnwindReason {
     /// A Rust panic propagated out of a host function.
+    ///
+    /// Note: `Box<dyn Any + Send>` — the bound is `Send` only, not `Send +
+    /// Sync`, because [`std::panic::resume_unwind`] requires only `Send`.
+    /// Adding `Sync` here would silently prevent resuming panics that lack it.
     Panic(Box<dyn Any + Send>),
     /// A user-defined error raised via [`raise_user_trap`].
     UserTrap(Box<dyn Error + Send + Sync>),
@@ -153,10 +187,22 @@ pub enum UnwindReason {
     LibTrap(Trap),
 }
 
+impl fmt::Display for UnwindReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Panic(_) => write!(f, "panic"),
+            Self::UserTrap(e) => write!(f, "user trap: {e}"),
+            Self::LibTrap(t) => write!(f, "lib trap: {t}"),
+        }
+    }
+}
+
 impl UnwindReason {
-    /// Convert this reason into a [`Trap`].
+    /// Convert this reason into a [`Trap`], or re-raise the panic.
     ///
-    /// For `Panic` variants the panic is re-raised rather than converted.
+    /// For the `Panic` variant this calls [`std::panic::resume_unwind`] and
+    /// therefore **never returns**.  Callers that need to distinguish the
+    /// non-returning arm should match on the variant before calling this.
     pub fn into_trap(self) -> Trap {
         match self {
             Self::UserTrap(data) => Trap::User(data),
@@ -166,35 +212,68 @@ impl UnwindReason {
     }
 }
 
-// The unwinder is accessed from trap-raise sites, which may run concurrently
-// on separate threads even in embedded contexts.  We store it behind an Arc so
-// that `unwind_with` can clone the reference before releasing the lock,
-// preventing a potential deadlock if the callback itself calls
-// `install_unwinder`.
+// The unwinder is stored behind an Arc so that `unwind_with` can clone the
+// reference before releasing the lock, allowing the callback to call
+// `install_unwinder` without deadlocking.
 static UNWINDER: Mutex<Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>> = Mutex::new(None);
 
 /// Install (or remove) the trap unwinder for baremetal targets.
 ///
-/// The callback is invoked — and must not return — whenever a trap is raised
-/// in Wasm code running in baremetal mode.  If no unwinder is installed the
-/// trap is forwarded as a Rust `panic!`.
+/// The callback receives an [`UnwindReason`] and **must not return** — it
+/// should transfer control out of the current call stack via
+/// `process::abort`, a `longjmp`, or equivalent.  Returning from the callback
+/// is treated as a bug and will trigger `unreachable!`.
 ///
+/// Note: the callback signature is `Fn(UnwindReason)` rather than
+/// `Fn(UnwindReason) -> !` because `-> !` is not currently object-safe in
+/// Rust stable, preventing its use in a `dyn Fn` trait object.
+///
+/// If no unwinder is installed, any trap forwards as a Rust `panic!`.
 /// Passing `None` removes a previously installed unwinder.
+///
+/// # Concurrency
+///
+/// `install_unwinder` may be called from any thread at any time, but the
+/// semantic result of swapping the unwinder concurrently with live Wasm
+/// execution is non-deterministic: a trap raised during the swap may be
+/// handled by either the old or the new unwinder.  Install the unwinder
+/// before starting Wasm execution to avoid this.
 pub fn install_unwinder(unwinder: Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>) {
-    *UNWINDER.lock().unwrap() = unwinder;
+    *UNWINDER
+        .lock()
+        .expect("baremetal unwinder mutex poisoned in install_unwinder") = unwinder;
+}
+
+thread_local! {
+    static UNWINDING: Cell<bool> = const { Cell::new(false) };
 }
 
 fn unwind_with(reason: UnwindReason) -> ! {
-    // Clone the Arc while holding the lock so we can release the lock before
-    // invoking the callback (avoids deadlock if the callback calls
-    // install_unwinder itself).
-    let unwinder = UNWINDER.lock().unwrap().clone();
+    // Detect re-entrant calls: if the unwinder itself triggers a trap we must
+    // not recurse (doing so would corrupt its state or overflow the typically
+    // tiny embedded stack).
+    if UNWINDING.with(|u| u.replace(true)) {
+        panic!("wasm trap raised inside the baremetal unwinder (re-entrant unwinding): {reason}");
+    }
+
+    // Clone the Arc while holding the lock, then release the lock before
+    // invoking the callback so the callback can call `install_unwinder`
+    // without deadlocking.
+    let unwinder = UNWINDER
+        .lock()
+        .expect("baremetal unwinder mutex poisoned in unwind_with")
+        .clone();
+
     match unwinder {
         Some(f) => {
+            // Capture the display string before moving `reason` into the
+            // callback, so the unreachable! message retains diagnostic context
+            // even though `f` must not return.
+            let display = reason.to_string();
             f(reason);
-            unreachable!("baremetal unwinder must not return");
+            unreachable!("baremetal unwinder must not return (trap was: {display})");
         }
-        None => panic!("wasm trap with no baremetal unwinder installed: {reason:?}"),
+        None => panic!("wasm trap with no baremetal unwinder installed: {reason}"),
     }
 }
 
@@ -206,13 +285,10 @@ fn unwind_with(reason: UnwindReason) -> ! {
 ///
 /// # Safety
 ///
-/// Must only be called from Wasm-generated code running inside
-/// [`wasmer_call_trampoline`] / [`catch_traps`].
-///
 /// All locally-owned values in the calling frame must be dropped *before*
-/// this function is called.  The installed unwinder will perform a non-local
-/// exit that skips destructors for every frame above its landing site.  See
-/// the module-level documentation for the recommended nested-block pattern.
+/// this function is called.  The installed unwinder performs a non-local exit
+/// that skips destructors for every frame above its landing site.  See the
+/// module-level documentation for the recommended nested-block pattern.
 pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
     unwind_with(UnwindReason::LibTrap(trap))
 }
@@ -221,17 +297,19 @@ pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
 ///
 /// # Safety
 ///
-/// Must only be called from Wasm-generated code running inside
-/// [`wasmer_call_trampoline`] / [`catch_traps`].
+/// All locally-owned values in the calling frame must be dropped before this
+/// function is called (see [`raise_lib_trap`] and the module-level
+/// documentation).
 pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
     unwind_with(UnwindReason::UserTrap(data))
 }
 
-/// Resume a Rust panic that was caught by the Wasm runtime.
+/// Forward a previously caught Rust panic to the installed unwinder.
 ///
 /// # Safety
 ///
-/// `payload` must be the value that was originally passed to `panic!`.
+/// `payload` must be the value originally passed to `panic!` and must not
+/// have been partially moved or invalidated since it was caught.
 pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
     unwind_with(UnwindReason::Panic(payload))
 }
