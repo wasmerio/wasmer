@@ -241,8 +241,11 @@ impl VirtualFile for File {
         self: Pin<&mut Self>,
         _cx: &mut std::task::Context<'_>,
     ) -> Poll<std::io::Result<usize>> {
-        let bytes_remaining =
-            self.content.get_ref().len() - usize::try_from(self.content.position()).unwrap();
+        let bytes_remaining = self
+            .content
+            .get_ref()
+            .len()
+            .saturating_sub(usize::try_from(self.content.position()).unwrap_or(usize::MAX));
         Poll::Ready(Ok(bytes_remaining))
     }
 
