@@ -392,7 +392,7 @@
 <a href=#392 id=392 data-nosnippet>392</a>        </span><span class="kw">let </span>p = CompilationProgressCallback::new(<span class="kw">move </span>|p| {
 <a href=#393 id=393 data-nosnippet>393</a>            progress.notify(ModuleLoadProgress::CompilingModule(p))
 <a href=#394 id=394 data-nosnippet>394</a>        });
-<a href=#395 id=395 data-nosnippet>395</a>        <span class="attr">#[cfg(feature = <span class="string">"sys-default"</span>)]
+<a href=#395 id=395 data-nosnippet>395</a>        <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 <a href=#396 id=396 data-nosnippet>396</a>        </span>{
 <a href=#397 id=397 data-nosnippet>397</a>            <span class="kw">if </span>engine.is_sys() {
 <a href=#398 id=398 data-nosnippet>398</a>                <span class="kw">use </span>wasmer::sys::NativeEngineExt;
@@ -401,7 +401,7 @@
 <a href=#401 id=401 data-nosnippet>401</a>                Module::new(<span class="kw-2">&amp;</span>engine, input.wasm())
 <a href=#402 id=402 data-nosnippet>402</a>            }
 <a href=#403 id=403 data-nosnippet>403</a>        }
-<a href=#404 id=404 data-nosnippet>404</a>        <span class="attr">#[cfg(not(feature = <span class="string">"sys-default"</span>))]
+<a href=#404 id=404 data-nosnippet>404</a>        <span class="attr">#[cfg(not(feature = <span class="string">"sys"</span>))]
 <a href=#405 id=405 data-nosnippet>405</a>        </span>{
 <a href=#406 id=406 data-nosnippet>406</a>            Module::new(<span class="kw-2">&amp;</span>engine, input.wasm())
 <a href=#407 id=407 data-nosnippet>407</a>        }
