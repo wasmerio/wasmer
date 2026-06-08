@@ -668,8 +668,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           version: v0.4.3
       - name: Install older wasix-libc for compatibility testing
-        run: |
-          WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
+        run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
         if: matrix.metadata.build != 'windows-x64'
       - name: Install LLVM
         shell: bash
