@@ -569,8 +569,8 @@ fn minimal_libc_skip_reason(config: &Config) -> Result<Option<String>> {
     };
 
     let is_supported = version_compare::compare_to(
-        normalize_libc_version(sysroot_version),
         normalize_libc_version(minimal_libc),
+        normalize_libc_version(sysroot_version),
         version_compare::Cmp::Ge,
     )
     .map_err(|_| anyhow!("cannot parse version strings: {sysroot_version}, {minimal_libc}"))?;
@@ -1297,11 +1297,11 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                         }
 
                         for sysroot in TESTED_LIBC_VERSIONS {
-// For performance reasons, run the wasix-libc compatibility tests
-// only with the Cranelift compiler.
-if sysroot.is_some() && *engine != Engine::Cranelift {
-    continue;
-}
+                            // For performance reasons, run the wasix-libc compatibility tests
+                            // only with the Cranelift compiler.
+                            if sysroot.is_some() && *engine != Engine::Cranelift {
+                                continue;
+                            }
 
                             let mut config = config.clone();
                             config.engine = *engine;
