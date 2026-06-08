@@ -1,6 +1,10 @@
 use super::*;
 use crate::syscalls::*;
 
+fn should_list_in_readdir(filetype: Filetype) -> bool {
+    filetype != Filetype::SymbolicLink
+}
+
 /// ### `fd_readdir()`
 /// Read data from directory specified by file descriptor
 /// Inputs:
@@ -51,30 +55,36 @@ pub fn fd_readdir<M: MemorySize>(
                         .collect::<Result<Vec<_>, _>>()
                         .map_err(fs_error_into_wasi_err)
                 );
-                let mut entry_vec = wasi_try_ok!(
-                    fs_info
+                let fs_entries = fs_info
+                    .into_iter()
+                    .map(|entry| {
+                        let filename = entry.file_name().to_string_lossy().to_string();
+                        trace!("getting file: {:?}", filename);
+                        let filetype = virtual_file_type_to_wasi_file_type(
+                            entry.file_type().map_err(fs_error_into_wasi_err)?,
+                        );
+                        Ok(should_list_in_readdir(filetype).then_some((
+                            filename, filetype, 0, // TODO: inode
+                        )))
+                    })
+                    .collect::<Result<Vec<Option<(String, Filetype, u64)>>, Errno>>();
+                let mut entry_vec: Vec<(String, Filetype, u64)> = wasi_try_ok!(fs_entries)
                         .into_iter()
-                        .map(|entry| {
-                            let filename = entry.file_name().to_string_lossy().to_string();
-                            trace!("getting file: {:?}", filename);
-                            let filetype = virtual_file_type_to_wasi_file_type(
-                                entry.file_type().map_err(fs_error_into_wasi_err)?,
-                            );
-                            Ok((
-                                filename, filetype, 0, // TODO: inode
-                            ))
-                        })
-                        .collect::<Result<Vec<(String, Filetype, u64)>, _>>()
-                );
+                        .flatten()
+                        .collect();
                 let entry_names: std::collections::HashSet<_> =
                     entry_vec.iter().map(|(name, _, _)| name.clone()).collect();
                 entry_vec.extend(
                     entries
                         .iter()
                         .filter(|(name, _)| !entry_names.contains(*name))
-                        .map(|(name, inode)| {
+                        .filter_map(|(name, inode)| {
                             let stat = inode.stat.read().unwrap();
-                            (name.clone(), stat.st_filetype, stat.st_ino)
+                            should_list_in_readdir(stat.st_filetype).then_some((
+                                name.clone(),
+                                stat.st_filetype,
+                                stat.st_ino,
+                            ))
                         }),
                 );
                 // adding . and .. special folders
