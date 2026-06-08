@@ -75,6 +75,7 @@ std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
 artifact-size = ["dep:loupe"]
+baremetal = ["wasmer-vm/baremetal"]
 
 [badges]
 maintenance = { status = "experimental" }
