@@ -3,7 +3,7 @@
 //! On conventional operating systems, Wasmer's trap handler uses OS signal
 //! infrastructure (`SIGSEGV`, `SIGFPE`, …) together with coroutine stacks
 //! managed by `corosensei`.  That machinery is absent on targets such as ZK
-//! virtual machines or embedded RTOSes that provide a Rust `std` environment
+//! virtual machines or embedded systems that provide a Rust `std` environment
 //! but no Unix/Windows signal delivery.
 //!
 //! > **`std` is still required.**  This module uses `std::sync::{Arc, Mutex}`
