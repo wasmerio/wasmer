@@ -66,5 +66,10 @@ sanitizer = ["corosensei/sanitizer"]
 
 experimental-host-interrupt = []
 
+# Compile the baremetal trap-handler backend instead of the OS signal-based one.
+# Enable this when targeting platforms that lack OS signal infrastructure
+# (bare-metal, ZK virtual machines, embedded environments).
+baremetal = []
+
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
