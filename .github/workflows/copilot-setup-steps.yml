@@ -72,6 +72,9 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           version: v0.4.3
+      - name: Install older wasix-libc for compatibility testing
+        run:
+          WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
       - name: Install wasm-tools
         run: |
           cargo install --locked wasm-tools
