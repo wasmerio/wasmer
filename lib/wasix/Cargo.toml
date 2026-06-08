@@ -227,7 +227,7 @@ sys = [
   "wasmer/js-serializable-module",
   "wasmer/sys",
 ]
-sys-default = ["sys", "wasmer/sys"]
+sys-default = ["sys"]
 sys-poll = []
 extra-logging = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]
