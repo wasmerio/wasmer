@@ -10,6 +10,22 @@
 //! addition is [`install_unwinder`]: it lets the host register a callback
 //! that is invoked whenever Wasm execution would normally raise a trap.
 //! Without an unwinder the trap is forwarded as a Rust panic.
+//!
+//! # Drop / destructor behaviour
+//!
+//! The OS backend catches traps at the coroutine boundary inside
+//! [`catch_traps`]; destructors are skipped only for frames between the raise
+//! site and that boundary.  `libcalls.rs` documents the pattern (nested block
+//! before `raise_lib_trap`) that ensures libcall-owned values are dropped
+//! before the raise.
+//!
+//! In baremetal mode there is no coroutine boundary.  When the installed
+//! unwinder exits — whether by `process::abort`, `longjmp`, or any other
+//! non-local transfer — **destructors are skipped for every Rust frame above
+//! the unwinder's landing site**, not just those inside a Wasm coroutine.
+//! The coding pattern from `libcalls.rs` is therefore even more important
+//! here: all libcall-owned values must be dropped in a nested block *before*
+//! any call to [`raise_lib_trap`] or [`raise_user_trap`].
 
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
@@ -192,6 +208,11 @@ fn unwind_with(reason: UnwindReason) -> ! {
 ///
 /// Must only be called from Wasm-generated code running inside
 /// [`wasmer_call_trampoline`] / [`catch_traps`].
+///
+/// All locally-owned values in the calling frame must be dropped *before*
+/// this function is called.  The installed unwinder will perform a non-local
+/// exit that skips destructors for every frame above its landing site.  See
+/// the module-level documentation for the recommended nested-block pattern.
 pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
     unwind_with(UnwindReason::LibTrap(trap))
 }
