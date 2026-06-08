@@ -248,13 +248,40 @@ thread_local! {
     static UNWINDING: Cell<bool> = const { Cell::new(false) };
 }
 
+struct UnwindingGuard;
+
+impl UnwindingGuard {
+    /// Set the flag and return a guard that clears it on drop.
+    ///
+    /// Returns `None` if the flag was already set (re-entrant call).
+    fn acquire() -> Option<Self> {
+        UNWINDING.with(|u| {
+            if u.replace(true) {
+                None
+            } else {
+                Some(UnwindingGuard)
+            }
+        })
+    }
+}
+
+impl Drop for UnwindingGuard {
+    fn drop(&mut self) {
+        UNWINDING.with(|u| u.set(false));
+    }
+}
+
 fn unwind_with(reason: UnwindReason) -> ! {
     // Detect re-entrant calls: if the unwinder itself triggers a trap we must
     // not recurse (doing so would corrupt its state or overflow the typically
     // tiny embedded stack).
-    if UNWINDING.with(|u| u.replace(true)) {
+    //
+    // The guard resets the flag in Drop, so if this function panics and the
+    // panic is caught by a higher-level catch_unwind, the thread-local is
+    // cleared and future traps on this thread are not misclassified.
+    let Some(_guard) = UnwindingGuard::acquire() else {
         panic!("wasm trap raised inside the baremetal unwinder (re-entrant unwinding): {reason}");
-    }
+    };
 
     // Clone the Arc while holding the lock, then release the lock before
     // invoking the callback so the callback can call `install_unwinder`
