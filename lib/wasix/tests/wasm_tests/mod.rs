@@ -265,7 +265,7 @@ impl Config {
 
     fn set_sysroot(&mut self, sysroot_version: &'static str) -> Result<()> {
         let sysroot_path = dirs::home_dir()
-            .unwrap()
+            .ok_or_else(|| anyhow!("cannot expand home dir"))?
             .join(format!(".wasixcc/sysroot-{sysroot_version}"));
         ensure!(
             sysroot_path.exists(),
