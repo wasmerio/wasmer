@@ -7580,6 +7580,7 @@ dependencies = [
  "crossbeam-channel",
  "dashmap",
  "derive_more",
+ "dirs",
  "env_logger",
  "flate2",
  "fnv",

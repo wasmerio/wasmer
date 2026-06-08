@@ -88,6 +88,8 @@ use wasmer_wasix::virtual_fs::{
 
 mod runner;
 
+const TESTED_LIBC_VERSIONS: &[Option<&str>] = &[None, Some("v2026-05-12.1")];
+
 fn should_emit_colour() -> bool {
     std::io::stdout().is_terminal()
         || std::env::var("CARGO_TERM_COLOR").as_deref() == Ok("always")
@@ -256,12 +258,24 @@ impl Config {
         parts.join("/")
     }
 
-    fn set_sysroot(&mut self, sysroot_version: &'static str) {
+    fn set_sysroot(&mut self, sysroot_version: &'static str) -> Result<()> {
+        let sysroot_path = dirs::home_dir()
+            .unwrap()
+            .join(format!(".wasixcc/sysroot-{sysroot_version}"));
+        ensure!(
+            sysroot_path.exists(),
+            "Missing sysroot, install with: `WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-{sysroot_version} wasixccenv download-sysroot {sysroot_version}`"
+        );
+
         self.sysroot_version = Some(sysroot_version);
         self.build_env.push((
             "WASIXCC_SYSROOT_PREFIX".to_owned(),
-            format!("/home/marxin/.wasixcc/sysroot-{}", sysroot_version),
+            sysroot_path
+                .to_str()
+                .expect("valid path expected")
+                .to_string(),
         ));
+        Ok(())
     }
 }
 
@@ -1243,12 +1257,12 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                             continue;
                         }
 
-                        for sysroot in [None, Some("v2026-05-12.1")] {
+                        for sysroot in TESTED_LIBC_VERSIONS {
                             let mut config = config.clone();
                             config.engine = *engine;
                             config.selected_file_system = *file_system;
                             if let Some(sysroot_version) = sysroot {
-                                config.set_sysroot(sysroot_version);
+                                config.set_sysroot(sysroot_version)?;
                             }
 
                             tests.push(libtest_mimic::Trial::ignorable_test(
