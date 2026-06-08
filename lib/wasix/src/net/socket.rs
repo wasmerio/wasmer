@@ -902,18 +902,18 @@ impl InodeSocket {
 
     pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
-        match &inner.kind {
-            InodeSocketKind::BoundTcp { .. } => Err(Errno::Notconn),
-            InodeSocketKind::PreSocket { props, .. } => Ok(SocketAddr::new(
+        Ok(match &inner.kind {
+            InodeSocketKind::BoundTcp { .. } => return Err(Errno::Notconn),
+            InodeSocketKind::PreSocket { props, .. } => SocketAddr::new(
                 match props.family {
                     Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
                     Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
                     _ => return Err(Errno::Inval),
                 },
                 0,
-            )),
+            ),
             InodeSocketKind::TcpStream { socket, .. } => {
-                socket.addr_peer().map_err(net_error_into_wasi_err)
+                socket.addr_peer().map_err(net_error_into_wasi_err)?
             }
             InodeSocketKind::UdpSocket { socket, peer } => {
                 if let Some(peer) = peer {
