@@ -1297,11 +1297,11 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                         }
 
                         for sysroot in TESTED_LIBC_VERSIONS {
-                            // For performance reasons, run the wasix-libc compatibility tests
-                            // only with the Cranelift compiler.
-                            if !(*engine == Engine::Cranelift && !sysroot.is_none()) {
-                                continue;
-                            }
+// For performance reasons, run the wasix-libc compatibility tests
+// only with the Cranelift compiler.
+if sysroot.is_some() && *engine != Engine::Cranelift {
+    continue;
+}
 
                             let mut config = config.clone();
                             config.engine = *engine;
