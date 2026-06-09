@@ -94,14 +94,13 @@ pub(crate) fn write_dl_error<M: MemorySize>(
         err = &err[..err_len];
     }
 
-    let mut buf = vec![0; err_len + 1];
-    buf[0..err_len].copy_from_slice(err.as_bytes());
-
     let Ok(err_len_offset) = M::Offset::try_from(err_len + 1) else {
         panic!("Failed to convert size to offset")
     };
     let mut err_buf = err_buf.slice(memory, err_len_offset)?.access()?;
-    err_buf.copy_from_slice(&buf[..]);
+    let dst = err_buf.as_mut();
+    dst[..err_len].copy_from_slice(err.as_bytes());
+    dst[err_len] = 0;
 
     Ok(())
 }
