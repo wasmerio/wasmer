@@ -7,7 +7,6 @@ use std::{
 use virtual_mio::{InterestHandler, InterestType};
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 struct NotificationState {
     /// Used for event notifications by the user application or operating system
     /// (positive number means there are events waiting to be processed)
@@ -17,10 +16,8 @@ struct NotificationState {
     /// Flag that indicates if this is operating
     is_semaphore: bool,
     /// All the registered wakers
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     wakers: VecDeque<Waker>,
     /// InterestHandler for use with epoll
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     interest_handler: Option<Box<dyn InterestHandler>>,
 }
 
@@ -63,10 +60,8 @@ impl NotificationState {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct NotificationInner {
     /// Receiver that wakes sleeping threads
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     state: Mutex<NotificationState>,
 }
 
