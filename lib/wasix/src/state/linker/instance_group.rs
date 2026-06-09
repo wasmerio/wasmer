@@ -395,11 +395,6 @@ impl InstanceGroupState {
                 }
                 self.finalize_pending_resolutions_from_linker(&pending_functions, store)?;
             }
-            DlOperation::ResolveFunction {
-                name,
-                resolved_from,
-                function_table_index,
-            } => self.apply_resolved_function(store, &name, resolved_from, function_table_index)?,
             DlOperation::AllocateFunctionTable { index, size } => {
                 self.apply_function_table_allocation(store, index, size)?
             }

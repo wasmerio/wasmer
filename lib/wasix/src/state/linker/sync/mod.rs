@@ -126,13 +126,6 @@ pub(super) use lock_instance_group_state;
 #[derive(Debug, Clone)]
 pub(super) enum DlOperation {
     LoadModules(Vec<ModuleHandle>),
-    ResolveFunction {
-        name: String,
-        resolved_from: ModuleHandle,
-        // This should match the current length of each instance group's function table
-        // minus one. Otherwise, we're out of sync and an error has been encountered.
-        function_table_index: u32,
-    },
     // Allocates slots in the function table
     AllocateFunctionTable {
         index: u32,

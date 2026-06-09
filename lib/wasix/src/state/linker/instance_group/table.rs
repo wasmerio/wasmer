@@ -129,7 +129,7 @@ impl InstanceGroupState {
         Ok(())
     }
 
-    pub(super) fn apply_resolved_function(
+    pub(crate) fn apply_resolved_function(
         &self,
         store: &mut impl AsStoreMut,
         name: &str,
@@ -155,6 +155,16 @@ impl InstanceGroupState {
             .map_err(LinkError::TableAllocationError)?;
 
         Ok(())
+    }
+
+    pub(in crate::state::linker) fn has_function_table_entry(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+    ) -> bool {
+        let table = &self.indirect_function_table;
+        index < table.size(store)
+            && matches!(table.get(store, index), Some(Value::FuncRef(Some(_))))
     }
 
     pub(super) fn apply_function_table_allocation(

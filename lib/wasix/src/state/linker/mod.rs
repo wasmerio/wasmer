@@ -1207,8 +1207,17 @@ impl Linker {
             match resolution {
                 SymbolResolutionResult::FunctionPointer {
                     function_table_index: addr,
-                    ..
+                    resolved_from,
                 } => {
+                    let mut store = ctx.as_store_mut();
+                    if !group_state.has_function_table_entry(&mut store, *addr) {
+                        group_state.apply_resolved_function(
+                            &mut store,
+                            symbol,
+                            *resolved_from,
+                            *addr,
+                        )?;
+                    }
                     return Ok(ResolvedExport::Function {
                         func_ptr: *addr as u64,
                     });
@@ -1234,9 +1243,10 @@ impl Linker {
             }
         }
 
-        let (topology_token, mut linker_state) = self
+        let mut linker_state = self
             .shared
-            .write_linker_state_with_topology(group_state, ctx)?;
+            .write_linker_state_with_topology(group_state, ctx)?
+            .1;
 
         let mut store = ctx.as_store_mut();
 
@@ -1284,18 +1294,10 @@ impl Linker {
                     },
                 );
 
-                self.shared.synchronize_link_operation(
-                    topology_token,
-                    DlOperation::ResolveFunction {
-                        name: symbol.to_string(),
-                        resolved_from,
-                        function_table_index: func_ptr,
-                    },
-                    linker_state,
-                    group_state,
-                    &ctx.data().process,
-                    ctx.data().tid(),
-                );
+                // Function pointer resolution is safe to replicate lazily. A synchronous
+                // all-group barrier can deadlock when another thread is running guest code and
+                // cannot enter the cooperative DL path; follower groups fill this table slot when
+                // they observe the cached FunctionPointer record.
 
                 Ok(ResolvedExport::Function {
                     func_ptr: func_ptr as u64,
