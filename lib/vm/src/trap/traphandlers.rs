@@ -6,10 +6,10 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
+use super::trap::UnwindReason;
+use crate::Trap;
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]
 use crate::interrupt_registry;
-use crate::Trap;
-use super::trap::UnwindReason;
 use backtrace::Backtrace;
 use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
@@ -826,7 +826,6 @@ pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
 pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
     unsafe { unwind_with(UnwindReason::Panic(payload)) }
 }
-
 
 /// Catches any wasm traps that happen within the execution of `closure`,
 /// returning them as a `Result`.

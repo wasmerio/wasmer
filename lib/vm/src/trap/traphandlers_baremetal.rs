@@ -11,12 +11,7 @@
 use super::trap::UnwindReason;
 use crate::Trap;
 use std::{
-    any::Any,
-    cell::Cell,
-    error::Error,
-    sync::Mutex,
-    convert::Infallible,
-    marker::PhantomData
+    any::Any, cell::Cell, convert::Infallible, error::Error, marker::PhantomData, sync::Mutex,
 };
 
 /// Uninhabited type - no OS signals exist, so no handler can be constructed.
@@ -73,7 +68,6 @@ where
 {
     Ok(closure())
 }
-
 
 /// Registered unwinder, if any.
 static UNWINDER: Mutex<Option<Box<dyn Fn(UnwindReason) + Send>>> = Mutex::new(None);
