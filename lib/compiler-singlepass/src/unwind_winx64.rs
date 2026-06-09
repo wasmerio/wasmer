@@ -1,6 +1,6 @@
 //! Windows x64 ABI unwind information.
-//!
-//! #[cfg(feature = "enable-serde")]
+
+#[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 
 use crate::{
