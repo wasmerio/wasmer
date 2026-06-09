@@ -1007,6 +1007,7 @@ where
                 address_map,
                 traps: vec![],
             },
+            maximum_stack_usage: None,
         },
         custom_sections,
         eh_frame_section_indices,
