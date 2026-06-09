@@ -9,17 +9,11 @@
 //! Drop all locals before calling the raise functions.
 
 use super::trap::UnwindReason;
-use crate::{
-    vmcontext::{VMFunctionContext, VMTrampoline},
-    Trap,
-    VMContext,
-    VMFunctionBody
-};
+use crate::Trap;
 use std::{
     any::Any,
     cell::Cell,
     error::Error,
-    mem,
     sync::Mutex,
     convert::Infallible,
     marker::PhantomData
@@ -27,6 +21,8 @@ use std::{
 
 /// Uninhabited type - no OS signals exist, so no handler can be constructed.
 pub enum TrapHandlerFn<'a> {
+    #[doc(hidden)]
+    /// Uninhabited variant; carries the lifetime. Cannot be constructed.
     _Uninhabited(Infallible, PhantomData<&'a ()>),
 }
 
@@ -78,42 +74,6 @@ where
     Ok(closure())
 }
 
-/// Call the wasm function pointed to by `callee`.
-///
-/// * `vmctx` - the callee vmctx argument
-/// * `caller_vmctx` - the caller vmctx argument
-/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
-///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
-///   `values_vec` argument.
-/// * `callee` - the third argument to the `trampoline` function
-/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
-///   which the outgoing return values will be written.
-///
-/// # Safety
-///
-/// Wildly unsafe because it calls raw function pointers and reads/writes raw
-/// function pointers.
-pub unsafe fn wasmer_call_trampoline(
-    trap_handler: Option<*const TrapHandlerFn<'static>>,
-    config: &VMConfig,
-    vmctx: VMFunctionContext,
-    trampoline: VMTrampoline,
-    callee: *const VMFunctionBody,
-    values_vec: *mut u8,
-) -> Result<(), Trap> {
-    unsafe {
-        catch_traps(trap_handler, config, move || {
-            mem::transmute::<
-                unsafe extern "C" fn(
-                    *mut VMContext,
-                    *const VMFunctionBody,
-                    *mut wasmer_types::RawValue,
-                ),
-                extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
-            >(trampoline)(vmctx, callee, values_vec);
-        })
-    }
-}
 
 /// Registered unwinder, if any.
 static UNWINDER: Mutex<Option<Box<dyn Fn(UnwindReason) + Send>>> = Mutex::new(None);

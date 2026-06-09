@@ -8,8 +8,7 @@
 
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]
 use crate::interrupt_registry;
-use crate::vmcontext::{VMFunctionContext, VMTrampoline};
-use crate::{Trap, VMContext, VMFunctionBody};
+use crate::Trap;
 use super::trap::UnwindReason;
 use backtrace::Backtrace;
 use bytesize::ByteSize;
@@ -828,42 +827,6 @@ pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
     unsafe { unwind_with(UnwindReason::Panic(payload)) }
 }
 
-/// Call the wasm function pointed to by `callee`.
-///
-/// * `vmctx` - the callee vmctx argument
-/// * `caller_vmctx` - the caller vmctx argument
-/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
-///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
-///   `values_vec` argument.
-/// * `callee` - the third argument to the `trampoline` function
-/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
-///   which the outgoing return values will be written.
-///
-/// # Safety
-///
-/// Wildly unsafe because it calls raw function pointers and reads/writes raw
-/// function pointers.
-pub unsafe fn wasmer_call_trampoline(
-    trap_handler: Option<*const TrapHandlerFn<'static>>,
-    config: &VMConfig,
-    vmctx: VMFunctionContext,
-    trampoline: VMTrampoline,
-    callee: *const VMFunctionBody,
-    values_vec: *mut u8,
-) -> Result<(), Trap> {
-    unsafe {
-        catch_traps(trap_handler, config, move || {
-            mem::transmute::<
-                unsafe extern "C" fn(
-                    *mut VMContext,
-                    *const VMFunctionBody,
-                    *mut wasmer_types::RawValue,
-                ),
-                extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
-            >(trampoline)(vmctx, callee, values_vec);
-        })
-    }
-}
 
 /// Catches any wasm traps that happen within the execution of `closure`,
 /// returning them as a `Result`.
