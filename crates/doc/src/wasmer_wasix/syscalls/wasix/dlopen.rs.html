@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasix/dlopen.rs`."><title>dlopen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/wasix/</div>dlopen.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasix/dlopen.rs`."><title>dlopen.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/wasix/</div>dlopen.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#2 id=2 data-nosnippet>2</a><span class="kw">use crate</span>::{state::DlModuleSpec, syscalls::<span class="kw-2">*</span>};
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a><span class="comment">// TODO: add journal events for dl-related syscalls
@@ -77,22 +77,69 @@
 <a href=#77 id=77 data-nosnippet>77</a>    err_buf: WasmPtr&lt;u8, M&gt;,
 <a href=#78 id=78 data-nosnippet>78</a>    err_buf_len: u64,
 <a href=#79 id=79 data-nosnippet>79</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryAccessError&gt; {
-<a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span><span class="kw-2">mut </span>err_len = err.len();
+<a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span>err_buf_len = err_buf_len <span class="kw">as </span>usize;
 <a href=#81 id=81 data-nosnippet>81</a>
-<a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">if </span>err_len &gt; err_buf_len <span class="kw">as </span>usize {
-<a href=#83 id=83 data-nosnippet>83</a>        err_len = err_buf_len <span class="kw">as </span>usize - <span class="number">1</span>;
-<a href=#84 id=84 data-nosnippet>84</a>        err = <span class="kw-2">&amp;</span>err[..err_len];
-<a href=#85 id=85 data-nosnippet>85</a>    }
-<a href=#86 id=86 data-nosnippet>86</a>
-<a href=#87 id=87 data-nosnippet>87</a>    <span class="kw">let </span><span class="kw-2">mut </span>buf = <span class="macro">vec!</span>[<span class="number">0</span>; err_len + <span class="number">1</span>];
-<a href=#88 id=88 data-nosnippet>88</a>    buf[<span class="number">0</span>..err_len].copy_from_slice(err.as_bytes());
-<a href=#89 id=89 data-nosnippet>89</a>
-<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">let </span><span class="prelude-val">Ok</span>(err_len_offset) = M::Offset::try_from(err_len + <span class="number">1</span>) <span class="kw">else </span>{
-<a href=#91 id=91 data-nosnippet>91</a>        <span class="macro">panic!</span>(<span class="string">"Failed to convert size to offset"</span>)
-<a href=#92 id=92 data-nosnippet>92</a>    };
-<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">let </span><span class="kw-2">mut </span>err_buf = err_buf.slice(memory, err_len_offset)<span class="question-mark">?</span>.access()<span class="question-mark">?</span>;
-<a href=#94 id=94 data-nosnippet>94</a>    err_buf.copy_from_slice(<span class="kw-2">&amp;</span>buf[..]);
-<a href=#95 id=95 data-nosnippet>95</a>
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="prelude-val">Ok</span>(())
-<a href=#97 id=97 data-nosnippet>97</a>}
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="comment">// The message is always written with a trailing NUL, so a zero-length
+<a href=#83 id=83 data-nosnippet>83</a>    // buffer leaves no room for anything.
+<a href=#84 id=84 data-nosnippet>84</a>    </span><span class="kw">if </span>err_buf_len == <span class="number">0 </span>{
+<a href=#85 id=85 data-nosnippet>85</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#86 id=86 data-nosnippet>86</a>    }
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="comment">// Reserve one byte for the trailing NUL.
+<a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">let </span>max_err_len = err_buf_len - <span class="number">1</span>;
+<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">let </span><span class="kw-2">mut </span>err_len = err.len();
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a>    <span class="kw">if </span>err_len &gt; max_err_len {
+<a href=#93 id=93 data-nosnippet>93</a>        err_len = max_err_len;
+<a href=#94 id=94 data-nosnippet>94</a>        err = <span class="kw-2">&amp;</span>err[..err_len];
+<a href=#95 id=95 data-nosnippet>95</a>    }
+<a href=#96 id=96 data-nosnippet>96</a>
+<a href=#97 id=97 data-nosnippet>97</a>    <span class="kw">let </span><span class="prelude-val">Ok</span>(err_len_offset) = M::Offset::try_from(err_len + <span class="number">1</span>) <span class="kw">else </span>{
+<a href=#98 id=98 data-nosnippet>98</a>        <span class="macro">panic!</span>(<span class="string">"Failed to convert size to offset"</span>)
+<a href=#99 id=99 data-nosnippet>99</a>    };
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">let </span><span class="kw-2">mut </span>err_buf = err_buf.slice(memory, err_len_offset)<span class="question-mark">?</span>.access()<span class="question-mark">?</span>;
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="kw">let </span>dst = err_buf.as_mut();
+<a href=#102 id=102 data-nosnippet>102</a>    dst[..err_len].copy_from_slice(err.as_bytes());
+<a href=#103 id=103 data-nosnippet>103</a>    dst[err_len] = <span class="number">0</span>;
+<a href=#104 id=104 data-nosnippet>104</a>
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="prelude-val">Ok</span>(())
+<a href=#106 id=106 data-nosnippet>106</a>}
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a><span class="attr">#[cfg(all(test, not(target_arch = <span class="string">"wasm32"</span>)))]
+<a href=#109 id=109 data-nosnippet>109</a></span><span class="kw">mod </span>tests {
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">use </span><span class="kw">super</span>::write_dl_error;
+<a href=#111 id=111 data-nosnippet>111</a>    <span class="kw">use </span>wasmer::{Memory, Memory32, MemoryType, Store, WasmPtr};
+<a href=#112 id=112 data-nosnippet>112</a>
+<a href=#113 id=113 data-nosnippet>113</a>    <span class="attr">#[test]
+<a href=#114 id=114 data-nosnippet>114</a>    </span><span class="kw">fn </span>write_dl_error_zero_len_buffer_writes_nothing() {
+<a href=#115 id=115 data-nosnippet>115</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
+<a href=#116 id=116 data-nosnippet>116</a>        <span class="kw">let </span>memory = Memory::new(<span class="kw-2">&amp;mut </span>store, MemoryType::new(<span class="number">1</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>)).unwrap();
+<a href=#117 id=117 data-nosnippet>117</a>        <span class="kw">let </span>view = memory.view(<span class="kw-2">&amp;</span>store);
+<a href=#118 id=118 data-nosnippet>118</a>
+<a href=#119 id=119 data-nosnippet>119</a>        <span class="comment">// A guest-supplied err_buf_len of 0 leaves no room even for the NUL
+<a href=#120 id=120 data-nosnippet>120</a>        // terminator. The old accounting computed `0 - 1`, underflowing usize.
+<a href=#121 id=121 data-nosnippet>121</a>        </span><span class="kw">let </span>err_buf = WasmPtr::&lt;u8, Memory32&gt;::new(<span class="number">0</span>);
+<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">let </span>res = write_dl_error::&lt;Memory32&gt;(<span class="string">"failed to load module"</span>, <span class="kw-2">&amp;</span>view, err_buf, <span class="number">0</span>);
+<a href=#123 id=123 data-nosnippet>123</a>        <span class="macro">assert!</span>(res.is_ok());
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="macro">assert_eq!</span>(view.read_u8(<span class="number">0</span>).unwrap(), <span class="number">0</span>);
+<a href=#125 id=125 data-nosnippet>125</a>    }
+<a href=#126 id=126 data-nosnippet>126</a>
+<a href=#127 id=127 data-nosnippet>127</a>    <span class="attr">#[test]
+<a href=#128 id=128 data-nosnippet>128</a>    </span><span class="kw">fn </span>write_dl_error_reserves_room_for_nul() {
+<a href=#129 id=129 data-nosnippet>129</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
+<a href=#130 id=130 data-nosnippet>130</a>        <span class="kw">let </span>memory = Memory::new(<span class="kw-2">&amp;mut </span>store, MemoryType::new(<span class="number">1</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>)).unwrap();
+<a href=#131 id=131 data-nosnippet>131</a>        <span class="kw">let </span>view = memory.view(<span class="kw-2">&amp;</span>store);
+<a href=#132 id=132 data-nosnippet>132</a>
+<a href=#133 id=133 data-nosnippet>133</a>        <span class="comment">// err_buf_len equal to the message length must still keep the NUL
+<a href=#134 id=134 data-nosnippet>134</a>        // inside the buffer rather than spilling one byte past it.
+<a href=#135 id=135 data-nosnippet>135</a>        </span><span class="kw">let </span>msg = <span class="string">"abcd"</span>;
+<a href=#136 id=136 data-nosnippet>136</a>        <span class="kw">let </span>err_buf = WasmPtr::&lt;u8, Memory32&gt;::new(<span class="number">0</span>);
+<a href=#137 id=137 data-nosnippet>137</a>        write_dl_error::&lt;Memory32&gt;(msg, <span class="kw-2">&amp;</span>view, err_buf, msg.len() <span class="kw">as </span>u64).unwrap();
+<a href=#138 id=138 data-nosnippet>138</a>
+<a href=#139 id=139 data-nosnippet>139</a>        <span class="kw">let </span><span class="kw-2">mut </span>got = [<span class="number">1u8</span>; <span class="number">5</span>];
+<a href=#140 id=140 data-nosnippet>140</a>        view.read(<span class="number">0</span>, <span class="kw-2">&amp;mut </span>got).unwrap();
+<a href=#141 id=141 data-nosnippet>141</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>got[..<span class="number">4</span>], <span class="string">b"abc\0"</span>);
+<a href=#142 id=142 data-nosnippet>142</a>        <span class="macro">assert_eq!</span>(got[<span class="number">4</span>], <span class="number">0</span>);
+<a href=#143 id=143 data-nosnippet>143</a>    }
+<a href=#144 id=144 data-nosnippet>144</a>}
 </code></pre></div></section></main></body></html>
