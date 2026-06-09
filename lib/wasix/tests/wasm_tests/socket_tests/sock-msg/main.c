@@ -8,27 +8,16 @@
 #include <unistd.h>
 #include <wasi/api_wasix.h>
 
-static int32_t test_imported_sock_send_msg(int32_t fd,
-                                           int32_t si_data,
-                                           int32_t si_data_len,
-                                           int32_t si_flags,
-                                           int32_t addr,
-                                           int32_t si_control,
-                                           int32_t si_control_len,
-                                           int32_t ret_data_len)
-    __attribute__((__import_module__("wasix_32v1"),
-                   __import_name__("sock_send_msg")));
+static int32_t test_imported_sock_send_msg(
+    int32_t fd, int32_t si_data, int32_t si_data_len, int32_t si_flags,
+    int32_t addr, int32_t si_control, int32_t si_control_len,
+    int32_t ret_data_len) __attribute__((__import_module__("wasix_32v1"),
+                                         __import_name__("sock_send_msg")));
 
-static int32_t test_imported_sock_recv_msg(int32_t fd,
-                                           int32_t ri_data,
-                                           int32_t ri_data_len,
-                                           int32_t ri_flags,
-                                           int32_t addr,
-                                           int32_t ro_control,
-                                           int32_t ro_control_len,
-                                           int32_t ro_data_len,
-                                           int32_t ro_flags,
-                                           int32_t ro_control_len_out)
+static int32_t test_imported_sock_recv_msg(
+    int32_t fd, int32_t ri_data, int32_t ri_data_len, int32_t ri_flags,
+    int32_t addr, int32_t ro_control, int32_t ro_control_len,
+    int32_t ro_data_len, int32_t ro_flags, int32_t ro_control_len_out)
     __attribute__((__import_module__("wasix_32v1"),
                    __import_name__("sock_recv_msg")));
 
@@ -59,8 +48,8 @@ int main(void) {
   receiver_addr.sin_family = AF_INET;
   receiver_addr.sin_port = htons(0);
   receiver_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-  if (bind(receiver, (struct sockaddr*)&receiver_addr,
-           sizeof(receiver_addr)) != 0) {
+  if (bind(receiver, (struct sockaddr*)&receiver_addr, sizeof(receiver_addr)) !=
+      0) {
     perror("receiver bind");
     close(sender);
     close(receiver);
@@ -81,14 +70,13 @@ int main(void) {
 
   const char payload[] = "hello from sock_msg";
   __wasi_ciovec_t send_iov = {
-    .buf = (const uint8_t*)payload,
-    .buf_len = strlen(payload),
+      .buf = (const uint8_t*)payload,
+      .buf_len = strlen(payload),
   };
   __wasi_size_t sent = 0;
   __wasi_errno_t err = (__wasi_errno_t)test_imported_sock_send_msg(
       sender, (int32_t)(intptr_t)&send_iov, 1, 0,
-      (int32_t)(intptr_t)&wasi_receiver_addr, 0, 0,
-      (int32_t)(intptr_t)&sent);
+      (int32_t)(intptr_t)&wasi_receiver_addr, 0, 0, (int32_t)(intptr_t)&sent);
 
   if (err != __WASI_ERRNO_SUCCESS) {
     fprintf(stderr, "sock_send_msg failed: %u\n", err);
@@ -105,8 +93,8 @@ int main(void) {
 
   char buf[64] = {0};
   __wasi_iovec_t recv_iov = {
-    .buf = (uint8_t*)buf,
-    .buf_len = sizeof(buf) - 1,
+      .buf = (uint8_t*)buf,
+      .buf_len = sizeof(buf) - 1,
   };
   uint8_t control[64] = {0};
   __wasi_size_t received = 0;

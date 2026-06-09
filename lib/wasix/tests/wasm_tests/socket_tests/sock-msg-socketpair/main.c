@@ -16,27 +16,16 @@ typedef struct __wasi_sock_cmsg_t {
 } __wasi_sock_cmsg_t;
 #endif
 
-static int32_t test_imported_sock_send_msg(int32_t fd,
-                                           int32_t si_data,
-                                           int32_t si_data_len,
-                                           int32_t si_flags,
-                                           int32_t addr,
-                                           int32_t si_control,
-                                           int32_t si_control_len,
-                                           int32_t ret_data_len)
-    __attribute__((__import_module__("wasix_32v1"),
-                   __import_name__("sock_send_msg")));
+static int32_t test_imported_sock_send_msg(
+    int32_t fd, int32_t si_data, int32_t si_data_len, int32_t si_flags,
+    int32_t addr, int32_t si_control, int32_t si_control_len,
+    int32_t ret_data_len) __attribute__((__import_module__("wasix_32v1"),
+                                         __import_name__("sock_send_msg")));
 
-static int32_t test_imported_sock_recv_msg(int32_t fd,
-                                           int32_t ri_data,
-                                           int32_t ri_data_len,
-                                           int32_t ri_flags,
-                                           int32_t addr,
-                                           int32_t ro_control,
-                                           int32_t ro_control_len,
-                                           int32_t ro_data_len,
-                                           int32_t ro_flags,
-                                           int32_t ro_control_len_out)
+static int32_t test_imported_sock_recv_msg(
+    int32_t fd, int32_t ri_data, int32_t ri_data_len, int32_t ri_flags,
+    int32_t addr, int32_t ro_control, int32_t ro_control_len,
+    int32_t ro_data_len, int32_t ro_flags, int32_t ro_control_len_out)
     __attribute__((__import_module__("wasix_32v1"),
                    __import_name__("sock_recv_msg")));
 
@@ -49,8 +38,8 @@ static int check_payload_round_trip(void) {
 
   const char payload[] = "hello from sock_msg socketpair";
   __wasi_ciovec_t send_iov = {
-    .buf = (const uint8_t*)payload,
-    .buf_len = strlen(payload),
+      .buf = (const uint8_t*)payload,
+      .buf_len = strlen(payload),
   };
   __wasi_size_t sent = 0;
   __wasi_errno_t err = (__wasi_errno_t)test_imported_sock_send_msg(
@@ -72,8 +61,8 @@ static int check_payload_round_trip(void) {
 
   char buf[64] = {0};
   __wasi_iovec_t recv_iov = {
-    .buf = (uint8_t*)buf,
-    .buf_len = sizeof(buf) - 1,
+      .buf = (uint8_t*)buf,
+      .buf_len = sizeof(buf) - 1,
   };
   uint8_t control[64] = {0};
   __wasi_size_t received = 0;
@@ -118,8 +107,8 @@ static int check_control_send_is_rejected(void) {
 
   const char payload[] = "x";
   __wasi_ciovec_t iov = {
-    .buf = (const uint8_t*)payload,
-    .buf_len = strlen(payload),
+      .buf = (const uint8_t*)payload,
+      .buf_len = strlen(payload),
   };
 
   uint8_t control[sizeof(__wasi_sock_cmsg_t) + sizeof(__wasi_fd_t)] = {0};
@@ -132,8 +121,8 @@ static int check_control_send_is_rejected(void) {
 
   __wasi_size_t sent = 99;
   __wasi_errno_t err = (__wasi_errno_t)test_imported_sock_send_msg(
-      sockets[0], (int32_t)(intptr_t)&iov, 1, 0, 0,
-      (int32_t)(intptr_t)control, sizeof(control), (int32_t)(intptr_t)&sent);
+      sockets[0], (int32_t)(intptr_t)&iov, 1, 0, 0, (int32_t)(intptr_t)control,
+      sizeof(control), (int32_t)(intptr_t)&sent);
 
   if (err != __WASI_ERRNO_NOTSUP) {
     fprintf(stderr, "expected NOTSUP for control data, got: %u\n", err);
@@ -148,10 +137,8 @@ static int check_control_send_is_rejected(void) {
 }
 
 int main(void) {
-  if (check_payload_round_trip() != 0)
-    return 1;
-  if (check_control_send_is_rejected() != 0)
-    return 1;
+  if (check_payload_round_trip() != 0) return 1;
+  if (check_control_send_is_rejected() != 0) return 1;
 
   puts("sock_msg socketpair works");
   return 0;
