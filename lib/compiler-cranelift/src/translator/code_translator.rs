@@ -123,6 +123,7 @@ macro_rules! unwrap_or_return_unreachable_state {
 }
 
 pub(crate) enum MemoryAliasRegion {
+    Heap,
     Table,
 }
 
@@ -136,8 +137,12 @@ pub fn set_memflags_alias_region(
     region: MemoryAliasRegion,
 ) {
     flags.set_alias_region(Some(func.dfg.alias_regions.insert(match region {
-        MemoryAliasRegion::Table => ir::AliasRegionData {
+        MemoryAliasRegion::Heap => ir::AliasRegionData {
             user_id: 0,
+            description: "heap".into(),
+        },
+        MemoryAliasRegion::Table => ir::AliasRegionData {
+            user_id: 1,
             description: "table".into(),
         },
     })));
@@ -2951,6 +2956,12 @@ fn prepare_addr(
     // guarantee. WebAssembly memory accesses are always little-endian.
     let mut flags = MemFlagsData::new();
     flags.set_endianness(ir::Endianness::Little);
+
+    // The access occurs to the `heap` disjoint category of abstract
+    // state. This may allow alias analysis to merge redundant loads,
+    // etc. when heap accesses occur interleaved with other (table,
+    // vmctx, stack) accesses.
+    set_memflags_alias_region(builder.func, &mut flags, MemoryAliasRegion::Heap);
 
     Ok(Reachability::Reachable((flags, index, addr)))
 }
