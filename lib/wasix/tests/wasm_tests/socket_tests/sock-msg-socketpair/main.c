@@ -1,6 +1,6 @@
-//#ExpectedStdout: sock_send_msg works
-#include <stdio.h>
+//#ExpectedStdout: sock_msg socketpair works
 #include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -27,40 +27,80 @@ static int32_t test_imported_sock_send_msg(int32_t fd,
     __attribute__((__import_module__("wasix_32v1"),
                    __import_name__("sock_send_msg")));
 
-static int check_payload_only_send(void) {
+static int32_t test_imported_sock_recv_msg(int32_t fd,
+                                           int32_t ri_data,
+                                           int32_t ri_data_len,
+                                           int32_t ri_flags,
+                                           int32_t addr,
+                                           int32_t ro_control,
+                                           int32_t ro_control_len,
+                                           int32_t ro_data_len,
+                                           int32_t ro_flags,
+                                           int32_t ro_control_len_out)
+    __attribute__((__import_module__("wasix_32v1"),
+                   __import_name__("sock_recv_msg")));
+
+static int check_payload_round_trip(void) {
   int sockets[2];
   if (socketpair(AF_UNIX, SOCK_STREAM, 0, sockets) != 0) {
     perror("socketpair");
     return 1;
   }
 
-  const char payload[] = "hello from sock_send_msg";
-  __wasi_ciovec_t iov = {
+  const char payload[] = "hello from sock_msg socketpair";
+  __wasi_ciovec_t send_iov = {
     .buf = (const uint8_t*)payload,
     .buf_len = strlen(payload),
   };
   __wasi_size_t sent = 0;
   __wasi_errno_t err = (__wasi_errno_t)test_imported_sock_send_msg(
-      sockets[0], (int32_t)(intptr_t)&iov, 1, 0, 0, 0, 0,
+      sockets[0], (int32_t)(intptr_t)&send_iov, 1, 0, 0, 0, 0,
       (int32_t)(intptr_t)&sent);
 
   if (err != __WASI_ERRNO_SUCCESS) {
     fprintf(stderr, "sock_send_msg failed: %u\n", err);
+    close(sockets[0]);
+    close(sockets[1]);
     return 1;
   }
   if (sent != strlen(payload)) {
     fprintf(stderr, "unexpected sent length: %lu\n", sent);
+    close(sockets[0]);
+    close(sockets[1]);
     return 1;
   }
 
   char buf[64] = {0};
-  ssize_t received = recv(sockets[1], buf, sizeof(buf) - 1, 0);
-  if (received < 0) {
-    perror("recv");
+  __wasi_iovec_t recv_iov = {
+    .buf = (uint8_t*)buf,
+    .buf_len = sizeof(buf) - 1,
+  };
+  uint8_t control[64] = {0};
+  __wasi_size_t received = 0;
+  __wasi_roflags_t flags = 0xffff;
+  __wasi_size_t control_len = 99;
+  err = (__wasi_errno_t)test_imported_sock_recv_msg(
+      sockets[1], (int32_t)(intptr_t)&recv_iov, 1, 0, 0,
+      (int32_t)(intptr_t)control, sizeof(control), (int32_t)(intptr_t)&received,
+      (int32_t)(intptr_t)&flags, (int32_t)(intptr_t)&control_len);
+
+  if (err != __WASI_ERRNO_SUCCESS) {
+    fprintf(stderr, "sock_recv_msg failed: %u\n", err);
+    close(sockets[0]);
+    close(sockets[1]);
     return 1;
   }
-  if ((size_t)received != strlen(payload) || strcmp(buf, payload) != 0) {
+  if (received != strlen(payload) || strcmp(buf, payload) != 0) {
     fprintf(stderr, "unexpected payload: %s\n", buf);
+    close(sockets[0]);
+    close(sockets[1]);
+    return 1;
+  }
+  if (flags != 0 || control_len != 0) {
+    fprintf(stderr, "unexpected recv metadata: flags=%u control_len=%lu\n",
+            flags, control_len);
+    close(sockets[0]);
+    close(sockets[1]);
     return 1;
   }
 
@@ -97,6 +137,8 @@ static int check_control_send_is_rejected(void) {
 
   if (err != __WASI_ERRNO_NOTSUP) {
     fprintf(stderr, "expected NOTSUP for control data, got: %u\n", err);
+    close(sockets[0]);
+    close(sockets[1]);
     return 1;
   }
 
@@ -106,11 +148,11 @@ static int check_control_send_is_rejected(void) {
 }
 
 int main(void) {
-  if (check_payload_only_send() != 0)
+  if (check_payload_round_trip() != 0)
     return 1;
   if (check_control_send_is_rejected() != 0)
     return 1;
 
-  puts("sock_send_msg works");
+  puts("sock_msg socketpair works");
   return 0;
 }
