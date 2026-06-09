@@ -269,6 +269,8 @@ enum NativeCallType {
     Unreachable,
 }
 
+const RED_ZONE_SIZE: usize = 32;
+
 impl<'a, M: Machine> FuncGen<'a, M> {
     /// Acquires location from the machine state.
     ///
@@ -917,7 +919,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // simulate "red zone" if not supported by the platform
         self.add_assembly_comment(AssemblyComment::RedZone);
-        self.machine.extend_stack(32)?;
+        self.stack_offset += RED_ZONE_SIZE;
+        self.machine.extend_stack(RED_ZONE_SIZE as u32)?;
 
         let return_types: SmallVec<_> = self
             .signature
@@ -5863,6 +5866,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         data: &FunctionBodyData,
         arch: Architecture,
     ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
+        self.stack_offset -= RED_ZONE_SIZE;
+
         self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
         // Generate actual code for special labels.
         self.machine
