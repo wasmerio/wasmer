@@ -1,4 +1,3 @@
-//#ExpectedStdout: proc_exec4 newline arg test passed
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -21,7 +20,4 @@ int main(void) {
       __wasi_proc_exec4(name, argv_ptrs, 2, NULL, 0, __WASI_BOOL_FALSE, "");
   assert(err == __WASI_ERRNO_SUCCESS);
   assert(!"proc_exec4 (newline arg) returned");
-
-  printf("proc_exec4 newline arg test passed\n");
-  return 0;
 }

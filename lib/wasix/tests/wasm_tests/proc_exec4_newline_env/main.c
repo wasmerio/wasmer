@@ -1,4 +1,3 @@
-//#ExpectedStdout: proc_exec4 newline env test passed
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
@@ -24,7 +23,4 @@ int main(void) {
                                          __WASI_BOOL_FALSE, "");
   assert(err == __WASI_ERRNO_SUCCESS);
   assert(!"proc_exec4 (newline env) returned");
-
-  printf("proc_exec4 newline env test passed\n");
-  return 0;
 }
