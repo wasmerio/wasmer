@@ -39,15 +39,18 @@
 //!
 use std::{
     collections::VecDeque,
+    pin::Pin,
     sync::{
         Arc, Mutex as StdMutex,
         atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
     },
+    task::{Context, Poll},
 };
 
 use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
+use virtual_fs::VirtualFile;
 use virtual_mio::{InterestHandler, InterestType};
 use virtual_net::net_error_into_io_err;
 use wasmer_wasix_types::wasi::{
@@ -462,6 +465,44 @@ fn prime_immediate_writable_if_applicable(
     }
 }
 
+fn prime_immediate_readable_if_applicable(
+    event: &EpollFd,
+    fd_guard: &InodeValFilePollGuard,
+    epoll_state: &Arc<EpollState>,
+    sub_state: &Arc<EpollSubState>,
+) {
+    if !event.events().contains(EpollType::EPOLLIN) {
+        return;
+    }
+
+    let waker = futures::task::noop_waker();
+    let mut cx = Context::from_waker(&waker);
+    let readable_now = match &fd_guard.mode {
+        InodeValFilePollGuardMode::DuplexPipe { pipe } => {
+            let mut guard = pipe.write().unwrap();
+            let pipe = Pin::new(guard.as_mut());
+            matches!(pipe.poll_read_ready(&mut cx), Poll::Ready(Ok(n)) if n > 0)
+        }
+        InodeValFilePollGuardMode::PipeRx { rx } => {
+            let mut guard = rx.write().unwrap();
+            let rx = Pin::new(guard.as_mut());
+            matches!(rx.poll_read_ready(&mut cx), Poll::Ready(Ok(n)) if n > 0)
+        }
+        _ => false,
+    };
+
+    if !readable_now {
+        return;
+    }
+
+    sub_state
+        .pending_bits
+        .fetch_or(READABLE_BIT, Ordering::AcqRel);
+    if sub_state.mark_enqueued() {
+        epoll_state.enqueue_ready(event.fd(), sub_state.generation());
+    }
+}
+
 /// Re-enqueues a subscription if new pending bits arrived during/after consumer drain.
 fn repair_ready_queue_after_drain(
     epoll_state: &Arc<EpollState>,
@@ -642,6 +683,7 @@ pub(crate) fn register_epoll_handler(
         }
     }
 
+    prime_immediate_readable_if_applicable(event, &fd_guard, &epoll_state, &sub_state);
     prime_immediate_writable_if_applicable(event, &fd_guard, &epoll_state, &sub_state);
 
     Ok(Some(EpollJoinGuard::new(fd_guard)))
@@ -660,7 +702,10 @@ pub(crate) fn epoll_empty_dequeue_entry() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::sync::RwLock;
+    use std::{
+        io::{Read, Write},
+        sync::RwLock,
+    };
     use virtual_fs::Pipe;
 
     fn test_epoll_event_ctl(fd: WasiFd) -> EpollEventCtl {
@@ -905,6 +950,45 @@ mod tests {
         assert!(sub.enqueued.load(Ordering::Acquire));
         let queued = epoll_state.ready.lock().unwrap().pop_front().unwrap();
         assert_eq!(queued.fd, 44);
+    }
+
+    #[test]
+    fn prime_immediate_readable_catches_prequeued_duplex_pipe_data() {
+        let (mut parent_end, mut child_end) = Pipe::channel();
+        child_end.write_all(b"online").unwrap();
+
+        let fd = 14;
+        let event = EpollFd::new(EpollType::EPOLLIN, 0, fd, 0, 0);
+        let epoll_state = Arc::new(EpollState::new());
+        let sub_state = test_sub_state(fd, 1);
+        epoll_state.insert_subscription(fd, sub_state.clone());
+        let fd_guard = InodeValFilePollGuard {
+            fd,
+            peb: PollEventBuilder::new().add(PollEvent::PollIn).build(),
+            subscription: Subscription {
+                userdata: 0,
+                type_: Eventtype::FdRead,
+                data: SubscriptionUnion {
+                    fd_readwrite: SubscriptionFsReadwrite {
+                        file_descriptor: fd,
+                    },
+                },
+            },
+            mode: InodeValFilePollGuardMode::DuplexPipe {
+                pipe: Arc::new(RwLock::new(Box::new(parent_end.clone()))),
+            },
+        };
+
+        prime_immediate_readable_if_applicable(&event, &fd_guard, &epoll_state, &sub_state);
+
+        let events = drain_ready_events(&epoll_state, 1);
+        assert_eq!(events.len(), 1);
+        assert_eq!(events[0].0.fd(), fd);
+        assert_eq!(events[0].1, EpollType::EPOLLIN);
+
+        let mut buf = [0; 6];
+        assert_eq!(parent_end.read(&mut buf).unwrap(), 6);
+        assert_eq!(&buf, b"online");
     }
 
     #[test]

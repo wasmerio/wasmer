@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicU64, Ordering};
 use virtual_fs::Pipe;
 
 use super::*;
@@ -79,21 +80,24 @@ pub(crate) fn sock_pair_internal(
     with_fd1: Option<WasiFd>,
     with_fd2: Option<WasiFd>,
 ) -> Result<(WasiFd, WasiFd), Errno> {
+    static NEXT_SOCKETPAIR_ID: AtomicU64 = AtomicU64::new(0);
+
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let (end1, end2) = Pipe::channel();
+    let pair_id = NEXT_SOCKETPAIR_ID.fetch_add(1, Ordering::Relaxed);
 
     let inode1 = state.fs.create_inode_with_default_stat(
         inodes,
         Kind::DuplexPipe { pipe: end1 },
         false,
-        "socketpair".into(),
+        format!("socketpair:{pair_id}:0").into(),
     );
     let inode2 = state.fs.create_inode_with_default_stat(
         inodes,
         Kind::DuplexPipe { pipe: end2 },
         false,
-        "socketpair".into(),
+        format!("socketpair:{pair_id}:1").into(),
     );
 
     let rights = Rights::all_socket();
