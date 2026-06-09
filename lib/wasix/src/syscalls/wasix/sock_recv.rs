@@ -35,6 +35,8 @@ pub fn sock_recv<M: MemorySize>(
     let use_read = matches!(guard.deref(), Kind::DuplexPipe { .. } | Kind::PipeRx { .. });
     drop(guard);
     if use_read {
+        let memory = unsafe { ctx.data().memory_view(&ctx) };
+        wasi_try_mem_ok!(ro_flags.write(&memory, 0));
         fd_read(ctx, sock, ri_data, ri_data_len, ro_data_len)
     } else {
         let pid = ctx.data().pid();
