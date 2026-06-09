@@ -2110,7 +2110,7 @@ impl WasiFs {
         }
     }
 
-    fn virtual_root_fd(root_inode: InodeGuard) -> Fd {
+    pub(crate) fn virtual_root_fd(root_inode: InodeGuard) -> Fd {
         Fd {
             inner: FdInner {
                 rights: ALL_RIGHTS,
@@ -2157,13 +2157,14 @@ impl WasiFs {
                 return Ok(None);
             }
 
-            if let Some(target_fd) = fd_map.get(dst)
+            let displaced_preopen = if let Some(target_fd) = fd_map.get(dst)
                 && !target_fd.is_stdio
                 && target_fd.inode.is_preopened
             {
-                warn!("Refusing dup2({src}, {dst}) because FD {dst} is pre-opened");
-                return Err(Errno::Notsup);
-            }
+                Some(target_fd.clone())
+            } else {
+                None
+            };
 
             let new_fd_entry = Fd {
                 inner: FdInner {
@@ -2185,6 +2186,20 @@ impl WasiFs {
                 .and_then(|fd| Self::file_flush_target(&fd.inode));
 
             fd_map.remove(dst);
+
+            if let Some(displaced_preopen) = displaced_preopen {
+                let relocated = fd_map.insert_first_free_after(displaced_preopen, dst + 1);
+                if let Some(preopen_fd) = self
+                    .preopen_fds
+                    .write()
+                    .unwrap()
+                    .iter_mut()
+                    .find(|fd| **fd == dst)
+                {
+                    *preopen_fd = relocated;
+                }
+                trace!("Relocated pre-opened FD {dst} to {relocated} before dup2({src}, {dst})");
+            }
 
             if !fd_map.insert(true, dst, new_fd_entry) {
                 panic!("Internal error: expected FD {dst} to be free after remove in dup2_at");

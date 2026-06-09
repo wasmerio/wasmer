@@ -220,15 +220,20 @@ fn path_open_internal_with_symlink_depth(
     let state = env.state.deref();
     let inodes = &state.inodes;
     let follow_symlinks = dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0;
-    let effective_dirfd = if path.starts_with('/') {
+    let is_absolute_path = path.starts_with('/');
+    let effective_dirfd = if is_absolute_path {
         VIRTUAL_ROOT_FD
     } else {
         dirfd
     };
     let path_arg = std::path::PathBuf::from(path);
-    let working_dir = match state.fs.get_fd(effective_dirfd) {
-        Ok(fd) => fd,
-        Err(err) => return Ok(Err(err)),
+    let working_dir = if is_absolute_path {
+        WasiFs::virtual_root_fd(state.fs.root_inode.clone())
+    } else {
+        match state.fs.get_fd(effective_dirfd) {
+            Ok(fd) => fd,
+            Err(err) => return Ok(Err(err)),
+        }
     };
     let maybe_inode = state
         .fs
