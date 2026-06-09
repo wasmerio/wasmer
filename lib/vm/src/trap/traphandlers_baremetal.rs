@@ -32,12 +32,12 @@
 //! `libcalls.rs` is therefore even more important here: all libcall-owned values
 //! must be dropped in a nested block *before* any call to [`raise_lib_trap`] or [`raise_user_trap`].
 
+use super::trap::UnwindReason;
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
 use std::any::Any;
 use std::cell::Cell;
 use std::error::Error;
-use std::fmt;
 use std::mem;
 use std::sync::Mutex;
 
@@ -166,57 +166,6 @@ pub unsafe fn wasmer_call_trampoline(
 // ---------------------------------------------------------------------------
 // Custom unwinder
 // ---------------------------------------------------------------------------
-
-/// The reason a Wasm execution is being unwound.
-///
-/// Passed to the callback registered with [`install_unwinder`].
-///
-/// # Structural divergence from the OS backend
-///
-/// The OS backend's internal `UnwindReason` has a fourth `WasmTrap` variant
-/// produced by signal handlers.  That variant cannot exist in baremetal mode
-/// (there are no signal handlers), so it is omitted here.  This type is
-/// `#[non_exhaustive]` to allow adding variants in future without a breaking
-/// change; match arms should include a wildcard to remain forward-compatible.
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum UnwindReason {
-    /// A Rust panic propagated out of a host function.
-    ///
-    /// Note: `Box<dyn Any + Send>` — the bound is `Send` only, not `Send +
-    /// Sync`, because [`std::panic::resume_unwind`] requires only `Send`.
-    /// Adding `Sync` here would silently prevent resuming panics that lack it.
-    Panic(Box<dyn Any + Send>),
-    /// A user-defined error raised via [`raise_user_trap`].
-    UserTrap(Box<dyn Error + Send + Sync>),
-    /// A trap raised by a Wasm libcall via [`raise_lib_trap`].
-    LibTrap(Trap),
-}
-
-impl fmt::Display for UnwindReason {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Panic(_) => write!(f, "panic"),
-            Self::UserTrap(e) => write!(f, "user trap: {e}"),
-            Self::LibTrap(t) => write!(f, "lib trap: {t}"),
-        }
-    }
-}
-
-impl UnwindReason {
-    /// Convert this reason into a [`Trap`], or re-raise the panic.
-    ///
-    /// For the `Panic` variant this calls [`std::panic::resume_unwind`] and
-    /// therefore **never returns**.  Callers that need to distinguish the
-    /// non-returning arm should match on the variant before calling this.
-    pub fn into_trap(self) -> Trap {
-        match self {
-            Self::UserTrap(data) => Trap::User(data),
-            Self::LibTrap(trap) => trap,
-            Self::Panic(panic) => std::panic::resume_unwind(panic),
-        }
-    }
-}
 
 // Only `Send` is required: `Mutex` provides exclusive access, so the stored
 // value need not be `Sync` — the mutex itself satisfies the `Sync` bound

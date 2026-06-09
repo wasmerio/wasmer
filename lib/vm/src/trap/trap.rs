@@ -1,4 +1,5 @@
 use backtrace::Backtrace;
+use std::any::Any;
 use std::error::Error;
 use std::fmt;
 use wasmer_types::TrapCode;
@@ -166,6 +167,44 @@ impl fmt::Display for Trap {
             Self::Wasm { .. } => write!(f, "wasm"),
             Self::OOM { .. } => write!(f, "Wasmer VM out of memory"),
             Self::UncaughtException { .. } => write!(f, "Uncaught wasm exception"),
+        }
+    }
+}
+
+/// The reason a Wasm execution is being unwound.
+///
+/// Shared between the OS signal-based backend (`traphandlers.rs`) and the
+/// baremetal backend (`traphandlers_baremetal.rs`).  Not all variants are
+/// reachable in both backends: `WasmTrap` is produced exclusively by the OS
+/// signal handler and is never constructed in baremetal mode.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum UnwindReason {
+    /// A panic caused by the host
+    Panic(Box<dyn Any + Send>),
+    /// A custom error triggered by the user
+    UserTrap(Box<dyn Error + Send + Sync>),
+    /// A Trap triggered by a wasm libcall
+    LibTrap(Trap),
+    /// A trap caused by the Wasm generated code
+    WasmTrap {
+        backtrace: Backtrace,
+        pc: usize,
+        signal_trap: Option<TrapCode>,
+    },
+}
+
+impl UnwindReason {
+    pub fn into_trap(self) -> Trap {
+        match self {
+            Self::UserTrap(data) => Trap::User(data),
+            Self::LibTrap(trap) => trap,
+            Self::WasmTrap {
+                backtrace,
+                pc,
+                signal_trap,
+            } => Trap::wasm(pc, backtrace, signal_trap),
+            Self::Panic(panic) => std::panic::resume_unwind(panic),
         }
     }
 }

@@ -10,6 +10,7 @@
 use crate::interrupt_registry;
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
+use super::trap::UnwindReason;
 use backtrace::Backtrace;
 use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
@@ -1055,36 +1056,6 @@ impl<T> TrapHandlerContextInner<T> {
                 .setup_trap_handler(move || Err(unwind));
             update_regs(regs);
             true
-        }
-    }
-}
-
-enum UnwindReason {
-    /// A panic caused by the host
-    Panic(Box<dyn Any + Send>),
-    /// A custom error triggered by the user
-    UserTrap(Box<dyn Error + Send + Sync>),
-    /// A Trap triggered by a wasm libcall
-    LibTrap(Trap),
-    /// A trap caused by the Wasm generated code
-    WasmTrap {
-        backtrace: Backtrace,
-        pc: usize,
-        signal_trap: Option<TrapCode>,
-    },
-}
-
-impl UnwindReason {
-    fn into_trap(self) -> Trap {
-        match self {
-            Self::UserTrap(data) => Trap::User(data),
-            Self::LibTrap(trap) => trap,
-            Self::WasmTrap {
-                backtrace,
-                pc,
-                signal_trap,
-            } => Trap::wasm(pc, backtrace, signal_trap),
-            Self::Panic(panic) => std::panic::resume_unwind(panic),
         }
     }
 }
