@@ -82,7 +82,6 @@ pub(crate) const EXN_REF_TYPE: ir::Type = I32;
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
 use crate::func_environ::{FuncEnvironment, GlobalVariable};
-use crate::table::TABLE_ALIAS_REGION;
 use crate::{HashMap, hash_map};
 use core::convert::TryFrom;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
@@ -123,8 +122,25 @@ macro_rules! unwrap_or_return_unreachable_state {
     };
 }
 
+pub(crate) enum MemoryAliasRegion {
+    Table,
+}
+
 fn insert_mem_flags(func: &mut Function, flags: ir::MemFlagsData) -> ir::MemFlags {
     func.dfg.mem_flags.insert(flags).unwrap()
+}
+
+pub fn set_memflags_alias_region(
+    func: &mut Function,
+    flags: &mut MemFlagsData,
+    region: MemoryAliasRegion,
+) {
+    flags.set_alias_region(Some(func.dfg.alias_regions.insert(match region {
+        MemoryAliasRegion::Table => ir::AliasRegionData {
+            user_id: 0,
+            description: "table".into(),
+        },
+    })));
 }
 
 // Clippy warns about "align: _" but its important to document that the align field is ignored
@@ -192,7 +208,7 @@ pub fn translate_operator(
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
                     let mut flags = ir::MemFlagsData::trusted();
                     // Put globals in the "table" abstract heap category as well.
-                    flags.set_alias_region(Some(ir::AliasRegion::from_u32(TABLE_ALIAS_REGION)));
+                    set_memflags_alias_region(builder.func, &mut flags, MemoryAliasRegion::Table);
                     builder.ins().load(ty, flags, addr, offset)
                 }
                 GlobalVariable::Custom => environ.translate_custom_global_get(
@@ -209,7 +225,7 @@ pub fn translate_operator(
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
                     let mut flags = ir::MemFlagsData::trusted();
                     // Put globals in the "table" abstract heap category as well.
-                    flags.set_alias_region(Some(ir::AliasRegion::from_u32(TABLE_ALIAS_REGION)));
+                    set_memflags_alias_region(builder.func, &mut flags, MemoryAliasRegion::Table);
                     let mut val = state.pop1();
                     // Ensure SIMD values are cast to their default Cranelift type, I8x16.
                     if ty.is_vector() {

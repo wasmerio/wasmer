@@ -2,6 +2,8 @@ use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::{self, InstBuilder, condcodes::IntCC, immediates::Imm64};
 use cranelift_frontend::FunctionBuilder;
 
+use crate::translator::{MemoryAliasRegion, set_memflags_alias_region};
+
 /// Size of a WebAssembly table, in elements.
 #[derive(Clone, Debug)]
 pub enum TableSize {
@@ -46,8 +48,6 @@ pub struct TableData {
     /// Whether table entries are inline `VMCallerCheckedAnyfunc` values.
     pub inline_anyfunc: bool,
 }
-
-pub(crate) const TABLE_ALIAS_REGION: u32 = 0;
 
 impl TableData {
     /// Return a CLIF value containing a native pointer to the beginning of the
@@ -96,9 +96,8 @@ impl TableData {
 
         let element_addr = pos.ins().iadd(base, offset);
 
-        let base_flags = ir::MemFlagsData::new()
-            .with_aligned()
-            .with_alias_region(Some(ir::AliasRegion::from_u32(TABLE_ALIAS_REGION)));
+        let mut base_flags = ir::MemFlagsData::new().with_aligned();
+        set_memflags_alias_region(pos.func, &mut base_flags, MemoryAliasRegion::Table);
         if enable_table_access_spectre_mitigation {
             // Short-circuit the computed table element address to a null pointer
             // when out-of-bounds. The consumer of this address will trap when
