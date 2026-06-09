@@ -127,8 +127,5 @@ pub(super) use lock_instance_group_state;
 pub(super) enum DlOperation {
     LoadModules(Vec<ModuleHandle>),
     // Allocates slots in the function table
-    AllocateFunctionTable {
-        index: u32,
-        size: u32,
-    },
+    AllocateFunctionTable { index: u32, size: u32 },
 }
