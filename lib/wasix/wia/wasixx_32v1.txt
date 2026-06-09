@@ -110,6 +110,8 @@
   (func (import "wasix_32v1" "sock_recv_from") (param i32 i32 i32 i32 i32 i32 i32) (result i32))
   (func (import "wasix_32v1" "sock_send") (param i32 i32 i32 i32 i32) (result i32))
   (func (import "wasix_32v1" "sock_send_to") (param i32 i32 i32 i32 i32 i32) (result i32))
+  (func (import "wasix_32v1" "sock_recv_msg") (param i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32))
+  (func (import "wasix_32v1" "sock_send_msg") (param i32 i32 i32 i32 i32 i32 i32 i32) (result i32))
   (func (import "wasix_32v1" "sock_send_file") (param i32 i32 i64 i64 i64) (result i32))
   (func (import "wasix_32v1" "resolve") (param i32 i32 i32 i32 i32 i32) (result i32))
 )
