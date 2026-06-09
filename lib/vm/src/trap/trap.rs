@@ -173,10 +173,8 @@ impl fmt::Display for Trap {
 
 /// The reason a Wasm execution is being unwound.
 ///
-/// Shared between the OS signal-based backend (`traphandlers.rs`) and the
-/// baremetal backend (`traphandlers_baremetal.rs`).  Not all variants are
-/// reachable in both backends: `WasmTrap` is produced exclusively by the OS
-/// signal handler and is never constructed in baremetal mode.
+/// Shared by both trap-handler backends. `WasmTrap` is only produced by the OS
+/// backend (signal handler); it is never constructed in baremetal mode.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum UnwindReason {
@@ -188,13 +186,17 @@ pub enum UnwindReason {
     LibTrap(Trap),
     /// A trap caused by the Wasm generated code
     WasmTrap {
+        /// Native stack backtrace at the time the trap occurred
         backtrace: Backtrace,
+        /// Program counter in generated code where the trap occurred
         pc: usize,
+        /// Optional trap code associated with the faulting signal
         signal_trap: Option<TrapCode>,
     },
 }
 
 impl UnwindReason {
+    /// Convert to a [`Trap`], or resume unwinding for the `Panic` variant (never returns).
     pub fn into_trap(self) -> Trap {
         match self {
             Self::UserTrap(data) => Trap::User(data),
