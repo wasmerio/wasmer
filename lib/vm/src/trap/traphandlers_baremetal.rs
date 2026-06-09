@@ -115,7 +115,7 @@ fn unwind_with(reason: UnwindReason) -> ! {
     // Re-entrance guard: if the unwinder itself triggers a trap, panic instead
     // of recursing. RAII resets the flag even if this function panics.
     let Some(_guard) = UnwindingGuard::acquire() else {
-        panic!("wasm trap raised inside the baremetal unwinder (re-entrant unwinding): {reason}");
+        panic!("wasm trap raised inside the baremetal unwinder (re-entrant unwinding): {reason:?}");
     };
 
     let guard = UNWINDER
@@ -128,7 +128,7 @@ fn unwind_with(reason: UnwindReason) -> ! {
             f(reason);
             unreachable!("baremetal unwinder must not return (trap was: {display})");
         }
-        None => panic!("wasm trap with no baremetal unwinder installed: {reason}"),
+        None => panic!("wasm trap with no baremetal unwinder installed: {reason:?}"),
     }
 }
 
