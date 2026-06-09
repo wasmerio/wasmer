@@ -4,6 +4,7 @@
         "cranelift",
         "singlepass",
         "v8",
+        "enable-serde",
         "wasmer-artifact-create",
         "wasmer-artifact-load",
         "wasmer/experimental-async",
