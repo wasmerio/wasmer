@@ -828,7 +828,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.extend_stack(stack_padding as u32)?;
         }
         self.stack_offset
-            .track_temporary_extra_allocation(stack_offset + stack_padding);
+            .track_temporary_extra_allocation(stack_offset + stack_padding + used_stack);
         // release the GPR used for call
         self.machine.release_gpr(self.machine.get_gpr_for_call());
 
