@@ -23,6 +23,7 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::C
 use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
 
 use enumset::EnumSet;
+use itertools::Itertools;
 use shared_buffer::OwnedBuffer;
 
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
@@ -66,6 +67,8 @@ pub struct AllocatedArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
+    // The maximum stack size used for each function (available only for the Singlepass compiler).
+    pub function_max_stack_usage: BoxedSlice<LocalFunctionIndex, Option<usize>>,
 
     /// Precomputed `VMOffsets` for this artifact's module, cloned by
     /// `Artifact::instantiate` instead of recomputing on every call.
@@ -345,25 +348,43 @@ impl Artifact {
         }
         let module_info = artifact.module_info();
         let (
-            finished_functions,
-            finished_function_call_trampolines,
-            finished_dynamic_function_trampolines,
-            custom_sections,
+            (
+                finished_functions,
+                finished_function_call_trampolines,
+                finished_dynamic_function_trampolines,
+                custom_sections,
+            ),
+            functions_max_stack_usage,
         ) = match &artifact {
-            ArtifactBuildVariant::Plain(p) => engine_inner.allocate(
-                module_info,
-                p.get_function_bodies_ref().values(),
-                p.get_function_call_trampolines_ref().values(),
-                p.get_dynamic_function_trampolines_ref().values(),
-                p.get_custom_sections_ref().values(),
-            )?,
-            ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
-                module_info,
-                a.get_function_bodies_ref().values(),
-                a.get_function_call_trampolines_ref().values(),
-                a.get_dynamic_function_trampolines_ref().values(),
-                a.get_custom_sections_ref().values(),
-            )?,
+            ArtifactBuildVariant::Plain(p) => (
+                engine_inner.allocate(
+                    module_info,
+                    p.get_function_bodies_ref().values(),
+                    p.get_function_call_trampolines_ref().values(),
+                    p.get_dynamic_function_trampolines_ref().values(),
+                    p.get_custom_sections_ref().values(),
+                )?,
+                p.get_function_max_stack_usage()
+                    .values()
+                    .cloned()
+                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
+            ),
+            ArtifactBuildVariant::Archived(a) => (
+                engine_inner.allocate(
+                    module_info,
+                    a.get_function_bodies_ref().values(),
+                    a.get_function_call_trampolines_ref().values(),
+                    a.get_dynamic_function_trampolines_ref().values(),
+                    a.get_custom_sections_ref().values(),
+                )?,
+                a.get_function_max_stack_usage()
+                    .values()
+                    .map(|v| match v {
+                        rkyv::option::ArchivedOption::None => None,
+                        rkyv::option::ArchivedOption::Some(v) => Some(v.to_native() as usize),
+                    })
+                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
+            ),
         };
 
         let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
@@ -534,6 +555,7 @@ impl Artifact {
                 signatures,
                 finished_function_lengths,
                 vm_offsets,
+                function_max_stack_usage: functions_max_stack_usage.into_boxed_slice(),
             }),
         };
 
@@ -821,9 +843,7 @@ impl Artifact {
     /// The returned addresses are host-process pointers. They are not stable
     /// across runs and must not be forwarded to untrusted parties, as they
     /// reveal ASLR layout information.
-    pub fn finished_function_extents(
-        &self,
-    ) -> Option<Vec<(LocalFunctionIndex, FunctionExtent)>> {
+    pub fn finished_function_extents(&self) -> Option<Vec<(LocalFunctionIndex, FunctionExtent)>> {
         let allocated = self.allocated.as_ref()?;
         Some(allocated.function_extents().into_iter().collect())
     }
@@ -1331,6 +1351,11 @@ impl Artifact {
                 .map(|_| 0)
                 .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
                 .into_boxed_slice();
+            let function_max_stack_usage = finished_functions
+                .iter()
+                .map(|_| None)
+                .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>()
+                .into_boxed_slice();
 
             // Variant is built first so its module_info is available for
             // the cached VMOffsets before it is moved into Self.
@@ -1354,6 +1379,7 @@ impl Artifact {
                     signatures: signatures.into_boxed_slice(),
                     finished_function_lengths,
                     vm_offsets,
+                    function_max_stack_usage,
                 }),
             })
         }
