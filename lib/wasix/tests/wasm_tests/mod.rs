@@ -591,7 +591,9 @@ fn cargo_wasix_build_command(build_dir: &Path) -> Command {
     let mut cmd = Command::new("cargo");
     cmd.arg("wasix")
         .arg("build")
-        .current_dir(build_dir);
+        .current_dir(build_dir)
+        // Ensure deterministic output location regardless of the caller environment.
+        .env("CARGO_TARGET_DIR", build_dir.join("target"));
     cmd
 }
 
