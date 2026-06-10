@@ -629,8 +629,7 @@ fn ensure_standalone_cargo_workspace(build_dir: &Path) -> Result<()> {
 fn cargo_bin_name_from_manifest(manifest_path: &Path, build_dir: &Path) -> Result<String> {
     let contents = fs::read_to_string(manifest_path)
         .with_context(|| format!("failed to read {}", manifest_path.display()))?;
-    let manifest: toml::Value =
-        toml::from_str(&contents).context("failed to parse Cargo.toml")?;
+    let manifest: toml::Value = toml::from_str(&contents).context("failed to parse Cargo.toml")?;
 
     if let Some(bins) = manifest.get("bin").and_then(|bins| bins.as_array()) {
         ensure!(
@@ -705,8 +704,13 @@ fn copy_cargo_wasix_artifact(build_dir: &Path, bin_name: &str) -> Result<PathBuf
         wasm.display()
     );
     let main_path = build_dir.join("main");
-    fs::copy(&wasm, &main_path)
-        .with_context(|| format!("failed to copy {} to {}", wasm.display(), main_path.display()))?;
+    fs::copy(&wasm, &main_path).with_context(|| {
+        format!(
+            "failed to copy {} to {}",
+            wasm.display(),
+            main_path.display()
+        )
+    })?;
     Ok(main_path)
 }
 
@@ -747,8 +751,9 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
                     std::env::var("CXX").unwrap_or_else(|_| "wasix++".to_string())
                 }
                 PrimarySource::BashScript(_) => unreachable!("handled above"),
-                PrimarySource::RustSourceFile(_)
-                | PrimarySource::CargoProject => unreachable!("handled below"),
+                PrimarySource::RustSourceFile(_) | PrimarySource::CargoProject => {
+                    unreachable!("handled below")
+                }
             };
             let mut cmd = Command::new(&compiler);
             cmd.arg(&primary_source)
