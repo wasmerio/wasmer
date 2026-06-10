@@ -667,6 +667,9 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           version: v0.4.3
+      - name: Install older wasix-libc for compatibility testing
+        run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
+        if: matrix.metadata.build != 'windows-x64'
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url
@@ -690,9 +693,6 @@ jobs:
           target = "${{ matrix.metadata.target }}"
           EOF
         if: matrix.metadata.target
-      - name: Install wasixcc
-        uses: wasix-org/wasixcc@v0.4.3
-        if: matrix.description == 'CLI integ. tests' && startsWith(matrix.metadata.build, 'linux')
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2

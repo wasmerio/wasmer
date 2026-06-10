@@ -1,4 +1,6 @@
 //#ExpectedStdout: getaddrinfo AF_INET returns only IPv4 addresses
+//#MinimalLibc: v2021-06-03.1
+
 /*
  * Regression test for wasix-libc getaddrinfo() family filtering.
  *
