@@ -220,7 +220,9 @@ impl ArtifactBuild {
         &self.serializable.compilation.function_frame_info
     }
 
-    /// Get Functions maximum usage of a stack.
+    /// The maximum stack allocation directly connected to the function itself
+    /// if tracked (does not include any potential function calls).
+    /// Available only for the Singlepass compiler
     pub fn get_function_max_stack_usage(&self) -> &PrimaryMap<LocalFunctionIndex, Option<usize>> {
         &self.serializable.compilation.function_max_stack_usage
     }
@@ -461,7 +463,9 @@ impl ArtifactBuildFromArchive {
         .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))
     }
 
-    /// Get Functions maximum usage of a stack.
+    /// The maximum stack allocation directly connected to the function itself
+    /// if tracked (does not include any potential function calls).
+    /// Available only for the Singlepass compiler
     pub fn get_function_max_stack_usage(
         &self,
     ) -> &ArchivedPrimaryMap<LocalFunctionIndex, Option<usize>> {

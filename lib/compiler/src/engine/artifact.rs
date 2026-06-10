@@ -68,7 +68,7 @@ pub struct AllocatedArtifact {
     signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
     // The maximum stack size used for each function (available only for the Singlepass compiler).
-    pub function_max_stack_usage: BoxedSlice<LocalFunctionIndex, Option<usize>>,
+    function_max_stack_usage: BoxedSlice<LocalFunctionIndex, Option<usize>>,
 
     /// Precomputed `VMOffsets` for this artifact's module, cloned by
     /// `Artifact::instantiate` instead of recomputing on every call.
