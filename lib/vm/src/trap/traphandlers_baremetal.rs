@@ -11,7 +11,8 @@
 use super::trap::UnwindReason;
 use crate::Trap;
 use std::{
-    any::Any, cell::Cell, convert::Infallible, error::Error, marker::PhantomData, sync::Mutex,
+    any::Any, cell::Cell, convert::Infallible, error::Error, marker::PhantomData,
+    sync::{Arc, Mutex},
 };
 
 /// Uninhabited type - no OS signals exist, so no handler can be constructed.
@@ -70,7 +71,7 @@ where
 }
 
 /// Registered unwinder, if any.
-static UNWINDER: Mutex<Option<Box<dyn Fn(UnwindReason) + Send>>> = Mutex::new(None);
+static UNWINDER: Mutex<Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>> = Mutex::new(None);
 
 /// Register (or clear) the trap unwinder.
 ///
@@ -79,9 +80,8 @@ static UNWINDER: Mutex<Option<Box<dyn Fn(UnwindReason) + Send>>> = Mutex::new(No
 ///
 /// If no unwinder is installed, traps forward as Rust panics.
 /// Install before starting Wasm execution — swapping the unwinder concurrently
-/// with a live trap is non-deterministic. The callback must not call
-/// `install_unwinder` (the mutex is held for the duration of the call).
-pub fn install_unwinder(unwinder: Option<Box<dyn Fn(UnwindReason) + Send>>) {
+/// with a live trap is non-deterministic.
+pub fn install_unwinder(unwinder: Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>) {
     *UNWINDER
         .lock()
         .expect("baremetal unwinder mutex poisoned in install_unwinder") = unwinder;
@@ -118,11 +118,16 @@ fn unwind_with(reason: UnwindReason) -> ! {
         panic!("wasm trap raised inside the baremetal unwinder (re-entrant unwinding): {reason:?}");
     };
 
-    let guard = UNWINDER
+    // Clone the Arc under the lock, then release it before calling. The
+    // callback performs a non-local exit that skips destructors, so a
+    // MutexGuard held across the call would never be dropped, deadlocking
+    // any future unwind_with / install_unwinder call.
+    let f = UNWINDER
         .lock()
-        .expect("baremetal unwinder mutex poisoned in unwind_with");
+        .expect("baremetal unwinder mutex poisoned in unwind_with")
+        .clone();
 
-    match guard.as_ref() {
+    match f {
         Some(f) => {
             let display = format!("{reason:?}");
             f(reason);
