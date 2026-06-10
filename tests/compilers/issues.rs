@@ -1277,7 +1277,7 @@ fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
     let finished_functions_max_stack_usage = module
         .sys_artifact()
         .expect("sys back-end expected")
-        .finished_function_max_stack_usages()
+        .finished_functions_max_stack_usage()
         .expect("max stack usage must be available")
         .iter()
         .map(|(_, stack_usage)| *stack_usage)

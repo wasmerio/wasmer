@@ -847,7 +847,7 @@ impl Artifact {
     }
 
     /// Return the maximum stack size used for each function (available only for the Singlepass compiler).
-    pub fn finished_function_max_stack_usages(
+    pub fn finished_functions_max_stack_usage(
         &self,
     ) -> Option<Vec<(LocalFunctionIndex, Option<usize>)>> {
         let allocated = self.allocated.as_ref()?;
