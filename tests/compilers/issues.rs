@@ -1268,6 +1268,7 @@ fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
                 i32.add
                 i32.add
             )
+            (func $bar)
         )
         "#,
     )?;
@@ -1283,9 +1284,11 @@ fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
         .collect_vec();
 
     match config.compiler {
-        crate::Compiler::Singlepass => assert_eq!(finished_functions_max_stack_usage, [Some(72)]),
+        crate::Compiler::Singlepass => {
+            assert_eq!(finished_functions_max_stack_usage, [Some(72), Some(40)])
+        }
         crate::Compiler::Cranelift | crate::Compiler::LLVM => {
-            assert_eq!(finished_functions_max_stack_usage, [None])
+            assert_eq!(finished_functions_max_stack_usage, [None, None])
         }
         crate::Compiler::V8 => unreachable!(),
     }
