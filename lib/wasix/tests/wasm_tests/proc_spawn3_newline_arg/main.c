@@ -1,4 +1,3 @@
-//#ExpectedStdout: proc_spawn3 newline arg test passed
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>

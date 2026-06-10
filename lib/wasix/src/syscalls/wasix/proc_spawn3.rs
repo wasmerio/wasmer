@@ -1,13 +1,8 @@
 use virtual_mio::block_on;
-use wasmer::FromToNativeWasmType;
 use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
 
 use super::*;
-use crate::{
-    VIRTUAL_ROOT_FD, WasiFs,
-    os::task::{OwnedTaskStatus, TaskStatus},
-    syscalls::*,
-};
+use crate::{VIRTUAL_ROOT_FD, WasiFs, syscalls::*};
 
 /// Spawns a new sub-process (posix-spawn style) with proper `WasmPtr<WasmPtr<u8>>` string lists.
 ///

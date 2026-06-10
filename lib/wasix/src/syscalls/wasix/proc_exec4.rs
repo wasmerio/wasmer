@@ -1,11 +1,8 @@
+use virtual_mio::block_on;
 use wasmer::FromToNativeWasmType;
 
 use super::*;
-use crate::{
-    VIRTUAL_ROOT_FD, WasiFs,
-    os::task::{OwnedTaskStatus, TaskStatus},
-    syscalls::*,
-};
+use crate::{VIRTUAL_ROOT_FD, WasiFs, syscalls::*};
 
 /// Replaces the current process with a new process, with proper `WasmPtr<WasmPtr<u8>>` string lists.
 ///

@@ -1,5 +1,3 @@
-use wasmer::FromToNativeWasmType;
-
 use super::*;
 use crate::syscalls::*;
 
@@ -17,7 +15,8 @@ use crate::syscalls::*;
 ///
 /// ## Return
 ///
-/// If the execution fails, returns an error code. Does not return otherwise.
+/// On success, writes the child PID to `ret` and returns `Errno::Success`.
+/// On failure, returns an error code.
 #[instrument(
     level = "trace",
     skip_all,
