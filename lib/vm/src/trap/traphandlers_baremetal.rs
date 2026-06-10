@@ -11,8 +11,7 @@
 use super::trap::UnwindReason;
 use crate::Trap;
 use std::{
-    any::Any, cell::Cell, convert::Infallible, error::Error, marker::PhantomData,
-    sync::{Arc, Mutex},
+    any::Any, cell::Cell, convert::Infallible, error::Error, marker::PhantomData, sync::Mutex,
 };
 
 /// Uninhabited type - no OS signals exist, so no handler can be constructed.
@@ -71,7 +70,7 @@ where
 }
 
 /// Registered unwinder, if any.
-static UNWINDER: Mutex<Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>> = Mutex::new(None);
+static UNWINDER: Mutex<Option<Box<dyn Fn(UnwindReason) + Send>>> = Mutex::new(None);
 
 /// Register (or clear) the trap unwinder.
 ///
@@ -81,7 +80,7 @@ static UNWINDER: Mutex<Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>> = Mutex:
 /// If no unwinder is installed, traps forward as Rust panics.
 /// Install before starting Wasm execution — swapping the unwinder concurrently
 /// with a live trap is non-deterministic.
-pub fn install_unwinder(unwinder: Option<Arc<dyn Fn(UnwindReason) + Send + Sync>>) {
+pub fn install_unwinder(unwinder: Option<Box<dyn Fn(UnwindReason) + Send>>) {
     *UNWINDER
         .lock()
         .expect("baremetal unwinder mutex poisoned in install_unwinder") = unwinder;
@@ -118,14 +117,14 @@ fn unwind_with(reason: UnwindReason) -> ! {
         panic!("wasm trap raised inside the baremetal unwinder (re-entrant unwinding): {reason:?}");
     };
 
-    // Clone the Arc under the lock, then release it before calling. The
-    // callback performs a non-local exit that skips destructors, so a
-    // MutexGuard held across the call would never be dropped, deadlocking
-    // any future unwind_with / install_unwinder call.
+    // Move the callback out while holding the lock, then let the lock drop
+    // before invoking. The callback performs a non-local exit that skips
+    // destructors, so a MutexGuard held across the call would never drop,
+    // deadlocking any future unwind_with / install_unwinder call.
     let f = UNWINDER
         .lock()
         .expect("baremetal unwinder mutex poisoned in unwind_with")
-        .clone();
+        .take();
 
     match f {
         Some(f) => {
