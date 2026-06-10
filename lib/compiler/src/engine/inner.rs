@@ -203,15 +203,13 @@ impl Engine {
 
     /// Compile a WebAssembly binary (the progress_callback argument is unused).
     #[cfg(not(feature = "compiler"))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn compile_with_progress(
         &self,
         binary: &[u8],
         _progress_callback: Option<CompilationProgressCallback>,
     ) -> Result<Arc<Artifact>, CompileError> {
-        Ok(Arc::new(Artifact::new(
-            self,
-            binary,
-        )?))
+        self.compile(binary, self.tunables.as_ref())
     }
 
     /// Compile a WebAssembly binary
