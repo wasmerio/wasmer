@@ -348,43 +348,26 @@ impl Artifact {
         }
         let module_info = artifact.module_info();
         let (
-            (
-                finished_functions,
-                finished_function_call_trampolines,
-                finished_dynamic_function_trampolines,
-                custom_sections,
-            ),
-            functions_max_stack_usage,
+            finished_functions,
+            finished_function_call_trampolines,
+            finished_dynamic_function_trampolines,
+            custom_sections,
         ) = match &artifact {
-            ArtifactBuildVariant::Plain(p) => (
-                engine_inner.allocate(
-                    module_info,
-                    p.get_function_bodies_ref().values(),
-                    p.get_function_call_trampolines_ref().values(),
-                    p.get_dynamic_function_trampolines_ref().values(),
-                    p.get_custom_sections_ref().values(),
-                )?,
-                p.get_function_max_stack_usage()
-                    .values()
-                    .cloned()
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
-            ),
-            ArtifactBuildVariant::Archived(a) => (
-                engine_inner.allocate(
-                    module_info,
-                    a.get_function_bodies_ref().values(),
-                    a.get_function_call_trampolines_ref().values(),
-                    a.get_dynamic_function_trampolines_ref().values(),
-                    a.get_custom_sections_ref().values(),
-                )?,
-                a.get_function_max_stack_usage()
-                    .values()
-                    .map(|v| match v {
-                        ArchivedOption::None => None,
-                        ArchivedOption::Some(v) => Some(v.to_native() as usize),
-                    })
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
-            ),
+            ArtifactBuildVariant::Plain(p) => engine_inner.allocate(
+                module_info,
+                p.get_function_bodies_ref().values(),
+                p.get_function_call_trampolines_ref().values(),
+                p.get_dynamic_function_trampolines_ref().values(),
+                p.get_custom_sections_ref().values(),
+            )?,
+
+            ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
+                module_info,
+                a.get_function_bodies_ref().values(),
+                a.get_function_call_trampolines_ref().values(),
+                a.get_dynamic_function_trampolines_ref().values(),
+                a.get_custom_sections_ref().values(),
+            )?,
         };
 
         let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
@@ -423,6 +406,21 @@ impl Artifact {
                     Box::new(|_: RelocationTarget| None)
                 }
             }
+        };
+        let functions_max_stack_usage = match &artifact {
+            ArtifactBuildVariant::Plain(p) => p
+                .get_function_max_stack_usage()
+                .values()
+                .cloned()
+                .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
+            ArtifactBuildVariant::Archived(a) => a
+                .get_function_max_stack_usage()
+                .values()
+                .map(|v| match v {
+                    ArchivedOption::None => None,
+                    ArchivedOption::Some(v) => Some(v.to_native() as usize),
+                })
+                .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
         };
 
         match &artifact {
