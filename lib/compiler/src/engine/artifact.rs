@@ -23,6 +23,7 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::C
 use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
 
 use enumset::EnumSet;
+use rkyv::option::ArchivedOption;
 use shared_buffer::OwnedBuffer;
 
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
@@ -379,8 +380,8 @@ impl Artifact {
                 a.get_function_max_stack_usage()
                     .values()
                     .map(|v| match v {
-                        rkyv::option::ArchivedOption::None => None,
-                        rkyv::option::ArchivedOption::Some(v) => Some(v.to_native() as usize),
+                        ArchivedOption::None => None,
+                        ArchivedOption::Some(v) => Some(v.to_native() as usize),
                     })
                     .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
             ),
