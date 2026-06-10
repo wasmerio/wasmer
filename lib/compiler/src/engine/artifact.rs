@@ -23,7 +23,6 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::C
 use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
 
 use enumset::EnumSet;
-use itertools::Itertools;
 use shared_buffer::OwnedBuffer;
 
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
@@ -846,6 +845,20 @@ impl Artifact {
     pub fn finished_function_extents(&self) -> Option<Vec<(LocalFunctionIndex, FunctionExtent)>> {
         let allocated = self.allocated.as_ref()?;
         Some(allocated.function_extents().into_iter().collect())
+    }
+
+    /// Return the maximum stack size used for each function (available only for the Singlepass compiler).
+    pub fn finished_function_max_stack_usages(
+        &self,
+    ) -> Option<Vec<(LocalFunctionIndex, Option<usize>)>> {
+        let allocated = self.allocated.as_ref()?;
+        Some(
+            allocated
+                .function_max_stack_usage
+                .into_iter()
+                .map(|f| (f.0, *f.1))
+                .collect(),
+        )
     }
 
     /// Returns the function call trampolines allocated in memory of this
