@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["apply_fd_op","proc_spawn2"]};
+window.SIDEBAR_ITEMS = {"fn":["proc_spawn2"]};
