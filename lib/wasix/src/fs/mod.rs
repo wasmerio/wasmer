@@ -1827,8 +1827,35 @@ impl WasiFs {
     pub fn fdstat(&self, fd: WasiFd) -> Result<Fdstat, Errno> {
         match fd {
             __WASI_STDIN_FILENO => {
+                let fs_filetype = self
+                    .get_fd(fd)
+                    .ok()
+                    .map(|fd| {
+                        let guard = fd.inode.read();
+                        match guard.deref() {
+                            Kind::File { .. } | Kind::Buffer { .. } => Filetype::RegularFile,
+                            Kind::Dir { .. } => Filetype::Directory,
+                            Kind::Symlink { .. } => Filetype::SymbolicLink,
+                            Kind::Socket { socket } => {
+                                match &socket.inner.protected.read().unwrap().kind {
+                                    InodeSocketKind::TcpStream { .. } => Filetype::SocketStream,
+                                    InodeSocketKind::Raw { .. } => Filetype::SocketRaw,
+                                    InodeSocketKind::PreSocket { props, .. } => match props.ty {
+                                        Socktype::Stream => Filetype::SocketStream,
+                                        Socktype::Dgram => Filetype::SocketDgram,
+                                        Socktype::Raw => Filetype::SocketRaw,
+                                        Socktype::Seqpacket => Filetype::SocketSeqpacket,
+                                        _ => Filetype::Unknown,
+                                    },
+                                    _ => Filetype::Unknown,
+                                }
+                            }
+                            _ => Filetype::Unknown,
+                        }
+                    })
+                    .unwrap_or(Filetype::CharacterDevice);
                 return Ok(Fdstat {
-                    fs_filetype: Filetype::CharacterDevice,
+                    fs_filetype,
                     fs_flags: Fdflags::empty(),
                     fs_rights_base: STDIN_DEFAULT_RIGHTS,
                     fs_rights_inheriting: Rights::empty(),
