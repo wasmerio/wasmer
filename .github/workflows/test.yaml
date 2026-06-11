@@ -101,11 +101,18 @@ jobs:
         run: |
           git status
           ! [[ $(git status -s) ]]
-      # Putting this here to avoid a whole new checkout.
       - name: Verify pinned wasix-libc sysroot is up to date
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: ./scripts/check-wasix-libc-sysroot-tag.sh
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source .github/ci-constants.env
+          latest=$(gh release list --exclude-pre-releases --order desc -R wasix-org/wasix-libc --json tagName -q '.[0].tagName')
+          newest=$(printf '%s\n' "$latest" "$WASIX_LIBC_SYSROOT_TAG" | sort -V | tail -1)
+          if [ "$WASIX_LIBC_SYSROOT_TAG" != "$newest" ]; then
+            echo "Pinned sysroot ($WASIX_LIBC_SYSROOT_TAG) is older than latest release ($latest)"
+            exit 1
+          fi
   cargo_deny:
     name: cargo-deny
     runs-on: ubuntu-22.04
@@ -615,7 +622,7 @@ jobs:
         with:
           submodules: true
       - name: Load CI constants
-        shell: bash
+        shell: ${{ matrix.metadata.build == 'linux-musl' && 'sh' || 'bash' }}
         run: grep -v '^#' .github/ci-constants.env >> $GITHUB_ENV
       - name: Show disk capacity
         if: startsWith(matrix.metadata.build, 'linux')
