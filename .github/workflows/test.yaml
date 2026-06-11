@@ -64,7 +64,7 @@ jobs:
           sudo apt install -y libtinfo6
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.26.0'
+          go-version: "1.26.0"
           cache: false
       - run: go install github.com/google/yamlfmt/cmd/yamlfmt@v0.21.0
       - name: Install LLVM (Linux)
@@ -101,6 +101,18 @@ jobs:
         run: |
           git status
           ! [[ $(git status -s) ]]
+      - name: Verify pinned wasix-libc sysroot is up to date
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source .github/ci-constants.env
+          latest=$(gh release list --exclude-pre-releases --order desc -R wasix-org/wasix-libc --json tagName -q '.[0].tagName')
+          newest=$(printf '%s\n' "$latest" "$WASIX_LIBC_SYSROOT_TAG" | sort -V | tail -1)
+          if [ "$WASIX_LIBC_SYSROOT_TAG" != "$newest" ]; then
+            echo "Pinned sysroot ($WASIX_LIBC_SYSROOT_TAG) is older than latest release ($latest)"
+            exit 1
+          fi
   cargo_deny:
     name: cargo-deny
     runs-on: ubuntu-22.04
@@ -609,6 +621,13 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
+      - name: Load CI constants (musl)
+        if: matrix.metadata.build == 'linux-musl'
+        run: grep -v '^#' .github/ci-constants.env >> $GITHUB_ENV
+      - name: Load CI constants
+        if: matrix.metadata.build != 'linux-musl'
+        shell: bash
+        run: grep -v '^#' .github/ci-constants.env >> $GITHUB_ENV
       - name: Show disk capacity
         if: startsWith(matrix.metadata.build, 'linux')
         run: df -h
@@ -667,7 +686,10 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           version: v0.4.3
+          sysroot-tag: ${{ env.WASIX_LIBC_SYSROOT_TAG }}
       - name: Install older wasix-libc for compatibility testing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
         if: matrix.metadata.build != 'windows-x64'
       - name: Install LLVM
