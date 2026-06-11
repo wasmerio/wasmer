@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TrapCode"],"mod":["trap","traphandlers"]};
+window.SIDEBAR_ITEMS = {"enum":["TrapCode"],"fn":["wasmer_call_trampoline"],"mod":["trap","traphandlers"]};
