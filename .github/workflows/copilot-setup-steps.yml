@@ -3,9 +3,11 @@ on:
   workflow_dispatch:
   push:
     paths:
+      - .github/ci-constants.env
       - .github/workflows/copilot-setup-steps.yml
   pull_request:
     paths:
+      - .github/ci-constants.env
       - .github/workflows/copilot-setup-steps.yml
 env:
   RUST_BACKTRACE: 1
@@ -19,6 +21,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
+      - name: Load CI constants
+        run: grep -v '^#' .github/ci-constants.env >> $GITHUB_ENV
       - name: Set up libstdc++ on Linux
         run: |
           sudo apt-get update -y
@@ -72,6 +76,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           version: v0.4.3
+          sysroot-tag: ${{ env.WASIX_LIBC_SYSROOT_TAG }}
       - name: Install older wasix-libc for compatibility testing
         run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
       - name: Install wasm-tools
