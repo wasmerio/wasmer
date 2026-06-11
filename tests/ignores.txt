@@ -149,9 +149,6 @@ spec::instance
 # TODO: #5816
 cranelift+riscv64 spec::skip_stack_guard_page
 
-# FIXME - re-enable once the path resolution failures in WasiFs have been worked out
-path_rename
-
 # #5943 - multi-value tests
 singlepass        multi_value_imports
 cranelift         multi_value_imports
