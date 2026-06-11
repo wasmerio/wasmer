@@ -48,7 +48,7 @@ The harness then builds them as follows:
 - `main.cpp` is compiled with `CXX`, or `wasix++` if `CXX` is unset.
 - `*.rs` is built with `cargo wasix build` using an ephemeral `Cargo.toml` generated
   in the build directory.
-- `Cargo.toml` fixtures are built with `cargo wasix build` and the selected binary
+- `Cargo.toml` fixtures are built with `cargo wasix build` and the single binary
   artifact is copied to `main`.
 - `build.sh` and other shell primary sources are executed with `bash`; the
   harness sets `CC=wasixcc`, `CXX=wasix++`, and

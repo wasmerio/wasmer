@@ -21,9 +21,6 @@
 //!
 //! `BuildEnv:{key}={value}` sets an environment variable before building.
 //!
-//! `BuildBin:{name}` selects which Cargo binary to copy to `main` after a
-//! `cargo wasix build` (for fixtures with multiple `[[bin]]` targets).
-//!
 //! The harness also sets `WASMER_BACKEND` to the engine name (`cranelift`, `v8`,
 //! etc.) before every build so shell scripts can tune compile-time parameters per backend.
 //!
@@ -189,7 +186,6 @@ struct Config {
     expected_stderr: Vec<String>,
     arguments: Vec<String>,
     build_env: Vec<(String, String)>,
-    build_bin_name: Option<String>,
     env: Vec<(String, String)>,
     stdin: Option<Vec<u8>>,
     ignored: Option<String>,
@@ -222,7 +218,6 @@ impl Config {
             is_abstract: false,
             arguments: Vec::new(),
             build_env: Vec::new(),
-            build_bin_name: None,
             env: Vec::new(),
             nonzero_exit_code: false,
             expected_exit_code: 0,
@@ -388,11 +383,6 @@ fn process_directive(
             let key = key.trim();
             ensure!(!key.is_empty(), "BuildEnv key must not be empty");
             build_env.push((key.to_owned(), value.trim().to_owned()));
-        }
-        "BuildBin" => {
-            let name = arg.trim();
-            ensure!(!name.is_empty(), "BuildBin name must not be empty");
-            config.build_bin_name = Some(name.to_owned());
         }
         "Env" => {
             let (key, value) = arg
@@ -575,14 +565,8 @@ fn read_fixture_bytes(test_src_dir: &Path, arg: &str, directive: &str) -> Result
 }
 
 fn parse_cargo_toml_directive_line(line: &str) -> Option<&str> {
-    let line = line.trim();
-    let rest = line.strip_prefix("##")?;
-    let rest = rest.trim();
-    if rest.is_empty() || !rest.contains(':') {
-        None
-    } else {
-        Some(rest)
-    }
+    let rest = line.trim().strip_prefix("##")?.trim();
+    rest.split_once(':').map(|_| rest)
 }
 
 const CARGO_WASIX_ARTIFACT_DIR: &str = "target/wasm32-wasmer-wasi/debug";
@@ -602,7 +586,7 @@ fn write_ephemeral_cargo_toml(build_dir: &Path, source_filename: &str) -> Result
         r#"[package]
 name = "main"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 
 [[bin]]
 name = "main"
@@ -615,94 +599,36 @@ path = "{source_filename}"
         .with_context(|| format!("failed to write {}", build_dir.join("Cargo.toml").display()))
 }
 
-fn ensure_standalone_cargo_workspace(build_dir: &Path) -> Result<()> {
-    let manifest_path = build_dir.join("Cargo.toml");
-    let contents = fs::read_to_string(&manifest_path)
-        .with_context(|| format!("failed to read {}", manifest_path.display()))?;
-    if contents.contains("[workspace]") {
-        return Ok(());
-    }
-    fs::write(&manifest_path, format!("{contents}\n[workspace]\n"))
-        .with_context(|| format!("failed to update {}", manifest_path.display()))
-}
-
-fn cargo_bin_name_from_manifest(manifest_path: &Path, build_dir: &Path) -> Result<String> {
+fn cargo_bin_name_from_manifest(manifest_path: &Path) -> Result<String> {
     let contents = fs::read_to_string(manifest_path)
         .with_context(|| format!("failed to read {}", manifest_path.display()))?;
     let manifest: toml::Value = toml::from_str(&contents).context("failed to parse Cargo.toml")?;
 
     if let Some(bins) = manifest.get("bin").and_then(|bins| bins.as_array()) {
         ensure!(
-            !bins.is_empty(),
-            "Cargo.toml defines an empty [[bin]] list in {}",
+            bins.len() == 1,
+            "expected exactly one [[bin]] in {}",
             manifest_path.display()
         );
-        if bins.len() == 1 {
-            return Ok(bins[0]
-                .get("name")
-                .and_then(|name| name.as_str())
-                .context("[[bin]] is missing name")?
-                .to_owned());
-        }
-
-        let package_name = manifest
-            .get("package")
-            .and_then(|package| package.get("name"))
-            .and_then(|name| name.as_str());
-
-        if let Some(name) = package_name {
-            if bins.iter().any(|bin| {
-                bin.get("name")
-                    .and_then(|name| name.as_str())
-                    .is_some_and(|bin_name| bin_name == name)
-            }) {
-                return Ok(name.to_owned());
-            }
-        }
-
-        if let Some(bin) = bins.iter().find(|bin| {
-            bin.get("name")
-                .and_then(|name| name.as_str())
-                .is_some_and(|name| name == "main")
-        }) {
-            return Ok(bin
-                .get("name")
-                .and_then(|name| name.as_str())
-                .expect("main bin has a name")
-                .to_owned());
-        }
-
-        bail!(
-            "Cargo.toml in {} defines multiple [[bin]] targets; add a ##BuildBin: name directive",
-            manifest_path.display()
-        );
+        return Ok(bins[0]
+            .get("name")
+            .and_then(|name| name.as_str())
+            .context("[[bin]] is missing name")?
+            .to_owned());
     }
 
-    let package_name = manifest
+    manifest
         .get("package")
         .and_then(|package| package.get("name"))
         .and_then(|name| name.as_str())
-        .with_context(|| format!("missing package.name in {}", manifest_path.display()))?;
-
-    if build_dir.join("src/main.rs").exists() {
-        return Ok(package_name.to_owned());
-    }
-
-    bail!(
-        "could not determine Cargo binary name for {}; add src/main.rs or a ##BuildBin: name directive",
-        manifest_path.display()
-    )
+        .context("missing package.name")
+        .map(str::to_owned)
 }
 
 fn copy_cargo_wasix_artifact(build_dir: &Path, bin_name: &str) -> Result<PathBuf> {
     let wasm = build_dir
         .join(CARGO_WASIX_ARTIFACT_DIR)
         .join(format!("{bin_name}.wasm"));
-    ensure!(
-        wasm.exists(),
-        "expected cargo-wasix artifact at {}",
-        wasm.display()
-    );
     let main_path = build_dir.join("main");
     fs::copy(&wasm, &main_path).with_context(|| {
         format!(
@@ -767,10 +693,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
             write_ephemeral_cargo_toml(&build_test_path, filename)?;
             cargo_wasix_build_command(&build_test_path)
         }
-        PrimarySource::CargoProject => {
-            ensure_standalone_cargo_workspace(&build_test_path)?;
-            cargo_wasix_build_command(&build_test_path)
-        }
+        PrimarySource::CargoProject => cargo_wasix_build_command(&build_test_path),
     };
 
     for (k, v) in &config.build_env {
@@ -788,13 +711,8 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     let main_path = match &config.source {
         PrimarySource::RustSourceFile(_) => copy_cargo_wasix_artifact(&build_test_path, "main")?,
         PrimarySource::CargoProject => {
-            let bin_name = match &config.build_bin_name {
-                Some(name) => name.clone(),
-                None => cargo_bin_name_from_manifest(
-                    &build_test_path.join("Cargo.toml"),
-                    &build_test_path,
-                )?,
-            };
+            let bin_name =
+                cargo_bin_name_from_manifest(&build_test_path.join("Cargo.toml"))?;
             copy_cargo_wasix_artifact(&build_test_path, &bin_name)?
         }
         PrimarySource::BashScript(_)
