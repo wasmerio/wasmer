@@ -688,6 +688,8 @@ jobs:
           version: v0.4.3
           sysroot-tag: ${{ env.WASIX_LIBC_SYSROOT_TAG }}
       - name: Install older wasix-libc for compatibility testing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
         if: matrix.metadata.build != 'windows-x64'
       - name: Install LLVM
