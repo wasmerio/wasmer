@@ -1238,7 +1238,6 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         .filter_map(Result::ok)
         .filter(|e| e.path() != tests_dir)
         .filter(|e| e.path().strip_prefix(&tests_build_root).is_err())
-        // Skip temporary helper directories (like 'a', 'b', etc.).
         .filter(|e| e.file_type().is_dir())
         .filter(|e| has_primary_source_file(e.path()))
     {
