@@ -40,12 +40,13 @@ pub(crate) type VMExternObj = ();
 pub(crate) type VMConfig = ();
 
 #[allow(clippy::not_unsafe_ptr_arg_deref, clippy::unnecessary_mut_passed)]
+#[allow(nonstandard_style)]
 impl crate::VMExternToExtern for VMExtern {
     fn to_extern(self, store: &mut impl AsStoreMut) -> Extern {
         let kind = unsafe { wasm_extern_kind(&mut *self) };
 
         match kind as u32 {
-            0 => {
+            wasm_externkind_enum_WASM_EXTERN_FUNC => {
                 let func = unsafe { wasm_extern_as_func(&mut *self) };
                 if func.is_null() {
                     panic!("V8 reported extern as function, but is not");
@@ -55,7 +56,7 @@ impl crate::VMExternToExtern for VMExtern {
                     crate::vm::VMExternFunction::V8(func),
                 ))
             }
-            1 => {
+            wasm_externkind_enum_WASM_EXTERN_GLOBAL => {
                 let global = unsafe { wasm_extern_as_global(&mut *self) };
                 if global.is_null() {
                     panic!("V8 reported extern as a global, but is not");
@@ -65,7 +66,7 @@ impl crate::VMExternToExtern for VMExtern {
                     crate::vm::VMExternGlobal::V8(global),
                 ))
             }
-            2 => {
+            wasm_externkind_enum_WASM_EXTERN_TABLE => {
                 let table = unsafe { wasm_extern_as_table(&mut *self) };
                 if table.is_null() {
                     panic!("V8 reported extern as a table, but is not");
@@ -75,7 +76,7 @@ impl crate::VMExternToExtern for VMExtern {
                     crate::vm::VMExternTable::V8(table),
                 ))
             }
-            3 => {
+            wasm_externkind_enum_WASM_EXTERN_MEMORY => {
                 let memory = unsafe { wasm_extern_as_memory(&mut *self) };
                 if memory.is_null() {
                     panic!("V8 reported extern as a memory, but is not");
@@ -85,7 +86,7 @@ impl crate::VMExternToExtern for VMExtern {
                     crate::vm::VMExternMemory::V8(memory),
                 ))
             }
-            4 => {
+            wasm_externkind_enum_WASM_EXTERN_TAG => {
                 let tag = unsafe { wasm_extern_as_tag(&mut *self) };
                 if tag.is_null() {
                     panic!("V8 reported extern as a tag, but is not");
