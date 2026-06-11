@@ -346,7 +346,7 @@ impl BinaryPackage {
 mod tests {
     use sha2::Digest;
     use tempfile::TempDir;
-    use virtual_fs::{AsyncReadExt, FileSystem as _};
+    use virtual_fs::AsyncReadExt;
     use wasmer_package::utils::from_disk;
 
     use crate::{
