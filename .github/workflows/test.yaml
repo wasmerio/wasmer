@@ -615,6 +615,7 @@ jobs:
         with:
           submodules: true
       - name: Load CI constants
+        shell: bash
         run: grep -v '^#' .github/ci-constants.env >> $GITHUB_ENV
       - name: Show disk capacity
         if: startsWith(matrix.metadata.build, 'linux')

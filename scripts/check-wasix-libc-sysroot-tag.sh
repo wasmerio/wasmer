@@ -4,7 +4,12 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CONSTANTS_FILE="$REPO_ROOT/.github/ci-constants.env"
 
-pinned="$(grep '^WASIX_LIBC_SYSROOT_TAG=' "$CONSTANTS_FILE" | cut -d= -f2-)"
+if [ ! -f "$CONSTANTS_FILE" ]; then
+  echo "ERROR: $CONSTANTS_FILE not found"
+  exit 1
+fi
+
+pinned="$(grep '^WASIX_LIBC_SYSROOT_TAG=' "$CONSTANTS_FILE" 2>/dev/null | cut -d= -f2- || true)"
 if [ -z "$pinned" ]; then
   echo "ERROR: WASIX_LIBC_SYSROOT_TAG is not set in $CONSTANTS_FILE"
   exit 1
@@ -15,16 +20,18 @@ if [ -n "${GITHUB_TOKEN:-}" ]; then
   auth_args=(-H "Authorization: Bearer $GITHUB_TOKEN")
 fi
 
-latest="$(
+response="$(
   curl -fsSL "${auth_args[@]}" \
     -H "Accept: application/vnd.github+json" \
-    "https://api.github.com/repos/wasix-org/wasix-libc/releases/latest" \
-    | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p' \
-    | head -1
-)"
+    "https://api.github.com/repos/wasix-org/wasix-libc/releases/latest"
+)" || {
+  echo "ERROR: failed to fetch latest wasix-libc release"
+  exit 1
+}
 
+latest="$(printf '%s' "$response" | sed -n 's/.*"tag_name": "\([^"]*\)".*/\1/p' | head -1)"
 if [ -z "$latest" ]; then
-  echo "ERROR: failed to fetch latest wasix-libc release tag"
+  echo "ERROR: failed to parse latest wasix-libc release tag"
   exit 1
 fi
 
