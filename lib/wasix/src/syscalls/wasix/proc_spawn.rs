@@ -4,7 +4,11 @@ use wasmer_wasix_types::wasi::ProcessHandles;
 use super::*;
 use crate::syscalls::*;
 
-/// Spawns a new process within the context of this machine
+/// Spawns a new process within the context of this machine.
+///
+/// This syscall was previously used by the Rust stdlib's `Command::spawn` on WASIX.
+/// Rust now uses `posix_spawn` (backed by `proc_spawn3`) instead. This syscall
+/// remains for backwards compatibility but is otherwise unused.
 ///
 /// ## Parameters
 ///
