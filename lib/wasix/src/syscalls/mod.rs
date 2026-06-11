@@ -851,6 +851,59 @@ pub(crate) fn write_buffer_array<M: MemorySize>(
     Errno::Success
 }
 
+pub(crate) fn read_string_array<M: MemorySize>(
+    memory: &MemoryView,
+    ptrs: WasmPtr<WasmPtr<u8, M>, M>,
+    count: M::Offset,
+) -> Result<Vec<String>, Errno> {
+    if ptrs.is_null() || count == M::ZERO {
+        return Ok(vec![]);
+    }
+
+    let ptr_slice = ptrs.slice(memory, count).map_err(mem_error_to_wasi)?;
+    let capacity = from_offset::<M>(count)?;
+    let mut result = Vec::with_capacity(capacity);
+    for ptr in ptr_slice.access().map_err(mem_error_to_wasi)?.iter() {
+        let s = ptr
+            .read_utf8_string_with_nul(memory)
+            .map_err(mem_error_to_wasi)?;
+        result.push(s);
+    }
+    Ok(result)
+}
+
+pub(crate) fn parse_env_entries(envs: Vec<String>) -> Result<Vec<(String, String)>, Errno> {
+    envs.into_iter()
+        .map(|env| {
+            let (key, value) = env.split_once('=').ok_or(Errno::Inval)?;
+            Ok((key.to_string(), value.to_string()))
+        })
+        .collect()
+}
+
+pub(crate) fn parse_delimited_string_list(s: &str) -> Vec<String> {
+    s.split(&['\n', '\r'])
+        .map(|a| a.to_string())
+        .filter(|a| !a.is_empty())
+        .collect()
+}
+
+pub(crate) fn parse_delimited_exec_args(s: &str) -> Vec<String> {
+    s.trim_end_matches(['\r', '\n'])
+        .lines()
+        .map(str::to_owned)
+        .collect()
+}
+
+pub(crate) fn parse_delimited_env_list(s: &str) -> Result<Vec<(String, String)>, Errno> {
+    let envs = s
+        .split(&['\n', '\r'])
+        .map(|a| a.to_string())
+        .filter(|a| !a.is_empty())
+        .collect::<Vec<_>>();
+    parse_env_entries(envs)
+}
+
 pub(crate) fn get_current_time_in_nanos() -> Result<Timestamp, Errno> {
     let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
     Ok(now as Timestamp)
