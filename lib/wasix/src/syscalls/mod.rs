@@ -381,7 +381,9 @@ where
             return Poll::Ready(Ok(res));
         }
 
-        WasiEnv::do_pending_link_operations(self.ctx, false);
+        if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
+            return Poll::Ready(Err(err));
+        }
 
         let env = self.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {
@@ -417,6 +419,10 @@ where
                     } else {
                         // Re-subscribe so we get woken up for further signals as well
                         self.ctx.data().thread.signals_subscribe(cx.waker());
+                        // Retry after Sigwakeup drain: dl ops may have started after the check above.
+                        if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
+                            return Poll::Ready(Err(err));
+                        }
                         Poll::Pending
                     }
                 }
