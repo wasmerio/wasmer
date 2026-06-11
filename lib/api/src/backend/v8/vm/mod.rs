@@ -45,7 +45,7 @@ impl crate::VMExternToExtern for VMExtern {
     fn to_extern(self, store: &mut impl AsStoreMut) -> Extern {
         let kind = unsafe { wasm_extern_kind(&mut *self) };
 
-        match kind as u32 {
+        match kind as wasm_valkind_enum {
             wasm_externkind_enum_WASM_EXTERN_FUNC => {
                 let func = unsafe { wasm_extern_as_func(&mut *self) };
                 if func.is_null() {
