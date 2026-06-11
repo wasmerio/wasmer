@@ -113,6 +113,18 @@ jobs:
             echo "Pinned sysroot ($WASIX_LIBC_SYSROOT_TAG) is older than latest release ($latest)"
             exit 1
           fi
+      - name: Verify pinned wasix rust toolchain is up to date
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source .github/ci-constants.env
+          latest=$(gh release list --exclude-pre-releases --order desc -R wasix-org/rust --json tagName -q '.[0].tagName')
+          newest=$(printf '%s\n' "$latest" "$WASIX_RUST_TOOLCHAIN_TAG" | sort -V | tail -1)
+          if [ "$WASIX_RUST_TOOLCHAIN_TAG" != "$newest" ]; then
+            echo "Pinned rust toolchain ($WASIX_RUST_TOOLCHAIN_TAG) is older than latest release ($latest)"
+            exit 1
+          fi
   cargo_deny:
     name: cargo-deny
     runs-on: ubuntu-22.04
@@ -692,6 +704,11 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
         if: matrix.metadata.build != 'windows-x64'
+      - name: Install cargo-wasix
+        if: matrix.stage.make == 'test-all'
+        uses: wasix-org/cargo-wasix@main
+        with:
+          toolchain-version: ${{ env.WASIX_RUST_TOOLCHAIN_TAG }}
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url
