@@ -775,8 +775,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     let main_path = match &config.source {
         PrimarySource::RustSourceFile(_) => copy_cargo_wasix_artifact(&build_test_path, "main")?,
         PrimarySource::CargoProject => {
-            let bin_name =
-                cargo_bin_name_from_manifest(&build_test_path.join("Cargo.toml"))?;
+            let bin_name = cargo_bin_name_from_manifest(&build_test_path.join("Cargo.toml"))?;
             copy_cargo_wasix_artifact(&build_test_path, &bin_name)?
         }
         PrimarySource::BashScript(_)
