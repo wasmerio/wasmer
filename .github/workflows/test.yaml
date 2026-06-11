@@ -621,8 +621,12 @@ jobs:
       - uses: actions/checkout@v6
         with:
           submodules: true
+      - name: Load CI constants (musl)
+        if: matrix.metadata.build == 'linux-musl'
+        run: grep -v '^#' .github/ci-constants.env >> $GITHUB_ENV
       - name: Load CI constants
-        shell: ${{ matrix.metadata.build == 'linux-musl' && 'sh' || 'bash' }}
+        if: matrix.metadata.build != 'linux-musl'
+        shell: bash
         run: grep -v '^#' .github/ci-constants.env >> $GITHUB_ENV
       - name: Show disk capacity
         if: startsWith(matrix.metadata.build, 'linux')
