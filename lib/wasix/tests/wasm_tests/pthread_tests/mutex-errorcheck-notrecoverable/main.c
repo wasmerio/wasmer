@@ -1,4 +1,4 @@
-//#MinimalLibc: v2021-06-03.1
+//#MinimalLibc: v2026-06-03.1
 
 // Regression test for issue where wasix-libc would set 0x3fffffff as the TID
 // for the main thread, leading to a clash with pthread's mutex poison tracking
