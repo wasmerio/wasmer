@@ -488,10 +488,8 @@ fn emit_wasmer_meta_object(
     let zero_pointer = vec![0; pointer_size as usize];
     for local_function_index in function_body_inputs.keys() {
         let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
-        let symbol_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(local_function_index));
         let symbol_id = obj.add_symbol(ObjSymbol {
-            name: symbol_name.into_bytes(),
+            name: format!("f{}", local_function_index.as_u32()).into(),
             value: 0,
             size: 0,
             kind: SymbolKind::Text,

@@ -167,7 +167,11 @@ impl FuncTranslator {
             m0_is_enabled,
         )?;
 
-        let func = module.add_function(&function_name, func_type, Some(Linkage::External));
+        let func = module.add_function(
+            &format!("f{}", local_func_index.as_u32()),
+            func_type,
+            Some(Linkage::External),
+        );
         for (attr, attr_loc) in &func_attrs {
             func.add_attribute(*attr_loc, *attr);
         }
@@ -459,11 +463,9 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
         let object_path = build_directory
             .to_path_buf()
-            .join(format!("{function_name}.o"));
+            .join(format!("f{}.o", local_func_index.as_u32()));
         std::fs::write(&object_path, memory_buffer.as_slice())
             .map_err(|e| CompileError::Codegen(format!("Cannot save emitted assembly: {e}")))?;
         Ok(object_path)
@@ -3229,10 +3231,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     imported_include_m0_param,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    let function_name = self
-                        .symbol_registry
-                        .symbol_to_name(Symbol::LocalFunction(local_func_index));
-
                     self.ctx.local_func(
                         local_func_index,
                         func_index,
@@ -3240,7 +3238,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.module,
                         self.context,
                         func_type,
-                        &function_name,
+                        &format!("f{}", local_func_index.as_u32()),
                     )?
                 } else {
                     self.ctx

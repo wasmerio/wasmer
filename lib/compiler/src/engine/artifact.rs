@@ -344,7 +344,6 @@ impl Artifact {
             }
         }
         let module_info = artifact.module_info();
-        dbg!(&module_info.function_names);
         todo!();
 
         /*
