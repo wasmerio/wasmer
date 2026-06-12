@@ -567,6 +567,8 @@ jobs:
       matrix:
         skip_macos:
           - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
+        skip_musl:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'musl') }}
         stage:
           - description: "All tests"
             make: "test-all"
@@ -610,6 +612,9 @@ jobs:
           - skip_macos: true
             metadata:
               build: macos-arm
+          - skip_musl: true
+            metadata:
+              build: linux-musl
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
