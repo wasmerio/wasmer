@@ -4,6 +4,7 @@ use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::path::Path;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -251,6 +252,8 @@ impl Compiler for LLVMCompiler {
         let table_styles = &compile_info.table_styles;
         let signature_hashes = &module.signature_hashes;
 
+        let build_directory = Path::new("/tmp/llvm-build");
+
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
             .build()
@@ -305,6 +308,7 @@ impl Compiler for LLVMCompiler {
                     table_styles,
                     &symbol_registry,
                     target.triple(),
+                    build_directory,
                 )
             },
             progress.clone(),

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::num::NonZero;
+use std::{collections::HashMap, path::Path};
 
 use super::{
     intrinsics::{
@@ -443,6 +443,7 @@ impl FuncTranslator {
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
+        build_directory: &Path,
     ) -> Result<CompiledFunction, CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
         let opt_style = if Some(func_index) == self.wasm_apply_data_relocs_fn_index {
@@ -484,6 +485,16 @@ impl FuncTranslator {
                 .unwrap();
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
+
+        let function_name =
+            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
+        std::fs::write(
+            build_directory
+                .to_path_buf()
+                .join(format!("{function_name}.o")),
+            memory_buffer.as_slice(),
+        )
+        .map_err(|e| CompileError::Codegen(format!("Cannot save emitted assembly: {e}")))?;
 
         let mem_buf_slice = memory_buffer.as_slice();
 
