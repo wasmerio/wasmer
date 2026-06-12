@@ -45,6 +45,7 @@ use wasmer_compiler::{
     translate_function_buckets,
 };
 use wasmer_types::ExportIndex;
+use wasmer_types::MetadataHeader;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
@@ -473,6 +474,7 @@ fn emit_wasmer_meta_object(
         sh_flags: u64::from(elf::SHF_GNU_RETAIN),
     };
 
+    // Emit offsets of the functions
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         b".wasmer.function_offsets".to_vec(),
@@ -517,6 +519,23 @@ fn emit_wasmer_meta_object(
             ))
         })?;
     }
+
+    // Save artifact format version.
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        b".wasmer.version".to_vec(),
+        SectionKind::Other,
+    );
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+    obj.append_section_data(
+        section_id,
+        &MetadataHeader::CURRENT_VERSION.to_le_bytes(),
+        pointer_size,
+    );
+
+    // Save the generated object file.
     obj.write_stream(&mut meta_object).map_err(|e| {
         CompileError::Codegen(format!(
             "failed to write Wasmer metaobject {}: {e}",
