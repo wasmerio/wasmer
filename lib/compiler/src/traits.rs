@@ -44,9 +44,6 @@ pub trait ArtifactCreate<'a>: Send + Sync + Upcastable {
     /// Returns the table plans associated with this `Artifact`.
     fn table_styles(&'a self) -> &'a PrimaryMap<TableIndex, TableStyle>;
 
-    /// Returns data initializers to pass to `VMInstance::initialize`
-    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator;
-
     /// Serializes an artifact into bytes
     fn serialize(&'a self) -> Result<Vec<u8>, SerializeError>;
 }

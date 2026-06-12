@@ -344,6 +344,10 @@ impl Artifact {
             }
         }
         let module_info = artifact.module_info();
+        dbg!(&module_info.function_names);
+        todo!();
+
+        /*
         let (
             finished_functions,
             finished_function_call_trampolines,
@@ -545,6 +549,7 @@ impl Artifact {
         }
 
         Ok(artifact)
+        */
     }
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
@@ -592,10 +597,6 @@ impl<'a> ArtifactCreate<'a> for Artifact {
 
     fn cpu_features(&self) -> EnumSet<CpuFeature> {
         self.artifact.cpu_features()
-    }
-
-    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
-        self.artifact.data_initializers()
     }
 
     fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
@@ -661,21 +662,6 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildVariant {
         match self {
             Self::Plain(artifact) => artifact.table_styles(),
             Self::Archived(artifact) => artifact.table_styles(),
-        }
-    }
-
-    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
-        match self {
-            Self::Plain(artifact) => artifact
-                .data_initializers()
-                .map(OwnedDataInitializerVariant::Plain)
-                .collect::<Vec<_>>()
-                .into_iter(),
-            Self::Archived(artifact) => artifact
-                .data_initializers()
-                .map(OwnedDataInitializerVariant::Archived)
-                .collect::<Vec<_>>()
-                .into_iter(),
         }
     }
 
@@ -749,45 +735,7 @@ impl DataInitializerLocationLike for DataInitializerLocationVariant<'_> {
 
 impl Artifact {
     fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
-        if self
-            .allocated
-            .as_ref()
-            .expect("It must be allocated")
-            .frame_info_registered
-        {
-            return Ok(()); // already done
-        }
-
-        let finished_function_extents = self
-            .allocated
-            .as_ref()
-            .expect("It must be allocated")
-            .function_extents()
-            .into_boxed_slice();
-
-        let frame_info_registration = &mut self
-            .allocated
-            .as_mut()
-            .expect("It must be allocated")
-            .frame_info_registration;
-
-        *frame_info_registration = register_frame_info(
-            self.artifact.create_module_info(),
-            &finished_function_extents,
-            match &self.artifact {
-                ArtifactBuildVariant::Plain(p) => {
-                    FrameInfosVariant::Owned(p.get_frame_info_ref().clone())
-                }
-                ArtifactBuildVariant::Archived(a) => FrameInfosVariant::Archived(a.clone()),
-            },
-        );
-
-        self.allocated
-            .as_mut()
-            .expect("It must be allocated")
-            .frame_info_registered = true;
-
-        Ok(())
+        todo!()
     }
 
     fn internal_take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
@@ -821,9 +769,7 @@ impl Artifact {
     /// The returned addresses are host-process pointers. They are not stable
     /// across runs and must not be forwarded to untrusted parties, as they
     /// reveal ASLR layout information.
-    pub fn finished_function_extents(
-        &self,
-    ) -> Option<Vec<(LocalFunctionIndex, FunctionExtent)>> {
+    pub fn finished_function_extents(&self) -> Option<Vec<(LocalFunctionIndex, FunctionExtent)>> {
         let allocated = self.allocated.as_ref()?;
         Some(allocated.function_extents().into_iter().collect())
     }
@@ -972,18 +918,7 @@ impl Artifact {
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut VMInstance,
     ) -> Result<(), InstantiationError> {
-        unsafe {
-            let data_initializers = self
-                .data_initializers()
-                .map(|init| DataInitializer {
-                    location: init.location().clone_to_plain(),
-                    data: init.data(),
-                })
-                .collect::<Vec<_>>();
-            handle
-                .finish_instantiation(config, trap_handler, &data_initializers)
-                .map_err(InstantiationError::Start)
-        }
+        todo!();
     }
 
     #[allow(clippy::type_complexity)]
@@ -1143,59 +1078,15 @@ impl Artifact {
 
         let (_compile_info, symbol_registry) = metadata.split();
 
-        let compilation: crate::types::function::Compilation = compiler.compile_module(
+        compiler.compile_module(
             target,
             &metadata.compile_info,
             module_translation.as_ref().unwrap(),
             function_body_inputs,
             None,
         )?;
-        let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
-        let object_name = ModuleMetadataSymbolRegistry {
-            prefix: metadata_prefix.unwrap_or_default().to_string(),
-        }
-        .symbol_to_name(crate::types::symbols::Symbol::Metadata);
-
-        let default_align = match target_triple.architecture {
-            target_lexicon::Architecture::Aarch64(_) => {
-                if matches!(
-                    target_triple.operating_system,
-                    target_lexicon::OperatingSystem::Darwin(_)
-                ) {
-                    8
-                } else {
-                    4
-                }
-            }
-            _ => 1,
-        };
-
-        // MetadataHeader::parse requires that metadata must be aligned
-        // by 8 bytes.
-        let offset = emit_data(
-            &mut obj,
-            object_name.as_bytes(),
-            metadata_builder.placeholder_data(),
-            std::cmp::max(8, default_align),
-        )
-        .map_err(to_compile_error)?;
-        metadata_builder.set_section_offset(offset);
-
-        emit_compilation(
-            &mut obj,
-            compilation,
-            &symbol_registry,
-            target_triple,
-            &metadata_builder,
-        )
-        .map_err(to_compile_error)?;
-        Ok((
-            Arc::try_unwrap(metadata.compile_info.module).unwrap(),
-            obj,
-            metadata_builder.placeholder_data().len(),
-            Box::new(symbol_registry),
-        ))
+        todo!();
     }
 
     /// Deserialize a ArtifactBuild from an object file
@@ -1320,9 +1211,7 @@ impl Artifact {
             }
 
             let artifact = ArtifactBuild::from_serializable(SerializableModule {
-                compilation: SerializableCompilation::default(),
                 compile_info: metadata.compile_info,
-                data_initializers: metadata.data_initializers,
                 cpu_features: metadata.cpu_features,
             });
 

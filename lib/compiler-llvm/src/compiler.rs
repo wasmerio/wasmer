@@ -1,5 +1,6 @@
 use crate::config::LLVM;
 use crate::config::OptimizationStyle;
+use crate::object_file::{CompiledFunction as LoadedCompiledFunction, load_object_file};
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::ThreadPoolBuilder;
@@ -208,7 +209,7 @@ impl Compiler for LLVMCompiler {
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<Compilation, CompileError> {
+    ) -> Result<(), CompileError> {
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
@@ -234,6 +235,12 @@ impl Compiler for LLVMCompiler {
         let signature_hashes = &module.signature_hashes;
 
         let build_directory = Path::new("/tmp/llvm-build");
+        std::fs::create_dir_all(build_directory).map_err(|e| {
+            CompileError::Codegen(format!(
+                "failed to create LLVM build directory {}: {e}",
+                build_directory.display()
+            ))
+        })?;
 
         let pool = ThreadPoolBuilder::new()
             .num_threads(self.config.num_threads.get())
@@ -366,9 +373,36 @@ impl Compiler for LLVMCompiler {
                     Ok(trampoline)
                 })
                 .collect::<Result<Vec<_>, CompileError>>()
-        };
+        }?;
 
-        todo!();
+        let image_path = build_directory.join("image.so");
+        let mut link_args = vec![
+            "ld".to_string(),
+            "-Bsymbolic".to_string(),
+            "-shared".to_string(),
+            "-o".to_string(),
+            image_path.display().to_string(),
+        ];
+        link_args.extend(
+            object_files
+                .iter()
+                .chain(trampolines_objects.iter())
+                .chain(dynamic_trampolines_objects.iter())
+                .map(|path| path.display().to_string()),
+        );
+        let mut wild_args =
+            libwild::Args::new(|| link_args.iter().map(String::as_str)).map_err(|e| {
+                CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}"))
+            })?;
+        wild_args
+            .parse(|| link_args.iter().map(String::as_str))
+            .map_err(|e| {
+                CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}"))
+            })?;
+        libwild::run(wild_args)
+            .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+
+        Ok(())
     }
 
     fn with_opts(

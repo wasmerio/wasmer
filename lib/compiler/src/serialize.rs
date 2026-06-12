@@ -59,12 +59,8 @@ impl SerializableCompilation {
 #[allow(missing_docs)]
 #[rkyv(derive(Debug))]
 pub struct SerializableModule {
-    /// The main serializable compilation object
-    pub compilation: SerializableCompilation,
     /// Compilation information
     pub compile_info: CompileModuleInfo,
-    /// Data initializers
-    pub data_initializers: Box<[OwnedDataInitializer]>,
     /// CPU Feature flags for this compilation
     pub cpu_features: u64,
 }
@@ -158,11 +154,6 @@ impl SerializableModule {
     /// Returns the CPU features for this Artifact
     pub fn cpu_features(&self) -> EnumSet<CpuFeature> {
         EnumSet::from_u64(self.cpu_features)
-    }
-
-    /// Returns data initializers to pass to `VMInstance::initialize`
-    pub fn data_initializers(&self) -> &[OwnedDataInitializer] {
-        &self.data_initializers
     }
 
     /// Returns the memory styles associated with this `Artifact`.

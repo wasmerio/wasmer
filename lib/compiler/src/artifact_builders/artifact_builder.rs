@@ -96,7 +96,7 @@ impl ArtifactBuild {
         };
 
         // Compile the Module
-        let compilation = compiler.compile_module(
+        compiler.compile_module(
             target,
             &compile_info,
             // SAFETY: Calling `unwrap` is correct since
@@ -107,51 +107,9 @@ impl ArtifactBuild {
             progress_callback,
         )?;
 
-        let data_initializers = translation
-            .data_initializers
-            .iter()
-            .map(OwnedDataInitializer::new)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-
-        // Synthesize a custom section to hold the libcall trampolines.
-        let mut function_frame_info = PrimaryMap::with_capacity(compilation.functions.len());
-        let mut function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
-        let mut function_relocations = PrimaryMap::with_capacity(compilation.functions.len());
-        for (_, func) in compilation.functions.into_iter() {
-            function_bodies.push(func.body);
-            function_relocations.push(func.relocations);
-            function_frame_info.push(func.frame_info);
-        }
-        let mut custom_sections = compilation.custom_sections.clone();
-        let mut custom_section_relocations = compilation
-            .custom_sections
-            .iter()
-            .map(|(_, section)| section.relocations.clone())
-            .collect::<PrimaryMap<SectionIndex, _>>();
-        let libcall_trampolines_section = make_libcall_trampolines(target);
-        custom_section_relocations.push(libcall_trampolines_section.relocations.clone());
-        let libcall_trampolines = custom_sections.push(libcall_trampolines_section);
-        let libcall_trampoline_len = libcall_trampoline_len(target) as u32;
         let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
-
-        let serializable_compilation = SerializableCompilation {
-            function_bodies,
-            function_relocations,
-            function_frame_info,
-            function_call_trampolines: compilation.function_call_trampolines,
-            dynamic_function_trampolines: compilation.dynamic_function_trampolines,
-            custom_sections,
-            custom_section_relocations,
-            unwind_info: compilation.unwind_info,
-            libcall_trampolines,
-            libcall_trampoline_len,
-            got: compilation.got,
-        };
         let serializable = SerializableModule {
-            compilation: serializable_compilation,
             compile_info,
-            data_initializers,
             cpu_features: cpu_features.as_u64(),
         };
         Ok(Self { serializable })
@@ -160,61 +118,6 @@ impl ArtifactBuild {
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
         Self { serializable }
-    }
-
-    /// Get Functions Bodies ref
-    pub fn get_function_bodies_ref(&self) -> &PrimaryMap<LocalFunctionIndex, FunctionBody> {
-        &self.serializable.compilation.function_bodies
-    }
-
-    /// Get Functions Call Trampolines ref
-    pub fn get_function_call_trampolines_ref(&self) -> &PrimaryMap<SignatureIndex, FunctionBody> {
-        &self.serializable.compilation.function_call_trampolines
-    }
-
-    /// Get Dynamic Functions Call Trampolines ref
-    pub fn get_dynamic_function_trampolines_ref(&self) -> &PrimaryMap<FunctionIndex, FunctionBody> {
-        &self.serializable.compilation.dynamic_function_trampolines
-    }
-
-    /// Get Custom Sections ref
-    pub fn get_custom_sections_ref(&self) -> &PrimaryMap<SectionIndex, CustomSection> {
-        &self.serializable.compilation.custom_sections
-    }
-
-    /// Get Function Relocations
-    pub fn get_function_relocations(&self) -> &PrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
-        &self.serializable.compilation.function_relocations
-    }
-
-    /// Get Function Relocations ref
-    pub fn get_custom_section_relocations_ref(&self) -> &PrimaryMap<SectionIndex, Vec<Relocation>> {
-        &self.serializable.compilation.custom_section_relocations
-    }
-
-    /// Get LibCall Trampoline Section Index
-    pub fn get_libcall_trampolines(&self) -> SectionIndex {
-        self.serializable.compilation.libcall_trampolines
-    }
-
-    /// Get LibCall Trampoline Length
-    pub fn get_libcall_trampoline_len(&self) -> usize {
-        self.serializable.compilation.libcall_trampoline_len as usize
-    }
-
-    /// Get a reference to the [`UnwindInfo`].
-    pub fn get_unwind_info(&self) -> &UnwindInfo {
-        &self.serializable.compilation.unwind_info
-    }
-
-    /// Get a reference to the [`GOT`].
-    pub fn get_got_ref(&self) -> &GOT {
-        &self.serializable.compilation.got
-    }
-
-    /// Get Function Relocations ref
-    pub fn get_frame_info_ref(&self) -> &PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
-        &self.serializable.compilation.function_frame_info
     }
 }
 
@@ -245,10 +148,6 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
         EnumSet::from_u64(self.serializable.cpu_features)
     }
 
-    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
-        self.serializable.data_initializers.iter()
-    }
-
     fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
         &self.serializable.compile_info.memory_styles
     }
@@ -266,10 +165,6 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
 /// interface of this crate and has to be mutable, it has to be deserialized completely.
 #[derive(Debug)]
 pub struct ModuleFromArchive<'a> {
-    /// The main serializable compilation object
-    pub compilation: &'a ArchivedSerializableCompilation,
-    /// Data initializers
-    pub data_initializers: &'a rkyv::Archived<Box<[OwnedDataInitializer]>>,
     /// CPU Feature flags for this compilation
     pub cpu_features: u64,
 
@@ -283,8 +178,6 @@ impl<'a> ModuleFromArchive<'a> {
         module: &'a ArchivedSerializableModule,
     ) -> Result<Self, DeserializeError> {
         Ok(Self {
-            compilation: &module.compilation,
-            data_initializers: &module.data_initializers,
             cpu_features: module.cpu_features.to_native(),
             original_module: module,
         })
@@ -350,108 +243,6 @@ impl ArtifactBuildFromArchive {
     pub fn owned_buffer(&self) -> &OwnedBuffer {
         self.cell.borrow_owner()
     }
-
-    /// Get Functions Bodies ref
-    pub fn get_function_bodies_ref(&self) -> &ArchivedPrimaryMap<LocalFunctionIndex, FunctionBody> {
-        &self.cell.borrow_dependent().compilation.function_bodies
-    }
-
-    /// Get Functions Call Trampolines ref
-    pub fn get_function_call_trampolines_ref(
-        &self,
-    ) -> &ArchivedPrimaryMap<SignatureIndex, FunctionBody> {
-        &self
-            .cell
-            .borrow_dependent()
-            .compilation
-            .function_call_trampolines
-    }
-
-    /// Get Dynamic Functions Call Trampolines ref
-    pub fn get_dynamic_function_trampolines_ref(
-        &self,
-    ) -> &ArchivedPrimaryMap<FunctionIndex, FunctionBody> {
-        &self
-            .cell
-            .borrow_dependent()
-            .compilation
-            .dynamic_function_trampolines
-    }
-
-    /// Get Custom Sections ref
-    pub fn get_custom_sections_ref(&self) -> &ArchivedPrimaryMap<SectionIndex, CustomSection> {
-        &self.cell.borrow_dependent().compilation.custom_sections
-    }
-
-    /// Get Function Relocations
-    pub fn get_function_relocations(
-        &self,
-    ) -> &ArchivedPrimaryMap<LocalFunctionIndex, Vec<Relocation>> {
-        &self
-            .cell
-            .borrow_dependent()
-            .compilation
-            .function_relocations
-    }
-
-    /// Get Function Relocations ref
-    pub fn get_custom_section_relocations_ref(
-        &self,
-    ) -> &ArchivedPrimaryMap<SectionIndex, Vec<Relocation>> {
-        &self
-            .cell
-            .borrow_dependent()
-            .compilation
-            .custom_section_relocations
-    }
-
-    /// Get LibCall Trampoline Section Index
-    pub fn get_libcall_trampolines(&self) -> SectionIndex {
-        rkyv::deserialize::<_, RkyvError>(
-            &self.cell.borrow_dependent().compilation.libcall_trampolines,
-        )
-        .unwrap()
-    }
-
-    /// Get LibCall Trampoline Length
-    pub fn get_libcall_trampoline_len(&self) -> usize {
-        self.cell
-            .borrow_dependent()
-            .compilation
-            .libcall_trampoline_len
-            .to_native() as usize
-    }
-
-    /// Get an unarchived [`UnwindInfo`].
-    pub fn get_unwind_info(&self) -> UnwindInfo {
-        rkyv::deserialize::<_, rkyv::rancor::Error>(
-            &self.cell.borrow_dependent().compilation.unwind_info,
-        )
-        .unwrap()
-    }
-
-    /// Get an unarchived [`GOT`].
-    pub fn get_got_ref(&self) -> GOT {
-        rkyv::deserialize::<_, rkyv::rancor::Error>(&self.cell.borrow_dependent().compilation.got)
-            .unwrap()
-    }
-
-    /// Get Function Relocations ref
-    pub fn get_frame_info_ref(
-        &self,
-    ) -> &ArchivedPrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> {
-        &self.cell.borrow_dependent().compilation.function_frame_info
-    }
-
-    /// Get Function Relocations ref
-    pub fn deserialize_frame_info_ref(
-        &self,
-    ) -> Result<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>, DeserializeError> {
-        rkyv::deserialize::<_, RkyvError>(
-            &self.cell.borrow_dependent().compilation.function_frame_info,
-        )
-        .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))
-    }
 }
 
 impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
@@ -479,10 +270,6 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
 
     fn cpu_features(&self) -> EnumSet<CpuFeature> {
         EnumSet::from_u64(self.cell.borrow_dependent().cpu_features)
-    }
-
-    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
-        self.cell.borrow_dependent().data_initializers.iter()
     }
 
     fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
