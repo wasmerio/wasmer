@@ -22,6 +22,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::path::Path;
+use std::path::PathBuf;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
@@ -391,91 +392,13 @@ impl Compiler for LLVMCompiler {
                 .collect::<Result<Vec<_>, CompileError>>()
         }?;
 
-        // TODO: document: Serialize ModuleInfo
-        // TODO: unwrap
-        let module_info_object_path = build_directory.to_path_buf().join("__module_info.o");
-        let mut module_info_object = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&module_info_object_path)
-            .unwrap();
-        let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
-        let segment = obj.segment_name(StandardSegment::Data).to_vec();
-        let section_id =
-            obj.add_section(segment, b".wasmer.module_info".to_vec(), SectionKind::Other);
-        obj.append_section_data(section_id, &compile_info_blob, 8);
-
-        // ELF-only: mark section allocatable and retained by linker GC.
-        obj.section_mut(section_id).flags = SectionFlags::Elf {
-            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-        };
-        // TODO
-        obj.write_stream(&mut module_info_object).unwrap();
-
-        let function_body_offsets_object_path = build_directory
-            .to_path_buf()
-            .join("function_body_offsets.o");
-        let mut function_body_offsets_object = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&function_body_offsets_object_path)
-            // TODO
-            .unwrap();
-        let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
-        let segment = obj.segment_name(StandardSegment::Data).to_vec();
-        let section_id = obj.add_section(
-            segment,
-            b".wasmer.function_offsets".to_vec(),
-            SectionKind::Other,
-        );
-        obj.section_mut(section_id).flags = SectionFlags::Elf {
-            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-        };
-        let pointer_size = target.triple().pointer_width().unwrap().bytes() as u64;
-        let pointer_bits = (pointer_size * 8) as u8;
-        let zero_pointer = vec![0; pointer_size as usize];
-        for local_function_index in function_body_inputs.keys() {
-            let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
-            let symbol_name =
-                symbol_registry.symbol_to_name(Symbol::LocalFunction(local_function_index));
-            let symbol_id = obj.add_symbol(ObjSymbol {
-                name: symbol_name.into_bytes(),
-                value: 0,
-                size: 0,
-                kind: SymbolKind::Text,
-                scope: SymbolScope::Unknown,
-                weak: false,
-                section: SymbolSection::Undefined,
-                flags: SymbolFlags::None,
-            });
-            obj.add_relocation(
-                section_id,
-                Relocation {
-                    offset,
-                    flags: RelocationFlags::Generic {
-                        kind: RelocationKind::Absolute,
-                        encoding: RelocationEncoding::Generic,
-                        size: pointer_bits,
-                    },
-                    symbol: symbol_id,
-                    addend: 0,
-                },
-            )
-            .map_err(|e| {
-                CompileError::Codegen(format!(
-                    "failed to add function offset relocation for {local_function_index:?}: {e}"
-                ))
-            })?;
-        }
-        obj.write_stream(&mut function_body_offsets_object)
-            .map_err(|e| {
-                CompileError::Codegen(format!(
-                    "failed to write function body offsets object {}: {e}",
-                    function_body_offsets_object_path.display()
-                ))
-            })?;
+        let meta_object_path = emit_wasmer_meta_object(
+            target,
+            &symbol_registry,
+            &function_body_inputs,
+            compile_info_blob,
+            build_directory,
+        )?;
 
         let image_path = build_directory.join("image.so");
         let mut link_args = vec![
@@ -484,8 +407,7 @@ impl Compiler for LLVMCompiler {
             "-shared".to_string(),
             "-o".to_string(),
             image_path.display().to_string(),
-            module_info_object_path.display().to_string(),
-            function_body_offsets_object_path.display().to_string(),
+            meta_object_path.display().to_string(),
         ];
         link_args.extend(
             object_files
@@ -515,4 +437,92 @@ impl Compiler for LLVMCompiler {
     ) -> Result<(), CompileError> {
         Ok(())
     }
+}
+
+fn emit_wasmer_meta_object(
+    target: &Target,
+    symbol_registry: &ModuleBasedSymbolRegistry,
+    function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+    compile_info_blob: Vec<u8>,
+    build_directory: &Path,
+) -> Result<PathBuf, CompileError> {
+    // TODO: document: Serialize ModuleInfo
+    // TODO: unwrap
+    let meta_object_path = build_directory.to_path_buf().join("__wasmer_meta.o");
+    let mut meta_object = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&meta_object_path)
+        .map_err(|e| {
+            CompileError::Codegen(format!(
+                "failed to create Wasmer metaobject {}: {e}",
+                meta_object_path.display()
+            ))
+        })?;
+    let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        b".wasmer.module_info".to_vec(),
+        SectionKind::Other,
+    );
+    obj.append_section_data(section_id, &compile_info_blob, 8);
+
+    // ELF-only: mark section allocatable and retained by linker GC.
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        b".wasmer.function_offsets".to_vec(),
+        SectionKind::Other,
+    );
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+    let pointer_size = target.triple().pointer_width().unwrap().bytes() as u64;
+    let pointer_bits = (pointer_size * 8) as u8;
+    let zero_pointer = vec![0; pointer_size as usize];
+    for local_function_index in function_body_inputs.keys() {
+        let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
+        let symbol_name =
+            symbol_registry.symbol_to_name(Symbol::LocalFunction(local_function_index));
+        let symbol_id = obj.add_symbol(ObjSymbol {
+            name: symbol_name.into_bytes(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Text,
+            scope: SymbolScope::Unknown,
+            weak: false,
+            section: SymbolSection::Undefined,
+            flags: SymbolFlags::None,
+        });
+        obj.add_relocation(
+            section_id,
+            Relocation {
+                offset,
+                flags: RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: pointer_bits,
+                },
+                symbol: symbol_id,
+                addend: 0,
+            },
+        )
+        .map_err(|e| {
+            CompileError::Codegen(format!(
+                "failed to add function offset relocation for {local_function_index:?}: {e}"
+            ))
+        })?;
+    }
+    obj.write_stream(&mut meta_object).map_err(|e| {
+        CompileError::Codegen(format!(
+            "failed to write Wasmer metaobject {}: {e}",
+            meta_object_path.display(),
+        ))
+    })?;
+
+    Ok(meta_object_path)
 }
