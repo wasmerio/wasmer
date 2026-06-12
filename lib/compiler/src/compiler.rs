@@ -165,6 +165,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         &self,
         target: &Target,
         module: &CompileModuleInfo,
+        compile_info_blob: Vec<u8>,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,

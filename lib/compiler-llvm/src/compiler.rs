@@ -3,8 +3,18 @@ use crate::config::OptimizationStyle;
 use crate::object_file::{CompiledFunction as LoadedCompiledFunction, load_object_file};
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
+use object::Architecture;
+use object::BinaryFormat;
+use object::Endianness;
+use object::SectionFlags;
+use object::SectionKind;
+use object::elf;
+use object::write::Object;
+use object::write::StandardSegment;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::fs::File;
+use std::fs::OpenOptions;
 use std::path::Path;
 use std::{
     borrow::Cow,
@@ -206,6 +216,7 @@ impl Compiler for LLVMCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        compile_info_blob: Vec<u8>,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -375,6 +386,28 @@ impl Compiler for LLVMCompiler {
                 .collect::<Result<Vec<_>, CompileError>>()
         }?;
 
+        // TODO: document: Serialize ModuleInfo
+        // TODO: unwrap
+        let module_info_object_path = build_directory.to_path_buf().join("__module_info.o");
+        let mut module_info_object = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&module_info_object_path)
+            .unwrap();
+        let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
+        let segment = obj.segment_name(StandardSegment::Data).to_vec();
+        let section_id =
+            obj.add_section(segment, b".wasmer.module_info".to_vec(), SectionKind::Other);
+        obj.append_section_data(section_id, &compile_info_blob, 8);
+
+        // ELF-only: mark section allocatable and retained by linker GC.
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        };
+        // TODO
+        obj.write_stream(&mut module_info_object).unwrap();
+
         let image_path = build_directory.join("image.so");
         let mut link_args = vec![
             "ld".to_string(),
@@ -382,6 +415,7 @@ impl Compiler for LLVMCompiler {
             "-shared".to_string(),
             "-o".to_string(),
             image_path.display().to_string(),
+            module_info_object_path.display().to_string(),
         ];
         link_args.extend(
             object_files

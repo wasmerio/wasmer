@@ -99,6 +99,10 @@ impl ArtifactBuild {
         compiler.compile_module(
             target,
             &compile_info,
+            rkyv::to_bytes::<rkyv::rancor::Error>(&compile_info)
+                // TODO
+                .map(|bytes| bytes.into_vec())
+                .unwrap(),
             // SAFETY: Calling `unwrap` is correct since
             // `environ.translate()` above will write some data into
             // `module_translation_state`.

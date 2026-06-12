@@ -1078,13 +1078,13 @@ impl Artifact {
 
         let (_compile_info, symbol_registry) = metadata.split();
 
-        compiler.compile_module(
-            target,
-            &metadata.compile_info,
-            module_translation.as_ref().unwrap(),
-            function_body_inputs,
-            None,
-        )?;
+        // compiler.compile_module(
+        //     target,
+        //     &metadata.compile_info,
+        //     module_translation.as_ref().unwrap(),
+        //     function_body_inputs,
+        //     None,
+        // )?;
 
         todo!();
     }
