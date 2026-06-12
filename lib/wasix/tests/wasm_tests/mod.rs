@@ -1238,7 +1238,6 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         .filter_map(Result::ok)
         .filter(|e| e.path() != tests_dir)
         .filter(|e| e.path().strip_prefix(&tests_build_root).is_err())
-        // Skip temporary helper directories (like 'a', 'b', etc.).
         .filter(|e| e.file_type().is_dir())
         .filter(|e| has_primary_source_file(e.path()))
     {
@@ -1273,7 +1272,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                 for file_system in config
                     .file_systems
                     .as_ref()
-                    .unwrap_or_else(|| &default_file_systems)
+                    .unwrap_or(&default_file_systems)
                 {
                     for engine in &supported_engines {
                         // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
@@ -1303,8 +1302,8 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                         for sysroot in TESTED_LIBC_VERSIONS {
                             // For performance reasons, run the wasix-libc compatibility tests
                             // only with the Cranelift compiler.
-                            if (sysroot.is_some()
-                                && (*engine != Engine::Cranelift || cfg!(target_os = "windows")))
+                            if sysroot.is_some()
+                                && (*engine != Engine::Cranelift || cfg!(target_os = "windows"))
                             {
                                 continue;
                             }
