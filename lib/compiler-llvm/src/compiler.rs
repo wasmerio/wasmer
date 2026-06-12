@@ -10,7 +10,13 @@ use object::SectionFlags;
 use object::SectionKind;
 use object::elf;
 use object::write::Object;
+use object::write::Relocation;
 use object::write::StandardSegment;
+use object::write::Symbol as ObjSymbol;
+use object::write::SymbolSection;
+use object::{
+    RelocationEncoding, RelocationFlags, RelocationKind, SymbolFlags, SymbolKind, SymbolScope,
+};
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::fs::File;
@@ -25,7 +31,6 @@ use wasmer_compiler::misc::types_to_signature;
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
-use wasmer_compiler::types::relocation::RelocationKind;
 use wasmer_compiler::{
     Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
     types::{
@@ -408,6 +413,70 @@ impl Compiler for LLVMCompiler {
         // TODO
         obj.write_stream(&mut module_info_object).unwrap();
 
+        let function_body_offsets_object_path = build_directory
+            .to_path_buf()
+            .join("function_body_offsets.o");
+        let mut function_body_offsets_object = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&function_body_offsets_object_path)
+            // TODO
+            .unwrap();
+        let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
+        let segment = obj.segment_name(StandardSegment::Data).to_vec();
+        let section_id = obj.add_section(
+            segment,
+            b".wasmer.function_offsets".to_vec(),
+            SectionKind::Other,
+        );
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        };
+        let pointer_size = target.triple().pointer_width().unwrap().bytes() as u64;
+        let pointer_bits = (pointer_size * 8) as u8;
+        let zero_pointer = vec![0; pointer_size as usize];
+        for local_function_index in function_body_inputs.keys() {
+            let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
+            let symbol_name =
+                symbol_registry.symbol_to_name(Symbol::LocalFunction(local_function_index));
+            let symbol_id = obj.add_symbol(ObjSymbol {
+                name: symbol_name.into_bytes(),
+                value: 0,
+                size: 0,
+                kind: SymbolKind::Text,
+                scope: SymbolScope::Unknown,
+                weak: false,
+                section: SymbolSection::Undefined,
+                flags: SymbolFlags::None,
+            });
+            obj.add_relocation(
+                section_id,
+                Relocation {
+                    offset,
+                    flags: RelocationFlags::Generic {
+                        kind: RelocationKind::Absolute,
+                        encoding: RelocationEncoding::Generic,
+                        size: pointer_bits,
+                    },
+                    symbol: symbol_id,
+                    addend: 0,
+                },
+            )
+            .map_err(|e| {
+                CompileError::Codegen(format!(
+                    "failed to add function offset relocation for {local_function_index:?}: {e}"
+                ))
+            })?;
+        }
+        obj.write_stream(&mut function_body_offsets_object)
+            .map_err(|e| {
+                CompileError::Codegen(format!(
+                    "failed to write function body offsets object {}: {e}",
+                    function_body_offsets_object_path.display()
+                ))
+            })?;
+
         let image_path = build_directory.join("image.so");
         let mut link_args = vec![
             "ld".to_string(),
@@ -416,6 +485,7 @@ impl Compiler for LLVMCompiler {
             "-o".to_string(),
             image_path.display().to_string(),
             module_info_object_path.display().to_string(),
+            function_body_offsets_object_path.display().to_string(),
         ];
         link_args.extend(
             object_files
