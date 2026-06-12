@@ -9,6 +9,7 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
+use wasmer_compiler::misc::types_to_signature;
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
@@ -389,7 +390,7 @@ impl Compiler for LLVMCompiler {
         let function_call_trampolines = pool.install(|| {
             module
                 .signatures
-                .values()
+                .iter()
                 .collect::<Vec<_>>()
                 .par_iter()
                 .map_init(
@@ -398,9 +399,18 @@ impl Compiler for LLVMCompiler {
                         FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
                             .unwrap()
                     },
-                    |func_trampoline, sig| {
-                        let trampoline =
-                            func_trampoline.trampoline(sig, self.config(), "", compile_info);
+                    |func_trampoline, (_, sig)| {
+                        let function_name = format!(
+                            "trampoline_call_{}_{}",
+                            types_to_signature(sig.params()),
+                            types_to_signature(sig.results())
+                        );
+                        let trampoline = func_trampoline.trampoline(
+                            sig,
+                            self.config(),
+                            &function_name,
+                            compile_info,
+                        );
                         if let Some(progress) = progress.as_ref() {
                             progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                         }
@@ -428,10 +438,15 @@ impl Compiler for LLVMCompiler {
                 .into_iter()
                 .enumerate()
                 .map(|(index, func_type)| {
+                    let function_name = format!(
+                        "trampoline_dynamic_{}_{}",
+                        types_to_signature(func_type.params()),
+                        types_to_signature(func_type.results())
+                    );
                     let trampoline = func_trampoline.dynamic_trampoline(
                         &func_type,
                         self.config(),
-                        "",
+                        &function_name,
                         index as u32,
                         &mut module_custom_sections,
                         &mut eh_frame_section_bytes,
