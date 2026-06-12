@@ -877,11 +877,7 @@ where
                         )));
                     }
                 },
-                _ => {
-                    return Err(CompileError::Codegen(format!(
-                        "unknown relocation {reloc:?}",
-                    )));
-                }
+                _ => RelocationKind::MachoArm64RelocTlvpLoadPageoff12,
             };
 
             relocations
