@@ -59,10 +59,6 @@ use wasmer_types::{
 use wasmer_types::{TagIndex, entity::PrimaryMap};
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
-const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_function";
-const FUNCTION_SECTION_MACHO: &str = "__TEXT";
-const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
-
 // Since we want to use module-local tag numbers for landing pads,
 // the catch-all tag can't be zero; we instead use i32::MAX, which
 // is hopefully large enough to not conflict with any real tag.
@@ -76,7 +72,6 @@ pub struct FuncTranslator {
     target_machines: HashMap<OptimizationStyle, TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
-    func_section: String,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
@@ -104,15 +99,6 @@ impl FuncTranslator {
             target_triple,
             target_machines,
             abi,
-            func_section: match binary_fmt {
-                BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
-                BinaryFormat::Macho => FUNCTION_SEGMENT_MACHO.to_string(),
-                _ => {
-                    return Err(CompileError::UnsupportedTarget(format!(
-                        "Unsupported binary format: {binary_fmt:?}"
-                    )));
-                }
-            },
             binary_fmt,
             pointer_width,
             cpu_features,
@@ -193,21 +179,7 @@ impl FuncTranslator {
         func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
         func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
 
-        let section = match self.binary_fmt {
-            BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
-            BinaryFormat::Macho => {
-                format!("{FUNCTION_SECTION_MACHO},{FUNCTION_SEGMENT_MACHO}")
-            }
-            _ => {
-                return Err(CompileError::UnsupportedTarget(format!(
-                    "Unsupported binary format: {:?}",
-                    self.binary_fmt
-                )));
-            }
-        };
-
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(Some(&section));
 
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
@@ -1885,9 +1857,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         // The general idea is that each tag has its own section, so the GOT-based relocation can
         // have a zero addend, i.e. the data of the tag is the first (and only) value in a specific
         // section we can target in relocations.
-        if matches!(self.binary_fmt, target_lexicon::BinaryFormat::Macho) {
-            tag_glbl.set_section(Some(&format!("{FUNCTION_SECTION_MACHO},_eh_ti_{tag}")));
-        }
+
+        // TODO
+        // if matches!(self.binary_fmt, target_lexicon::BinaryFormat::Macho) {
+        //     tag_glbl.set_section(Some(&format!("{FUNCTION_SECTION_MACHO},_eh_ti_{tag}")));
+        // }
 
         let tag_glbl = tag_glbl.as_basic_value_enum();
 

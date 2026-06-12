@@ -45,11 +45,7 @@ pub struct FuncTrampoline {
     target_triple: Triple,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
-    func_section: String,
 }
-
-const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 and 16 chars
-const FUNCTION_SECTION_MACHO: &str = "wasmer_trmpl"; // Needs to be between 1 and 16 chars
 
 fn enable_m0_optimization(compile_info: &CompileModuleInfo) -> bool {
     compile_info
@@ -70,15 +66,6 @@ impl FuncTrampoline {
             target_machine,
             target_triple,
             abi,
-            func_section: match binary_fmt {
-                BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
-                BinaryFormat::Macho => FUNCTION_SECTION_MACHO.to_string(),
-                _ => {
-                    return Err(CompileError::UnsupportedTarget(format!(
-                        "Unsupported binary format: {binary_fmt:?}",
-                    )));
-                }
-            },
             binary_fmt,
         })
     }
@@ -120,9 +107,6 @@ impl FuncTrampoline {
         );
 
         let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
-        trampoline_func
-            .as_global_value()
-            .set_section(Some(&self.func_section));
         trampoline_func
             .as_global_value()
             .set_linkage(Linkage::DLLExport);
@@ -232,9 +216,6 @@ impl FuncTrampoline {
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
         }
-        trampoline_func
-            .as_global_value()
-            .set_section(Some(&self.func_section));
         trampoline_func
             .as_global_value()
             .set_linkage(Linkage::DLLExport);
