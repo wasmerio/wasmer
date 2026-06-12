@@ -1,4 +1,5 @@
 use std::num::NonZero;
+use std::path::PathBuf;
 use std::{collections::HashMap, path::Path};
 
 use super::{
@@ -444,7 +445,7 @@ impl FuncTranslator {
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
         build_directory: &Path,
-    ) -> Result<CompiledFunction, CompileError> {
+    ) -> Result<PathBuf, CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
         let opt_style = if Some(func_index) == self.wasm_apply_data_relocs_fn_index {
             // `__wasm_apply_data_relocs` can become a very large function made up
@@ -488,40 +489,12 @@ impl FuncTranslator {
 
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
-        std::fs::write(
-            build_directory
-                .to_path_buf()
-                .join(format!("{function_name}.o")),
-            memory_buffer.as_slice(),
-        )
-        .map_err(|e| CompileError::Codegen(format!("Cannot save emitted assembly: {e}")))?;
-
-        let mem_buf_slice = memory_buffer.as_slice();
-
-        load_object_file(
-            mem_buf_slice,
-            &self.func_section,
-            RelocationTarget::LocalFunc(*local_func_index),
-            |name: &str| {
-                Ok({
-                    let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
-                        name.strip_prefix("_").unwrap_or(name)
-                    } else {
-                        name
-                    }
-                    .to_string();
-                    if let Some(Symbol::LocalFunction(local_func_index)) =
-                        symbol_registry.name_to_symbol(&name)
-                    {
-                        Some(RelocationTarget::LocalFunc(local_func_index))
-                    } else {
-                        None
-                    }
-                })
-            },
-            self.binary_fmt,
-            &self.target_triple,
-        )
+        let object_path = build_directory
+            .to_path_buf()
+            .join(format!("{function_name}.o"));
+        std::fs::write(&object_path, memory_buffer.as_slice())
+            .map_err(|e| CompileError::Codegen(format!("Cannot save emitted assembly: {e}")))?;
+        Ok(object_path)
     }
 }
 

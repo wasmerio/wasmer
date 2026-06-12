@@ -2,6 +2,7 @@
 //! compilers will need to implement.
 
 use std::cmp::Reverse;
+use std::path::PathBuf;
 
 use crate::progress::ProgressContext;
 use crate::types::module::CompileModuleInfo;
@@ -241,26 +242,22 @@ pub fn build_function_buckets<'a>(
     buckets
 }
 
-/// Represents a function that has been compiled by the backend compiler.
-pub trait CompiledFunction {}
-
 /// Translates a function from its input representation to a compiled form.
 pub trait FuncTranslator {}
 
 /// Compile function buckets largest-first via the channel (instead of Rayon's par_iter).
 #[allow(clippy::too_many_arguments)]
-pub fn translate_function_buckets<'a, C, T, F, G>(
+pub fn translate_function_buckets<'a, T, F, G>(
     pool: &rayon::ThreadPool,
     func_translator_builder: F,
     translate_fn: G,
     progress: Option<ProgressContext>,
     buckets: &[FunctionBucket<'a>],
-) -> Result<Vec<C>, CompileError>
+) -> Result<Vec<PathBuf>, CompileError>
 where
     T: FuncTranslator,
-    C: CompiledFunction + Send + Sync,
     F: Fn() -> T + Send + Sync + Copy,
-    G: Fn(&mut T, &LocalFunctionIndex, &FunctionBodyData) -> Result<C, CompileError>
+    G: Fn(&mut T, &LocalFunctionIndex, &FunctionBodyData) -> Result<PathBuf, CompileError>
         + Send
         + Sync
         + Copy,
@@ -277,7 +274,7 @@ where
         drop(bucket_tx);
 
         let (result_tx, result_rx) =
-            unbounded::<Result<Vec<(LocalFunctionIndex, C)>, CompileError>>();
+            unbounded::<Result<Vec<(LocalFunctionIndex, PathBuf)>, CompileError>>();
 
         pool.scope(|s| {
             let worker_count = pool.current_num_threads().max(1);
