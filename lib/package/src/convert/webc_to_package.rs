@@ -90,7 +90,12 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
                 ))
             })?;
 
-            let volume_path = target_dir.join(mapping.volume_name.trim_start_matches('/'));
+            // The volume name is taken verbatim from the (untrusted) webc and
+            // is used to build an on-disk path. Without normalization a name
+            // such as "../x" would unpack outside target_dir, so route it
+            // through the same sanitizer used elsewhere in the crate.
+            let volume_subpath = webc::sanitize_path(&mapping.volume_name);
+            let volume_path = target_dir.join(volume_subpath.trim_start_matches('/'));
 
             std::fs::create_dir_all(&volume_path).map_err(|err| {
                 ConversionError::with_cause(
@@ -139,7 +144,10 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
             )
         })?;
         for (atom_name, data) in atoms {
-            let atom_path = module_dir.join(&atom_name);
+            // Atom names also come from the container, so sanitize before
+            // joining to keep the write inside module_dir.
+            let atom_subpath = webc::sanitize_path(&atom_name);
+            let atom_path = module_dir.join(atom_subpath.trim_start_matches('/'));
 
             std::fs::write(&atom_path, &data).map_err(|err| {
                 ConversionError::with_cause(
@@ -229,6 +237,73 @@ mod tests {
     use crate::{package::Package, utils::from_bytes};
 
     use super::*;
+
+    // A hostile webc can name a volume "../something". Extracting it must not
+    // escape the requested output directory.
+    #[test]
+    fn webc_to_package_dir_contains_volume_name_traversal() {
+        use std::collections::BTreeMap;
+
+        use webc::{
+            PathSegment,
+            metadata::{
+                Manifest,
+                annotations::{FileSystemMapping, FileSystemMappings},
+            },
+            v3::{
+                ChecksumAlgorithm, SignatureAlgorithm, Timestamps,
+                write::{DirEntry, Directory, FileEntry, Writer},
+            },
+        };
+
+        let tmpdir = tempfile::tempdir().unwrap();
+        let root = tmpdir.path();
+        // The caller creates the output directory before invoking the converter.
+        let target_dir = root.join("out");
+        create_dir_all(&target_dir).unwrap();
+
+        let escaping_name = "../escaped";
+
+        let mut manifest = Manifest::default();
+        let mappings = FileSystemMappings(vec![FileSystemMapping {
+            from: None,
+            volume_name: escaping_name.to_string(),
+            host_path: None,
+            mount_path: "/data".to_string(),
+        }]);
+        manifest.package.insert(
+            FileSystemMappings::KEY.to_string(),
+            ciborium::Value::serialized(&mappings).unwrap(),
+        );
+
+        let mut children: BTreeMap<PathSegment, DirEntry> = BTreeMap::new();
+        children.insert(
+            "secret".parse().unwrap(),
+            DirEntry::File(FileEntry::owned(b"PWNED".to_vec(), Timestamps::default())),
+        );
+        let volume = Directory::new(children, Timestamps::default());
+
+        let mut writer = Writer::new(ChecksumAlgorithm::Sha256)
+            .write_manifest(&manifest)
+            .unwrap()
+            .write_atoms(BTreeMap::new())
+            .unwrap();
+        writer.write_volume(escaping_name, volume).unwrap();
+        let bytes = writer.finish(SignatureAlgorithm::None).unwrap();
+
+        let container = from_bytes(bytes).unwrap();
+
+        webc_to_package_dir(&container, &target_dir).unwrap();
+
+        // The volume contents must stay under target_dir, never in a sibling.
+        let escaped = root.join("escaped").join("secret");
+        assert!(
+            !escaped.exists(),
+            "volume escaped the output directory to {}",
+            escaped.display()
+        );
+        assert!(target_dir.join("escaped").join("secret").exists());
+    }
 
     // Build a webc from a package directory, and then restore the directory
     // from the webc.
