@@ -7200,6 +7200,7 @@ dependencies = [
  "leb128",
  "more-asserts",
  "rayon",
+ "regalloc2",
  "smallvec",
  "target-lexicon 0.13.5",
  "tracing",
