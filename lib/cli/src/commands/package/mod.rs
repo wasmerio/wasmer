@@ -4,6 +4,7 @@ mod download;
 pub mod publish;
 mod push;
 mod tag;
+mod tree;
 mod unpack;
 
 pub use build::PackageBuild;
@@ -22,4 +23,5 @@ pub enum Package {
     Push(push::PackagePush),
     Publish(publish::PackagePublish),
     Unpack(unpack::PackageUnpack),
+    Tree(tree::PackageTree),
 }

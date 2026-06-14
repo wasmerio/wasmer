@@ -447,6 +447,59 @@ mod queries {
         pub get_package_version: Option<PackageVersionWithPackage>,
     }
 
+    /// Minimal package info used when displaying dependency nodes in a tree.
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "Package")]
+    pub struct PackageBasic {
+        pub id: cynic::Id,
+        pub package_name: String,
+        pub namespace: Option<String>,
+    }
+
+    /// A package version with only the fields needed to display a dep node.
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct PackageVersionBasic {
+        pub id: cynic::Id,
+        pub version: String,
+        pub package: PackageBasic,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "PackageVersionEdge")]
+    pub struct PackageVersionBasicEdge {
+        pub node: Option<PackageVersionBasic>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "PackageVersionConnection")]
+    pub struct PackageVersionBasicConnection {
+        pub edges: Vec<Option<PackageVersionBasicEdge>>,
+    }
+
+    /// A package version that includes its direct dependencies.
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct PackageVersionWithDirectDeps {
+        pub id: cynic::Id,
+        pub version: String,
+        pub package: PackageBasic,
+        pub dependencies: PackageVersionBasicConnection,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetPackageVersionWithDepsVars {
+        pub name: String,
+        pub version: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetPackageVersionWithDepsVars")]
+    pub struct GetPackageVersionWithDeps {
+        #[arguments(name: $name, version: $version)]
+        pub get_package_version: Option<PackageVersionWithDirectDeps>,
+    }
+
     #[derive(cynic::Enum, Clone, Copy, Debug)]
     pub enum PackageVersionSortBy {
         Newest,
