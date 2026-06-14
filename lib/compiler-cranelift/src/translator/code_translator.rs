@@ -3137,7 +3137,7 @@ fn translate_store(
         state,
         prepare_addr(memarg, mem_op_size, builder, state, environ)?
     );
-    let raw_flags = builder.func.dfg.mem_flags.insert(flags).unwrap();
+    let raw_flags = insert_mem_flags(builder.func, flags);
 
     if allow_unaligned_memory_accesses && mem_op_size > 1 && mem_op_size < 16 {
         let block_aligned = builder.create_block();

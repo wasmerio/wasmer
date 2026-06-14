@@ -1246,8 +1246,8 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let test_name = relative_test_path.display().to_string();
         let primary_sources = identify_primary_sources(entry.path())?;
 
-        #[allow(unused_mut)]
-        let mut supported_engines = vec![Engine::Cranelift];
+        let mut supported_engines = Vec::new();
+        supported_engines.push(Engine::Cranelift);
         #[cfg(feature = "llvm")]
         supported_engines.push(Engine::LLVM);
         #[cfg(feature = "singlepass")]
