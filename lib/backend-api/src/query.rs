@@ -1744,15 +1744,15 @@ pub async fn get_package_versions(
 /// Retrieving package versions with dependencies
 pub async fn get_package_versions_with_dependencies(
     client: &WasmerClient,
-    name:String,
-    version:String
-) -> Result<Option<types::PackageVersionWithDirectDeps>,anyhow::Error>{
+    name: String,
+    version: String,
+) -> Result<Option<types::PackageVersionWithDirectDeps>, anyhow::Error> {
     client
         .run_graphql_strict(types::GetPackageVersionWithDeps::build(
-            types::GetPackageVersionWithDepsVars { name, version }
+            types::GetPackageVersionWithDepsVars { name, version },
         ))
-    .await
-    .map(|x| x.get_package_version)
+        .await
+        .map(|x| x.get_package_version)
 }
 /// Retrieve a package release by hash.
 pub async fn get_package_release(

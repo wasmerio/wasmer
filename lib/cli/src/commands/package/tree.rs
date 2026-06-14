@@ -62,11 +62,13 @@ impl PackageTree {
         visited: &mut Vec<String>,
     ) -> Result<DependencyNode, anyhow::Error> {
         let pkg = rt
-            .block_on(wasmer_backend_api::query::get_package_versions_with_dependencies(
-                client,
-                name.to_string(),
-                version.to_string(),
-            ))?
+            .block_on(
+                wasmer_backend_api::query::get_package_versions_with_dependencies(
+                    client,
+                    name.to_string(),
+                    version.to_string(),
+                ),
+            )?
             .with_context(|| {
                 format!(
                     "could not retrieve package '{}@{}' from registry '{}'",
