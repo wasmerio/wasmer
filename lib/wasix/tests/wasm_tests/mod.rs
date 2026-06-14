@@ -21,6 +21,9 @@
 //!
 //! `BuildEnv:{key}={value}` sets an environment variable before building.
 //!
+//! The harness also sets `WASMER_BACKEND` to the engine name (`cranelift`, `v8`,
+//! etc.) before every build so shell scripts can tune compile-time parameters per backend.
+//!
 //! `Env:{key}={value}` sets an environment variable before running.
 //!
 //! `ExpectedStdout:{line}` appends one expected stdout line.
@@ -43,6 +46,9 @@
 //! a given engine (LLVM, Cranelift, V8, Singlepass).
 //!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
+//!
+//! `MinimalLibc:{version}` ignores the configuration when the selected sysroot
+//! version is older than the given minimal libc version.
 //!
 //! `MappedDirectory:{host}:{guest}` maps a host directory into the guest. Relative
 //!  host paths are resolved from the test source directory; `$temp` creates a fresh
@@ -87,6 +93,8 @@ use wasmer_wasix::virtual_fs::{
 };
 
 mod runner;
+
+const TESTED_LIBC_VERSIONS: &[Option<&str>] = &[None, Some("v2026-05-12.1")];
 
 fn should_emit_colour() -> bool {
     std::io::stdout().is_terminal()
@@ -194,6 +202,9 @@ struct Config {
     expected_files: Vec<(PathBuf, String)>,
     program_name: Option<String>,
     default_mapped_directories: bool,
+    minimal_libc: Option<String>,
+    // Used for configuration display name purpose.
+    sysroot_version: Option<&'static str>,
 }
 
 impl Config {
@@ -230,6 +241,8 @@ impl Config {
             expected_files: Vec::new(),
             program_name: None,
             default_mapped_directories: true,
+            minimal_libc: None,
+            sysroot_version: None,
         }
     }
 
@@ -246,8 +259,31 @@ impl Config {
         if self.selected_file_system != FileSystemKind::Host {
             parts.push(self.selected_file_system.to_string());
         }
+        if let Some(sysroot_version) = &self.sysroot_version {
+            parts.push(sysroot_version.to_string());
+        }
         parts.push(self.engine.to_string());
         parts.join("/")
+    }
+
+    fn set_sysroot(&mut self, sysroot_version: &'static str) -> Result<()> {
+        let sysroot_path = dirs::home_dir()
+            .ok_or_else(|| anyhow!("cannot expand home dir"))?
+            .join(format!(".wasixcc/sysroot-{sysroot_version}"));
+        ensure!(
+            sysroot_path.exists(),
+            "Missing sysroot, install with: `WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-{sysroot_version} wasixccenv download-sysroot {sysroot_version}`"
+        );
+
+        self.sysroot_version = Some(sysroot_version);
+        self.build_env.push((
+            "WASIXCC_SYSROOT_PREFIX".to_owned(),
+            sysroot_path
+                .to_str()
+                .expect("valid path expected")
+                .to_string(),
+        ));
+        Ok(())
     }
 }
 
@@ -449,6 +485,10 @@ fn process_directive(
             }
         }
         "UnixOnly" => config.unix_only = arg.parse::<bool>()?,
+        "MinimalLibc" => {
+            ensure!(!arg.is_empty(), "MinimalLibc version must not be empty");
+            config.minimal_libc = Some(arg.to_owned());
+        }
         "MappedDirectory" => {
             let (host, guest) = arg
                 .split_once(':')
@@ -517,6 +557,33 @@ fn process_directive(
         other => bail!("Unknown directive '{other}'"),
     }
     Ok(())
+}
+
+fn normalize_libc_version(version: &str) -> &str {
+    version.trim().strip_prefix('v').unwrap_or(version.trim())
+}
+
+fn minimal_libc_skip_reason(config: &Config) -> Result<Option<String>> {
+    let Some(minimal_libc) = &config.minimal_libc else {
+        return Ok(None);
+    };
+    let Some(sysroot_version) = config.sysroot_version else {
+        return Ok(None);
+    };
+
+    let is_supported = version_compare::compare_to(
+        normalize_libc_version(sysroot_version),
+        normalize_libc_version(minimal_libc),
+        version_compare::Cmp::Ge,
+    )
+    .map_err(|_| anyhow!("cannot parse version strings: {sysroot_version}, {minimal_libc}"))?;
+    Ok(if is_supported {
+        None
+    } else {
+        Some(format!(
+            "selected libc version {sysroot_version} is older than required {minimal_libc}"
+        ))
+    })
 }
 
 fn process_directive_file(
@@ -648,6 +715,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     for (k, v) in &config.build_env {
         cmd.env(k, v);
     }
+    cmd.env("WASMER_BACKEND", config.engine.name());
     let output = cmd.output()?;
 
     if !output.status.success() {
@@ -922,6 +990,9 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     {
         return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
     }
+    if let Some(reason) = minimal_libc_skip_reason(&config)? {
+        return Ok(libtest_mimic::Completion::ignored_with(reason));
+    }
 
     let wasm = run_build_script(&config)?;
     let run_dir = &config.build_path();
@@ -1167,7 +1238,6 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         .filter_map(Result::ok)
         .filter(|e| e.path() != tests_dir)
         .filter(|e| e.path().strip_prefix(&tests_build_root).is_err())
-        // Skip temporary helper directories (like 'a', 'b', etc.).
         .filter(|e| e.file_type().is_dir())
         .filter(|e| has_primary_source_file(e.path()))
     {
@@ -1202,7 +1272,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                 for file_system in config
                     .file_systems
                     .as_ref()
-                    .unwrap_or_else(|| &default_file_systems)
+                    .unwrap_or(&default_file_systems)
                 {
                     for engine in &supported_engines {
                         // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
@@ -1229,16 +1299,30 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                             continue;
                         }
 
-                        let mut config = config.clone();
-                        config.engine = *engine;
-                        config.selected_file_system = *file_system;
-                        tests.push(libtest_mimic::Trial::ignorable_test(
-                            config.full_test_name(),
-                            move || {
-                                run_integration_test(config)
-                                    .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
-                            },
-                        ));
+                        for sysroot in TESTED_LIBC_VERSIONS {
+                            // For performance reasons, run the wasix-libc compatibility tests
+                            // only with the Cranelift compiler.
+                            if sysroot.is_some()
+                                && (*engine != Engine::Cranelift || cfg!(target_os = "windows"))
+                            {
+                                continue;
+                            }
+
+                            let mut config = config.clone();
+                            config.engine = *engine;
+                            config.selected_file_system = *file_system;
+                            if let Some(sysroot_version) = sysroot {
+                                config.set_sysroot(sysroot_version)?;
+                            }
+
+                            tests.push(libtest_mimic::Trial::ignorable_test(
+                                config.full_test_name(),
+                                move || {
+                                    run_integration_test(config)
+                                        .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
+                                },
+                            ));
+                        }
                     }
                 }
             }

@@ -5,7 +5,6 @@ use crate::engine::builder::EngineBuilder;
 #[cfg(feature = "compiler")]
 use crate::{Compiler, CompilerConfig};
 
-#[cfg(feature = "compiler")]
 use wasmer_types::{CompilationProgressCallback, Features};
 use wasmer_types::{CompileError, target::Target};
 
@@ -200,6 +199,17 @@ impl Engine {
             self.tunables.as_ref(),
             progress_callback,
         )?))
+    }
+
+    /// Compile a WebAssembly binary (the progress_callback argument is unused).
+    #[cfg(not(feature = "compiler"))]
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn compile_with_progress(
+        &self,
+        binary: &[u8],
+        _progress_callback: Option<CompilationProgressCallback>,
+    ) -> Result<Arc<Artifact>, CompileError> {
+        self.compile(binary, self.tunables.as_ref())
     }
 
     /// Compile a WebAssembly binary

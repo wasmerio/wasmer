@@ -66,5 +66,11 @@ sanitizer = ["corosensei/sanitizer"]
 
 experimental-host-interrupt = []
 
+# Compile the signal-free trap-handler backend instead of the OS signal-based one.
+# Enable when targeting platforms that lack OS signal infrastructure (ZK virtual
+# machines, embedded RTOSes, …) but still provide a Rust std environment.
+# This does NOT imply no_std support.
+baremetal = []
+
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
