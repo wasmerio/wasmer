@@ -111,9 +111,8 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
 ) -> WasiResult<usize> {
-    let mut env = ctx.data();
+    let env = ctx.data();
     let memory = unsafe { env.memory_view(ctx) };
-
     let peek = (ri_flags & __WASI_SOCK_RECV_INPUT_PEEK) != 0;
     let nonblocking_flag = (ri_flags & __WASI_SOCK_RECV_INPUT_DONT_WAIT) != 0;
     let data = wasi_try_ok_ok!(__sock_asyncify(
@@ -124,10 +123,11 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
             let iovs_arr = ri_data
                 .slice(&memory, ri_data_len)
                 .map_err(mem_error_to_wasi)?;
-            let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+            checked_sock_recv_size::<M>(iovs_arr.iter(), env.capabilities.max_sock_recv_size)?;
 
-            let mut total_read = 0;
+            let mut total_read = 0usize;
             for iovs in iovs_arr.iter() {
+                let iovs = iovs.read().map_err(mem_error_to_wasi)?;
                 let mut buf = WasmPtr::<u8, M>::new(iovs.buf)
                     .slice(&memory, iovs.buf_len)
                     .map_err(mem_error_to_wasi)?
@@ -155,7 +155,7 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
                     Err(_) if total_read > 0 => break,
                     Err(err) => return Err(err),
                 };
-                total_read += local_read;
+                total_read = total_read.checked_add(local_read).ok_or(Errno::Overflow)?;
                 if local_read != buf.len() {
                     break;
                 }

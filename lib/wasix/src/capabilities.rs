@@ -8,6 +8,7 @@ pub struct Capabilities {
     pub insecure_allow_all: bool,
     pub http_client: HttpClientCapabilityV1,
     pub polling: CapabilityPollingV1,
+    pub max_sock_recv_size: Option<u64>,
     pub threading: CapabilityThreadingV1,
 }
 
@@ -17,6 +18,7 @@ impl Capabilities {
             insecure_allow_all: false,
             http_client: Default::default(),
             polling: Default::default(),
+            max_sock_recv_size: Some(16 * 1024 * 1024),
             threading: Default::default(),
         }
     }
@@ -28,11 +30,13 @@ impl Capabilities {
             insecure_allow_all,
             http_client,
             polling,
+            max_sock_recv_size,
             threading,
         } = other;
         self.insecure_allow_all |= insecure_allow_all;
         self.http_client.update(http_client);
         self.polling.update(polling);
+        self.max_sock_recv_size = max_sock_recv_size.or(self.max_sock_recv_size);
         self.threading.update(threading);
     }
 }
