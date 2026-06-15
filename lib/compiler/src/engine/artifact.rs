@@ -11,7 +11,6 @@ use std::{
         Arc,
         atomic::{AtomicUsize, Ordering::SeqCst},
     },
-    time::Instant,
 };
 
 #[cfg(feature = "compiler")]
@@ -32,7 +31,7 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::C
 use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
 use itertools::Itertools;
 use object::{
-    Endianness, Object as _, ObjectSection, ReadCache, elf,
+    Endianness, Object as _, ObjectSection, ObjectSymbol, ObjectSymbolTable, ReadCache, elf,
     read::elf::{ElfFile64, ProgramHeader as _, SectionHeader as _},
 };
 
@@ -48,8 +47,9 @@ use crate::object::{ObjectMetadataBuilder, emit_compilation, emit_data, get_obje
 use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompilationProgressCallback,
     CompileError, DataInitializer, DataInitializerLike, DataInitializerLocation,
-    DataInitializerLocationLike, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureHash, SignatureIndex, TableIndex,
+    DataInitializerLocationLike, DeserializeError, FunctionIndex, LibCall, LocalFunctionIndex,
+    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializeError, SignatureHash, SignatureIndex,
+    TableIndex,
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -57,7 +57,7 @@ use wasmer_types::{
 use wasmer_types::VMOffsets;
 use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
-    VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline,
+    VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline, libcalls::function_pointer,
 };
 /*
 TODO:
@@ -107,8 +107,6 @@ impl AllocatedArtifact {
         path: &str,
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, InstantiationError> {
-        // TODO
-        let start = Instant::now();
         let f = File::open(path).unwrap();
         let reader = BufReader::new(f);
         let cache = ReadCache::new(reader);
@@ -125,8 +123,16 @@ impl AllocatedArtifact {
             .collect_vec();
         let total_memory_size = load_segments
             .iter()
-            .map(|segment| (segment.p_memsz(elf.endian()) as usize).next_multiple_of(page_size))
-            .sum::<usize>();
+            .map(|segment| {
+                // TODO: create a struct that will provide the convenient functions.
+                let mem_address = segment.p_vaddr(elf.endian()) as usize;
+                let mem_size = segment.p_memsz(elf.endian()) as usize;
+                let page_vaddr = mem_address & !(page_size - 1);
+                let delta = mem_address - page_vaddr;
+                page_vaddr + (mem_size + delta).next_multiple_of(page_size)
+            })
+            .max()
+            .unwrap_or(0);
 
         // Create a contiguous virtual address memory map that will be populated per-partes with the individual protection flags.
         let base = unsafe {
@@ -151,7 +157,6 @@ impl AllocatedArtifact {
 
         // Mmap individual load segments
         for load_segment in load_segments {
-            // TODO: alignment check
             let file_offset = load_segment.p_offset(elf.endian()) as usize;
             let file_size = load_segment.p_filesz(elf.endian()) as usize;
             let mem_address = load_segment.p_vaddr(elf.endian()) as usize;
@@ -159,23 +164,102 @@ impl AllocatedArtifact {
 
             // The virtual offset does not need to start at a page boundary.
             debug_assert_eq!(file_offset % page_size, mem_address % page_size);
+            if file_offset % page_size != mem_address % page_size {
+                unsafe {
+                    libc::munmap(base, total_memory_size);
+                }
+                return Err(InstantiationError::Link(LinkError::Resource(format!(
+                    "ELF load segment file offset 0x{file_offset:x} and virtual address 0x{mem_address:x} have incompatible page alignment",
+                ))));
+            }
+
             let page_vaddr = mem_address & !(page_size - 1);
+            let page_file_offset = file_offset & !(page_size - 1);
 
             let delta = mem_address - page_vaddr;
-            let map_size = (file_size + delta).next_multiple_of(page_size);
+            let file_map_size = (file_size + delta).next_multiple_of(page_size);
+            let mem_map_size = (mem_size + delta).next_multiple_of(page_size);
 
             let mut protection = 0;
             // TODO: flags
 
-            unsafe {
+            let result = unsafe {
                 libc::mmap(
                     base.add(page_vaddr),
-                    map_size,
+                    file_map_size,
                     libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
                     libc::MAP_PRIVATE | libc::MAP_FIXED,
                     fd,
-                    0,
-                );
+                    page_file_offset as libc::off_t,
+                )
+            };
+            if result == libc::MAP_FAILED {
+                let error = std::io::Error::last_os_error();
+                unsafe {
+                    libc::munmap(base, total_memory_size);
+                }
+                return Err(InstantiationError::Link(LinkError::Resource(format!(
+                    "Cannot map ELF load segment at virtual address 0x{mem_address:x}: {error}",
+                ))));
+            }
+
+            if mem_map_size > file_map_size {
+                let result = unsafe {
+                    libc::mmap(
+                        base.add(page_vaddr + file_map_size),
+                        mem_map_size - file_map_size,
+                        libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
+                        libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_FIXED,
+                        -1,
+                        0,
+                    )
+                };
+                if result == libc::MAP_FAILED {
+                    let error = std::io::Error::last_os_error();
+                    unsafe {
+                        libc::munmap(base, total_memory_size);
+                    }
+                    return Err(InstantiationError::Link(LinkError::Resource(format!(
+                        "Cannot map ELF zero-fill segment tail at virtual address 0x{:x}: {error}",
+                        mem_address + file_map_size - delta,
+                    ))));
+                }
+            }
+        }
+
+        // Apply dynamic relocations for the libcalls
+        if let Some(dynamic_relocations) = elf.dynamic_relocations() {
+            let dynamic_symbols = elf.dynamic_symbol_table().unwrap();
+
+            for (offset, relocation) in dynamic_relocations {
+                let object::RelocationTarget::Symbol(symbol_index) = relocation.target() else {
+                    todo!("unsupported dynamic relocation target");
+                };
+                let symbol = dynamic_symbols.symbol_by_index(symbol_index).unwrap();
+                let symbol_name = symbol.name().unwrap();
+                let Some(libcall) = enum_iterator::all::<LibCall>()
+                    .find(|libcall| libcall.to_function_name() == symbol_name)
+                else {
+                    todo!("unsupported dynamic relocation symbol {symbol_name}");
+                };
+
+                let is_x86_64_glob_dat = relocation.flags()
+                    == (object::RelocationFlags::Elf {
+                        r_type: elf::R_X86_64_GLOB_DAT,
+                    });
+                let apply_absolute_relocation = || unsafe {
+                    ptr::write_unaligned(
+                        base.add(offset as usize) as *mut usize,
+                        function_pointer(libcall).wrapping_add(relocation.addend() as usize),
+                    );
+                };
+                match relocation.kind() {
+                    object::RelocationKind::Absolute => apply_absolute_relocation(),
+                    object::RelocationKind::Unknown if is_x86_64_glob_dat => {
+                        apply_absolute_relocation()
+                    }
+                    kind => todo!("unsupported dynamic relocation kind {kind:?}"),
+                }
             }
         }
 
@@ -892,8 +976,11 @@ impl Artifact {
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut VMInstance,
     ) -> Result<(), InstantiationError> {
-        // TODO
-        Ok(())
+        unsafe {
+            handle
+                .finish_instantiation(config, trap_handler, &[])
+                .map_err(InstantiationError::Start)
+        }
     }
 
     #[allow(clippy::type_complexity)]
