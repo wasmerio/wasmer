@@ -662,6 +662,10 @@ impl<'a> ArtifactCreate<'a> for Artifact {
         self.artifact.table_styles()
     }
 
+    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
+        self.artifact.data_initializers()
+    }
+
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         self.artifact.serialize()
     }
@@ -717,6 +721,21 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildVariant {
         match self {
             Self::Plain(artifact) => artifact.table_styles(),
             Self::Archived(artifact) => artifact.table_styles(),
+        }
+    }
+
+    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
+        match self {
+            Self::Plain(artifact) => artifact
+                .data_initializers()
+                .map(OwnedDataInitializerVariant::Plain)
+                .collect::<Vec<_>>()
+                .into_iter(),
+            Self::Archived(artifact) => artifact
+                .data_initializers()
+                .map(OwnedDataInitializerVariant::Archived)
+                .collect::<Vec<_>>()
+                .into_iter(),
         }
     }
 
@@ -977,8 +996,22 @@ impl Artifact {
         handle: &mut VMInstance,
     ) -> Result<(), InstantiationError> {
         unsafe {
+            let data_initializers = self
+                .data_initializers()
+                .map(|initializer| {
+                    let location = initializer.location();
+                    DataInitializer {
+                        location: DataInitializerLocation {
+                            memory_index: location.memory_index(),
+                            offset_expr: location.offset_expr(),
+                        },
+                        data: initializer.data(),
+                    }
+                })
+                .collect::<Vec<_>>();
+
             handle
-                .finish_instantiation(config, trap_handler, &[])
+                .finish_instantiation(config, trap_handler, &data_initializers)
                 .map_err(InstantiationError::Start)
         }
     }
@@ -1274,6 +1307,7 @@ impl Artifact {
 
             let artifact = ArtifactBuild::from_serializable(SerializableModule {
                 compile_info: metadata.compile_info,
+                data_initializers: metadata.data_initializers,
                 cpu_features: metadata.cpu_features,
             });
 

@@ -112,8 +112,15 @@ impl ArtifactBuild {
         )?;
 
         let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
+        let data_initializers = translation
+            .data_initializers
+            .iter()
+            .map(OwnedDataInitializer::new)
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
         let serializable = SerializableModule {
             compile_info,
+            data_initializers,
             cpu_features: cpu_features.as_u64(),
         };
         Ok(Self { serializable })
@@ -158,6 +165,10 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
 
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
         &self.serializable.compile_info.table_styles
+    }
+
+    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
+        self.serializable.data_initializers.iter()
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
@@ -282,6 +293,14 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
 
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
         &self.compile_info.table_styles
+    }
+
+    fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator {
+        self.cell
+            .borrow_dependent()
+            .original_module
+            .data_initializers
+            .iter()
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
