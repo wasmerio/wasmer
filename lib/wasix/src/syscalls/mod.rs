@@ -604,10 +604,7 @@ where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
-    let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
+    let fd_entry = __sock_check_rights(env, sock, rights)?;
 
     let mut work = {
         let inode = fd_entry.inode.clone();
@@ -631,6 +628,18 @@ where
     // Block until the work is finished or until we
     // unload the thread using asyncify
     block_on(work)
+}
+
+pub(crate) fn __sock_check_rights(
+    env: &WasiEnv,
+    sock: WasiFd,
+    rights: Rights,
+) -> Result<Fd, Errno> {
+    let fd_entry = env.state.fs.get_fd(sock)?;
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
+        return Err(Errno::Access);
+    }
+    Ok(fd_entry)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with

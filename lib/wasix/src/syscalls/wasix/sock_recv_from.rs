@@ -51,22 +51,20 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
     ro_flags: WasmPtr<RoFlags, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
-    let mut env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
-
     let peek = (ri_flags & __WASI_SOCK_RECV_INPUT_PEEK) != 0;
     let nonblocking_flag = (ri_flags & __WASI_SOCK_RECV_INPUT_DONT_WAIT) != 0;
 
-    let max_size = {
-        let mut max_size = 0usize;
-        for iovs in iovs_arr.iter() {
-            let iovs = wasi_try_mem_ok!(iovs.read());
-            let buf_len: usize = wasi_try_ok!(iovs.buf_len.try_into().map_err(|_| Errno::Overflow));
-            max_size += buf_len;
-        }
-        max_size
-    };
+    let mut env = ctx.data();
+    // Check rights first to preserve error precedence
+    wasi_try_ok!(__sock_check_rights(env, sock, Rights::SOCK_RECV_FROM));
+
+    let memory = unsafe { env.memory_view(&ctx) };
+    let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));
+
+    let max_size = wasi_try_ok!(checked_sock_recv_size::<M>(
+        iovs_arr.iter(),
+        env.capabilities.max_sock_recv_size
+    ));
 
     let (bytes_read, peer) = {
         if max_size <= 10240 {
@@ -75,7 +73,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
             let (amt, peer) = wasi_try_ok!(__sock_asyncify(
                 env,
                 sock,
-                Rights::SOCK_RECV,
+                Rights::SOCK_RECV_FROM,
                 |socket, fd| async move {
                     let nonblocking =
                         nonblocking_flag || fd.inner.flags.contains(Fdflags::NONBLOCK);
