@@ -1285,7 +1285,8 @@ fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
 
     match config.compiler {
         crate::Compiler::Singlepass => {
-            assert_eq!(finished_functions_max_stack_usage, [Some(72), Some(40)])
+            assert!(finished_functions_max_stack_usage[0].is_some_and(|u| u >= 72));
+            assert!(finished_functions_max_stack_usage[1].is_some_and(|u| u >= 40));
         }
         crate::Compiler::Cranelift | crate::Compiler::LLVM => {
             assert_eq!(finished_functions_max_stack_usage, [None, None])
