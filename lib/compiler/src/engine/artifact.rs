@@ -1,16 +1,24 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering::SeqCst},
+use std::{
+    fs::{File, OpenOptions},
+    io::BufReader,
+    os::fd::AsRawFd,
+    ptr,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering::SeqCst},
+    },
+    time::Instant,
 };
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
-    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
+    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, LinkError,
+    Tunables,
     engine::{link::link_module, resolver::resolve_tags},
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
@@ -21,6 +29,11 @@ use crate::{
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
+use itertools::Itertools;
+use object::{
+    Endianness, Object as _, ObjectSection, ReadCache, elf,
+    read::elf::{ElfFile64, ProgramHeader as _, SectionHeader as _},
+};
 
 use enumset::EnumSet;
 use shared_buffer::OwnedBuffer;
@@ -29,9 +42,7 @@ use shared_buffer::OwnedBuffer;
 use std::mem;
 
 #[cfg(feature = "static-artifact-create")]
-use crate::object::{
-    Object, ObjectMetadataBuilder, emit_compilation, emit_data, get_object_for_target,
-};
+use crate::object::{ObjectMetadataBuilder, emit_compilation, emit_data, get_object_for_target};
 
 use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompilationProgressCallback,
@@ -97,6 +108,92 @@ impl AllocatedArtifact {
                 FunctionExtent { ptr, length }
             })
             .collect()
+    }
+}
+
+struct AllocatedBinary {}
+
+impl AllocatedBinary {
+    fn from_binary(path: &str) -> Result<Self, InstantiationError> {
+        // TODO
+        let start = Instant::now();
+        let f = File::open(path).unwrap();
+        let reader = BufReader::new(f);
+        let cache = ReadCache::new(reader);
+        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
+
+        // TODO
+        let elf: object::read::elf::ElfFile<'_, object::elf::FileHeader64<Endianness>, _> =
+            ElfFile64::parse(&cache).unwrap();
+
+        for section in elf.sections() {
+            println!("{}", section.name().unwrap());
+        }
+
+        let load_segments = elf
+            .elf_program_headers()
+            .iter()
+            .filter(|segment| segment.p_type(elf.endian()) == elf::PT_LOAD)
+            .collect_vec();
+        let total_memory_size = load_segments
+            .iter()
+            .map(|segment| (segment.p_memsz(elf.endian()) as usize).next_multiple_of(page_size))
+            .sum::<usize>();
+
+        // Create a contiguous virtual address memory map that will be populated per-partes with the individual protection flags.
+        let base = unsafe {
+            libc::mmap(
+                ptr::null_mut(),
+                total_memory_size,
+                libc::PROT_NONE,
+                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+                -1,
+                0,
+            )
+        };
+        if base == libc::MAP_FAILED {
+            return Err(InstantiationError::Link(LinkError::Resource(
+                "Cannot create a mamory map for built Artifact".to_string(),
+            )));
+        }
+
+        // TODO
+        let mmap_file = OpenOptions::new().read(true).open(path).unwrap();
+        let fd = mmap_file.as_raw_fd();
+
+        // Mmap individual load segments
+        for load_segment in load_segments {
+            // TODO: alignment check
+            let file_offset = load_segment.p_offset(elf.endian()) as usize;
+            let file_size = load_segment.p_filesz(elf.endian()) as usize;
+            let mem_address = load_segment.p_vaddr(elf.endian()) as usize;
+            let mem_size = load_segment.p_memsz(elf.endian()) as usize;
+
+            // The virtual offset does not need to start at a page boundary.
+            debug_assert_eq!(file_offset % page_size, mem_address % page_size);
+            let page_vaddr = mem_address & !(page_size - 1);
+
+            let delta = mem_address - page_vaddr;
+            let map_size = (file_size + delta).next_multiple_of(page_size);
+
+            let mut protection = 0;
+            // TODO: flags
+
+            unsafe {
+                libc::mmap(
+                    base.add(page_vaddr),
+                    map_size,
+                    libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
+                    libc::MAP_PRIVATE | libc::MAP_FIXED,
+                    fd,
+                    0,
+                );
+            }
+        }
+
+        dbg!(Instant::now() - start);
+
+        todo!();
     }
 }
 
@@ -344,6 +441,8 @@ impl Artifact {
             }
         }
         let module_info = artifact.module_info();
+        AllocatedBinary::from_binary("/tmp/llvm-build/image.so");
+
         todo!();
 
         /*
@@ -1038,7 +1137,7 @@ impl Artifact {
     ) -> Result<
         (
             ModuleInfo,
-            Object<'data>,
+            object::write::Object<'data>,
             usize,
             Box<dyn crate::types::symbols::SymbolRegistry>,
         ),
