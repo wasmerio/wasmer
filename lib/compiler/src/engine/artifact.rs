@@ -209,12 +209,22 @@ impl AllocatedArtifact {
             mmap_size: total_memory_size,
             finished_functions: local_fn_offsets
                 .iter()
-                .map(|&offset| FunctionBodyPtr(offset as _))
+                .map(|&offset| FunctionBodyPtr(unsafe { base.add(offset) as _ }))
                 .collect::<PrimaryMap<_, _>>()
                 .into_boxed_slice(),
             // TODO
-            finished_function_call_trampolines: PrimaryMap::new().into_boxed_slice(),
-            finished_dynamic_function_trampolines: PrimaryMap::new().into_boxed_slice(),
+            finished_function_call_trampolines: trampoline_offset
+                .iter()
+                .map(|&offset| unsafe {
+                    std::mem::transmute::<*mut c_void, VMTrampoline>(base.add(offset))
+                })
+                .collect::<PrimaryMap<_, _>>()
+                .into_boxed_slice(),
+            finished_dynamic_function_trampolines: dynamic_trampoline_offsets
+                .iter()
+                .map(|&offset| FunctionBodyPtr(unsafe { base.add(offset) as _ }))
+                .collect::<PrimaryMap<_, _>>()
+                .into_boxed_slice(),
             finished_function_lengths: PrimaryMap::new().into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
             vm_offsets: VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info),
@@ -882,7 +892,8 @@ impl Artifact {
         trap_handler: Option<*const TrapHandlerFn<'static>>,
         handle: &mut VMInstance,
     ) -> Result<(), InstantiationError> {
-        todo!();
+        // TODO
+        Ok(())
     }
 
     #[allow(clippy::type_complexity)]
