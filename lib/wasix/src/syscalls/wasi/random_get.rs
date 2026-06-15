@@ -23,16 +23,6 @@ pub fn random_get<M: MemorySize>(
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
-    let end = wasi_try!(
-        buf.offset()
-            .into()
-            .checked_add(buf_len64)
-            .ok_or(Errno::Overflow)
-    );
-    if end > memory.data_size() {
-        return Errno::Fault;
-    }
-
     let buf_slice = wasi_try_mem!(buf.slice(&memory, buf_len));
     // If the buffer is owned we cannot call .access() on it
     // as that would trigger unbounded host allocation in JS.
