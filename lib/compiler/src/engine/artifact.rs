@@ -126,10 +126,6 @@ impl AllocatedBinary {
         let elf: object::read::elf::ElfFile<'_, object::elf::FileHeader64<Endianness>, _> =
             ElfFile64::parse(&cache).unwrap();
 
-        for section in elf.sections() {
-            println!("{}", section.name().unwrap());
-        }
-
         let load_segments = elf
             .elf_program_headers()
             .iter()
@@ -188,6 +184,22 @@ impl AllocatedBinary {
                     fd,
                     0,
                 );
+            }
+        }
+
+        // Parts function offsets
+        for section in elf.sections() {
+            if section.name_bytes() == Ok(b".wasmer.function_offsets") {
+                // TODO
+                let data = section.data().unwrap();
+                let function_offsets = data
+                    .chunks_exact(size_of::<usize>())
+                    .map(|chunk| {
+                        let arr: [u8; 8] = chunk.try_into().unwrap();
+                        usize::from_le_bytes(arr)
+                    })
+                    .collect_vec();
+                dbg!(&function_offsets.len());
             }
         }
 
