@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CanonicalizeType","ControlState","NativeCallType"],"fn":["type_to_wp_type"],"struct":["ControlFrame","FuncGen","I2O1","SpecialLabelSet"],"trait":["WpTypeExt"],"type":["LocationWithCanonicalization"]};
+window.SIDEBAR_ITEMS = {"constant":["RED_ZONE_SIZE"],"enum":["CanonicalizeType","ControlState","NativeCallType"],"fn":["type_to_wp_type"],"struct":["ControlFrame","FuncGen","I2O1","SpecialLabelSet","TrackedStackOffset"],"trait":["WpTypeExt"],"type":["LocationWithCanonicalization"]};
