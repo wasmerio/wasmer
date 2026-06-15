@@ -18,7 +18,7 @@ use crate::ModuleEnvironment;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, LinkError,
-    Tunables,
+    Tunables, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
     engine::{link::link_module, resolver::resolve_tags},
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
@@ -189,7 +189,7 @@ impl AllocatedBinary {
 
         // Parts function offsets
         for section in elf.sections() {
-            if section.name_bytes() == Ok(b".wasmer.function_offsets") {
+            if section.name_bytes() == Ok(WASMER_FUNCTION_OFFSETS_SECTION_NAME) {
                 // TODO
                 let data = section.data().unwrap();
                 let function_offsets = data

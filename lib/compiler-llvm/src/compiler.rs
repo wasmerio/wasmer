@@ -28,6 +28,9 @@ use std::{
     collections::{HashMap, HashSet},
     sync::Arc,
 };
+use wasmer_compiler::WASMER_FUNCTION_OFFSETS_SECTION_NAME;
+use wasmer_compiler::WASMER_MODULE_INFO_SECTION_NAME;
+use wasmer_compiler::WASMER_VERSION_SECTION_NAME;
 use wasmer_compiler::misc::types_to_signature;
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
@@ -464,7 +467,7 @@ fn emit_wasmer_meta_object(
     let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
-        b".wasmer.module_info".to_vec(),
+        WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
     obj.append_section_data(section_id, &compile_info_blob, 8);
@@ -477,7 +480,7 @@ fn emit_wasmer_meta_object(
     // Emit offsets of the functions
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
-        b".wasmer.function_offsets".to_vec(),
+        WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
     obj.section_mut(section_id).flags = SectionFlags::Elf {
@@ -521,7 +524,7 @@ fn emit_wasmer_meta_object(
     // Save artifact format version.
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
-        b".wasmer.version".to_vec(),
+        WASMER_VERSION_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
     obj.section_mut(section_id).flags = SectionFlags::Elf {
