@@ -7,6 +7,7 @@ use crate::http::HttpClientCapabilityV1;
 pub struct Capabilities {
     pub insecure_allow_all: bool,
     pub http_client: HttpClientCapabilityV1,
+    pub polling: CapabilityPollingV1,
     pub threading: CapabilityThreadingV1,
 }
 
@@ -15,6 +16,7 @@ impl Capabilities {
         Self {
             insecure_allow_all: false,
             http_client: Default::default(),
+            polling: Default::default(),
             threading: Default::default(),
         }
     }
@@ -25,10 +27,12 @@ impl Capabilities {
         let Capabilities {
             insecure_allow_all,
             http_client,
+            polling,
             threading,
         } = other;
         self.insecure_allow_all |= insecure_allow_all;
         self.http_client.update(http_client);
+        self.polling.update(polling);
         self.threading.update(threading);
     }
 }
@@ -36,6 +40,32 @@ impl Capabilities {
 impl Default for Capabilities {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Defines polling related permissions and limits.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct CapabilityPollingV1 {
+    /// Maximum number of subscriptions accepted by `poll_oneoff`.
+    ///
+    /// [`None`] means no explicit limit.
+    pub max_poll_subscriptions: Option<usize>,
+}
+
+impl Default for CapabilityPollingV1 {
+    fn default() -> Self {
+        Self {
+            max_poll_subscriptions: Some(1024),
+        }
+    }
+}
+
+impl CapabilityPollingV1 {
+    pub fn update(&mut self, other: CapabilityPollingV1) {
+        let CapabilityPollingV1 {
+            max_poll_subscriptions,
+        } = other;
+        self.max_poll_subscriptions = max_poll_subscriptions;
     }
 }
 
