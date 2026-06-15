@@ -73,8 +73,6 @@ pub struct CraneliftCompiledFunction {
     function_lsda: Option<FunctionLsdaData>,
 }
 
-impl wasmer_compiler::CompiledFunction for CraneliftCompiledFunction {}
-
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
 #[derive(Debug)]
@@ -102,7 +100,9 @@ impl CraneliftCompiler {
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<Compilation, CompileError> {
+    ) -> Result<(), CompileError> {
+        todo!();
+        /*
         let isa = self
             .config()
             .isa(target)
@@ -571,6 +571,7 @@ impl CraneliftCompiler {
             unwind_info,
             got,
         })
+        */
     }
 }
 
@@ -598,17 +599,19 @@ impl Compiler for CraneliftCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        compile_info_blob: Vec<u8>,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<Compilation, CompileError> {
+    ) -> Result<(), CompileError> {
         self.compile_module_internal(
             target,
             compile_info,
             module_translation_state,
             function_body_inputs,
             progress_callback,
-        )
+        );
+        todo!();
     }
 }
 
