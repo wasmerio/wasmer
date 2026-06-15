@@ -2,6 +2,7 @@
 //! to allow compiling and instantiating to be done as separate steps.
 
 use std::{
+    ffi::c_void,
     fs::{File, OpenOptions},
     io::BufReader,
     os::fd::AsRawFd,
@@ -111,7 +112,19 @@ impl AllocatedArtifact {
     }
 }
 
-struct AllocatedBinary {}
+struct AllocatedBinary {
+    finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>,
+    mmap_addr: *mut c_void,
+    mmap_size: usize,
+}
+
+impl Drop for AllocatedBinary {
+    fn drop(&mut self) {
+        unsafe {
+            libc::munmap(self.mmap_addr, self.mmap_size);
+        }
+    }
+}
 
 impl AllocatedBinary {
     fn from_binary(module_info: &ModuleInfo, path: &str) -> Result<Self, InstantiationError> {
@@ -188,24 +201,39 @@ impl AllocatedBinary {
         }
 
         // Parts function offsets
+        let mut function_offsets = None;
         for section in elf.sections() {
             if section.name_bytes() == Ok(WASMER_FUNCTION_OFFSETS_SECTION_NAME) {
                 // TODO
                 let data = section.data().unwrap();
-                let function_offsets = data
-                    .chunks_exact(size_of::<usize>())
-                    .map(|chunk| {
-                        let arr: [u8; 8] = chunk.try_into().unwrap();
-                        usize::from_le_bytes(arr)
-                    })
-                    .collect_vec();
-                dbg!(&function_offsets.len());
+                function_offsets = Some(
+                    data.chunks_exact(size_of::<usize>())
+                        .map(|chunk| {
+                            let arr: [u8; 8] = chunk.try_into().unwrap();
+                            usize::from_le_bytes(arr)
+                        })
+                        .collect_vec(),
+                );
             }
         }
+        let Some(function_offsets) = function_offsets else {
+            // TODO
+            todo!();
+        };
+        let (local_fn_offsets, rest) = function_offsets
+            .split_at(module_info.functions.len() - module_info.num_imported_functions);
+        let (trampoline_offset, dynamic_trampoline_offsets) =
+            rest.split_at(module_info.signatures.len());
+        // TODO: add asserts
 
-        dbg!(Instant::now() - start);
-
-        todo!();
+        Ok(Self {
+            mmap_addr: base,
+            mmap_size: total_memory_size,
+            finished_functions: local_fn_offsets
+                .iter()
+                .map(|&offset| FunctionBodyPtr(offset as _))
+                .collect(),
+        })
     }
 }
 
