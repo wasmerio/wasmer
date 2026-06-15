@@ -49,7 +49,7 @@ use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompilationProgressCallback,
     CompileError, DataInitializer, DataInitializerLike, DataInitializerLocation,
     DataInitializerLocationLike, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
+    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureHash, SignatureIndex, TableIndex,
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -59,10 +59,9 @@ use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
     VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline,
 };
-
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub struct AllocatedArtifact {
-    // This shows if the frame info has been registered already or not.
+/*
+TODO:
+/ This shows if the frame info has been registered already or not.
     // Because the 'GlobalFrameInfoRegistration' ownership can be transferred to EngineInner
     // this bool is needed to track the status, as 'frame_info_registration' will be None
     // after the ownership is transferred.
@@ -71,6 +70,10 @@ pub struct AllocatedArtifact {
     // using 'Artifact::take_frame_info_registration' method
     // so the GloabelFrameInfo and MMap stays in sync and get dropped at the same time
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
+*/
+
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+pub struct AllocatedArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
 
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
@@ -93,41 +96,17 @@ pub struct AllocatedArtifact {
     /// host calling `Module::instantiate` in a tight loop.
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
-}
 
-impl AllocatedArtifact {
-    fn function_extents(&self) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
-        assert_eq!(
-            self.finished_functions.len(),
-            self.finished_function_lengths.len(),
-            "finished_functions and finished_function_lengths must have equal length"
-        );
-        self.finished_functions
-            .iter()
-            .map(|(index, &ptr)| {
-                let length = self.finished_function_lengths[index];
-                FunctionExtent { ptr, length }
-            })
-            .collect()
-    }
-}
-
-struct AllocatedBinary {
-    finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>,
     mmap_addr: *mut c_void,
     mmap_size: usize,
 }
 
-impl Drop for AllocatedBinary {
-    fn drop(&mut self) {
-        unsafe {
-            libc::munmap(self.mmap_addr, self.mmap_size);
-        }
-    }
-}
-
-impl AllocatedBinary {
-    fn from_binary(module_info: &ModuleInfo, path: &str) -> Result<Self, InstantiationError> {
+impl AllocatedArtifact {
+    fn from_binary(
+        module_info: &ModuleInfo,
+        path: &str,
+        signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
+    ) -> Result<Self, InstantiationError> {
         // TODO
         let start = Instant::now();
         let f = File::open(path).unwrap();
@@ -225,17 +204,39 @@ impl AllocatedBinary {
         let (trampoline_offset, dynamic_trampoline_offsets) =
             rest.split_at(module_info.signatures.len());
         // TODO: add asserts
-
         Ok(Self {
             mmap_addr: base,
             mmap_size: total_memory_size,
             finished_functions: local_fn_offsets
                 .iter()
                 .map(|&offset| FunctionBodyPtr(offset as _))
-                .collect(),
+                .collect::<PrimaryMap<_, _>>()
+                .into_boxed_slice(),
+            // TODO
+            finished_function_call_trampolines: PrimaryMap::new().into_boxed_slice(),
+            finished_dynamic_function_trampolines: PrimaryMap::new().into_boxed_slice(),
+            finished_function_lengths: PrimaryMap::new().into_boxed_slice(),
+            signatures: signatures.into_boxed_slice(),
+            vm_offsets: VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info),
         })
     }
+
+    fn function_extents(&self) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
+        todo!()
+    }
 }
+
+impl Drop for AllocatedArtifact {
+    fn drop(&mut self) {
+        unsafe {
+            libc::munmap(self.mmap_addr, self.mmap_size);
+        }
+    }
+}
+
+// TODO
+unsafe impl Send for AllocatedArtifact {}
+unsafe impl Sync for AllocatedArtifact {}
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -481,105 +482,6 @@ impl Artifact {
             }
         }
         let module_info = artifact.module_info();
-        AllocatedBinary::from_binary(module_info, "/tmp/llvm-build/image.so");
-
-        todo!();
-
-        /*
-        let (
-            finished_functions,
-            finished_function_call_trampolines,
-            finished_dynamic_function_trampolines,
-            custom_sections,
-        ) = match &artifact {
-            ArtifactBuildVariant::Plain(p) => engine_inner.allocate(
-                module_info,
-                p.get_function_bodies_ref().values(),
-                p.get_function_call_trampolines_ref().values(),
-                p.get_dynamic_function_trampolines_ref().values(),
-                p.get_custom_sections_ref().values(),
-            )?,
-            ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
-                module_info,
-                a.get_function_bodies_ref().values(),
-                a.get_function_call_trampolines_ref().values(),
-                a.get_dynamic_function_trampolines_ref().values(),
-                a.get_custom_sections_ref().values(),
-            )?,
-        };
-
-        let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
-            ArtifactBuildVariant::Plain(p) => {
-                if let Some(got) = p.get_got_ref().index {
-                    let relocs: Vec<_> = p.get_custom_section_relocations_ref()[got]
-                        .iter()
-                        .map(|v| (v.reloc_target, v.offset))
-                        .collect();
-                    let got_base = custom_sections[got].0 as usize;
-                    Box::new(move |t: RelocationTarget| {
-                        relocs
-                            .iter()
-                            .find(|(v, _)| v == &t)
-                            .map(|(_, o)| got_base + (*o as usize))
-                    })
-                } else {
-                    Box::new(|_: RelocationTarget| None)
-                }
-            }
-
-            ArtifactBuildVariant::Archived(p) => {
-                if let Some(got) = p.get_got_ref().index {
-                    let relocs: Vec<_> = p.get_custom_section_relocations_ref()[got]
-                        .iter()
-                        .map(|v| (v.reloc_target(), v.offset))
-                        .collect();
-                    let got_base = custom_sections[got].0 as usize;
-                    Box::new(move |t: RelocationTarget| {
-                        relocs
-                            .iter()
-                            .find(|(v, _)| v == &t)
-                            .map(|(_, o)| got_base + (o.to_native() as usize))
-                    })
-                } else {
-                    Box::new(|_: RelocationTarget| None)
-                }
-            }
-        };
-
-        match &artifact {
-            ArtifactBuildVariant::Plain(p) => link_module(
-                module_info,
-                &finished_functions,
-                &finished_dynamic_function_trampolines,
-                p.get_function_relocations()
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                &custom_sections,
-                p.get_custom_section_relocations_ref()
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                p.get_libcall_trampolines(),
-                p.get_libcall_trampoline_len(),
-                &get_got_address,
-            ),
-            ArtifactBuildVariant::Archived(a) => link_module(
-                module_info,
-                &finished_functions,
-                &finished_dynamic_function_trampolines,
-                a.get_function_relocations()
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                &custom_sections,
-                a.get_custom_section_relocations_ref()
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                a.get_libcall_trampolines(),
-                a.get_libcall_trampoline_len(),
-                &get_got_address,
-            ),
-        };
-
-        // Compute indices into the shared signature table.
         let signatures = {
             let signature_registry = engine_inner.signatures();
             module_info
@@ -590,104 +492,25 @@ impl Artifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
-        #[allow(unused_variables)]
-        let eh_frame = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p.get_unwind_info().eh_frame.map(|v| unsafe {
-                std::slice::from_raw_parts(
-                    *custom_sections[v],
-                    p.get_custom_sections_ref()[v].bytes.len(),
-                )
-            }),
-            ArtifactBuildVariant::Archived(a) => a.get_unwind_info().eh_frame.map(|v| unsafe {
-                std::slice::from_raw_parts(
-                    *custom_sections[v],
-                    a.get_custom_sections_ref()[v].bytes.len(),
-                )
-            }),
-        };
-        #[allow(unused_variables)]
-        let compact_unwind = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p.get_unwind_info().compact_unwind.map(|v| unsafe {
-                std::slice::from_raw_parts(
-                    *custom_sections[v],
-                    p.get_custom_sections_ref()[v].bytes.len(),
-                )
-            }),
-            ArtifactBuildVariant::Archived(a) => {
-                a.get_unwind_info().compact_unwind.map(|v| unsafe {
-                    std::slice::from_raw_parts(
-                        *custom_sections[v],
-                        a.get_custom_sections_ref()[v].bytes.len(),
-                    )
-                })
-            }
-        };
-
-        #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
-        {
-            engine_inner.register_perfmap(&finished_functions, module_info)?;
-        }
-
-        // Make all code compiled thus far executable.
-        engine_inner.publish_compiled_code();
-
-        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-        if let Some(compact_unwind) = compact_unwind {
-            engine_inner.publish_compact_unwind(
-                compact_unwind,
-                get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
-            )?;
-        }
-        #[cfg(not(any(
-            target_arch = "wasm32",
-            all(target_os = "macos", target_arch = "aarch64")
-        )))]
-        engine_inner.publish_eh_frame(eh_frame)?;
-
-        drop(get_got_address);
-
-        let finished_function_lengths = finished_functions
-            .values()
-            .map(|extent| extent.length)
-            .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
-            .into_boxed_slice();
-        let finished_functions = finished_functions
-            .values()
-            .map(|extent| extent.ptr)
-            .collect::<PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>>()
-            .into_boxed_slice();
-        let finished_function_call_trampolines =
-            finished_function_call_trampolines.into_boxed_slice();
-        let finished_dynamic_function_trampolines =
-            finished_dynamic_function_trampolines.into_boxed_slice();
-        let signatures = signatures.into_boxed_slice();
-
-        let vm_offsets = VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info);
-
+        let allocated_artifact =
+            AllocatedArtifact::from_binary(module_info, "/tmp/llvm-build/image.so", signatures)
+                // TODO
+                .unwrap();
         let mut artifact = Self {
             id: Default::default(),
             artifact,
-            allocated: Some(AllocatedArtifact {
-                frame_info_registered: false,
-                frame_info_registration: None,
-                finished_functions,
-                finished_function_call_trampolines,
-                finished_dynamic_function_trampolines,
-                signatures,
-                finished_function_lengths,
-                vm_offsets,
-            }),
+            allocated: Some(allocated_artifact),
         };
 
-        artifact
-            .internal_register_frame_info()
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
-        if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
-            engine_inner.register_frame_info(frame_info);
-        }
+        // TODO
+        // artifact
+        //     .internal_register_frame_info()
+        //     .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
+        // if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
+        //     engine_inner.register_frame_info(frame_info);
+        // }
 
         Ok(artifact)
-        */
     }
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
@@ -877,13 +700,16 @@ impl Artifact {
     }
 
     fn internal_take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
-        let frame_info_registration = &mut self
-            .allocated
-            .as_mut()
-            .expect("It must be allocated")
-            .frame_info_registration;
+        // TODO
+        // let frame_info_registration = &mut self
+        //     .allocated
+        //     .as_mut()
+        //     .expect("It must be allocated")
+        //     .frame_info_registration;
 
-        frame_info_registration.take()
+        // frame_info_registration.take()
+
+        todo!()
     }
 
     /// Returns the functions allocated in memory or this `Artifact`
@@ -1371,8 +1197,8 @@ impl Artifact {
                 id: Default::default(),
                 artifact: artifact_variant,
                 allocated: Some(AllocatedArtifact {
-                    frame_info_registered: false,
-                    frame_info_registration: None,
+                    mmap_addr: ptr::null_mut(),
+                    mmap_size: 0,
                     finished_functions: finished_functions.into_boxed_slice(),
                     finished_function_call_trampolines: finished_function_call_trampolines
                         .into_boxed_slice(),
