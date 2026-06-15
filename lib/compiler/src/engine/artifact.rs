@@ -114,7 +114,7 @@ impl AllocatedArtifact {
 struct AllocatedBinary {}
 
 impl AllocatedBinary {
-    fn from_binary(path: &str) -> Result<Self, InstantiationError> {
+    fn from_binary(module_info: &ModuleInfo, path: &str) -> Result<Self, InstantiationError> {
         // TODO
         let start = Instant::now();
         let f = File::open(path).unwrap();
@@ -453,7 +453,7 @@ impl Artifact {
             }
         }
         let module_info = artifact.module_info();
-        AllocatedBinary::from_binary("/tmp/llvm-build/image.so");
+        AllocatedBinary::from_binary(module_info, "/tmp/llvm-build/image.so");
 
         todo!();
 

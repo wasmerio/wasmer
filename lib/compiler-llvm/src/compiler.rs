@@ -3,6 +3,7 @@ use crate::config::OptimizationStyle;
 use crate::object_file::{CompiledFunction as LoadedCompiledFunction, load_object_file};
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
+use itertools::Itertools;
 use object::Architecture;
 use object::BinaryFormat;
 use object::Endianness;
@@ -31,6 +32,8 @@ use std::{
 use wasmer_compiler::WASMER_FUNCTION_OFFSETS_SECTION_NAME;
 use wasmer_compiler::WASMER_MODULE_INFO_SECTION_NAME;
 use wasmer_compiler::WASMER_VERSION_SECTION_NAME;
+use wasmer_compiler::misc::CompiledKind;
+use wasmer_compiler::misc::function_kind_to_obj_fname;
 use wasmer_compiler::misc::types_to_signature;
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
@@ -358,6 +361,9 @@ impl Compiler for LLVMCompiler {
                 )
                 .collect::<Result<Vec<_>, CompileError>>()
         })?;
+        let trampoline_names = module.signatures.iter().map(|(_, func_type)| {
+            function_kind_to_obj_fname(&CompiledKind::FunctionCallTrampoline(func_type.clone()))
+        });
 
         // TODO: I removed the parallel processing of dynamic trampolines because we're passing
         // the sections bytes and relocations directly into the trampoline generation function.
@@ -395,11 +401,19 @@ impl Compiler for LLVMCompiler {
                 })
                 .collect::<Result<Vec<_>, CompileError>>()
         }?;
+        // TODO
+        let dynamic_trampoline_names = module.imported_function_types().map(|func_type| {
+            function_kind_to_obj_fname(&CompiledKind::DynamicFunctionTrampoline(func_type))
+        });
 
+        let function_offset_names = function_body_inputs
+            .keys()
+            .map(|index| format!("f{}", index.as_u32()))
+            .chain(trampoline_names)
+            .chain(dynamic_trampoline_names);
         let meta_object_path = emit_wasmer_meta_object(
             target,
-            &symbol_registry,
-            &function_body_inputs,
+            function_offset_names,
             compile_info_blob,
             build_directory,
         )?;
@@ -443,10 +457,9 @@ impl Compiler for LLVMCompiler {
     }
 }
 
-fn emit_wasmer_meta_object(
+fn emit_wasmer_meta_object<T: IntoIterator<Item = String>>(
     target: &Target,
-    symbol_registry: &ModuleBasedSymbolRegistry,
-    function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+    function_offset_names: T,
     compile_info_blob: Vec<u8>,
     build_directory: &Path,
 ) -> Result<PathBuf, CompileError> {
@@ -489,10 +502,10 @@ fn emit_wasmer_meta_object(
     let pointer_size = target.triple().pointer_width().unwrap().bytes() as u64;
     let pointer_bits = (pointer_size * 8) as u8;
     let zero_pointer = vec![0; pointer_size as usize];
-    for local_function_index in function_body_inputs.keys() {
+    for function_name in function_offset_names {
         let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
         let symbol_id = obj.add_symbol(ObjSymbol {
-            name: format!("f{}", local_function_index.as_u32()).into(),
+            name: function_name.to_owned().into(),
             value: 0,
             size: 0,
             kind: SymbolKind::Text,
@@ -516,7 +529,7 @@ fn emit_wasmer_meta_object(
         )
         .map_err(|e| {
             CompileError::Codegen(format!(
-                "failed to add function offset relocation for {local_function_index:?}: {e}"
+                "failed to add function offset relocation for {function_name}: {e}"
             ))
         })?;
     }

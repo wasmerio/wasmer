@@ -1,7 +1,7 @@
 //! A common functionality used among various compilers.
 
 use core::fmt::Display;
-use std::{collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, fmt::format, path::PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::process::{Command, Stdio};
@@ -99,6 +99,24 @@ pub fn function_kind_to_filename(kind: &CompiledKind, suffix: &str) -> String {
         ),
         CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
             "trampoline_dynamic_{}_{}{suffix}",
+            types_to_signature(func_type.params()),
+            types_to_signature(func_type.results())
+        ),
+        CompiledKind::Module => "module".into(),
+    }
+}
+
+/// Converts a kind into an object name of the symbol (short variant).
+pub fn function_kind_to_obj_fname(kind: &CompiledKind) -> String {
+    match kind {
+        CompiledKind::Local(local_func_index, ..) => format!("f{}", local_func_index.as_u32()),
+        CompiledKind::FunctionCallTrampoline(func_type) => format!(
+            "trampoline_call_{}_{}",
+            types_to_signature(func_type.params()),
+            types_to_signature(func_type.results())
+        ),
+        CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
+            "trampoline_dynamic_{}_{}",
             types_to_signature(func_type.params()),
             types_to_signature(func_type.results())
         ),
