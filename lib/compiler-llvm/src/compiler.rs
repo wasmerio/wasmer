@@ -404,6 +404,7 @@ impl Compiler for LLVMCompiler {
         let mut link_args = vec![
             "ld".to_string(),
             "-Bsymbolic".to_string(),
+            "--strip-all".to_string(),
             "-shared".to_string(),
             "-o".to_string(),
             image_path.display().to_string(),
