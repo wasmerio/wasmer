@@ -398,7 +398,8 @@ impl Compiler for LLVMCompiler {
             function_body_inputs.len(),
             trampolines_objects.len(),
             dynamic_trampolines_objects.len(),
-        )?;
+        )
+        .map_err(CompileError::Codegen)?;
 
         let image_path = build_directory.join("image.so");
         let mut link_args = vec![
@@ -447,9 +448,8 @@ fn emit_wasmer_meta_object(
     functions_count: usize,
     trampolines_count: usize,
     dynamic_trampolines_count: usize,
-) -> Result<PathBuf, CompileError> {
+) -> Result<PathBuf, String> {
     // TODO: document: Serialize ModuleInfo
-    // TODO: unwrap
     let meta_object_path = build_directory.to_path_buf().join("__wasmer_meta.o");
     let mut meta_object = OpenOptions::new()
         .write(true)
@@ -457,11 +457,13 @@ fn emit_wasmer_meta_object(
         .truncate(true)
         .open(&meta_object_path)
         .map_err(|e| {
-            CompileError::Codegen(format!(
+            format!(
                 "failed to create Wasmer metaobject {}: {e}",
                 meta_object_path.display()
-            ))
+            )
         })?;
+
+    // TODO
     let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
@@ -484,7 +486,11 @@ fn emit_wasmer_meta_object(
     obj.section_mut(section_id).flags = SectionFlags::Elf {
         sh_flags: u64::from(elf::SHF_GNU_RETAIN),
     };
-    let pointer_size = target.triple().pointer_width().unwrap().bytes() as u64;
+    let pointer_size = target
+        .triple()
+        .pointer_width()
+        .map_err(|_| "unknown pointer width".to_string())?
+        .bytes() as u64;
     let pointer_bits = (pointer_size * 8) as u8;
     let zero_pointer = vec![0; pointer_size as usize];
 
@@ -520,9 +526,7 @@ fn emit_wasmer_meta_object(
             },
         )
         .map_err(|e| {
-            CompileError::Codegen(format!(
-                "failed to add function offset relocation for {function_name}: {e}"
-            ))
+            format!("failed to add function offset relocation for {function_name}: {e}")
         })?;
     }
 
@@ -543,10 +547,10 @@ fn emit_wasmer_meta_object(
 
     // Save the generated object file.
     obj.write_stream(&mut meta_object).map_err(|e| {
-        CompileError::Codegen(format!(
+        format!(
             "failed to write Wasmer metaobject {}: {e}",
             meta_object_path.display(),
-        ))
+        )
     })?;
 
     Ok(meta_object_path)
