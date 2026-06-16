@@ -179,9 +179,28 @@ struct ImageSegment {
     pub(crate) file_address: usize,
     pub(crate) file_size: usize,
     pub(crate) page_size: usize,
+    pub(crate) flags: SegmentFlags,
 }
 
 impl ImageSegment {
+    fn protection(&self) -> Result<i32, String> {
+        let SegmentFlags::Elf { p_flags } = self.flags else {
+            return Err(format!("unsupported segment flags: {:?}", self.flags));
+        };
+
+        let mut protection = 0;
+        if p_flags & elf::PF_R != 0 {
+            protection |= libc::PROT_READ;
+        }
+        if p_flags & elf::PF_W != 0 {
+            protection |= libc::PROT_WRITE;
+        }
+        if p_flags & elf::PF_X != 0 {
+            protection |= libc::PROT_EXEC;
+        }
+        Ok(protection)
+    }
+
     fn mem_size_page_aligned(&self) -> usize {
         (self.mem_size + (self.mem_address - self.mem_address_page_aligned()))
             .next_multiple_of(self.page_size)
@@ -227,6 +246,7 @@ impl AllocatedArtifact {
                     file_address,
                     file_size,
                     page_size,
+                    flags: segment.flags(),
                 }
             })
             .collect_vec();
@@ -254,13 +274,13 @@ impl AllocatedArtifact {
                 ));
             }
 
-            // TODO: fill up protection
+            let protection = load_segment.protection()?;
 
             memory_map
                 .map(
                     load_segment.mem_address_page_aligned(),
                     load_segment.file_size_page_aligned(),
-                    libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
+                    protection,
                     libc::MAP_PRIVATE | libc::MAP_FIXED,
                     fd,
                     load_segment.file_address_page_aligned(),
@@ -279,7 +299,7 @@ impl AllocatedArtifact {
                             + load_segment.file_size_page_aligned(),
                         load_segment.mem_size_page_aligned()
                             - load_segment.file_size_page_aligned(),
-                        libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
+                        protection,
                         libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_FIXED,
                         -1,
                         0,
