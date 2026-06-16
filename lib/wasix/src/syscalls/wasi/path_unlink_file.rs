@@ -96,12 +96,12 @@ pub(crate) fn path_unlink_file_internal(
                 // `path_symlink` are cached and take the `Some` branch above.
                 let inode_is_symlink = matches!(inode.read().deref(), Kind::Symlink { .. });
                 if !inode_is_symlink {
-                    unreachable!(
-                        "Internal logic error in wasi::path_unlink_file: path resolution returned inode {:?} for {:?}, but parent directory had no matching entry",
+                    tracing::warn!(
+                        "wasi::path_unlink_file: path resolution returned inode {:?} for {:?}, but parent directory had no matching entry",
                         inode.ino(),
                         child_name
                     );
-                    return Ok(Errno::Io);
+                    return Ok(Errno::Noent);
                 }
                 let host_path = host_adjusted_path.as_path();
                 let errno = match state.fs_remove_file(host_path) {
