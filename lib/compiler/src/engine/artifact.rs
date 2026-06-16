@@ -371,9 +371,18 @@ impl AllocatedArtifact {
         };
         let (local_fn_offsets, rest) = function_offsets
             .split_at(module_info.functions.len() - module_info.num_imported_functions);
-        let (trampoline_offset, dynamic_trampoline_offsets) =
+        let (trampoline_offsets, dynamic_trampoline_offsets) =
             rest.split_at(module_info.signatures.len());
-        // TODO: add asserts
+        if local_fn_offsets.len()
+            != (module_info.functions.len() - module_info.num_imported_functions)
+            || trampoline_offsets.len() != module_info.signatures.len()
+            || dynamic_trampoline_offsets.len() != module_info.imported_function_types().count()
+        {
+            return Err(format!(
+                "corrupted {} section",
+                String::from_utf8_lossy(WASMER_FUNCTION_OFFSETS_SECTION_NAME)
+            ));
+        }
         Ok(Self {
             _memory_map: memory_map,
             finished_functions: local_fn_offsets
@@ -381,8 +390,7 @@ impl AllocatedArtifact {
                 .map(|&offset| FunctionBodyPtr(unsafe { base.add(offset) as _ }))
                 .collect::<PrimaryMap<_, _>>()
                 .into_boxed_slice(),
-            // TODO
-            finished_function_call_trampolines: trampoline_offset
+            finished_function_call_trampolines: trampoline_offsets
                 .iter()
                 .map(|&offset| unsafe {
                     std::mem::transmute::<*mut c_void, VMTrampoline>(base.add(offset))
