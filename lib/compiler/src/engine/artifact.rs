@@ -107,6 +107,10 @@ struct MemoryMap {
     size: usize,
 }
 
+// TODO: add safery note
+unsafe impl Send for MemoryMap {}
+unsafe impl Sync for MemoryMap {}
+
 impl MemoryMap {
     fn empty() -> Self {
         Self {
@@ -267,7 +271,6 @@ impl AllocatedArtifact {
         for load_segment in segments {
             // The virtual offset does not need to start at a page boundary.
             if load_segment.file_address % page_size != load_segment.mem_address % page_size {
-                // TODO: properly unmap
                 return Err(format!(
                     "Load segment file offset 0x{:x} and virtual address 0x{:x} have incompatible page alignment",
                     load_segment.file_address, load_segment.mem_address
@@ -314,14 +317,16 @@ impl AllocatedArtifact {
 
             for (offset, relocation) in dynamic_relocations {
                 let object::RelocationTarget::Symbol(symbol_index) = relocation.target() else {
-                    todo!("unsupported dynamic relocation target");
+                    return Err("unsupported dynamic relocation target".to_string());
                 };
                 let symbol = dynamic_symbols.symbol_by_index(symbol_index).unwrap();
                 let symbol_name = symbol.name().unwrap();
                 let Some(libcall) = enum_iterator::all::<LibCall>()
                     .find(|libcall| libcall.to_function_name() == symbol_name)
                 else {
-                    todo!("unsupported dynamic relocation symbol {symbol_name}");
+                    return Err(format!(
+                        "unsupported dynamic relocation symbol {symbol_name}"
+                    ));
                 };
 
                 let is_x86_64_glob_dat = relocation.flags()
@@ -339,7 +344,7 @@ impl AllocatedArtifact {
                     object::RelocationKind::Unknown if is_x86_64_glob_dat => {
                         apply_absolute_relocation()
                     }
-                    kind => todo!("unsupported dynamic relocation kind {kind:?}"),
+                    kind => return Err(format!("unsupported dynamic relocation kind {kind:?}")),
                 }
             }
         }
@@ -348,8 +353,9 @@ impl AllocatedArtifact {
         let mut function_offsets = None;
         for section in image.sections() {
             if section.name_bytes() == Ok(WASMER_FUNCTION_OFFSETS_SECTION_NAME) {
-                // TODO
-                let data = section.data().unwrap();
+                let data = section
+                    .data()
+                    .map_err(|e| format!("cannot load image section data: {e}"))?;
                 function_offsets = Some(
                     data.chunks_exact(size_of::<usize>())
                         .map(|chunk| {
@@ -361,8 +367,7 @@ impl AllocatedArtifact {
             }
         }
         let Some(function_offsets) = function_offsets else {
-            // TODO
-            todo!();
+            return Err("missing function offset section in the image".to_string());
         };
         let (local_fn_offsets, rest) = function_offsets
             .split_at(module_info.functions.len() - module_info.num_imported_functions);
@@ -399,10 +404,6 @@ impl AllocatedArtifact {
         todo!()
     }
 }
-
-// TODO
-unsafe impl Send for AllocatedArtifact {}
-unsafe impl Sync for AllocatedArtifact {}
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
