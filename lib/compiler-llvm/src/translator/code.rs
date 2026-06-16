@@ -126,6 +126,8 @@ impl FuncTranslator {
         let func_index = wasm_module.func_index(*local_func_index);
         let function =
             CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
+        let function_name =
+            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
         // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
         // the allocated heap is never moved to a different location.
@@ -134,6 +136,7 @@ impl FuncTranslator {
             .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
         let module = self.ctx.create_module("");
+
         let target_machine = &self.target_machines.values().next().unwrap();
         let target_triple = target_machine.get_triple();
         let target_data = target_machine.get_target_data();

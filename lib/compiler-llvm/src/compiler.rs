@@ -1,9 +1,7 @@
 use crate::config::LLVM;
 use crate::config::OptimizationStyle;
-use crate::object_file::{CompiledFunction as LoadedCompiledFunction, load_object_file};
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
-use itertools::Itertools;
 use object::Architecture;
 use object::BinaryFormat;
 use object::Endianness;
@@ -20,29 +18,19 @@ use object::{
 };
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::fmt::format;
-use std::fs::File;
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::path::PathBuf;
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    sync::Arc,
-};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 use wasmer_compiler::WASMER_FUNCTION_OFFSETS_SECTION_NAME;
 use wasmer_compiler::WASMER_MODULE_INFO_SECTION_NAME;
 use wasmer_compiler::WASMER_VERSION_SECTION_NAME;
-use wasmer_compiler::misc::CompiledKind;
-use wasmer_compiler::misc::types_to_signature;
 use wasmer_compiler::progress::ProgressContext;
-use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::{
     Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
     types::{
-        relocation::RelocationTarget,
-        section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
+        section::SectionIndex,
         symbols::{Symbol, SymbolRegistry},
     },
 };
@@ -58,7 +46,6 @@ use wasmer_types::{
     CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
     SignatureIndex,
 };
-use wasmer_vm::LibCall;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
