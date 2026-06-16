@@ -136,7 +136,7 @@ pub(super) async fn upload(
 pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
     // Check if the path is a .webc file
     if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("webc") {
-        return Ok((path.to_path_buf(), get_manifest_from_webc(path)?));
+        return Ok((path.to_path_buf(), get_manifest_from_webc_file(path)?));
     }
 
     load_package_manifest(path).and_then(|j| {
@@ -145,14 +145,23 @@ pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
 }
 
 /// Load a manifest from a .webc file
-fn get_manifest_from_webc(path: &Path) -> anyhow::Result<Manifest> {
+fn get_manifest_from_webc_file(path: &Path) -> anyhow::Result<Manifest> {
     use wasmer_package::utils::from_disk;
 
     let container = from_disk(path)
         .map_err(|e| anyhow::anyhow!("Failed to load webc file '{}': {}", path.display(), e))?;
 
-    let webc_manifest = container.manifest();
+    manifest_from_webc_metadata(container.manifest())
+}
 
+/// Convert a webc manifest into a [`Manifest`], extracting the package metadata.
+///
+/// Note: only the package metadata (name, version, description, etc.) is
+/// extracted; modules, commands, and filesystem mappings are not, because they
+/// are already baked into the webc and are not needed to describe the package.
+pub(super) fn manifest_from_webc_metadata(
+    webc_manifest: &webc::metadata::Manifest,
+) -> anyhow::Result<Manifest> {
     // Extract package information from the webc manifest
     let mut manifest = Manifest::new_empty();
 
