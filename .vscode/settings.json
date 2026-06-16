@@ -1,13 +1,18 @@
 {
-    "rust-analyzer.cargo.features": [
-        "llvm",
-        "cranelift",
-        "singlepass",
-        "v8",
-        "enable-serde",
-        "wasmer-artifact-create",
-        "wasmer-artifact-load",
-        "wasmer/experimental-async",
-        "wasmer/experimental-host-interrupt",
-    ],
+        "rust-analyzer.cargo.features": [
+                "wasmer-workspace/llvm",
+                "wasmer-workspace/cranelift",
+                "wasmer-workspace/singlepass",
+                "wasmer-workspace/v8",
+                "wasmer-workspace/wasmer-artifact-create",
+                "wasmer-workspace/wasmer-artifact-load",
+                "wasmer/llvm",
+                "wasmer/cranelift",
+                "wasmer/singlepass",
+                "wasmer/experimental-async",
+                "wasmer/experimental-host-interrupt",
+                "wasmer-bin-fuzz/llvm",
+                "wasmer-bin-fuzz/cranelift",
+                "wasmer-bin-fuzz/singlepass"
+        ],
 }

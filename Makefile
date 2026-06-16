@@ -288,8 +288,10 @@ compilers_engines := $(strip $(compilers_engines))
 #####
 
 build_wasmer_extra_features :=
-ifneq (,$(filter 1 true,$(ENABLE_NAPI_V8)))
-       build_wasmer_extra_features += napi-v8
+ifneq ($(IS_WINDOWS), 1)
+	ifneq (,$(filter 1 true,$(ENABLE_NAPI_V8)))
+		build_wasmer_extra_features += napi-v8
+	endif
 endif
 
 # Small trick to define a space and a comma.
@@ -582,6 +584,8 @@ test-all:
 check-compilers-only-std:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std --locked && \
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std --locked
+check-baremetal:
+	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/vm/Cargo.toml --features baremetal --locked
 test-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-fs/Cargo.toml --release --locked && \
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release --locked
@@ -594,7 +598,7 @@ test-capi-integration-tests:
 
 test: test-all test-examples
 
-test-packages: test-all check-compilers-only-std test-wasmer-cli
+test-packages: test-all check-compilers-only-std check-baremetal test-wasmer-cli
 
 
 test-v8: test-v8-api

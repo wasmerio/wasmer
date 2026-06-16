@@ -116,7 +116,7 @@ impl ModuleHandle {
 
         let bytes = unsafe {
             wasm_module_serialize(handle, &mut bytes as *mut _);
-            if bytes.data.is_null() || bytes.size == 0 {
+            if bytes.data.is_null() {
                 wasm_module_delete(handle);
                 return Err(SerializeError::Generic(String::from(
                     "V8 returned an empty vector as serialized module",

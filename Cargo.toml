@@ -250,6 +250,7 @@ schemars = "1.1.0"
 scopeguard = "1.1.0"
 self_cell = "1.0"
 semver = "1.0"
+version-compare = "0.2.1"
 serde = { version = "1", default-features = false }
 serde-wasm-bindgen = "0.6.5"
 serde_bytes = { version = "0.11" }

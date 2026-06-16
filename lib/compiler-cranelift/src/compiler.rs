@@ -309,6 +309,7 @@ impl CraneliftCompiler {
                     },
                     relocations: func_relocs,
                     frame_info: CompiledFunctionFrameInfo { address_map, traps },
+                    maximum_stack_usage: None,
                 },
                 #[cfg(feature = "unwind")]
                 fde,
