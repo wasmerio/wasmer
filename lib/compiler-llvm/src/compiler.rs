@@ -66,120 +66,6 @@ impl LLVMCompiler {
     }
 }
 
-struct ShortNames {}
-
-impl SymbolRegistry for ShortNames {
-    fn symbol_to_name(&self, symbol: Symbol) -> String {
-        match symbol {
-            Symbol::Metadata => "M".to_string(),
-            Symbol::LocalFunction(index) => format!("f{}", index.index()),
-            Symbol::Section(index) => format!("s{}", index.index()),
-            Symbol::FunctionCallTrampoline(index) => format!("t{}", index.index()),
-            Symbol::DynamicFunctionTrampoline(index) => format!("d{}", index.index()),
-        }
-    }
-
-    fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
-        if name.len() < 2 {
-            return None;
-        }
-        let (ty, idx) = name.split_at(1);
-        if ty.starts_with('M') {
-            return Some(Symbol::Metadata);
-        }
-
-        let idx = idx.parse::<u32>().ok()?;
-        match ty.chars().next().unwrap() {
-            'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
-            's' => Some(Symbol::Section(SectionIndex::from_u32(idx))),
-            't' => Some(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(
-                idx,
-            ))),
-            'd' => Some(Symbol::DynamicFunctionTrampoline(FunctionIndex::from_u32(
-                idx,
-            ))),
-            _ => None,
-        }
-    }
-}
-
-pub(crate) struct ModuleBasedSymbolRegistry {
-    wasm_module: Arc<ModuleInfo>,
-    local_func_names: HashMap<String, LocalFunctionIndex>,
-    short_names: ShortNames,
-}
-
-impl ModuleBasedSymbolRegistry {
-    const PROBLEMATIC_PREFIXES: &[&'static str] = &[
-        ".L",    // .L is used for local symbols
-        "llvm.", // llvm. is used for LLVM's own intrinsics
-    ];
-
-    fn new(wasm_module: Arc<ModuleInfo>) -> Self {
-        let local_func_names = HashMap::from_iter(
-            wasm_module
-                .function_names
-                .iter()
-                .map(|(f, v)| (wasm_module.local_func_index(*f), v))
-                .filter(|(f, _)| f.is_some())
-                .map(|(f, v)| (format!("{}_{}", v.clone(), f.unwrap().as_u32()), f.unwrap())),
-        );
-        Self {
-            wasm_module,
-            local_func_names,
-            short_names: ShortNames {},
-        }
-    }
-
-    // If the name starts with a problematic prefix, we prefix it with an underscore.
-    fn fixup_problematic_name(name: &str) -> Cow<'_, str> {
-        for prefix in Self::PROBLEMATIC_PREFIXES {
-            if name.starts_with(prefix) {
-                return format!("_{name}").into();
-            }
-        }
-        name.into()
-    }
-
-    // If the name starts with an underscore and the rest starts with a problematic prefix,
-    // remove the underscore to get back the original name. This is necessary to be able
-    // to match the name back to the original name in the wasm module.
-    fn unfixup_problematic_name(name: &str) -> &str {
-        if let Some(stripped_name) = name.strip_prefix('_') {
-            for prefix in Self::PROBLEMATIC_PREFIXES {
-                if stripped_name.starts_with(prefix) {
-                    return stripped_name;
-                }
-            }
-        }
-
-        name
-    }
-}
-
-impl SymbolRegistry for ModuleBasedSymbolRegistry {
-    fn symbol_to_name(&self, symbol: Symbol) -> String {
-        match symbol {
-            Symbol::LocalFunction(index) => self
-                .wasm_module
-                .function_names
-                .get(&self.wasm_module.func_index(index))
-                .map(|name| format!("{}_{}", Self::fixup_problematic_name(name), index.as_u32()))
-                .unwrap_or(self.short_names.symbol_to_name(symbol)),
-            _ => self.short_names.symbol_to_name(symbol),
-        }
-    }
-
-    fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
-        let name = Self::unfixup_problematic_name(name);
-        if let Some(idx) = self.local_func_names.get(name) {
-            Some(Symbol::LocalFunction(*idx))
-        } else {
-            self.short_names.name_to_symbol(name)
-        }
-    }
-}
-
 impl Compiler for LLVMCompiler {
     fn name(&self) -> &str {
         "llvm"
@@ -221,8 +107,6 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<(), CompileError> {
-        let binary_format = self.config.target_binary_format(target);
-
         let module = &compile_info.module;
         let module_hash = module.hash_string();
 
@@ -239,7 +123,6 @@ impl Compiler for LLVMCompiler {
             .cloned()
             .map(|cb| ProgressContext::new(cb, total_steps, "Compiling functions"));
 
-        let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
         let module = &compile_info.module;
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
@@ -304,7 +187,6 @@ impl Compiler for LLVMCompiler {
                     self.config(),
                     memory_styles,
                     table_styles,
-                    &symbol_registry,
                     target.triple(),
                     build_directory,
                 )

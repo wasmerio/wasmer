@@ -9,7 +9,7 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
-use crate::{compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle};
+use crate::config::OptimizationStyle;
 use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
@@ -44,7 +44,6 @@ use wasmer_compiler::{
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
     from_binaryreadererror_wasmerror,
     misc::CompiledKind,
-    types::symbols::SymbolRegistry,
     wasmparser::{Catch, MemArg, Operator},
     wpheaptype_to_type, wptype_to_type,
 };
@@ -111,7 +110,6 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        symbol_registry: &dyn SymbolRegistry,
         target: &Triple,
         opt_style: OptimizationStyle,
     ) -> Result<Module<'_>, CompileError> {
@@ -397,7 +395,6 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
         build_directory: &Path,
     ) -> Result<PathBuf, CompileError> {
@@ -421,7 +418,6 @@ impl FuncTranslator {
             config,
             memory_styles,
             table_styles,
-            symbol_registry,
             target,
             opt_style,
         )?;
