@@ -99,8 +99,78 @@ pub struct AllocatedArtifact {
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
 
-    mmap_addr: *mut c_void,
-    mmap_size: usize,
+    _memory_map: MemoryMap,
+}
+
+struct MemoryMap {
+    base: *mut c_void,
+    size: usize,
+}
+
+impl MemoryMap {
+    fn empty() -> Self {
+        Self {
+            base: ptr::null_mut(),
+            size: 0,
+        }
+    }
+
+    fn new(size: usize) -> Result<Self, String> {
+        let base = unsafe {
+            libc::mmap(
+                ptr::null_mut(),
+                size,
+                libc::PROT_NONE,
+                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
+                -1,
+                0,
+            )
+        };
+        if base == libc::MAP_FAILED {
+            return Err("Cannot create a memory map for built Artifact".to_string());
+        }
+
+        Ok(Self { base, size })
+    }
+
+    fn base(&self) -> *mut c_void {
+        self.base
+    }
+
+    fn map(
+        &self,
+        offset: usize,
+        size: usize,
+        protection: i32,
+        flags: i32,
+        fd: i32,
+        file_offset: usize,
+    ) -> Result<(), String> {
+        let result = unsafe {
+            libc::mmap(
+                self.base.add(offset),
+                size,
+                protection,
+                flags,
+                fd,
+                file_offset as libc::off_t,
+            )
+        };
+        if result == libc::MAP_FAILED {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        Ok(())
+    }
+}
+
+impl Drop for MemoryMap {
+    fn drop(&mut self) {
+        if !self.base.is_null() && self.size != 0 {
+            unsafe {
+                libc::munmap(self.base, self.size);
+            }
+        }
+    }
 }
 
 struct ImageSegment {
@@ -162,20 +232,10 @@ impl AllocatedArtifact {
             .collect_vec();
         let total_memory_size = segments.iter().map(|seg| seg.mem_size_page_aligned()).sum();
 
-        // Create a contiguous virtual address memory map that will be populated per-partes with the individual protection flags.
-        let base = unsafe {
-            libc::mmap(
-                ptr::null_mut(),
-                total_memory_size,
-                libc::PROT_NONE,
-                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-                -1,
-                0,
-            )
-        };
-        if base == libc::MAP_FAILED {
-            return Err("Cannot create a mamory map for built Artifact".to_string());
-        }
+        // Create a contiguous virtual address memory map that will be populated
+        // per-partes with the individual protection flags.
+        let memory_map = MemoryMap::new(total_memory_size)?;
+        let base = memory_map.base();
 
         let mmap_file = OpenOptions::new()
             .read(true)
@@ -196,35 +256,27 @@ impl AllocatedArtifact {
 
             // TODO: fill up protection
 
-            let result = unsafe {
-                libc::mmap(
-                    base.add(load_segment.mem_address_page_aligned()),
+            memory_map
+                .map(
+                    load_segment.mem_address_page_aligned(),
                     load_segment.file_size_page_aligned(),
                     libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
                     libc::MAP_PRIVATE | libc::MAP_FIXED,
                     fd,
-                    load_segment.file_address_page_aligned() as libc::off_t,
+                    load_segment.file_address_page_aligned(),
                 )
-            };
-            if result == libc::MAP_FAILED {
-                let error = std::io::Error::last_os_error();
-                unsafe {
-                    libc::munmap(base, total_memory_size);
-                }
-                return Err(format!(
-                    "Cannot map load segment at virtual address 0x{:x}: {error}",
-                    load_segment.mem_address_page_aligned()
-                ));
-            }
+                .map_err(|error| {
+                    format!(
+                        "Cannot map load segment at virtual address 0x{:x}: {error}",
+                        load_segment.mem_address_page_aligned()
+                    )
+                })?;
 
             if load_segment.mem_size_page_aligned() > load_segment.file_size_page_aligned() {
-                // TODO
-                let result = unsafe {
-                    libc::mmap(
-                        base.add(
-                            load_segment.mem_address_page_aligned()
-                                + load_segment.file_size_page_aligned(),
-                        ),
+                memory_map
+                    .map(
+                        load_segment.mem_address_page_aligned()
+                            + load_segment.file_size_page_aligned(),
                         load_segment.mem_size_page_aligned()
                             - load_segment.file_size_page_aligned(),
                         libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
@@ -232,15 +284,7 @@ impl AllocatedArtifact {
                         -1,
                         0,
                     )
-                };
-                if result == libc::MAP_FAILED {
-                    // TODO
-                    let error = std::io::Error::last_os_error();
-                    unsafe {
-                        libc::munmap(base, total_memory_size);
-                    }
-                    return Err("Cannot map zero-fill segment tail".to_string());
-                }
+                    .map_err(|error| format!("Cannot map zero-fill segment tail: {error}"))?;
             }
         }
 
@@ -306,8 +350,7 @@ impl AllocatedArtifact {
             rest.split_at(module_info.signatures.len());
         // TODO: add asserts
         Ok(Self {
-            mmap_addr: base,
-            mmap_size: total_memory_size,
+            _memory_map: memory_map,
             finished_functions: local_fn_offsets
                 .iter()
                 .map(|&offset| FunctionBodyPtr(unsafe { base.add(offset) as _ }))
@@ -334,14 +377,6 @@ impl AllocatedArtifact {
 
     fn function_extents(&self) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
         todo!()
-    }
-}
-
-impl Drop for AllocatedArtifact {
-    fn drop(&mut self) {
-        unsafe {
-            libc::munmap(self.mmap_addr, self.mmap_size);
-        }
     }
 }
 
@@ -1346,8 +1381,7 @@ impl Artifact {
                 id: Default::default(),
                 artifact: artifact_variant,
                 allocated: Some(AllocatedArtifact {
-                    mmap_addr: ptr::null_mut(),
-                    mmap_size: 0,
+                    _memory_map: MemoryMap::empty(),
                     finished_functions: finished_functions.into_boxed_slice(),
                     finished_function_call_trampolines: finished_function_call_trampolines
                         .into_boxed_slice(),
