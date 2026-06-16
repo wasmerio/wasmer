@@ -307,7 +307,6 @@ impl<'ctx> Intrinsics<'ctx> {
         context: &'ctx Context,
         target_data: &TargetData,
         target_triple: &Triple,
-        binary_fmt: &target_lexicon::BinaryFormat,
     ) -> Self {
         let is_riscv64 = matches!(target_triple.architecture, Architecture::Riscv64(..));
         let void_ty = context.void_type();
@@ -841,7 +840,10 @@ impl<'ctx> Intrinsics<'ctx> {
                 None,
             ),
             personality: add_function_with_attrs(
-                if matches!(binary_fmt, target_lexicon::BinaryFormat::Macho) {
+                if matches!(
+                    target_triple.binary_format,
+                    target_lexicon::BinaryFormat::Macho
+                ) {
                     // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
                     // will generate things differently than "normal", wreaking havoc.
                     "__gxx_personality_v0"

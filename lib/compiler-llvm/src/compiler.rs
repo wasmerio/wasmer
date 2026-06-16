@@ -278,7 +278,6 @@ impl Compiler for LLVMCompiler {
                 FuncTranslator::new(
                     target.triple().clone(),
                     target_machines,
-                    binary_format,
                     pointer_width,
                     *target.cpu_features(),
                     self.config.enable_non_volatile_memops,
@@ -324,8 +323,7 @@ impl Compiler for LLVMCompiler {
                 .map_init(
                     || {
                         let target_machine = self.config().target_machine(target);
-                        FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
-                            .unwrap()
+                        FuncTrampoline::new(target_machine, target.triple().clone()).unwrap()
                     },
                     |func_trampoline, (index, sig)| {
                         let function_name = format!("t{}", index.as_u32());
@@ -353,8 +351,7 @@ impl Compiler for LLVMCompiler {
             let progress = progress.clone();
             let target_machine = self.config().target_machine(target);
             let func_trampoline =
-                FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
-                    .unwrap();
+                FuncTrampoline::new(target_machine, target.triple().clone()).unwrap();
             module
                 .imported_function_types()
                 .collect::<Vec<_>>()

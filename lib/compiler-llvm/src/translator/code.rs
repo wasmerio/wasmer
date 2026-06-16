@@ -28,14 +28,13 @@ use inkwell::{
 };
 use itertools::Itertools;
 use smallvec::SmallVec;
-use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
+use target_lexicon::{Architecture, OperatingSystem, Triple};
 use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
     abi::{Abi, get_abi},
     config::LLVM,
     error::{err, err_nt},
-    object_file::{CompiledFunction, load_object_file},
 };
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64, FunctionBinaryReader, FunctionBodyData,
@@ -45,10 +44,7 @@ use wasmer_compiler::{
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
     from_binaryreadererror_wasmerror,
     misc::CompiledKind,
-    types::{
-        relocation::RelocationTarget,
-        symbols::{Symbol, SymbolRegistry},
-    },
+    types::symbols::SymbolRegistry,
     wasmparser::{Catch, MemArg, Operator},
     wpheaptype_to_type, wptype_to_type,
 };
@@ -71,7 +67,6 @@ pub struct FuncTranslator {
     target_triple: Triple,
     target_machines: HashMap<OptimizationStyle, TargetMachine>,
     abi: Box<dyn Abi>,
-    binary_fmt: BinaryFormat,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
@@ -84,7 +79,6 @@ impl FuncTranslator {
     pub fn new(
         target_triple: Triple,
         target_machines: HashMap<OptimizationStyle, TargetMachine>,
-        binary_fmt: BinaryFormat,
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
         non_volatile_memory_ops: bool,
@@ -99,7 +93,6 @@ impl FuncTranslator {
             target_triple,
             target_machines,
             abi,
-            binary_fmt,
             pointer_width,
             cpu_features,
             non_volatile_memory_ops,
@@ -126,8 +119,6 @@ impl FuncTranslator {
         let func_index = wasm_module.func_index(*local_func_index);
         let function =
             CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
         // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
         // the allocated heap is never moved to a different location.
@@ -148,13 +139,7 @@ impl FuncTranslator {
             .unwrap();
 
         let offsets = VMOffsets::new(self.pointer_width, wasm_module);
-        let intrinsics = Intrinsics::declare(
-            &module,
-            &self.ctx,
-            &target_data,
-            &self.target_triple,
-            &self.binary_fmt,
-        );
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.target_triple);
         let (func_type, func_attrs) = self.abi.func_type_to_llvm(
             &self.ctx,
             &intrinsics,
@@ -315,12 +300,10 @@ impl FuncTranslator {
             module_translation,
             signature_hashes,
             wasm_module,
-            symbol_registry,
             abi: &*self.abi,
             config,
             target_triple: self.target_triple.clone(),
             tags_cache: HashMap::new(),
-            binary_fmt: self.binary_fmt,
             cpu_features: self.cpu_features,
             non_volatile_memory_ops: self.non_volatile_memory_ops,
         };
@@ -2244,12 +2227,10 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module_translation: &'a ModuleTranslationState,
     signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
     wasm_module: &'a ModuleInfo,
-    symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
     config: &'a LLVM,
     target_triple: Triple,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
-    binary_fmt: target_lexicon::BinaryFormat,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
 }
