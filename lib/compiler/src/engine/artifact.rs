@@ -30,8 +30,10 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::C
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
 use itertools::Itertools;
+use libc::file_handle;
 use object::{
-    Endianness, Object as _, ObjectSection, ObjectSymbol, ObjectSymbolTable, ReadCache, elf,
+    Endianness, Object as _, ObjectSection, ObjectSegment, ObjectSymbol, ObjectSymbolTable,
+    ReadCache, SegmentFlags, elf,
     read::elf::{ElfFile64, ProgramHeader as _, SectionHeader as _},
 };
 
@@ -101,38 +103,64 @@ pub struct AllocatedArtifact {
     mmap_size: usize,
 }
 
+struct ImageSegment {
+    pub(crate) mem_address: usize,
+    pub(crate) mem_size: usize,
+    pub(crate) file_address: usize,
+    pub(crate) file_size: usize,
+    pub(crate) page_size: usize,
+}
+
+impl ImageSegment {
+    fn mem_size_page_aligned(&self) -> usize {
+        (self.mem_size + (self.mem_address - self.mem_address_page_aligned()))
+            .next_multiple_of(self.page_size)
+    }
+
+    fn mem_address_page_aligned(&self) -> usize {
+        self.mem_address & !(self.page_size - 1)
+    }
+
+    fn file_size_page_aligned(&self) -> usize {
+        (self.file_size + (self.file_address - self.file_address_page_aligned()))
+            .next_multiple_of(self.page_size)
+    }
+
+    fn file_address_page_aligned(&self) -> usize {
+        self.file_address & !(self.page_size - 1)
+    }
+}
+
 impl AllocatedArtifact {
     fn from_binary(
         module_info: &ModuleInfo,
         path: &str,
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
-    ) -> Result<Self, InstantiationError> {
+    ) -> Result<Self, String> {
         let f = File::open(path).unwrap();
         let reader = BufReader::new(f);
         let cache = ReadCache::new(reader);
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
 
-        // TODO
-        let elf: object::read::elf::ElfFile<'_, object::elf::FileHeader64<Endianness>, _> =
-            ElfFile64::parse(&cache).unwrap();
-
-        let load_segments = elf
-            .elf_program_headers()
-            .iter()
-            .filter(|segment| segment.p_type(elf.endian()) == elf::PT_LOAD)
-            .collect_vec();
-        let total_memory_size = load_segments
-            .iter()
+        let image = object::File::parse(&cache).map_err(|e| format!("cannot parse image: {e}"))?;
+        let segments = image
+            .segments()
             .map(|segment| {
-                // TODO: create a struct that will provide the convenient functions.
-                let mem_address = segment.p_vaddr(elf.endian()) as usize;
-                let mem_size = segment.p_memsz(elf.endian()) as usize;
-                let page_vaddr = mem_address & !(page_size - 1);
-                let delta = mem_address - page_vaddr;
-                page_vaddr + (mem_size + delta).next_multiple_of(page_size)
+                let mem_address = segment.address() as usize;
+                let mem_size = segment.size() as usize;
+                let (file_address, file_size) = segment.file_range();
+                let file_address = file_address as usize;
+                let file_size = file_size as usize;
+                ImageSegment {
+                    mem_address,
+                    mem_size,
+                    file_address,
+                    file_size,
+                    page_size,
+                }
             })
-            .max()
-            .unwrap_or(0);
+            .collect_vec();
+        let total_memory_size = segments.iter().map(|seg| seg.mem_size_page_aligned()).sum();
 
         // Create a contiguous virtual address memory map that will be populated per-partes with the individual protection flags.
         let base = unsafe {
@@ -146,51 +174,36 @@ impl AllocatedArtifact {
             )
         };
         if base == libc::MAP_FAILED {
-            return Err(InstantiationError::Link(LinkError::Resource(
-                "Cannot create a mamory map for built Artifact".to_string(),
-            )));
+            return Err("Cannot create a mamory map for built Artifact".to_string());
         }
 
-        // TODO
-        let mmap_file = OpenOptions::new().read(true).open(path).unwrap();
+        let mmap_file = OpenOptions::new()
+            .read(true)
+            .open(path)
+            .map_err(|e| format!("cannot open image file for mmap: {e}"))?;
         let fd = mmap_file.as_raw_fd();
 
         // Mmap individual load segments
-        for load_segment in load_segments {
-            let file_offset = load_segment.p_offset(elf.endian()) as usize;
-            let file_size = load_segment.p_filesz(elf.endian()) as usize;
-            let mem_address = load_segment.p_vaddr(elf.endian()) as usize;
-            let mem_size = load_segment.p_memsz(elf.endian()) as usize;
-
+        for load_segment in segments {
             // The virtual offset does not need to start at a page boundary.
-            debug_assert_eq!(file_offset % page_size, mem_address % page_size);
-            if file_offset % page_size != mem_address % page_size {
-                unsafe {
-                    libc::munmap(base, total_memory_size);
-                }
-                return Err(InstantiationError::Link(LinkError::Resource(format!(
-                    "ELF load segment file offset 0x{file_offset:x} and virtual address 0x{mem_address:x} have incompatible page alignment",
-                ))));
+            if load_segment.file_address % page_size != load_segment.mem_address % page_size {
+                // TODO: properly unmap
+                return Err(format!(
+                    "Load segment file offset 0x{:x} and virtual address 0x{:x} have incompatible page alignment",
+                    load_segment.file_address, load_segment.mem_address
+                ));
             }
 
-            let page_vaddr = mem_address & !(page_size - 1);
-            let page_file_offset = file_offset & !(page_size - 1);
-
-            let delta = mem_address - page_vaddr;
-            let file_map_size = (file_size + delta).next_multiple_of(page_size);
-            let mem_map_size = (mem_size + delta).next_multiple_of(page_size);
-
-            let mut protection = 0;
-            // TODO: flags
+            // TODO: fill up protection
 
             let result = unsafe {
                 libc::mmap(
-                    base.add(page_vaddr),
-                    file_map_size,
+                    base.add(load_segment.mem_address_page_aligned()),
+                    load_segment.file_size_page_aligned(),
                     libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
                     libc::MAP_PRIVATE | libc::MAP_FIXED,
                     fd,
-                    page_file_offset as libc::off_t,
+                    load_segment.file_address_page_aligned() as libc::off_t,
                 )
             };
             if result == libc::MAP_FAILED {
@@ -198,16 +211,22 @@ impl AllocatedArtifact {
                 unsafe {
                     libc::munmap(base, total_memory_size);
                 }
-                return Err(InstantiationError::Link(LinkError::Resource(format!(
-                    "Cannot map ELF load segment at virtual address 0x{mem_address:x}: {error}",
-                ))));
+                return Err(format!(
+                    "Cannot map load segment at virtual address 0x{:x}: {error}",
+                    load_segment.mem_address_page_aligned()
+                ));
             }
 
-            if mem_map_size > file_map_size {
+            if load_segment.mem_size_page_aligned() > load_segment.file_size_page_aligned() {
+                // TODO
                 let result = unsafe {
                     libc::mmap(
-                        base.add(page_vaddr + file_map_size),
-                        mem_map_size - file_map_size,
+                        base.add(
+                            load_segment.mem_address_page_aligned()
+                                + load_segment.file_size_page_aligned(),
+                        ),
+                        load_segment.mem_size_page_aligned()
+                            - load_segment.file_size_page_aligned(),
                         libc::PROT_READ | libc::PROT_WRITE | libc::PROT_EXEC,
                         libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_FIXED,
                         -1,
@@ -215,21 +234,19 @@ impl AllocatedArtifact {
                     )
                 };
                 if result == libc::MAP_FAILED {
+                    // TODO
                     let error = std::io::Error::last_os_error();
                     unsafe {
                         libc::munmap(base, total_memory_size);
                     }
-                    return Err(InstantiationError::Link(LinkError::Resource(format!(
-                        "Cannot map ELF zero-fill segment tail at virtual address 0x{:x}: {error}",
-                        mem_address + file_map_size - delta,
-                    ))));
+                    return Err("Cannot map zero-fill segment tail".to_string());
                 }
             }
         }
 
         // Apply dynamic relocations for the libcalls
-        if let Some(dynamic_relocations) = elf.dynamic_relocations() {
-            let dynamic_symbols = elf.dynamic_symbol_table().unwrap();
+        if let Some(dynamic_relocations) = image.dynamic_relocations() {
+            let dynamic_symbols = image.dynamic_symbol_table().unwrap();
 
             for (offset, relocation) in dynamic_relocations {
                 let object::RelocationTarget::Symbol(symbol_index) = relocation.target() else {
@@ -265,7 +282,7 @@ impl AllocatedArtifact {
 
         // Parts function offsets
         let mut function_offsets = None;
-        for section in elf.sections() {
+        for section in image.sections() {
             if section.name_bytes() == Ok(WASMER_FUNCTION_OFFSETS_SECTION_NAME) {
                 // TODO
                 let data = section.data().unwrap();
