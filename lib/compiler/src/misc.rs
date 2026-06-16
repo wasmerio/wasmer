@@ -106,24 +106,6 @@ pub fn function_kind_to_filename(kind: &CompiledKind, suffix: &str) -> String {
     }
 }
 
-/// Converts a kind into an object name of the symbol (short variant).
-pub fn function_kind_to_obj_fname(kind: &CompiledKind) -> String {
-    match kind {
-        CompiledKind::Local(local_func_index, ..) => format!("f{}", local_func_index.as_u32()),
-        CompiledKind::FunctionCallTrampoline(func_type) => format!(
-            "trampoline_call_{}_{}",
-            types_to_signature(func_type.params()),
-            types_to_signature(func_type.results())
-        ),
-        CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
-            "trampoline_dynamic_{}_{}",
-            types_to_signature(func_type.params()),
-            types_to_signature(func_type.results())
-        ),
-        CompiledKind::Module => "module".into(),
-    }
-}
-
 /// Saves disassembled assembly code to a file with optional comments at specific offsets.
 ///
 /// This function takes raw machine code bytes, disassembles them using `objdump`, and writes

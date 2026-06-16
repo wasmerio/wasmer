@@ -20,6 +20,7 @@ use object::{
 };
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::fmt::format;
 use std::fs::File;
 use std::fs::OpenOptions;
 use std::path::Path;
@@ -33,7 +34,6 @@ use wasmer_compiler::WASMER_FUNCTION_OFFSETS_SECTION_NAME;
 use wasmer_compiler::WASMER_MODULE_INFO_SECTION_NAME;
 use wasmer_compiler::WASMER_VERSION_SECTION_NAME;
 use wasmer_compiler::misc::CompiledKind;
-use wasmer_compiler::misc::function_kind_to_obj_fname;
 use wasmer_compiler::misc::types_to_signature;
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
@@ -340,12 +340,8 @@ impl Compiler for LLVMCompiler {
                         FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
                             .unwrap()
                     },
-                    |func_trampoline, (_, sig)| {
-                        let function_name = format!(
-                            "trampoline_call_{}_{}",
-                            types_to_signature(sig.params()),
-                            types_to_signature(sig.results())
-                        );
+                    |func_trampoline, (index, sig)| {
+                        let function_name = format!("t{}", index.as_u32());
                         let trampoline = func_trampoline.trampoline(
                             sig,
                             self.config(),
@@ -361,9 +357,6 @@ impl Compiler for LLVMCompiler {
                 )
                 .collect::<Result<Vec<_>, CompileError>>()
         })?;
-        let trampoline_names = module.signatures.iter().map(|(_, func_type)| {
-            function_kind_to_obj_fname(&CompiledKind::FunctionCallTrampoline(func_type.clone()))
-        });
 
         // TODO: I removed the parallel processing of dynamic trampolines because we're passing
         // the sections bytes and relocations directly into the trampoline generation function.
@@ -381,11 +374,7 @@ impl Compiler for LLVMCompiler {
                 .into_iter()
                 .enumerate()
                 .map(|(index, func_type)| {
-                    let function_name = format!(
-                        "trampoline_dynamic_{}_{}",
-                        types_to_signature(func_type.params()),
-                        types_to_signature(func_type.results())
-                    );
+                    let function_name = format!("dt{}", index);
                     let trampoline = func_trampoline.dynamic_trampoline(
                         &func_type,
                         self.config(),
@@ -401,21 +390,14 @@ impl Compiler for LLVMCompiler {
                 })
                 .collect::<Result<Vec<_>, CompileError>>()
         }?;
-        // TODO
-        let dynamic_trampoline_names = module.imported_function_types().map(|func_type| {
-            function_kind_to_obj_fname(&CompiledKind::DynamicFunctionTrampoline(func_type))
-        });
 
-        let function_offset_names = function_body_inputs
-            .keys()
-            .map(|index| format!("f{}", index.as_u32()))
-            .chain(trampoline_names)
-            .chain(dynamic_trampoline_names);
         let meta_object_path = emit_wasmer_meta_object(
             target,
-            function_offset_names,
             compile_info_blob,
             build_directory,
+            function_body_inputs.len(),
+            trampolines_objects.len(),
+            dynamic_trampolines_objects.len(),
         )?;
 
         let image_path = build_directory.join("image.so");
@@ -457,11 +439,13 @@ impl Compiler for LLVMCompiler {
     }
 }
 
-fn emit_wasmer_meta_object<T: IntoIterator<Item = String>>(
+fn emit_wasmer_meta_object(
     target: &Target,
-    function_offset_names: T,
     compile_info_blob: Vec<u8>,
     build_directory: &Path,
+    functions_count: usize,
+    trampolines_count: usize,
+    dynamic_trampolines_count: usize,
 ) -> Result<PathBuf, CompileError> {
     // TODO: document: Serialize ModuleInfo
     // TODO: unwrap
@@ -502,6 +486,13 @@ fn emit_wasmer_meta_object<T: IntoIterator<Item = String>>(
     let pointer_size = target.triple().pointer_width().unwrap().bytes() as u64;
     let pointer_bits = (pointer_size * 8) as u8;
     let zero_pointer = vec![0; pointer_size as usize];
+
+    // We're using a fixed naming conventions for functions, trampolines and the dynamic trampolines:
+    // f{number} for functions, t{number} for trampolines and dt{number} for dynamic trampolines.
+    let function_offset_names = (0..functions_count)
+        .map(|i| format!("f{i}"))
+        .chain((0..trampolines_count).map(|i| format!("t{i}")))
+        .chain((0..dynamic_trampolines_count).map(|i| format!("dt{i}")));
     for function_name in function_offset_names {
         let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
         let symbol_id = obj.add_symbol(ObjSymbol {
