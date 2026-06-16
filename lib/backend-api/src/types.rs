@@ -200,6 +200,10 @@ mod queries {
         pub id: cynic::Id,
         pub version: String,
         pub created_at: DateTime,
+        pub description: String,
+        pub license: Option<String>,
+        pub homepage: Option<String>,
+        pub repository: Option<String>,
         pub pirita_manifest: Option<JSONString>,
         pub package: Package,
 
