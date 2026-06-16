@@ -889,7 +889,7 @@ impl InodeSocket {
     pub fn addr_peer(&self) -> Result<SocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
-            InodeSocketKind::BoundTcp { .. } => return Err(Errno::Notconn),
+            InodeSocketKind::BoundTcp { .. } => Err(Errno::Notconn),
             InodeSocketKind::PreSocket { props, .. } => Ok(SocketAddr::new(
                 match props.family {
                     Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
