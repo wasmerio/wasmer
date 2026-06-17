@@ -18,8 +18,8 @@
 static int expect_host(const struct sockaddr* addr, socklen_t addrlen,
                        const char* label) {
   char host[NI_MAXHOST];
-  int err = getnameinfo(addr, addrlen, host, sizeof(host), NULL, 0,
-                        NI_NAMEREQD);
+  int err =
+      getnameinfo(addr, addrlen, host, sizeof(host), NULL, 0, NI_NAMEREQD);
   if (err != 0) {
     fprintf(stderr, "%s: getnameinfo failed: %s\n", label, gai_strerror(err));
     return 1;
@@ -43,8 +43,7 @@ static int expect_ipv4_loopback(void) {
     return 1;
   }
 
-  return expect_host((const struct sockaddr*)&addr, sizeof(addr),
-                     "127.0.0.1");
+  return expect_host((const struct sockaddr*)&addr, sizeof(addr), "127.0.0.1");
 }
 
 static int expect_ipv6_loopback_with_scope(void) {
@@ -58,8 +57,7 @@ static int expect_ipv6_loopback_with_scope(void) {
     return 1;
   }
 
-  return expect_host((const struct sockaddr*)&addr, sizeof(addr),
-                     "::1%7");
+  return expect_host((const struct sockaddr*)&addr, sizeof(addr), "::1%7");
 }
 
 static int expect_ipv4_mapped_loopback(void) {
