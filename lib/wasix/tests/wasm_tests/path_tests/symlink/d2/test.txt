@@ -1,1 +1,1 @@
-hi
+Symlink test
