@@ -547,15 +547,6 @@ impl EngineInner {
         &self.signatures
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    /// Register the frame info for the code memory
-    pub(crate) fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
-        self.code_memory
-            .last_mut()
-            .unwrap()
-            .register_frame_info(frame_info);
-    }
-
     #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
     pub(crate) fn register_perfmap(
         &self,

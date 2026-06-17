@@ -24,6 +24,10 @@ use crate::{
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
     types::relocation::{RelocationLike, RelocationTarget},
+    types::{
+        address_map::{FunctionAddressMap, InstructionAddressMap},
+        function::CompiledFunctionFrameInfo,
+    },
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
@@ -51,7 +55,7 @@ use wasmer_types::{
     CompileError, DataInitializer, DataInitializerLike, DataInitializerLocation,
     DataInitializerLocationLike, DeserializeError, FunctionIndex, LibCall, LocalFunctionIndex,
     MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializeError, SignatureHash, SignatureIndex,
-    TableIndex,
+    SourceLoc, TableIndex,
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -83,6 +87,19 @@ pub struct AllocatedArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
+
+    /// Per-function frame info for backtrace symbolication.
+    frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
+
+    // This shows if the frame info has been registered already or not.
+    // Because the 'GlobalFrameInfoRegistration' ownership can be transferred to EngineInner
+    // this bool is needed to track the status, as 'frame_info_registration' will be None
+    // after the ownership is transferred.
+    frame_info_registered: bool,
+    // frame_info_registration is transferred to CodeMemory from EngineInner
+    // using 'Artifact::take_frame_info_registration' method
+    // so the GlobalFrameInfo and MMap stays in sync and get dropped at the same time
+    frame_info_registration: Option<GlobalFrameInfoRegistration>,
 
     /// Precomputed `VMOffsets` for this artifact's module, cloned by
     /// `Artifact::instantiate` instead of recomputing on every call.
@@ -427,12 +444,20 @@ impl AllocatedArtifact {
         let Some(function_offsets) = function_offsets else {
             return Err("missing function offset section in the image".to_string());
         };
+        let local_function_count = module_info.functions.len() - module_info.num_imported_functions;
+
+        let local_fn_sizes = function_offsets
+            .iter()
+            .skip(1)
+            .take(local_function_count)
+            .zip(function_offsets.iter())
+            .map(|(f1, f0)| f1 - f0)
+            .collect_vec();
         let (local_fn_offsets, rest) = function_offsets
             .split_at(module_info.functions.len() - module_info.num_imported_functions);
         let (trampoline_offsets, dynamic_trampoline_offsets) =
             rest.split_at(module_info.signatures.len());
-        if local_fn_offsets.len()
-            != (module_info.functions.len() - module_info.num_imported_functions)
+        if local_fn_offsets.len() != local_function_count
             || trampoline_offsets.len() != module_info.signatures.len()
             || dynamic_trampoline_offsets.len() != module_info.imported_function_types().count()
         {
@@ -441,6 +466,30 @@ impl AllocatedArtifact {
                 String::from_utf8_lossy(WASMER_FUNCTION_OFFSETS_SECTION_NAME)
             ));
         }
+        // Build trivial frame info per function (LLVM doesn't emit per-instruction
+        // source maps, so we use default SourceLoc values).
+        let frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> =
+            local_fn_offsets
+                .iter()
+                .enumerate()
+                .map(|(i, _offset)| {
+                    let len = local_fn_sizes[i];
+                    CompiledFunctionFrameInfo {
+                        address_map: FunctionAddressMap {
+                            instructions: vec![InstructionAddressMap {
+                                srcloc: SourceLoc::default(),
+                                code_offset: 0,
+                                code_len: len,
+                            }],
+                            start_srcloc: SourceLoc::default(),
+                            end_srcloc: SourceLoc::default(),
+                            body_offset: 0,
+                            body_len: len,
+                        },
+                        traps: vec![],
+                    }
+                })
+                .collect();
         Ok(Self {
             _memory_map: memory_map,
             finished_functions: local_fn_offsets
@@ -460,14 +509,28 @@ impl AllocatedArtifact {
                 .map(|&offset| FunctionBodyPtr(unsafe { base.add(offset) as _ }))
                 .collect::<PrimaryMap<_, _>>()
                 .into_boxed_slice(),
-            finished_function_lengths: PrimaryMap::new().into_boxed_slice(),
+            finished_function_lengths: PrimaryMap::from_iter(local_fn_sizes).into_boxed_slice(),
+            frame_infos,
+            frame_info_registered: false,
+            frame_info_registration: None,
             signatures: signatures.into_boxed_slice(),
             vm_offsets: VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info),
         })
     }
 
     fn function_extents(&self) -> PrimaryMap<LocalFunctionIndex, FunctionExtent> {
-        todo!()
+        assert_eq!(
+            self.finished_functions.len(),
+            self.finished_function_lengths.len(),
+            "finished_functions and finished_function_lengths must have equal length"
+        );
+        self.finished_functions
+            .iter()
+            .map(|(index, &ptr)| {
+                let length = self.finished_function_lengths[index];
+                FunctionExtent { ptr, length }
+            })
+            .collect()
     }
 }
 
@@ -735,13 +798,9 @@ impl Artifact {
             allocated: Some(allocated_artifact),
         };
 
-        // TODO
-        // artifact
-        //     .internal_register_frame_info()
-        //     .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
-        // if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
-        //     engine_inner.register_frame_info(frame_info);
-        // }
+        artifact
+            .internal_register_frame_info()
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
 
         Ok(artifact)
     }
@@ -948,20 +1007,32 @@ impl DataInitializerLocationLike for DataInitializerLocationVariant<'_> {
 
 impl Artifact {
     fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
-        todo!()
+        let module_info = self.create_module_info();
+        let allocated = self.allocated.as_mut().expect("It must be allocated");
+        if allocated.frame_info_registered {
+            return Ok(());
+        }
+
+        let finished_function_extents = allocated.function_extents().into_boxed_slice();
+
+        let frame_infos = FrameInfosVariant::Owned(std::mem::take(&mut allocated.frame_infos));
+
+        allocated.frame_info_registration =
+            register_frame_info(module_info, &finished_function_extents, frame_infos);
+
+        allocated.frame_info_registered = true;
+
+        Ok(())
     }
 
     fn internal_take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
-        // TODO
-        // let frame_info_registration = &mut self
-        //     .allocated
-        //     .as_mut()
-        //     .expect("It must be allocated")
-        //     .frame_info_registration;
+        let frame_info_registration = &mut self
+            .allocated
+            .as_mut()
+            .expect("It must be allocated")
+            .frame_info_registration;
 
-        // frame_info_registration.take()
-
-        todo!()
+        frame_info_registration.take()
     }
 
     /// Returns the functions allocated in memory or this `Artifact`
@@ -1476,6 +1547,9 @@ impl Artifact {
                         .into_boxed_slice(),
                     signatures: signatures.into_boxed_slice(),
                     finished_function_lengths,
+                    frame_infos: PrimaryMap::new(),
+                    frame_info_registered: false,
+                    frame_info_registration: None,
                     vm_offsets,
                 }),
             })

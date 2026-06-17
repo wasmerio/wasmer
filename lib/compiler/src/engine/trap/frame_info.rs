@@ -203,7 +203,10 @@ pub enum FrameInfosVariant {
 impl FrameInfosVariant {
     /// Gets the frame info for a given local function index
     pub fn get(&self, index: LocalFunctionIndex) -> Option<CompiledFunctionFrameInfoVariant<'_>> {
-        todo!()
+        match self {
+            Self::Owned(map) => map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
+            Self::Archived(_archive) => unimplemented!("Archived frame info not yet supported in ELF path"),
+        }
     }
 }
 
