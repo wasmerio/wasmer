@@ -11,6 +11,7 @@ publish = false
 rand.workspace = true
 target-lexicon.workspace = true
 serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
 insta = { workspace = true, features = ["json"] }
 md5.workspace = true
 hex.workspace = true

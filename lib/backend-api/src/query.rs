@@ -1793,9 +1793,8 @@ pub fn fetch_all_matching_packages(
         let query = query.clone();
         let filter = filter.clone();
         async move {
-            let after = match state {
-                Some(after) => after,
-                None => return Ok(None),
+            let Some(after) = state else {
+                return Ok(None);
             };
 
             let page = search_packages(client, query, filter, Some(page_size), after).await?;
