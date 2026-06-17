@@ -1888,12 +1888,7 @@ impl WasiFs {
     }
 
     #[cfg(feature = "host-fs")]
-    fn host_symlink_target_path(
-        &self,
-        root: &Path,
-        symlink_path: &Path,
-        target: &Path,
-    ) -> PathBuf {
+    fn host_symlink_target_path(&self, root: &Path, symlink_path: &Path, target: &Path) -> PathBuf {
         let target = if target.is_absolute() {
             target.to_path_buf()
         } else {
