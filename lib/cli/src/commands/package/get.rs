@@ -2,9 +2,12 @@ use std::path::Path;
 
 use anyhow::{Context, bail};
 use dialoguer::console::style;
+use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::{Manifest, PackageIdent, PackageSource};
 
-use super::common::{get_manifest, manifest_from_webc_metadata, package_web_url};
+use super::common::{
+    get_manifest, manifest_from_webc_metadata, package_web_url, registry_web_host,
+};
 use crate::commands::AsyncCliCommand;
 use crate::config::WasmerEnv;
 
@@ -130,19 +133,27 @@ impl PackageGet {
                 };
                 let full_name = id.full_name();
 
-                let package = wasmer_backend_api::query::get_package_version(
+                let package = match wasmer_backend_api::query::get_package_version(
                     &client,
                     full_name.clone(),
                     version.clone(),
                 )
                 .await?
-                .with_context(|| {
-                    format!(
-                        "could not retrieve package information for package '{}' from registry '{}'",
-                        full_name,
-                        client.graphql_endpoint(),
-                    )
-                })?;
+                {
+                    Some(package) => package,
+                    None => {
+                        // Echo the version the user actually typed rather than
+                        // the semver requirement it parsed into (`4.4.4` would
+                        // otherwise render as `^4.4.4`). `None` means the user
+                        // gave no version (we resolved `latest`).
+                        let requested = (version != "latest").then(|| {
+                            self.package
+                                .rsplit_once('@')
+                                .map_or(version.as_str(), |(_, v)| v)
+                        });
+                        return Err(version_not_found_error(&client, &full_name, requested).await);
+                    }
+                };
 
                 let json = package
                     .pirita_manifest
@@ -224,6 +235,56 @@ impl PackageGet {
             }
         }
     }
+}
+
+/// Build a helpful error for when [`get_package_version`] returns nothing.
+///
+/// If the package exists but the requested version doesn't, the error lists the
+/// versions that are available; otherwise it reports the package as not found.
+///
+/// [`get_package_version`]: wasmer_backend_api::query::get_package_version
+async fn version_not_found_error(
+    client: &WasmerClient,
+    full_name: &str,
+    requested: Option<&str>,
+) -> anyhow::Error {
+    let registry = registry_web_host(client);
+
+    match wasmer_backend_api::query::get_package_version_numbers(client, full_name.to_string())
+        .await
+    {
+        Ok(Some(mut versions)) if !versions.is_empty() => {
+            sort_versions(&mut versions);
+            let available = versions.join(", ");
+            match requested {
+                Some(version) => anyhow::anyhow!(
+                    "package '{full_name}' has no version matching '{version}' in registry '{registry}'.\nAvailable versions: {available}"
+                ),
+                None => anyhow::anyhow!(
+                    "could not resolve the latest version of package '{full_name}' from registry '{registry}'.\nAvailable versions: {available}"
+                ),
+            }
+        }
+        // The package exists but has no published versions, or doesn't exist.
+        Ok(_) => {
+            anyhow::anyhow!("package '{full_name}' was not found in registry '{registry}'")
+        }
+        // Couldn't list versions; fall back to a generic message.
+        Err(_) => anyhow::anyhow!(
+            "could not retrieve package information for package '{full_name}' from registry '{registry}'"
+        ),
+    }
+}
+
+/// Sort version strings ascending, parsing them as semver where possible and
+/// falling back to lexical order for anything that doesn't parse.
+fn sort_versions(versions: &mut [String]) {
+    versions.sort_by(
+        |a, b| match (semver::Version::parse(a), semver::Version::parse(b)) {
+            (Ok(a), Ok(b)) => a.cmp(&b),
+            _ => a.cmp(b),
+        },
+    );
 }
 
 #[cfg(test)]

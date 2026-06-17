@@ -20,3 +20,18 @@ fn package_get_named() {
         .stdout(contains("URL:"))
         .stdout(contains("https://wasmer.io/wasmer/cli@0.1.3"));
 }
+
+// A missing version reports the request as unmatched and lists what's available
+// (`0.1.3` exists permanently, so the assertion stays stable).
+#[test]
+fn package_get_missing_version() {
+    wasmer_command()
+        .arg("package")
+        .arg("get")
+        .arg("wasmer/cli@9999.0.0")
+        .assert()
+        .failure()
+        .stderr(contains("has no version matching"))
+        .stderr(contains("Available versions:"))
+        .stderr(contains("0.1.3"));
+}

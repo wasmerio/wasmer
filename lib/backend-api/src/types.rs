@@ -438,6 +438,25 @@ mod queries {
         pub get_package: Option<Package>,
     }
 
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetPackageVars")]
+    pub struct GetPackageVersionNumbers {
+        #[arguments(name: $name)]
+        pub get_package: Option<PackageVersionNumbers>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Package")]
+    pub struct PackageVersionNumbers {
+        pub versions: Option<Vec<Option<PackageVersionNumber>>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct PackageVersionNumber {
+        pub version: String,
+    }
+
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetPackageVersionVars {
         pub name: String,
