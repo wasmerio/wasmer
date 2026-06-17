@@ -10,6 +10,7 @@ use core::sync::atomic::{
 use std::sync::Once;
 
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
+use gimli::{BaseAddresses, CieOrFde, EhFrame, NativeEndian, ReaderOffset, UnwindSection};
 
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {

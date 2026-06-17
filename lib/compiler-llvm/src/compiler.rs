@@ -275,7 +275,6 @@ impl Compiler for LLVMCompiler {
             "-shared".to_string(),
             "-o".to_string(),
             image_path.display().to_string(),
-            meta_object_path.display().to_string(),
         ];
         link_args.extend(
             object_files
@@ -284,6 +283,10 @@ impl Compiler for LLVMCompiler {
                 .chain(dynamic_trampolines_objects.iter())
                 .map(|path| path.display().to_string()),
         );
+        // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
+        // records. Linkers concatenate input sections in object order, and a
+        // leading terminator makes frame registration see an empty table.
+        link_args.push(meta_object_path.display().to_string());
         let mut wild_args =
             libwild::Args::new(|| link_args.iter().map(String::as_str)).map_err(|e| {
                 CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}"))
@@ -342,6 +345,14 @@ fn emit_wasmer_meta_object(
     obj.section_mut(section_id).flags = SectionFlags::Elf {
         sh_flags: u64::from(elf::SHF_GNU_RETAIN),
     };
+
+    // Emit zero sentinel for the .eh_frame section.
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Debug).to_vec(),
+        b".eh_frame".to_vec(),
+        SectionKind::Debug,
+    );
+    obj.append_section_data(section_id, &0u64.to_ne_bytes(), 4);
 
     // Emit offsets of the functions
     let section_id = obj.add_section(

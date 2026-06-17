@@ -6,7 +6,7 @@ use std::{
     fs::{File, OpenOptions},
     io::BufReader,
     os::fd::AsRawFd,
-    ptr,
+    ptr, slice,
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering::SeqCst},
@@ -19,7 +19,7 @@ use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, LinkError,
     Tunables, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
-    engine::{link::link_module, resolver::resolve_tags},
+    engine::{link::link_module, resolver::resolve_tags, unwind::UnwindRegistry},
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
@@ -105,6 +105,8 @@ pub struct AllocatedArtifact {
 struct MemoryMap {
     base: *mut c_void,
     size: usize,
+
+    unwind_registry: Option<UnwindRegistry>,
 }
 
 // TODO: add safery note
@@ -116,6 +118,7 @@ impl MemoryMap {
         Self {
             base: ptr::null_mut(),
             size: 0,
+            unwind_registry: Some(UnwindRegistry::new()),
         }
     }
 
@@ -134,11 +137,39 @@ impl MemoryMap {
             return Err("Cannot create a memory map for built Artifact".to_string());
         }
 
-        Ok(Self { base, size })
+        Ok(Self {
+            base,
+            size,
+            unwind_registry: Some(UnwindRegistry::new()),
+        })
     }
 
     fn base(&self) -> *mut c_void {
         self.base
+    }
+
+    /// Returns the mapped memory as a byte slice tied to the lifetime of this map.
+    ///
+    /// # Safety
+    ///
+    /// The entire mapped range must be readable for the returned slice's lifetime.
+    #[allow(dead_code)]
+    unsafe fn as_slice(&self) -> &[u8] {
+        if self.base.is_null() || self.size == 0 {
+            return &[];
+        }
+
+        unsafe { slice::from_raw_parts(self.base.cast::<u8>(), self.size) }
+    }
+
+    fn publish_eh_frame_section(&mut self, address: u64, size: u64) -> Result<(), String> {
+        let eh_frame = unsafe {
+            slice::from_raw_parts(self.base.cast::<u8>().add(address as usize), size as usize)
+        };
+        self.unwind_registry
+            .as_mut()
+            .expect("unwind registry should remain alive until MemoryMap::drop")
+            .publish_eh_frame(Some(eh_frame))
     }
 
     fn map(
@@ -169,6 +200,10 @@ impl MemoryMap {
 
 impl Drop for MemoryMap {
     fn drop(&mut self) {
+        // The registered `.eh_frame` records point into this mmap, so deregister
+        // them while the mapping is still live.
+        drop(self.unwind_registry.take());
+
         if !self.base.is_null() && self.size != 0 {
             unsafe {
                 libc::munmap(self.base, self.size);
@@ -258,7 +293,7 @@ impl AllocatedArtifact {
 
         // Create a contiguous virtual address memory map that will be populated
         // per-partes with the individual protection flags.
-        let memory_map = MemoryMap::new(total_memory_size)?;
+        let mut memory_map = MemoryMap::new(total_memory_size)?;
         let base = memory_map.base();
 
         let mmap_file = OpenOptions::new()
@@ -316,6 +351,20 @@ impl AllocatedArtifact {
             let dynamic_symbols = image.dynamic_symbol_table().unwrap();
 
             for (offset, relocation) in dynamic_relocations {
+                let is_x86_64_relative = relocation.flags()
+                    == (object::RelocationFlags::Elf {
+                        r_type: elf::R_X86_64_RELATIVE,
+                    });
+                if is_x86_64_relative {
+                    unsafe {
+                        ptr::write_unaligned(
+                            base.add(offset as usize) as *mut usize,
+                            (base as usize).wrapping_add(relocation.addend() as usize),
+                        );
+                    }
+                    continue;
+                }
+
                 let object::RelocationTarget::Symbol(symbol_index) = relocation.target() else {
                     return Err("unsupported dynamic relocation target".to_string());
                 };
@@ -352,18 +401,27 @@ impl AllocatedArtifact {
         // Parts function offsets
         let mut function_offsets = None;
         for section in image.sections() {
-            if section.name_bytes() == Ok(WASMER_FUNCTION_OFFSETS_SECTION_NAME) {
-                let data = section
-                    .data()
-                    .map_err(|e| format!("cannot load image section data: {e}"))?;
-                function_offsets = Some(
-                    data.chunks_exact(size_of::<usize>())
-                        .map(|chunk| {
-                            let arr: [u8; 8] = chunk.try_into().unwrap();
-                            usize::from_le_bytes(arr)
-                        })
-                        .collect_vec(),
-                );
+            let Ok(section_name) = section.name_bytes() else {
+                continue;
+            };
+            match section_name {
+                WASMER_FUNCTION_OFFSETS_SECTION_NAME => {
+                    let data = section
+                        .data()
+                        .map_err(|e| format!("cannot load image section data: {e}"))?;
+                    function_offsets = Some(
+                        data.chunks_exact(size_of::<usize>())
+                            .map(|chunk| {
+                                let arr: [u8; 8] = chunk.try_into().unwrap();
+                                usize::from_le_bytes(arr)
+                            })
+                            .collect_vec(),
+                    );
+                }
+                b".eh_frame" => {
+                    memory_map.publish_eh_frame_section(section.address(), section.size())?
+                }
+                _ => {}
             }
         }
         let Some(function_offsets) = function_offsets else {
