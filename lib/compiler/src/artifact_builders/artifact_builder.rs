@@ -22,6 +22,7 @@ use crate::{
 use crate::{
     EngineInner, ModuleEnvironment, ModuleMiddlewareChain, serialize::SerializableCompilation,
 };
+use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use wasmer_types::{CompilationProgressCallback, target::Target};
 
@@ -44,7 +45,8 @@ use wasmer_types::*;
 /// A compiled wasm module, ready to be instantiated.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct ArtifactBuild {
-    serializable: SerializableModule,
+    pub(crate) serializable: SerializableModule,
+    pub(crate) module_file: NamedTempFile,
 }
 
 impl ArtifactBuild {
@@ -96,7 +98,7 @@ impl ArtifactBuild {
         };
 
         // Compile the Module
-        compiler.compile_module(
+        let module_file = compiler.compile_module(
             target,
             &compile_info,
             rkyv::to_bytes::<rkyv::rancor::Error>(&compile_info)
@@ -123,12 +125,16 @@ impl ArtifactBuild {
             data_initializers,
             cpu_features: cpu_features.as_u64(),
         };
-        Ok(Self { serializable })
+        Ok(Self {
+            serializable,
+            module_file,
+        })
     }
 
     /// Create a new ArtifactBuild from a SerializableModule
     pub fn from_serializable(serializable: SerializableModule) -> Self {
-        Self { serializable }
+        todo!()
+        // Self { serializable }
     }
 }
 

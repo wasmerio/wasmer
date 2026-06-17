@@ -18,10 +18,13 @@ use object::{
 };
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::env::temp_dir;
 use std::fs::OpenOptions;
 use std::path::Path;
 use std::path::PathBuf;
 use std::{borrow::Cow, collections::HashMap, sync::Arc};
+use tempfile::NamedTempFile;
+use tempfile::tempdir;
 use wasmer_compiler::WASMER_FUNCTION_OFFSETS_SECTION_NAME;
 use wasmer_compiler::WASMER_MODULE_INFO_SECTION_NAME;
 use wasmer_compiler::WASMER_VERSION_SECTION_NAME;
@@ -106,7 +109,14 @@ impl Compiler for LLVMCompiler {
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<(), CompileError> {
+    ) -> Result<NamedTempFile, CompileError> {
+        let module_file = tempfile::Builder::new()
+            .prefix("wasmer-image")
+            .suffix(".so")
+            .tempfile()
+            .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
+        tracing::trace!(path = ?module_file.path(), "compiling to module file");
+
         let module = &compile_info.module;
         let module_hash = module.hash_string();
 
@@ -128,12 +138,8 @@ impl Compiler for LLVMCompiler {
         let table_styles = &compile_info.table_styles;
         let signature_hashes = &module.signature_hashes;
 
-        let build_directory = Path::new("/tmp/llvm-build");
-        std::fs::create_dir_all(build_directory).map_err(|e| {
-            CompileError::Codegen(format!(
-                "failed to create LLVM build directory {}: {e}",
-                build_directory.display()
-            ))
+        let build_directory = tempdir().map_err(|err| {
+            CompileError::Codegen(format!("cannot create temporary build folder: {err}"))
         })?;
 
         let pool = ThreadPoolBuilder::new()
@@ -188,7 +194,7 @@ impl Compiler for LLVMCompiler {
                     memory_styles,
                     table_styles,
                     target.triple(),
-                    build_directory,
+                    build_directory.path(),
                 )
             },
             progress.clone(),
@@ -214,7 +220,7 @@ impl Compiler for LLVMCompiler {
                             self.config(),
                             &function_name,
                             compile_info,
-                            build_directory,
+                            build_directory.path(),
                         );
                         if let Some(progress) = progress.as_ref() {
                             progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
@@ -247,7 +253,7 @@ impl Compiler for LLVMCompiler {
                         &function_name,
                         index as u32,
                         &module_hash,
-                        build_directory,
+                        build_directory.path(),
                     )?;
                     if let Some(progress) = progress.as_ref() {
                         progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
@@ -260,21 +266,20 @@ impl Compiler for LLVMCompiler {
         let meta_object_path = emit_wasmer_meta_object(
             target,
             compile_info_blob,
-            build_directory,
+            build_directory.path(),
             function_body_inputs.len(),
             trampolines_objects.len(),
             dynamic_trampolines_objects.len(),
         )
         .map_err(CompileError::Codegen)?;
 
-        let image_path = build_directory.join("image.so");
         let mut link_args = vec![
             "ld".to_string(),
             "-Bsymbolic".to_string(),
             "--strip-all".to_string(),
             "-shared".to_string(),
             "-o".to_string(),
-            image_path.display().to_string(),
+            module_file.path().display().to_string(),
         ];
         link_args.extend(
             object_files
@@ -299,7 +304,7 @@ impl Compiler for LLVMCompiler {
         libwild::run(wild_args)
             .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
 
-        Ok(())
+        Ok(module_file)
     }
 
     fn with_opts(

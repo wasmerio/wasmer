@@ -35,7 +35,9 @@ use gimli::{
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
+use tempfile::NamedTempFile;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 
 use wasmer_compiler::progress::ProgressContext;
@@ -603,7 +605,7 @@ impl Compiler for CraneliftCompiler {
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<(), CompileError> {
+    ) -> Result<NamedTempFile, CompileError> {
         self.compile_module_internal(
             target,
             compile_info,

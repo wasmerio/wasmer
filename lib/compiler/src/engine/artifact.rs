@@ -6,6 +6,7 @@ use std::{
     fs::{File, OpenOptions},
     io::BufReader,
     os::fd::AsRawFd,
+    path::Path,
     ptr, slice,
     sync::{
         Arc,
@@ -43,6 +44,7 @@ use object::{
 
 use enumset::EnumSet;
 use shared_buffer::OwnedBuffer;
+use tempfile::NamedTempFile;
 
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
@@ -279,10 +281,10 @@ impl ImageSegment {
 impl AllocatedArtifact {
     fn from_binary(
         module_info: &ModuleInfo,
-        path: &str,
+        module_file: &Path,
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, String> {
-        let f = File::open(path).unwrap();
+        let f = File::open(module_file).unwrap();
         let reader = BufReader::new(f);
         let cache = ReadCache::new(reader);
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
@@ -315,7 +317,7 @@ impl AllocatedArtifact {
 
         let mmap_file = OpenOptions::new()
             .read(true)
-            .open(path)
+            .open(module_file)
             .map_err(|e| format!("cannot open image file for mmap: {e}"))?;
         let fd = mmap_file.as_raw_fd();
 
@@ -617,12 +619,7 @@ impl Artifact {
             progress_callback.as_ref(),
         )?;
 
-        Self::from_parts(
-            &mut inner_engine,
-            ArtifactBuildVariant::Plain(artifact),
-            engine.target(),
-        )
-        .map_err(|e| match e {
+        Self::from_parts(&mut inner_engine, artifact, engine.target()).map_err(|e| match e {
             DeserializeError::Compiler(c) => c,
 
             // `from_parts` only ever returns `CompileError`s when an
@@ -699,12 +696,13 @@ impl Artifact {
                 SerializableModule::archive_from_slice_checked(metadata_slice)
             })?;
 
-            let mut inner_engine = engine.inner_mut();
-            Self::from_parts(
-                &mut inner_engine,
-                ArtifactBuildVariant::Archived(artifact),
-                engine.target(),
-            )
+            todo!()
+            // let mut inner_engine = engine.inner_mut();
+            // Self::from_parts(
+            //     &mut inner_engine,
+            //     ArtifactBuildVariant::Archived(artifact),
+            //     engine.target(),
+            // )
         }
     }
 
@@ -746,27 +744,25 @@ impl Artifact {
                 SerializableModule::archive_from_slice(metadata_slice)
             })?;
 
-            let mut inner_engine = engine.inner_mut();
-            Self::from_parts(
-                &mut inner_engine,
-                ArtifactBuildVariant::Archived(artifact),
-                engine.target(),
-            )
+            todo!()
+            // TODO
+            // let mut inner_engine = engine.inner_mut();
+            // Self::from_parts(
+            //     &mut inner_engine,
+            //     ArtifactBuildVariant::Archived(artifact),
+            //     engine.target(),
+            // )
         }
     }
 
     /// Construct a `ArtifactBuild` from component parts.
     pub fn from_parts(
         engine_inner: &mut EngineInner,
-        artifact: ArtifactBuildVariant,
+        artifact: ArtifactBuild,
         target: &Target,
     ) -> Result<Self, DeserializeError> {
         if !target.is_native() {
-            return Ok(Self {
-                id: Default::default(),
-                artifact,
-                allocated: None,
-            });
+            todo!("remove the branch");
         } else {
             // check if cpu features are compatible before anything else
             let cpu_features = artifact.cpu_features();
@@ -789,12 +785,12 @@ impl Artifact {
         };
 
         let allocated_artifact =
-            AllocatedArtifact::from_binary(module_info, "/tmp/llvm-build/image.so", signatures)
+            AllocatedArtifact::from_binary(module_info, artifact.module_file.path(), signatures)
                 // TODO
                 .unwrap();
         let mut artifact = Self {
             id: Default::default(),
-            artifact,
+            artifact: ArtifactBuildVariant::Plain(artifact),
             allocated: Some(allocated_artifact),
         };
 

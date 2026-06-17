@@ -21,7 +21,9 @@ use gimli::write::{EhFrame, FrameTable, Writer};
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
+use std::path::Path;
 use std::sync::Arc;
+use tempfile::NamedTempFile;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::progress::ProgressContext;
@@ -375,7 +377,7 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<(), CompileError> {
+    ) -> Result<NamedTempFile, CompileError> {
         #[cfg(feature = "rayon")]
         {
             let num_threads = self.config.num_threads.get();
@@ -394,7 +396,7 @@ impl Compiler for SinglepassCompiler {
                     progress_callback,
                 )
             })?;
-            Ok(())
+            todo!();
         }
 
         #[cfg(not(feature = "rayon"))]

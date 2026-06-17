@@ -2,7 +2,7 @@
 //! compilers will need to implement.
 
 use std::cmp::Reverse;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::progress::ProgressContext;
 use crate::types::module::CompileModuleInfo;
@@ -15,6 +15,7 @@ use crate::{
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
 use itertools::Itertools;
+use tempfile::NamedTempFile;
 use wasmer_types::{
     CompilationProgressCallback, Features, LocalFunctionIndex,
     entity::PrimaryMap,
@@ -170,7 +171,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<(), CompileError>;
+    ) -> Result<NamedTempFile, CompileError>;
 
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
