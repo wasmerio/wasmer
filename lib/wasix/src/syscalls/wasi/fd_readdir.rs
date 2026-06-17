@@ -103,7 +103,7 @@ pub fn fd_readdir<M: MemorySize>(
                         );
                         Ok(state
                             .fs
-                            .readdir_entry_visible(&inodes, fd, Some(&path), &filename, filetype)
+                            .readdir_entry_visible(inodes, fd, Some(&path), &filename, filetype)
                             .then_some((
                                 filename, filetype, 0, // TODO: inode
                             )))
@@ -120,7 +120,7 @@ pub fn fd_readdir<M: MemorySize>(
                             state
                                 .fs
                                 .readdir_entry_visible(
-                                    &inodes,
+                                    inodes,
                                     fd,
                                     Some(&path),
                                     name,
@@ -144,7 +144,7 @@ pub fn fd_readdir<M: MemorySize>(
                         let stat = inode.stat.read().unwrap();
                         state
                             .fs
-                            .readdir_entry_visible(&inodes, fd, None, &name, stat.st_filetype)
+                            .readdir_entry_visible(inodes, fd, None, &name, stat.st_filetype)
                             .then_some((format_entry_name(&name), stat.st_filetype, stat.st_ino))
                     })
                     .collect();

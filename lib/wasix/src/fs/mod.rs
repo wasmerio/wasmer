@@ -23,7 +23,6 @@ mod path_posix;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
-    ffi::OsString,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     pin::Pin,
@@ -125,54 +124,6 @@ pub const FS_STDIN_INO: Inode = Inode(10);
 pub const FS_STDOUT_INO: Inode = Inode(11);
 pub const FS_STDERR_INO: Inode = Inode(12);
 pub const FS_ROOT_INO: Inode = Inode(13);
-
-#[cfg(feature = "host-fs")]
-fn canonicalize_existing_prefix(path: &Path) -> std::io::Result<PathBuf> {
-    let mut existing_prefix = virtual_fs::host_fs::normalize_path(path);
-    let mut missing_suffix = Vec::<OsString>::new();
-
-    loop {
-        match std::fs::symlink_metadata(&existing_prefix) {
-            Ok(_) => {
-                let mut resolved = virtual_fs::host_fs::canonicalize(&existing_prefix)?;
-                for component in missing_suffix.iter().rev() {
-                    resolved.push(component);
-                }
-                return Ok(resolved);
-            }
-            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-                let Some(component) = existing_prefix.file_name() else {
-                    return Err(err);
-                };
-                missing_suffix.push(component.to_os_string());
-                if !existing_prefix.pop() {
-                    return Err(err);
-                }
-            }
-            Err(err) => return Err(err),
-        }
-    }
-}
-
-#[cfg(feature = "host-fs")]
-fn resolved_path_contained_within(path: &Path, root: &Path) -> bool {
-    let canonical_root = match virtual_fs::host_fs::canonicalize(root) {
-        Ok(root) => root,
-        Err(_) => return false,
-    };
-
-    match std::fs::canonicalize(path) {
-        Ok(canonical_target) => canonical_target.starts_with(&canonical_root),
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            canonicalize_existing_prefix(path)
-                .is_ok_and(|resolved_target| resolved_target.starts_with(&canonical_root))
-        }
-        Err(err) if matches!(err.raw_os_error(), Some(libc::ELOOP)) => {
-            virtual_fs::host_fs::normalize_path(path).starts_with(&canonical_root)
-        }
-        Err(_) => false,
-    }
-}
 
 const STDIN_DEFAULT_RIGHTS: Rights = {
     // This might seem a bit overenineered, but it's the only way I
@@ -1888,45 +1839,27 @@ impl WasiFs {
             } else {
                 host_root.join(mount_entry.source_path.strip_prefix(Path::new("/")).ok()?)
             };
+            let host_mount_root = virtual_fs::host_fs::normalize_path(&host_mount_root);
             let symlink_relative = guest_symlink.strip_prefix(&mount_path)?;
             let host_symlink_path = host_mount_root.join(symlink_relative.as_str());
             let raw_target = std::fs::read_link(&host_symlink_path).ok()?;
+            let target =
+                self.host_symlink_target_path(&host_mount_root, &host_symlink_path, &raw_target);
+            if !self.host_symlink_chain_stays_within(&host_mount_root, target.clone()) {
+                return Some(HostSymlinkPolicy::HiddenEscape);
+            }
 
             if raw_target.is_absolute() {
-                let normalized_target = virtual_fs::host_fs::normalize_path(&raw_target);
-                let resolved_target = normalized_target
-                    .strip_prefix(&host_mount_root)
-                    .ok()
-                    .map(|stripped| stripped.to_path_buf())
-                    .or_else(|| {
-                        virtual_fs::host_fs::canonicalize(&raw_target)
-                            .ok()?
-                            .strip_prefix(&host_mount_root)
-                            .ok()
-                            .map(|stripped| stripped.to_path_buf())
-                    });
-
-                return Some(match resolved_target {
-                    Some(stripped) => HostSymlinkPolicy::ResolvedGuestPath(
+                return target.strip_prefix(&host_mount_root).ok().map(|stripped| {
+                    HostSymlinkPolicy::ResolvedGuestPath(
                         mount_path
-                            .join(&PosixPath::from_path(&stripped))
+                            .join(&PosixPath::from_path(stripped))
                             .into_path_buf(),
-                    ),
-                    None => HostSymlinkPolicy::HiddenEscape,
+                    )
                 });
             }
 
-            let target = host_symlink_path
-                .parent()
-                .unwrap_or(&host_mount_root)
-                .join(&raw_target);
-            let contained = resolved_path_contained_within(&target, &host_mount_root);
-
-            Some(if contained {
-                HostSymlinkPolicy::Visible
-            } else {
-                HostSymlinkPolicy::HiddenEscape
-            })
+            Some(HostSymlinkPolicy::Visible)
         }
     }
 
@@ -1945,25 +1878,87 @@ impl WasiFs {
         #[cfg(feature = "host-fs")]
         {
             let dir_fd = self.get_fd(fd).ok()?;
-            let preopen_root = self.preopen_host_root(&dir_fd.inode)?;
+            let preopen_root =
+                virtual_fs::host_fs::normalize_path(&self.preopen_host_root(&dir_fd.inode)?);
             let entry_path = dir_path.join(filename);
             let link_value = std::fs::read_link(&entry_path).ok()?;
-            let target = if link_value.is_absolute() {
-                link_value
-            } else {
-                entry_path
-                    .parent()
-                    .unwrap_or(&preopen_root)
-                    .join(link_value)
-            };
-            let normalized_root = virtual_fs::host_fs::normalize_path(&preopen_root);
-            let normalized_target = virtual_fs::host_fs::normalize_path(&target);
+            let target = self.host_symlink_target_path(&preopen_root, &entry_path, &link_value);
+            Some(self.host_symlink_chain_stays_within(&preopen_root, target))
+        }
+    }
 
-            if !normalized_target.starts_with(&normalized_root) {
-                return Some(false);
+    #[cfg(feature = "host-fs")]
+    fn host_symlink_target_path(
+        &self,
+        root: &Path,
+        symlink_path: &Path,
+        target: &Path,
+    ) -> PathBuf {
+        let target = if target.is_absolute() {
+            target.to_path_buf()
+        } else {
+            symlink_path.parent().unwrap_or(root).join(target)
+        };
+
+        virtual_fs::host_fs::normalize_path(&target)
+    }
+
+    #[cfg(feature = "host-fs")]
+    fn host_symlink_chain_stays_within(&self, root: &Path, target: PathBuf) -> bool {
+        let normalized_root = virtual_fs::host_fs::normalize_path(root);
+        let mut current = target;
+        let mut visited = HashSet::new();
+        let mut symlink_count = 0;
+
+        loop {
+            if !current.starts_with(&normalized_root) {
+                return false;
             }
 
-            Some(resolved_path_contained_within(&target, &preopen_root))
+            if !visited.insert(current.clone()) || symlink_count >= MAX_SYMLINKS {
+                return true;
+            }
+
+            let relative = match current.strip_prefix(&normalized_root) {
+                Ok(relative) => relative,
+                Err(_) => return false,
+            };
+            let mut inspected = normalized_root.clone();
+            let mut components = relative.components();
+            let mut followed_symlink = false;
+
+            while let Some(component) = components.next() {
+                inspected.push(component.as_os_str());
+
+                let metadata = match std::fs::symlink_metadata(&inspected) {
+                    Ok(metadata) => metadata,
+                    Err(err) if err.kind() == std::io::ErrorKind::NotFound => return true,
+                    Err(_) => return false,
+                };
+
+                if !metadata.file_type().is_symlink() {
+                    continue;
+                }
+
+                let raw_target = match std::fs::read_link(&inspected) {
+                    Ok(target) => target,
+                    Err(_) => return false,
+                };
+                let mut next =
+                    self.host_symlink_target_path(&normalized_root, &inspected, &raw_target);
+                if !components.as_path().as_os_str().is_empty() {
+                    next = next.join(components.as_path());
+                }
+
+                symlink_count += 1;
+                current = virtual_fs::host_fs::normalize_path(&next);
+                followed_symlink = true;
+                break;
+            }
+
+            if !followed_symlink {
+                return true;
+            }
         }
     }
 
