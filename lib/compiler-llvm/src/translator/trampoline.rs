@@ -101,7 +101,9 @@ impl FuncTrampoline {
         trampoline_func
             .as_global_value()
             .set_dll_storage_class(DLLStorageClass::Export);
-        trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
+        // We intentionally mark this function as no-unwind; otherwise, stack unwinding could cross the
+        // trampoline boundary and cause Rust to complain about a foreign exception being thrown.
+        trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.nounwind);
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
         self.generate_trampoline(
             config,
@@ -193,6 +195,7 @@ impl FuncTrampoline {
             self.abi
                 .func_type_to_llvm(&self.ctx, &intrinsics, None, ty, false)?;
         let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
+
         trampoline_func.set_personality_function(intrinsics.personality);
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
         for (attr, attr_loc) in trampoline_attrs {
