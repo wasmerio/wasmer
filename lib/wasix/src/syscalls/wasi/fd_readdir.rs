@@ -145,7 +145,11 @@ pub fn fd_readdir<M: MemorySize>(
                         state
                             .fs
                             .readdir_entry_visible(inodes, fd, None, &name, stat.st_filetype)
-                            .then_some((format_entry_name(&name), stat.st_filetype, stat.st_ino))
+                            .then(|| {
+                                let display_name =
+                                    format!("/{}", inode.name.read().unwrap().as_ref());
+                                (display_name, stat.st_filetype, stat.st_ino)
+                            })
                     })
                     .collect();
                 entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
