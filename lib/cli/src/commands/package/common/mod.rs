@@ -248,21 +248,38 @@ pub(super) async fn login_user(
     env.client()
 }
 
-pub(super) fn make_package_url(client: &WasmerClient, pkg: &NamedPackageIdent) -> String {
+/// Resolve a registry's web frontend host from its GraphQL endpoint, falling
+/// back to the endpoint's own domain for custom registries.
+pub(super) fn registry_web_host(client: &WasmerClient) -> String {
     let host = client.graphql_endpoint().domain().unwrap_or("wasmer.io");
 
     // Our special cases..
-    let host = match host {
-        _ if host.contains("wasmer.wtf") => "wasmer.wtf",
-        _ if host.contains("wasmer.io") => "wasmer.io",
-        _ => host,
-    };
+    match host {
+        _ if host.contains("wasmer.wtf") => "wasmer.wtf".to_string(),
+        _ if host.contains("wasmer.io") => "wasmer.io".to_string(),
+        _ => host.to_string(),
+    }
+}
 
-    format!(
-        "https://{host}/{}@{}",
-        pkg.full_name(),
-        pkg.version_or_default().to_string().replace('=', "")
-    )
+/// Build a package's web frontend URL. `version` is rendered verbatim, so pass a
+/// display string like `0.1.3`, not a parsed `VersionReq`.
+pub(super) fn package_web_url(
+    client: &WasmerClient,
+    full_name: &str,
+    version: Option<&str>,
+) -> String {
+    let host = registry_web_host(client);
+    match version {
+        Some(version) => format!("https://{host}/{full_name}@{version}"),
+        None => format!("https://{host}/{full_name}"),
+    }
+}
+
+/// Adapter over [`package_web_url`] for a [`NamedPackageIdent`].
+pub(super) fn package_web_url_for_ident(client: &WasmerClient, pkg: &NamedPackageIdent) -> String {
+    // `*` when no version; an exact requirement renders as `=x.y.z`.
+    let version = pkg.version_or_default().to_string().replace('=', "");
+    package_web_url(client, &pkg.full_name(), Some(&version))
 }
 
 #[cfg(test)]
