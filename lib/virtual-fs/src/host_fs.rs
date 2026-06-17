@@ -104,6 +104,10 @@ impl FileSystem {
         Ok(FileSystem { handle, root })
     }
 
+    pub fn root_path(&self) -> &Path {
+        &self.root
+    }
+
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
         let path = normalize_path(path);
 
