@@ -32,6 +32,13 @@ pub enum LibCall {
 
     /// nearest.f64
     NearestF64,
+
+    /// sqrt.f32
+    SqrtF32,
+
+    /// sqrt.f64
+    SqrtF64,
+
     /// trunc.f32
     TruncF32,
 
@@ -241,13 +248,6 @@ pub enum LibCall {
     Gtsf2,
     /// __gtdf2
     Gtdf2,
-
-    // TODO: move earlier during a artifact format version bump
-    /// sqrt.f32
-    SqrtF32,
-
-    /// sqrt.f64
-    SqrtF64,
 }
 
 impl LibCall {
