@@ -10,7 +10,7 @@ use core::sync::atomic::{
 use std::sync::Once;
 
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
-use gimli::{BaseAddresses, CieOrFde, EhFrame, NativeEndian, ReaderOffset, UnwindSection};
+use gimli::{BaseAddresses, CieOrFde, EhFrame, NativeEndian, UnwindSection};
 
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {
@@ -145,7 +145,7 @@ impl UnwindRegistry {
 
         unsafe {
             if let Some(eh_frame) = eh_frame {
-                self.register_eh_frames(eh_frame);
+                self.register_eh_frames(eh_frame)?;
             }
         }
 
@@ -156,67 +156,57 @@ impl UnwindRegistry {
 
     #[allow(clippy::cast_ptr_alignment)]
     #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-    unsafe fn register_eh_frames(&mut self, eh_frame: &[u8]) {
-        {
-            // Validate that the `.eh_frame` is well-formed before registering it.
-            // See https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-Core-generic/LSB-Core-generic/ehframechpt.html for more details.
-            // We put the frame records into a vector before registering them, because
-            // calling `__register_frame` with invalid data can cause segfaults.
+    unsafe fn register_eh_frames(&mut self, eh_frame: &[u8]) -> Result<(), String> {
+        // Validate that the `.eh_frame` is well-formed before registering it.
+        // See https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-Core-generic/LSB-Core-generic/ehframechpt.html for more details.
+        // We use the gimli crate to parse and validate the section, because
+        // calling `__register_frame` with invalid data can cause segfaults.
+        let mut eh_frame_gimli = EhFrame::new(eh_frame, NativeEndian);
+        eh_frame_gimli.set_address_size(size_of::<usize>() as u8);
+        // Provide base addresses so gimli can resolve encoded pointers.
+        // We don't need accurate resolved values — only structural validation.
+        let bases = BaseAddresses::default()
+            .set_eh_frame(eh_frame.as_ptr() as u64)
+            .set_text(0)
+            .set_got(0);
+        let using_libunwind = using_libunwind();
 
-            // Pointers to the registrations that will be registered with `__register_frame`.
-            // For libgcc based systems, these are CIEs.
-            // For libunwind based systems, these are FDEs.
-            let mut records_to_register = Vec::new();
-
-            let mut current = 0;
-            let mut last_len = 0;
-            let using_libunwind = using_libunwind();
-            while current <= (eh_frame.len() - size_of::<u32>()) {
-                // If a CFI or a FDE starts with 0u32 it is a terminator.
-                let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
-                if len == 0 {
-                    current += size_of::<u32>();
-                    last_len = 0;
-                    continue;
-                }
-                // The first record after a terminator is always a CIE.
-                let is_cie = last_len == 0;
-                last_len = len;
-                let record = eh_frame.as_ptr() as usize + current;
-                current = current + len as usize + 4;
-
-                if using_libunwind {
-                    // For libunwind based systems, `__register_frame` takes a pointer to an FDE.
-                    if !is_cie {
-                        // Every record that's not a CIE is an FDE.
-                        records_to_register.push(record);
+        if using_libunwind {
+            // For libunwind based systems, `__register_frame` takes a pointer to an
+            // individual FDE.
+            let mut entries = eh_frame_gimli.entries(&bases);
+            while let Some(entry) = entries
+                .next()
+                .map_err(|e| format!("failed to parse .eh_frame entry: {e}"))?
+            {
+                if let CieOrFde::Fde(fde) = entry {
+                    let offset = fde.offset();
+                    let record = eh_frame.as_ptr() as usize + offset;
+                    unsafe {
+                        __register_frame(record as *const u8);
                     }
-                } else {
-                    // For libgcc based systems, `__register_frame` takes a pointer to a CIE.
-                    if is_cie {
-                        records_to_register.push(record);
-                    }
+                    self.registrations.push(record);
                 }
             }
+        } else {
+            // For libgcc based systems, `__register_frame` takes a pointer to the
+            // beginning of the `.eh_frame` section, which is itself a
+            // null-terminated list of CIEs and FDEs.
 
-            assert_eq!(
-                last_len, 0,
-                "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
-            );
-            assert_eq!(
-                current,
-                eh_frame.len(),
-                "The `.eh_frame` must be finished after the last record",
-            );
+            // For debugging purposes, we can validate the section first by iterating all entries.
+            //
+            // let mut entries = eh_frame_gimli.entries(&bases);
+            // while let Some(_entry) = entries.next().expect("failed to parse .eh_frame entry") {
+            // }
 
-            for record in records_to_register {
-                // Register the CFI with libgcc
-                unsafe {
-                    __register_frame(record as *const u8);
-                }
-                self.registrations.push(record);
+            let record = eh_frame.as_ptr() as usize;
+            unsafe {
+                __register_frame(record as *const u8);
             }
+            self.registrations.push(record);
         }
+
+        Ok(())
     }
 
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
