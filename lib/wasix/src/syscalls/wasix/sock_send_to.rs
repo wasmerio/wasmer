@@ -116,6 +116,19 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
                     .flatten()
                     .unwrap_or(Duration::from_secs(30));
 
+                if socket.is_dgram() {
+                    let data = si_data.coalesce(&memory)?;
+                    return socket
+                        .send_to::<M>(
+                            env.tasks().deref(),
+                            data.as_ref(),
+                            addr,
+                            Some(timeout),
+                            nonblocking,
+                        )
+                        .await;
+                }
+
                 match si_data {
                     FdWriteSource::Iovs { iovs, iovs_len } => {
                         let iovs_arr = iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;

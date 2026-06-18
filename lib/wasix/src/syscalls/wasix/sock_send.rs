@@ -109,42 +109,22 @@ pub(crate) fn sock_send_internal<M: MemorySize>(
                 .flatten()
                 .unwrap_or(Duration::from_secs(30));
 
+            if socket.is_dgram() {
+                let data = si_data.coalesce(&memory)?;
+                return socket
+                    .send(
+                        env.tasks().deref(),
+                        data.as_ref(),
+                        Some(timeout),
+                        nonblocking,
+                    )
+                    .await;
+            }
+
             match si_data {
                 FdWriteSource::Iovs { iovs, iovs_len } => {
                     let iovs_arr = iovs.slice(&memory, iovs_len).map_err(mem_error_to_wasi)?;
                     let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-
-                    let is_dgram = {
-                        let inner = socket.inner.protected.read().unwrap();
-                        match &inner.kind {
-                            InodeSocketKind::UdpSocket { .. } => true,
-                            InodeSocketKind::RemoteSocket { props, .. } => {
-                                props.ty == Socktype::Dgram
-                            }
-                            _ => false,
-                        }
-                    };
-
-                    if is_dgram {
-                        let mut data = Vec::new();
-                        for iovs in iovs_arr.iter() {
-                            let buf = WasmPtr::<u8, M>::new(iovs.buf)
-                                .slice(&memory, iovs.buf_len)
-                                .map_err(mem_error_to_wasi)?
-                                .access()
-                                .map_err(mem_error_to_wasi)?;
-                            data.extend_from_slice(buf.as_ref());
-                        }
-
-                        return socket
-                            .send(
-                                env.tasks().deref(),
-                                data.as_ref(),
-                                Some(timeout),
-                                nonblocking,
-                            )
-                            .await;
-                    }
 
                     let mut sent = 0usize;
                     for iovs in iovs_arr.iter() {

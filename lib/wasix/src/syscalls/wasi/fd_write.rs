@@ -124,6 +124,32 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
     Buffer(Cow<'a, [u8]>),
 }
 
+impl<'a, M: MemorySize> FdWriteSource<'a, M> {
+    pub(crate) fn coalesce(&self, memory: &MemoryView) -> Result<Cow<'a, [u8]>, Errno> {
+        match self {
+            FdWriteSource::Iovs { iovs, iovs_len } => {
+                let iovs_arr = iovs.slice(memory, *iovs_len).map_err(mem_error_to_wasi)?;
+                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
+
+                let total_len: usize = iovs_arr.iter().map(|iov| iov.buf_len.into() as usize).sum();
+                let mut coalesced = Vec::with_capacity(total_len);
+
+                for iov in iovs_arr.iter() {
+                    let buf = WasmPtr::<u8, M>::new(iov.buf)
+                        .slice(&memory, iov.buf_len)
+                        .map_err(mem_error_to_wasi)?
+                        .access()
+                        .map_err(mem_error_to_wasi)?;
+                    coalesced.extend_from_slice(buf.as_ref());
+                }
+
+                Ok(Cow::Owned(coalesced))
+            }
+            FdWriteSource::Buffer(cow) => Ok(cow.clone()),
+        }
+    }
+}
+
 #[allow(clippy::await_holding_lock)]
 pub(crate) fn fd_write_internal<M: MemorySize>(
     mut ctx: &mut FunctionEnvMut<'_, WasiEnv>,
@@ -242,6 +268,14 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
                     let res = __asyncify_light(env, None, async {
                         let mut sent = 0usize;
+
+                        if socket.is_dgram() {
+                            let data = data.coalesce(&memory)?;
+                            sent += socket
+                                .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
+                                .await?;
+                            return Ok(sent)
+                        }
 
                         match &data {
                             FdWriteSource::Iovs { iovs, iovs_len } => {

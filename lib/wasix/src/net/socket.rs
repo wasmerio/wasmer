@@ -1695,6 +1695,18 @@ impl InodeSocket {
             false
         }
     }
+
+    pub fn is_dgram(&self) -> bool {
+        if let Ok(guard) = self.inner.protected.try_read() {
+            match &guard.kind {
+                InodeSocketKind::UdpSocket { .. } => true,
+                InodeSocketKind::RemoteSocket { props, .. } => props.ty == Socktype::Dgram,
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
 }
 
 impl InodeSocketProtected {
