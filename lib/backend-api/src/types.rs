@@ -969,14 +969,13 @@ mod queries {
 
     #[derive(cynic::QueryVariables, Debug)]
     pub struct CreateNamespaceVars {
-        pub name: String,
-        pub description: Option<String>,
+        pub input: CreateNamespaceInput,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Mutation", variables = "CreateNamespaceVars")]
     pub struct CreateNamespace {
-        #[arguments(input: {name: $name, description: $description})]
+        #[arguments(input: $input)]
         pub create_namespace: Option<CreateNamespacePayload>,
     }
 
