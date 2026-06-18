@@ -71,7 +71,7 @@ impl SerializableModule {
     /// # Safety
     /// Unsafe because it loads executable code into memory.
     /// The loaded bytes must be trusted.
-    pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
+    pub fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
         let archived = Self::archive_from_slice_checked(metadata_slice)?;
         Self::deserialize_from_archive(archived)
     }

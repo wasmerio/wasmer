@@ -12,7 +12,6 @@
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 
-use crate::ArtifactBuildFromArchive;
 use crate::types::address_map::{
     ArchivedFunctionAddressMap, ArchivedInstructionAddressMap, FunctionAddressMap,
     InstructionAddressMap,
@@ -197,7 +196,7 @@ pub enum FrameInfosVariant {
     /// Owned frame infos
     Owned(PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>),
     /// Archived frame infos
-    Archived(ArtifactBuildFromArchive),
+    Archived(()),
 }
 
 impl FrameInfosVariant {
@@ -205,7 +204,9 @@ impl FrameInfosVariant {
     pub fn get(&self, index: LocalFunctionIndex) -> Option<CompiledFunctionFrameInfoVariant<'_>> {
         match self {
             Self::Owned(map) => map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
-            Self::Archived(_archive) => unimplemented!("Archived frame info not yet supported in ELF path"),
+            Self::Archived(_archive) => {
+                unimplemented!("Archived frame info not yet supported in ELF path")
+            }
         }
     }
 }

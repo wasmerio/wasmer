@@ -48,9 +48,7 @@ impl TargetOnDisk {
         }
 
         #[cfg(feature = "compiler")]
-        if ArtifactBuild::is_deserializable(leading_bytes) {
-            return Ok(TargetOnDisk::Artifact);
-        }
+        return Ok(TargetOnDisk::Artifact);
 
         // If we can't figure out the file type based on its content, fall back
         // to checking the extension.

@@ -131,6 +131,10 @@ impl ModuleHandle {
 
         Ok(bytes)
     }
+
+    pub(crate) fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError> {
+        todo!();
+    }
 }
 
 impl Drop for ModuleHandle {
@@ -237,6 +241,12 @@ impl Module {
             .map_err(|err| SerializeError::Generic(format!("{err:?}")))?
             .to_vec();
         Ok(info.into())
+    }
+
+    pub(crate) fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError> {
+        let serialized = self.serialize()?;
+        std::fs::write(path.as_ref(), serialized.as_ref())
+            .map_err(|err| SerializeError::Generic(format!("{err}")))
     }
 
     #[allow(clippy::arc_with_non_send_sync)]

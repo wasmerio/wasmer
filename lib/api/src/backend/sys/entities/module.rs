@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use wasmer_compiler::{Artifact, ArtifactCreate, Engine};
+use wasmer_compiler::{Artifact, Engine};
 use wasmer_types::{
     CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
     ImportType, ImportsIterator, ModuleInfo, SerializeError,
@@ -98,7 +98,11 @@ impl Module {
     }
 
     pub(crate) fn serialize(&self) -> Result<Bytes, SerializeError> {
-        self.artifact.serialize().map(|bytes| bytes.into())
+        self.artifact.serialize().map(Bytes::from_owner)
+    }
+
+    pub(crate) fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError> {
+        self.artifact.serialize_to_file(path.as_ref())
     }
 
     #[tracing::instrument(level = "debug", skip_all)]

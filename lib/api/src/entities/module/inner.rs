@@ -222,9 +222,9 @@ impl BackendModule {
     /// ```
     #[inline]
     pub fn serialize_to_file(&self, path: impl AsRef<Path>) -> Result<(), SerializeError> {
-        let serialized = self.serialize()?;
-        fs::write(path, serialized)?;
-        Ok(())
+        match_rt!(on self => s {
+            s.serialize_to_file(path)
+        })
     }
 
     /// Deserializes a serialized module binary into a `Module`.
