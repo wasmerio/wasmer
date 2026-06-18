@@ -66,9 +66,9 @@ impl ModuleFile {
 
 /// A compiled wasm module, ready to be instantiated.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub(crate) struct ArtifactBuild {
-    pub(crate) serializable: SerializableModule,
-    pub(crate) module_file: ModuleFile,
+struct ArtifactBuild {
+    serializable: SerializableModule,
+    module_file: ModuleFile,
 }
 
 impl ArtifactBuild {
@@ -373,7 +373,8 @@ impl Default for ArtifactId {
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct Artifact {
     id: ArtifactId,
-    artifact: ArtifactBuild,
+    serializable: SerializableModule,
+    module_file: ModuleFile,
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
     allocated: Option<AllocatedArtifact>,
@@ -455,7 +456,7 @@ impl Artifact {
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         dbg!("serialize called");
         // TODO
-        Ok(fs::read(self.artifact.module_file.path()).unwrap())
+        Ok(fs::read(self.module_file.path()).unwrap())
     }
 
     /// Serialize the artifact to a file by copying the underlying object file.
@@ -463,7 +464,7 @@ impl Artifact {
     /// The resulting file can later be loaded with [`Self::deserialize_from_file`].
     pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
         dbg!("serialize to file called");
-        std::fs::copy(self.artifact.module_file.path(), path)
+        std::fs::copy(self.module_file.path(), path)
             .map_err(|e| SerializeError::Generic(format!("Failed to copy artifact file: {e}")))?;
         Ok(())
     }
@@ -563,9 +564,14 @@ impl Artifact {
             AllocatedArtifact::from_binary(module_info, artifact.module_file.path(), signatures)
                 // TODO
                 .unwrap();
+        let ArtifactBuild {
+            module_file,
+            serializable,
+        } = artifact;
         let mut artifact = Self {
             id: Default::default(),
-            artifact,
+            module_file,
+            serializable,
             allocated: Some(allocated_artifact),
         };
 
@@ -578,17 +584,15 @@ impl Artifact {
 
     /// Set module info
     pub fn set_module_info_name(&mut self, name: String) -> bool {
-        Arc::get_mut(&mut self.artifact.serializable.compile_info.module).is_some_and(
-            |module_info| {
-                module_info.name = Some(name.to_string());
-                true
-            },
-        )
+        Arc::get_mut(&mut self.serializable.compile_info.module).is_some_and(|module_info| {
+            module_info.name = Some(name.to_string());
+            true
+        })
     }
 
     /// Get ModuleInfo: TODO
     pub fn module_info(&self) -> &ModuleInfo {
-        &self.artifact.serializable.compile_info.module
+        &self.serializable.compile_info.module
     }
 }
 
@@ -603,14 +607,14 @@ impl std::fmt::Debug for Artifact {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Artifact")
             .field("artifact_id", &self.id)
-            .field("module_info", &self.artifact.serializable.module_info())
+            .field("module_info", &self.serializable.module_info())
             .finish()
     }
 }
 
 impl Artifact {
     fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
-        let module_info = self.artifact.serializable.compile_info.module.clone();
+        let module_info = self.serializable.compile_info.module.clone();
         let allocated = self.allocated.as_mut().expect("It must be allocated");
         if allocated.frame_info_registered {
             return Ok(());
@@ -707,11 +711,10 @@ impl Artifact {
             // Validate the CPU features this module was compiled with against the
             // host CPU features.
             let host_cpu_features = CpuFeature::for_host();
-            if !host_cpu_features.is_superset(self.artifact.serializable.cpu_features()) {
+            if !host_cpu_features.is_superset(self.serializable.cpu_features()) {
                 return Err(InstantiationError::CpuFeature(format!(
                     "{:?}",
-                    self.artifact
-                        .serializable
+                    self.serializable
                         .cpu_features()
                         .difference(host_cpu_features)
                 )));
@@ -719,7 +722,7 @@ impl Artifact {
 
             self.preinstantiate()?;
 
-            let module = self.artifact.serializable.compile_info.module.as_ref();
+            let module = self.serializable.compile_info.module.as_ref();
 
             let tags = resolve_tags(module, imports, context).map_err(InstantiationError::Link)?;
 
@@ -728,8 +731,8 @@ impl Artifact {
                 imports,
                 context,
                 self.finished_dynamic_function_trampolines(),
-                self.artifact.serializable.memory_styles(),
-                self.artifact.serializable.table_styles(),
+                self.serializable.memory_styles(),
+                self.serializable.table_styles(),
             )
             .map_err(InstantiationError::Link)?;
 
@@ -752,7 +755,7 @@ impl Artifact {
                 .create_memories(
                     context,
                     module,
-                    self.artifact.serializable.memory_styles(),
+                    self.serializable.memory_styles(),
                     &memory_definition_locations,
                 )
                 .map_err(InstantiationError::Link)?
@@ -761,7 +764,7 @@ impl Artifact {
                 .create_tables(
                     context,
                     module,
-                    self.artifact.serializable.table_styles(),
+                    self.serializable.table_styles(),
                     &table_definition_locations,
                 )
                 .map_err(InstantiationError::Link)?
@@ -773,7 +776,7 @@ impl Artifact {
 
             let handle = VMInstance::new(
                 allocator,
-                self.artifact.serializable.compile_info.module.clone(),
+                self.serializable.compile_info.module.clone(),
                 context,
                 self.finished_functions().clone(),
                 self.finished_function_call_trampolines().clone(),
@@ -803,7 +806,6 @@ impl Artifact {
     ) -> Result<(), InstantiationError> {
         unsafe {
             let data_initializers = self
-                .artifact
                 .serializable
                 .data_initializers
                 .iter()
@@ -811,7 +813,7 @@ impl Artifact {
                     location: initializer.location.clone(),
                     data: &initializer.data,
                 })
-                .collect::<Vec<_>>();
+                .collect_vec();
 
             handle
                 .finish_instantiation(config, trap_handler, &data_initializers)
