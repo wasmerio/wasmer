@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 use std::{num::NonZero, path::PathBuf};
-use target_lexicon::Vendor;
+use target_lexicon::{OperatingSystem, Vendor};
 use wasmer_compiler::{
     Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
     misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
@@ -321,8 +321,15 @@ impl CompilerConfig for Cranelift {
         self.middlewares.push(middleware);
     }
 
-    fn supported_features_for_target(&self, _target: &Target) -> wasmer_types::Features {
+    fn supported_features_for_target(&self, target: &Target) -> wasmer_types::Features {
         let mut feats = Features::default();
+
+        if matches!(
+            target.triple().operating_system,
+            OperatingSystem::Linux | OperatingSystem::Darwin(_)
+        ) {
+            feats.exceptions(true);
+        }
         feats.exceptions(true);
         feats.relaxed_simd(true);
         feats.wide_arithmetic(true);
