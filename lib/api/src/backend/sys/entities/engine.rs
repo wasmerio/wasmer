@@ -100,26 +100,6 @@ pub trait NativeEngineExt {
         bytes: &[u8],
         on_progress: CompilationProgressCallback,
     ) -> Result<crate::Module, wasmer_types::CompileError>;
-
-    /// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
-    ///
-    /// NOTE: you should almost always prefer [`Self::deserialize_from_mmapped_file`].
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize_unchecked`].
-    unsafe fn deserialize_from_mmapped_file_unchecked(
-        &self,
-        file_ref: &Path,
-    ) -> Result<crate::Module, DeserializeError>;
-
-    /// Load a serialized WebAssembly module from a memory mapped file and deserialize it.
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize`].
-    unsafe fn deserialize_from_mmapped_file(
-        &self,
-        file_ref: &Path,
-    ) -> Result<crate::Module, DeserializeError>;
 }
 
 impl NativeEngineExt for crate::engine::Engine {
@@ -169,32 +149,6 @@ impl NativeEngineExt for crate::engine::Engine {
         on_progress: CompilationProgressCallback,
     ) -> Result<crate::Module, wasmer_types::CompileError> {
         crate::BackendModule::new_with_progress(self, bytes, on_progress).map(crate::Module)
-    }
-
-    unsafe fn deserialize_from_mmapped_file_unchecked(
-        &self,
-        file_ref: &Path,
-    ) -> Result<crate::Module, DeserializeError> {
-        let file = std::fs::File::open(file_ref)?;
-        let buffer = OwnedBuffer::from_file(&file)
-            .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?;
-        let artifact = unsafe { Arc::new(Artifact::deserialize_unchecked(self.as_sys(), buffer)?) };
-        Ok(crate::Module(BackendModule::Sys(
-            super::module::Module::from_artifact(artifact),
-        )))
-    }
-
-    unsafe fn deserialize_from_mmapped_file(
-        &self,
-        file_ref: &Path,
-    ) -> Result<crate::Module, DeserializeError> {
-        let file = std::fs::File::open(file_ref)?;
-        let buffer = OwnedBuffer::from_file(&file)
-            .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?;
-        let artifact = unsafe { Arc::new(Artifact::deserialize(self.as_sys(), buffer)?) };
-        Ok(crate::Module(BackendModule::Sys(
-            super::module::Module::from_artifact(artifact),
-        )))
     }
 }
 
