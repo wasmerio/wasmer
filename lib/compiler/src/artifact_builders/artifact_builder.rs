@@ -2,39 +2,19 @@
 //! done as separate steps.
 
 #[cfg(feature = "compiler")]
-use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
-#[cfg(feature = "compiler")]
 use crate::translator::analyze_readonly_funcref_table;
 #[cfg(feature = "compiler")]
 use crate::{EngineInner, ModuleEnvironment, ModuleMiddlewareChain};
-use crate::{
-    Features,
-    serialize::{ArchivedSerializableModule, MetadataHeader, SerializableModule},
-    types::{
-        function::{CompiledFunctionFrameInfo, FunctionBody, GOT, UnwindInfo},
-        module::CompileModuleInfo,
-        relocation::Relocation,
-        section::{CustomSection, SectionIndex},
-    },
-};
+use crate::{serialize::SerializableModule, types::module::CompileModuleInfo};
 use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use wasmer_types::{CompilationProgressCallback, target::Target};
 
-use core::mem::MaybeUninit;
-use enumset::EnumSet;
-use rkyv::rancor::Error as RkyvError;
-use self_cell::self_cell;
-use shared_buffer::OwnedBuffer;
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
 };
-use wasmer_types::{
-    DeserializeError,
-    entity::{ArchivedPrimaryMap, PrimaryMap},
-    target::CpuFeature,
-};
+use wasmer_types::entity::PrimaryMap;
 
 // Not every compiler backend uses these.
 #[allow(unused)]
@@ -49,7 +29,7 @@ impl ModuleFile {
     pub(crate) fn path(&self) -> &Path {
         match self {
             Self::OwnedFile(path) => path.as_path(),
-            ModuleFile::TempFile(tempfile) => tempfile.path(),
+            Self::TempFile(tempfile) => tempfile.path(),
         }
     }
 }
