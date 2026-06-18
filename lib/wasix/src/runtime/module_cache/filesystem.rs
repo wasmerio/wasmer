@@ -54,7 +54,6 @@ async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError>
             Ok(m)
         }
         Err(e) => {
-            dbg!(&e);
             tracing::debug!(
                 path=%path.display(),
                 error=&e as &dyn std::error::Error,
