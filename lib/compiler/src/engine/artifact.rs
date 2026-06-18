@@ -37,10 +37,9 @@ use object::{Object, ObjectSection, ReadCache};
 use shared_buffer::OwnedBuffer;
 
 use wasmer_types::{
-    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompilationProgressCallback,
-    CompileError, DataInitializer, DataInitializerLike, DataInitializerLocation,
-    DataInitializerLocationLike, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, SourceLoc, TableIndex,
+    CompilationProgressCallback, CompileError, DataInitializer, DeserializeError, FunctionIndex,
+    LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializeError,
+    SignatureIndex, SourceLoc, TableIndex,
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -515,66 +514,6 @@ impl std::fmt::Debug for Artifact {
     }
 }
 
-#[derive(Clone, Copy)]
-pub enum OwnedDataInitializerVariant<'a> {
-    Plain(&'a OwnedDataInitializer),
-    Archived(&'a ArchivedOwnedDataInitializer),
-}
-
-impl<'a> DataInitializerLike<'a> for OwnedDataInitializerVariant<'a> {
-    type Location = DataInitializerLocationVariant<'a>;
-
-    fn location(&self) -> Self::Location {
-        match self {
-            Self::Plain(plain) => DataInitializerLocationVariant::Plain(plain.location()),
-            Self::Archived(archived) => {
-                DataInitializerLocationVariant::Archived(archived.location())
-            }
-        }
-    }
-
-    fn data(&self) -> &'a [u8] {
-        match self {
-            Self::Plain(plain) => plain.data(),
-            Self::Archived(archived) => archived.data(),
-        }
-    }
-}
-
-#[derive(Clone, Copy)]
-pub enum DataInitializerLocationVariant<'a> {
-    Plain(&'a DataInitializerLocation),
-    Archived(&'a ArchivedDataInitializerLocation),
-}
-
-impl DataInitializerLocationVariant<'_> {
-    pub fn clone_to_plain(&self) -> DataInitializerLocation {
-        match self {
-            Self::Plain(p) => (*p).clone(),
-            Self::Archived(a) => DataInitializerLocation {
-                memory_index: a.memory_index(),
-                offset_expr: a.offset_expr(),
-            },
-        }
-    }
-}
-
-impl DataInitializerLocationLike for DataInitializerLocationVariant<'_> {
-    fn memory_index(&self) -> MemoryIndex {
-        match self {
-            Self::Plain(plain) => plain.memory_index(),
-            Self::Archived(archived) => archived.memory_index(),
-        }
-    }
-
-    fn offset_expr(&self) -> wasmer_types::InitExpr {
-        match self {
-            Self::Plain(plain) => plain.offset_expr(),
-            Self::Archived(archived) => archived.offset_expr(),
-        }
-    }
-}
-
 impl Artifact {
     fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
         let module_info = self.artifact.serializable.compile_info.module.clone();
@@ -593,16 +532,6 @@ impl Artifact {
         allocated.frame_info_registered = true;
 
         Ok(())
-    }
-
-    fn internal_take_frame_info_registration(&mut self) -> Option<GlobalFrameInfoRegistration> {
-        let frame_info_registration = &mut self
-            .allocated
-            .as_mut()
-            .expect("It must be allocated")
-            .frame_info_registration;
-
-        frame_info_registration.take()
     }
 
     /// Returns the functions allocated in memory or this `Artifact`
@@ -698,10 +627,10 @@ impl Artifact {
 
             let module = self.artifact.serializable.compile_info.module.as_ref();
 
-            let tags = resolve_tags(&module, imports, context).map_err(InstantiationError::Link)?;
+            let tags = resolve_tags(module, imports, context).map_err(InstantiationError::Link)?;
 
             let imports = resolve_imports(
-                &module,
+                module,
                 imports,
                 context,
                 self.finished_dynamic_function_trampolines(),
@@ -724,11 +653,11 @@ impl Artifact {
                 memory_definition_locations,
                 table_definition_locations,
                 global_definition_locations,
-            ) = InstanceAllocator::new_with_offsets(cached_offsets, &module);
+            ) = InstanceAllocator::new_with_offsets(cached_offsets, module);
             let finished_memories = tunables
                 .create_memories(
                     context,
-                    &module,
+                    module,
                     self.artifact.serializable.memory_styles(),
                     &memory_definition_locations,
                 )
@@ -737,14 +666,14 @@ impl Artifact {
             let finished_tables = tunables
                 .create_tables(
                     context,
-                    &module,
+                    module,
                     self.artifact.serializable.table_styles(),
                     &table_definition_locations,
                 )
                 .map_err(InstantiationError::Link)?
                 .into_boxed_slice();
             let finished_globals = tunables
-                .create_globals(context, &module, &global_definition_locations)
+                .create_globals(context, module, &global_definition_locations)
                 .map_err(InstantiationError::Link)?
                 .into_boxed_slice();
 
@@ -935,19 +864,6 @@ impl Artifact {
         Err(DeserializeError::Compiler(
             CompileError::UnsupportedFeature("static load is not compiled in".to_string()),
         ))
-    }
-
-    fn get_byte_slice(input: &[u8], start: usize, end: usize) -> Result<&[u8], DeserializeError> {
-        if (start == end && input.len() > start)
-            || (start < end && input.len() > start && input.len() >= end)
-        {
-            Ok(&input[start..end])
-        } else {
-            Err(DeserializeError::InvalidByteLength {
-                expected: end - start,
-                got: input.len(),
-            })
-        }
     }
 
     /// Deserialize a ArtifactBuild from an object file
