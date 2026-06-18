@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PAGE_SIZE"],"enum":["CountComparison","PackageOrderBy","SearchOrderSort","SearchPublishDate"],"fn":["search_packages"],"struct":["CountFilter","PackagesFilter","SearchOptions","SearchPackageVersion"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["publish"]};
+window.SIDEBAR_ITEMS = {"mod":["publish","search"]};

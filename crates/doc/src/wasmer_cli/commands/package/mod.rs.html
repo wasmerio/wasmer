@@ -3,24 +3,26 @@
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">mod </span>download;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">pub mod </span>publish;
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">mod </span>push;
-<a href=#6 id=6 data-nosnippet>6</a><span class="kw">mod </span>tag;
-<a href=#7 id=7 data-nosnippet>7</a><span class="kw">mod </span>unpack;
-<a href=#8 id=8 data-nosnippet>8</a>
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">pub use </span>build::PackageBuild;
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">pub use </span>common::wait::PublishWait;
-<a href=#11 id=11 data-nosnippet>11</a>
-<a href=#12 id=12 data-nosnippet>12</a><span class="doccomment">/// Package related commands.
-<a href=#13 id=13 data-nosnippet>13</a></span><span class="attr">#[derive(clap::Subcommand, Debug)]
-<a href=#14 id=14 data-nosnippet>14</a></span><span class="comment">// Allowing missing_docs because the comment would override the doc comment on
-<a href=#15 id=15 data-nosnippet>15</a>// the command struct.
-<a href=#16 id=16 data-nosnippet>16</a></span><span class="attr">#[allow(missing_docs)]
-<a href=#17 id=17 data-nosnippet>17</a>#[allow(clippy::large_enum_variant)]
-<a href=#18 id=18 data-nosnippet>18</a></span><span class="kw">pub enum </span>Package {
-<a href=#19 id=19 data-nosnippet>19</a>    Download(download::PackageDownload),
-<a href=#20 id=20 data-nosnippet>20</a>    Build(build::PackageBuild),
-<a href=#21 id=21 data-nosnippet>21</a>    Tag(tag::PackageTag),
-<a href=#22 id=22 data-nosnippet>22</a>    Push(push::PackagePush),
-<a href=#23 id=23 data-nosnippet>23</a>    Publish(publish::PackagePublish),
-<a href=#24 id=24 data-nosnippet>24</a>    Unpack(unpack::PackageUnpack),
-<a href=#25 id=25 data-nosnippet>25</a>}
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">mod </span>search;
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">mod </span>tag;
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">mod </span>unpack;
+<a href=#9 id=9 data-nosnippet>9</a>
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">pub use </span>build::PackageBuild;
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">pub use </span>common::wait::PublishWait;
+<a href=#12 id=12 data-nosnippet>12</a>
+<a href=#13 id=13 data-nosnippet>13</a><span class="doccomment">/// Package related commands.
+<a href=#14 id=14 data-nosnippet>14</a></span><span class="attr">#[derive(clap::Subcommand, Debug)]
+<a href=#15 id=15 data-nosnippet>15</a></span><span class="comment">// Allowing missing_docs because the comment would override the doc comment on
+<a href=#16 id=16 data-nosnippet>16</a>// the command struct.
+<a href=#17 id=17 data-nosnippet>17</a></span><span class="attr">#[allow(missing_docs)]
+<a href=#18 id=18 data-nosnippet>18</a>#[allow(clippy::large_enum_variant)]
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">pub enum </span>Package {
+<a href=#20 id=20 data-nosnippet>20</a>    Download(download::PackageDownload),
+<a href=#21 id=21 data-nosnippet>21</a>    Build(build::PackageBuild),
+<a href=#22 id=22 data-nosnippet>22</a>    Tag(tag::PackageTag),
+<a href=#23 id=23 data-nosnippet>23</a>    Push(push::PackagePush),
+<a href=#24 id=24 data-nosnippet>24</a>    Publish(publish::PackagePublish),
+<a href=#25 id=25 data-nosnippet>25</a>    Unpack(unpack::PackageUnpack),
+<a href=#26 id=26 data-nosnippet>26</a>    Search(search::PackageSearch),
+<a href=#27 id=27 data-nosnippet>27</a>}
 </code></pre></div></section></main></body></html>

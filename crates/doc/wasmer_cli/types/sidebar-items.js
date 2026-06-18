@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["format_disk_size_opt"]};
+window.SIDEBAR_ITEMS = {"fn":["format_disk_size_opt","package_full_name"]};
