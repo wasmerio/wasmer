@@ -177,17 +177,6 @@ impl ModuleCache for FileSystemCache {
     }
 }
 
-async fn read_file(path: &Path) -> Result<Vec<u8>, CacheError> {
-    match tokio::fs::read(path).await {
-        Ok(bytes) => Ok(bytes),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(CacheError::NotFound),
-        Err(error) => Err(CacheError::FileRead {
-            path: path.to_path_buf(),
-            error,
-        }),
-    }
-}
-
 fn deserialize_from_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> {
     // We used to compress our compiled modules using LZW encoding in the past.
     // This was removed because it has a negative impact on startup times for

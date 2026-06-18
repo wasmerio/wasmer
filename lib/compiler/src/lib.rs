@@ -61,7 +61,6 @@ mod lib {
 
 cfg_std_or_core! {
     mod engine;
-    mod traits;
 
     pub mod misc;
     pub mod object;
@@ -70,7 +69,6 @@ cfg_std_or_core! {
     pub mod types;
 
     pub use crate::engine::*;
-    pub use crate::traits::*;
 
     mod artifact_builders;
 
