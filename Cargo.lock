@@ -7438,6 +7438,7 @@ dependencies = [
  "itertools 0.14.0",
  "leb128",
  "libc",
+ "libwild",
  "loupe",
  "macho-unwind-info",
  "memmap2 0.9.10",

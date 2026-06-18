@@ -2,6 +2,7 @@
 //! compilers will need to implement.
 
 use std::cmp::Reverse;
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 
 use crate::progress::ProgressContext;
@@ -10,14 +11,22 @@ use crate::{
     FunctionBodyData, ModuleTranslationState,
     lib::std::{boxed::Box, sync::Arc},
     translator::ModuleMiddleware,
-    types::function::Compilation,
+};
+use crate::{
+    WASMER_FUNCTION_OFFSETS_SECTION_NAME, WASMER_MODULE_INFO_SECTION_NAME,
+    WASMER_VERSION_SECTION_NAME,
 };
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
 use itertools::Itertools;
+use object::write::{Object, Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
+use object::{
+    Architecture, BinaryFormat, Endianness, RelocationEncoding, RelocationFlags, RelocationKind,
+    SectionFlags, SectionKind, SymbolFlags, SymbolKind, SymbolScope, elf,
+};
 use tempfile::NamedTempFile;
 use wasmer_types::{
-    CompilationProgressCallback, Features, LocalFunctionIndex,
+    CompilationProgressCallback, Features, LocalFunctionIndex, MetadataHeader,
     entity::PrimaryMap,
     error::CompileError,
     target::{CpuFeature, Target, UserCompilerOptimizations},
@@ -332,3 +341,183 @@ pub const WASM_LARGE_FUNCTION_THRESHOLD: u64 = 100_000;
 
 /// Estimated byte size of a trampoline (used for progress bar reporting).
 pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;
+
+/// Holds the sets of compiled object files produced during compilation.
+///
+/// Counts of each category are derived from the slice lengths.
+pub struct CompiledObjects<'a> {
+    /// Object files for local (user-defined) functions.
+    pub object_files: &'a [PathBuf],
+    /// Object files for static trampolines.
+    pub trampoline_object_files: &'a [PathBuf],
+    /// Object files for dynamic trampolines.
+    pub dynamic_trampoline_object_files: &'a [PathBuf],
+}
+
+fn emit_wasmer_meta_object(
+    target: &Target,
+    compile_info_blob: Vec<u8>,
+    build_directory: &Path,
+    compiled_objects: &CompiledObjects<'_>,
+) -> Result<PathBuf, String> {
+    // TODO: document: Serialize ModuleInfo
+    let meta_object_path = build_directory.to_path_buf().join("__wasmer_meta.o");
+    let mut meta_object = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&meta_object_path)
+        .map_err(|e| {
+            format!(
+                "failed to create Wasmer metaobject {}: {e}",
+                meta_object_path.display()
+            )
+        })?;
+
+    // TODO
+    let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
+        SectionKind::Other,
+    );
+    obj.append_section_data(section_id, &compile_info_blob, 8);
+
+    // ELF-only: mark section allocatable and retained by linker GC.
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+
+    // Emit zero sentinel for the .eh_frame section.
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Debug).to_vec(),
+        b".eh_frame".to_vec(),
+        SectionKind::Debug,
+    );
+    obj.append_section_data(section_id, &0u64.to_ne_bytes(), 4);
+
+    // Emit offsets of the functions
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
+        SectionKind::Other,
+    );
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+    let pointer_size = target
+        .triple()
+        .pointer_width()
+        .map_err(|_| "unknown pointer width".to_string())?
+        .bytes() as u64;
+    let pointer_bits = (pointer_size * 8) as u8;
+    let zero_pointer = vec![0; pointer_size as usize];
+
+    // We're using a fixed naming conventions for functions, trampolines and the dynamic trampolines:
+    // f{number} for functions, t{number} for trampolines and dt{number} for dynamic trampolines.
+    let function_offset_names = (0..compiled_objects.object_files.len())
+        .map(|i| format!("f{i}"))
+        .chain((0..compiled_objects.trampoline_object_files.len()).map(|i| format!("t{i}")))
+        .chain((0..compiled_objects.dynamic_trampoline_object_files.len()).map(|i| format!("dt{i}")));
+    for function_name in function_offset_names {
+        let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
+        let symbol_id = obj.add_symbol(ObjSymbol {
+            name: function_name.to_owned().into(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Text,
+            scope: SymbolScope::Unknown,
+            weak: false,
+            section: SymbolSection::Undefined,
+            flags: SymbolFlags::None,
+        });
+        obj.add_relocation(
+            section_id,
+            Relocation {
+                offset,
+                flags: RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: pointer_bits,
+                },
+                symbol: symbol_id,
+                addend: 0,
+            },
+        )
+        .map_err(|e| {
+            format!("failed to add function offset relocation for {function_name}: {e}")
+        })?;
+    }
+
+    // Save artifact format version.
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        WASMER_VERSION_SECTION_NAME.to_vec(),
+        SectionKind::Other,
+    );
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+    obj.append_section_data(
+        section_id,
+        &MetadataHeader::CURRENT_VERSION.to_le_bytes(),
+        pointer_size,
+    );
+
+    // Save the generated object file.
+    obj.write_stream(&mut meta_object).map_err(|e| {
+        format!(
+            "failed to write Wasmer metaobject {}: {e}",
+            meta_object_path.display(),
+        )
+    })?;
+
+    Ok(meta_object_path)
+}
+
+/// Emits Wasmer metadata sections and links backend-generated object files into a shared object.
+pub fn emit_metadata_and_link(
+    target: &Target,
+    compile_info_blob: Vec<u8>,
+    build_directory: &Path,
+    module_file: NamedTempFile,
+    compiled_objects: &CompiledObjects<'_>,
+) -> Result<NamedTempFile, CompileError> {
+    let meta_object_path = emit_wasmer_meta_object(
+        target,
+        compile_info_blob,
+        build_directory,
+        compiled_objects,
+    )
+    .map_err(CompileError::Codegen)?;
+
+    let mut link_args = vec![
+        "ld".to_string(),
+        "-Bsymbolic".to_string(),
+        "--strip-all".to_string(),
+        "-shared".to_string(),
+        "-o".to_string(),
+        module_file.path().display().to_string(),
+    ];
+    link_args.extend(
+        compiled_objects
+            .object_files
+            .iter()
+            .chain(compiled_objects.trampoline_object_files.iter())
+            .chain(compiled_objects.dynamic_trampoline_object_files.iter())
+            .map(|path| path.display().to_string()),
+    );
+    // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
+    // records. Linkers concatenate input sections in object order, and a
+    // leading terminator makes frame registration see an empty table.
+    link_args.push(meta_object_path.display().to_string());
+    let mut wild_args = libwild::Args::new(|| link_args.iter().map(String::as_str))
+        .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
+    wild_args
+        .parse(|| link_args.iter().map(String::as_str))
+        .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
+    libwild::run(wild_args)
+        .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+
+    Ok(module_file)
+}
