@@ -8,6 +8,8 @@ use std::{
 use anyhow::{Context as _, Error, bail};
 use indicatif::ProgressBar;
 use wasmer::Module;
+#[cfg(feature = "compiler")]
+use wasmer_compiler::Artifact;
 use wasmer_types::ModuleHash;
 use wasmer_wasix::{
     Runtime,
@@ -46,7 +48,9 @@ impl TargetOnDisk {
         }
 
         #[cfg(feature = "compiler")]
-        return Ok(TargetOnDisk::Artifact);
+        if Artifact::is_deserializable(leading_bytes) {
+            return Ok(TargetOnDisk::Artifact);
+        }
 
         // If we can't figure out the file type based on its content, fall back
         // to checking the extension.

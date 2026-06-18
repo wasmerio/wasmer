@@ -594,6 +594,11 @@ impl Artifact {
     pub fn module_info(&self) -> &ModuleInfo {
         &self.serializable.compile_info.module
     }
+
+    /// Return true if the beginning of file is a serialized Artifact.
+    pub fn is_deserializable(bytes: &[u8]) -> bool {
+        bytes.starts_with(&object::elf::ELFMAG)
+    }
 }
 
 impl PartialEq for Artifact {
