@@ -37,8 +37,6 @@ use wasmer::{
 
 use wasmer_types::{Features, target::Target};
 
-#[cfg(feature = "compiler")]
-use wasmer_compiler::ArtifactBuild;
 use wasmer_config::package::PackageSource;
 use wasmer_package::utils::from_disk;
 use wasmer_types::ModuleHash;

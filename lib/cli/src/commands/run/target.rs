@@ -8,8 +8,6 @@ use std::{
 use anyhow::{Context as _, Error, bail};
 use indicatif::ProgressBar;
 use wasmer::Module;
-#[cfg(feature = "compiler")]
-use wasmer_compiler::ArtifactBuild;
 use wasmer_types::ModuleHash;
 use wasmer_wasix::{
     Runtime,
