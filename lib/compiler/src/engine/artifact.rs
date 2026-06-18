@@ -16,6 +16,8 @@ use std::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
+#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
+use crate::types::symbols::ModuleMetadata;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, LinkError,
@@ -32,8 +34,6 @@ use crate::{
 };
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
-#[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
 use itertools::Itertools;
 use libc::file_handle;
 use object::{

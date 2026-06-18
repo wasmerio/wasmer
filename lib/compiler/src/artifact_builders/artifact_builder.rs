@@ -7,10 +7,7 @@ use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 use crate::translator::analyze_readonly_funcref_table;
 use crate::{
     ArtifactCreate, Features,
-    serialize::{
-        ArchivedSerializableCompilation, ArchivedSerializableModule, MetadataHeader,
-        SerializableModule,
-    },
+    serialize::{ArchivedSerializableModule, MetadataHeader, SerializableModule},
     types::{
         function::{CompiledFunctionFrameInfo, FunctionBody, GOT, UnwindInfo},
         module::CompileModuleInfo,
@@ -19,9 +16,7 @@ use crate::{
     },
 };
 #[cfg(feature = "compiler")]
-use crate::{
-    EngineInner, ModuleEnvironment, ModuleMiddlewareChain, serialize::SerializableCompilation,
-};
+use crate::{EngineInner, ModuleEnvironment, ModuleMiddlewareChain};
 use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use wasmer_types::{CompilationProgressCallback, target::Target};
