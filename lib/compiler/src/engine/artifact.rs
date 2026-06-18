@@ -1331,12 +1331,12 @@ impl Artifact {
     ///
     #[cfg(feature = "static-artifact-create")]
     pub fn generate_object<'data>(
-        compiler: &dyn Compiler,
-        data: &[u8],
-        metadata_prefix: Option<&str>,
-        target: &'data Target,
-        tunables: &dyn Tunables,
-        features: &Features,
+        _compiler: &dyn Compiler,
+        _data: &[u8],
+        _metadata_prefix: Option<&str>,
+        _target: &'data Target,
+        _tunables: &dyn Tunables,
+        _features: &Features,
     ) -> Result<
         (
             ModuleInfo,
@@ -1346,48 +1346,7 @@ impl Artifact {
         ),
         CompileError,
     > {
-        use crate::types::symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry};
-
-        fn to_compile_error(err: impl std::error::Error) -> CompileError {
-            CompileError::Codegen(format!("{err}"))
-        }
-
-        let target_triple = target.triple();
-        let (mut metadata, module_translation, function_body_inputs) =
-            Self::metadata(compiler, data, metadata_prefix, target, tunables, features)
-                .map_err(to_compile_error)?;
-
-        /*
-        In the C file we need:
-        - imports
-        - exports
-
-        to construct an api::Module which is a Store (can be passed in via argument) and an
-        Arc<dyn Artifact> which means this struct which includes:
-        - CompileModuleInfo
-        - Features
-        - ModuleInfo
-        - MemoryIndex -> MemoryStyle
-        - TableIndex -> TableStyle
-        - LocalFunctionIndex -> FunctionBodyPtr // finished functions
-        - FunctionIndex -> FunctionBodyPtr // finished dynamic function trampolines
-        - SignatureIndex -> VMSignatureHash // signatures
-         */
-
-        let mut metadata_builder =
-            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
-
-        let (_compile_info, symbol_registry) = metadata.split();
-
-        // compiler.compile_module(
-        //     target,
-        //     &metadata.compile_info,
-        //     module_translation.as_ref().unwrap(),
-        //     function_body_inputs,
-        //     None,
-        // )?;
-
-        todo!();
+        todo!("used by a deprecated feature create_exe");
     }
 
     /// Deserialize a ArtifactBuild from an object file
