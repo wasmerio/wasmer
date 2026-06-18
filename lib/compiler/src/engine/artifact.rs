@@ -16,7 +16,6 @@ use std::{
 use crate::ModuleEnvironment;
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::types::symbols::ModuleMetadata;
-#[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
 use crate::{
     Engine, EngineInner, Features, FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration,
