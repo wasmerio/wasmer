@@ -48,18 +48,13 @@ fn package_search_against_backend_json() {
         })
         .expect("expected the backend to return rustpython/rustpython");
 
-    let normalized = serde_json::json!({
-        "package": {
-            "namespace": package["package"]["namespace"],
-            "name": package["package"]["package_name"],
-            "private": package["package"]["private"],
-        },
-        "has_id": package["id"].is_string(),
-        "has_package_id": package["package"]["id"].is_string(),
-        "has_version": package["version"].is_string(),
-        "has_created_at": package["created_at"].is_string(),
-    });
-    assert_json_snapshot!(normalized);
+    assert_eq!(package["package"]["namespace"], "rustpython");
+    assert_eq!(package["package"]["package_name"], "rustpython");
+    assert_eq!(package["package"]["private"], false);
+    assert!(package["id"].is_string());
+    assert!(package["package"]["id"].is_string());
+    assert!(package["version"].is_string());
+    assert!(package["created_at"].is_string());
 }
 
 #[test]
