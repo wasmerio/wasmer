@@ -17,6 +17,8 @@ mod inner;
 #[cfg(not(target_arch = "wasm32"))]
 mod link;
 #[cfg(not(target_arch = "wasm32"))]
+mod mapped_binary;
+#[cfg(not(target_arch = "wasm32"))]
 mod unwind;
 
 pub use self::error::{InstantiationError, LinkError};
@@ -29,6 +31,7 @@ pub use self::tunables::{BaseTunables, Tunables};
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use self::artifact::Artifact;
+
 pub use self::builder::EngineBuilder;
 #[cfg(not(target_arch = "wasm32"))]
 pub use self::code_memory::CodeMemory;

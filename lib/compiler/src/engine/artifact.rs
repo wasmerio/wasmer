@@ -3,11 +3,9 @@
 
 use std::{
     ffi::c_void,
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     io::BufReader,
-    os::fd::AsRawFd,
     path::Path,
-    ptr, slice,
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering::SeqCst},
@@ -22,7 +20,8 @@ use crate::types::symbols::ModuleMetadata;
 use crate::{
     ArtifactBuild, Engine, EngineInner, Features, FrameInfosVariant, FunctionExtent,
     GlobalFrameInfoRegistration, InstantiationError, ModuleFile, Tunables,
-    engine::{resolver::resolve_tags, unwind::UnwindRegistry},
+    WASMER_FUNCTION_OFFSETS_SECTION_NAME, WASMER_MODULE_INFO_SECTION_NAME,
+    engine::{mapped_binary::MemoryMappedBinary, resolver::resolve_tags},
     register_frame_info, resolve_imports,
     serialize::SerializableModule,
     types::{
@@ -33,19 +32,15 @@ use crate::{
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
 use itertools::Itertools;
-use object::{
-    Object, ObjectSection, ObjectSegment, ObjectSymbol, ObjectSymbolTable, ReadCache, SegmentFlags,
-    elf,
-};
+use object::{Object, ObjectSection, ReadCache};
 
 use shared_buffer::OwnedBuffer;
 
 use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompilationProgressCallback,
     CompileError, DataInitializer, DataInitializerLike, DataInitializerLocation,
-    DataInitializerLocationLike, DeserializeError, FunctionIndex, LibCall, LocalFunctionIndex,
-    MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, SourceLoc,
-    TableIndex,
+    DataInitializerLocationLike, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex,
+    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, SourceLoc, TableIndex,
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -53,11 +48,9 @@ use wasmer_types::{
 use wasmer_types::VMOffsets;
 use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
-    VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline, libcalls::function_pointer,
+    VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline,
 };
 
-const WASMER_MODULE_INFO_SECTION_NAME: &[u8] = b".wasmer.module_info";
-const WASMER_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".wasmer.function_offsets";
 /*
 TODO:
 / This shows if the frame info has been registered already or not.
@@ -109,164 +102,7 @@ pub struct AllocatedArtifact {
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
 
-    _memory_map: MemoryMap,
-}
-
-struct MemoryMap {
-    base: *mut c_void,
-    size: usize,
-
-    unwind_registry: Option<UnwindRegistry>,
-}
-
-// TODO: add safery note
-unsafe impl Send for MemoryMap {}
-unsafe impl Sync for MemoryMap {}
-
-impl MemoryMap {
-    fn empty() -> Self {
-        Self {
-            base: ptr::null_mut(),
-            size: 0,
-            unwind_registry: Some(UnwindRegistry::new()),
-        }
-    }
-
-    fn new(size: usize) -> Result<Self, String> {
-        let base = unsafe {
-            libc::mmap(
-                ptr::null_mut(),
-                size,
-                libc::PROT_NONE,
-                libc::MAP_PRIVATE | libc::MAP_ANONYMOUS,
-                -1,
-                0,
-            )
-        };
-        if base == libc::MAP_FAILED {
-            return Err("Cannot create a memory map for built Artifact".to_string());
-        }
-
-        Ok(Self {
-            base,
-            size,
-            unwind_registry: Some(UnwindRegistry::new()),
-        })
-    }
-
-    fn base(&self) -> *mut c_void {
-        self.base
-    }
-
-    /// Returns the mapped memory as a byte slice tied to the lifetime of this map.
-    ///
-    /// # Safety
-    ///
-    /// The entire mapped range must be readable for the returned slice's lifetime.
-    #[allow(dead_code)]
-    unsafe fn as_slice(&self) -> &[u8] {
-        if self.base.is_null() || self.size == 0 {
-            return &[];
-        }
-
-        unsafe { slice::from_raw_parts(self.base.cast::<u8>(), self.size) }
-    }
-
-    fn publish_eh_frame_section(&mut self, address: u64, size: u64) -> Result<(), String> {
-        let eh_frame = unsafe {
-            slice::from_raw_parts(self.base.cast::<u8>().add(address as usize), size as usize)
-        };
-        self.unwind_registry
-            .as_mut()
-            .expect("unwind registry should remain alive until MemoryMap::drop")
-            .publish_eh_frame(Some(eh_frame))
-    }
-
-    fn map(
-        &self,
-        offset: usize,
-        size: usize,
-        protection: i32,
-        flags: i32,
-        fd: i32,
-        file_offset: usize,
-    ) -> Result<(), String> {
-        let result = unsafe {
-            libc::mmap(
-                self.base.add(offset),
-                size,
-                protection,
-                flags,
-                fd,
-                file_offset as libc::off_t,
-            )
-        };
-        if result == libc::MAP_FAILED {
-            return Err(std::io::Error::last_os_error().to_string());
-        }
-        Ok(())
-    }
-}
-
-impl Drop for MemoryMap {
-    fn drop(&mut self) {
-        // The registered `.eh_frame` records point into this mmap, so deregister
-        // them while the mapping is still live.
-        drop(self.unwind_registry.take());
-
-        if !self.base.is_null() && self.size != 0 {
-            unsafe {
-                libc::munmap(self.base, self.size);
-            }
-        }
-    }
-}
-
-struct ImageSegment {
-    pub(crate) mem_address: usize,
-    pub(crate) mem_size: usize,
-    pub(crate) file_address: usize,
-    pub(crate) file_size: usize,
-    pub(crate) page_size: usize,
-    pub(crate) flags: SegmentFlags,
-}
-
-impl ImageSegment {
-    fn protection(&self) -> Result<i32, String> {
-        let SegmentFlags::Elf { p_flags } = self.flags else {
-            return Err(format!("unsupported segment flags: {:?}", self.flags));
-        };
-
-        let mut protection = 0;
-        if p_flags & elf::PF_R != 0 {
-            protection |= libc::PROT_READ;
-        }
-        if p_flags & elf::PF_W != 0 {
-            protection |= libc::PROT_WRITE;
-        }
-        if p_flags & elf::PF_X != 0 {
-            protection |= libc::PROT_EXEC;
-        }
-        Ok(protection)
-    }
-
-    fn mem_size_page_aligned(&self) -> usize {
-        (self.mem_size + (self.mem_address - self.mem_address_page_aligned()))
-            .next_multiple_of(self.page_size)
-    }
-
-    fn mem_address_page_aligned(&self) -> usize {
-        self.mem_address & !(self.page_size - 1)
-    }
-
-    fn file_size_page_aligned(&self) -> usize {
-        (self.file_size + (self.file_address - self.file_address_page_aligned()))
-            .next_multiple_of(self.page_size)
-    }
-
-    fn file_address_page_aligned(&self) -> usize {
-        self.file_address & !(self.page_size - 1)
-    }
+    _memory_map: MemoryMappedBinary,
 }
 
 impl AllocatedArtifact {
@@ -275,138 +111,12 @@ impl AllocatedArtifact {
         module_file: &Path,
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, String> {
-        let f = File::open(module_file).unwrap();
-        let reader = BufReader::new(f);
+        let reader = BufReader::new(
+            File::open(module_file).map_err(|e| format!("cannot open artifact file: {e}"))?,
+        );
         let cache = ReadCache::new(reader);
-        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
-
         let image = object::File::parse(&cache).map_err(|e| format!("cannot parse image: {e}"))?;
-        let segments = image
-            .segments()
-            .map(|segment| {
-                let mem_address = segment.address() as usize;
-                let mem_size = segment.size() as usize;
-                let (file_address, file_size) = segment.file_range();
-                let file_address = file_address as usize;
-                let file_size = file_size as usize;
-                ImageSegment {
-                    mem_address,
-                    mem_size,
-                    file_address,
-                    file_size,
-                    page_size,
-                    flags: segment.flags(),
-                }
-            })
-            .collect_vec();
-        let total_memory_size = segments.iter().map(|seg| seg.mem_size_page_aligned()).sum();
-
-        // Create a contiguous virtual address memory map that will be populated
-        // per-partes with the individual protection flags.
-        let mut memory_map = MemoryMap::new(total_memory_size)?;
-        let base = memory_map.base();
-
-        let mmap_file = OpenOptions::new()
-            .read(true)
-            .open(module_file)
-            .map_err(|e| format!("cannot open image file for mmap: {e}"))?;
-        let fd = mmap_file.as_raw_fd();
-
-        // Mmap individual load segments
-        for load_segment in segments {
-            // The virtual offset does not need to start at a page boundary.
-            if load_segment.file_address % page_size != load_segment.mem_address % page_size {
-                return Err(format!(
-                    "Load segment file offset 0x{:x} and virtual address 0x{:x} have incompatible page alignment",
-                    load_segment.file_address, load_segment.mem_address
-                ));
-            }
-
-            let protection = load_segment.protection()?;
-
-            memory_map
-                .map(
-                    load_segment.mem_address_page_aligned(),
-                    load_segment.file_size_page_aligned(),
-                    protection,
-                    libc::MAP_PRIVATE | libc::MAP_FIXED,
-                    fd,
-                    load_segment.file_address_page_aligned(),
-                )
-                .map_err(|error| {
-                    format!(
-                        "Cannot map load segment at virtual address 0x{:x}: {error}",
-                        load_segment.mem_address_page_aligned()
-                    )
-                })?;
-
-            if load_segment.mem_size_page_aligned() > load_segment.file_size_page_aligned() {
-                memory_map
-                    .map(
-                        load_segment.mem_address_page_aligned()
-                            + load_segment.file_size_page_aligned(),
-                        load_segment.mem_size_page_aligned()
-                            - load_segment.file_size_page_aligned(),
-                        protection,
-                        libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_FIXED,
-                        -1,
-                        0,
-                    )
-                    .map_err(|error| format!("Cannot map zero-fill segment tail: {error}"))?;
-            }
-        }
-
-        // Apply dynamic relocations for the libcalls
-        if let Some(dynamic_relocations) = image.dynamic_relocations() {
-            let dynamic_symbols = image.dynamic_symbol_table().unwrap();
-
-            for (offset, relocation) in dynamic_relocations {
-                let is_x86_64_relative = relocation.flags()
-                    == (object::RelocationFlags::Elf {
-                        r_type: elf::R_X86_64_RELATIVE,
-                    });
-                if is_x86_64_relative {
-                    unsafe {
-                        ptr::write_unaligned(
-                            base.add(offset as usize) as *mut usize,
-                            (base as usize).wrapping_add(relocation.addend() as usize),
-                        );
-                    }
-                    continue;
-                }
-
-                let object::RelocationTarget::Symbol(symbol_index) = relocation.target() else {
-                    return Err("unsupported dynamic relocation target".to_string());
-                };
-                let symbol = dynamic_symbols.symbol_by_index(symbol_index).unwrap();
-                let symbol_name = symbol.name().unwrap();
-                let Some(libcall) = enum_iterator::all::<LibCall>()
-                    .find(|libcall| libcall.to_function_name() == symbol_name)
-                else {
-                    return Err(format!(
-                        "unsupported dynamic relocation symbol {symbol_name}"
-                    ));
-                };
-
-                let is_x86_64_glob_dat = relocation.flags()
-                    == (object::RelocationFlags::Elf {
-                        r_type: elf::R_X86_64_GLOB_DAT,
-                    });
-                let apply_absolute_relocation = || unsafe {
-                    ptr::write_unaligned(
-                        base.add(offset as usize) as *mut usize,
-                        function_pointer(libcall).wrapping_add(relocation.addend() as usize),
-                    );
-                };
-                match relocation.kind() {
-                    object::RelocationKind::Absolute => apply_absolute_relocation(),
-                    object::RelocationKind::Unknown if is_x86_64_glob_dat => {
-                        apply_absolute_relocation()
-                    }
-                    kind => return Err(format!("unsupported dynamic relocation kind {kind:?}")),
-                }
-            }
-        }
+        let mut memory_map = MemoryMappedBinary::try_from_path(module_file, &image)?;
 
         // Parts function offsets
         let mut function_offsets = None;
@@ -483,8 +193,8 @@ impl AllocatedArtifact {
                     }
                 })
                 .collect();
+        let base = memory_map.base();
         Ok(Self {
-            _memory_map: memory_map,
             finished_functions: local_fn_offsets
                 .iter()
                 .map(|&offset| FunctionBodyPtr(unsafe { base.add(offset) as _ }))
@@ -508,6 +218,7 @@ impl AllocatedArtifact {
             frame_info_registration: None,
             signatures: signatures.into_boxed_slice(),
             vm_offsets: VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info),
+            _memory_map: memory_map,
         })
     }
 
