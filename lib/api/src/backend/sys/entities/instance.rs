@@ -73,7 +73,10 @@ impl Instance {
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_vm_extern(store, crate::vm::VMExtern::Sys(export));
+                let mut extern_ = Extern::from_vm_extern(store, crate::vm::VMExtern::Sys(export));
+                if let Extern::Function(function) = &mut extern_ {
+                    *function = function.clone().with_artifact(module.as_sys().artifact());
+                }
                 (name, extern_)
             })
             .collect::<Exports>()

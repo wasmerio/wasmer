@@ -40,11 +40,15 @@ use wasmer_vm::{
 /// A WebAssembly `function` instance, in the `sys` runtime.
 pub struct Function {
     pub(crate) handle: StoreHandle<VMFunction>,
+    pub(crate) artifact: Option<Arc<wasmer_compiler::Artifact>>,
 }
 
 impl From<StoreHandle<VMFunction>> for Function {
     fn from(handle: StoreHandle<VMFunction>) -> Self {
-        Self { handle }
+        Self {
+            handle,
+            artifact: None,
+        }
     }
 }
 
@@ -129,6 +133,7 @@ impl Function {
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+            artifact: None,
         }
     }
 
@@ -244,6 +249,7 @@ impl Function {
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+            artifact: None,
         }
     }
 
@@ -288,6 +294,7 @@ impl Function {
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+            artifact: None,
         }
     }
 
@@ -441,6 +448,7 @@ impl Function {
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+            artifact: None,
         }
     }
 
@@ -670,6 +678,7 @@ impl Function {
         };
         Self {
             handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+            artifact: None,
         }
     }
 
@@ -678,6 +687,7 @@ impl Function {
             handle: unsafe {
                 StoreHandle::from_internal(store.objects_mut().id(), vm_extern.unwrap_sys())
             },
+            artifact: None,
         }
     }
 

@@ -15,7 +15,7 @@ pub(crate) mod async_host;
 #[cfg(feature = "experimental-async")]
 pub use async_host::{AsyncFunctionEnv, AsyncHostFunction};
 
-use std::{future::Future, pin::Pin};
+use std::{future::Future, pin::Pin, sync::Arc};
 
 use wasmer_types::{FunctionType, RawValue};
 
@@ -459,6 +459,14 @@ impl Function {
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
         Self(BackendFunction::from_vm_extern(store, vm_extern))
+    }
+
+    pub(crate) fn with_artifact(mut self, artifact: Arc<wasmer_compiler::Artifact>) -> Self {
+        #[allow(irrefutable_let_patterns)]
+        if let BackendFunction::Sys(function) = &mut self.0 {
+            function.artifact = Some(artifact);
+        }
+        self
     }
 
     /// Checks whether this `Function` can be used with the given store.

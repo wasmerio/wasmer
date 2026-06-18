@@ -170,6 +170,10 @@ impl Module {
         Self { artifact }
     }
 
+    pub(crate) fn artifact(&self) -> Arc<Artifact> {
+        self.artifact.clone()
+    }
+
     #[allow(clippy::result_large_err)]
     pub(crate) fn instantiate(
         &self,
