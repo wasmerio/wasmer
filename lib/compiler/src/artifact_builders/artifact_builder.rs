@@ -26,7 +26,10 @@ use enumset::EnumSet;
 use rkyv::rancor::Error as RkyvError;
 use self_cell::self_cell;
 use shared_buffer::OwnedBuffer;
-use std::sync::Arc;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use wasmer_types::{
     DeserializeError,
     entity::{ArchivedPrimaryMap, PrimaryMap},
@@ -37,11 +40,25 @@ use wasmer_types::{
 #[allow(unused)]
 use wasmer_types::*;
 
+pub(crate) enum ModuleFile {
+    TempFile(NamedTempFile),
+    OwnedFile(PathBuf),
+}
+
+impl ModuleFile {
+    pub(crate) fn path(&self) -> &Path {
+        match self {
+            Self::OwnedFile(path) => path.as_path(),
+            ModuleFile::TempFile(tempfile) => tempfile.path(),
+        }
+    }
+}
+
 /// A compiled wasm module, ready to be instantiated.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct ArtifactBuild {
     pub(crate) serializable: SerializableModule,
-    pub(crate) module_file: NamedTempFile,
+    pub(crate) module_file: ModuleFile,
 }
 
 impl ArtifactBuild {
@@ -63,6 +80,8 @@ impl ArtifactBuild {
         table_styles: PrimaryMap<TableIndex, TableStyle>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
+        use std::fs;
+
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
 
@@ -91,23 +110,6 @@ impl ArtifactBuild {
             memory_styles,
             table_styles,
         };
-
-        // Compile the Module
-        let module_file = compiler.compile_module(
-            target,
-            &compile_info,
-            rkyv::to_bytes::<rkyv::rancor::Error>(&compile_info)
-                // TODO
-                .map(|bytes| bytes.into_vec())
-                .unwrap(),
-            // SAFETY: Calling `unwrap` is correct since
-            // `environ.translate()` above will write some data into
-            // `module_translation_state`.
-            translation.module_translation_state.as_ref().unwrap(),
-            translation.function_body_inputs,
-            progress_callback,
-        )?;
-
         let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
         let data_initializers = translation
             .data_initializers
@@ -120,9 +122,26 @@ impl ArtifactBuild {
             data_initializers,
             cpu_features: cpu_features.as_u64(),
         };
+
+        // Compile the Module
+        let module_file = compiler.compile_module(
+            target,
+            &serializable.compile_info,
+            rkyv::to_bytes::<rkyv::rancor::Error>(&serializable)
+                // TODO
+                .map(|bytes| bytes.into_vec())
+                .unwrap(),
+            // SAFETY: Calling `unwrap` is correct since
+            // `environ.translate()` above will write some data into
+            // `module_translation_state`.
+            translation.module_translation_state.as_ref().unwrap(),
+            translation.function_body_inputs,
+            progress_callback,
+        )?;
+
         Ok(Self {
             serializable,
-            module_file,
+            module_file: ModuleFile::TempFile(module_file),
         })
     }
 

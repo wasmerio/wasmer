@@ -262,13 +262,7 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        unsafe {
-            let file = std::fs::File::open(file_ref)?;
-            self.deserialize(
-                OwnedBuffer::from_file(&file)
-                    .map_err(|e| DeserializeError::Generic(e.to_string()))?,
-            )
-        }
+        unsafe { Ok(Arc::new(Artifact::deserialize_from_file(self, file_ref)?)) }
     }
 
     /// Deserialize from a file path.

@@ -42,16 +42,19 @@ impl FileSystemCache {
 /// A tokio reactor must be available
 #[tracing::instrument(level = "debug", skip_all, fields(? path))]
 async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError> {
-    let bytes = read_file(&path).await?;
-    let deserialized = tokio::task::spawn_blocking(move || deserialize(&bytes, &engine))
-        .await
-        .unwrap();
+    let deserialized_file_path = path.clone();
+    let deserialized = tokio::task::spawn_blocking(move || {
+        deserialize_from_file(deserialized_file_path.as_path(), &engine)
+    })
+    .await
+    .unwrap();
     match deserialized {
         Ok(m) => {
             tracing::debug!("Cache hit!");
             Ok(m)
         }
         Err(e) => {
+            dbg!(&e);
             tracing::debug!(
                 path=%path.display(),
                 error=&e as &dyn std::error::Error,
@@ -185,7 +188,7 @@ async fn read_file(path: &Path) -> Result<Vec<u8>, CacheError> {
     }
 }
 
-fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
+fn deserialize_from_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> {
     // We used to compress our compiled modules using LZW encoding in the past.
     // This was removed because it has a negative impact on startup times for
     // "wasmer run", so all new compiled modules should be saved directly to
@@ -201,17 +204,12 @@ fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
     // - ModuleCache::save(): 2.4s, 72MB binary
     // - ModuleCache::load(): 822ms
 
-    match unsafe { Module::deserialize(engine, bytes) } {
+    match unsafe { Module::deserialize_from_file(engine, path) } {
         // The happy case
         Ok(m) => Ok(m),
-        Err(wasmer::DeserializeError::Incompatible(_)) => {
-            let bytes = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8)
-                .decode(bytes)
-                .map_err(CacheError::other)?;
-
-            let m = unsafe { Module::deserialize(engine, bytes)? };
-
-            Ok(m)
+        Err(wasmer::DeserializeError::Incompatible(e)) => {
+            dbg!(&e);
+            todo!();
         }
         Err(e) => Err(CacheError::Deserialize(e)),
     }

@@ -3,8 +3,8 @@
 
 use std::{
     ffi::c_void,
-    fs::{File, OpenOptions},
-    io::BufReader,
+    fs::{self, File, OpenOptions},
+    io::{BufReader, Read},
     os::fd::AsRawFd,
     path::Path,
     ptr, slice,
@@ -12,6 +12,7 @@ use std::{
         Arc,
         atomic::{AtomicUsize, Ordering::SeqCst},
     },
+    time::Instant,
 };
 
 #[cfg(feature = "compiler")]
@@ -21,15 +22,15 @@ use crate::types::symbols::ModuleMetadata;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, LinkError,
-    Tunables, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
+    ModuleFile, Tunables,
     engine::{link::link_module, resolver::resolve_tags, unwind::UnwindRegistry},
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
-    types::relocation::{RelocationLike, RelocationTarget},
     types::{
         address_map::{FunctionAddressMap, InstructionAddressMap},
         function::CompiledFunctionFrameInfo,
+        relocation::{RelocationLike, RelocationTarget},
     },
 };
 #[cfg(feature = "static-artifact-create")]
@@ -67,6 +68,9 @@ use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
     VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline, libcalls::function_pointer,
 };
+
+const WASMER_MODULE_INFO_SECTION_NAME: &[u8] = b".wasmer.module_info";
+const WASMER_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".wasmer.function_offsets";
 /*
 TODO:
 / This shows if the frame info has been registered already or not.
@@ -670,40 +674,50 @@ impl Artifact {
         engine: &Engine,
         bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
-        unsafe {
-            if !ArtifactBuild::is_deserializable(bytes.as_ref()) {
-                let static_artifact = Self::deserialize_object(engine, bytes);
-                match static_artifact {
-                    Ok(v) => {
-                        return Ok(v);
-                    }
-                    Err(e) => {
-                        return Err(DeserializeError::Incompatible(format!(
-                            "The provided bytes are not a Wasmer engine artifact: {e}"
-                        )));
-                    }
-                }
-            }
+        todo!();
+    }
 
-            let artifact = ArtifactBuildFromArchive::try_new(bytes, |bytes| {
-                let bytes =
-                    Self::get_byte_slice(bytes, ArtifactBuild::MAGIC_HEADER.len(), bytes.len())?;
+    /// Deserialize from the existing file.
+    pub unsafe fn deserialize_from_file(
+        engine: &Engine,
+        path: &Path,
+    ) -> Result<Self, DeserializeError> {
+        let s = Instant::now();
+        let f = File::open(path).map_err(|e| DeserializeError::Generic(e.to_string()))?;
+        let reader = BufReader::new(f);
+        let cache = ReadCache::new(reader);
+        let image = object::File::parse(&cache)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
 
-                let metadata_len = MetadataHeader::parse(bytes)?;
-                let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
-                let metadata_slice = Self::get_byte_slice(metadata_slice, 0, metadata_len)?;
-
-                SerializableModule::archive_from_slice_checked(metadata_slice)
+        let module_info_section = image
+            .sections()
+            .find(|section| {
+                section
+                    .name_bytes()
+                    .is_ok_and(|name| name == WASMER_MODULE_INFO_SECTION_NAME)
+            })
+            .ok_or_else(|| {
+                DeserializeError::CorruptedBinary(format!(
+                    "missing {} section",
+                    String::from_utf8_lossy(WASMER_MODULE_INFO_SECTION_NAME)
+                ))
             })?;
 
-            todo!()
-            // let mut inner_engine = engine.inner_mut();
-            // Self::from_parts(
-            //     &mut inner_engine,
-            //     ArtifactBuildVariant::Archived(artifact),
-            //     engine.target(),
-            // )
-        }
+        let metadata_binary = module_info_section.data().map_err(|e| {
+            DeserializeError::CorruptedBinary(format!(
+                "cannot load {} section data: {e}",
+                String::from_utf8_lossy(WASMER_MODULE_INFO_SECTION_NAME)
+            ))
+        })?;
+        let serializable = unsafe { SerializableModule::deserialize(metadata_binary)? };
+        dbg!(Instant::now() - s);
+
+        let artifact = ArtifactBuild {
+            serializable,
+            module_file: ModuleFile::OwnedFile(path.to_path_buf()),
+        };
+        let mut inner_engine = engine.inner_mut();
+        Self::from_parts(&mut inner_engine, artifact, engine.target())
     }
 
     /// Deserialize a serialized artifact.
@@ -934,8 +948,10 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildVariant {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        dbg!("serialize called here");
         match self {
-            Self::Plain(artifact) => artifact.serialize(),
+            // TODO
+            Self::Plain(artifact) => Ok(std::fs::read(artifact.module_file.path()).unwrap()),
             Self::Archived(artifact) => artifact.serialize(),
         }
     }
