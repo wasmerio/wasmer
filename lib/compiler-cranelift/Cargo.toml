@@ -29,7 +29,7 @@ cranelift-frontend.workspace = true
 itertools.workspace = true
 tracing.workspace = true
 hashbrown = { workspace = true, optional = true }
-rayon = { workspace = true, optional = true }
+rayon.workspace = true
 more-asserts.workspace = true
 gimli = { workspace = true, optional = true }
 smallvec.workspace = true
@@ -45,7 +45,7 @@ cranelift-codegen = { workspace = true, features = ["all-arch"] }
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "unwind", "rayon"]
+default = ["std", "unwind"]
 wasm = ["std", "unwind"]
 unwind = ["cranelift-codegen/unwind", "gimli"]
 std = [

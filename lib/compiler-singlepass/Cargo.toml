@@ -35,7 +35,7 @@ target-lexicon.workspace = true
 fixedbitset.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = { workspace = true, optional = true }
+rayon.workspace = true
 
 [dev-dependencies]
 target-lexicon.workspace = true
@@ -44,7 +44,7 @@ target-lexicon.workspace = true
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "rayon", "unwind", "avx"]
+default = ["std", "unwind", "avx"]
 wasm = ["std", "unwind", "avx"]
 std = ["wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]

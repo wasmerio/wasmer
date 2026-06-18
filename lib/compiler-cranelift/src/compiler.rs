@@ -34,7 +34,6 @@ use gimli::{
     write::{Address, EhFrame, FrameDescriptionEntry, FrameTable, Writer},
 };
 
-#[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
@@ -56,7 +55,6 @@ use wasmer_compiler::{
         section::{CustomSection, CustomSectionProtection, SectionBody},
     },
 };
-#[cfg(feature = "rayon")]
 use wasmer_compiler::{build_function_buckets, translate_function_buckets};
 #[cfg(feature = "unwind")]
 use wasmer_types::LibCall;
@@ -358,23 +356,6 @@ impl CraneliftCompiler {
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut custom_sections = PrimaryMap::new();
 
-        #[cfg(not(feature = "rayon"))]
-        let mut func_translator =
-            FuncTranslator::new(self.config.allow_experimental_unaligned_memory_accesses);
-        #[cfg(not(feature = "rayon"))]
-        let results = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .into_iter()
-            .map(|(i, input)| {
-                let result = compile_function(&mut func_translator, &i, input)?;
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(input.data.len() as u64)?;
-                }
-                Ok(result)
-            })
-            .collect::<Result<Vec<_>, CompileError>>()?;
-        #[cfg(feature = "rayon")]
         let results = {
             use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
@@ -545,32 +526,6 @@ impl CraneliftCompiler {
         let module_hash = module.hash_string();
 
         // function call trampolines (only for local functions, by signature)
-        #[cfg(not(feature = "rayon"))]
-        let mut cx = FunctionBuilderContext::new();
-        #[cfg(not(feature = "rayon"))]
-        let function_call_trampolines = module
-            .signatures
-            .values()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|sig| {
-                let trampoline = make_trampoline_function_call(
-                    &self.config().callbacks,
-                    &*isa,
-                    target.triple().architecture,
-                    &mut cx,
-                    sig,
-                    &module_hash,
-                )?;
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
-                Ok(trampoline)
-            })
-            .collect::<Result<Vec<FunctionBody>, CompileError>>()?
-            .into_iter()
-            .collect();
-        #[cfg(feature = "rayon")]
         let function_call_trampolines = module
             .signatures
             .values()
@@ -597,32 +552,6 @@ impl CraneliftCompiler {
         use wasmer_types::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
         // dynamic function trampolines (only for imported functions)
-        #[cfg(not(feature = "rayon"))]
-        let mut cx = FunctionBuilderContext::new();
-        #[cfg(not(feature = "rayon"))]
-        let dynamic_function_trampolines = module
-            .imported_function_types()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|func_type| {
-                let trampoline = make_trampoline_dynamic_function(
-                    &self.config().callbacks,
-                    &*isa,
-                    target.triple().architecture,
-                    &offsets,
-                    &mut cx,
-                    &func_type,
-                    &module_hash,
-                )?;
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
-                Ok(trampoline)
-            })
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .collect();
-        #[cfg(feature = "rayon")]
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
