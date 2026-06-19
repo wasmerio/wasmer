@@ -136,7 +136,7 @@ impl<'a, M: MemorySize> FdWriteSource<'a, M> {
 
                 for iov in iovs_arr.iter() {
                     let buf = WasmPtr::<u8, M>::new(iov.buf)
-                        .slice(&memory, iov.buf_len)
+                        .slice(memory, iov.buf_len)
                         .map_err(mem_error_to_wasi)?
                         .access()
                         .map_err(mem_error_to_wasi)?;
