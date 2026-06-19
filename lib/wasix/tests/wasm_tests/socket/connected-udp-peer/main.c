@@ -1,3 +1,4 @@
+//#MinimalLibc: v2026-06-18.1
 //#ExpectedStdout: connected UDP peer and sendto work
 
 #include <arpa/inet.h>
