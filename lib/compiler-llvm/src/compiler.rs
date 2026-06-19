@@ -232,7 +232,7 @@ impl Compiler for LLVMCompiler {
                 .collect::<Result<Vec<_>, CompileError>>()
         }?;
 
-        emit_metadata_and_link(
+        let result = emit_metadata_and_link(
             target,
             compile_info_blob,
             build_directory.path(),
@@ -242,7 +242,26 @@ impl Compiler for LLVMCompiler {
                 trampoline_object_files: &trampolines_objects,
                 dynamic_trampoline_object_files: &dynamic_trampolines_objects,
             },
-        )
+        )?;
+
+        // If compiler-debug-dir is set, copy the final linked .so image
+        // into the module_hash subfolder.
+        if let Some(ref callbacks) = self.config.callbacks {
+            let mut dest_path = callbacks.debug_dir.clone();
+            if let Some(ref hash) = module_hash {
+                dest_path.push(hash);
+            }
+            std::fs::create_dir_all(&dest_path).ok();
+            dest_path.push("wasmer-image.so");
+            if let Err(err) = std::fs::copy(result.path(), &dest_path) {
+                tracing::warn!(
+                    path = %dest_path.display(),
+                    "failed to copy final image to compiler debug dir: {err}"
+                );
+            }
+        }
+
+        Ok(result)
     }
 
     fn with_opts(

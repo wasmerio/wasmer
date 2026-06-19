@@ -28,7 +28,7 @@ pub type InkwellMemoryBuffer<'a> = inkwell::memory_buffer::MemoryBuffer<'a>;
 /// Callbacks to the different LLVM compilation phases.
 #[derive(Debug, Clone)]
 pub struct LLVMCallbacks {
-    debug_dir: PathBuf,
+    pub(crate) debug_dir: PathBuf,
 }
 
 impl LLVMCallbacks {
