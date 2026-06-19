@@ -3,9 +3,10 @@
 
 use std::{
     ffi::c_void,
-    fs::{self, File},
-    io::BufReader,
-    path::{Path, PathBuf},
+    fs::File,
+    io::{self, BufReader, Read, Seek},
+    os::fd::AsRawFd,
+    path::Path,
     sync::{
         Arc,
         atomic::{AtomicUsize, Ordering::SeqCst},
@@ -32,8 +33,6 @@ use crate::{
 use itertools::Itertools;
 use object::{Object, ObjectSection, ReadCache};
 
-use shared_buffer::OwnedBuffer;
-
 use tempfile::NamedTempFile;
 use wasmer_types::{
     CompilationProgressCallback, CompileError, DataInitializer, DeserializeError, FunctionIndex,
@@ -51,14 +50,14 @@ use wasmer_vm::{
 
 pub(crate) enum ModuleFile {
     TempFile(NamedTempFile),
-    OwnedFile(PathBuf),
+    OwnedFile(File),
 }
 
 impl ModuleFile {
-    pub(crate) fn path(&self) -> &Path {
+    pub(crate) fn file(&mut self) -> &mut File {
         match self {
-            Self::OwnedFile(path) => path.as_path(),
-            Self::TempFile(tempfile) => tempfile.path(),
+            Self::OwnedFile(file) => file,
+            Self::TempFile(tempfile) => tempfile.as_file_mut(),
         }
     }
 }
@@ -67,6 +66,7 @@ impl ModuleFile {
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 struct ArtifactBuild {
     serializable: SerializableModule,
+    #[cfg_attr(feature = "artifact-size", loupe(skip))]
     module_file: ModuleFile,
 }
 
@@ -210,15 +210,17 @@ pub struct AllocatedArtifact {
 impl AllocatedArtifact {
     fn from_binary(
         module_info: &ModuleInfo,
-        module_file: &Path,
+        module_file: &mut File,
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, String> {
-        let reader = BufReader::new(
-            File::open(module_file).map_err(|e| format!("cannot open artifact file: {e}"))?,
-        );
+        let module_file_fd = module_file.as_raw_fd();
+        module_file
+            .seek(io::SeekFrom::Start(0))
+            .map_err(|e| format!("cannot seek artifact file: {e}"))?;
+        let reader = BufReader::new(module_file);
         let cache = ReadCache::new(reader);
         let image = object::File::parse(&cache).map_err(|e| format!("cannot parse image: {e}"))?;
-        let mut memory_map = MemoryMappedBinary::try_from_path(module_file, &image)?;
+        let mut memory_map = MemoryMappedBinary::try_from_file(module_file_fd, &image)?;
 
         // Parts function offsets
         let mut function_offsets = None;
@@ -375,6 +377,7 @@ impl Default for ArtifactId {
 pub struct Artifact {
     id: ArtifactId,
     serializable: SerializableModule,
+    #[cfg_attr(feature = "artifact-size", loupe(skip))]
     module_file: ModuleFile,
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
@@ -454,40 +457,44 @@ impl Artifact {
     }
 
     /// Serialize the artifact.
-    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        fs::read(self.module_file.path())
-            .map_err(|e| SerializeError::Generic(format!("Failed to serialize the Artifact: {e}")))
+    pub fn serialize(&mut self) -> Result<Vec<u8>, SerializeError> {
+        let module_file = self.module_file.file();
+        module_file
+            .seek(io::SeekFrom::Start(0))
+            .map_err(|e| SerializeError::Generic(format!("cannot seek artifact file: {e}")))?;
+        let mut buf = Vec::new();
+        BufReader::new(module_file)
+            .read_to_end(&mut buf)
+            .map_err(|e| {
+                SerializeError::Generic(format!("Failed to serialize the Artifact: {e}"))
+            })?;
+        Ok(buf)
     }
 
     /// Serialize the artifact to a file by copying the underlying binary file.
     ///
-    /// The resulting file can later be loaded with [`Self::deserialize_from_file`].
-    pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
-        std::fs::copy(self.module_file.path(), path).map_err(|e| {
+    /// The resulting file can later be loaded with [`Self::load_from_file`].
+    pub fn serialize_to_file(&mut self, path: &Path) -> Result<(), SerializeError> {
+        let module_file = self.module_file.file();
+        module_file
+            .seek(io::SeekFrom::Start(0))
+            .map_err(|e| SerializeError::Generic(format!("cannot seek artifact file: {e}")))?;
+
+        let mut writer = File::create(path).map_err(|e| {
+            SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
+        })?;
+        io::copy(module_file, &mut writer).map_err(|e| {
             SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
         })?;
         Ok(())
     }
 
-    /// Deserialize a serialized artifact.
-    ///
-    /// # Safety
-    /// This function loads executable code into memory.
-    /// You must trust the loaded bytes to be valid for the chosen engine and
-    /// for the host CPU architecture.
-    /// In contrast to [`Self::deserialize_unchecked`] the artifact layout is
-    /// validated, which increases safety.
-    pub unsafe fn deserialize(
-        _engine: &Engine,
-        _bytes: OwnedBuffer,
-    ) -> Result<Self, DeserializeError> {
-        todo!();
-    }
-
-    /// Deserialize from the existing file.
-    pub fn deserialize_from_file(engine: &Engine, path: &Path) -> Result<Self, DeserializeError> {
-        let f = File::open(path).map_err(|e| DeserializeError::Generic(e.to_string()))?;
-        let reader = BufReader::new(f);
+    /// Load a compiled artifact from a file.
+    pub fn load_from_file(engine: &Engine, file: File) -> Result<Self, DeserializeError> {
+        let reader = BufReader::new(
+            file.try_clone()
+                .map_err(|e| DeserializeError::Generic(e.to_string()))?,
+        );
         let cache = ReadCache::new(reader);
         let image = object::File::parse(&cache)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
@@ -510,31 +517,16 @@ impl Artifact {
 
         let artifact = ArtifactBuild {
             serializable,
-            module_file: ModuleFile::OwnedFile(path.to_path_buf()),
+            module_file: ModuleFile::OwnedFile(file),
         };
         let mut inner_engine = engine.inner_mut();
         Self::from_parts(&mut inner_engine, artifact, engine.target())
     }
 
-    /// Deserialize a serialized artifact.
-    ///
-    /// NOTE: You should prefer [`Self::deserialize`].
-    ///
-    /// # Safety
-    /// See [`Self::deserialize`].
-    /// In contrast to the above, this function skips artifact layout validation,
-    /// which increases the risk of loading invalid artifacts.
-    pub unsafe fn deserialize_unchecked(
-        _engine: &Engine,
-        _bytes: OwnedBuffer,
-    ) -> Result<Self, DeserializeError> {
-        todo!()
-    }
-
     /// Construct a `ArtifactBuild` from component parts.
     fn from_parts(
         engine_inner: &mut EngineInner,
-        artifact: ArtifactBuild,
+        mut artifact: ArtifactBuild,
         target: &Target,
     ) -> Result<Self, DeserializeError> {
         if !target.is_native() {
@@ -561,7 +553,7 @@ impl Artifact {
         };
 
         let allocated_artifact =
-            AllocatedArtifact::from_binary(module_info, artifact.module_file.path(), signatures)
+            AllocatedArtifact::from_binary(module_info, artifact.module_file.file(), signatures)
                 // TODO
                 .unwrap();
         let ArtifactBuild {

@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use tracing::{debug, warn};
@@ -226,46 +224,21 @@ impl Module {
         ));
     }
 
-    #[tracing::instrument(level = "debug", skip_all)]
-    pub unsafe fn deserialize_unchecked(
-        _engine: &impl AsEngineRef,
-        _bytes: impl IntoBytes,
+    pub unsafe fn load_from_file(
+        engine: &impl AsEngineRef,
+        file: std::fs::File,
     ) -> Result<Self, DeserializeError> {
+        use std::io::Read;
+        let mut bytes = Vec::new();
+        let mut reader = std::io::BufReader::new(file);
+        reader
+            .read_to_end(&mut bytes)
+            .map_err(|e| DeserializeError::Generic(e.to_string()))?;
         #[cfg(feature = "js-serializable-module")]
-        return Self::from_binary(_engine, &_bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
+        return Self::from_binary(engine, &bytes).map_err(|e| DeserializeError::Compiler(e));
 
         #[cfg(not(feature = "js-serializable-module"))]
         return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
-    }
-
-    #[tracing::instrument(level = "debug", skip_all)]
-    pub unsafe fn deserialize(
-        _engine: &impl AsEngineRef,
-        _bytes: impl IntoBytes,
-    ) -> Result<Self, DeserializeError> {
-        #[cfg(feature = "js-serializable-module")]
-        return Self::from_binary(_engine, &_bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
-
-        #[cfg(not(feature = "js-serializable-module"))]
-        return Err(DeserializeError::Generic("You need to enable the `js-serializable-module` feature flag to deserialize a `Module`".to_string()));
-    }
-
-    pub unsafe fn deserialize_from_file_unchecked(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        let bytes = std::fs::read(path.as_ref())?;
-        unsafe { Self::deserialize(engine, bytes) }
-    }
-
-    pub unsafe fn deserialize_from_file(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        let bytes = std::fs::read(path.as_ref())?;
-        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {

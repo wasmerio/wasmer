@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use crate::{AsEngineRef, BackendModule, IntoBytes, Store, backend::v8::bindings::*};
+use crate::{AsEngineRef, BackendModule, Store, backend::v8::bindings::*};
 
 use bytes::Bytes;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
@@ -186,7 +186,6 @@ impl Module {
     ) -> Result<Self, CompileError> {
         tracing::info!("Creating module from binary unchecked");
         let mut binary = binary.to_vec();
-        let binary = binary.into_bytes();
         let module = ModuleHandle::new(engine, &binary)?;
         let info = crate::utils::polyfill::translate_module(&binary[..])
             .map_err(CompileError::Validate)?
@@ -249,14 +248,17 @@ impl Module {
             .map_err(|err| SerializeError::Generic(format!("{err}")))
     }
 
-    #[allow(clippy::arc_with_non_send_sync)]
-    pub unsafe fn deserialize_unchecked(
+    pub unsafe fn load_from_file(
         engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
+        file: std::fs::File,
     ) -> Result<Self, DeserializeError> {
-        tracing::info!("Creating module from deserialize_unchecked");
-        let binary = bytes.into_bytes();
-        let info = rkyv::access::<ArchivedV8ModuleInfo, rkyv::rancor::Error>(&binary)
+        use std::io::Read;
+        let mut bytes = Vec::new();
+        let mut reader = std::io::BufReader::new(file);
+        reader
+            .read_to_end(&mut bytes)
+            .map_err(|e| DeserializeError::Generic(e.to_string()))?;
+        let info = rkyv::access::<ArchivedV8ModuleInfo, rkyv::rancor::Error>(&bytes)
             .and_then(rkyv::deserialize::<V8ModuleInfo, rkyv::rancor::Error>)
             .map_err(|err| DeserializeError::CorruptedBinary(format!("{err:?}")))?;
         let module = ModuleHandle::deserialize(engine, &info.v8_module_bytes)?;
@@ -265,29 +267,6 @@ impl Module {
             handle: Arc::new(module),
             info,
         })
-    }
-
-    pub unsafe fn deserialize(
-        engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
-    ) -> Result<Self, DeserializeError> {
-        unsafe { Self::deserialize_unchecked(engine, bytes) }
-    }
-
-    pub unsafe fn deserialize_from_file_unchecked(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        let bytes = std::fs::read(path.as_ref())?;
-        unsafe { Self::deserialize_unchecked(engine, bytes) }
-    }
-
-    pub unsafe fn deserialize_from_file(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        let bytes = std::fs::read(path.as_ref())?;
-        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {

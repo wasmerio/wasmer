@@ -15,7 +15,7 @@ use wasmer_types::{
     ExportsIterator, ImportType, ImportsIterator, ModuleInfo, SerializeError, UserAbort,
 };
 
-use crate::{AsEngineRef, macros::backend::match_rt, utils::IntoBytes};
+use crate::{AsEngineRef, macros::backend::match_rt};
 
 /// IO errors that can happen while compiling a [`Module`].
 #[derive(Error, Debug)]
@@ -157,7 +157,7 @@ impl Module {
     }
 
     /// Serializes a module into a binary representation that the `Engine`
-    /// can later process via [`Module::deserialize`].
+    /// can later process via [`Module::load_from_file`].
     ///
     /// # Important
     ///
@@ -180,7 +180,7 @@ impl Module {
     }
 
     /// Serializes a module into a file that the `Engine`
-    /// can later process via [`Module::deserialize_from_file`].
+    /// can later process via [`Module::load_from_file`].
     ///
     /// # Usage
     ///
@@ -199,124 +199,33 @@ impl Module {
         Ok(())
     }
 
-    /// Deserializes a serialized module binary into a `Module`.
-    ///
-    /// Note: You should usually prefer the safer [`Module::deserialize`].
-    ///
-    /// # Important
-    ///
-    /// This function only accepts a custom binary format, which will be different
-    /// than the `wasm` binary format and may change among Wasmer versions.
-    /// (it should be the result of the serialization of a Module via the
-    /// `Module::serialize` method.).
-    ///
-    /// # Safety
-    ///
-    /// This function is inherently **unsafe** as the provided bytes:
-    /// 1. Are going to be deserialized directly into Rust objects.
-    /// 2. Contains the function assembly bodies and, if intercepted,
-    ///    a malicious actor could inject code into executable
-    ///    memory.
-    ///
-    /// And as such, the `deserialize_unchecked` method is unsafe.
+    /// Loads a compiled Module from a file on disk.
+    /// > Note: the module has to be serialized before with the `serialize` method.
     ///
     /// # Usage
     ///
     /// ```ignore
     /// # use wasmer::*;
+    /// # use std::fs::File;
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
-    /// let module = Module::deserialize_unchecked(&store, serialized_data)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub unsafe fn deserialize_unchecked(
-        engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
-    ) -> Result<Self, DeserializeError> {
-        unsafe { BackendModule::deserialize_unchecked(engine, bytes) }.map(Self)
-    }
-
-    /// Deserializes a serialized Module binary into a `Module`.
-    ///
-    /// # Important
-    ///
-    /// This function only accepts a custom binary format, which will be different
-    /// than the `wasm` binary format and may change among Wasmer versions.
-    /// (it should be the result of the serialization of a Module via the
-    /// `Module::serialize` method.).
-    ///
-    /// # Usage
-    ///
-    /// ```ignore
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let module = Module::deserialize(&store, serialized_data)?;
+    /// # let file = File::open("path/to/foo.wasmu")?;
+    /// let module = Module::load_from_file(&store, file)?;
     /// # Ok(())
     /// # }
     /// ```
     ///
     /// # Safety
-    /// This function is inherently **unsafe**, because it loads executable code
+    ///
+    /// This function is inherently **unsafe** because it loads executable code
     /// into memory.
-    /// The loaded bytes must be trusted to contain a valid artifact previously
+    /// The loaded file must be trusted to contain a valid artifact previously
     /// built with [`Self::serialize`].
-    pub unsafe fn deserialize(
+    pub unsafe fn load_from_file(
         engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
+        file: std::fs::File,
     ) -> Result<Self, DeserializeError> {
-        unsafe { BackendModule::deserialize_unchecked(engine, bytes) }.map(Self)
-    }
-
-    /// Deserializes a serialized Module located in a `Path` into a `Module`.
-    /// > Note: the module has to be serialized before with the `serialize` method.
-    ///
-    /// # Usage
-    ///
-    /// ```ignore
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let module = Module::deserialize_from_file(&store, path)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// # Safety
-    ///
-    /// See [`Self::deserialize`].
-    pub unsafe fn deserialize_from_file(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        unsafe { BackendModule::deserialize_from_file(engine, path) }.map(Self)
-    }
-
-    /// Deserializes a serialized Module located in a `Path` into a `Module`.
-    /// > Note: the module has to be serialized before with the `serialize` method.
-    ///
-    /// You should usually prefer the safer [`Module::deserialize_from_file`].
-    ///
-    /// # Safety
-    ///
-    /// Please check [`Module::deserialize_unchecked`].
-    ///
-    /// # Usage
-    ///
-    /// ```ignore
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let module = Module::deserialize_from_file_unchecked(&store, path)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub unsafe fn deserialize_from_file_unchecked(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        unsafe { BackendModule::deserialize_from_file_unchecked(engine, path) }.map(Self)
+        unsafe { BackendModule::load_from_file(engine, file) }.map(Self)
     }
 
     /// Returns the name of the current module.

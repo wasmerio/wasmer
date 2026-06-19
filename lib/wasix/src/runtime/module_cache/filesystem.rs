@@ -44,7 +44,7 @@ impl FileSystemCache {
 async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError> {
     let deserialized_file_path = path.clone();
     let deserialized = tokio::task::spawn_blocking(move || {
-        deserialize_from_file(deserialized_file_path.as_path(), &engine)
+        load_from_file(deserialized_file_path.as_path(), &engine)
     })
     .await
     .unwrap();
@@ -176,7 +176,7 @@ impl ModuleCache for FileSystemCache {
     }
 }
 
-fn deserialize_from_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> {
+fn load_from_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> {
     // We used to compress our compiled modules using LZW encoding in the past.
     // This was removed because it has a negative impact on startup times for
     // "wasmer run", so all new compiled modules should be saved directly to
@@ -192,7 +192,11 @@ fn deserialize_from_file(path: &Path, engine: &Engine) -> Result<Module, CacheEr
     // - ModuleCache::save(): 2.4s, 72MB binary
     // - ModuleCache::load(): 822ms
 
-    match unsafe { Module::deserialize_from_file(engine, path) } {
+    let file = std::fs::File::open(path).map_err(|e| CacheError::FileRead {
+        path: path.to_path_buf(),
+        error: e,
+    })?;
+    match unsafe { Module::load_from_file(engine, file) } {
         // The happy case
         Ok(m) => Ok(m),
         Err(wasmer::DeserializeError::Incompatible(e)) => {

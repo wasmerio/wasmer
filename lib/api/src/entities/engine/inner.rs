@@ -1,6 +1,5 @@
-use bytes::Bytes;
-use std::{path::Path, sync::Arc};
-use wasmer_types::{DeserializeError, Features, target::Target};
+use std::sync::Arc;
+use wasmer_types::DeserializeError;
 
 #[cfg(feature = "sys")]
 use wasmer_compiler::Artifact;
@@ -8,7 +7,7 @@ use wasmer_compiler::Artifact;
 use wasmer_compiler::CompilerConfig;
 
 use crate::{
-    BackendKind, IntoBytes, Store,
+    BackendKind, Store,
     macros::backend::{gen_rt_ty, match_rt},
 };
 
@@ -27,104 +26,22 @@ impl BackendEngine {
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Deserializes a WebAssembly module which was previously serialized with
-    /// `Module::serialize`,
-    ///
-    /// # Note
-    /// You should almost always prefer [`Self::deserialize`].
+    /// Load a serialized WebAssembly module from a file.
     ///
     /// # Errors
-    /// Not every implementer supports serializing and deserializing modules.
-    /// Currently, only the `sys` engines support it, and only when the target
-    /// architecture is not `wasm32`.
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize_unchecked`].
-    #[inline]
-    pub(crate) unsafe fn deserialize_unchecked(
-        &self,
-        bytes: impl IntoBytes,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => unsafe {
-                s.deserialize_unchecked(bytes.into_bytes().to_owned().into())
-            },
-            _ => Err(DeserializeError::Generic(
-                "The selected runtime does not support `deserialize_unchecked`".into(),
-            )),
-        }
-    }
-
-    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Deserializes a WebAssembly module which was previously serialized with
-    /// `Module::serialize`,
-    ///
-    /// # Errors
-    /// Not every implementer supports serializing and deserializing modules.
+    /// Not every implementer supports loading modules from a file.
     /// Currently, only the `sys` engines support it, and only when the target
     /// architecture is not `wasm32`.
     #[inline]
-    pub(crate) unsafe fn deserialize(
+    pub(crate) fn load_from_file(
         &self,
-        bytes: impl IntoBytes,
+        file: std::fs::File,
     ) -> Result<Arc<Artifact>, DeserializeError> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => unsafe { s.deserialize(bytes.into_bytes().to_owned().into()) },
+            Self::Sys(s) => s.load_from_file(file),
             _ => Err(DeserializeError::Generic(
-                "The selected runtime does not support `deserialize`".into(),
-            )),
-        }
-    }
-
-    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Load a serialized WebAssembly module from a file and deserialize it.
-    ///
-    /// # Note
-    /// You should almost always prefer [`Self::deserialize_from_file`].
-    ///
-    /// # Errors
-    /// Not every implementer supports serializing and deserializing modules.
-    /// Currently, only the `sys` engines support it, and only when the target
-    /// architecture is not `wasm32`.
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize_unchecked`].
-    #[inline]
-    pub(crate) unsafe fn deserialize_from_file_unchecked(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => unsafe { s.deserialize_from_file_unchecked(file_ref) },
-            _ => Err(DeserializeError::Generic(
-                "The selected runtime does not support `deserialize_from_file_unchecked`".into(),
-            )),
-        }
-    }
-
-    #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
-    /// Load a serialized WebAssembly module from a file and deserialize it.
-    ///
-    /// # Errors
-    /// Not every implementer supports serializing and deserializing modules.
-    /// Currently, only the `sys` engines support it, and only when the target
-    /// architecture is not `wasm32`.
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize`].
-    #[inline]
-    pub(crate) unsafe fn deserialize_from_file(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(s) => unsafe { s.deserialize_from_file(file_ref) },
-            _ => Err(DeserializeError::Generic(
-                "The selected runtime does not support `deserialize_from_file`".into(),
+                "The selected runtime does not support `load_from_file`".into(),
             )),
         }
     }

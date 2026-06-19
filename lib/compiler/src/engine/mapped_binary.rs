@@ -1,7 +1,6 @@
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::BufReader;
 use std::os::fd::AsRawFd;
-use std::path::Path;
 use std::slice;
 use std::{ffi::c_void, ptr};
 
@@ -75,9 +74,9 @@ unsafe impl Send for MemoryMappedBinary {}
 unsafe impl Sync for MemoryMappedBinary {}
 
 impl MemoryMappedBinary {
-    pub(crate) fn try_from_path<'a>(
-        object_path: &Path,
-        object_file: &object::File<'a, &'a ReadCache<BufReader<File>>>,
+    pub(crate) fn try_from_file<'a>(
+        object_file_fd: i32,
+        object_file: &object::File<'a, &'a ReadCache<BufReader<&mut File>>>,
     ) -> Result<Self, String> {
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
 
@@ -106,12 +105,6 @@ impl MemoryMappedBinary {
         let map = Self::new_mmap(total_memory_size)?;
         let base = map.base();
 
-        let mmap_file = OpenOptions::new()
-            .read(true)
-            .open(object_path)
-            .map_err(|e| format!("cannot open image file for mmap: {e}"))?;
-        let fd = mmap_file.as_raw_fd();
-
         // Mmap individual load segments
         for load_segment in segments {
             // The virtual offset does not need to start at a page boundary.
@@ -129,7 +122,7 @@ impl MemoryMappedBinary {
                 load_segment.file_size_page_aligned(),
                 protection,
                 libc::MAP_PRIVATE | libc::MAP_FIXED,
-                fd,
+                object_file_fd,
                 load_segment.file_address_page_aligned(),
             )
             .map_err(|error| {

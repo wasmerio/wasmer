@@ -13,7 +13,7 @@ use wasmer_vm::interrupt_registry;
 use wasmer_vm::{Trap, TrapCode};
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendModule, IntoBytes, StoreContext,
+    AsStoreMut, AsStoreRef, BackendModule, StoreContext,
     backend::sys::entities::engine::NativeEngineExt, engine::AsEngineRef,
     error::InstantiationError, vm::VMInstance,
 };
@@ -105,63 +105,16 @@ impl Module {
         self.artifact.serialize_to_file(path.as_ref())
     }
 
-    #[tracing::instrument(level = "debug", skip_all)]
-    pub(crate) unsafe fn deserialize_unchecked(
+    pub(crate) unsafe fn load_from_file(
         engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
-    ) -> Result<Self, DeserializeError> {
-        let bytes = bytes.into_bytes();
-
-        let artifact = unsafe {
-            engine
-                .as_engine_ref()
-                .engine()
-                .as_sys()
-                .deserialize_unchecked(bytes.into())?
-        };
-        Ok(Self::from_artifact(artifact))
-    }
-
-    #[tracing::instrument(level = "debug", skip_all)]
-    pub(crate) unsafe fn deserialize(
-        engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
-    ) -> Result<Self, DeserializeError> {
-        let bytes = bytes.into_bytes();
-        let artifact = unsafe {
-            engine
-                .as_engine_ref()
-                .engine()
-                .as_sys()
-                .deserialize(bytes.into())?
-        };
-        Ok(Self::from_artifact(artifact))
-    }
-
-    pub(crate) unsafe fn deserialize_from_file_unchecked(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
+        file: std::fs::File,
     ) -> Result<Self, DeserializeError> {
         let artifact = unsafe {
             engine
                 .as_engine_ref()
                 .engine()
                 .as_sys()
-                .deserialize_from_file_unchecked(path.as_ref())?
-        };
-        Ok(Self::from_artifact(artifact))
-    }
-
-    pub(crate) unsafe fn deserialize_from_file(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        let artifact = unsafe {
-            engine
-                .as_engine_ref()
-                .engine()
-                .as_sys()
-                .deserialize_from_file(path.as_ref())?
+                .load_from_file(file)?
         };
         Ok(Self::from_artifact(artifact))
     }

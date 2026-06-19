@@ -15,7 +15,6 @@ use wasmer_types::{
 use crate::{
     AsEngineRef,
     macros::backend::{gen_rt_ty, match_rt},
-    utils::IntoBytes,
 };
 
 /// A WebAssembly Module contains stateless WebAssembly
@@ -207,7 +206,7 @@ impl BackendModule {
     }
 
     /// Serializes a module into a file that the `Engine`
-    /// can later process via [`Self::deserialize_from_file`].
+    /// can later process via [`Self::load_from_file`].
     ///
     /// # Usage
     ///
@@ -227,156 +226,40 @@ impl BackendModule {
         })
     }
 
-    /// Deserializes a serialized module binary into a `Module`.
-    ///
-    /// Note: You should usually prefer the safer [`Self::deserialize`].
-    ///
-    /// # Important
-    ///
-    /// This function only accepts a custom binary format, which will be different
-    /// than the `wasm` binary format and may change among Wasmer versions.
-    /// (it should be the result of the serialization of a Module via the
-    /// `Module::serialize` method.).
-    ///
-    /// # Safety
-    ///
-    /// This function is inherently **unsafe** as the provided bytes:
-    /// 1. Are going to be deserialized directly into Rust objects.
-    /// 2. Contains the function assembly bodies and, if intercepted,
-    ///    a malicious actor could inject code into executable
-    ///    memory.
-    ///
-    /// And as such, the `deserialize_unchecked` method is unsafe.
+    /// Loads a compiled Module from a file on disk.
+    /// > Note: the module has to be serialized before with the `serialize` method.
     ///
     /// # Usage
     ///
     /// ```ignore
     /// # use wasmer::*;
+    /// # use std::fs::File;
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
-    /// let module = Module::deserialize_unchecked(&store, serialized_data)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub unsafe fn deserialize_unchecked(
-        engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
-    ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.be {
-            #[cfg(feature = "sys")]
-            crate::BackendEngine::Sys(_) => {
-                let module = unsafe {
-                    crate::backend::sys::entities::module::Module::deserialize_unchecked(
-                        engine, bytes,
-                    )?
-                };
-                Ok(Self::Sys(module))
-            }
-            #[cfg(feature = "v8")]
-            crate::BackendEngine::V8(_) => {
-                let module = unsafe {
-                    crate::backend::v8::entities::module::Module::deserialize_unchecked(
-                        engine, bytes,
-                    )?
-                };
-                Ok(Self::V8(module))
-            }
-            #[cfg(feature = "js")]
-            crate::BackendEngine::Js(_) => {
-                let module = unsafe {
-                    crate::backend::js::entities::module::Module::deserialize_unchecked(
-                        engine, bytes,
-                    )?
-                };
-                Ok(Self::Js(module))
-            }
-        }
-    }
-
-    /// Deserializes a serialized Module binary into a `Module`.
-    ///
-    /// # Important
-    ///
-    /// This function only accepts a custom binary format, which will be different
-    /// than the `wasm` binary format and may change among Wasmer versions.
-    /// (it should be the result of the serialization of a Module via the
-    /// [`Self::serialize`] method.).
-    ///
-    /// # Usage
-    ///
-    /// ```ignore
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let module = Module::deserialize(&store, serialized_data)?;
+    /// # let file = File::open("path/to/foo.wasmu")?;
+    /// let module = Module::load_from_file(&store, file)?;
     /// # Ok(())
     /// # }
     /// ```
     ///
     /// # Safety
-    /// This function is inherently **unsafe**, because it loads executable code
+    ///
+    /// This function is inherently **unsafe** because it loads executable code
     /// into memory.
-    /// The loaded bytes must be trusted to contain a valid artifact previously
+    /// The loaded file must be trusted to contain a valid artifact previously
     /// built with [`Self::serialize`].
     #[inline]
-    pub unsafe fn deserialize(
+    pub unsafe fn load_from_file(
         engine: &impl AsEngineRef,
-        bytes: impl IntoBytes,
+        file: std::fs::File,
     ) -> Result<Self, DeserializeError> {
+        let mut file = Some(file);
         match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
             crate::BackendEngine::Sys(_) => {
                 let module = unsafe {
-                    crate::backend::sys::entities::module::Module::deserialize(engine, bytes)?
-                };
-                Ok(Self::Sys(module))
-            }
-            #[cfg(feature = "v8")]
-            crate::BackendEngine::V8(_) => {
-                let module = unsafe {
-                    crate::backend::v8::entities::module::Module::deserialize(engine, bytes)?
-                };
-                Ok(Self::V8(module))
-            }
-            #[cfg(feature = "js")]
-            crate::BackendEngine::Js(_) => {
-                let module = unsafe {
-                    crate::backend::js::entities::module::Module::deserialize(engine, bytes)?
-                };
-                Ok(Self::Js(module))
-            }
-        }
-    }
-
-    /// Deserializes a serialized Module located in a `Path` into a `Module`.
-    /// > Note: the module has to be serialized before with the `serialize` method.
-    ///
-    /// # Usage
-    ///
-    /// ```ignore
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let module = Module::deserialize_from_file(&store, path)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// # Safety
-    ///
-    /// See [`Self::deserialize`].
-    #[inline]
-    pub unsafe fn deserialize_from_file(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.be {
-            #[cfg(feature = "sys")]
-            crate::BackendEngine::Sys(_) => {
-                let module = unsafe {
-                    crate::backend::sys::entities::module::Module::deserialize_from_file(
-                        engine, path,
+                    crate::backend::sys::entities::module::Module::load_from_file(
+                        engine, file.take().unwrap(),
                     )?
                 };
                 Ok(Self::Sys(module))
@@ -384,8 +267,8 @@ impl BackendModule {
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => {
                 let module = unsafe {
-                    crate::backend::v8::entities::module::Module::deserialize_from_file(
-                        engine, path,
+                    crate::backend::v8::entities::module::Module::load_from_file(
+                        engine, file.take().unwrap(),
                     )?
                 };
                 Ok(Self::V8(module))
@@ -393,63 +276,8 @@ impl BackendModule {
             #[cfg(feature = "js")]
             crate::BackendEngine::Js(_) => {
                 let module = unsafe {
-                    crate::backend::js::entities::module::Module::deserialize_from_file(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Js(module))
-            }
-        }
-    }
-
-    /// Deserializes a serialized Module located in a `Path` into a `Module`.
-    /// > Note: the module has to be serialized before with the `serialize` method.
-    ///
-    /// You should usually prefer the safer [`Self::deserialize_from_file`].
-    ///
-    /// # Safety
-    ///
-    /// Please check [`Self::deserialize_unchecked`].
-    ///
-    /// # Usage
-    ///
-    /// ```ignore
-    /// # use wasmer::*;
-    /// # fn main() -> anyhow::Result<()> {
-    /// # let mut store = Store::default();
-    /// let module = Module::deserialize_from_file_unchecked(&store, path)?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    #[inline]
-    pub unsafe fn deserialize_from_file_unchecked(
-        engine: &impl AsEngineRef,
-        path: impl AsRef<Path>,
-    ) -> Result<Self, DeserializeError> {
-        match engine.as_engine_ref().inner.be {
-            #[cfg(feature = "sys")]
-            crate::BackendEngine::Sys(_) => {
-                let module = unsafe {
-                    crate::backend::sys::entities::module::Module::deserialize_from_file_unchecked(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::Sys(module))
-            }
-            #[cfg(feature = "v8")]
-            crate::BackendEngine::V8(_) => {
-                let module = unsafe {
-                    crate::backend::v8::entities::module::Module::deserialize_from_file_unchecked(
-                        engine, path,
-                    )?
-                };
-                Ok(Self::V8(module))
-            }
-            #[cfg(feature = "js")]
-            crate::BackendEngine::Js(_) => {
-                let module = unsafe {
-                    crate::backend::js::entities::module::Module::deserialize_from_file_unchecked(
-                        engine, path,
+                    crate::backend::js::entities::module::Module::load_from_file(
+                        engine, file.take().unwrap(),
                     )?
                 };
                 Ok(Self::Js(module))

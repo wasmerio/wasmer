@@ -1,4 +1,4 @@
-use std::{fs, path::PathBuf};
+use std::{env, fs, path::PathBuf};
 
 use anyhow::Result;
 
@@ -9,6 +9,8 @@ const ARTIFACT_FILES: [&str; 3] = ["bash.wasm", "cowsay.wasm", "python-3.11.3.wa
 
 #[compiler_test(artifact)]
 fn artifact_serialization_roundtrip(config: crate::Config) -> Result<()> {
+    let tmpdir = env::temp_dir().join("wasmer_test_artifacts");
+    fs::create_dir_all(&tmpdir)?;
     for file_name in ARTIFACT_FILES {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("wasmer-test-files/integration/wasm")
@@ -16,10 +18,12 @@ fn artifact_serialization_roundtrip(config: crate::Config) -> Result<()> {
         let wasm_module = fs::read(path).unwrap();
         let store = config.store();
         let module = Module::new(&store, wasm_module).unwrap();
-        let serialized_bytes = module.serialize().unwrap();
-        let deserialized_module =
-            unsafe { Module::deserialize(&store, serialized_bytes.clone()) }.unwrap();
+        let artifact_path = tmpdir.join(format!("{file_name}.wasmu"));
+        module.serialize_to_file(&artifact_path)?;
+        let artifact_file = std::fs::File::open(&artifact_path)?;
+        let deserialized_module = unsafe { Module::load_from_file(&store, artifact_file) }.unwrap();
         let reserialized_bytes = deserialized_module.serialize().unwrap();
+        let serialized_bytes = fs::read(&artifact_path)?;
         // Do not use `assert_eq!`; it produces excessively long console output.
         assert!(serialized_bytes == reserialized_bytes);
     }
@@ -71,10 +75,11 @@ fn artifact_deserialization_roundtrip() {
         let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("wasmer-test-files/compilers/linux")
             .join(format!("{file_name}u"));
-        let wasm_module_bytes = fs::read(path).unwrap();
         let engine = wasmer::Engine::default();
-        let module = unsafe { Module::deserialize(&engine, wasm_module_bytes.clone()) }.unwrap();
+        let file = std::fs::File::open(&path).unwrap();
+        let module = unsafe { Module::load_from_file(&engine, file) }.unwrap();
         let reserialized_bytes = module.serialize().unwrap();
+        let wasm_module_bytes = fs::read(&path).unwrap();
         // Do not use `assert_eq!`; it produces excessively long console output.
         assert!(wasm_module_bytes.to_vec() == reserialized_bytes);
     }

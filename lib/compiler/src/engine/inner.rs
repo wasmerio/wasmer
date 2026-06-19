@@ -8,12 +8,8 @@ use crate::{Compiler, CompilerConfig};
 use wasmer_types::{CompilationProgressCallback, Features};
 use wasmer_types::{CompileError, target::Target};
 
-#[cfg(not(target_arch = "wasm32"))]
-use shared_buffer::OwnedBuffer;
 #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
 use std::io::Write;
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
 #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
 use wasmer_types::ModuleInfo;
 #[cfg(not(target_arch = "wasm32"))]
@@ -225,63 +221,10 @@ impl Engine {
         ))
     }
 
+    /// Load a compiled WebAssembly artifact from a file.
     #[cfg(not(target_arch = "wasm32"))]
-    /// Deserializes a WebAssembly module which was previously serialized with
-    /// [`wasmer::Module::serialize`].
-    ///
-    /// # Safety
-    ///
-    /// See [`Artifact::deserialize_unchecked`].
-    pub unsafe fn deserialize_unchecked(
-        &self,
-        bytes: OwnedBuffer,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        unsafe { Ok(Arc::new(Artifact::deserialize_unchecked(self, bytes)?)) }
-    }
-
-    /// Deserializes a WebAssembly module which was previously serialized with
-    /// [`wasmer::Module::serialize`].
-    ///
-    /// # Safety
-    ///
-    /// See [`Artifact::deserialize`].
-    #[cfg(not(target_arch = "wasm32"))]
-    pub unsafe fn deserialize(
-        &self,
-        bytes: OwnedBuffer,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        unsafe { Ok(Arc::new(Artifact::deserialize(self, bytes)?)) }
-    }
-
-    /// Deserializes a WebAssembly module from a path.
-    ///
-    /// # Safety
-    /// See [`Artifact::deserialize`].
-    #[cfg(not(target_arch = "wasm32"))]
-    pub unsafe fn deserialize_from_file(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        unsafe { Ok(Arc::new(Artifact::deserialize_from_file(self, file_ref)?)) }
-    }
-
-    /// Deserialize from a file path.
-    ///
-    /// # Safety
-    ///
-    /// See [`Artifact::deserialize_unchecked`].
-    #[cfg(not(target_arch = "wasm32"))]
-    pub unsafe fn deserialize_from_file_unchecked(
-        &self,
-        file_ref: &Path,
-    ) -> Result<Arc<Artifact>, DeserializeError> {
-        unsafe {
-            let file = std::fs::File::open(file_ref)?;
-            self.deserialize_unchecked(
-                OwnedBuffer::from_file(&file)
-                    .map_err(|e| DeserializeError::Generic(e.to_string()))?,
-            )
-        }
+    pub fn load_from_file(&self, file: std::fs::File) -> Result<Arc<Artifact>, DeserializeError> {
+        Ok(Arc::new(Artifact::load_from_file(self, file)?))
     }
 
     /// A unique identifier for this object.
