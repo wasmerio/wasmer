@@ -15,6 +15,15 @@
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/main/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
+#[cfg(feature = "enable-serde")]
+const _: () = {
+    #[deprecated(
+        note = "The `enable-serde` feature is deprecated and will be removed in the next major release of Wasmer."
+    )]
+    fn __enable_serde_deprecated() {}
+    let _ = __enable_serde_deprecated;
+};
+
 #[cfg(all(
     not(feature = "sys"),
     not(feature = "js"),

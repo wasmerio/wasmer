@@ -102,6 +102,7 @@ enable-serde = [
   "wasmer/enable-serde",
   "wasmer-vm/enable-serde",
   "wasmer-compiler/enable-serde",
+  "wasmer-wasix/enable-serde",
 ]
 
 tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]

@@ -1,5 +1,14 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(feature = "enable-serde")]
+const _: () = {
+    #[deprecated(
+        note = "The `enable-serde` feature is deprecated and will be removed in the next major release of Wasmer."
+    )]
+    fn __enable_serde_deprecated() {}
+    let _ = __enable_serde_deprecated;
+};
+
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
