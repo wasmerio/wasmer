@@ -1,9 +1,47 @@
 use comfy_table::Table;
 use wasmer_backend_api::types::{
     DeployApp, DeployAppVersion, Deployment, DnsDomain, DnsDomainWithRecords, Namespace,
+    SearchPackageVersion,
 };
 
 use crate::utils::render::CliRender;
+
+/// Render the full name (`namespace/name`) of a package version's package.
+fn package_full_name(pv: &SearchPackageVersion) -> String {
+    match &pv.package.namespace {
+        Some(ns) => format!("{ns}/{}", pv.package.package_name),
+        None => pv.package.package_name.clone(),
+    }
+}
+
+impl CliRender for SearchPackageVersion {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Package".to_string(), package_full_name(self)],
+            vec!["Version".to_string(), self.version.clone()],
+            vec!["Created".to_string(), self.created_at.0.clone()],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.set_header(vec![
+            "Package".to_string(),
+            "Version".to_string(),
+            "Created".to_string(),
+        ]);
+        table.add_rows(items.iter().map(|pv| {
+            vec![
+                package_full_name(pv),
+                pv.version.clone(),
+                pv.created_at.0.clone(),
+            ]
+        }));
+        table.to_string()
+    }
+}
 
 impl CliRender for DnsDomain {
     fn render_item_table(&self) -> String {
