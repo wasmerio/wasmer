@@ -694,12 +694,6 @@ impl Artifact {
             .signatures
     }
 
-    /// Do preinstantiation logic that is executed before instantiating
-    #[allow(clippy::result_large_err)]
-    pub fn preinstantiate(&self) -> Result<(), InstantiationError> {
-        Ok(())
-    }
-
     /// Crate an `Instance` from this `Artifact`.
     ///
     /// # Safety
@@ -724,8 +718,6 @@ impl Artifact {
                         .difference(host_cpu_features)
                 )));
             }
-
-            self.preinstantiate()?;
 
             let module = self.serializable.compile_info.module.as_ref();
 
