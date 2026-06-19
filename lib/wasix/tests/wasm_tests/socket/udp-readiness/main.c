@@ -1,3 +1,4 @@
+//#MinimalLibc: v2026-06-18.1
 //#ExpectedStdout: received datagram length: 0
 
 #include <arpa/inet.h>
