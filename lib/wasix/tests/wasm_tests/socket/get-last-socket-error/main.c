@@ -16,7 +16,14 @@ int main(void) {
   addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
   addr.sin_port = htons(9); /* normally closed discard port */
 
-  connect(fd, (struct sockaddr*)&addr, sizeof(addr));
+  errno = 0;
+  int connect_res = connect(fd, (struct sockaddr*)&addr, sizeof(addr));
+  if (connect_res == 0 ||
+      (errno != EINPROGRESS && errno != EWOULDBLOCK && errno != ENOTCONN)) {
+    fprintf(stderr, "connect did not enter async failure path: %s\n",
+            strerror(errno));
+    return 1;
+  }
 
   struct pollfd pfd = {.fd = fd, .events = POLLOUT};
   poll(&pfd, 1, 1000);
