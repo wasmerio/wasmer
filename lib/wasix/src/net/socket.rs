@@ -907,7 +907,7 @@ impl InodeSocket {
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .addr_peer()
                 .map_err(net_error_into_wasi_err)?
-                .map_or(Err(Errno::Notconn), Ok),
+                .ok_or(Errno::Notconn),
             InodeSocketKind::RemoteSocket { peer_addr, .. } => Ok(*peer_addr),
             _ => Err(Errno::Notsup),
         }
