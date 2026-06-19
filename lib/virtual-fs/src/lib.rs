@@ -344,7 +344,6 @@ impl<'a> OpenOptions<'a> {
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
-//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 pub trait VirtualFile:
     fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
