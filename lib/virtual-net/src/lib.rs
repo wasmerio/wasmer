@@ -953,7 +953,6 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::Interrupted => ErrorKind::Interrupted.into(),
         NetworkError::InvalidData => ErrorKind::InvalidData.into(),
         NetworkError::InvalidInput => ErrorKind::InvalidInput.into(),
-        NetworkError::MessageSize => ErrorKind::InvalidInput.into(),
         NetworkError::NotConnected => ErrorKind::NotConnected.into(),
         NetworkError::NoDevice => ErrorKind::BrokenPipe.into(),
         NetworkError::PermissionDenied => ErrorKind::PermissionDenied.into(),
@@ -964,6 +963,16 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::Unsupported => ErrorKind::Unsupported.into(),
         NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
         NetworkError::InsufficientMemory => ErrorKind::OutOfMemory.into(),
+        NetworkError::MessageSize => {
+            #[cfg(all(target_family = "unix", feature = "libc"))]
+            {
+                std::io::Error::from_raw_os_error(libc::EMSGSIZE)
+            }
+            #[cfg(not(all(target_family = "unix", feature = "libc")))]
+            {
+                ErrorKind::Other.into()
+            }
+        }
         NetworkError::TooManyOpenFiles => {
             #[cfg(all(target_family = "unix", feature = "libc"))]
             {
