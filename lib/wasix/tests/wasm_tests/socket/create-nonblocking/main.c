@@ -1,5 +1,5 @@
 //#ExpectedStdout: nonblocking cloexec socket flags are visible through POSIX APIs
-//#MinimalLibc: v2026-06-03.1
+//#MinimalLibc: v2026-06-18.1
 
 #include <arpa/inet.h>
 #include <errno.h>
