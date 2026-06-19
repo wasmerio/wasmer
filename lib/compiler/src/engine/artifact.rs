@@ -48,6 +48,7 @@ use wasmer_vm::{
     VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline,
 };
 
+#[derive(Debug)]
 pub(crate) enum ModuleFile {
     TempFile(NamedTempFile),
     OwnedFile(File),

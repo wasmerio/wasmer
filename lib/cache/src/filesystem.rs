@@ -103,8 +103,8 @@ impl Cache for FileSystemCache {
             key.to_string()
         };
         let path = self.path.join(filename);
-        let file = std::fs::File::open(&path)
-            .map_err(|e| DeserializeError::Generic(e.to_string()))?;
+        let file =
+            std::fs::File::open(&path).map_err(|e| DeserializeError::Generic(e.to_string()))?;
         let ret = unsafe { Module::load_from_file(engine, file) };
         if ret.is_err() {
             // If an error occurs while deserializing then we can not trust it anymore

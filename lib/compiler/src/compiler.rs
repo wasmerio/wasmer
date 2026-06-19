@@ -418,7 +418,9 @@ fn emit_wasmer_meta_object(
     let function_offset_names = (0..compiled_objects.object_files.len())
         .map(|i| format!("f{i}"))
         .chain((0..compiled_objects.trampoline_object_files.len()).map(|i| format!("t{i}")))
-        .chain((0..compiled_objects.dynamic_trampoline_object_files.len()).map(|i| format!("dt{i}")));
+        .chain(
+            (0..compiled_objects.dynamic_trampoline_object_files.len()).map(|i| format!("dt{i}")),
+        );
     for function_name in function_offset_names {
         let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
         let symbol_id = obj.add_symbol(ObjSymbol {
@@ -483,13 +485,9 @@ pub fn emit_metadata_and_link(
     module_file: NamedTempFile,
     compiled_objects: &CompiledObjects<'_>,
 ) -> Result<NamedTempFile, CompileError> {
-    let meta_object_path = emit_wasmer_meta_object(
-        target,
-        compile_info_blob,
-        build_directory,
-        compiled_objects,
-    )
-    .map_err(CompileError::Codegen)?;
+    let meta_object_path =
+        emit_wasmer_meta_object(target, compile_info_blob, build_directory, compiled_objects)
+            .map_err(CompileError::Codegen)?;
 
     let mut link_args = vec![
         "ld".to_string(),
@@ -519,5 +517,10 @@ pub fn emit_metadata_and_link(
     libwild::run(wild_args)
         .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
 
-    Ok(module_file)
+    let path_buf = module_file.path().to_path_buf();
+    let (_, path) = module_file.into_parts();
+    let new_file = std::fs::File::open(&path_buf).map_err(|e| {
+        CompileError::Codegen(format!("cannot reopen final file after Wild linker: {e:?}"))
+    })?;
+    Ok(NamedTempFile::from_parts(new_file, path))
 }

@@ -259,7 +259,8 @@ impl BackendModule {
             crate::BackendEngine::Sys(_) => {
                 let module = unsafe {
                     crate::backend::sys::entities::module::Module::load_from_file(
-                        engine, file.take().unwrap(),
+                        engine,
+                        file.take().unwrap(),
                     )?
                 };
                 Ok(Self::Sys(module))
@@ -268,7 +269,8 @@ impl BackendModule {
             crate::BackendEngine::V8(_) => {
                 let module = unsafe {
                     crate::backend::v8::entities::module::Module::load_from_file(
-                        engine, file.take().unwrap(),
+                        engine,
+                        file.take().unwrap(),
                     )?
                 };
                 Ok(Self::V8(module))
@@ -277,7 +279,8 @@ impl BackendModule {
             crate::BackendEngine::Js(_) => {
                 let module = unsafe {
                     crate::backend::js::entities::module::Module::load_from_file(
-                        engine, file.take().unwrap(),
+                        engine,
+                        file.take().unwrap(),
                     )?
                 };
                 Ok(Self::Js(module))
