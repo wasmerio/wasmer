@@ -527,6 +527,7 @@ enum ConnectState {
     Unknown,
     Opened,
     Failed(NetworkError),
+    Reset,
 }
 
 #[derive(Debug)]
@@ -764,7 +765,9 @@ impl VirtualSocket for LocalTcpStream {
         let mut connect_state = self.connect_state.lock().unwrap();
         match *connect_state {
             ConnectState::Opened => return Ok(SocketStatus::Opened),
-            ConnectState::Failed(_) => return Ok(SocketStatus::Failed),
+            ConnectState::Failed(_) | ConnectState::Reset => {
+                return Ok(SocketStatus::Failed);
+            }
             ConnectState::Unknown => {}
         }
 
@@ -798,7 +801,7 @@ impl VirtualSocket for LocalTcpStream {
         let mut connect_state = self.connect_state.lock().unwrap();
         Ok(match *connect_state {
             ConnectState::Failed(err) => {
-                *connect_state = ConnectState::Unknown;
+                *connect_state = ConnectState::Reset;
                 Some(err)
             }
             _ => None,

@@ -1,4 +1,4 @@
-//#ExpectedStdout: SO_ERROR: Success
+//#ExpectedStdout: SO_ERROR: Connection refused, Success
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -24,13 +24,25 @@ int main(void) {
   int err = 0;
   socklen_t errlen = sizeof(err);
   int res = getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
-  close(fd);
 
-  if (!res) {
+  if (res) {
+    close(fd);
     fprintf(stderr, "Cannot get socket error\n");
     return 1;
   }
 
-  printf("SO_ERROR: %s\n", strerror(err));
+  int err2 = 0;
+  socklen_t errlen2 = sizeof(err);
+  res = getsockopt(fd, SOL_SOCKET, SO_ERROR, &err2, &errlen2);
+
+  if (res) {
+    close(fd);
+    fprintf(stderr, "Cannot get socket error (2)\n");
+    return 1;
+  }
+
+  close(fd);
+  printf("SO_ERROR: %s, %s\n", strerror(err), strerror(err2));
+
   return 0;
 }
