@@ -795,9 +795,12 @@ impl VirtualSocket for LocalTcpStream {
     }
 
     fn last_error(&self) -> Result<Option<NetworkError>> {
-        let connect_state = self.connect_state.lock().unwrap();
+        let mut connect_state = self.connect_state.lock().unwrap();
         Ok(match *connect_state {
-            ConnectState::Failed(err) => Some(err),
+            ConnectState::Failed(err) => {
+                *connect_state = ConnectState::Unknown;
+                Some(err)
+            }
             _ => None,
         })
     }

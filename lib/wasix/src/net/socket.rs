@@ -858,7 +858,7 @@ impl InodeSocket {
                 .last_error()
                 .map_err(net_error_into_wasi_err)
                 .map(|err| err.map(net_error_into_wasi_err).unwrap_or(Errno::Success)),
-            InodeSocketKind::RemoteSocket { is_dead, .. } if *is_dead => Ok(Errno::Pipe),
+            InodeSocketKind::RemoteSocket { is_dead, .. } if *is_dead => Ok(Errno::Connreset),
             _ => Ok(Errno::Success),
         }
     }
