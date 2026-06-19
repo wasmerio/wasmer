@@ -7365,6 +7365,7 @@ dependencies = [
  "regex",
  "reqwest",
  "serde",
+ "serde_json",
  "tar",
  "target-lexicon 0.13.5",
  "tempfile",
