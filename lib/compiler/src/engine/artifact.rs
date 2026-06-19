@@ -4,7 +4,7 @@
 use std::{
     ffi::c_void,
     fs::File,
-    io::{self, BufReader, Read, Seek},
+    io::{self, BufReader, Read, Seek, SeekFrom},
     os::fd::AsRawFd,
     path::Path,
     sync::{
@@ -58,6 +58,17 @@ impl ModuleFile {
         match self {
             Self::OwnedFile(file) => file,
             Self::TempFile(tempfile) => tempfile.as_file_mut(),
+        }
+    }
+
+    fn try_clone_reader(&self) -> Result<BufReader<File>, io::Error> {
+        match self {
+            Self::OwnedFile(file) => {
+                let mut clone = file.try_clone()?;
+                clone.seek(io::SeekFrom::Start(0))?;
+                Ok(BufReader::new(clone))
+            }
+            Self::TempFile(tempfile) => Ok(BufReader::new(File::open(tempfile.path())?)),
         }
     }
 }
@@ -457,40 +468,37 @@ impl Artifact {
     }
 
     /// Serialize the artifact.
-    pub fn serialize(&mut self) -> Result<Vec<u8>, SerializeError> {
-        let module_file = self.module_file.file();
-        module_file
-            .seek(io::SeekFrom::Start(0))
-            .map_err(|e| SerializeError::Generic(format!("cannot seek artifact file: {e}")))?;
+    pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        let mut reader = self.module_file.try_clone_reader().map_err(|e| {
+            SerializeError::Generic(format!("Failed to serialize the Artifact: {e}"))
+        })?;
         let mut buf = Vec::new();
-        BufReader::new(module_file)
-            .read_to_end(&mut buf)
-            .map_err(|e| {
-                SerializeError::Generic(format!("Failed to serialize the Artifact: {e}"))
-            })?;
+        reader.read_to_end(&mut buf).map_err(|e| {
+            SerializeError::Generic(format!("Failed to serialize the Artifact: {e}"))
+        })?;
         Ok(buf)
     }
 
     /// Serialize the artifact to a file by copying the underlying binary file.
     ///
     /// The resulting file can later be loaded with [`Self::load_from_file`].
-    pub fn serialize_to_file(&mut self, path: &Path) -> Result<(), SerializeError> {
-        let module_file = self.module_file.file();
-        module_file
-            .seek(io::SeekFrom::Start(0))
-            .map_err(|e| SerializeError::Generic(format!("cannot seek artifact file: {e}")))?;
-
+    pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
+        let mut reader = self.module_file.try_clone_reader().map_err(|e| {
+            SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
+        })?;
         let mut writer = File::create(path).map_err(|e| {
             SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
         })?;
-        io::copy(module_file, &mut writer).map_err(|e| {
+        io::copy(&mut reader, &mut writer).map_err(|e| {
             SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
         })?;
         Ok(())
     }
 
     /// Load a compiled artifact from a file.
-    pub fn load_from_file(engine: &Engine, file: File) -> Result<Self, DeserializeError> {
+    pub fn load_from_file(engine: &Engine, mut file: File) -> Result<Self, DeserializeError> {
+        file.seek(SeekFrom::Start(0))
+            .map_err(|e| DeserializeError::Generic(format!("cannot seek artifact format: {e}")))?;
         let reader = BufReader::new(
             file.try_clone()
                 .map_err(|e| DeserializeError::Generic(e.to_string()))?,
