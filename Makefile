@@ -438,7 +438,7 @@ build-wasmer-v8:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="v8" --bin wasmer --locked
 
 build-wasmer-api-js:
-	$(CARGO_BINARY) rustc --target wasm32-unknown-unknown --release --manifest-path lib/api/Cargo.toml --no-default-features --features "js, js-default, wasm-types-polyfill, enable-serde" --crate-type=cdylib --locked
+	$(CARGO_BINARY) rustc --target wasm32-unknown-unknown --release --manifest-path lib/api/Cargo.toml --no-default-features --features js,js-default,wasm-types-polyfill --crate-type=cdylib --locked
 
 build-wasmer-debug:
 	RUSTFLAGS="--cfg tokio_unstable" \
