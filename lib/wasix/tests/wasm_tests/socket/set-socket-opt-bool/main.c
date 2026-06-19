@@ -1,3 +1,4 @@
+//#MinimalLibc: v2026-06-18.1
 //#ExpectedStdout: boolean socket option used pointed-to value
 
 #include <errno.h>
