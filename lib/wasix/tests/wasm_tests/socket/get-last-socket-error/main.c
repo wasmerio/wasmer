@@ -16,7 +16,7 @@ int main(void) {
   addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
   addr.sin_port = htons(9); /* normally closed discard port */
 
-  connect(fd, (struct sockaddr *)&addr, sizeof(addr));
+  connect(fd, (struct sockaddr*)&addr, sizeof(addr));
 
   struct pollfd pfd = {.fd = fd, .events = POLLOUT};
   poll(&pfd, 1, 1000);
