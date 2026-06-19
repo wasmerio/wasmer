@@ -1102,6 +1102,8 @@ version = "0.132.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5c3cf7ba29fa56e56040848e34835d4e45988b2760ef212413409af95ffd8c1"
 dependencies = [
+ "serde",
+ "serde_derive",
  "wasmtime-internal-core",
 ]
 
@@ -1128,6 +1130,7 @@ dependencies = [
  "regalloc2",
  "rustc-hash",
  "serde",
+ "serde_derive",
  "smallvec",
  "target-lexicon 0.13.5",
  "wasmtime-internal-core",
@@ -1168,6 +1171,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a55309b47e6633ab05821304206cb1e92952e845b1224985562bb7ac1e92323"
 dependencies = [
  "cranelift-bitset",
+ "serde",
+ "serde_derive",
  "wasmtime-internal-core",
 ]
 
@@ -4461,6 +4466,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "log",
  "rustc-hash",
+ "serde",
  "smallvec",
 ]
 
@@ -5215,6 +5221,9 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "smawk"
@@ -6456,7 +6465,6 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-test",
- "typetag",
  "virtual-mio",
  "wasmer-package",
  "web-time",
@@ -7214,6 +7222,8 @@ dependencies = [
  "leb128",
  "more-asserts",
  "rayon",
+ "serde",
+ "serde_derive",
  "smallvec",
  "target-lexicon 0.13.5",
  "tracing",
@@ -7261,6 +7271,8 @@ dependencies = [
  "itertools 0.14.0",
  "more-asserts",
  "rayon",
+ "serde",
+ "serde_derive",
  "smallvec",
  "target-lexicon 0.13.5",
  "tempfile",
@@ -7640,7 +7652,6 @@ dependencies = [
  "tracing-subscriber",
  "tracing-test",
  "tracing-wasm",
- "typetag",
  "url",
  "urlencoding",
  "version-compare",

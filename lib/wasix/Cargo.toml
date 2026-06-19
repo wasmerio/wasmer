@@ -56,7 +56,6 @@ cfg-if.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 getrandom.workspace = true
-typetag = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 bincode.workspace = true
 chrono = { workspace = true, default-features = false, features = [
@@ -268,12 +267,8 @@ remote-vnet = ["virtual-net/remote"]
 
 logging = ["tracing/log"]
 disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
-enable-serde = [
-  "typetag",
-  "virtual-fs/enable-serde",
-  "wasmer-wasix-types/enable-serde",
-  "wasmer/enable-serde",
-]
+# Deprecated feature (a compile-time warning reported if used).
+enable-serde = ["wasmer-wasix-types/enable-serde", "wasmer/enable-serde"]
 
 [package.metadata.docs.rs]
 features = ["wasmer/sys", "wasmer/cranelift", "sys-default"]

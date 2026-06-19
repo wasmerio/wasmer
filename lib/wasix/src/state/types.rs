@@ -1,10 +1,6 @@
 // TODO: review allow..
 use cfg_if::cfg_if;
 
-/// types for use in the WASI filesystem
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
-
 cfg_if! {
     if #[cfg(feature = "host-fs")] {
         pub use virtual_fs::host_fs::{Stderr, Stdin, Stdout};
