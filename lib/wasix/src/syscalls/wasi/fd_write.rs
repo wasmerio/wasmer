@@ -274,7 +274,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             sent += socket
                                 .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
                                 .await?;
-                            return Ok(sent)
+                            return Ok(sent);
                         }
 
                         match &data {
