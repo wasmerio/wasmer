@@ -5,7 +5,7 @@
 //! own arguments, environment setup, expected exit status, and output/file checks.
 //!
 //! Directives use `//#Directive: Args` in C/C++/Rust sources and
-//! `##Directive: Args` in shell sources.
+//! `##Directive: Args` in shell sources and `Cargo.toml` comments.
 //!
 //! Supported directives:
 //!
@@ -299,19 +299,8 @@ fn parse_configs(default_config: &Config) -> Result<Vec<Config>> {
     let mut config = default_config.clone();
     let mut build_env = Vec::new();
 
-    let directive_prefix = match src_filename
-        .extension()
-        .expect("extension expected")
-        .to_str()
-        .expect("must be valid string")
-    {
-        "c" | "cpp" | "rs" => "//#",
-        "sh" => "##",
-        suffix => bail!("unexpected extension '{suffix}' of a primary source: {src_filename:?}"),
-    };
-
     for (i, line) in source.lines().enumerate() {
-        if let Some(rest) = line.trim().strip_prefix(directive_prefix) {
+        if let Some(rest) = default_config.source.parse_directive_line(line) {
             process_directive(
                 rest,
                 &mut build_env,
@@ -639,16 +628,80 @@ fn read_fixture_bytes(test_src_dir: &Path, arg: &str, directive: &str) -> Result
         .with_context(|| format!("failed to read {directive} {}", path.display()))
 }
 
-fn rustc_command(toolchain: Option<&str>) -> Command {
-    if let Some(toolchain) = toolchain {
-        // rustc +version multiplexing is unsupported on Windows, use the documented approach:
-        // https://rust-lang.github.io/rustup/concepts/toolchains.html#custom-toolchains
-        let mut cmd = Command::new("rustup");
-        cmd.arg("run").arg(toolchain).arg("rustc");
-        cmd
-    } else {
-        Command::new("rustc")
+fn parse_cargo_toml_directive_line(line: &str) -> Option<&str> {
+    let rest = line.trim().strip_prefix("##")?.trim();
+    rest.split_once(':').map(|_| rest)
+}
+
+const CARGO_WASIX_ARTIFACT_DIR: &str = "target/wasm32-wasmer-wasi/debug";
+
+fn cargo_wasix_build_command(build_dir: &Path) -> Command {
+    let mut cmd = Command::new("cargo");
+    cmd.arg("wasix")
+        .arg("build")
+        .current_dir(build_dir)
+        // Ensure deterministic output location regardless of the caller environment.
+        .env("CARGO_TARGET_DIR", build_dir.join("target"));
+    cmd
+}
+
+fn write_ephemeral_cargo_toml(build_dir: &Path, source_filename: &str) -> Result<()> {
+    let manifest = format!(
+        r#"[package]
+name = "main"
+version = "0.0.0"
+edition = "2024"
+
+[[bin]]
+name = "main"
+path = "{source_filename}"
+
+[workspace]
+"#
+    );
+    fs::write(build_dir.join("Cargo.toml"), manifest)
+        .with_context(|| format!("failed to write {}", build_dir.join("Cargo.toml").display()))
+}
+
+fn cargo_bin_name_from_manifest(manifest_path: &Path) -> Result<String> {
+    let contents = fs::read_to_string(manifest_path)
+        .with_context(|| format!("failed to read {}", manifest_path.display()))?;
+    let manifest: toml::Value = toml::from_str(&contents).context("failed to parse Cargo.toml")?;
+
+    if let Some(bins) = manifest.get("bin").and_then(|bins| bins.as_array()) {
+        ensure!(
+            bins.len() == 1,
+            "expected exactly one [[bin]] in {}",
+            manifest_path.display()
+        );
+        return Ok(bins[0]
+            .get("name")
+            .and_then(|name| name.as_str())
+            .context("[[bin]] is missing name")?
+            .to_owned());
     }
+
+    manifest
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(|name| name.as_str())
+        .context("missing package.name")
+        .map(str::to_owned)
+}
+
+fn copy_cargo_wasix_artifact(build_dir: &Path, bin_name: &str) -> Result<PathBuf> {
+    let wasm = build_dir
+        .join(CARGO_WASIX_ARTIFACT_DIR)
+        .join(format!("{bin_name}.wasm"));
+    let main_path = build_dir.join("main");
+    fs::copy(&wasm, &main_path).with_context(|| {
+        format!(
+            "failed to copy {} to {}",
+            wasm.display(),
+            main_path.display()
+        )
+    })?;
+    Ok(main_path)
 }
 
 fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
@@ -688,7 +741,9 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
                     std::env::var("CXX").unwrap_or_else(|_| "wasix++".to_string())
                 }
                 PrimarySource::BashScript(_) => unreachable!("handled above"),
-                PrimarySource::RustSourceFile(_) => unreachable!("handled below"),
+                PrimarySource::RustSourceFile(_) | PrimarySource::CargoProject => {
+                    unreachable!("handled below")
+                }
             };
             let mut cmd = Command::new(&compiler);
             cmd.arg(&primary_source)
@@ -699,17 +754,10 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
             cmd
         }
         PrimarySource::RustSourceFile(filename) => {
-            let primary_source = build_test_path.join(filename);
-            let source = std::fs::read_to_string(&primary_source)
-                .with_context(|| format!("Failed to read {}", primary_source.display()))?;
-            let mut cmd = rustc_command(source.contains("#![feature(").then_some("nightly"));
-            cmd.arg("--target=wasm32-wasip1")
-                .arg("-o")
-                .arg("main")
-                .arg(&primary_source)
-                .current_dir(&build_test_path);
-            cmd
+            write_ephemeral_cargo_toml(&build_test_path, filename)?;
+            cargo_wasix_build_command(&build_test_path)
         }
+        PrimarySource::CargoProject => cargo_wasix_build_command(&build_test_path),
     };
 
     for (k, v) in &config.build_env {
@@ -724,7 +772,18 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         anyhow::bail!("Build failed for {}", build_test_path.display());
     }
 
-    Ok(build_test_path.join("main"))
+    let main_path = match &config.source {
+        PrimarySource::RustSourceFile(_) => copy_cargo_wasix_artifact(&build_test_path, "main")?,
+        PrimarySource::CargoProject => {
+            let bin_name = cargo_bin_name_from_manifest(&build_test_path.join("Cargo.toml"))?;
+            copy_cargo_wasix_artifact(&build_test_path, &bin_name)?
+        }
+        PrimarySource::BashScript(_)
+        | PrimarySource::CSourceFile(_)
+        | PrimarySource::CppSourceFile(_) => build_test_path.join("main"),
+    };
+
+    Ok(main_path)
 }
 
 struct CopyHostTreeActions<CreateDirectory, CopyFile, CopyLink> {
@@ -1102,13 +1161,14 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     Ok(libtest_mimic::Completion::Completed)
 }
 
-const PRIMARY_SOURCE_FILES: &[&str] = &["main.c", "main.cpp", "build.sh"];
+const PRIMARY_SOURCE_FILES: &[&str] = &["main.c", "main.cpp", "build.sh", "Cargo.toml"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum PrimarySource {
     CSourceFile(String),
     CppSourceFile(String),
     RustSourceFile(String),
+    CargoProject,
     BashScript(String),
 }
 
@@ -1137,6 +1197,7 @@ impl PrimarySource {
                         .to_string()
                 }
             }
+            Self::CargoProject => "default".to_owned(),
         }
     }
 
@@ -1146,6 +1207,7 @@ impl PrimarySource {
             | Self::CppSourceFile(filename)
             | Self::RustSourceFile(filename) => filename.clone(),
             Self::BashScript(filename) => filename.clone(),
+            Self::CargoProject => "Cargo.toml".to_owned(),
         }
     }
 
@@ -1156,6 +1218,17 @@ impl PrimarySource {
             }
             Self::RustSourceFile(_) => false,
             Self::BashScript(filename) => filename == "build.sh",
+            Self::CargoProject => true,
+        }
+    }
+
+    fn parse_directive_line<'a>(&self, line: &'a str) -> Option<&'a str> {
+        match self {
+            Self::CargoProject => parse_cargo_toml_directive_line(line),
+            Self::BashScript(_) => line.trim().strip_prefix("##"),
+            Self::CSourceFile(_) | Self::CppSourceFile(_) | Self::RustSourceFile(_) => {
+                line.trim().strip_prefix("//#")
+            }
         }
     }
 }
@@ -1176,6 +1249,10 @@ fn identify_primary_sources(test_src_dir: &Path) -> Result<Vec<PrimarySource>> {
         .collect_vec();
     if !shell_sources.is_empty() {
         return Ok(shell_sources);
+    }
+
+    if test_src_dir.join("Cargo.toml").is_file() {
+        return Ok(vec![PrimarySource::CargoProject]);
     }
 
     for file in ["main.c", "main.cpp"] {
@@ -1212,7 +1289,7 @@ fn identify_primary_sources(test_src_dir: &Path) -> Result<Vec<PrimarySource>> {
     bail!(
         "{} must contain {}",
         test_src_dir.display(),
-        "main.c, main.cpp, build.sh, or *.rs"
+        "build.sh, Cargo.toml, main.c, main.cpp, or *.rs"
     );
 }
 
@@ -1294,7 +1371,10 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
                         // WASIXCC toolchain does not cover Windows yet.
                         if cfg!(target_os = "windows")
-                            && !matches!(config.source, PrimarySource::RustSourceFile(..))
+                            && !matches!(
+                                config.source,
+                                PrimarySource::RustSourceFile(..) | PrimarySource::CargoProject
+                            )
                         {
                             continue;
                         }
