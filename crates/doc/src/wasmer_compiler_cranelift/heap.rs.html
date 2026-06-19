@@ -3,14 +3,14 @@
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>cranelift_codegen::ir::{GlobalValue, Type};
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>wasmer_types::entity::entity_impl;
 <a href=#5 id=5 data-nosnippet>5</a>
-<a href=#6 id=6 data-nosnippet>6</a><span class="doccomment">/// An opaque reference to a [`HeapData`][crate::HeapData].
-<a href=#7 id=7 data-nosnippet>7</a>///
-<a href=#8 id=8 data-nosnippet>8</a>/// While the order is stable, it is arbitrary.
-<a href=#9 id=9 data-nosnippet>9</a></span><span class="attr">#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-<a href=#10 id=10 data-nosnippet>10</a>#[cfg_attr(
-<a href=#11 id=11 data-nosnippet>11</a>    feature = <span class="string">"enable-serde"</span>,
-<a href=#12 id=12 data-nosnippet>12</a>    derive(serde_derive::Serialize, serde_derive::Deserialize)
-<a href=#13 id=13 data-nosnippet>13</a>)]
+<a href=#6 id=6 data-nosnippet>6</a><span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
+<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">use </span>serde_derive::{Deserialize, Serialize};
+<a href=#8 id=8 data-nosnippet>8</a>
+<a href=#9 id=9 data-nosnippet>9</a><span class="doccomment">/// An opaque reference to a [`HeapData`][crate::HeapData].
+<a href=#10 id=10 data-nosnippet>10</a>///
+<a href=#11 id=11 data-nosnippet>11</a>/// While the order is stable, it is arbitrary.
+<a href=#12 id=12 data-nosnippet>12</a></span><span class="attr">#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+<a href=#13 id=13 data-nosnippet>13</a>#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
 <a href=#14 id=14 data-nosnippet>14</a></span><span class="kw">pub struct </span>Heap(u32);
 <a href=#15 id=15 data-nosnippet>15</a><span class="macro">entity_impl!</span>(Heap, <span class="string">"heap"</span>);
 <a href=#16 id=16 data-nosnippet>16</a>
@@ -62,56 +62,50 @@
 <a href=#62 id=62 data-nosnippet>62</a>/// when the heap is resized. The bound of a dynamic heap is stored in a global
 <a href=#63 id=63 data-nosnippet>63</a>/// value.
 <a href=#64 id=64 data-nosnippet>64</a></span><span class="attr">#[derive(Clone, PartialEq, Hash)]
-<a href=#65 id=65 data-nosnippet>65</a>#[cfg_attr(
-<a href=#66 id=66 data-nosnippet>66</a>    feature = <span class="string">"enable-serde"</span>,
-<a href=#67 id=67 data-nosnippet>67</a>    derive(serde_derive::Serialize, serde_derive::Deserialize)
-<a href=#68 id=68 data-nosnippet>68</a>)]
-<a href=#69 id=69 data-nosnippet>69</a></span><span class="kw">pub struct </span>HeapData {
-<a href=#70 id=70 data-nosnippet>70</a>    <span class="doccomment">/// The address of the start of the heap's storage.
-<a href=#71 id=71 data-nosnippet>71</a>    </span><span class="kw">pub </span>base: GlobalValue,
-<a href=#72 id=72 data-nosnippet>72</a>
-<a href=#73 id=73 data-nosnippet>73</a>    <span class="doccomment">/// Guaranteed minimum heap size in bytes. Heap accesses before `min_size`
-<a href=#74 id=74 data-nosnippet>74</a>    /// don't need bounds checking.
-<a href=#75 id=75 data-nosnippet>75</a>    </span><span class="kw">pub </span>min_size: u64,
-<a href=#76 id=76 data-nosnippet>76</a>
-<a href=#77 id=77 data-nosnippet>77</a>    <span class="doccomment">/// The maximum heap size in bytes.
-<a href=#78 id=78 data-nosnippet>78</a>    ///
-<a href=#79 id=79 data-nosnippet>79</a>    /// Heap accesses larger than this will always trap.
-<a href=#80 id=80 data-nosnippet>80</a>    </span><span class="kw">pub </span>max_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#65 id=65 data-nosnippet>65</a>#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+<a href=#66 id=66 data-nosnippet>66</a></span><span class="kw">pub struct </span>HeapData {
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="doccomment">/// The address of the start of the heap's storage.
+<a href=#68 id=68 data-nosnippet>68</a>    </span><span class="kw">pub </span>base: GlobalValue,
+<a href=#69 id=69 data-nosnippet>69</a>
+<a href=#70 id=70 data-nosnippet>70</a>    <span class="doccomment">/// Guaranteed minimum heap size in bytes. Heap accesses before `min_size`
+<a href=#71 id=71 data-nosnippet>71</a>    /// don't need bounds checking.
+<a href=#72 id=72 data-nosnippet>72</a>    </span><span class="kw">pub </span>min_size: u64,
+<a href=#73 id=73 data-nosnippet>73</a>
+<a href=#74 id=74 data-nosnippet>74</a>    <span class="doccomment">/// The maximum heap size in bytes.
+<a href=#75 id=75 data-nosnippet>75</a>    ///
+<a href=#76 id=76 data-nosnippet>76</a>    /// Heap accesses larger than this will always trap.
+<a href=#77 id=77 data-nosnippet>77</a>    </span><span class="kw">pub </span>max_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#78 id=78 data-nosnippet>78</a>
+<a href=#79 id=79 data-nosnippet>79</a>    <span class="doccomment">/// Size in bytes of the offset-guard pages following the heap.
+<a href=#80 id=80 data-nosnippet>80</a>    </span><span class="kw">pub </span>offset_guard_size: u64,
 <a href=#81 id=81 data-nosnippet>81</a>
-<a href=#82 id=82 data-nosnippet>82</a>    <span class="doccomment">/// Size in bytes of the offset-guard pages following the heap.
-<a href=#83 id=83 data-nosnippet>83</a>    </span><span class="kw">pub </span>offset_guard_size: u64,
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="doccomment">/// Heap style, with additional style-specific info.
+<a href=#83 id=83 data-nosnippet>83</a>    </span><span class="kw">pub </span>style: HeapStyle,
 <a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a>    <span class="doccomment">/// Heap style, with additional style-specific info.
-<a href=#86 id=86 data-nosnippet>86</a>    </span><span class="kw">pub </span>style: HeapStyle,
+<a href=#85 id=85 data-nosnippet>85</a>    <span class="doccomment">/// The index type for the heap.
+<a href=#86 id=86 data-nosnippet>86</a>    </span><span class="kw">pub </span>index_type: Type,
 <a href=#87 id=87 data-nosnippet>87</a>
-<a href=#88 id=88 data-nosnippet>88</a>    <span class="doccomment">/// The index type for the heap.
-<a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">pub </span>index_type: Type,
-<a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a>    <span class="doccomment">/// The log2 of this memory's page size.
-<a href=#92 id=92 data-nosnippet>92</a>    </span><span class="kw">pub </span>page_size_log2: u8,
-<a href=#93 id=93 data-nosnippet>93</a>}
-<a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a><span class="doccomment">/// Style of heap including style-specific information.
-<a href=#96 id=96 data-nosnippet>96</a></span><span class="attr">#[derive(Clone, PartialEq, Hash)]
-<a href=#97 id=97 data-nosnippet>97</a>#[cfg_attr(
-<a href=#98 id=98 data-nosnippet>98</a>    feature = <span class="string">"enable-serde"</span>,
-<a href=#99 id=99 data-nosnippet>99</a>    derive(serde_derive::Serialize, serde_derive::Deserialize)
-<a href=#100 id=100 data-nosnippet>100</a>)]
-<a href=#101 id=101 data-nosnippet>101</a></span><span class="kw">pub enum </span>HeapStyle {
-<a href=#102 id=102 data-nosnippet>102</a>    <span class="doccomment">/// A dynamic heap can be relocated to a different base address when it is
-<a href=#103 id=103 data-nosnippet>103</a>    /// grown.
-<a href=#104 id=104 data-nosnippet>104</a>    </span>Dynamic {
-<a href=#105 id=105 data-nosnippet>105</a>        <span class="doccomment">/// Global value providing the current bound of the heap in bytes.
-<a href=#106 id=106 data-nosnippet>106</a>        </span>bound_gv: GlobalValue,
-<a href=#107 id=107 data-nosnippet>107</a>    },
-<a href=#108 id=108 data-nosnippet>108</a>
-<a href=#109 id=109 data-nosnippet>109</a>    <span class="doccomment">/// A static heap has a fixed base address and a number of not-yet-allocated
-<a href=#110 id=110 data-nosnippet>110</a>    /// pages before the offset-guard pages.
-<a href=#111 id=111 data-nosnippet>111</a>    </span>Static {
-<a href=#112 id=112 data-nosnippet>112</a>        <span class="doccomment">/// Heap bound in bytes. The offset-guard pages are allocated after the
-<a href=#113 id=113 data-nosnippet>113</a>        /// bound.
-<a href=#114 id=114 data-nosnippet>114</a>        </span>bound: u64,
-<a href=#115 id=115 data-nosnippet>115</a>    },
-<a href=#116 id=116 data-nosnippet>116</a>}
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="doccomment">/// The log2 of this memory's page size.
+<a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">pub </span>page_size_log2: u8,
+<a href=#90 id=90 data-nosnippet>90</a>}
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a><span class="doccomment">/// Style of heap including style-specific information.
+<a href=#93 id=93 data-nosnippet>93</a></span><span class="attr">#[derive(Clone, PartialEq, Hash)]
+<a href=#94 id=94 data-nosnippet>94</a>#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
+<a href=#95 id=95 data-nosnippet>95</a></span><span class="kw">pub enum </span>HeapStyle {
+<a href=#96 id=96 data-nosnippet>96</a>    <span class="doccomment">/// A dynamic heap can be relocated to a different base address when it is
+<a href=#97 id=97 data-nosnippet>97</a>    /// grown.
+<a href=#98 id=98 data-nosnippet>98</a>    </span>Dynamic {
+<a href=#99 id=99 data-nosnippet>99</a>        <span class="doccomment">/// Global value providing the current bound of the heap in bytes.
+<a href=#100 id=100 data-nosnippet>100</a>        </span>bound_gv: GlobalValue,
+<a href=#101 id=101 data-nosnippet>101</a>    },
+<a href=#102 id=102 data-nosnippet>102</a>
+<a href=#103 id=103 data-nosnippet>103</a>    <span class="doccomment">/// A static heap has a fixed base address and a number of not-yet-allocated
+<a href=#104 id=104 data-nosnippet>104</a>    /// pages before the offset-guard pages.
+<a href=#105 id=105 data-nosnippet>105</a>    </span>Static {
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="doccomment">/// Heap bound in bytes. The offset-guard pages are allocated after the
+<a href=#107 id=107 data-nosnippet>107</a>        /// bound.
+<a href=#108 id=108 data-nosnippet>108</a>        </span>bound: u64,
+<a href=#109 id=109 data-nosnippet>109</a>    },
+<a href=#110 id=110 data-nosnippet>110</a>}
 </code></pre></div></section></main></body></html>
