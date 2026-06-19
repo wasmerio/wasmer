@@ -1,3 +1,4 @@
+//#MinimalLibc: v2026-06-18.1
 //#ExpectedStdout: SO_ERROR: Connection refused, Success
 
 #include <arpa/inet.h>
