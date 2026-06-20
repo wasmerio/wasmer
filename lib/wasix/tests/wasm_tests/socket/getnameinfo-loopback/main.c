@@ -1,5 +1,5 @@
 //#ExpectedStdout: getnameinfo loopback returns localhost
-//#MinimalLibc: v2026-06-03.1
+//#MinimalLibc: v2026-06-18.1
 
 /*
  * Regression test for WASIX loopback reverse lookup.
