@@ -189,7 +189,7 @@ insta = "1.45.0"
 interfaces = "0.0.9"
 ipnet = "2.10.1"
 iprange = "0.6.7"
-itertools = "0.14"
+itertools = "0.15"
 js-sys = "0.3.77"
 leb128 = "0.2"
 libc = { version = "0.2.178", default-features = false }
@@ -264,7 +264,7 @@ slab = "0.4"
 smallvec = "1.6"
 smoltcp = { version = "0.13.0", default-features = false }
 socket2 = { version = "0.6.1", features = ["all"] }
-strum = { version = "0.27", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 syn = { version = "2", default-features = false }
 tar = "0.4.40"
 target-lexicon = { version = "0.13.3", default-features = false }
@@ -282,7 +282,7 @@ tokio-tungstenite = "0.28.0"
 tokio-util = "0.7.8"
 toml = { version = "1.1.0", features = ["preserve_order"] }
 tower = "0.5.2"
-tower-http = "0.6.7"
+tower-http = "0.7.0"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = { version = "0.2" }
@@ -307,19 +307,19 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.250.0", default-features = false, features = [
+wasm-encoder = { version = "0.252.0", default-features = false, features = [
   "std",
 ] }
-wasm-smith = "0.250.0"
-wasmparser = { version = "0.250.0", default-features = false, features = [
+wasm-smith = "0.252.0"
+wasmparser = { version = "0.252.0", default-features = false, features = [
   "validate",
   "features",
   "simd",
 ] }
-wasmprinter = "0.250.0"
+wasmprinter = "0.252.0"
 wasmer-inline-c = "0.1.1"
-wast = "250.0.0"
-wat = "1.250.0"
+wast = "252.0.0"
+wat = "1.252.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"

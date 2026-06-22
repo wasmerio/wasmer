@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-##Ignored: not ported to the new test harness
+##ExpectedExitCode: 0
+##BuildEnv: WASIXCC_PIC=1
+
 set -e
 
-export WASIXCC_PIC=1
 # static-thrower-shared-catcher: thrower static, catcher in shared lib
 $CXX -c -fPIC catcher.cpp -o catcher.o
 $CXX -shared catcher.o -o libcatcher.so

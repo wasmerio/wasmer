@@ -9,8 +9,6 @@ use std::{
     time::Duration,
 };
 
-#[cfg(feature = "enable-serde")]
-use serde_derive::{Deserialize, Serialize};
 use virtual_mio::InterestHandler;
 use virtual_net::{
     NetworkError, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpBoundSocket,
@@ -22,7 +20,6 @@ use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockopti
 use crate::{VirtualTaskManager, net::net_error_into_wasi_err};
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum InodeHttpSocketType {
     /// Used to feed the bytes into the request itself
     Request,
@@ -79,7 +76,6 @@ impl SocketProperties {
 }
 
 #[derive(Debug)]
-//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum InodeSocketKind {
     PreSocket {
         props: SocketProperties,
@@ -191,7 +187,6 @@ pub enum WasiSocketStatus {
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum TimeType {
     ReadTimeout,
     WriteTimeout,
@@ -229,19 +224,16 @@ impl From<wasmer_journal::SocketOptTimeType> for TimeType {
 }
 
 #[derive(Debug)]
-//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct InodeSocketProtected {
     pub kind: InodeSocketKind,
 }
 
 #[derive(Debug)]
-//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct InodeSocketInner {
     pub protected: RwLock<InodeSocketProtected>,
 }
 
 #[derive(Debug, Clone)]
-//#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct InodeSocket {
     pub(crate) inner: Arc<InodeSocketInner>,
 }
@@ -849,6 +841,20 @@ impl InodeSocket {
         })
     }
 
+    pub fn last_error(&self) -> Result<Errno, Errno> {
+        self.status()?;
+
+        let inner = self.inner.protected.read().unwrap();
+        match &inner.kind {
+            InodeSocketKind::TcpStream { socket, .. } => socket
+                .last_error()
+                .map_err(net_error_into_wasi_err)
+                .map(|err| err.map(net_error_into_wasi_err).unwrap_or(Errno::Success)),
+            InodeSocketKind::RemoteSocket { is_dead, .. } if *is_dead => Ok(Errno::Connreset),
+            _ => Ok(Errno::Success),
+        }
+    }
+
     pub fn addr_local(&self) -> Result<SocketAddr, Errno> {
         let inner = self.inner.protected.read().unwrap();
         Ok(match &inner.kind {
@@ -901,24 +907,13 @@ impl InodeSocket {
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.addr_peer().map_err(net_error_into_wasi_err)
             }
+            InodeSocketKind::UdpSocket {
+                peer: Some(peer), ..
+            } => Ok(*peer),
             InodeSocketKind::UdpSocket { socket, .. } => socket
                 .addr_peer()
                 .map_err(net_error_into_wasi_err)?
-                .map(Ok)
-                .unwrap_or_else(|| {
-                    socket
-                        .addr_local()
-                        .map_err(net_error_into_wasi_err)
-                        .map(|addr| {
-                            SocketAddr::new(
-                                match addr {
-                                    SocketAddr::V4(_) => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                                    SocketAddr::V6(_) => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                                },
-                                0,
-                            )
-                        })
-                }),
+                .ok_or(Errno::Notconn),
             InodeSocketKind::RemoteSocket { peer_addr, .. } => Ok(*peer_addr),
             _ => Err(Errno::Notsup),
         }
@@ -1690,6 +1685,15 @@ impl InodeSocket {
             }
         } else {
             false
+        }
+    }
+
+    pub fn is_dgram(&self) -> bool {
+        let guard = self.inner.protected.read().unwrap();
+        match &guard.kind {
+            InodeSocketKind::UdpSocket { .. } => true,
+            InodeSocketKind::RemoteSocket { props, .. } => props.ty == Socktype::Dgram,
+            _ => false,
         }
     }
 }
