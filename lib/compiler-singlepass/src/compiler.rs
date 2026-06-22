@@ -270,6 +270,22 @@ impl SinglepassCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
+        let save_object = |obj: object::write::Object<'static>, filename: String| -> Result<PathBuf, CompileError> {
+            let object_path = build_directory.path().to_path_buf().join(&filename);
+            let mut object_file = OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&object_path)
+                .map_err(|e| {
+                    CompileError::Codegen(format!("failed to create Wasmer object file: {e}"))
+                })?;
+            obj.write_stream(&mut object_file).map_err(|e| {
+                CompileError::Codegen(format!("failed to write Wasmer object file: {e}"))
+            })?;
+            Ok(object_path)
+        };
+
         let module_hash = module.hash_string();
         let trampolines_objects = module
             .signatures
@@ -317,60 +333,64 @@ impl SinglepassCompiler {
                     4,
                 );
 
-                // Save the generated object file.
-                let object_path = build_directory
-                    .path()
-                    .to_path_buf()
-                    .join(format!("t{}.o", index.as_u32()));
-                let mut object_file = OpenOptions::new()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(&object_path)
-                    .map_err(|e| {
-                        CompileError::Codegen(format!("failed to create Wasmer object file: {e}",))
-                    })?;
-                obj.write_stream(&mut object_file).map_err(|e| {
-                    CompileError::Codegen(format!("failed to write Wasmer object file: {e}",))
-                })?;
-
-                Ok(object_path)
+                save_object(obj, format!("t{}.o", index.as_u32()))
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        // let dynamic_function_trampolines = module
-        //     .imported_function_types()
-        //     .collect_vec()
-        //     .into_par_iter()
-        //     .map(|func_type| -> Result<FunctionBody, CompileError> {
-        //         let body = gen_std_dynamic_import_trampoline(
-        //             &vmoffsets,
-        //             &func_type,
-        //             target,
-        //             calling_convention,
-        //         )?;
-        //         if let Some(callbacks) = self.config.callbacks.as_ref() {
-        //             callbacks.obj_memory_buffer(
-        //                 &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-        //                 &module_hash,
-        //                 &body.body,
-        //             );
-        //             callbacks.asm_memory_buffer(
-        //                 &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-        //                 &module_hash,
-        //                 arch,
-        //                 &body.body,
-        //                 HashMap::new(),
-        //             )?;
-        //         }
-        //         if let Some(progress) = progress.as_ref() {
-        //             progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-        //         }
-        //         Ok(body)
-        //     })
-        //     .collect::<Result<Vec<_>, _>>()?
-        //     .into_iter()
-        //     .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+        let dynamic_functions_objects = module
+            .imported_function_types()
+            .enumerate()
+            .collect_vec()
+            .into_par_iter()
+            .map(|(index, func_type)| -> Result<PathBuf, CompileError> {
+                let body = gen_std_dynamic_import_trampoline(
+                    &vmoffsets,
+                    &func_type,
+                    target,
+                    calling_convention,
+                )?;
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    callbacks.obj_memory_buffer(
+                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &module_hash,
+                        &body.body,
+                    );
+                    callbacks.asm_memory_buffer(
+                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &module_hash,
+                        arch,
+                        &body.body,
+                        HashMap::new(),
+                    )?;
+                }
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                }
+
+                 let mut obj = get_object_for_target(target.triple())
+                    .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
+                let symbol = obj.add_symbol(Symbol {
+                    name: format!("dt{index}").into(),
+                    value: 0,
+                    size: body.body.len() as u64,
+                    kind: SymbolKind::Text,
+                    scope: SymbolScope::Dynamic,
+                    weak: false,
+                    section: SymbolSection::Undefined,
+                    flags: SymbolFlags::None,
+                });
+                let text_section = obj.section_id(StandardSection::Text);
+                obj.add_symbol_data(
+                    symbol,
+                    text_section,
+                    &body.body,
+                    // TODO
+                    4,
+                );
+
+                save_object(obj, format!("dt{index}.o"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
 
         // #[allow(unused_mut)]
         // let mut unwind_info = UnwindInfo::default();
@@ -407,7 +427,7 @@ impl SinglepassCompiler {
             &CompiledObjects {
                 object_files: &object_files,
                 trampoline_object_files: &trampolines_objects,
-                dynamic_trampoline_object_files: &[],
+                dynamic_trampoline_object_files: &dynamic_functions_objects,
             },
             self.config
                 .callbacks
