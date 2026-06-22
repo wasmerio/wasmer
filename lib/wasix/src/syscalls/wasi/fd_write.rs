@@ -124,9 +124,6 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
     Buffer(Cow<'a, [u8]>),
 }
 
-/// Maximum UDP payload size (65535 - 8 byte UDP header - 20 byte IP header).
-pub(crate) const UDP_MAX_PAYLOAD: usize = 65507;
-
 impl<'a, M: MemorySize> FdWriteSource<'a, M> {
     pub(crate) fn coalesce(
         &self,
@@ -290,7 +287,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                         let mut sent = 0usize;
 
                         if socket.is_dgram() {
-                            let data = data.coalesce(&memory, UDP_MAX_PAYLOAD)?;
+                            let max_payload = socket.max_datagram_payload()?;
+                            let data = data.coalesce(&memory, max_payload)?;
                             sent += socket
                                 .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
                                 .await?;

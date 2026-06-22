@@ -21,6 +21,11 @@ use wasmer_wasix_types::wasi::{Addressfamily, Errno, Rights, SockProto, Sockopti
 
 use crate::{VirtualTaskManager, net::net_error_into_wasi_err};
 
+/// Maximum UDP payload for IPv4 datagrams (65535 - IPv4 header - UDP header).
+pub const UDP_MAX_PAYLOAD_V4: usize = 65535 - 20 - 8;
+/// Maximum UDP payload for IPv6 datagrams (65535 - UDP header).
+pub const UDP_MAX_PAYLOAD_V6: usize = 65535 - 8;
+
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum InodeHttpSocketType {
@@ -1682,15 +1687,41 @@ impl InodeSocket {
         }
     }
 
-    pub fn is_dgram(&self) -> bool {
-        if let Ok(guard) = self.inner.protected.try_read() {
-            match &guard.kind {
-                InodeSocketKind::UdpSocket { .. } => true,
-                InodeSocketKind::RemoteSocket { props, .. } => props.ty == Socktype::Dgram,
-                _ => false,
-            }
+    pub fn max_datagram_payload_for_addr(addr: SocketAddr) -> usize {
+        if addr.is_ipv4() {
+            UDP_MAX_PAYLOAD_V4
         } else {
-            false
+            UDP_MAX_PAYLOAD_V6
+        }
+    }
+
+    pub fn max_datagram_payload(&self) -> Result<usize, Errno> {
+        let inner = self.inner.protected.read().unwrap();
+        Ok(match &inner.kind {
+            InodeSocketKind::UdpSocket { peer, socket, .. } => {
+                if let Some(peer) = peer {
+                    return Ok(Self::max_datagram_payload_for_addr(*peer));
+                }
+                let addr = socket.addr_local().map_err(net_error_into_wasi_err)?;
+                Self::max_datagram_payload_for_addr(addr)
+            }
+            InodeSocketKind::RemoteSocket { props, .. } if props.ty == Socktype::Dgram => {
+                match props.family {
+                    Addressfamily::Inet4 => UDP_MAX_PAYLOAD_V4,
+                    Addressfamily::Inet6 => UDP_MAX_PAYLOAD_V6,
+                    _ => UDP_MAX_PAYLOAD_V4,
+                }
+            }
+            _ => UDP_MAX_PAYLOAD_V4,
+        })
+    }
+
+    pub fn is_dgram(&self) -> bool {
+        let guard = self.inner.protected.read().unwrap();
+        match &guard.kind {
+            InodeSocketKind::UdpSocket { .. } => true,
+            InodeSocketKind::RemoteSocket { props, .. } => props.ty == Socktype::Dgram,
+            _ => false,
         }
     }
 }

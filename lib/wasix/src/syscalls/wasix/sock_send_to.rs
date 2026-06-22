@@ -1,7 +1,10 @@
 use std::task::Waker;
 
 use super::*;
-use crate::{net::socket::TimeType, syscalls::*};
+use crate::{
+    net::socket::{InodeSocket, TimeType},
+    syscalls::*,
+};
 
 /// ### `sock_send_to()`
 /// Send a message on a socket to a specific address.
@@ -117,7 +120,8 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
                     .unwrap_or(Duration::from_secs(30));
 
                 if socket.is_dgram() {
-                    let data = si_data.coalesce(&memory, UDP_MAX_PAYLOAD)?;
+                    let max_payload = InodeSocket::max_datagram_payload_for_addr(addr);
+                    let data = si_data.coalesce(&memory, max_payload)?;
                     return socket
                         .send_to::<M>(
                             env.tasks().deref(),
