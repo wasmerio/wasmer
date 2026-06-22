@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasix/sock_send.rs`."><title>sock_send.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/wasix/</div>sock_send.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{mem::MaybeUninit, task::Waker};
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use crate</span>::{net::socket::TimeType, syscalls::<span class="kw-2">*</span>};
+<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use crate</span>::{net::MAX_SOCKET_PAYLOAD, net::socket::TimeType, syscalls::<span class="kw-2">*</span>};
 <a href=#5 id=5 data-nosnippet>5</a>
 <a href=#6 id=6 data-nosnippet>6</a><span class="doccomment">/// ### `sock_send()`
 <a href=#7 id=7 data-nosnippet>7</a>/// Send a message on a socket.
@@ -106,55 +106,67 @@
 <a href=#106 id=106 data-nosnippet>106</a>                .flatten()
 <a href=#107 id=107 data-nosnippet>107</a>                .unwrap_or(Duration::from_secs(<span class="number">30</span>));
 <a href=#108 id=108 data-nosnippet>108</a>
-<a href=#109 id=109 data-nosnippet>109</a>            <span class="kw">match </span>si_data {
-<a href=#110 id=110 data-nosnippet>110</a>                FdWriteSource::Iovs { iovs, iovs_len } =&gt; {
-<a href=#111 id=111 data-nosnippet>111</a>                    <span class="kw">let </span>iovs_arr = iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len).map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-<a href=#112 id=112 data-nosnippet>112</a>                    <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-<a href=#113 id=113 data-nosnippet>113</a>
-<a href=#114 id=114 data-nosnippet>114</a>                    <span class="kw">let </span><span class="kw-2">mut </span>sent = <span class="number">0usize</span>;
-<a href=#115 id=115 data-nosnippet>115</a>                    <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
-<a href=#116 id=116 data-nosnippet>116</a>                        <span class="kw">let </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
-<a href=#117 id=117 data-nosnippet>117</a>                            .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
-<a href=#118 id=118 data-nosnippet>118</a>                            .map_err(mem_error_to_wasi)<span class="question-mark">?
-<a href=#119 id=119 data-nosnippet>119</a>                            </span>.access()
-<a href=#120 id=120 data-nosnippet>120</a>                            .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-<a href=#121 id=121 data-nosnippet>121</a>                        <span class="kw">let </span>local_sent = <span class="kw">match </span>socket
-<a href=#122 id=122 data-nosnippet>122</a>                            .send(
-<a href=#123 id=123 data-nosnippet>123</a>                                env.tasks().deref(),
-<a href=#124 id=124 data-nosnippet>124</a>                                buf.as_ref(),
-<a href=#125 id=125 data-nosnippet>125</a>                                <span class="prelude-val">Some</span>(timeout),
-<a href=#126 id=126 data-nosnippet>126</a>                                nonblocking,
-<a href=#127 id=127 data-nosnippet>127</a>                            )
-<a href=#128 id=128 data-nosnippet>128</a>                            .<span class="kw">await
-<a href=#129 id=129 data-nosnippet>129</a>                        </span>{
-<a href=#130 id=130 data-nosnippet>130</a>                            <span class="prelude-val">Ok</span>(s) =&gt; s,
-<a href=#131 id=131 data-nosnippet>131</a>                            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>sent &gt; <span class="number">0 </span>=&gt; <span class="kw">break</span>,
-<a href=#132 id=132 data-nosnippet>132</a>                            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
-<a href=#133 id=133 data-nosnippet>133</a>                        };
-<a href=#134 id=134 data-nosnippet>134</a>                        sent += local_sent;
-<a href=#135 id=135 data-nosnippet>135</a>                        <span class="kw">if </span><span class="macro">local_sent !</span>= buf.len() {
-<a href=#136 id=136 data-nosnippet>136</a>                            <span class="kw">break</span>;
-<a href=#137 id=137 data-nosnippet>137</a>                        }
-<a href=#138 id=138 data-nosnippet>138</a>                    }
-<a href=#139 id=139 data-nosnippet>139</a>                    <span class="prelude-val">Ok</span>(sent)
-<a href=#140 id=140 data-nosnippet>140</a>                }
-<a href=#141 id=141 data-nosnippet>141</a>                FdWriteSource::Buffer(data) =&gt; {
-<a href=#142 id=142 data-nosnippet>142</a>                    socket
-<a href=#143 id=143 data-nosnippet>143</a>                        .send(
-<a href=#144 id=144 data-nosnippet>144</a>                            env.tasks().deref(),
-<a href=#145 id=145 data-nosnippet>145</a>                            data.as_ref(),
-<a href=#146 id=146 data-nosnippet>146</a>                            <span class="prelude-val">Some</span>(timeout),
-<a href=#147 id=147 data-nosnippet>147</a>                            nonblocking,
-<a href=#148 id=148 data-nosnippet>148</a>                        )
-<a href=#149 id=149 data-nosnippet>149</a>                        .<span class="kw">await
-<a href=#150 id=150 data-nosnippet>150</a>                </span>}
-<a href=#151 id=151 data-nosnippet>151</a>            }
-<a href=#152 id=152 data-nosnippet>152</a>        }
-<a href=#153 id=153 data-nosnippet>153</a>    ));
-<a href=#154 id=154 data-nosnippet>154</a>    <span class="macro">trace!</span>(
-<a href=#155 id=155 data-nosnippet>155</a>        %bytes_written,
-<a href=#156 id=156 data-nosnippet>156</a>    );
-<a href=#157 id=157 data-nosnippet>157</a>
-<a href=#158 id=158 data-nosnippet>158</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(bytes_written))
-<a href=#159 id=159 data-nosnippet>159</a>}
+<a href=#109 id=109 data-nosnippet>109</a>            <span class="kw">if </span>socket.is_dgram() {
+<a href=#110 id=110 data-nosnippet>110</a>                <span class="kw">let </span>data = si_data.coalesce(<span class="kw-2">&amp;</span>memory, MAX_SOCKET_PAYLOAD)<span class="question-mark">?</span>;
+<a href=#111 id=111 data-nosnippet>111</a>                <span class="kw">return </span>socket
+<a href=#112 id=112 data-nosnippet>112</a>                    .send(
+<a href=#113 id=113 data-nosnippet>113</a>                        env.tasks().deref(),
+<a href=#114 id=114 data-nosnippet>114</a>                        data.as_ref(),
+<a href=#115 id=115 data-nosnippet>115</a>                        <span class="prelude-val">Some</span>(timeout),
+<a href=#116 id=116 data-nosnippet>116</a>                        nonblocking,
+<a href=#117 id=117 data-nosnippet>117</a>                    )
+<a href=#118 id=118 data-nosnippet>118</a>                    .<span class="kw">await</span>;
+<a href=#119 id=119 data-nosnippet>119</a>            }
+<a href=#120 id=120 data-nosnippet>120</a>
+<a href=#121 id=121 data-nosnippet>121</a>            <span class="kw">match </span>si_data {
+<a href=#122 id=122 data-nosnippet>122</a>                FdWriteSource::Iovs { iovs, iovs_len } =&gt; {
+<a href=#123 id=123 data-nosnippet>123</a>                    <span class="kw">let </span>iovs_arr = iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len).map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#124 id=124 data-nosnippet>124</a>                    <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>                    <span class="kw">let </span><span class="kw-2">mut </span>sent = <span class="number">0usize</span>;
+<a href=#127 id=127 data-nosnippet>127</a>                    <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+<a href=#128 id=128 data-nosnippet>128</a>                        <span class="kw">let </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
+<a href=#129 id=129 data-nosnippet>129</a>                            .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
+<a href=#130 id=130 data-nosnippet>130</a>                            .map_err(mem_error_to_wasi)<span class="question-mark">?
+<a href=#131 id=131 data-nosnippet>131</a>                            </span>.access()
+<a href=#132 id=132 data-nosnippet>132</a>                            .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#133 id=133 data-nosnippet>133</a>                        <span class="kw">let </span>local_sent = <span class="kw">match </span>socket
+<a href=#134 id=134 data-nosnippet>134</a>                            .send(
+<a href=#135 id=135 data-nosnippet>135</a>                                env.tasks().deref(),
+<a href=#136 id=136 data-nosnippet>136</a>                                buf.as_ref(),
+<a href=#137 id=137 data-nosnippet>137</a>                                <span class="prelude-val">Some</span>(timeout),
+<a href=#138 id=138 data-nosnippet>138</a>                                nonblocking,
+<a href=#139 id=139 data-nosnippet>139</a>                            )
+<a href=#140 id=140 data-nosnippet>140</a>                            .<span class="kw">await
+<a href=#141 id=141 data-nosnippet>141</a>                        </span>{
+<a href=#142 id=142 data-nosnippet>142</a>                            <span class="prelude-val">Ok</span>(s) =&gt; s,
+<a href=#143 id=143 data-nosnippet>143</a>                            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>sent &gt; <span class="number">0 </span>=&gt; <span class="kw">break</span>,
+<a href=#144 id=144 data-nosnippet>144</a>                            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
+<a href=#145 id=145 data-nosnippet>145</a>                        };
+<a href=#146 id=146 data-nosnippet>146</a>                        sent += local_sent;
+<a href=#147 id=147 data-nosnippet>147</a>                        <span class="kw">if </span><span class="macro">local_sent !</span>= buf.len() {
+<a href=#148 id=148 data-nosnippet>148</a>                            <span class="kw">break</span>;
+<a href=#149 id=149 data-nosnippet>149</a>                        }
+<a href=#150 id=150 data-nosnippet>150</a>                    }
+<a href=#151 id=151 data-nosnippet>151</a>                    <span class="prelude-val">Ok</span>(sent)
+<a href=#152 id=152 data-nosnippet>152</a>                }
+<a href=#153 id=153 data-nosnippet>153</a>                FdWriteSource::Buffer(data) =&gt; {
+<a href=#154 id=154 data-nosnippet>154</a>                    socket
+<a href=#155 id=155 data-nosnippet>155</a>                        .send(
+<a href=#156 id=156 data-nosnippet>156</a>                            env.tasks().deref(),
+<a href=#157 id=157 data-nosnippet>157</a>                            data.as_ref(),
+<a href=#158 id=158 data-nosnippet>158</a>                            <span class="prelude-val">Some</span>(timeout),
+<a href=#159 id=159 data-nosnippet>159</a>                            nonblocking,
+<a href=#160 id=160 data-nosnippet>160</a>                        )
+<a href=#161 id=161 data-nosnippet>161</a>                        .<span class="kw">await
+<a href=#162 id=162 data-nosnippet>162</a>                </span>}
+<a href=#163 id=163 data-nosnippet>163</a>            }
+<a href=#164 id=164 data-nosnippet>164</a>        }
+<a href=#165 id=165 data-nosnippet>165</a>    ));
+<a href=#166 id=166 data-nosnippet>166</a>    <span class="macro">trace!</span>(
+<a href=#167 id=167 data-nosnippet>167</a>        %bytes_written,
+<a href=#168 id=168 data-nosnippet>168</a>    );
+<a href=#169 id=169 data-nosnippet>169</a>
+<a href=#170 id=170 data-nosnippet>170</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(bytes_written))
+<a href=#171 id=171 data-nosnippet>171</a>}
 </code></pre></div></section></main></body></html>

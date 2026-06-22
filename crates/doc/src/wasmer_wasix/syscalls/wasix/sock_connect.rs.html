@@ -75,54 +75,53 @@
 <a href=#75 id=75 data-nosnippet>75</a>        Rights::SOCK_CONNECT,
 <a href=#76 id=76 data-nosnippet>76</a>        <span class="kw">move </span>|<span class="kw-2">mut </span>socket, flags| <span class="kw">async move </span>{
 <a href=#77 id=77 data-nosnippet>77</a>            <span class="comment">// Auto-bind UDP
-<a href=#78 id=78 data-nosnippet>78</a>            </span>socket = socket
-<a href=#79 id=79 data-nosnippet>79</a>                .auto_bind_udp(tasks.deref(), net.deref())
-<a href=#80 id=80 data-nosnippet>80</a>                .<span class="kw">await</span><span class="question-mark">?
-<a href=#81 id=81 data-nosnippet>81</a>                </span>.unwrap_or(socket);
-<a href=#82 id=82 data-nosnippet>82</a>            socket
-<a href=#83 id=83 data-nosnippet>83</a>                .connect(
-<a href=#84 id=84 data-nosnippet>84</a>                    tasks.deref(),
-<a href=#85 id=85 data-nosnippet>85</a>                    net.deref(),
-<a href=#86 id=86 data-nosnippet>86</a>                    addr,
-<a href=#87 id=87 data-nosnippet>87</a>                    <span class="prelude-val">None</span>,
-<a href=#88 id=88 data-nosnippet>88</a>                    flags.contains(Fdflags::NONBLOCK),
-<a href=#89 id=89 data-nosnippet>89</a>                )
-<a href=#90 id=90 data-nosnippet>90</a>                .<span class="kw">await
-<a href=#91 id=91 data-nosnippet>91</a>        </span>}
-<a href=#92 id=92 data-nosnippet>92</a>    ));
-<a href=#93 id=93 data-nosnippet>93</a>
-<a href=#94 id=94 data-nosnippet>94</a>    <span class="kw">if </span>nonblocking {
-<a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">let </span>status = <span class="kw">match </span>__sock_actor(ctx, sock, Rights::empty(), |socket, <span class="kw">_</span>| socket.status()) {
-<a href=#96 id=96 data-nosnippet>96</a>            <span class="prelude-val">Ok</span>(status) =&gt; status,
-<a href=#97 id=97 data-nosnippet>97</a>            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
-<a href=#98 id=98 data-nosnippet>98</a>        };
-<a href=#99 id=99 data-nosnippet>99</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(nonblocking_connect_result(status));
-<a href=#100 id=100 data-nosnippet>100</a>    }
-<a href=#101 id=101 data-nosnippet>101</a>
-<a href=#102 id=102 data-nosnippet>102</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(()))
-<a href=#103 id=103 data-nosnippet>103</a>}
-<a href=#104 id=104 data-nosnippet>104</a>
-<a href=#105 id=105 data-nosnippet>105</a><span class="attr">#[cfg(test)]
-<a href=#106 id=106 data-nosnippet>106</a></span><span class="kw">mod </span>tests {
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">use </span><span class="kw">super</span>::nonblocking_connect_result;
-<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">use </span><span class="kw">crate</span>::net::socket::WasiSocketStatus;
-<a href=#109 id=109 data-nosnippet>109</a>    <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
-<a href=#110 id=110 data-nosnippet>110</a>
-<a href=#111 id=111 data-nosnippet>111</a>    <span class="attr">#[test]
-<a href=#112 id=112 data-nosnippet>112</a>    </span><span class="kw">fn </span>nonblocking_connect_result_maps_socket_states() {
-<a href=#113 id=113 data-nosnippet>113</a>        <span class="macro">assert_eq!</span>(
-<a href=#114 id=114 data-nosnippet>114</a>            nonblocking_connect_result(WasiSocketStatus::Opening),
-<a href=#115 id=115 data-nosnippet>115</a>            <span class="prelude-val">Err</span>(Errno::Inprogress)
-<a href=#116 id=116 data-nosnippet>116</a>        );
-<a href=#117 id=117 data-nosnippet>117</a>        <span class="macro">assert_eq!</span>(nonblocking_connect_result(WasiSocketStatus::Opened), <span class="prelude-val">Ok</span>(()));
-<a href=#118 id=118 data-nosnippet>118</a>        <span class="macro">assert_eq!</span>(
-<a href=#119 id=119 data-nosnippet>119</a>            nonblocking_connect_result(WasiSocketStatus::Failed),
-<a href=#120 id=120 data-nosnippet>120</a>            <span class="prelude-val">Err</span>(Errno::Notconn)
-<a href=#121 id=121 data-nosnippet>121</a>        );
-<a href=#122 id=122 data-nosnippet>122</a>        <span class="macro">assert_eq!</span>(
-<a href=#123 id=123 data-nosnippet>123</a>            nonblocking_connect_result(WasiSocketStatus::Closed),
-<a href=#124 id=124 data-nosnippet>124</a>            <span class="prelude-val">Err</span>(Errno::Notconn)
-<a href=#125 id=125 data-nosnippet>125</a>        );
-<a href=#126 id=126 data-nosnippet>126</a>    }
-<a href=#127 id=127 data-nosnippet>127</a>}
+<a href=#78 id=78 data-nosnippet>78</a>            </span><span class="kw">let </span>bound_socket = socket.auto_bind_udp(tasks.deref(), net.deref()).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#79 id=79 data-nosnippet>79</a>            socket = bound_socket.clone().unwrap_or(socket);
+<a href=#80 id=80 data-nosnippet>80</a>            <span class="kw">let </span>connected_socket = socket
+<a href=#81 id=81 data-nosnippet>81</a>                .connect(
+<a href=#82 id=82 data-nosnippet>82</a>                    tasks.deref(),
+<a href=#83 id=83 data-nosnippet>83</a>                    net.deref(),
+<a href=#84 id=84 data-nosnippet>84</a>                    addr,
+<a href=#85 id=85 data-nosnippet>85</a>                    <span class="prelude-val">None</span>,
+<a href=#86 id=86 data-nosnippet>86</a>                    flags.contains(Fdflags::NONBLOCK),
+<a href=#87 id=87 data-nosnippet>87</a>                )
+<a href=#88 id=88 data-nosnippet>88</a>                .<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#89 id=89 data-nosnippet>89</a>            <span class="prelude-val">Ok</span>(connected_socket.or(bound_socket))
+<a href=#90 id=90 data-nosnippet>90</a>        }
+<a href=#91 id=91 data-nosnippet>91</a>    ));
+<a href=#92 id=92 data-nosnippet>92</a>
+<a href=#93 id=93 data-nosnippet>93</a>    <span class="kw">if </span>nonblocking {
+<a href=#94 id=94 data-nosnippet>94</a>        <span class="kw">let </span>status = <span class="kw">match </span>__sock_actor(ctx, sock, Rights::empty(), |socket, <span class="kw">_</span>| socket.status()) {
+<a href=#95 id=95 data-nosnippet>95</a>            <span class="prelude-val">Ok</span>(status) =&gt; status,
+<a href=#96 id=96 data-nosnippet>96</a>            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(err)),
+<a href=#97 id=97 data-nosnippet>97</a>        };
+<a href=#98 id=98 data-nosnippet>98</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(nonblocking_connect_result(status));
+<a href=#99 id=99 data-nosnippet>99</a>    }
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(()))
+<a href=#102 id=102 data-nosnippet>102</a>}
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a><span class="attr">#[cfg(test)]
+<a href=#105 id=105 data-nosnippet>105</a></span><span class="kw">mod </span>tests {
+<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">use </span><span class="kw">super</span>::nonblocking_connect_result;
+<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">use </span><span class="kw">crate</span>::net::socket::WasiSocketStatus;
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="attr">#[test]
+<a href=#111 id=111 data-nosnippet>111</a>    </span><span class="kw">fn </span>nonblocking_connect_result_maps_socket_states() {
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="macro">assert_eq!</span>(
+<a href=#113 id=113 data-nosnippet>113</a>            nonblocking_connect_result(WasiSocketStatus::Opening),
+<a href=#114 id=114 data-nosnippet>114</a>            <span class="prelude-val">Err</span>(Errno::Inprogress)
+<a href=#115 id=115 data-nosnippet>115</a>        );
+<a href=#116 id=116 data-nosnippet>116</a>        <span class="macro">assert_eq!</span>(nonblocking_connect_result(WasiSocketStatus::Opened), <span class="prelude-val">Ok</span>(()));
+<a href=#117 id=117 data-nosnippet>117</a>        <span class="macro">assert_eq!</span>(
+<a href=#118 id=118 data-nosnippet>118</a>            nonblocking_connect_result(WasiSocketStatus::Failed),
+<a href=#119 id=119 data-nosnippet>119</a>            <span class="prelude-val">Err</span>(Errno::Notconn)
+<a href=#120 id=120 data-nosnippet>120</a>        );
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="macro">assert_eq!</span>(
+<a href=#122 id=122 data-nosnippet>122</a>            nonblocking_connect_result(WasiSocketStatus::Closed),
+<a href=#123 id=123 data-nosnippet>123</a>            <span class="prelude-val">Err</span>(Errno::Notconn)
+<a href=#124 id=124 data-nosnippet>124</a>        );
+<a href=#125 id=125 data-nosnippet>125</a>    }
+<a href=#126 id=126 data-nosnippet>126</a>}
 </code></pre></div></section></main></body></html>

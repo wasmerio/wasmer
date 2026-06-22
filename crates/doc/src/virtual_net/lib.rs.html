@@ -854,126 +854,146 @@
 <a href=#854 id=854 data-nosnippet>854</a>    <span class="doccomment">/// The provided data is invalid
 <a href=#855 id=855 data-nosnippet>855</a>    </span><span class="attr">#[error(<span class="string">"invalid input"</span>)]
 <a href=#856 id=856 data-nosnippet>856</a>    </span>InvalidInput,
-<a href=#857 id=857 data-nosnippet>857</a>    <span class="doccomment">/// Could not perform the operation because there was not an open connection
-<a href=#858 id=858 data-nosnippet>858</a>    </span><span class="attr">#[error(<span class="string">"connection is not open"</span>)]
-<a href=#859 id=859 data-nosnippet>859</a>    </span>NotConnected,
-<a href=#860 id=860 data-nosnippet>860</a>    <span class="doccomment">/// The requested device couldn't be accessed
-<a href=#861 id=861 data-nosnippet>861</a>    </span><span class="attr">#[error(<span class="string">"can't access device"</span>)]
-<a href=#862 id=862 data-nosnippet>862</a>    </span>NoDevice,
-<a href=#863 id=863 data-nosnippet>863</a>    <span class="doccomment">/// Caller was not allowed to perform this operation
-<a href=#864 id=864 data-nosnippet>864</a>    </span><span class="attr">#[error(<span class="string">"permission denied"</span>)]
-<a href=#865 id=865 data-nosnippet>865</a>    </span>PermissionDenied,
-<a href=#866 id=866 data-nosnippet>866</a>    <span class="doccomment">/// The operation did not complete within the given amount of time
-<a href=#867 id=867 data-nosnippet>867</a>    </span><span class="attr">#[error(<span class="string">"time out"</span>)]
-<a href=#868 id=868 data-nosnippet>868</a>    </span>TimedOut,
-<a href=#869 id=869 data-nosnippet>869</a>    <span class="doccomment">/// Found EOF when EOF was not expected
-<a href=#870 id=870 data-nosnippet>870</a>    </span><span class="attr">#[error(<span class="string">"unexpected eof"</span>)]
-<a href=#871 id=871 data-nosnippet>871</a>    </span>UnexpectedEof,
-<a href=#872 id=872 data-nosnippet>872</a>    <span class="doccomment">/// Operation would block, this error lets the caller know that they can try again
-<a href=#873 id=873 data-nosnippet>873</a>    </span><span class="attr">#[error(<span class="string">"blocking operation. try again"</span>)]
-<a href=#874 id=874 data-nosnippet>874</a>    </span>WouldBlock,
-<a href=#875 id=875 data-nosnippet>875</a>    <span class="doccomment">/// A call to write returned 0
-<a href=#876 id=876 data-nosnippet>876</a>    </span><span class="attr">#[error(<span class="string">"write returned 0"</span>)]
-<a href=#877 id=877 data-nosnippet>877</a>    </span>WriteZero,
-<a href=#878 id=878 data-nosnippet>878</a>    <span class="doccomment">/// Too many open files
-<a href=#879 id=879 data-nosnippet>879</a>    </span><span class="attr">#[error(<span class="string">"too many open files"</span>)]
-<a href=#880 id=880 data-nosnippet>880</a>    </span>TooManyOpenFiles,
-<a href=#881 id=881 data-nosnippet>881</a>    <span class="doccomment">/// The operation is not supported.
-<a href=#882 id=882 data-nosnippet>882</a>    </span><span class="attr">#[error(<span class="string">"unsupported"</span>)]
-<a href=#883 id=883 data-nosnippet>883</a>    </span>Unsupported,
-<a href=#884 id=884 data-nosnippet>884</a>    <span class="doccomment">/// Some other unhandled error. If you see this, it's probably a bug.
-<a href=#885 id=885 data-nosnippet>885</a>    </span><span class="attr">#[error(<span class="string">"unknown error found"</span>)]
-<a href=#886 id=886 data-nosnippet>886</a>    </span>UnknownError,
-<a href=#887 id=887 data-nosnippet>887</a>}
-<a href=#888 id=888 data-nosnippet>888</a>
-<a href=#889 id=889 data-nosnippet>889</a><span class="kw">pub fn </span>io_err_into_net_error(net_error: std::io::Error) -&gt; NetworkError {
-<a href=#890 id=890 data-nosnippet>890</a>    <span class="kw">use </span>std::io::ErrorKind;
-<a href=#891 id=891 data-nosnippet>891</a>    <span class="kw">match </span>net_error.kind() {
-<a href=#892 id=892 data-nosnippet>892</a>        ErrorKind::BrokenPipe =&gt; NetworkError::BrokenPipe,
-<a href=#893 id=893 data-nosnippet>893</a>        ErrorKind::AlreadyExists =&gt; NetworkError::AlreadyExists,
-<a href=#894 id=894 data-nosnippet>894</a>        ErrorKind::AddrInUse =&gt; NetworkError::AddressInUse,
-<a href=#895 id=895 data-nosnippet>895</a>        ErrorKind::AddrNotAvailable =&gt; NetworkError::AddressNotAvailable,
-<a href=#896 id=896 data-nosnippet>896</a>        ErrorKind::ConnectionAborted =&gt; NetworkError::ConnectionAborted,
-<a href=#897 id=897 data-nosnippet>897</a>        ErrorKind::ConnectionRefused =&gt; NetworkError::ConnectionRefused,
-<a href=#898 id=898 data-nosnippet>898</a>        ErrorKind::ConnectionReset =&gt; NetworkError::ConnectionReset,
-<a href=#899 id=899 data-nosnippet>899</a>        ErrorKind::Interrupted =&gt; NetworkError::Interrupted,
-<a href=#900 id=900 data-nosnippet>900</a>        ErrorKind::InvalidData =&gt; NetworkError::InvalidData,
-<a href=#901 id=901 data-nosnippet>901</a>        ErrorKind::InvalidInput =&gt; NetworkError::InvalidInput,
-<a href=#902 id=902 data-nosnippet>902</a>        ErrorKind::NotConnected =&gt; NetworkError::NotConnected,
-<a href=#903 id=903 data-nosnippet>903</a>        ErrorKind::PermissionDenied =&gt; NetworkError::PermissionDenied,
-<a href=#904 id=904 data-nosnippet>904</a>        ErrorKind::TimedOut =&gt; NetworkError::TimedOut,
-<a href=#905 id=905 data-nosnippet>905</a>        ErrorKind::UnexpectedEof =&gt; NetworkError::UnexpectedEof,
-<a href=#906 id=906 data-nosnippet>906</a>        ErrorKind::WouldBlock =&gt; NetworkError::WouldBlock,
-<a href=#907 id=907 data-nosnippet>907</a>        ErrorKind::WriteZero =&gt; NetworkError::WriteZero,
-<a href=#908 id=908 data-nosnippet>908</a>        ErrorKind::Unsupported =&gt; NetworkError::Unsupported,
-<a href=#909 id=909 data-nosnippet>909</a>
-<a href=#910 id=910 data-nosnippet>910</a>        <span class="attr">#[cfg(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>))]
-<a href=#911 id=911 data-nosnippet>911</a>        </span><span class="kw">_ </span>=&gt; {
-<a href=#912 id=912 data-nosnippet>912</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(code) = net_error.raw_os_error() {
-<a href=#913 id=913 data-nosnippet>913</a>                <span class="kw">match </span>code {
-<a href=#914 id=914 data-nosnippet>914</a>                    libc::EPERM =&gt; NetworkError::PermissionDenied,
-<a href=#915 id=915 data-nosnippet>915</a>                    libc::EBADF =&gt; NetworkError::InvalidFd,
-<a href=#916 id=916 data-nosnippet>916</a>                    libc::ECHILD =&gt; NetworkError::InvalidFd,
-<a href=#917 id=917 data-nosnippet>917</a>                    libc::EMFILE =&gt; NetworkError::TooManyOpenFiles,
-<a href=#918 id=918 data-nosnippet>918</a>                    libc::EINTR =&gt; NetworkError::Interrupted,
-<a href=#919 id=919 data-nosnippet>919</a>                    libc::EIO =&gt; NetworkError::IOError,
-<a href=#920 id=920 data-nosnippet>920</a>                    libc::ENXIO =&gt; NetworkError::IOError,
-<a href=#921 id=921 data-nosnippet>921</a>                    libc::EAGAIN =&gt; NetworkError::WouldBlock,
-<a href=#922 id=922 data-nosnippet>922</a>                    libc::ENOMEM =&gt; NetworkError::InsufficientMemory,
-<a href=#923 id=923 data-nosnippet>923</a>                    libc::EACCES =&gt; NetworkError::PermissionDenied,
-<a href=#924 id=924 data-nosnippet>924</a>                    libc::ENODEV =&gt; NetworkError::NoDevice,
-<a href=#925 id=925 data-nosnippet>925</a>                    libc::EINVAL =&gt; NetworkError::InvalidInput,
-<a href=#926 id=926 data-nosnippet>926</a>                    libc::EPIPE =&gt; NetworkError::BrokenPipe,
-<a href=#927 id=927 data-nosnippet>927</a>                    err =&gt; {
-<a href=#928 id=928 data-nosnippet>928</a>                        <span class="macro">tracing::trace!</span>(<span class="string">"unknown os error {}"</span>, err);
-<a href=#929 id=929 data-nosnippet>929</a>                        NetworkError::UnknownError
-<a href=#930 id=930 data-nosnippet>930</a>                    }
-<a href=#931 id=931 data-nosnippet>931</a>                }
-<a href=#932 id=932 data-nosnippet>932</a>            } <span class="kw">else </span>{
-<a href=#933 id=933 data-nosnippet>933</a>                NetworkError::UnknownError
-<a href=#934 id=934 data-nosnippet>934</a>            }
-<a href=#935 id=935 data-nosnippet>935</a>        }
-<a href=#936 id=936 data-nosnippet>936</a>        <span class="attr">#[cfg(not(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>)))]
-<a href=#937 id=937 data-nosnippet>937</a>        </span><span class="kw">_ </span>=&gt; NetworkError::UnknownError,
-<a href=#938 id=938 data-nosnippet>938</a>    }
-<a href=#939 id=939 data-nosnippet>939</a>}
-<a href=#940 id=940 data-nosnippet>940</a>
-<a href=#941 id=941 data-nosnippet>941</a><span class="kw">pub fn </span>net_error_into_io_err(net_error: NetworkError) -&gt; std::io::Error {
-<a href=#942 id=942 data-nosnippet>942</a>    <span class="kw">use </span>std::io::ErrorKind;
-<a href=#943 id=943 data-nosnippet>943</a>    <span class="kw">match </span>net_error {
-<a href=#944 id=944 data-nosnippet>944</a>        NetworkError::InvalidFd =&gt; ErrorKind::BrokenPipe.into(),
-<a href=#945 id=945 data-nosnippet>945</a>        NetworkError::AlreadyExists =&gt; ErrorKind::AlreadyExists.into(),
-<a href=#946 id=946 data-nosnippet>946</a>        NetworkError::Lock =&gt; ErrorKind::BrokenPipe.into(),
-<a href=#947 id=947 data-nosnippet>947</a>        NetworkError::IOError =&gt; ErrorKind::BrokenPipe.into(),
-<a href=#948 id=948 data-nosnippet>948</a>        NetworkError::AddressInUse =&gt; ErrorKind::AddrInUse.into(),
-<a href=#949 id=949 data-nosnippet>949</a>        NetworkError::AddressNotAvailable =&gt; ErrorKind::AddrNotAvailable.into(),
-<a href=#950 id=950 data-nosnippet>950</a>        NetworkError::BrokenPipe =&gt; ErrorKind::BrokenPipe.into(),
-<a href=#951 id=951 data-nosnippet>951</a>        NetworkError::ConnectionAborted =&gt; ErrorKind::ConnectionAborted.into(),
-<a href=#952 id=952 data-nosnippet>952</a>        NetworkError::ConnectionRefused =&gt; ErrorKind::ConnectionRefused.into(),
-<a href=#953 id=953 data-nosnippet>953</a>        NetworkError::ConnectionReset =&gt; ErrorKind::ConnectionReset.into(),
-<a href=#954 id=954 data-nosnippet>954</a>        NetworkError::Interrupted =&gt; ErrorKind::Interrupted.into(),
-<a href=#955 id=955 data-nosnippet>955</a>        NetworkError::InvalidData =&gt; ErrorKind::InvalidData.into(),
-<a href=#956 id=956 data-nosnippet>956</a>        NetworkError::InvalidInput =&gt; ErrorKind::InvalidInput.into(),
-<a href=#957 id=957 data-nosnippet>957</a>        NetworkError::NotConnected =&gt; ErrorKind::NotConnected.into(),
-<a href=#958 id=958 data-nosnippet>958</a>        NetworkError::NoDevice =&gt; ErrorKind::BrokenPipe.into(),
-<a href=#959 id=959 data-nosnippet>959</a>        NetworkError::PermissionDenied =&gt; ErrorKind::PermissionDenied.into(),
-<a href=#960 id=960 data-nosnippet>960</a>        NetworkError::TimedOut =&gt; ErrorKind::TimedOut.into(),
-<a href=#961 id=961 data-nosnippet>961</a>        NetworkError::UnexpectedEof =&gt; ErrorKind::UnexpectedEof.into(),
-<a href=#962 id=962 data-nosnippet>962</a>        NetworkError::WouldBlock =&gt; ErrorKind::WouldBlock.into(),
-<a href=#963 id=963 data-nosnippet>963</a>        NetworkError::WriteZero =&gt; ErrorKind::WriteZero.into(),
-<a href=#964 id=964 data-nosnippet>964</a>        NetworkError::Unsupported =&gt; ErrorKind::Unsupported.into(),
-<a href=#965 id=965 data-nosnippet>965</a>        NetworkError::UnknownError =&gt; ErrorKind::BrokenPipe.into(),
-<a href=#966 id=966 data-nosnippet>966</a>        NetworkError::InsufficientMemory =&gt; ErrorKind::OutOfMemory.into(),
-<a href=#967 id=967 data-nosnippet>967</a>        NetworkError::TooManyOpenFiles =&gt; {
-<a href=#968 id=968 data-nosnippet>968</a>            <span class="attr">#[cfg(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>))]
-<a href=#969 id=969 data-nosnippet>969</a>            </span>{
-<a href=#970 id=970 data-nosnippet>970</a>                std::io::Error::from_raw_os_error(libc::EMFILE)
-<a href=#971 id=971 data-nosnippet>971</a>            }
-<a href=#972 id=972 data-nosnippet>972</a>            <span class="attr">#[cfg(not(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>)))]
-<a href=#973 id=973 data-nosnippet>973</a>            </span>{
-<a href=#974 id=974 data-nosnippet>974</a>                ErrorKind::Other.into()
-<a href=#975 id=975 data-nosnippet>975</a>            }
-<a href=#976 id=976 data-nosnippet>976</a>        }
-<a href=#977 id=977 data-nosnippet>977</a>    }
-<a href=#978 id=978 data-nosnippet>978</a>}
+<a href=#857 id=857 data-nosnippet>857</a>    <span class="doccomment">/// The message is too large to send as one packet
+<a href=#858 id=858 data-nosnippet>858</a>    </span><span class="attr">#[error(<span class="string">"message too large"</span>)]
+<a href=#859 id=859 data-nosnippet>859</a>    </span>MessageSize,
+<a href=#860 id=860 data-nosnippet>860</a>    <span class="doccomment">/// Could not perform the operation because there was not an open connection
+<a href=#861 id=861 data-nosnippet>861</a>    </span><span class="attr">#[error(<span class="string">"connection is not open"</span>)]
+<a href=#862 id=862 data-nosnippet>862</a>    </span>NotConnected,
+<a href=#863 id=863 data-nosnippet>863</a>    <span class="doccomment">/// The requested device couldn't be accessed
+<a href=#864 id=864 data-nosnippet>864</a>    </span><span class="attr">#[error(<span class="string">"can't access device"</span>)]
+<a href=#865 id=865 data-nosnippet>865</a>    </span>NoDevice,
+<a href=#866 id=866 data-nosnippet>866</a>    <span class="doccomment">/// Caller was not allowed to perform this operation
+<a href=#867 id=867 data-nosnippet>867</a>    </span><span class="attr">#[error(<span class="string">"permission denied"</span>)]
+<a href=#868 id=868 data-nosnippet>868</a>    </span>PermissionDenied,
+<a href=#869 id=869 data-nosnippet>869</a>    <span class="doccomment">/// The operation did not complete within the given amount of time
+<a href=#870 id=870 data-nosnippet>870</a>    </span><span class="attr">#[error(<span class="string">"time out"</span>)]
+<a href=#871 id=871 data-nosnippet>871</a>    </span>TimedOut,
+<a href=#872 id=872 data-nosnippet>872</a>    <span class="doccomment">/// Found EOF when EOF was not expected
+<a href=#873 id=873 data-nosnippet>873</a>    </span><span class="attr">#[error(<span class="string">"unexpected eof"</span>)]
+<a href=#874 id=874 data-nosnippet>874</a>    </span>UnexpectedEof,
+<a href=#875 id=875 data-nosnippet>875</a>    <span class="doccomment">/// Operation would block, this error lets the caller know that they can try again
+<a href=#876 id=876 data-nosnippet>876</a>    </span><span class="attr">#[error(<span class="string">"blocking operation. try again"</span>)]
+<a href=#877 id=877 data-nosnippet>877</a>    </span>WouldBlock,
+<a href=#878 id=878 data-nosnippet>878</a>    <span class="doccomment">/// A call to write returned 0
+<a href=#879 id=879 data-nosnippet>879</a>    </span><span class="attr">#[error(<span class="string">"write returned 0"</span>)]
+<a href=#880 id=880 data-nosnippet>880</a>    </span>WriteZero,
+<a href=#881 id=881 data-nosnippet>881</a>    <span class="doccomment">/// Too many open files
+<a href=#882 id=882 data-nosnippet>882</a>    </span><span class="attr">#[error(<span class="string">"too many open files"</span>)]
+<a href=#883 id=883 data-nosnippet>883</a>    </span>TooManyOpenFiles,
+<a href=#884 id=884 data-nosnippet>884</a>    <span class="doccomment">/// The operation is not supported.
+<a href=#885 id=885 data-nosnippet>885</a>    </span><span class="attr">#[error(<span class="string">"unsupported"</span>)]
+<a href=#886 id=886 data-nosnippet>886</a>    </span>Unsupported,
+<a href=#887 id=887 data-nosnippet>887</a>    <span class="doccomment">/// Some other unhandled error. If you see this, it's probably a bug.
+<a href=#888 id=888 data-nosnippet>888</a>    </span><span class="attr">#[error(<span class="string">"unknown error found"</span>)]
+<a href=#889 id=889 data-nosnippet>889</a>    </span>UnknownError,
+<a href=#890 id=890 data-nosnippet>890</a>}
+<a href=#891 id=891 data-nosnippet>891</a>
+<a href=#892 id=892 data-nosnippet>892</a><span class="kw">pub fn </span>io_err_into_net_error(net_error: std::io::Error) -&gt; NetworkError {
+<a href=#893 id=893 data-nosnippet>893</a>    <span class="kw">use </span>std::io::ErrorKind;
+<a href=#894 id=894 data-nosnippet>894</a>    <span class="kw">match </span>net_error.kind() {
+<a href=#895 id=895 data-nosnippet>895</a>        ErrorKind::BrokenPipe =&gt; NetworkError::BrokenPipe,
+<a href=#896 id=896 data-nosnippet>896</a>        ErrorKind::AlreadyExists =&gt; NetworkError::AlreadyExists,
+<a href=#897 id=897 data-nosnippet>897</a>        ErrorKind::AddrInUse =&gt; NetworkError::AddressInUse,
+<a href=#898 id=898 data-nosnippet>898</a>        ErrorKind::AddrNotAvailable =&gt; NetworkError::AddressNotAvailable,
+<a href=#899 id=899 data-nosnippet>899</a>        ErrorKind::ConnectionAborted =&gt; NetworkError::ConnectionAborted,
+<a href=#900 id=900 data-nosnippet>900</a>        ErrorKind::ConnectionRefused =&gt; NetworkError::ConnectionRefused,
+<a href=#901 id=901 data-nosnippet>901</a>        ErrorKind::ConnectionReset =&gt; NetworkError::ConnectionReset,
+<a href=#902 id=902 data-nosnippet>902</a>        ErrorKind::Interrupted =&gt; NetworkError::Interrupted,
+<a href=#903 id=903 data-nosnippet>903</a>        ErrorKind::InvalidData =&gt; NetworkError::InvalidData,
+<a href=#904 id=904 data-nosnippet>904</a>        ErrorKind::InvalidInput =&gt; {
+<a href=#905 id=905 data-nosnippet>905</a>            <span class="attr">#[cfg(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>))]
+<a href=#906 id=906 data-nosnippet>906</a>            </span><span class="kw">if </span>net_error.raw_os_error() == <span class="prelude-val">Some</span>(libc::EMSGSIZE) {
+<a href=#907 id=907 data-nosnippet>907</a>                <span class="kw">return </span>NetworkError::MessageSize;
+<a href=#908 id=908 data-nosnippet>908</a>            }
+<a href=#909 id=909 data-nosnippet>909</a>            NetworkError::InvalidInput
+<a href=#910 id=910 data-nosnippet>910</a>        }
+<a href=#911 id=911 data-nosnippet>911</a>        ErrorKind::NotConnected =&gt; NetworkError::NotConnected,
+<a href=#912 id=912 data-nosnippet>912</a>        ErrorKind::PermissionDenied =&gt; NetworkError::PermissionDenied,
+<a href=#913 id=913 data-nosnippet>913</a>        ErrorKind::TimedOut =&gt; NetworkError::TimedOut,
+<a href=#914 id=914 data-nosnippet>914</a>        ErrorKind::UnexpectedEof =&gt; NetworkError::UnexpectedEof,
+<a href=#915 id=915 data-nosnippet>915</a>        ErrorKind::WouldBlock =&gt; NetworkError::WouldBlock,
+<a href=#916 id=916 data-nosnippet>916</a>        ErrorKind::WriteZero =&gt; NetworkError::WriteZero,
+<a href=#917 id=917 data-nosnippet>917</a>        ErrorKind::Unsupported =&gt; NetworkError::Unsupported,
+<a href=#918 id=918 data-nosnippet>918</a>
+<a href=#919 id=919 data-nosnippet>919</a>        <span class="attr">#[cfg(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>))]
+<a href=#920 id=920 data-nosnippet>920</a>        </span><span class="kw">_ </span>=&gt; {
+<a href=#921 id=921 data-nosnippet>921</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(code) = net_error.raw_os_error() {
+<a href=#922 id=922 data-nosnippet>922</a>                <span class="kw">match </span>code {
+<a href=#923 id=923 data-nosnippet>923</a>                    libc::EPERM =&gt; NetworkError::PermissionDenied,
+<a href=#924 id=924 data-nosnippet>924</a>                    libc::EBADF =&gt; NetworkError::InvalidFd,
+<a href=#925 id=925 data-nosnippet>925</a>                    libc::ECHILD =&gt; NetworkError::InvalidFd,
+<a href=#926 id=926 data-nosnippet>926</a>                    libc::EMFILE =&gt; NetworkError::TooManyOpenFiles,
+<a href=#927 id=927 data-nosnippet>927</a>                    libc::EINTR =&gt; NetworkError::Interrupted,
+<a href=#928 id=928 data-nosnippet>928</a>                    libc::EIO =&gt; NetworkError::IOError,
+<a href=#929 id=929 data-nosnippet>929</a>                    libc::ENXIO =&gt; NetworkError::IOError,
+<a href=#930 id=930 data-nosnippet>930</a>                    libc::EAGAIN =&gt; NetworkError::WouldBlock,
+<a href=#931 id=931 data-nosnippet>931</a>                    libc::ENOMEM =&gt; NetworkError::InsufficientMemory,
+<a href=#932 id=932 data-nosnippet>932</a>                    libc::EACCES =&gt; NetworkError::PermissionDenied,
+<a href=#933 id=933 data-nosnippet>933</a>                    libc::ENODEV =&gt; NetworkError::NoDevice,
+<a href=#934 id=934 data-nosnippet>934</a>                    libc::EINVAL =&gt; NetworkError::InvalidInput,
+<a href=#935 id=935 data-nosnippet>935</a>                    libc::EMSGSIZE =&gt; NetworkError::MessageSize,
+<a href=#936 id=936 data-nosnippet>936</a>                    libc::EPIPE =&gt; NetworkError::BrokenPipe,
+<a href=#937 id=937 data-nosnippet>937</a>                    err =&gt; {
+<a href=#938 id=938 data-nosnippet>938</a>                        <span class="macro">tracing::trace!</span>(<span class="string">"unknown os error {}"</span>, err);
+<a href=#939 id=939 data-nosnippet>939</a>                        NetworkError::UnknownError
+<a href=#940 id=940 data-nosnippet>940</a>                    }
+<a href=#941 id=941 data-nosnippet>941</a>                }
+<a href=#942 id=942 data-nosnippet>942</a>            } <span class="kw">else </span>{
+<a href=#943 id=943 data-nosnippet>943</a>                NetworkError::UnknownError
+<a href=#944 id=944 data-nosnippet>944</a>            }
+<a href=#945 id=945 data-nosnippet>945</a>        }
+<a href=#946 id=946 data-nosnippet>946</a>        <span class="attr">#[cfg(not(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>)))]
+<a href=#947 id=947 data-nosnippet>947</a>        </span><span class="kw">_ </span>=&gt; NetworkError::UnknownError,
+<a href=#948 id=948 data-nosnippet>948</a>    }
+<a href=#949 id=949 data-nosnippet>949</a>}
+<a href=#950 id=950 data-nosnippet>950</a>
+<a href=#951 id=951 data-nosnippet>951</a><span class="kw">pub fn </span>net_error_into_io_err(net_error: NetworkError) -&gt; std::io::Error {
+<a href=#952 id=952 data-nosnippet>952</a>    <span class="kw">use </span>std::io::ErrorKind;
+<a href=#953 id=953 data-nosnippet>953</a>    <span class="kw">match </span>net_error {
+<a href=#954 id=954 data-nosnippet>954</a>        NetworkError::InvalidFd =&gt; ErrorKind::BrokenPipe.into(),
+<a href=#955 id=955 data-nosnippet>955</a>        NetworkError::AlreadyExists =&gt; ErrorKind::AlreadyExists.into(),
+<a href=#956 id=956 data-nosnippet>956</a>        NetworkError::Lock =&gt; ErrorKind::BrokenPipe.into(),
+<a href=#957 id=957 data-nosnippet>957</a>        NetworkError::IOError =&gt; ErrorKind::BrokenPipe.into(),
+<a href=#958 id=958 data-nosnippet>958</a>        NetworkError::AddressInUse =&gt; ErrorKind::AddrInUse.into(),
+<a href=#959 id=959 data-nosnippet>959</a>        NetworkError::AddressNotAvailable =&gt; ErrorKind::AddrNotAvailable.into(),
+<a href=#960 id=960 data-nosnippet>960</a>        NetworkError::BrokenPipe =&gt; ErrorKind::BrokenPipe.into(),
+<a href=#961 id=961 data-nosnippet>961</a>        NetworkError::ConnectionAborted =&gt; ErrorKind::ConnectionAborted.into(),
+<a href=#962 id=962 data-nosnippet>962</a>        NetworkError::ConnectionRefused =&gt; ErrorKind::ConnectionRefused.into(),
+<a href=#963 id=963 data-nosnippet>963</a>        NetworkError::ConnectionReset =&gt; ErrorKind::ConnectionReset.into(),
+<a href=#964 id=964 data-nosnippet>964</a>        NetworkError::Interrupted =&gt; ErrorKind::Interrupted.into(),
+<a href=#965 id=965 data-nosnippet>965</a>        NetworkError::InvalidData =&gt; ErrorKind::InvalidData.into(),
+<a href=#966 id=966 data-nosnippet>966</a>        NetworkError::InvalidInput =&gt; ErrorKind::InvalidInput.into(),
+<a href=#967 id=967 data-nosnippet>967</a>        NetworkError::NotConnected =&gt; ErrorKind::NotConnected.into(),
+<a href=#968 id=968 data-nosnippet>968</a>        NetworkError::NoDevice =&gt; ErrorKind::BrokenPipe.into(),
+<a href=#969 id=969 data-nosnippet>969</a>        NetworkError::PermissionDenied =&gt; ErrorKind::PermissionDenied.into(),
+<a href=#970 id=970 data-nosnippet>970</a>        NetworkError::TimedOut =&gt; ErrorKind::TimedOut.into(),
+<a href=#971 id=971 data-nosnippet>971</a>        NetworkError::UnexpectedEof =&gt; ErrorKind::UnexpectedEof.into(),
+<a href=#972 id=972 data-nosnippet>972</a>        NetworkError::WouldBlock =&gt; ErrorKind::WouldBlock.into(),
+<a href=#973 id=973 data-nosnippet>973</a>        NetworkError::WriteZero =&gt; ErrorKind::WriteZero.into(),
+<a href=#974 id=974 data-nosnippet>974</a>        NetworkError::Unsupported =&gt; ErrorKind::Unsupported.into(),
+<a href=#975 id=975 data-nosnippet>975</a>        NetworkError::UnknownError =&gt; ErrorKind::BrokenPipe.into(),
+<a href=#976 id=976 data-nosnippet>976</a>        NetworkError::InsufficientMemory =&gt; ErrorKind::OutOfMemory.into(),
+<a href=#977 id=977 data-nosnippet>977</a>        NetworkError::MessageSize =&gt; {
+<a href=#978 id=978 data-nosnippet>978</a>            <span class="attr">#[cfg(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>))]
+<a href=#979 id=979 data-nosnippet>979</a>            </span>{
+<a href=#980 id=980 data-nosnippet>980</a>                std::io::Error::from_raw_os_error(libc::EMSGSIZE)
+<a href=#981 id=981 data-nosnippet>981</a>            }
+<a href=#982 id=982 data-nosnippet>982</a>            <span class="attr">#[cfg(not(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>)))]
+<a href=#983 id=983 data-nosnippet>983</a>            </span>{
+<a href=#984 id=984 data-nosnippet>984</a>                ErrorKind::Other.into()
+<a href=#985 id=985 data-nosnippet>985</a>            }
+<a href=#986 id=986 data-nosnippet>986</a>        }
+<a href=#987 id=987 data-nosnippet>987</a>        NetworkError::TooManyOpenFiles =&gt; {
+<a href=#988 id=988 data-nosnippet>988</a>            <span class="attr">#[cfg(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>))]
+<a href=#989 id=989 data-nosnippet>989</a>            </span>{
+<a href=#990 id=990 data-nosnippet>990</a>                std::io::Error::from_raw_os_error(libc::EMFILE)
+<a href=#991 id=991 data-nosnippet>991</a>            }
+<a href=#992 id=992 data-nosnippet>992</a>            <span class="attr">#[cfg(not(all(target_family = <span class="string">"unix"</span>, feature = <span class="string">"libc"</span>)))]
+<a href=#993 id=993 data-nosnippet>993</a>            </span>{
+<a href=#994 id=994 data-nosnippet>994</a>                ErrorKind::Other.into()
+<a href=#995 id=995 data-nosnippet>995</a>            }
+<a href=#996 id=996 data-nosnippet>996</a>        }
+<a href=#997 id=997 data-nosnippet>997</a>    }
+<a href=#998 id=998 data-nosnippet>998</a>}
 </code></pre></div></section></main></body></html>
