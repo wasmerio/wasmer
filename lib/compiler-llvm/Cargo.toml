@@ -22,7 +22,7 @@ wasmer-vm = { path = "../vm", version = "=7.2.0-alpha.3" }
 wasmer-types = { path = "../types", version = "=7.2.0-alpha.3" }
 target-lexicon.workspace = true
 smallvec.workspace = true
-object = { workspace = true, features = ["read"] }
+object.workspace = true
 libc.workspace = true
 byteorder.workspace = true
 itertools.workspace = true

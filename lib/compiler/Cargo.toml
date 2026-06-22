@@ -40,7 +40,7 @@ rkyv.workspace = true
 shared-buffer.workspace = true
 libc.workspace = true
 target-lexicon.workspace = true
-object = { workspace = true, features = ["read", "write"] }
+object.workspace = true
 libwild.workspace = true
 itertools.workspace = true
 tempfile.workspace = true

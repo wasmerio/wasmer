@@ -13,6 +13,10 @@ use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 use fixedbitset::FixedBitSet;
 #[cfg(feature = "unwind")]
 use gimli::{X86_64, write::CallFrameInstruction};
+use object::{
+    RelocationEncoding, RelocationFlags, RelocationKind,
+    write::{Object, Relocation, StandardSection, SymbolId},
+};
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
@@ -21,7 +25,6 @@ use wasmer_compiler::{
     types::{
         address_map::InstructionAddressMap,
         function::FunctionBody,
-        relocation::{Relocation, RelocationKind, RelocationTarget},
         section::{CustomSection, CustomSectionProtection, SectionBody},
     },
     wasmparser::MemArg,
@@ -4486,20 +4489,30 @@ impl Machine for MachineX86_64 {
     fn emit_call_with_reloc(
         &mut self,
         _calling_convention: CallingConvention,
-        reloc_target: RelocationTarget,
-    ) -> Result<Vec<Relocation>, CompileError> {
-        let mut relocations = vec![];
+        reloc_target: SymbolId,
+        object: &mut Object<'static>,
+    ) -> Result<(), CompileError> {
         let next = self.get_label();
         let reloc_at = self.assembler.get_offset().0 + 1; // skip E8
         self.assembler.emit_call_label(next)?;
         self.emit_label(next)?;
-        relocations.push(Relocation {
-            kind: RelocationKind::X86CallPCRel4,
-            reloc_target,
-            offset: reloc_at as u32,
-            addend: -4,
-        });
-        Ok(relocations)
+
+        // TODO
+        let section = object.section_id(StandardSection::Text);
+        object.add_relocation(
+            section,
+            Relocation {
+                symbol: reloc_target,
+                flags: RelocationFlags::Generic {
+                    kind: RelocationKind::GotRelative,
+                    encoding: RelocationEncoding::Generic,
+                    size: 32,
+                },
+                offset: reloc_at as u64,
+                addend: -4,
+            },
+        );
+        Ok(())
     }
 
     fn emit_binop_add64(

@@ -15,13 +15,25 @@ use crate::{
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 use itertools::Itertools;
+use object::{
+    SymbolFlags, SymbolKind, SymbolScope,
+    write::{StandardSection, Symbol, SymbolSection},
+};
 use smallvec::{SmallVec, smallvec};
-use std::{cmp, collections::HashMap, iter, ops::Neg};
-use target_lexicon::Architecture;
+use std::{
+    cmp,
+    collections::HashMap,
+    fs::OpenOptions,
+    iter,
+    ops::Neg,
+    path::{Path, PathBuf},
+};
+use target_lexicon::{Architecture, Triple};
 
 use wasmer_compiler::{
     FunctionBodyData,
     misc::CompiledKind,
+    object::get_object_for_target,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
@@ -36,7 +48,7 @@ use wasmer_compiler::{
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
-use wasmer_types::target::CallingConvention;
+use wasmer_types::target::{CallingConvention, Target};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
@@ -92,9 +104,6 @@ pub struct FuncGen<'a, M: Machine> {
     /// Index of a function defined locally inside the WebAssembly module.
     local_func_index: LocalFunctionIndex,
 
-    /// Relocation information.
-    relocations: Vec<Relocation>,
-
     /// A set of special labels for trapping.
     special_labels: SpecialLabelSet,
 
@@ -106,6 +115,12 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Assembly comments.
     assembly_comments: HashMap<usize, AssemblyComment>,
+
+    /// Relocatable object we serialize all parts into.
+    object: object::write::Object<'static>,
+
+    /// Path where relocatable object is saved.
+    object_path: PathBuf,
 }
 
 struct SpecialLabelSet {
@@ -921,6 +936,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         local_types_excluding_arguments: &[WpType],
         machine: M,
         calling_convention: CallingConvention,
+        triple: &Triple,
+        build_directory: &'a Path,
     ) -> Result<FuncGen<'a, M>, CompileError> {
         let func_index = module.func_index(local_func_index);
         let sig_index = module.functions[func_index];
@@ -961,11 +978,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             machine,
             unreachable_depth: 0,
             local_func_index,
-            relocations: vec![],
             special_labels,
             calling_convention,
             function_name,
             assembly_comments: HashMap::new(),
+            object: get_object_for_target(triple)
+                .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?,
+            object_path: build_directory
+                .to_path_buf()
+                .join(format!("f{}.o", local_func_index.as_u32())),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -2200,13 +2221,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
 
                 // Imported functions are called through trampolines placed as custom sections.
-                let reloc_target = if function_index < self.module.num_imported_functions {
-                    RelocationTarget::CustomSection(SectionIndex::new(function_index))
-                } else {
-                    RelocationTarget::LocalFunc(LocalFunctionIndex::new(
-                        function_index - self.module.num_imported_functions,
-                    ))
-                };
+                // TODO
+                let reloc_target = self.object.add_symbol(object::write::Symbol {
+                    name: format!("f{}", function_index - self.module.num_imported_functions)
+                        .into(),
+                    value: 0,
+                    size: 0,
+                    kind: SymbolKind::Text,
+                    scope: SymbolScope::Dynamic,
+                    weak: false,
+                    section: SymbolSection::Undefined,
+                    flags: SymbolFlags::None,
+                });
                 let calling_convention = self.calling_convention;
 
                 self.emit_call_native(
@@ -2214,11 +2240,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         let offset = this
                             .machine
                             .mark_instruction_with_trap_code(TrapCode::StackOverflow);
-                        let mut relocations = this
-                            .machine
-                            .emit_call_with_reloc(calling_convention, reloc_target)?;
+                        this.machine.emit_call_with_reloc(
+                            calling_convention,
+                            reloc_target,
+                            &mut this.object,
+                        )?;
                         this.machine.mark_instruction_address_end(offset);
-                        this.relocations.append(&mut relocations);
                         Ok(())
                     },
                     params.iter().copied(),
@@ -5819,7 +5846,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         mut self,
         data: &FunctionBodyData,
         arch: Architecture,
-    ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
+    ) -> Result<PathBuf, CompileError> {
         self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
         // Generate actual code for special labels.
         self.machine
@@ -5889,7 +5916,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             mut body,
             assembly_comments,
         } = self.machine.assembler_finalize(self.assembly_comments)?;
-        body.shrink_to_fit();
 
         if let Some(callbacks) = self.config.callbacks.as_ref() {
             callbacks.obj_memory_buffer(
@@ -5906,14 +5932,44 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             )?;
         }
 
-        Ok((
-            CompiledFunction {
-                body: FunctionBody { body, unwind_info },
-                relocations: self.relocations.clone(),
-                frame_info: CompiledFunctionFrameInfo { traps, address_map },
-            },
-            fde,
-        ))
+        let function_symbol = self.object.add_symbol(Symbol {
+            name: format!("f{}", self.local_func_index.as_u32()).into(),
+            value: 0,
+            size: body.len() as u64,
+            kind: SymbolKind::Text,
+            scope: SymbolScope::Dynamic,
+            weak: false,
+            section: SymbolSection::Undefined,
+            flags: SymbolFlags::None,
+        });
+        let text_section = self.object.section_id(StandardSection::Text);
+        self.object.add_symbol_data(
+            function_symbol,
+            text_section,
+            &body,
+            // TODO
+            4,
+        );
+
+        // Save the generated object file.
+        let mut object_file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&self.object_path)
+            .map_err(|e| {
+                CompileError::Codegen(format!(
+                    "failed to create Wasmer object {}: {e}",
+                    self.object_path.display()
+                ))
+            })?;
+        self.object.write_stream(&mut object_file).map_err(|e| {
+            CompileError::Codegen(format!(
+                "failed to write Wasmer object {}: {e}",
+                self.object_path.display(),
+            ))
+        })?;
+        Ok(self.object_path)
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

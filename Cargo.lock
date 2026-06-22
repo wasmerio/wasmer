@@ -7526,6 +7526,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "itertools 0.14.0",
  "more-asserts",
+ "object 0.39.1",
  "rayon",
  "smallvec",
  "target-lexicon 0.13.5",

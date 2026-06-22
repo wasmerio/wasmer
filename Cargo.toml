@@ -211,7 +211,7 @@ mio = "1"
 more-asserts = "0.3.1"
 normpath = "1.5.0"
 num_enum = "0.7.3"
-object = "0.39.0"
+object = { version = "0.39.0", features = ["read", "write"] }
 once_cell = "1.17.1"
 opener = "0.8.3"
 parking = "2.2"

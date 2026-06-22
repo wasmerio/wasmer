@@ -8,6 +8,7 @@ use crate::{
 };
 
 use dynasmrt::{AssemblyOffset, DynamicLabel};
+use object::write::{Object, SymbolId};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
@@ -1104,8 +1105,9 @@ pub trait Machine {
     fn emit_call_with_reloc(
         &mut self,
         calling_convention: CallingConvention,
-        reloc_target: RelocationTarget,
-    ) -> Result<Vec<Relocation>, CompileError>;
+        reloc_target: SymbolId,
+        object: &mut Object<'static>,
+    ) -> Result<(), CompileError>;
     /// Add with location directly from the stack
     fn emit_binop_add64(
         &mut self,

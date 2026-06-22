@@ -19,14 +19,20 @@ use enumset::EnumSet;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable, Writer};
 use itertools::Itertools;
+use object::write::{StandardSection, Symbol, SymbolSection};
+use object::{SymbolFlags, SymbolKind, SymbolScope};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
-use std::path::Path;
+use std::fs::OpenOptions;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use tempfile::NamedTempFile;
-use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
+use tempfile::{NamedTempFile, tempdir};
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
+use wasmer_compiler::object::get_object_for_target;
 use wasmer_compiler::progress::ProgressContext;
+use wasmer_compiler::{
+    CompiledObjects, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, emit_metadata_and_link,
+};
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
@@ -65,9 +71,10 @@ impl SinglepassCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        compile_info_blob: Vec<u8>,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<Compilation, CompileError> {
+    ) -> Result<NamedTempFile, CompileError> {
         let arch = target.triple().architecture;
         match arch {
             Architecture::X86_64 => {}
@@ -93,6 +100,10 @@ impl SinglepassCompiler {
                 }
             },
         };
+
+        let build_directory = tempdir().map_err(|err| {
+            CompileError::Codegen(format!("cannot create temporary build folder: {err}"))
+        })?;
 
         let module = &compile_info.module;
         let total_function_call_trampolines = module.signatures.len() as u64;
@@ -152,7 +163,7 @@ impl SinglepassCompiler {
             .into_iter()
             .collect();
         #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
-        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
+        let object_files = function_body_inputs
             .iter()
             .collect_vec()
             .into_par_iter()
@@ -188,6 +199,8 @@ impl SinglepassCompiler {
                             &locals,
                             machine,
                             calling_convention,
+                            target.triple(),
+                            build_directory.path(),
                         )?;
                         while generator.has_control_frames() {
                             generator.set_srcloc(reader.original_position() as u32);
@@ -209,6 +222,8 @@ impl SinglepassCompiler {
                             &locals,
                             machine,
                             calling_convention,
+                            target.triple(),
+                            build_directory.path(),
                         )?;
                         while generator.has_control_frames() {
                             generator.set_srcloc(reader.original_position() as u32);
@@ -233,6 +248,8 @@ impl SinglepassCompiler {
                             &locals,
                             machine,
                             calling_convention,
+                            target.triple(),
+                            build_directory.path(),
                         )?;
                         while generator.has_control_frames() {
                             generator.set_srcloc(reader.original_position() as u32);
@@ -251,17 +268,15 @@ impl SinglepassCompiler {
 
                 Ok(res)
             })
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .unzip();
+            .collect::<Result<Vec<_>, CompileError>>()?;
 
         let module_hash = module.hash_string();
-        let function_call_trampolines = module
+        let trampolines_objects = module
             .signatures
-            .values()
+            .iter()
             .collect_vec()
             .into_par_iter()
-            .map(|func_type| -> Result<FunctionBody, CompileError> {
+            .map(|(index, func_type)| -> Result<PathBuf, CompileError> {
                 let body = gen_std_trampoline(func_type, target, calling_convention)?;
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
                     callbacks.obj_memory_buffer(
@@ -281,75 +296,125 @@ impl SinglepassCompiler {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
 
-                Ok(body)
+                let mut obj = get_object_for_target(target.triple())
+                    .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
+                let symbol = obj.add_symbol(Symbol {
+                    name: format!("t{}", index.as_u32()).into(),
+                    value: 0,
+                    size: body.body.len() as u64,
+                    kind: SymbolKind::Text,
+                    scope: SymbolScope::Dynamic,
+                    weak: false,
+                    section: SymbolSection::Undefined,
+                    flags: SymbolFlags::None,
+                });
+                let text_section = obj.section_id(StandardSection::Text);
+                obj.add_symbol_data(
+                    symbol,
+                    text_section,
+                    &body.body,
+                    // TODO
+                    4,
+                );
+
+                // Save the generated object file.
+                let object_path = build_directory
+                    .path()
+                    .to_path_buf()
+                    .join(format!("t{}.o", index.as_u32()));
+                let mut object_file = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&object_path)
+                    .map_err(|e| {
+                        CompileError::Codegen(format!("failed to create Wasmer object file: {e}",))
+                    })?;
+                obj.write_stream(&mut object_file).map_err(|e| {
+                    CompileError::Codegen(format!("failed to write Wasmer object file: {e}",))
+                })?;
+
+                Ok(object_path)
             })
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .collect::<PrimaryMap<_, _>>();
+            .collect::<Result<Vec<_>, _>>()?;
 
-        let dynamic_function_trampolines = module
-            .imported_function_types()
-            .collect_vec()
-            .into_par_iter()
-            .map(|func_type| -> Result<FunctionBody, CompileError> {
-                let body = gen_std_dynamic_import_trampoline(
-                    &vmoffsets,
-                    &func_type,
-                    target,
-                    calling_convention,
-                )?;
-                if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-                        &module_hash,
-                        &body.body,
-                    );
-                    callbacks.asm_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-                        &module_hash,
-                        arch,
-                        &body.body,
-                        HashMap::new(),
-                    )?;
-                }
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
-                Ok(body)
-            })
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+        // let dynamic_function_trampolines = module
+        //     .imported_function_types()
+        //     .collect_vec()
+        //     .into_par_iter()
+        //     .map(|func_type| -> Result<FunctionBody, CompileError> {
+        //         let body = gen_std_dynamic_import_trampoline(
+        //             &vmoffsets,
+        //             &func_type,
+        //             target,
+        //             calling_convention,
+        //         )?;
+        //         if let Some(callbacks) = self.config.callbacks.as_ref() {
+        //             callbacks.obj_memory_buffer(
+        //                 &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+        //                 &module_hash,
+        //                 &body.body,
+        //             );
+        //             callbacks.asm_memory_buffer(
+        //                 &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+        //                 &module_hash,
+        //                 arch,
+        //                 &body.body,
+        //                 HashMap::new(),
+        //             )?;
+        //         }
+        //         if let Some(progress) = progress.as_ref() {
+        //             progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+        //         }
+        //         Ok(body)
+        //     })
+        //     .collect::<Result<Vec<_>, _>>()?
+        //     .into_iter()
+        //     .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
-        #[allow(unused_mut)]
-        let mut unwind_info = UnwindInfo::default();
+        // #[allow(unused_mut)]
+        // let mut unwind_info = UnwindInfo::default();
 
-        #[cfg(feature = "unwind")]
-        if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
-            for fde in fdes.into_iter().flatten() {
-                match fde {
-                    UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
-                }
-            }
-            let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
-            dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
-            eh_frame.write(&[0, 0, 0, 0]).unwrap(); // Write a 0 length at the end of the table.
+        // TODO
+        // #[cfg(feature = "unwind")]
+        // if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
+        //     for fde in fdes.into_iter().flatten() {
+        //         match fde {
+        //             UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
+        //         }
+        //     }
+        //     let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
+        //     dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
+        //     eh_frame.write(&[0, 0, 0, 0]).unwrap(); // Write a 0 length at the end of the table.
 
-            let eh_frame_section = eh_frame.0.into_section();
-            custom_sections.push(eh_frame_section);
-            unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1))
-        };
+        //     let eh_frame_section = eh_frame.0.into_section();
+        //     custom_sections.push(eh_frame_section);
+        //     unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1))
+        // };
+        // let got = wasmer_compiler::types::function::GOT::empty();
 
-        let got = wasmer_compiler::types::function::GOT::empty();
+        let module_file = tempfile::Builder::new()
+            .prefix("wasmer-image")
+            .suffix(".so")
+            .tempfile()
+            .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
 
-        Ok(Compilation {
-            functions: functions.into_iter().collect(),
-            custom_sections,
-            function_call_trampolines,
-            dynamic_function_trampolines,
-            unwind_info,
-            got,
-        })
+        emit_metadata_and_link(
+            target,
+            compile_info_blob,
+            build_directory.path(),
+            module_file,
+            &CompiledObjects {
+                object_files: &object_files,
+                trampoline_object_files: &trampolines_objects,
+                dynamic_trampoline_object_files: &[],
+            },
+            self.config
+                .callbacks
+                .as_ref()
+                .map(|callbacks| callbacks.debug_dir.clone()),
+            module_hash,
+        )
     }
 }
 
@@ -373,7 +438,7 @@ impl Compiler for SinglepassCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
-        _compile_info_blob: Vec<u8>,
+        compile_info_blob: Vec<u8>,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -390,12 +455,11 @@ impl Compiler for SinglepassCompiler {
             self.compile_module_internal(
                 target,
                 compile_info,
+                compile_info_blob,
                 function_body_inputs,
                 progress_callback,
             )
-        })?;
-
-        todo!();
+        })
     }
 
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {

@@ -34,6 +34,7 @@ itertools.workspace = true
 target-lexicon.workspace = true
 fixedbitset.workspace = true
 rayon.workspace = true
+object.workspace = true
 
 [dev-dependencies]
 target-lexicon.workspace = true

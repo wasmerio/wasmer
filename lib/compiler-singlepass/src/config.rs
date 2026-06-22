@@ -23,7 +23,7 @@ use wasmer_types::{
 /// Callbacks to the different Cranelift compilation phases.
 #[derive(Debug, Clone)]
 pub struct SinglepassCallbacks {
-    debug_dir: PathBuf,
+    pub(crate) debug_dir: PathBuf,
 }
 
 impl SinglepassCallbacks {

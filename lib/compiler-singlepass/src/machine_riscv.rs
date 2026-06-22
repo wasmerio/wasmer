@@ -5,6 +5,7 @@ use fixedbitset::FixedBitSet;
 #[cfg(feature = "unwind")]
 use gimli::{RiscV, write::CallFrameInstruction};
 
+use object::write::{Object, SymbolId};
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64,
     types::{
@@ -4250,20 +4251,22 @@ impl Machine for MachineRiscv {
     fn emit_call_with_reloc(
         &mut self,
         _calling_convention: CallingConvention,
-        reloc_target: RelocationTarget,
-    ) -> Result<Vec<Relocation>, CompileError> {
-        let mut relocations = vec![];
-        let next = self.get_label();
-        let reloc_at = self.assembler.get_offset().0;
-        self.emit_label(next)?; // this is to be sure the current imm26 value is 0
-        self.assembler.emit_call_label(next)?;
-        relocations.push(Relocation {
-            kind: RelocationKind::RiscvCall,
-            reloc_target,
-            offset: reloc_at as u32,
-            addend: 0,
-        });
-        Ok(relocations)
+        reloc_target: SymbolId,
+        object: &mut Object<'static>,
+    ) -> Result<(), CompileError> {
+        todo!()
+        // let mut relocations = vec![];
+        // let next = self.get_label();
+        // let reloc_at = self.assembler.get_offset().0;
+        // self.emit_label(next)?; // this is to be sure the current imm26 value is 0
+        // self.assembler.emit_call_label(next)?;
+        // relocations.push(Relocation {
+        //     kind: RelocationKind::RiscvCall,
+        //     reloc_target,
+        //     offset: reloc_at as u32,
+        //     addend: 0,
+        // });
+        // Ok(relocations)
     }
 
     fn emit_binop_add64(

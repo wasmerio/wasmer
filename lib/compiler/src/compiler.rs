@@ -25,6 +25,7 @@ use object::{
     SectionFlags, SectionKind, SymbolFlags, SymbolKind, SymbolScope, elf,
 };
 use tempfile::NamedTempFile;
+use wasmer_types::ModuleHash;
 use wasmer_types::{
     CompilationProgressCallback, Features, LocalFunctionIndex, MetadataHeader,
     entity::PrimaryMap,
@@ -484,6 +485,8 @@ pub fn emit_metadata_and_link(
     build_directory: &Path,
     module_file: NamedTempFile,
     compiled_objects: &CompiledObjects<'_>,
+    mut debug_dir: Option<PathBuf>,
+    module_hash: Option<String>,
 ) -> Result<NamedTempFile, CompileError> {
     let meta_object_path =
         emit_wasmer_meta_object(target, compile_info_blob, build_directory, compiled_objects)
@@ -522,5 +525,19 @@ pub fn emit_metadata_and_link(
     let new_file = std::fs::File::open(&path_buf).map_err(|e| {
         CompileError::Codegen(format!("cannot reopen final file after Wild linker: {e:?}"))
     })?;
-    Ok(NamedTempFile::from_parts(new_file, path))
+    let module_file = NamedTempFile::from_parts(new_file, path);
+
+    // If compiler-debug-dir is set, copy the final linked .so image
+    // into the module_hash subfolder.
+    if let Some(debug_dir) = debug_dir.as_mut() {
+        if let Some(ref hash) = module_hash {
+            debug_dir.push(hash);
+        }
+        std::fs::create_dir_all(&debug_dir).ok();
+        debug_dir.push("wasmer-image.so");
+        // TODO
+        let _ = std::fs::copy(module_file.path(), &debug_dir);
+    }
+
+    Ok(module_file)
 }
