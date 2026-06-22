@@ -2997,6 +2997,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8b4baf93f58d4425749ca49a51c50ebab072c5df6994d08fed93541c331481dc"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4574,7 +4583,7 @@ dependencies = [
  "tokio-rustls",
  "tokio-util",
  "tower",
- "tower-http",
+ "tower-http 0.6.11",
  "tower-service",
  "url",
  "wasm-bindgen",
@@ -5281,18 +5290,18 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "strum"
-version = "0.27.2"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "af23d6f6c1a224baef9d3f61e287d2761385a5b88fdab4eb4c6f11aeb54c4bcf"
+checksum = "9628de9b8791db39ceda2b119bbe13134770b56c138ec1d3af810d045c04f9bd"
 dependencies = [
  "strum_macros",
 ]
 
 [[package]]
 name = "strum_macros"
-version = "0.27.2"
+version = "0.28.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7695ce3845ea4b33927c055a39dc438a45b059f7c1b3d91d38d10355fb8cbca7"
+checksum = "ab85eea0270ee17587ed4156089e10b9e6880ee688791d45a905f5b1ca36f664"
 dependencies = [
  "heck 0.5.0",
  "proc-macro2",
@@ -5898,8 +5907,27 @@ dependencies = [
  "tower",
  "tower-layer",
  "tower-service",
- "tracing",
  "url",
+]
+
+[[package]]
+name = "tower-http"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b11f75e912b0c2be01b63d8cf8057b8c3f97cf34abb3d431a3a4c8675498e233"
+dependencies = [
+ "bitflags 2.11.1",
+ "bytes",
+ "futures-util",
+ "http",
+ "http-body",
+ "http-body-util",
+ "percent-encoding",
+ "pin-project-lite",
+ "tower",
+ "tower-layer",
+ "tower-service",
+ "tracing",
 ]
 
 [[package]]
@@ -6830,22 +6858,12 @@ dependencies = [
 
 [[package]]
 name = "wasm-encoder"
-version = "0.250.0"
+version = "0.252.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2271adb766023046af314460f1fae02cc34ea16d736d93404d3b65be44270923"
+checksum = "8185ae345fa5687c054626ff9a50e7089797a343d9904d1dc9820eb4c4d3196f"
 dependencies = [
  "leb128fmt",
- "wasmparser 0.250.0",
-]
-
-[[package]]
-name = "wasm-encoder"
-version = "0.251.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a879a421bd17c528b74721b2abf4c62e8f1d1889c2ba8c3c50d02deaf2ce395"
-dependencies = [
- "leb128fmt",
- "wasmparser 0.251.0",
+ "wasmparser 0.252.0",
 ]
 
 [[package]]
@@ -6862,14 +6880,14 @@ dependencies = [
 
 [[package]]
 name = "wasm-smith"
-version = "0.250.0"
+version = "0.252.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "39719ba92c2bb3b5879179758ca2642b8702d690d036012141d54603a2a4a687"
+checksum = "dfd41f3236c30bd597009c43c15751dcc4c467724aef84141706a736f1ea5081"
 dependencies = [
  "anyhow",
  "arbitrary",
  "flagset",
- "wasm-encoder 0.250.0",
+ "wasm-encoder 0.252.0",
 ]
 
 [[package]]
@@ -6901,7 +6919,7 @@ dependencies = [
  "futures",
  "hashbrown 0.17.1",
  "indexmap",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "js-sys",
  "loupe",
  "macro-wasmer-engine-test",
@@ -6928,7 +6946,7 @@ dependencies = [
  "wasmer-derive",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser 0.250.0",
+ "wasmparser 0.252.0",
  "wat",
  "which",
  "windows-sys 0.61.2",
@@ -7110,7 +7128,7 @@ dependencies = [
  "indexmap",
  "indicatif",
  "interfaces",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "libc",
  "log",
  "lzma-rs",
@@ -7181,7 +7199,7 @@ dependencies = [
  "enum-iterator",
  "enumset",
  "hashbrown 0.17.1",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "leb128",
  "libc",
  "loupe",
@@ -7203,7 +7221,7 @@ dependencies = [
  "thiserror 2.0.18",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser 0.250.0",
+ "wasmparser 0.252.0",
  "which",
  "windows-sys 0.61.2",
 ]
@@ -7218,7 +7236,7 @@ dependencies = [
  "gimli 0.33.0",
  "hashbrown 0.17.1",
  "indexmap",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "leb128",
  "more-asserts",
  "rayon",
@@ -7241,7 +7259,7 @@ dependencies = [
  "enum-iterator",
  "enumset",
  "inkwell",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "libc",
  "object 0.39.1",
  "phf",
@@ -7268,7 +7286,7 @@ dependencies = [
  "fixedbitset",
  "gimli 0.33.0",
  "hashbrown 0.17.1",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "more-asserts",
  "rayon",
  "serde",
@@ -7533,7 +7551,7 @@ dependencies = [
  "getrandom 0.4.2",
  "hex",
  "indexmap",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "loupe",
  "memoffset 0.9.1",
  "more-asserts",
@@ -7543,7 +7561,7 @@ dependencies = [
  "sha2 0.11.0",
  "target-lexicon 0.13.5",
  "thiserror 2.0.18",
- "wasmparser 0.250.0",
+ "wasmparser 0.252.0",
 ]
 
 [[package]]
@@ -7561,7 +7579,7 @@ dependencies = [
  "fnv",
  "gimli 0.33.0",
  "indexmap",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "libc",
  "libunwind",
  "loupe",
@@ -7613,7 +7631,7 @@ dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "js-sys",
  "libc",
  "libtest-mimic",
@@ -7647,7 +7665,7 @@ dependencies = [
  "tokio-stream",
  "toml 1.1.2+spec-1.1.0",
  "tower",
- "tower-http",
+ "tower-http 0.7.0",
  "tracing",
  "tracing-subscriber",
  "tracing-test",
@@ -7663,14 +7681,14 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
- "wasm-encoder 0.250.0",
+ "wasm-encoder 0.252.0",
  "wasmer",
  "wasmer-config",
  "wasmer-journal",
  "wasmer-package",
  "wasmer-types",
  "wasmer-wasix-types",
- "wasmparser 0.250.0",
+ "wasmparser 0.252.0",
  "wcgi",
  "wcgi-host",
  "web-sys",
@@ -7712,7 +7730,7 @@ dependencies = [
  "serde",
  "thiserror 2.0.18",
  "wasmer",
- "wast 250.0.0",
+ "wast",
 ]
 
 [[package]]
@@ -7730,7 +7748,7 @@ dependencies = [
  "criterion",
  "crossbeam-queue",
  "glob",
- "itertools 0.14.0",
+ "itertools 0.15.0",
  "reqwest",
  "rustc_version 0.4.1",
  "serial_test",
@@ -7767,20 +7785,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.250.0"
+version = "0.252.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "071d99cdfb8111603ed05500506c3298a940b58d609dd0259d3981785dd33556"
-dependencies = [
- "bitflags 2.11.1",
- "indexmap",
- "semver 1.0.28",
-]
-
-[[package]]
-name = "wasmparser"
-version = "0.251.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "437970b35b1a85cfde9c74b2398352d8d653f3bd8e3a3db0c063ea8f5b4b36ff"
+checksum = "d3eb099dcadcde5be9eef55e3a337128efd4e44b4c93122487e4d2e4e1c6627c"
 dependencies = [
  "bitflags 2.11.1",
  "indexmap",
@@ -7789,13 +7796,13 @@ dependencies = [
 
 [[package]]
 name = "wasmprinter"
-version = "0.250.0"
+version = "0.252.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae2ebdb361516cdfbc25d0e0e453f74c4d4a5046b54f114c03af990bf098e6f0"
+checksum = "7142797de29b35ab8dbf15c00f55fda75d409da4c423a8ab8bd6b667a785824b"
 dependencies = [
  "anyhow",
  "termcolor",
- "wasmparser 0.250.0",
+ "wasmparser 0.252.0",
 ]
 
 [[package]]
@@ -7810,37 +7817,24 @@ dependencies = [
 
 [[package]]
 name = "wast"
-version = "250.0.0"
+version = "252.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "69e9294a1f0204aeb5c47e95165517f43ef3cc895918c4f3e939380d4c290f4a"
+checksum = "942a3449d6a593fccc111a6241c8df52bda168af30e40bf9580d4394d7374c65"
 dependencies = [
  "bumpalo",
  "leb128fmt",
  "memchr",
  "unicode-width",
- "wasm-encoder 0.250.0",
-]
-
-[[package]]
-name = "wast"
-version = "251.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cc7467dda0a96142eb2c980329dfb62480b1e1d3622fdeb1a44e2bca6ceed74"
-dependencies = [
- "bumpalo",
- "leb128fmt",
- "memchr",
- "unicode-width",
- "wasm-encoder 0.251.0",
+ "wasm-encoder 0.252.0",
 ]
 
 [[package]]
 name = "wat"
-version = "1.251.0"
+version = "1.252.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "81b1086c9e85b95bd6a229a928bc6c6d0662e42af0250c88d067b418831ea4d4"
+checksum = "c72a4ba7088f7bac94cf516e49882bdf97068904a563768cf249efc839ec42cb"
 dependencies = [
- "wast 251.0.0",
+ "wast",
 ]
 
 [[package]]
