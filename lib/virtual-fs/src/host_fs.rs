@@ -4,8 +4,6 @@ use crate::{
 };
 use bytes::{Buf, Bytes};
 use futures::future::BoxFuture;
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize, de};
 use std::convert::TryInto;
 use std::fs;
 use std::io::{self, Seek};
@@ -19,9 +17,7 @@ use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 use tokio::runtime::Handle;
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct FileSystem {
-    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
     root: PathBuf,
 }
@@ -369,109 +365,11 @@ impl crate::FileOpener for FileSystem {
 
 /// A thin wrapper around `std::fs::File`
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize))]
 pub struct File {
-    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     inner: tfs::File,
-    #[cfg_attr(feature = "enable-serde", serde(skip_serializing))]
     inner_std: fs::File,
     pub host_path: PathBuf,
-    #[cfg(feature = "enable-serde")]
-    flags: u16,
-}
-
-#[cfg(feature = "enable-serde")]
-impl<'de> Deserialize<'de> for File {
-    fn deserialize<D>(deserializer: D) -> std::result::Result<File, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        #[derive(Deserialize)]
-        #[serde(field_identifier, rename_all = "snake_case")]
-        enum Field {
-            HostPath,
-            Flags,
-        }
-
-        struct FileVisitor;
-
-        impl<'de> de::Visitor<'de> for FileVisitor {
-            type Value = File;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("struct File")
-            }
-
-            fn visit_seq<V>(self, mut seq: V) -> std::result::Result<Self::Value, V::Error>
-            where
-                V: de::SeqAccess<'de>,
-            {
-                let host_path = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let flags = seq
-                    .next_element()?
-                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
-                let inner = fs::OpenOptions::new()
-                    .read(flags & File::READ != 0)
-                    .write(flags & File::WRITE != 0)
-                    .append(flags & File::APPEND != 0)
-                    .open(&host_path)
-                    .map_err(|_| de::Error::custom("Could not open file on this system"))?;
-                Ok(File {
-                    handle: Handle::current(),
-                    inner: tokio::fs::File::from_std(inner.try_clone().unwrap()),
-                    inner_std: inner,
-                    host_path,
-                    flags,
-                })
-            }
-
-            fn visit_map<V>(self, mut map: V) -> std::result::Result<Self::Value, V::Error>
-            where
-                V: de::MapAccess<'de>,
-            {
-                let mut host_path = None;
-                let mut flags = None;
-                while let Some(key) = map.next_key()? {
-                    match key {
-                        Field::HostPath => {
-                            if host_path.is_some() {
-                                return Err(de::Error::duplicate_field("host_path"));
-                            }
-                            host_path = Some(map.next_value()?);
-                        }
-                        Field::Flags => {
-                            if flags.is_some() {
-                                return Err(de::Error::duplicate_field("flags"));
-                            }
-                            flags = Some(map.next_value()?);
-                        }
-                    }
-                }
-                let host_path = host_path.ok_or_else(|| de::Error::missing_field("host_path"))?;
-                let flags = flags.ok_or_else(|| de::Error::missing_field("flags"))?;
-                let inner = fs::OpenOptions::new()
-                    .read(flags & File::READ != 0)
-                    .write(flags & File::WRITE != 0)
-                    .append(flags & File::APPEND != 0)
-                    .open(&host_path)
-                    .map_err(|_| de::Error::custom("Could not open file on this system"))?;
-                Ok(File {
-                    handle: Handle::current(),
-                    inner: tokio::fs::File::from_std(inner.try_clone().unwrap()),
-                    inner_std: inner,
-                    host_path,
-                    flags,
-                })
-            }
-        }
-
-        const FIELDS: &[&str] = &["host_path", "flags"];
-        deserializer.deserialize_struct("File", FIELDS, FileVisitor)
-    }
 }
 
 impl File {
@@ -508,8 +406,6 @@ impl File {
             inner_std: file,
             inner: async_file,
             host_path,
-            #[cfg(feature = "enable-serde")]
-            flags: _flags,
         }
     }
 
@@ -519,7 +415,6 @@ impl File {
     }
 }
 
-//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
 impl VirtualFile for File {
     fn last_accessed(&self) -> u64 {
@@ -665,11 +560,8 @@ impl Drop for File {
 
 /// A wrapper type around Stdout that implements `VirtualFile`.
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdout {
-    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
-    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_stdout"))]
     inner: tokio::io::Stdout,
 }
 #[allow(dead_code)]
@@ -694,7 +586,6 @@ impl Default for Stdout {
 /// and those hints are often ignored.
 const DEFAULT_BUF_SIZE_HINT: usize = 8 * 1024;
 
-//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
 impl VirtualFile for Stdout {
     fn last_accessed(&self) -> u64 {
@@ -794,11 +685,8 @@ impl AsyncSeek for Stdout {
 
 /// A wrapper type around Stderr that implements `VirtualFile`.
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stderr {
-    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
-    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_stderr"))]
     inner: tokio::io::Stderr,
 }
 #[allow(dead_code)]
@@ -872,7 +760,6 @@ impl AsyncSeek for Stderr {
     }
 }
 
-//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
 impl VirtualFile for Stderr {
     fn last_accessed(&self) -> u64 {
@@ -914,12 +801,9 @@ impl VirtualFile for Stderr {
 
 /// A wrapper type around Stdin that implements `VirtualFile`.
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Stdin {
     read_buffer: Arc<std::sync::Mutex<Option<Bytes>>>,
-    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_handle"))]
     handle: Handle,
-    #[cfg_attr(feature = "enable-serde", serde(skip, default = "default_stdin"))]
     inner: tokio::io::Stdin,
 }
 #[allow(dead_code)]
@@ -998,7 +882,6 @@ impl AsyncSeek for Stdin {
     }
 }
 
-//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 #[async_trait::async_trait]
 impl VirtualFile for Stdin {
     fn last_accessed(&self) -> u64 {

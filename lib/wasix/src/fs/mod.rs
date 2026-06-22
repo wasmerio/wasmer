@@ -38,8 +38,6 @@ use crate::{
     state::{Stderr, Stdin, Stdout},
 };
 use futures::{Future, future::BoxFuture};
-#[cfg(feature = "enable-serde")]
-use serde_derive::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 use virtual_fs::{
     ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
@@ -158,7 +156,6 @@ const STDERR_DEFAULT_RIGHTS: Rights = STDOUT_DEFAULT_RIGHTS;
 pub const MAX_SYMLINKS: u32 = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Inode(u64);
 
 impl Inode {
@@ -285,14 +282,12 @@ impl InodeWeakGuard {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 struct EphemeralSymlinkEntry {
     path_to_symlink: PathBuf,
     relative_path: PathBuf,
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[warn(unused)]
 enum ComponentResolution {
     Create {
@@ -316,13 +311,11 @@ enum ComponentResolution {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 struct WasiInodesProtected {
     lookup: HashMap<Inode, Weak<InodeVal>>,
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiInodes {
     protected: Arc<RwLock<WasiInodesProtected>>,
 }
@@ -573,13 +566,11 @@ impl FileSystem for WasiFsRoot {
 /// `inode`**. Prefer the `*_locked` helpers on [`WasiFs`] (`insert_fd_locked`,
 /// `clone_fd_locked`, `close_fd_locked`, `dup2_at`) so handle counts and map slots
 /// stay consistent under concurrency.
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
     pub fd_map: RwLock<FdList>,
     pub current_dir: Mutex<String>,
-    #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
     pub root_inode: InodeGuard,
     pub has_unioned: Mutex<HashSet<PackageId>>,

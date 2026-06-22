@@ -35,7 +35,6 @@ tokio = { workspace = true, features = [
   "macros",
 ], default-features = false }
 tracing = { workspace = true, default-features = true }
-typetag = { workspace = true, optional = true }
 webc = { workspace = true, optional = true, features = ["v1"] }
 serde = { workspace = true, default-features = false, features = [
   "derive",
@@ -64,7 +63,8 @@ host-fs = [
 ]
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow"]
-enable-serde = ["typetag", "serde"]
+# Deprecated feature (a compile-time warning reported if used).
+enable-serde = []
 js = ["dep:web-time", "getrandom/wasm_js"]
 # Enables memory tracking/limiting functionality for the in-memory filesystem.
 tracking = []
