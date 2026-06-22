@@ -1023,6 +1023,7 @@ type DeployApp implements Node & Owner {
   domains(sortBy: AppAliasSortBy! = NEWEST, offset: Int, before: String, after: String, first: Int, last: Int): AppAliasConnection!
   secrets(offset: Int, before: String, after: String, first: Int, last: Int): SecretConnection!
   databases(offset: Int, before: String, after: String, first: Int, last: Int): AppDatabaseConnection!
+  cronJobs(kind: CronJobKind, offset: Int, before: String, after: String, first: Int, last: Int): CronJobConnection!
   usageMetrics(
     variant: MetricType!
     grouping: MetricGrouping
@@ -1042,6 +1043,110 @@ type DeployApp implements Node & Owner {
   mails: [AppMail]
   kind: Kind
   githubRepoConnection: GithubRepoConnection
+}
+
+enum CronJobKind {
+  FETCH
+  EXECUTE
+}
+
+enum CronJobSource {
+  CONFIG
+  API
+  PROVISIONED
+}
+
+enum CronJobInvocationStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILURE
+}
+
+type CronJobConnection {
+  pageInfo: PageInfo!
+  edges: [CronJobEdge]!
+  nodes: [CronJob!]!
+  totalCount: Int
+}
+
+type CronJobEdge {
+  cursor: String!
+  node: CronJob
+}
+
+type CronJob {
+  id: ID!
+  name: String!
+  schedule: String!
+  kind: CronJobKind!
+  source: CronJobSource!
+  isManaged: Boolean!
+  enabled: Boolean!
+  timeout: String
+  maxScheduleDrift: String
+  maxRetries: Int
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  target: CronJobTarget!
+  invocations(start: DateTime, end: DateTime, after: String, first: Int): CronJobInvocationConnection!
+}
+
+union CronJobTarget = FetchCronJobTarget | ExecuteCronJobTarget
+
+type FetchCronJobTarget {
+  body: String
+  headers: GenericScalar!
+  method: String!
+  path: String!
+  expectBodyIncludes: String
+  expectBodyRegex: String
+  expectStatusCodes: GenericScalar
+}
+
+type ExecuteCronJobTarget {
+  packageName: String
+  command: String
+  cliArgs: [String!]!
+  env: GenericScalar!
+}
+
+type CronJobInvocationConnection {
+  pageInfo: PageInfo!
+  edges: [CronJobInvocationEdge]!
+  nodes: [CronJobInvocation!]!
+}
+
+type CronJobInvocationEdge {
+  cursor: String!
+  node: CronJobInvocation
+}
+
+type CronJobInvocation {
+  id: String!
+  edgeJobId: String!
+  status: CronJobInvocationStatus
+  scheduledAt: DateTime
+  startedAt: DateTime
+  finishedAt: DateTime
+  durationMs: Int
+  retryAttempts: Int
+  errorSummary: String
+  result: CronJobInvocationResult
+  logs(before: String, after: String, first: Int, last: Int): LogConnection!
+}
+
+union CronJobInvocationResult = ExecuteCronJobInvocationResult | FetchCronJobInvocationResult
+
+type ExecuteCronJobInvocationResult {
+  exitCode: Int
+  instanceId: String
+}
+
+type FetchCronJobInvocationResult {
+  statusCode: Int
+  responseBody: String
+  requestId: String
 }
 
 """An enumeration."""
