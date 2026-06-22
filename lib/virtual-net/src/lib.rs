@@ -319,6 +319,11 @@ pub trait VirtualSocket: VirtualIoSource + fmt::Debug + Send + Sync + 'static {
     /// Returns the status/state of the socket
     fn status(&self) -> Result<SocketStatus>;
 
+    /// Returns and clears the last socket error when the backend can report one.
+    fn last_error(&self) -> Result<Option<NetworkError>> {
+        Ok(None)
+    }
+
     /// Registers a waker for when this connection is ready to receive
     /// more data. Uses a stack machine which means more than one waker
     /// can be registered
