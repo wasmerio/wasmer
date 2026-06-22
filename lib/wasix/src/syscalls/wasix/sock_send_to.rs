@@ -117,7 +117,7 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
                     .unwrap_or(Duration::from_secs(30));
 
                 if socket.is_dgram() {
-                    let data = si_data.coalesce(&memory)?;
+                    let data = si_data.coalesce(&memory, UDP_MAX_PAYLOAD)?;
                     return socket
                         .send_to::<M>(
                             env.tasks().deref(),

@@ -896,7 +896,13 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
         ErrorKind::ConnectionReset => NetworkError::ConnectionReset,
         ErrorKind::Interrupted => NetworkError::Interrupted,
         ErrorKind::InvalidData => NetworkError::InvalidData,
-        ErrorKind::InvalidInput => NetworkError::InvalidInput,
+        ErrorKind::InvalidInput => {
+            #[cfg(all(target_family = "unix", feature = "libc"))]
+            if net_error.raw_os_error() == Some(libc::EMSGSIZE) {
+                return NetworkError::MessageSize;
+            }
+            NetworkError::InvalidInput
+        }
         ErrorKind::NotConnected => NetworkError::NotConnected,
         ErrorKind::PermissionDenied => NetworkError::PermissionDenied,
         ErrorKind::TimedOut => NetworkError::TimedOut,

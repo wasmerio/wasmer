@@ -124,14 +124,29 @@ pub(crate) enum FdWriteSource<'a, M: MemorySize> {
     Buffer(Cow<'a, [u8]>),
 }
 
+/// Maximum UDP payload size (65535 - 8 byte UDP header - 20 byte IP header).
+pub(crate) const UDP_MAX_PAYLOAD: usize = 65507;
+
 impl<'a, M: MemorySize> FdWriteSource<'a, M> {
-    pub(crate) fn coalesce(&self, memory: &MemoryView) -> Result<Cow<'a, [u8]>, Errno> {
+    pub(crate) fn coalesce(
+        &self,
+        memory: &MemoryView,
+        max_len: usize,
+    ) -> Result<Cow<'a, [u8]>, Errno> {
         match self {
             FdWriteSource::Iovs { iovs, iovs_len } => {
                 let iovs_arr = iovs.slice(memory, *iovs_len).map_err(mem_error_to_wasi)?;
                 let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
 
-                let total_len: usize = iovs_arr.iter().map(|iov| iov.buf_len.into() as usize).sum();
+                let mut total_len = 0usize;
+                for iov in iovs_arr.iter() {
+                    let len = iov.buf_len.into() as usize;
+                    total_len = total_len.checked_add(len).ok_or(Errno::Msgsize)?;
+                }
+                if total_len > max_len {
+                    return Err(Errno::Msgsize);
+                }
+
                 let mut coalesced = Vec::with_capacity(total_len);
 
                 for iov in iovs_arr.iter() {
@@ -145,7 +160,12 @@ impl<'a, M: MemorySize> FdWriteSource<'a, M> {
 
                 Ok(Cow::Owned(coalesced))
             }
-            FdWriteSource::Buffer(cow) => Ok(cow.clone()),
+            FdWriteSource::Buffer(cow) => {
+                if cow.len() > max_len {
+                    return Err(Errno::Msgsize);
+                }
+                Ok(cow.clone())
+            }
         }
     }
 }
@@ -270,7 +290,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                         let mut sent = 0usize;
 
                         if socket.is_dgram() {
-                            let data = data.coalesce(&memory)?;
+                            let data = data.coalesce(&memory, UDP_MAX_PAYLOAD)?;
                             sent += socket
                                 .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
                                 .await?;
