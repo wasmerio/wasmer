@@ -398,8 +398,6 @@ impl Compiler for SinglepassCompiler {
     }
 }
 
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
