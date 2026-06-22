@@ -270,7 +270,9 @@ impl SinglepassCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        let save_object = |obj: object::write::Object<'static>, filename: String| -> Result<PathBuf, CompileError> {
+        let save_object = |obj: object::write::Object<'static>,
+                           filename: String|
+         -> Result<PathBuf, CompileError> {
             let object_path = build_directory.path().to_path_buf().join(&filename);
             let mut object_file = OpenOptions::new()
                 .write(true)
@@ -367,7 +369,7 @@ impl SinglepassCompiler {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
 
-                 let mut obj = get_object_for_target(target.triple())
+                let mut obj = get_object_for_target(target.triple())
                     .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
                 let symbol = obj.add_symbol(Symbol {
                     name: format!("dt{index}").into(),
@@ -413,6 +415,7 @@ impl SinglepassCompiler {
         // };
         // let got = wasmer_compiler::types::function::GOT::empty();
 
+        // TODO: create temp file in caller
         let module_file = tempfile::Builder::new()
             .prefix("wasmer-image")
             .suffix(".so")
