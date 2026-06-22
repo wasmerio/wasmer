@@ -63,11 +63,11 @@ static int expect_one_datagram(int receiver, const char* label) {
 }
 
 static void make_iovecs(__wasi_ciovec_t iovs[3]) {
-  static const char part1[] = "hel";
-  static const char part2[] = "lo ";
+  static const char part1[] = "he";
+  static const char part2[] = "llo ";
   static const char part3[] = "world!";
-  iovs[0] = (__wasi_ciovec_t){.buf = (uint8_t*)part1, .buf_len = 3};
-  iovs[1] = (__wasi_ciovec_t){.buf = (uint8_t*)part2, .buf_len = 3};
+  iovs[0] = (__wasi_ciovec_t){.buf = (uint8_t*)part1, .buf_len = 2};
+  iovs[1] = (__wasi_ciovec_t){.buf = (uint8_t*)part2, .buf_len = 4};
   iovs[2] = (__wasi_ciovec_t){.buf = (uint8_t*)part3, .buf_len = 6};
 }
 
