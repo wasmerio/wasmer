@@ -1,7 +1,7 @@
 use std::{mem::MaybeUninit, task::Waker};
 
 use super::*;
-use crate::{net::socket::TimeType, syscalls::*};
+use crate::{net::MAX_SOCKET_PAYLOAD, net::socket::TimeType, syscalls::*};
 
 /// ### `sock_send()`
 /// Send a message on a socket.
@@ -107,8 +107,7 @@ pub(crate) fn sock_send_internal<M: MemorySize>(
                 .unwrap_or(Duration::from_secs(30));
 
             if socket.is_dgram() {
-                let max_payload = socket.max_datagram_payload()?;
-                let data = si_data.coalesce(&memory, max_payload)?;
+                let data = si_data.coalesce(&memory, MAX_SOCKET_PAYLOAD)?;
                 return socket
                     .send(
                         env.tasks().deref(),

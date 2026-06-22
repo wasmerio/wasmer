@@ -6,7 +6,7 @@ use crate::{
     journal::{JournalEffector, JournalEntry},
     utils::map_snapshot_err,
 };
-use crate::{net::socket::TimeType, syscalls::*};
+use crate::{net::MAX_SOCKET_PAYLOAD, net::socket::TimeType, syscalls::*};
 
 /// ### `fd_write()`
 /// Write data to the file descriptor
@@ -287,8 +287,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                         let mut sent = 0usize;
 
                         if socket.is_dgram() {
-                            let max_payload = socket.max_datagram_payload()?;
-                            let data = data.coalesce(&memory, max_payload)?;
+                            let data = data.coalesce(&memory, MAX_SOCKET_PAYLOAD)?;
                             sent += socket
                                 .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
                                 .await?;

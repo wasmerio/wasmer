@@ -112,7 +112,7 @@ static int test_single_buffer_oversize(
 static int test_iovec_sum_oversize(int sender,
                                    const struct sockaddr_in* receiver_addr) {
   static uint8_t part1[35000];
-  static uint8_t part2[30508];
+  static uint8_t part2[30528];
   memset(part1, 0x11, sizeof(part1));
   memset(part2, 0x22, sizeof(part2));
 
