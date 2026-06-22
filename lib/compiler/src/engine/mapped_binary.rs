@@ -13,6 +13,7 @@ use wasmer_vm::libcalls::function_pointer;
 
 use crate::engine::unwind::UnwindRegistry;
 
+#[derive(Debug)]
 struct ImageSegment {
     pub(crate) mem_address: usize,
     pub(crate) mem_size: usize,
@@ -98,7 +99,11 @@ impl MemoryMappedBinary {
                 }
             })
             .collect_vec();
-        let total_memory_size = segments.iter().map(|seg| seg.mem_size_page_aligned()).sum();
+        let last_segment = segments
+            .last()
+            .ok_or("at least one segment is mandatory".to_string())?;
+        let total_memory_size =
+            last_segment.mem_address_page_aligned() + last_segment.mem_size_page_aligned();
 
         // Create a contiguous virtual address memory map that will be populated
         // per-partes with the individual protection flags.
@@ -263,6 +268,9 @@ impl MemoryMappedBinary {
         fd: i32,
         file_offset: usize,
     ) -> Result<(), String> {
+        if offset + size > self.size {
+            return Err("Segment will overwrite allocated range".to_string());
+        }
         let result = unsafe {
             libc::mmap(
                 self.base.add(offset),
