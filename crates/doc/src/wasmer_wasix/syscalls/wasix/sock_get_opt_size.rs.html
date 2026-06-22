@@ -24,17 +24,18 @@
 <a href=#24 id=24 data-nosnippet>24</a>            Sockoption::RecvBufSize =&gt; socket.recv_buf_size().map(|a| a <span class="kw">as </span>Filesize),
 <a href=#25 id=25 data-nosnippet>25</a>            Sockoption::SendBufSize =&gt; socket.send_buf_size().map(|a| a <span class="kw">as </span>Filesize),
 <a href=#26 id=26 data-nosnippet>26</a>            Sockoption::Ttl =&gt; socket.ttl().map(|a| a <span class="kw">as </span>Filesize),
-<a href=#27 id=27 data-nosnippet>27</a>            Sockoption::MulticastTtlV4 =&gt; {
-<a href=#28 id=28 data-nosnippet>28</a>                socket.multicast_ttl_v4().map(|a| a <span class="kw">as </span>Filesize)
-<a href=#29 id=29 data-nosnippet>29</a>            }
-<a href=#30 id=30 data-nosnippet>30</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Inval),
-<a href=#31 id=31 data-nosnippet>31</a>        }
-<a href=#32 id=32 data-nosnippet>32</a>    ));
-<a href=#33 id=33 data-nosnippet>33</a>
-<a href=#34 id=34 data-nosnippet>34</a>    <span class="kw">let </span>env = ctx.data();
-<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-<a href=#36 id=36 data-nosnippet>36</a>    <span class="macro">wasi_try_mem!</span>(ret_size.write(<span class="kw-2">&amp;</span>memory, size));
-<a href=#37 id=37 data-nosnippet>37</a>
-<a href=#38 id=38 data-nosnippet>38</a>    Errno::Success
-<a href=#39 id=39 data-nosnippet>39</a>}
+<a href=#27 id=27 data-nosnippet>27</a>            Sockoption::LastError =&gt; socket.last_error().map(|a| u16::from(a) <span class="kw">as </span>Filesize),
+<a href=#28 id=28 data-nosnippet>28</a>            Sockoption::MulticastTtlV4 =&gt; {
+<a href=#29 id=29 data-nosnippet>29</a>                socket.multicast_ttl_v4().map(|a| a <span class="kw">as </span>Filesize)
+<a href=#30 id=30 data-nosnippet>30</a>            }
+<a href=#31 id=31 data-nosnippet>31</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Inval),
+<a href=#32 id=32 data-nosnippet>32</a>        }
+<a href=#33 id=33 data-nosnippet>33</a>    ));
+<a href=#34 id=34 data-nosnippet>34</a>
+<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">let </span>env = ctx.data();
+<a href=#36 id=36 data-nosnippet>36</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+<a href=#37 id=37 data-nosnippet>37</a>    <span class="macro">wasi_try_mem!</span>(ret_size.write(<span class="kw-2">&amp;</span>memory, size));
+<a href=#38 id=38 data-nosnippet>38</a>
+<a href=#39 id=39 data-nosnippet>39</a>    Errno::Success
+<a href=#40 id=40 data-nosnippet>40</a>}
 </code></pre></div></section></main></body></html>
