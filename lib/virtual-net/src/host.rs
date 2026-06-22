@@ -2,9 +2,10 @@
 use crate::ruleset::{Direction, Ruleset};
 #[allow(unused_imports)]
 use crate::{
-    IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity, VirtualConnectedSocket,
-    VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
-    VirtualSocket, VirtualTcpBoundSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
+    IpCidr, IpRoute, MAX_SOCKET_PAYLOAD, NetworkError, Result, SocketStatus, StreamSecurity,
+    VirtualConnectedSocket, VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking,
+    VirtualRawSocket, VirtualSocket, VirtualTcpBoundSocket, VirtualTcpListener, VirtualTcpSocket,
+    VirtualUdpSocket,
 };
 use crate::{VirtualIoSource, io_err_into_net_error};
 use bytes::{Buf, BytesMut};

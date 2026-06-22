@@ -24,7 +24,10 @@ int main(void) {
   sendto(fd, "", 0, 0, (struct sockaddr*)&addr, sizeof(addr));
 
   struct pollfd pfd = {.fd = fd, .events = POLLIN};
-  poll(&pfd, 1, 1000);
+  if (poll(&pfd, 1, 1000) != 1 || (pfd.revents & POLLIN) == 0) {
+    fprintf(stderr, "poll: expected POLLIN, got revents=0x%x\n", pfd.revents);
+    return 1;
+  }
 
   char byte;
   ssize_t n = recvfrom(fd, &byte, sizeof(byte), 0, NULL, NULL);

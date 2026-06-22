@@ -18,9 +18,7 @@ use wasmer_wasix_types::{
 
 pub mod socket;
 
-/// Largest datagram payload we coalesce before send (65535 - UDP header).
-/// Caps host allocation across address families; the OS rejects oversize packets.
-pub const MAX_SOCKET_PAYLOAD: usize = 65535 - 8;
+pub use virtual_net::MAX_SOCKET_PAYLOAD;
 
 #[allow(dead_code)]
 pub(crate) fn read_ip<M: MemorySize>(
