@@ -41,8 +41,8 @@ int main(void) {
 
   char peek_buf[16] = {0};
   char recv_buf[16] = {0};
-  ssize_t peek_len = recvfrom(receiver, peek_buf, sizeof(peek_buf), MSG_PEEK,
-                              NULL, NULL);
+  ssize_t peek_len =
+      recvfrom(receiver, peek_buf, sizeof(peek_buf), MSG_PEEK, NULL, NULL);
   if (peek_len != (ssize_t)(sizeof(msg) - 1) ||
       memcmp(peek_buf, msg, sizeof(msg) - 1) != 0) {
     fprintf(stderr, "MSG_PEEK: expected `%s`, got %zd bytes `%.*s`\n", msg,
@@ -50,7 +50,8 @@ int main(void) {
     return 1;
   }
 
-  ssize_t first_len = recvfrom(receiver, recv_buf, sizeof(recv_buf), 0, NULL, NULL);
+  ssize_t first_len =
+      recvfrom(receiver, recv_buf, sizeof(recv_buf), 0, NULL, NULL);
   if (first_len != (ssize_t)(sizeof(msg) - 1) ||
       memcmp(recv_buf, msg, sizeof(msg) - 1) != 0) {
     fprintf(stderr, "first recv: expected `%s`, got %zd bytes\n", msg,

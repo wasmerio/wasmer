@@ -70,7 +70,8 @@ int main(void) {
   char buf[16];
   if (recv(conn_fd, buf, sizeof(buf), 0) >= 0 ||
       (errno != EAGAIN && errno != EWOULDBLOCK)) {
-    fprintf(stderr, "recv after wrong peer: expected EAGAIN, got errno=%d (%s)\n",
+    fprintf(stderr,
+            "recv after wrong peer: expected EAGAIN, got errno=%d (%s)\n",
             errno, strerror(errno));
     return 1;
   }
@@ -99,8 +100,8 @@ int main(void) {
 
   struct sockaddr_in from;
   socklen_t from_len = sizeof(from);
-  ssize_t nread =
-      recvfrom(conn_fd, buf, sizeof(buf), 0, (struct sockaddr*)&from, &from_len);
+  ssize_t nread = recvfrom(conn_fd, buf, sizeof(buf), 0,
+                           (struct sockaddr*)&from, &from_len);
   if (nread != (ssize_t)(sizeof(good) - 1) ||
       memcmp(buf, good, sizeof(good) - 1) != 0) {
     fprintf(stderr, "expected `%.*s`, got %zd bytes\n", (int)(sizeof(good) - 1),
