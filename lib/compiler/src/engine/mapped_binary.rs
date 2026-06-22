@@ -148,6 +148,9 @@ impl MemoryMappedBinary {
                 )
                 .map_err(|error| format!("Cannot map zero-fill segment tail: {error}"))?;
             }
+            if load_segment.mem_size_page_aligned() < load_segment.file_size_page_aligned() {
+                return Err("invalid memory segment with larger file representation".to_string());
+            }
         }
 
         // Apply dynamic relocations for the libcalls
