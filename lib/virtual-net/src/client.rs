@@ -1045,13 +1045,13 @@ impl VirtualIoSource for RemoteSocket {
             let len = self
                 .buffer_recv_with_addr
                 .front()
-                .map(|a| a.data.len())
+                .map(|a| a.data.len().max(1))
                 .unwrap_or_default();
             return Poll::Ready(Ok(len));
         }
         match self.rx_recv_with_addr.poll_recv(cx) {
             Poll::Ready(Some(data)) => {
-                let len = data.data.len();
+                let len = data.data.len().max(1);
                 self.buffer_recv_with_addr.push_back(data);
                 return Poll::Ready(Ok(len));
             }

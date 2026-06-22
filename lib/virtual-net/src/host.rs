@@ -1134,6 +1134,15 @@ impl VirtualSocket for LocalUdpSocket {
 }
 
 impl LocalUdpSocket {
+    /// A queued zero-length UDP datagram is readable (Linux `POLLIN`), but
+    /// wasix poll treats `nbytes == 0` as hangup, so report at least 1.
+    fn backlog_read_ready_len(&self) -> usize {
+        self.backlog
+            .front()
+            .map(|(packet, _)| packet.len().max(1))
+            .unwrap_or_default()
+    }
+
     fn recv_into_backlog(&mut self) -> io::Result<()> {
         let mut buffer = BytesMut::default();
         buffer.reserve(10240);
@@ -1176,8 +1185,7 @@ impl VirtualIoSource for LocalUdpSocket {
 
     fn poll_read_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
         if !self.backlog.is_empty() {
-            let len = self.backlog.front().map(|a| a.0.len()).unwrap_or_default();
-            return Poll::Ready(Ok(len));
+            return Poll::Ready(Ok(self.backlog_read_ready_len()));
         }
 
         let (state, selector, socket) = self.split_borrow();
@@ -1186,10 +1194,7 @@ impl VirtualIoSource for LocalUdpSocket {
         map.add(InterestType::Readable, cx.waker());
 
         match self.recv_into_backlog() {
-            Ok(()) => {
-                let len = self.backlog.front().map(|a| a.0.len()).unwrap_or_default();
-                Poll::Ready(Ok(len))
-            }
+            Ok(()) => Poll::Ready(Ok(self.backlog_read_ready_len())),
             Err(err) if err.kind() == io::ErrorKind::ConnectionAborted => Poll::Ready(Ok(0)),
             Err(err) if err.kind() == io::ErrorKind::ConnectionReset => Poll::Ready(Ok(0)),
             Err(err) if err.kind() == io::ErrorKind::WouldBlock => Poll::Pending,
