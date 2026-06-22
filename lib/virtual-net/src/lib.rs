@@ -854,6 +854,9 @@ pub enum NetworkError {
     /// The provided data is invalid
     #[error("invalid input")]
     InvalidInput,
+    /// The message is too large to send as one packet
+    #[error("message too large")]
+    MessageSize,
     /// Could not perform the operation because there was not an open connection
     #[error("connection is not open")]
     NotConnected,
@@ -898,7 +901,13 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
         ErrorKind::ConnectionReset => NetworkError::ConnectionReset,
         ErrorKind::Interrupted => NetworkError::Interrupted,
         ErrorKind::InvalidData => NetworkError::InvalidData,
-        ErrorKind::InvalidInput => NetworkError::InvalidInput,
+        ErrorKind::InvalidInput => {
+            #[cfg(all(target_family = "unix", feature = "libc"))]
+            if net_error.raw_os_error() == Some(libc::EMSGSIZE) {
+                return NetworkError::MessageSize;
+            }
+            NetworkError::InvalidInput
+        }
         ErrorKind::NotConnected => NetworkError::NotConnected,
         ErrorKind::PermissionDenied => NetworkError::PermissionDenied,
         ErrorKind::TimedOut => NetworkError::TimedOut,
@@ -923,6 +932,7 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
                     libc::EACCES => NetworkError::PermissionDenied,
                     libc::ENODEV => NetworkError::NoDevice,
                     libc::EINVAL => NetworkError::InvalidInput,
+                    libc::EMSGSIZE => NetworkError::MessageSize,
                     libc::EPIPE => NetworkError::BrokenPipe,
                     err => {
                         tracing::trace!("unknown os error {}", err);
@@ -964,6 +974,16 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::Unsupported => ErrorKind::Unsupported.into(),
         NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
         NetworkError::InsufficientMemory => ErrorKind::OutOfMemory.into(),
+        NetworkError::MessageSize => {
+            #[cfg(all(target_family = "unix", feature = "libc"))]
+            {
+                std::io::Error::from_raw_os_error(libc::EMSGSIZE)
+            }
+            #[cfg(not(all(target_family = "unix", feature = "libc")))]
+            {
+                ErrorKind::Other.into()
+            }
+        }
         NetworkError::TooManyOpenFiles => {
             #[cfg(all(target_family = "unix", feature = "libc"))]
             {
