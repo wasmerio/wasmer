@@ -1158,7 +1158,7 @@ impl LocalUdpSocket {
 
     fn recv_into_backlog(&mut self) -> io::Result<()> {
         let mut buffer = BytesMut::default();
-        buffer.reserve(10240);
+        buffer.reserve(MAX_SOCKET_PAYLOAD);
         let uninit: &mut [MaybeUninit<u8>] = buffer.spare_capacity_mut();
         let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
 

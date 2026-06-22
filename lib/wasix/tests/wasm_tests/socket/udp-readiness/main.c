@@ -11,21 +11,38 @@
 
 int main(void) {
   int fd = socket(AF_INET, SOCK_DGRAM | SOCK_NONBLOCK, 0);
+  if (fd < 0) {
+    perror("socket");
+    return 1;
+  }
 
   struct sockaddr_in addr = {0};
   addr.sin_family = AF_INET;
   addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
   addr.sin_port = 0;
-  bind(fd, (struct sockaddr*)&addr, sizeof(addr));
+  if (bind(fd, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+    perror("bind");
+    close(fd);
+    return 1;
+  }
 
   socklen_t len = sizeof(addr);
-  getsockname(fd, (struct sockaddr*)&addr, &len);
+  if (getsockname(fd, (struct sockaddr*)&addr, &len) != 0) {
+    perror("getsockname");
+    close(fd);
+    return 1;
+  }
 
-  sendto(fd, "", 0, 0, (struct sockaddr*)&addr, sizeof(addr));
+  if (sendto(fd, "", 0, 0, (struct sockaddr*)&addr, sizeof(addr)) != 0) {
+    perror("sendto");
+    close(fd);
+    return 1;
+  }
 
   struct pollfd pfd = {.fd = fd, .events = POLLIN};
   if (poll(&pfd, 1, 1000) != 1 || (pfd.revents & POLLIN) == 0) {
     fprintf(stderr, "poll: expected POLLIN, got revents=0x%x\n", pfd.revents);
+    close(fd);
     return 1;
   }
 

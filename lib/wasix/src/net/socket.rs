@@ -1704,9 +1704,11 @@ fn discard_non_matching_udp_datagrams(
     loop {
         match socket.try_recv_from(&mut discard, true) {
             Ok((_, addr)) if addr == *peer => return Ok(()),
-            Ok(_) => {
-                let _ = socket.try_recv_from(&mut discard, false);
-            }
+            Ok(_) => match socket.try_recv_from(&mut discard, false) {
+                Ok(_) => {}
+                Err(NetworkError::WouldBlock) => {}
+                Err(err) => return Err(err),
+            },
             Err(NetworkError::WouldBlock) => return Ok(()),
             Err(err) => return Err(err),
         }
@@ -1723,9 +1725,11 @@ fn try_recv_from_connected_udp(
     loop {
         match socket.try_recv_from(data, peek) {
             Ok((amt, addr)) if addr == *peer => return Ok((amt, addr)),
-            Ok(_) if peek => {
-                let _ = socket.try_recv_from(data, false);
-            }
+            Ok(_) if peek => match socket.try_recv_from(data, false) {
+                Ok(_) => {}
+                Err(NetworkError::WouldBlock) => {}
+                Err(err) => return Err(err),
+            },
             Ok(_) => continue,
             Err(err) => return Err(err),
         }
