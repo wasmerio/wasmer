@@ -207,7 +207,7 @@ humantime.workspace = true
 interfaces = { workspace = true, optional = true }
 
 uuid = { workspace = true, features = ["v4"] }
-time = { workspace = true, features = ["macros"] }
+time = { workspace = true, features = ["macros", "parsing"] }
 serde_yaml.workspace = true
 base64.workspace = true
 comfy-table.workspace = true

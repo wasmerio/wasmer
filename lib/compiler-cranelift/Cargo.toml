@@ -37,6 +37,10 @@ target-lexicon.workspace = true
 leb128.workspace = true
 indexmap.workspace = true
 regalloc2.workspace = true
+serde_derive = { workspace = true, optional = true }
+serde = { workspace = true, default-features = false, features = [
+  "derive",
+], optional = true }
 
 [dev-dependencies]
 cranelift-codegen = { workspace = true, features = ["all-arch"] }
@@ -55,7 +59,7 @@ std = [
   "wasmer-types/std",
 ]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
-enable-serde = []
+enable-serde = ["cranelift-codegen/enable-serde", "serde", "serde_derive"]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

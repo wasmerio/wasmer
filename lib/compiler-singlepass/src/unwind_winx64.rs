@@ -1,5 +1,8 @@
 //! Windows x64 ABI unwind information.
 
+#[cfg(feature = "enable-serde")]
+use serde_derive::{Deserialize, Serialize};
+
 use crate::{
     location::Reg,
     unwind::{UnwindOps, UnwindRegister},
@@ -44,6 +47,7 @@ impl<'a> Writer<'a> {
 /// Note: the Cranelift x86 ISA RU enum matches the Windows unwind GPR encoding values.
 #[allow(dead_code)]
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) enum UnwindCode {
     PushRegister {
         instruction_offset: u8,

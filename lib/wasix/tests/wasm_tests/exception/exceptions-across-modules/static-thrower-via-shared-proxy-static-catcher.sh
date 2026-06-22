@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-##Ignored: not ported to the new test harness
+##ExpectedExitCode: 0
+##BuildEnv: WASIXCC_PIC=1
+
 set -e
 
-export WASIXCC_PIC=1
 # static-thrower-via-shared-proxy-static-catcher: thrower and catcher static, proxy in shared lib
 $CXX -c -fPIC proxy.cpp -o proxy.o
 $CXX -shared proxy.o -o libproxy.so

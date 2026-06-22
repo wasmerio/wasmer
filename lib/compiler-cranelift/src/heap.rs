@@ -3,14 +3,14 @@
 use cranelift_codegen::ir::{GlobalValue, Type};
 use wasmer_types::entity::entity_impl;
 
+#[cfg(feature = "enable-serde")]
+use serde_derive::{Deserialize, Serialize};
+
 /// An opaque reference to a [`HeapData`][crate::HeapData].
 ///
 /// While the order is stable, it is arbitrary.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(
-    feature = "enable-serde",
-    derive(serde_derive::Serialize, serde_derive::Deserialize)
-)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Heap(u32);
 entity_impl!(Heap, "heap");
 
@@ -62,10 +62,7 @@ entity_impl!(Heap, "heap");
 /// when the heap is resized. The bound of a dynamic heap is stored in a global
 /// value.
 #[derive(Clone, PartialEq, Hash)]
-#[cfg_attr(
-    feature = "enable-serde",
-    derive(serde_derive::Serialize, serde_derive::Deserialize)
-)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct HeapData {
     /// The address of the start of the heap's storage.
     pub base: GlobalValue,
@@ -94,10 +91,7 @@ pub struct HeapData {
 
 /// Style of heap including style-specific information.
 #[derive(Clone, PartialEq, Hash)]
-#[cfg_attr(
-    feature = "enable-serde",
-    derive(serde_derive::Serialize, serde_derive::Deserialize)
-)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum HeapStyle {
     /// A dynamic heap can be relocated to a different base address when it is
     /// grown.
