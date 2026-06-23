@@ -1,6 +1,7 @@
 mod build;
 mod common;
 mod download;
+mod get;
 pub mod publish;
 mod push;
 mod search;
@@ -24,4 +25,5 @@ pub enum Package {
     Publish(publish::PackagePublish),
     Unpack(unpack::PackageUnpack),
     Search(search::PackageSearch),
+    Get(get::PackageGet),
 }

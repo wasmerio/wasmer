@@ -18,7 +18,6 @@ use crate::unwind::{UnwindFrame, create_systemv_cie};
 use enumset::EnumSet;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable, Writer};
-#[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -136,7 +135,7 @@ impl SinglepassCompiler {
         let mut custom_sections: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
-            .into_par_iter_if_rayon()
+            .into_par_iter()
             .map(|i| {
                 gen_import_call_trampoline(
                     &vmoffsets,
@@ -153,7 +152,7 @@ impl SinglepassCompiler {
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .into_par_iter_if_rayon()
+            .into_par_iter()
             .map(|(i, input)| {
                 let middleware_chain = self
                     .config
@@ -258,7 +257,7 @@ impl SinglepassCompiler {
             .signatures
             .values()
             .collect::<Vec<_>>()
-            .into_par_iter_if_rayon()
+            .into_par_iter()
             .map(|func_type| -> Result<FunctionBody, CompileError> {
                 let body = gen_std_trampoline(func_type, target, calling_convention)?;
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
@@ -288,7 +287,7 @@ impl SinglepassCompiler {
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
-            .into_par_iter_if_rayon()
+            .into_par_iter()
             .map(|func_type| -> Result<FunctionBody, CompileError> {
                 let body = gen_std_dynamic_import_trampoline(
                     &vmoffsets,
@@ -375,59 +374,27 @@ impl Compiler for SinglepassCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
-        #[cfg(feature = "rayon")]
-        {
-            let num_threads = self.config.num_threads.get();
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .build()
-                .map_err(|e| {
-                    CompileError::Codegen(format!("failed to build rayon thread pool: {e}"))
-                })?;
+        let num_threads = self.config.num_threads.get();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build()
+            .map_err(|e| {
+                CompileError::Codegen(format!("failed to build rayon thread pool: {e}"))
+            })?;
 
-            pool.install(|| {
-                self.compile_module_internal(
-                    target,
-                    compile_info,
-                    function_body_inputs,
-                    progress_callback,
-                )
-            })
-        }
-
-        #[cfg(not(feature = "rayon"))]
-        {
+        pool.install(|| {
             self.compile_module_internal(
                 target,
                 compile_info,
                 function_body_inputs,
                 progress_callback,
             )
-        }
+        })
     }
 
     fn get_cpu_features_used(&self, cpu_features: &EnumSet<CpuFeature>) -> EnumSet<CpuFeature> {
         let used = CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
         cpu_features.intersection(used)
-    }
-}
-
-trait IntoParIterIfRayon {
-    type Output;
-    fn into_par_iter_if_rayon(self) -> Self::Output;
-}
-
-impl<T: Send> IntoParIterIfRayon for Vec<T> {
-    #[cfg(not(feature = "rayon"))]
-    type Output = std::vec::IntoIter<T>;
-    #[cfg(feature = "rayon")]
-    type Output = rayon::vec::IntoIter<T>;
-
-    fn into_par_iter_if_rayon(self) -> Self::Output {
-        #[cfg(not(feature = "rayon"))]
-        return self.into_iter();
-        #[cfg(feature = "rayon")]
-        return self.into_par_iter();
     }
 }
 
