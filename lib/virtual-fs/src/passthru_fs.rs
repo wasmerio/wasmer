@@ -65,6 +65,14 @@ impl FileSystem for PassthruFileSystem {
         self.fs.remove_file(path)
     }
 
+    fn is_host_backed(&self) -> bool {
+        self.fs.is_host_backed()
+    }
+
+    fn is_host_backed_path(&self, path: &Path) -> bool {
+        self.fs.is_host_backed_path(path)
+    }
+
     fn new_open_options(&self) -> OpenOptions<'_> {
         self.fs.new_open_options()
     }
