@@ -327,14 +327,6 @@ impl MountFileSystem {
         }
     }
 
-    fn symlink_target_path(source_root: &Path, symlink_path: &Path, target: &Path) -> PathBuf {
-        if target.is_absolute() {
-            target.to_path_buf()
-        } else {
-            symlink_path.parent().unwrap_or(source_root).join(target)
-        }
-    }
-
     fn normalize_mount_path(path: &Path) -> PathBuf {
         let mut normalized = PathBuf::from("/");
 
@@ -353,6 +345,15 @@ impl MountFileSystem {
         }
 
         normalized
+    }
+
+    fn symlink_target_path(
+        source_root: &Path,
+        symlink_path: &Path,
+        target: &Path,
+    ) -> Option<PathBuf> {
+        let base = symlink_path.parent().unwrap_or(source_root);
+        path::resolve_path_within(source_root, base, target, Self::normalize_mount_path)
     }
 
     fn symlink_chain_stays_within_source(
@@ -402,13 +403,25 @@ impl MountFileSystem {
                     Ok(target) => target,
                     Err(_) => return false,
                 };
-                let mut next = Self::symlink_target_path(&source_root, &inspected, &raw_target);
+                let mut next =
+                    match Self::symlink_target_path(&source_root, &inspected, &raw_target) {
+                        Some(next) => next,
+                        None => return false,
+                    };
                 if !components.as_path().as_os_str().is_empty() {
-                    next = next.join(components.as_path());
+                    next = match path::resolve_path_within(
+                        &source_root,
+                        &next,
+                        components.as_path(),
+                        Self::normalize_mount_path,
+                    ) {
+                        Some(next) => next,
+                        None => return false,
+                    };
                 }
 
                 symlink_count += 1;
-                current = Self::normalize_mount_path(&next);
+                current = next;
                 followed_symlink = true;
                 break;
             }
@@ -438,7 +451,10 @@ impl MountFileSystem {
             }
 
             let target = match fs.readlink(&entry.path) {
-                Ok(target) => Self::symlink_target_path(source_root, &entry.path, &target),
+                Ok(target) => match Self::symlink_target_path(source_root, &entry.path, &target) {
+                    Some(target) => target,
+                    None => return false,
+                },
                 Err(_) => return false,
             };
 
@@ -493,7 +509,11 @@ impl MountFileSystem {
                     Ok(target) => target,
                     Err(_) => return Ok(SymlinkPolicy::Hidden),
                 };
-                let target = Self::symlink_target_path(source_root, delegated_path, &raw_target);
+                let target =
+                    match Self::symlink_target_path(source_root, delegated_path, &raw_target) {
+                        Some(target) => target,
+                        None => return Ok(SymlinkPolicy::Hidden),
+                    };
                 if !Self::symlink_chain_stays_within_source(fs, source_root, target.clone()) {
                     return Ok(SymlinkPolicy::Hidden);
                 }
@@ -1894,6 +1914,7 @@ mod tests {
         let nested = pkg.join("nested");
         std::fs::create_dir_all(&pkg).unwrap();
         std::fs::create_dir_all(&nested).unwrap();
+        std::fs::create_dir_all(sandbox.join("outside")).unwrap();
         std::fs::write(pkg.join("inside.txt"), b"inside").unwrap();
         std::fs::write(sandbox.join("secret.txt"), b"secret").unwrap();
 
@@ -1902,6 +1923,16 @@ mod tests {
         std::os::unix::fs::symlink("../secret.txt", pkg.join("escape-relative")).unwrap();
         std::os::unix::fs::symlink(sandbox.join("secret.txt"), pkg.join("escape-absolute"))
             .unwrap();
+        std::os::unix::fs::symlink(
+            "../outside/../pkg/inside.txt",
+            pkg.join("leave-reenter-relative"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            pkg.join("../outside/../pkg/inside.txt"),
+            pkg.join("leave-reenter-absolute"),
+        )
+        .unwrap();
         std::os::unix::fs::symlink("..", pkg.join("pivot")).unwrap();
         std::os::unix::fs::symlink("pivot/secret.txt", pkg.join("escape-chained")).unwrap();
 
@@ -1924,6 +1955,8 @@ mod tests {
         assert!(names.contains(&"inside-link".to_string()));
         assert!(!names.contains(&"escape-relative".to_string()));
         assert!(!names.contains(&"escape-absolute".to_string()));
+        assert!(!names.contains(&"leave-reenter-relative".to_string()));
+        assert!(!names.contains(&"leave-reenter-absolute".to_string()));
         assert!(!names.contains(&"pivot".to_string()));
         assert!(!names.contains(&"escape-chained".to_string()));
 
@@ -2004,6 +2037,8 @@ mod tests {
         assert!(names.contains(&"inside-link".to_string()));
         assert!(!names.contains(&"escape-relative".to_string()));
         assert!(!names.contains(&"escape-absolute".to_string()));
+        assert!(!names.contains(&"leave-reenter-relative".to_string()));
+        assert!(!names.contains(&"leave-reenter-absolute".to_string()));
         assert!(!names.contains(&"pivot".to_string()));
         assert!(!names.contains(&"escape-chained".to_string()));
     }

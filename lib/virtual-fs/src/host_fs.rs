@@ -1,6 +1,6 @@
 use crate::{
     DirEntry, FileType, FsError, MAX_SYMLINK_TRAVERSAL_DEPTH, Metadata, OpenOptions,
-    OpenOptionsConfig, ReadDir, Result, SymlinkPolicy, VirtualFile,
+    OpenOptionsConfig, ReadDir, Result, SymlinkPolicy, VirtualFile, path,
 };
 use bytes::{Buf, Bytes};
 use futures::future::BoxFuture;
@@ -97,14 +97,9 @@ fn host_root_relative_target(root: &Path, target: PathBuf) -> PathBuf {
     target
 }
 
-fn symlink_target_path(root: &Path, symlink_path: &Path, target: &Path) -> PathBuf {
-    let target = if target.is_absolute() {
-        target.to_path_buf()
-    } else {
-        symlink_path.parent().unwrap_or(root).join(target)
-    };
-
-    normalize_path(&target)
+fn symlink_target_path(root: &Path, symlink_path: &Path, target: &Path) -> Option<PathBuf> {
+    let base = symlink_path.parent().unwrap_or(root);
+    path::resolve_path_within(root, base, target, normalize_path)
 }
 
 fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
@@ -150,13 +145,24 @@ fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
                 Ok(target) => target,
                 Err(_) => return false,
             };
-            let mut next = symlink_target_path(&normalized_root, &inspected, &raw_target);
+            let mut next = match symlink_target_path(&normalized_root, &inspected, &raw_target) {
+                Some(next) => next,
+                None => return false,
+            };
             if !components.as_path().as_os_str().is_empty() {
-                next = next.join(components.as_path());
+                next = match path::resolve_path_within(
+                    &normalized_root,
+                    &next,
+                    components.as_path(),
+                    normalize_path,
+                ) {
+                    Some(next) => next,
+                    None => return false,
+                };
             }
 
             symlink_count += 1;
-            current = normalize_path(&next);
+            current = next;
             followed_symlink = true;
             break;
         }
@@ -182,7 +188,10 @@ pub fn symlink_policy_at(root: &Path, path: &Path) -> Result<SymlinkPolicy> {
     }
 
     let target = match fs::read_link(&path) {
-        Ok(target) => symlink_target_path(&root, &path, &target),
+        Ok(target) => match symlink_target_path(&root, &path, &target) {
+            Some(target) => target,
+            None => return Ok(SymlinkPolicy::Hidden),
+        },
         Err(_) => return Ok(SymlinkPolicy::Hidden),
     };
 
@@ -1222,6 +1231,16 @@ mod tests {
             .unwrap();
         std::os::unix::fs::symlink(outside.join("outside.txt"), root.join("outside-absolute"))
             .unwrap();
+        std::os::unix::fs::symlink(
+            "../outside/../root/inside.txt",
+            root.join("leave-reenter-relative"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            root.join("../outside/../root/inside.txt"),
+            root.join("leave-reenter-absolute"),
+        )
+        .unwrap();
         std::os::unix::fs::symlink("../outside", root.join("pivot")).unwrap();
         std::os::unix::fs::symlink("pivot/outside.txt", root.join("chained-escape")).unwrap();
         std::os::unix::fs::symlink("missing.txt", root.join("broken-link")).unwrap();
@@ -1243,6 +1262,8 @@ mod tests {
         assert!(names.contains(&"loop-b".to_string()));
         assert!(!names.contains(&"outside-relative".to_string()));
         assert!(!names.contains(&"outside-absolute".to_string()));
+        assert!(!names.contains(&"leave-reenter-relative".to_string()));
+        assert!(!names.contains(&"leave-reenter-absolute".to_string()));
         assert!(!names.contains(&"pivot".to_string()));
         assert!(!names.contains(&"chained-escape".to_string()));
     }

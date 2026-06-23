@@ -41,6 +41,7 @@ pub mod mem_fs;
 pub mod mount_fs;
 pub mod null_file;
 pub mod passthru_fs;
+pub(crate) mod path;
 pub mod random_file;
 pub mod special_file;
 pub mod tmp_fs;
