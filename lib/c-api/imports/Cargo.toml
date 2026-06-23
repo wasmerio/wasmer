@@ -14,7 +14,7 @@ wasmer-api = { version = "=7.2.0-alpha.3", path = "../../api", default-features 
 wat.workspace = true
 
 [features]
-default = []
+default = ["cranelift"]
 singlepass = ["wasmer-api/singlepass"]
 cranelift = ["wasmer-api/cranelift"]
 llvm = ["wasmer-api/llvm"]

@@ -483,9 +483,8 @@ fn write_byte_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32, bytes: &[
         };
         ptr
     };
-    write_guest_u32(env, vec_ptr as u32, bytes.len() as u32);
-    write_guest_u32(env, vec_ptr as u32 + 4, data_ptr);
-    true
+    write_guest_u32(env, vec_ptr as u32, bytes.len() as u32)
+        && write_guest_u32(env, vec_ptr as u32 + 4, data_ptr)
 }
 
 fn allocate_name(env: &mut FunctionEnvMut<WasmCapiEnv>, name: &str) -> i32 {
@@ -519,9 +518,8 @@ fn write_handle_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, out_ptr: i32, handles
         };
         ptr
     };
-    write_guest_u32(env, out_ptr as u32, handles.len() as u32);
-    write_guest_u32(env, out_ptr as u32 + 4, data_ptr);
-    true
+    write_guest_u32(env, out_ptr as u32, handles.len() as u32)
+        && write_guest_u32(env, out_ptr as u32 + 4, data_ptr)
 }
 
 fn read_handle_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32) -> Option<Vec<i32>> {
@@ -597,7 +595,9 @@ fn write_wasm_val(env: &mut FunctionEnvMut<WasmCapiEnv>, val_ptr: i32, value: &V
         return false;
     }
     let kind = type_to_wasm_kind(value.ty());
-    write_guest_bytes(env, val_ptr as u32, &[kind]);
+    if !write_guest_bytes(env, val_ptr as u32, &[kind]) {
+        return false;
+    }
     match value {
         Value::I32(v) => write_guest_bytes(
             env,
@@ -873,6 +873,9 @@ fn wasm_memory_size(env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> i32
 }
 
 fn wasm_memory_grow(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32, delta: i32) -> i32 {
+    if delta < 0 {
+        return 0;
+    }
     let memory = match env.data().state.get(memory_handle) {
         Some(WasmObject::Memory(memory)) => memory.clone(),
         Some(WasmObject::Extern(WasmExtern::Memory(memory))) => memory.clone(),
@@ -893,7 +896,7 @@ fn wasm_memory_data_size(env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -
     let Some(memory) = memory_from_handle(&env, memory_handle) else {
         return 0;
     };
-    memory.view(&env).data_size() as i32
+    i32::try_from(memory.view(&env).data_size()).unwrap_or(0)
 }
 
 fn wasm_memory_data(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> i32 {
@@ -934,7 +937,9 @@ fn wasm_memory_data(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) ->
             None => return 0,
         }
     };
-    write_guest_bytes(&mut env, ptr, &bytes);
+    if !write_guest_bytes(&mut env, ptr, &bytes) {
+        return 0;
+    }
     ptr as i32
 }
 
@@ -1464,6 +1469,9 @@ fn wasm_table_grow(
     delta: i32,
     _init: i32,
 ) -> i32 {
+    if delta < 0 {
+        return 0;
+    }
     let table = match env.data().state.get(table_handle) {
         Some(WasmObject::Table(table)) => table.clone(),
         Some(WasmObject::Extern(WasmExtern::Table(table))) => table.clone(),
