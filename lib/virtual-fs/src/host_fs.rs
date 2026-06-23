@@ -1,6 +1,6 @@
 use crate::{
     DirEntry, FileType, FsError, MAX_SYMLINK_TRAVERSAL_DEPTH, Metadata, OpenOptions,
-    OpenOptionsConfig, ReadDir, Result, VirtualFile,
+    OpenOptionsConfig, ReadDir, Result, SymlinkPolicy, VirtualFile,
 };
 use bytes::{Buf, Bytes};
 use futures::future::BoxFuture;
@@ -167,6 +167,32 @@ fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
     }
 }
 
+pub fn symlink_policy_at(root: &Path, path: &Path) -> Result<SymlinkPolicy> {
+    let root = normalize_path(root);
+    let path = normalize_path(path);
+
+    if !path.starts_with(&root) {
+        return Err(FsError::InvalidInput);
+    }
+
+    let metadata = fs::symlink_metadata(&path)?;
+
+    if !metadata.file_type().is_symlink() {
+        return Ok(SymlinkPolicy::Visible);
+    }
+
+    let target = match fs::read_link(&path) {
+        Ok(target) => symlink_target_path(&root, &path, &target),
+        Err(_) => return Ok(SymlinkPolicy::Hidden),
+    };
+
+    if symlink_chain_stays_within(&root, target) {
+        Ok(SymlinkPolicy::Visible)
+    } else {
+        Ok(SymlinkPolicy::Hidden)
+    }
+}
+
 impl FileSystem {
     pub fn new(handle: Handle, root: impl Into<PathBuf>) -> Result<Self> {
         let root = canonicalize(&root.into())?;
@@ -179,16 +205,11 @@ impl FileSystem {
     }
 
     fn symlink_entry_visible(&self, path: &Path, metadata: &fs::Metadata) -> bool {
-        if !metadata.file_type().is_symlink() {
-            return true;
-        }
-
-        let target = match fs::read_link(path) {
-            Ok(target) => symlink_target_path(&self.root, path, &target),
-            Err(_) => return false,
-        };
-
-        symlink_chain_stays_within(&self.root, target)
+        !metadata.file_type().is_symlink()
+            || matches!(
+                symlink_policy_at(&self.root, path),
+                Ok(SymlinkPolicy::Visible | SymlinkPolicy::ResolvedPath(_))
+            )
     }
 
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
@@ -365,6 +386,11 @@ impl crate::FileSystem for FileSystem {
         fs::symlink_metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
+    }
+
+    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
+        let path = self.prepare_path(path)?;
+        symlink_policy_at(&self.root, &path)
     }
 }
 
