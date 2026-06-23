@@ -1,5 +1,7 @@
+use std::ffi::CString;
 use std::num::NonZero;
 use std::path::PathBuf;
+use std::sync::Once;
 use std::{collections::HashMap, path::Path};
 
 use super::{
@@ -16,7 +18,8 @@ use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
-    module::{Linkage, Module},
+    debug_info::{AsDIScope, DIFlags, DIFlagsConstants, DWARFEmissionKind, DWARFSourceLanguage},
+    module::{FlagBehavior, Linkage, Module},
     passes::PassBuilderOptions,
     targets::{FileType, TargetData, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
@@ -60,6 +63,25 @@ use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 // If you have 2 billion tags in a single module, you deserve what you get.
 // ( Arshia: that comment above is AI-generated... AI is savage XD )
 const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
+
+static ENABLE_LLVM_DEBUG_ARANGES: Once = Once::new();
+
+fn enable_llvm_debug_aranges() {
+    ENABLE_LLVM_DEBUG_ARANGES.call_once(|| {
+        let argv = [
+            CString::new("llvm").unwrap(),
+            CString::new("--generate-arange-section").unwrap(),
+        ];
+        let argv = argv.iter().map(|arg| arg.as_ptr()).collect_vec();
+        unsafe {
+            inkwell::llvm_sys::support::LLVMParseCommandLineOptions(
+                argv.len() as libc::c_int,
+                argv.as_ptr(),
+                std::ptr::null(),
+            );
+        }
+    });
+}
 
 pub struct FuncTranslator {
     ctx: Context,
@@ -113,6 +135,8 @@ impl FuncTranslator {
         target: &Triple,
         opt_style: OptimizationStyle,
     ) -> Result<Module<'_>, CompileError> {
+        enable_llvm_debug_aranges();
+
         // The function type, used for the callbacks.
         let func_index = wasm_module.func_index(*local_func_index);
         let function =
@@ -151,6 +175,63 @@ impl FuncTranslator {
             func_type,
             Some(Linkage::External),
         );
+        let debug_info = {
+            let debug_metadata_version = self
+                .ctx
+                .i32_type()
+                .const_int(inkwell::debug_info::debug_metadata_version().into(), false);
+            module.add_basic_value_flag(
+                "Debug Info Version",
+                FlagBehavior::Warning,
+                debug_metadata_version,
+            );
+            module.add_basic_value_flag(
+                "Dwarf Version",
+                FlagBehavior::Warning,
+                self.ctx.i32_type().const_int(4, false),
+            );
+
+            let (dibuilder, compile_unit) = module.create_debug_info_builder(
+                true,
+                DWARFSourceLanguage::C,
+                &wasm_module.name(),
+                ".",
+                "wasmer",
+                true,
+                "",
+                0,
+                "",
+                DWARFEmissionKind::Full,
+                0,
+                false,
+                false,
+                "",
+                "",
+            );
+            let subroutine_type = dibuilder.create_subroutine_type(
+                compile_unit.get_file(),
+                None,
+                &[],
+                DIFlags::PUBLIC,
+            );
+            let function_name = wasm_module.get_function_name(func_index);
+            let start_line = (function_body.module_offset as u32).saturating_add(1);
+            let subprogram = dibuilder.create_function(
+                compile_unit.as_debug_info_scope(),
+                &function_name,
+                Some(&format!("f{}", local_func_index.as_u32())),
+                compile_unit.get_file(),
+                start_line,
+                subroutine_type,
+                false,
+                true,
+                start_line,
+                DIFlags::PUBLIC,
+                true,
+            );
+            func.set_subprogram(subprogram);
+            Some((dibuilder, subprogram))
+        };
         for (attr, attr_loc) in &func_attrs {
             func.add_attribute(*attr_loc, *attr);
         }
@@ -316,11 +397,26 @@ impl FuncTranslator {
 
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
+            let original_pos = reader.original_position() as u32;
             let op = reader.read_operator()?;
+            if let Some((dibuilder, subprogram)) = debug_info.as_ref() {
+                let line = original_pos.saturating_add(1);
+                let loc = dibuilder.create_debug_location(
+                    &self.ctx,
+                    line,
+                    1,
+                    subprogram.as_debug_info_scope(),
+                    None,
+                );
+                fcg.builder.set_current_debug_location(loc);
+            }
             fcg.translate_operator(op, pos)?;
         }
 
         fcg.finalize(wasm_fn_type)?;
+        if let Some((dibuilder, _)) = debug_info {
+            dibuilder.finalize();
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.preopt_ir(&function, &wasm_module.hash_string(), &module);
