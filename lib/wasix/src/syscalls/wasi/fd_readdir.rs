@@ -72,14 +72,6 @@ pub fn fd_readdir<M: MemorySize>(
         }
     };
 
-    let format_entry_name = |name: &str| {
-        if !is_root || name.starts_with('/') {
-            name.to_string()
-        } else {
-            format!("/{name}")
-        }
-    };
-
     let entries: Vec<(String, Filetype, u64)> = {
         match dir_path {
             Some(path) => {
@@ -126,7 +118,11 @@ pub fn fd_readdir<M: MemorySize>(
                                     name,
                                     stat.st_filetype,
                                 )
-                                .then_some((format_entry_name(name), stat.st_filetype, stat.st_ino))
+                                .then_some((
+                                    format_entry_name(name, is_root),
+                                    stat.st_filetype,
+                                    stat.st_ino,
+                                ))
                         }),
                 );
                 // adding . and .. special folders
@@ -146,9 +142,11 @@ pub fn fd_readdir<M: MemorySize>(
                             .fs
                             .readdir_entry_visible(inodes, fd, None, &name, stat.st_filetype)
                             .then(|| {
-                                let display_name =
-                                    format!("/{}", inode.name.read().unwrap().as_ref());
-                                (display_name, stat.st_filetype, stat.st_ino)
+                                (
+                                    format_entry_name(&name, true),
+                                    stat.st_filetype,
+                                    stat.st_ino,
+                                )
                             })
                     })
                     .collect();
@@ -195,4 +193,25 @@ pub fn fd_readdir<M: MemorySize>(
     let buf_idx: M::Offset = wasi_try_ok!(buf_idx.try_into().map_err(|_| Errno::Overflow));
     wasi_try_mem_ok!(bufused_ref.write(buf_idx));
     Ok(Errno::Success)
+}
+
+fn format_entry_name(name: &str, is_root: bool) -> String {
+    if !is_root || name.starts_with('/') {
+        name.to_string()
+    } else {
+        format!("/{name}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_entry_name;
+
+    #[test]
+    fn root_entry_names_keep_existing_absolute_prefix() {
+        assert_eq!(format_entry_name("/", true), "/");
+        assert_eq!(format_entry_name("/foo", true), "/foo");
+        assert_eq!(format_entry_name("foo", true), "/foo");
+        assert_eq!(format_entry_name("foo", false), "foo");
+    }
 }
