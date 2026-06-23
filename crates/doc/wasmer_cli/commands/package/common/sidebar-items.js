@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_manifest","get_manifest_from_webc","invalidate_graphql_query_cache","login_user","make_package_url","on_error","upload"],"mod":["macros","wait"]};
+window.SIDEBAR_ITEMS = {"fn":["get_manifest","get_manifest_from_webc_file","invalidate_graphql_query_cache","login_user","manifest_from_webc_metadata","on_error","package_web_url","package_web_url_for_ident","registry_web_host","upload"],"mod":["macros","wait"]};

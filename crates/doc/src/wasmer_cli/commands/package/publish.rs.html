@@ -145,7 +145,7 @@
 <a href=#145 id=145 data-nosnippet>145</a>
 <a href=#146 id=146 data-nosnippet>146</a>        <span class="kw">match </span>ident {
 <a href=#147 id=147 data-nosnippet>147</a>            PackageIdent::Named(<span class="kw-2">ref </span>n) =&gt; {
-<a href=#148 id=148 data-nosnippet>148</a>                <span class="kw">let </span>url = make_package_url(<span class="kw-2">&amp;</span>client, n);
+<a href=#148 id=148 data-nosnippet>148</a>                <span class="kw">let </span>url = package_web_url_for_ident(<span class="kw-2">&amp;</span>client, n);
 <a href=#149 id=149 data-nosnippet>149</a>                <span class="macro">eprintln!</span>(<span class="string">"\n{} Package URL: {url}"</span>, <span class="string">"𖥔"</span>.yellow().bold());
 <a href=#150 id=150 data-nosnippet>150</a>            }
 <a href=#151 id=151 data-nosnippet>151</a>            PackageIdent::Hash(<span class="kw-2">ref </span>h) =&gt; {

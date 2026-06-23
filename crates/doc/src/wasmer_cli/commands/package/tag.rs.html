@@ -657,7 +657,7 @@
 <a href=#657 id=657 data-nosnippet>657</a>
 <a href=#658 id=658 data-nosnippet>658</a>        <span class="kw">match </span>id {
 <a href=#659 id=659 data-nosnippet>659</a>            PackageIdent::Named(<span class="kw-2">ref </span>n) =&gt; {
-<a href=#660 id=660 data-nosnippet>660</a>                <span class="kw">let </span>url = make_package_url(<span class="kw-2">&amp;</span>client, n);
+<a href=#660 id=660 data-nosnippet>660</a>                <span class="kw">let </span>url = package_web_url_for_ident(<span class="kw-2">&amp;</span>client, n);
 <a href=#661 id=661 data-nosnippet>661</a>                <span class="macro">eprintln!</span>(<span class="string">"{} Package URL: {url}"</span>, <span class="string">"𖥔"</span>.yellow().bold());
 <a href=#662 id=662 data-nosnippet>662</a>            }
 <a href=#663 id=663 data-nosnippet>663</a>            PackageIdent::Hash(<span class="kw-2">ref </span>h) =&gt; {
