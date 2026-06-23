@@ -1509,608 +1509,667 @@
 <a href=#1509 id=1509 data-nosnippet>1509</a>                        InodeSocketKind::TcpStream { socket, .. } =&gt; {
 <a href=#1510 id=1510 data-nosnippet>1510</a>                            socket.try_recv(<span class="self">self</span>.data, peek)
 <a href=#1511 id=1511 data-nosnippet>1511</a>                        }
-<a href=#1512 id=1512 data-nosnippet>1512</a>                        InodeSocketKind::UdpSocket { socket, peer } =&gt; {
-<a href=#1513 id=1513 data-nosnippet>1513</a>                            <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer {
-<a href=#1514 id=1514 data-nosnippet>1514</a>                                <span class="kw">match </span>socket.try_recv_from(<span class="self">self</span>.data, peek) {
-<a href=#1515 id=1515 data-nosnippet>1515</a>                                    <span class="prelude-val">Ok</span>((amt, addr)) <span class="kw">if </span>addr == <span class="kw-2">*</span>peer =&gt; <span class="prelude-val">Ok</span>(amt),
-<a href=#1516 id=1516 data-nosnippet>1516</a>                                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(NetworkError::WouldBlock),
-<a href=#1517 id=1517 data-nosnippet>1517</a>                                    <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
-<a href=#1518 id=1518 data-nosnippet>1518</a>                                }
-<a href=#1519 id=1519 data-nosnippet>1519</a>                            } <span class="kw">else </span>{
-<a href=#1520 id=1520 data-nosnippet>1520</a>                                <span class="kw">match </span>socket.try_recv_from(<span class="self">self</span>.data, peek) {
-<a href=#1521 id=1521 data-nosnippet>1521</a>                                    <span class="prelude-val">Ok</span>((amt, <span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(amt),
-<a href=#1522 id=1522 data-nosnippet>1522</a>                                    <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
-<a href=#1523 id=1523 data-nosnippet>1523</a>                                }
-<a href=#1524 id=1524 data-nosnippet>1524</a>                            }
-<a href=#1525 id=1525 data-nosnippet>1525</a>                        }
-<a href=#1526 id=1526 data-nosnippet>1526</a>                        InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; {
-<a href=#1527 id=1527 data-nosnippet>1527</a>                            <span class="kw">return match </span>is_dead {
-<a href=#1528 id=1528 data-nosnippet>1528</a>                                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-<a href=#1529 id=1529 data-nosnippet>1529</a>                                <span class="bool-val">false </span>=&gt; Poll::Pending,
-<a href=#1530 id=1530 data-nosnippet>1530</a>                            };
-<a href=#1531 id=1531 data-nosnippet>1531</a>                        }
-<a href=#1532 id=1532 data-nosnippet>1532</a>                        InodeSocketKind::PreSocket { .. } =&gt; {
-<a href=#1533 id=1533 data-nosnippet>1533</a>                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn));
+<a href=#1512 id=1512 data-nosnippet>1512</a>                        InodeSocketKind::UdpSocket { socket, peer } =&gt; <span class="kw">match </span>peer {
+<a href=#1513 id=1513 data-nosnippet>1513</a>                            <span class="prelude-val">Some</span>(peer) =&gt; {
+<a href=#1514 id=1514 data-nosnippet>1514</a>                                try_recv_from_connected_udp(socket.as_mut(), <span class="self">self</span>.data, peek, peer)
+<a href=#1515 id=1515 data-nosnippet>1515</a>                                    .map(|(amt, <span class="kw">_</span>)| amt)
+<a href=#1516 id=1516 data-nosnippet>1516</a>                            }
+<a href=#1517 id=1517 data-nosnippet>1517</a>                            <span class="prelude-val">None </span>=&gt; socket.try_recv_from(<span class="self">self</span>.data, peek).map(|(amt, <span class="kw">_</span>)| amt),
+<a href=#1518 id=1518 data-nosnippet>1518</a>                        },
+<a href=#1519 id=1519 data-nosnippet>1519</a>                        InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; {
+<a href=#1520 id=1520 data-nosnippet>1520</a>                            <span class="kw">return match </span>is_dead {
+<a href=#1521 id=1521 data-nosnippet>1521</a>                                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+<a href=#1522 id=1522 data-nosnippet>1522</a>                                <span class="bool-val">false </span>=&gt; Poll::Pending,
+<a href=#1523 id=1523 data-nosnippet>1523</a>                            };
+<a href=#1524 id=1524 data-nosnippet>1524</a>                        }
+<a href=#1525 id=1525 data-nosnippet>1525</a>                        InodeSocketKind::PreSocket { .. } =&gt; {
+<a href=#1526 id=1526 data-nosnippet>1526</a>                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn));
+<a href=#1527 id=1527 data-nosnippet>1527</a>                        }
+<a href=#1528 id=1528 data-nosnippet>1528</a>                        <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+<a href=#1529 id=1529 data-nosnippet>1529</a>                    };
+<a href=#1530 id=1530 data-nosnippet>1530</a>                    <span class="kw">return match </span>res {
+<a href=#1531 id=1531 data-nosnippet>1531</a>                        <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
+<a href=#1532 id=1532 data-nosnippet>1532</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; {
+<a href=#1533 id=1533 data-nosnippet>1533</a>                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again))
 <a href=#1534 id=1534 data-nosnippet>1534</a>                        }
-<a href=#1535 id=1535 data-nosnippet>1535</a>                        <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
-<a href=#1536 id=1536 data-nosnippet>1536</a>                    };
-<a href=#1537 id=1537 data-nosnippet>1537</a>                    <span class="kw">return match </span>res {
-<a href=#1538 id=1538 data-nosnippet>1538</a>                        <span class="prelude-val">Ok</span>(amt) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(amt)),
-<a href=#1539 id=1539 data-nosnippet>1539</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; {
-<a href=#1540 id=1540 data-nosnippet>1540</a>                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again))
-<a href=#1541 id=1541 data-nosnippet>1541</a>                        }
-<a href=#1542 id=1542 data-nosnippet>1542</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span>!<span class="self">self</span>.handler_registered =&gt; {
-<a href=#1543 id=1543 data-nosnippet>1543</a>                            inner
-<a href=#1544 id=1544 data-nosnippet>1544</a>                                .set_handler(cx.waker().into())
-<a href=#1545 id=1545 data-nosnippet>1545</a>                                .map_err(net_error_into_wasi_err)<span class="question-mark">?</span>;
-<a href=#1546 id=1546 data-nosnippet>1546</a>                            <span class="self">self</span>.handler_registered = <span class="bool-val">true</span>;
-<a href=#1547 id=1547 data-nosnippet>1547</a>                            drop(inner);
-<a href=#1548 id=1548 data-nosnippet>1548</a>                            <span class="kw">continue</span>;
-<a href=#1549 id=1549 data-nosnippet>1549</a>                        }
+<a href=#1535 id=1535 data-nosnippet>1535</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span>!<span class="self">self</span>.handler_registered =&gt; {
+<a href=#1536 id=1536 data-nosnippet>1536</a>                            inner
+<a href=#1537 id=1537 data-nosnippet>1537</a>                                .set_handler(cx.waker().into())
+<a href=#1538 id=1538 data-nosnippet>1538</a>                                .map_err(net_error_into_wasi_err)<span class="question-mark">?</span>;
+<a href=#1539 id=1539 data-nosnippet>1539</a>                            <span class="self">self</span>.handler_registered = <span class="bool-val">true</span>;
+<a href=#1540 id=1540 data-nosnippet>1540</a>                            drop(inner);
+<a href=#1541 id=1541 data-nosnippet>1541</a>                            <span class="kw">continue</span>;
+<a href=#1542 id=1542 data-nosnippet>1542</a>                        }
+<a href=#1543 id=1543 data-nosnippet>1543</a>
+<a href=#1544 id=1544 data-nosnippet>1544</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
+<a href=#1545 id=1545 data-nosnippet>1545</a>                        <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
+<a href=#1546 id=1546 data-nosnippet>1546</a>                    };
+<a href=#1547 id=1547 data-nosnippet>1547</a>                }
+<a href=#1548 id=1548 data-nosnippet>1548</a>            }
+<a href=#1549 id=1549 data-nosnippet>1549</a>        }
 <a href=#1550 id=1550 data-nosnippet>1550</a>
-<a href=#1551 id=1551 data-nosnippet>1551</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
-<a href=#1552 id=1552 data-nosnippet>1552</a>                        <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-<a href=#1553 id=1553 data-nosnippet>1553</a>                    };
-<a href=#1554 id=1554 data-nosnippet>1554</a>                }
-<a href=#1555 id=1555 data-nosnippet>1555</a>            }
-<a href=#1556 id=1556 data-nosnippet>1556</a>        }
-<a href=#1557 id=1557 data-nosnippet>1557</a>
-<a href=#1558 id=1558 data-nosnippet>1558</a>        <span class="kw">let </span>poller = SocketReceiver {
-<a href=#1559 id=1559 data-nosnippet>1559</a>            inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
-<a href=#1560 id=1560 data-nosnippet>1560</a>            data: buf,
-<a href=#1561 id=1561 data-nosnippet>1561</a>            nonblocking,
-<a href=#1562 id=1562 data-nosnippet>1562</a>            peek,
-<a href=#1563 id=1563 data-nosnippet>1563</a>            handler_registered: <span class="bool-val">false</span>,
-<a href=#1564 id=1564 data-nosnippet>1564</a>        };
-<a href=#1565 id=1565 data-nosnippet>1565</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
-<a href=#1566 id=1566 data-nosnippet>1566</a>            <span class="macro">tokio::select!</span> {
-<a href=#1567 id=1567 data-nosnippet>1567</a>                res = poller =&gt; res,
-<a href=#1568 id=1568 data-nosnippet>1568</a>                <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
-<a href=#1569 id=1569 data-nosnippet>1569</a>            }
-<a href=#1570 id=1570 data-nosnippet>1570</a>        } <span class="kw">else </span>{
-<a href=#1571 id=1571 data-nosnippet>1571</a>            poller.<span class="kw">await
-<a href=#1572 id=1572 data-nosnippet>1572</a>        </span>}
-<a href=#1573 id=1573 data-nosnippet>1573</a>    }
-<a href=#1574 id=1574 data-nosnippet>1574</a>
-<a href=#1575 id=1575 data-nosnippet>1575</a>    <span class="kw">pub async fn </span>recv_from(
-<a href=#1576 id=1576 data-nosnippet>1576</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1577 id=1577 data-nosnippet>1577</a>        tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
-<a href=#1578 id=1578 data-nosnippet>1578</a>        buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
-<a href=#1579 id=1579 data-nosnippet>1579</a>        timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
-<a href=#1580 id=1580 data-nosnippet>1580</a>        nonblocking: bool,
-<a href=#1581 id=1581 data-nosnippet>1581</a>        peek: bool,
-<a href=#1582 id=1582 data-nosnippet>1582</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), Errno&gt; {
-<a href=#1583 id=1583 data-nosnippet>1583</a>        <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
-<a href=#1584 id=1584 data-nosnippet>1584</a>            inner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InodeSocketInner,
-<a href=#1585 id=1585 data-nosnippet>1585</a>            data: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
-<a href=#1586 id=1586 data-nosnippet>1586</a>            nonblocking: bool,
-<a href=#1587 id=1587 data-nosnippet>1587</a>            peek: bool,
-<a href=#1588 id=1588 data-nosnippet>1588</a>            handler_registered: bool,
-<a href=#1589 id=1589 data-nosnippet>1589</a>        }
-<a href=#1590 id=1590 data-nosnippet>1590</a>        <span class="kw">impl </span>Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; {
-<a href=#1591 id=1591 data-nosnippet>1591</a>            <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1592 id=1592 data-nosnippet>1592</a>                <span class="kw">if </span><span class="self">self</span>.handler_registered {
-<a href=#1593 id=1593 data-nosnippet>1593</a>                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
-<a href=#1594 id=1594 data-nosnippet>1594</a>                    inner.remove_handler();
-<a href=#1595 id=1595 data-nosnippet>1595</a>                }
-<a href=#1596 id=1596 data-nosnippet>1596</a>            }
-<a href=#1597 id=1597 data-nosnippet>1597</a>        }
-<a href=#1598 id=1598 data-nosnippet>1598</a>        <span class="kw">impl </span>Future <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; {
-<a href=#1599 id=1599 data-nosnippet>1599</a>            <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), Errno&gt;;
-<a href=#1600 id=1600 data-nosnippet>1600</a>            <span class="kw">fn </span>poll(
-<a href=#1601 id=1601 data-nosnippet>1601</a>                <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
-<a href=#1602 id=1602 data-nosnippet>1602</a>                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#1603 id=1603 data-nosnippet>1603</a>            ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
-<a href=#1604 id=1604 data-nosnippet>1604</a>                <span class="kw">let </span>peek = <span class="self">self</span>.peek;
-<a href=#1605 id=1605 data-nosnippet>1605</a>                <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
-<a href=#1606 id=1606 data-nosnippet>1606</a>                <span class="kw">loop </span>{
-<a href=#1607 id=1607 data-nosnippet>1607</a>                    <span class="kw">let </span>res = <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-<a href=#1608 id=1608 data-nosnippet>1608</a>                        InodeSocketKind::Icmp(socket) =&gt; socket.try_recv_from(<span class="self">self</span>.data, peek),
-<a href=#1609 id=1609 data-nosnippet>1609</a>                        InodeSocketKind::UdpSocket { socket, .. } =&gt; {
-<a href=#1610 id=1610 data-nosnippet>1610</a>                            socket.try_recv_from(<span class="self">self</span>.data, peek)
-<a href=#1611 id=1611 data-nosnippet>1611</a>                        }
-<a href=#1612 id=1612 data-nosnippet>1612</a>                        InodeSocketKind::RemoteSocket {
-<a href=#1613 id=1613 data-nosnippet>1613</a>                            is_dead, peer_addr, ..
-<a href=#1614 id=1614 data-nosnippet>1614</a>                        } =&gt; {
-<a href=#1615 id=1615 data-nosnippet>1615</a>                            <span class="kw">return match </span>is_dead {
-<a href=#1616 id=1616 data-nosnippet>1616</a>                                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>((<span class="number">0</span>, <span class="kw-2">*</span>peer_addr))),
-<a href=#1617 id=1617 data-nosnippet>1617</a>                                <span class="bool-val">false </span>=&gt; Poll::Pending,
-<a href=#1618 id=1618 data-nosnippet>1618</a>                            };
-<a href=#1619 id=1619 data-nosnippet>1619</a>                        }
-<a href=#1620 id=1620 data-nosnippet>1620</a>                        InodeSocketKind::PreSocket { .. } =&gt; {
-<a href=#1621 id=1621 data-nosnippet>1621</a>                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn));
-<a href=#1622 id=1622 data-nosnippet>1622</a>                        }
-<a href=#1623 id=1623 data-nosnippet>1623</a>                        <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
-<a href=#1624 id=1624 data-nosnippet>1624</a>                    };
-<a href=#1625 id=1625 data-nosnippet>1625</a>                    <span class="kw">return match </span>res {
-<a href=#1626 id=1626 data-nosnippet>1626</a>                        <span class="prelude-val">Ok</span>((amt, addr)) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>((amt, addr))),
-<a href=#1627 id=1627 data-nosnippet>1627</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; {
-<a href=#1628 id=1628 data-nosnippet>1628</a>                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again))
-<a href=#1629 id=1629 data-nosnippet>1629</a>                        }
-<a href=#1630 id=1630 data-nosnippet>1630</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span>!<span class="self">self</span>.handler_registered =&gt; {
-<a href=#1631 id=1631 data-nosnippet>1631</a>                            inner
-<a href=#1632 id=1632 data-nosnippet>1632</a>                                .set_handler(cx.waker().into())
-<a href=#1633 id=1633 data-nosnippet>1633</a>                                .map_err(net_error_into_wasi_err)<span class="question-mark">?</span>;
-<a href=#1634 id=1634 data-nosnippet>1634</a>                            <span class="self">self</span>.handler_registered = <span class="bool-val">true</span>;
-<a href=#1635 id=1635 data-nosnippet>1635</a>                            <span class="kw">continue</span>;
-<a href=#1636 id=1636 data-nosnippet>1636</a>                        }
-<a href=#1637 id=1637 data-nosnippet>1637</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
-<a href=#1638 id=1638 data-nosnippet>1638</a>                        <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
-<a href=#1639 id=1639 data-nosnippet>1639</a>                    };
-<a href=#1640 id=1640 data-nosnippet>1640</a>                }
-<a href=#1641 id=1641 data-nosnippet>1641</a>            }
-<a href=#1642 id=1642 data-nosnippet>1642</a>        }
-<a href=#1643 id=1643 data-nosnippet>1643</a>
-<a href=#1644 id=1644 data-nosnippet>1644</a>        <span class="kw">let </span>poller = SocketReceiver {
-<a href=#1645 id=1645 data-nosnippet>1645</a>            inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
-<a href=#1646 id=1646 data-nosnippet>1646</a>            data: buf,
-<a href=#1647 id=1647 data-nosnippet>1647</a>            nonblocking,
-<a href=#1648 id=1648 data-nosnippet>1648</a>            peek,
-<a href=#1649 id=1649 data-nosnippet>1649</a>            handler_registered: <span class="bool-val">false</span>,
-<a href=#1650 id=1650 data-nosnippet>1650</a>        };
-<a href=#1651 id=1651 data-nosnippet>1651</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
-<a href=#1652 id=1652 data-nosnippet>1652</a>            <span class="macro">tokio::select!</span> {
-<a href=#1653 id=1653 data-nosnippet>1653</a>                res = poller =&gt; res,
-<a href=#1654 id=1654 data-nosnippet>1654</a>                <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
-<a href=#1655 id=1655 data-nosnippet>1655</a>            }
-<a href=#1656 id=1656 data-nosnippet>1656</a>        } <span class="kw">else </span>{
-<a href=#1657 id=1657 data-nosnippet>1657</a>            poller.<span class="kw">await
-<a href=#1658 id=1658 data-nosnippet>1658</a>        </span>}
-<a href=#1659 id=1659 data-nosnippet>1659</a>    }
-<a href=#1660 id=1660 data-nosnippet>1660</a>
-<a href=#1661 id=1661 data-nosnippet>1661</a>    <span class="kw">pub fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>, how: std::net::Shutdown) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
-<a href=#1662 id=1662 data-nosnippet>1662</a>        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
-<a href=#1663 id=1663 data-nosnippet>1663</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-<a href=#1664 id=1664 data-nosnippet>1664</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; {
-<a href=#1665 id=1665 data-nosnippet>1665</a>                socket.shutdown(how).map_err(net_error_into_wasi_err)<span class="question-mark">?</span>;
-<a href=#1666 id=1666 data-nosnippet>1666</a>            }
-<a href=#1667 id=1667 data-nosnippet>1667</a>            InodeSocketKind::RemoteSocket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
-<a href=#1668 id=1668 data-nosnippet>1668</a>            InodeSocketKind::BoundTcp { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notconn),
-<a href=#1669 id=1669 data-nosnippet>1669</a>            InodeSocketKind::PreSocket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notconn),
-<a href=#1670 id=1670 data-nosnippet>1670</a>            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup),
-<a href=#1671 id=1671 data-nosnippet>1671</a>        }
-<a href=#1672 id=1672 data-nosnippet>1672</a>        <span class="prelude-val">Ok</span>(())
-<a href=#1673 id=1673 data-nosnippet>1673</a>    }
-<a href=#1674 id=1674 data-nosnippet>1674</a>
-<a href=#1675 id=1675 data-nosnippet>1675</a>    <span class="kw">pub async fn </span>can_write(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#1676 id=1676 data-nosnippet>1676</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>guard) = <span class="self">self</span>.inner.protected.try_write() {
-<a href=#1677 id=1677 data-nosnippet>1677</a>            <span class="attr">#[allow(clippy::match_like_matches_macro)]
-<a href=#1678 id=1678 data-nosnippet>1678</a>            </span><span class="kw">match </span><span class="kw-2">&amp;mut </span>guard.kind {
-<a href=#1679 id=1679 data-nosnippet>1679</a>                InodeSocketKind::TcpStream { .. }
-<a href=#1680 id=1680 data-nosnippet>1680</a>                | InodeSocketKind::BoundTcp { .. }
-<a href=#1681 id=1681 data-nosnippet>1681</a>                | InodeSocketKind::UdpSocket { .. }
-<a href=#1682 id=1682 data-nosnippet>1682</a>                | InodeSocketKind::Raw(..) =&gt; <span class="bool-val">true</span>,
-<a href=#1683 id=1683 data-nosnippet>1683</a>                InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; !(<span class="kw-2">*</span>is_dead),
-<a href=#1684 id=1684 data-nosnippet>1684</a>                <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
-<a href=#1685 id=1685 data-nosnippet>1685</a>            }
-<a href=#1686 id=1686 data-nosnippet>1686</a>        } <span class="kw">else </span>{
-<a href=#1687 id=1687 data-nosnippet>1687</a>            <span class="bool-val">false
-<a href=#1688 id=1688 data-nosnippet>1688</a>        </span>}
-<a href=#1689 id=1689 data-nosnippet>1689</a>    }
-<a href=#1690 id=1690 data-nosnippet>1690</a>
-<a href=#1691 id=1691 data-nosnippet>1691</a>    <span class="kw">pub fn </span>is_dgram(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#1692 id=1692 data-nosnippet>1692</a>        <span class="kw">let </span>guard = <span class="self">self</span>.inner.protected.read().unwrap();
-<a href=#1693 id=1693 data-nosnippet>1693</a>        <span class="kw">match </span><span class="kw-2">&amp;</span>guard.kind {
-<a href=#1694 id=1694 data-nosnippet>1694</a>            InodeSocketKind::UdpSocket { .. } =&gt; <span class="bool-val">true</span>,
-<a href=#1695 id=1695 data-nosnippet>1695</a>            InodeSocketKind::RemoteSocket { props, .. } =&gt; props.ty == Socktype::Dgram,
-<a href=#1696 id=1696 data-nosnippet>1696</a>            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
-<a href=#1697 id=1697 data-nosnippet>1697</a>        }
-<a href=#1698 id=1698 data-nosnippet>1698</a>    }
-<a href=#1699 id=1699 data-nosnippet>1699</a>}
-<a href=#1700 id=1700 data-nosnippet>1700</a>
-<a href=#1701 id=1701 data-nosnippet>1701</a><span class="kw">impl </span>InodeSocketProtected {
-<a href=#1702 id=1702 data-nosnippet>1702</a>    <span class="kw">pub fn </span>remove_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1703 id=1703 data-nosnippet>1703</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
-<a href=#1704 id=1704 data-nosnippet>1704</a>            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.remove_handler(),
-<a href=#1705 id=1705 data-nosnippet>1705</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.remove_handler(),
-<a href=#1706 id=1706 data-nosnippet>1706</a>            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.remove_handler(),
-<a href=#1707 id=1707 data-nosnippet>1707</a>            InodeSocketKind::Raw(socket) =&gt; socket.remove_handler(),
-<a href=#1708 id=1708 data-nosnippet>1708</a>            InodeSocketKind::Icmp(socket) =&gt; socket.remove_handler(),
-<a href=#1709 id=1709 data-nosnippet>1709</a>            InodeSocketKind::PreSocket { props, .. } =&gt; {
-<a href=#1710 id=1710 data-nosnippet>1710</a>                props.handler.take();
-<a href=#1711 id=1711 data-nosnippet>1711</a>            }
-<a href=#1712 id=1712 data-nosnippet>1712</a>            InodeSocketKind::BoundTcp { props, .. } =&gt; {
-<a href=#1713 id=1713 data-nosnippet>1713</a>                props.handler.take();
-<a href=#1714 id=1714 data-nosnippet>1714</a>            }
-<a href=#1715 id=1715 data-nosnippet>1715</a>            InodeSocketKind::RemoteSocket { props, .. } =&gt; {
-<a href=#1716 id=1716 data-nosnippet>1716</a>                props.handler.take();
-<a href=#1717 id=1717 data-nosnippet>1717</a>            }
-<a href=#1718 id=1718 data-nosnippet>1718</a>        }
-<a href=#1719 id=1719 data-nosnippet>1719</a>    }
-<a href=#1720 id=1720 data-nosnippet>1720</a>
-<a href=#1721 id=1721 data-nosnippet>1721</a>    <span class="kw">pub fn </span>poll_read_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
-<a href=#1722 id=1722 data-nosnippet>1722</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
-<a href=#1723 id=1723 data-nosnippet>1723</a>            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.poll_read_ready(cx),
-<a href=#1724 id=1724 data-nosnippet>1724</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.poll_read_ready(cx),
-<a href=#1725 id=1725 data-nosnippet>1725</a>            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.poll_read_ready(cx),
-<a href=#1726 id=1726 data-nosnippet>1726</a>            InodeSocketKind::Raw(socket) =&gt; socket.poll_read_ready(cx),
-<a href=#1727 id=1727 data-nosnippet>1727</a>            InodeSocketKind::Icmp(socket) =&gt; socket.poll_read_ready(cx),
-<a href=#1728 id=1728 data-nosnippet>1728</a>            InodeSocketKind::BoundTcp { .. } =&gt; Poll::Pending,
-<a href=#1729 id=1729 data-nosnippet>1729</a>            InodeSocketKind::PreSocket { .. } =&gt; Poll::Pending,
-<a href=#1730 id=1730 data-nosnippet>1730</a>            InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; <span class="kw">match </span>is_dead {
-<a href=#1731 id=1731 data-nosnippet>1731</a>                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-<a href=#1732 id=1732 data-nosnippet>1732</a>                <span class="bool-val">false </span>=&gt; Poll::Pending,
-<a href=#1733 id=1733 data-nosnippet>1733</a>            },
-<a href=#1734 id=1734 data-nosnippet>1734</a>        }
-<a href=#1735 id=1735 data-nosnippet>1735</a>        .map_err(net_error_into_io_err)
+<a href=#1551 id=1551 data-nosnippet>1551</a>        <span class="kw">let </span>poller = SocketReceiver {
+<a href=#1552 id=1552 data-nosnippet>1552</a>            inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
+<a href=#1553 id=1553 data-nosnippet>1553</a>            data: buf,
+<a href=#1554 id=1554 data-nosnippet>1554</a>            nonblocking,
+<a href=#1555 id=1555 data-nosnippet>1555</a>            peek,
+<a href=#1556 id=1556 data-nosnippet>1556</a>            handler_registered: <span class="bool-val">false</span>,
+<a href=#1557 id=1557 data-nosnippet>1557</a>        };
+<a href=#1558 id=1558 data-nosnippet>1558</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
+<a href=#1559 id=1559 data-nosnippet>1559</a>            <span class="macro">tokio::select!</span> {
+<a href=#1560 id=1560 data-nosnippet>1560</a>                res = poller =&gt; res,
+<a href=#1561 id=1561 data-nosnippet>1561</a>                <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
+<a href=#1562 id=1562 data-nosnippet>1562</a>            }
+<a href=#1563 id=1563 data-nosnippet>1563</a>        } <span class="kw">else </span>{
+<a href=#1564 id=1564 data-nosnippet>1564</a>            poller.<span class="kw">await
+<a href=#1565 id=1565 data-nosnippet>1565</a>        </span>}
+<a href=#1566 id=1566 data-nosnippet>1566</a>    }
+<a href=#1567 id=1567 data-nosnippet>1567</a>
+<a href=#1568 id=1568 data-nosnippet>1568</a>    <span class="kw">pub async fn </span>recv_from(
+<a href=#1569 id=1569 data-nosnippet>1569</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1570 id=1570 data-nosnippet>1570</a>        tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
+<a href=#1571 id=1571 data-nosnippet>1571</a>        buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
+<a href=#1572 id=1572 data-nosnippet>1572</a>        timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
+<a href=#1573 id=1573 data-nosnippet>1573</a>        nonblocking: bool,
+<a href=#1574 id=1574 data-nosnippet>1574</a>        peek: bool,
+<a href=#1575 id=1575 data-nosnippet>1575</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), Errno&gt; {
+<a href=#1576 id=1576 data-nosnippet>1576</a>        <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
+<a href=#1577 id=1577 data-nosnippet>1577</a>            inner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InodeSocketInner,
+<a href=#1578 id=1578 data-nosnippet>1578</a>            data: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
+<a href=#1579 id=1579 data-nosnippet>1579</a>            nonblocking: bool,
+<a href=#1580 id=1580 data-nosnippet>1580</a>            peek: bool,
+<a href=#1581 id=1581 data-nosnippet>1581</a>            handler_registered: bool,
+<a href=#1582 id=1582 data-nosnippet>1582</a>        }
+<a href=#1583 id=1583 data-nosnippet>1583</a>        <span class="kw">impl </span>Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; {
+<a href=#1584 id=1584 data-nosnippet>1584</a>            <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1585 id=1585 data-nosnippet>1585</a>                <span class="kw">if </span><span class="self">self</span>.handler_registered {
+<a href=#1586 id=1586 data-nosnippet>1586</a>                    <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+<a href=#1587 id=1587 data-nosnippet>1587</a>                    inner.remove_handler();
+<a href=#1588 id=1588 data-nosnippet>1588</a>                }
+<a href=#1589 id=1589 data-nosnippet>1589</a>            }
+<a href=#1590 id=1590 data-nosnippet>1590</a>        }
+<a href=#1591 id=1591 data-nosnippet>1591</a>        <span class="kw">impl </span>Future <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; {
+<a href=#1592 id=1592 data-nosnippet>1592</a>            <span class="kw">type </span>Output = <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), Errno&gt;;
+<a href=#1593 id=1593 data-nosnippet>1593</a>            <span class="kw">fn </span>poll(
+<a href=#1594 id=1594 data-nosnippet>1594</a>                <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
+<a href=#1595 id=1595 data-nosnippet>1595</a>                cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#1596 id=1596 data-nosnippet>1596</a>            ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+<a href=#1597 id=1597 data-nosnippet>1597</a>                <span class="kw">let </span>peek = <span class="self">self</span>.peek;
+<a href=#1598 id=1598 data-nosnippet>1598</a>                <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+<a href=#1599 id=1599 data-nosnippet>1599</a>                <span class="kw">loop </span>{
+<a href=#1600 id=1600 data-nosnippet>1600</a>                    <span class="kw">let </span>res = <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
+<a href=#1601 id=1601 data-nosnippet>1601</a>                        InodeSocketKind::Icmp(socket) =&gt; socket.try_recv_from(<span class="self">self</span>.data, peek),
+<a href=#1602 id=1602 data-nosnippet>1602</a>                        InodeSocketKind::UdpSocket { socket, peer } =&gt; <span class="kw">match </span>peer {
+<a href=#1603 id=1603 data-nosnippet>1603</a>                            <span class="prelude-val">Some</span>(peer) =&gt; {
+<a href=#1604 id=1604 data-nosnippet>1604</a>                                try_recv_from_connected_udp(socket.as_mut(), <span class="self">self</span>.data, peek, peer)
+<a href=#1605 id=1605 data-nosnippet>1605</a>                            }
+<a href=#1606 id=1606 data-nosnippet>1606</a>                            <span class="prelude-val">None </span>=&gt; socket.try_recv_from(<span class="self">self</span>.data, peek),
+<a href=#1607 id=1607 data-nosnippet>1607</a>                        },
+<a href=#1608 id=1608 data-nosnippet>1608</a>                        InodeSocketKind::RemoteSocket {
+<a href=#1609 id=1609 data-nosnippet>1609</a>                            is_dead, peer_addr, ..
+<a href=#1610 id=1610 data-nosnippet>1610</a>                        } =&gt; {
+<a href=#1611 id=1611 data-nosnippet>1611</a>                            <span class="kw">return match </span>is_dead {
+<a href=#1612 id=1612 data-nosnippet>1612</a>                                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>((<span class="number">0</span>, <span class="kw-2">*</span>peer_addr))),
+<a href=#1613 id=1613 data-nosnippet>1613</a>                                <span class="bool-val">false </span>=&gt; Poll::Pending,
+<a href=#1614 id=1614 data-nosnippet>1614</a>                            };
+<a href=#1615 id=1615 data-nosnippet>1615</a>                        }
+<a href=#1616 id=1616 data-nosnippet>1616</a>                        InodeSocketKind::PreSocket { .. } =&gt; {
+<a href=#1617 id=1617 data-nosnippet>1617</a>                            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notconn));
+<a href=#1618 id=1618 data-nosnippet>1618</a>                        }
+<a href=#1619 id=1619 data-nosnippet>1619</a>                        <span class="kw">_ </span>=&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(Errno::Notsup)),
+<a href=#1620 id=1620 data-nosnippet>1620</a>                    };
+<a href=#1621 id=1621 data-nosnippet>1621</a>                    <span class="kw">return match </span>res {
+<a href=#1622 id=1622 data-nosnippet>1622</a>                        <span class="prelude-val">Ok</span>((amt, addr)) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>((amt, addr))),
+<a href=#1623 id=1623 data-nosnippet>1623</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span><span class="self">self</span>.nonblocking =&gt; {
+<a href=#1624 id=1624 data-nosnippet>1624</a>                            Poll::Ready(<span class="prelude-val">Err</span>(Errno::Again))
+<a href=#1625 id=1625 data-nosnippet>1625</a>                        }
+<a href=#1626 id=1626 data-nosnippet>1626</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) <span class="kw">if </span>!<span class="self">self</span>.handler_registered =&gt; {
+<a href=#1627 id=1627 data-nosnippet>1627</a>                            inner
+<a href=#1628 id=1628 data-nosnippet>1628</a>                                .set_handler(cx.waker().into())
+<a href=#1629 id=1629 data-nosnippet>1629</a>                                .map_err(net_error_into_wasi_err)<span class="question-mark">?</span>;
+<a href=#1630 id=1630 data-nosnippet>1630</a>                            <span class="self">self</span>.handler_registered = <span class="bool-val">true</span>;
+<a href=#1631 id=1631 data-nosnippet>1631</a>                            <span class="kw">continue</span>;
+<a href=#1632 id=1632 data-nosnippet>1632</a>                        }
+<a href=#1633 id=1633 data-nosnippet>1633</a>                        <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
+<a href=#1634 id=1634 data-nosnippet>1634</a>                        <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_wasi_err(err))),
+<a href=#1635 id=1635 data-nosnippet>1635</a>                    };
+<a href=#1636 id=1636 data-nosnippet>1636</a>                }
+<a href=#1637 id=1637 data-nosnippet>1637</a>            }
+<a href=#1638 id=1638 data-nosnippet>1638</a>        }
+<a href=#1639 id=1639 data-nosnippet>1639</a>
+<a href=#1640 id=1640 data-nosnippet>1640</a>        <span class="kw">let </span>poller = SocketReceiver {
+<a href=#1641 id=1641 data-nosnippet>1641</a>            inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
+<a href=#1642 id=1642 data-nosnippet>1642</a>            data: buf,
+<a href=#1643 id=1643 data-nosnippet>1643</a>            nonblocking,
+<a href=#1644 id=1644 data-nosnippet>1644</a>            peek,
+<a href=#1645 id=1645 data-nosnippet>1645</a>            handler_registered: <span class="bool-val">false</span>,
+<a href=#1646 id=1646 data-nosnippet>1646</a>        };
+<a href=#1647 id=1647 data-nosnippet>1647</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
+<a href=#1648 id=1648 data-nosnippet>1648</a>            <span class="macro">tokio::select!</span> {
+<a href=#1649 id=1649 data-nosnippet>1649</a>                res = poller =&gt; res,
+<a href=#1650 id=1650 data-nosnippet>1650</a>                <span class="kw">_ </span>= tasks.sleep_now(timeout) =&gt; <span class="prelude-val">Err</span>(Errno::Timedout)
+<a href=#1651 id=1651 data-nosnippet>1651</a>            }
+<a href=#1652 id=1652 data-nosnippet>1652</a>        } <span class="kw">else </span>{
+<a href=#1653 id=1653 data-nosnippet>1653</a>            poller.<span class="kw">await
+<a href=#1654 id=1654 data-nosnippet>1654</a>        </span>}
+<a href=#1655 id=1655 data-nosnippet>1655</a>    }
+<a href=#1656 id=1656 data-nosnippet>1656</a>
+<a href=#1657 id=1657 data-nosnippet>1657</a>    <span class="kw">pub fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>, how: std::net::Shutdown) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
+<a href=#1658 id=1658 data-nosnippet>1658</a>        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+<a href=#1659 id=1659 data-nosnippet>1659</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
+<a href=#1660 id=1660 data-nosnippet>1660</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; {
+<a href=#1661 id=1661 data-nosnippet>1661</a>                socket.shutdown(how).map_err(net_error_into_wasi_err)<span class="question-mark">?</span>;
+<a href=#1662 id=1662 data-nosnippet>1662</a>            }
+<a href=#1663 id=1663 data-nosnippet>1663</a>            InodeSocketKind::RemoteSocket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
+<a href=#1664 id=1664 data-nosnippet>1664</a>            InodeSocketKind::BoundTcp { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notconn),
+<a href=#1665 id=1665 data-nosnippet>1665</a>            InodeSocketKind::PreSocket { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notconn),
+<a href=#1666 id=1666 data-nosnippet>1666</a>            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup),
+<a href=#1667 id=1667 data-nosnippet>1667</a>        }
+<a href=#1668 id=1668 data-nosnippet>1668</a>        <span class="prelude-val">Ok</span>(())
+<a href=#1669 id=1669 data-nosnippet>1669</a>    }
+<a href=#1670 id=1670 data-nosnippet>1670</a>
+<a href=#1671 id=1671 data-nosnippet>1671</a>    <span class="kw">pub async fn </span>can_write(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#1672 id=1672 data-nosnippet>1672</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>guard) = <span class="self">self</span>.inner.protected.try_write() {
+<a href=#1673 id=1673 data-nosnippet>1673</a>            <span class="attr">#[allow(clippy::match_like_matches_macro)]
+<a href=#1674 id=1674 data-nosnippet>1674</a>            </span><span class="kw">match </span><span class="kw-2">&amp;mut </span>guard.kind {
+<a href=#1675 id=1675 data-nosnippet>1675</a>                InodeSocketKind::TcpStream { .. }
+<a href=#1676 id=1676 data-nosnippet>1676</a>                | InodeSocketKind::BoundTcp { .. }
+<a href=#1677 id=1677 data-nosnippet>1677</a>                | InodeSocketKind::UdpSocket { .. }
+<a href=#1678 id=1678 data-nosnippet>1678</a>                | InodeSocketKind::Raw(..) =&gt; <span class="bool-val">true</span>,
+<a href=#1679 id=1679 data-nosnippet>1679</a>                InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; !(<span class="kw-2">*</span>is_dead),
+<a href=#1680 id=1680 data-nosnippet>1680</a>                <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+<a href=#1681 id=1681 data-nosnippet>1681</a>            }
+<a href=#1682 id=1682 data-nosnippet>1682</a>        } <span class="kw">else </span>{
+<a href=#1683 id=1683 data-nosnippet>1683</a>            <span class="bool-val">false
+<a href=#1684 id=1684 data-nosnippet>1684</a>        </span>}
+<a href=#1685 id=1685 data-nosnippet>1685</a>    }
+<a href=#1686 id=1686 data-nosnippet>1686</a>
+<a href=#1687 id=1687 data-nosnippet>1687</a>    <span class="kw">pub fn </span>is_dgram(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#1688 id=1688 data-nosnippet>1688</a>        <span class="kw">let </span>guard = <span class="self">self</span>.inner.protected.read().unwrap();
+<a href=#1689 id=1689 data-nosnippet>1689</a>        <span class="kw">match </span><span class="kw-2">&amp;</span>guard.kind {
+<a href=#1690 id=1690 data-nosnippet>1690</a>            InodeSocketKind::UdpSocket { .. } =&gt; <span class="bool-val">true</span>,
+<a href=#1691 id=1691 data-nosnippet>1691</a>            InodeSocketKind::RemoteSocket { props, .. } =&gt; props.ty == Socktype::Dgram,
+<a href=#1692 id=1692 data-nosnippet>1692</a>            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+<a href=#1693 id=1693 data-nosnippet>1693</a>        }
+<a href=#1694 id=1694 data-nosnippet>1694</a>    }
+<a href=#1695 id=1695 data-nosnippet>1695</a>}
+<a href=#1696 id=1696 data-nosnippet>1696</a>
+<a href=#1697 id=1697 data-nosnippet>1697</a><span class="doccomment">/// On connected UDP sockets, discard datagrams not from the stored peer.
+<a href=#1698 id=1698 data-nosnippet>1698</a>/// Linux filters these in the kernel; wasix stores the peer separately.
+<a href=#1699 id=1699 data-nosnippet>1699</a></span><span class="kw">fn </span>discard_non_matching_udp_datagrams(
+<a href=#1700 id=1700 data-nosnippet>1700</a>    socket: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>VirtualUdpSocket,
+<a href=#1701 id=1701 data-nosnippet>1701</a>    peer: <span class="kw-2">&amp;</span>SocketAddr,
+<a href=#1702 id=1702 data-nosnippet>1702</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), NetworkError&gt; {
+<a href=#1703 id=1703 data-nosnippet>1703</a>    <span class="kw">let </span><span class="kw-2">mut </span>discard = [MaybeUninit::&lt;u8&gt;::uninit()];
+<a href=#1704 id=1704 data-nosnippet>1704</a>    <span class="kw">loop </span>{
+<a href=#1705 id=1705 data-nosnippet>1705</a>        <span class="kw">match </span>socket.try_recv_from(<span class="kw-2">&amp;mut </span>discard, <span class="bool-val">true</span>) {
+<a href=#1706 id=1706 data-nosnippet>1706</a>            <span class="prelude-val">Ok</span>((<span class="kw">_</span>, addr)) <span class="kw">if </span>addr == <span class="kw-2">*</span>peer =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
+<a href=#1707 id=1707 data-nosnippet>1707</a>            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">match </span>socket.try_recv_from(<span class="kw-2">&amp;mut </span>discard, <span class="bool-val">false</span>) {
+<a href=#1708 id=1708 data-nosnippet>1708</a>                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {}
+<a href=#1709 id=1709 data-nosnippet>1709</a>                <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; {}
+<a href=#1710 id=1710 data-nosnippet>1710</a>                <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
+<a href=#1711 id=1711 data-nosnippet>1711</a>            },
+<a href=#1712 id=1712 data-nosnippet>1712</a>            <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(()),
+<a href=#1713 id=1713 data-nosnippet>1713</a>            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
+<a href=#1714 id=1714 data-nosnippet>1714</a>        }
+<a href=#1715 id=1715 data-nosnippet>1715</a>    }
+<a href=#1716 id=1716 data-nosnippet>1716</a>}
+<a href=#1717 id=1717 data-nosnippet>1717</a>
+<a href=#1718 id=1718 data-nosnippet>1718</a><span class="kw">fn </span>try_recv_from_connected_udp(
+<a href=#1719 id=1719 data-nosnippet>1719</a>    socket: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>VirtualUdpSocket,
+<a href=#1720 id=1720 data-nosnippet>1720</a>    data: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
+<a href=#1721 id=1721 data-nosnippet>1721</a>    peek: bool,
+<a href=#1722 id=1722 data-nosnippet>1722</a>    peer: <span class="kw-2">&amp;</span>SocketAddr,
+<a href=#1723 id=1723 data-nosnippet>1723</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), NetworkError&gt; {
+<a href=#1724 id=1724 data-nosnippet>1724</a>    discard_non_matching_udp_datagrams(socket, peer)<span class="question-mark">?</span>;
+<a href=#1725 id=1725 data-nosnippet>1725</a>    <span class="kw">loop </span>{
+<a href=#1726 id=1726 data-nosnippet>1726</a>        <span class="kw">match </span>socket.try_recv_from(data, peek) {
+<a href=#1727 id=1727 data-nosnippet>1727</a>            <span class="prelude-val">Ok</span>((amt, addr)) <span class="kw">if </span>addr == <span class="kw-2">*</span>peer =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>((amt, addr)),
+<a href=#1728 id=1728 data-nosnippet>1728</a>            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) <span class="kw">if </span>peek =&gt; <span class="kw">match </span>socket.try_recv_from(data, <span class="bool-val">false</span>) {
+<a href=#1729 id=1729 data-nosnippet>1729</a>                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {}
+<a href=#1730 id=1730 data-nosnippet>1730</a>                <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; {}
+<a href=#1731 id=1731 data-nosnippet>1731</a>                <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
+<a href=#1732 id=1732 data-nosnippet>1732</a>            },
+<a href=#1733 id=1733 data-nosnippet>1733</a>            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>,
+<a href=#1734 id=1734 data-nosnippet>1734</a>            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
+<a href=#1735 id=1735 data-nosnippet>1735</a>        }
 <a href=#1736 id=1736 data-nosnippet>1736</a>    }
-<a href=#1737 id=1737 data-nosnippet>1737</a>
-<a href=#1738 id=1738 data-nosnippet>1738</a>    <span class="kw">pub fn </span>poll_write_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
-<a href=#1739 id=1739 data-nosnippet>1739</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
-<a href=#1740 id=1740 data-nosnippet>1740</a>            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.poll_write_ready(cx),
-<a href=#1741 id=1741 data-nosnippet>1741</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.poll_write_ready(cx),
-<a href=#1742 id=1742 data-nosnippet>1742</a>            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.poll_write_ready(cx),
-<a href=#1743 id=1743 data-nosnippet>1743</a>            InodeSocketKind::Raw(socket) =&gt; socket.poll_write_ready(cx),
-<a href=#1744 id=1744 data-nosnippet>1744</a>            InodeSocketKind::Icmp(socket) =&gt; socket.poll_write_ready(cx),
-<a href=#1745 id=1745 data-nosnippet>1745</a>            <span class="comment">// Bound-but-not-connected TCP sockets are writable immediately on Linux.
-<a href=#1746 id=1746 data-nosnippet>1746</a>            // Use a non-zero value so poll/select does not treat this as a hangup.
-<a href=#1747 id=1747 data-nosnippet>1747</a>            </span>InodeSocketKind::BoundTcp { .. } =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">1</span>)),
-<a href=#1748 id=1748 data-nosnippet>1748</a>            InodeSocketKind::PreSocket { .. } =&gt; Poll::Pending,
-<a href=#1749 id=1749 data-nosnippet>1749</a>            InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; <span class="kw">match </span>is_dead {
-<a href=#1750 id=1750 data-nosnippet>1750</a>                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
-<a href=#1751 id=1751 data-nosnippet>1751</a>                <span class="bool-val">false </span>=&gt; Poll::Pending,
-<a href=#1752 id=1752 data-nosnippet>1752</a>            },
-<a href=#1753 id=1753 data-nosnippet>1753</a>        }
-<a href=#1754 id=1754 data-nosnippet>1754</a>        .map_err(net_error_into_io_err)
-<a href=#1755 id=1755 data-nosnippet>1755</a>    }
-<a href=#1756 id=1756 data-nosnippet>1756</a>
-<a href=#1757 id=1757 data-nosnippet>1757</a>    <span class="kw">pub fn </span>set_handler(
-<a href=#1758 id=1758 data-nosnippet>1758</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#1759 id=1759 data-nosnippet>1759</a>        handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
-<a href=#1760 id=1760 data-nosnippet>1760</a>    ) -&gt; virtual_net::Result&lt;()&gt; {
-<a href=#1761 id=1761 data-nosnippet>1761</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
-<a href=#1762 id=1762 data-nosnippet>1762</a>            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.set_handler(handler),
-<a href=#1763 id=1763 data-nosnippet>1763</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.set_handler(handler),
-<a href=#1764 id=1764 data-nosnippet>1764</a>            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.set_handler(handler),
-<a href=#1765 id=1765 data-nosnippet>1765</a>            InodeSocketKind::Raw(socket) =&gt; socket.set_handler(handler),
-<a href=#1766 id=1766 data-nosnippet>1766</a>            InodeSocketKind::Icmp(socket) =&gt; socket.set_handler(handler),
-<a href=#1767 id=1767 data-nosnippet>1767</a>            InodeSocketKind::PreSocket { props, .. }
-<a href=#1768 id=1768 data-nosnippet>1768</a>            | InodeSocketKind::BoundTcp { props, .. }
-<a href=#1769 id=1769 data-nosnippet>1769</a>            | InodeSocketKind::RemoteSocket { props, .. } =&gt; {
-<a href=#1770 id=1770 data-nosnippet>1770</a>                props.handler.replace(handler);
-<a href=#1771 id=1771 data-nosnippet>1771</a>                <span class="prelude-val">Ok</span>(())
-<a href=#1772 id=1772 data-nosnippet>1772</a>            }
-<a href=#1773 id=1773 data-nosnippet>1773</a>        }
-<a href=#1774 id=1774 data-nosnippet>1774</a>    }
-<a href=#1775 id=1775 data-nosnippet>1775</a>}
-<a href=#1776 id=1776 data-nosnippet>1776</a>
-<a href=#1777 id=1777 data-nosnippet>1777</a><span class="comment">// TODO: review allow...
-<a href=#1778 id=1778 data-nosnippet>1778</a></span><span class="attr">#[allow(dead_code)]
-<a href=#1779 id=1779 data-nosnippet>1779</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>all_socket_rights() -&gt; Rights {
-<a href=#1780 id=1780 data-nosnippet>1780</a>    Rights::FD_FDSTAT_SET_FLAGS
-<a href=#1781 id=1781 data-nosnippet>1781</a>        .union(Rights::FD_FILESTAT_GET)
-<a href=#1782 id=1782 data-nosnippet>1782</a>        .union(Rights::FD_READ)
-<a href=#1783 id=1783 data-nosnippet>1783</a>        .union(Rights::FD_WRITE)
-<a href=#1784 id=1784 data-nosnippet>1784</a>        .union(Rights::POLL_FD_READWRITE)
-<a href=#1785 id=1785 data-nosnippet>1785</a>        .union(Rights::SOCK_SHUTDOWN)
-<a href=#1786 id=1786 data-nosnippet>1786</a>        .union(Rights::SOCK_CONNECT)
-<a href=#1787 id=1787 data-nosnippet>1787</a>        .union(Rights::SOCK_LISTEN)
-<a href=#1788 id=1788 data-nosnippet>1788</a>        .union(Rights::SOCK_BIND)
-<a href=#1789 id=1789 data-nosnippet>1789</a>        .union(Rights::SOCK_ACCEPT)
-<a href=#1790 id=1790 data-nosnippet>1790</a>        .union(Rights::SOCK_RECV)
-<a href=#1791 id=1791 data-nosnippet>1791</a>        .union(Rights::SOCK_SEND)
-<a href=#1792 id=1792 data-nosnippet>1792</a>        .union(Rights::SOCK_ADDR_LOCAL)
-<a href=#1793 id=1793 data-nosnippet>1793</a>        .union(Rights::SOCK_ADDR_REMOTE)
-<a href=#1794 id=1794 data-nosnippet>1794</a>        .union(Rights::SOCK_RECV_FROM)
-<a href=#1795 id=1795 data-nosnippet>1795</a>        .union(Rights::SOCK_SEND_TO)
-<a href=#1796 id=1796 data-nosnippet>1796</a>}
-<a href=#1797 id=1797 data-nosnippet>1797</a>
-<a href=#1798 id=1798 data-nosnippet>1798</a><span class="attr">#[cfg(test)]
-<a href=#1799 id=1799 data-nosnippet>1799</a></span><span class="kw">mod </span>tests {
-<a href=#1800 id=1800 data-nosnippet>1800</a>    <span class="kw">use </span>super::{InodeSocket, InodeSocketKind, SocketProperties, WasiSocketStatus};
-<a href=#1801 id=1801 data-nosnippet>1801</a>    <span class="kw">use </span>std::{
-<a href=#1802 id=1802 data-nosnippet>1802</a>        future::pending,
-<a href=#1803 id=1803 data-nosnippet>1803</a>        mem::MaybeUninit,
-<a href=#1804 id=1804 data-nosnippet>1804</a>        net::{Ipv4Addr, Shutdown, SocketAddr},
-<a href=#1805 id=1805 data-nosnippet>1805</a>        pin::Pin,
-<a href=#1806 id=1806 data-nosnippet>1806</a>        sync::{
-<a href=#1807 id=1807 data-nosnippet>1807</a>            Arc,
-<a href=#1808 id=1808 data-nosnippet>1808</a>            atomic::{AtomicUsize, Ordering},
-<a href=#1809 id=1809 data-nosnippet>1809</a>        },
-<a href=#1810 id=1810 data-nosnippet>1810</a>        task::{Context, Poll},
-<a href=#1811 id=1811 data-nosnippet>1811</a>        time::Duration,
-<a href=#1812 id=1812 data-nosnippet>1812</a>    };
-<a href=#1813 id=1813 data-nosnippet>1813</a>    <span class="kw">use </span>virtual_mio::InterestHandler;
-<a href=#1814 id=1814 data-nosnippet>1814</a>    <span class="kw">use </span>virtual_net::{
-<a href=#1815 id=1815 data-nosnippet>1815</a>        NetworkError, <span class="prelude-ty">Result </span><span class="kw">as </span>NetResult, SocketStatus, VirtualConnectedSocket, VirtualIoSource,
-<a href=#1816 id=1816 data-nosnippet>1816</a>        VirtualNetworking, VirtualSocket, VirtualTcpBoundSocket, VirtualTcpSocket,
-<a href=#1817 id=1817 data-nosnippet>1817</a>    };
-<a href=#1818 id=1818 data-nosnippet>1818</a>    <span class="kw">use </span>wasmer_wasix_types::wasi::{Addressfamily, Errno, SockProto, Socktype};
-<a href=#1819 id=1819 data-nosnippet>1819</a>
-<a href=#1820 id=1820 data-nosnippet>1820</a>    <span class="attr">#[derive(Debug)]
-<a href=#1821 id=1821 data-nosnippet>1821</a>    </span><span class="kw">struct </span>MockTcpSocket {
-<a href=#1822 id=1822 data-nosnippet>1822</a>        read_calls: Arc&lt;AtomicUsize&gt;,
-<a href=#1823 id=1823 data-nosnippet>1823</a>        write_calls: Arc&lt;AtomicUsize&gt;,
-<a href=#1824 id=1824 data-nosnippet>1824</a>        status: Arc&lt;AtomicUsize&gt;,
-<a href=#1825 id=1825 data-nosnippet>1825</a>    }
-<a href=#1826 id=1826 data-nosnippet>1826</a>
-<a href=#1827 id=1827 data-nosnippet>1827</a>    <span class="kw">const </span>MOCK_STATUS_OPENING: usize = <span class="number">0</span>;
-<a href=#1828 id=1828 data-nosnippet>1828</a>    <span class="kw">const </span>MOCK_STATUS_OPENED: usize = <span class="number">1</span>;
-<a href=#1829 id=1829 data-nosnippet>1829</a>
-<a href=#1830 id=1830 data-nosnippet>1830</a>    <span class="kw">fn </span>decode_mock_status(value: usize) -&gt; SocketStatus {
-<a href=#1831 id=1831 data-nosnippet>1831</a>        <span class="kw">match </span>value {
-<a href=#1832 id=1832 data-nosnippet>1832</a>            MOCK_STATUS_OPENED =&gt; SocketStatus::Opened,
-<a href=#1833 id=1833 data-nosnippet>1833</a>            <span class="kw">_ </span>=&gt; SocketStatus::Opening,
-<a href=#1834 id=1834 data-nosnippet>1834</a>        }
-<a href=#1835 id=1835 data-nosnippet>1835</a>    }
-<a href=#1836 id=1836 data-nosnippet>1836</a>
-<a href=#1837 id=1837 data-nosnippet>1837</a>    <span class="kw">impl </span>VirtualIoSource <span class="kw">for </span>MockTcpSocket {
-<a href=#1838 id=1838 data-nosnippet>1838</a>        <span class="kw">fn </span>remove_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
-<a href=#1839 id=1839 data-nosnippet>1839</a>
-<a href=#1840 id=1840 data-nosnippet>1840</a>        <span class="kw">fn </span>poll_read_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;NetResult&lt;usize&gt;&gt; {
-<a href=#1841 id=1841 data-nosnippet>1841</a>            <span class="self">self</span>.read_calls.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-<a href=#1842 id=1842 data-nosnippet>1842</a>            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">3</span>))
-<a href=#1843 id=1843 data-nosnippet>1843</a>        }
-<a href=#1844 id=1844 data-nosnippet>1844</a>
-<a href=#1845 id=1845 data-nosnippet>1845</a>        <span class="kw">fn </span>poll_write_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;NetResult&lt;usize&gt;&gt; {
-<a href=#1846 id=1846 data-nosnippet>1846</a>            <span class="self">self</span>.write_calls.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
-<a href=#1847 id=1847 data-nosnippet>1847</a>            <span class="self">self</span>.status.store(MOCK_STATUS_OPENED, Ordering::Relaxed);
-<a href=#1848 id=1848 data-nosnippet>1848</a>            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">7</span>))
-<a href=#1849 id=1849 data-nosnippet>1849</a>        }
-<a href=#1850 id=1850 data-nosnippet>1850</a>    }
-<a href=#1851 id=1851 data-nosnippet>1851</a>
-<a href=#1852 id=1852 data-nosnippet>1852</a>    <span class="kw">impl </span>VirtualSocket <span class="kw">for </span>MockTcpSocket {
-<a href=#1853 id=1853 data-nosnippet>1853</a>        <span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _ttl: u32) -&gt; NetResult&lt;()&gt; {
-<a href=#1854 id=1854 data-nosnippet>1854</a>            <span class="prelude-val">Ok</span>(())
-<a href=#1855 id=1855 data-nosnippet>1855</a>        }
+<a href=#1737 id=1737 data-nosnippet>1737</a>}
+<a href=#1738 id=1738 data-nosnippet>1738</a>
+<a href=#1739 id=1739 data-nosnippet>1739</a><span class="kw">impl </span>InodeSocketProtected {
+<a href=#1740 id=1740 data-nosnippet>1740</a>    <span class="kw">pub fn </span>remove_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1741 id=1741 data-nosnippet>1741</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
+<a href=#1742 id=1742 data-nosnippet>1742</a>            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.remove_handler(),
+<a href=#1743 id=1743 data-nosnippet>1743</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.remove_handler(),
+<a href=#1744 id=1744 data-nosnippet>1744</a>            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.remove_handler(),
+<a href=#1745 id=1745 data-nosnippet>1745</a>            InodeSocketKind::Raw(socket) =&gt; socket.remove_handler(),
+<a href=#1746 id=1746 data-nosnippet>1746</a>            InodeSocketKind::Icmp(socket) =&gt; socket.remove_handler(),
+<a href=#1747 id=1747 data-nosnippet>1747</a>            InodeSocketKind::PreSocket { props, .. } =&gt; {
+<a href=#1748 id=1748 data-nosnippet>1748</a>                props.handler.take();
+<a href=#1749 id=1749 data-nosnippet>1749</a>            }
+<a href=#1750 id=1750 data-nosnippet>1750</a>            InodeSocketKind::BoundTcp { props, .. } =&gt; {
+<a href=#1751 id=1751 data-nosnippet>1751</a>                props.handler.take();
+<a href=#1752 id=1752 data-nosnippet>1752</a>            }
+<a href=#1753 id=1753 data-nosnippet>1753</a>            InodeSocketKind::RemoteSocket { props, .. } =&gt; {
+<a href=#1754 id=1754 data-nosnippet>1754</a>                props.handler.take();
+<a href=#1755 id=1755 data-nosnippet>1755</a>            }
+<a href=#1756 id=1756 data-nosnippet>1756</a>        }
+<a href=#1757 id=1757 data-nosnippet>1757</a>    }
+<a href=#1758 id=1758 data-nosnippet>1758</a>
+<a href=#1759 id=1759 data-nosnippet>1759</a>    <span class="kw">pub fn </span>poll_read_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+<a href=#1760 id=1760 data-nosnippet>1760</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
+<a href=#1761 id=1761 data-nosnippet>1761</a>            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.poll_read_ready(cx),
+<a href=#1762 id=1762 data-nosnippet>1762</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.poll_read_ready(cx),
+<a href=#1763 id=1763 data-nosnippet>1763</a>            InodeSocketKind::UdpSocket {
+<a href=#1764 id=1764 data-nosnippet>1764</a>                socket,
+<a href=#1765 id=1765 data-nosnippet>1765</a>                peer: <span class="prelude-val">Some</span>(peer),
+<a href=#1766 id=1766 data-nosnippet>1766</a>            } =&gt; <span class="kw">loop </span>{
+<a href=#1767 id=1767 data-nosnippet>1767</a>                <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = discard_non_matching_udp_datagrams(socket.as_mut(), peer) {
+<a href=#1768 id=1768 data-nosnippet>1768</a>                    <span class="kw">break </span>Poll::Ready(<span class="prelude-val">Err</span>(err));
+<a href=#1769 id=1769 data-nosnippet>1769</a>                }
+<a href=#1770 id=1770 data-nosnippet>1770</a>                <span class="kw">match </span>socket.poll_read_ready(cx) {
+<a href=#1771 id=1771 data-nosnippet>1771</a>                    Poll::Pending =&gt; <span class="kw">break </span>Poll::Pending,
+<a href=#1772 id=1772 data-nosnippet>1772</a>                    Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">break </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
+<a href=#1773 id=1773 data-nosnippet>1773</a>                    Poll::Ready(<span class="prelude-val">Ok</span>(n)) =&gt; {
+<a href=#1774 id=1774 data-nosnippet>1774</a>                        <span class="kw">let </span><span class="kw-2">mut </span>peek_buf = [MaybeUninit::&lt;u8&gt;::uninit()];
+<a href=#1775 id=1775 data-nosnippet>1775</a>                        <span class="kw">match </span>socket.try_recv_from(<span class="kw-2">&amp;mut </span>peek_buf, <span class="bool-val">true</span>) {
+<a href=#1776 id=1776 data-nosnippet>1776</a>                            <span class="prelude-val">Ok</span>((<span class="kw">_</span>, addr)) <span class="kw">if </span>addr == <span class="kw-2">*</span>peer =&gt; <span class="kw">break </span>Poll::Ready(<span class="prelude-val">Ok</span>(n)),
+<a href=#1777 id=1777 data-nosnippet>1777</a>                            <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="kw">continue</span>,
+<a href=#1778 id=1778 data-nosnippet>1778</a>                            <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; <span class="kw">break </span>Poll::Pending,
+<a href=#1779 id=1779 data-nosnippet>1779</a>                            <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">break </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
+<a href=#1780 id=1780 data-nosnippet>1780</a>                        }
+<a href=#1781 id=1781 data-nosnippet>1781</a>                    }
+<a href=#1782 id=1782 data-nosnippet>1782</a>                }
+<a href=#1783 id=1783 data-nosnippet>1783</a>            },
+<a href=#1784 id=1784 data-nosnippet>1784</a>            InodeSocketKind::UdpSocket { socket, peer: <span class="prelude-val">None </span>} =&gt; socket.poll_read_ready(cx),
+<a href=#1785 id=1785 data-nosnippet>1785</a>            InodeSocketKind::Raw(socket) =&gt; socket.poll_read_ready(cx),
+<a href=#1786 id=1786 data-nosnippet>1786</a>            InodeSocketKind::Icmp(socket) =&gt; socket.poll_read_ready(cx),
+<a href=#1787 id=1787 data-nosnippet>1787</a>            InodeSocketKind::BoundTcp { .. } =&gt; Poll::Pending,
+<a href=#1788 id=1788 data-nosnippet>1788</a>            InodeSocketKind::PreSocket { .. } =&gt; Poll::Pending,
+<a href=#1789 id=1789 data-nosnippet>1789</a>            InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; <span class="kw">match </span>is_dead {
+<a href=#1790 id=1790 data-nosnippet>1790</a>                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+<a href=#1791 id=1791 data-nosnippet>1791</a>                <span class="bool-val">false </span>=&gt; Poll::Pending,
+<a href=#1792 id=1792 data-nosnippet>1792</a>            },
+<a href=#1793 id=1793 data-nosnippet>1793</a>        }
+<a href=#1794 id=1794 data-nosnippet>1794</a>        .map_err(net_error_into_io_err)
+<a href=#1795 id=1795 data-nosnippet>1795</a>    }
+<a href=#1796 id=1796 data-nosnippet>1796</a>
+<a href=#1797 id=1797 data-nosnippet>1797</a>    <span class="kw">pub fn </span>poll_write_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
+<a href=#1798 id=1798 data-nosnippet>1798</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
+<a href=#1799 id=1799 data-nosnippet>1799</a>            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.poll_write_ready(cx),
+<a href=#1800 id=1800 data-nosnippet>1800</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.poll_write_ready(cx),
+<a href=#1801 id=1801 data-nosnippet>1801</a>            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.poll_write_ready(cx),
+<a href=#1802 id=1802 data-nosnippet>1802</a>            InodeSocketKind::Raw(socket) =&gt; socket.poll_write_ready(cx),
+<a href=#1803 id=1803 data-nosnippet>1803</a>            InodeSocketKind::Icmp(socket) =&gt; socket.poll_write_ready(cx),
+<a href=#1804 id=1804 data-nosnippet>1804</a>            <span class="comment">// Bound-but-not-connected TCP sockets are writable immediately on Linux.
+<a href=#1805 id=1805 data-nosnippet>1805</a>            // Use a non-zero value so poll/select does not treat this as a hangup.
+<a href=#1806 id=1806 data-nosnippet>1806</a>            </span>InodeSocketKind::BoundTcp { .. } =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">1</span>)),
+<a href=#1807 id=1807 data-nosnippet>1807</a>            InodeSocketKind::PreSocket { .. } =&gt; Poll::Pending,
+<a href=#1808 id=1808 data-nosnippet>1808</a>            InodeSocketKind::RemoteSocket { is_dead, .. } =&gt; <span class="kw">match </span>is_dead {
+<a href=#1809 id=1809 data-nosnippet>1809</a>                <span class="bool-val">true </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>)),
+<a href=#1810 id=1810 data-nosnippet>1810</a>                <span class="bool-val">false </span>=&gt; Poll::Pending,
+<a href=#1811 id=1811 data-nosnippet>1811</a>            },
+<a href=#1812 id=1812 data-nosnippet>1812</a>        }
+<a href=#1813 id=1813 data-nosnippet>1813</a>        .map_err(net_error_into_io_err)
+<a href=#1814 id=1814 data-nosnippet>1814</a>    }
+<a href=#1815 id=1815 data-nosnippet>1815</a>
+<a href=#1816 id=1816 data-nosnippet>1816</a>    <span class="kw">pub fn </span>set_handler(
+<a href=#1817 id=1817 data-nosnippet>1817</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#1818 id=1818 data-nosnippet>1818</a>        handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
+<a href=#1819 id=1819 data-nosnippet>1819</a>    ) -&gt; virtual_net::Result&lt;()&gt; {
+<a href=#1820 id=1820 data-nosnippet>1820</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.kind {
+<a href=#1821 id=1821 data-nosnippet>1821</a>            InodeSocketKind::TcpListener { socket, .. } =&gt; socket.set_handler(handler),
+<a href=#1822 id=1822 data-nosnippet>1822</a>            InodeSocketKind::TcpStream { socket, .. } =&gt; socket.set_handler(handler),
+<a href=#1823 id=1823 data-nosnippet>1823</a>            InodeSocketKind::UdpSocket { socket, .. } =&gt; socket.set_handler(handler),
+<a href=#1824 id=1824 data-nosnippet>1824</a>            InodeSocketKind::Raw(socket) =&gt; socket.set_handler(handler),
+<a href=#1825 id=1825 data-nosnippet>1825</a>            InodeSocketKind::Icmp(socket) =&gt; socket.set_handler(handler),
+<a href=#1826 id=1826 data-nosnippet>1826</a>            InodeSocketKind::PreSocket { props, .. }
+<a href=#1827 id=1827 data-nosnippet>1827</a>            | InodeSocketKind::BoundTcp { props, .. }
+<a href=#1828 id=1828 data-nosnippet>1828</a>            | InodeSocketKind::RemoteSocket { props, .. } =&gt; {
+<a href=#1829 id=1829 data-nosnippet>1829</a>                props.handler.replace(handler);
+<a href=#1830 id=1830 data-nosnippet>1830</a>                <span class="prelude-val">Ok</span>(())
+<a href=#1831 id=1831 data-nosnippet>1831</a>            }
+<a href=#1832 id=1832 data-nosnippet>1832</a>        }
+<a href=#1833 id=1833 data-nosnippet>1833</a>    }
+<a href=#1834 id=1834 data-nosnippet>1834</a>}
+<a href=#1835 id=1835 data-nosnippet>1835</a>
+<a href=#1836 id=1836 data-nosnippet>1836</a><span class="comment">// TODO: review allow...
+<a href=#1837 id=1837 data-nosnippet>1837</a></span><span class="attr">#[allow(dead_code)]
+<a href=#1838 id=1838 data-nosnippet>1838</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>all_socket_rights() -&gt; Rights {
+<a href=#1839 id=1839 data-nosnippet>1839</a>    Rights::FD_FDSTAT_SET_FLAGS
+<a href=#1840 id=1840 data-nosnippet>1840</a>        .union(Rights::FD_FILESTAT_GET)
+<a href=#1841 id=1841 data-nosnippet>1841</a>        .union(Rights::FD_READ)
+<a href=#1842 id=1842 data-nosnippet>1842</a>        .union(Rights::FD_WRITE)
+<a href=#1843 id=1843 data-nosnippet>1843</a>        .union(Rights::POLL_FD_READWRITE)
+<a href=#1844 id=1844 data-nosnippet>1844</a>        .union(Rights::SOCK_SHUTDOWN)
+<a href=#1845 id=1845 data-nosnippet>1845</a>        .union(Rights::SOCK_CONNECT)
+<a href=#1846 id=1846 data-nosnippet>1846</a>        .union(Rights::SOCK_LISTEN)
+<a href=#1847 id=1847 data-nosnippet>1847</a>        .union(Rights::SOCK_BIND)
+<a href=#1848 id=1848 data-nosnippet>1848</a>        .union(Rights::SOCK_ACCEPT)
+<a href=#1849 id=1849 data-nosnippet>1849</a>        .union(Rights::SOCK_RECV)
+<a href=#1850 id=1850 data-nosnippet>1850</a>        .union(Rights::SOCK_SEND)
+<a href=#1851 id=1851 data-nosnippet>1851</a>        .union(Rights::SOCK_ADDR_LOCAL)
+<a href=#1852 id=1852 data-nosnippet>1852</a>        .union(Rights::SOCK_ADDR_REMOTE)
+<a href=#1853 id=1853 data-nosnippet>1853</a>        .union(Rights::SOCK_RECV_FROM)
+<a href=#1854 id=1854 data-nosnippet>1854</a>        .union(Rights::SOCK_SEND_TO)
+<a href=#1855 id=1855 data-nosnippet>1855</a>}
 <a href=#1856 id=1856 data-nosnippet>1856</a>
-<a href=#1857 id=1857 data-nosnippet>1857</a>        <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;u32&gt; {
-<a href=#1858 id=1858 data-nosnippet>1858</a>            <span class="prelude-val">Ok</span>(<span class="number">64</span>)
-<a href=#1859 id=1859 data-nosnippet>1859</a>        }
-<a href=#1860 id=1860 data-nosnippet>1860</a>
-<a href=#1861 id=1861 data-nosnippet>1861</a>        <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketAddr&gt; {
-<a href=#1862 id=1862 data-nosnippet>1862</a>            <span class="prelude-val">Ok</span>(SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">0</span>)))
-<a href=#1863 id=1863 data-nosnippet>1863</a>        }
-<a href=#1864 id=1864 data-nosnippet>1864</a>
-<a href=#1865 id=1865 data-nosnippet>1865</a>        <span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketStatus&gt; {
-<a href=#1866 id=1866 data-nosnippet>1866</a>            <span class="prelude-val">Ok</span>(decode_mock_status(<span class="self">self</span>.status.load(Ordering::Relaxed)))
-<a href=#1867 id=1867 data-nosnippet>1867</a>        }
-<a href=#1868 id=1868 data-nosnippet>1868</a>
-<a href=#1869 id=1869 data-nosnippet>1869</a>        <span class="kw">fn </span>set_handler(
-<a href=#1870 id=1870 data-nosnippet>1870</a>            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#1871 id=1871 data-nosnippet>1871</a>            _handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
-<a href=#1872 id=1872 data-nosnippet>1872</a>        ) -&gt; NetResult&lt;()&gt; {
-<a href=#1873 id=1873 data-nosnippet>1873</a>            <span class="prelude-val">Ok</span>(())
-<a href=#1874 id=1874 data-nosnippet>1874</a>        }
-<a href=#1875 id=1875 data-nosnippet>1875</a>    }
-<a href=#1876 id=1876 data-nosnippet>1876</a>
-<a href=#1877 id=1877 data-nosnippet>1877</a>    <span class="kw">impl </span>VirtualConnectedSocket <span class="kw">for </span>MockTcpSocket {
-<a href=#1878 id=1878 data-nosnippet>1878</a>        <span class="kw">fn </span>set_linger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _linger: <span class="prelude-ty">Option</span>&lt;Duration&gt;) -&gt; NetResult&lt;()&gt; {
-<a href=#1879 id=1879 data-nosnippet>1879</a>            <span class="prelude-val">Ok</span>(())
-<a href=#1880 id=1880 data-nosnippet>1880</a>        }
-<a href=#1881 id=1881 data-nosnippet>1881</a>
-<a href=#1882 id=1882 data-nosnippet>1882</a>        <span class="kw">fn </span>linger(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;<span class="prelude-ty">Option</span>&lt;Duration&gt;&gt; {
-<a href=#1883 id=1883 data-nosnippet>1883</a>            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
-<a href=#1884 id=1884 data-nosnippet>1884</a>        }
+<a href=#1857 id=1857 data-nosnippet>1857</a><span class="attr">#[cfg(test)]
+<a href=#1858 id=1858 data-nosnippet>1858</a></span><span class="kw">mod </span>tests {
+<a href=#1859 id=1859 data-nosnippet>1859</a>    <span class="kw">use </span>super::{InodeSocket, InodeSocketKind, SocketProperties, WasiSocketStatus};
+<a href=#1860 id=1860 data-nosnippet>1860</a>    <span class="kw">use </span>std::{
+<a href=#1861 id=1861 data-nosnippet>1861</a>        future::pending,
+<a href=#1862 id=1862 data-nosnippet>1862</a>        mem::MaybeUninit,
+<a href=#1863 id=1863 data-nosnippet>1863</a>        net::{Ipv4Addr, Shutdown, SocketAddr},
+<a href=#1864 id=1864 data-nosnippet>1864</a>        pin::Pin,
+<a href=#1865 id=1865 data-nosnippet>1865</a>        sync::{
+<a href=#1866 id=1866 data-nosnippet>1866</a>            Arc,
+<a href=#1867 id=1867 data-nosnippet>1867</a>            atomic::{AtomicUsize, Ordering},
+<a href=#1868 id=1868 data-nosnippet>1868</a>        },
+<a href=#1869 id=1869 data-nosnippet>1869</a>        task::{Context, Poll},
+<a href=#1870 id=1870 data-nosnippet>1870</a>        time::Duration,
+<a href=#1871 id=1871 data-nosnippet>1871</a>    };
+<a href=#1872 id=1872 data-nosnippet>1872</a>    <span class="kw">use </span>virtual_mio::InterestHandler;
+<a href=#1873 id=1873 data-nosnippet>1873</a>    <span class="kw">use </span>virtual_net::{
+<a href=#1874 id=1874 data-nosnippet>1874</a>        NetworkError, <span class="prelude-ty">Result </span><span class="kw">as </span>NetResult, SocketStatus, VirtualConnectedSocket, VirtualIoSource,
+<a href=#1875 id=1875 data-nosnippet>1875</a>        VirtualNetworking, VirtualSocket, VirtualTcpBoundSocket, VirtualTcpSocket,
+<a href=#1876 id=1876 data-nosnippet>1876</a>    };
+<a href=#1877 id=1877 data-nosnippet>1877</a>    <span class="kw">use </span>wasmer_wasix_types::wasi::{Addressfamily, Errno, SockProto, Socktype};
+<a href=#1878 id=1878 data-nosnippet>1878</a>
+<a href=#1879 id=1879 data-nosnippet>1879</a>    <span class="attr">#[derive(Debug)]
+<a href=#1880 id=1880 data-nosnippet>1880</a>    </span><span class="kw">struct </span>MockTcpSocket {
+<a href=#1881 id=1881 data-nosnippet>1881</a>        read_calls: Arc&lt;AtomicUsize&gt;,
+<a href=#1882 id=1882 data-nosnippet>1882</a>        write_calls: Arc&lt;AtomicUsize&gt;,
+<a href=#1883 id=1883 data-nosnippet>1883</a>        status: Arc&lt;AtomicUsize&gt;,
+<a href=#1884 id=1884 data-nosnippet>1884</a>    }
 <a href=#1885 id=1885 data-nosnippet>1885</a>
-<a href=#1886 id=1886 data-nosnippet>1886</a>        <span class="kw">fn </span>try_send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _data: <span class="kw-2">&amp;</span>[u8]) -&gt; NetResult&lt;usize&gt; {
-<a href=#1887 id=1887 data-nosnippet>1887</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
-<a href=#1888 id=1888 data-nosnippet>1888</a>        }
-<a href=#1889 id=1889 data-nosnippet>1889</a>
-<a href=#1890 id=1890 data-nosnippet>1890</a>        <span class="kw">fn </span>try_flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NetResult&lt;()&gt; {
-<a href=#1891 id=1891 data-nosnippet>1891</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
-<a href=#1892 id=1892 data-nosnippet>1892</a>        }
-<a href=#1893 id=1893 data-nosnippet>1893</a>
-<a href=#1894 id=1894 data-nosnippet>1894</a>        <span class="kw">fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NetResult&lt;()&gt; {
-<a href=#1895 id=1895 data-nosnippet>1895</a>            <span class="prelude-val">Ok</span>(())
-<a href=#1896 id=1896 data-nosnippet>1896</a>        }
-<a href=#1897 id=1897 data-nosnippet>1897</a>
-<a href=#1898 id=1898 data-nosnippet>1898</a>        <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;], _peek: bool) -&gt; NetResult&lt;usize&gt; {
-<a href=#1899 id=1899 data-nosnippet>1899</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
-<a href=#1900 id=1900 data-nosnippet>1900</a>        }
-<a href=#1901 id=1901 data-nosnippet>1901</a>    }
-<a href=#1902 id=1902 data-nosnippet>1902</a>
-<a href=#1903 id=1903 data-nosnippet>1903</a>    <span class="kw">impl </span>VirtualTcpSocket <span class="kw">for </span>MockTcpSocket {
-<a href=#1904 id=1904 data-nosnippet>1904</a>        <span class="kw">fn </span>set_recv_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _size: usize) -&gt; NetResult&lt;()&gt; {
-<a href=#1905 id=1905 data-nosnippet>1905</a>            <span class="prelude-val">Ok</span>(())
-<a href=#1906 id=1906 data-nosnippet>1906</a>        }
-<a href=#1907 id=1907 data-nosnippet>1907</a>
-<a href=#1908 id=1908 data-nosnippet>1908</a>        <span class="kw">fn </span>recv_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;usize&gt; {
-<a href=#1909 id=1909 data-nosnippet>1909</a>            <span class="prelude-val">Ok</span>(<span class="number">0</span>)
-<a href=#1910 id=1910 data-nosnippet>1910</a>        }
-<a href=#1911 id=1911 data-nosnippet>1911</a>
-<a href=#1912 id=1912 data-nosnippet>1912</a>        <span class="kw">fn </span>set_send_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _size: usize) -&gt; NetResult&lt;()&gt; {
+<a href=#1886 id=1886 data-nosnippet>1886</a>    <span class="kw">const </span>MOCK_STATUS_OPENING: usize = <span class="number">0</span>;
+<a href=#1887 id=1887 data-nosnippet>1887</a>    <span class="kw">const </span>MOCK_STATUS_OPENED: usize = <span class="number">1</span>;
+<a href=#1888 id=1888 data-nosnippet>1888</a>
+<a href=#1889 id=1889 data-nosnippet>1889</a>    <span class="kw">fn </span>decode_mock_status(value: usize) -&gt; SocketStatus {
+<a href=#1890 id=1890 data-nosnippet>1890</a>        <span class="kw">match </span>value {
+<a href=#1891 id=1891 data-nosnippet>1891</a>            MOCK_STATUS_OPENED =&gt; SocketStatus::Opened,
+<a href=#1892 id=1892 data-nosnippet>1892</a>            <span class="kw">_ </span>=&gt; SocketStatus::Opening,
+<a href=#1893 id=1893 data-nosnippet>1893</a>        }
+<a href=#1894 id=1894 data-nosnippet>1894</a>    }
+<a href=#1895 id=1895 data-nosnippet>1895</a>
+<a href=#1896 id=1896 data-nosnippet>1896</a>    <span class="kw">impl </span>VirtualIoSource <span class="kw">for </span>MockTcpSocket {
+<a href=#1897 id=1897 data-nosnippet>1897</a>        <span class="kw">fn </span>remove_handler(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
+<a href=#1898 id=1898 data-nosnippet>1898</a>
+<a href=#1899 id=1899 data-nosnippet>1899</a>        <span class="kw">fn </span>poll_read_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;NetResult&lt;usize&gt;&gt; {
+<a href=#1900 id=1900 data-nosnippet>1900</a>            <span class="self">self</span>.read_calls.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+<a href=#1901 id=1901 data-nosnippet>1901</a>            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">3</span>))
+<a href=#1902 id=1902 data-nosnippet>1902</a>        }
+<a href=#1903 id=1903 data-nosnippet>1903</a>
+<a href=#1904 id=1904 data-nosnippet>1904</a>        <span class="kw">fn </span>poll_write_ready(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;NetResult&lt;usize&gt;&gt; {
+<a href=#1905 id=1905 data-nosnippet>1905</a>            <span class="self">self</span>.write_calls.fetch_add(<span class="number">1</span>, Ordering::Relaxed);
+<a href=#1906 id=1906 data-nosnippet>1906</a>            <span class="self">self</span>.status.store(MOCK_STATUS_OPENED, Ordering::Relaxed);
+<a href=#1907 id=1907 data-nosnippet>1907</a>            Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">7</span>))
+<a href=#1908 id=1908 data-nosnippet>1908</a>        }
+<a href=#1909 id=1909 data-nosnippet>1909</a>    }
+<a href=#1910 id=1910 data-nosnippet>1910</a>
+<a href=#1911 id=1911 data-nosnippet>1911</a>    <span class="kw">impl </span>VirtualSocket <span class="kw">for </span>MockTcpSocket {
+<a href=#1912 id=1912 data-nosnippet>1912</a>        <span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _ttl: u32) -&gt; NetResult&lt;()&gt; {
 <a href=#1913 id=1913 data-nosnippet>1913</a>            <span class="prelude-val">Ok</span>(())
 <a href=#1914 id=1914 data-nosnippet>1914</a>        }
 <a href=#1915 id=1915 data-nosnippet>1915</a>
-<a href=#1916 id=1916 data-nosnippet>1916</a>        <span class="kw">fn </span>send_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;usize&gt; {
-<a href=#1917 id=1917 data-nosnippet>1917</a>            <span class="prelude-val">Ok</span>(<span class="number">0</span>)
+<a href=#1916 id=1916 data-nosnippet>1916</a>        <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;u32&gt; {
+<a href=#1917 id=1917 data-nosnippet>1917</a>            <span class="prelude-val">Ok</span>(<span class="number">64</span>)
 <a href=#1918 id=1918 data-nosnippet>1918</a>        }
 <a href=#1919 id=1919 data-nosnippet>1919</a>
-<a href=#1920 id=1920 data-nosnippet>1920</a>        <span class="kw">fn </span>set_nodelay(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _reuse: bool) -&gt; NetResult&lt;()&gt; {
-<a href=#1921 id=1921 data-nosnippet>1921</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1920 id=1920 data-nosnippet>1920</a>        <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketAddr&gt; {
+<a href=#1921 id=1921 data-nosnippet>1921</a>            <span class="prelude-val">Ok</span>(SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">0</span>)))
 <a href=#1922 id=1922 data-nosnippet>1922</a>        }
 <a href=#1923 id=1923 data-nosnippet>1923</a>
-<a href=#1924 id=1924 data-nosnippet>1924</a>        <span class="kw">fn </span>nodelay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;bool&gt; {
-<a href=#1925 id=1925 data-nosnippet>1925</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
+<a href=#1924 id=1924 data-nosnippet>1924</a>        <span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketStatus&gt; {
+<a href=#1925 id=1925 data-nosnippet>1925</a>            <span class="prelude-val">Ok</span>(decode_mock_status(<span class="self">self</span>.status.load(Ordering::Relaxed)))
 <a href=#1926 id=1926 data-nosnippet>1926</a>        }
 <a href=#1927 id=1927 data-nosnippet>1927</a>
-<a href=#1928 id=1928 data-nosnippet>1928</a>        <span class="kw">fn </span>set_keepalive(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _keepalive: bool) -&gt; NetResult&lt;()&gt; {
-<a href=#1929 id=1929 data-nosnippet>1929</a>            <span class="prelude-val">Ok</span>(())
-<a href=#1930 id=1930 data-nosnippet>1930</a>        }
-<a href=#1931 id=1931 data-nosnippet>1931</a>
-<a href=#1932 id=1932 data-nosnippet>1932</a>        <span class="kw">fn </span>keepalive(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;bool&gt; {
-<a href=#1933 id=1933 data-nosnippet>1933</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
-<a href=#1934 id=1934 data-nosnippet>1934</a>        }
+<a href=#1928 id=1928 data-nosnippet>1928</a>        <span class="kw">fn </span>set_handler(
+<a href=#1929 id=1929 data-nosnippet>1929</a>            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#1930 id=1930 data-nosnippet>1930</a>            _handler: Box&lt;<span class="kw">dyn </span>InterestHandler + Send + Sync&gt;,
+<a href=#1931 id=1931 data-nosnippet>1931</a>        ) -&gt; NetResult&lt;()&gt; {
+<a href=#1932 id=1932 data-nosnippet>1932</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1933 id=1933 data-nosnippet>1933</a>        }
+<a href=#1934 id=1934 data-nosnippet>1934</a>    }
 <a href=#1935 id=1935 data-nosnippet>1935</a>
-<a href=#1936 id=1936 data-nosnippet>1936</a>        <span class="kw">fn </span>set_dontroute(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _keepalive: bool) -&gt; NetResult&lt;()&gt; {
-<a href=#1937 id=1937 data-nosnippet>1937</a>            <span class="prelude-val">Ok</span>(())
-<a href=#1938 id=1938 data-nosnippet>1938</a>        }
-<a href=#1939 id=1939 data-nosnippet>1939</a>
-<a href=#1940 id=1940 data-nosnippet>1940</a>        <span class="kw">fn </span>dontroute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;bool&gt; {
-<a href=#1941 id=1941 data-nosnippet>1941</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
-<a href=#1942 id=1942 data-nosnippet>1942</a>        }
-<a href=#1943 id=1943 data-nosnippet>1943</a>
-<a href=#1944 id=1944 data-nosnippet>1944</a>        <span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketAddr&gt; {
-<a href=#1945 id=1945 data-nosnippet>1945</a>            <span class="prelude-val">Ok</span>(SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">80</span>)))
-<a href=#1946 id=1946 data-nosnippet>1946</a>        }
-<a href=#1947 id=1947 data-nosnippet>1947</a>
-<a href=#1948 id=1948 data-nosnippet>1948</a>        <span class="kw">fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _how: Shutdown) -&gt; NetResult&lt;()&gt; {
-<a href=#1949 id=1949 data-nosnippet>1949</a>            <span class="prelude-val">Ok</span>(())
-<a href=#1950 id=1950 data-nosnippet>1950</a>        }
-<a href=#1951 id=1951 data-nosnippet>1951</a>
-<a href=#1952 id=1952 data-nosnippet>1952</a>        <span class="kw">fn </span>is_closed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#1953 id=1953 data-nosnippet>1953</a>            <span class="bool-val">false
-<a href=#1954 id=1954 data-nosnippet>1954</a>        </span>}
-<a href=#1955 id=1955 data-nosnippet>1955</a>    }
+<a href=#1936 id=1936 data-nosnippet>1936</a>    <span class="kw">impl </span>VirtualConnectedSocket <span class="kw">for </span>MockTcpSocket {
+<a href=#1937 id=1937 data-nosnippet>1937</a>        <span class="kw">fn </span>set_linger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _linger: <span class="prelude-ty">Option</span>&lt;Duration&gt;) -&gt; NetResult&lt;()&gt; {
+<a href=#1938 id=1938 data-nosnippet>1938</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1939 id=1939 data-nosnippet>1939</a>        }
+<a href=#1940 id=1940 data-nosnippet>1940</a>
+<a href=#1941 id=1941 data-nosnippet>1941</a>        <span class="kw">fn </span>linger(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;<span class="prelude-ty">Option</span>&lt;Duration&gt;&gt; {
+<a href=#1942 id=1942 data-nosnippet>1942</a>            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+<a href=#1943 id=1943 data-nosnippet>1943</a>        }
+<a href=#1944 id=1944 data-nosnippet>1944</a>
+<a href=#1945 id=1945 data-nosnippet>1945</a>        <span class="kw">fn </span>try_send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _data: <span class="kw-2">&amp;</span>[u8]) -&gt; NetResult&lt;usize&gt; {
+<a href=#1946 id=1946 data-nosnippet>1946</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
+<a href=#1947 id=1947 data-nosnippet>1947</a>        }
+<a href=#1948 id=1948 data-nosnippet>1948</a>
+<a href=#1949 id=1949 data-nosnippet>1949</a>        <span class="kw">fn </span>try_flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NetResult&lt;()&gt; {
+<a href=#1950 id=1950 data-nosnippet>1950</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
+<a href=#1951 id=1951 data-nosnippet>1951</a>        }
+<a href=#1952 id=1952 data-nosnippet>1952</a>
+<a href=#1953 id=1953 data-nosnippet>1953</a>        <span class="kw">fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NetResult&lt;()&gt; {
+<a href=#1954 id=1954 data-nosnippet>1954</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1955 id=1955 data-nosnippet>1955</a>        }
 <a href=#1956 id=1956 data-nosnippet>1956</a>
-<a href=#1957 id=1957 data-nosnippet>1957</a>    <span class="attr">#[derive(Debug)]
-<a href=#1958 id=1958 data-nosnippet>1958</a>    </span><span class="kw">struct </span>MockTcpBoundSocket {
-<a href=#1959 id=1959 data-nosnippet>1959</a>        ttl: Arc&lt;AtomicUsize&gt;,
+<a href=#1957 id=1957 data-nosnippet>1957</a>        <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;], _peek: bool) -&gt; NetResult&lt;usize&gt; {
+<a href=#1958 id=1958 data-nosnippet>1958</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
+<a href=#1959 id=1959 data-nosnippet>1959</a>        }
 <a href=#1960 id=1960 data-nosnippet>1960</a>    }
 <a href=#1961 id=1961 data-nosnippet>1961</a>
-<a href=#1962 id=1962 data-nosnippet>1962</a>    <span class="kw">impl </span>VirtualTcpBoundSocket <span class="kw">for </span>MockTcpBoundSocket {
-<a href=#1963 id=1963 data-nosnippet>1963</a>        <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketAddr&gt; {
-<a href=#1964 id=1964 data-nosnippet>1964</a>            <span class="prelude-val">Ok</span>(SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">0</span>)))
+<a href=#1962 id=1962 data-nosnippet>1962</a>    <span class="kw">impl </span>VirtualTcpSocket <span class="kw">for </span>MockTcpSocket {
+<a href=#1963 id=1963 data-nosnippet>1963</a>        <span class="kw">fn </span>set_recv_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _size: usize) -&gt; NetResult&lt;()&gt; {
+<a href=#1964 id=1964 data-nosnippet>1964</a>            <span class="prelude-val">Ok</span>(())
 <a href=#1965 id=1965 data-nosnippet>1965</a>        }
 <a href=#1966 id=1966 data-nosnippet>1966</a>
-<a href=#1967 id=1967 data-nosnippet>1967</a>        <span class="kw">fn </span>listen(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NetResult&lt;Box&lt;<span class="kw">dyn </span>virtual_net::VirtualTcpListener + Sync&gt;&gt; {
-<a href=#1968 id=1968 data-nosnippet>1968</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
+<a href=#1967 id=1967 data-nosnippet>1967</a>        <span class="kw">fn </span>recv_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;usize&gt; {
+<a href=#1968 id=1968 data-nosnippet>1968</a>            <span class="prelude-val">Ok</span>(<span class="number">0</span>)
 <a href=#1969 id=1969 data-nosnippet>1969</a>        }
 <a href=#1970 id=1970 data-nosnippet>1970</a>
-<a href=#1971 id=1971 data-nosnippet>1971</a>        <span class="kw">fn </span>connect(
-<a href=#1972 id=1972 data-nosnippet>1972</a>            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#1973 id=1973 data-nosnippet>1973</a>            _peer: SocketAddr,
-<a href=#1974 id=1974 data-nosnippet>1974</a>        ) -&gt; NetResult&lt;Box&lt;<span class="kw">dyn </span>virtual_net::VirtualTcpSocket + Sync&gt;&gt; {
-<a href=#1975 id=1975 data-nosnippet>1975</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
-<a href=#1976 id=1976 data-nosnippet>1976</a>        }
-<a href=#1977 id=1977 data-nosnippet>1977</a>
-<a href=#1978 id=1978 data-nosnippet>1978</a>        <span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ttl: u32) -&gt; NetResult&lt;()&gt; {
-<a href=#1979 id=1979 data-nosnippet>1979</a>            <span class="self">self</span>.ttl.store(ttl <span class="kw">as </span>usize, Ordering::Relaxed);
+<a href=#1971 id=1971 data-nosnippet>1971</a>        <span class="kw">fn </span>set_send_buf_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _size: usize) -&gt; NetResult&lt;()&gt; {
+<a href=#1972 id=1972 data-nosnippet>1972</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1973 id=1973 data-nosnippet>1973</a>        }
+<a href=#1974 id=1974 data-nosnippet>1974</a>
+<a href=#1975 id=1975 data-nosnippet>1975</a>        <span class="kw">fn </span>send_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;usize&gt; {
+<a href=#1976 id=1976 data-nosnippet>1976</a>            <span class="prelude-val">Ok</span>(<span class="number">0</span>)
+<a href=#1977 id=1977 data-nosnippet>1977</a>        }
+<a href=#1978 id=1978 data-nosnippet>1978</a>
+<a href=#1979 id=1979 data-nosnippet>1979</a>        <span class="kw">fn </span>set_nodelay(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _reuse: bool) -&gt; NetResult&lt;()&gt; {
 <a href=#1980 id=1980 data-nosnippet>1980</a>            <span class="prelude-val">Ok</span>(())
 <a href=#1981 id=1981 data-nosnippet>1981</a>        }
 <a href=#1982 id=1982 data-nosnippet>1982</a>
-<a href=#1983 id=1983 data-nosnippet>1983</a>        <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;u32&gt; {
-<a href=#1984 id=1984 data-nosnippet>1984</a>            <span class="prelude-val">Ok</span>(<span class="self">self</span>.ttl.load(Ordering::Relaxed) <span class="kw">as </span>u32)
+<a href=#1983 id=1983 data-nosnippet>1983</a>        <span class="kw">fn </span>nodelay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;bool&gt; {
+<a href=#1984 id=1984 data-nosnippet>1984</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
 <a href=#1985 id=1985 data-nosnippet>1985</a>        }
-<a href=#1986 id=1986 data-nosnippet>1986</a>    }
-<a href=#1987 id=1987 data-nosnippet>1987</a>
-<a href=#1988 id=1988 data-nosnippet>1988</a>    <span class="attr">#[derive(Debug)]
-<a href=#1989 id=1989 data-nosnippet>1989</a>    </span><span class="kw">struct </span>PendingBindNetworking;
+<a href=#1986 id=1986 data-nosnippet>1986</a>
+<a href=#1987 id=1987 data-nosnippet>1987</a>        <span class="kw">fn </span>set_keepalive(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _keepalive: bool) -&gt; NetResult&lt;()&gt; {
+<a href=#1988 id=1988 data-nosnippet>1988</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1989 id=1989 data-nosnippet>1989</a>        }
 <a href=#1990 id=1990 data-nosnippet>1990</a>
-<a href=#1991 id=1991 data-nosnippet>1991</a>    <span class="attr">#[async_trait::async_trait]
-<a href=#1992 id=1992 data-nosnippet>1992</a>    </span><span class="kw">impl </span>VirtualNetworking <span class="kw">for </span>PendingBindNetworking {
-<a href=#1993 id=1993 data-nosnippet>1993</a>        <span class="kw">async fn </span>bind_tcp(
-<a href=#1994 id=1994 data-nosnippet>1994</a>            <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1995 id=1995 data-nosnippet>1995</a>            _addr: SocketAddr,
-<a href=#1996 id=1996 data-nosnippet>1996</a>            _only_v6: bool,
-<a href=#1997 id=1997 data-nosnippet>1997</a>            _reuse_port: bool,
-<a href=#1998 id=1998 data-nosnippet>1998</a>            _reuse_addr: bool,
-<a href=#1999 id=1999 data-nosnippet>1999</a>        ) -&gt; NetResult&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpBoundSocket + Sync&gt;&gt; {
-<a href=#2000 id=2000 data-nosnippet>2000</a>            pending::&lt;()&gt;().<span class="kw">await</span>;
-<a href=#2001 id=2001 data-nosnippet>2001</a>            <span class="macro">unreachable!</span>(<span class="string">"pending bind_tcp future should never complete"</span>)
-<a href=#2002 id=2002 data-nosnippet>2002</a>        }
-<a href=#2003 id=2003 data-nosnippet>2003</a>    }
-<a href=#2004 id=2004 data-nosnippet>2004</a>
-<a href=#2005 id=2005 data-nosnippet>2005</a>    <span class="attr">#[test]
-<a href=#2006 id=2006 data-nosnippet>2006</a>    </span><span class="kw">fn </span>inode_socket_poll_write_ready_uses_write_path() {
-<a href=#2007 id=2007 data-nosnippet>2007</a>        <span class="kw">let </span>read_calls = Arc::new(AtomicUsize::new(<span class="number">0</span>));
-<a href=#2008 id=2008 data-nosnippet>2008</a>        <span class="kw">let </span>write_calls = Arc::new(AtomicUsize::new(<span class="number">0</span>));
-<a href=#2009 id=2009 data-nosnippet>2009</a>        <span class="kw">let </span>status = Arc::new(AtomicUsize::new(MOCK_STATUS_OPENED));
-<a href=#2010 id=2010 data-nosnippet>2010</a>        <span class="kw">let </span><span class="kw-2">mut </span>inode = InodeSocket::new(InodeSocketKind::TcpStream {
-<a href=#2011 id=2011 data-nosnippet>2011</a>            socket: Box::new(MockTcpSocket {
-<a href=#2012 id=2012 data-nosnippet>2012</a>                read_calls: read_calls.clone(),
-<a href=#2013 id=2013 data-nosnippet>2013</a>                write_calls: write_calls.clone(),
-<a href=#2014 id=2014 data-nosnippet>2014</a>                status,
-<a href=#2015 id=2015 data-nosnippet>2015</a>            }),
-<a href=#2016 id=2016 data-nosnippet>2016</a>            write_timeout: <span class="prelude-val">None</span>,
-<a href=#2017 id=2017 data-nosnippet>2017</a>            read_timeout: <span class="prelude-val">None</span>,
-<a href=#2018 id=2018 data-nosnippet>2018</a>        });
-<a href=#2019 id=2019 data-nosnippet>2019</a>
-<a href=#2020 id=2020 data-nosnippet>2020</a>        <span class="kw">let </span>waker = futures::task::noop_waker();
-<a href=#2021 id=2021 data-nosnippet>2021</a>        <span class="kw">let </span><span class="kw-2">mut </span>cx = Context::from_waker(<span class="kw-2">&amp;</span>waker);
-<a href=#2022 id=2022 data-nosnippet>2022</a>        <span class="kw">let </span>ready = Pin::new(<span class="kw-2">&amp;mut </span>inode).poll_write_ready(<span class="kw-2">&amp;mut </span>cx);
-<a href=#2023 id=2023 data-nosnippet>2023</a>
-<a href=#2024 id=2024 data-nosnippet>2024</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(ready, Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">7</span>))));
-<a href=#2025 id=2025 data-nosnippet>2025</a>        <span class="macro">assert_eq!</span>(read_calls.load(Ordering::Relaxed), <span class="number">0</span>);
-<a href=#2026 id=2026 data-nosnippet>2026</a>        <span class="macro">assert_eq!</span>(write_calls.load(Ordering::Relaxed), <span class="number">1</span>);
-<a href=#2027 id=2027 data-nosnippet>2027</a>    }
-<a href=#2028 id=2028 data-nosnippet>2028</a>
-<a href=#2029 id=2029 data-nosnippet>2029</a>    <span class="attr">#[test]
-<a href=#2030 id=2030 data-nosnippet>2030</a>    </span><span class="kw">fn </span>inode_socket_status_tracks_tcp_socket_status() {
-<a href=#2031 id=2031 data-nosnippet>2031</a>        <span class="kw">let </span>status = Arc::new(AtomicUsize::new(MOCK_STATUS_OPENING));
-<a href=#2032 id=2032 data-nosnippet>2032</a>        <span class="kw">let </span>inode = InodeSocket::new(InodeSocketKind::TcpStream {
-<a href=#2033 id=2033 data-nosnippet>2033</a>            socket: Box::new(MockTcpSocket {
-<a href=#2034 id=2034 data-nosnippet>2034</a>                read_calls: Arc::new(AtomicUsize::new(<span class="number">0</span>)),
-<a href=#2035 id=2035 data-nosnippet>2035</a>                write_calls: Arc::new(AtomicUsize::new(<span class="number">0</span>)),
-<a href=#2036 id=2036 data-nosnippet>2036</a>                status: status.clone(),
-<a href=#2037 id=2037 data-nosnippet>2037</a>            }),
-<a href=#2038 id=2038 data-nosnippet>2038</a>            write_timeout: <span class="prelude-val">None</span>,
-<a href=#2039 id=2039 data-nosnippet>2039</a>            read_timeout: <span class="prelude-val">None</span>,
-<a href=#2040 id=2040 data-nosnippet>2040</a>        });
+<a href=#1991 id=1991 data-nosnippet>1991</a>        <span class="kw">fn </span>keepalive(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;bool&gt; {
+<a href=#1992 id=1992 data-nosnippet>1992</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+<a href=#1993 id=1993 data-nosnippet>1993</a>        }
+<a href=#1994 id=1994 data-nosnippet>1994</a>
+<a href=#1995 id=1995 data-nosnippet>1995</a>        <span class="kw">fn </span>set_dontroute(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _keepalive: bool) -&gt; NetResult&lt;()&gt; {
+<a href=#1996 id=1996 data-nosnippet>1996</a>            <span class="prelude-val">Ok</span>(())
+<a href=#1997 id=1997 data-nosnippet>1997</a>        }
+<a href=#1998 id=1998 data-nosnippet>1998</a>
+<a href=#1999 id=1999 data-nosnippet>1999</a>        <span class="kw">fn </span>dontroute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;bool&gt; {
+<a href=#2000 id=2000 data-nosnippet>2000</a>            <span class="prelude-val">Ok</span>(<span class="bool-val">false</span>)
+<a href=#2001 id=2001 data-nosnippet>2001</a>        }
+<a href=#2002 id=2002 data-nosnippet>2002</a>
+<a href=#2003 id=2003 data-nosnippet>2003</a>        <span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketAddr&gt; {
+<a href=#2004 id=2004 data-nosnippet>2004</a>            <span class="prelude-val">Ok</span>(SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">80</span>)))
+<a href=#2005 id=2005 data-nosnippet>2005</a>        }
+<a href=#2006 id=2006 data-nosnippet>2006</a>
+<a href=#2007 id=2007 data-nosnippet>2007</a>        <span class="kw">fn </span>shutdown(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _how: Shutdown) -&gt; NetResult&lt;()&gt; {
+<a href=#2008 id=2008 data-nosnippet>2008</a>            <span class="prelude-val">Ok</span>(())
+<a href=#2009 id=2009 data-nosnippet>2009</a>        }
+<a href=#2010 id=2010 data-nosnippet>2010</a>
+<a href=#2011 id=2011 data-nosnippet>2011</a>        <span class="kw">fn </span>is_closed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#2012 id=2012 data-nosnippet>2012</a>            <span class="bool-val">false
+<a href=#2013 id=2013 data-nosnippet>2013</a>        </span>}
+<a href=#2014 id=2014 data-nosnippet>2014</a>    }
+<a href=#2015 id=2015 data-nosnippet>2015</a>
+<a href=#2016 id=2016 data-nosnippet>2016</a>    <span class="attr">#[derive(Debug)]
+<a href=#2017 id=2017 data-nosnippet>2017</a>    </span><span class="kw">struct </span>MockTcpBoundSocket {
+<a href=#2018 id=2018 data-nosnippet>2018</a>        ttl: Arc&lt;AtomicUsize&gt;,
+<a href=#2019 id=2019 data-nosnippet>2019</a>    }
+<a href=#2020 id=2020 data-nosnippet>2020</a>
+<a href=#2021 id=2021 data-nosnippet>2021</a>    <span class="kw">impl </span>VirtualTcpBoundSocket <span class="kw">for </span>MockTcpBoundSocket {
+<a href=#2022 id=2022 data-nosnippet>2022</a>        <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;SocketAddr&gt; {
+<a href=#2023 id=2023 data-nosnippet>2023</a>            <span class="prelude-val">Ok</span>(SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">0</span>)))
+<a href=#2024 id=2024 data-nosnippet>2024</a>        }
+<a href=#2025 id=2025 data-nosnippet>2025</a>
+<a href=#2026 id=2026 data-nosnippet>2026</a>        <span class="kw">fn </span>listen(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; NetResult&lt;Box&lt;<span class="kw">dyn </span>virtual_net::VirtualTcpListener + Sync&gt;&gt; {
+<a href=#2027 id=2027 data-nosnippet>2027</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
+<a href=#2028 id=2028 data-nosnippet>2028</a>        }
+<a href=#2029 id=2029 data-nosnippet>2029</a>
+<a href=#2030 id=2030 data-nosnippet>2030</a>        <span class="kw">fn </span>connect(
+<a href=#2031 id=2031 data-nosnippet>2031</a>            <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#2032 id=2032 data-nosnippet>2032</a>            _peer: SocketAddr,
+<a href=#2033 id=2033 data-nosnippet>2033</a>        ) -&gt; NetResult&lt;Box&lt;<span class="kw">dyn </span>virtual_net::VirtualTcpSocket + Sync&gt;&gt; {
+<a href=#2034 id=2034 data-nosnippet>2034</a>            <span class="prelude-val">Err</span>(NetworkError::Unsupported)
+<a href=#2035 id=2035 data-nosnippet>2035</a>        }
+<a href=#2036 id=2036 data-nosnippet>2036</a>
+<a href=#2037 id=2037 data-nosnippet>2037</a>        <span class="kw">fn </span>set_ttl(<span class="kw-2">&amp;mut </span><span class="self">self</span>, ttl: u32) -&gt; NetResult&lt;()&gt; {
+<a href=#2038 id=2038 data-nosnippet>2038</a>            <span class="self">self</span>.ttl.store(ttl <span class="kw">as </span>usize, Ordering::Relaxed);
+<a href=#2039 id=2039 data-nosnippet>2039</a>            <span class="prelude-val">Ok</span>(())
+<a href=#2040 id=2040 data-nosnippet>2040</a>        }
 <a href=#2041 id=2041 data-nosnippet>2041</a>
-<a href=#2042 id=2042 data-nosnippet>2042</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(inode.status().unwrap(), WasiSocketStatus::Opening));
-<a href=#2043 id=2043 data-nosnippet>2043</a>        status.store(MOCK_STATUS_OPENED, Ordering::Relaxed);
-<a href=#2044 id=2044 data-nosnippet>2044</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(inode.status().unwrap(), WasiSocketStatus::Opened));
+<a href=#2042 id=2042 data-nosnippet>2042</a>        <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; NetResult&lt;u32&gt; {
+<a href=#2043 id=2043 data-nosnippet>2043</a>            <span class="prelude-val">Ok</span>(<span class="self">self</span>.ttl.load(Ordering::Relaxed) <span class="kw">as </span>u32)
+<a href=#2044 id=2044 data-nosnippet>2044</a>        }
 <a href=#2045 id=2045 data-nosnippet>2045</a>    }
 <a href=#2046 id=2046 data-nosnippet>2046</a>
-<a href=#2047 id=2047 data-nosnippet>2047</a>    <span class="attr">#[test]
-<a href=#2048 id=2048 data-nosnippet>2048</a>    </span><span class="kw">fn </span>inode_socket_bound_tcp_forwards_ttl() {
-<a href=#2049 id=2049 data-nosnippet>2049</a>        <span class="kw">let </span>ttl = Arc::new(AtomicUsize::new(<span class="number">64</span>));
-<a href=#2050 id=2050 data-nosnippet>2050</a>        <span class="kw">let </span>inode = InodeSocket::new(InodeSocketKind::BoundTcp {
-<a href=#2051 id=2051 data-nosnippet>2051</a>            socket: Box::new(MockTcpBoundSocket { ttl: ttl.clone() }),
-<a href=#2052 id=2052 data-nosnippet>2052</a>            props: SocketProperties {
-<a href=#2053 id=2053 data-nosnippet>2053</a>                family: Addressfamily::Inet4,
-<a href=#2054 id=2054 data-nosnippet>2054</a>                ty: Socktype::Stream,
-<a href=#2055 id=2055 data-nosnippet>2055</a>                pt: SockProto::Tcp,
-<a href=#2056 id=2056 data-nosnippet>2056</a>                only_v6: <span class="bool-val">false</span>,
-<a href=#2057 id=2057 data-nosnippet>2057</a>                reuse_port: <span class="bool-val">false</span>,
-<a href=#2058 id=2058 data-nosnippet>2058</a>                reuse_addr: <span class="bool-val">false</span>,
-<a href=#2059 id=2059 data-nosnippet>2059</a>                no_delay: <span class="prelude-val">None</span>,
-<a href=#2060 id=2060 data-nosnippet>2060</a>                keep_alive: <span class="prelude-val">None</span>,
-<a href=#2061 id=2061 data-nosnippet>2061</a>                dont_route: <span class="prelude-val">None</span>,
-<a href=#2062 id=2062 data-nosnippet>2062</a>                send_buf_size: <span class="prelude-val">None</span>,
-<a href=#2063 id=2063 data-nosnippet>2063</a>                recv_buf_size: <span class="prelude-val">None</span>,
-<a href=#2064 id=2064 data-nosnippet>2064</a>                write_timeout: <span class="prelude-val">None</span>,
-<a href=#2065 id=2065 data-nosnippet>2065</a>                read_timeout: <span class="prelude-val">None</span>,
-<a href=#2066 id=2066 data-nosnippet>2066</a>                accept_timeout: <span class="prelude-val">None</span>,
-<a href=#2067 id=2067 data-nosnippet>2067</a>                connect_timeout: <span class="prelude-val">None</span>,
-<a href=#2068 id=2068 data-nosnippet>2068</a>                handler: <span class="prelude-val">None</span>,
-<a href=#2069 id=2069 data-nosnippet>2069</a>            },
-<a href=#2070 id=2070 data-nosnippet>2070</a>        });
-<a href=#2071 id=2071 data-nosnippet>2071</a>
-<a href=#2072 id=2072 data-nosnippet>2072</a>        inode.set_ttl(<span class="number">42</span>).unwrap();
-<a href=#2073 id=2073 data-nosnippet>2073</a>        <span class="macro">assert_eq!</span>(inode.ttl().unwrap(), <span class="number">42</span>);
-<a href=#2074 id=2074 data-nosnippet>2074</a>        <span class="macro">assert_eq!</span>(ttl.load(Ordering::Relaxed), <span class="number">42</span>);
-<a href=#2075 id=2075 data-nosnippet>2075</a>    }
-<a href=#2076 id=2076 data-nosnippet>2076</a>
-<a href=#2077 id=2077 data-nosnippet>2077</a>    <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#2078 id=2078 data-nosnippet>2078</a>    #[tokio::test(flavor = <span class="string">"current_thread"</span>)]
-<a href=#2079 id=2079 data-nosnippet>2079</a>    </span><span class="kw">async fn </span>inode_socket_tcp_bind_respects_bind_timeout() {
-<a href=#2080 id=2080 data-nosnippet>2080</a>        <span class="kw">let </span>inode = InodeSocket::new(InodeSocketKind::PreSocket {
-<a href=#2081 id=2081 data-nosnippet>2081</a>            props: SocketProperties {
-<a href=#2082 id=2082 data-nosnippet>2082</a>                family: Addressfamily::Inet4,
-<a href=#2083 id=2083 data-nosnippet>2083</a>                ty: Socktype::Stream,
-<a href=#2084 id=2084 data-nosnippet>2084</a>                pt: SockProto::Tcp,
-<a href=#2085 id=2085 data-nosnippet>2085</a>                only_v6: <span class="bool-val">false</span>,
-<a href=#2086 id=2086 data-nosnippet>2086</a>                reuse_port: <span class="bool-val">false</span>,
-<a href=#2087 id=2087 data-nosnippet>2087</a>                reuse_addr: <span class="bool-val">false</span>,
-<a href=#2088 id=2088 data-nosnippet>2088</a>                no_delay: <span class="prelude-val">None</span>,
-<a href=#2089 id=2089 data-nosnippet>2089</a>                keep_alive: <span class="prelude-val">None</span>,
-<a href=#2090 id=2090 data-nosnippet>2090</a>                dont_route: <span class="prelude-val">None</span>,
-<a href=#2091 id=2091 data-nosnippet>2091</a>                send_buf_size: <span class="prelude-val">None</span>,
-<a href=#2092 id=2092 data-nosnippet>2092</a>                recv_buf_size: <span class="prelude-val">None</span>,
-<a href=#2093 id=2093 data-nosnippet>2093</a>                write_timeout: <span class="prelude-val">None</span>,
-<a href=#2094 id=2094 data-nosnippet>2094</a>                read_timeout: <span class="prelude-val">None</span>,
-<a href=#2095 id=2095 data-nosnippet>2095</a>                accept_timeout: <span class="prelude-val">None</span>,
-<a href=#2096 id=2096 data-nosnippet>2096</a>                connect_timeout: <span class="prelude-val">None</span>,
-<a href=#2097 id=2097 data-nosnippet>2097</a>                handler: <span class="prelude-val">None</span>,
-<a href=#2098 id=2098 data-nosnippet>2098</a>            },
-<a href=#2099 id=2099 data-nosnippet>2099</a>            addr: <span class="prelude-val">None</span>,
-<a href=#2100 id=2100 data-nosnippet>2100</a>        });
-<a href=#2101 id=2101 data-nosnippet>2101</a>        <span class="kw">let </span>tasks = <span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default();
-<a href=#2102 id=2102 data-nosnippet>2102</a>        <span class="kw">let </span>net = PendingBindNetworking;
-<a href=#2103 id=2103 data-nosnippet>2103</a>
-<a href=#2104 id=2104 data-nosnippet>2104</a>        <span class="kw">let </span>err = inode
-<a href=#2105 id=2105 data-nosnippet>2105</a>            .bind_internal(
-<a href=#2106 id=2106 data-nosnippet>2106</a>                <span class="kw-2">&amp;</span>tasks,
-<a href=#2107 id=2107 data-nosnippet>2107</a>                <span class="kw-2">&amp;</span>net,
-<a href=#2108 id=2108 data-nosnippet>2108</a>                SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">0</span>)),
-<a href=#2109 id=2109 data-nosnippet>2109</a>                Duration::from_millis(<span class="number">10</span>),
-<a href=#2110 id=2110 data-nosnippet>2110</a>            )
-<a href=#2111 id=2111 data-nosnippet>2111</a>            .<span class="kw">await
-<a href=#2112 id=2112 data-nosnippet>2112</a>            </span>.unwrap_err();
-<a href=#2113 id=2113 data-nosnippet>2113</a>        <span class="macro">assert_eq!</span>(err, Errno::Timedout);
-<a href=#2114 id=2114 data-nosnippet>2114</a>    }
-<a href=#2115 id=2115 data-nosnippet>2115</a>}
+<a href=#2047 id=2047 data-nosnippet>2047</a>    <span class="attr">#[derive(Debug)]
+<a href=#2048 id=2048 data-nosnippet>2048</a>    </span><span class="kw">struct </span>PendingBindNetworking;
+<a href=#2049 id=2049 data-nosnippet>2049</a>
+<a href=#2050 id=2050 data-nosnippet>2050</a>    <span class="attr">#[async_trait::async_trait]
+<a href=#2051 id=2051 data-nosnippet>2051</a>    </span><span class="kw">impl </span>VirtualNetworking <span class="kw">for </span>PendingBindNetworking {
+<a href=#2052 id=2052 data-nosnippet>2052</a>        <span class="kw">async fn </span>bind_tcp(
+<a href=#2053 id=2053 data-nosnippet>2053</a>            <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#2054 id=2054 data-nosnippet>2054</a>            _addr: SocketAddr,
+<a href=#2055 id=2055 data-nosnippet>2055</a>            _only_v6: bool,
+<a href=#2056 id=2056 data-nosnippet>2056</a>            _reuse_port: bool,
+<a href=#2057 id=2057 data-nosnippet>2057</a>            _reuse_addr: bool,
+<a href=#2058 id=2058 data-nosnippet>2058</a>        ) -&gt; NetResult&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpBoundSocket + Sync&gt;&gt; {
+<a href=#2059 id=2059 data-nosnippet>2059</a>            pending::&lt;()&gt;().<span class="kw">await</span>;
+<a href=#2060 id=2060 data-nosnippet>2060</a>            <span class="macro">unreachable!</span>(<span class="string">"pending bind_tcp future should never complete"</span>)
+<a href=#2061 id=2061 data-nosnippet>2061</a>        }
+<a href=#2062 id=2062 data-nosnippet>2062</a>    }
+<a href=#2063 id=2063 data-nosnippet>2063</a>
+<a href=#2064 id=2064 data-nosnippet>2064</a>    <span class="attr">#[test]
+<a href=#2065 id=2065 data-nosnippet>2065</a>    </span><span class="kw">fn </span>inode_socket_poll_write_ready_uses_write_path() {
+<a href=#2066 id=2066 data-nosnippet>2066</a>        <span class="kw">let </span>read_calls = Arc::new(AtomicUsize::new(<span class="number">0</span>));
+<a href=#2067 id=2067 data-nosnippet>2067</a>        <span class="kw">let </span>write_calls = Arc::new(AtomicUsize::new(<span class="number">0</span>));
+<a href=#2068 id=2068 data-nosnippet>2068</a>        <span class="kw">let </span>status = Arc::new(AtomicUsize::new(MOCK_STATUS_OPENED));
+<a href=#2069 id=2069 data-nosnippet>2069</a>        <span class="kw">let </span><span class="kw-2">mut </span>inode = InodeSocket::new(InodeSocketKind::TcpStream {
+<a href=#2070 id=2070 data-nosnippet>2070</a>            socket: Box::new(MockTcpSocket {
+<a href=#2071 id=2071 data-nosnippet>2071</a>                read_calls: read_calls.clone(),
+<a href=#2072 id=2072 data-nosnippet>2072</a>                write_calls: write_calls.clone(),
+<a href=#2073 id=2073 data-nosnippet>2073</a>                status,
+<a href=#2074 id=2074 data-nosnippet>2074</a>            }),
+<a href=#2075 id=2075 data-nosnippet>2075</a>            write_timeout: <span class="prelude-val">None</span>,
+<a href=#2076 id=2076 data-nosnippet>2076</a>            read_timeout: <span class="prelude-val">None</span>,
+<a href=#2077 id=2077 data-nosnippet>2077</a>        });
+<a href=#2078 id=2078 data-nosnippet>2078</a>
+<a href=#2079 id=2079 data-nosnippet>2079</a>        <span class="kw">let </span>waker = futures::task::noop_waker();
+<a href=#2080 id=2080 data-nosnippet>2080</a>        <span class="kw">let </span><span class="kw-2">mut </span>cx = Context::from_waker(<span class="kw-2">&amp;</span>waker);
+<a href=#2081 id=2081 data-nosnippet>2081</a>        <span class="kw">let </span>ready = Pin::new(<span class="kw-2">&amp;mut </span>inode).poll_write_ready(<span class="kw-2">&amp;mut </span>cx);
+<a href=#2082 id=2082 data-nosnippet>2082</a>
+<a href=#2083 id=2083 data-nosnippet>2083</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(ready, Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">7</span>))));
+<a href=#2084 id=2084 data-nosnippet>2084</a>        <span class="macro">assert_eq!</span>(read_calls.load(Ordering::Relaxed), <span class="number">0</span>);
+<a href=#2085 id=2085 data-nosnippet>2085</a>        <span class="macro">assert_eq!</span>(write_calls.load(Ordering::Relaxed), <span class="number">1</span>);
+<a href=#2086 id=2086 data-nosnippet>2086</a>    }
+<a href=#2087 id=2087 data-nosnippet>2087</a>
+<a href=#2088 id=2088 data-nosnippet>2088</a>    <span class="attr">#[test]
+<a href=#2089 id=2089 data-nosnippet>2089</a>    </span><span class="kw">fn </span>inode_socket_status_tracks_tcp_socket_status() {
+<a href=#2090 id=2090 data-nosnippet>2090</a>        <span class="kw">let </span>status = Arc::new(AtomicUsize::new(MOCK_STATUS_OPENING));
+<a href=#2091 id=2091 data-nosnippet>2091</a>        <span class="kw">let </span>inode = InodeSocket::new(InodeSocketKind::TcpStream {
+<a href=#2092 id=2092 data-nosnippet>2092</a>            socket: Box::new(MockTcpSocket {
+<a href=#2093 id=2093 data-nosnippet>2093</a>                read_calls: Arc::new(AtomicUsize::new(<span class="number">0</span>)),
+<a href=#2094 id=2094 data-nosnippet>2094</a>                write_calls: Arc::new(AtomicUsize::new(<span class="number">0</span>)),
+<a href=#2095 id=2095 data-nosnippet>2095</a>                status: status.clone(),
+<a href=#2096 id=2096 data-nosnippet>2096</a>            }),
+<a href=#2097 id=2097 data-nosnippet>2097</a>            write_timeout: <span class="prelude-val">None</span>,
+<a href=#2098 id=2098 data-nosnippet>2098</a>            read_timeout: <span class="prelude-val">None</span>,
+<a href=#2099 id=2099 data-nosnippet>2099</a>        });
+<a href=#2100 id=2100 data-nosnippet>2100</a>
+<a href=#2101 id=2101 data-nosnippet>2101</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(inode.status().unwrap(), WasiSocketStatus::Opening));
+<a href=#2102 id=2102 data-nosnippet>2102</a>        status.store(MOCK_STATUS_OPENED, Ordering::Relaxed);
+<a href=#2103 id=2103 data-nosnippet>2103</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(inode.status().unwrap(), WasiSocketStatus::Opened));
+<a href=#2104 id=2104 data-nosnippet>2104</a>    }
+<a href=#2105 id=2105 data-nosnippet>2105</a>
+<a href=#2106 id=2106 data-nosnippet>2106</a>    <span class="attr">#[test]
+<a href=#2107 id=2107 data-nosnippet>2107</a>    </span><span class="kw">fn </span>inode_socket_bound_tcp_forwards_ttl() {
+<a href=#2108 id=2108 data-nosnippet>2108</a>        <span class="kw">let </span>ttl = Arc::new(AtomicUsize::new(<span class="number">64</span>));
+<a href=#2109 id=2109 data-nosnippet>2109</a>        <span class="kw">let </span>inode = InodeSocket::new(InodeSocketKind::BoundTcp {
+<a href=#2110 id=2110 data-nosnippet>2110</a>            socket: Box::new(MockTcpBoundSocket { ttl: ttl.clone() }),
+<a href=#2111 id=2111 data-nosnippet>2111</a>            props: SocketProperties {
+<a href=#2112 id=2112 data-nosnippet>2112</a>                family: Addressfamily::Inet4,
+<a href=#2113 id=2113 data-nosnippet>2113</a>                ty: Socktype::Stream,
+<a href=#2114 id=2114 data-nosnippet>2114</a>                pt: SockProto::Tcp,
+<a href=#2115 id=2115 data-nosnippet>2115</a>                only_v6: <span class="bool-val">false</span>,
+<a href=#2116 id=2116 data-nosnippet>2116</a>                reuse_port: <span class="bool-val">false</span>,
+<a href=#2117 id=2117 data-nosnippet>2117</a>                reuse_addr: <span class="bool-val">false</span>,
+<a href=#2118 id=2118 data-nosnippet>2118</a>                no_delay: <span class="prelude-val">None</span>,
+<a href=#2119 id=2119 data-nosnippet>2119</a>                keep_alive: <span class="prelude-val">None</span>,
+<a href=#2120 id=2120 data-nosnippet>2120</a>                dont_route: <span class="prelude-val">None</span>,
+<a href=#2121 id=2121 data-nosnippet>2121</a>                send_buf_size: <span class="prelude-val">None</span>,
+<a href=#2122 id=2122 data-nosnippet>2122</a>                recv_buf_size: <span class="prelude-val">None</span>,
+<a href=#2123 id=2123 data-nosnippet>2123</a>                write_timeout: <span class="prelude-val">None</span>,
+<a href=#2124 id=2124 data-nosnippet>2124</a>                read_timeout: <span class="prelude-val">None</span>,
+<a href=#2125 id=2125 data-nosnippet>2125</a>                accept_timeout: <span class="prelude-val">None</span>,
+<a href=#2126 id=2126 data-nosnippet>2126</a>                connect_timeout: <span class="prelude-val">None</span>,
+<a href=#2127 id=2127 data-nosnippet>2127</a>                handler: <span class="prelude-val">None</span>,
+<a href=#2128 id=2128 data-nosnippet>2128</a>            },
+<a href=#2129 id=2129 data-nosnippet>2129</a>        });
+<a href=#2130 id=2130 data-nosnippet>2130</a>
+<a href=#2131 id=2131 data-nosnippet>2131</a>        inode.set_ttl(<span class="number">42</span>).unwrap();
+<a href=#2132 id=2132 data-nosnippet>2132</a>        <span class="macro">assert_eq!</span>(inode.ttl().unwrap(), <span class="number">42</span>);
+<a href=#2133 id=2133 data-nosnippet>2133</a>        <span class="macro">assert_eq!</span>(ttl.load(Ordering::Relaxed), <span class="number">42</span>);
+<a href=#2134 id=2134 data-nosnippet>2134</a>    }
+<a href=#2135 id=2135 data-nosnippet>2135</a>
+<a href=#2136 id=2136 data-nosnippet>2136</a>    <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+<a href=#2137 id=2137 data-nosnippet>2137</a>    #[tokio::test(flavor = <span class="string">"current_thread"</span>)]
+<a href=#2138 id=2138 data-nosnippet>2138</a>    </span><span class="kw">async fn </span>inode_socket_tcp_bind_respects_bind_timeout() {
+<a href=#2139 id=2139 data-nosnippet>2139</a>        <span class="kw">let </span>inode = InodeSocket::new(InodeSocketKind::PreSocket {
+<a href=#2140 id=2140 data-nosnippet>2140</a>            props: SocketProperties {
+<a href=#2141 id=2141 data-nosnippet>2141</a>                family: Addressfamily::Inet4,
+<a href=#2142 id=2142 data-nosnippet>2142</a>                ty: Socktype::Stream,
+<a href=#2143 id=2143 data-nosnippet>2143</a>                pt: SockProto::Tcp,
+<a href=#2144 id=2144 data-nosnippet>2144</a>                only_v6: <span class="bool-val">false</span>,
+<a href=#2145 id=2145 data-nosnippet>2145</a>                reuse_port: <span class="bool-val">false</span>,
+<a href=#2146 id=2146 data-nosnippet>2146</a>                reuse_addr: <span class="bool-val">false</span>,
+<a href=#2147 id=2147 data-nosnippet>2147</a>                no_delay: <span class="prelude-val">None</span>,
+<a href=#2148 id=2148 data-nosnippet>2148</a>                keep_alive: <span class="prelude-val">None</span>,
+<a href=#2149 id=2149 data-nosnippet>2149</a>                dont_route: <span class="prelude-val">None</span>,
+<a href=#2150 id=2150 data-nosnippet>2150</a>                send_buf_size: <span class="prelude-val">None</span>,
+<a href=#2151 id=2151 data-nosnippet>2151</a>                recv_buf_size: <span class="prelude-val">None</span>,
+<a href=#2152 id=2152 data-nosnippet>2152</a>                write_timeout: <span class="prelude-val">None</span>,
+<a href=#2153 id=2153 data-nosnippet>2153</a>                read_timeout: <span class="prelude-val">None</span>,
+<a href=#2154 id=2154 data-nosnippet>2154</a>                accept_timeout: <span class="prelude-val">None</span>,
+<a href=#2155 id=2155 data-nosnippet>2155</a>                connect_timeout: <span class="prelude-val">None</span>,
+<a href=#2156 id=2156 data-nosnippet>2156</a>                handler: <span class="prelude-val">None</span>,
+<a href=#2157 id=2157 data-nosnippet>2157</a>            },
+<a href=#2158 id=2158 data-nosnippet>2158</a>            addr: <span class="prelude-val">None</span>,
+<a href=#2159 id=2159 data-nosnippet>2159</a>        });
+<a href=#2160 id=2160 data-nosnippet>2160</a>        <span class="kw">let </span>tasks = <span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default();
+<a href=#2161 id=2161 data-nosnippet>2161</a>        <span class="kw">let </span>net = PendingBindNetworking;
+<a href=#2162 id=2162 data-nosnippet>2162</a>
+<a href=#2163 id=2163 data-nosnippet>2163</a>        <span class="kw">let </span>err = inode
+<a href=#2164 id=2164 data-nosnippet>2164</a>            .bind_internal(
+<a href=#2165 id=2165 data-nosnippet>2165</a>                <span class="kw-2">&amp;</span>tasks,
+<a href=#2166 id=2166 data-nosnippet>2166</a>                <span class="kw-2">&amp;</span>net,
+<a href=#2167 id=2167 data-nosnippet>2167</a>                SocketAddr::from((Ipv4Addr::LOCALHOST, <span class="number">0</span>)),
+<a href=#2168 id=2168 data-nosnippet>2168</a>                Duration::from_millis(<span class="number">10</span>),
+<a href=#2169 id=2169 data-nosnippet>2169</a>            )
+<a href=#2170 id=2170 data-nosnippet>2170</a>            .<span class="kw">await
+<a href=#2171 id=2171 data-nosnippet>2171</a>            </span>.unwrap_err();
+<a href=#2172 id=2172 data-nosnippet>2172</a>        <span class="macro">assert_eq!</span>(err, Errno::Timedout);
+<a href=#2173 id=2173 data-nosnippet>2173</a>    }
+<a href=#2174 id=2174 data-nosnippet>2174</a>}
 </code></pre></div></section></main></body></html>
