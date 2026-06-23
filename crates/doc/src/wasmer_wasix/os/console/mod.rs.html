@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/os/console/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/os/console/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(unused_imports)]
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/os/console/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../../static.files/src-script-813739b1.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-ffcac47a.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/os/console/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(unused_imports)]
 <a href=#2 id=2 data-nosnippet>2</a>#![allow(dead_code)]
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a></span><span class="kw">pub mod </span>cconst;
@@ -27,8 +27,8 @@
 <a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>wasmer_config::package::PackageSource;
 <a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::Errno};
 <a href=#29 id=29 data-nosnippet>29</a>
-<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use super</span>::{cconst::ConsoleConst, common::<span class="kw-2">*</span>, task::TaskJoinHandle};
-<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use crate</span>::{
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>super::{cconst::ConsoleConst, common::<span class="kw-2">*</span>, task::TaskJoinHandle};
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>crate::{
 <a href=#32 id=32 data-nosnippet>32</a>    Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 <a href=#33 id=33 data-nosnippet>33</a>    bin_factory::{BinFactory, BinaryPackage, spawn_exec},
 <a href=#34 id=34 data-nosnippet>34</a>    capabilities::Capabilities,
@@ -306,11 +306,11 @@
 <a href=#306 id=306 data-nosnippet>306</a></span><span class="kw">mod </span>tests {
 <a href=#307 id=307 data-nosnippet>307</a>    <span class="kw">use </span>virtual_fs::{AsyncSeekExt, BufferFile, Pipe};
 <a href=#308 id=308 data-nosnippet>308</a>
-<a href=#309 id=309 data-nosnippet>309</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#309 id=309 data-nosnippet>309</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
 <a href=#310 id=310 data-nosnippet>310</a>
 <a href=#311 id=311 data-nosnippet>311</a>    <span class="kw">use </span>std::{io::Read, sync::Arc};
 <a href=#312 id=312 data-nosnippet>312</a>
-<a href=#313 id=313 data-nosnippet>313</a>    <span class="kw">use crate</span>::{
+<a href=#313 id=313 data-nosnippet>313</a>    <span class="kw">use </span>crate::{
 <a href=#314 id=314 data-nosnippet>314</a>        PluggableRuntime,
 <a href=#315 id=315 data-nosnippet>315</a>        runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
 <a href=#316 id=316 data-nosnippet>316</a>    };
@@ -364,7 +364,7 @@
 <a href=#364 id=364 data-nosnippet>364</a>                std::mem::drop(stdin_tx);
 <a href=#365 id=365 data-nosnippet>365</a>
 <a href=#366 id=366 data-nosnippet>366</a>                <span class="kw">let </span>res = handle.wait_finished().<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#367 id=367 data-nosnippet>367</a>                <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, anyhow::Error&gt;(res)
+<a href=#367 id=367 data-nosnippet>367</a>                Ok::&lt;<span class="kw">_</span>, anyhow::Error&gt;(res)
 <a href=#368 id=368 data-nosnippet>368</a>            })
 <a href=#369 id=369 data-nosnippet>369</a>            .unwrap();
 <a href=#370 id=370 data-nosnippet>370</a>
@@ -396,7 +396,7 @@
 <a href=#396 id=396 data-nosnippet>396</a>        <span class="kw">let </span>code = rt_handle
 <a href=#397 id=397 data-nosnippet>397</a>            .block_on(<span class="kw">async move </span>{
 <a href=#398 id=398 data-nosnippet>398</a>                <span class="kw">let </span>res = handle.wait_finished().<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#399 id=399 data-nosnippet>399</a>                <span class="prelude-val">Ok</span>::&lt;<span class="kw">_</span>, anyhow::Error&gt;(res)
+<a href=#399 id=399 data-nosnippet>399</a>                Ok::&lt;<span class="kw">_</span>, anyhow::Error&gt;(res)
 <a href=#400 id=400 data-nosnippet>400</a>            })
 <a href=#401 id=401 data-nosnippet>401</a>            .unwrap();
 <a href=#402 id=402 data-nosnippet>402</a>

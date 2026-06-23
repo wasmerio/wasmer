@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-263c88ec.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(
 <a href=#2 id=2 data-nosnippet>2</a>    unused,
 <a href=#3 id=3 data-nosnippet>3</a>    clippy::too_many_arguments,
 <a href=#4 id=4 data-nosnippet>4</a>    clippy::cognitive_complexity,
@@ -102,7 +102,7 @@
 <a href=#102 id=102 data-nosnippet>102</a>    },
 <a href=#103 id=103 data-nosnippet>103</a>    <span class="kw-2">*</span>,
 <a href=#104 id=104 data-nosnippet>104</a>};
-<a href=#105 id=105 data-nosnippet>105</a><span class="kw">use </span><span class="self">self</span>::{
+<a href=#105 id=105 data-nosnippet>105</a><span class="kw">use </span>self::{
 <a href=#106 id=106 data-nosnippet>106</a>    state::{WasiInstanceGuardMemory, conv_env_vars},
 <a href=#107 id=107 data-nosnippet>107</a>    utils::WasiDummyWaker,
 <a href=#108 id=108 data-nosnippet>108</a>};
@@ -110,7 +110,7 @@
 <a href=#110 id=110 data-nosnippet>110</a>    process::{WasiProcessId, WasiProcessWait},
 <a href=#111 id=111 data-nosnippet>111</a>    thread::{WasiThread, WasiThreadId},
 <a href=#112 id=112 data-nosnippet>112</a>};
-<a href=#113 id=113 data-nosnippet>113</a><span class="kw">use crate</span>::{
+<a href=#113 id=113 data-nosnippet>113</a><span class="kw">use </span>crate::{
 <a href=#114 id=114 data-nosnippet>114</a>    DeepSleepWork, RewindPostProcess, RewindState, RewindStateOption, SpawnError, WasiInodes,
 <a href=#115 id=115 data-nosnippet>115</a>    WasiResult, WasiRuntimeError,
 <a href=#116 id=116 data-nosnippet>116</a>    fs::{
@@ -124,7 +124,7 @@
 <a href=#124 id=124 data-nosnippet>124</a>    },
 <a href=#125 id=125 data-nosnippet>125</a>    utils::store::StoreSnapshot,
 <a href=#126 id=126 data-nosnippet>126</a>};
-<a href=#127 id=127 data-nosnippet>127</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use crate</span>::{
+<a href=#127 id=127 data-nosnippet>127</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>crate::{
 <a href=#128 id=128 data-nosnippet>128</a>    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiModuleTreeHandles,
 <a href=#129 id=129 data-nosnippet>129</a>    WasiVFork,
 <a href=#130 id=130 data-nosnippet>130</a>    bin_factory::spawn_exec_module,
@@ -141,7 +141,7 @@
 <a href=#141 id=141 data-nosnippet>141</a>    },
 <a href=#142 id=142 data-nosnippet>142</a>    utils::{<span class="self">self</span>, map_io_err},
 <a href=#143 id=143 data-nosnippet>143</a>};
-<a href=#144 id=144 data-nosnippet>144</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use crate</span>::{net::net_error_into_wasi_err, utils::WasiParkingLot};
+<a href=#144 id=144 data-nosnippet>144</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>crate::{net::net_error_into_wasi_err, utils::WasiParkingLot};
 <a href=#145 id=145 data-nosnippet>145</a>
 <a href=#146 id=146 data-nosnippet>146</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>to_offset&lt;M: MemorySize&gt;(offset: usize) -&gt; <span class="prelude-ty">Result</span>&lt;M::Offset, Errno&gt; {
 <a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">let </span>ret: M::Offset = offset.try_into().map_err(|<span class="kw">_</span>| Errno::Inval)<span class="question-mark">?</span>;

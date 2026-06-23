@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SinglepassCompiler"],"trait":["IntoParIterIfRayon"]};
+window.SIDEBAR_ITEMS = {"struct":["SinglepassCompiler"]};

@@ -1,6 +1,6 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine_x64.rs`."><title>machine_x64.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.1 (01f6ddf75 2026-02-11)" data-channel="1.93.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-a3946164.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-a410ff4d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_singlepass/</div>machine_x64.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-singlepass/src/machine_x64.rs`."><title>machine_x64.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_compiler_singlepass" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_singlepass/</div>machine_x64.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 <a href=#2 id=2 data-nosnippet>2</a></span><span class="kw">use </span><span class="kw">crate</span>::unwind_winx64::create_unwind_info_from_insts;
-<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use crate</span>::{
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>crate::{
 <a href=#4 id=4 data-nosnippet>4</a>    codegen_error,
 <a href=#5 id=5 data-nosnippet>5</a>    common_decl::<span class="kw-2">*</span>,
 <a href=#6 id=6 data-nosnippet>6</a>    emitter_x64::<span class="kw-2">*</span>,
@@ -1079,7 +1079,7 @@
 <a href=#1079 id=1079 data-nosnippet>1079</a>                    Location::GPR(tmp_out),
 <a href=#1080 id=1080 data-nosnippet>1080</a>                )
 <a href=#1081 id=1081 data-nosnippet>1081</a>            },
-<a href=#1082 id=1082 data-nosnippet>1082</a>            <span class="prelude-val">None</span>::&lt;<span class="kw">fn</span>(this: <span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;&gt;,
+<a href=#1082 id=1082 data-nosnippet>1082</a>            None::&lt;<span class="kw">fn</span>(this: <span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;&gt;,
 <a href=#1083 id=1083 data-nosnippet>1083</a>            |this| {
 <a href=#1084 id=1084 data-nosnippet>1084</a>                <span class="kw">if </span>this.assembler.arch_has_itruncf() {
 <a href=#1085 id=1085 data-nosnippet>1085</a>                    this.assembler.arch_emit_i64_trunc_uf64(tmp_in, tmp_out)
@@ -1418,7 +1418,7 @@
 <a href=#1418 id=1418 data-nosnippet>1418</a>                    Location::GPR(tmp_out),
 <a href=#1419 id=1419 data-nosnippet>1419</a>                )
 <a href=#1420 id=1420 data-nosnippet>1420</a>            },
-<a href=#1421 id=1421 data-nosnippet>1421</a>            <span class="prelude-val">None</span>::&lt;<span class="kw">fn</span>(this: <span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;&gt;,
+<a href=#1421 id=1421 data-nosnippet>1421</a>            None::&lt;<span class="kw">fn</span>(this: <span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;&gt;,
 <a href=#1422 id=1422 data-nosnippet>1422</a>            |this| {
 <a href=#1423 id=1423 data-nosnippet>1423</a>                <span class="kw">if </span>this.assembler.arch_has_itruncf() {
 <a href=#1424 id=1424 data-nosnippet>1424</a>                    this.assembler.arch_emit_i32_trunc_uf64(tmp_in, tmp_out)
@@ -1492,7 +1492,7 @@
 <a href=#1492 id=1492 data-nosnippet>1492</a>                    Location::GPR(tmp_out),
 <a href=#1493 id=1493 data-nosnippet>1493</a>                )
 <a href=#1494 id=1494 data-nosnippet>1494</a>            },
-<a href=#1495 id=1495 data-nosnippet>1495</a>            <span class="prelude-val">None</span>::&lt;<span class="kw">fn</span>(this: <span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;&gt;,
+<a href=#1495 id=1495 data-nosnippet>1495</a>            None::&lt;<span class="kw">fn</span>(this: <span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;&gt;,
 <a href=#1496 id=1496 data-nosnippet>1496</a>            |this| {
 <a href=#1497 id=1497 data-nosnippet>1497</a>                <span class="kw">if </span>this.assembler.arch_has_itruncf() {
 <a href=#1498 id=1498 data-nosnippet>1498</a>                    this.assembler.arch_emit_i64_trunc_uf32(tmp_in, tmp_out)
@@ -1805,7 +1805,7 @@
 <a href=#1805 id=1805 data-nosnippet>1805</a>                    Location::GPR(tmp_out),
 <a href=#1806 id=1806 data-nosnippet>1806</a>                )
 <a href=#1807 id=1807 data-nosnippet>1807</a>            },
-<a href=#1808 id=1808 data-nosnippet>1808</a>            <span class="prelude-val">None</span>::&lt;<span class="kw">fn</span>(this: <span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;&gt;,
+<a href=#1808 id=1808 data-nosnippet>1808</a>            None::&lt;<span class="kw">fn</span>(this: <span class="kw-2">&amp;mut </span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;&gt;,
 <a href=#1809 id=1809 data-nosnippet>1809</a>            |this| {
 <a href=#1810 id=1810 data-nosnippet>1810</a>                <span class="kw">if </span>this.assembler.arch_has_itruncf() {
 <a href=#1811 id=1811 data-nosnippet>1811</a>                    this.assembler.arch_emit_i32_trunc_uf32(tmp_in, tmp_out)
@@ -8331,7 +8331,7 @@
 <a href=#8331 id=8331 data-nosnippet>8331</a>
 <a href=#8332 id=8332 data-nosnippet>8332</a><span class="attr">#[cfg(test)]
 <a href=#8333 id=8333 data-nosnippet>8333</a></span><span class="kw">mod </span>test {
-<a href=#8334 id=8334 data-nosnippet>8334</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#8334 id=8334 data-nosnippet>8334</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
 <a href=#8335 id=8335 data-nosnippet>8335</a>    <span class="kw">use </span>enumset::enum_set;
 <a href=#8336 id=8336 data-nosnippet>8336</a>    <span class="kw">use </span>std::str::FromStr;
 <a href=#8337 id=8337 data-nosnippet>8337</a>    <span class="kw">use </span>wasmer_types::target::{CpuFeature, Target, Triple};

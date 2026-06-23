@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["type_name","type_name_of_val"],"struct":["TypeId"],"trait":["Any"]};
+window.SIDEBAR_ITEMS = {"fn":["try_as_dyn","try_as_dyn_mut","type_name","type_name_of_val"],"struct":["TypeId"],"trait":["Any"]};
