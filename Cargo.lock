@@ -7056,6 +7056,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-c-api-imports"
+version = "7.2.0-alpha.3"
+dependencies = [
+ "anyhow",
+ "wasmer",
+ "wat",
+]
+
+[[package]]
 name = "wasmer-c-api-test-runner"
 version = "7.2.0-alpha.3"
 dependencies = [

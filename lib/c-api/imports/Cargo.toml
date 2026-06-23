@@ -1,0 +1,23 @@
+[package]
+name = "wasmer-c-api-imports"
+description = "Host import helpers for guests that import the WebAssembly C API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+wasmer-api = { version = "=7.2.0-alpha.3", path = "../../api", default-features = false, package = "wasmer" }
+
+[dev-dependencies]
+wat.workspace = true
+
+[features]
+default = []
+singlepass = ["wasmer-api/singlepass"]
+cranelift = ["wasmer-api/cranelift"]
+llvm = ["wasmer-api/llvm"]
+v8 = ["wasmer-api/v8"]
+js = ["wasmer-api/js"]
+headless = ["wasmer-api/headless"]

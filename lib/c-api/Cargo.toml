@@ -96,6 +96,7 @@ compiler = [
   "sys",
   "wasmer-compiler",
   "wasmer-api/compiler",
+  "wasmer-api/wasmparser",
   "wasmer-compiler/translator",
   "wasmer-compiler/compiler",
 ]
