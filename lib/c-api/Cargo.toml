@@ -20,7 +20,7 @@ exclude = ["examples/assets/**"]
 # a conflict with the existing `wasmer` crate, see below.
 name = "wasmer" # ##lib.name##
 # ^ DO NOT REMOVE, it's used the `Makefile`, see `build-docs-capi`.
-crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
+crate-type = ["staticlib", "cdylib", "rlib"]
 
 [dependencies]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
@@ -41,6 +41,7 @@ webc = { workspace = true, optional = true }
 virtual-fs = { version = "0.702.0-alpha.3", path = "../virtual-fs", optional = true, default-features = false, features = [
   "static-fs",
 ] }
+anyhow.workspace = true
 enumset.workspace = true
 cfg-if.workspace = true
 libc.workspace = true
@@ -59,6 +60,7 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
 field-offset.workspace = true
+wat.workspace = true
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
 wasmer-inline-c.workspace = true

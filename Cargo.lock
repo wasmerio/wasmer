@@ -7030,6 +7030,7 @@ dependencies = [
 name = "wasmer-c-api"
 version = "7.2.0-alpha.3"
 dependencies = [
+ "anyhow",
  "cbindgen",
  "cfg-if",
  "enumset",
@@ -7052,16 +7053,8 @@ dependencies = [
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasix",
- "webc",
-]
-
-[[package]]
-name = "wasmer-c-api-imports"
-version = "7.2.0-alpha.3"
-dependencies = [
- "anyhow",
- "wasmer",
  "wat",
+ "webc",
 ]
 
 [[package]]
@@ -7456,6 +7449,7 @@ dependencies = [
  "ureq 2.12.1",
  "virtual-fs",
  "wasmer",
+ "wasmer-c-api",
  "wasmer-cache",
  "wasmer-compiler-llvm",
  "wasmer-types",

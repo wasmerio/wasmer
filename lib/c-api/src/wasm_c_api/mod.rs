@@ -131,6 +131,11 @@ pub mod externals;
 /// cbindgen:ignore
 pub mod instance;
 
+/// Host-side import helpers for guests that import the WebAssembly C API.
+///
+/// cbindgen:ignore
+pub mod imports;
+
 /// A WebAssembly module contains stateless WebAssembly code that has
 /// already been compiled and can be instantiated multiple times.
 ///
