@@ -188,7 +188,7 @@ impl FuncTranslator {
             module.add_basic_value_flag(
                 "Dwarf Version",
                 FlagBehavior::Warning,
-                self.ctx.i32_type().const_int(4, false),
+                self.ctx.i32_type().const_int(5, false),
             );
 
             let (dibuilder, compile_unit) = module.create_debug_info_builder(
@@ -219,7 +219,7 @@ impl FuncTranslator {
             let subprogram = dibuilder.create_function(
                 compile_unit.as_debug_info_scope(),
                 &function_name,
-                Some(&format!("f{}", local_func_index.as_u32())),
+                None,
                 compile_unit.get_file(),
                 start_line,
                 subroutine_type,

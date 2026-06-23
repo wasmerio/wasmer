@@ -96,6 +96,7 @@ shared-buffer = "0.1.4"
 loupe = "0.2.0"
 
 # Third-party crates
+addr2line = "0.25.1"
 anyhow = "1.0"
 assert-panic = "1.0.1"
 assert_cmd = "2.2.0"

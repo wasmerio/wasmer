@@ -27,6 +27,7 @@ loupe = { workspace = true, optional = true, features = [
 ] }
 
 backtrace.workspace = true
+addr2line.workspace = true
 memmap2.workspace = true
 more-asserts.workspace = true
 

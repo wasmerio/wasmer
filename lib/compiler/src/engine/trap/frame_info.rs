@@ -19,7 +19,7 @@ use crate::types::address_map::{
 use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunctionFrameInfo};
 use rkyv::vec::ArchivedVec;
 use std::collections::BTreeMap;
-use std::sync::{Arc, LazyLock, RwLock};
+use std::sync::{Arc, LazyLock, Mutex, RwLock};
 use wasmer_types::lib::std::{cmp, ops::Deref};
 use wasmer_types::{
     FrameInfo, LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
@@ -57,12 +57,14 @@ pub struct GlobalFrameInfoRegistration {
     key: usize,
 }
 
-#[derive(Debug)]
 struct ModuleInfoFrameInfo {
     start: usize,
+    image_base: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<ModuleInfo>,
     frame_infos: FrameInfosVariant,
+    #[cfg(target_os = "linux")]
+    debug_info: Option<Arc<Mutex<addr2line::Loader>>>,
 }
 
 impl ModuleInfoFrameInfo {
@@ -128,7 +130,7 @@ impl GlobalFrameInfo {
             }
         };
 
-        let instr = match pos {
+        let mut instr = match pos {
             Some(pos) => instr_map.instructions().get(pos).srcloc,
             // Some compilers don't emit yet the full trap information for each of
             // the instructions (such as LLVM).
@@ -137,10 +139,35 @@ impl GlobalFrameInfo {
             None => instr_map.start_srcloc(),
         };
         let func_index = module.module.func_index(func.local_index);
+        #[cfg(target_os = "linux")]
+        let mut function_name = module.module.function_names.get(&func_index).cloned();
+        #[cfg(not(target_os = "linux"))]
+        let function_name = module.module.function_names.get(&func_index).cloned();
+
+        #[cfg(target_os = "linux")]
+        if instr.is_default()
+            && let Some(debug_info) = &module.debug_info
+            && let Ok(debug_info) = debug_info.lock()
+        {
+            let probe = (pc - module.image_base) as u64;
+            if let Ok(Some(location)) = debug_info.find_location(probe)
+                && let Some(line) = location.line
+                && let Some(module_offset) = line.checked_sub(1)
+            {
+                instr = SourceLoc::new(module_offset);
+            }
+            if let Ok(mut frames) = debug_info.find_frames(probe)
+                && let Ok(Some(frame)) = frames.next()
+                && let Some(function) = frame.function
+                && let Ok(name) = function.raw_name()
+            {
+                function_name = Some(name.into_owned());
+            }
+        }
         Some(FrameInfo::new(
             module.module.name(),
             func_index.index() as u32,
-            module.module.function_names.get(&func_index).cloned(),
+            function_name,
             instr_map.start_srcloc(),
             instr,
         ))
@@ -360,6 +387,8 @@ pub fn register(
     module: Arc<ModuleInfo>,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
     frame_infos: FrameInfosVariant,
+    image_base: usize,
+    #[cfg(target_os = "linux")] debug_info: Option<Arc<Mutex<addr2line::Loader>>>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::MAX;
     let mut max = 0;
@@ -402,9 +431,12 @@ pub fn register(
         max,
         ModuleInfoFrameInfo {
             start: min,
+            image_base,
             functions,
             module,
             frame_infos,
+            #[cfg(target_os = "linux")]
+            debug_info,
         },
     );
     assert!(prev.is_none());

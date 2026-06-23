@@ -12,6 +12,8 @@ use std::{
         atomic::{AtomicUsize, Ordering::SeqCst},
     },
 };
+#[cfg(target_os = "linux")]
+use std::sync::{Arc as StdArc, Mutex};
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
@@ -215,6 +217,9 @@ pub struct AllocatedArtifact {
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
 
+    #[cfg(target_os = "linux")]
+    debug_info: Option<StdArc<Mutex<addr2line::Loader>>>,
+
     // Compiled executable mmapped into memory.
     _memory_map: MemoryMappedBinary,
 }
@@ -226,6 +231,10 @@ impl AllocatedArtifact {
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, String> {
         let module_file_fd = module_file.as_raw_fd();
+        #[cfg(target_os = "linux")]
+        let debug_info = addr2line::Loader::new(format!("/proc/self/fd/{module_file_fd}"))
+            .map(|loader| StdArc::new(Mutex::new(loader)))
+            .ok();
         module_file
             .seek(io::SeekFrom::Start(0))
             .map_err(|e| format!("cannot seek artifact file: {e}"))?;
@@ -334,6 +343,8 @@ impl AllocatedArtifact {
             frame_info_registration: None,
             signatures: signatures.into_boxed_slice(),
             vm_offsets: VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info),
+            #[cfg(target_os = "linux")]
+            debug_info,
             _memory_map: memory_map,
         })
     }
@@ -631,7 +642,14 @@ impl Artifact {
         let frame_infos = FrameInfosVariant::Owned(std::mem::take(&mut allocated.frame_infos));
 
         allocated.frame_info_registration =
-            register_frame_info(module_info, &finished_function_extents, frame_infos);
+            register_frame_info(
+                module_info,
+                &finished_function_extents,
+                frame_infos,
+                allocated._memory_map.base() as usize,
+                #[cfg(target_os = "linux")]
+                allocated.debug_info.clone(),
+            );
 
         allocated.frame_info_registered = true;
 
