@@ -53,6 +53,10 @@ pub use virtual_mio::{InterestHandler, handler_into_waker};
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
 
+/// Largest datagram payload (65535 - UDP header).
+/// Caps host allocation across address families; the OS rejects oversize packets.
+pub const MAX_SOCKET_PAYLOAD: usize = 65535 - 8;
+
 /// Represents an IP address and its netmask
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[cfg_attr(feature = "rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]

@@ -1509,20 +1509,13 @@ impl InodeSocket {
                         InodeSocketKind::TcpStream { socket, .. } => {
                             socket.try_recv(self.data, peek)
                         }
-                        InodeSocketKind::UdpSocket { socket, peer } => {
-                            if let Some(peer) = peer {
-                                match socket.try_recv_from(self.data, peek) {
-                                    Ok((amt, addr)) if addr == *peer => Ok(amt),
-                                    Ok(_) => Err(NetworkError::WouldBlock),
-                                    Err(err) => Err(err),
-                                }
-                            } else {
-                                match socket.try_recv_from(self.data, peek) {
-                                    Ok((amt, _)) => Ok(amt),
-                                    Err(err) => Err(err),
-                                }
+                        InodeSocketKind::UdpSocket { socket, peer } => match peer {
+                            Some(peer) => {
+                                try_recv_from_connected_udp(socket.as_mut(), self.data, peek, peer)
+                                    .map(|(amt, _)| amt)
                             }
-                        }
+                            None => socket.try_recv_from(self.data, peek).map(|(amt, _)| amt),
+                        },
                         InodeSocketKind::RemoteSocket { is_dead, .. } => {
                             return match is_dead {
                                 true => Poll::Ready(Ok(0)),
@@ -1606,9 +1599,12 @@ impl InodeSocket {
                 loop {
                     let res = match &mut inner.kind {
                         InodeSocketKind::Icmp(socket) => socket.try_recv_from(self.data, peek),
-                        InodeSocketKind::UdpSocket { socket, .. } => {
-                            socket.try_recv_from(self.data, peek)
-                        }
+                        InodeSocketKind::UdpSocket { socket, peer } => match peer {
+                            Some(peer) => {
+                                try_recv_from_connected_udp(socket.as_mut(), self.data, peek, peer)
+                            }
+                            None => socket.try_recv_from(self.data, peek),
+                        },
                         InodeSocketKind::RemoteSocket {
                             is_dead, peer_addr, ..
                         } => {
@@ -1698,6 +1694,48 @@ impl InodeSocket {
     }
 }
 
+/// On connected UDP sockets, discard datagrams not from the stored peer.
+/// Linux filters these in the kernel; wasix stores the peer separately.
+fn discard_non_matching_udp_datagrams(
+    socket: &mut dyn VirtualUdpSocket,
+    peer: &SocketAddr,
+) -> Result<(), NetworkError> {
+    let mut discard = [MaybeUninit::<u8>::uninit()];
+    loop {
+        match socket.try_recv_from(&mut discard, true) {
+            Ok((_, addr)) if addr == *peer => return Ok(()),
+            Ok(_) => match socket.try_recv_from(&mut discard, false) {
+                Ok(_) => {}
+                Err(NetworkError::WouldBlock) => {}
+                Err(err) => return Err(err),
+            },
+            Err(NetworkError::WouldBlock) => return Ok(()),
+            Err(err) => return Err(err),
+        }
+    }
+}
+
+fn try_recv_from_connected_udp(
+    socket: &mut dyn VirtualUdpSocket,
+    data: &mut [MaybeUninit<u8>],
+    peek: bool,
+    peer: &SocketAddr,
+) -> Result<(usize, SocketAddr), NetworkError> {
+    discard_non_matching_udp_datagrams(socket, peer)?;
+    loop {
+        match socket.try_recv_from(data, peek) {
+            Ok((amt, addr)) if addr == *peer => return Ok((amt, addr)),
+            Ok(_) if peek => match socket.try_recv_from(data, false) {
+                Ok(_) => {}
+                Err(NetworkError::WouldBlock) => {}
+                Err(err) => return Err(err),
+            },
+            Ok(_) => continue,
+            Err(err) => return Err(err),
+        }
+    }
+}
+
 impl InodeSocketProtected {
     pub fn remove_handler(&mut self) {
         match &mut self.kind {
@@ -1722,7 +1760,28 @@ impl InodeSocketProtected {
         match &mut self.kind {
             InodeSocketKind::TcpListener { socket, .. } => socket.poll_read_ready(cx),
             InodeSocketKind::TcpStream { socket, .. } => socket.poll_read_ready(cx),
-            InodeSocketKind::UdpSocket { socket, .. } => socket.poll_read_ready(cx),
+            InodeSocketKind::UdpSocket {
+                socket,
+                peer: Some(peer),
+            } => loop {
+                if let Err(err) = discard_non_matching_udp_datagrams(socket.as_mut(), peer) {
+                    break Poll::Ready(Err(err));
+                }
+                match socket.poll_read_ready(cx) {
+                    Poll::Pending => break Poll::Pending,
+                    Poll::Ready(Err(err)) => break Poll::Ready(Err(err)),
+                    Poll::Ready(Ok(n)) => {
+                        let mut peek_buf = [MaybeUninit::<u8>::uninit()];
+                        match socket.try_recv_from(&mut peek_buf, true) {
+                            Ok((_, addr)) if addr == *peer => break Poll::Ready(Ok(n)),
+                            Ok(_) => continue,
+                            Err(NetworkError::WouldBlock) => break Poll::Pending,
+                            Err(err) => break Poll::Ready(Err(err)),
+                        }
+                    }
+                }
+            },
+            InodeSocketKind::UdpSocket { socket, peer: None } => socket.poll_read_ready(cx),
             InodeSocketKind::Raw(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::Icmp(socket) => socket.poll_read_ready(cx),
             InodeSocketKind::BoundTcp { .. } => Poll::Pending,
