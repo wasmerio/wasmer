@@ -450,6 +450,64 @@ impl MountFileSystem {
         fs.is_host_backed()
     }
 
+    fn rebase_symlink_policy_path(source_root: &Path, mount_path: &Path, target: &Path) -> PathBuf {
+        let source_root = Self::normalize_mount_path(source_root);
+        let target = Self::normalize_mount_path(target);
+
+        match target.strip_prefix(&source_root) {
+            Ok(stripped) => mount_path.join(stripped),
+            Err(_) => target,
+        }
+    }
+
+    fn rebase_symlink_policy(
+        policy: SymlinkPolicy,
+        source_root: &Path,
+        mount_path: &Path,
+    ) -> SymlinkPolicy {
+        match policy {
+            SymlinkPolicy::ResolvedPath(path) => SymlinkPolicy::ResolvedPath(
+                Self::rebase_symlink_policy_path(source_root, mount_path, &path),
+            ),
+            policy => policy,
+        }
+    }
+
+    fn symlink_policy_from_mount(
+        fs: &(dyn FileSystem + Send + Sync),
+        source_root: &Path,
+        mount_path: &Path,
+        delegated_path: &Path,
+    ) -> Result<SymlinkPolicy> {
+        let policy = fs.symlink_policy(delegated_path)?;
+        if matches!(policy, SymlinkPolicy::Hidden) {
+            return Ok(policy);
+        }
+
+        if Self::should_filter_symlink_entries_to_source(fs)
+            && fs.is_host_backed_path(delegated_path)
+        {
+            let metadata = fs.symlink_metadata(delegated_path)?;
+            if metadata.ft.is_symlink() {
+                let raw_target = match fs.readlink(delegated_path) {
+                    Ok(target) => target,
+                    Err(_) => return Ok(SymlinkPolicy::Hidden),
+                };
+                let target = Self::symlink_target_path(source_root, delegated_path, &raw_target);
+                if !Self::symlink_chain_stays_within_source(fs, source_root, target.clone()) {
+                    return Ok(SymlinkPolicy::Hidden);
+                }
+                if raw_target.is_absolute() {
+                    return Ok(SymlinkPolicy::ResolvedPath(
+                        Self::rebase_symlink_policy_path(source_root, mount_path, &target),
+                    ));
+                }
+            }
+        }
+
+        Ok(Self::rebase_symlink_policy(policy, source_root, mount_path))
+    }
+
     fn read_dir_from_exact_node(&self, node: &ExactNode) -> Result<ReadDir> {
         let mut entries = Vec::new();
 
@@ -861,6 +919,40 @@ impl FileSystem for MountFileSystem {
 
         match self.resolve_mount(path) {
             Some(resolved) => resolved.fs.symlink_metadata(&resolved.delegated_path),
+            None => Err(FsError::EntryNotFound),
+        }
+    }
+
+    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
+        let path = self.prepare_path(path)?;
+
+        if let Some(node) = self.exact_node(&path) {
+            return if let Some(fs) = node.fs {
+                match Self::symlink_policy_from_mount(
+                    fs.as_ref(),
+                    &node.source_path,
+                    &node.path,
+                    &node.source_path,
+                ) {
+                    Err(error) if Self::should_fallback_to_synthetic_dir(&error) => {
+                        Ok(SymlinkPolicy::Visible)
+                    }
+                    result => result,
+                }
+            } else if node.has_children() {
+                Ok(SymlinkPolicy::Visible)
+            } else {
+                Err(FsError::EntryNotFound)
+            };
+        }
+
+        match self.resolve_mount(path) {
+            Some(resolved) => Self::symlink_policy_from_mount(
+                resolved.fs.as_ref(),
+                &resolved.source_path,
+                &resolved.mount_path,
+                &resolved.delegated_path,
+            ),
             None => Err(FsError::EntryNotFound),
         }
     }

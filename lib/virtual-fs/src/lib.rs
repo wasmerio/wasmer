@@ -87,6 +87,13 @@ pub trait CloneableVirtualFile: VirtualFile + Clone {}
 
 pub use ops::{copy_reference, copy_reference_ext, create_dir_all, walk};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SymlinkPolicy {
+    Visible,
+    Hidden,
+    ResolvedPath(PathBuf),
+}
+
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
@@ -104,6 +111,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
+    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
+        self.symlink_metadata(path).map(|_| SymlinkPolicy::Visible)
+    }
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn is_host_backed(&self) -> bool {
@@ -164,6 +174,10 @@ where
 
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         (**self).symlink_metadata(path)
+    }
+
+    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
+        (**self).symlink_policy(path)
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
