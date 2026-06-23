@@ -136,7 +136,7 @@ pub(super) async fn upload(
 pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
     // Check if the path is a .webc file
     if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("webc") {
-        return Ok((path.to_path_buf(), get_manifest_from_webc(path)?));
+        return Ok((path.to_path_buf(), get_manifest_from_webc_file(path)?));
     }
 
     load_package_manifest(path).and_then(|j| {
@@ -145,14 +145,23 @@ pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
 }
 
 /// Load a manifest from a .webc file
-fn get_manifest_from_webc(path: &Path) -> anyhow::Result<Manifest> {
+fn get_manifest_from_webc_file(path: &Path) -> anyhow::Result<Manifest> {
     use wasmer_package::utils::from_disk;
 
     let container = from_disk(path)
         .map_err(|e| anyhow::anyhow!("Failed to load webc file '{}': {}", path.display(), e))?;
 
-    let webc_manifest = container.manifest();
+    manifest_from_webc_metadata(container.manifest())
+}
 
+/// Convert a webc manifest into a [`Manifest`], extracting the package metadata.
+///
+/// Note: only the package metadata (name, version, description, etc.) is
+/// extracted; modules, commands, and filesystem mappings are not, because they
+/// are already baked into the webc and are not needed to describe the package.
+pub(super) fn manifest_from_webc_metadata(
+    webc_manifest: &webc::metadata::Manifest,
+) -> anyhow::Result<Manifest> {
     // Extract package information from the webc manifest
     let mut manifest = Manifest::new_empty();
 
@@ -239,21 +248,38 @@ pub(super) async fn login_user(
     env.client()
 }
 
-pub(super) fn make_package_url(client: &WasmerClient, pkg: &NamedPackageIdent) -> String {
+/// Resolve a registry's web frontend host from its GraphQL endpoint, falling
+/// back to the endpoint's own domain for custom registries.
+pub(super) fn registry_web_host(client: &WasmerClient) -> String {
     let host = client.graphql_endpoint().domain().unwrap_or("wasmer.io");
 
     // Our special cases..
-    let host = match host {
-        _ if host.contains("wasmer.wtf") => "wasmer.wtf",
-        _ if host.contains("wasmer.io") => "wasmer.io",
-        _ => host,
-    };
+    match host {
+        _ if host.contains("wasmer.wtf") => "wasmer.wtf".to_string(),
+        _ if host.contains("wasmer.io") => "wasmer.io".to_string(),
+        _ => host.to_string(),
+    }
+}
 
-    format!(
-        "https://{host}/{}@{}",
-        pkg.full_name(),
-        pkg.version_or_default().to_string().replace('=', "")
-    )
+/// Build a package's web frontend URL. `version` is rendered verbatim, so pass a
+/// display string like `0.1.3`, not a parsed `VersionReq`.
+pub(super) fn package_web_url(
+    client: &WasmerClient,
+    full_name: &str,
+    version: Option<&str>,
+) -> String {
+    let host = registry_web_host(client);
+    match version {
+        Some(version) => format!("https://{host}/{full_name}@{version}"),
+        None => format!("https://{host}/{full_name}"),
+    }
+}
+
+/// Adapter over [`package_web_url`] for a [`NamedPackageIdent`].
+pub(super) fn package_web_url_for_ident(client: &WasmerClient, pkg: &NamedPackageIdent) -> String {
+    // `*` when no version; an exact requirement renders as `=x.y.z`.
+    let version = pkg.version_or_default().to_string().replace('=', "");
+    package_web_url(client, &pkg.full_name(), Some(&version))
 }
 
 #[cfg(test)]

@@ -1717,6 +1717,31 @@ pub async fn get_package(
         .map(|x| x.get_package)
 }
 
+/// Retrieve the published version numbers of a package, if it exists.
+///
+/// Returns `None` when the package does not exist in the registry, and an
+/// (possibly empty) list of version strings otherwise.
+pub async fn get_package_version_numbers(
+    client: &WasmerClient,
+    name: String,
+) -> Result<Option<Vec<String>>, anyhow::Error> {
+    let package = client
+        .run_graphql_strict(types::GetPackageVersionNumbers::build(
+            types::GetPackageVars { name },
+        ))
+        .await?
+        .get_package;
+
+    Ok(package.map(|p| {
+        p.versions
+            .unwrap_or_default()
+            .into_iter()
+            .flatten()
+            .map(|v| v.version)
+            .collect()
+    }))
+}
+
 /// Retrieve a package version by its name.
 pub async fn get_package_version(
     client: &WasmerClient,
