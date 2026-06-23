@@ -99,7 +99,19 @@ fn host_root_relative_target(root: &Path, target: PathBuf) -> PathBuf {
 
 fn symlink_target_path(root: &Path, symlink_path: &Path, target: &Path) -> Option<PathBuf> {
     let base = symlink_path.parent().unwrap_or(root);
-    path::resolve_path_within(root, base, target, normalize_path)
+    path::resolve_path_within(root, base, target, normalize_path).or_else(|| {
+        if target.is_absolute()
+            && !target
+                .components()
+                .any(|component| matches!(component, Component::ParentDir | Component::Prefix(..)))
+        {
+            canonicalize(target)
+                .ok()
+                .filter(|target| target.starts_with(root))
+        } else {
+            None
+        }
+    })
 }
 
 fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {

@@ -93,12 +93,20 @@ pub fn fd_readdir<M: MemorySize>(
                         let filetype = virtual_file_type_to_wasi_file_type(
                             entry.file_type().map_err(fs_error_into_wasi_err)?,
                         );
-                        Ok(state
-                            .fs
-                            .readdir_entry_visible(inodes, fd, Some(&path), &filename, filetype)
-                            .then_some((
+                        if state.fs.readdir_entry_visible(
+                            inodes,
+                            fd,
+                            Some(&path),
+                            &filename,
+                            filetype,
+                        ) {
+                            entry_names.insert(filename.clone());
+                            Ok(Some((
                                 filename, filetype, 0, // TODO: inode
                             )))
+                        } else {
+                            Ok(None)
+                        }
                     })
                     .collect::<Result<Vec<Option<(String, Filetype, u64)>>, Errno>>();
                 let mut entry_vec: Vec<(String, Filetype, u64)> =
@@ -196,7 +204,7 @@ pub fn fd_readdir<M: MemorySize>(
 }
 
 fn format_entry_name(name: &str, is_root: bool) -> String {
-    if !is_root || name.starts_with('/') {
+    if !is_root {
         name.to_string()
     } else {
         format!("/{name}")
@@ -208,9 +216,9 @@ mod tests {
     use super::format_entry_name;
 
     #[test]
-    fn root_entry_names_keep_existing_absolute_prefix() {
-        assert_eq!(format_entry_name("/", true), "/");
-        assert_eq!(format_entry_name("/foo", true), "/foo");
+    fn root_entry_names_are_prefixed_for_virtual_root() {
+        assert_eq!(format_entry_name("/", true), "//");
+        assert_eq!(format_entry_name(".", true), "/.");
         assert_eq!(format_entry_name("foo", true), "/foo");
         assert_eq!(format_entry_name("foo", false), "foo");
     }
