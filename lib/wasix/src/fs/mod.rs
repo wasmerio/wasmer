@@ -657,6 +657,29 @@ impl WasiFs {
         guard.remove(&key);
     }
 
+    /// Removes a symlink's backing file (if any) and drops its ephemeral record.
+    ///
+    /// A purely ephemeral (virtual) link has no host file, so `Noent` for a
+    /// still-registered ephemeral link counts as success. Returns the `Errno`
+    /// the syscall should report.
+    pub(crate) fn remove_symlink_file(&self, host_path: &Path) -> Errno {
+        match self
+            .root_fs
+            .remove_file(host_path)
+            .map_err(fs_error_into_wasi_err)
+        {
+            Ok(()) => {
+                self.unregister_ephemeral_symlink(host_path);
+                Errno::Success
+            }
+            Err(Errno::Noent) if self.ephemeral_symlink_at(host_path).is_some() => {
+                self.unregister_ephemeral_symlink(host_path);
+                Errno::Success
+            }
+            Err(e) => e,
+        }
+    }
+
     pub(crate) fn move_ephemeral_symlink(
         &self,
         old_full_path: &Path,

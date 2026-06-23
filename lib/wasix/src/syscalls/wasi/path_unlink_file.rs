@@ -82,43 +82,24 @@ pub(crate) fn path_unlink_file_internal(
                 "Internal logic error in wasi::path_unlink_file, parent is not a directory"
             ),
         };
-        match entry {
-            Some(removed_inode) => {
-                // TODO: make this a debug assert in the future
-                assert!(inode.ino() == removed_inode.ino());
-                debug_assert!(inode.stat.read().unwrap().st_nlink > 0);
-                removed_inode
+        let Some(removed_inode) = entry else {
+            drop(guard);
+
+            let inode_is_symlink = matches!(inode.read().deref(), Kind::Symlink { .. });
+            if !inode_is_symlink {
+                tracing::warn!(
+                    "wasi::path_unlink_file: path resolution returned inode {:?} for {:?}, but parent directory had no matching entry",
+                    inode.ino(),
+                    child_name
+                );
+                return Ok(Errno::Noent);
             }
-            None => {
-                // Symlinks discovered during path resolution aren't cached in `entries`
-                // (path lookup re-resolves them each time), so a backing-FS symlink is
-                // absent here even though the host file exists. Symlinks created via
-                // `path_symlink` are cached and take the `Some` branch above.
-                let inode_is_symlink = matches!(inode.read().deref(), Kind::Symlink { .. });
-                if !inode_is_symlink {
-                    tracing::warn!(
-                        "wasi::path_unlink_file: path resolution returned inode {:?} for {:?}, but parent directory had no matching entry",
-                        inode.ino(),
-                        child_name
-                    );
-                    return Ok(Errno::Noent);
-                }
-                let host_path = host_adjusted_path.as_path();
-                let errno = match state.fs_remove_file(host_path) {
-                    Ok(()) => {
-                        state.fs.unregister_ephemeral_symlink(host_path);
-                        Errno::Success
-                    }
-                    Err(Errno::Noent) if state.fs.ephemeral_symlink_at(host_path).is_some() => {
-                        state.fs.unregister_ephemeral_symlink(host_path);
-                        Errno::Success
-                    }
-                    Err(e) => e,
-                };
-                drop(guard);
-                return Ok(errno);
-            }
-        }
+            return Ok(state.fs.remove_symlink_file(host_adjusted_path.as_path()));
+        };
+        // TODO: make this a debug assert in the future
+        assert!(inode.ino() == removed_inode.ino());
+        debug_assert!(inode.stat.read().unwrap().st_nlink > 0);
+        removed_inode
     };
 
     let st_nlink = {
@@ -145,18 +126,11 @@ pub(crate) fn path_unlink_file_internal(
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(Errno::Isdir),
                 Kind::Symlink { .. } => {
-                    match state.fs_remove_file(host_adjusted_path.as_path()) {
-                        Ok(()) => {}
-                        Err(Errno::Noent)
-                            if state
-                                .fs
-                                .ephemeral_symlink_at(host_adjusted_path.as_path())
-                                .is_some() => {}
-                        Err(err) => return Ok(err),
+                    drop(guard);
+                    let errno = state.fs.remove_symlink_file(host_adjusted_path.as_path());
+                    if errno != Errno::Success {
+                        return Ok(errno);
                     }
-                    state
-                        .fs
-                        .unregister_ephemeral_symlink(host_adjusted_path.as_path());
                 }
                 _ => unimplemented!("wasi::path_unlink_file for Buffer"),
             }
