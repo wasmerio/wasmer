@@ -261,8 +261,7 @@ impl AsyncCliCommand for CmdCronEnable {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let _ = (self.env, self.ident, self.cron_job);
-        bail!("enabling cron jobs is not supported by the current backend API yet")
+        toggle_cron_job(self.env, self.ident, self.cron_job, true).await
     }
 }
 
@@ -284,7 +283,34 @@ impl AsyncCliCommand for CmdCronDisable {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        let _ = (self.env, self.ident, self.cron_job);
-        bail!("disabling cron jobs is not supported by the current backend API yet")
+        toggle_cron_job(self.env, self.ident, self.cron_job, false).await
     }
+}
+
+async fn toggle_cron_job(
+    env: WasmerEnv,
+    ident: AppIdentArgOpts,
+    cron_job: String,
+    enabled: bool,
+) -> Result<(), anyhow::Error> {
+    let client = env.client()?;
+    let (_ident, app) = ident.to_opts().load_app(&client).await?;
+    let cron_jobs =
+        wasmer_backend_api::query::get_app_cron_jobs(&client, &app.owner.global_name, &app.name)
+            .await?;
+    let cron_job = cron_jobs
+        .into_iter()
+        .find(|job| job.id.inner() == cron_job || job.name == cron_job)
+        .with_context(|| format!("cron job '{}' not found", cron_job))?;
+
+    let cron_job =
+        wasmer_backend_api::query::toggle_cron_job(&client, cron_job.id.inner(), enabled).await?;
+    let state = if cron_job.enabled {
+        "enabled"
+    } else {
+        "disabled"
+    };
+
+    eprintln!("Cron job {} is now {}.", cron_job.name, state);
+    Ok(())
 }

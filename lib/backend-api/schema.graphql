@@ -3819,6 +3819,9 @@ type Mutation {
   """Enable or disable the SSH server capability on an app."""
   toggleSshServer(input: ToggleSshServerInput!): ToggleSshServerPayload
 
+  """Enable or disable an API-managed cron job."""
+  toggleCronJob(input: ToggleCronJobInput!): ToggleCronJobPayload
+
   """Reveal the password for an SSH user."""
   revealSshUserPassword(input: RevealSshUserPasswordInput!): RevealSshUserPasswordPayload
 
@@ -4082,6 +4085,20 @@ type ToggleSshServerPayload {
 input ToggleSshServerInput {
   """App ID"""
   appId: ID!
+  enabled: Boolean!
+  clientMutationId: String
+}
+
+"""Enable or disable an API-managed cron job."""
+type ToggleCronJobPayload {
+  cronJob: CronJob!
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input ToggleCronJobInput {
+  """CronJob ID"""
+  cronJobId: ID!
   enabled: Boolean!
   clientMutationId: String
 }
