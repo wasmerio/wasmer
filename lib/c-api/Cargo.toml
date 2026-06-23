@@ -70,7 +70,7 @@ inline-c.workspace = true
 default = ["wat", "sys-default", "cranelift", "compiler", "wasi", "middlewares"]
 wat = ["wasmer-api/wat"]
 wasi = ["wasmer-wasix"]
-middlewares = ["compiler", "wasmer-middlewares"]
+middlewares = ["compiler", "wasmer-middlewares", "wasmer-api/wasmparser"]
 engine = ["compiler"]
 
 # Enable the `sys` backend.
@@ -96,7 +96,6 @@ compiler = [
   "sys",
   "wasmer-compiler",
   "wasmer-api/compiler",
-  "wasmer-api/wasmparser",
   "wasmer-compiler/translator",
   "wasmer-compiler/compiler",
 ]
