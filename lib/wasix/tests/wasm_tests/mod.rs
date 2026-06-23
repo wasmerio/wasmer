@@ -1246,18 +1246,14 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let test_name = relative_test_path.display().to_string();
         let primary_sources = identify_primary_sources(entry.path())?;
 
-        let mut supported_engines = vec![];
+        let mut supported_engines = Vec::new();
+        supported_engines.push(Engine::Cranelift);
         #[cfg(feature = "llvm")]
         supported_engines.push(Engine::LLVM);
         #[cfg(feature = "singlepass")]
         supported_engines.push(Engine::Singlepass);
         #[cfg(feature = "v8")]
         supported_engines.push(Engine::V8);
-
-        // Cranelift EH support for macOS is still missing: #6419.
-        if !cfg!(target_os = "macos") {
-            supported_engines.push(Engine::Cranelift);
-        }
 
         let default_file_systems = vec![FileSystemKind::Host];
         for primary_source in primary_sources {
