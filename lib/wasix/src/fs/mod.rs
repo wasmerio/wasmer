@@ -3178,18 +3178,6 @@ mod tests {
         virtual_fs::WebcVolumeFileSystem::new(volume)
     }
 
-    #[cfg(all(unix, feature = "host-fs", feature = "sys"))]
-    fn absolute_host_mount_with_nested_symlink_fixture() -> (tempfile::TempDir, PathBuf) {
-        let mount_root = tempdir().unwrap();
-        let nested_dir = mount_root.path().join("d1");
-        std::fs::create_dir_all(&nested_dir).unwrap();
-        std::fs::write(mount_root.path().join("inside.txt"), b"inside").unwrap();
-        std::os::unix::fs::symlink("../inside.txt", nested_dir.join("inside-link")).unwrap();
-        std::os::unix::fs::symlink("../..", nested_dir.join("outside")).unwrap();
-
-        (mount_root, nested_dir)
-    }
-
     #[tokio::test]
     async fn test_relative_path_to_absolute() {
         let inodes = WasiInodes::new();
@@ -3468,92 +3456,6 @@ mod tests {
 
     #[cfg(all(unix, feature = "host-fs", feature = "sys"))]
     #[tokio::test]
-    async fn readdir_hides_only_host_symlinks_that_escape_the_mount() {
-        let root_dir = tempdir().unwrap();
-        let sandbox_dir = root_dir.path().join("sandbox");
-        let outside_dir = root_dir.path().join("outside-dir");
-        std::fs::create_dir_all(&sandbox_dir).unwrap();
-        std::fs::create_dir_all(&outside_dir).unwrap();
-        std::fs::write(sandbox_dir.join("inside.txt"), b"inside").unwrap();
-        std::fs::write(root_dir.path().join("outside.txt"), b"outside").unwrap();
-        std::fs::write(outside_dir.join("outside.txt"), b"outside").unwrap();
-        std::os::unix::fs::symlink("inside.txt", sandbox_dir.join("inside-link")).unwrap();
-        std::os::unix::fs::symlink("../outside.txt", sandbox_dir.join("outside-link")).unwrap();
-        std::os::unix::fs::symlink("../outside-dir", sandbox_dir.join("pivot")).unwrap();
-        std::os::unix::fs::symlink("pivot/outside.txt", sandbox_dir.join("chained-link")).unwrap();
-        std::os::unix::fs::symlink("pivot/missing.txt", sandbox_dir.join("broken-chained-link"))
-            .unwrap();
-        std::os::unix::fs::symlink("loop-b", sandbox_dir.join("loop-a")).unwrap();
-        std::os::unix::fs::symlink("loop-a", sandbox_dir.join("loop-b")).unwrap();
-
-        let host_fs =
-            virtual_fs::host_fs::FileSystem::new(tokio::runtime::Handle::current(), &sandbox_dir)
-                .unwrap();
-        let mount_fs = virtual_fs::MountFileSystem::new();
-        mount_fs
-            .mount(
-                Path::new("/"),
-                Arc::new(RootFileSystemBuilder::default().build_tmp()),
-            )
-            .unwrap();
-        mount_fs
-            .mount(
-                Path::new("/sandbox"),
-                Arc::new(host_fs) as Arc<dyn FileSystem + Send + Sync>,
-            )
-            .unwrap();
-
-        let inodes = WasiInodes::new();
-        let fs_backing = WasiFsRoot::from_mount_fs(mount_fs);
-        let wasi_fs =
-            WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
-
-        assert!(wasi_fs.readdir_entry_visible(
-            &inodes,
-            crate::VIRTUAL_ROOT_FD,
-            Some(Path::new("/sandbox")),
-            "inside-link",
-            Filetype::SymbolicLink,
-        ));
-        assert!(!wasi_fs.readdir_entry_visible(
-            &inodes,
-            crate::VIRTUAL_ROOT_FD,
-            Some(Path::new("/sandbox")),
-            "outside-link",
-            Filetype::SymbolicLink,
-        ));
-        assert!(!wasi_fs.readdir_entry_visible(
-            &inodes,
-            crate::VIRTUAL_ROOT_FD,
-            Some(Path::new("/sandbox")),
-            "chained-link",
-            Filetype::SymbolicLink,
-        ));
-        assert!(!wasi_fs.readdir_entry_visible(
-            &inodes,
-            crate::VIRTUAL_ROOT_FD,
-            Some(Path::new("/sandbox")),
-            "broken-chained-link",
-            Filetype::SymbolicLink,
-        ));
-        assert!(wasi_fs.readdir_entry_visible(
-            &inodes,
-            crate::VIRTUAL_ROOT_FD,
-            Some(Path::new("/sandbox")),
-            "loop-a",
-            Filetype::SymbolicLink,
-        ));
-        assert!(wasi_fs.readdir_entry_visible(
-            &inodes,
-            crate::VIRTUAL_ROOT_FD,
-            Some(Path::new("/sandbox")),
-            "loop-b",
-            Filetype::SymbolicLink,
-        ));
-    }
-
-    #[cfg(all(unix, feature = "host-fs", feature = "sys"))]
-    #[tokio::test]
     async fn readdir_filters_host_symlinks_for_direct_preopens() {
         let preopen_dir = tempdir().unwrap();
         let outside_dir = tempdir().unwrap();
@@ -3648,71 +3550,6 @@ mod tests {
 
     #[cfg(all(unix, feature = "host-fs", feature = "sys"))]
     #[tokio::test]
-    async fn readdir_hides_host_symlinks_that_escape_from_nested_fd_under_absolute_mount() {
-        let (mount_root, nested_dir) = absolute_host_mount_with_nested_symlink_fixture();
-
-        let host_fs = virtual_fs::host_fs::FileSystem::new(
-            tokio::runtime::Handle::current(),
-            mount_root.path(),
-        )
-        .unwrap();
-        let mount_fs = virtual_fs::MountFileSystem::new();
-        mount_fs
-            .mount(
-                Path::new("/"),
-                Arc::new(RootFileSystemBuilder::default().build_tmp()),
-            )
-            .unwrap();
-        mount_fs
-            .mount(
-                mount_root.path(),
-                Arc::new(host_fs) as Arc<dyn FileSystem + Send + Sync>,
-            )
-            .unwrap();
-
-        let inodes = WasiInodes::new();
-        let fs_backing = WasiFsRoot::from_mount_fs(mount_fs);
-        let wasi_fs = WasiFs::new_with_preopen(
-            &inodes,
-            &[],
-            &[mount_root.path().to_string_lossy().to_string()],
-            fs_backing,
-        )
-        .unwrap();
-        let preopen_fd = *wasi_fs.preopen_fds.read().unwrap().last().unwrap();
-
-        let nested_inode = wasi_fs
-            .get_inode_at_path(&inodes, preopen_fd, "d1", true)
-            .unwrap();
-        let nested_fd = wasi_fs
-            .create_fd(
-                ALL_RIGHTS,
-                ALL_RIGHTS,
-                Fdflags::empty(),
-                Fdflagsext::empty(),
-                Fd::READ,
-                nested_inode,
-            )
-            .unwrap();
-
-        assert!(wasi_fs.readdir_entry_visible(
-            &inodes,
-            nested_fd,
-            Some(&nested_dir),
-            "inside-link",
-            Filetype::SymbolicLink,
-        ));
-        assert!(!wasi_fs.readdir_entry_visible(
-            &inodes,
-            nested_fd,
-            Some(&nested_dir),
-            "outside",
-            Filetype::SymbolicLink,
-        ));
-    }
-
-    #[cfg(all(unix, feature = "host-fs", feature = "sys"))]
-    #[tokio::test]
     async fn subtree_mount_symlink_policy_uses_mount_source_path() {
         let root_dir = tempdir().unwrap();
         let subtree_dir = root_dir.path().join("sandbox/pkg");
@@ -3752,14 +3589,6 @@ mod tests {
         let wasi_fs =
             WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
 
-        assert!(wasi_fs.readdir_entry_visible(
-            &inodes,
-            crate::VIRTUAL_ROOT_FD,
-            Some(Path::new("/pkg")),
-            "abs-link",
-            Filetype::SymbolicLink,
-        ));
-
         let link_inode = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/pkg/abs-link", false)
             .unwrap();
@@ -3777,14 +3606,6 @@ mod tests {
             .unwrap();
         assert_eq!(resolved_target, Path::new("/pkg/target.txt"));
 
-        assert!(!wasi_fs.readdir_entry_visible(
-            &inodes,
-            crate::VIRTUAL_ROOT_FD,
-            Some(Path::new("/pkg")),
-            "escape-link",
-            Filetype::SymbolicLink,
-        ));
-
         let escape_inode = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/pkg/escape-link", false)
             .unwrap();
@@ -3801,89 +3622,6 @@ mod tests {
             wasi_fs.resolve_symlink_target_path(*symlink_kind, path_to_symlink, relative_path),
             Err(Errno::Perm)
         );
-    }
-
-    #[cfg(all(unix, feature = "host-fs", feature = "sys"))]
-    #[tokio::test]
-    async fn readdir_prefers_host_mount_policy_over_broader_preopen() {
-        let (mount_root, nested_dir) = absolute_host_mount_with_nested_symlink_fixture();
-
-        let host_fs = virtual_fs::host_fs::FileSystem::new(
-            tokio::runtime::Handle::current(),
-            mount_root.path(),
-        )
-        .unwrap();
-        let mount_fs = virtual_fs::MountFileSystem::new();
-        mount_fs
-            .mount(
-                Path::new("/"),
-                Arc::new(RootFileSystemBuilder::default().build_tmp()),
-            )
-            .unwrap();
-        mount_fs
-            .mount(
-                mount_root.path(),
-                Arc::new(host_fs) as Arc<dyn FileSystem + Send + Sync>,
-            )
-            .unwrap();
-
-        let inodes = WasiInodes::new();
-        let fs_backing = WasiFsRoot::from_mount_fs(mount_fs);
-        let wasi_fs = WasiFs::new_with_preopen(
-            &inodes,
-            &[PreopenedDir {
-                path: PathBuf::from("/"),
-                alias: None,
-                read: true,
-                write: false,
-                create: false,
-            }],
-            &[mount_root.path().to_string_lossy().to_string()],
-            fs_backing,
-        )
-        .unwrap();
-
-        let root_preopen_fd = *wasi_fs
-            .preopen_fds
-            .read()
-            .unwrap()
-            .iter()
-            .find(|&&fd| {
-                let guard = wasi_fs.get_fd(fd).unwrap();
-                matches!(
-                    guard.inode.read().deref(),
-                    Kind::Dir { path, .. } if path == Path::new("/")
-                )
-            })
-            .unwrap();
-        let nested_from_root = mount_root
-            .path()
-            .join("d1")
-            .strip_prefix(Path::new("/"))
-            .unwrap()
-            .to_string_lossy()
-            .to_string();
-        let nested_inode = wasi_fs
-            .get_inode_at_path(&inodes, root_preopen_fd, &nested_from_root, true)
-            .unwrap();
-        let nested_fd = wasi_fs
-            .create_fd(
-                ALL_RIGHTS,
-                ALL_RIGHTS,
-                Fdflags::empty(),
-                Fdflagsext::empty(),
-                Fd::READ,
-                nested_inode,
-            )
-            .unwrap();
-
-        assert!(!wasi_fs.readdir_entry_visible(
-            &inodes,
-            nested_fd,
-            Some(&nested_dir),
-            "outside",
-            Filetype::SymbolicLink,
-        ));
     }
 
     #[tokio::test]

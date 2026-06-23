@@ -605,6 +605,41 @@ where
         self.permission_error_or_not_found(path)
     }
 
+    fn is_host_backed(&self) -> bool {
+        self.primary.as_ref().is_host_backed()
+            || self
+                .secondaries
+                .filesystems()
+                .into_iter()
+                .any(FileSystem::is_host_backed)
+    }
+
+    fn is_host_backed_path(&self, path: &Path) -> bool {
+        if ops::is_white_out(path).is_some() {
+            return false;
+        }
+
+        match self.primary.symlink_metadata(path) {
+            Ok(_) => return self.primary.is_host_backed_path(path),
+            Err(e) if should_continue(e) => {}
+            Err(_) => return false,
+        }
+
+        if ops::has_white_out(&self.primary, path) {
+            return false;
+        }
+
+        for fs in self.secondaries.filesystems() {
+            match fs.symlink_metadata(path) {
+                Ok(_) => return fs.is_host_backed_path(path),
+                Err(e) if should_continue(e) => continue,
+                Err(_) => return false,
+            }
+        }
+
+        false
+    }
+
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }

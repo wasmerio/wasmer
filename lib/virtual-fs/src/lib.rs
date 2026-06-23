@@ -50,6 +50,8 @@ mod webc_volume_fs;
 
 pub mod limiter;
 
+pub(crate) const MAX_SYMLINK_TRAVERSAL_DEPTH: usize = 128;
+
 pub use arc_box_file::*;
 pub use arc_file::*;
 pub use arc_fs::*;
@@ -103,6 +105,14 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
     fn remove_file(&self, path: &Path) -> Result<()>;
+
+    fn is_host_backed(&self) -> bool {
+        false
+    }
+
+    fn is_host_backed_path(&self, _path: &Path) -> bool {
+        self.is_host_backed()
+    }
 
     fn new_open_options(&self) -> OpenOptions<'_>;
 }
@@ -158,6 +168,14 @@ where
 
     fn remove_file(&self, path: &Path) -> Result<()> {
         (**self).remove_file(path)
+    }
+
+    fn is_host_backed(&self) -> bool {
+        (**self).is_host_backed()
+    }
+
+    fn is_host_backed_path(&self, path: &Path) -> bool {
+        (**self).is_host_backed_path(path)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
