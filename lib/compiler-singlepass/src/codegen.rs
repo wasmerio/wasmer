@@ -49,8 +49,8 @@ use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
-    MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle,
-    TrapCode, Type, VMBuiltinFunctionIndex, VMOffsets,
+    MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
+    VMBuiltinFunctionIndex, VMOffsets,
     entity::{EntityRef, PrimaryMap},
 };
 
@@ -6012,6 +6012,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .write_eh_frame(&mut eh_frame)
                 .map_err(|e| CompileError::Codegen(format!("failed to write eh_frame: {e}")))?;
 
+            // TODO: remove the wrapper!
             let eh_frame_section = eh_frame.0.into_section();
 
             // Add the .eh_frame section to this function's object file.
@@ -6020,9 +6021,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 b".eh_frame".to_vec(),
                 SectionKind::Other,
             );
-            let data_offset =
-                self.object
-                    .append_section_data(section_id, eh_frame_section.bytes.as_slice(), 4);
+            // TODO: fix
+            let section_content = eh_frame_section.bytes.as_slice();
+            let section_content = &section_content[..section_content.len() - 4];
+            let data_offset = self
+                .object
+                .append_section_data(section_id, section_content, 4);
 
             // Apply relocations recorded by WriterRelocate to the object file.
             for reloc in &eh_frame_section.relocations {

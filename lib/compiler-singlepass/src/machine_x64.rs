@@ -4499,19 +4499,21 @@ impl Machine for MachineX86_64 {
 
         // TODO
         let section = object.section_id(StandardSection::Text);
-        object.add_relocation(
-            section,
-            Relocation {
-                symbol: reloc_target,
-                flags: RelocationFlags::Generic {
-                    kind: RelocationKind::GotRelative,
-                    encoding: RelocationEncoding::Generic,
-                    size: 32,
+        object
+            .add_relocation(
+                section,
+                Relocation {
+                    symbol: reloc_target,
+                    flags: RelocationFlags::Generic {
+                        kind: RelocationKind::Relative,
+                        encoding: RelocationEncoding::X86Branch,
+                        size: 32,
+                    },
+                    offset: reloc_at as u64,
+                    addend: -4,
                 },
-                offset: reloc_at as u64,
-                addend: -4,
-            },
-        );
+            )
+            .map_err(|e| CompileError::Codegen(format!("failed to add call relocation: {e}")))?;
         Ok(())
     }
 

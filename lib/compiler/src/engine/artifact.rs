@@ -318,24 +318,23 @@ impl AllocatedArtifact {
             ));
         }
 
-        let trap_infos =
-            if let (Some(trap_section_data), Some(trap_function_offsets)) =
-                (trap_section_data, trap_function_offsets)
-            {
-                if trap_function_offsets.len() != local_function_count {
-                    return Err(format!(
-                        "corrupted {} section",
-                        String::from_utf8_lossy(WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME)
-                    ));
-                }
-                trap_function_offsets
-                    .iter()
-                    .enumerate()
-                    .map(|(i, &trap_offset)| {
-                        let local_function_index = LocalFunctionIndex::new(i);
-                        parse_function_traps(trap_section_data, trap_offset, local_function_index)
-                    })
-                    .collect::<Result<PrimaryMap<_, _>, _>>()?
+        let trap_infos = if let (Some(trap_section_data), Some(trap_function_offsets)) =
+            (trap_section_data, trap_function_offsets)
+        {
+            if trap_function_offsets.len() != local_function_count {
+                return Err(format!(
+                    "corrupted {} section",
+                    String::from_utf8_lossy(WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME)
+                ));
+            }
+            trap_function_offsets
+                .iter()
+                .enumerate()
+                .map(|(i, &trap_offset)| {
+                    let local_function_index = LocalFunctionIndex::new(i);
+                    parse_function_traps(trap_section_data, trap_offset, local_function_index)
+                })
+                .collect::<Result<PrimaryMap<_, _>, _>>()?
         } else {
             (0..local_function_count)
                 .map(|_| Vec::new())
