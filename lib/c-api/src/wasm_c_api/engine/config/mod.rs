@@ -61,7 +61,7 @@ pub(crate) struct wasmer_backend_config_t {
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -76,7 +76,7 @@ pub(crate) struct wasmer_backend_config_t {
 ///         wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();
 ///         wasmer_target_t* target = wasmer_target_new(triple, cpu_features);
 ///
-///         wasm_config_sys_set_target(config, target);
+///         wasm_config_set_target(config, target);
 ///     }
 ///
 ///     // Create the engine.

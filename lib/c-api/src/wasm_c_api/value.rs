@@ -42,7 +42,7 @@ pub union wasm_val_inner {
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"

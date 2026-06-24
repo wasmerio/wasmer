@@ -60,13 +60,8 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 
 [dev-dependencies]
 field-offset.workspace = true
-wat.workspace = true
-
-[target.'cfg(target_os = "windows")'.dev-dependencies]
-wasmer-inline-c.workspace = true
-
-[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 inline-c.workspace = true
+wat.workspace = true
 
 [features]
 default = ["wat", "sys-default", "cranelift", "compiler", "wasi", "middlewares"]

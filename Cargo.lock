@@ -7049,7 +7049,6 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
- "wasmer-inline-c",
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasix",
@@ -7336,34 +7335,6 @@ dependencies = [
  "quote",
  "syn 2.0.117",
  "wasmer-types",
-]
-
-[[package]]
-name = "wasmer-inline-c"
-version = "0.1.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c4e7a2a3363ceeb2ee60371af9460748f2bf53569b58627f1f640284ab07778"
-dependencies = [
- "assert_cmd 1.0.8",
- "cc",
- "lazy_static",
- "predicates 2.1.5",
- "regex",
- "rustc_version 0.3.3",
- "target-lexicon 0.11.2",
- "tempfile",
- "wasmer-inline-c-macro",
-]
-
-[[package]]
-name = "wasmer-inline-c-macro"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "058581df4116836c51906e346d6f49ad1b1de0129243fba6b1e1d3c206cd36d1"
-dependencies = [
- "proc-macro2",
- "quote",
- "rustc_version 0.3.3",
 ]
 
 [[package]]
