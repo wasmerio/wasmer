@@ -1,7 +1,7 @@
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, CallFrameInstruction, CommonInformationEntry, FrameDescriptionEntry};
 #[cfg(feature = "unwind")]
-use gimli::{AArch64, Encoding, Format, X86_64};
+use gimli::{AArch64, Encoding, Format, X86_64, constants};
 use std::fmt::Debug;
 #[cfg(feature = "unwind")]
 use wasmer_types::target::Architecture;
@@ -90,6 +90,7 @@ pub fn create_systemv_cie(arch: Architecture) -> Option<gimli::write::CommonInfo
                 -8,
                 X86_64::RA,
             );
+            entry.fde_address_encoding = constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4;
             entry.add_instruction(CallFrameInstruction::Cfa(X86_64::RSP, 8));
             entry.add_instruction(CallFrameInstruction::Offset(X86_64::RA, -8));
             Some(entry)
@@ -105,6 +106,7 @@ pub fn create_systemv_cie(arch: Architecture) -> Option<gimli::write::CommonInfo
                 -8,
                 AArch64::X30,
             );
+            entry.fde_address_encoding = constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4;
             entry.add_instruction(CallFrameInstruction::Cfa(AArch64::SP, 0));
             Some(entry)
         }
@@ -121,6 +123,7 @@ pub fn create_systemv_cie(arch: Architecture) -> Option<gimli::write::CommonInfo
                 -8,
                 RiscV::RA,
             );
+            entry.fde_address_encoding = constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4;
             entry.add_instruction(CallFrameInstruction::Cfa(RiscV::SP, 0));
             Some(entry)
         }

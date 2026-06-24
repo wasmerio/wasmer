@@ -1,5 +1,5 @@
 use gimli::{
-    Encoding, Format, LineEncoding, RunTimeEndian, SectionId,
+    Encoding, Format, LineEncoding, RunTimeEndian, SectionId, constants,
     write::{
         Address, AttributeValue, DwarfUnit, EndianVec, LineProgram, LineString,
         Result as GimliResult, Sections, Writer,
@@ -96,6 +96,40 @@ impl Writer for WriterRelocate {
                 } else {
                     unreachable!("Symbol {} in DWARF not recognized", symbol);
                 }
+            }
+        }
+    }
+
+    fn write_eh_pointer(
+        &mut self,
+        address: Address,
+        eh_pe: constants::DwEhPe,
+        size: u8,
+    ) -> GimliResult<()> {
+        if eh_pe == constants::DW_EH_PE_absptr {
+            return self.write_address(address, size);
+        }
+
+        match address {
+            Address::Constant(_) => self.writer.write_eh_pointer(address, eh_pe, size),
+            Address::Symbol { symbol, addend }
+                if symbol == Self::FUNCTION_SYMBOL
+                    && eh_pe == (constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4)
+                    && size == 8 =>
+            {
+                let function_index = LocalFunctionIndex::new(addend as _);
+                let reloc_target = RelocationTarget::LocalFunc(function_index);
+                let offset = self.len() as u32;
+                self.relocs.push(Relocation {
+                    kind: RelocationKind::PCRel4,
+                    reloc_target,
+                    offset,
+                    addend: 0,
+                });
+                self.write_udata(0, 4)
+            }
+            Address::Symbol { .. } => {
+                unimplemented!("eh pointer encoding {eh_pe:?} not supported for symbol targets")
             }
         }
     }
@@ -246,10 +280,11 @@ pub fn init_dwarf_unit(
         None,
     );
     let dir_id = dwarf.unit.line_program.default_directory();
-    let file_id = dwarf
-        .unit
-        .line_program
-        .add_file(LineString::String(file_name_str.as_bytes().to_vec()), dir_id, None);
+    let file_id = dwarf.unit.line_program.add_file(
+        LineString::String(file_name_str.as_bytes().to_vec()),
+        dir_id,
+        None,
+    );
 
     let function_address = Address::Symbol {
         symbol: WriterRelocate::FUNCTION_SYMBOL,

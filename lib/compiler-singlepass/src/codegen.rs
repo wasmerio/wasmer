@@ -32,6 +32,8 @@ use std::{
     path::{Path, PathBuf},
 };
 use target_lexicon::{Architecture, Triple};
+#[cfg(feature = "unwind")]
+use wasmer_compiler::types::relocation::RelocationKind;
 
 use wasmer_compiler::{
     FunctionBodyData, WASMER_TRAPS_SECTION_NAME,
@@ -6030,15 +6032,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
             // Apply relocations recorded by WriterRelocate to the object file.
             for reloc in &eh_frame_section.relocations {
+                let (kind, size) = match reloc.kind {
+                    RelocationKind::Abs8 => (ObjRelocationKind::Absolute, 64),
+                    RelocationKind::PCRel4 => (ObjRelocationKind::Relative, 32),
+                    other => {
+                        return Err(CompileError::Codegen(format!(
+                            "unsupported eh_frame relocation kind: {other:?}"
+                        )));
+                    }
+                };
                 self.object
                     .add_relocation(
                         section_id,
                         ObjRelocation {
                             offset: data_offset + reloc.offset as u64,
                             flags: RelocationFlags::Generic {
-                                kind: ObjRelocationKind::Absolute,
+                                kind,
                                 encoding: RelocationEncoding::Generic,
-                                size: 64,
+                                size,
                             },
                             symbol: function_symbol,
                             addend: reloc.addend as i64,
