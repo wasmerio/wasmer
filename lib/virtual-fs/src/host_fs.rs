@@ -114,7 +114,7 @@ fn symlink_target_path(root: &Path, symlink_path: &Path, target: &Path) -> Optio
     })
 }
 
-fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
+fn symlink_chain_target_within(root: &Path, target: PathBuf) -> Option<PathBuf> {
     let normalized_root = normalize_path(root);
     let mut current = target;
     let mut visited = std::collections::HashSet::new();
@@ -122,19 +122,19 @@ fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
 
     loop {
         if !current.starts_with(&normalized_root) {
-            return false;
+            return None;
         }
 
         if !visited.insert(current.clone()) {
-            return true;
+            return None;
         }
         if symlink_count >= MAX_SYMLINK_TRAVERSAL_DEPTH {
-            return false;
+            return None;
         }
 
         let relative = match current.strip_prefix(&normalized_root) {
             Ok(relative) => relative,
-            Err(_) => return false,
+            Err(_) => return None,
         };
         let mut inspected = normalized_root.clone();
         let mut components = relative.components();
@@ -145,8 +145,7 @@ fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
 
             let metadata = match fs::symlink_metadata(&inspected) {
                 Ok(metadata) => metadata,
-                Err(err) if err.kind() == io::ErrorKind::NotFound => return true,
-                Err(_) => return false,
+                Err(_) => return None,
             };
 
             if !metadata.file_type().is_symlink() {
@@ -155,11 +154,11 @@ fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
 
             let raw_target = match fs::read_link(&inspected) {
                 Ok(target) => target,
-                Err(_) => return false,
+                Err(_) => return None,
             };
             let mut next = match symlink_target_path(&normalized_root, &inspected, &raw_target) {
                 Some(next) => next,
-                None => return false,
+                None => return None,
             };
             if !components.as_path().as_os_str().is_empty() {
                 next = match path::resolve_path_within(
@@ -169,7 +168,7 @@ fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
                     normalize_path,
                 ) {
                     Some(next) => next,
-                    None => return false,
+                    None => return None,
                 };
             }
 
@@ -180,7 +179,7 @@ fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
         }
 
         if !followed_symlink {
-            return true;
+            return Some(current);
         }
     }
 }
@@ -207,8 +206,8 @@ pub fn symlink_policy_at(root: &Path, path: &Path) -> Result<SymlinkPolicy> {
         Err(_) => return Ok(SymlinkPolicy::Hidden),
     };
 
-    if symlink_chain_stays_within(&root, target) {
-        Ok(SymlinkPolicy::Visible)
+    if let Some(target) = symlink_chain_target_within(&root, target) {
+        Ok(SymlinkPolicy::ResolvedPath(target))
     } else {
         Ok(SymlinkPolicy::Hidden)
     }
@@ -383,10 +382,6 @@ impl crate::FileSystem for FileSystem {
         }
 
         fs::remove_file(path).map_err(Into::into)
-    }
-
-    fn is_host_backed(&self) -> bool {
-        true
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
@@ -1269,9 +1264,9 @@ mod tests {
         assert!(names.contains(&"inside.txt".to_string()));
         assert!(names.contains(&"inside-link".to_string()));
         assert!(names.contains(&"inside-absolute".to_string()));
-        assert!(names.contains(&"broken-link".to_string()));
-        assert!(names.contains(&"loop-a".to_string()));
-        assert!(names.contains(&"loop-b".to_string()));
+        assert!(!names.contains(&"broken-link".to_string()));
+        assert!(!names.contains(&"loop-a".to_string()));
+        assert!(!names.contains(&"loop-b".to_string()));
         assert!(!names.contains(&"outside-relative".to_string()));
         assert!(!names.contains(&"outside-absolute".to_string()));
         assert!(!names.contains(&"leave-reenter-relative".to_string()));

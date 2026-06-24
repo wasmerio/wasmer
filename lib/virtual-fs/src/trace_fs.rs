@@ -88,14 +88,6 @@ where
         self.0.remove_file(path)
     }
 
-    fn is_host_backed(&self) -> bool {
-        self.0.is_host_backed()
-    }
-
-    fn is_host_backed_path(&self, path: &std::path::Path) -> bool {
-        self.0.is_host_backed_path(path)
-    }
-
     #[tracing::instrument(level = "trace", skip(self))]
     fn new_open_options(&self) -> crate::OpenOptions<'_> {
         crate::OpenOptions::new(self)

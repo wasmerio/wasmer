@@ -1734,7 +1734,7 @@ impl WasiFs {
         }
 
         if let Some(dir_path) = dir_path {
-            let preopen_visibility = self.host_preopen_symlink_visibility(fd, dir_path, filename);
+            let preopen_visibility = self.preopen_symlink_visibility(fd, dir_path, filename);
             if matches!(preopen_visibility, Some(false)) {
                 return false;
             }
@@ -1769,7 +1769,7 @@ impl WasiFs {
         let Some(dir_path) = dir_path else {
             return true;
         };
-        self.host_preopen_symlink_visibility(fd, dir_path, filename)
+        self.preopen_symlink_visibility(fd, dir_path, filename)
             .unwrap_or(true)
     }
 
@@ -1780,31 +1780,55 @@ impl WasiFs {
         self.root_fs.root().symlink_policy(guest_symlink_path).ok()
     }
 
-    fn host_preopen_symlink_visibility(
+    fn preopen_symlink_visibility(
         &self,
         fd: WasiFd,
         dir_path: &Path,
         filename: &str,
     ) -> Option<bool> {
-        #[cfg(not(feature = "host-fs"))]
-        {
-            let _ = (fd, dir_path, filename);
-            None
-        }
+        let dir_fd = self.get_fd(fd).ok()?;
+        let preopen_root = self.preopen_root_path(&dir_fd.inode)?;
+        let entry_path = dir_path.join(filename);
 
+        let policy = self.root_fs.root().symlink_policy(&entry_path).ok();
         #[cfg(feature = "host-fs")]
-        {
-            let dir_fd = self.get_fd(fd).ok()?;
-            let preopen_root =
-                virtual_fs::host_fs::normalize_path(&self.preopen_host_root(&dir_fd.inode)?);
-            let entry_path = dir_path.join(filename);
-            virtual_fs::host_fs::symlink_policy_at(&preopen_root, &entry_path)
-                .ok()
-                .map(|policy| !matches!(policy, virtual_fs::SymlinkPolicy::Hidden))
+        let policy = policy
+            .or_else(|| virtual_fs::host_fs::symlink_policy_at(&preopen_root, &entry_path).ok());
+
+        match policy? {
+            virtual_fs::SymlinkPolicy::Hidden => Some(false),
+            virtual_fs::SymlinkPolicy::ResolvedPath(path) => {
+                let canonical_preopen_root = std::fs::canonicalize(&preopen_root).ok();
+                let target = Self::canonicalize_existing_prefix(&path).unwrap_or(path);
+                Some(
+                    target.starts_with(&preopen_root)
+                        || canonical_preopen_root
+                            .as_ref()
+                            .is_some_and(|root| target.starts_with(root)),
+                )
+            }
+            virtual_fs::SymlinkPolicy::Visible => Some(true),
         }
     }
 
-    fn preopen_host_root(&self, dir_inode: &InodeGuard) -> Option<PathBuf> {
+    fn canonicalize_existing_prefix(path: &Path) -> Option<PathBuf> {
+        let mut current = path.to_path_buf();
+        let mut suffix = PathBuf::new();
+
+        loop {
+            if let Ok(canonical) = std::fs::canonicalize(&current) {
+                return Some(canonical.join(suffix));
+            }
+
+            let file_name = current.file_name()?.to_os_string();
+            suffix = Path::new(&file_name).join(suffix);
+            if !current.pop() {
+                return None;
+            }
+        }
+    }
+
+    fn preopen_root_path(&self, dir_inode: &InodeGuard) -> Option<PathBuf> {
         let mut current = dir_inode.clone();
 
         loop {
@@ -3355,6 +3379,15 @@ mod tests {
         )
         .unwrap();
 
+        wasi_fs
+            .root_fs
+            .root()
+            .set_mount(
+                Path::new("/"),
+                Arc::new(RootFileSystemBuilder::default().build_tmp()),
+            )
+            .unwrap();
+
         let fd = *wasi_fs.preopen_fds.read().unwrap().last().unwrap();
 
         assert!(wasi_fs.readdir_entry_visible(
@@ -3385,21 +3418,21 @@ mod tests {
             "broken-chained-link",
             Filetype::SymbolicLink,
         ));
-        assert!(wasi_fs.readdir_entry_visible(
+        assert!(!wasi_fs.readdir_entry_visible(
             &inodes,
             fd,
             Some(preopen_dir.path()),
             "broken-link",
             Filetype::SymbolicLink,
         ));
-        assert!(wasi_fs.readdir_entry_visible(
+        assert!(!wasi_fs.readdir_entry_visible(
             &inodes,
             fd,
             Some(preopen_dir.path()),
             "loop-a",
             Filetype::SymbolicLink,
         ));
-        assert!(wasi_fs.readdir_entry_visible(
+        assert!(!wasi_fs.readdir_entry_visible(
             &inodes,
             fd,
             Some(preopen_dir.path()),

@@ -126,14 +126,6 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     }
     fn remove_file(&self, path: &Path) -> Result<()>;
 
-    fn is_host_backed(&self) -> bool {
-        false
-    }
-
-    fn is_host_backed_path(&self, _path: &Path) -> bool {
-        self.is_host_backed()
-    }
-
     fn new_open_options(&self) -> OpenOptions<'_>;
 }
 
@@ -192,14 +184,6 @@ where
 
     fn remove_file(&self, path: &Path) -> Result<()> {
         (**self).remove_file(path)
-    }
-
-    fn is_host_backed(&self) -> bool {
-        (**self).is_host_backed()
-    }
-
-    fn is_host_backed_path(&self, path: &Path) -> bool {
-        (**self).is_host_backed_path(path)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {

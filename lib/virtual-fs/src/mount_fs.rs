@@ -436,6 +436,7 @@ impl MountFileSystem {
         entries: &mut ReadDir,
         fs: &(dyn FileSystem + Send + Sync),
         source_root: &Path,
+        mount_path: &Path,
     ) {
         entries.data.retain(|entry| {
             let Ok(metadata) = entry.metadata() else {
@@ -446,24 +447,11 @@ impl MountFileSystem {
                 return true;
             }
 
-            if !fs.is_host_backed_path(&entry.path) {
-                return true;
-            }
-
-            let target = match fs.readlink(&entry.path) {
-                Ok(target) => match Self::symlink_target_path(source_root, &entry.path, &target) {
-                    Some(target) => target,
-                    None => return false,
-                },
-                Err(_) => return false,
-            };
-
-            Self::symlink_chain_stays_within_source(fs, source_root, target)
+            !matches!(
+                Self::symlink_policy_from_mount(fs, source_root, mount_path, &entry.path),
+                Ok(SymlinkPolicy::Hidden) | Err(_)
+            )
         });
-    }
-
-    fn should_filter_symlink_entries_to_source(fs: &(dyn FileSystem + Send + Sync)) -> bool {
-        fs.is_host_backed()
     }
 
     fn rebase_symlink_policy_path(source_root: &Path, mount_path: &Path, target: &Path) -> PathBuf {
@@ -500,9 +488,7 @@ impl MountFileSystem {
             return Ok(policy);
         }
 
-        if Self::should_filter_symlink_entries_to_source(fs)
-            && fs.is_host_backed_path(delegated_path)
-        {
+        if matches!(policy, SymlinkPolicy::ResolvedPath(_)) {
             let metadata = fs.symlink_metadata(delegated_path)?;
             if metadata.ft.is_symlink() {
                 let raw_target = match fs.readlink(delegated_path) {
@@ -517,11 +503,9 @@ impl MountFileSystem {
                 if !Self::symlink_chain_stays_within_source(fs, source_root, target.clone()) {
                     return Ok(SymlinkPolicy::Hidden);
                 }
-                if raw_target.is_absolute() {
-                    return Ok(SymlinkPolicy::ResolvedPath(
-                        Self::rebase_symlink_policy_path(source_root, mount_path, &target),
-                    ));
-                }
+                return Ok(SymlinkPolicy::ResolvedPath(
+                    Self::rebase_symlink_policy_path(source_root, mount_path, &target),
+                ));
             }
         }
 
@@ -552,13 +536,12 @@ impl MountFileSystem {
         if let Some((fs, base_entries, source_root, source_path)) = backing {
             match base_entries {
                 Ok(mut base_entries) => {
-                    if Self::should_filter_symlink_entries_to_source(fs.as_ref()) {
-                        Self::filter_symlink_entries_to_source(
-                            &mut base_entries,
-                            fs.as_ref(),
-                            &source_root,
-                        );
-                    }
+                    Self::filter_symlink_entries_to_source(
+                        &mut base_entries,
+                        fs.as_ref(),
+                        &source_root,
+                        &node.path,
+                    );
                     Self::rebase_entries(&mut base_entries, &source_path, &node.path);
                     entries.extend(base_entries.data.into_iter().filter(|entry| {
                         entry
@@ -680,22 +663,6 @@ impl MountFileSystem {
 }
 
 impl FileSystem for MountFileSystem {
-    fn is_host_backed(&self) -> bool {
-        self.mount_entries()
-            .into_iter()
-            .any(|entry| entry.fs.is_host_backed())
-    }
-
-    fn is_host_backed_path(&self, path: &Path) -> bool {
-        let Ok(path) = self.prepare_path(path) else {
-            return false;
-        };
-
-        self.resolve_mount(path)
-            .map(|resolved| resolved.fs.is_host_backed_path(&resolved.delegated_path))
-            .unwrap_or(false)
-    }
-
     fn readlink(&self, path: &Path) -> Result<PathBuf> {
         let path = self.prepare_path(path)?;
 
@@ -725,13 +692,12 @@ impl FileSystem for MountFileSystem {
         match self.resolve_mount(path.clone()) {
             Some(resolved) => {
                 let mut entries = resolved.fs.read_dir(&resolved.delegated_path)?;
-                if Self::should_filter_symlink_entries_to_source(resolved.fs.as_ref()) {
-                    Self::filter_symlink_entries_to_source(
-                        &mut entries,
-                        resolved.fs.as_ref(),
-                        &resolved.source_path,
-                    );
-                }
+                Self::filter_symlink_entries_to_source(
+                    &mut entries,
+                    resolved.fs.as_ref(),
+                    &resolved.source_path,
+                    &resolved.mount_path,
+                );
                 Self::rebase_entries(
                     &mut entries,
                     &resolved.delegated_path,
