@@ -1,10 +1,9 @@
-use proc_macro_error2::abort;
 use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, Member};
 
 /// We can only validate types that have a well defined layout.
-fn check_repr(input: &DeriveInput) {
+fn check_repr(input: &DeriveInput) -> syn::Result<()> {
     if input.attrs.iter().any(|attr| {
         attr.path().is_ident("repr") && {
             let mut valid = false;
@@ -17,13 +16,13 @@ fn check_repr(input: &DeriveInput) {
             valid
         }
     }) {
-        return;
+        return Ok(());
     }
 
-    abort!(
+    Err(syn::Error::new_spanned(
         input,
-        "ValueType can only be derived for #[repr(C)] or #[repr(transparent)] structs"
-    )
+        "ValueType can only be derived for #[repr(C)] or #[repr(transparent)] structs",
+    ))
 }
 
 /// Zero out any padding bytes between fields.
@@ -80,24 +79,29 @@ fn zero_padding(fields: &Fields) -> TokenStream {
     out
 }
 
-pub fn impl_value_type(input: &DeriveInput) -> TokenStream {
-    check_repr(input);
+pub fn impl_value_type(input: &DeriveInput) -> syn::Result<TokenStream> {
+    check_repr(input)?;
 
     let struct_name = &input.ident;
     let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
     let fields = match &input.data {
         Data::Struct(ds) => &ds.fields,
-        _ => abort!(input, "ValueType can only be derived for structs"),
+        _ => {
+            return Err(syn::Error::new_spanned(
+                input,
+                "ValueType can only be derived for structs",
+            ));
+        }
     };
 
     let zero_padding = zero_padding(fields);
 
-    quote! {
+    Ok(quote! {
         unsafe impl #impl_generics ::wasmer_types::ValueType for #struct_name #ty_generics #where_clause {
             #[inline]
             fn zero_padding_bytes(&self, _bytes: &mut [::core::mem::MaybeUninit<u8>]) {
                 #zero_padding
             }
         }
-    }
+    })
 }

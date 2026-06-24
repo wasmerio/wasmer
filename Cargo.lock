@@ -7329,7 +7329,6 @@ name = "wasmer-derive"
 version = "7.2.0-alpha.3"
 dependencies = [
  "compiletest_rs",
- "proc-macro-error2",
  "proc-macro2",
  "quote",
  "syn 2.0.117",
