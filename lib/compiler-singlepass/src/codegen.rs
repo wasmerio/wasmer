@@ -1,5 +1,5 @@
 #[cfg(feature = "unwind")]
-use crate::dwarf::WriterRelocate;
+use crate::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 #[cfg(feature = "unwind")]
 use crate::unwind::create_systemv_cie;
 #[cfg(feature = "unwind")]
@@ -49,8 +49,8 @@ use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
-    MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
-    VMBuiltinFunctionIndex, VMOffsets,
+    MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle,
+    TrapCode, Type, VMBuiltinFunctionIndex, VMOffsets,
     entity::{EntityRef, PrimaryMap},
 };
 
@@ -119,6 +119,10 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Path where relocatable object is saved.
     object_path: PathBuf,
+
+    /// DWARF debug info state, populated at finalize time from the instructions address map.
+    #[cfg(feature = "unwind")]
+    dwarf_state: Option<DwarfState>,
 }
 
 struct SpecialLabelSet {
@@ -978,13 +982,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             local_func_index,
             special_labels,
             calling_convention,
-            function_name,
+            function_name: function_name.clone(),
             assembly_comments: HashMap::new(),
             object: get_object_for_target(triple)
                 .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?,
             object_path: build_directory
                 .to_path_buf()
                 .join(format!("f{}.o", local_func_index.as_u32())),
+            #[cfg(feature = "unwind")]
+            dwarf_state: init_dwarf_unit(&function_name, module.name.as_deref()).ok(),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -5882,9 +5888,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let body_len = self.machine.assembler_get_offset().0;
 
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
+        #[cfg(feature = "unwind")]
         let mut unwind_info = None;
-        let mut fde: Option<crate::unwind::UnwindFrame> = None;
+        #[cfg(feature = "unwind")]
+        let mut fde = None;
         #[cfg(feature = "unwind")]
         match self.calling_convention {
             CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
@@ -5907,6 +5914,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
 
         let traps = self.machine.collect_trap_information();
+        let address_map = self.machine.instructions_address_map();
         let FinalizedAssembly {
             mut body,
             assembly_comments,
@@ -5945,6 +5953,21 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             // TODO
             4,
         );
+
+        // Populate DWARF debug info from the instructions address map.
+        #[cfg(feature = "unwind")]
+        if let Some(ref mut dwarf_state) = self.dwarf_state {
+            for inst in &address_map {
+                dwarf_state.add_row(inst.code_offset as u64, inst.srcloc);
+            }
+            dwarf_state.write_sections(
+                &mut self.object,
+                function_symbol,
+                &self.function_name,
+                body_len as u64,
+                None,
+            )?;
+        }
 
         let mut trap_data = Vec::with_capacity(traps.len() * 8 + size_of::<u32>());
         // TODO: better explain!
