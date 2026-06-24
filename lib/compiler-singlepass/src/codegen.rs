@@ -1,5 +1,9 @@
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
+#[cfg(feature = "unwind")]
+use crate::unwind::create_systemv_cie;
+#[cfg(feature = "unwind")]
+use gimli::write::{EhFrame, FrameTable, Writer};
 
 use crate::{
     codegen_error,
@@ -14,8 +18,9 @@ use crate::{
 use gimli::write::Address;
 use itertools::Itertools;
 use object::{
-    SectionKind, SymbolFlags, SymbolKind, SymbolScope,
-    write::{StandardSection, StandardSegment, Symbol, SymbolSection},
+    RelocationEncoding, RelocationFlags, RelocationKind as ObjRelocationKind, SectionKind,
+    SymbolFlags, SymbolKind, SymbolScope,
+    write::{Relocation as ObjRelocation, StandardSection, StandardSegment, Symbol, SymbolSection},
 };
 use smallvec::{SmallVec, smallvec};
 use std::{
@@ -5879,8 +5884,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut unwind_info = None;
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut fde = None;
+        let mut fde: Option<crate::unwind::UnwindFrame> = None;
         #[cfg(feature = "unwind")]
         match self.calling_convention {
             CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
@@ -5967,6 +5971,57 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         });
         self.object
             .add_symbol_data(trap_symbol, traps_section, &trap_data, 4);
+
+        // Emit .eh_frame section into this function's object file.
+        #[cfg(feature = "unwind")]
+        if let Some(fde) = &fde
+            && let Some(cie) = create_systemv_cie(arch)
+        {
+            let mut frametable = FrameTable::default();
+            let cie_id = frametable.add_cie(cie);
+            match fde {
+                crate::unwind::UnwindFrame::SystemV(fde) => {
+                    frametable.add_fde(cie_id, fde.clone());
+                }
+            }
+            let mut eh_frame = EhFrame(WriterRelocate::new(None));
+            frametable
+                .write_eh_frame(&mut eh_frame)
+                .map_err(|e| CompileError::Codegen(format!("failed to write eh_frame: {e}")))?;
+
+            let eh_frame_section = eh_frame.0.into_section();
+
+            // Add the .eh_frame section to this function's object file.
+            let section_id = self.object.add_section(
+                self.object.segment_name(StandardSegment::Debug).to_vec(),
+                b".eh_frame".to_vec(),
+                SectionKind::Other,
+            );
+            let data_offset =
+                self.object
+                    .append_section_data(section_id, eh_frame_section.bytes.as_slice(), 4);
+
+            // Apply relocations recorded by WriterRelocate to the object file.
+            for reloc in &eh_frame_section.relocations {
+                self.object
+                    .add_relocation(
+                        section_id,
+                        ObjRelocation {
+                            offset: data_offset + reloc.offset as u64,
+                            flags: RelocationFlags::Generic {
+                                kind: ObjRelocationKind::Absolute,
+                                encoding: RelocationEncoding::Generic,
+                                size: 64,
+                            },
+                            symbol: function_symbol,
+                            addend: reloc.addend as i64,
+                        },
+                    )
+                    .map_err(|e| {
+                        CompileError::Codegen(format!("failed to add eh_frame relocation: {e}"))
+                    })?;
+            }
+        }
 
         // Save the generated object file.
         let mut object_file = OpenOptions::new()

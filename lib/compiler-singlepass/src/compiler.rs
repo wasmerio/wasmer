@@ -4,8 +4,6 @@
 
 use crate::codegen::FuncGen;
 use crate::config::{self, Singlepass};
-#[cfg(feature = "unwind")]
-use crate::dwarf::WriterRelocate;
 use crate::machine::Machine;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
@@ -13,11 +11,7 @@ use crate::machine::{
 use crate::machine_arm64::MachineARM64;
 use crate::machine_riscv::MachineRiscv;
 use crate::machine_x64::MachineX86_64;
-#[cfg(feature = "unwind")]
-use crate::unwind::{UnwindFrame, create_systemv_cie};
 use enumset::EnumSet;
-#[cfg(feature = "unwind")]
-use gimli::write::{EhFrame, FrameTable, Writer};
 use itertools::Itertools;
 use object::write::{StandardSection, Symbol, SymbolSection};
 use object::{SymbolFlags, SymbolKind, SymbolScope};
@@ -118,29 +112,6 @@ impl SinglepassCompiler {
             .cloned()
             .map(|cb| ProgressContext::new(cb, total_steps, "singlepass::functions"));
 
-        // Generate the frametable
-        #[cfg(feature = "unwind")]
-        let dwarf_frametable = if function_body_inputs.is_empty() {
-            // If we have no function body inputs, we don't need to
-            // construct the `FrameTable`. Constructing it, with empty
-            // FDEs will cause some issues in Linux.
-            None
-        } else {
-            match target.triple().default_calling_convention() {
-                Ok(CallingConvention::SystemV) => {
-                    match create_systemv_cie(target.triple().architecture) {
-                        Some(cie) => {
-                            let mut dwarf_frametable = FrameTable::default();
-                            let cie_id = dwarf_frametable.add_cie(cie);
-                            Some((dwarf_frametable, cie_id))
-                        }
-                        None => None,
-                    }
-                }
-                _ => None,
-            }
-        };
-
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
@@ -162,7 +133,6 @@ impl SinglepassCompiler {
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect();
-        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
         let object_files = function_body_inputs
             .iter()
             .collect_vec()
@@ -393,27 +363,6 @@ impl SinglepassCompiler {
                 save_object(obj, format!("dt{index}.o"))
             })
             .collect::<Result<Vec<_>, _>>()?;
-
-        // #[allow(unused_mut)]
-        // let mut unwind_info = UnwindInfo::default();
-
-        // TODO
-        // #[cfg(feature = "unwind")]
-        // if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
-        //     for fde in fdes.into_iter().flatten() {
-        //         match fde {
-        //             UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
-        //         }
-        //     }
-        //     let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
-        //     dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
-        //     eh_frame.write(&[0, 0, 0, 0]).unwrap(); // Write a 0 length at the end of the table.
-
-        //     let eh_frame_section = eh_frame.0.into_section();
-        //     custom_sections.push(eh_frame_section);
-        //     unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1))
-        // };
-        // let got = wasmer_compiler::types::function::GOT::empty();
 
         // TODO: create temp file in caller
         let module_file = tempfile::Builder::new()
