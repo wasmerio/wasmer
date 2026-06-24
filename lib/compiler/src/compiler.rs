@@ -14,7 +14,7 @@ use crate::{
 };
 use crate::{
     WASMER_FUNCTION_OFFSETS_SECTION_NAME, WASMER_MODULE_INFO_SECTION_NAME,
-    WASMER_VERSION_SECTION_NAME,
+    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_VERSION_SECTION_NAME,
 };
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
@@ -449,6 +449,45 @@ fn emit_wasmer_meta_object(
         )
         .map_err(|e| {
             format!("failed to add function offset relocation for {function_name}: {e}")
+        })?;
+    }
+
+    let trap_fn_offsets_section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
+        SectionKind::Other,
+    );
+    obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+    for traps_name in (0..compiled_objects.object_files.len()).map(|i| format!("f{i}.traps")) {
+        let offset =
+            obj.append_section_data(trap_fn_offsets_section_id, &zero_pointer, pointer_size);
+        let symbol_id = obj.add_symbol(ObjSymbol {
+            name: traps_name.as_bytes().into(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Data,
+            scope: SymbolScope::Compilation,
+            weak: true,
+            section: SymbolSection::Undefined,
+            flags: SymbolFlags::None,
+        });
+        obj.add_relocation(
+            trap_fn_offsets_section_id,
+            Relocation {
+                offset,
+                flags: RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: pointer_bits,
+                },
+                symbol: symbol_id,
+                addend: 0,
+            },
+        )
+        .map_err(|e| {
+            format!("failed to add function trap offset relocation for {traps_name}: {e}")
         })?;
     }
 

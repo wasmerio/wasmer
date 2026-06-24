@@ -16,8 +16,8 @@ use crate::{
 use gimli::write::Address;
 use itertools::Itertools;
 use object::{
-    SymbolFlags, SymbolKind, SymbolScope,
-    write::{StandardSection, Symbol, SymbolSection},
+    SectionKind, SymbolFlags, SymbolKind, SymbolScope,
+    write::{StandardSection, StandardSegment, Symbol, SymbolSection},
 };
 use smallvec::{SmallVec, smallvec};
 use std::{
@@ -31,7 +31,7 @@ use std::{
 use target_lexicon::{Architecture, Triple};
 
 use wasmer_compiler::{
-    FunctionBodyData,
+    FunctionBodyData, WASMER_TRAPS_SECTION_NAME,
     misc::CompiledKind,
     object::get_object_for_target,
     types::{
@@ -5950,6 +5950,32 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             // TODO
             4,
         );
+
+        let mut trap_data = Vec::with_capacity(traps.len() * 8 + size_of::<u32>());
+        // TODO: better explain!
+        trap_data.extend_from_slice(&(traps.len() as u32).to_le_bytes());
+        for trap in &traps {
+            trap_data.extend_from_slice(&trap.code_offset.to_le_bytes());
+            trap_data.extend_from_slice(&(trap.trap_code as u32).to_le_bytes());
+        }
+
+        let traps_section = self.object.add_section(
+            self.object.segment_name(StandardSegment::Data).to_vec(),
+            WASMER_TRAPS_SECTION_NAME.to_vec(),
+            SectionKind::Other,
+        );
+        let trap_symbol = self.object.add_symbol(Symbol {
+            name: format!("f{}.traps", self.local_func_index.as_u32()).into(),
+            value: 0,
+            size: trap_data.len() as u64,
+            kind: SymbolKind::Data,
+            scope: SymbolScope::Compilation,
+            weak: true,
+            section: SymbolSection::Section(traps_section),
+            flags: SymbolFlags::None,
+        });
+        self.object
+            .add_symbol_data(trap_symbol, traps_section, &trap_data, 4);
 
         // Save the generated object file.
         let mut object_file = OpenOptions::new()
