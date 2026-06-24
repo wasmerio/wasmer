@@ -160,20 +160,14 @@ fn symlink_chain_target_within(root: &Path, target: PathBuf) -> Option<PathBuf> 
                 Ok(target) => target,
                 Err(_) => return None,
             };
-            let mut next = match symlink_target_path(&normalized_root, &inspected, &raw_target) {
-                Some(next) => next,
-                None => return None,
-            };
+            let mut next = symlink_target_path(&normalized_root, &inspected, &raw_target)?;
             if !components.as_path().as_os_str().is_empty() {
-                next = match path::resolve_path_within(
+                next = path::resolve_path_within(
                     &normalized_root,
                     &next,
                     components.as_path(),
                     normalize_path,
-                ) {
-                    Some(next) => next,
-                    None => return None,
-                };
+                )?;
             }
 
             symlink_count += 1;
