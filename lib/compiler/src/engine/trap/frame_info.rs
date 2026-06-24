@@ -63,6 +63,7 @@ struct ModuleInfoFrameInfo {
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<ModuleInfo>,
     frame_infos: FrameInfosVariant,
+    trap_infos: BoxedSlice<LocalFunctionIndex, Vec<TrapInformation>>,
     #[cfg(target_os = "linux")]
     debug_info: Option<Arc<Mutex<addr2line::Loader>>>,
 }
@@ -83,6 +84,25 @@ impl ModuleInfoFrameInfo {
         } else {
             None
         }
+    }
+
+    fn trap_info(&self, func: &FunctionInfo, pc: usize) -> Option<TrapInformation> {
+        let rel_pos = (pc - func.start) as u32;
+        if let Some(traps) = self.trap_infos.get(func.local_index)
+            && !traps.is_empty()
+        {
+            let idx = traps
+                .binary_search_by_key(&rel_pos, |info| info.code_offset)
+                .ok()?;
+            return Some(traps[idx]);
+        }
+
+        let debug_info = self.function_debug_info(func.local_index);
+        let traps = debug_info.traps();
+        let idx = traps
+            .binary_search_by_key(&rel_pos, |info| info.code_offset)
+            .ok()?;
+        Some(traps[idx])
     }
 }
 
@@ -177,12 +197,7 @@ impl GlobalFrameInfo {
     pub fn lookup_trap_info(&self, pc: usize) -> Option<TrapInformation> {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
-        let debug_info = module.function_debug_info(func.local_index);
-        let traps = debug_info.traps();
-        let idx = traps
-            .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
-            .ok()?;
-        Some(traps[idx])
+        module.trap_info(func, pc)
     }
 
     /// Gets a module given a pc
@@ -387,6 +402,7 @@ pub fn register(
     module: Arc<ModuleInfo>,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
     frame_infos: FrameInfosVariant,
+    trap_infos: BoxedSlice<LocalFunctionIndex, Vec<TrapInformation>>,
     image_base: usize,
     #[cfg(target_os = "linux")] debug_info: Option<Arc<Mutex<addr2line::Loader>>>,
 ) -> Option<GlobalFrameInfoRegistration> {
@@ -435,6 +451,7 @@ pub fn register(
             functions,
             module,
             frame_infos,
+            trap_infos,
             #[cfg(target_os = "linux")]
             debug_info,
         },

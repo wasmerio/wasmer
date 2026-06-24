@@ -1,6 +1,8 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
+#[cfg(target_os = "linux")]
+use std::sync::{Arc as StdArc, Mutex};
 use std::{
     ffi::c_void,
     fs::File,
@@ -12,8 +14,6 @@ use std::{
         atomic::{AtomicUsize, Ordering::SeqCst},
     },
 };
-#[cfg(target_os = "linux")]
-use std::sync::{Arc as StdArc, Mutex};
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
@@ -23,7 +23,8 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::C
 use crate::{
     Engine, EngineInner, Features, FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration,
     InstantiationError, Tunables, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
-    WASMER_MODULE_INFO_SECTION_NAME,
+    WASMER_MODULE_INFO_SECTION_NAME, WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME,
+    WASMER_TRAPS_SECTION_NAME,
     engine::{mapped_binary::MemoryMappedBinary, resolver::resolve_tags},
     register_frame_info, resolve_imports,
     serialize::SerializableModule,
@@ -39,8 +40,8 @@ use tempfile::NamedTempFile;
 use wasmer_types::{
     CompilationProgressCallback, CompileError, DataInitializer, DeserializeError, FunctionIndex,
     LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializeError,
-    SignatureIndex, SourceLoc, TableIndex,
-    entity::{BoxedSlice, PrimaryMap},
+    SignatureIndex, SourceLoc, TableIndex, TrapCode, TrapInformation,
+    entity::{BoxedSlice, EntityRef, PrimaryMap},
     target::{CpuFeature, Target},
 };
 
@@ -191,6 +192,7 @@ pub struct AllocatedArtifact {
 
     /// Per-function frame info for backtrace symbolication.
     frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
+    trap_infos: PrimaryMap<LocalFunctionIndex, Vec<TrapInformation>>,
 
     // This shows if the frame info has been registered already or not.
     // Because the 'GlobalFrameInfoRegistration' ownership can be transferred to EngineInner
@@ -245,6 +247,8 @@ impl AllocatedArtifact {
 
         // Parts function offsets
         let mut function_offsets = None;
+        let mut trap_section_data = None;
+        let mut trap_function_offsets = None;
         for section in image.sections() {
             let Ok(section_name) = section.name_bytes() else {
                 continue;
@@ -262,6 +266,25 @@ impl AllocatedArtifact {
                             })
                             .collect_vec(),
                     );
+                }
+                WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME => {
+                    let data = section
+                        .data()
+                        .map_err(|e| format!("cannot load image section data: {e}"))?;
+                    trap_function_offsets = Some(
+                        data.chunks_exact(size_of::<usize>())
+                            .map(|chunk| {
+                                let arr: [u8; 8] = chunk.try_into().unwrap();
+                                usize::from_le_bytes(arr)
+                            })
+                            .collect_vec(),
+                    );
+                }
+                WASMER_TRAPS_SECTION_NAME => {
+                    let data = section
+                        .data()
+                        .map_err(|e| format!("cannot load image section data: {e}"))?;
+                    trap_section_data = Some(data);
                 }
                 b".eh_frame" => {
                     memory_map.publish_eh_frame_section(section.address(), section.size())?
@@ -294,6 +317,31 @@ impl AllocatedArtifact {
                 String::from_utf8_lossy(WASMER_FUNCTION_OFFSETS_SECTION_NAME)
             ));
         }
+
+        let trap_infos =
+            if let (Some(trap_section_data), Some(trap_function_offsets)) =
+                (trap_section_data, trap_function_offsets)
+            {
+                if trap_function_offsets.len() != local_function_count {
+                    return Err(format!(
+                        "corrupted {} section",
+                        String::from_utf8_lossy(WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME)
+                    ));
+                }
+                trap_function_offsets
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &trap_offset)| {
+                        let local_function_index = LocalFunctionIndex::new(i);
+                        parse_function_traps(trap_section_data, trap_offset, local_function_index)
+                    })
+                    .collect::<Result<PrimaryMap<_, _>, _>>()?
+        } else {
+            (0..local_function_count)
+                .map(|_| Vec::new())
+                .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+        };
+
         // Build trivial frame info per function (LLVM doesn't emit per-instruction
         // source maps, so we use default SourceLoc values).
         let frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> =
@@ -339,6 +387,7 @@ impl AllocatedArtifact {
                 .into_boxed_slice(),
             finished_function_lengths: PrimaryMap::from_iter(local_fn_sizes).into_boxed_slice(),
             frame_infos,
+            trap_infos,
             frame_info_registered: false,
             frame_info_registration: None,
             signatures: signatures.into_boxed_slice(),
@@ -363,6 +412,44 @@ impl AllocatedArtifact {
             })
             .collect()
     }
+}
+
+fn parse_function_traps(
+    traps_section: &[u8],
+    trap_offset: usize,
+    local_function_index: LocalFunctionIndex,
+) -> Result<Vec<TrapInformation>, String> {
+    let data = traps_section
+        .get(trap_offset..)
+        .ok_or_else(|| "trap information points outside section data".to_string())?;
+    let count_bytes = data.get(..size_of::<u32>()).ok_or_else(|| {
+        format!(
+            "trap information for function {} is missing its trap count",
+            local_function_index.index()
+        )
+    })?;
+    let count = u32::from_le_bytes(count_bytes.try_into().unwrap()) as usize;
+    let records = data
+        .get(size_of::<u32>()..size_of::<u32>() + count * 2 * size_of::<u32>())
+        .ok_or_else(|| {
+            format!(
+                "trap information for function {} is truncated",
+                local_function_index.index()
+            )
+        })?;
+
+    records
+        .chunks_exact(2 * size_of::<u32>())
+        .map(|record| {
+            let code_offset = u32::from_le_bytes(record[..size_of::<u32>()].try_into().unwrap());
+            let trap_code = u32::from_le_bytes(record[size_of::<u32>()..].try_into().unwrap());
+            let trap_code = unsafe { std::mem::transmute::<u32, TrapCode>(trap_code) };
+            Ok(TrapInformation {
+                code_offset,
+                trap_code,
+            })
+        })
+        .collect()
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -640,16 +727,17 @@ impl Artifact {
         let finished_function_extents = allocated.function_extents().into_boxed_slice();
 
         let frame_infos = FrameInfosVariant::Owned(std::mem::take(&mut allocated.frame_infos));
+        let trap_infos = std::mem::take(&mut allocated.trap_infos).into_boxed_slice();
 
-        allocated.frame_info_registration =
-            register_frame_info(
-                module_info,
-                &finished_function_extents,
-                frame_infos,
-                allocated._memory_map.base() as usize,
-                #[cfg(target_os = "linux")]
-                allocated.debug_info.clone(),
-            );
+        allocated.frame_info_registration = register_frame_info(
+            module_info,
+            &finished_function_extents,
+            frame_infos,
+            trap_infos,
+            allocated._memory_map.base() as usize,
+            #[cfg(target_os = "linux")]
+            allocated.debug_info.clone(),
+        );
 
         allocated.frame_info_registered = true;
 
