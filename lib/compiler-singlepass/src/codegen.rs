@@ -964,7 +964,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .function_names
             .get(&func_index)
             .map(|fname| fname.to_string())
-            .unwrap_or_else(|| format!("function_{}", func_index.as_u32()));
+            .unwrap_or_else(|| "<unnamed>".to_string());
 
         let mut fg = FuncGen {
             module,

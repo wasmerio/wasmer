@@ -433,26 +433,3 @@ impl DwarfState {
         Ok(())
     }
 }
-
-/// Legacy entry point — kept for compatibility.
-#[allow(dead_code)]
-pub fn emit_debug_info(
-    object: &mut Object<'static>,
-    function_symbol: SymbolId,
-    function_name: &str,
-    module_name: Option<&str>,
-    address_map: &FunctionAddressMap,
-    endianness: Option<Endianness>,
-) -> Result<(), CompileError> {
-    let mut state = init_dwarf_unit(function_name, module_name)?;
-    for inst in &address_map.instructions {
-        state.add_row(inst.code_offset as u64, inst.srcloc);
-    }
-    state.write_sections(
-        object,
-        function_symbol,
-        function_name,
-        address_map.body_len as u64,
-        endianness,
-    )
-}

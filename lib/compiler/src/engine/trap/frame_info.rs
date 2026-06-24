@@ -180,6 +180,8 @@ impl GlobalFrameInfo {
                 && let Ok(Some(frame)) = frames.next()
                 && let Some(function) = frame.function
                 && let Ok(name) = function.raw_name()
+                // TODO: add constant
+                && name != "<unnamed>"
             {
                 function_name = Some(name.into_owned());
             }
