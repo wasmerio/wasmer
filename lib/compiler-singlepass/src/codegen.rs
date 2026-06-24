@@ -2226,11 +2226,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                 }
 
-                // Imported functions are called through trampolines placed as custom sections.
-                // TODO
+                // Imported functions are called through import trampolines.
+                let reloc_target_name = if function_index < self.module.num_imported_functions {
+                    format!("i{function_index}")
+                } else {
+                    format!("f{}", function_index - self.module.num_imported_functions)
+                };
                 let reloc_target = self.object.add_symbol(object::write::Symbol {
-                    name: format!("f{}", function_index - self.module.num_imported_functions)
-                        .into(),
+                    name: reloc_target_name.into(),
                     value: 0,
                     size: 0,
                     kind: SymbolKind::Text,

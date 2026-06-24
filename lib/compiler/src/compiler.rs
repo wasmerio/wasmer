@@ -352,6 +352,8 @@ pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;
 pub struct CompiledObjects<'a> {
     /// Object files for local (user-defined) functions.
     pub object_files: &'a [PathBuf],
+    /// Object files for imported function call trampolines.
+    pub import_trampoline_object_files: &'a [PathBuf],
     /// Object files for static trampolines.
     pub trampoline_object_files: &'a [PathBuf],
     /// Object files for dynamic trampolines.
@@ -417,8 +419,10 @@ fn emit_wasmer_meta_object(
     let pointer_bits = (pointer_size * 8) as u8;
     let zero_pointer = vec![0; pointer_size as usize];
 
-    // We're using a fixed naming conventions for functions, trampolines and the dynamic trampolines:
-    // f{number} for functions, t{number} for trampolines and dt{number} for dynamic trampolines.
+    // We're using fixed naming conventions for functions and public trampolines:
+    // f{number} for functions, t{number} for function-call trampolines and
+    // dt{number} for dynamic trampolines. Import call trampolines use i{number}
+    // symbols, but are internal linker targets and do not get metadata offsets.
     let function_offset_names = (0..compiled_objects.object_files.len())
         .map(|i| format!("f{i}"))
         .chain((0..compiled_objects.trampoline_object_files.len()).map(|i| format!("t{i}")))
@@ -545,6 +549,7 @@ pub fn emit_metadata_and_link(
         compiled_objects
             .object_files
             .iter()
+            .chain(compiled_objects.import_trampoline_object_files.iter())
             .chain(compiled_objects.trampoline_object_files.iter())
             .chain(compiled_objects.dynamic_trampoline_object_files.iter())
             .map(|path| path.display().to_string()),

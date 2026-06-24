@@ -239,6 +239,7 @@ impl Compiler for LLVMCompiler {
             module_file,
             &CompiledObjects {
                 object_files: &object_files,
+                import_trampoline_object_files: &[],
                 trampoline_object_files: &trampolines_objects,
                 dynamic_trampoline_object_files: &dynamic_trampolines_objects,
             },

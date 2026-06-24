@@ -103,7 +103,9 @@ impl SinglepassCompiler {
         let total_function_call_trampolines = module.signatures.len() as u64;
         let total_dynamic_trampolines = module.num_imported_functions as u64;
         let total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
-            * ((total_dynamic_trampolines + total_function_call_trampolines) as u64)
+            * (total_dynamic_trampolines
+                + total_function_call_trampolines
+                + module.num_imported_functions as u64)
             + function_body_inputs
                 .iter()
                 .map(|(_, body)| body.data.len() as u64)
@@ -116,8 +118,7 @@ impl SinglepassCompiler {
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut custom_sections: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
+        let custom_sections: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect_vec()
             .into_par_iter()
@@ -259,6 +260,44 @@ impl SinglepassCompiler {
         };
 
         let module_hash = module.hash_string();
+        let import_trampoline_objects = custom_sections
+            .into_iter()
+            .map(|(index, section)| -> Result<PathBuf, CompileError> {
+                if !section.relocations.is_empty() {
+                    return Err(CompileError::Codegen(format!(
+                        "import trampoline i{} has unsupported relocations",
+                        index.index()
+                    )));
+                }
+
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                }
+
+                let mut obj = get_object_for_target(target.triple())
+                    .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
+                let symbol = obj.add_symbol(Symbol {
+                    name: format!("i{}", index.index()).into(),
+                    value: 0,
+                    size: section.bytes.len() as u64,
+                    kind: SymbolKind::Text,
+                    scope: SymbolScope::Dynamic,
+                    weak: false,
+                    section: SymbolSection::Undefined,
+                    flags: SymbolFlags::None,
+                });
+                let text_section = obj.section_id(StandardSection::Text);
+                obj.add_symbol_data(
+                    symbol,
+                    text_section,
+                    section.bytes.as_slice(),
+                    section.alignment.unwrap_or(4),
+                );
+
+                save_object(obj, format!("i{}.o", index.index()))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
         let trampolines_objects = module
             .signatures
             .iter()
@@ -378,6 +417,7 @@ impl SinglepassCompiler {
             module_file,
             &CompiledObjects {
                 object_files: &object_files,
+                import_trampoline_object_files: &import_trampoline_objects,
                 trampoline_object_files: &trampolines_objects,
                 dynamic_trampoline_object_files: &dynamic_functions_objects,
             },
