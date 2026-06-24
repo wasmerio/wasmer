@@ -9,6 +9,10 @@ pub struct CmdNamespaceCreate {
     #[clap(flatten)]
     env: WasmerEnv,
 
+    /// Display name of the namespace.
+    #[clap(long)]
+    display_name: Option<String>,
+
     /// Description of the namespace.
     #[clap(long)]
     description: Option<String>,
@@ -26,6 +30,7 @@ impl AsyncCliCommand for CmdNamespaceCreate {
 
         let vars = wasmer_backend_api::types::CreateNamespaceVars {
             name: self.name.clone(),
+            display_name: self.display_name.clone(),
             description: self.description.clone(),
         };
         let namespace = wasmer_backend_api::query::create_namespace(&client, vars).await?;
