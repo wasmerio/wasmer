@@ -443,7 +443,23 @@ jobs:
           mkdir -p /tmp/xwincache
           git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
           cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
-          /tmp/xwin/target/release/xwin --accept-license --cache-dir /tmp/xwincache splat --output /tmp/xwindownload
+          for attempt in 1 2 3; do
+            echo "xwin splat attempt ${attempt}"
+            rm -rf /tmp/xwindownload
+            mkdir -p /tmp/xwindownload
+            if RAYON_NUM_THREADS=4 /tmp/xwin/target/release/xwin \
+              --accept-license \
+              --cache-dir /tmp/xwincache \
+              --timeout 180s \
+              splat \
+              --output /tmp/xwindownload; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              exit 1
+            fi
+            sleep $((attempt * 20))
+          done
           mkdir -p /tmp/winsdk
           SDK_VERSION=$(ls /tmp/xwindownload/sdk/lib | head -n 1)
           cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/WS2_32.lib /tmp/winsdk/
