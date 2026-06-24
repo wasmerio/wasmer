@@ -11,7 +11,6 @@
 #![allow(clippy::unnecessary_cast)]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-mod address_map;
 mod arm64_decl;
 mod codegen;
 mod common_decl;

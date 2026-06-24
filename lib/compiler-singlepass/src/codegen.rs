@@ -2,7 +2,6 @@
 use crate::dwarf::WriterRelocate;
 
 use crate::{
-    address_map::get_function_address_map,
     codegen_error,
     common_decl::*,
     config::Singlepass,
@@ -10,7 +9,6 @@ use crate::{
     machine::{
         AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
     },
-    unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
@@ -34,11 +32,6 @@ use wasmer_compiler::{
     FunctionBodyData, WASMER_TRAPS_SECTION_NAME,
     misc::CompiledKind,
     object::get_object_for_target,
-    types::{
-        function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
-        relocation::{Relocation, RelocationTarget},
-        section::SectionIndex,
-    },
     wasmparser::{
         BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
         ValType as WpType,
@@ -48,7 +41,7 @@ use wasmer_compiler::{
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
-use wasmer_types::target::{CallingConvention, Target};
+use wasmer_types::target::CallingConvention;
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
@@ -5909,8 +5902,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             _ => (),
         };
 
-        let address_map =
-            get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
         let FinalizedAssembly {
             mut body,
