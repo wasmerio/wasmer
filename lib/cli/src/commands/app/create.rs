@@ -751,7 +751,9 @@ impl CmdAppCreate {
                 m.shift_remove("app_id");
             };
 
-            let raw_app = serde_yaml::to_string(&raw_yaml)?;
+            // Apply the edits onto the template's original text so its
+            // comments and formatting are preserved.
+            let raw_app = crate::utils::yaml::apply_app_config_to_yaml(&contents, &raw_yaml)?;
 
             // Validate..
             AppConfigV1::parse_yaml(&raw_app)?;

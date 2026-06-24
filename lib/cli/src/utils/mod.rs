@@ -5,6 +5,7 @@ pub(crate) mod prompts;
 pub(crate) mod render;
 pub(crate) mod timestamp;
 pub(crate) mod unpack;
+pub(crate) mod yaml;
 
 use std::path::{Path, PathBuf};
 

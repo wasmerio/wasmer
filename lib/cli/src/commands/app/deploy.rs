@@ -332,7 +332,8 @@ impl CmdAppDeploy {
                     &app_config.clone().to_yaml_value()?,
                     &new_app_config.to_yaml_value()?,
                 );
-                let new_config_raw = serde_yaml::to_string(&new_merged)?;
+                let new_config_raw =
+                    crate::utils::yaml::apply_app_config_to_yaml_file(&path, &new_merged)?;
                 std::fs::write(&path, new_config_raw)
                     .with_context(|| format!("Could not write file: '{}'", path.display()))?;
             }
@@ -419,7 +420,11 @@ impl CmdAppDeploy {
         }
 
         let current_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())?;
-        std::fs::write(app_config_path, serde_yaml::to_string(&current_config)?)
+        let new_config_raw = crate::utils::yaml::apply_app_config_to_yaml(
+            &config_str,
+            &current_config.clone().to_yaml_value()?,
+        )?;
+        std::fs::write(app_config_path, new_config_raw)
             .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
 
         let mut app_config = current_config.clone();
@@ -712,11 +717,12 @@ impl AsyncCliCommand for CmdAppDeploy {
         }
 
         let original_app_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())?;
-        std::fs::write(
-            &app_config_path,
-            serde_yaml::to_string(&original_app_config)?,
-        )
-        .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
+        let new_config_raw = crate::utils::yaml::apply_app_config_to_yaml(
+            &config_str,
+            &original_app_config.clone().to_yaml_value()?,
+        )?;
+        std::fs::write(&app_config_path, new_config_raw)
+            .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
 
         let mut app_config = original_app_config.clone();
 
@@ -829,7 +835,11 @@ impl AsyncCliCommand for CmdAppDeploy {
                                 {
                                     app_config.package = PackageSource::Path(String::from("."));
                                     // We have to write it right now.
-                                    let new_config_raw = serde_yaml::to_string(&app_config)?;
+                                    let new_config_raw =
+                                        crate::utils::yaml::apply_app_config_to_yaml(
+                                            &config_str,
+                                            &app_config.clone().to_yaml_value()?,
+                                        )?;
                                     std::fs::write(&app_config_path, new_config_raw).with_context(
                                         || {
                                             format!(
@@ -980,7 +990,8 @@ impl AsyncCliCommand for CmdAppDeploy {
                 &app_config.clone().to_yaml_value()?,
                 &new_app_config.to_yaml_value()?,
             );
-            let new_config_raw = serde_yaml::to_string(&new_merged)?;
+            let new_config_raw =
+                crate::utils::yaml::apply_app_config_to_yaml_file(&app_config_path, &new_merged)?;
             std::fs::write(&app_config_path, new_config_raw).with_context(|| {
                 format!("Could not write file: '{}'", app_config_path.display())
             })?;
