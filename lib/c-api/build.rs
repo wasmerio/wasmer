@@ -83,7 +83,7 @@ fn main() {
     build_cdylib_link_arg();
 }
 
-/// Check whether we should build the C API headers or set `wasmer-inline-c` up.
+/// Check whether we should build the C API headers or set `inline-c` up.
 fn running_self() -> bool {
     env::var("DOCS_RS").is_err()
         && env::var("_CBINDGEN_IS_RUNNING").is_err()
@@ -228,7 +228,9 @@ fn build_inline_c_env_vars() {
     let shared_object_dir = shared_object_dir.as_path().to_string_lossy();
     let include_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap();
+    let target_env = env::var("CARGO_CFG_TARGET_ENV").unwrap();
     let target_vendor = env::var("CARGO_CFG_TARGET_VENDOR").unwrap();
+    let target_is_msvc = target_os == "windows" && target_env == "msvc";
 
     // The following options mean:
     //
@@ -237,7 +239,7 @@ fn build_inline_c_env_vars() {
     // * `-D_CRT_SECURE_NO_WARNINGS`, disable security features in the
     //   Windows C runtime, which allows to use `getenv` without any
     //   warnings.
-    if target_os == "windows" {
+    if target_is_msvc {
         println!(
             "cargo:rustc-env=INLINE_C_RS_CFLAGS=-I{include_dir} -D_DEBUG -D_CRT_SECURE_NO_WARNINGS"
         );
@@ -253,7 +255,17 @@ fn build_inline_c_env_vars() {
         println!("cargo:rustc-env=INLINE_C_RS_TEST={compiler_engine}");
     }
 
-    if target_os == "windows" {
+    if target_is_msvc {
+        let mut paths = vec![PathBuf::from(shared_object_dir.as_ref())];
+        if let Some(path) = env::var_os("PATH") {
+            paths.extend(env::split_paths(&path));
+        }
+        let path = env::join_paths(paths).expect("failed to build inline-c PATH");
+
+        println!(
+            "cargo:rustc-env=INLINE_C_RS_PATH={}",
+            path.to_string_lossy()
+        );
         println!(
             "cargo:rustc-env=INLINE_C_RS_LDFLAGS=/LIBPATH:{shared_object_dir} {shared_object_dir}/wasmer.dll.lib"
         );
