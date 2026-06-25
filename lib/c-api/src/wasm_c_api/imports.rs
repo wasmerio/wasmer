@@ -377,7 +377,7 @@ const WASM_VAR: i32 = 1;
 // `wasm_val_t` stores the one-byte kind first, then C ABI padding, then the
 // eight-byte payload union at byte offset 8.
 const WASM_VAL_SIZE: usize = 16;
-const WASM_VAL_PAYLOAD_OFFSET: u32 = 8;
+const WASM_VAL_PAYLOAD_OFFSET: i32 = 8;
 
 #[derive(Clone)]
 enum WasmExtern {
@@ -689,13 +689,13 @@ fn free_guest_memory(env: &mut FunctionEnvMut<WasmCapiEnv>, guest_ptr: i32) {
     let _ = free_fn.call(&mut store_ref, guest_ptr);
 }
 
-struct GuestAllocation<'a> {
-    env: &'a mut FunctionEnvMut<WasmCapiEnv>,
+struct GuestAllocation<'env, 'store> {
+    env: &'env mut FunctionEnvMut<'store, WasmCapiEnv>,
     ptr: i32,
 }
 
-impl<'a> GuestAllocation<'a> {
-    fn new(env: &'a mut FunctionEnvMut<WasmCapiEnv>, len: usize) -> Option<Self> {
+impl<'env, 'store> GuestAllocation<'env, 'store> {
+    fn new(env: &'env mut FunctionEnvMut<'store, WasmCapiEnv>, len: usize) -> Option<Self> {
         let ptr = allocate_guest_memory(env, len)?;
         non_null_guest_ptr(ptr)?;
         Some(Self { env, ptr })
@@ -746,7 +746,7 @@ impl<'a> GuestAllocation<'a> {
     }
 }
 
-impl Drop for GuestAllocation<'_> {
+impl Drop for GuestAllocation<'_, '_> {
     fn drop(&mut self) {
         if self.ptr != INVALID_HANDLE {
             free_guest_memory(self.env, self.ptr);
@@ -929,17 +929,17 @@ fn read_wasm_val(env: &mut FunctionEnvMut<WasmCapiEnv>, val_ptr: i32, ty: Type) 
     match ty {
         Type::I32 => Some(Value::I32(read_i32(
             env,
-            val_ptr + WASM_VAL_PAYLOAD_OFFSET as i32,
+            val_ptr + WASM_VAL_PAYLOAD_OFFSET,
         )?)),
         Type::I64 => Some(Value::I64(
-            read_u64(env, val_ptr + WASM_VAL_PAYLOAD_OFFSET as i32)? as i64,
+            read_u64(env, val_ptr + WASM_VAL_PAYLOAD_OFFSET)? as i64,
         )),
         Type::F32 => {
-            let raw = read_u32(env, val_ptr + WASM_VAL_PAYLOAD_OFFSET as i32)?;
+            let raw = read_u32(env, val_ptr + WASM_VAL_PAYLOAD_OFFSET)?;
             Some(Value::F32(f32::from_bits(raw)))
         }
         Type::F64 => {
-            let raw = read_u64(env, val_ptr + WASM_VAL_PAYLOAD_OFFSET as i32)?;
+            let raw = read_u64(env, val_ptr + WASM_VAL_PAYLOAD_OFFSET)?;
             Some(Value::F64(f64::from_bits(raw)))
         }
         // Reference values require object-handle marshalling that this import
