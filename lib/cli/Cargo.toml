@@ -85,9 +85,9 @@ static-artifact-load = [
   "wasmer/static-artifact-load",
   "wasmer-compiler/static-artifact-load",
 ]
-singlepass = ["wasmer-compiler-singlepass", "compiler", "wasmer/singlepass"]
-cranelift = ["wasmer-compiler-cranelift", "compiler", "wasmer/cranelift"]
-llvm = ["wasmer-compiler-llvm", "compiler", "wasmer/llvm"]
+singlepass = ["wasmer-compiler-singlepass", "compiler", "wasmer/singlepass", "wasmer_c_api/singlepass"]
+cranelift = ["wasmer-compiler-cranelift", "compiler", "wasmer/cranelift", "wasmer_c_api/cranelift"]
+llvm = ["wasmer-compiler-llvm", "compiler", "wasmer/llvm", "wasmer_c_api/llvm"]
 disable-all-logging = [
   "wasmer-wasix/disable-all-logging",
   "log/release_max_level_off",
