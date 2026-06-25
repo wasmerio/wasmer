@@ -30,8 +30,8 @@ pub struct SourceLoc(u32);
 
 impl SourceLoc {
     /// Create a new source location with the given bits.
-    pub fn new(bits: u32) -> Self {
-        Self(bits)
+    pub fn new(offset: u32) -> Self {
+        Self(offset)
     }
 
     /// Is this the default source location?

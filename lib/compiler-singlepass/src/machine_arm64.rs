@@ -11,11 +11,11 @@ use object::{
     write::{Object, Relocation, StandardSection, SymbolId},
 };
 use wasmer_compiler::{
-    types::{address_map::InstructionAddressMap, function::FunctionBody, section::CustomSection},
+    types::{function::FunctionBody, section::CustomSection},
     wasmparser::MemArg,
 };
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
+    CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
     target::{CallingConvention, CpuFeature, Target},
 };
 
@@ -37,11 +37,6 @@ pub struct MachineARM64 {
     used_gprs: FixedBitSet,
     used_simd: FixedBitSet,
     trap_table: TrapTable,
-    /// Map from byte offset into wasm function to range of native instructions.
-    // Ordered by increasing InstructionAddressMap::srcloc.
-    instructions_address_map: Vec<InstructionAddressMap>,
-    /// The source location for the current operator.
-    src_loc: u32,
     /// is last push on a 8byte multiple or 16bytes?
     pushed: bool,
     /// Vector of unwind operations with offset
@@ -101,8 +96,6 @@ impl MachineARM64 {
             used_gprs: FixedBitSet::with_capacity(32),
             used_simd: FixedBitSet::with_capacity(32),
             trap_table: TrapTable::default(),
-            instructions_address_map: vec![],
-            src_loc: 0,
             pushed: false,
             unwind_ops: vec![],
             has_neon,
@@ -1502,21 +1495,15 @@ impl Machine for MachineARM64 {
         )
     }
 
-    fn set_srcloc(&mut self, offset: u32) {
-        self.src_loc = offset;
-    }
-
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
         for i in begin..end {
             self.trap_table.offset_to_code.insert(i, code);
         }
-        self.mark_instruction_address_end(begin);
     }
 
     fn mark_address_with_trap_code(&mut self, code: TrapCode) {
         let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
-        self.mark_instruction_address_end(offset);
     }
 
     fn mark_instruction_with_trap_code(&mut self, code: TrapCode) -> usize {
@@ -1525,20 +1512,11 @@ impl Machine for MachineARM64 {
         offset
     }
 
-    fn mark_instruction_address_end(&mut self, begin: usize) {
-        self.instructions_address_map.push(InstructionAddressMap {
-            srcloc: SourceLoc::new(self.src_loc),
-            code_offset: begin,
-            code_len: self.assembler.get_offset().0 - begin,
-        });
-    }
-
     fn insert_stackoverflow(&mut self) {
         let offset = 0;
         self.trap_table
             .offset_to_code
             .insert(offset, TrapCode::StackOverflow);
-        self.mark_instruction_address_end(offset);
     }
 
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
@@ -1551,10 +1529,6 @@ impl Machine for MachineARM64 {
                 trap_code: code,
             })
             .collect()
-    }
-
-    fn instructions_address_map(&self) -> Vec<InstructionAddressMap> {
-        self.instructions_address_map.clone()
     }
 
     fn round_stack_adjust(&self, value: usize) -> usize {
@@ -2288,7 +2262,6 @@ impl Machine for MachineARM64 {
     fn emit_illegal_op(&mut self, trap: TrapCode) -> Result<(), CompileError> {
         let offset = self.assembler.get_offset().0;
         self.assembler.emit_udf(0xc0 | (trap as u8) as u16)?;
-        self.mark_instruction_address_end(offset);
         Ok(())
     }
 
@@ -2571,7 +2544,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
         let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
@@ -2579,7 +2552,7 @@ impl Machine for MachineARM64 {
 
         self.assembler
             .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)?;
-        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_udiv(Size::S32, src1, src2, dest)?;
         if ret != dest {
             self.move_location(Size::S32, dest, ret)?;
@@ -2587,7 +2560,7 @@ impl Machine for MachineARM64 {
         for r in temps {
             self.release_gpr(r);
         }
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_sdiv32(
@@ -2597,7 +2570,7 @@ impl Machine for MachineARM64 {
         ret: Location,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
         let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
@@ -2621,7 +2594,7 @@ impl Machine for MachineARM64 {
         self.assembler.emit_cmp(Size::S32, tmp, src2)?;
         self.assembler
             .emit_bcond_label_far(Condition::Eq, integer_overflow)?;
-        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow)?;
         self.assembler.emit_sdiv(Size::S32, src1, src2, dest)?;
         if ret != dest {
@@ -2630,7 +2603,7 @@ impl Machine for MachineARM64 {
         for r in temps {
             self.release_gpr(r);
         }
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_urem32(
@@ -2639,7 +2612,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
         let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
@@ -2657,7 +2630,7 @@ impl Machine for MachineARM64 {
         };
         self.assembler
             .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)?;
-        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_udiv(Size::S32, src1, src2, dest)?;
         // unsigned remainder : src1 - (src1/src2)*src2
         self.assembler
@@ -2668,7 +2641,7 @@ impl Machine for MachineARM64 {
         for r in temps {
             self.release_gpr(r);
         }
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_srem32(
@@ -2677,7 +2650,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
         let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
@@ -2695,7 +2668,7 @@ impl Machine for MachineARM64 {
         };
         self.assembler
             .emit_cbz_label_far(Size::S32, src2, integer_division_by_zero)?;
-        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_sdiv(Size::S32, src1, src2, dest)?;
         // unsigned remainder : src1 - (src1/src2)*src2
         self.assembler
@@ -2706,7 +2679,7 @@ impl Machine for MachineARM64 {
         for r in temps {
             self.release_gpr(r);
         }
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_and32(
@@ -4762,7 +4735,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
         let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
@@ -4770,7 +4743,7 @@ impl Machine for MachineARM64 {
 
         self.assembler
             .emit_cbz_label(Size::S64, src2, integer_division_by_zero)?;
-        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_udiv(Size::S64, src1, src2, dest)?;
         if ret != dest {
             self.move_location(Size::S64, dest, ret)?;
@@ -4778,7 +4751,7 @@ impl Machine for MachineARM64 {
         for r in temps {
             self.release_gpr(r);
         }
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_sdiv64(
@@ -4788,7 +4761,7 @@ impl Machine for MachineARM64 {
         ret: Location,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
         let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
@@ -4812,7 +4785,7 @@ impl Machine for MachineARM64 {
         self.assembler.emit_cmp(Size::S64, tmp, src2)?;
         self.assembler
             .emit_bcond_label_far(Condition::Eq, integer_overflow)?;
-        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow)?;
         self.assembler.emit_sdiv(Size::S64, src1, src2, dest)?;
         if ret != dest {
@@ -4821,7 +4794,7 @@ impl Machine for MachineARM64 {
         for r in temps {
             self.release_gpr(r);
         }
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_urem64(
@@ -4830,7 +4803,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
         let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
@@ -4848,7 +4821,7 @@ impl Machine for MachineARM64 {
         };
         self.assembler
             .emit_cbz_label_far(Size::S64, src2, integer_division_by_zero)?;
-        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_udiv(Size::S64, src1, src2, dest)?;
         // unsigned remainder : src1 - (src1/src2)*src2
         self.assembler
@@ -4859,7 +4832,7 @@ impl Machine for MachineARM64 {
         for r in temps {
             self.release_gpr(r);
         }
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_srem64(
@@ -4868,7 +4841,7 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
         let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
@@ -4886,7 +4859,7 @@ impl Machine for MachineARM64 {
         };
         self.assembler
             .emit_cbz_label_far(Size::S64, src2, integer_division_by_zero)?;
-        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_sdiv(Size::S64, src1, src2, dest)?;
         // unsigned remainder : src1 - (src1/src2)*src2
         self.assembler
@@ -4897,7 +4870,7 @@ impl Machine for MachineARM64 {
         for r in temps {
             self.release_gpr(r);
         }
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_and64(

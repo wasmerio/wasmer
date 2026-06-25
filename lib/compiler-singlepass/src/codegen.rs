@@ -4,6 +4,7 @@ use crate::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 use crate::unwind::create_systemv_cie;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable, Writer};
+use wasmer_types::SourceLoc;
 
 use crate::{
     codegen_error,
@@ -125,6 +126,9 @@ pub struct FuncGen<'a, M: Machine> {
     /// DWARF debug info state, populated at finalize time from the instructions address map.
     #[cfg(feature = "unwind")]
     dwarf_state: Option<DwarfState>,
+
+    /// Source location which is a byte offset in the WASM stream.
+    src_loc: SourceLoc,
 }
 
 struct SpecialLabelSet {
@@ -612,7 +616,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     /// Set the source location of the Wasm to the given offset.
     pub fn set_srcloc(&mut self, offset: u32) {
-        self.machine.set_srcloc(offset);
+        self.src_loc = SourceLoc::new(offset);
     }
 
     fn get_location_released(
@@ -993,6 +997,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .join(format!("f{}.o", local_func_index.as_u32())),
             #[cfg(feature = "unwind")]
             dwarf_state: init_dwarf_unit(&function_name, module.name.as_deref()).ok(),
+            src_loc: SourceLoc::default(),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -2254,7 +2259,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             reloc_target,
                             &mut this.object,
                         )?;
-                        this.machine.mark_instruction_address_end(offset);
                         Ok(())
                     },
                     params.iter().copied(),
@@ -2486,7 +2490,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             gpr_for_call,
                             vmcaller_checked_anyfunc_func_ptr as i32,
                         ))?;
-                        this.machine.mark_instruction_address_end(offset);
                         Ok(())
                     },
                     params.iter().copied(),
@@ -5919,7 +5922,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
 
         let traps = self.machine.collect_trap_information();
-        let address_map = self.machine.instructions_address_map();
+        #[cfg(feature = "unwind")]
+        let address_map: Vec<wasmer_compiler::types::address_map::InstructionAddressMap> = vec![];
         let FinalizedAssembly {
             mut body,
             assembly_comments,

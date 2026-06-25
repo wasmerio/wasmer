@@ -23,7 +23,6 @@ use std::{
 };
 use wasmer_compiler::{
     types::{
-        address_map::InstructionAddressMap,
         function::FunctionBody,
         section::{CustomSection, CustomSectionProtection, SectionBody},
     },
@@ -97,12 +96,6 @@ pub struct MachineX86_64 {
     used_gprs: FixedBitSet,
     used_simd: FixedBitSet,
     trap_table: TrapTable,
-    /// Map from byte offset into wasm function to range of native instructions.
-    ///
-    // Ordered by increasing InstructionAddressMap::srcloc.
-    instructions_address_map: Vec<InstructionAddressMap>,
-    /// The source location for the current operator.
-    src_loc: u32,
     /// Vector of unwind operations with offset
     unwind_ops: Vec<(usize, UnwindOps<GPR, XMM>)>,
 }
@@ -119,8 +112,6 @@ impl MachineX86_64 {
             used_gprs: FixedBitSet::with_capacity(16),
             used_simd: FixedBitSet::with_capacity(16),
             trap_table: TrapTable::default(),
-            instructions_address_map: vec![],
-            src_loc: 0,
             unwind_ops: vec![],
         })
     }
@@ -383,7 +374,7 @@ impl MachineX86_64 {
         sz: Size,
         loc: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         self.assembler.emit_cmp(sz, Location::Imm32(0), loc)?;
         self.assembler
             .emit_jmp(Condition::Equal, integer_division_by_zero)?;
@@ -391,16 +382,13 @@ impl MachineX86_64 {
         match loc {
             Location::Imm64(_) | Location::Imm32(_) => {
                 self.move_location(sz, loc, Location::GPR(GPR::RCX))?; // must not be used during div (rax, rdx)
-                let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+                self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
                 op(&mut self.assembler, sz, Location::GPR(GPR::RCX))?;
-                self.mark_instruction_address_end(offset);
-                Ok(offset)
+                Ok(())
             }
             _ => {
-                let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
-                op(&mut self.assembler, sz, loc)?;
-                self.mark_instruction_address_end(offset);
-                Ok(offset)
+                self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+                op(&mut self.assembler, sz, loc)
             }
         }
     }
@@ -2119,21 +2107,15 @@ impl Machine for MachineX86_64 {
         )
     }
 
-    fn set_srcloc(&mut self, offset: u32) {
-        self.src_loc = offset;
-    }
-
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
         for i in begin..end {
             self.trap_table.offset_to_code.insert(i, code);
         }
-        self.mark_instruction_address_end(begin);
     }
 
     fn mark_address_with_trap_code(&mut self, code: TrapCode) {
         let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
-        self.mark_instruction_address_end(offset);
     }
 
     fn mark_instruction_with_trap_code(&mut self, code: TrapCode) -> usize {
@@ -2142,20 +2124,11 @@ impl Machine for MachineX86_64 {
         offset
     }
 
-    fn mark_instruction_address_end(&mut self, begin: usize) {
-        self.instructions_address_map.push(InstructionAddressMap {
-            srcloc: SourceLoc::new(self.src_loc),
-            code_offset: begin,
-            code_len: self.assembler.get_offset().0 - begin,
-        });
-    }
-
     fn insert_stackoverflow(&mut self) {
         let offset = 0;
         self.trap_table
             .offset_to_code
             .insert(offset, TrapCode::StackOverflow);
-        self.mark_instruction_address_end(offset);
     }
 
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
@@ -2168,10 +2141,6 @@ impl Machine for MachineX86_64 {
                 trap_code: code,
             })
             .collect()
-    }
-
-    fn instructions_address_map(&self) -> Vec<InstructionAddressMap> {
-        self.instructions_address_map.clone()
     }
 
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
@@ -2626,7 +2595,6 @@ impl Machine for MachineX86_64 {
         // this will emit an 40 0F B9 Cx opcode, with x the payload
         let offset = self.assembler.get_offset().0;
         self.assembler.emit_ud1_payload(v)?;
-        self.mark_instruction_address_end(offset);
         Ok(())
     }
 
@@ -2834,13 +2802,13 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler
             .emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX))?;
-        let offset = self.emit_relaxed_xdiv(
+        self.emit_relaxed_xdiv(
             AssemblerX64::emit_div,
             Size::S32,
             loc_b,
@@ -2848,7 +2816,7 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret)?;
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_sdiv32(
@@ -2858,12 +2826,12 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler.emit_cdq()?;
-        let offset = self.emit_relaxed_xdiv(
+        self.emit_relaxed_xdiv(
             AssemblerX64::emit_idiv,
             Size::S32,
             loc_b,
@@ -2871,7 +2839,7 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret)?;
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_urem32(
@@ -2880,13 +2848,13 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler
             .emit_xor(Size::S32, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX))?;
-        let offset = self.emit_relaxed_xdiv(
+        self.emit_relaxed_xdiv(
             AssemblerX64::emit_div,
             Size::S32,
             loc_b,
@@ -2894,7 +2862,7 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret)?;
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_srem32(
@@ -2903,7 +2871,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
         let end = self.assembler.get_label();
@@ -2919,7 +2887,7 @@ impl Machine for MachineX86_64 {
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler.emit_cdq()?;
-        let offset = self.emit_relaxed_xdiv(
+        self.emit_relaxed_xdiv(
             AssemblerX64::emit_idiv,
             Size::S32,
             loc_b,
@@ -2929,7 +2897,7 @@ impl Machine for MachineX86_64 {
             .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret)?;
 
         self.emit_label(end)?;
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_and32(
@@ -4550,13 +4518,13 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler
             .emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX))?;
-        let offset = self.emit_relaxed_xdiv(
+        self.emit_relaxed_xdiv(
             AssemblerX64::emit_div,
             Size::S64,
             loc_b,
@@ -4564,7 +4532,7 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret)?;
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_sdiv64(
@@ -4574,12 +4542,12 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
         _integer_overflow: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler.emit_cqo()?;
-        let offset = self.emit_relaxed_xdiv(
+        self.emit_relaxed_xdiv(
             AssemblerX64::emit_idiv,
             Size::S64,
             loc_b,
@@ -4587,7 +4555,7 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret)?;
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_urem64(
@@ -4596,13 +4564,13 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler
             .emit_xor(Size::S64, Location::GPR(GPR::RDX), Location::GPR(GPR::RDX))?;
-        let offset = self.emit_relaxed_xdiv(
+        self.emit_relaxed_xdiv(
             AssemblerX64::emit_div,
             Size::S64,
             loc_b,
@@ -4610,7 +4578,7 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret)?;
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_srem64(
@@ -4619,7 +4587,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError> {
+    ) -> Result<(), CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
         let end = self.assembler.get_label();
@@ -4635,7 +4603,7 @@ impl Machine for MachineX86_64 {
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler.emit_cqo()?;
-        let offset = self.emit_relaxed_xdiv(
+        self.emit_relaxed_xdiv(
             AssemblerX64::emit_idiv,
             Size::S64,
             loc_b,
@@ -4645,7 +4613,7 @@ impl Machine for MachineX86_64 {
             .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret)?;
 
         self.emit_label(end)?;
-        Ok(offset)
+        Ok(())
     }
 
     fn emit_binop_and64(

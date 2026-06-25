@@ -15,7 +15,6 @@ use std::{
 };
 use wasmer_compiler::{
     types::{
-        address_map::InstructionAddressMap,
         function::FunctionBody,
         relocation::{Relocation, RelocationTarget},
         section::CustomSection,
@@ -151,23 +150,16 @@ pub trait Machine {
     fn pop_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<(), CompileError>;
     /// Return a rounded stack adjustment value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize;
-    /// Set the source location of the Wasm to the given offset.
-    fn set_srcloc(&mut self, offset: u32);
     /// Marks each address in the code range emitted by `f` with the trap code `code`.
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize);
     /// Marks one address as trappable with trap code `code`.
     fn mark_address_with_trap_code(&mut self, code: TrapCode);
     /// Marks the instruction as trappable with trap code `code`. return "begin" offset
     fn mark_instruction_with_trap_code(&mut self, code: TrapCode) -> usize;
-    /// Pushes the instruction to the address map, calculating the offset from a
-    /// provided beginning address.
-    fn mark_instruction_address_end(&mut self, begin: usize);
     /// Insert a StackOverflow (at offset 0)
     fn insert_stackoverflow(&mut self);
     /// Get all current TrapInformation
     fn collect_trap_information(&self) -> Vec<TrapInformation>;
-    // Get all instructions address map
-    fn instructions_address_map(&self) -> Vec<InstructionAddressMap>;
     /// Memory location for a local on the stack
     /// Like Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)) for x86_64
     fn local_on_stack(&mut self, stack_offset: i32) -> Location<Self::GPR, Self::SIMD>;
@@ -451,7 +443,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError>;
+    ) -> Result<(), CompileError>;
     /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_sdiv32(
         &mut self,
@@ -460,7 +452,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CompileError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_urem32(
         &mut self,
@@ -468,7 +460,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError>;
+    ) -> Result<(), CompileError>;
     /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_srem32(
         &mut self,
@@ -476,7 +468,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError>;
+    ) -> Result<(), CompileError>;
     /// And with location directly from the stack
     fn emit_binop_and32(
         &mut self,
@@ -1136,7 +1128,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError>;
+    ) -> Result<(), CompileError>;
     /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_sdiv64(
         &mut self,
@@ -1145,7 +1137,7 @@ pub trait Machine {
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
         integer_overflow: Label,
-    ) -> Result<usize, CompileError>;
+    ) -> Result<(), CompileError>;
     /// Unsigned Reminder (of a division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_urem64(
         &mut self,
@@ -1153,7 +1145,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError>;
+    ) -> Result<(), CompileError>;
     /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_srem64(
         &mut self,
@@ -1161,7 +1153,7 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-    ) -> Result<usize, CompileError>;
+    ) -> Result<(), CompileError>;
     /// And with location directly from the stack
     fn emit_binop_and64(
         &mut self,
