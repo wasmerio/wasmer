@@ -2,6 +2,7 @@ use anyhow::{Context, Result, bail};
 use std::{
     collections::{HashMap, VecDeque},
     fmt::Display,
+    mem::MaybeUninit,
     sync::{Arc, Mutex},
 };
 
@@ -14,6 +15,14 @@ use wasmer_api::{
 /// Import module name used for host-provided WebAssembly C API bindings.
 pub const WASM_C_API_MODULE_NAME: &str = "wasm_c_api_v0";
 const WASM_C_API_MODULE_PREFIX: &str = "wasm_c_api_v";
+
+const INVALID_HANDLE: i32 = 0;
+const BOOL_FALSE: i32 = 0;
+const BOOL_TRUE: i32 = 1;
+const INVALID_KIND: i32 = -1;
+const WASM_VEC_SIZE: usize = 8;
+const WASM_VEC_DATA_OFFSET: i32 = 4;
+const WASM_C_API_SHADOW_COPY_CHUNK_SIZE: usize = 64 * 1024;
 
 /// Version of the host-provided WebAssembly C API import namespace.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -128,13 +137,10 @@ impl WasmCapiSession {
         }
 
         let func_env = FunctionEnv::new(&mut *store, WasmCapiEnv::default());
-        {
-            let mut guard = self
-                .func_env
-                .lock()
-                .expect("poisoned WasmCapiSession mutex");
-            *guard = Some(func_env.clone());
-        }
+        *self
+            .func_env
+            .lock()
+            .expect("poisoned WasmCapiSession mutex") = Some(func_env.clone());
         register_wasm_c_api_imports(store, &func_env, io);
 
         if let Some(memory_type) = self.imported_memory_type {
@@ -208,6 +214,16 @@ impl WasmCapiSession {
             }
         }
 
+        for export_name in ["unofficial_napi_guest_free", "free"] {
+            if let Ok(free) = instance
+                .exports
+                .get_typed_function::<i32, ()>(&store, export_name)
+            {
+                func_env.as_mut(&mut *store).free_fn = Some(free);
+                break;
+            }
+        }
+
         if let Ok(table) = instance.exports.get_table("__indirect_function_table") {
             func_env.as_mut(&mut *store).table = Some(table.clone());
         }
@@ -229,10 +245,25 @@ impl WasmCapiSession {
     }
 }
 
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct ModuleKey(String);
+
+impl ModuleKey {
+    fn new(module: &Module) -> Self {
+        Self(module.info().id.id())
+    }
+}
+
 /// Runtime hooks that provide `wasm_c_api_v0` imports for WASIX guests.
 #[derive(Clone, Default)]
 pub struct WasmCapiRuntimeHooks {
-    sessions: Arc<Mutex<HashMap<usize, VecDeque<WasmCapiSession>>>>,
+    /// Pending per-instantiation sessions, grouped by compiled module.
+    ///
+    /// `add_imports` creates host functions before instantiation, while
+    /// `configure_instance` can only discover exports like guest malloc/free
+    /// after instantiation. The queue preserves that pairing when the same
+    /// module is instantiated multiple times.
+    sessions: Arc<Mutex<HashMap<ModuleKey, VecDeque<WasmCapiSession>>>>,
 }
 
 impl WasmCapiRuntimeHooks {
@@ -241,8 +272,8 @@ impl WasmCapiRuntimeHooks {
         Self::default()
     }
 
-    fn module_key(module: &Module) -> usize {
-        module as *const Module as usize
+    fn module_key(module: &Module) -> ModuleKey {
+        ModuleKey::new(module)
     }
 
     /// Adds `wasm_c_api_v0` imports when `module` requests them.
@@ -303,15 +334,27 @@ impl WasmCapiRuntimeHooks {
     }
 }
 
+/// Per-instance state captured by every imported `wasm_c_api_v0` function.
+///
+/// Handles in `state` refer to host-side Wasmer objects. Pointers passed over
+/// the ABI always refer to the guest module memory in `memory`.
 #[derive(Default)]
 struct WasmCapiEnv {
+    /// Guest linear memory used for C ABI structs and buffers.
     memory: Option<Memory>,
+    /// Guest allocator used when the host must return C API-owned buffers.
     malloc_fn: Option<TypedFunction<i32, i32>>,
+    /// Optional guest deallocator for replacing host-created guest buffers.
+    free_fn: Option<TypedFunction<i32, ()>>,
+    /// Guest indirect function table used for wasm_func_new_with_env callbacks.
     table: Option<Table>,
+    /// Host-side object and shadow-memory handles visible to the guest as i32s.
     state: WasmCapiState,
+    /// Self-reference needed when creating host functions that call guest callbacks.
     func_env: Option<FunctionEnv<WasmCapiEnv>>,
 }
 
+// Numeric constants copied from the WebAssembly C API headers.
 const WASM_I32: u8 = 0;
 const WASM_I64: u8 = 1;
 const WASM_F32: u8 = 2;
@@ -366,36 +409,60 @@ enum WasmObject {
     Trap(String),
 }
 
-#[derive(Default)]
+/// A guest-visible shadow of a Wasmer memory data pointer.
+#[derive(Clone, Copy)]
+struct MemoryShadow {
+    /// Guest allocation returned from `wasm_memory_data`.
+    guest_ptr: u32,
+    /// Number of memory bytes mirrored into `guest_ptr`.
+    len: usize,
+}
+
+/// Host-side storage for opaque WebAssembly C API objects.
 struct WasmCapiState {
-    next_handle: u32,
-    objects: HashMap<u32, WasmObject>,
-    memory_shadows: HashMap<u32, (u32, usize)>,
+    /// Next positive i32 handle to expose to the guest.
+    next_handle: i32,
+    /// Opaque objects addressed by guest-visible handles.
+    objects: HashMap<i32, WasmObject>,
+    /// Guest shadow allocations used to approximate `wasm_memory_data`.
+    memory_shadows: HashMap<i32, MemoryShadow>,
+}
+
+impl Default for WasmCapiState {
+    fn default() -> Self {
+        Self {
+            next_handle: 1,
+            objects: HashMap::new(),
+            memory_shadows: HashMap::new(),
+        }
+    }
 }
 
 impl WasmCapiState {
     fn insert(&mut self, object: WasmObject) -> i32 {
-        let mut handle = self.next_handle.max(1);
-        while self.objects.contains_key(&handle) {
-            handle = handle.saturating_add(1).max(1);
+        let handle = self.next_handle;
+        if handle <= INVALID_HANDLE {
+            return INVALID_HANDLE;
         }
-        self.next_handle = handle.saturating_add(1).max(1);
+
+        self.next_handle = handle.checked_add(1).unwrap_or(INVALID_HANDLE);
         self.objects.insert(handle, object);
-        handle as i32
+        handle
     }
 
     fn get(&self, handle: i32) -> Option<&WasmObject> {
-        if handle <= 0 {
+        if handle <= INVALID_HANDLE {
             return None;
         }
-        self.objects.get(&(handle as u32))
+        self.objects.get(&handle)
     }
 
-    fn remove(&mut self, handle: i32) {
-        if handle > 0 {
-            self.objects.remove(&(handle as u32));
-            self.memory_shadows.remove(&(handle as u32));
+    fn remove(&mut self, handle: i32) -> Option<MemoryShadow> {
+        if handle > INVALID_HANDLE {
+            self.objects.remove(&handle);
+            return self.memory_shadows.remove(&handle);
         }
+        None
     }
 }
 
@@ -411,36 +478,105 @@ fn write_guest_u32(env: &mut FunctionEnvMut<WasmCapiEnv>, guest_ptr: u32, val: u
     write_guest_bytes(env, guest_ptr, &val.to_le_bytes())
 }
 
+fn write_guest_u32_offset(
+    env: &mut FunctionEnvMut<WasmCapiEnv>,
+    guest_ptr: u32,
+    offset: u32,
+    val: u32,
+) -> bool {
+    let Some(ptr) = guest_ptr.checked_add(offset) else {
+        return false;
+    };
+    write_guest_u32(env, ptr, val)
+}
+
+fn write_guest_bytes_offset(
+    env: &mut FunctionEnvMut<WasmCapiEnv>,
+    guest_ptr: u32,
+    offset: u32,
+    data: &[u8],
+) -> bool {
+    let Some(ptr) = guest_ptr.checked_add(offset) else {
+        return false;
+    };
+    write_guest_bytes(env, ptr, data)
+}
+
+fn guest_ptr_u32(guest_ptr: i32) -> Option<u32> {
+    u32::try_from(guest_ptr).ok()
+}
+
+fn non_null_guest_ptr(guest_ptr: i32) -> Option<u32> {
+    let guest_ptr = guest_ptr_u32(guest_ptr)?;
+    (guest_ptr != 0).then_some(guest_ptr)
+}
+
+fn guest_ptr_with_offset(guest_ptr: i32, offset: i32) -> Option<i32> {
+    guest_ptr
+        .checked_add(offset)
+        .filter(|ptr| *ptr >= INVALID_HANDLE)
+}
+
 fn read_guest_bytes(
     env: &mut FunctionEnvMut<WasmCapiEnv>,
     guest_ptr: i32,
     len: usize,
 ) -> Option<Vec<u8>> {
-    if guest_ptr < 0 {
-        return None;
+    let guest_ptr = guest_ptr_u32(guest_ptr)?;
+    if len == 0 {
+        return Some(Vec::new());
     }
+
     let (state, store) = env.data_and_store_mut();
     let memory = state.memory.clone()?;
     let view = memory.view(&store);
-    let mut out = vec![0u8; len];
-    view.read(guest_ptr as u64, &mut out).ok()?;
-    Some(out)
+
+    let mut out = Vec::new();
+    out.try_reserve_exact(len).ok()?;
+    out.resize_with(len, MaybeUninit::uninit);
+    let initialized = view.read_uninit(guest_ptr as u64, &mut out).ok()?;
+    Some(initialized.to_vec())
 }
 
-fn allocate_guest_bytes(env: &mut FunctionEnvMut<WasmCapiEnv>, data: &[u8]) -> Option<u32> {
+fn allocate_guest_memory(env: &mut FunctionEnvMut<WasmCapiEnv>, len: usize) -> Option<u32> {
+    if len == 0 {
+        return Some(0);
+    }
+
     let malloc_fn = env.data().malloc_fn.clone()?;
-    let len = i32::try_from(data.len()).ok()?;
+    let len = i32::try_from(len).ok()?;
     let guest_ptr: i32 = {
         let (_, mut store_ref) = env.data_and_store_mut();
         malloc_fn.call(&mut store_ref, len).ok()?
     };
-    if guest_ptr <= 0 {
+    if guest_ptr <= INVALID_HANDLE {
         return None;
     }
-    if !write_guest_bytes(env, guest_ptr as u32, data) {
+    u32::try_from(guest_ptr).ok()
+}
+
+fn free_guest_memory(env: &mut FunctionEnvMut<WasmCapiEnv>, guest_ptr: u32) {
+    if guest_ptr == 0 {
+        return;
+    }
+
+    let Some(free_fn) = env.data().free_fn.clone() else {
+        return;
+    };
+    let Ok(guest_ptr) = i32::try_from(guest_ptr) else {
+        return;
+    };
+    let (_, mut store_ref) = env.data_and_store_mut();
+    let _ = free_fn.call(&mut store_ref, guest_ptr);
+}
+
+fn allocate_guest_bytes(env: &mut FunctionEnvMut<WasmCapiEnv>, data: &[u8]) -> Option<u32> {
+    let guest_ptr = allocate_guest_memory(env, data.len())?;
+    if !data.is_empty() && !write_guest_bytes(env, guest_ptr, data) {
+        free_guest_memory(env, guest_ptr);
         return None;
     }
-    Some(guest_ptr as u32)
+    Some(guest_ptr)
 }
 
 fn read_u32(env: &mut FunctionEnvMut<WasmCapiEnv>, ptr: i32) -> Option<u32> {
@@ -459,12 +595,35 @@ fn read_u64(env: &mut FunctionEnvMut<WasmCapiEnv>, ptr: i32) -> Option<u64> {
     ]))
 }
 
+fn write_guest_vec_header(
+    env: &mut FunctionEnvMut<WasmCapiEnv>,
+    vec_ptr: u32,
+    len: u32,
+    data_ptr: u32,
+) -> bool {
+    write_guest_u32(env, vec_ptr, len)
+        && write_guest_u32_offset(env, vec_ptr, WASM_VEC_DATA_OFFSET as u32, data_ptr)
+}
+
+fn allocate_guest_vec_header(
+    env: &mut FunctionEnvMut<WasmCapiEnv>,
+    len: u32,
+    data_ptr: u32,
+) -> Option<u32> {
+    let vec_ptr = allocate_guest_memory(env, WASM_VEC_SIZE)?;
+    if !write_guest_vec_header(env, vec_ptr, len, data_ptr) {
+        free_guest_memory(env, vec_ptr);
+        return None;
+    }
+    Some(vec_ptr)
+}
+
 fn read_byte_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32) -> Option<Vec<u8>> {
-    if vec_ptr <= 0 {
+    if vec_ptr <= INVALID_HANDLE {
         return None;
     }
     let size = read_u32(env, vec_ptr)? as usize;
-    let data_ptr = read_i32(env, vec_ptr + 4)?;
+    let data_ptr = read_i32(env, guest_ptr_with_offset(vec_ptr, WASM_VEC_DATA_OFFSET)?)?;
     if size == 0 {
         return Some(Vec::new());
     }
@@ -472,9 +631,13 @@ fn read_byte_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32) -> Option<
 }
 
 fn write_byte_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32, bytes: &[u8]) -> bool {
-    if vec_ptr <= 0 {
+    let Some(vec_ptr) = non_null_guest_ptr(vec_ptr) else {
         return false;
-    }
+    };
+    let Ok(len) = u32::try_from(bytes.len()) else {
+        return false;
+    };
+
     let data_ptr = if bytes.is_empty() {
         0
     } else {
@@ -483,49 +646,86 @@ fn write_byte_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32, bytes: &[
         };
         ptr
     };
-    write_guest_u32(env, vec_ptr as u32, bytes.len() as u32)
-        && write_guest_u32(env, vec_ptr as u32 + 4, data_ptr)
+    if !write_guest_vec_header(env, vec_ptr, len, data_ptr) {
+        free_guest_memory(env, data_ptr);
+        return false;
+    }
+    true
 }
 
 fn allocate_name(env: &mut FunctionEnvMut<WasmCapiEnv>, name: &str) -> i32 {
-    let mut bytes = Vec::with_capacity(8);
+    let Ok(len) = u32::try_from(name.len()) else {
+        return INVALID_HANDLE;
+    };
     let data_ptr = if name.is_empty() {
         0
     } else {
         match allocate_guest_bytes(env, name.as_bytes()) {
             Some(ptr) => ptr,
-            None => return 0,
+            None => return INVALID_HANDLE,
         }
     };
-    bytes.extend_from_slice(&(name.len() as u32).to_le_bytes());
-    bytes.extend_from_slice(&data_ptr.to_le_bytes());
-    allocate_guest_bytes(env, &bytes).unwrap_or(0) as i32
+    match allocate_guest_vec_header(env, len, data_ptr) {
+        Some(ptr) => ptr as i32,
+        None => {
+            free_guest_memory(env, data_ptr);
+            INVALID_HANDLE
+        }
+    }
 }
 
 fn write_handle_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, out_ptr: i32, handles: &[i32]) -> bool {
-    if out_ptr <= 0 {
+    let Some(out_ptr) = non_null_guest_ptr(out_ptr) else {
         return false;
-    }
-    let mut bytes = Vec::with_capacity(handles.len() * 4);
-    for handle in handles {
-        bytes.extend_from_slice(&(*handle as u32).to_le_bytes());
-    }
-    let data_ptr = if bytes.is_empty() {
+    };
+    let Ok(len) = u32::try_from(handles.len()) else {
+        return false;
+    };
+    let Some(byte_len) = handles.len().checked_mul(4) else {
+        return false;
+    };
+
+    let data_ptr = if handles.is_empty() {
         0
     } else {
-        let Some(ptr) = allocate_guest_bytes(env, &bytes) else {
+        let Some(ptr) = allocate_guest_memory(env, byte_len) else {
             return false;
         };
+        for (index, handle) in handles.iter().enumerate() {
+            let Ok(handle) = u32::try_from(*handle) else {
+                free_guest_memory(env, ptr);
+                return false;
+            };
+            let Some(offset) = u32::try_from(index)
+                .ok()
+                .and_then(|index| index.checked_mul(4))
+            else {
+                free_guest_memory(env, ptr);
+                return false;
+            };
+            if !write_guest_u32_offset(env, ptr, offset, handle) {
+                free_guest_memory(env, ptr);
+                return false;
+            }
+        }
         ptr
     };
-    write_guest_u32(env, out_ptr as u32, handles.len() as u32)
-        && write_guest_u32(env, out_ptr as u32 + 4, data_ptr)
+
+    if !write_guest_vec_header(env, out_ptr, len, data_ptr) {
+        free_guest_memory(env, data_ptr);
+        return false;
+    }
+    true
 }
 
 fn read_handle_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32) -> Option<Vec<i32>> {
+    if vec_ptr <= INVALID_HANDLE {
+        return None;
+    }
     let size = read_u32(env, vec_ptr)? as usize;
-    let data_ptr = read_i32(env, vec_ptr + 4)?;
-    let bytes = read_guest_bytes(env, data_ptr, size * 4)?;
+    let data_ptr = read_i32(env, guest_ptr_with_offset(vec_ptr, WASM_VEC_DATA_OFFSET)?)?;
+    let byte_len = size.checked_mul(4)?;
+    let bytes = read_guest_bytes(env, data_ptr, byte_len)?;
     let mut out = Vec::with_capacity(size);
     for chunk in bytes.chunks_exact(4) {
         out.push(u32::from_le_bytes([chunk[0], chunk[1], chunk[2], chunk[3]]) as i32);
@@ -533,16 +733,16 @@ fn read_handle_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32) -> Optio
     Some(out)
 }
 
-fn type_to_wasm_kind(ty: Type) -> u8 {
-    match ty {
+fn type_to_wasm_kind(ty: Type) -> Option<u8> {
+    Some(match ty {
         Type::I32 => WASM_I32,
         Type::I64 => WASM_I64,
         Type::F32 => WASM_F32,
         Type::F64 => WASM_F64,
         Type::FuncRef => WASM_FUNCREF,
         Type::ExternRef => WASM_EXTERNREF,
-        _ => WASM_EXTERNREF,
-    }
+        Type::V128 | Type::ExceptionRef => return None,
+    })
 }
 
 fn wasm_kind_to_type(kind: i32) -> Option<Type> {
@@ -563,7 +763,7 @@ fn extern_kind(ty: &ExternType) -> i32 {
         ExternType::Global(_) => WASM_EXTERN_GLOBAL,
         ExternType::Table(_) => WASM_EXTERN_TABLE,
         ExternType::Memory(_) => WASM_EXTERN_MEMORY,
-        _ => -1,
+        ExternType::Tag(_) => INVALID_KIND,
     }
 }
 
@@ -584,42 +784,44 @@ fn read_wasm_val(env: &mut FunctionEnvMut<WasmCapiEnv>, val_ptr: i32, ty: Type) 
             let raw = read_u64(env, val_ptr + WASM_VAL_PAYLOAD_OFFSET as i32)?;
             Some(Value::F64(f64::from_bits(raw)))
         }
-        Type::FuncRef => Some(Value::FuncRef(None)),
-        Type::ExternRef => Some(Value::ExternRef(None)),
-        _ => None,
+        // Reference values require object-handle marshalling that this import
+        // bridge does not implement yet.
+        Type::FuncRef | Type::ExternRef | Type::V128 | Type::ExceptionRef => None,
     }
 }
 
 fn write_wasm_val(env: &mut FunctionEnvMut<WasmCapiEnv>, val_ptr: i32, value: &Value) -> bool {
-    if val_ptr <= 0 {
+    let Some(val_ptr) = non_null_guest_ptr(val_ptr) else {
         return false;
-    }
-    let kind = type_to_wasm_kind(value.ty());
-    if !write_guest_bytes(env, val_ptr as u32, &[kind]) {
+    };
+    let Some(kind) = type_to_wasm_kind(value.ty()) else {
+        return false;
+    };
+    if !write_guest_bytes(env, val_ptr, &[kind]) {
         return false;
     }
     match value {
-        Value::I32(v) => write_guest_bytes(
+        Value::I32(v) => {
+            write_guest_bytes_offset(env, val_ptr, WASM_VAL_PAYLOAD_OFFSET, &v.to_le_bytes())
+        }
+        Value::I64(v) => {
+            write_guest_bytes_offset(env, val_ptr, WASM_VAL_PAYLOAD_OFFSET, &v.to_le_bytes())
+        }
+        Value::F32(v) => write_guest_bytes_offset(
             env,
-            val_ptr as u32 + WASM_VAL_PAYLOAD_OFFSET,
-            &v.to_le_bytes(),
-        ),
-        Value::I64(v) => write_guest_bytes(
-            env,
-            val_ptr as u32 + WASM_VAL_PAYLOAD_OFFSET,
-            &v.to_le_bytes(),
-        ),
-        Value::F32(v) => write_guest_bytes(
-            env,
-            val_ptr as u32 + WASM_VAL_PAYLOAD_OFFSET,
+            val_ptr,
+            WASM_VAL_PAYLOAD_OFFSET,
             &v.to_bits().to_le_bytes(),
         ),
-        Value::F64(v) => write_guest_bytes(
+        Value::F64(v) => write_guest_bytes_offset(
             env,
-            val_ptr as u32 + WASM_VAL_PAYLOAD_OFFSET,
+            val_ptr,
+            WASM_VAL_PAYLOAD_OFFSET,
             &v.to_bits().to_le_bytes(),
         ),
-        _ => write_guest_u32(env, val_ptr as u32 + WASM_VAL_PAYLOAD_OFFSET, 0),
+        // Reference values are intentionally rejected above until the bridge
+        // can preserve them as handles instead of silently turning them null.
+        Value::FuncRef(_) | Value::ExternRef(_) | Value::V128(_) | Value::ExceptionRef(_) => false,
     }
 }
 
@@ -631,7 +833,7 @@ fn read_limits(
         return None;
     }
     let min = read_u32(env, limits_ptr)?;
-    let max = read_u32(env, limits_ptr + 4)?;
+    let max = read_u32(env, guest_ptr_with_offset(limits_ptr, 4)?)?;
     let max = if max == u32::MAX { None } else { Some(max) };
     Some((min, max))
 }
@@ -655,7 +857,9 @@ fn insert(env: &mut FunctionEnvMut<WasmCapiEnv>, object: WasmObject) -> i32 {
 }
 
 fn delete_handle(mut env: FunctionEnvMut<WasmCapiEnv>, handle: i32) {
-    env.data_mut().state.remove(handle);
+    if let Some(shadow) = env.data_mut().state.remove(handle) {
+        free_guest_memory(&mut env, shadow.guest_ptr);
+    }
 }
 
 fn wasm_engine_new(mut env: FunctionEnvMut<WasmCapiEnv>) -> i32 {
@@ -775,7 +979,7 @@ fn wasm_exporttype_type(mut env: FunctionEnvMut<WasmCapiEnv>, export_handle: i32
 fn wasm_externtype_kind(env: FunctionEnvMut<WasmCapiEnv>, type_handle: i32) -> i32 {
     match env.data().state.get(type_handle) {
         Some(WasmObject::ExternType(ty)) => extern_kind(ty),
-        _ => -1,
+        _ => INVALID_KIND,
     }
 }
 
@@ -803,12 +1007,12 @@ fn write_valtype_vec_for_types(env: &mut FunctionEnvMut<WasmCapiEnv>, types: &[T
         .iter()
         .map(|ty| insert(env, WasmObject::ValType(*ty)))
         .collect();
-    let vec_bytes = vec![0u8; 8];
-    let Some(vec_ptr) = allocate_guest_bytes(env, &vec_bytes) else {
-        return 0;
+    let Some(vec_ptr) = allocate_guest_vec_header(env, 0, 0) else {
+        return INVALID_HANDLE;
     };
     if !write_handle_vec(env, vec_ptr as i32, &handles) {
-        return 0;
+        free_guest_memory(env, vec_ptr);
+        return INVALID_HANDLE;
     }
     vec_ptr as i32
 }
@@ -838,8 +1042,10 @@ fn wasm_valtype_new(mut env: FunctionEnvMut<WasmCapiEnv>, kind: i32) -> i32 {
 
 fn wasm_valtype_kind(env: FunctionEnvMut<WasmCapiEnv>, valtype_handle: i32) -> i32 {
     match env.data().state.get(valtype_handle) {
-        Some(WasmObject::ValType(ty)) => type_to_wasm_kind(*ty) as i32,
-        _ => -1,
+        Some(WasmObject::ValType(ty)) => type_to_wasm_kind(*ty)
+            .map(i32::from)
+            .unwrap_or(INVALID_KIND),
+        _ => INVALID_KIND,
     }
 }
 
@@ -873,15 +1079,19 @@ fn wasm_memory_size(env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> i32
 }
 
 fn wasm_memory_grow(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32, delta: i32) -> i32 {
-    if delta < 0 {
-        return 0;
-    }
+    let Ok(delta) = u32::try_from(delta) else {
+        return BOOL_FALSE;
+    };
     let memory = match env.data().state.get(memory_handle) {
         Some(WasmObject::Memory(memory)) => memory.clone(),
         Some(WasmObject::Extern(WasmExtern::Memory(memory))) => memory.clone(),
-        _ => return 0,
+        _ => return BOOL_FALSE,
     };
-    memory.grow(&mut env, Pages(delta as u32)).is_ok() as i32
+    if memory.grow(&mut env, Pages(delta)).is_ok() {
+        BOOL_TRUE
+    } else {
+        BOOL_FALSE
+    }
 }
 
 fn memory_from_handle(env: &FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> Option<Memory> {
@@ -892,96 +1102,175 @@ fn memory_from_handle(env: &FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> 
     }
 }
 
+fn copy_wasmer_memory_to_guest(
+    env: &mut FunctionEnvMut<WasmCapiEnv>,
+    memory: &Memory,
+    guest_ptr: u32,
+    len: usize,
+) -> bool {
+    let mut offset = 0usize;
+    while offset < len {
+        let chunk_len = WASM_C_API_SHADOW_COPY_CHUNK_SIZE.min(len - offset);
+        let mut bytes = vec![0u8; chunk_len];
+        {
+            let view = memory.view(&*env);
+            if view.read(offset as u64, &mut bytes).is_err() {
+                return false;
+            }
+        }
+        let Some(offset_u32) = u32::try_from(offset).ok() else {
+            return false;
+        };
+        let Some(dst) = guest_ptr.checked_add(offset_u32) else {
+            return false;
+        };
+        if !write_guest_bytes(env, dst, &bytes) {
+            return false;
+        }
+        let Some(next_offset) = offset.checked_add(chunk_len) else {
+            return false;
+        };
+        offset = next_offset;
+    }
+    true
+}
+
+fn copy_guest_memory_to_wasmer(
+    env: &mut FunctionEnvMut<WasmCapiEnv>,
+    guest_ptr: u32,
+    memory: &Memory,
+    len: usize,
+) -> bool {
+    let mut offset = 0usize;
+    while offset < len {
+        let chunk_len = WASM_C_API_SHADOW_COPY_CHUNK_SIZE.min(len - offset);
+        let Some(offset_u32) = u32::try_from(offset).ok() else {
+            return false;
+        };
+        let Some(src) = guest_ptr.checked_add(offset_u32) else {
+            return false;
+        };
+        let Ok(src) = i32::try_from(src) else {
+            return false;
+        };
+        let Some(bytes) = read_guest_bytes(env, src, chunk_len) else {
+            return false;
+        };
+        let view = memory.view(&*env);
+        if view.write(offset as u64, &bytes).is_err() {
+            return false;
+        }
+        let Some(next_offset) = offset.checked_add(chunk_len) else {
+            return false;
+        };
+        offset = next_offset;
+    }
+    true
+}
+
 fn wasm_memory_data_size(env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> i32 {
     let Some(memory) = memory_from_handle(&env, memory_handle) else {
-        return 0;
+        return INVALID_HANDLE;
     };
+    if memory.ty(&env).shared {
+        return 0;
+    }
     i32::try_from(memory.view(&env).data_size()).unwrap_or(0)
 }
 
 fn wasm_memory_data(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> i32 {
     let Some(memory) = memory_from_handle(&env, memory_handle) else {
-        return 0;
+        return INVALID_HANDLE;
+    };
+
+    // `wasm_memory_data` normally exposes a direct host pointer. In this
+    // guest-imported C API bridge, the guest cannot safely receive a host
+    // pointer, so we return a guest allocation that shadows the Wasmer memory.
+    // Shared memories cannot be coherently represented by such a snapshot.
+    if memory.ty(&env).shared {
+        return INVALID_HANDLE;
     };
     let view = memory.view(&env);
     let Ok(size) = usize::try_from(view.data_size()) else {
-        return 0;
+        return INVALID_HANDLE;
     };
     if size == 0 {
-        return 0;
+        return INVALID_HANDLE;
     }
-    let mut bytes = vec![0u8; size];
-    if view.read(0, &mut bytes).is_err() {
-        return 0;
-    }
-    let key = memory_handle as u32;
-    let existing = env.data().state.memory_shadows.get(&key).copied();
-    let ptr = if let Some((ptr, len)) = existing {
-        if len >= size {
-            ptr
+    drop(view);
+
+    let existing = env.data().state.memory_shadows.get(&memory_handle).copied();
+    let mut allocated_new = false;
+    let shadow = if let Some(shadow) = existing {
+        if shadow.len >= size {
+            MemoryShadow {
+                guest_ptr: shadow.guest_ptr,
+                len: size,
+            }
         } else {
-            match allocate_guest_bytes(&mut env, &bytes) {
-                Some(ptr) => {
-                    env.data_mut().state.memory_shadows.insert(key, (ptr, size));
-                    ptr
-                }
-                None => return 0,
+            let Some(guest_ptr) = allocate_guest_memory(&mut env, size) else {
+                return INVALID_HANDLE;
+            };
+            free_guest_memory(&mut env, shadow.guest_ptr);
+            allocated_new = true;
+            MemoryShadow {
+                guest_ptr,
+                len: size,
             }
         }
     } else {
-        match allocate_guest_bytes(&mut env, &bytes) {
-            Some(ptr) => {
-                env.data_mut().state.memory_shadows.insert(key, (ptr, size));
-                ptr
-            }
-            None => return 0,
+        let Some(guest_ptr) = allocate_guest_memory(&mut env, size) else {
+            return INVALID_HANDLE;
+        };
+        allocated_new = true;
+        MemoryShadow {
+            guest_ptr,
+            len: size,
         }
     };
-    if !write_guest_bytes(&mut env, ptr, &bytes) {
-        return 0;
+
+    if !copy_wasmer_memory_to_guest(&mut env, &memory, shadow.guest_ptr, size) {
+        if allocated_new {
+            free_guest_memory(&mut env, shadow.guest_ptr);
+            env.data_mut().state.memory_shadows.remove(&memory_handle);
+        }
+        return INVALID_HANDLE;
     }
-    ptr as i32
+
+    env.data_mut()
+        .state
+        .memory_shadows
+        .insert(memory_handle, shadow);
+    i32::try_from(shadow.guest_ptr).unwrap_or(INVALID_HANDLE)
 }
 
 fn sync_memory_shadows_to_wasmer(env: &mut FunctionEnvMut<WasmCapiEnv>) {
-    let shadows: Vec<(u32, u32, usize)> = env
-        .data()
-        .state
-        .memory_shadows
-        .iter()
-        .map(|(handle, (ptr, size))| (*handle, *ptr, *size))
-        .collect();
+    let shadows = std::mem::take(&mut env.data_mut().state.memory_shadows);
 
-    for (handle, ptr, size) in shadows {
-        let Some(memory) = memory_from_handle(env, handle as i32) else {
+    for (handle, shadow) in shadows {
+        let Some(memory) = memory_from_handle(env, handle) else {
             continue;
         };
-        let Some(bytes) = read_guest_bytes(env, ptr as i32, size) else {
+        if memory.ty(&*env).shared {
             continue;
         };
-        let view = memory.view(&*env);
-        let _ = view.write(0, &bytes);
+        let _ = copy_guest_memory_to_wasmer(env, shadow.guest_ptr, &memory, shadow.len);
+        env.data_mut().state.memory_shadows.insert(handle, shadow);
     }
 }
 
 fn refresh_memory_shadows_from_wasmer(env: &mut FunctionEnvMut<WasmCapiEnv>) {
-    let shadows: Vec<(u32, u32, usize)> = env
-        .data()
-        .state
-        .memory_shadows
-        .iter()
-        .map(|(handle, (ptr, size))| (*handle, *ptr, *size))
-        .collect();
+    let shadows = std::mem::take(&mut env.data_mut().state.memory_shadows);
 
-    for (handle, ptr, size) in shadows {
-        let Some(memory) = memory_from_handle(env, handle as i32) else {
+    for (handle, shadow) in shadows {
+        let Some(memory) = memory_from_handle(env, handle) else {
             continue;
         };
-        let view = memory.view(&*env);
-        let mut bytes = vec![0u8; size];
-        if view.read(0, &mut bytes).is_ok() {
-            write_guest_bytes(env, ptr, &bytes);
+        if memory.ty(&*env).shared {
+            continue;
         }
+        let _ = copy_wasmer_memory_to_guest(env, &memory, shadow.guest_ptr, shadow.len);
+        env.data_mut().state.memory_shadows.insert(handle, shadow);
     }
 }
 
@@ -1083,8 +1372,8 @@ fn wasm_instance_new(
     imports_vec_ptr: i32,
     trap_out_ptr: i32,
 ) -> i32 {
-    if trap_out_ptr > 0 {
-        write_guest_u32(&mut env, trap_out_ptr as u32, 0);
+    if let Some(trap_out_ptr) = non_null_guest_ptr(trap_out_ptr) {
+        write_guest_u32(&mut env, trap_out_ptr, 0);
     }
     let module = match env.data().state.get(module_handle) {
         Some(WasmObject::Module(module)) => module.clone(),
@@ -1103,9 +1392,9 @@ fn wasm_instance_new(
     match Instance::new(&mut env, &module, &imports) {
         Ok(instance) => insert(&mut env, WasmObject::Instance(instance)),
         Err(err) => {
-            if trap_out_ptr > 0 {
+            if let Some(trap_out_ptr) = non_null_guest_ptr(trap_out_ptr) {
                 let trap = insert(&mut env, WasmObject::Trap(err.to_string()));
-                write_guest_u32(&mut env, trap_out_ptr as u32, trap as u32);
+                write_guest_u32(&mut env, trap_out_ptr, u32::try_from(trap).unwrap_or(0));
             }
             0
         }
@@ -1151,7 +1440,7 @@ fn wasm_extern_kind(env: FunctionEnvMut<WasmCapiEnv>, extern_handle: i32) -> i32
         Some(WasmObject::Extern(WasmExtern::Memory(_))) | Some(WasmObject::Memory(_)) => {
             WASM_EXTERN_MEMORY
         }
-        _ => -1,
+        _ => INVALID_KIND,
     }
 }
 
@@ -1271,7 +1560,9 @@ fn wasm_func_call(
         _ => return insert(&mut env, WasmObject::Trap("invalid function".to_string())),
     };
     let ty = func.ty(&env);
-    let arg_data_ptr = read_i32(&mut env, args_vec_ptr + 4).unwrap_or(0);
+    let arg_data_ptr = guest_ptr_with_offset(args_vec_ptr, WASM_VEC_DATA_OFFSET)
+        .and_then(|ptr| read_i32(&mut env, ptr))
+        .unwrap_or(0);
     let mut args = Vec::with_capacity(ty.params().len());
     for (index, ty) in ty.params().iter().enumerate() {
         let val_ptr = arg_data_ptr + (index * WASM_VAL_SIZE) as i32;
@@ -1287,7 +1578,9 @@ fn wasm_func_call(
     match func.call(&mut env, &args) {
         Ok(results) => {
             refresh_memory_shadows_from_wasmer(&mut env);
-            let result_data_ptr = read_i32(&mut env, results_vec_ptr + 4).unwrap_or(0);
+            let result_data_ptr = guest_ptr_with_offset(results_vec_ptr, WASM_VEC_DATA_OFFSET)
+                .and_then(|ptr| read_i32(&mut env, ptr))
+                .unwrap_or(0);
             for (index, value) in results.iter().enumerate() {
                 let val_ptr = result_data_ptr + (index * WASM_VAL_SIZE) as i32;
                 write_wasm_val(&mut env, val_ptr, value);
@@ -1305,23 +1598,32 @@ fn allocate_wasm_val_vec_for_values(
     env: &mut FunctionEnvMut<WasmCapiEnv>,
     values: &[Value],
 ) -> Option<(i32, i32)> {
-    let data = vec![0u8; values.len() * WASM_VAL_SIZE];
-    let data_ptr = if data.is_empty() {
+    let len = u32::try_from(values.len()).ok()?;
+    let byte_len = values.len().checked_mul(WASM_VAL_SIZE)?;
+    let data_ptr = if byte_len == 0 {
         0
     } else {
-        allocate_guest_bytes(env, &data)? as i32
+        allocate_guest_memory(env, byte_len)? as i32
     };
     for (index, value) in values.iter().enumerate() {
         let val_ptr = data_ptr + (index * WASM_VAL_SIZE) as i32;
         if !write_wasm_val(env, val_ptr, value) {
+            if data_ptr > 0 {
+                free_guest_memory(env, data_ptr as u32);
+            }
             return None;
         }
     }
 
-    let mut vec_bytes = Vec::with_capacity(8);
-    vec_bytes.extend_from_slice(&(values.len() as u32).to_le_bytes());
-    vec_bytes.extend_from_slice(&(data_ptr as u32).to_le_bytes());
-    let vec_ptr = allocate_guest_bytes(env, &vec_bytes)? as i32;
+    let vec_ptr = match allocate_guest_vec_header(env, len, data_ptr as u32) {
+        Some(ptr) => ptr as i32,
+        None => {
+            if data_ptr > 0 {
+                free_guest_memory(env, data_ptr as u32);
+            }
+            return None;
+        }
+    };
     Some((vec_ptr, data_ptr))
 }
 
@@ -1329,16 +1631,22 @@ fn allocate_uninitialized_wasm_val_vec(
     env: &mut FunctionEnvMut<WasmCapiEnv>,
     len: usize,
 ) -> Option<(i32, i32)> {
-    let data = vec![0u8; len * WASM_VAL_SIZE];
-    let data_ptr = if data.is_empty() {
+    let len_u32 = u32::try_from(len).ok()?;
+    let byte_len = len.checked_mul(WASM_VAL_SIZE)?;
+    let data_ptr = if byte_len == 0 {
         0
     } else {
-        allocate_guest_bytes(env, &data)? as i32
+        allocate_guest_memory(env, byte_len)? as i32
     };
-    let mut vec_bytes = Vec::with_capacity(8);
-    vec_bytes.extend_from_slice(&(len as u32).to_le_bytes());
-    vec_bytes.extend_from_slice(&(data_ptr as u32).to_le_bytes());
-    let vec_ptr = allocate_guest_bytes(env, &vec_bytes)? as i32;
+    let vec_ptr = match allocate_guest_vec_header(env, len_u32, data_ptr as u32) {
+        Some(ptr) => ptr as i32,
+        None => {
+            if data_ptr > 0 {
+                free_guest_memory(env, data_ptr as u32);
+            }
+            return None;
+        }
+    };
     Some((vec_ptr, data_ptr))
 }
 
@@ -1412,7 +1720,9 @@ fn wasm_func_new_with_env(
     let Some(func_env) = env.data().func_env.clone() else {
         return 0;
     };
-    let callback = callback as u32;
+    let Ok(callback) = u32::try_from(callback) else {
+        return INVALID_HANDLE;
+    };
     let result_types = ty.results().to_vec();
     let func = WasmerFunction::new_with_env(&mut env, &func_env, ty, move |mut env, args| {
         let Some((args_vec_ptr, _args_data_ptr)) = allocate_wasm_val_vec_for_values(&mut env, args)
@@ -1469,17 +1779,19 @@ fn wasm_table_grow(
     delta: i32,
     _init: i32,
 ) -> i32 {
-    if delta < 0 {
-        return 0;
-    }
+    let Ok(delta) = u32::try_from(delta) else {
+        return BOOL_FALSE;
+    };
     let table = match env.data().state.get(table_handle) {
         Some(WasmObject::Table(table)) => table.clone(),
         Some(WasmObject::Extern(WasmExtern::Table(table))) => table.clone(),
-        _ => return 0,
+        _ => return BOOL_FALSE,
     };
-    table
-        .grow(&mut env, delta as u32, Value::FuncRef(None))
-        .is_ok() as i32
+    if table.grow(&mut env, delta, Value::FuncRef(None)).is_ok() {
+        BOOL_TRUE
+    } else {
+        BOOL_FALSE
+    }
 }
 
 fn wasm_trap_new(mut env: FunctionEnvMut<WasmCapiEnv>, _store: i32, message_ptr: i32) -> i32 {
@@ -1502,10 +1814,19 @@ fn wasm_trap_message(mut env: FunctionEnvMut<WasmCapiEnv>, trap_handle: i32, out
 }
 
 fn wasm_byte_vec_new(mut env: FunctionEnvMut<WasmCapiEnv>, out_ptr: i32, size: i32, data_ptr: i32) {
-    let bytes = if size <= 0 {
+    if out_ptr <= INVALID_HANDLE || size < 0 || data_ptr < 0 {
+        return;
+    }
+    let Ok(size) = usize::try_from(size) else {
+        return;
+    };
+    let bytes = if size == 0 {
         Vec::new()
     } else {
-        read_guest_bytes(&mut env, data_ptr, size as usize).unwrap_or_default()
+        let Some(bytes) = read_guest_bytes(&mut env, data_ptr, size) else {
+            return;
+        };
+        bytes
     };
     write_byte_vec(&mut env, out_ptr, &bytes);
 }
@@ -1514,22 +1835,37 @@ fn wasm_val_vec_new_uninitialized(mut env: FunctionEnvMut<WasmCapiEnv>, out_ptr:
     if out_ptr <= 0 || size < 0 {
         return;
     }
-    let bytes = vec![0u8; size as usize * WASM_VAL_SIZE];
-    let data_ptr = if bytes.is_empty() {
+    let Ok(len) = u32::try_from(size) else {
+        return;
+    };
+    let Ok(size) = usize::try_from(size) else {
+        return;
+    };
+    let Some(byte_len) = size.checked_mul(WASM_VAL_SIZE) else {
+        return;
+    };
+    let data_ptr = if byte_len == 0 {
         0
     } else {
-        allocate_guest_bytes(&mut env, &bytes).unwrap_or(0)
+        let Some(data_ptr) = allocate_guest_memory(&mut env, byte_len) else {
+            return;
+        };
+        data_ptr
     };
-    write_guest_u32(&mut env, out_ptr as u32, size as u32);
-    write_guest_u32(&mut env, out_ptr as u32 + 4, data_ptr);
+    let Some(out_ptr) = non_null_guest_ptr(out_ptr) else {
+        free_guest_memory(&mut env, data_ptr);
+        return;
+    };
+    if !write_guest_vec_header(&mut env, out_ptr, len, data_ptr) {
+        free_guest_memory(&mut env, data_ptr);
+    }
 }
 
 fn noop_delete(_env: FunctionEnvMut<WasmCapiEnv>, _handle: i32) {}
 
 fn vec_delete(mut env: FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32) {
-    if vec_ptr > 0 {
-        write_guest_u32(&mut env, vec_ptr as u32, 0);
-        write_guest_u32(&mut env, vec_ptr as u32 + 4, 0);
+    if let Some(vec_ptr) = non_null_guest_ptr(vec_ptr) {
+        write_guest_vec_header(&mut env, vec_ptr, 0, 0);
     }
 }
 
@@ -1621,7 +1957,11 @@ fn register_wasm_c_api_imports(
 
 #[cfg(test)]
 mod tests {
-    use super::{WasmCAPIVersion, module_needs_wasm_c_api};
+    use super::{
+        INVALID_HANDLE, Type, WASM_EXTERNREF, WASM_F64, WASM_FUNCREF, WASM_I32, WasmCAPIVersion,
+        WasmCapiState, WasmObject, guest_ptr_u32, guest_ptr_with_offset, module_needs_wasm_c_api,
+        non_null_guest_ptr, type_to_wasm_kind, wasm_kind_to_type,
+    };
     use wasmer_api::{Module, Store};
     use wat::parse_str;
 
@@ -1692,5 +2032,59 @@ mod tests {
         assert!(!WasmCAPIVersion::V0.is_compatible_with(WasmCAPIVersion::Unknown));
         assert!(!WasmCAPIVersion::Unknown.is_compatible_with(WasmCAPIVersion::V0));
         assert!(!WasmCAPIVersion::Unknown.is_compatible_with(WasmCAPIVersion::Unknown));
+    }
+
+    #[test]
+    fn wasm_capi_state_allocates_positive_non_reused_handles() {
+        let mut state = WasmCapiState::default();
+
+        let first = state.insert(WasmObject::Engine);
+        assert_eq!(first, 1);
+        assert!(state.get(first).is_some());
+
+        let _ = state.remove(first);
+        assert!(state.get(first).is_none());
+
+        let second = state.insert(WasmObject::Store);
+        assert_eq!(second, 2);
+        assert!(state.get(INVALID_HANDLE).is_none());
+        assert!(state.get(-1).is_none());
+    }
+
+    #[test]
+    fn wasm_capi_state_fails_closed_on_handle_exhaustion() {
+        let mut state = WasmCapiState {
+            next_handle: i32::MAX,
+            ..WasmCapiState::default()
+        };
+
+        assert_eq!(state.insert(WasmObject::Engine), i32::MAX);
+        assert_eq!(state.insert(WasmObject::Store), INVALID_HANDLE);
+    }
+
+    #[test]
+    fn guest_pointer_helpers_reject_invalid_values() {
+        assert_eq!(guest_ptr_u32(-1), None);
+        assert_eq!(guest_ptr_u32(0), Some(0));
+        assert_eq!(non_null_guest_ptr(0), None);
+        assert_eq!(non_null_guest_ptr(1), Some(1));
+        assert_eq!(guest_ptr_with_offset(i32::MAX, 4), None);
+    }
+
+    #[test]
+    fn wasm_kind_conversion_is_explicit_for_supported_types() {
+        assert_eq!(type_to_wasm_kind(Type::I32), Some(WASM_I32));
+        assert_eq!(type_to_wasm_kind(Type::F64), Some(WASM_F64));
+        assert_eq!(type_to_wasm_kind(Type::ExternRef), Some(WASM_EXTERNREF));
+        assert_eq!(type_to_wasm_kind(Type::FuncRef), Some(WASM_FUNCREF));
+        assert_eq!(type_to_wasm_kind(Type::V128), None);
+        assert_eq!(type_to_wasm_kind(Type::ExceptionRef), None);
+
+        assert_eq!(wasm_kind_to_type(i32::from(WASM_I32)), Some(Type::I32));
+        assert_eq!(
+            wasm_kind_to_type(i32::from(WASM_EXTERNREF)),
+            Some(Type::ExternRef)
+        );
+        assert_eq!(wasm_kind_to_type(-1), None);
     }
 }
