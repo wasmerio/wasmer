@@ -1275,12 +1275,18 @@ fn copy_wasmer_memory_to_guest(
     let Some(guest_offset) = checked_memory_offset(guest_ptr, len, guest_view.data_size()) else {
         return false;
     };
+    let source_base = source_view.data_ptr();
+    let guest_base = guest_view.data_ptr();
+    if ptr::eq(source_base, guest_base) {
+        return false;
+    }
     unsafe {
-        // Both ranges are bounds-checked above. `ptr::copy` is used instead of
-        // typed slices so an accidental same-memory overlap is still well-defined.
-        let src = source_view.data_ptr().add(source_offset);
-        let dst = guest_view.data_ptr().add(guest_offset);
-        ptr::copy(src, dst, len);
+        // Both ranges are bounds-checked above and same-memory copies are rejected.
+        ptr::copy_nonoverlapping(
+            source_base.add(source_offset),
+            guest_base.add(guest_offset),
+            len,
+        );
     }
     true
 }
@@ -1305,12 +1311,18 @@ fn copy_guest_memory_to_wasmer(
     let Some(target_offset) = checked_memory_offset(0, len, target_view.data_size()) else {
         return false;
     };
+    let guest_base = guest_view.data_ptr();
+    let target_base = target_view.data_ptr();
+    if ptr::eq(guest_base, target_base) {
+        return false;
+    }
     unsafe {
-        // Both ranges are bounds-checked above. `ptr::copy` is used instead of
-        // typed slices so an accidental same-memory overlap is still well-defined.
-        let src = guest_view.data_ptr().add(guest_offset);
-        let dst = target_view.data_ptr().add(target_offset);
-        ptr::copy(src, dst, len);
+        // Both ranges are bounds-checked above and same-memory copies are rejected.
+        ptr::copy_nonoverlapping(
+            guest_base.add(guest_offset),
+            target_base.add(target_offset),
+            len,
+        );
     }
     true
 }
@@ -2102,7 +2114,8 @@ fn register_wasm_c_api_imports(
 mod tests {
     use super::{
         INVALID_HANDLE, INVALID_SIZE, MemoryShadow, Type, WASM_EXTERNREF, WASM_F64, WASM_FUNCREF,
-        WASM_I32, WasmCAPIVersion, WasmCapiEnv, WasmCapiState, WasmObject, guest_byte_ptr,
+        WASM_I32, WasmCAPIVersion, WasmCapiEnv, WasmCapiState, WasmObject,
+        copy_guest_memory_to_wasmer, copy_wasmer_memory_to_guest, guest_byte_ptr,
         guest_memory_offset, guest_ptr_with_offset, module_wasm_c_api_version_used,
         non_null_guest_ptr, refresh_memory_shadows_from_wasmer, sync_memory_shadows_to_wasmer,
         type_to_wasm_kind, type_to_wasm_valkind, wasm_kind_to_type, wasm_memory_data,
@@ -2385,18 +2398,39 @@ mod tests {
     }
 
     #[test]
-    fn memory_shadow_sync_preserves_registered_shadows() {
+    fn memory_shadow_copy_rejects_same_memory() {
         let mut store = Store::default();
         let memory = Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(1)), false))
             .expect("memory can be created");
-        memory
+        let func_env = FunctionEnv::new(
+            &mut store,
+            WasmCapiEnv {
+                memory: Some(memory.clone()),
+                ..WasmCapiEnv::default()
+            },
+        );
+        let mut env = func_env.into_mut(&mut store);
+
+        assert!(!copy_wasmer_memory_to_guest(&mut env, &memory, 16, 4));
+        assert!(!copy_guest_memory_to_wasmer(&mut env, 16, &memory, 4));
+    }
+
+    #[test]
+    fn memory_shadow_sync_preserves_registered_shadows() {
+        let mut store = Store::default();
+        let guest_memory =
+            Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(1)), false))
+                .expect("guest memory can be created");
+        let memory = Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(1)), false))
+            .expect("memory can be created");
+        guest_memory
             .view(&store)
             .write(16, &[1, 2, 3, 4])
             .expect("guest shadow write succeeds");
         let func_env = FunctionEnv::new(
             &mut store,
             WasmCapiEnv {
-                memory: Some(memory.clone()),
+                memory: Some(guest_memory.clone()),
                 ..WasmCapiEnv::default()
             },
         );
@@ -2434,7 +2468,7 @@ mod tests {
             refresh_memory_shadows_from_wasmer(&mut env);
             assert!(env.data().state.memory_shadows.contains_key(&memory_handle));
         }
-        memory
+        guest_memory
             .view(&store)
             .read(16, &mut bytes)
             .expect("guest shadow read succeeds");
