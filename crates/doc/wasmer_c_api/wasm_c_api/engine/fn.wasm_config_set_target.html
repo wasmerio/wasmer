@@ -14,7 +14,7 @@ configuration to specify a particular target for the engine.</p>
         wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();
         wasmer_target_t* target = wasmer_target_new(triple, cpu_features);
 
-        wasm_config_sys_set_target(config, target);
+        wasm_config_set_target(config, target);
     }
 
     <span class="comment">// Create the engine.

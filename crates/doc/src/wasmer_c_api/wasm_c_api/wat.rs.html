@@ -26,64 +26,61 @@
 <a href=#26 id=26 data-nosnippet>26</a>
 <a href=#27 id=27 data-nosnippet>27</a><span class="attr">#[cfg(test)]
 <a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">mod </span>tests {
-<a href=#29 id=29 data-nosnippet>29</a>    <span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
-<a href=#30 id=30 data-nosnippet>30</a>    </span><span class="kw">use </span>inline_c::assert_c;
-<a href=#31 id=31 data-nosnippet>31</a>    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
-<a href=#32 id=32 data-nosnippet>32</a>    </span><span class="kw">use </span>wasmer_inline_c::assert_c;
-<a href=#33 id=33 data-nosnippet>33</a>
-<a href=#34 id=34 data-nosnippet>34</a>    <span class="attr">#[test]
-<a href=#35 id=35 data-nosnippet>35</a>    </span><span class="kw">fn </span>test_wat2wasm() {
-<a href=#36 id=36 data-nosnippet>36</a>        (<span class="macro">assert_c!</span> {
-<a href=#37 id=37 data-nosnippet>37</a>            #include <span class="string">"tests/wasmer.h"
-<a href=#38 id=38 data-nosnippet>38</a>
-<a href=#39 id=39 data-nosnippet>39</a>            </span>int main() {
-<a href=#40 id=40 data-nosnippet>40</a>                wasm_byte_vec_t wat;
-<a href=#41 id=41 data-nosnippet>41</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module)"</span>);
-<a href=#42 id=42 data-nosnippet>42</a>                wasm_byte_vec_t wasm;
-<a href=#43 id=43 data-nosnippet>43</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
-<a href=#44 id=44 data-nosnippet>44</a>
-<a href=#45 id=45 data-nosnippet>45</a>                assert(wasm.data);
-<a href=#46 id=46 data-nosnippet>46</a>                assert(wasm.size == <span class="number">8</span>);
-<a href=#47 id=47 data-nosnippet>47</a>                assert(
-<a href=#48 id=48 data-nosnippet>48</a>                    wasm.data[<span class="number">0</span>] == <span class="number">0 </span>&amp;&amp;
-<a href=#49 id=49 data-nosnippet>49</a>                        wasm.data[<span class="number">1</span>] == <span class="string">'a' </span>&amp;&amp;
-<a href=#50 id=50 data-nosnippet>50</a>                        wasm.data[<span class="number">2</span>] == <span class="string">'s' </span>&amp;&amp;
-<a href=#51 id=51 data-nosnippet>51</a>                        wasm.data[<span class="number">3</span>] == <span class="string">'m' </span>&amp;&amp;
-<a href=#52 id=52 data-nosnippet>52</a>                        wasm.data[<span class="number">4</span>] == <span class="number">1 </span>&amp;&amp;
-<a href=#53 id=53 data-nosnippet>53</a>                        wasm.data[<span class="number">5</span>] == <span class="number">0 </span>&amp;&amp;
-<a href=#54 id=54 data-nosnippet>54</a>                        wasm.data[<span class="number">6</span>] == <span class="number">0 </span>&amp;&amp;
-<a href=#55 id=55 data-nosnippet>55</a>                        wasm.data[<span class="number">7</span>] == <span class="number">0
-<a href=#56 id=56 data-nosnippet>56</a>                </span>);
+<a href=#29 id=29 data-nosnippet>29</a>    <span class="kw">use </span>inline_c::assert_c;
+<a href=#30 id=30 data-nosnippet>30</a>
+<a href=#31 id=31 data-nosnippet>31</a>    <span class="attr">#[test]
+<a href=#32 id=32 data-nosnippet>32</a>    </span><span class="kw">fn </span>test_wat2wasm() {
+<a href=#33 id=33 data-nosnippet>33</a>        (<span class="macro">assert_c!</span> {
+<a href=#34 id=34 data-nosnippet>34</a>            #include <span class="string">"tests/wasmer.h"
+<a href=#35 id=35 data-nosnippet>35</a>
+<a href=#36 id=36 data-nosnippet>36</a>            </span>int main() {
+<a href=#37 id=37 data-nosnippet>37</a>                wasm_byte_vec_t wat;
+<a href=#38 id=38 data-nosnippet>38</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module)"</span>);
+<a href=#39 id=39 data-nosnippet>39</a>                wasm_byte_vec_t wasm;
+<a href=#40 id=40 data-nosnippet>40</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#41 id=41 data-nosnippet>41</a>
+<a href=#42 id=42 data-nosnippet>42</a>                assert(wasm.data);
+<a href=#43 id=43 data-nosnippet>43</a>                assert(wasm.size == <span class="number">8</span>);
+<a href=#44 id=44 data-nosnippet>44</a>                assert(
+<a href=#45 id=45 data-nosnippet>45</a>                    wasm.data[<span class="number">0</span>] == <span class="number">0 </span>&amp;&amp;
+<a href=#46 id=46 data-nosnippet>46</a>                        wasm.data[<span class="number">1</span>] == <span class="string">'a' </span>&amp;&amp;
+<a href=#47 id=47 data-nosnippet>47</a>                        wasm.data[<span class="number">2</span>] == <span class="string">'s' </span>&amp;&amp;
+<a href=#48 id=48 data-nosnippet>48</a>                        wasm.data[<span class="number">3</span>] == <span class="string">'m' </span>&amp;&amp;
+<a href=#49 id=49 data-nosnippet>49</a>                        wasm.data[<span class="number">4</span>] == <span class="number">1 </span>&amp;&amp;
+<a href=#50 id=50 data-nosnippet>50</a>                        wasm.data[<span class="number">5</span>] == <span class="number">0 </span>&amp;&amp;
+<a href=#51 id=51 data-nosnippet>51</a>                        wasm.data[<span class="number">6</span>] == <span class="number">0 </span>&amp;&amp;
+<a href=#52 id=52 data-nosnippet>52</a>                        wasm.data[<span class="number">7</span>] == <span class="number">0
+<a href=#53 id=53 data-nosnippet>53</a>                </span>);
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
+<a href=#56 id=56 data-nosnippet>56</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
 <a href=#57 id=57 data-nosnippet>57</a>
-<a href=#58 id=58 data-nosnippet>58</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
-<a href=#59 id=59 data-nosnippet>59</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
-<a href=#60 id=60 data-nosnippet>60</a>
-<a href=#61 id=61 data-nosnippet>61</a>                <span class="kw">return </span><span class="number">0</span>;
-<a href=#62 id=62 data-nosnippet>62</a>            }
-<a href=#63 id=63 data-nosnippet>63</a>        })
-<a href=#64 id=64 data-nosnippet>64</a>        .success();
-<a href=#65 id=65 data-nosnippet>65</a>    }
-<a href=#66 id=66 data-nosnippet>66</a>
-<a href=#67 id=67 data-nosnippet>67</a>    <span class="attr">#[test]
-<a href=#68 id=68 data-nosnippet>68</a>    </span><span class="kw">fn </span>test_wat2wasm_failed() {
-<a href=#69 id=69 data-nosnippet>69</a>        (<span class="macro">assert_c!</span> {
-<a href=#70 id=70 data-nosnippet>70</a>            #include <span class="string">"tests/wasmer.h"
-<a href=#71 id=71 data-nosnippet>71</a>
-<a href=#72 id=72 data-nosnippet>72</a>            </span>int main() {
-<a href=#73 id=73 data-nosnippet>73</a>                wasm_byte_vec_t wat;
-<a href=#74 id=74 data-nosnippet>74</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module"</span>);
-<a href=#75 id=75 data-nosnippet>75</a>                wasm_byte_vec_t wasm;
-<a href=#76 id=76 data-nosnippet>76</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#58 id=58 data-nosnippet>58</a>                <span class="kw">return </span><span class="number">0</span>;
+<a href=#59 id=59 data-nosnippet>59</a>            }
+<a href=#60 id=60 data-nosnippet>60</a>        })
+<a href=#61 id=61 data-nosnippet>61</a>        .success();
+<a href=#62 id=62 data-nosnippet>62</a>    }
+<a href=#63 id=63 data-nosnippet>63</a>
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="attr">#[test]
+<a href=#65 id=65 data-nosnippet>65</a>    </span><span class="kw">fn </span>test_wat2wasm_failed() {
+<a href=#66 id=66 data-nosnippet>66</a>        (<span class="macro">assert_c!</span> {
+<a href=#67 id=67 data-nosnippet>67</a>            #include <span class="string">"tests/wasmer.h"
+<a href=#68 id=68 data-nosnippet>68</a>
+<a href=#69 id=69 data-nosnippet>69</a>            </span>int main() {
+<a href=#70 id=70 data-nosnippet>70</a>                wasm_byte_vec_t wat;
+<a href=#71 id=71 data-nosnippet>71</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module"</span>);
+<a href=#72 id=72 data-nosnippet>72</a>                wasm_byte_vec_t wasm;
+<a href=#73 id=73 data-nosnippet>73</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#74 id=74 data-nosnippet>74</a>
+<a href=#75 id=75 data-nosnippet>75</a>                assert(!wasm.data);
+<a href=#76 id=76 data-nosnippet>76</a>                assert(wasmer_last_error_length() &gt; <span class="number">0</span>);
 <a href=#77 id=77 data-nosnippet>77</a>
-<a href=#78 id=78 data-nosnippet>78</a>                assert(!wasm.data);
-<a href=#79 id=79 data-nosnippet>79</a>                assert(wasmer_last_error_length() &gt; <span class="number">0</span>);
-<a href=#80 id=80 data-nosnippet>80</a>
-<a href=#81 id=81 data-nosnippet>81</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
-<a href=#82 id=82 data-nosnippet>82</a>
-<a href=#83 id=83 data-nosnippet>83</a>                <span class="kw">return </span><span class="number">0</span>;
-<a href=#84 id=84 data-nosnippet>84</a>            }
-<a href=#85 id=85 data-nosnippet>85</a>        })
-<a href=#86 id=86 data-nosnippet>86</a>        .success();
-<a href=#87 id=87 data-nosnippet>87</a>    }
-<a href=#88 id=88 data-nosnippet>88</a>}
+<a href=#78 id=78 data-nosnippet>78</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a>                <span class="kw">return </span><span class="number">0</span>;
+<a href=#81 id=81 data-nosnippet>81</a>            }
+<a href=#82 id=82 data-nosnippet>82</a>        })
+<a href=#83 id=83 data-nosnippet>83</a>        .success();
+<a href=#84 id=84 data-nosnippet>84</a>    }
+<a href=#85 id=85 data-nosnippet>85</a>}
 </code></pre></div></section></main></body></html>

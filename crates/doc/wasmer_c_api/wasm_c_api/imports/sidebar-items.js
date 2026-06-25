@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["WASM_C_API_MODULE_NAME"],"enum":["WasmCAPIVersion"],"fn":["module_wasm_c_api_version_used"],"struct":["WasmCapiRuntimeHooks"]};

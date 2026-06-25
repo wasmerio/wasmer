@@ -112,7 +112,7 @@
 <a href=#112 id=112 data-nosnippet>112</a>/// # Example
 <a href=#113 id=113 data-nosnippet>113</a>///
 <a href=#114 id=114 data-nosnippet>114</a>/// ```rust
-<a href=#115 id=115 data-nosnippet>115</a>/// # use wasmer_inline_c::assert_c;
+<a href=#115 id=115 data-nosnippet>115</a>/// # use inline_c::assert_c;
 <a href=#116 id=116 data-nosnippet>116</a>/// # fn main() {
 <a href=#117 id=117 data-nosnippet>117</a>/// #    (assert_c! {
 <a href=#118 id=118 data-nosnippet>118</a>/// # #include "tests/wasmer.h"
@@ -213,111 +213,108 @@
 <a href=#213 id=213 data-nosnippet>213</a>
 <a href=#214 id=214 data-nosnippet>214</a><span class="attr">#[cfg(test)]
 <a href=#215 id=215 data-nosnippet>215</a></span><span class="kw">mod </span>tests {
-<a href=#216 id=216 data-nosnippet>216</a>    <span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
-<a href=#217 id=217 data-nosnippet>217</a>    </span><span class="kw">use </span>inline_c::assert_c;
-<a href=#218 id=218 data-nosnippet>218</a>    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
-<a href=#219 id=219 data-nosnippet>219</a>    </span><span class="kw">use </span>wasmer_inline_c::assert_c;
-<a href=#220 id=220 data-nosnippet>220</a>
-<a href=#221 id=221 data-nosnippet>221</a>    <span class="attr">#[allow(
-<a href=#222 id=222 data-nosnippet>222</a>        unexpected_cfgs,
-<a href=#223 id=223 data-nosnippet>223</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
-<a href=#224 id=224 data-nosnippet>224</a>    </span>)]
-<a href=#225 id=225 data-nosnippet>225</a>    #[cfg_attr(coverage_nightly, coverage(off))]
-<a href=#226 id=226 data-nosnippet>226</a>    #[test]
-<a href=#227 id=227 data-nosnippet>227</a>    </span><span class="kw">fn </span>test_instance_new() {
-<a href=#228 id=228 data-nosnippet>228</a>        (<span class="macro">assert_c!</span> {
-<a href=#229 id=229 data-nosnippet>229</a>            #include <span class="string">"tests/wasmer.h"
-<a href=#230 id=230 data-nosnippet>230</a>
-<a href=#231 id=231 data-nosnippet>231</a>            </span><span class="comment">// The `sum` host function implementation.
-<a href=#232 id=232 data-nosnippet>232</a>            </span>wasm_trap_t* sum_callback(
-<a href=#233 id=233 data-nosnippet>233</a>                <span class="kw">const </span>wasm_val_vec_t* arguments,
-<a href=#234 id=234 data-nosnippet>234</a>                wasm_val_vec_t* results
-<a href=#235 id=235 data-nosnippet>235</a>            ) {
-<a href=#236 id=236 data-nosnippet>236</a>                wasm_val_t sum = {
-<a href=#237 id=237 data-nosnippet>237</a>                    .kind = WASM_I32,
-<a href=#238 id=238 data-nosnippet>238</a>                    .of = { arguments-&gt;data[<span class="number">0</span>].of.i32 + arguments-&gt;data[<span class="number">1</span>].of.i32 },
-<a href=#239 id=239 data-nosnippet>239</a>                };
-<a href=#240 id=240 data-nosnippet>240</a>                results-&gt;data[<span class="number">0</span>] = sum;
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="kw">use </span>inline_c::assert_c;
+<a href=#217 id=217 data-nosnippet>217</a>
+<a href=#218 id=218 data-nosnippet>218</a>    <span class="attr">#[allow(
+<a href=#219 id=219 data-nosnippet>219</a>        unexpected_cfgs,
+<a href=#220 id=220 data-nosnippet>220</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
+<a href=#221 id=221 data-nosnippet>221</a>    </span>)]
+<a href=#222 id=222 data-nosnippet>222</a>    #[cfg_attr(coverage_nightly, coverage(off))]
+<a href=#223 id=223 data-nosnippet>223</a>    #[test]
+<a href=#224 id=224 data-nosnippet>224</a>    </span><span class="kw">fn </span>test_instance_new() {
+<a href=#225 id=225 data-nosnippet>225</a>        (<span class="macro">assert_c!</span> {
+<a href=#226 id=226 data-nosnippet>226</a>            #include <span class="string">"tests/wasmer.h"
+<a href=#227 id=227 data-nosnippet>227</a>
+<a href=#228 id=228 data-nosnippet>228</a>            </span><span class="comment">// The `sum` host function implementation.
+<a href=#229 id=229 data-nosnippet>229</a>            </span>wasm_trap_t* sum_callback(
+<a href=#230 id=230 data-nosnippet>230</a>                <span class="kw">const </span>wasm_val_vec_t* arguments,
+<a href=#231 id=231 data-nosnippet>231</a>                wasm_val_vec_t* results
+<a href=#232 id=232 data-nosnippet>232</a>            ) {
+<a href=#233 id=233 data-nosnippet>233</a>                wasm_val_t sum = {
+<a href=#234 id=234 data-nosnippet>234</a>                    .kind = WASM_I32,
+<a href=#235 id=235 data-nosnippet>235</a>                    .of = { arguments-&gt;data[<span class="number">0</span>].of.i32 + arguments-&gt;data[<span class="number">1</span>].of.i32 },
+<a href=#236 id=236 data-nosnippet>236</a>                };
+<a href=#237 id=237 data-nosnippet>237</a>                results-&gt;data[<span class="number">0</span>] = sum;
+<a href=#238 id=238 data-nosnippet>238</a>
+<a href=#239 id=239 data-nosnippet>239</a>                <span class="kw">return </span>NULL;
+<a href=#240 id=240 data-nosnippet>240</a>            }
 <a href=#241 id=241 data-nosnippet>241</a>
-<a href=#242 id=242 data-nosnippet>242</a>                <span class="kw">return </span>NULL;
-<a href=#243 id=243 data-nosnippet>243</a>            }
-<a href=#244 id=244 data-nosnippet>244</a>
-<a href=#245 id=245 data-nosnippet>245</a>            int main() {
-<a href=#246 id=246 data-nosnippet>246</a>                <span class="comment">// Create the engine and the store.
-<a href=#247 id=247 data-nosnippet>247</a>                </span>wasm_engine_t* engine = wasm_engine_new();
-<a href=#248 id=248 data-nosnippet>248</a>                wasm_store_t* store = wasm_store_new(engine);
-<a href=#249 id=249 data-nosnippet>249</a>
-<a href=#250 id=250 data-nosnippet>250</a>                <span class="comment">// Create a WebAssembly module from a WAT definition.
-<a href=#251 id=251 data-nosnippet>251</a>                </span>wasm_byte_vec_t wat;
-<a href=#252 id=252 data-nosnippet>252</a>                wasmer_byte_vec_new_from_string(
-<a href=#253 id=253 data-nosnippet>253</a>                    <span class="kw-2">&amp;</span>wat,
-<a href=#254 id=254 data-nosnippet>254</a>                    <span class="string">"(module\n"
-<a href=#255 id=255 data-nosnippet>255</a>                    "  (import \"math\" \"sum\" (func $sum (param i32 i32) (result i32)))\n"
-<a href=#256 id=256 data-nosnippet>256</a>                    "  (func (export \"add_one\") (param i32) (result i32)\n"
-<a href=#257 id=257 data-nosnippet>257</a>                    "    local.get 0\n"
-<a href=#258 id=258 data-nosnippet>258</a>                    "    i32.const 1\n"
-<a href=#259 id=259 data-nosnippet>259</a>                    "    call $sum))"
-<a href=#260 id=260 data-nosnippet>260</a>                </span>);
-<a href=#261 id=261 data-nosnippet>261</a>                wasm_byte_vec_t wasm;
-<a href=#262 id=262 data-nosnippet>262</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#242 id=242 data-nosnippet>242</a>            int main() {
+<a href=#243 id=243 data-nosnippet>243</a>                <span class="comment">// Create the engine and the store.
+<a href=#244 id=244 data-nosnippet>244</a>                </span>wasm_engine_t* engine = wasm_engine_new();
+<a href=#245 id=245 data-nosnippet>245</a>                wasm_store_t* store = wasm_store_new(engine);
+<a href=#246 id=246 data-nosnippet>246</a>
+<a href=#247 id=247 data-nosnippet>247</a>                <span class="comment">// Create a WebAssembly module from a WAT definition.
+<a href=#248 id=248 data-nosnippet>248</a>                </span>wasm_byte_vec_t wat;
+<a href=#249 id=249 data-nosnippet>249</a>                wasmer_byte_vec_new_from_string(
+<a href=#250 id=250 data-nosnippet>250</a>                    <span class="kw-2">&amp;</span>wat,
+<a href=#251 id=251 data-nosnippet>251</a>                    <span class="string">"(module\n"
+<a href=#252 id=252 data-nosnippet>252</a>                    "  (import \"math\" \"sum\" (func $sum (param i32 i32) (result i32)))\n"
+<a href=#253 id=253 data-nosnippet>253</a>                    "  (func (export \"add_one\") (param i32) (result i32)\n"
+<a href=#254 id=254 data-nosnippet>254</a>                    "    local.get 0\n"
+<a href=#255 id=255 data-nosnippet>255</a>                    "    i32.const 1\n"
+<a href=#256 id=256 data-nosnippet>256</a>                    "    call $sum))"
+<a href=#257 id=257 data-nosnippet>257</a>                </span>);
+<a href=#258 id=258 data-nosnippet>258</a>                wasm_byte_vec_t wasm;
+<a href=#259 id=259 data-nosnippet>259</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#260 id=260 data-nosnippet>260</a>
+<a href=#261 id=261 data-nosnippet>261</a>                <span class="comment">// Create the module.
+<a href=#262 id=262 data-nosnippet>262</a>                </span>wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
 <a href=#263 id=263 data-nosnippet>263</a>
-<a href=#264 id=264 data-nosnippet>264</a>                <span class="comment">// Create the module.
-<a href=#265 id=265 data-nosnippet>265</a>                </span>wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
-<a href=#266 id=266 data-nosnippet>266</a>
-<a href=#267 id=267 data-nosnippet>267</a>                assert(module);
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>                <span class="comment">// Prepare the imports.
-<a href=#270 id=270 data-nosnippet>270</a>                </span>wasm_functype_t* sum_type = wasm_functype_new_2_1(
-<a href=#271 id=271 data-nosnippet>271</a>                    wasm_valtype_new_i32(),
-<a href=#272 id=272 data-nosnippet>272</a>                    wasm_valtype_new_i32(),
-<a href=#273 id=273 data-nosnippet>273</a>                    wasm_valtype_new_i32()
-<a href=#274 id=274 data-nosnippet>274</a>                );
-<a href=#275 id=275 data-nosnippet>275</a>                wasm_func_t* sum_function = wasm_func_new(store, sum_type, sum_callback);
-<a href=#276 id=276 data-nosnippet>276</a>                wasm_extern_t* externs[] = { wasm_func_as_extern(sum_function) };
-<a href=#277 id=277 data-nosnippet>277</a>                wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
-<a href=#278 id=278 data-nosnippet>278</a>
-<a href=#279 id=279 data-nosnippet>279</a>                <span class="comment">// Instantiate the module.
-<a href=#280 id=280 data-nosnippet>280</a>                </span>wasm_trap_t* trap = NULL;
-<a href=#281 id=281 data-nosnippet>281</a>                wasm_instance_t* instance = wasm_instance_new(store, module, <span class="kw-2">&amp;</span>imports, <span class="kw-2">&amp;</span>trap);
-<a href=#282 id=282 data-nosnippet>282</a>
-<a href=#283 id=283 data-nosnippet>283</a>                assert(instance);
-<a href=#284 id=284 data-nosnippet>284</a>
-<a href=#285 id=285 data-nosnippet>285</a>                <span class="comment">// Run the exported function.
-<a href=#286 id=286 data-nosnippet>286</a>                </span>wasm_extern_vec_t exports;
-<a href=#287 id=287 data-nosnippet>287</a>                wasm_instance_exports(instance, <span class="kw-2">&amp;</span>exports);
-<a href=#288 id=288 data-nosnippet>288</a>
-<a href=#289 id=289 data-nosnippet>289</a>                assert(exports.size == <span class="number">1</span>);
-<a href=#290 id=290 data-nosnippet>290</a>
-<a href=#291 id=291 data-nosnippet>291</a>                <span class="kw">const </span>wasm_func_t* run_function = wasm_extern_as_func(exports.data[<span class="number">0</span>]);
-<a href=#292 id=292 data-nosnippet>292</a>
-<a href=#293 id=293 data-nosnippet>293</a>                assert(run_function);
+<a href=#264 id=264 data-nosnippet>264</a>                assert(module);
+<a href=#265 id=265 data-nosnippet>265</a>
+<a href=#266 id=266 data-nosnippet>266</a>                <span class="comment">// Prepare the imports.
+<a href=#267 id=267 data-nosnippet>267</a>                </span>wasm_functype_t* sum_type = wasm_functype_new_2_1(
+<a href=#268 id=268 data-nosnippet>268</a>                    wasm_valtype_new_i32(),
+<a href=#269 id=269 data-nosnippet>269</a>                    wasm_valtype_new_i32(),
+<a href=#270 id=270 data-nosnippet>270</a>                    wasm_valtype_new_i32()
+<a href=#271 id=271 data-nosnippet>271</a>                );
+<a href=#272 id=272 data-nosnippet>272</a>                wasm_func_t* sum_function = wasm_func_new(store, sum_type, sum_callback);
+<a href=#273 id=273 data-nosnippet>273</a>                wasm_extern_t* externs[] = { wasm_func_as_extern(sum_function) };
+<a href=#274 id=274 data-nosnippet>274</a>                wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
+<a href=#275 id=275 data-nosnippet>275</a>
+<a href=#276 id=276 data-nosnippet>276</a>                <span class="comment">// Instantiate the module.
+<a href=#277 id=277 data-nosnippet>277</a>                </span>wasm_trap_t* trap = NULL;
+<a href=#278 id=278 data-nosnippet>278</a>                wasm_instance_t* instance = wasm_instance_new(store, module, <span class="kw-2">&amp;</span>imports, <span class="kw-2">&amp;</span>trap);
+<a href=#279 id=279 data-nosnippet>279</a>
+<a href=#280 id=280 data-nosnippet>280</a>                assert(instance);
+<a href=#281 id=281 data-nosnippet>281</a>
+<a href=#282 id=282 data-nosnippet>282</a>                <span class="comment">// Run the exported function.
+<a href=#283 id=283 data-nosnippet>283</a>                </span>wasm_extern_vec_t exports;
+<a href=#284 id=284 data-nosnippet>284</a>                wasm_instance_exports(instance, <span class="kw-2">&amp;</span>exports);
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a>                assert(exports.size == <span class="number">1</span>);
+<a href=#287 id=287 data-nosnippet>287</a>
+<a href=#288 id=288 data-nosnippet>288</a>                <span class="kw">const </span>wasm_func_t* run_function = wasm_extern_as_func(exports.data[<span class="number">0</span>]);
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a>                assert(run_function);
+<a href=#291 id=291 data-nosnippet>291</a>
+<a href=#292 id=292 data-nosnippet>292</a>                wasm_val_t arguments[<span class="number">1</span>] = { WASM_I32_VAL(<span class="number">1</span>) };
+<a href=#293 id=293 data-nosnippet>293</a>                wasm_val_t results[<span class="number">1</span>] = { WASM_INIT_VAL };
 <a href=#294 id=294 data-nosnippet>294</a>
-<a href=#295 id=295 data-nosnippet>295</a>                wasm_val_t arguments[<span class="number">1</span>] = { WASM_I32_VAL(<span class="number">1</span>) };
-<a href=#296 id=296 data-nosnippet>296</a>                wasm_val_t results[<span class="number">1</span>] = { WASM_INIT_VAL };
+<a href=#295 id=295 data-nosnippet>295</a>                wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
+<a href=#296 id=296 data-nosnippet>296</a>                wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);
 <a href=#297 id=297 data-nosnippet>297</a>
-<a href=#298 id=298 data-nosnippet>298</a>                wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
-<a href=#299 id=299 data-nosnippet>299</a>                wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);
-<a href=#300 id=300 data-nosnippet>300</a>
-<a href=#301 id=301 data-nosnippet>301</a>                trap = wasm_func_call(run_function, <span class="kw-2">&amp;</span>arguments_as_array, <span class="kw-2">&amp;</span>results_as_array);
+<a href=#298 id=298 data-nosnippet>298</a>                trap = wasm_func_call(run_function, <span class="kw-2">&amp;</span>arguments_as_array, <span class="kw-2">&amp;</span>results_as_array);
+<a href=#299 id=299 data-nosnippet>299</a>
+<a href=#300 id=300 data-nosnippet>300</a>                assert(trap == NULL);
+<a href=#301 id=301 data-nosnippet>301</a>                assert(results[<span class="number">0</span>].of.i32 == <span class="number">2</span>);
 <a href=#302 id=302 data-nosnippet>302</a>
-<a href=#303 id=303 data-nosnippet>303</a>                assert(trap == NULL);
-<a href=#304 id=304 data-nosnippet>304</a>                assert(results[<span class="number">0</span>].of.i32 == <span class="number">2</span>);
-<a href=#305 id=305 data-nosnippet>305</a>
-<a href=#306 id=306 data-nosnippet>306</a>                <span class="comment">// Free everything.
-<a href=#307 id=307 data-nosnippet>307</a>                </span>wasm_extern_vec_delete(<span class="kw-2">&amp;</span>exports);
-<a href=#308 id=308 data-nosnippet>308</a>                wasm_instance_delete(instance);
-<a href=#309 id=309 data-nosnippet>309</a>                wasm_func_delete(sum_function);
-<a href=#310 id=310 data-nosnippet>310</a>                wasm_functype_delete(sum_type);
-<a href=#311 id=311 data-nosnippet>311</a>                wasm_module_delete(module);
-<a href=#312 id=312 data-nosnippet>312</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
-<a href=#313 id=313 data-nosnippet>313</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
-<a href=#314 id=314 data-nosnippet>314</a>                wasm_store_delete(store);
-<a href=#315 id=315 data-nosnippet>315</a>                wasm_engine_delete(engine);
-<a href=#316 id=316 data-nosnippet>316</a>
-<a href=#317 id=317 data-nosnippet>317</a>                <span class="kw">return </span><span class="number">0</span>;
-<a href=#318 id=318 data-nosnippet>318</a>            }
-<a href=#319 id=319 data-nosnippet>319</a>        })
-<a href=#320 id=320 data-nosnippet>320</a>        .success();
-<a href=#321 id=321 data-nosnippet>321</a>    }
-<a href=#322 id=322 data-nosnippet>322</a>}
+<a href=#303 id=303 data-nosnippet>303</a>                <span class="comment">// Free everything.
+<a href=#304 id=304 data-nosnippet>304</a>                </span>wasm_extern_vec_delete(<span class="kw-2">&amp;</span>exports);
+<a href=#305 id=305 data-nosnippet>305</a>                wasm_instance_delete(instance);
+<a href=#306 id=306 data-nosnippet>306</a>                wasm_func_delete(sum_function);
+<a href=#307 id=307 data-nosnippet>307</a>                wasm_functype_delete(sum_type);
+<a href=#308 id=308 data-nosnippet>308</a>                wasm_module_delete(module);
+<a href=#309 id=309 data-nosnippet>309</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
+<a href=#310 id=310 data-nosnippet>310</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
+<a href=#311 id=311 data-nosnippet>311</a>                wasm_store_delete(store);
+<a href=#312 id=312 data-nosnippet>312</a>                wasm_engine_delete(engine);
+<a href=#313 id=313 data-nosnippet>313</a>
+<a href=#314 id=314 data-nosnippet>314</a>                <span class="kw">return </span><span class="number">0</span>;
+<a href=#315 id=315 data-nosnippet>315</a>            }
+<a href=#316 id=316 data-nosnippet>316</a>        })
+<a href=#317 id=317 data-nosnippet>317</a>        .success();
+<a href=#318 id=318 data-nosnippet>318</a>    }
+<a href=#319 id=319 data-nosnippet>319</a>}
 </code></pre></div></section></main></body></html>

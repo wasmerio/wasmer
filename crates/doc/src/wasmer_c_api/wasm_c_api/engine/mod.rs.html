@@ -82,7 +82,7 @@
 <a href=#82 id=82 data-nosnippet>82</a>/// # Example
 <a href=#83 id=83 data-nosnippet>83</a>///
 <a href=#84 id=84 data-nosnippet>84</a>/// ```rust
-<a href=#85 id=85 data-nosnippet>85</a>/// # use wasmer_inline_c::assert_c;
+<a href=#85 id=85 data-nosnippet>85</a>/// # use inline_c::assert_c;
 <a href=#86 id=86 data-nosnippet>86</a>/// # fn main() {
 <a href=#87 id=87 data-nosnippet>87</a>/// #    (assert_c! {
 <a href=#88 id=88 data-nosnippet>88</a>/// # #include "tests/wasmer.h"
@@ -162,7 +162,7 @@
 <a href=#162 id=162 data-nosnippet>162</a>/// # Example
 <a href=#163 id=163 data-nosnippet>163</a>///
 <a href=#164 id=164 data-nosnippet>164</a>/// ```rust
-<a href=#165 id=165 data-nosnippet>165</a>/// # use wasmer_inline_c::assert_c;
+<a href=#165 id=165 data-nosnippet>165</a>/// # use inline_c::assert_c;
 <a href=#166 id=166 data-nosnippet>166</a>/// # fn main() {
 <a href=#167 id=167 data-nosnippet>167</a>/// #    (assert_c! {
 <a href=#168 id=168 data-nosnippet>168</a>/// # #include "tests/wasmer.h"
@@ -201,7 +201,7 @@
 <a href=#201 id=201 data-nosnippet>201</a>/// # Example
 <a href=#202 id=202 data-nosnippet>202</a>///
 <a href=#203 id=203 data-nosnippet>203</a>/// ```rust
-<a href=#204 id=204 data-nosnippet>204</a>/// # use wasmer_inline_c::assert_c;
+<a href=#204 id=204 data-nosnippet>204</a>/// # use inline_c::assert_c;
 <a href=#205 id=205 data-nosnippet>205</a>/// # fn main() {
 <a href=#206 id=206 data-nosnippet>206</a>/// #    (assert_c! {
 <a href=#207 id=207 data-nosnippet>207</a>/// # #include "tests/wasmer.h"
@@ -230,7 +230,7 @@
 <a href=#230 id=230 data-nosnippet>230</a>/// # Example
 <a href=#231 id=231 data-nosnippet>231</a>///
 <a href=#232 id=232 data-nosnippet>232</a>/// ```rust
-<a href=#233 id=233 data-nosnippet>233</a>/// # use wasmer_inline_c::assert_c;
+<a href=#233 id=233 data-nosnippet>233</a>/// # use inline_c::assert_c;
 <a href=#234 id=234 data-nosnippet>234</a>/// # fn main() {
 <a href=#235 id=235 data-nosnippet>235</a>/// #    (assert_c! {
 <a href=#236 id=236 data-nosnippet>236</a>/// # #include "tests/wasmer.h"
@@ -261,31 +261,28 @@
 <a href=#261 id=261 data-nosnippet>261</a>
 <a href=#262 id=262 data-nosnippet>262</a><span class="attr">#[cfg(test)]
 <a href=#263 id=263 data-nosnippet>263</a></span><span class="kw">mod </span>tests {
-<a href=#264 id=264 data-nosnippet>264</a>    <span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
-<a href=#265 id=265 data-nosnippet>265</a>    </span><span class="kw">use </span>inline_c::assert_c;
-<a href=#266 id=266 data-nosnippet>266</a>    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
-<a href=#267 id=267 data-nosnippet>267</a>    </span><span class="kw">use </span>wasmer_inline_c::assert_c;
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>    <span class="attr">#[allow(
-<a href=#270 id=270 data-nosnippet>270</a>        unexpected_cfgs,
-<a href=#271 id=271 data-nosnippet>271</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
-<a href=#272 id=272 data-nosnippet>272</a>    </span>)]
-<a href=#273 id=273 data-nosnippet>273</a>    #[cfg_attr(coverage_nightly, coverage(off))]
-<a href=#274 id=274 data-nosnippet>274</a>    #[test]
-<a href=#275 id=275 data-nosnippet>275</a>    </span><span class="kw">fn </span>test_engine_new() {
-<a href=#276 id=276 data-nosnippet>276</a>        (<span class="macro">assert_c!</span> {
-<a href=#277 id=277 data-nosnippet>277</a>            #include <span class="string">"tests/wasmer.h"
-<a href=#278 id=278 data-nosnippet>278</a>
-<a href=#279 id=279 data-nosnippet>279</a>            </span>int main() {
-<a href=#280 id=280 data-nosnippet>280</a>                wasm_engine_t* engine = wasm_engine_new();
-<a href=#281 id=281 data-nosnippet>281</a>                assert(engine);
-<a href=#282 id=282 data-nosnippet>282</a>
-<a href=#283 id=283 data-nosnippet>283</a>                wasm_engine_delete(engine);
-<a href=#284 id=284 data-nosnippet>284</a>
-<a href=#285 id=285 data-nosnippet>285</a>                <span class="kw">return </span><span class="number">0</span>;
-<a href=#286 id=286 data-nosnippet>286</a>            }
-<a href=#287 id=287 data-nosnippet>287</a>        })
-<a href=#288 id=288 data-nosnippet>288</a>        .success();
-<a href=#289 id=289 data-nosnippet>289</a>    }
-<a href=#290 id=290 data-nosnippet>290</a>}
+<a href=#264 id=264 data-nosnippet>264</a>    <span class="kw">use </span>inline_c::assert_c;
+<a href=#265 id=265 data-nosnippet>265</a>
+<a href=#266 id=266 data-nosnippet>266</a>    <span class="attr">#[allow(
+<a href=#267 id=267 data-nosnippet>267</a>        unexpected_cfgs,
+<a href=#268 id=268 data-nosnippet>268</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
+<a href=#269 id=269 data-nosnippet>269</a>    </span>)]
+<a href=#270 id=270 data-nosnippet>270</a>    #[cfg_attr(coverage_nightly, coverage(off))]
+<a href=#271 id=271 data-nosnippet>271</a>    #[test]
+<a href=#272 id=272 data-nosnippet>272</a>    </span><span class="kw">fn </span>test_engine_new() {
+<a href=#273 id=273 data-nosnippet>273</a>        (<span class="macro">assert_c!</span> {
+<a href=#274 id=274 data-nosnippet>274</a>            #include <span class="string">"tests/wasmer.h"
+<a href=#275 id=275 data-nosnippet>275</a>
+<a href=#276 id=276 data-nosnippet>276</a>            </span>int main() {
+<a href=#277 id=277 data-nosnippet>277</a>                wasm_engine_t* engine = wasm_engine_new();
+<a href=#278 id=278 data-nosnippet>278</a>                assert(engine);
+<a href=#279 id=279 data-nosnippet>279</a>
+<a href=#280 id=280 data-nosnippet>280</a>                wasm_engine_delete(engine);
+<a href=#281 id=281 data-nosnippet>281</a>
+<a href=#282 id=282 data-nosnippet>282</a>                <span class="kw">return </span><span class="number">0</span>;
+<a href=#283 id=283 data-nosnippet>283</a>            }
+<a href=#284 id=284 data-nosnippet>284</a>        })
+<a href=#285 id=285 data-nosnippet>285</a>        .success();
+<a href=#286 id=286 data-nosnippet>286</a>    }
+<a href=#287 id=287 data-nosnippet>287</a>}
 </code></pre></div></section></main></body></html>

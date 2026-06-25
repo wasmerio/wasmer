@@ -133,67 +133,64 @@
 <a href=#133 id=133 data-nosnippet>133</a>
 <a href=#134 id=134 data-nosnippet>134</a><span class="attr">#[cfg(test)]
 <a href=#135 id=135 data-nosnippet>135</a></span><span class="kw">mod </span>tests {
-<a href=#136 id=136 data-nosnippet>136</a>    <span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
-<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">use </span>inline_c::assert_c;
-<a href=#138 id=138 data-nosnippet>138</a>    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
-<a href=#139 id=139 data-nosnippet>139</a>    </span><span class="kw">use </span>wasmer_inline_c::assert_c;
-<a href=#140 id=140 data-nosnippet>140</a>
-<a href=#141 id=141 data-nosnippet>141</a>    <span class="attr">#[allow(
-<a href=#142 id=142 data-nosnippet>142</a>        unexpected_cfgs,
-<a href=#143 id=143 data-nosnippet>143</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
-<a href=#144 id=144 data-nosnippet>144</a>    </span>)]
-<a href=#145 id=145 data-nosnippet>145</a>    #[cfg_attr(coverage_nightly, coverage(off))]
-<a href=#146 id=146 data-nosnippet>146</a>    #[test]
-<a href=#147 id=147 data-nosnippet>147</a>    </span><span class="kw">fn </span>test_extern_copy() {
-<a href=#148 id=148 data-nosnippet>148</a>        (<span class="macro">assert_c!</span> {
-<a href=#149 id=149 data-nosnippet>149</a>            #include <span class="string">"tests/wasmer.h"
-<a href=#150 id=150 data-nosnippet>150</a>
-<a href=#151 id=151 data-nosnippet>151</a>            </span>int main() {
-<a href=#152 id=152 data-nosnippet>152</a>                wasm_engine_t* engine = wasm_engine_new();
-<a href=#153 id=153 data-nosnippet>153</a>                wasm_store_t* store = wasm_store_new(engine);
-<a href=#154 id=154 data-nosnippet>154</a>
-<a href=#155 id=155 data-nosnippet>155</a>                wasm_byte_vec_t wat;
-<a href=#156 id=156 data-nosnippet>156</a>                wasmer_byte_vec_new_from_string(
-<a href=#157 id=157 data-nosnippet>157</a>                    <span class="kw-2">&amp;</span>wat,
-<a href=#158 id=158 data-nosnippet>158</a>                    <span class="string">"(module\n"
-<a href=#159 id=159 data-nosnippet>159</a>                    "  (func (export \"function\")))"
-<a href=#160 id=160 data-nosnippet>160</a>                </span>);
-<a href=#161 id=161 data-nosnippet>161</a>                wasm_byte_vec_t wasm;
-<a href=#162 id=162 data-nosnippet>162</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="kw">use </span>inline_c::assert_c;
+<a href=#137 id=137 data-nosnippet>137</a>
+<a href=#138 id=138 data-nosnippet>138</a>    <span class="attr">#[allow(
+<a href=#139 id=139 data-nosnippet>139</a>        unexpected_cfgs,
+<a href=#140 id=140 data-nosnippet>140</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
+<a href=#141 id=141 data-nosnippet>141</a>    </span>)]
+<a href=#142 id=142 data-nosnippet>142</a>    #[cfg_attr(coverage_nightly, coverage(off))]
+<a href=#143 id=143 data-nosnippet>143</a>    #[test]
+<a href=#144 id=144 data-nosnippet>144</a>    </span><span class="kw">fn </span>test_extern_copy() {
+<a href=#145 id=145 data-nosnippet>145</a>        (<span class="macro">assert_c!</span> {
+<a href=#146 id=146 data-nosnippet>146</a>            #include <span class="string">"tests/wasmer.h"
+<a href=#147 id=147 data-nosnippet>147</a>
+<a href=#148 id=148 data-nosnippet>148</a>            </span>int main() {
+<a href=#149 id=149 data-nosnippet>149</a>                wasm_engine_t* engine = wasm_engine_new();
+<a href=#150 id=150 data-nosnippet>150</a>                wasm_store_t* store = wasm_store_new(engine);
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a>                wasm_byte_vec_t wat;
+<a href=#153 id=153 data-nosnippet>153</a>                wasmer_byte_vec_new_from_string(
+<a href=#154 id=154 data-nosnippet>154</a>                    <span class="kw-2">&amp;</span>wat,
+<a href=#155 id=155 data-nosnippet>155</a>                    <span class="string">"(module\n"
+<a href=#156 id=156 data-nosnippet>156</a>                    "  (func (export \"function\")))"
+<a href=#157 id=157 data-nosnippet>157</a>                </span>);
+<a href=#158 id=158 data-nosnippet>158</a>                wasm_byte_vec_t wasm;
+<a href=#159 id=159 data-nosnippet>159</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#160 id=160 data-nosnippet>160</a>
+<a href=#161 id=161 data-nosnippet>161</a>                wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
+<a href=#162 id=162 data-nosnippet>162</a>                assert(module);
 <a href=#163 id=163 data-nosnippet>163</a>
-<a href=#164 id=164 data-nosnippet>164</a>                wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
-<a href=#165 id=165 data-nosnippet>165</a>                assert(module);
+<a href=#164 id=164 data-nosnippet>164</a>                wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+<a href=#165 id=165 data-nosnippet>165</a>                wasm_trap_t* trap = NULL;
 <a href=#166 id=166 data-nosnippet>166</a>
-<a href=#167 id=167 data-nosnippet>167</a>                wasm_extern_vec_t imports = WASM_EMPTY_VEC;
-<a href=#168 id=168 data-nosnippet>168</a>                wasm_trap_t* trap = NULL;
+<a href=#167 id=167 data-nosnippet>167</a>                wasm_instance_t* instance = wasm_instance_new(store, module, <span class="kw-2">&amp;</span>imports, <span class="kw-2">&amp;</span>trap);
+<a href=#168 id=168 data-nosnippet>168</a>                assert(instance);
 <a href=#169 id=169 data-nosnippet>169</a>
-<a href=#170 id=170 data-nosnippet>170</a>                wasm_instance_t* instance = wasm_instance_new(store, module, <span class="kw-2">&amp;</span>imports, <span class="kw-2">&amp;</span>trap);
-<a href=#171 id=171 data-nosnippet>171</a>                assert(instance);
+<a href=#170 id=170 data-nosnippet>170</a>                wasm_extern_vec_t exports;
+<a href=#171 id=171 data-nosnippet>171</a>                wasm_instance_exports(instance, <span class="kw-2">&amp;</span>exports);
 <a href=#172 id=172 data-nosnippet>172</a>
-<a href=#173 id=173 data-nosnippet>173</a>                wasm_extern_vec_t exports;
-<a href=#174 id=174 data-nosnippet>174</a>                wasm_instance_exports(instance, <span class="kw-2">&amp;</span>exports);
-<a href=#175 id=175 data-nosnippet>175</a>
-<a href=#176 id=176 data-nosnippet>176</a>                assert(exports.size == <span class="number">1</span>);
+<a href=#173 id=173 data-nosnippet>173</a>                assert(exports.size == <span class="number">1</span>);
+<a href=#174 id=174 data-nosnippet>174</a>
+<a href=#175 id=175 data-nosnippet>175</a>                wasm_extern_t* function = exports.data[<span class="number">0</span>];
+<a href=#176 id=176 data-nosnippet>176</a>                assert(wasm_extern_kind(function) == WASM_EXTERN_FUNC);
 <a href=#177 id=177 data-nosnippet>177</a>
-<a href=#178 id=178 data-nosnippet>178</a>                wasm_extern_t* function = exports.data[<span class="number">0</span>];
-<a href=#179 id=179 data-nosnippet>179</a>                assert(wasm_extern_kind(function) == WASM_EXTERN_FUNC);
+<a href=#178 id=178 data-nosnippet>178</a>                wasm_extern_t* function_copy = wasm_extern_copy(function);
+<a href=#179 id=179 data-nosnippet>179</a>                assert(wasm_extern_kind(function_copy) == WASM_EXTERN_FUNC);
 <a href=#180 id=180 data-nosnippet>180</a>
-<a href=#181 id=181 data-nosnippet>181</a>                wasm_extern_t* function_copy = wasm_extern_copy(function);
-<a href=#182 id=182 data-nosnippet>182</a>                assert(wasm_extern_kind(function_copy) == WASM_EXTERN_FUNC);
-<a href=#183 id=183 data-nosnippet>183</a>
-<a href=#184 id=184 data-nosnippet>184</a>                wasm_extern_delete(function_copy);
-<a href=#185 id=185 data-nosnippet>185</a>                wasm_extern_vec_delete(<span class="kw-2">&amp;</span>exports);
-<a href=#186 id=186 data-nosnippet>186</a>                wasm_instance_delete(instance);
-<a href=#187 id=187 data-nosnippet>187</a>                wasm_module_delete(module);
-<a href=#188 id=188 data-nosnippet>188</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
-<a href=#189 id=189 data-nosnippet>189</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
-<a href=#190 id=190 data-nosnippet>190</a>                wasm_store_delete(store);
-<a href=#191 id=191 data-nosnippet>191</a>                wasm_engine_delete(engine);
-<a href=#192 id=192 data-nosnippet>192</a>
-<a href=#193 id=193 data-nosnippet>193</a>                <span class="kw">return </span><span class="number">0</span>;
-<a href=#194 id=194 data-nosnippet>194</a>            }
-<a href=#195 id=195 data-nosnippet>195</a>        })
-<a href=#196 id=196 data-nosnippet>196</a>        .success();
-<a href=#197 id=197 data-nosnippet>197</a>    }
-<a href=#198 id=198 data-nosnippet>198</a>}
+<a href=#181 id=181 data-nosnippet>181</a>                wasm_extern_delete(function_copy);
+<a href=#182 id=182 data-nosnippet>182</a>                wasm_extern_vec_delete(<span class="kw-2">&amp;</span>exports);
+<a href=#183 id=183 data-nosnippet>183</a>                wasm_instance_delete(instance);
+<a href=#184 id=184 data-nosnippet>184</a>                wasm_module_delete(module);
+<a href=#185 id=185 data-nosnippet>185</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
+<a href=#186 id=186 data-nosnippet>186</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
+<a href=#187 id=187 data-nosnippet>187</a>                wasm_store_delete(store);
+<a href=#188 id=188 data-nosnippet>188</a>                wasm_engine_delete(engine);
+<a href=#189 id=189 data-nosnippet>189</a>
+<a href=#190 id=190 data-nosnippet>190</a>                <span class="kw">return </span><span class="number">0</span>;
+<a href=#191 id=191 data-nosnippet>191</a>            }
+<a href=#192 id=192 data-nosnippet>192</a>        })
+<a href=#193 id=193 data-nosnippet>193</a>        .success();
+<a href=#194 id=194 data-nosnippet>194</a>    }
+<a href=#195 id=195 data-nosnippet>195</a>}
 </code></pre></div></section></main></body></html>
