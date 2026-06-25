@@ -1242,6 +1242,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let tests_build_root = tests_build_root.clone();
         move || {
             run_dynamic_runtime_hook_smoke(&tests_dir, &tests_build_root)
+                .map(|_| ())
                 .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
         }
     }));
