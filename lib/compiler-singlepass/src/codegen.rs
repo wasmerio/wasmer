@@ -2,10 +2,6 @@
 use crate::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 #[cfg(feature = "unwind")]
 use crate::unwind::create_systemv_cie;
-#[cfg(feature = "unwind")]
-use gimli::write::{EhFrame, FrameTable, Writer};
-use wasmer_types::SourceLoc;
-
 use crate::{
     codegen_error,
     common_decl::*,
@@ -17,6 +13,8 @@ use crate::{
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
+#[cfg(feature = "unwind")]
+use gimli::write::{EhFrame, FrameTable, Writer};
 use itertools::Itertools;
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind as ObjRelocationKind, SectionKind,
@@ -40,11 +38,13 @@ use wasmer_compiler::{
     FunctionBodyData, WASMER_TRAPS_SECTION_NAME,
     misc::CompiledKind,
     object::get_object_for_target,
+    types::address_map::InstructionAddressMap,
     wasmparser::{
         BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
         ValType as WpType,
     },
 };
+use wasmer_types::SourceLoc;
 
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
@@ -129,6 +129,9 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Source location which is a byte offset in the WASM stream.
     src_loc: SourceLoc,
+
+    /// Map from byte offset into wasm function to native instruction ranges.
+    address_map: Vec<InstructionAddressMap>,
 }
 
 struct SpecialLabelSet {
@@ -615,8 +618,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     /// Set the source location of the Wasm to the given offset.
-    pub fn set_srcloc(&mut self, offset: u32) {
+    pub fn record_srcloc(&mut self, offset: u32) {
         self.src_loc = SourceLoc::new(offset);
+        let code_offset = self.machine.assembler_get_offset().0;
+        if let Some(last) = self.address_map.last_mut()
+            && last.code_offset == code_offset
+        {
+            last.srcloc = self.src_loc;
+            return;
+        }
+        self.address_map.push(InstructionAddressMap {
+            srcloc: self.src_loc,
+            code_offset,
+            // TODO: remove
+            code_len: 0,
+        });
+    }
+
+    fn finish_address_map(&mut self) {
+        let code_offset = self.machine.assembler_get_offset().0;
+        if let Some(last) = self.address_map.last_mut() {
+            last.code_len = code_offset - last.code_offset;
+        }
     }
 
     fn get_location_released(
@@ -998,6 +1021,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             #[cfg(feature = "unwind")]
             dwarf_state: init_dwarf_unit(&function_name, module.name.as_deref()).ok(),
             src_loc: SourceLoc::default(),
+            address_map: vec![],
         };
         fg.emit_head()?;
         Ok(fg)
@@ -5859,6 +5883,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         data: &FunctionBodyData,
         arch: Architecture,
     ) -> Result<PathBuf, CompileError> {
+        self.finish_address_map();
         self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
         // Generate actual code for special labels.
         self.machine
@@ -5923,7 +5948,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let traps = self.machine.collect_trap_information();
         #[cfg(feature = "unwind")]
-        let address_map: Vec<wasmer_compiler::types::address_map::InstructionAddressMap> = vec![];
+        let address_map = self.address_map;
         let FinalizedAssembly {
             mut body,
             assembly_comments,

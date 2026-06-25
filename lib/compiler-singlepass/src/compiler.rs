@@ -174,7 +174,7 @@ impl SinglepassCompiler {
                             build_directory.path(),
                         )?;
                         while generator.has_control_frames() {
-                            generator.set_srcloc(reader.original_position() as u32);
+                            generator.record_srcloc(reader.original_position() as u32);
                             let op = reader.read_operator()?;
                             generator.feed_operator(op)?;
                         }
@@ -197,7 +197,7 @@ impl SinglepassCompiler {
                             build_directory.path(),
                         )?;
                         while generator.has_control_frames() {
-                            generator.set_srcloc(reader.original_position() as u32);
+                            generator.record_srcloc(reader.original_position() as u32);
                             let op = reader.read_operator()?;
                             generator.feed_operator(op)?;
                         }
@@ -223,7 +223,7 @@ impl SinglepassCompiler {
                             build_directory.path(),
                         )?;
                         while generator.has_control_frames() {
-                            generator.set_srcloc(reader.original_position() as u32);
+                            generator.record_srcloc(reader.original_position() as u32);
                             let op = reader.read_operator()?;
                             generator.feed_operator(op)?;
                         }
