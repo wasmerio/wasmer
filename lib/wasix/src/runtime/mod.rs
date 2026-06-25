@@ -18,7 +18,7 @@ use std::{
 use futures::future::BoxFuture;
 use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::{Engine, Extern, Imports, Instance, Memory, Module, RuntimeError, StoreMut};
+use wasmer::{Engine, Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -353,48 +353,6 @@ where
 }
 
 pub type DynRuntime = dyn Runtime + Send + Sync;
-
-pub(crate) fn extend_imports_with_runtime(
-    runtime: &DynRuntime,
-    module: &Module,
-    store: &mut StoreMut<'_>,
-    imports: &mut Imports,
-) -> anyhow::Result<()> {
-    let additional_imports = runtime.additional_imports(module, store)?;
-
-    for ((namespace, name), value) in &additional_imports {
-        if imports.exists(&namespace, &name) {
-            tracing::warn!(
-                "Skipping duplicate additional import {}.{}",
-                namespace,
-                name
-            );
-        } else {
-            imports.define(&namespace, &name, value);
-        }
-    }
-
-    Ok(())
-}
-
-pub(crate) fn imported_memory_from_imports(imports: &Imports) -> Option<Memory> {
-    imports
-        .get_export("env", "memory")
-        .and_then(|ext| match ext {
-            Extern::Memory(memory) => Some(memory),
-            _ => None,
-        })
-}
-
-pub(crate) fn configure_runtime_instance(
-    runtime: &DynRuntime,
-    module: &Module,
-    store: &mut StoreMut<'_>,
-    instance: &Instance,
-    imported_memory: Option<&Memory>,
-) -> anyhow::Result<()> {
-    runtime.configure_new_instance(module, store, instance, imported_memory)
-}
 
 /// Load a Webassembly module, trying to use a pre-compiled version if possible.
 ///
