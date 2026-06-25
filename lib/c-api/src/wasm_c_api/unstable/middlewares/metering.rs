@@ -8,7 +8,7 @@
 //! # Example
 //!
 //! ```rust
-//! # use wasmer_inline_c::assert_c;
+//! # use inline_c::assert_c;
 //! # fn main() {
 //! #    (assert_c! {
 //! # #include "tests/wasmer.h"
@@ -236,7 +236,7 @@ pub unsafe extern "C" fn wasmer_metering_points_are_exhausted(
 /// points aren't updated by the WebAssembly module execution
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
