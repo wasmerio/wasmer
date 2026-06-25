@@ -54,7 +54,7 @@ use wasmer_wasix::{
         wasi::{RuntimeOrEngine, WasiRunner},
     },
     runtime::{
-        OverriddenRuntime,
+        ModuleInput, OverriddenRuntime,
         module_cache::{CacheError, HashedModuleData},
         package_loader::PackageLoader,
         resolver::QueryError,
@@ -693,7 +693,13 @@ fn maybe_wrap_runtime_with_wasm_c_api(
         return Ok(runtime);
     }
 
-    let hooks = wasmer_c_api::wasm_c_api::imports::WasmCapiRuntimeHooks::new();
+    let runtime_for_resolver = runtime.clone();
+    let hooks = wasmer_c_api::wasm_c_api::imports::WasmCapiRuntimeHooks::new()
+        .with_resolve_module_sync(move |bytes| {
+            runtime_for_resolver
+                .resolve_module_sync(ModuleInput::Bytes(Cow::Owned(bytes)), None, None)
+                .context("failed to resolve Wasm C API module")
+        });
     Ok(Arc::new(
         OverriddenRuntime::new(runtime)
             .with_additional_imports({
