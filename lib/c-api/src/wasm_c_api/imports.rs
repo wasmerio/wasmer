@@ -49,8 +49,8 @@ impl WasmCAPIVersion {
     }
 }
 
-/// Detects whether a module imports the host-provided WebAssembly C API.
-pub fn module_needs_wasm_c_api(module: &Module) -> Option<WasmCAPIVersion> {
+/// Returns the host-provided WebAssembly C API version imported by a module.
+pub fn module_wasm_c_api_version_used(module: &Module) -> Option<WasmCAPIVersion> {
     let mut version = None;
 
     for import in module.imports() {
@@ -110,7 +110,7 @@ impl WasmCapiSession {
         });
 
         Self {
-            version: module_needs_wasm_c_api(module),
+            version: module_wasm_c_api_version_used(module),
             imported_memory_type,
             imported_table_type,
             func_env: Mutex::new(None),
@@ -308,7 +308,7 @@ impl WasmCapiRuntimeHooks {
         instance: &Instance,
         imported_memory: Option<&Memory>,
     ) -> Result<()> {
-        if module_needs_wasm_c_api(module).is_none() {
+        if module_wasm_c_api_version_used(module).is_none() {
             return Ok(());
         }
 
@@ -1974,7 +1974,7 @@ mod tests {
     use super::{
         INVALID_HANDLE, Type, WASM_EXTERNREF, WASM_F64, WASM_FUNCREF, WASM_I32, WasmCAPIVersion,
         WasmCapiEnv, WasmCapiState, WasmObject, guest_ptr_u32, guest_ptr_with_offset,
-        module_needs_wasm_c_api, non_null_guest_ptr, type_to_wasm_kind, wasm_kind_to_type,
+        module_wasm_c_api_version_used, non_null_guest_ptr, type_to_wasm_kind, wasm_kind_to_type,
         wasm_memory_data, wasm_memory_data_size,
     };
     use wasmer_api::{FunctionEnv, Memory, MemoryType, Module, Pages, Store};
@@ -1988,15 +1988,15 @@ mod tests {
     }
 
     #[test]
-    fn module_needs_wasm_c_api_detects_none() {
+    fn module_wasm_c_api_version_used_detects_none() {
         let store = Store::default();
         let module = Module::new(&store, EMPTY_WASM_MODULE).expect("empty wasm module compiles");
 
-        assert_eq!(module_needs_wasm_c_api(&module), None);
+        assert_eq!(module_wasm_c_api_version_used(&module), None);
     }
 
     #[test]
-    fn module_needs_wasm_c_api_detects_v0() {
+    fn module_wasm_c_api_version_used_detects_v0() {
         let store = Store::default();
         let module = compile_wat(
             &store,
@@ -2005,11 +2005,14 @@ mod tests {
             )"#,
         );
 
-        assert_eq!(module_needs_wasm_c_api(&module), Some(WasmCAPIVersion::V0));
+        assert_eq!(
+            module_wasm_c_api_version_used(&module),
+            Some(WasmCAPIVersion::V0)
+        );
     }
 
     #[test]
-    fn module_needs_wasm_c_api_detects_unknown_version() {
+    fn module_wasm_c_api_version_used_detects_unknown_version() {
         let store = Store::default();
         let module = compile_wat(
             &store,
@@ -2019,13 +2022,13 @@ mod tests {
         );
 
         assert_eq!(
-            module_needs_wasm_c_api(&module),
+            module_wasm_c_api_version_used(&module),
             Some(WasmCAPIVersion::Unknown)
         );
     }
 
     #[test]
-    fn module_needs_wasm_c_api_detects_mixed_versions() {
+    fn module_wasm_c_api_version_used_detects_mixed_versions() {
         let store = Store::default();
         let module = compile_wat(
             &store,
@@ -2036,7 +2039,7 @@ mod tests {
         );
 
         assert_eq!(
-            module_needs_wasm_c_api(&module),
+            module_wasm_c_api_version_used(&module),
             Some(WasmCAPIVersion::Unknown)
         );
     }
