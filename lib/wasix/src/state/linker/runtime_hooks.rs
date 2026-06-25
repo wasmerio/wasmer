@@ -36,13 +36,13 @@ pub(super) fn instantiate_with_runtime_hooks(
 
 fn merge_missing_imports(imports: &mut Imports, additional_imports: &Imports) {
     for ((namespace, name), value) in additional_imports {
-        if imports.exists(&namespace, name) {
+        if imports.exists(&namespace, &name) {
             warn!(
                 "Skipping duplicate additional import {}.{}",
                 namespace, name
             );
         } else {
-            imports.define(namespace, name, value);
+            imports.define(&namespace, &name, value);
         }
     }
 }
