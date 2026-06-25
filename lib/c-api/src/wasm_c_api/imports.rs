@@ -1172,6 +1172,10 @@ fn wasm_memory_data_size(env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -
     let Some(memory) = memory_from_handle(&env, memory_handle) else {
         return INVALID_HANDLE;
     };
+    // Shared memories can change concurrently while guest code is executing.
+    // Since this bridge exposes memory data through guest-owned shadow buffers
+    // instead of direct host pointers, fail closed instead of publishing a
+    // stale size for a shadow pointer that cannot be safely provided.
     if memory.ty(&env).shared {
         return 0;
     }
@@ -1186,7 +1190,8 @@ fn wasm_memory_data(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) ->
     // `wasm_memory_data` normally exposes a direct host pointer. In this
     // guest-imported C API bridge, the guest cannot safely receive a host
     // pointer, so we return a guest allocation that shadows the Wasmer memory.
-    // Shared memories cannot be coherently represented by such a snapshot.
+    // Shared memories cannot be coherently represented by such a snapshot, so
+    // report a null pointer instead of exposing a racy partial copy.
     if memory.ty(&env).shared {
         return INVALID_HANDLE;
     };
@@ -1959,10 +1964,11 @@ fn register_wasm_c_api_imports(
 mod tests {
     use super::{
         INVALID_HANDLE, Type, WASM_EXTERNREF, WASM_F64, WASM_FUNCREF, WASM_I32, WasmCAPIVersion,
-        WasmCapiState, WasmObject, guest_ptr_u32, guest_ptr_with_offset, module_needs_wasm_c_api,
-        non_null_guest_ptr, type_to_wasm_kind, wasm_kind_to_type,
+        WasmCapiEnv, WasmCapiState, WasmObject, guest_ptr_u32, guest_ptr_with_offset,
+        module_needs_wasm_c_api, non_null_guest_ptr, type_to_wasm_kind, wasm_kind_to_type,
+        wasm_memory_data, wasm_memory_data_size,
     };
-    use wasmer_api::{Module, Store};
+    use wasmer_api::{FunctionEnv, Memory, MemoryType, Module, Pages, Store};
     use wat::parse_str;
 
     const EMPTY_WASM_MODULE: &[u8] = b"\0asm\x01\0\0\0";
@@ -2069,6 +2075,27 @@ mod tests {
         assert_eq!(non_null_guest_ptr(0), None);
         assert_eq!(non_null_guest_ptr(1), Some(1));
         assert_eq!(guest_ptr_with_offset(i32::MAX, 4), None);
+    }
+
+    #[test]
+    fn shared_memory_data_shadow_fails_closed() {
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(2)), true))
+            .expect("shared memory can be created");
+        let func_env = FunctionEnv::new(&mut store, WasmCapiEnv::default());
+        let memory_handle = func_env
+            .as_mut(&mut store)
+            .state
+            .insert(WasmObject::Memory(memory));
+
+        assert_eq!(
+            wasm_memory_data_size(func_env.clone().into_mut(&mut store), memory_handle),
+            0
+        );
+        assert_eq!(
+            wasm_memory_data(func_env.into_mut(&mut store), memory_handle),
+            INVALID_HANDLE
+        );
     }
 
     #[test]
