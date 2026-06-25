@@ -95,6 +95,7 @@ use wasmer_wasix::virtual_fs::{
     StaticFile, TmpFileSystem, create_dir_all as create_virtual_dir_all, mem_fs,
 };
 
+mod error;
 mod runner;
 
 const TESTED_LIBC_VERSIONS: &[Option<&str>] = &[None, Some("v2026-05-12.1")];

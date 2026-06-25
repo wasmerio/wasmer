@@ -16,6 +16,7 @@ use wasmer_wasix::runtime::module_cache::{HashedModuleData, ModuleCache};
 use wasmer_wasix::virtual_fs::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use crate::Engine;
+use crate::error::exit_code_from_error;
 
 static TRACE_SUBSCRIBER_INIT: OnceLock<()> = OnceLock::new();
 static TRACE_CAPTURE_STATE: OnceLock<TraceCaptureState> = OnceLock::new();
@@ -457,20 +458,7 @@ where
     // Extract exit code from result
     let exit_code = match result {
         Ok(_) => 0,
-        Err(e) => {
-            // Try to extract exit code from error message
-            let error_msg = e.to_string();
-            if let Some(code_str) = error_msg.split("ExitCode::").nth(1) {
-                if let Some(code) = code_str.split_whitespace().next() {
-                    code.parse::<i32>()
-                        .unwrap_or_else(|_| panic!("exit code cannot be parsed: `{error_msg}`"))
-                } else {
-                    return Err(e);
-                }
-            } else {
-                return Err(e);
-            }
-        }
+        Err(e) => exit_code_from_error(&e).ok_or(e)?,
     };
 
     Ok(WasmRunResult {
