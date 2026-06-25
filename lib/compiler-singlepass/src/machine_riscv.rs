@@ -6546,7 +6546,7 @@ impl Machine for MachineRiscv {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<CustomSection, CompileError> {
+    ) -> Result<Vec<u8>, CompileError> {
         gen_import_call_trampoline_riscv(vmoffsets, index, sig, calling_convention)
     }
 

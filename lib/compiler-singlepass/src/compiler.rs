@@ -118,7 +118,7 @@ impl SinglepassCompiler {
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
-        let custom_sections: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
+        let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect_vec()
             .into_par_iter()
@@ -260,16 +260,9 @@ impl SinglepassCompiler {
         };
 
         let module_hash = module.hash_string();
-        let import_trampoline_objects = custom_sections
+        let import_trampoline_objects = import_trampolines
             .into_iter()
-            .map(|(index, section)| -> Result<PathBuf, CompileError> {
-                if !section.relocations.is_empty() {
-                    return Err(CompileError::Codegen(format!(
-                        "import trampoline i{} has unsupported relocations",
-                        index.index()
-                    )));
-                }
-
+            .map(|(index, bytes)| -> Result<PathBuf, CompileError> {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
@@ -279,7 +272,7 @@ impl SinglepassCompiler {
                 let symbol = obj.add_symbol(Symbol {
                     name: format!("i{}", index.index()).into(),
                     value: 0,
-                    size: section.bytes.len() as u64,
+                    size: bytes.len() as u64,
                     kind: SymbolKind::Text,
                     scope: SymbolScope::Dynamic,
                     weak: false,
@@ -287,12 +280,7 @@ impl SinglepassCompiler {
                     flags: SymbolFlags::None,
                 });
                 let text_section = obj.section_id(StandardSection::Text);
-                obj.add_symbol_data(
-                    symbol,
-                    text_section,
-                    section.bytes.as_slice(),
-                    section.alignment.unwrap_or(4),
-                );
+                obj.add_symbol_data(symbol, text_section, &bytes, 4);
 
                 save_object(obj, format!("i{}.o", index.index()))
             })

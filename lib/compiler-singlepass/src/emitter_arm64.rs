@@ -3110,7 +3110,7 @@ pub fn gen_import_call_trampoline_arm64(
     index: FunctionIndex,
     sig: &FunctionType,
     calling_convention: CallingConvention,
-) -> Result<CustomSection, CompileError> {
+) -> Result<Vec<u8>, CompileError> {
     let mut a = Assembler::new(0);
 
     // Singlepass internally treats all arguments as integers
@@ -3277,14 +3277,6 @@ pub fn gen_import_call_trampoline_arm64(
     }
     a.emit_b_register(GPR::X16)?;
 
-    let mut contents = a.finalize().unwrap();
-    contents.shrink_to_fit();
-    let section_body = SectionBody::new_with_vec(contents);
-
-    Ok(CustomSection {
-        protection: CustomSectionProtection::ReadExecute,
-        alignment: None,
-        bytes: section_body,
-        relocations: vec![],
-    })
+    a.finalize()
+        .map_err(|e| CompileError::Codegen(format!("cannot emit assembly: {e}")))
 }

@@ -8086,7 +8086,7 @@ impl Machine for MachineX86_64 {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<CustomSection, CompileError> {
+    ) -> Result<Vec<u8>, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
 
@@ -8240,16 +8240,8 @@ impl Machine for MachineX86_64 {
         }
         a.emit_host_redirection(GPR::RAX)?;
 
-        let mut contents = a.finalize().unwrap();
-        contents.shrink_to_fit();
-        let section_body = SectionBody::new_with_vec(contents);
-
-        Ok(CustomSection {
-            protection: CustomSectionProtection::ReadExecute,
-            alignment: None,
-            bytes: section_body,
-            relocations: vec![],
-        })
+        a.finalize()
+            .map_err(|e| CompileError::Codegen(format!("cannot emit assembly: {e}")))
     }
 
     #[cfg(feature = "unwind")]

@@ -8385,7 +8385,7 @@ impl Machine for MachineARM64 {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<CustomSection, CompileError> {
+    ) -> Result<Vec<u8>, CompileError> {
         gen_import_call_trampoline_arm64(vmoffsets, index, sig, calling_convention)
     }
 

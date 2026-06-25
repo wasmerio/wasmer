@@ -2345,7 +2345,7 @@ pub trait Machine {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-    ) -> Result<CustomSection, CompileError>;
+    ) -> Result<Vec<u8>, CompileError>;
     /// generate eh_frame instruction (or None if not possible / supported)
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
     /// generate Windows unwind instructions (or None if not possible / supported)
@@ -2409,7 +2409,7 @@ pub fn gen_import_call_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-) -> Result<CustomSection, CompileError> {
+) -> Result<Vec<u8>, CompileError> {
     match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
