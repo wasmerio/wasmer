@@ -9,11 +9,7 @@ use object::{
     RelocationEncoding, RelocationFlags, RelocationKind as ObjectRelocationKind, SectionKind,
     write::{Object, Relocation as ObjectRelocation, StandardSegment, SymbolId},
 };
-use wasmer_compiler::types::{
-    address_map::FunctionAddressMap,
-    relocation::{Relocation, RelocationKind, RelocationTarget},
-    section::{CustomSectionProtection, SectionBody},
-};
+use wasmer_compiler::types::relocation::{Relocation, RelocationKind, RelocationTarget};
 use wasmer_types::{
     CompileError, LocalFunctionIndex, SourceLoc, entity::EntityRef, target::Endianness,
 };
@@ -25,17 +21,10 @@ pub struct WriterRelocate {
 }
 
 impl WriterRelocate {
-    pub const FUNCTION_SYMBOL: usize = 0;
-    pub fn new(endianness: Option<Endianness>) -> Self {
-        let endianness = match endianness {
-            Some(Endianness::Little) => RunTimeEndian::Little,
-            Some(Endianness::Big) => RunTimeEndian::Big,
-            // We autodetect it, based on the host
-            None => RunTimeEndian::default(),
-        };
+    pub fn new() -> Self {
         WriterRelocate {
             relocs: Vec::new(),
-            writer: EndianVec::new(endianness),
+            writer: EndianVec::new(RunTimeEndian::Little),
         }
     }
 
@@ -66,28 +55,25 @@ impl Writer for WriterRelocate {
     fn write_address(&mut self, address: Address, size: u8) -> GimliResult<()> {
         match address {
             Address::Constant(val) => self.write_udata(val, size),
-            Address::Symbol { symbol, addend } => {
-                // Is a function relocation
-                if symbol == Self::FUNCTION_SYMBOL {
-                    // We use the addend to detect the function index
-                    let function_index = LocalFunctionIndex::new(addend as _);
-                    let reloc_target = RelocationTarget::LocalFunc(function_index);
-                    let offset = self.len() as u32;
-                    let kind = match size {
-                        8 => RelocationKind::Abs8,
-                        _ => unimplemented!("dwarf relocation size not yet supported: {}", size),
-                    };
-                    let addend = 0;
-                    self.relocs.push(Relocation {
-                        kind,
-                        reloc_target,
-                        offset,
-                        addend,
-                    });
-                    self.write_udata(addend as u64, size)
-                } else {
-                    unreachable!("Symbol {} in DWARF not recognized", symbol);
-                }
+            Address::Symbol { addend, .. } => {
+                // We use the addend to detect the function index
+                let function_index = LocalFunctionIndex::new(addend as _);
+                let reloc_target = RelocationTarget::LocalFunc(function_index);
+                let offset = self.len() as u32;
+                let kind = match size {
+                    8 => RelocationKind::Abs8,
+                    _ => {
+                        return Err(gimli::write::Error::InvalidAddress);
+                    }
+                };
+                let addend = 0;
+                self.relocs.push(Relocation {
+                    kind,
+                    reloc_target,
+                    offset,
+                    addend,
+                });
+                self.write_udata(addend as u64, size)
             }
         }
     }
@@ -104,9 +90,8 @@ impl Writer for WriterRelocate {
 
         match address {
             Address::Constant(_) => self.writer.write_eh_pointer(address, eh_pe, size),
-            Address::Symbol { symbol, addend }
-                if symbol == Self::FUNCTION_SYMBOL
-                    && eh_pe == (constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4)
+            Address::Symbol { addend, .. }
+                if eh_pe == (constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4)
                     && size == 8 =>
             {
                 let function_index = LocalFunctionIndex::new(addend as _);
@@ -120,14 +105,13 @@ impl Writer for WriterRelocate {
                 });
                 self.write_udata(0, 4)
             }
-            Address::Symbol { .. } => {
-                unimplemented!("eh pointer encoding {eh_pe:?} not supported for symbol targets")
-            }
+            Address::Symbol { .. } => Err(gimli::write::Error::InvalidAddress),
         }
     }
 
     fn write_offset(&mut self, _val: usize, _section: SectionId, _size: u8) -> GimliResult<()> {
-        unimplemented!("write_offset not yet implemented");
+        // TODO: a more proper error type?
+        Err(gimli::write::Error::OffsetOutOfBounds)
     }
 
     fn write_offset_at(
@@ -137,7 +121,8 @@ impl Writer for WriterRelocate {
         _section: SectionId,
         _size: u8,
     ) -> GimliResult<()> {
-        unimplemented!("write_offset_at not yet implemented");
+        // TODO: a more proper error type?
+        Err(gimli::write::Error::OffsetOutOfBounds)
     }
 }
 
@@ -197,8 +182,7 @@ impl Writer for DebugWriter {
     fn write_address(&mut self, address: Address, size: u8) -> GimliResult<()> {
         match address {
             Address::Constant(val) => self.write_udata(val, size),
-            Address::Symbol { symbol, addend } => {
-                assert_eq!(symbol, WriterRelocate::FUNCTION_SYMBOL);
+            Address::Symbol { addend, .. } => {
                 let offset = self.len() as u64;
                 self.relocs.push(DebugRelocation {
                     offset,
@@ -259,9 +243,7 @@ pub fn init_dwarf_unit(
     };
     let mut dwarf = DwarfUnit::new(encoding);
     let comp_dir = dwarf.strings.add(".");
-    let file_name_str = module_name
-        .filter(|name| !name.is_empty())
-        .unwrap_or("wasm-module");
+    let file_name_str = module_name.unwrap_or("<module>");
     let file_name = dwarf.strings.add(file_name_str);
     dwarf.unit.line_program = LineProgram::new(
         encoding,
@@ -279,7 +261,7 @@ pub fn init_dwarf_unit(
     );
 
     let function_address = Address::Symbol {
-        symbol: WriterRelocate::FUNCTION_SYMBOL,
+        symbol: 0,
         addend: 0,
     };
     dwarf
@@ -291,7 +273,7 @@ pub fn init_dwarf_unit(
     let cu = dwarf.unit.get_mut(root);
     cu.set(
         gimli::DW_AT_producer,
-        AttributeValue::String(b"wasmer singlepass".to_vec()),
+        AttributeValue::String(b"Wasmer (Singlepass)".to_vec()),
     );
     cu.set(
         gimli::DW_AT_language,

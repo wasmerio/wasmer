@@ -5931,7 +5931,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let unwind = self.machine.gen_dwarf_unwind_info(body_len);
                 if let Some(unwind) = unwind {
                     fde = Some(unwind.to_fde(Address::Symbol {
-                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+                        symbol: 0,
                         addend: self.local_func_index.index() as _,
                     }));
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
@@ -6041,7 +6041,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     frametable.add_fde(cie_id, fde.clone());
                 }
             }
-            let mut eh_frame = EhFrame(WriterRelocate::new(None));
+            let mut eh_frame = EhFrame(WriterRelocate::new());
             frametable
                 .write_eh_frame(&mut eh_frame)
                 .map_err(|e| CompileError::Codegen(format!("failed to write eh_frame: {e}")))?;
