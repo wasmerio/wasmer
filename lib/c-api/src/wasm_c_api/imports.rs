@@ -354,7 +354,8 @@ struct WasmCapiEnv {
     func_env: Option<FunctionEnv<WasmCapiEnv>>,
 }
 
-// Numeric constants copied from the WebAssembly C API headers.
+// ABI discriminants and layout constants copied from the WebAssembly C API
+// headers (`wasm.h`).
 const WASM_I32: u8 = 0;
 const WASM_I64: u8 = 1;
 const WASM_F32: u8 = 2;
@@ -370,6 +371,8 @@ const WASM_EXTERN_MEMORY: i32 = 3;
 const WASM_CONST: i32 = 0;
 const WASM_VAR: i32 = 1;
 
+// `wasm_val_t` stores the one-byte kind first, then C ABI padding, then the
+// eight-byte payload union at byte offset 8.
 const WASM_VAL_SIZE: usize = 16;
 const WASM_VAL_PAYLOAD_OFFSET: u32 = 8;
 
@@ -418,13 +421,17 @@ struct MemoryShadow {
     len: usize,
 }
 
-/// Host-side storage for opaque WebAssembly C API objects.
+/// Host-side storage for opaque WebAssembly C API handles.
+///
+/// The guest sees pointers from `wasm.h` as positive i32 handles. Handles are
+/// never reused during one instance lifetime, and invalid/unknown handles
+/// become lookup failures that callers map to the C API's null/false result.
 struct WasmCapiState {
     /// Next positive i32 handle to expose to the guest.
     next_handle: i32,
     /// Opaque objects addressed by guest-visible handles.
     objects: HashMap<i32, WasmObject>,
-    /// Guest shadow allocations used to approximate `wasm_memory_data`.
+    /// Guest shadow allocations for `wasm_memory_data`, keyed by memory handle.
     memory_shadows: HashMap<i32, MemoryShadow>,
 }
 
@@ -1195,14 +1202,16 @@ fn wasm_memory_data(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) ->
     if memory.ty(&env).shared {
         return INVALID_HANDLE;
     };
-    let view = memory.view(&env);
-    let Ok(size) = usize::try_from(view.data_size()) else {
-        return INVALID_HANDLE;
+    let size = {
+        let view = memory.view(&env);
+        let Ok(size) = usize::try_from(view.data_size()) else {
+            return INVALID_HANDLE;
+        };
+        size
     };
     if size == 0 {
         return INVALID_HANDLE;
     }
-    drop(view);
 
     let existing = env.data().state.memory_shadows.get(&memory_handle).copied();
     let mut allocated_new = false;
