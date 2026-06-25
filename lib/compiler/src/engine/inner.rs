@@ -23,7 +23,7 @@ use crate::{
     Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
     types::{
         function::FunctionBodyLike,
-        section::{CustomSectionLike, CustomSectionProtection, SectionIndex},
+        section::{CustomSectionProtection, SectionIndex},
     },
 };
 
@@ -341,103 +341,6 @@ impl EngineInner {
     #[cfg(feature = "compiler")]
     pub fn features(&self) -> &Features {
         &self.features
-    }
-
-    /// Allocate compiled functions into memory
-    #[cfg(not(target_arch = "wasm32"))]
-    #[allow(clippy::type_complexity)]
-    pub(crate) fn allocate<'a, FunctionBody, CustomSection>(
-        &'a mut self,
-        _module: &wasmer_types::ModuleInfo,
-        functions: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
-        function_call_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
-        dynamic_function_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
-        custom_sections: impl ExactSizeIterator<Item = &'a CustomSection> + Clone + 'a,
-    ) -> Result<
-        (
-            PrimaryMap<LocalFunctionIndex, FunctionExtent>,
-            PrimaryMap<SignatureIndex, VMTrampoline>,
-            PrimaryMap<FunctionIndex, FunctionBodyPtr>,
-            PrimaryMap<SectionIndex, SectionBodyPtr>,
-        ),
-        CompileError,
-    >
-    where
-        FunctionBody: FunctionBodyLike<'a> + 'a,
-        CustomSection: CustomSectionLike<'a> + 'a,
-    {
-        let functions_len = functions.len();
-        let function_call_trampolines_len = function_call_trampolines.len();
-
-        let function_bodies = functions
-            .chain(function_call_trampolines)
-            .chain(dynamic_function_trampolines)
-            .collect::<Vec<_>>();
-        let (executable_sections, data_sections): (Vec<_>, _) = custom_sections
-            .clone()
-            .partition(|section| section.protection() == CustomSectionProtection::ReadExecute);
-        self.code_memory.push(CodeMemory::new());
-
-        let (mut allocated_functions, allocated_executable_sections, allocated_data_sections) =
-            self.code_memory
-                .last_mut()
-                .unwrap()
-                .allocate(
-                    function_bodies.as_slice(),
-                    executable_sections.as_slice(),
-                    data_sections.as_slice(),
-                )
-                .map_err(|message| {
-                    CompileError::Resource(format!(
-                        "failed to allocate memory for functions: {message}",
-                    ))
-                })?;
-
-        let allocated_functions_result = allocated_functions
-            .drain(0..functions_len)
-            .map(|slice| FunctionExtent {
-                ptr: FunctionBodyPtr(slice.as_ptr()),
-                length: slice.len(),
-            })
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
-
-        let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
-            PrimaryMap::new();
-        for ptr in allocated_functions
-            .drain(0..function_call_trampolines_len)
-            .map(|slice| slice.as_ptr())
-        {
-            let trampoline =
-                unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
-            allocated_function_call_trampolines.push(trampoline);
-        }
-
-        let allocated_dynamic_function_trampolines = allocated_functions
-            .drain(..)
-            .map(|slice| FunctionBodyPtr(slice.as_ptr()))
-            .collect::<PrimaryMap<FunctionIndex, _>>();
-
-        let mut exec_iter = allocated_executable_sections.iter();
-        let mut data_iter = allocated_data_sections.iter();
-        let allocated_custom_sections = custom_sections
-            .map(|section| {
-                SectionBodyPtr(
-                    if section.protection() == CustomSectionProtection::ReadExecute {
-                        exec_iter.next()
-                    } else {
-                        data_iter.next()
-                    }
-                    .unwrap()
-                    .as_ptr(),
-                )
-            })
-            .collect::<PrimaryMap<SectionIndex, _>>();
-        Ok((
-            allocated_functions_result,
-            allocated_function_call_trampolines,
-            allocated_dynamic_function_trampolines,
-            allocated_custom_sections,
-        ))
     }
 
     #[cfg(not(target_arch = "wasm32"))]

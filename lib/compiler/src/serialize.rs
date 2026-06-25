@@ -8,7 +8,7 @@ use crate::types::{
     function::{CompiledFunctionFrameInfo, FunctionBody, GOT, UnwindInfo},
     module::CompileModuleInfo,
     relocation::Relocation,
-    section::{CustomSection, SectionIndex},
+    section::SectionIndex,
 };
 use enumset::EnumSet;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};

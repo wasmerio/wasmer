@@ -21,16 +21,9 @@ use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
 };
-use wasmer_compiler::{
-    types::{
-        function::FunctionBody,
-        section::{CustomSection, CustomSectionProtection, SectionBody},
-    },
-    wasmparser::MemArg,
-};
+use wasmer_compiler::{types::function::FunctionBody, wasmparser::MemArg};
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
-    VMOffsets,
+    CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, Type, VMOffsets,
     target::{CallingConvention, CpuFeature, Target},
 };
 

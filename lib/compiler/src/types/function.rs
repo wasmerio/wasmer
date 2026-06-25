@@ -12,7 +12,7 @@
 use super::{
     address_map::FunctionAddressMap,
     relocation::Relocation,
-    section::{CustomSection, SectionIndex},
+    section::SectionIndex,
     unwind::{
         ArchivedCompiledFunctionUnwindInfo, CompiledFunctionUnwindInfo,
         CompiledFunctionUnwindInfoLike,
@@ -117,9 +117,6 @@ pub struct CompiledFunction {
 /// The compiled functions map (index in the Wasm -> function)
 pub type Functions = PrimaryMap<LocalFunctionIndex, CompiledFunction>;
 
-/// The custom sections for a Compilation.
-pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
-
 /// The unwinding information for this Compilation.
 ///
 /// It is used for retrieving the unwind information once an exception
@@ -179,11 +176,6 @@ impl GOT {
 pub struct Compilation {
     /// Compiled code for the function bodies.
     pub functions: Functions,
-
-    /// Custom sections for the module.
-    /// It will hold the data, for example, for constants used in a
-    /// function, global variables, rodata_64, hot/cold function partitioning, ...
-    pub custom_sections: CustomSections,
 
     /// Trampolines to call a function defined locally in the wasm via a
     /// provided `Vec` of values.

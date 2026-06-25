@@ -10,7 +10,7 @@ use wasmer_types::target::{Architecture, Target};
 
 use crate::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
-    section::{CustomSection, CustomSectionProtection, SectionBody},
+    section::{CustomSectionProtection, SectionBody},
 };
 
 // SystemV says that both x16 and x17 are available as intra-procedural scratch
@@ -122,21 +122,6 @@ pub fn libcall_trampoline_len(target: &Target) -> usize {
         Architecture::Riscv32(_) => RISCV32_TRAMPOLINE.len(),
         Architecture::LoongArch64 => LOONGARCH64_TRAMPOLINE.len(),
         arch => panic!("Unsupported architecture: {arch}"),
-    }
-}
-
-/// Creates a custom section containing the libcall trampolines.
-pub fn make_libcall_trampolines(target: &Target) -> CustomSection {
-    let mut code = vec![];
-    let mut relocations = vec![];
-    for libcall in enum_iterator::all::<LibCall>() {
-        make_trampoline(target, libcall, &mut code, &mut relocations);
-    }
-    CustomSection {
-        protection: CustomSectionProtection::ReadExecute,
-        alignment: None,
-        bytes: SectionBody::new_with_vec(code),
-        relocations,
     }
 }
 

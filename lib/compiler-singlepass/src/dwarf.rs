@@ -12,7 +12,7 @@ use object::{
 use wasmer_compiler::types::{
     address_map::FunctionAddressMap,
     relocation::{Relocation, RelocationKind, RelocationTarget},
-    section::{CustomSection, CustomSectionProtection, SectionBody},
+    section::{CustomSectionProtection, SectionBody},
 };
 use wasmer_types::{
     CompileError, LocalFunctionIndex, SourceLoc, entity::EntityRef, target::Endianness,
@@ -39,16 +39,8 @@ impl WriterRelocate {
         }
     }
 
-    pub fn into_section(mut self) -> CustomSection {
-        // GCC expects a terminating "empty" length, so write a 0 length at the end of the table.
-        self.writer.write_u32(0).unwrap();
-        let data = self.writer.into_vec();
-        CustomSection {
-            protection: CustomSectionProtection::Read,
-            alignment: None,
-            bytes: SectionBody::new_with_vec(data),
-            relocations: self.relocs,
-        }
+    pub fn into_bytes(self) -> Vec<u8> {
+        self.writer.into_vec()
     }
 }
 

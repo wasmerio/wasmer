@@ -13,10 +13,11 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::io::{Cursor, Write};
+use wasmer_compiler::types::section::CustomSection;
 
 use wasmer_compiler::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
-    section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
+    section::{CustomSectionProtection, SectionBody, SectionIndex},
 };
 
 /// Relocation information for an LSDA entry that references a tag constant.

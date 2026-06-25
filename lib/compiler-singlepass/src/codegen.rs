@@ -6046,24 +6046,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .write_eh_frame(&mut eh_frame)
                 .map_err(|e| CompileError::Codegen(format!("failed to write eh_frame: {e}")))?;
 
-            // TODO: remove the wrapper!
-            let eh_frame_section = eh_frame.0.into_section();
-
             // Add the .eh_frame section to this function's object file.
             let section_id = self.object.add_section(
                 self.object.segment_name(StandardSegment::Debug).to_vec(),
                 b".eh_frame".to_vec(),
                 SectionKind::Other,
             );
-            // TODO: fix
-            let section_content = eh_frame_section.bytes.as_slice();
-            let section_content = &section_content[..section_content.len() - 4];
-            let data_offset = self
-                .object
-                .append_section_data(section_id, section_content, 4);
+            let eh_relocs = eh_frame.0.relocs.clone();
+            let data_offset =
+                self.object
+                    .append_section_data(section_id, &eh_frame.0.into_bytes(), 4);
 
             // Apply relocations recorded by WriterRelocate to the object file.
-            for reloc in &eh_frame_section.relocations {
+            for reloc in &eh_relocs {
                 let (kind, size) = match reloc.kind {
                     RelocationKind::Abs8 => (ObjRelocationKind::Absolute, 64),
                     RelocationKind::PCRel4 => (ObjRelocationKind::Relative, 32),

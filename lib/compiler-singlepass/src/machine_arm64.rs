@@ -10,10 +10,7 @@ use object::{
     elf::R_AARCH64_CALL26,
     write::{Object, Relocation, StandardSection, SymbolId},
 };
-use wasmer_compiler::{
-    types::{function::FunctionBody, section::CustomSection},
-    wasmparser::MemArg,
-};
+use wasmer_compiler::{types::function::FunctionBody, wasmparser::MemArg};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
     target::{CallingConvention, CpuFeature, Target},

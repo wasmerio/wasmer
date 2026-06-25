@@ -5,7 +5,6 @@ use crate::{
     abi::{Abi, get_abi},
     config::LLVM,
     error::{err, err_nt},
-    object_file::{CompiledFunction, load_object_file},
     translator::intrinsics::{Intrinsics, type_to_llvm},
 };
 use inkwell::{
@@ -30,7 +29,7 @@ use wasmer_compiler::{
         function::FunctionBody,
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
-        section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
+        section::{CustomSectionProtection, SectionBody, SectionIndex},
     },
 };
 use wasmer_types::{

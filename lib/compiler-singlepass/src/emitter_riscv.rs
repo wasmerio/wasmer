@@ -13,10 +13,7 @@ pub use crate::{
     riscv_decl::{FPR, GPR},
 };
 use dynasmrt::{DynasmApi, DynasmLabelApi, VecAssembler, riscv::RiscvRelocation};
-use wasmer_compiler::types::{
-    function::FunctionBody,
-    section::{CustomSection, CustomSectionProtection, SectionBody},
-};
+use wasmer_compiler::types::function::FunctionBody;
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
     target::{CallingConvention, CpuFeature},

@@ -7,13 +7,7 @@ use gimli::{RiscV, write::CallFrameInstruction};
 
 use object::write::{Object, SymbolId};
 use wasmer_compiler::{
-    CANONICAL_NAN_F32, CANONICAL_NAN_F64,
-    types::{
-        function::FunctionBody,
-        relocation::{Relocation, RelocationKind, RelocationTarget},
-        section::CustomSection,
-    },
-    wasmparser::MemArg,
+    CANONICAL_NAN_F32, CANONICAL_NAN_F64, types::function::FunctionBody, wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,

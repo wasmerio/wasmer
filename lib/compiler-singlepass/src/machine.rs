@@ -13,14 +13,7 @@ use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
 };
-use wasmer_compiler::{
-    types::{
-        function::FunctionBody,
-        relocation::{Relocation, RelocationTarget},
-        section::CustomSection,
-    },
-    wasmparser::MemArg,
-};
+use wasmer_compiler::{types::function::FunctionBody, wasmparser::MemArg};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
     target::{Architecture, CallingConvention, Target},

@@ -7,7 +7,6 @@ use crate::{
     GlobalFrameInfoRegistration,
     types::{
         function::FunctionBodyLike,
-        section::CustomSectionLike,
         unwind::{CompiledFunctionUnwindInfoLike, CompiledFunctionUnwindInfoReference},
     },
 };
@@ -45,114 +44,6 @@ impl CodeMemory {
     /// Mutably get the UnwindRegistry.
     pub fn unwind_registry_mut(&mut self) -> &mut UnwindRegistry {
         &mut self.unwind_registry
-    }
-
-    /// Allocate a single contiguous block of memory at a fixed virtual address for the functions and custom sections, and copy the data in place.
-    #[allow(clippy::type_complexity)]
-    pub fn allocate<'module, 'memory, FunctionBody, CustomSection>(
-        &'memory mut self,
-        functions: &'memory [&'module FunctionBody],
-        executable_sections: &'memory [&'module CustomSection],
-        data_sections: &'memory [&'module CustomSection],
-    ) -> Result<
-        (
-            Vec<&'memory mut [VMFunctionBody]>,
-            Vec<&'memory mut [u8]>,
-            Vec<&'memory mut [u8]>,
-        ),
-        String,
-    >
-    where
-        FunctionBody: FunctionBodyLike<'module> + 'module,
-        CustomSection: CustomSectionLike<'module> + 'module,
-    {
-        let mut function_result = vec![];
-        let mut data_section_result = vec![];
-        let mut executable_section_result = vec![];
-
-        let page_size = region::page::size();
-
-        // 1. Calculate the total size, that is:
-        // - function body size, including all trampolines
-        // -- windows unwind info
-        // -- padding between functions
-        // - executable section body
-        // -- padding between executable sections
-        // - padding until a new page to change page permissions
-        // - data section body size
-        // -- padding between data sections
-
-        let total_len = round_up(
-            functions.iter().fold(0, |acc, func| {
-                round_up(
-                    acc + Self::function_allocation_size(*func),
-                    ARCH_FUNCTION_ALIGNMENT,
-                )
-            }) + executable_sections.iter().fold(0, |acc, exec| {
-                round_up(acc + exec.bytes().len(), ARCH_FUNCTION_ALIGNMENT)
-            }),
-            page_size,
-        ) + data_sections.iter().fold(0, |acc, data| {
-            round_up(acc + data.bytes().len(), DATA_SECTION_ALIGNMENT)
-        });
-
-        // 2. Allocate the pages. Mark them all read-write.
-
-        self.mmap = Mmap::with_at_least(total_len)?;
-
-        // 3. Determine where the pointers to each function, executable section
-        // or data section are. Copy the functions. Collect the addresses of each and return them.
-
-        let mut bytes = 0;
-        let mut buf = self.mmap.as_mut_slice();
-        for func in functions {
-            let len = round_up(
-                Self::function_allocation_size(*func),
-                ARCH_FUNCTION_ALIGNMENT,
-            );
-            let (func_buf, next_buf) = buf.split_at_mut(len);
-            buf = next_buf;
-            bytes += len;
-
-            let vmfunc = Self::copy_function(&mut self.unwind_registry, *func, func_buf);
-            assert!((vmfunc.as_ptr() as usize).is_multiple_of(ARCH_FUNCTION_ALIGNMENT));
-            function_result.push(vmfunc);
-        }
-        for section in executable_sections {
-            let section = section.bytes();
-            assert!((buf.as_mut_ptr() as usize).is_multiple_of(ARCH_FUNCTION_ALIGNMENT));
-            let len = round_up(section.len(), ARCH_FUNCTION_ALIGNMENT);
-            let (s, next_buf) = buf.split_at_mut(len);
-            buf = next_buf;
-            bytes += len;
-            s[..section.len()].copy_from_slice(section);
-            executable_section_result.push(s);
-        }
-
-        self.start_of_nonexecutable_pages = bytes;
-
-        if !data_sections.is_empty() {
-            // Data sections have different page permissions from the executable
-            // code that came before it, so they need to be on different pages.
-            let padding = round_up(bytes, page_size) - bytes;
-            buf = buf.split_at_mut(padding).1;
-
-            for section in data_sections {
-                let section = section.bytes();
-                assert!((buf.as_mut_ptr() as usize).is_multiple_of(DATA_SECTION_ALIGNMENT));
-                let len = round_up(section.len(), DATA_SECTION_ALIGNMENT);
-                let (s, next_buf) = buf.split_at_mut(len);
-                buf = next_buf;
-                s[..section.len()].copy_from_slice(section);
-                data_section_result.push(s);
-            }
-        }
-
-        Ok((
-            function_result,
-            executable_section_result,
-            data_section_result,
-        ))
     }
 
     /// Apply the page permissions.
