@@ -6,7 +6,12 @@ use std::{
 use tracing::trace;
 use wasmer::{AsStoreMut, FunctionEnv, Global, Instance, Memory, Table, Tag};
 
-use crate::{WasiEnv, import_object_for_all_wasi_versions};
+use crate::{
+    WasiEnv, import_object_for_all_wasi_versions,
+    runtime::{
+        configure_runtime_instance, extend_imports_with_runtime, imported_memory_from_imports,
+    },
+};
 
 use super::{
     DlModule, DlOperation, DylinkInfo, InProgressLinkState, InProgressSymbolResolution, LinkError,
@@ -160,7 +165,27 @@ impl InstanceGroupState {
             &well_known_imports,
         )?;
 
+        let runtime = env.as_ref(store).runtime.clone();
+        {
+            let mut store_mut = store.as_store_mut();
+            extend_imports_with_runtime(runtime.as_ref(), &module, &mut store_mut, &mut imports)
+                .map_err(LinkError::RuntimeHookError)?;
+        }
+        let imported_memory =
+            imported_memory_from_imports(&imports).or_else(|| Some(self.memory.clone()));
+
         let instance = Instance::new(store, &module, &imports)?;
+        {
+            let mut store_mut = store.as_store_mut();
+            configure_runtime_instance(
+                runtime.as_ref(),
+                &module,
+                &mut store_mut,
+                &instance,
+                imported_memory.as_ref(),
+            )
+            .map_err(LinkError::RuntimeHookError)?;
+        }
 
         let instance_handles = WasiModuleInstanceHandles::new(
             self.memory.clone(),
@@ -236,7 +261,32 @@ impl InstanceGroupState {
             pending_resolutions,
         )?;
 
+        let runtime = env.as_ref(store).runtime.clone();
+        {
+            let mut store_mut = store.as_store_mut();
+            extend_imports_with_runtime(
+                runtime.as_ref(),
+                &dl_module.module,
+                &mut store_mut,
+                &mut imports,
+            )
+            .map_err(LinkError::RuntimeHookError)?;
+        }
+        let imported_memory =
+            imported_memory_from_imports(&imports).or_else(|| Some(self.memory.clone()));
+
         let instance = Instance::new(store, &dl_module.module, &imports)?;
+        {
+            let mut store_mut = store.as_store_mut();
+            configure_runtime_instance(
+                runtime.as_ref(),
+                &dl_module.module,
+                &mut store_mut,
+                &instance,
+                imported_memory.as_ref(),
+            )
+            .map_err(LinkError::RuntimeHookError)?;
+        }
 
         Ok(PreparedSideFromLinker {
             module_handle,

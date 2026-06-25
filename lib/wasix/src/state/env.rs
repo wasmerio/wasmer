@@ -12,6 +12,9 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
+    runtime::{
+        configure_runtime_instance, extend_imports_with_runtime, imported_memory_from_imports,
+    },
     state::PreparedInstanceGroupData,
     syscalls::platform_clock_time_get,
 };
@@ -542,29 +545,10 @@ impl WasiEnv {
             import_object.define("env", "memory", memory);
         }
         let runtime = func_env.data(&store).runtime.clone();
-        let additional_imports = runtime
-            .additional_imports(&module, &mut store)
+        extend_imports_with_runtime(runtime.as_ref(), &module, &mut store, &mut import_object)
             .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
-        for ((namespace, name), value) in &additional_imports {
-            // Downstream runtime imports must not override WASIX imports.
-            if import_object.exists(&namespace, &name) {
-                tracing::warn!(
-                    "Skipping duplicate additional import {}.{}",
-                    namespace,
-                    name
-                );
-            } else {
-                import_object.define(&namespace, &name, value);
-            }
-        }
-
-        let imported_memory = import_object
-            .get_export("env", "memory")
-            .and_then(|ext| match ext {
-                wasmer::Extern::Memory(memory) => Some(memory),
-                _ => None,
-            });
+        let imported_memory = imported_memory_from_imports(&import_object);
 
         // Construct the instance.
         let instance = match Instance::new(&mut store, &module, &import_object) {
@@ -582,9 +566,14 @@ impl WasiEnv {
             }
         };
 
-        runtime
-            .configure_new_instance(&module, &mut store, &instance, imported_memory.as_ref())
-            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
+        configure_runtime_instance(
+            runtime.as_ref(),
+            &module,
+            &mut store,
+            &instance,
+            imported_memory.as_ref(),
+        )
+        .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
         let handles = match imported_memory {
             Some(memory) => WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(

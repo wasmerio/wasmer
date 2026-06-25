@@ -637,6 +637,23 @@ fn local_package_fs_mounts_work_for_dir_and_webc() {
         .success();
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn wasmer_run_wasix_wasm_c_api_guest() {
+    let temp = TempDir::new().unwrap();
+    let wasm = temp.path().join("wasix-wasm-c-api-smoke.wasm");
+
+    compile_wasix_source(&fixtures::wasix_wasm_c_api_smoke_c(), &wasm, false);
+
+    wasmer_command()
+        .arg("run")
+        .arg(&wasm)
+        .env("RUST_LOG", &*RUST_LOG)
+        .assert()
+        .success()
+        .stdout(contains("wasm-c-api ok"));
+}
+
 #[test]
 // The test would be very slow on Windows and macOS
 #[cfg_attr(any(target_os = "windows", target_os = "macos"), ignore)]

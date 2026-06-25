@@ -294,7 +294,12 @@ use tracing::trace;
 use wasmer::{AsStoreMut, Engine, FunctionEnvMut, Instance, Memory, Module, StoreMut, Tag, Type};
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
-use crate::{WasiEnv, WasiFunctionEnv, WasiModuleTreeHandles, import_object_for_all_wasi_versions};
+use crate::{
+    WasiEnv, WasiFunctionEnv, WasiModuleTreeHandles, import_object_for_all_wasi_versions,
+    runtime::{
+        configure_runtime_instance, extend_imports_with_runtime, imported_memory_from_imports,
+    },
+};
 
 use super::WasiModuleInstanceHandles;
 
@@ -461,11 +466,25 @@ impl Linker {
             &well_known_imports,
         )?;
 
+        let runtime = func_env.data(store).runtime.clone();
+        extend_imports_with_runtime(runtime.as_ref(), main_module, store, &mut imports)
+            .map_err(LinkError::RuntimeHookError)?;
+        let imported_memory =
+            imported_memory_from_imports(&imports).or_else(|| Some(memory.clone()));
+
         // TODO: figure out which way is faster (stubs in main or stubs in sides),
         // use that ordering. My *guess* is that, since main exports all the libc
         // functions and those are called frequently by basically any code, then giving
         // stubs to main will be faster, but we need numbers before we decide this.
         let main_instance = Instance::new(store, main_module, &imports)?;
+        configure_runtime_instance(
+            runtime.as_ref(),
+            main_module,
+            store,
+            &main_instance,
+            imported_memory.as_ref(),
+        )
+        .map_err(LinkError::RuntimeHookError)?;
         instance_group.main_instance = Some(main_instance.clone());
 
         let tls_base = get_tls_base_export(&main_instance, store)?;
@@ -753,7 +772,21 @@ impl Linker {
             &mut pending_resolutions,
         )?;
 
+        let runtime = func_env.data(store).runtime.clone();
+        extend_imports_with_runtime(runtime.as_ref(), &main_module, store, &mut imports)
+            .map_err(LinkError::RuntimeHookError)?;
+        let imported_memory =
+            imported_memory_from_imports(&imports).or_else(|| Some(memory.clone()));
+
         let main_instance = Instance::new(store, &main_module, &imports)?;
+        configure_runtime_instance(
+            runtime.as_ref(),
+            &main_module,
+            store,
+            &main_instance,
+            imported_memory.as_ref(),
+        )
+        .map_err(LinkError::RuntimeHookError)?;
 
         instance_group.main_instance = Some(main_instance.clone());
 

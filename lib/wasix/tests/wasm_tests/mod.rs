@@ -80,7 +80,10 @@ use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 use strum::IntoEnumIterator;
 
 use anyhow::bail;
@@ -1233,6 +1236,15 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
 
+    tests.push(libtest_mimic::Trial::test("wasm/dynamic_runtime_hooks", {
+        let tests_dir = tests_dir.clone();
+        let tests_build_root = tests_build_root.clone();
+        move || {
+            run_dynamic_runtime_hook_smoke(&tests_dir, &tests_build_root)
+                .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
+        }
+    }));
+
     for entry in WalkDir::new(&tests_dir)
         .into_iter()
         .filter_map(Result::ok)
@@ -1326,4 +1338,78 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn run_dynamic_runtime_hook_smoke(
+    tests_dir: &Path,
+    tests_build_root: &Path,
+) -> Result<libtest_mimic::Completion> {
+    if cfg!(target_os = "windows") {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "WASIXCC toolchain does not cover Windows yet",
+        ));
+    }
+
+    let source_dir = tests_dir.join("dynamic_library/simple-dynamic-lib");
+    let config = Config::new(
+        PrimarySource::BashScript("build.sh".to_owned()),
+        source_dir,
+        tests_build_root.to_path_buf(),
+        "dynamic_runtime_hooks".to_owned(),
+    );
+    let wasm = run_build_script(&config)?;
+    let run_dir = config.build_path();
+
+    let additional_import_calls = Arc::new(AtomicUsize::new(0));
+    let instance_setup_calls = Arc::new(AtomicUsize::new(0));
+    let setup_with_imported_memory = Arc::new(AtomicUsize::new(0));
+
+    let result = runner::run_wasm_with_runner_and_runtime_config(
+        &wasm,
+        &run_dir,
+        config.engine,
+        config.program_name.as_deref(),
+        config.default_mapped_directories,
+        |_| Ok(()),
+        {
+            let additional_import_calls = additional_import_calls.clone();
+            let instance_setup_calls = instance_setup_calls.clone();
+            let setup_with_imported_memory = setup_with_imported_memory.clone();
+            move |runtime| {
+                runtime.with_additional_imports(move |_module, _store| {
+                    additional_import_calls.fetch_add(1, Ordering::SeqCst);
+                    Ok(wasmer::Imports::new())
+                });
+                runtime.with_instance_setup(move |_module, _store, _instance, imported_memory| {
+                    instance_setup_calls.fetch_add(1, Ordering::SeqCst);
+                    if imported_memory.is_some() {
+                        setup_with_imported_memory.fetch_add(1, Ordering::SeqCst);
+                    }
+                    Ok(())
+                });
+                Ok(())
+            }
+        },
+    )?;
+
+    ensure!(
+        result.exit_code == 0,
+        "dynamic runtime hook smoke exited with {}\n{}",
+        result.exit_code,
+        runner::format_captured_output(&result),
+    );
+    ensure!(
+        additional_import_calls.load(Ordering::SeqCst) >= 2,
+        "expected runtime additional_imports for main and side modules"
+    );
+    ensure!(
+        instance_setup_calls.load(Ordering::SeqCst) >= 2,
+        "expected runtime instance setup for main and side modules"
+    );
+    ensure!(
+        setup_with_imported_memory.load(Ordering::SeqCst) >= 2,
+        "expected imported memory for dynamic main and side modules"
+    );
+
+    Ok(libtest_mimic::Completion::Completed)
 }

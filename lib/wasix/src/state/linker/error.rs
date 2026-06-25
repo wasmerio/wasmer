@@ -64,6 +64,9 @@ pub enum LinkError {
     #[error("Failed to initialize instance: {0}")]
     InitializationError(anyhow::Error),
 
+    #[error("Runtime hook failed: {0}")]
+    RuntimeHookError(anyhow::Error),
+
     #[error("Initialization function has invalid signature: {0}")]
     InitFuncWithInvalidSignature(String),
 
