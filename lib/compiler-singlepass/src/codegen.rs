@@ -17,8 +17,7 @@ use gimli::write::Address;
 use gimli::write::{EhFrame, FrameTable, Writer};
 use itertools::Itertools;
 use object::{
-    RelocationEncoding, RelocationFlags, RelocationKind as ObjRelocationKind, SectionKind,
-    SymbolFlags, SymbolKind, SymbolScope,
+    RelocationEncoding, RelocationFlags, SectionKind, SymbolFlags, SymbolKind, SymbolScope,
     write::{Relocation as ObjRelocation, StandardSection, StandardSegment, Symbol, SymbolSection},
 };
 use smallvec::{SmallVec, smallvec};
@@ -31,8 +30,6 @@ use std::{
     path::{Path, PathBuf},
 };
 use target_lexicon::{Architecture, Triple};
-#[cfg(feature = "unwind")]
-use wasmer_compiler::types::relocation::RelocationKind;
 
 use wasmer_compiler::{
     FunctionBodyData, WASMER_TRAPS_SECTION_NAME,
@@ -5932,7 +5929,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if let Some(unwind) = unwind {
                     fde = Some(unwind.to_fde(Address::Symbol {
                         symbol: 0,
-                        addend: self.local_func_index.index() as _,
+                        addend: 0,
                     }));
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
@@ -6059,24 +6056,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
             // Apply relocations recorded by WriterRelocate to the object file.
             for reloc in &eh_relocs {
-                let (kind, size) = match reloc.kind {
-                    RelocationKind::Abs8 => (ObjRelocationKind::Absolute, 64),
-                    RelocationKind::PCRel4 => (ObjRelocationKind::Relative, 32),
-                    other => {
-                        return Err(CompileError::Codegen(format!(
-                            "unsupported eh_frame relocation kind: {other:?}"
-                        )));
-                    }
-                };
                 self.object
                     .add_relocation(
                         section_id,
                         ObjRelocation {
                             offset: data_offset + reloc.offset as u64,
                             flags: RelocationFlags::Generic {
-                                kind,
+                                kind: reloc.kind,
                                 encoding: RelocationEncoding::Generic,
-                                size,
+                                size: u8::checked_mul(reloc.size, 8).unwrap_or(64),
                             },
                             symbol: function_symbol,
                             addend: reloc.addend as i64,

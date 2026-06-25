@@ -9,14 +9,11 @@ use object::{
     RelocationEncoding, RelocationFlags, RelocationKind as ObjectRelocationKind, SectionKind,
     write::{Object, Relocation as ObjectRelocation, StandardSegment, SymbolId},
 };
-use wasmer_compiler::types::relocation::{Relocation, RelocationKind, RelocationTarget};
-use wasmer_types::{
-    CompileError, LocalFunctionIndex, SourceLoc, entity::EntityRef, target::Endianness,
-};
+use wasmer_types::{CompileError, SourceLoc, target::Endianness};
 
 #[derive(Clone, Debug)]
 pub struct WriterRelocate {
-    pub relocs: Vec<Relocation>,
+    pub relocs: Vec<DebugRelocation>,
     writer: EndianVec<RunTimeEndian>,
 }
 
@@ -56,24 +53,18 @@ impl Writer for WriterRelocate {
         match address {
             Address::Constant(val) => self.write_udata(val, size),
             Address::Symbol { addend, .. } => {
-                // We use the addend to detect the function index
-                let function_index = LocalFunctionIndex::new(addend as _);
-                let reloc_target = RelocationTarget::LocalFunc(function_index);
-                let offset = self.len() as u32;
-                let kind = match size {
-                    8 => RelocationKind::Abs8,
-                    _ => {
-                        return Err(gimli::write::Error::InvalidAddress);
-                    }
-                };
-                let addend = 0;
-                self.relocs.push(Relocation {
-                    kind,
-                    reloc_target,
+                let offset = self.len() as u64;
+                if size != 8 {
+                    return Err(gimli::write::Error::InvalidAddress);
+                }
+                self.relocs.push(DebugRelocation {
                     offset,
+                    kind: ObjectRelocationKind::Absolute,
+                    size,
+                    target: DebugRelocationTarget::Function,
                     addend,
                 });
-                self.write_udata(addend as u64, size)
+                self.write_udata(0, size)
             }
         }
     }
@@ -94,14 +85,13 @@ impl Writer for WriterRelocate {
                 if eh_pe == (constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4)
                     && size == 8 =>
             {
-                let function_index = LocalFunctionIndex::new(addend as _);
-                let reloc_target = RelocationTarget::LocalFunc(function_index);
-                let offset = self.len() as u32;
-                self.relocs.push(Relocation {
-                    kind: RelocationKind::PCRel4,
-                    reloc_target,
+                let offset = self.len() as u64;
+                self.relocs.push(DebugRelocation {
                     offset,
-                    addend: 0,
+                    kind: ObjectRelocationKind::Relative,
+                    size: 4,
+                    target: DebugRelocationTarget::Function,
+                    addend,
                 });
                 self.write_udata(0, 4)
             }
@@ -127,15 +117,16 @@ impl Writer for WriterRelocate {
 }
 
 #[derive(Clone, Debug)]
-struct DebugRelocation {
-    offset: u64,
-    size: u8,
-    target: DebugRelocationTarget,
-    addend: i64,
+pub(crate) struct DebugRelocation {
+    pub(crate) offset: u64,
+    pub(crate) kind: ObjectRelocationKind,
+    pub(crate) size: u8,
+    pub(crate) target: DebugRelocationTarget,
+    pub(crate) addend: i64,
 }
 
 #[derive(Clone, Debug)]
-enum DebugRelocationTarget {
+pub(crate) enum DebugRelocationTarget {
     Function,
     Section(SectionId),
 }
@@ -186,6 +177,7 @@ impl Writer for DebugWriter {
                 let offset = self.len() as u64;
                 self.relocs.push(DebugRelocation {
                     offset,
+                    kind: ObjectRelocationKind::Absolute,
                     size,
                     target: DebugRelocationTarget::Function,
                     addend,
@@ -199,6 +191,7 @@ impl Writer for DebugWriter {
         let offset = self.len() as u64;
         self.relocs.push(DebugRelocation {
             offset,
+            kind: ObjectRelocationKind::Absolute,
             size,
             target: DebugRelocationTarget::Section(section),
             addend: val as i64,
@@ -215,6 +208,7 @@ impl Writer for DebugWriter {
     ) -> GimliResult<()> {
         self.relocs.push(DebugRelocation {
             offset: offset as u64,
+            kind: ObjectRelocationKind::Absolute,
             size,
             target: DebugRelocationTarget::Section(section),
             addend: val as i64,
