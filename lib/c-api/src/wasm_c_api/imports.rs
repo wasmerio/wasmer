@@ -520,18 +520,6 @@ fn write_guest_i32(env: &mut FunctionEnvMut<WasmCapiEnv>, guest_ptr: i32, val: i
     write_guest_bytes(env, guest_ptr, &val.to_le_bytes())
 }
 
-fn write_guest_u32_offset(
-    env: &mut FunctionEnvMut<WasmCapiEnv>,
-    guest_ptr: i32,
-    offset: i32,
-    val: u32,
-) -> bool {
-    let Some(ptr) = guest_ptr.checked_add(offset) else {
-        return false;
-    };
-    write_guest_u32(env, ptr, val)
-}
-
 fn write_guest_i32_offset(
     env: &mut FunctionEnvMut<WasmCapiEnv>,
     guest_ptr: i32,
@@ -617,7 +605,8 @@ fn read_guest_i32_vec(
         out.set_len(len);
     }
 
-    #[cfg(target_endian = "big")]
+    // Guest ABI vectors are little-endian, matching the write path's
+    // `to_le_bytes` encoding. This is a no-op on little-endian hosts.
     for value in &mut out {
         *value = i32::from_le(*value);
     }
@@ -637,27 +626,18 @@ fn write_guest_i32_slice(
         return true;
     }
 
-    #[cfg(target_endian = "little")]
-    {
-        let bytes = unsafe { slice::from_raw_parts(values.as_ptr().cast::<u8>(), byte_len) };
-        write_guest_bytes(env, guest_ptr, bytes)
-    }
-
-    #[cfg(target_endian = "big")]
-    {
-        for (index, value) in values.iter().enumerate() {
-            let Ok(index) = i32::try_from(index) else {
-                return false;
-            };
-            let Some(offset) = index.checked_mul(size_of::<i32>() as i32) else {
-                return false;
-            };
-            if !write_guest_bytes_offset(env, guest_ptr, offset, &value.to_le_bytes()) {
-                return false;
-            }
+    for (index, value) in values.iter().enumerate() {
+        let Ok(index) = i32::try_from(index) else {
+            return false;
+        };
+        let Some(offset) = index.checked_mul(size_of::<i32>() as i32) else {
+            return false;
+        };
+        if !write_guest_bytes_offset(env, guest_ptr, offset, &value.to_le_bytes()) {
+            return false;
         }
-        true
     }
+    true
 }
 
 fn allocate_guest_memory(env: &mut FunctionEnvMut<WasmCapiEnv>, len: usize) -> Option<i32> {
@@ -741,7 +721,7 @@ impl<'env, 'store> GuestAllocation<'env, 'store> {
 
     fn into_raw(mut self) -> i32 {
         let ptr = self.ptr;
-        self.ptr = 0;
+        self.ptr = INVALID_HANDLE;
         ptr
     }
 }
