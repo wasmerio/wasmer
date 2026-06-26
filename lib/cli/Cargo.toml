@@ -97,12 +97,7 @@ cranelift = [
   "wasmer/cranelift",
   "wasmer_c_api?/cranelift",
 ]
-llvm = [
-  "wasmer-compiler-llvm",
-  "compiler",
-  "wasmer/llvm",
-  "wasmer_c_api?/llvm",
-]
+llvm = ["wasmer-compiler-llvm", "compiler", "wasmer/llvm", "wasmer_c_api?/llvm"]
 disable-all-logging = [
   "wasmer-wasix/disable-all-logging",
   "log/release_max_level_off",
