@@ -7150,6 +7150,7 @@ dependencies = [
  "wasm-coredump-builder",
  "wasmer",
  "wasmer-backend-api",
+ "wasmer-c-api",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",

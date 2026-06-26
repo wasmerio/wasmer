@@ -83,15 +83,18 @@ fn wasm_c_api_version_from_namespace(namespace: &str) -> Option<WasmCAPIVersion>
     })
 }
 
+type ResolveModuleSync = Arc<dyn Fn(Vec<u8>) -> Result<Module> + Send + Sync>;
+
 struct WasmCapiSession {
     version: Option<WasmCAPIVersion>,
     imported_memory_type: Option<MemoryType>,
     imported_table_type: Option<wasmer_api::TableType>,
+    resolve_module_sync: Option<ResolveModuleSync>,
     func_env: Mutex<Option<FunctionEnv<WasmCapiEnv>>>,
 }
 
 impl WasmCapiSession {
-    fn new(module: &Module) -> Self {
+    fn new(module: &Module, resolve_module_sync: Option<ResolveModuleSync>) -> Self {
         let imported_memory_type = module.imports().find_map(|import| {
             if import.module() == "env"
                 && import.name() == "memory"
@@ -116,6 +119,7 @@ impl WasmCapiSession {
             version: module_wasm_c_api_version_used(module),
             imported_memory_type,
             imported_table_type,
+            resolve_module_sync,
             func_env: Mutex::new(None),
         }
     }
@@ -139,7 +143,13 @@ impl WasmCapiSession {
             return Ok(());
         }
 
-        let func_env = FunctionEnv::new(&mut *store, WasmCapiEnv::default());
+        let func_env = FunctionEnv::new(
+            &mut *store,
+            WasmCapiEnv {
+                resolve_module_sync: self.resolve_module_sync.clone(),
+                ..WasmCapiEnv::default()
+            },
+        );
         *self
             .func_env
             .lock()
@@ -205,6 +215,8 @@ impl WasmCapiSession {
 
         if let Some(memory) = imported_memory {
             func_env.as_mut(&mut *store).memory = Some(memory.clone());
+        } else if let Ok(memory) = instance.exports.get_memory("memory") {
+            func_env.as_mut(&mut *store).memory = Some(memory.clone());
         }
 
         for export_name in ["unofficial_napi_guest_malloc", "malloc"] {
@@ -267,6 +279,7 @@ pub struct WasmCapiRuntimeHooks {
     /// after instantiation. The queue preserves that pairing when the same
     /// module is instantiated multiple times.
     sessions: Arc<Mutex<HashMap<ModuleKey, VecDeque<WasmCapiSession>>>>,
+    resolve_module_sync: Option<ResolveModuleSync>,
 }
 
 impl WasmCapiRuntimeHooks {
@@ -275,18 +288,34 @@ impl WasmCapiRuntimeHooks {
         Self::default()
     }
 
+    /// Uses an embedder-provided resolver for `wasm_module_new`.
+    pub fn with_resolve_module_sync(
+        mut self,
+        resolve: impl Fn(Vec<u8>) -> Result<Module> + Send + Sync + 'static,
+    ) -> Self {
+        self.resolve_module_sync = Some(Arc::new(resolve));
+        self
+    }
+
     fn module_key(module: &Module) -> ModuleKey {
         ModuleKey::new(module)
     }
 
-    /// Adds `wasm_c_api_v0` imports when `module` requests them.
+    /// Creates `wasm_c_api_v0` imports when `module` requests them.
+    pub fn additional_imports(&self, module: &Module, store: &mut StoreMut<'_>) -> Result<Imports> {
+        let mut imports = Imports::new();
+        self.add_imports(module, store, &mut imports)?;
+        Ok(imports)
+    }
+
+    /// Merges `wasm_c_api_v0` imports into an existing import object when needed.
     pub fn add_imports(
         &self,
         module: &Module,
         store: &mut StoreMut<'_>,
         imports: &mut Imports,
     ) -> Result<()> {
-        let session = WasmCapiSession::new(module);
+        let session = WasmCapiSession::new(module, self.resolve_module_sync.clone());
         if !session.needs_imports() {
             return Ok(());
         }
@@ -343,6 +372,8 @@ impl WasmCapiRuntimeHooks {
 /// the ABI always refer to the guest module memory in `memory`.
 #[derive(Default)]
 struct WasmCapiEnv {
+    /// Optional embedder-provided module loader used by `wasm_module_new`.
+    resolve_module_sync: Option<ResolveModuleSync>,
     /// Guest linear memory used for C ABI structs and buffers.
     memory: Option<Memory>,
     /// Guest allocator used when the host must return C API-owned buffers.
@@ -1013,8 +1044,15 @@ fn wasm_module_new(mut env: FunctionEnvMut<WasmCapiEnv>, _store: i32, bytes_ptr:
     let Some(bytes) = read_byte_vec(&mut env, bytes_ptr) else {
         return INVALID_HANDLE;
     };
-    let (_, store) = env.data_and_store_mut();
-    match Module::new(&store, bytes) {
+
+    let module = if let Some(resolve_module_sync) = env.data().resolve_module_sync.clone() {
+        resolve_module_sync(bytes)
+    } else {
+        let (_, store) = env.data_and_store_mut();
+        Module::new(&store, bytes).map_err(Into::into)
+    };
+
+    match module {
         Ok(module) => env.data_mut().state.insert(WasmObject::Module(module)),
         Err(_) => INVALID_HANDLE,
     }
@@ -2117,6 +2155,22 @@ mod tests {
     };
     use wat::parse_str;
 
+    #[cfg(feature = "wasi")]
+    use super::WasmCapiRuntimeHooks;
+    #[cfg(feature = "wasi")]
+    use std::sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    };
+    #[cfg(feature = "wasi")]
+    use wasmer_types::ModuleHash;
+    #[cfg(feature = "wasi")]
+    use wasmer_wasix::{
+        PluggableRuntime, WasiError,
+        runners::wasi::{RuntimeOrEngine, WasiRunner},
+        runtime::task_manager::tokio::TokioTaskManager,
+    };
+
     const EMPTY_WASM_MODULE: &[u8] = b"\0asm\x01\0\0\0";
 
     fn compile_wat(store: &Store, wat: &str) -> Module {
@@ -2187,6 +2241,96 @@ mod tests {
         assert!(!WasmCAPIVersion::V0.is_compatible_with(WasmCAPIVersion::Unknown));
         assert!(!WasmCAPIVersion::Unknown.is_compatible_with(WasmCAPIVersion::V0));
         assert!(!WasmCAPIVersion::Unknown.is_compatible_with(WasmCAPIVersion::Unknown));
+    }
+
+    #[cfg(feature = "wasi")]
+    #[test]
+    fn wasm_c_api_imports_run_from_wasix_guest() {
+        let wasm = parse_str(
+            r#"(module
+                (import "wasi_snapshot_preview1" "proc_exit" (func $proc_exit (param i32)))
+                (import "wasm_c_api_v0" "wasm_engine_new" (func $wasm_engine_new (result i32)))
+                (import "wasm_c_api_v0" "wasm_store_new" (func $wasm_store_new (param i32) (result i32)))
+                (import "wasm_c_api_v0" "wasm_module_validate" (func $wasm_module_validate (param i32 i32) (result i32)))
+                (import "wasm_c_api_v0" "wasm_module_new" (func $wasm_module_new (param i32 i32) (result i32)))
+
+                (memory (export "memory") 1)
+                ;; wasm_byte_vec_t { size: 8, data: 32 }
+                (data (i32.const 16) "\08\00\00\00\20\00\00\00")
+                ;; Empty wasm module: \0asm + version 1.
+                (data (i32.const 32) "\00asm\01\00\00\00")
+
+                (func (export "_start")
+                    (local $engine i32)
+                    (local $store i32)
+                    (local $module i32)
+
+                    (local.set $engine (call $wasm_engine_new))
+                    (if (i32.eqz (local.get $engine))
+                        (then (call $proc_exit (i32.const 10))))
+
+                    (local.set $store (call $wasm_store_new (local.get $engine)))
+                    (if (i32.eqz (local.get $store))
+                        (then (call $proc_exit (i32.const 11))))
+
+                    (if (i32.eqz (call $wasm_module_validate (local.get $store) (i32.const 16)))
+                        (then (call $proc_exit (i32.const 12))))
+
+                    (local.set $module (call $wasm_module_new (local.get $store) (i32.const 16)))
+                    (if (i32.eqz (local.get $module))
+                        (then (call $proc_exit (i32.const 13))))
+                )
+            )"#,
+        )
+        .expect("guest wat parses");
+        let store = Store::default();
+        let module = Module::new(&store, &wasm).expect("guest module compiles");
+
+        let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .expect("tokio runtime starts");
+        let _guard = tokio_runtime.enter();
+        let mut runtime = PluggableRuntime::new(Arc::new(TokioTaskManager::new(
+            tokio_runtime.handle().clone(),
+        )));
+        runtime.set_engine(store.engine().clone());
+
+        let resolve_calls = Arc::new(AtomicUsize::new(0));
+        let resolve_engine = store.engine().clone();
+        let hooks = WasmCapiRuntimeHooks::new().with_resolve_module_sync({
+            let resolve_calls = resolve_calls.clone();
+            move |bytes| {
+                resolve_calls.fetch_add(1, Ordering::SeqCst);
+                Ok(Module::new(&resolve_engine, bytes)?)
+            }
+        });
+        runtime
+            .with_additional_imports({
+                let hooks = hooks.clone();
+                move |module, store| hooks.additional_imports(module, store)
+            })
+            .with_instance_setup(move |module, store, instance, imported_memory| {
+                hooks.configure_instance(module, store, instance, imported_memory)
+            });
+
+        let result = WasiRunner::new().run_wasm(
+            RuntimeOrEngine::Runtime(Arc::new(runtime)),
+            "wasm-c-api-smoke",
+            module,
+            ModuleHash::new(&wasm),
+        );
+
+        match result {
+            Ok(()) => {}
+            Err(err) => {
+                if let Some(WasiError::Exit(code)) = err.downcast_ref::<WasiError>() {
+                    panic!("guest exited with status {code}");
+                }
+                panic!("guest failed: {err:?}");
+            }
+        }
+        assert_eq!(resolve_calls.load(Ordering::SeqCst), 1);
     }
 
     #[test]
