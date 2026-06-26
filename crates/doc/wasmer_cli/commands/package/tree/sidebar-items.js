@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["dependency_edges","format_dependency","format_root","is_fixed_to_resolved","print_dependencies","version_req_is_exact"],"struct":["PackageTree"]};
