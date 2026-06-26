@@ -149,10 +149,17 @@ fn format_dependency(alias: &str, dependency: &Dependency, resolved_id: &Package
             .map_or("*".to_string(), |tag| tag.to_string());
 
         if is_fixed_to_resolved(&dependency.pkg, resolved_id) {
-            return format!("{alias}: @{specified_version}");
+            return format!(
+                "{alias}: {}@{specified_version}",
+                aliased_package_name(alias, &specified.full_name())
+            );
         }
 
-        return format!("{alias}: @{specified_version}=>{}", resolved.version);
+        return format!(
+            "{alias}: {}@{specified_version}=>{}",
+            aliased_package_name(alias, &specified.full_name()),
+            resolved.version
+        );
     }
 
     if is_fixed_to_resolved(&dependency.pkg, resolved_id) {
@@ -160,6 +167,10 @@ fn format_dependency(alias: &str, dependency: &Dependency, resolved_id: &Package
     } else {
         format!("{alias}: {} -> {resolved_id}", dependency.pkg)
     }
+}
+
+fn aliased_package_name<'a>(alias: &str, full_name: &'a str) -> &'a str {
+    if alias == full_name { "" } else { full_name }
 }
 
 fn is_fixed_to_resolved(specified: &PackageSource, resolved_id: &PackageId) -> bool {
@@ -179,6 +190,31 @@ fn is_fixed_to_resolved(specified: &PackageSource, resolved_id: &PackageId) -> b
             }
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn format_dependency_includes_package_name_for_aliases() {
+        let dependency = Dependency {
+            alias: "logger".to_string(),
+            pkg: PackageSource::from(
+                wasmer_config::package::NamedPackageIdent::try_from_full_name_and_version(
+                    "wasmer/log",
+                    "^1",
+                )
+                .unwrap(),
+            ),
+        };
+        let resolved_id = PackageId::new_named("wasmer/log", "1.2.3".parse().unwrap());
+
+        assert_eq!(
+            format_dependency("logger", &dependency, &resolved_id),
+            "logger: wasmer/log@^1=>1.2.3"
+        );
     }
 }
 

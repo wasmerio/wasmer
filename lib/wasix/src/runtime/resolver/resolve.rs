@@ -422,7 +422,10 @@ async fn discover_dependencies_with_backtracking(
 
         let Some((task, remaining)) = state.pending.split_first() else {
             if petgraph::algo::toposort(&state.graph, None).is_ok() {
-                return Ok(Some(state.finish()));
+                let discovered = state.finish();
+                if discovered_packages_are_unified(&discovered) {
+                    return Ok(Some(discovered));
+                }
             }
             continue;
         };
@@ -1571,6 +1574,35 @@ mod tests {
             .insert(leaf_id.clone())
             .with_dependency(&common_id);
         dependency_graph.insert(common_id.clone());
+        assert_eq!(deps(&resolution), dependency_graph.finish());
+    }
+
+    #[tokio::test]
+    async fn backtracking_skips_acyclic_graphs_that_are_not_unified() {
+        let root_id = PackageId::new_named("root", "1.0.0".parse().unwrap());
+        let feature_id = PackageId::new_named("feature", "1.0.0".parse().unwrap());
+
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("root", "1.0.0")
+            .with_dependency("feature", "^1.0.0");
+        builder.register("root", "1.1.0");
+        builder.register("feature", "1.0.0");
+        builder
+            .register("feature", "1.1.0")
+            .with_dependency("root", "^1.0.0");
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        let mut dependency_graph = builder.start_dependency_graph();
+        dependency_graph
+            .insert(root_id.clone())
+            .with_dependency(&feature_id);
+        dependency_graph.insert(feature_id.clone());
         assert_eq!(deps(&resolution), dependency_graph.finish());
     }
 
