@@ -14,24 +14,14 @@ use std::io::Write;
 use wasmer_types::ModuleInfo;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex, SignatureHash,
-    SignatureIndex, entity::PrimaryMap,
+    DeserializeError, FunctionType, LocalFunctionIndex, SignatureHash, entity::PrimaryMap,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use crate::{
-    Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
-    types::{
-        function::FunctionBodyLike,
-        section::{CustomSectionProtection, SectionIndex},
-    },
-};
+use crate::{Artifact, BaseTunables, FunctionExtent, Tunables};
 
 #[cfg(not(target_arch = "wasm32"))]
-use wasmer_vm::{
-    FunctionBodyPtr, SectionBodyPtr, SignatureRegistry, VMFunctionBody, VMSignatureHash,
-    VMTrampoline,
-};
+use wasmer_vm::{SignatureRegistry, VMSignatureHash};
 
 /// A WebAssembly Engine.
 #[derive(Clone)]
@@ -61,8 +51,6 @@ impl Engine {
             inner: Arc::new(Mutex::new(EngineInner {
                 compiler: Some(compiler),
                 features,
-                #[cfg(not(target_arch = "wasm32"))]
-                code_memory: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
@@ -120,8 +108,6 @@ impl Engine {
                 compiler: None,
                 #[cfg(feature = "compiler")]
                 features: Features::default(),
-                #[cfg(not(target_arch = "wasm32"))]
-                code_memory: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
@@ -290,10 +276,6 @@ pub struct EngineInner {
     #[cfg(feature = "compiler")]
     /// The compiler and cpu features
     features: Features,
-    /// The code memory is responsible of publishing the compiled
-    /// functions to memory.
-    #[cfg(not(target_arch = "wasm32"))]
-    code_memory: Vec<CodeMemory>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     #[cfg(not(target_arch = "wasm32"))]
@@ -343,26 +325,6 @@ impl EngineInner {
         &self.features
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    /// Make memory containing compiled code executable.
-    pub(crate) fn publish_compiled_code(&mut self) {
-        self.code_memory.last_mut().unwrap().publish();
-    }
-
-    #[cfg(not(target_arch = "wasm32"))]
-    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-    /// Register DWARF-type exception handling information associated with the code.
-    pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
-        self.code_memory
-            .last_mut()
-            .unwrap()
-            .unwind_registry_mut()
-            .publish_eh_frame(eh_frame)
-            .map_err(|e| {
-                CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
-            })?;
-        Ok(())
-    }
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
     /// Register macos-specific exception handling information associated with the code.
     pub(crate) fn publish_compact_unwind(
