@@ -220,7 +220,8 @@ pub(crate) fn apply_app_config_to_yaml_file(
     match std::fs::read_to_string(path) {
         Ok(text) => apply_app_config_to_yaml(&text, target)
             .with_context(|| format!("could not edit YAML file '{}'", path.display())),
-        Err(_) => Ok(serde_yaml::to_string(target)?),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(serde_yaml::to_string(target)?),
+        Err(e) => Err(e).with_context(|| format!("could not read YAML file '{}'", path.display())),
     }
 }
 
