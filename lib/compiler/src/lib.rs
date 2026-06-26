@@ -69,10 +69,6 @@ cfg_std_or_core! {
     pub mod types;
 
     pub use crate::engine::*;
-
-    mod artifact_builders;
-
-    pub use self::artifact_builders::*;
 }
 
 #[cfg(feature = "compiler")]

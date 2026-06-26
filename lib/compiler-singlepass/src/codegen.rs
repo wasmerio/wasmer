@@ -1,7 +1,5 @@
 #[cfg(feature = "unwind")]
 use crate::unwind::create_systemv_cie;
-#[cfg(feature = "unwind")]
-use wasmer_compiler::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 use crate::{
     codegen_error,
     common_decl::*,
@@ -31,6 +29,8 @@ use std::{
     path::{Path, PathBuf},
 };
 use target_lexicon::{Architecture, Triple};
+#[cfg(feature = "unwind")]
+use wasmer_compiler::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 
 use wasmer_compiler::{
     FunctionBodyData, WASMER_TRAPS_SECTION_NAME,
