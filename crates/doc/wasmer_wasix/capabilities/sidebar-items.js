@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Capabilities","CapabilityThreadingV1"]};
+window.SIDEBAR_ITEMS = {"struct":["Capabilities","CapabilityPollingV1","CapabilityThreadingV1"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["random_get"]};
+window.SIDEBAR_ITEMS = {"constant":["MAX_CHUNK_LEN"],"fn":["random_get"]};

@@ -51,113 +51,111 @@
 <a href=#51 id=51 data-nosnippet>51</a>    ro_flags: WasmPtr&lt;RoFlags, M&gt;,
 <a href=#52 id=52 data-nosnippet>52</a>    ro_addr: WasmPtr&lt;__wasi_addr_port_t, M&gt;,
 <a href=#53 id=53 data-nosnippet>53</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-<a href=#54 id=54 data-nosnippet>54</a>    <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
-<a href=#55 id=55 data-nosnippet>55</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-<a href=#56 id=56 data-nosnippet>56</a>    <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(ri_data.slice(<span class="kw-2">&amp;</span>memory, ri_data_len));
-<a href=#57 id=57 data-nosnippet>57</a>
-<a href=#58 id=58 data-nosnippet>58</a>    <span class="kw">let </span>peek = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_PEEK) != <span class="number">0</span>;
-<a href=#59 id=59 data-nosnippet>59</a>    <span class="kw">let </span>nonblocking_flag = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_DONT_WAIT) != <span class="number">0</span>;
+<a href=#54 id=54 data-nosnippet>54</a>    <span class="kw">let </span>peek = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_PEEK) != <span class="number">0</span>;
+<a href=#55 id=55 data-nosnippet>55</a>    <span class="kw">let </span>nonblocking_flag = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_DONT_WAIT) != <span class="number">0</span>;
+<a href=#56 id=56 data-nosnippet>56</a>
+<a href=#57 id=57 data-nosnippet>57</a>    <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
+<a href=#58 id=58 data-nosnippet>58</a>    <span class="comment">// Check rights first to preserve error precedence
+<a href=#59 id=59 data-nosnippet>59</a>    </span><span class="macro">wasi_try_ok!</span>(__sock_check_rights(env, sock, Rights::SOCK_RECV_FROM));
 <a href=#60 id=60 data-nosnippet>60</a>
-<a href=#61 id=61 data-nosnippet>61</a>    <span class="kw">let </span>max_size = {
-<a href=#62 id=62 data-nosnippet>62</a>        <span class="kw">let </span><span class="kw-2">mut </span>max_size = <span class="number">0usize</span>;
-<a href=#63 id=63 data-nosnippet>63</a>        <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
-<a href=#64 id=64 data-nosnippet>64</a>            <span class="kw">let </span>iovs = <span class="macro">wasi_try_mem_ok!</span>(iovs.read());
-<a href=#65 id=65 data-nosnippet>65</a>            <span class="kw">let </span>buf_len: usize = <span class="macro">wasi_try_ok!</span>(iovs.buf_len.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-<a href=#66 id=66 data-nosnippet>66</a>            max_size += buf_len;
-<a href=#67 id=67 data-nosnippet>67</a>        }
-<a href=#68 id=68 data-nosnippet>68</a>        max_size
-<a href=#69 id=69 data-nosnippet>69</a>    };
-<a href=#70 id=70 data-nosnippet>70</a>
-<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">let </span>(bytes_read, peer) = {
-<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">if </span>max_size &lt;= <span class="number">10240 </span>{
-<a href=#73 id=73 data-nosnippet>73</a>            <span class="kw">let </span><span class="kw-2">mut </span>buf: [MaybeUninit&lt;u8&gt;; <span class="number">10240</span>] = <span class="kw">unsafe </span>{ MaybeUninit::uninit().assume_init() };
-<a href=#74 id=74 data-nosnippet>74</a>            <span class="kw">let </span>writer = <span class="kw-2">&amp;mut </span>buf[..max_size];
-<a href=#75 id=75 data-nosnippet>75</a>            <span class="kw">let </span>(amt, peer) = <span class="macro">wasi_try_ok!</span>(__sock_asyncify(
-<a href=#76 id=76 data-nosnippet>76</a>                env,
-<a href=#77 id=77 data-nosnippet>77</a>                sock,
-<a href=#78 id=78 data-nosnippet>78</a>                Rights::SOCK_RECV,
-<a href=#79 id=79 data-nosnippet>79</a>                |socket, fd| <span class="kw">async move </span>{
-<a href=#80 id=80 data-nosnippet>80</a>                    <span class="kw">let </span>nonblocking =
-<a href=#81 id=81 data-nosnippet>81</a>                        nonblocking_flag || fd.inner.flags.contains(Fdflags::NONBLOCK);
-<a href=#82 id=82 data-nosnippet>82</a>                    <span class="kw">let </span>timeout = socket
-<a href=#83 id=83 data-nosnippet>83</a>                        .opt_time(TimeType::ReadTimeout)
-<a href=#84 id=84 data-nosnippet>84</a>                        .ok()
-<a href=#85 id=85 data-nosnippet>85</a>                        .flatten()
-<a href=#86 id=86 data-nosnippet>86</a>                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-<a href=#87 id=87 data-nosnippet>87</a>                    socket
-<a href=#88 id=88 data-nosnippet>88</a>                        .recv_from(
-<a href=#89 id=89 data-nosnippet>89</a>                            env.tasks().deref(),
-<a href=#90 id=90 data-nosnippet>90</a>                            writer,
-<a href=#91 id=91 data-nosnippet>91</a>                            <span class="prelude-val">Some</span>(timeout),
-<a href=#92 id=92 data-nosnippet>92</a>                            nonblocking,
-<a href=#93 id=93 data-nosnippet>93</a>                            peek,
-<a href=#94 id=94 data-nosnippet>94</a>                        )
-<a href=#95 id=95 data-nosnippet>95</a>                        .<span class="kw">await
-<a href=#96 id=96 data-nosnippet>96</a>                </span>},
-<a href=#97 id=97 data-nosnippet>97</a>            ));
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a>            <span class="kw">if </span>amt &gt; <span class="number">0 </span>{
-<a href=#100 id=100 data-nosnippet>100</a>                <span class="kw">let </span>buf: <span class="kw-2">&amp;</span>[MaybeUninit&lt;u8&gt;] = <span class="kw-2">&amp;</span>buf[..amt];
-<a href=#101 id=101 data-nosnippet>101</a>                <span class="kw">let </span>buf: <span class="kw-2">&amp;</span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
-<a href=#102 id=102 data-nosnippet>102</a>                <span class="macro">wasi_try_ok!</span>(copy_from_slice(buf, <span class="kw-2">&amp;</span>memory, iovs_arr).map(|<span class="kw">_</span>| (amt, peer)))
-<a href=#103 id=103 data-nosnippet>103</a>            } <span class="kw">else </span>{
-<a href=#104 id=104 data-nosnippet>104</a>                (amt, peer)
-<a href=#105 id=105 data-nosnippet>105</a>            }
-<a href=#106 id=106 data-nosnippet>106</a>        } <span class="kw">else </span>{
-<a href=#107 id=107 data-nosnippet>107</a>            <span class="kw">let </span>(data, peer) = <span class="macro">wasi_try_ok!</span>(__sock_asyncify(
-<a href=#108 id=108 data-nosnippet>108</a>                env,
-<a href=#109 id=109 data-nosnippet>109</a>                sock,
-<a href=#110 id=110 data-nosnippet>110</a>                Rights::SOCK_RECV_FROM,
-<a href=#111 id=111 data-nosnippet>111</a>                |socket, fd| <span class="kw">async move </span>{
-<a href=#112 id=112 data-nosnippet>112</a>                    <span class="kw">let </span>nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
-<a href=#113 id=113 data-nosnippet>113</a>                    <span class="kw">let </span>timeout = socket
-<a href=#114 id=114 data-nosnippet>114</a>                        .opt_time(TimeType::ReadTimeout)
-<a href=#115 id=115 data-nosnippet>115</a>                        .ok()
-<a href=#116 id=116 data-nosnippet>116</a>                        .flatten()
-<a href=#117 id=117 data-nosnippet>117</a>                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
-<a href=#118 id=118 data-nosnippet>118</a>
-<a href=#119 id=119 data-nosnippet>119</a>                    <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::with_capacity(max_size);
-<a href=#120 id=120 data-nosnippet>120</a>                    <span class="kw">unsafe </span>{
-<a href=#121 id=121 data-nosnippet>121</a>                        buf.set_len(max_size);
-<a href=#122 id=122 data-nosnippet>122</a>                    }
-<a href=#123 id=123 data-nosnippet>123</a>                    socket
-<a href=#124 id=124 data-nosnippet>124</a>                        .recv_from(
-<a href=#125 id=125 data-nosnippet>125</a>                            env.tasks().deref(),
-<a href=#126 id=126 data-nosnippet>126</a>                            <span class="kw-2">&amp;mut </span>buf,
-<a href=#127 id=127 data-nosnippet>127</a>                            <span class="prelude-val">Some</span>(timeout),
-<a href=#128 id=128 data-nosnippet>128</a>                            nonblocking,
-<a href=#129 id=129 data-nosnippet>129</a>                            peek,
-<a href=#130 id=130 data-nosnippet>130</a>                        )
-<a href=#131 id=131 data-nosnippet>131</a>                        .<span class="kw">await
-<a href=#132 id=132 data-nosnippet>132</a>                        </span>.map(|(amt, addr)| {
-<a href=#133 id=133 data-nosnippet>133</a>                            <span class="kw">unsafe </span>{
-<a href=#134 id=134 data-nosnippet>134</a>                                buf.set_len(amt);
-<a href=#135 id=135 data-nosnippet>135</a>                            }
-<a href=#136 id=136 data-nosnippet>136</a>                            <span class="kw">let </span>buf: Vec&lt;u8&gt; = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
-<a href=#137 id=137 data-nosnippet>137</a>                            (buf, addr)
-<a href=#138 id=138 data-nosnippet>138</a>                        })
-<a href=#139 id=139 data-nosnippet>139</a>                }
-<a href=#140 id=140 data-nosnippet>140</a>            ));
-<a href=#141 id=141 data-nosnippet>141</a>
-<a href=#142 id=142 data-nosnippet>142</a>            <span class="kw">let </span>data_len = data.len();
-<a href=#143 id=143 data-nosnippet>143</a>            <span class="kw">if </span>data_len &gt; <span class="number">0 </span>{
-<a href=#144 id=144 data-nosnippet>144</a>                <span class="kw">let </span><span class="kw-2">mut </span>reader = <span class="kw-2">&amp;</span>data[..];
-<a href=#145 id=145 data-nosnippet>145</a>                <span class="macro">wasi_try_ok!</span>(read_bytes(reader, <span class="kw-2">&amp;</span>memory, iovs_arr).map(|<span class="kw">_</span>| (data_len, peer)))
-<a href=#146 id=146 data-nosnippet>146</a>            } <span class="kw">else </span>{
-<a href=#147 id=147 data-nosnippet>147</a>                (<span class="number">0</span>, peer)
-<a href=#148 id=148 data-nosnippet>148</a>            }
-<a href=#149 id=149 data-nosnippet>149</a>        }
-<a href=#150 id=150 data-nosnippet>150</a>    };
-<a href=#151 id=151 data-nosnippet>151</a>    Span::current()
-<a href=#152 id=152 data-nosnippet>152</a>        .record(<span class="string">"nread"</span>, bytes_read)
-<a href=#153 id=153 data-nosnippet>153</a>        .record(<span class="string">"peer"</span>, <span class="macro">format!</span>(<span class="string">"{peer:?}"</span>));
+<a href=#61 id=61 data-nosnippet>61</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+<a href=#62 id=62 data-nosnippet>62</a>    <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(ri_data.slice(<span class="kw-2">&amp;</span>memory, ri_data_len));
+<a href=#63 id=63 data-nosnippet>63</a>
+<a href=#64 id=64 data-nosnippet>64</a>    <span class="kw">let </span>max_size = <span class="macro">wasi_try_ok!</span>(checked_sock_recv_size::&lt;M&gt;(
+<a href=#65 id=65 data-nosnippet>65</a>        iovs_arr.iter(),
+<a href=#66 id=66 data-nosnippet>66</a>        env.capabilities.max_sock_recv_size
+<a href=#67 id=67 data-nosnippet>67</a>    ));
+<a href=#68 id=68 data-nosnippet>68</a>
+<a href=#69 id=69 data-nosnippet>69</a>    <span class="kw">let </span>(bytes_read, peer) = {
+<a href=#70 id=70 data-nosnippet>70</a>        <span class="kw">if </span>max_size &lt;= <span class="number">10240 </span>{
+<a href=#71 id=71 data-nosnippet>71</a>            <span class="kw">let </span><span class="kw-2">mut </span>buf: [MaybeUninit&lt;u8&gt;; <span class="number">10240</span>] = <span class="kw">unsafe </span>{ MaybeUninit::uninit().assume_init() };
+<a href=#72 id=72 data-nosnippet>72</a>            <span class="kw">let </span>writer = <span class="kw-2">&amp;mut </span>buf[..max_size];
+<a href=#73 id=73 data-nosnippet>73</a>            <span class="kw">let </span>(amt, peer) = <span class="macro">wasi_try_ok!</span>(__sock_asyncify(
+<a href=#74 id=74 data-nosnippet>74</a>                env,
+<a href=#75 id=75 data-nosnippet>75</a>                sock,
+<a href=#76 id=76 data-nosnippet>76</a>                Rights::SOCK_RECV_FROM,
+<a href=#77 id=77 data-nosnippet>77</a>                |socket, fd| <span class="kw">async move </span>{
+<a href=#78 id=78 data-nosnippet>78</a>                    <span class="kw">let </span>nonblocking =
+<a href=#79 id=79 data-nosnippet>79</a>                        nonblocking_flag || fd.inner.flags.contains(Fdflags::NONBLOCK);
+<a href=#80 id=80 data-nosnippet>80</a>                    <span class="kw">let </span>timeout = socket
+<a href=#81 id=81 data-nosnippet>81</a>                        .opt_time(TimeType::ReadTimeout)
+<a href=#82 id=82 data-nosnippet>82</a>                        .ok()
+<a href=#83 id=83 data-nosnippet>83</a>                        .flatten()
+<a href=#84 id=84 data-nosnippet>84</a>                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
+<a href=#85 id=85 data-nosnippet>85</a>                    socket
+<a href=#86 id=86 data-nosnippet>86</a>                        .recv_from(
+<a href=#87 id=87 data-nosnippet>87</a>                            env.tasks().deref(),
+<a href=#88 id=88 data-nosnippet>88</a>                            writer,
+<a href=#89 id=89 data-nosnippet>89</a>                            <span class="prelude-val">Some</span>(timeout),
+<a href=#90 id=90 data-nosnippet>90</a>                            nonblocking,
+<a href=#91 id=91 data-nosnippet>91</a>                            peek,
+<a href=#92 id=92 data-nosnippet>92</a>                        )
+<a href=#93 id=93 data-nosnippet>93</a>                        .<span class="kw">await
+<a href=#94 id=94 data-nosnippet>94</a>                </span>},
+<a href=#95 id=95 data-nosnippet>95</a>            ));
+<a href=#96 id=96 data-nosnippet>96</a>
+<a href=#97 id=97 data-nosnippet>97</a>            <span class="kw">if </span>amt &gt; <span class="number">0 </span>{
+<a href=#98 id=98 data-nosnippet>98</a>                <span class="kw">let </span>buf: <span class="kw-2">&amp;</span>[MaybeUninit&lt;u8&gt;] = <span class="kw-2">&amp;</span>buf[..amt];
+<a href=#99 id=99 data-nosnippet>99</a>                <span class="kw">let </span>buf: <span class="kw-2">&amp;</span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
+<a href=#100 id=100 data-nosnippet>100</a>                <span class="macro">wasi_try_ok!</span>(copy_from_slice(buf, <span class="kw-2">&amp;</span>memory, iovs_arr).map(|<span class="kw">_</span>| (amt, peer)))
+<a href=#101 id=101 data-nosnippet>101</a>            } <span class="kw">else </span>{
+<a href=#102 id=102 data-nosnippet>102</a>                (amt, peer)
+<a href=#103 id=103 data-nosnippet>103</a>            }
+<a href=#104 id=104 data-nosnippet>104</a>        } <span class="kw">else </span>{
+<a href=#105 id=105 data-nosnippet>105</a>            <span class="kw">let </span>(data, peer) = <span class="macro">wasi_try_ok!</span>(__sock_asyncify(
+<a href=#106 id=106 data-nosnippet>106</a>                env,
+<a href=#107 id=107 data-nosnippet>107</a>                sock,
+<a href=#108 id=108 data-nosnippet>108</a>                Rights::SOCK_RECV_FROM,
+<a href=#109 id=109 data-nosnippet>109</a>                |socket, fd| <span class="kw">async move </span>{
+<a href=#110 id=110 data-nosnippet>110</a>                    <span class="kw">let </span>nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
+<a href=#111 id=111 data-nosnippet>111</a>                    <span class="kw">let </span>timeout = socket
+<a href=#112 id=112 data-nosnippet>112</a>                        .opt_time(TimeType::ReadTimeout)
+<a href=#113 id=113 data-nosnippet>113</a>                        .ok()
+<a href=#114 id=114 data-nosnippet>114</a>                        .flatten()
+<a href=#115 id=115 data-nosnippet>115</a>                        .unwrap_or(Duration::from_secs(<span class="number">30</span>));
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a>                    <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::with_capacity(max_size);
+<a href=#118 id=118 data-nosnippet>118</a>                    <span class="kw">unsafe </span>{
+<a href=#119 id=119 data-nosnippet>119</a>                        buf.set_len(max_size);
+<a href=#120 id=120 data-nosnippet>120</a>                    }
+<a href=#121 id=121 data-nosnippet>121</a>                    socket
+<a href=#122 id=122 data-nosnippet>122</a>                        .recv_from(
+<a href=#123 id=123 data-nosnippet>123</a>                            env.tasks().deref(),
+<a href=#124 id=124 data-nosnippet>124</a>                            <span class="kw-2">&amp;mut </span>buf,
+<a href=#125 id=125 data-nosnippet>125</a>                            <span class="prelude-val">Some</span>(timeout),
+<a href=#126 id=126 data-nosnippet>126</a>                            nonblocking,
+<a href=#127 id=127 data-nosnippet>127</a>                            peek,
+<a href=#128 id=128 data-nosnippet>128</a>                        )
+<a href=#129 id=129 data-nosnippet>129</a>                        .<span class="kw">await
+<a href=#130 id=130 data-nosnippet>130</a>                        </span>.map(|(amt, addr)| {
+<a href=#131 id=131 data-nosnippet>131</a>                            <span class="kw">unsafe </span>{
+<a href=#132 id=132 data-nosnippet>132</a>                                buf.set_len(amt);
+<a href=#133 id=133 data-nosnippet>133</a>                            }
+<a href=#134 id=134 data-nosnippet>134</a>                            <span class="kw">let </span>buf: Vec&lt;u8&gt; = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
+<a href=#135 id=135 data-nosnippet>135</a>                            (buf, addr)
+<a href=#136 id=136 data-nosnippet>136</a>                        })
+<a href=#137 id=137 data-nosnippet>137</a>                }
+<a href=#138 id=138 data-nosnippet>138</a>            ));
+<a href=#139 id=139 data-nosnippet>139</a>
+<a href=#140 id=140 data-nosnippet>140</a>            <span class="kw">let </span>data_len = data.len();
+<a href=#141 id=141 data-nosnippet>141</a>            <span class="kw">if </span>data_len &gt; <span class="number">0 </span>{
+<a href=#142 id=142 data-nosnippet>142</a>                <span class="kw">let </span><span class="kw-2">mut </span>reader = <span class="kw-2">&amp;</span>data[..];
+<a href=#143 id=143 data-nosnippet>143</a>                <span class="macro">wasi_try_ok!</span>(read_bytes(reader, <span class="kw-2">&amp;</span>memory, iovs_arr).map(|<span class="kw">_</span>| (data_len, peer)))
+<a href=#144 id=144 data-nosnippet>144</a>            } <span class="kw">else </span>{
+<a href=#145 id=145 data-nosnippet>145</a>                (<span class="number">0</span>, peer)
+<a href=#146 id=146 data-nosnippet>146</a>            }
+<a href=#147 id=147 data-nosnippet>147</a>        }
+<a href=#148 id=148 data-nosnippet>148</a>    };
+<a href=#149 id=149 data-nosnippet>149</a>    Span::current()
+<a href=#150 id=150 data-nosnippet>150</a>        .record(<span class="string">"nread"</span>, bytes_read)
+<a href=#151 id=151 data-nosnippet>151</a>        .record(<span class="string">"peer"</span>, <span class="macro">format!</span>(<span class="string">"{peer:?}"</span>));
+<a href=#152 id=152 data-nosnippet>152</a>
+<a href=#153 id=153 data-nosnippet>153</a>    <span class="macro">wasi_try_ok!</span>(write_ip_port(<span class="kw-2">&amp;</span>memory, ro_addr, peer.ip(), peer.port()));
 <a href=#154 id=154 data-nosnippet>154</a>
-<a href=#155 id=155 data-nosnippet>155</a>    <span class="macro">wasi_try_ok!</span>(write_ip_port(<span class="kw-2">&amp;</span>memory, ro_addr, peer.ip(), peer.port()));
-<a href=#156 id=156 data-nosnippet>156</a>
-<a href=#157 id=157 data-nosnippet>157</a>    <span class="kw">let </span>bytes_read: M::Offset = <span class="macro">wasi_try_ok!</span>(bytes_read.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-<a href=#158 id=158 data-nosnippet>158</a>    <span class="macro">wasi_try_mem_ok!</span>(ro_flags.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
-<a href=#159 id=159 data-nosnippet>159</a>    <span class="macro">wasi_try_mem_ok!</span>(ro_data_len.write(<span class="kw-2">&amp;</span>memory, bytes_read));
-<a href=#160 id=160 data-nosnippet>160</a>
-<a href=#161 id=161 data-nosnippet>161</a>    <span class="prelude-val">Ok</span>(Errno::Success)
-<a href=#162 id=162 data-nosnippet>162</a>}
+<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">let </span>bytes_read: M::Offset = <span class="macro">wasi_try_ok!</span>(bytes_read.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
+<a href=#156 id=156 data-nosnippet>156</a>    <span class="macro">wasi_try_mem_ok!</span>(ro_flags.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
+<a href=#157 id=157 data-nosnippet>157</a>    <span class="macro">wasi_try_mem_ok!</span>(ro_data_len.write(<span class="kw-2">&amp;</span>memory, bytes_read));
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="prelude-val">Ok</span>(Errno::Success)
+<a href=#160 id=160 data-nosnippet>160</a>}
 </code></pre></div></section></main></body></html>

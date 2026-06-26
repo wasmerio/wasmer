@@ -13,7 +13,7 @@
 <a href=#13 id=13 data-nosnippet>13</a>    os::task::thread::WasiThread,
 <a href=#14 id=14 data-nosnippet>14</a>    state::{PollEventBuilder, PollEventSet},
 <a href=#15 id=15 data-nosnippet>15</a>    syscalls::types,
-<a href=#16 id=16 data-nosnippet>16</a>    syscalls::{<span class="self">self</span>, handle_rewind},
+<a href=#16 id=16 data-nosnippet>16</a>    syscalls::{<span class="self">self</span>, handle_rewind, to_offset},
 <a href=#17 id=17 data-nosnippet>17</a>};
 <a href=#18 id=18 data-nosnippet>18</a>
 <a href=#19 id=19 data-nosnippet>19</a><span class="doccomment">/// Wrapper around `syscalls::fd_filestat_get` for old Snapshot0
@@ -73,52 +73,63 @@
 <a href=#73 id=73 data-nosnippet>73</a>    <span class="kw">let </span>env = ctx.data();
 <a href=#74 id=74 data-nosnippet>74</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 <a href=#75 id=75 data-nosnippet>75</a>
-<a href=#76 id=76 data-nosnippet>76</a>    <span class="kw">let </span><span class="kw-2">mut </span>subscriptions = Vec::new();
-<a href=#77 id=77 data-nosnippet>77</a>    <span class="kw">let </span>in_origs = <span class="macro">wasi_try_mem_ok!</span>(in_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions));
-<a href=#78 id=78 data-nosnippet>78</a>    <span class="kw">let </span>in_origs = <span class="macro">wasi_try_mem_ok!</span>(in_origs.read_to_vec());
-<a href=#79 id=79 data-nosnippet>79</a>    <span class="kw">for </span>in_orig <span class="kw">in </span>in_origs {
-<a href=#80 id=80 data-nosnippet>80</a>        subscriptions.push((
-<a href=#81 id=81 data-nosnippet>81</a>            <span class="prelude-val">None</span>,
-<a href=#82 id=82 data-nosnippet>82</a>            PollEventSet::default(),
-<a href=#83 id=83 data-nosnippet>83</a>            Into::&lt;Subscription&gt;::into(in_orig),
-<a href=#84 id=84 data-nosnippet>84</a>        ));
-<a href=#85 id=85 data-nosnippet>85</a>    }
-<a href=#86 id=86 data-nosnippet>86</a>
-<a href=#87 id=87 data-nosnippet>87</a>    <span class="comment">// Function to invoke once the poll is finished
-<a href=#88 id=88 data-nosnippet>88</a>    </span><span class="kw">let </span>process_events = |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, triggered_events: Vec&lt;Event&gt;| {
-<a href=#89 id=89 data-nosnippet>89</a>        <span class="kw">let </span>env = ctx.data();
-<a href=#90 id=90 data-nosnippet>90</a>        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-<a href=#91 id=91 data-nosnippet>91</a>
-<a href=#92 id=92 data-nosnippet>92</a>        <span class="comment">// Process all the events that were triggered
-<a href=#93 id=93 data-nosnippet>93</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
-<a href=#94 id=94 data-nosnippet>94</a>        <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem!</span>(out_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions));
-<a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">for </span>event <span class="kw">in </span>triggered_events {
-<a href=#96 id=96 data-nosnippet>96</a>            <span class="kw">let </span>event = Snapshot0Event {
-<a href=#97 id=97 data-nosnippet>97</a>                userdata: event.userdata,
-<a href=#98 id=98 data-nosnippet>98</a>                error: event.error,
-<a href=#99 id=99 data-nosnippet>99</a>                type_: Eventtype::FdRead,
-<a href=#100 id=100 data-nosnippet>100</a>                fd_readwrite: <span class="kw">match </span>event.type_ {
-<a href=#101 id=101 data-nosnippet>101</a>                    Eventtype::FdRead =&gt; <span class="kw">unsafe </span>{ event.u.fd_readwrite },
-<a href=#102 id=102 data-nosnippet>102</a>                    Eventtype::FdWrite =&gt; <span class="kw">unsafe </span>{ event.u.fd_readwrite },
-<a href=#103 id=103 data-nosnippet>103</a>                    Eventtype::Clock =&gt; EventFdReadwrite {
-<a href=#104 id=104 data-nosnippet>104</a>                        nbytes: <span class="number">0</span>,
-<a href=#105 id=105 data-nosnippet>105</a>                        flags: Eventrwflags::empty(),
-<a href=#106 id=106 data-nosnippet>106</a>                    },
-<a href=#107 id=107 data-nosnippet>107</a>                    <span class="kw">_ </span>=&gt; <span class="kw">return </span>Errno::Inval,
-<a href=#108 id=108 data-nosnippet>108</a>                },
-<a href=#109 id=109 data-nosnippet>109</a>            };
-<a href=#110 id=110 data-nosnippet>110</a>            <span class="macro">wasi_try_mem!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
-<a href=#111 id=111 data-nosnippet>111</a>            events_seen += <span class="number">1</span>;
-<a href=#112 id=112 data-nosnippet>112</a>        }
-<a href=#113 id=113 data-nosnippet>113</a>        <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>memory);
-<a href=#114 id=114 data-nosnippet>114</a>        <span class="macro">wasi_try_mem!</span>(out_ptr.write(events_seen));
-<a href=#115 id=115 data-nosnippet>115</a>        Errno::Success
-<a href=#116 id=116 data-nosnippet>116</a>    };
-<a href=#117 id=117 data-nosnippet>117</a>
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="comment">// We clear the number of events
-<a href=#119 id=119 data-nosnippet>119</a>    </span><span class="macro">wasi_try_mem_ok!</span>(nevents.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
-<a href=#120 id=120 data-nosnippet>120</a>
-<a href=#121 id=121 data-nosnippet>121</a>    <span class="comment">// Poll and receive all the events that triggered
-<a href=#122 id=122 data-nosnippet>122</a>    </span>syscalls::poll_oneoff_internal::&lt;M, <span class="kw">_</span>&gt;(ctx, subscriptions, process_events)
-<a href=#123 id=123 data-nosnippet>123</a>}
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="macro">wasi_try_ok!</span>(syscalls::validate_poll_subscriptions_count(
+<a href=#77 id=77 data-nosnippet>77</a>        env,
+<a href=#78 id=78 data-nosnippet>78</a>        nsubscriptions <span class="kw">as </span>usize,
+<a href=#79 id=79 data-nosnippet>79</a>    ));
+<a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">let </span>nsubscriptions_offset = <span class="macro">wasi_try_ok!</span>(to_offset::&lt;Memory32&gt;(nsubscriptions <span class="kw">as </span>usize));
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">let </span>in_origs = <span class="macro">wasi_try_mem_ok!</span>(in_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions_offset));
+<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">let </span>in_origs = <span class="macro">wasi_try_mem_ok!</span>(in_origs.read_to_vec());
+<a href=#84 id=84 data-nosnippet>84</a>    <span class="kw">let </span><span class="kw-2">mut </span>subscriptions = Vec::new();
+<a href=#85 id=85 data-nosnippet>85</a>    <span class="macro">wasi_try_ok!</span>(
+<a href=#86 id=86 data-nosnippet>86</a>        subscriptions
+<a href=#87 id=87 data-nosnippet>87</a>            .try_reserve_exact(in_origs.len())
+<a href=#88 id=88 data-nosnippet>88</a>            .map_err(|<span class="kw">_</span>| Errno::Nomem)
+<a href=#89 id=89 data-nosnippet>89</a>    );
+<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">for </span>in_orig <span class="kw">in </span>in_origs {
+<a href=#91 id=91 data-nosnippet>91</a>        subscriptions.push((
+<a href=#92 id=92 data-nosnippet>92</a>            <span class="prelude-val">None</span>,
+<a href=#93 id=93 data-nosnippet>93</a>            PollEventSet::default(),
+<a href=#94 id=94 data-nosnippet>94</a>            Into::&lt;Subscription&gt;::into(in_orig),
+<a href=#95 id=95 data-nosnippet>95</a>        ));
+<a href=#96 id=96 data-nosnippet>96</a>    }
+<a href=#97 id=97 data-nosnippet>97</a>
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="comment">// Function to invoke once the poll is finished
+<a href=#99 id=99 data-nosnippet>99</a>    </span><span class="kw">let </span>process_events = |ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, triggered_events: Vec&lt;Event&gt;| {
+<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">let </span>env = ctx.data();
+<a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+<a href=#102 id=102 data-nosnippet>102</a>
+<a href=#103 id=103 data-nosnippet>103</a>        <span class="comment">// Process all the events that were triggered
+<a href=#104 id=104 data-nosnippet>104</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>events_seen: u32 = <span class="number">0</span>;
+<a href=#105 id=105 data-nosnippet>105</a>        <span class="kw">let </span>event_array = <span class="macro">wasi_try_mem!</span>(out_.slice(<span class="kw-2">&amp;</span>memory, nsubscriptions_offset));
+<a href=#106 id=106 data-nosnippet>106</a>        <span class="kw">for </span>event <span class="kw">in </span>triggered_events {
+<a href=#107 id=107 data-nosnippet>107</a>            <span class="kw">let </span>event = Snapshot0Event {
+<a href=#108 id=108 data-nosnippet>108</a>                userdata: event.userdata,
+<a href=#109 id=109 data-nosnippet>109</a>                error: event.error,
+<a href=#110 id=110 data-nosnippet>110</a>                type_: Eventtype::FdRead,
+<a href=#111 id=111 data-nosnippet>111</a>                fd_readwrite: <span class="kw">match </span>event.type_ {
+<a href=#112 id=112 data-nosnippet>112</a>                    Eventtype::FdRead =&gt; <span class="kw">unsafe </span>{ event.u.fd_readwrite },
+<a href=#113 id=113 data-nosnippet>113</a>                    Eventtype::FdWrite =&gt; <span class="kw">unsafe </span>{ event.u.fd_readwrite },
+<a href=#114 id=114 data-nosnippet>114</a>                    Eventtype::Clock =&gt; EventFdReadwrite {
+<a href=#115 id=115 data-nosnippet>115</a>                        nbytes: <span class="number">0</span>,
+<a href=#116 id=116 data-nosnippet>116</a>                        flags: Eventrwflags::empty(),
+<a href=#117 id=117 data-nosnippet>117</a>                    },
+<a href=#118 id=118 data-nosnippet>118</a>                    <span class="kw">_ </span>=&gt; <span class="kw">return </span>Errno::Inval,
+<a href=#119 id=119 data-nosnippet>119</a>                },
+<a href=#120 id=120 data-nosnippet>120</a>            };
+<a href=#121 id=121 data-nosnippet>121</a>            <span class="macro">wasi_try_mem!</span>(event_array.index(events_seen <span class="kw">as </span>u64).write(event));
+<a href=#122 id=122 data-nosnippet>122</a>            events_seen += <span class="number">1</span>;
+<a href=#123 id=123 data-nosnippet>123</a>        }
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="kw">let </span>out_ptr = nevents.deref(<span class="kw-2">&amp;</span>memory);
+<a href=#125 id=125 data-nosnippet>125</a>        <span class="macro">wasi_try_mem!</span>(out_ptr.write(events_seen));
+<a href=#126 id=126 data-nosnippet>126</a>        Errno::Success
+<a href=#127 id=127 data-nosnippet>127</a>    };
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a>    <span class="comment">// We clear the number of events
+<a href=#130 id=130 data-nosnippet>130</a>    </span><span class="macro">wasi_try_mem_ok!</span>(nevents.write(<span class="kw-2">&amp;</span>memory, <span class="number">0</span>));
+<a href=#131 id=131 data-nosnippet>131</a>
+<a href=#132 id=132 data-nosnippet>132</a>    <span class="comment">// Poll and receive all the events that triggered
+<a href=#133 id=133 data-nosnippet>133</a>    </span>syscalls::poll_oneoff_internal::&lt;M, <span class="kw">_</span>&gt;(ctx, subscriptions, process_events)
+<a href=#134 id=134 data-nosnippet>134</a>}
 </code></pre></div></section></main></body></html>

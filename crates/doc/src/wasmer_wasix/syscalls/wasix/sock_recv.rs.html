@@ -111,23 +111,23 @@
 <a href=#111 id=111 data-nosnippet>111</a>    ro_data_len: WasmPtr&lt;M::Offset, M&gt;,
 <a href=#112 id=112 data-nosnippet>112</a>    ro_flags: WasmPtr&lt;RoFlags, M&gt;,
 <a href=#113 id=113 data-nosnippet>113</a>) -&gt; WasiResult&lt;usize&gt; {
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
+<a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">let </span>env = ctx.data();
 <a href=#115 id=115 data-nosnippet>115</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(ctx) };
-<a href=#116 id=116 data-nosnippet>116</a>
-<a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">let </span>peek = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_PEEK) != <span class="number">0</span>;
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">let </span>nonblocking_flag = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_DONT_WAIT) != <span class="number">0</span>;
-<a href=#119 id=119 data-nosnippet>119</a>    <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__sock_asyncify(
-<a href=#120 id=120 data-nosnippet>120</a>        env,
-<a href=#121 id=121 data-nosnippet>121</a>        sock,
-<a href=#122 id=122 data-nosnippet>122</a>        Rights::SOCK_RECV,
-<a href=#123 id=123 data-nosnippet>123</a>        |socket, fd| <span class="kw">async move </span>{
-<a href=#124 id=124 data-nosnippet>124</a>            <span class="kw">let </span>iovs_arr = ri_data
-<a href=#125 id=125 data-nosnippet>125</a>                .slice(<span class="kw-2">&amp;</span>memory, ri_data_len)
-<a href=#126 id=126 data-nosnippet>126</a>                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-<a href=#127 id=127 data-nosnippet>127</a>            <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-<a href=#128 id=128 data-nosnippet>128</a>
-<a href=#129 id=129 data-nosnippet>129</a>            <span class="kw">let </span><span class="kw-2">mut </span>total_read = <span class="number">0</span>;
-<a href=#130 id=130 data-nosnippet>130</a>            <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+<a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">let </span>peek = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_PEEK) != <span class="number">0</span>;
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">let </span>nonblocking_flag = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_DONT_WAIT) != <span class="number">0</span>;
+<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__sock_asyncify(
+<a href=#119 id=119 data-nosnippet>119</a>        env,
+<a href=#120 id=120 data-nosnippet>120</a>        sock,
+<a href=#121 id=121 data-nosnippet>121</a>        Rights::SOCK_RECV,
+<a href=#122 id=122 data-nosnippet>122</a>        |socket, fd| <span class="kw">async move </span>{
+<a href=#123 id=123 data-nosnippet>123</a>            <span class="kw">let </span>iovs_arr = ri_data
+<a href=#124 id=124 data-nosnippet>124</a>                .slice(<span class="kw-2">&amp;</span>memory, ri_data_len)
+<a href=#125 id=125 data-nosnippet>125</a>                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#126 id=126 data-nosnippet>126</a>            checked_sock_recv_size::&lt;M&gt;(iovs_arr.iter(), env.capabilities.max_sock_recv_size)<span class="question-mark">?</span>;
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>            <span class="kw">let </span><span class="kw-2">mut </span>total_read = <span class="number">0usize</span>;
+<a href=#129 id=129 data-nosnippet>129</a>            <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+<a href=#130 id=130 data-nosnippet>130</a>                <span class="kw">let </span>iovs = iovs.read().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
 <a href=#131 id=131 data-nosnippet>131</a>                <span class="kw">let </span><span class="kw-2">mut </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
 <a href=#132 id=132 data-nosnippet>132</a>                    .slice(<span class="kw-2">&amp;</span>memory, iovs.buf_len)
 <a href=#133 id=133 data-nosnippet>133</a>                    .map_err(mem_error_to_wasi)<span class="question-mark">?
@@ -155,7 +155,7 @@
 <a href=#155 id=155 data-nosnippet>155</a>                    <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>total_read &gt; <span class="number">0 </span>=&gt; <span class="kw">break</span>,
 <a href=#156 id=156 data-nosnippet>156</a>                    <span class="prelude-val">Err</span>(err) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(err),
 <a href=#157 id=157 data-nosnippet>157</a>                };
-<a href=#158 id=158 data-nosnippet>158</a>                total_read += local_read;
+<a href=#158 id=158 data-nosnippet>158</a>                total_read = total_read.checked_add(local_read).ok_or(Errno::Overflow)<span class="question-mark">?</span>;
 <a href=#159 id=159 data-nosnippet>159</a>                <span class="kw">if </span><span class="macro">local_read !</span>= buf.len() {
 <a href=#160 id=160 data-nosnippet>160</a>                    <span class="kw">break</span>;
 <a href=#161 id=161 data-nosnippet>161</a>                }
