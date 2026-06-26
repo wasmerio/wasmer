@@ -199,6 +199,19 @@ impl Run {
         self.maybe_wrap_runtime_with_wasm_c_api(module, runtime)
     }
 
+    #[cfg(any(feature = "napi-v8", feature = "wasm-c-api"))]
+    fn resolve_wasi_command_module(
+        &self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        runtime: &Arc<dyn Runtime + Send + Sync>,
+    ) -> Result<Module, Error> {
+        let cmd = pkg.get_command(command_name).with_context(|| {
+            format!("Unable to get metadata for the \"{command_name}\" command")
+        })?;
+        Ok(runtime.resolve_module_sync(ModuleInput::Command(Cow::Borrowed(cmd)), None, None)?)
+    }
+
     pub fn execute(self, output: Output) -> ! {
         let result = self.execute_inner(output);
         exit_with_wasi_exit_code(result);
@@ -502,18 +515,17 @@ impl Run {
         uses: Vec<BinaryPackage>,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        #[cfg(any(feature = "napi-v8", feature = "wasm-c-api"))]
+        #[cfg(feature = "napi-v8")]
         let (module, runtime) = {
-            let cmd = pkg.get_command(command_name).with_context(|| {
-                format!("Unable to get metadata for the \"{command_name}\" command")
-            })?;
-            let module = runtime.resolve_module_sync(
-                wasmer_wasix::runtime::ModuleInput::Command(Cow::Borrowed(cmd)),
-                None,
-                None,
-            )?;
+            let module = self.resolve_wasi_command_module(command_name, pkg, &runtime)?;
             let runtime = self.maybe_wrap_runtime_for_module(&module, runtime)?;
             (module, runtime)
+        };
+
+        #[cfg(all(not(feature = "napi-v8"), feature = "wasm-c-api"))]
+        let runtime = {
+            let module = self.resolve_wasi_command_module(command_name, pkg, &runtime)?;
+            self.maybe_wrap_runtime_for_module(&module, runtime)?
         };
 
         // Assume webcs are always WASIX
