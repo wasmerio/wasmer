@@ -542,6 +542,7 @@ pub fn emit_metadata_and_link(
         "ld".to_string(),
         "-Bsymbolic".to_string(),
         "-shared".to_string(),
+        "--no-threads".to_string(),
         "-o".to_string(),
         module_file.path().display().to_string(),
     ];
