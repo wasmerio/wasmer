@@ -1248,3 +1248,51 @@ fn issue_6534_declared_element_segment_with_global(config: crate::Config) -> Res
 
     Ok(())
 }
+
+// #[compiler_test(issues)]
+// fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
+//     if config.compiler == crate::Compiler::V8 {
+//         return Ok(());
+//     }
+
+//     let mut store = config.store();
+//     let wasm_bytes = wat2wasm(
+//         br#"
+//         (module
+//             (func $foo (param i32 i32 i32 i32) (result i32)
+//                 (local.get 0)
+//                 (local.get 1)
+//                 (local.get 2)
+//                 (local.get 3)
+//                 i32.add
+//                 i32.add
+//                 i32.add
+//             )
+//             (func $bar)
+//         )
+//         "#,
+//     )?;
+
+//     let module = Module::new(&store, wasm_bytes)?;
+//     let finished_functions_max_stack_usage = module
+//         .sys_artifact()
+//         .expect("sys back-end expected")
+//         .finished_functions_max_stack_usage()
+//         .expect("max stack usage must be available")
+//         .iter()
+//         .map(|(_, stack_usage)| *stack_usage)
+//         .collect_vec();
+
+//     match config.compiler {
+//         crate::Compiler::Singlepass => {
+//             assert!(finished_functions_max_stack_usage[0].is_some_and(|u| u >= 72));
+//             assert!(finished_functions_max_stack_usage[1].is_some_and(|u| u >= 40));
+//         }
+//         crate::Compiler::Cranelift | crate::Compiler::LLVM => {
+//             assert_eq!(finished_functions_max_stack_usage, [None, None])
+//         }
+//         crate::Compiler::V8 => unreachable!(),
+//     }
+
+//     Ok(())
+// }

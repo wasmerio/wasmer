@@ -14,11 +14,11 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=7.2.0-alpha.3", features = [
+wasmer-compiler = { path = "../compiler", version = "=7.2.0-rc.1", features = [
   "translator",
   "compiler",
 ] }
-wasmer-types = { path = "../types", version = "=7.2.0-alpha.3", features = [
+wasmer-types = { path = "../types", version = "=7.2.0-rc.1", features = [
   "std",
 ], default-features = false }
 hashbrown = { workspace = true, optional = true }
@@ -35,7 +35,10 @@ target-lexicon.workspace = true
 fixedbitset.workspace = true
 rayon.workspace = true
 object.workspace = true
-
+serde_derive = { workspace = true, optional = true }
+serde = { workspace = true, default-features = false, features = [
+  "derive",
+], optional = true }
 [dev-dependencies]
 target-lexicon.workspace = true
 
@@ -50,7 +53,7 @@ core = ["hashbrown", "wasmer-types/core"]
 unwind = ["gimli"]
 sse = []
 avx = []
-enable-serde = []
+enable-serde = ["serde", "serde_derive"]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

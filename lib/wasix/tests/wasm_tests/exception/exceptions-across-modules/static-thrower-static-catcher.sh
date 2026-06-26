@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-##Ignored: not ported to the new test harness
+##ExpectedExitCode: 0
+
 set -e
 
 # static-thrower-static-catcher: both statically linked

@@ -21,6 +21,7 @@ use object::{
     write::{Relocation as ObjRelocation, StandardSection, StandardSegment, Symbol, SymbolSection},
 };
 use smallvec::{SmallVec, smallvec};
+use std::ops::{AddAssign, SubAssign};
 use std::{
     cmp,
     collections::HashMap,
@@ -57,6 +58,36 @@ use wasmer_types::{
 #[allow(type_alias_bounds)]
 type LocationWithCanonicalization<M: Machine> = (Location<M::GPR, M::SIMD>, CanonicalizeType);
 
+/// Stack offset tracking in bytes where we track the maximum offset.
+#[derive(Default)]
+struct TrackedStackOffset {
+    offset: usize,
+    maximum_offset: usize,
+}
+
+impl TrackedStackOffset {
+    fn get(&self) -> usize {
+        self.offset
+    }
+
+    fn track_temporary_extra_allocation(&mut self, extra: usize) {
+        self.maximum_offset = self.maximum_offset.max(self.offset + extra);
+    }
+}
+
+impl AddAssign<usize> for TrackedStackOffset {
+    fn add_assign(&mut self, rhs: usize) {
+        self.offset += rhs;
+        self.maximum_offset = self.maximum_offset.max(self.offset);
+    }
+}
+
+impl SubAssign<usize> for TrackedStackOffset {
+    fn sub_assign(&mut self, rhs: usize) {
+        self.offset -= rhs;
+    }
+}
+
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
     // Immutable properties assigned at creation time.
@@ -89,7 +120,7 @@ pub struct FuncGen<'a, M: Machine> {
     control_stack: Vec<ControlFrame<M>>,
 
     /// Stack offset tracking in bytes.
-    stack_offset: usize,
+    stack_offset: TrackedStackOffset,
 
     save_area_offset: Option<usize>,
 
@@ -257,6 +288,8 @@ enum NativeCallType {
     Unreachable,
 }
 
+const RED_ZONE_SIZE: usize = 32;
+
 impl<'a, M: Machine> FuncGen<'a, M> {
     /// Acquires location from the machine state.
     ///
@@ -287,7 +320,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     /// Acquire location that will live on the stack.
     fn acquire_location_on_stack(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
         self.stack_offset += 8;
-        let loc = self.machine.local_on_stack(self.stack_offset as i32);
+        let loc = self.machine.local_on_stack(self.stack_offset.get() as i32);
         self.machine
             .extend_stack(self.machine.round_stack_adjust(8) as u32)?;
 
@@ -327,7 +360,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     ) -> Result<(), CompileError> {
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
-                self.check_location_on_stack(loc, self.stack_offset)?;
+                self.check_location_on_stack(loc, self.stack_offset.get())?;
                 self.stack_offset -= 8;
                 self.machine
                     .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
@@ -341,7 +374,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         stack_depth: usize,
     ) -> Result<(), CompileError> {
-        let mut stack_offset = self.stack_offset;
+        let mut stack_offset = self.stack_offset.get();
         let locs = &self.value_stack[stack_depth..];
 
         for (loc, _) in locs.iter().rev() {
@@ -372,7 +405,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
         let offset = offset.neg() as usize;
         if offset != expected_stack_offset {
-            codegen_error!("Invalid memory offset {offset}!={}", self.stack_offset);
+            codegen_error!(
+                "Invalid memory offset {offset}!={}",
+                self.stack_offset.get()
+            );
         }
         Ok(())
     }
@@ -507,14 +543,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         for loc in locations.iter() {
             if let Location::GPR(_) = *loc {
                 self.stack_offset += 8;
-                self.machine.move_local(self.stack_offset as i32, *loc)?;
+                self.machine
+                    .move_local(self.stack_offset.get() as i32, *loc)?;
             }
         }
 
         // Save the Reg use for vmctx.
         self.stack_offset += 8;
         self.machine.move_local(
-            self.stack_offset as i32,
+            self.stack_offset.get() as i32,
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
 
@@ -522,11 +559,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let regs_to_save = self.machine.list_to_save(calling_convention);
         for loc in regs_to_save.iter() {
             self.stack_offset += 8;
-            self.machine.move_local(self.stack_offset as i32, *loc)?;
+            self.machine
+                .move_local(self.stack_offset.get() as i32, *loc)?;
         }
 
         // Save the offset of register save area.
-        self.save_area_offset = Some(self.stack_offset);
+        self.save_area_offset = Some(self.stack_offset.get());
 
         // Load in-register parameters into the allocated locations.
         // Locals are allocated on the stack from higher address to lower address,
@@ -770,7 +808,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Align stack to 16 bytes.
         let stack_unaligned =
-            (self.machine.round_stack_adjust(self.stack_offset) + used_stack + stack_offset) % 16;
+            (self.machine.round_stack_adjust(self.stack_offset.get()) + used_stack + stack_offset)
+                % 16;
         if stack_unaligned != 0 {
             stack_offset += 16 - stack_unaligned;
         }
@@ -827,6 +866,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         if stack_padding > 0 {
             self.machine.extend_stack(stack_padding as u32)?;
         }
+        self.stack_offset
+            .track_temporary_extra_allocation(stack_offset + stack_padding + used_stack);
         // release the GPR used for call
         self.machine.release_gpr(self.machine.get_gpr_for_call());
 
@@ -917,7 +958,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // simulate "red zone" if not supported by the platform
         self.add_assembly_comment(AssemblyComment::RedZone);
-        self.machine.extend_stack(32)?;
+        self.stack_offset += RED_ZONE_SIZE;
+        self.machine.extend_stack(RED_ZONE_SIZE as u32)?;
 
         let return_types: SmallVec<_> = self
             .signature
@@ -1001,7 +1043,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             local_types,
             value_stack: vec![],
             control_stack: vec![],
-            stack_offset: 0,
+            stack_offset: TrackedStackOffset::default(),
             save_area_offset: None,
             machine,
             unreachable_depth: 0,

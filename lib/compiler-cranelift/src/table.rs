@@ -2,6 +2,8 @@ use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::{self, InstBuilder, condcodes::IntCC, immediates::Imm64};
 use cranelift_frontend::FunctionBuilder;
 
+use crate::translator::{MemoryAliasRegion, set_memflags_alias_region};
+
 /// Size of a WebAssembly table, in elements.
 #[derive(Clone, Debug)]
 pub enum TableSize {
@@ -56,7 +58,7 @@ impl TableData {
         mut index: ir::Value,
         addr_ty: ir::Type,
         enable_table_access_spectre_mitigation: bool,
-    ) -> (ir::Value, ir::MemFlags) {
+    ) -> (ir::Value, ir::MemFlagsData) {
         let index_ty = pos.func.dfg.value_type(index);
 
         // Start with the bounds check. Trap if `index + 1 > bound`.
@@ -94,9 +96,8 @@ impl TableData {
 
         let element_addr = pos.ins().iadd(base, offset);
 
-        let base_flags = ir::MemFlags::new()
-            .with_aligned()
-            .with_alias_region(Some(ir::AliasRegion::Table));
+        let mut base_flags = ir::MemFlagsData::new().with_aligned();
+        set_memflags_alias_region(pos.func, &mut base_flags, MemoryAliasRegion::Table);
         if enable_table_access_spectre_mitigation {
             // Short-circuit the computed table element address to a null pointer
             // when out-of-bounds. The consumer of this address will trap when

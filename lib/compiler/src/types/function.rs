@@ -112,6 +112,10 @@ pub struct CompiledFunction {
 
     /// The frame information.
     pub frame_info: CompiledFunctionFrameInfo,
+
+    /// The maximum stack allocation directly connected to the function itself
+    /// if tracked (does not include any potential function calls).
+    pub maximum_stack_usage: Option<usize>,
 }
 
 /// The compiled functions map (index in the Wasm -> function)

@@ -657,7 +657,7 @@ impl AsyncCliCommand for PackageTag {
 
         match id {
             PackageIdent::Named(ref n) => {
-                let url = make_package_url(&client, n);
+                let url = package_web_url_for_ident(&client, n);
                 eprintln!("{} Package URL: {url}", "𖥔".yellow().bold());
             }
             PackageIdent::Hash(ref h) => {

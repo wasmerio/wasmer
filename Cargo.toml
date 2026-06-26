@@ -12,17 +12,17 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=7.2.0-alpha.3", path = "lib/api", default-features = false }
-wasmer-cache = { version = "=7.2.0-alpha.3", path = "lib/cache", optional = true }
-wasmer-compiler = { version = "=7.2.0-alpha.3", path = "lib/compiler", features = [
+wasmer = { version = "=7.2.0-rc.1", path = "lib/api", default-features = false }
+wasmer-cache = { version = "=7.2.0-rc.1", path = "lib/cache", optional = true }
+wasmer-compiler = { version = "=7.2.0-rc.1", path = "lib/compiler", features = [
   "compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=7.2.0-alpha.3", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=7.2.0-alpha.3", path = "lib/compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=7.2.0-alpha.3", path = "lib/compiler-singlepass", optional = true }
-wasmer-middlewares = { version = "=7.2.0-alpha.3", path = "lib/middlewares", optional = true }
-wasmer-types = { version = "=7.2.0-alpha.3", path = "lib/types" }
-wasmer-wast = { version = "=7.2.0-alpha.3", path = "tests/lib/wast", optional = true }
+wasmer-compiler-cranelift = { version = "=7.2.0-rc.1", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=7.2.0-rc.1", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=7.2.0-rc.1", path = "lib/compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=7.2.0-rc.1", path = "lib/middlewares", optional = true }
+wasmer-types = { version = "=7.2.0-rc.1", path = "lib/types" }
+wasmer-wast = { version = "=7.2.0-rc.1", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 
 # Third party dependencies
@@ -80,12 +80,12 @@ edition = "2024"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.94"
-version = "7.2.0-alpha.3"
+rust-version = "1.93"
+version = "7.2.0-rc.1"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.702.0-alpha.3", path = "lib/package" }
+wasmer-package = { version = "0.702.0-rc.1", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
@@ -135,9 +135,9 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.132.0", default-features = false }
-cranelift-entity = { version = "=0.132.0", default-features = false }
-cranelift-frontend = { version = "=0.132.0", default-features = false }
+cranelift-codegen = { version = "=0.133.0", default-features = false }
+cranelift-entity = { version = "=0.133.0", default-features = false }
+cranelift-frontend = { version = "=0.133.0", default-features = false }
 crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
@@ -184,13 +184,13 @@ hyper-util = "0.1.5"
 ignore = "0.4"
 indicatif = "0.18.3"
 indexmap = "2"
-inline-c = "0.1.7"
+inline-c = "0.1.8"
 inkwell = { version = "0.9.0", default-features = false }
 insta = "1.45.0"
 interfaces = "0.0.9"
 ipnet = "2.10.1"
 iprange = "0.6.7"
-itertools = "0.14"
+itertools = "0.15"
 js-sys = "0.3.77"
 leb128 = "0.2"
 libc = { version = "0.2.178", default-features = false }
@@ -233,6 +233,7 @@ quote = "1.0.20"
 rand = "0.10.1"
 rangemap = "1.7.1"
 rayon = "1.7.0"
+regalloc2 = "0.15.1"
 regex = "1.11"
 region = "3.0"
 replace_with = "0.1.7"
@@ -265,7 +266,7 @@ slab = "0.4"
 smallvec = "1.6"
 smoltcp = { version = "0.13.0", default-features = false }
 socket2 = { version = "0.6.1", features = ["all"] }
-strum = { version = "0.27", features = ["derive"] }
+strum = { version = "0.28", features = ["derive"] }
 syn = { version = "2", default-features = false }
 tar = "0.4.40"
 target-lexicon = { version = "0.13.3", default-features = false }
@@ -283,7 +284,7 @@ tokio-tungstenite = "0.28.0"
 tokio-util = "0.7.8"
 toml = { version = "1.1.0", features = ["preserve_order"] }
 tower = "0.5.2"
-tower-http = "0.6.7"
+tower-http = "0.7.0"
 tracing = { version = "0.1", default-features = false }
 tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = { version = "0.2" }
@@ -308,19 +309,18 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.250.0", default-features = false, features = [
+wasm-encoder = { version = "0.252.0", default-features = false, features = [
   "std",
 ] }
-wasm-smith = "0.250.0"
-wasmparser = { version = "0.250.0", default-features = false, features = [
+wasm-smith = "0.252.0"
+wasmparser = { version = "0.252.0", default-features = false, features = [
   "validate",
   "features",
   "simd",
 ] }
-wasmprinter = "0.250.0"
-wasmer-inline-c = "0.1.1"
-wast = "250.0.0"
-wat = "1.250.0"
+wasmprinter = "0.252.0"
+wast = "252.0.0"
+wat = "1.252.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"
@@ -341,7 +341,7 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=7.2.0-alpha.3", path = "lib/api", features = [
+wasmer = { version = "=7.2.0-rc.1", path = "lib/api", features = [
   "compiler",
   "singlepass",
   "sys",

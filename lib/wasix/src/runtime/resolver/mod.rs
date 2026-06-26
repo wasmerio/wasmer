@@ -22,7 +22,7 @@ pub use self::{
         DependencyGraph, Edge, ItemLocation, Node, Resolution, ResolvedFileSystemMapping,
         ResolvedPackage,
     },
-    resolve::{ResolveError, resolve},
+    resolve::{ResolveError, resolve, resolve_dependency_graph, validate_dependency_graph},
     source::{QueryError, Source},
     web_source::WebSource,
 };

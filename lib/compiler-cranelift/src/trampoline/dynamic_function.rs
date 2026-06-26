@@ -9,7 +9,7 @@ use crate::{
 };
 use cranelift_codegen::{
     Context,
-    ir::{self, Function, InstBuilder, MemFlags, StackSlotData, StackSlotKind, UserFuncName},
+    ir::{self, Function, InstBuilder, StackSlotData, StackSlotKind, UserFuncName},
     isa::TargetIsa,
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
@@ -64,7 +64,7 @@ pub fn make_trampoline_dynamic_function(
         builder.seal_block(block0);
 
         let values_vec_ptr_val = builder.ins().stack_addr(pointer_type, ss, 0);
-        let mflags = MemFlags::trusted();
+        let mflags = ir::MemFlagsData::trusted();
         // We only get the non-vmctx arguments
         for i in 1..signature.params.len() {
             let val = builder.func.dfg.block_params(block0)[i];
@@ -82,7 +82,7 @@ pub fn make_trampoline_dynamic_function(
 
         let new_sig = builder.import_signature(stub_sig);
 
-        let mem_flags = ir::MemFlags::trusted();
+        let mem_flags = ir::MemFlagsData::trusted();
         let callee_value = builder.ins().load(
             pointer_type,
             mem_flags,
@@ -94,7 +94,7 @@ pub fn make_trampoline_dynamic_function(
             .ins()
             .call_indirect(new_sig, callee_value, &callee_args);
 
-        let mflags = MemFlags::trusted();
+        let mflags = ir::MemFlagsData::trusted();
         let mut results = Vec::new();
         for (i, r) in signature.returns.iter().enumerate() {
             let load = builder.ins().load(

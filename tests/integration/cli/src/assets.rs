@@ -17,6 +17,10 @@ pub fn integration_wasm_path() -> PathBuf {
     test_files_path().join("integration/wasm")
 }
 
+pub fn integration_wasm_c_api_path() -> PathBuf {
+    test_files_path().join("integration/wasm-c-api")
+}
+
 pub fn integration_webc_path() -> PathBuf {
     test_files_path().join("integration/webc")
 }

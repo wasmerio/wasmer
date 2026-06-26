@@ -82,7 +82,7 @@ pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -162,7 +162,7 @@ pub struct wasm_config_t {
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -201,7 +201,7 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -230,7 +230,7 @@ pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -261,10 +261,7 @@ pub extern "C" fn wasm_config_set_backend(config: &mut wasm_config_t, engine: wa
 
 #[cfg(test)]
 mod tests {
-    #[cfg(not(target_os = "windows"))]
     use inline_c::assert_c;
-    #[cfg(target_os = "windows")]
-    use wasmer_inline_c::assert_c;
 
     #[allow(
         unexpected_cfgs,

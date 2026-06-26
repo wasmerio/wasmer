@@ -3,7 +3,7 @@ pub mod features;
 #[cfg(feature = "middlewares")]
 pub mod middlewares;
 pub mod module;
-#[cfg(feature = "compiler")]
+#[cfg(feature = "middlewares")]
 pub mod parser;
 pub mod target_lexicon;
 #[cfg(feature = "wasi")]

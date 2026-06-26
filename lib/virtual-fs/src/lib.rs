@@ -1,5 +1,14 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(feature = "enable-serde")]
+const _: () = {
+    #[deprecated(
+        note = "The `enable-serde` feature is deprecated and will be removed in the next major release of Wasmer."
+    )]
+    fn __enable_serde_deprecated() {}
+    let _ = __enable_serde_deprecated;
+};
+
 #[cfg(test)]
 #[macro_use]
 extern crate pretty_assertions;
@@ -335,7 +344,6 @@ impl<'a> OpenOptions<'a> {
 }
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
-//#[cfg_attr(feature = "enable-serde", typetag::serde)]
 pub trait VirtualFile:
     fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {

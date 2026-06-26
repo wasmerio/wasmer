@@ -11,7 +11,7 @@ use std::{
     sync::Arc,
 };
 use std::{num::NonZero, path::PathBuf};
-use target_lexicon::OperatingSystem;
+use target_lexicon::{OperatingSystem, Vendor};
 use wasmer_compiler::{
     Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
     misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
@@ -218,11 +218,11 @@ impl Cranelift {
             builder.enable("has_lzcnt").expect("should be valid flag");
         }
 
-        builder.finish(self.flags())
+        builder.finish(self.flags(target))
     }
 
     /// Generates the flags for the compiler
-    pub fn flags(&self) -> settings::Flags {
+    pub fn flags(&self, target: &Target) -> settings::Flags {
         let mut flags = settings::builder();
 
         // Enable probestack
@@ -273,6 +273,12 @@ impl Cranelift {
             )
             .expect("should be valid flag");
 
+        if matches!(target.triple().vendor, Vendor::Apple) {
+            flags
+                .enable("enable_compact_unwind_abi")
+                .expect("should be valid flag");
+        }
+
         settings::Flags::new(flags)
     }
 
@@ -317,9 +323,14 @@ impl CompilerConfig for Cranelift {
 
     fn supported_features_for_target(&self, target: &Target) -> wasmer_types::Features {
         let mut feats = Features::default();
-        if target.triple().operating_system == OperatingSystem::Linux {
+
+        if matches!(
+            target.triple().operating_system,
+            OperatingSystem::Linux | OperatingSystem::Darwin(_)
+        ) {
             feats.exceptions(true);
         }
+        feats.exceptions(true);
         feats.relaxed_simd(true);
         feats.wide_arithmetic(true);
         feats

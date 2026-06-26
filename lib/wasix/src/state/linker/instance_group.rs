@@ -8,6 +8,7 @@ use wasmer::{AsStoreMut, FunctionEnv, Global, Instance, Memory, Table, Tag};
 
 use crate::{WasiEnv, import_object_for_all_wasi_versions};
 
+use super::runtime_hooks::instantiate_with_runtime_hooks;
 use super::{
     DlModule, DlOperation, DylinkInfo, InProgressLinkState, InProgressSymbolResolution, LinkError,
     LinkerState, MAIN_MODULE_HANDLE, ModuleHandle, NeededSymbolResolutionKey,
@@ -160,7 +161,8 @@ impl InstanceGroupState {
             &well_known_imports,
         )?;
 
-        let instance = Instance::new(store, &module, &imports)?;
+        let instance =
+            instantiate_with_runtime_hooks(env, store, &module, &mut imports, &self.memory)?;
 
         let instance_handles = WasiModuleInstanceHandles::new(
             self.memory.clone(),
@@ -236,7 +238,13 @@ impl InstanceGroupState {
             pending_resolutions,
         )?;
 
-        let instance = Instance::new(store, &dl_module.module, &imports)?;
+        let instance = instantiate_with_runtime_hooks(
+            env,
+            store,
+            &dl_module.module,
+            &mut imports,
+            &self.memory,
+        )?;
 
         Ok(PreparedSideFromLinker {
             module_handle,
