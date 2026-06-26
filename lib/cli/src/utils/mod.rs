@@ -6,10 +6,29 @@ pub(crate) mod render;
 pub(crate) mod timestamp;
 pub(crate) mod unpack;
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use anyhow::{Context as _, Result, bail};
+use url::Url;
 use wasmer_wasix::runners::MappedDirectory;
+
+pub(crate) const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
+
+pub(crate) fn registry_query_cache_dir(cache_dir: &Path, endpoint: &Url) -> PathBuf {
+    cache_dir
+        .join("queries")
+        .join(endpoint_to_cache_folder(endpoint))
+}
+
+fn endpoint_to_cache_folder(url: &Url) -> String {
+    url.to_string()
+        .replace("registry.wasmer.io", "wasmer.io")
+        .replace("registry.wasmer.wtf", "wasmer.wtf")
+        .replace(|c| "/:?&=#%\\".contains(c), "_")
+}
 
 fn retrieve_alias_pathbuf(host_dir: &str, guest_dir: &str) -> Result<MappedDirectory> {
     let host_dir_path = PathBuf::from(&host_dir).canonicalize()?;
