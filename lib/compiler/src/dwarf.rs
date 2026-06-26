@@ -1,10 +1,10 @@
-//! DWARF / `.eh_frame` emission helpers for the object-based Cranelift backend.
+//! DWARF / `.eh_frame` emission helpers shared by the object-based compiler
+//! backends (Cranelift and Singlepass).
 //!
 //! Each compiled function is emitted into its own relocatable object file. This
 //! module provides the writers used to serialize the per-function `.eh_frame`
 //! unwind tables and the DWARF line program into those objects. The recorded
-//! relocations are resolved against the function's own text symbol, mirroring
-//! the approach used by the Singlepass backend.
+//! relocations are resolved against the function's own text symbol.
 
 use gimli::{
     Encoding, Format, LineEncoding, RunTimeEndian, SectionId, constants,
@@ -31,13 +31,18 @@ pub enum EhTarget {
     Lsda,
 }
 
+/// A relocation recorded while serializing the `.eh_frame` section.
 #[derive(Clone, Debug)]
 pub struct EhRelocation {
+    /// Offset of the relocation within the `.eh_frame` section.
     pub offset: u64,
+    /// The relocation kind to apply.
     pub kind: ObjectRelocationKind,
     /// Relocation size, in bytes.
     pub size: u8,
+    /// The symbolic target this relocation resolves against.
     pub target: EhTarget,
+    /// Addend applied to the target.
     pub addend: i64,
 }
 
@@ -45,16 +50,26 @@ pub struct EhRelocation {
 /// required against the function symbol, the personality routine and the LSDA.
 #[derive(Clone, Debug)]
 pub struct WriterRelocate {
+    /// Relocations recorded while writing the `.eh_frame` section.
     pub relocs: Vec<EhRelocation>,
     writer: EndianVec<RunTimeEndian>,
 }
 
+impl Default for WriterRelocate {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WriterRelocate {
-    /// `Address::Symbol` discriminants understood by this writer.
+    /// `Address::Symbol` discriminant for the function's own text symbol.
     pub const FUNCTION_SYMBOL: usize = 0;
+    /// `Address::Symbol` discriminant for the exception personality routine.
     pub const PERSONALITY_SYMBOL: usize = 1;
+    /// `Address::Symbol` discriminant for the function's LSDA.
     pub const LSDA_SYMBOL: usize = 2;
 
+    /// Create an empty `.eh_frame` writer.
     pub fn new() -> Self {
         Self {
             relocs: Vec::new(),
@@ -62,6 +77,7 @@ impl WriterRelocate {
         }
     }
 
+    /// Consume the writer, returning the serialized `.eh_frame` bytes.
     pub fn into_bytes(self) -> Vec<u8> {
         self.writer.into_vec()
     }
@@ -291,9 +307,13 @@ pub struct DwarfState {
 
 /// Initialize DWARF debug info for a function.
 /// Begins the line program sequence and sets up CU attributes.
+///
+/// `producer` is recorded as the `DW_AT_producer` attribute (e.g.
+/// `"Wasmer (Cranelift)"` or `"Wasmer (Singlepass)"`).
 pub fn init_dwarf_unit(
     function_name: &str,
     module_name: Option<&str>,
+    producer: &str,
 ) -> Result<DwarfState, CompileError> {
     let encoding = Encoding {
         address_size: 8,
@@ -332,7 +352,7 @@ pub fn init_dwarf_unit(
     let cu = dwarf.unit.get_mut(root);
     cu.set(
         gimli::DW_AT_producer,
-        AttributeValue::String(b"Wasmer (Cranelift)".to_vec()),
+        AttributeValue::String(producer.as_bytes().to_vec()),
     );
     cu.set(
         gimli::DW_AT_language,

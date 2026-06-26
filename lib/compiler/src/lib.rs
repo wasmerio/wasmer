@@ -85,6 +85,9 @@ pub use crate::compiler::{
 };
 
 #[cfg(feature = "compiler")]
+pub mod dwarf;
+
+#[cfg(feature = "compiler")]
 mod constants;
 #[cfg(feature = "compiler")]
 pub use crate::constants::*;

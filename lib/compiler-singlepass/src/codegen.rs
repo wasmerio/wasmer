@@ -1,7 +1,7 @@
 #[cfg(feature = "unwind")]
-use crate::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
-#[cfg(feature = "unwind")]
 use crate::unwind::create_systemv_cie;
+#[cfg(feature = "unwind")]
+use wasmer_compiler::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 use crate::{
     codegen_error,
     common_decl::*,
@@ -1058,7 +1058,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .to_path_buf()
                 .join(format!("f{}.o", local_func_index.as_u32())),
             #[cfg(feature = "unwind")]
-            dwarf_state: init_dwarf_unit(&function_name, module.name.as_deref()).ok(),
+            dwarf_state: init_dwarf_unit(
+                &function_name,
+                module.name.as_deref(),
+                "Wasmer (Singlepass)",
+            )
+            .ok(),
             src_loc: SourceLoc::default(),
             address_map: vec![],
         };
@@ -6033,13 +6038,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             for inst in &address_map {
                 dwarf_state.add_row(inst.code_offset as u64, inst.srcloc);
             }
-            dwarf_state.write_sections(
-                &mut self.object,
-                function_symbol,
-                &self.function_name,
-                body_len as u64,
-                None,
-            )?;
+            dwarf_state.write_sections(&mut self.object, function_symbol, body_len as u64, None)?;
         }
 
         let mut trap_data = Vec::with_capacity(traps.len() * 8 + size_of::<u32>());

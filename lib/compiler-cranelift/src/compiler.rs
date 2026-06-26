@@ -1,8 +1,8 @@
 //! Support for compiling with Cranelift.
 #[cfg(feature = "unwind")]
-use crate::dwarf::{DwarfState, init_dwarf_unit};
-#[cfg(feature = "unwind")]
 use crate::translator::CraneliftUnwindInfo;
+#[cfg(feature = "unwind")]
+use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
 use crate::{
     address_map::get_function_address_map,
     config::Cranelift,
@@ -22,7 +22,7 @@ use cranelift_codegen::{
 };
 
 #[cfg(feature = "unwind")]
-use crate::dwarf::EhTarget;
+use wasmer_compiler::dwarf::EhTarget;
 #[cfg(feature = "unwind")]
 use gimli::{
     constants::{DW_EH_PE_indirect, DW_EH_PE_pcrel, DW_EH_PE_sdata4},
@@ -273,7 +273,7 @@ impl CraneliftCompiler {
             let fde = if emit_eh_frame {
                 match compiled_function_unwind_info(isa_ref, &context)? {
                     CraneliftUnwindInfo::Fde(fde) => {
-                        use crate::dwarf::WriterRelocate;
+                        use wasmer_compiler::dwarf::WriterRelocate;
 
                         Some(fde.to_fde(Address::Symbol {
                             // References this function's own text symbol.
@@ -532,7 +532,7 @@ fn emit_function_object(
 
     // Populate DWARF line info from the address map.
     #[cfg(feature = "unwind")]
-    if let Ok(mut dwarf_state) = init_dwarf_unit(function_name, module_name) {
+    if let Ok(mut dwarf_state) = init_dwarf_unit(function_name, module_name, "Wasmer (Cranelift)") {
         emit_dwarf_lines(
             &mut dwarf_state,
             &mut obj,
@@ -636,13 +636,13 @@ fn emit_function_object(
             cie.personality = Some((
                 DW_EH_PE_indirect | DW_EH_PE_pcrel | DW_EH_PE_sdata4,
                 Address::Symbol {
-                    symbol: crate::dwarf::WriterRelocate::PERSONALITY_SYMBOL,
+                    symbol: wasmer_compiler::dwarf::WriterRelocate::PERSONALITY_SYMBOL,
                     addend: 0,
                 },
             ));
             cie.lsda_encoding = Some(DW_EH_PE_pcrel | DW_EH_PE_sdata4);
             fde.lsda = Some(Address::Symbol {
-                symbol: crate::dwarf::WriterRelocate::LSDA_SYMBOL,
+                symbol: wasmer_compiler::dwarf::WriterRelocate::LSDA_SYMBOL,
                 addend: 0,
             });
         }
@@ -651,7 +651,7 @@ fn emit_function_object(
         let cie_id = frametable.add_cie(cie);
         frametable.add_fde(cie_id, fde);
 
-        let mut eh_frame = EhFrame(crate::dwarf::WriterRelocate::new());
+        let mut eh_frame = EhFrame(wasmer_compiler::dwarf::WriterRelocate::new());
         frametable
             .write_eh_frame(&mut eh_frame)
             .map_err(|e| CompileError::Codegen(format!("failed to write eh_frame: {e}")))?;
