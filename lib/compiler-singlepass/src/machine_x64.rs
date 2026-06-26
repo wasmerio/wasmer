@@ -2586,7 +2586,6 @@ impl Machine for MachineX86_64 {
         let v = trap as u8;
         // payload needs to be between 0-15
         // this will emit an 40 0F B9 Cx opcode, with x the payload
-        let offset = self.assembler.get_offset().0;
         self.assembler.emit_ud1_payload(v)?;
         Ok(())
     }

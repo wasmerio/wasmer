@@ -2257,7 +2257,6 @@ impl Machine for MachineARM64 {
     }
 
     fn emit_illegal_op(&mut self, trap: TrapCode) -> Result<(), CompileError> {
-        let offset = self.assembler.get_offset().0;
         self.assembler.emit_udf(0xc0 | (trap as u8) as u16)?;
         Ok(())
     }

@@ -12,7 +12,7 @@ use crate::{
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 #[cfg(feature = "unwind")]
-use gimli::write::{EhFrame, FrameTable, Writer};
+use gimli::write::{EhFrame, FrameTable};
 use itertools::Itertools;
 use object::{
     RelocationEncoding, RelocationFlags, SectionKind, SymbolFlags, SymbolKind, SymbolScope,
@@ -33,7 +33,7 @@ use target_lexicon::{Architecture, Triple};
 use wasmer_compiler::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 
 use wasmer_compiler::{
-    FunctionBodyData, WASMER_TRAPS_SECTION_NAME,
+    WASMER_TRAPS_SECTION_NAME,
     misc::CompiledKind,
     object::get_object_for_target,
     types::address_map::InstructionAddressMap,
@@ -43,9 +43,6 @@ use wasmer_compiler::{
     },
 };
 use wasmer_types::SourceLoc;
-
-#[cfg(feature = "unwind")]
-use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{
@@ -2319,8 +2316,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.emit_call_native(
                     |this| {
-                        let offset = this
-                            .machine
+                        this.machine
                             .mark_instruction_with_trap_code(TrapCode::StackOverflow);
                         this.machine.emit_call_with_reloc(
                             calling_convention,
@@ -2540,8 +2536,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 self.emit_call_native(
                     |this| {
-                        let offset = this
-                            .machine
+                        this.machine
                             .mark_instruction_with_trap_code(TrapCode::StackOverflow);
 
                         // We set the context pointer
@@ -5924,7 +5919,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     pub fn finalize(
         mut self,
-        data: &FunctionBodyData,
         arch: Architecture,
     ) -> Result<(PathBuf, Option<usize>), CompileError> {
         self.finish_address_map();
@@ -5966,8 +5960,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let body_len = self.machine.assembler_get_offset().0;
 
         #[cfg(feature = "unwind")]
-        let mut unwind_info = None;
-        #[cfg(feature = "unwind")]
         let mut fde = None;
         #[cfg(feature = "unwind")]
         match self.calling_convention {
@@ -5978,13 +5970,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         symbol: 0,
                         addend: 0,
                     }));
-                    unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
-                }
-            }
-            CallingConvention::WindowsFastcall => {
-                let unwind = self.machine.gen_windows_unwind_info(body_len);
-                if let Some(unwind) = unwind {
-                    unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
                 }
             }
             _ => (),
@@ -5994,7 +5979,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         #[cfg(feature = "unwind")]
         let address_map = self.address_map;
         let FinalizedAssembly {
-            mut body,
+            body,
             assembly_comments,
         } = self.machine.assembler_finalize(self.assembly_comments)?;
 
