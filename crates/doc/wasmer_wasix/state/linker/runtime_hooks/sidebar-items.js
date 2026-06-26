@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["instantiate_with_runtime_hooks","merge_missing_imports"]};

@@ -64,68 +64,71 @@
 <a href=#64 id=64 data-nosnippet>64</a>    <span class="attr">#[error(<span class="string">"Failed to initialize instance: {0}"</span>)]
 <a href=#65 id=65 data-nosnippet>65</a>    </span>InitializationError(anyhow::Error),
 <a href=#66 id=66 data-nosnippet>66</a>
-<a href=#67 id=67 data-nosnippet>67</a>    <span class="attr">#[error(<span class="string">"Initialization function has invalid signature: {0}"</span>)]
-<a href=#68 id=68 data-nosnippet>68</a>    </span>InitFuncWithInvalidSignature(String),
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="attr">#[error(<span class="string">"Runtime hook failed: {0}"</span>)]
+<a href=#68 id=68 data-nosnippet>68</a>    </span>RuntimeHookError(anyhow::Error),
 <a href=#69 id=69 data-nosnippet>69</a>
-<a href=#70 id=70 data-nosnippet>70</a>    <span class="attr">#[error(<span class="string">"Initialization function {0} failed to run: {1}"</span>)]
-<a href=#71 id=71 data-nosnippet>71</a>    </span>InitFunctionFailed(String, RuntimeError),
+<a href=#70 id=70 data-nosnippet>70</a>    <span class="attr">#[error(<span class="string">"Initialization function has invalid signature: {0}"</span>)]
+<a href=#71 id=71 data-nosnippet>71</a>    </span>InitFuncWithInvalidSignature(String),
 <a href=#72 id=72 data-nosnippet>72</a>
-<a href=#73 id=73 data-nosnippet>73</a>    <span class="attr">#[error(<span class="string">"Failed to initialize WASI(X) module handles: {0}"</span>)]
-<a href=#74 id=74 data-nosnippet>74</a>    </span>MainModuleHandleInitFailed(ExportError),
+<a href=#73 id=73 data-nosnippet>73</a>    <span class="attr">#[error(<span class="string">"Initialization function {0} failed to run: {1}"</span>)]
+<a href=#74 id=74 data-nosnippet>74</a>    </span>InitFunctionFailed(String, RuntimeError),
 <a href=#75 id=75 data-nosnippet>75</a>
-<a href=#76 id=76 data-nosnippet>76</a>    <span class="attr">#[error(<span class="string">"Bad __tls_base export, expected a global of type I32 or I64"</span>)]
-<a href=#77 id=77 data-nosnippet>77</a>    </span>BadTlsBaseExport,
+<a href=#76 id=76 data-nosnippet>76</a>    <span class="attr">#[error(<span class="string">"Failed to initialize WASI(X) module handles: {0}"</span>)]
+<a href=#77 id=77 data-nosnippet>77</a>    </span>MainModuleHandleInitFailed(ExportError),
 <a href=#78 id=78 data-nosnippet>78</a>
-<a href=#79 id=79 data-nosnippet>79</a>    <span class="attr">#[error(
-<a href=#80 id=80 data-nosnippet>80</a>        <span class="string">"TLS symbol {0} cannot be resolved from module {1} because it does not export its __tls_base"
-<a href=#81 id=81 data-nosnippet>81</a>    </span>)]
-<a href=#82 id=82 data-nosnippet>82</a>    </span>MissingTlsBaseExport(String, ModuleHandle),
-<a href=#83 id=83 data-nosnippet>83</a>}
-<a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a><span class="attr">#[derive(Debug)]
-<a href=#86 id=86 data-nosnippet>86</a></span><span class="kw">pub enum </span>LocateModuleError {
-<a href=#87 id=87 data-nosnippet>87</a>    Single(FsError),
-<a href=#88 id=88 data-nosnippet>88</a>    Multiple(Vec&lt;(PathBuf, FsError)&gt;),
-<a href=#89 id=89 data-nosnippet>89</a>}
-<a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>LocateModuleError {
-<a href=#92 id=92 data-nosnippet>92</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-<a href=#93 id=93 data-nosnippet>93</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#94 id=94 data-nosnippet>94</a>            LocateModuleError::Single(e) =&gt; std::fmt::Display::fmt(<span class="kw-2">&amp;</span>e, f),
-<a href=#95 id=95 data-nosnippet>95</a>            LocateModuleError::Multiple(errors) =&gt; {
-<a href=#96 id=96 data-nosnippet>96</a>                <span class="kw">for </span>(path, error) <span class="kw">in </span>errors {
-<a href=#97 id=97 data-nosnippet>97</a>                    <span class="macro">write!</span>(f, <span class="string">"\n    {}: {}"</span>, path.display(), error)<span class="question-mark">?</span>;
-<a href=#98 id=98 data-nosnippet>98</a>                }
-<a href=#99 id=99 data-nosnippet>99</a>                <span class="prelude-val">Ok</span>(())
-<a href=#100 id=100 data-nosnippet>100</a>            }
-<a href=#101 id=101 data-nosnippet>101</a>        }
-<a href=#102 id=102 data-nosnippet>102</a>    }
-<a href=#103 id=103 data-nosnippet>103</a>}
-<a href=#104 id=104 data-nosnippet>104</a>
-<a href=#105 id=105 data-nosnippet>105</a><span class="attr">#[derive(thiserror::Error, Debug)]
-<a href=#106 id=106 data-nosnippet>106</a></span><span class="kw">pub enum </span>ResolveError {
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="attr">#[error(<span class="string">"Linker not initialized"</span>)]
-<a href=#108 id=108 data-nosnippet>108</a>    </span>NotInitialized,
-<a href=#109 id=109 data-nosnippet>109</a>
-<a href=#110 id=110 data-nosnippet>110</a>    <span class="attr">#[error(<span class="string">"Invalid module handle"</span>)]
-<a href=#111 id=111 data-nosnippet>111</a>    </span>InvalidModuleHandle,
+<a href=#79 id=79 data-nosnippet>79</a>    <span class="attr">#[error(<span class="string">"Bad __tls_base export, expected a global of type I32 or I64"</span>)]
+<a href=#80 id=80 data-nosnippet>80</a>    </span>BadTlsBaseExport,
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a>    <span class="attr">#[error(
+<a href=#83 id=83 data-nosnippet>83</a>        <span class="string">"TLS symbol {0} cannot be resolved from module {1} because it does not export its __tls_base"
+<a href=#84 id=84 data-nosnippet>84</a>    </span>)]
+<a href=#85 id=85 data-nosnippet>85</a>    </span>MissingTlsBaseExport(String, ModuleHandle),
+<a href=#86 id=86 data-nosnippet>86</a>}
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a><span class="attr">#[derive(Debug)]
+<a href=#89 id=89 data-nosnippet>89</a></span><span class="kw">pub enum </span>LocateModuleError {
+<a href=#90 id=90 data-nosnippet>90</a>    Single(FsError),
+<a href=#91 id=91 data-nosnippet>91</a>    Multiple(Vec&lt;(PathBuf, FsError)&gt;),
+<a href=#92 id=92 data-nosnippet>92</a>}
+<a href=#93 id=93 data-nosnippet>93</a>
+<a href=#94 id=94 data-nosnippet>94</a><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>LocateModuleError {
+<a href=#95 id=95 data-nosnippet>95</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href=#96 id=96 data-nosnippet>96</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#97 id=97 data-nosnippet>97</a>            LocateModuleError::Single(e) =&gt; std::fmt::Display::fmt(<span class="kw-2">&amp;</span>e, f),
+<a href=#98 id=98 data-nosnippet>98</a>            LocateModuleError::Multiple(errors) =&gt; {
+<a href=#99 id=99 data-nosnippet>99</a>                <span class="kw">for </span>(path, error) <span class="kw">in </span>errors {
+<a href=#100 id=100 data-nosnippet>100</a>                    <span class="macro">write!</span>(f, <span class="string">"\n    {}: {}"</span>, path.display(), error)<span class="question-mark">?</span>;
+<a href=#101 id=101 data-nosnippet>101</a>                }
+<a href=#102 id=102 data-nosnippet>102</a>                <span class="prelude-val">Ok</span>(())
+<a href=#103 id=103 data-nosnippet>103</a>            }
+<a href=#104 id=104 data-nosnippet>104</a>        }
+<a href=#105 id=105 data-nosnippet>105</a>    }
+<a href=#106 id=106 data-nosnippet>106</a>}
+<a href=#107 id=107 data-nosnippet>107</a>
+<a href=#108 id=108 data-nosnippet>108</a><span class="attr">#[derive(thiserror::Error, Debug)]
+<a href=#109 id=109 data-nosnippet>109</a></span><span class="kw">pub enum </span>ResolveError {
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="attr">#[error(<span class="string">"Linker not initialized"</span>)]
+<a href=#111 id=111 data-nosnippet>111</a>    </span>NotInitialized,
 <a href=#112 id=112 data-nosnippet>112</a>
-<a href=#113 id=113 data-nosnippet>113</a>    <span class="attr">#[error(<span class="string">"Missing export"</span>)]
-<a href=#114 id=114 data-nosnippet>114</a>    </span>MissingExport,
+<a href=#113 id=113 data-nosnippet>113</a>    <span class="attr">#[error(<span class="string">"Invalid module handle"</span>)]
+<a href=#114 id=114 data-nosnippet>114</a>    </span>InvalidModuleHandle,
 <a href=#115 id=115 data-nosnippet>115</a>
-<a href=#116 id=116 data-nosnippet>116</a>    <span class="attr">#[error(<span class="string">"Invalid export type: {0:?}"</span>)]
-<a href=#117 id=117 data-nosnippet>117</a>    </span>InvalidExportType(ExternType),
+<a href=#116 id=116 data-nosnippet>116</a>    <span class="attr">#[error(<span class="string">"Missing export"</span>)]
+<a href=#117 id=117 data-nosnippet>117</a>    </span>MissingExport,
 <a href=#118 id=118 data-nosnippet>118</a>
-<a href=#119 id=119 data-nosnippet>119</a>    <span class="attr">#[error(<span class="string">"Failed to allocate function table indices: {0}"</span>)]
-<a href=#120 id=120 data-nosnippet>120</a>    </span>TableAllocationError(RuntimeError),
+<a href=#119 id=119 data-nosnippet>119</a>    <span class="attr">#[error(<span class="string">"Invalid export type: {0:?}"</span>)]
+<a href=#120 id=120 data-nosnippet>120</a>    </span>InvalidExportType(ExternType),
 <a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>    <span class="attr">#[error(<span class="string">"Cannot access linker through a dead instance group"</span>)]
-<a href=#123 id=123 data-nosnippet>123</a>    </span>InstanceGroupIsDead,
+<a href=#122 id=122 data-nosnippet>122</a>    <span class="attr">#[error(<span class="string">"Failed to allocate function table indices: {0}"</span>)]
+<a href=#123 id=123 data-nosnippet>123</a>    </span>TableAllocationError(RuntimeError),
 <a href=#124 id=124 data-nosnippet>124</a>
-<a href=#125 id=125 data-nosnippet>125</a>    <span class="attr">#[error(<span class="string">"Failed to perform pending DL operation: {0}"</span>)]
-<a href=#126 id=126 data-nosnippet>126</a>    </span>PendingDlOperationFailed(<span class="attr">#[from] </span>LinkError),
+<a href=#125 id=125 data-nosnippet>125</a>    <span class="attr">#[error(<span class="string">"Cannot access linker through a dead instance group"</span>)]
+<a href=#126 id=126 data-nosnippet>126</a>    </span>InstanceGroupIsDead,
 <a href=#127 id=127 data-nosnippet>127</a>
-<a href=#128 id=128 data-nosnippet>128</a>    <span class="attr">#[error(<span class="string">"Module must export its __tls_base for exported TLS symbols to be resolved correctly"</span>)]
-<a href=#129 id=129 data-nosnippet>129</a>    </span>NoTlsBaseGlobalExport,
-<a href=#130 id=130 data-nosnippet>130</a>}
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="attr">#[error(<span class="string">"Failed to perform pending DL operation: {0}"</span>)]
+<a href=#129 id=129 data-nosnippet>129</a>    </span>PendingDlOperationFailed(<span class="attr">#[from] </span>LinkError),
+<a href=#130 id=130 data-nosnippet>130</a>
+<a href=#131 id=131 data-nosnippet>131</a>    <span class="attr">#[error(<span class="string">"Module must export its __tls_base for exported TLS symbols to be resolved correctly"</span>)]
+<a href=#132 id=132 data-nosnippet>132</a>    </span>NoTlsBaseGlobalExport,
+<a href=#133 id=133 data-nosnippet>133</a>}
 </code></pre></div></section></main></body></html>

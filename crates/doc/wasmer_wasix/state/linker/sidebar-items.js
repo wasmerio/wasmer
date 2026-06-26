@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["dylink","error","instance_group","internal_types","linker_state","locator","memory_allocator","sync","types","wasm_utils"],"static":["INVALID_MODULE_HANDLE","MAIN_MODULE_HANDLE","MAIN_MODULE_TABLE_BASE"],"struct":["Linker"]};
+window.SIDEBAR_ITEMS = {"mod":["dylink","error","instance_group","internal_types","linker_state","locator","memory_allocator","runtime_hooks","sync","types","wasm_utils"],"static":["INVALID_MODULE_HANDLE","MAIN_MODULE_HANDLE","MAIN_MODULE_TABLE_BASE"],"struct":["Linker"]};
