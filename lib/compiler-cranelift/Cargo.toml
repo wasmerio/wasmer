@@ -37,6 +37,7 @@ target-lexicon.workspace = true
 leb128.workspace = true
 indexmap.workspace = true
 tempfile.workspace = true
+object.workspace = true
 regalloc2.workspace = true
 serde_derive = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false, features = [

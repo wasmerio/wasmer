@@ -4,6 +4,11 @@
 //! Wasm exception handling so that Wasmer's libunwind personalities can parse
 //! the tables without any runtime changes.
 
+// Some helpers (Mach-O compact unwind, global LSDA/tag section builders) are
+// retained for the not-yet-ported Mach-O path and are currently unused by the
+// object-based ELF pipeline.
+#![allow(dead_code)]
+
 use cranelift_codegen::{
     ExceptionContextLoc, FinalizedMachCallSite, FinalizedMachExceptionHandler,
     isa::unwind::UnwindInst,
@@ -44,7 +49,7 @@ pub struct FunctionLsdaData {
 pub fn build_function_lsda<'a>(
     call_sites: impl Iterator<Item = FinalizedMachCallSite<'a>>,
     function_length: usize,
-    pointer_bytes: u8,
+    _pointer_bytes: u8,
 ) -> Option<FunctionLsdaData> {
     let mut sites = Vec::new();
 
@@ -159,7 +164,7 @@ pub fn build_function_lsda<'a>(
 
     let action_table = encode_action_table(&callsite_actions);
     let call_site_table = encode_call_site_table(&sites, &action_table);
-    let (type_table_bytes, type_table_relocs) = type_entries.encode(pointer_bytes);
+    let (type_table_bytes, type_table_relocs) = type_entries.encode();
 
     let call_site_table_len = call_site_table.len() as u64;
     let mut writer = Cursor::new(Vec::new());
@@ -172,8 +177,12 @@ pub fn build_function_lsda<'a>(
             .write_all(&gimli::DW_EH_PE_omit.0.to_le_bytes())
             .unwrap();
     } else {
+        // PC-relative, 4-byte entries. This keeps the `.gcc_except_table`
+        // section relocations position-independent (`R_X86_64_PC32`), so the
+        // section can remain read-only when statically linked into the shared
+        // object. The runtime personality resolves these relative to the slot.
         writer
-            .write_all(&gimli::DW_EH_PE_absptr.0.to_le_bytes())
+            .write_all(&(gimli::DW_EH_PE_pcrel | gimli::DW_EH_PE_sdata4).0.to_le_bytes())
             .unwrap();
     }
 
@@ -530,8 +539,10 @@ impl TypeTable {
             + 1
     }
 
-    fn encode(&self, pointer_bytes: u8) -> (Vec<u8>, Vec<TagRelocation>) {
-        let mut bytes = Vec::with_capacity(self.entries.len() * pointer_bytes as usize);
+    fn encode(&self) -> (Vec<u8>, Vec<TagRelocation>) {
+        // Each entry is a 4-byte PC-relative slot (`DW_EH_PE_pcrel | sdata4`).
+        const ENTRY_SIZE: usize = 4;
+        let mut bytes = Vec::with_capacity(self.entries.len() * ENTRY_SIZE);
         let mut relocations = Vec::new();
 
         // Note the exception types must be streamed in the reverse order!
@@ -539,11 +550,11 @@ impl TypeTable {
             let offset = bytes.len() as u32;
             match entry {
                 ExceptionType::Tag { tag } => {
-                    bytes.extend(std::iter::repeat_n(0, pointer_bytes as usize));
+                    bytes.extend(std::iter::repeat_n(0, ENTRY_SIZE));
                     relocations.push(TagRelocation { offset, tag: *tag });
                 }
                 ExceptionType::CatchAll => {
-                    bytes.extend(std::iter::repeat_n(0, pointer_bytes as usize));
+                    bytes.extend(std::iter::repeat_n(0, ENTRY_SIZE));
                 }
             }
         }

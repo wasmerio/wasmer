@@ -1,14 +1,6 @@
 //! Support for compiling with Cranelift.
-
 #[cfg(feature = "unwind")]
-use crate::dwarf::WriterRelocate;
-
-#[cfg(feature = "unwind")]
-use crate::eh::{
-    CompactUnwindEntryData, FunctionLsdaData, build_compact_unwind_section, build_function_lsda,
-    build_lsda_section, build_tag_section, compact_unwind_encoding_aarch64,
-};
-
+use crate::dwarf::{DwarfState, init_dwarf_unit};
 #[cfg(feature = "unwind")]
 use crate::translator::CraneliftUnwindInfo;
 use crate::{
@@ -29,57 +21,61 @@ use cranelift_codegen::{
 };
 
 #[cfg(feature = "unwind")]
+use crate::dwarf::EhTarget;
+#[cfg(feature = "unwind")]
 use gimli::{
-    constants::DW_EH_PE_absptr,
-    write::{Address, EhFrame, FrameDescriptionEntry, FrameTable, Writer},
+    constants::{DW_EH_PE_indirect, DW_EH_PE_pcrel, DW_EH_PE_sdata4},
+    write::{Address, EhFrame, FrameTable},
 };
 
+use object::{
+    RelocationEncoding, RelocationFlags, RelocationKind as ObjectRelocationKind, SectionKind, elf,
+    macho,
+    write::{
+        Object, Relocation as ObjectRelocation, StandardSection, StandardSegment,
+        Symbol as ObjectSymbol, SymbolSection,
+    },
+    {SymbolFlags, SymbolKind, SymbolScope},
+};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-#[cfg(feature = "unwind")]
 use std::collections::HashMap;
+use std::fs::OpenOptions;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tempfile::NamedTempFile;
-use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
-
+use tempfile::{NamedTempFile, tempdir};
+use wasmer_compiler::object::get_object_for_target;
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::serialize::SerializableModule;
-#[cfg(feature = "unwind")]
-use wasmer_compiler::types::{section::SectionIndex, unwind::CompiledFunctionUnwindInfo};
+use wasmer_compiler::types::address_map::FunctionAddressMap;
 use wasmer_compiler::{
-    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
-    ModuleMiddlewareChain, ModuleTranslationState,
+    CompiledObjects, Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, WASM_LARGE_FUNCTION_THRESHOLD,
+    WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, WASMER_TRAPS_SECTION_NAME, build_function_buckets,
+    emit_metadata_and_link, translate_function_buckets,
     types::{
-        function::{
-            Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
-        },
+        function::FunctionBody,
         module::CompileModuleInfo,
-        relocation::{Relocation, RelocationKind, RelocationTarget},
-        section::{CustomSection, CustomSectionProtection, SectionBody},
+        relocation::{Relocation, RelocationKind as Reloc, RelocationTarget},
     },
 };
-use wasmer_compiler::{build_function_buckets, translate_function_buckets};
-#[cfg(feature = "unwind")]
-use wasmer_types::LibCall;
-#[cfg(feature = "unwind")]
-use wasmer_types::entity::EntityRef;
-use wasmer_types::entity::PrimaryMap;
-#[cfg(feature = "unwind")]
-use wasmer_types::target::CallingConvention;
-use wasmer_types::target::Target;
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::target::{BinaryFormat, CallingConvention, Target, Triple};
 use wasmer_types::{
-    CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
-    SignatureIndex, TrapCode, TrapInformation,
+    CompilationProgressCallback, CompileError, FunctionIndex, LibCall, LocalFunctionIndex,
+    ModuleInfo, SignatureIndex, TrapCode, TrapInformation, VMOffsets,
 };
 
-pub struct CraneliftCompiledFunction {
-    function: CompiledFunction,
+/// The result of compiling a single Wasm function: everything required to
+/// serialize it into its own relocatable object file.
+struct CraneliftCompiledFunction {
+    body: Vec<u8>,
+    relocations: Vec<Relocation>,
+    traps: Vec<TrapInformation>,
+    address_map: FunctionAddressMap,
     #[cfg(feature = "unwind")]
-    fde: Option<FrameDescriptionEntry>,
+    fde: Option<gimli::write::FrameDescriptionEntry>,
     #[cfg(feature = "unwind")]
-    function_lsda: Option<FunctionLsdaData>,
-    #[cfg(feature = "unwind")]
-    compact_unwind_encoding: Option<u32>,
+    lsda: Option<crate::eh::FunctionLsdaData>,
 }
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
@@ -106,32 +102,35 @@ impl CraneliftCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        mut serializable: SerializableModule,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<(), CompileError> {
-        todo!();
-        /*
+    ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
+        let triple = target.triple();
         let isa = self
             .config()
             .isa(target)
             .map_err(|error| CompileError::Codegen(error.to_string()))?;
         let frontend_config = isa.frontend_config();
-        #[cfg(feature = "unwind")]
         let pointer_bytes = frontend_config.pointer_bytes();
-        #[cfg(feature = "unwind")]
-        let emit_macho_compact_unwind = matches!(
-            target.triple(),
-            target_lexicon::Triple {
-                binary_format: target_lexicon::BinaryFormat::Macho,
-                operating_system: target_lexicon::OperatingSystem::Darwin(_),
-                architecture: target_lexicon::Architecture::Aarch64(_),
-                ..
-            }
+
+        let emit_eh_frame = matches!(
+            triple.default_calling_convention(),
+            Ok(CallingConvention::SystemV | CallingConvention::AppleAarch64)
         );
+
+        let build_directory = tempdir().map_err(|err| {
+            CompileError::Codegen(format!("cannot create temporary build folder: {err}"))
+        })?;
+        let build_dir = build_directory.path();
+
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
+        let module_name = module.name.as_deref();
+        let module_hash = module.hash_string();
+
         let signatures = module
             .signatures
             .iter()
@@ -151,46 +150,17 @@ impl CraneliftCompiler {
             .cloned()
             .map(|cb| ProgressContext::new(cb, total_steps, "cranelift::functions"));
 
-        // Generate the frametable
-        #[cfg(feature = "unwind")]
-        let dwarf_frametable = if function_body_inputs.is_empty() {
-            // If we have no function body inputs, we don't need to
-            // construct the `FrameTable`. Constructing it, with empty
-            // FDEs will cause some issues in Linux.
-            None
-        } else {
-            match target.triple().default_calling_convention() {
-                Ok(CallingConvention::SystemV) => match isa.create_systemv_cie() {
-                    Some(mut cie) => {
-                        cie.personality = Some((
-                            DW_EH_PE_absptr,
-                            Address::Symbol {
-                                symbol: WriterRelocate::PERSONALITY_SYMBOL,
-                                addend: 0,
-                            },
-                        ));
-                        cie.lsda_encoding = Some(DW_EH_PE_absptr);
-                        let mut dwarf_frametable = FrameTable::default();
-                        let cie_id = dwarf_frametable.add_cie(cie);
-                        Some((dwarf_frametable, cie_id))
-                    }
-                    // Even though we are in a SystemV system, Cranelift doesn't support it
-                    None => None,
-                },
-                _ => None,
-            }
-        };
+        let isa_ref: &dyn cranelift_codegen::isa::TargetIsa = &*isa;
 
-        // The `compile_function` closure is used for both the sequential and
-        // parallel compilation paths to avoid code duplication.
+        // Compiles a single function and emits its relocatable object file.
         let compile_function = |func_translator: &mut FuncTranslator,
                                 i: &LocalFunctionIndex,
                                 input: &FunctionBodyData|
-         -> Result<CraneliftCompiledFunction, CompileError> {
+         -> Result<PathBuf, CompileError> {
             let func_index = module.func_index(*i);
             let mut context = Context::new();
             let mut func_env = FuncEnvironment::new(
-                isa.frontend_config(),
+                isa_ref.frontend_config(),
                 module,
                 &signatures,
                 signature_hashes,
@@ -210,9 +180,6 @@ impl CraneliftCompiler {
                 _ => UserFuncName::default(),
             };
             context.func.signature = signatures[module.functions[func_index]].clone();
-            // if generate_debug_info {
-            //     context.func.collect_debug_info();
-            // }
 
             let mut reader =
                 MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
@@ -234,8 +201,8 @@ impl CraneliftCompiler {
                 use wasmer_compiler::misc::CompiledKind;
 
                 callbacks.preopt_ir(
-                    &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
-                    &compile_info.module.hash_string(),
+                    &CompiledKind::Local(*i, module.get_function_name(func_index)),
+                    &module_hash,
                     context.func.display().to_string().as_bytes(),
                 );
             }
@@ -244,7 +211,7 @@ impl CraneliftCompiler {
             let mut ctrl_plane = Default::default();
             let func_name_map = context.func.params.user_named_funcs().clone();
             let result = context
-                .compile(&*isa, &mut ctrl_plane)
+                .compile(isa_ref, &mut ctrl_plane)
                 .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
             code_buf.extend_from_slice(result.code_buffer());
 
@@ -252,19 +219,19 @@ impl CraneliftCompiler {
                 use wasmer_compiler::misc::CompiledKind;
 
                 callbacks.obj_memory_buffer(
-                    &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
-                    &compile_info.module.hash_string(),
+                    &CompiledKind::Local(*i, module.get_function_name(func_index)),
+                    &module_hash,
                     &code_buf,
                 );
                 callbacks.asm_memory_buffer(
-                    &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
-                    &compile_info.module.hash_string(),
-                    target.triple().architecture,
+                    &CompiledKind::Local(*i, module.get_function_name(func_index)),
+                    &module_hash,
+                    triple.architecture,
                     &code_buf,
                 )?;
             }
 
-            let func_relocs = result
+            let relocations = result
                 .buffer
                 .relocs()
                 .iter()
@@ -278,90 +245,70 @@ impl CraneliftCompiler {
                 .map(mach_trap_to_trap)
                 .collect::<Vec<_>>();
 
+            // Build the LSDA (`.gcc_except_table` payload) for exception
+            // handling. This consumes the last borrow of `result`.
             #[cfg(feature = "unwind")]
-            let emit_lsda = dwarf_frametable.is_some() || emit_macho_compact_unwind;
-
-            #[cfg(feature = "unwind")]
-            let compact_unwind_encoding = if emit_macho_compact_unwind {
-                Some(
-                    compact_unwind_encoding_aarch64(&result.buffer.unwind_info).map_err(|error| {
-                        CompileError::Codegen(format!(
-                            "failed to encode aarch64 Mach-O compact unwind for function {}: {error}",
-                            i.index()
-                        ))
-                    })?,
-                )
-            } else {
-                None
-            };
-
-            #[cfg(feature = "unwind")]
-            let function_lsda = if emit_lsda {
-                build_function_lsda(
+            let lsda = if emit_eh_frame {
+                crate::eh::build_function_lsda(
                     result.buffer.call_sites(),
-                    result.buffer.data().len(),
+                    code_buf.len(),
                     pointer_bytes,
                 )
             } else {
                 None
             };
 
-            #[allow(unused)]
-            let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
-                #[cfg(feature = "unwind")]
-                CraneliftUnwindInfo::Fde(fde) => {
-                    if dwarf_frametable.is_some() {
-                        let fde = fde.to_fde(Address::Symbol {
-                            // The symbol is the kind of relocation.
-                            // "0" is used for functions
-                            symbol: WriterRelocate::FUNCTION_SYMBOL,
-                            // We use the addend as a way to specify the
-                            // function index
-                            addend: i.index() as _,
-                        });
-                        // The unwind information is inserted into the dwarf section
-                        (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
-                    } else {
-                        (None, None)
-                    }
-                }
-                #[cfg(feature = "unwind")]
-                other => (other.maybe_into_to_windows_unwind(), None),
+            #[cfg(feature = "unwind")]
+            let fde = if emit_eh_frame {
+                match compiled_function_unwind_info(isa_ref, &context)? {
+                    CraneliftUnwindInfo::Fde(fde) => {
+                        use crate::dwarf::WriterRelocate;
 
-                // This is a bit hacky, but necessary since gimli is not
-                // available when the "unwind" feature is disabled.
-                #[cfg(not(feature = "unwind"))]
-                other => (other.maybe_into_to_windows_unwind(), None::<()>),
+                        Some(fde.to_fde(Address::Symbol {
+                            // References this function's own text symbol.
+                            symbol: WriterRelocate::FUNCTION_SYMBOL,
+                            addend: 0,
+                        }))
+                    }
+                    _ => None,
+                }
+            } else {
+                None
             };
 
             let range = reader.range();
             let address_map = get_function_address_map(&context, range, code_buf.len());
 
-            Ok(CraneliftCompiledFunction {
-                function: CompiledFunction {
-                    body: FunctionBody {
-                        body: code_buf,
-                        unwind_info,
-                    },
-                    relocations: func_relocs,
-                    frame_info: CompiledFunctionFrameInfo { address_map, traps },
-                    maximum_stack_usage: None,
-                },
+            let function_name = module
+                .function_names
+                .get(&func_index)
+                .cloned()
+                .unwrap_or_else(|| "<unnamed>".to_string());
+
+            let compiled = CraneliftCompiledFunction {
+                body: code_buf,
+                relocations,
+                traps,
+                address_map,
                 #[cfg(feature = "unwind")]
                 fde,
                 #[cfg(feature = "unwind")]
-                function_lsda,
-                #[cfg(feature = "unwind")]
-                compact_unwind_encoding,
-            })
+                lsda,
+            };
+
+            let object_path = build_dir.join(format!("f{}.o", i.as_u32()));
+            emit_function_object(
+                isa_ref,
+                triple,
+                *i,
+                &function_name,
+                module_name,
+                &compiled,
+                object_path,
+            )
         };
 
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut custom_sections = PrimaryMap::new();
-
-        let results = {
-            use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
-
+        let object_files = {
             let buckets =
                 build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
             let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
@@ -370,7 +317,9 @@ impl CraneliftCompiler {
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(num_threads)
                 .build()
-                .unwrap();
+                .map_err(|e| {
+                    CompileError::Codegen(format!("failed to build rayon thread pool: {e}"))
+                })?;
 
             translate_function_buckets(
                 &pool,
@@ -381,189 +330,59 @@ impl CraneliftCompiler {
             )?
         };
 
-        let mut functions = Vec::with_capacity(function_body_inputs.len());
-        #[cfg(feature = "unwind")]
-        let mut fdes = Vec::with_capacity(function_body_inputs.len());
-        #[cfg(feature = "unwind")]
-        let mut lsda_data = Vec::with_capacity(function_body_inputs.len());
-        #[cfg(feature = "unwind")]
-        let mut compact_unwind_entries = Vec::new();
-
-        for compiled in results {
-            let CraneliftCompiledFunction {
-                function,
-                #[cfg(feature = "unwind")]
-                fde,
-                #[cfg(feature = "unwind")]
-                function_lsda,
-                #[cfg(feature = "unwind")]
-                compact_unwind_encoding,
-            } = compiled;
-            #[cfg(feature = "unwind")]
-            let local_function_index = LocalFunctionIndex::new(functions.len());
-            functions.push(function);
-            #[cfg(feature = "unwind")]
-            {
-                fdes.push(fde);
-                lsda_data.push(function_lsda);
-                if let Some(compact_encoding) = compact_unwind_encoding {
-                    let function_length = functions
-                        .last()
-                        .expect("function was just pushed")
-                        .body
-                        .body
-                        .len()
-                        .try_into()
-                        .map_err(|_| {
-                            CompileError::Codegen(
-                                "function body too large for Mach-O compact unwind".into(),
-                            )
-                        })?;
-                    compact_unwind_entries.push((
-                        local_function_index,
-                        function_length,
-                        compact_encoding,
-                    ));
-                }
-            }
-        }
-
-        #[cfg(feature = "unwind")]
-        let (_tag_section_index, lsda_section_index, function_lsda_offsets) =
-            if dwarf_frametable.is_some() || emit_macho_compact_unwind {
-                let mut tag_section_index = None;
-                let mut tag_offsets = HashMap::new();
-                if let Some((tag_section, offsets)) = build_tag_section(&lsda_data) {
-                    custom_sections.push(tag_section);
-                    tag_section_index = Some(SectionIndex::new(custom_sections.len() - 1));
-                    tag_offsets = offsets;
-                }
-                let lsda_vec = lsda_data;
-                let (lsda_section, offsets_per_function) =
-                    build_lsda_section(lsda_vec, pointer_bytes, &tag_offsets, tag_section_index);
-                let mut lsda_section_index = None;
-                if let Some(section) = lsda_section {
-                    custom_sections.push(section);
-                    lsda_section_index = Some(SectionIndex::new(custom_sections.len() - 1));
-                }
-                (tag_section_index, lsda_section_index, offsets_per_function)
-            } else {
-                (None, None, vec![None; functions.len()])
+        let save_object =
+            |obj: Object<'static>, filename: String| -> Result<PathBuf, CompileError> {
+                let object_path = build_dir.join(&filename);
+                let mut object_file = OpenOptions::new()
+                    .write(true)
+                    .create(true)
+                    .truncate(true)
+                    .open(&object_path)
+                    .map_err(|e| {
+                        CompileError::Codegen(format!("failed to create Wasmer object file: {e}"))
+                    })?;
+                obj.write_stream(&mut object_file).map_err(|e| {
+                    CompileError::Codegen(format!("failed to write Wasmer object file: {e}"))
+                })?;
+                Ok(object_path)
             };
 
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut unwind_info = UnwindInfo::default();
-
-        #[cfg(feature = "unwind")]
-        if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
-            for (func_idx, fde_opt) in fdes.into_iter().enumerate() {
-                if let Some(mut fde) = fde_opt {
-                    let has_lsda = function_lsda_offsets
-                        .get(func_idx)
-                        .and_then(|v| *v)
-                        .is_some();
-                    let lsda_address = if has_lsda {
-                        debug_assert!(
-                            lsda_section_index.is_some(),
-                            "LSDA offsets require an LSDA section"
-                        );
-                        if lsda_section_index.is_some() {
-                            let symbol =
-                                WriterRelocate::lsda_symbol(LocalFunctionIndex::new(func_idx));
-                            Address::Symbol { symbol, addend: 0 }
-                        } else {
-                            Address::Constant(0)
-                        }
-                    } else {
-                        Address::Constant(0)
-                    };
-                    fde.lsda = Some(lsda_address);
-                    dwarf_frametable.add_fde(cie_id, fde);
-                }
-            }
-
-            let mut writer = WriterRelocate::new(target.triple().endianness().ok());
-            if let Some(lsda_section_index) = lsda_section_index {
-                for (func_idx, offset) in function_lsda_offsets.iter().enumerate() {
-                    if let Some(offset) = offset {
-                        writer.register_lsda_symbol(
-                            WriterRelocate::lsda_symbol(LocalFunctionIndex::new(func_idx)),
-                            RelocationTarget::CustomSection(lsda_section_index),
-                            *offset,
-                        );
-                    }
-                }
-            }
-
-            let mut eh_frame = EhFrame(writer);
-            dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
-            eh_frame.write(&[0, 0, 0, 0]).unwrap(); // Write a 0 length at the end of the table.
-
-            let eh_frame_section = eh_frame.0.into_section();
-            custom_sections.push(eh_frame_section);
-            unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1));
-        };
-
-        #[cfg(feature = "unwind")]
-        if emit_macho_compact_unwind {
-            let entries = compact_unwind_entries
-                .into_iter()
-                .map(|(function, function_length, compact_encoding)| {
-                    let lsda_offset = function_lsda_offsets
-                        .get(function.index())
-                        .and_then(|offset| *offset);
-                    CompactUnwindEntryData {
-                        function,
-                        function_length,
-                        compact_encoding,
-                        lsda_offset,
-                    }
-                })
-                .collect::<Vec<_>>();
-            if let Some(section) = build_compact_unwind_section(entries, lsda_section_index) {
-                custom_sections.push(section);
-                unwind_info.compact_unwind = Some(SectionIndex::new(custom_sections.len() - 1));
-            }
-        }
-
-        let module_hash = module.hash_string();
-
-        // function call trampolines (only for local functions, by signature)
-        let function_call_trampolines = module
+        // Function call trampolines (only for local functions, by signature).
+        let trampoline_object_files = module
             .signatures
-            .values()
+            .iter()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FunctionBuilderContext::new, |cx, sig| {
+            .map_init(FunctionBuilderContext::new, |cx, (index, func_type)| {
                 let trampoline = make_trampoline_function_call(
                     &self.config().callbacks,
-                    &*isa,
-                    target.triple().architecture,
+                    isa_ref,
+                    triple.architecture,
                     cx,
-                    sig,
+                    func_type,
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                Ok(trampoline)
+                let obj =
+                    emit_trampoline_object(triple, &format!("t{}", index.as_u32()), &trampoline)?;
+                save_object(obj, format!("t{}.o", index.as_u32()))
             })
-            .collect::<Result<Vec<FunctionBody>, CompileError>>()?
-            .into_iter()
-            .collect();
+            .collect::<Result<Vec<_>, CompileError>>()?;
 
-        use wasmer_types::VMOffsets;
-        let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
-        // dynamic function trampolines (only for imported functions)
-        let dynamic_function_trampolines = module
+        // Dynamic function trampolines (only for imported functions).
+        let offsets = VMOffsets::new_for_trampolines(pointer_bytes);
+        let dynamic_trampoline_object_files = module
             .imported_function_types()
+            .enumerate()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FunctionBuilderContext::new, |cx, func_type| {
+            .map_init(FunctionBuilderContext::new, |cx, (index, func_type)| {
                 let trampoline = make_trampoline_dynamic_function(
                     &self.config().callbacks,
-                    &*isa,
-                    target.triple().architecture,
+                    isa_ref,
+                    triple.architecture,
                     &offsets,
                     cx,
                     func_type,
@@ -572,45 +391,533 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                Ok(trampoline)
+                let obj = emit_trampoline_object(triple, &format!("dt{index}"), &trampoline)?;
+                save_object(obj, format!("dt{index}.o"))
             })
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .collect();
+            .collect::<Result<Vec<_>, CompileError>>()?;
 
-        let mut got = wasmer_compiler::types::function::GOT::empty();
+        let module_file = tempfile::Builder::new()
+            .prefix("wasmer-image")
+            .suffix(".so")
+            .tempfile()
+            .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
 
-        #[cfg(feature = "unwind")]
-        if emit_macho_compact_unwind {
-            let got_idx = SectionIndex::from_u32(custom_sections.len() as u32);
-            custom_sections.push(CustomSection {
-                protection: CustomSectionProtection::Read,
-                alignment: Some(pointer_bytes.into()),
-                bytes: SectionBody::new_with_vec(vec![0; pointer_bytes as usize]),
-                relocations: vec![Relocation {
-                    kind: match pointer_bytes {
-                        4 => RelocationKind::Abs4,
-                        8 => RelocationKind::Abs8,
-                        _ => unreachable!("unsupported pointer size for Mach-O compact unwind GOT"),
+        serializable.compile_info.function_max_stack_usage = function_body_inputs
+            .keys()
+            .map(|_| None)
+            .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>();
+        let compile_info_blob = serializable
+            .serialize()
+            .map_err(|e| CompileError::Codegen(format!("cannot serialize SerializeModule: {e}")))?;
+
+        let module_file = emit_metadata_and_link(
+            target,
+            compile_info_blob,
+            build_dir,
+            module_file,
+            &CompiledObjects {
+                object_files: &object_files,
+                import_trampoline_object_files: &[],
+                trampoline_object_files: &trampoline_object_files,
+                dynamic_trampoline_object_files: &dynamic_trampoline_object_files,
+            },
+            self.config
+                .callbacks
+                .as_ref()
+                .map(|callbacks| callbacks.debug_dir.clone()),
+            module_hash,
+        )?;
+
+        Ok((module_file, serializable))
+    }
+}
+
+/// Serialize a single compiled function into its own relocatable object file.
+#[allow(unused_variables)]
+fn emit_function_object(
+    isa: &dyn cranelift_codegen::isa::TargetIsa,
+    triple: &Triple,
+    local_func_index: LocalFunctionIndex,
+    function_name: &str,
+    module_name: Option<&str>,
+    compiled: &CraneliftCompiledFunction,
+    object_path: PathBuf,
+) -> Result<PathBuf, CompileError> {
+    let mut obj = get_object_for_target(triple)
+        .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
+
+    // Emit the function body into the text section.
+    let function_symbol = obj.add_symbol(ObjectSymbol {
+        name: format!("f{}", local_func_index.as_u32()).into(),
+        value: 0,
+        size: compiled.body.len() as u64,
+        kind: SymbolKind::Text,
+        scope: SymbolScope::Dynamic,
+        weak: false,
+        section: SymbolSection::Undefined,
+        flags: SymbolFlags::None,
+    });
+    let text_section = obj.section_id(StandardSection::Text);
+    let body_offset = obj.add_symbol_data(function_symbol, text_section, &compiled.body, 16);
+
+    // Apply the function's relocations, lazily declaring referenced symbols.
+    let mut referenced_symbols: HashMap<String, object::write::SymbolId> = HashMap::new();
+    for r in &compiled.relocations {
+        let flags = relocation_to_flags(obj.format(), triple, r.kind)?;
+        let (symbol, addend) = match &r.reloc_target {
+            RelocationTarget::LocalFunc(index) => {
+                let name = format!("f{}", index.index());
+                let symbol = *referenced_symbols.entry(name.clone()).or_insert_with(|| {
+                    obj.add_symbol(ObjectSymbol {
+                        name: name.into_bytes(),
+                        value: 0,
+                        size: 0,
+                        kind: SymbolKind::Text,
+                        scope: SymbolScope::Dynamic,
+                        weak: false,
+                        section: SymbolSection::Undefined,
+                        flags: SymbolFlags::None,
+                    })
+                });
+                (symbol, r.addend)
+            }
+            RelocationTarget::LibCall(libcall) => {
+                let mut name = libcall.to_function_name().to_string();
+                if matches!(triple.binary_format, BinaryFormat::Macho) {
+                    name = format!("_{name}");
+                }
+                let symbol = *referenced_symbols.entry(name.clone()).or_insert_with(|| {
+                    obj.add_symbol(ObjectSymbol {
+                        name: name.into_bytes(),
+                        value: 0,
+                        size: 0,
+                        kind: SymbolKind::Unknown,
+                        scope: SymbolScope::Unknown,
+                        weak: false,
+                        section: SymbolSection::Undefined,
+                        flags: SymbolFlags::None,
+                    })
+                });
+                (symbol, r.addend)
+            }
+            other => {
+                return Err(CompileError::Codegen(format!(
+                    "unsupported relocation target for Cranelift object emission: {other:?}"
+                )));
+            }
+        };
+
+        obj.add_relocation(
+            text_section,
+            ObjectRelocation {
+                offset: body_offset + r.offset as u64,
+                symbol,
+                addend,
+                flags,
+            },
+        )
+        .map_err(|e| CompileError::Codegen(format!("failed to add function relocation: {e}")))?;
+    }
+
+    // Populate DWARF line info from the address map.
+    #[cfg(feature = "unwind")]
+    if let Ok(mut dwarf_state) = init_dwarf_unit(function_name, module_name) {
+        emit_dwarf_lines(
+            &mut dwarf_state,
+            &mut obj,
+            function_symbol,
+            &compiled.address_map,
+            compiled.body.len() as u64,
+        )?;
+    }
+
+    // Emit the per-function trap table.
+    let mut trap_data = Vec::with_capacity(compiled.traps.len() * 8 + size_of::<u32>());
+    trap_data.extend_from_slice(&(compiled.traps.len() as u32).to_le_bytes());
+    for trap in &compiled.traps {
+        trap_data.extend_from_slice(&trap.code_offset.to_le_bytes());
+        trap_data.extend_from_slice(&(trap.trap_code as u32).to_le_bytes());
+    }
+    let traps_section = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        WASMER_TRAPS_SECTION_NAME.to_vec(),
+        SectionKind::Other,
+    );
+    let trap_symbol = obj.add_symbol(ObjectSymbol {
+        name: format!("f{}.traps", local_func_index.as_u32()).into(),
+        value: 0,
+        size: trap_data.len() as u64,
+        kind: SymbolKind::Data,
+        scope: SymbolScope::Compilation,
+        weak: true,
+        section: SymbolSection::Section(traps_section),
+        flags: SymbolFlags::None,
+    });
+    obj.add_symbol_data(trap_symbol, traps_section, &trap_data, 4);
+
+    // Emit the per-function `.eh_frame` unwind table (and, for functions that
+    // catch exceptions, the matching `.gcc_except_table` LSDA).
+    #[cfg(feature = "unwind")]
+    if let Some(fde) = &compiled.fde
+        && let Some(mut cie) = isa.create_systemv_cie()
+    {
+        let pointer_bytes = isa.frontend_config().pointer_bytes();
+
+        // Emit the LSDA into `.gcc_except_table`, plus a per-object tag section
+        // holding the exception tag constants referenced by its type table.
+        let lsda_section_symbol = if let Some(lsda) = &compiled.lsda {
+            let tag_section_symbol = emit_eh_tag_section(&mut obj, lsda);
+
+            let gcc_section = obj.add_section(
+                obj.segment_name(StandardSegment::Data).to_vec(),
+                b".gcc_except_table".to_vec(),
+                SectionKind::ReadOnlyData,
+            );
+            let lsda_offset =
+                obj.append_section_data(gcc_section, &lsda.bytes, u64::from(pointer_bytes));
+            // The type-table slots use `DW_EH_PE_pcrel | sdata4` encoding, so
+            // their relocations are PC-relative 32-bit (`R_X86_64_PC32`). This
+            // keeps `.gcc_except_table` position-independent and read-only.
+            let pcrel32 = RelocationFlags::Generic {
+                kind: ObjectRelocationKind::Relative,
+                encoding: RelocationEncoding::Generic,
+                size: 32,
+            };
+            for reloc in &lsda.relocations {
+                let (tag_symbol, tag_offset) = tag_section_symbol
+                    .as_ref()
+                    .and_then(|(symbol, offsets)| {
+                        offsets.get(&reloc.tag).map(|offset| (*symbol, *offset))
+                    })
+                    .ok_or_else(|| {
+                        CompileError::Codegen(format!(
+                            "missing exception tag {} for LSDA relocation",
+                            reloc.tag
+                        ))
+                    })?;
+                obj.add_relocation(
+                    gcc_section,
+                    ObjectRelocation {
+                        offset: lsda_offset + reloc.offset as u64,
+                        flags: pcrel32,
+                        symbol: tag_symbol,
+                        addend: tag_offset as i64,
                     },
-                    reloc_target: RelocationTarget::LibCall(LibCall::EHPersonality),
-                    offset: 0,
+                )
+                .map_err(|e| {
+                    CompileError::Codegen(format!("failed to add LSDA relocation: {e}"))
+                })?;
+            }
+            Some(obj.section_symbol(gcc_section))
+        } else {
+            None
+        };
+
+        cie.fde_address_encoding = DW_EH_PE_pcrel | DW_EH_PE_sdata4;
+        let mut fde = fde.clone();
+        if lsda_section_symbol.is_some() {
+            // The personality routine is an undefined symbol resolved at load
+            // time. Reference it GOT-indirect (PC-relative) so the linker emits
+            // a GOT slot with a dynamic relocation the runtime loader applies; a
+            // plain data relocation against an undefined symbol would be
+            // dropped. The LSDA lives in the same image and is referenced
+            // directly, PC-relative.
+            cie.personality = Some((
+                DW_EH_PE_indirect | DW_EH_PE_pcrel | DW_EH_PE_sdata4,
+                Address::Symbol {
+                    symbol: crate::dwarf::WriterRelocate::PERSONALITY_SYMBOL,
                     addend: 0,
-                }],
+                },
+            ));
+            cie.lsda_encoding = Some(DW_EH_PE_pcrel | DW_EH_PE_sdata4);
+            fde.lsda = Some(Address::Symbol {
+                symbol: crate::dwarf::WriterRelocate::LSDA_SYMBOL,
+                addend: 0,
             });
-            got.index = Some(got_idx);
         }
 
-        Ok(Compilation {
-            functions: functions.into_iter().collect(),
-            custom_sections,
-            function_call_trampolines,
-            dynamic_function_trampolines,
-            unwind_info,
-            got,
-        })
-        */
+        let mut frametable = FrameTable::default();
+        let cie_id = frametable.add_cie(cie);
+        frametable.add_fde(cie_id, fde);
+
+        let mut eh_frame = EhFrame(crate::dwarf::WriterRelocate::new());
+        frametable
+            .write_eh_frame(&mut eh_frame)
+            .map_err(|e| CompileError::Codegen(format!("failed to write eh_frame: {e}")))?;
+
+        let section_id = obj.add_section(
+            obj.segment_name(StandardSegment::Debug).to_vec(),
+            b".eh_frame".to_vec(),
+            SectionKind::Other,
+        );
+        let eh_relocs = eh_frame.0.relocs.clone();
+        let data_offset = obj.append_section_data(section_id, &eh_frame.0.into_bytes(), 4);
+
+        // The personality symbol is added lazily, the first time a relocation
+        // references it.
+        let mut personality_symbol = None;
+        for reloc in &eh_relocs {
+            let symbol = match reloc.target {
+                EhTarget::Function => function_symbol,
+                EhTarget::Personality => *personality_symbol.get_or_insert_with(|| {
+                    let mut name = LibCall::EHPersonality.to_function_name().to_string();
+                    if matches!(triple.binary_format, BinaryFormat::Macho) {
+                        name = format!("_{name}");
+                    }
+                    obj.add_symbol(ObjectSymbol {
+                        name: name.into_bytes(),
+                        value: 0,
+                        size: 0,
+                        kind: SymbolKind::Unknown,
+                        scope: SymbolScope::Unknown,
+                        weak: false,
+                        section: SymbolSection::Undefined,
+                        flags: SymbolFlags::None,
+                    })
+                }),
+                EhTarget::Lsda => lsda_section_symbol.ok_or_else(|| {
+                    CompileError::Codegen(
+                        "eh_frame references an LSDA but none was emitted".to_string(),
+                    )
+                })?,
+            };
+            obj.add_relocation(
+                section_id,
+                ObjectRelocation {
+                    offset: data_offset + reloc.offset,
+                    flags: RelocationFlags::Generic {
+                        kind: reloc.kind,
+                        encoding: RelocationEncoding::Generic,
+                        size: u8::checked_mul(reloc.size, 8).unwrap_or(64),
+                    },
+                    symbol,
+                    addend: reloc.addend,
+                },
+            )
+            .map_err(|e| {
+                CompileError::Codegen(format!("failed to add eh_frame relocation: {e}"))
+            })?;
+        }
     }
+
+    let mut object_file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&object_path)
+        .map_err(|e| {
+            CompileError::Codegen(format!(
+                "failed to create Wasmer object {}: {e}",
+                object_path.display()
+            ))
+        })?;
+    obj.write_stream(&mut object_file).map_err(|e| {
+        CompileError::Codegen(format!(
+            "failed to write Wasmer object {}: {e}",
+            object_path.display(),
+        ))
+    })?;
+
+    Ok(object_path)
+}
+
+/// Emit a per-object section holding the exception tag constants referenced by
+/// a function's LSDA type table, returning a section symbol and a tag->offset
+/// map. Returns `None` when the LSDA references no tags.
+#[cfg(feature = "unwind")]
+fn emit_eh_tag_section(
+    obj: &mut Object<'static>,
+    lsda: &crate::eh::FunctionLsdaData,
+) -> Option<(object::write::SymbolId, HashMap<u32, u32>)> {
+    let mut tags: Vec<u32> = lsda.relocations.iter().map(|r| r.tag).collect();
+    tags.sort_unstable();
+    tags.dedup();
+    if tags.is_empty() {
+        return None;
+    }
+
+    let mut bytes = Vec::with_capacity(tags.len() * size_of::<u32>());
+    let mut offsets = HashMap::new();
+    for tag in tags {
+        offsets.insert(tag, bytes.len() as u32);
+        bytes.extend_from_slice(&tag.to_ne_bytes());
+    }
+
+    let section = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        b".wasmer.eh_tags".to_vec(),
+        SectionKind::ReadOnlyData,
+    );
+    obj.append_section_data(section, &bytes, 4);
+    Some((obj.section_symbol(section), offsets))
+}
+
+#[cfg(feature = "unwind")]
+fn emit_dwarf_lines(
+    dwarf_state: &mut DwarfState,
+    obj: &mut Object<'static>,
+    function_symbol: object::write::SymbolId,
+    address_map: &FunctionAddressMap,
+    body_len: u64,
+) -> Result<(), CompileError> {
+    for inst in &address_map.instructions {
+        dwarf_state.add_row(inst.code_offset as u64, inst.srcloc);
+    }
+    dwarf_state.write_sections(obj, function_symbol, body_len, None)
+}
+
+/// Serialize a trampoline's body into its own relocatable object file.
+fn emit_trampoline_object(
+    triple: &Triple,
+    symbol_name: &str,
+    trampoline: &FunctionBody,
+) -> Result<Object<'static>, CompileError> {
+    let mut obj = get_object_for_target(triple)
+        .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
+    let symbol = obj.add_symbol(ObjectSymbol {
+        name: symbol_name.into(),
+        value: 0,
+        size: trampoline.body.len() as u64,
+        kind: SymbolKind::Text,
+        scope: SymbolScope::Dynamic,
+        weak: false,
+        section: SymbolSection::Undefined,
+        flags: SymbolFlags::None,
+    });
+    let text_section = obj.section_id(StandardSection::Text);
+    obj.add_symbol_data(symbol, text_section, &trampoline.body, 16);
+    Ok(obj)
+}
+
+/// Map a Wasmer relocation kind onto the corresponding object-file relocation flags.
+fn relocation_to_flags(
+    format: object::BinaryFormat,
+    triple: &Triple,
+    kind: Reloc,
+) -> Result<RelocationFlags, CompileError> {
+    use ObjectRelocationKind as K;
+    Ok(match kind {
+        Reloc::Abs4 => RelocationFlags::Generic {
+            kind: K::Absolute,
+            encoding: RelocationEncoding::Generic,
+            size: 32,
+        },
+        Reloc::Abs8 => RelocationFlags::Generic {
+            kind: K::Absolute,
+            encoding: RelocationEncoding::Generic,
+            size: 64,
+        },
+        Reloc::PCRel4 => RelocationFlags::Generic {
+            kind: K::Relative,
+            encoding: RelocationEncoding::Generic,
+            size: 32,
+        },
+        Reloc::X86CallPCRel4 => RelocationFlags::Generic {
+            kind: K::Relative,
+            encoding: RelocationEncoding::X86Branch,
+            size: 32,
+        },
+        Reloc::X86CallPLTRel4 => RelocationFlags::Generic {
+            kind: K::PltRelative,
+            encoding: RelocationEncoding::X86Branch,
+            size: 32,
+        },
+        Reloc::X86GOTPCRel4 => RelocationFlags::Generic {
+            kind: K::GotRelative,
+            encoding: RelocationEncoding::Generic,
+            size: 32,
+        },
+        Reloc::Arm64Call => match format {
+            object::BinaryFormat::Elf => RelocationFlags::Elf {
+                r_type: elf::R_AARCH64_CALL26,
+            },
+            object::BinaryFormat::MachO => RelocationFlags::MachO {
+                r_type: macho::ARM64_RELOC_BRANCH26,
+                r_pcrel: true,
+                r_length: 32,
+            },
+            fmt => {
+                return Err(CompileError::Codegen(format!(
+                    "unsupported binary format {fmt:?}"
+                )));
+            }
+        },
+        Reloc::ElfX86_64TlsGd => RelocationFlags::Elf {
+            r_type: elf::R_X86_64_TLSGD,
+        },
+        Reloc::MachoArm64RelocBranch26 => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_BRANCH26,
+            r_pcrel: true,
+            r_length: 32,
+        },
+        Reloc::MachoArm64RelocUnsigned => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_UNSIGNED,
+            r_pcrel: true,
+            r_length: 32,
+        },
+        Reloc::MachoArm64RelocSubtractor => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_SUBTRACTOR,
+            r_pcrel: false,
+            r_length: 64,
+        },
+        Reloc::MachoArm64RelocPage21 => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_PAGE21,
+            r_pcrel: true,
+            r_length: 32,
+        },
+        Reloc::MachoArm64RelocPageoff12 => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_PAGEOFF12,
+            r_pcrel: false,
+            r_length: 32,
+        },
+        Reloc::MachoArm64RelocGotLoadPage21 => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_GOT_LOAD_PAGE21,
+            r_pcrel: true,
+            r_length: 32,
+        },
+        Reloc::MachoArm64RelocGotLoadPageoff12 => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
+            r_pcrel: true,
+            r_length: 32,
+        },
+        Reloc::MachoArm64RelocPointerToGot => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_POINTER_TO_GOT,
+            r_pcrel: true,
+            r_length: 32,
+        },
+        Reloc::MachoArm64RelocTlvpLoadPage21 => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_TLVP_LOAD_PAGE21,
+            r_pcrel: true,
+            r_length: 32,
+        },
+        Reloc::MachoArm64RelocTlvpLoadPageoff12 => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_TLVP_LOAD_PAGEOFF12,
+            r_pcrel: true,
+            r_length: 32,
+        },
+        Reloc::MachoArm64RelocAddend => RelocationFlags::MachO {
+            r_type: macho::ARM64_RELOC_ADDEND,
+            r_pcrel: false,
+            r_length: 32,
+        },
+        // For RISC-V relocations, please refer to:
+        // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/2484f950a551c653f1823f1bd11926bf5a57fae3/riscv-elf.adoc#relocations
+        Reloc::RiscvPCRelHi20 => RelocationFlags::Elf {
+            r_type: elf::R_RISCV_PCREL_HI20,
+        },
+        Reloc::RiscvPCRelLo12I => RelocationFlags::Elf {
+            r_type: elf::R_RISCV_PCREL_LO12_I,
+        },
+        Reloc::RiscvCall => RelocationFlags::Elf {
+            r_type: elf::R_RISCV_CALL_PLT,
+        },
+        other => {
+            return Err(CompileError::Codegen(format!(
+                "{} (relocation: {other:?}) is not supported",
+                triple.architecture
+            )));
+        }
+    })
 }
 
 impl Compiler for CraneliftCompiler {
@@ -637,7 +944,7 @@ impl Compiler for CraneliftCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
-        _serializable: SerializableModule,
+        serializable: SerializableModule,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -645,11 +952,11 @@ impl Compiler for CraneliftCompiler {
         self.compile_module_internal(
             target,
             compile_info,
+            serializable,
             module_translation_state,
             function_body_inputs,
             progress_callback,
-        );
-        todo!();
+        )
     }
 }
 

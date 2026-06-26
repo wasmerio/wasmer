@@ -7506,6 +7506,7 @@ dependencies = [
  "itertools 0.15.0",
  "leb128",
  "more-asserts",
+ "object 0.39.1",
  "rayon",
  "regalloc2",
  "serde",
