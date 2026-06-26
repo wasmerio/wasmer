@@ -91,13 +91,13 @@ impl PackageTree {
 fn print_dependencies(graph: &DependencyGraph, package_id: &PackageId, prefix: &str) {
     let dependencies = dependency_edges(graph, package_id);
 
-    for (index, (alias, dependency, resolved_id)) in dependencies.iter().enumerate() {
+    for (index, (_alias, dependency, resolved_id)) in dependencies.iter().enumerate() {
         let is_last = index + 1 == dependencies.len();
         let connector = if is_last { "`-- " } else { "|-- " };
 
         println!(
             "{prefix}{connector}{}",
-            format_dependency(alias, dependency, resolved_id)
+            format_dependency(dependency, resolved_id)
         );
 
         let child_prefix = if is_last { "    " } else { "|   " };
@@ -138,7 +138,7 @@ fn format_root(specified: &PackageSource, resolved_id: &PackageId) -> String {
     }
 }
 
-fn format_dependency(alias: &str, dependency: &Dependency, resolved_id: &PackageId) -> String {
+fn format_dependency(dependency: &Dependency, resolved_id: &PackageId) -> String {
     if let (PackageSource::Ident(PackageIdent::Named(specified)), PackageId::Named(resolved)) =
         (&dependency.pkg, resolved_id)
         && specified.full_name() == resolved.full_name
@@ -149,28 +149,21 @@ fn format_dependency(alias: &str, dependency: &Dependency, resolved_id: &Package
             .map_or("*".to_string(), |tag| tag.to_string());
 
         if is_fixed_to_resolved(&dependency.pkg, resolved_id) {
-            return format!(
-                "{alias}: {}@{specified_version}",
-                aliased_package_name(alias, &specified.full_name())
-            );
+            return format!("{}@{specified_version}", specified.full_name());
         }
 
         return format!(
-            "{alias}: {}@{specified_version}=>{}",
-            aliased_package_name(alias, &specified.full_name()),
+            "{}@{specified_version}=>{}",
+            specified.full_name(),
             resolved.version
         );
     }
 
     if is_fixed_to_resolved(&dependency.pkg, resolved_id) {
-        format!("{alias}: {}", dependency.pkg)
+        dependency.pkg.to_string()
     } else {
-        format!("{alias}: {} -> {resolved_id}", dependency.pkg)
+        format!("{} -> {resolved_id}", dependency.pkg)
     }
-}
-
-fn aliased_package_name<'a>(alias: &str, full_name: &'a str) -> &'a str {
-    if alias == full_name { "" } else { full_name }
 }
 
 fn is_fixed_to_resolved(specified: &PackageSource, resolved_id: &PackageId) -> bool {
@@ -198,7 +191,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn format_dependency_includes_package_name_for_aliases() {
+    fn format_dependency_never_includes_aliases() {
         let dependency = Dependency {
             alias: "logger".to_string(),
             pkg: PackageSource::from(
@@ -212,8 +205,8 @@ mod tests {
         let resolved_id = PackageId::new_named("wasmer/log", "1.2.3".parse().unwrap());
 
         assert_eq!(
-            format_dependency("logger", &dependency, &resolved_id),
-            "logger: wasmer/log@^1=>1.2.3"
+            format_dependency(&dependency, &resolved_id),
+            "wasmer/log@^1=>1.2.3"
         );
     }
 }
