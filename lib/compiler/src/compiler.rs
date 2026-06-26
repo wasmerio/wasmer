@@ -8,6 +8,7 @@ use std::thread;
 use std::time::Duration;
 
 use crate::progress::ProgressContext;
+use crate::serialize::SerializableModule;
 use crate::types::module::CompileModuleInfo;
 use crate::{
     FunctionBodyData, ModuleTranslationState,
@@ -179,12 +180,12 @@ pub trait Compiler: Send + std::fmt::Debug {
         &self,
         target: &Target,
         module: &CompileModuleInfo,
-        compile_info_blob: Vec<u8>,
+        serializable: SerializableModule,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<NamedTempFile, CompileError>;
+    ) -> Result<(NamedTempFile, SerializableModule), CompileError>;
 
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];

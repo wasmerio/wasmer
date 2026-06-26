@@ -43,6 +43,7 @@ use tempfile::NamedTempFile;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 
 use wasmer_compiler::progress::ProgressContext;
+use wasmer_compiler::serialize::SerializableModule;
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::{section::SectionIndex, unwind::CompiledFunctionUnwindInfo};
 use wasmer_compiler::{
@@ -636,11 +637,11 @@ impl Compiler for CraneliftCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
-        compile_info_blob: Vec<u8>,
+        _serializable: SerializableModule,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<NamedTempFile, CompileError> {
+    ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
         self.compile_module_internal(
             target,
             compile_info,

@@ -12,9 +12,7 @@ use dynasmrt::{
     AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
     aarch64::Aarch64Relocation,
 };
-use wasmer_compiler::types::{
-    function::FunctionBody,
-};
+use wasmer_compiler::types::function::FunctionBody;
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, Type, VMOffsets, target::CallingConvention,
 };

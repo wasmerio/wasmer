@@ -30,6 +30,7 @@ use wasmer_compiler::{
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
+    serialize::SerializableModule,
     types::{
         function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
         module::CompileModuleInfo,
@@ -65,10 +66,10 @@ impl SinglepassCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
-        compile_info_blob: Vec<u8>,
+        mut serializable: SerializableModule,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<NamedTempFile, CompileError> {
+    ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
         let arch = target.triple().architecture;
         match arch {
             Architecture::X86_64 => {}
@@ -134,7 +135,7 @@ impl SinglepassCompiler {
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect();
-        let object_files = function_body_inputs
+        let compiled_functions = function_body_inputs
             .iter()
             .collect_vec()
             .into_par_iter()
@@ -240,6 +241,14 @@ impl SinglepassCompiler {
                 Ok(res)
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
+        let function_max_stack_usage = compiled_functions
+            .iter()
+            .map(|(_, maximum_stack_usage)| *maximum_stack_usage)
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+        let object_files = compiled_functions
+            .into_iter()
+            .map(|(path, _)| path)
+            .collect_vec();
 
         let save_object = |obj: object::write::Object<'static>,
                            filename: String|
@@ -398,7 +407,12 @@ impl SinglepassCompiler {
             .tempfile()
             .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
 
-        emit_metadata_and_link(
+        serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
+        let compile_info_blob = serializable
+            .serialize()
+            .map_err(|e| CompileError::Codegen(format!("cannot serialize SerializeModule: {e}")))?;
+
+        let module_file = emit_metadata_and_link(
             target,
             compile_info_blob,
             build_directory.path(),
@@ -414,7 +428,8 @@ impl SinglepassCompiler {
                 .as_ref()
                 .map(|callbacks| callbacks.debug_dir.clone()),
             module_hash,
-        )
+        )?;
+        Ok((module_file, serializable))
     }
 }
 
@@ -438,11 +453,11 @@ impl Compiler for SinglepassCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
-        compile_info_blob: Vec<u8>,
+        serializable: SerializableModule,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<NamedTempFile, CompileError> {
+    ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
         let num_threads = self.config.num_threads.get();
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
@@ -455,7 +470,7 @@ impl Compiler for SinglepassCompiler {
             self.compile_module_internal(
                 target,
                 compile_info,
-                compile_info_blob,
+                serializable,
                 function_body_inputs,
                 progress_callback,
             )
@@ -481,6 +496,7 @@ mod tests {
 
     fn dummy_compilation_ingredients<'a>() -> (
         CompileModuleInfo,
+        SerializableModule,
         ModuleTranslationState,
         PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
     ) {
@@ -489,10 +505,21 @@ mod tests {
             module: Arc::new(ModuleInfo::new()),
             memory_styles: PrimaryMap::<MemoryIndex, MemoryStyle>::new(),
             table_styles: PrimaryMap::<TableIndex, TableStyle>::new(),
+            function_max_stack_usage: PrimaryMap::<LocalFunctionIndex, Option<usize>>::new(),
+        };
+        let serializable = SerializableModule {
+            compile_info: compile_info.clone(),
+            data_initializers: Box::new([]),
+            cpu_features: 0,
         };
         let module_translation = ModuleTranslationState::new();
         let function_body_inputs = PrimaryMap::<LocalFunctionIndex, FunctionBodyData<'_>>::new();
-        (compile_info, module_translation, function_body_inputs)
+        (
+            compile_info,
+            serializable,
+            module_translation,
+            function_body_inputs,
+        )
     }
 
     #[test]
@@ -501,8 +528,9 @@ mod tests {
 
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
-        let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&linux32, &info, vec![], &translation, inputs, None);
+        let (info, serializable, translation, inputs) = dummy_compilation_ingredients();
+        let result =
+            compiler.compile_module(&linux32, &info, serializable, &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
             error => panic!("Unexpected error: {error:?}"),
@@ -510,8 +538,9 @@ mod tests {
 
         // Compile for win32
         let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
-        let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win32, &info, vec![], &translation, inputs, None);
+        let (info, serializable, translation, inputs) = dummy_compilation_ingredients();
+        let result =
+            compiler.compile_module(&win32, &info, serializable, &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {error:?}"),

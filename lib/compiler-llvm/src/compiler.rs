@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tempfile::NamedTempFile;
 use tempfile::tempdir;
 use wasmer_compiler::progress::ProgressContext;
+use wasmer_compiler::serialize::SerializableModule;
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::{
     CompiledObjects, WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE,
@@ -74,11 +75,11 @@ impl Compiler for LLVMCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
-        compile_info_blob: Vec<u8>,
+        mut serializable: SerializableModule,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<NamedTempFile, CompileError> {
+    ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
         let module_file = tempfile::Builder::new()
             .prefix("wasmer-image")
             .suffix(".so")
@@ -232,6 +233,14 @@ impl Compiler for LLVMCompiler {
                 .collect::<Result<Vec<_>, CompileError>>()
         }?;
 
+        serializable.compile_info.function_max_stack_usage =
+            (0..object_files.len())
+                .map(|_| None)
+                .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>();
+        let compile_info_blob = serializable
+            .serialize()
+            .map_err(|e| CompileError::Codegen(format!("cannot serialize SerializeModule: {e}")))?;
+
         let result = emit_metadata_and_link(
             target,
             compile_info_blob,
@@ -250,7 +259,7 @@ impl Compiler for LLVMCompiler {
             module.hash().map(|hash| hash.to_string()),
         )?;
 
-        Ok(result)
+        Ok((result, serializable))
     }
 
     fn with_opts(

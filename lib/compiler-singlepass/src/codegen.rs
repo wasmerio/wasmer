@@ -5921,7 +5921,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         mut self,
         data: &FunctionBodyData,
         arch: Architecture,
-    ) -> Result<PathBuf, CompileError> {
+    ) -> Result<(PathBuf, Option<usize>), CompileError> {
         self.finish_address_map();
         self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
         // Generate actual code for special labels.
@@ -6136,7 +6136,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.object_path.display(),
             ))
         })?;
-        Ok(self.object_path)
+        Ok((self.object_path, Some(self.stack_offset.maximum_offset)))
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

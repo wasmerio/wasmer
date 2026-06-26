@@ -129,6 +129,7 @@ impl ArtifactBuild {
             features,
             memory_styles,
             table_styles,
+            function_max_stack_usage: PrimaryMap::new(),
         };
         let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
         let data_initializers = translation
@@ -142,16 +143,13 @@ impl ArtifactBuild {
             data_initializers,
             cpu_features: cpu_features.as_u64(),
         };
+        let compile_info = serializable.compile_info.clone();
 
         // Compile the Module
-        let module_file = compiler.compile_module(
+        let (module_file, serializable) = compiler.compile_module(
             target,
-            &serializable.compile_info,
-            rkyv::to_bytes::<rkyv::rancor::Error>(&serializable)
-                .map(|bytes| bytes.into_vec())
-                .map_err(|e| {
-                    CompileError::Codegen(format!("cannot serialize SerializeModule: {e}"))
-                })?,
+            &compile_info,
+            serializable,
             // SAFETY: Calling `unwrap` is correct since
             // `environ.translate()` above will write some data into
             // `module_translation_state`.
@@ -769,6 +767,21 @@ impl Artifact {
         Some(allocated.function_extents().into_iter().collect())
     }
 
+    /// Return the maximum stack size used for each function (available only for the Singlepass compiler).
+    pub fn finished_functions_max_stack_usage(
+        &self,
+    ) -> Option<Vec<(LocalFunctionIndex, Option<usize>)>> {
+        self.allocated.as_ref()?;
+        Some(
+            self.serializable
+                .compile_info
+                .function_max_stack_usage
+                .iter()
+                .map(|(index, stack_usage)| (index, *stack_usage))
+                .collect(),
+        )
+    }
+
     /// Returns the function call trampolines allocated in memory of this
     /// `Artifact`, ready to be run.
     pub fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
@@ -968,6 +981,7 @@ impl Artifact {
             features: features.clone(),
             memory_styles,
             table_styles,
+            function_max_stack_usage: PrimaryMap::new(),
         };
         Ok((
             compile_info,
