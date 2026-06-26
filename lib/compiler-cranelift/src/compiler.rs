@@ -12,11 +12,12 @@ use crate::{
     },
     translator::{
         FuncTranslator, compiled_function_unwind_info, irlibcall_to_libcall,
-        irreloc_to_relocationkind, signature_to_cranelift_ir,
+        signature_to_cranelift_ir,
     },
 };
 use cranelift_codegen::{
     Context, FinalizedMachReloc, FinalizedRelocTarget, MachTrap,
+    binemit::Reloc,
     ir::{self, ExternalName, UserFuncName},
 };
 
@@ -55,21 +56,31 @@ use wasmer_compiler::{
     types::{
         function::FunctionBody,
         module::CompileModuleInfo,
-        relocation::{Relocation, RelocationKind as Reloc, RelocationTarget},
+        relocation::RelocationTarget,
     },
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{BinaryFormat, CallingConvention, Target, Triple};
 use wasmer_types::{
-    CompilationProgressCallback, CompileError, FunctionIndex, LibCall, LocalFunctionIndex,
-    ModuleInfo, SignatureIndex, TrapCode, TrapInformation, VMOffsets,
+    Addend, CodeOffset, CompilationProgressCallback, CompileError, FunctionIndex, LibCall,
+    LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode, TrapInformation, VMOffsets,
 };
+
+/// A relocation emitted by Cranelift for a compiled function body. The kind is
+/// kept as Cranelift's own [`Reloc`] so it can be mapped straight onto
+/// object-file relocation flags without an intermediate Wasmer enum.
+struct CraneliftRelocation {
+    kind: Reloc,
+    reloc_target: RelocationTarget,
+    offset: CodeOffset,
+    addend: Addend,
+}
 
 /// The result of compiling a single Wasm function: everything required to
 /// serialize it into its own relocatable object file.
 struct CraneliftCompiledFunction {
     body: Vec<u8>,
-    relocations: Vec<Relocation>,
+    relocations: Vec<CraneliftRelocation>,
     traps: Vec<TrapInformation>,
     address_map: FunctionAddressMap,
     #[cfg(feature = "unwind")]
@@ -789,7 +800,7 @@ fn emit_trampoline_object(
     Ok(obj)
 }
 
-/// Map a Wasmer relocation kind onto the corresponding object-file relocation flags.
+/// Map a Cranelift relocation kind onto the corresponding object-file relocation flags.
 fn relocation_to_flags(
     format: object::BinaryFormat,
     triple: &Triple,
@@ -807,7 +818,7 @@ fn relocation_to_flags(
             encoding: RelocationEncoding::Generic,
             size: 64,
         },
-        Reloc::PCRel4 => RelocationFlags::Generic {
+        Reloc::X86PCRel4 => RelocationFlags::Generic {
             kind: K::Relative,
             encoding: RelocationEncoding::Generic,
             size: 32,
@@ -845,61 +856,6 @@ fn relocation_to_flags(
         Reloc::ElfX86_64TlsGd => RelocationFlags::Elf {
             r_type: elf::R_X86_64_TLSGD,
         },
-        Reloc::MachoArm64RelocBranch26 => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_BRANCH26,
-            r_pcrel: true,
-            r_length: 32,
-        },
-        Reloc::MachoArm64RelocUnsigned => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_UNSIGNED,
-            r_pcrel: true,
-            r_length: 32,
-        },
-        Reloc::MachoArm64RelocSubtractor => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_SUBTRACTOR,
-            r_pcrel: false,
-            r_length: 64,
-        },
-        Reloc::MachoArm64RelocPage21 => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_PAGE21,
-            r_pcrel: true,
-            r_length: 32,
-        },
-        Reloc::MachoArm64RelocPageoff12 => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_PAGEOFF12,
-            r_pcrel: false,
-            r_length: 32,
-        },
-        Reloc::MachoArm64RelocGotLoadPage21 => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_GOT_LOAD_PAGE21,
-            r_pcrel: true,
-            r_length: 32,
-        },
-        Reloc::MachoArm64RelocGotLoadPageoff12 => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
-            r_pcrel: true,
-            r_length: 32,
-        },
-        Reloc::MachoArm64RelocPointerToGot => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_POINTER_TO_GOT,
-            r_pcrel: true,
-            r_length: 32,
-        },
-        Reloc::MachoArm64RelocTlvpLoadPage21 => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_TLVP_LOAD_PAGE21,
-            r_pcrel: true,
-            r_length: 32,
-        },
-        Reloc::MachoArm64RelocTlvpLoadPageoff12 => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_TLVP_LOAD_PAGEOFF12,
-            r_pcrel: true,
-            r_length: 32,
-        },
-        Reloc::MachoArm64RelocAddend => RelocationFlags::MachO {
-            r_type: macho::ARM64_RELOC_ADDEND,
-            r_pcrel: false,
-            r_length: 32,
-        },
         // For RISC-V relocations, please refer to:
         // https://github.com/riscv-non-isa/riscv-elf-psabi-doc/blob/2484f950a551c653f1823f1bd11926bf5a57fae3/riscv-elf.adoc#relocations
         Reloc::RiscvPCRelHi20 => RelocationFlags::Elf {
@@ -908,7 +864,7 @@ fn relocation_to_flags(
         Reloc::RiscvPCRelLo12I => RelocationFlags::Elf {
             r_type: elf::R_RISCV_PCREL_LO12_I,
         },
-        Reloc::RiscvCall => RelocationFlags::Elf {
+        Reloc::RiscvCallPlt => RelocationFlags::Elf {
             r_type: elf::R_RISCV_CALL_PLT,
         },
         other => {
@@ -964,7 +920,7 @@ fn mach_reloc_to_reloc(
     module: &ModuleInfo,
     func_index_map: &cranelift_entity::PrimaryMap<ir::UserExternalNameRef, ir::UserExternalName>,
     reloc: &FinalizedMachReloc,
-) -> Relocation {
+) -> CraneliftRelocation {
     let FinalizedMachReloc {
         offset,
         kind,
@@ -990,8 +946,8 @@ fn mach_reloc_to_reloc(
     } else {
         panic!("unrecognized external target")
     };
-    Relocation {
-        kind: irreloc_to_relocationkind(*kind),
+    CraneliftRelocation {
+        kind: *kind,
         reloc_target,
         offset: *offset,
         addend: *addend,

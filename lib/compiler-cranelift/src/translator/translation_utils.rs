@@ -3,15 +3,11 @@
 use crate::func_environ::FuncEnvironment;
 use crate::translator::EXN_REF_TYPE;
 use cranelift_codegen::{
-    binemit::Reloc,
     ir::{self, AbiParam},
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
-use wasmer_compiler::{
-    types::relocation::RelocationKind,
-    wasmparser::{self, RefType},
-};
+use wasmer_compiler::wasmparser::{self, RefType};
 use wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 
 /// Helper function translate a Function signature into Cranelift Ir
@@ -70,21 +66,6 @@ pub fn irlibcall_to_libcall(libcall: ir::LibCall) -> LibCall {
         ir::LibCall::NearestF32 => LibCall::NearestF32,
         ir::LibCall::NearestF64 => LibCall::NearestF64,
         _ => panic!("Unsupported libcall"),
-    }
-}
-
-/// Transform Cranelift Reloc to compiler Relocation
-pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
-    match reloc {
-        Reloc::Abs4 => RelocationKind::Abs4,
-        Reloc::Abs8 => RelocationKind::Abs8,
-        Reloc::X86PCRel4 => RelocationKind::PCRel4,
-        Reloc::X86CallPCRel4 => RelocationKind::X86CallPCRel4,
-        Reloc::X86CallPLTRel4 => RelocationKind::X86CallPLTRel4,
-        Reloc::X86GOTPCRel4 => RelocationKind::X86GOTPCRel4,
-        Reloc::Arm64Call => RelocationKind::Arm64Call,
-        Reloc::RiscvCallPlt => RelocationKind::RiscvCall,
-        _ => panic!("The relocation {reloc} is not yet supported."),
     }
 }
 
