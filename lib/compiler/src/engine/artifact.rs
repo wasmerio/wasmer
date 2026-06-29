@@ -2,6 +2,7 @@
 //! to allow compiling and instantiating to be done as separate steps.
 
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use std::{
     ffi::c_void,
     fs::File,
@@ -19,17 +20,13 @@ use crate::types::symbols::ModuleMetadata;
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use crate::{
-    Engine, EngineInner, FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration,
-    InstantiationError, Tunables, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
-    WASMER_MODULE_INFO_SECTION_NAME, WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME,
-    WASMER_TRAPS_SECTION_NAME,
+    Engine, EngineInner, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
+    WASMER_FUNCTION_OFFSETS_SECTION_NAME, WASMER_MODULE_INFO_SECTION_NAME,
+    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{mapped_binary::MemoryMappedBinary, resolver::resolve_tags},
     register_frame_info, resolve_imports,
     serialize::SerializableModule,
-    types::{
-        address_map::{FunctionAddressMap, InstructionAddressMap},
-        function::CompiledFunctionFrameInfo,
-    },
+    types::address_map::{FunctionAddressMap, InstructionAddressMap},
 };
 use itertools::Itertools;
 use object::{Object, ObjectSection, ReadCache};
@@ -189,7 +186,6 @@ pub struct AllocatedArtifact {
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 
     /// Per-function frame info for backtrace symbolication.
-    frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
     trap_infos: PrimaryMap<LocalFunctionIndex, Vec<TrapInformation>>,
 
     // This shows if the frame info has been registered already or not.
@@ -338,30 +334,6 @@ impl AllocatedArtifact {
                 .collect::<PrimaryMap<LocalFunctionIndex, _>>()
         };
 
-        // Build trivial frame info per function (LLVM doesn't emit per-instruction
-        // source maps, so we use default SourceLoc values).
-        let frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo> =
-            local_fn_offsets
-                .iter()
-                .enumerate()
-                .map(|(i, _offset)| {
-                    let len = local_fn_sizes[i];
-                    CompiledFunctionFrameInfo {
-                        address_map: FunctionAddressMap {
-                            instructions: vec![InstructionAddressMap {
-                                srcloc: SourceLoc::default(),
-                                code_offset: 0,
-                                code_len: len,
-                            }],
-                            start_srcloc: SourceLoc::default(),
-                            end_srcloc: SourceLoc::default(),
-                            body_offset: 0,
-                            body_len: len,
-                        },
-                        traps: vec![],
-                    }
-                })
-                .collect();
         let base = memory_map.base();
         Ok(Self {
             finished_functions: local_fn_offsets
@@ -382,7 +354,6 @@ impl AllocatedArtifact {
                 .collect::<PrimaryMap<_, _>>()
                 .into_boxed_slice(),
             finished_function_lengths: PrimaryMap::from_iter(local_fn_sizes).into_boxed_slice(),
-            frame_infos,
             trap_infos,
             frame_info_registered: false,
             frame_info_registration: None,
@@ -721,17 +692,13 @@ impl Artifact {
         }
 
         let finished_function_extents = allocated.function_extents().into_boxed_slice();
-
-        let frame_infos = FrameInfosVariant::Owned(std::mem::take(&mut allocated.frame_infos));
         let trap_infos = std::mem::take(&mut allocated.trap_infos).into_boxed_slice();
 
         allocated.frame_info_registration = register_frame_info(
             module_info,
             &finished_function_extents,
-            frame_infos,
             trap_infos,
             allocated._memory_map.base() as usize,
-            #[cfg(target_os = "linux")]
             allocated.debug_info.clone(),
         );
 

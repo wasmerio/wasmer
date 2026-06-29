@@ -21,25 +21,7 @@ use rkyv::{
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::{LocalFunctionIndex, TrapInformation, entity::PrimaryMap};
-
-/// The frame info for a Compiled function.
-///
-/// This structure is only used for reconstructing
-/// the frame information after a `Trap`.
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq, Default)]
-#[rkyv(derive(Debug))]
-pub struct CompiledFunctionFrameInfo {
-    /// The traps (in the function body).
-    ///
-    /// Code offsets of the traps MUST be in ascending order.
-    pub traps: Vec<TrapInformation>,
-
-    /// The address map.
-    pub address_map: FunctionAddressMap,
-}
+use wasmer_types::{LocalFunctionIndex, entity::PrimaryMap};
 
 /// The function body.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
@@ -102,9 +84,6 @@ impl<'a> FunctionBodyLike<'a> for ArchivedFunctionBody {
 pub struct CompiledFunction {
     /// The function body.
     pub body: FunctionBody,
-
-    /// The frame information.
-    pub frame_info: CompiledFunctionFrameInfo,
 
     /// The maximum stack allocation directly connected to the function itself
     /// if tracked (does not include any potential function calls).

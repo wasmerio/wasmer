@@ -12,7 +12,6 @@
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 
-use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunctionFrameInfo};
 use addr2line::Loader;
 use std::collections::BTreeMap;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard, RwLock};
@@ -58,19 +57,11 @@ struct ModuleInfoFrameInfo {
     image_base: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<ModuleInfo>,
-    frame_infos: FrameInfosVariant,
     trap_infos: BoxedSlice<LocalFunctionIndex, Vec<TrapInformation>>,
     debug_info: Arc<Mutex<addr2line::Loader>>,
 }
 
 impl ModuleInfoFrameInfo {
-    fn function_debug_info(
-        &self,
-        local_index: LocalFunctionIndex,
-    ) -> CompiledFunctionFrameInfoVariant<'_> {
-        self.frame_infos.get(local_index).unwrap()
-    }
-
     /// Gets a function given a pc
     fn function_info(&self, pc: usize) -> Option<&FunctionInfo> {
         let (end, func) = self.functions.range(pc..).next()?;
@@ -90,14 +81,9 @@ impl ModuleInfoFrameInfo {
                 .binary_search_by_key(&rel_pos, |info| info.code_offset)
                 .ok()?;
             return Some(traps[idx]);
+        } else {
+            None
         }
-
-        let debug_info = self.function_debug_info(func.local_index);
-        let traps = debug_info.traps();
-        let idx = traps
-            .binary_search_by_key(&rel_pos, |info| info.code_offset)
-            .ok()?;
-        Some(traps[idx])
     }
 }
 
@@ -198,52 +184,6 @@ pub struct FunctionExtent {
     pub length: usize,
 }
 
-/// The variant of the frame information which can be an owned type
-/// or the explicit framed map
-#[derive(Debug)]
-pub enum FrameInfosVariant {
-    /// Owned frame infos
-    Owned(PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>),
-    /// Archived frame infos
-    Archived(()),
-}
-
-impl FrameInfosVariant {
-    /// Gets the frame info for a given local function index
-    pub fn get(&self, index: LocalFunctionIndex) -> Option<CompiledFunctionFrameInfoVariant<'_>> {
-        match self {
-            Self::Owned(map) => map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
-            Self::Archived(_archive) => {
-                unimplemented!("Archived frame info not yet supported in ELF path")
-            }
-        }
-    }
-}
-
-/// The variant of the compiled function frame info which can be an owned type
-#[derive(Debug)]
-pub enum CompiledFunctionFrameInfoVariant<'a> {
-    /// A reference to the frame info
-    Ref(&'a CompiledFunctionFrameInfo),
-    /// An archived frame info
-    Archived(&'a ArchivedCompiledFunctionFrameInfo),
-}
-
-impl CompiledFunctionFrameInfoVariant<'_> {
-    /// Gets the traps for the frame info
-    pub fn traps(&self) -> VecTrapInformationVariant<'_> {
-        match self {
-            CompiledFunctionFrameInfoVariant::Ref(info) => {
-                VecTrapInformationVariant::Ref(&info.traps)
-            }
-            CompiledFunctionFrameInfoVariant::Archived(info) => {
-                let traps = rkyv::deserialize::<_, rkyv::rancor::Error>(&info.traps).unwrap();
-                VecTrapInformationVariant::Owned(traps)
-            }
-        }
-    }
-}
-
 /// The variant of the trap information which can be an owned type
 #[derive(Debug)]
 pub enum VecTrapInformationVariant<'a> {
@@ -272,7 +212,6 @@ impl Deref for VecTrapInformationVariant<'_> {
 pub fn register(
     module: Arc<ModuleInfo>,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
-    frame_infos: FrameInfosVariant,
     trap_infos: BoxedSlice<LocalFunctionIndex, Vec<TrapInformation>>,
     image_base: usize,
     #[cfg(target_os = "linux")] debug_info: Arc<Mutex<addr2line::Loader>>,
@@ -321,7 +260,6 @@ pub fn register(
             image_base,
             functions,
             module,
-            frame_infos,
             trap_infos,
             #[cfg(target_os = "linux")]
             debug_info,
