@@ -10,13 +10,7 @@ mod compile;
 mod config;
 mod connect;
 mod container;
-#[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-mod create_exe;
-#[cfg(feature = "static-artifact-create")]
-mod create_obj;
 pub(crate) mod domain;
-#[cfg(feature = "static-artifact-create")]
-mod gen_c_header;
 mod gen_completions;
 mod gen_manpage;
 mod init;
@@ -35,19 +29,7 @@ use itertools::Itertools;
 use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
 
-#[cfg(target_os = "linux")]
-pub use binfmt::*;
-use clap::{CommandFactory, Parser};
-#[cfg(feature = "compiler")]
-pub use compile::*;
-#[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-pub use create_exe::*;
-#[cfg(feature = "wast")]
-pub use wast::*;
 #[cfg(feature = "static-artifact-create")]
-#[allow(unused_imports)]
-pub use {create_obj::*, gen_c_header::*};
-
 #[cfg(feature = "journal")]
 pub use self::journal::*;
 pub use self::{
@@ -55,7 +37,14 @@ pub use self::{
     publish::*, run::Run, self_update::*, validate::*,
 };
 use crate::error::PrettyError;
+#[cfg(target_os = "linux")]
+pub use binfmt::*;
+use clap::{CommandFactory, Parser};
+#[cfg(feature = "compiler")]
+pub use compile::*;
 use git_version::git_version;
+#[cfg(feature = "wast")]
+pub use wast::*;
 
 /// An executable CLI command.
 pub(crate) trait CliCommand {
