@@ -5,7 +5,11 @@ use fixedbitset::FixedBitSet;
 #[cfg(feature = "unwind")]
 use gimli::{RiscV, write::CallFrameInstruction};
 
-use object::write::{Object, SymbolId};
+use object::{
+    RelocationFlags,
+    elf::R_RISCV_CALL,
+    write::{Object, Relocation, StandardSection, SymbolId},
+};
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64, types::function::FunctionBody, wasmparser::MemArg,
 };
@@ -4219,19 +4223,25 @@ impl Machine for MachineRiscv {
         reloc_target: SymbolId,
         object: &mut Object<'static>,
     ) -> Result<(), CompileError> {
-        todo!()
-        // let mut relocations = vec![];
-        // let next = self.get_label();
-        // let reloc_at = self.assembler.get_offset().0;
-        // self.emit_label(next)?; // this is to be sure the current imm26 value is 0
-        // self.assembler.emit_call_label(next)?;
-        // relocations.push(Relocation {
-        //     kind: RelocationKind::RiscvCall,
-        //     reloc_target,
-        //     offset: reloc_at as u32,
-        //     addend: 0,
-        // });
-        // Ok(relocations)
+        let next = self.get_label();
+        let reloc_at = self.assembler.get_offset().0;
+        self.emit_label(next)?; // this is to be sure the current imm26 value is 0
+        self.assembler.emit_call_label(next)?;
+
+        let section = object.section_id(StandardSection::Text);
+        object
+            .add_relocation(
+                section,
+                Relocation {
+                    symbol: reloc_target,
+                    flags: RelocationFlags::Elf {
+                        r_type: R_RISCV_CALL,
+                    },
+                    offset: reloc_at as u64,
+                    addend: 0,
+                },
+            )
+            .map_err(|e| CompileError::Codegen(format!("failed to add call relocation: {e}")))
     }
 
     fn emit_binop_add64(

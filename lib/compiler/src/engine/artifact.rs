@@ -20,6 +20,8 @@ use crate::ModuleEnvironment;
 use crate::types::module::CompileModuleInfo;
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::types::symbols::ModuleMetadata;
+#[cfg(feature = "static-artifact-create")]
+use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use crate::{
     Engine, EngineInner, FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration,
     InstantiationError, Tunables, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
@@ -37,6 +39,8 @@ use itertools::Itertools;
 use object::{Object, ObjectSection, ReadCache};
 
 use tempfile::NamedTempFile;
+#[cfg(feature = "static-artifact-create")]
+use wasmer_types::Features;
 use wasmer_types::{
     CompilationProgressCallback, CompileError, DataInitializer, DeserializeError, FunctionIndex,
     LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializeError,

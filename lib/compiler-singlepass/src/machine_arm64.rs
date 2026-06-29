@@ -4675,8 +4675,7 @@ impl Machine for MachineARM64 {
                     addend: 0,
                 },
             )
-            .map_err(|e| CompileError::Codegen(format!("failed to add call relocation: {e}")))?;
-        Ok(())
+            .map_err(|e| CompileError::Codegen(format!("failed to add call relocation: {e}")))
     }
 
     fn emit_binop_add64(
