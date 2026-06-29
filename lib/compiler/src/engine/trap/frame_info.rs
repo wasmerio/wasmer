@@ -14,7 +14,6 @@
 
 use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunctionFrameInfo};
 use addr2line::Loader;
-use rkyv::rancor::Source;
 use std::collections::BTreeMap;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard, RwLock};
 use wasmer_types::lib::std::{cmp, ops::Deref};
