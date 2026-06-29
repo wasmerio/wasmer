@@ -231,7 +231,7 @@ impl Mmap {
     /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
     /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
     /// must be native page-size multiples.
-    #[cfg(target_os = "windows")]
+    #[cfg(all(not(feature = "baremetal"), target_os = "windows"))]
     pub fn accessible_reserved(
         accessible_size: usize,
         mapping_size: usize,
@@ -322,7 +322,7 @@ impl Mmap {
     /// Make the memory starting at `start` and extending for `len` bytes accessible.
     /// `start` and `len` must be native page-size multiples and describe a range within
     /// `self`'s reserved memory.
-    #[cfg(target_os = "windows")]
+    #[cfg(all(not(feature = "baremetal"), target_os = "windows"))]
     pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
         use std::ffi::c_void;
         use windows_sys::Win32::System::Memory::{MEM_COMMIT, PAGE_READWRITE, VirtualAlloc};
@@ -464,7 +464,7 @@ impl Drop for Mmap {
         }
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(all(not(feature = "baremetal"), target_os = "windows"))]
     fn drop(&mut self) {
         if !self.is_empty() {
             use std::ffi::c_void;
