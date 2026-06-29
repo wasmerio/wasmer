@@ -1,18 +1,14 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-#[cfg(target_os = "linux")]
-use std::sync::{Arc as StdArc, Mutex};
+use std::sync::{Arc, Mutex};
 use std::{
     ffi::c_void,
     fs::File,
     io::{self, BufReader, Read, Seek, SeekFrom},
     os::fd::AsRawFd,
     path::Path,
-    sync::{
-        Arc,
-        atomic::{AtomicUsize, Ordering::SeqCst},
-    },
+    sync::atomic::{AtomicUsize, Ordering::SeqCst},
 };
 
 #[cfg(feature = "compiler")]
@@ -221,8 +217,7 @@ pub struct AllocatedArtifact {
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
 
-    #[cfg(target_os = "linux")]
-    debug_info: Option<StdArc<Mutex<addr2line::Loader>>>,
+    debug_info: Arc<Mutex<addr2line::Loader>>,
 
     // Compiled executable mmapped into memory.
     _memory_map: MemoryMappedBinary,
@@ -237,8 +232,8 @@ impl AllocatedArtifact {
         let module_file_fd = module_file.as_raw_fd();
         #[cfg(target_os = "linux")]
         let debug_info = addr2line::Loader::new(format!("/proc/self/fd/{module_file_fd}"))
-            .map(|loader| StdArc::new(Mutex::new(loader)))
-            .ok();
+            .map(|loader| Arc::new(Mutex::new(loader)))
+            .map_err(|e| format!("cannot parse debug info from an artifact file: {e}"))?;
         module_file
             .seek(io::SeekFrom::Start(0))
             .map_err(|e| format!("cannot seek artifact file: {e}"))?;

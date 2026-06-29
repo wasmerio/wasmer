@@ -59,8 +59,7 @@ struct ModuleInfoFrameInfo {
     module: Arc<ModuleInfo>,
     frame_infos: FrameInfosVariant,
     trap_infos: BoxedSlice<LocalFunctionIndex, Vec<TrapInformation>>,
-    #[cfg(target_os = "linux")]
-    debug_info: Option<Arc<Mutex<addr2line::Loader>>>,
+    debug_info: Arc<Mutex<addr2line::Loader>>,
 }
 
 impl ModuleInfoFrameInfo {
@@ -123,9 +122,7 @@ impl GlobalFrameInfo {
         let mut function_name = module.module.function_names.get(&func_index).cloned();
 
         let mut instr = SourceLoc::default();
-        if let Some(debug_info) = &module.debug_info
-            && let Ok(debug_info) = debug_info.lock()
-        {
+        if let Ok(debug_info) = module.debug_info.lock() {
             let probe = (pc - module.image_base) as u64;
             if let Ok(Some(location)) = debug_info.find_location(probe)
                 && let Some(line) = location.line
@@ -268,7 +265,7 @@ pub fn register(
     frame_infos: FrameInfosVariant,
     trap_infos: BoxedSlice<LocalFunctionIndex, Vec<TrapInformation>>,
     image_base: usize,
-    #[cfg(target_os = "linux")] debug_info: Option<Arc<Mutex<addr2line::Loader>>>,
+    #[cfg(target_os = "linux")] debug_info: Arc<Mutex<addr2line::Loader>>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::MAX;
     let mut max = 0;
