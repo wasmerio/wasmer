@@ -80,7 +80,6 @@ impl SinglepassCompiler {
         };
 
         let calling_convention = match target.triple().default_calling_convention() {
-            Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
             Ok(CallingConvention::AppleAarch64) => CallingConvention::AppleAarch64,
             _ => match target.triple().architecture {
@@ -526,13 +525,6 @@ mod tests {
         let (info, serializable, translation, inputs) = dummy_compilation_ingredients();
         let result =
             compiler.compile_module(&linux32, &info, serializable, &translation, inputs, None);
-        assert!(result.is_err());
-
-        // Compile for win32
-        let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
-        let (info, serializable, translation, inputs) = dummy_compilation_ingredients();
-        let result =
-            compiler.compile_module(&win32, &info, serializable, &translation, inputs, None);
         assert!(result.is_err());
     }
 

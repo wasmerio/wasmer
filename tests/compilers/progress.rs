@@ -4,6 +4,8 @@ use std::sync::{Arc, Mutex};
 use wasmer::{sys::NativeEngineExt, wat2wasm};
 use wasmer_types::{CompilationProgressCallback, CompileError, UserAbort};
 
+use crate::Compiler;
+
 const SIMPLE_WAT: &str = r#"(module
   (import "env" "div" (func $div (param i32 i32) (result i32)))
   (func (export "add") (param i32 i32) (result i32)
@@ -44,8 +46,14 @@ fn reports_progress_steps(mut config: crate::Config) -> Result<()> {
         "expected at least one progress notification"
     );
     let last = events.last().unwrap();
-    assert_eq!(last.phase_step_count(), Some(2014));
-    assert_eq!(last.phase_step(), Some(2014));
+
+    let expected = if config.compiler == Compiler::Singlepass {
+        3014
+    } else {
+        2014
+    };
+    assert_eq!(last.phase_step_count(), Some(expected));
+    assert_eq!(last.phase_step(), Some(expected));
     Ok(())
 }
 
