@@ -2,7 +2,6 @@
 //! to allow compiling and instantiating to be done as separate steps.
 
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
 use std::{
     ffi::c_void,
     fs::File,
@@ -26,7 +25,6 @@ use crate::{
     engine::{mapped_binary::MemoryMappedBinary, resolver::resolve_tags},
     register_frame_info, resolve_imports,
     serialize::SerializableModule,
-    types::address_map::{FunctionAddressMap, InstructionAddressMap},
 };
 use itertools::Itertools;
 use object::{Object, ObjectSection, ReadCache};
@@ -37,7 +35,7 @@ use wasmer_types::Features;
 use wasmer_types::{
     CompilationProgressCallback, CompileError, DataInitializer, DeserializeError, FunctionIndex,
     LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializeError,
-    SignatureIndex, SourceLoc, TableIndex, TrapCode, TrapInformation,
+    SignatureIndex, TableIndex, TrapCode, TrapInformation,
     entity::{BoxedSlice, EntityRef, PrimaryMap},
     target::{CpuFeature, Target},
 };

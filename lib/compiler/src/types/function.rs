@@ -9,12 +9,8 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
-use super::{
-    address_map::FunctionAddressMap,
-    unwind::{
-        ArchivedCompiledFunctionUnwindInfo, CompiledFunctionUnwindInfo,
-        CompiledFunctionUnwindInfoLike,
-    },
+use super::unwind::{
+    ArchivedCompiledFunctionUnwindInfo, CompiledFunctionUnwindInfo, CompiledFunctionUnwindInfoLike,
 };
 use rkyv::{
     Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize, option::ArchivedOption,

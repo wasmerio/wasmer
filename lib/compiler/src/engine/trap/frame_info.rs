@@ -15,10 +15,10 @@
 use addr2line::Loader;
 use std::collections::BTreeMap;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard, RwLock};
-use wasmer_types::lib::std::{cmp, ops::Deref};
+use wasmer_types::lib::std::cmp;
 use wasmer_types::{
     FrameInfo, LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
-    entity::{BoxedSlice, EntityRef, PrimaryMap},
+    entity::{BoxedSlice, EntityRef},
 };
 use wasmer_vm::FunctionBodyPtr;
 
@@ -80,7 +80,7 @@ impl ModuleInfoFrameInfo {
             let idx = traps
                 .binary_search_by_key(&rel_pos, |info| info.code_offset)
                 .ok()?;
-            return Some(traps[idx]);
+            Some(traps[idx])
         } else {
             None
         }
@@ -182,25 +182,6 @@ pub struct FunctionExtent {
     pub ptr: FunctionBodyPtr,
     /// Length in bytes.
     pub length: usize,
-}
-
-/// The variant of the trap information which can be an owned type
-#[derive(Debug)]
-pub enum VecTrapInformationVariant<'a> {
-    Ref(&'a Vec<TrapInformation>),
-    Owned(Vec<TrapInformation>),
-}
-
-// We need to implement it for the `Deref` in `wasmer_types` to support both `core` and `std`.
-impl Deref for VecTrapInformationVariant<'_> {
-    type Target = [TrapInformation];
-
-    fn deref(&self) -> &Self::Target {
-        match self {
-            VecTrapInformationVariant::Ref(traps) => traps,
-            VecTrapInformationVariant::Owned(traps) => traps,
-        }
-    }
 }
 
 /// Registers a new compiled module's frame information.
