@@ -13,8 +13,10 @@
 //! ```
 
 use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunctionFrameInfo};
+use addr2line::Loader;
+use rkyv::rancor::Source;
 use std::collections::BTreeMap;
-use std::sync::{Arc, LazyLock, Mutex, RwLock};
+use std::sync::{Arc, LazyLock, Mutex, MutexGuard, RwLock};
 use wasmer_types::lib::std::{cmp, ops::Deref};
 use wasmer_types::{
     FrameInfo, LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
@@ -121,15 +123,25 @@ impl GlobalFrameInfo {
         let func_index = module.module.func_index(func.local_index);
         let mut function_name = module.module.function_names.get(&func_index).cloned();
 
+        let get_line = |debug_info: &MutexGuard<Loader>, pc| {
+            if let Ok(Some(location)) = debug_info.find_location(pc)
+                && let Some(line) = location.line
+                && let Some(line) = line.checked_sub(1)
+            {
+                SourceLoc::new(line)
+            } else {
+                SourceLoc::default()
+            }
+        };
+
         let mut instr = SourceLoc::default();
+        let mut func_start = SourceLoc::default();
         if let Ok(debug_info) = module.debug_info.lock() {
             let probe = (pc - module.image_base) as u64;
-            if let Ok(Some(location)) = debug_info.find_location(probe)
-                && let Some(line) = location.line
-                && let Some(module_offset) = line.checked_sub(1)
-            {
-                instr = SourceLoc::new(module_offset);
-            }
+
+            instr = get_line(&debug_info, probe);
+            func_start = get_line(&debug_info, (func.start - module.image_base) as u64);
+
             if let Ok(mut frames) = debug_info.find_frames(probe)
                 && let Ok(Some(frame)) = frames.next()
                 && let Some(function) = frame.function
@@ -144,8 +156,7 @@ impl GlobalFrameInfo {
             module.module.name(),
             func_index.index() as u32,
             function_name,
-            // TODO
-            SourceLoc::default(),
+            func_start,
             instr,
         ))
     }
