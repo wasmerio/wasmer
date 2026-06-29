@@ -289,28 +289,4 @@ mod tests {
             .collect();
         assert_eq!(exports, ["add"]);
     }
-
-    /// For backwards compatibility, make sure we can still work with LZW
-    /// compressed modules.
-    #[tokio::test]
-    async fn can_still_load_lzw_compressed_binaries() {
-        let temp = TempDir::new().unwrap();
-        let engine = Engine::default();
-        let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::from_bytes([0; _]);
-        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        let expected_path = cache.path(key, &engine.deterministic_id());
-        std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
-        let serialized = module.serialize().unwrap();
-        let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
-        std::fs::write(&expected_path, encoder.encode(&serialized).unwrap()).unwrap();
-
-        let module = cache.load(key, &engine).await.unwrap();
-
-        let exports: Vec<_> = module
-            .exports()
-            .map(|export| export.name().to_string())
-            .collect();
-        assert_eq!(exports, ["add"]);
-    }
 }

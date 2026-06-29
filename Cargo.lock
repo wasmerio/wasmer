@@ -7939,7 +7939,6 @@ dependencies = [
  "wcgi-host",
  "web-sys",
  "webc",
- "weezl",
  "windows-sys 0.61.2",
  "xxhash-rust",
  "zstd",
@@ -8192,12 +8191,6 @@ checksum = "998d2c24ec099a87daf9467808859f9d82b61f1d9c9701251aea037f514eae0e"
 dependencies = [
  "nom 7.1.3",
 ]
-
-[[package]]
-name = "weezl"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4ca08e5ef825b65b056d9efbd95c8750683f0a6d0466d02e96dc2e4e360f3d2"
 
 [[package]]
 name = "which"
