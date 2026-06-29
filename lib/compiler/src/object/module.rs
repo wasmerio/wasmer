@@ -1,12 +1,5 @@
 use super::error::ObjectError;
-use crate::{
-    serialize::MetadataHeader,
-    types::{
-        function::Compilation,
-        section::{CustomSectionProtection, SectionIndex},
-        symbols::{ModuleMetadata, Symbol, SymbolRegistry},
-    },
-};
+use crate::{serialize::MetadataHeader, types::symbols::ModuleMetadata};
 use object::{
     FileFlags, RelocationEncoding, RelocationFlags, RelocationKind, SectionKind, SymbolFlags,
     SymbolKind, SymbolScope, elf, macho,

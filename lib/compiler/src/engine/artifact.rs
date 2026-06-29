@@ -1053,15 +1053,7 @@ impl Artifact {
         _target: &'data Target,
         _tunables: &dyn Tunables,
         _features: &Features,
-    ) -> Result<
-        (
-            ModuleInfo,
-            object::write::Object<'data>,
-            usize,
-            Box<dyn crate::types::symbols::SymbolRegistry>,
-        ),
-        CompileError,
-    > {
+    ) -> Result<(ModuleInfo, object::write::Object<'data>, usize), CompileError> {
         todo!("used by a deprecated feature create_exe");
     }
 }

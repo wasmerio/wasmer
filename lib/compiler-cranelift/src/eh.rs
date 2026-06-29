@@ -27,7 +27,6 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::io::{Cursor, Write};
-use wasmer_compiler::types::section::{CustomSectionProtection, SectionBody};
 use wasmer_types::target::{BinaryFormat, Triple};
 use wasmer_types::{LibCall, LocalFunctionIndex};
 

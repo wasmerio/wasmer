@@ -28,14 +28,9 @@ use wasmer_compiler::{
     CompiledObjects, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, emit_metadata_and_link,
 };
 use wasmer_compiler::{
-    Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
-    serialize::SerializableModule,
-    types::{
-        function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
-        module::CompileModuleInfo,
-        section::SectionIndex,
-    },
+    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
+    ModuleMiddlewareChain, ModuleTranslationState, serialize::SerializableModule,
+    types::module::CompileModuleInfo,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
@@ -119,7 +114,7 @@ impl SinglepassCompiler {
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
-        let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
+        let import_trampolines = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect_vec()
             .into_par_iter()
@@ -134,7 +129,7 @@ impl SinglepassCompiler {
             })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
-            .collect();
+            .collect_vec();
         let compiled_functions = function_body_inputs
             .iter()
             .collect_vec()
@@ -271,6 +266,7 @@ impl SinglepassCompiler {
         let module_hash = module.hash_string();
         let import_trampoline_objects = import_trampolines
             .into_iter()
+            .enumerate()
             .map(|(index, bytes)| -> Result<PathBuf, CompileError> {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
@@ -279,7 +275,7 @@ impl SinglepassCompiler {
                 let mut obj = get_object_for_target(target.triple())
                     .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
                 let symbol = obj.add_symbol(Symbol {
-                    name: format!("i{}", index.index()).into(),
+                    name: format!("i{}", index).into(),
                     value: 0,
                     size: bytes.len() as u64,
                     kind: SymbolKind::Text,
@@ -291,7 +287,7 @@ impl SinglepassCompiler {
                 let text_section = obj.section_id(StandardSection::Text);
                 obj.add_symbol_data(symbol, text_section, &bytes, 4);
 
-                save_object(obj, format!("i{}.o", index.index()))
+                save_object(obj, format!("i{}.o", index))
             })
             .collect::<Result<Vec<_>, _>>()?;
 

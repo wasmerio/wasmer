@@ -25,11 +25,7 @@ use std::{
 use target_lexicon::{BinaryFormat, Triple};
 use wasmer_compiler::{
     misc::CompiledKind,
-    types::{
-        function::FunctionBody,
-        module::CompileModuleInfo,
-        section::{CustomSectionProtection, SectionBody, SectionIndex},
-    },
+    types::{function::FunctionBody, module::CompileModuleInfo},
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, LocalFunctionIndex, MemoryIndex,

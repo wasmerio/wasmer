@@ -4,17 +4,12 @@
  */
 #![allow(missing_docs)]
 
-use crate::types::{
-    function::{CompiledFunctionFrameInfo, FunctionBody, GOT, UnwindInfo},
-    module::CompileModuleInfo,
-    section::SectionIndex,
-};
+use crate::types::module::CompileModuleInfo;
 use enumset::EnumSet;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use wasmer_types::{
-    DeserializeError, Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
-    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex, TableStyle,
-    entity::PrimaryMap, target::CpuFeature,
+    DeserializeError, Features, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer,
+    SerializeError, TableIndex, TableStyle, entity::PrimaryMap, target::CpuFeature,
 };
 
 pub use wasmer_types::MetadataHeader;

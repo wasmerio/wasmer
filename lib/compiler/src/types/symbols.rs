@@ -14,42 +14,7 @@ use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
 };
 
-use super::{module::CompileModuleInfo, section::SectionIndex};
-
-/// The kinds of wasmer_types objects that might be found in a native object file.
-#[derive(
-    RkyvSerialize, RkyvDeserialize, Archive, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug,
-)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[rkyv(derive(Debug), compare(PartialEq, PartialOrd))]
-pub enum Symbol {
-    /// A metadata section, indexed by a unique prefix
-    /// (usually the wasm file SHA256 hash)
-    Metadata,
-
-    /// A function defined in the wasm.
-    LocalFunction(LocalFunctionIndex),
-
-    /// A wasm section.
-    Section(SectionIndex),
-
-    /// The function call trampoline for a given signature.
-    FunctionCallTrampoline(SignatureIndex),
-
-    /// The dynamic function trampoline for a given function.
-    DynamicFunctionTrampoline(FunctionIndex),
-}
-
-/// This trait facilitates symbol name lookups in a native object file.
-pub trait SymbolRegistry: Send + Sync {
-    /// Given a `Symbol` it returns the name for that symbol in the object file
-    fn symbol_to_name(&self, symbol: Symbol) -> String;
-
-    /// Given a name it returns the `Symbol` for that name in the object file
-    ///
-    /// This function is the inverse of [`SymbolRegistry::symbol_to_name`]
-    fn name_to_symbol(&self, name: &str) -> Option<Symbol>;
-}
+use super::module::CompileModuleInfo;
 
 /// Serializable struct that represents the compiled metadata.
 #[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
@@ -152,67 +117,5 @@ impl ModuleMetadata {
     ) -> Result<Self, DeserializeError> {
         rkyv::deserialize::<_, rkyv::rancor::Error>(archived)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))
-    }
-}
-
-impl SymbolRegistry for ModuleMetadataSymbolRegistry {
-    fn symbol_to_name(&self, symbol: Symbol) -> String {
-        match symbol {
-            Symbol::Metadata => {
-                format!("WASMER_METADATA_{}", self.prefix.to_uppercase())
-            }
-            Symbol::LocalFunction(index) => {
-                format!("wasmer_function_{}_{}", self.prefix, index.index())
-            }
-            Symbol::Section(index) => format!("wasmer_section_{}_{}", self.prefix, index.index()),
-            Symbol::FunctionCallTrampoline(index) => {
-                format!(
-                    "wasmer_trampoline_function_call_{}_{}",
-                    self.prefix,
-                    index.index()
-                )
-            }
-            Symbol::DynamicFunctionTrampoline(index) => {
-                format!(
-                    "wasmer_trampoline_dynamic_function_{}_{}",
-                    self.prefix,
-                    index.index()
-                )
-            }
-        }
-    }
-
-    fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
-        if name == self.symbol_to_name(Symbol::Metadata) {
-            Some(Symbol::Metadata)
-        } else if let Some(index) = name.strip_prefix(&format!("wasmer_function_{}_", self.prefix))
-        {
-            index
-                .parse::<u32>()
-                .ok()
-                .map(|index| Symbol::LocalFunction(LocalFunctionIndex::from_u32(index)))
-        } else if let Some(index) = name.strip_prefix(&format!("wasmer_section_{}_", self.prefix)) {
-            index
-                .parse::<u32>()
-                .ok()
-                .map(|index| Symbol::Section(SectionIndex::from_u32(index)))
-        } else if let Some(index) =
-            name.strip_prefix(&format!("wasmer_trampoline_function_call_{}_", self.prefix))
-        {
-            index
-                .parse::<u32>()
-                .ok()
-                .map(|index| Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(index)))
-        } else if let Some(index) = name.strip_prefix(&format!(
-            "wasmer_trampoline_dynamic_function_{}_",
-            self.prefix
-        )) {
-            index
-                .parse::<u32>()
-                .ok()
-                .map(|index| Symbol::DynamicFunctionTrampoline(FunctionIndex::from_u32(index)))
-        } else {
-            None
-        }
     }
 }
