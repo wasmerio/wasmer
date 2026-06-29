@@ -192,10 +192,7 @@ fn load_from_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> {
     // - ModuleCache::save(): 2.4s, 72MB binary
     // - ModuleCache::load(): 822ms
 
-    let file = std::fs::File::open(path).map_err(|e| CacheError::FileRead {
-        path: path.to_path_buf(),
-        error: e,
-    })?;
+    let file = std::fs::File::open(path).map_err(|_e| CacheError::NotFound {})?;
     match unsafe { Module::load_from_file(engine, file) } {
         // The happy case
         Ok(m) => Ok(m),
