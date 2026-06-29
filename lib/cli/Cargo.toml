@@ -89,15 +89,20 @@ singlepass = [
   "wasmer-compiler-singlepass",
   "compiler",
   "wasmer/singlepass",
-  "wasmer_c_api?/singlepass",
+  "wasmer-c-api-imports?/singlepass",
 ]
 cranelift = [
   "wasmer-compiler-cranelift",
   "compiler",
   "wasmer/cranelift",
-  "wasmer_c_api?/cranelift",
+  "wasmer-c-api-imports?/cranelift",
 ]
-llvm = ["wasmer-compiler-llvm", "compiler", "wasmer/llvm", "wasmer_c_api?/llvm"]
+llvm = [
+  "wasmer-compiler-llvm",
+  "compiler",
+  "wasmer/llvm",
+  "wasmer-c-api-imports?/llvm",
+]
 disable-all-logging = [
   "wasmer-wasix/disable-all-logging",
   "log/release_max_level_off",
@@ -106,7 +111,7 @@ headless = ["dep:wasmer-vm", "wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
 napi-v8 = ["dep:wasmer-napi"]
-wasm-c-api = ["dep:wasmer_c_api"]
+wasm-c-api = ["dep:wasmer-c-api-imports"]
 
 # Optional
 enable-serde = [
@@ -144,7 +149,7 @@ wasmer-types = { version = "=7.2.0-rc.1", path = "../types", features = [
   "detect-wasm-features",
 ] }
 wasmer-napi = { version = "0.702.0-rc.1", path = "../napi", optional = true }
-wasmer_c_api = { version = "=7.2.0-rc.1", path = "../c-api", optional = true, default-features = false, package = "wasmer-c-api" }
+wasmer-c-api-imports = { version = "=7.2.0-rc.1", path = "../c-api-imports", optional = true, default-features = false }
 virtual-fs = { version = "0.702.0-rc.1", path = "../virtual-fs", default-features = false, features = [
   "host-fs",
 ] }

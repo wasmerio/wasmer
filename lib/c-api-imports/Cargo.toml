@@ -1,0 +1,67 @@
+[package]
+name = "wasmer-c-api-imports"
+description = "Host imports for WebAssembly C API guests"
+categories = ["wasm", "api-bindings"]
+keywords = ["wasm", "webassembly", "runtime"]
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+wasmer-api = { version = "=7.2.0-rc.1", path = "../api", default-features = false, package = "wasmer" }
+
+[dev-dependencies]
+tokio = { workspace = true, features = [
+  "rt",
+  "rt-multi-thread",
+  "macros",
+], default-features = false }
+wasmer-types = { version = "=7.2.0-rc.1", path = "../types" }
+wasmer-wasix = { path = "../wasix", version = "=0.702.0-rc.1", features = [
+  "host-fs",
+  "host-vnet",
+  "sys",
+], default-features = false }
+wat.workspace = true
+
+[features]
+default = ["wat", "sys-default", "cranelift", "compiler"]
+wat = ["wasmer-api/wat"]
+
+# Enable the `sys` backend.
+sys = ["wasmer-api/sys"]
+
+# Enable the `singlepass` compiler.
+singlepass = ["wasmer-api/singlepass", "compiler"]
+
+# Enable the `cranelift` compiler.
+cranelift = ["wasmer-api/cranelift", "compiler"]
+
+# Enable the `llvm` compiler.
+llvm = ["wasmer-api/llvm", "compiler"]
+
+# Enable the use of compiler. Implies enabling the `sys` feature.
+compiler = ["sys", "wasmer-api/compiler"]
+
+# Enable the `v8` backend.
+v8 = ["wasmer-api/v8"]
+
+# Enable the `sys` backend and use it as default.
+sys-default = ["sys", "wasmer-api/sys-default"]
+
+# Enable the `v8` backend and use it as default.
+v8-default = ["v8", "wasmer-api/v8-default"]
+
+# Enable WASIX-only tests for imported Wasm C API guests.
+wasi = []
+
+wasmer-artifact-load = ["wasmer-api/wasmer-artifact-load"]
+wasmer-artifact-create = ["wasmer-api/wasmer-artifact-create"]
+static-artifact-load = ["wasmer-api/static-artifact-load"]
+static-artifact-create = ["wasmer-api/static-artifact-create"]
+
