@@ -5,6 +5,8 @@
 //! of memory.
 
 use more_asserts::assert_le;
+#[cfg(feature = "baremetal")]
+use std::alloc::{Layout, alloc, dealloc};
 use std::io;
 use std::ptr;
 use std::slice;
@@ -74,8 +76,6 @@ impl Mmap {
         }
 
         assert!(backing_file.is_none());
-
-        use std::alloc::{Layout, alloc};
 
         // mmap requires alignment to pages, we follow the same behavior
         let layout = Layout::from_size_align(mapping_size, page_size).unwrap();
@@ -437,8 +437,6 @@ impl Drop for Mmap {
                 )
             }
             .expect("restore memory as accessible again");
-
-            use std::alloc::{Layout, dealloc};
 
             let layout =
                 Layout::from_size_align(self.total_size, region::page::size()).unwrap();
