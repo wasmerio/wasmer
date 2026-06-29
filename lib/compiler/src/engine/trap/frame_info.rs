@@ -126,47 +126,12 @@ impl GlobalFrameInfo {
         // map that to a wasm original source location.
         let rel_pos = pc - func.start;
         let debug_info = module.function_debug_info(func.local_index);
-        let instr_map = debug_info.address_map();
-        let pos = match instr_map.instructions().code_offset_by_key(rel_pos) {
-            // Exact hit!
-            Ok(pos) => Some(pos),
 
-            // This *would* be at the first slot in the array, so no
-            // instructions cover `pc`.
-            Err(0) => None,
-
-            // This would be at the `nth` slot, so check `n-1` to see if we're
-            // part of that instruction. This happens due to the minus one when
-            // this function is called form trap symbolication, where we don't
-            // always get called with a `pc` that's an exact instruction
-            // boundary.
-            Err(n) => {
-                let instr = &instr_map.instructions().get(n - 1);
-                if instr.code_offset <= rel_pos && rel_pos < instr.code_offset + instr.code_len {
-                    Some(n - 1)
-                } else {
-                    None
-                }
-            }
-        };
-
-        let mut instr = match pos {
-            Some(pos) => instr_map.instructions().get(pos).srcloc,
-            // Some compilers don't emit yet the full trap information for each of
-            // the instructions (such as LLVM).
-            // In case no specific instruction is found, we return by default the
-            // start offset of the function.
-            None => instr_map.start_srcloc(),
-        };
         let func_index = module.module.func_index(func.local_index);
-        #[cfg(target_os = "linux")]
         let mut function_name = module.module.function_names.get(&func_index).cloned();
-        #[cfg(not(target_os = "linux"))]
-        let function_name = module.module.function_names.get(&func_index).cloned();
 
-        #[cfg(target_os = "linux")]
-        if instr.is_default()
-            && let Some(debug_info) = &module.debug_info
+        let mut instr = SourceLoc::default();
+        if let Some(debug_info) = &module.debug_info
             && let Ok(debug_info) = debug_info.lock()
         {
             let probe = (pc - module.image_base) as u64;
@@ -190,7 +155,8 @@ impl GlobalFrameInfo {
             module.module.name(),
             func_index.index() as u32,
             function_name,
-            instr_map.start_srcloc(),
+            // TODO
+            SourceLoc::default(),
             instr,
         ))
     }
@@ -265,18 +231,6 @@ pub enum CompiledFunctionFrameInfoVariant<'a> {
 }
 
 impl CompiledFunctionFrameInfoVariant<'_> {
-    /// Gets the address map for the frame info
-    pub fn address_map(&self) -> FunctionAddressMapVariant<'_> {
-        match self {
-            CompiledFunctionFrameInfoVariant::Ref(info) => {
-                FunctionAddressMapVariant::Ref(&info.address_map)
-            }
-            CompiledFunctionFrameInfoVariant::Archived(info) => {
-                FunctionAddressMapVariant::Archived(&info.address_map)
-            }
-        }
-    }
-
     /// Gets the traps for the frame info
     pub fn traps(&self) -> VecTrapInformationVariant<'_> {
         match self {
