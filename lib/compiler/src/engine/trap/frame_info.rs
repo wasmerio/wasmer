@@ -12,12 +12,7 @@
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 
-use crate::types::address_map::{
-    ArchivedFunctionAddressMap, ArchivedInstructionAddressMap, FunctionAddressMap,
-    InstructionAddressMap,
-};
 use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunctionFrameInfo};
-use rkyv::vec::ArchivedVec;
 use std::collections::BTreeMap;
 use std::sync::{Arc, LazyLock, Mutex, RwLock};
 use wasmer_types::lib::std::{cmp, ops::Deref};
@@ -124,9 +119,6 @@ impl GlobalFrameInfo {
         // Use our relative position from the start of the function to find the
         // machine instruction that corresponds to `pc`, which then allows us to
         // map that to a wasm original source location.
-        let rel_pos = pc - func.start;
-        let debug_info = module.function_debug_info(func.local_index);
-
         let func_index = module.module.func_index(func.local_index);
         let mut function_name = module.module.function_names.get(&func_index).cloned();
 
@@ -260,90 +252,6 @@ impl Deref for VecTrapInformationVariant<'_> {
         match self {
             VecTrapInformationVariant::Ref(traps) => traps,
             VecTrapInformationVariant::Owned(traps) => traps,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum FunctionAddressMapVariant<'a> {
-    Ref(&'a FunctionAddressMap),
-    Archived(&'a ArchivedFunctionAddressMap),
-}
-
-impl FunctionAddressMapVariant<'_> {
-    pub fn instructions(&self) -> FunctionAddressMapInstructionVariant<'_> {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => {
-                FunctionAddressMapInstructionVariant::Owned(&map.instructions)
-            }
-            FunctionAddressMapVariant::Archived(map) => {
-                FunctionAddressMapInstructionVariant::Archived(&map.instructions)
-            }
-        }
-    }
-
-    pub fn start_srcloc(&self) -> SourceLoc {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => map.start_srcloc,
-            FunctionAddressMapVariant::Archived(map) => {
-                rkyv::deserialize::<_, rkyv::rancor::Error>(&map.start_srcloc).unwrap()
-            }
-        }
-    }
-
-    pub fn end_srcloc(&self) -> SourceLoc {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => map.end_srcloc,
-            FunctionAddressMapVariant::Archived(map) => {
-                rkyv::deserialize::<_, rkyv::rancor::Error>(&map.end_srcloc).unwrap()
-            }
-        }
-    }
-
-    pub fn body_offset(&self) -> usize {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => map.body_offset,
-            FunctionAddressMapVariant::Archived(map) => map.body_offset.to_native() as usize,
-        }
-    }
-
-    pub fn body_len(&self) -> usize {
-        match self {
-            FunctionAddressMapVariant::Ref(map) => map.body_len,
-            FunctionAddressMapVariant::Archived(map) => map.body_len.to_native() as usize,
-        }
-    }
-}
-
-#[derive(Debug)]
-pub enum FunctionAddressMapInstructionVariant<'a> {
-    Owned(&'a Vec<InstructionAddressMap>),
-    Archived(&'a ArchivedVec<ArchivedInstructionAddressMap>),
-}
-
-impl FunctionAddressMapInstructionVariant<'_> {
-    pub fn code_offset_by_key(&self, key: usize) -> Result<usize, usize> {
-        match self {
-            FunctionAddressMapInstructionVariant::Owned(instructions) => {
-                instructions.binary_search_by_key(&key, |map| map.code_offset)
-            }
-            FunctionAddressMapInstructionVariant::Archived(instructions) => {
-                instructions.binary_search_by_key(&key, |map| map.code_offset.to_native() as usize)
-            }
-        }
-    }
-
-    pub fn get(&self, index: usize) -> InstructionAddressMap {
-        match self {
-            FunctionAddressMapInstructionVariant::Owned(instructions) => instructions[index],
-            FunctionAddressMapInstructionVariant::Archived(instructions) => instructions
-                .get(index)
-                .map(|map| InstructionAddressMap {
-                    srcloc: rkyv::deserialize::<_, rkyv::rancor::Error>(&map.srcloc).unwrap(),
-                    code_offset: map.code_offset.to_native() as usize,
-                    code_len: map.code_len.to_native() as usize,
-                })
-                .unwrap(),
         }
     }
 }
