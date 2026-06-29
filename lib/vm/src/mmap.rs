@@ -429,15 +429,6 @@ impl Drop for Mmap {
     #[cfg(feature = "baremetal")]
     fn drop(&mut self) {
         if self.total_size != 0 {
-            unsafe {
-                region::protect(
-                    self.ptr as *const u8,
-                    self.total_size,
-                    region::Protection::READ_WRITE,
-                )
-            }
-            .expect("restore memory as accessible again");
-
             let layout =
                 Layout::from_size_align(self.total_size, region::page::size()).unwrap();
             unsafe { dealloc(self.ptr as *mut u8, layout) }
