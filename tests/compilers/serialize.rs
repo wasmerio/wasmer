@@ -6,7 +6,7 @@ fn sanity_test_artifact_deserialize() {
     let engine = Engine::headless();
     // An empty file is not a valid artifact.
     let path = std::env::temp_dir().join("wasmer_empty_test");
-    std::fs::write(&path, &[]).unwrap();
+    std::fs::write(&path, []).unwrap();
     let empty_file = std::fs::File::open(&path).unwrap();
     let result = unsafe { Module::load_from_file(&engine, empty_file) };
     let _ = std::fs::remove_file(&path);
