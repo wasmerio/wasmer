@@ -105,20 +105,21 @@ impl GenCHeader {
             .map_err(|e| anyhow::anyhow!("failed to create relocs builder: {e}"))?;
         let metadata_length = metadata_builder.placeholder_data().len();
 
-        let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
-            &prefix,
-            &metadata.compile_info.module,
-            &ModuleMetadataSymbolRegistry {
-                prefix: prefix.clone(),
-            },
-            metadata_length,
-        );
+        // TODO
+        // let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+        //     &prefix,
+        //     &metadata.compile_info.module,
+        //     &ModuleMetadataSymbolRegistry {
+        //         prefix: prefix.clone(),
+        //     },
+        //     metadata_length,
+        // );
 
-        let output = crate::common::normalize_path(&self.output.display().to_string());
+        // let output = crate::common::normalize_path(&self.output.display().to_string());
 
-        std::fs::write(&output, header_file_src)
-            .map_err(|e| anyhow::anyhow!("{e}"))
-            .with_context(|| anyhow::anyhow!("{output}"))?;
+        // std::fs::write(&output, header_file_src)
+        //     .map_err(|e| anyhow::anyhow!("{e}"))
+        //     .with_context(|| anyhow::anyhow!("{output}"))?;
 
         Ok(())
     }

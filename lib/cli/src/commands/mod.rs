@@ -185,6 +185,8 @@ impl WasmerCmd {
             // Some(Cmd::CreateExe(create_exe)) => create_exe.run(),
             // #[cfg(feature = "static-artifact-create")]
             // Some(Cmd::CreateObj(create_obj)) => create_obj.execute(),
+            // #[cfg(feature = "static-artifact-create")]
+            // Some(Cmd::GenCHeader(gen_header)) => gen_header.execute(),
             Some(Cmd::Config(config)) => config.run(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.run(),
@@ -205,8 +207,6 @@ impl WasmerCmd {
             Some(Cmd::Container(cmd)) => match cmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),
             },
-            #[cfg(feature = "static-artifact-create")]
-            Some(Cmd::GenCHeader(gen_header)) => gen_header.execute(),
             #[cfg(feature = "wast")]
             Some(Cmd::Wast(wast)) => wast.execute(),
             #[cfg(target_os = "linux")]
@@ -427,8 +427,8 @@ enum Cmd {
     ///
     /// Generate the C static_defs.h header file for the input .wasm module
     ///
-    #[cfg(feature = "static-artifact-create")]
-    GenCHeader(GenCHeader),
+    // #[cfg(feature = "static-artifact-create")]
+    // GenCHeader(GenCHeader),
 
     /// Get various configuration information needed
     /// to compile programs which use Wasmer

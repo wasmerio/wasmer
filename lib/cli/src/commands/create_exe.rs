@@ -21,7 +21,7 @@ use wasmer::{
 };
 use wasmer_compiler::{
     object::{emit_serialized, get_object_for_target},
-    types::symbols::{ModuleMetadataSymbolRegistry, Symbol, SymbolRegistry},
+    types::symbols::ModuleMetadataSymbolRegistry,
 };
 use wasmer_package::utils::from_disk;
 use wasmer_types::ModuleInfo;
@@ -817,7 +817,7 @@ fn compile_atoms(
         io::{BufWriter, Write},
     };
 
-    let mut module_infos = BTreeMap::new();
+    let module_infos = BTreeMap::new();
     for (a, data) in atoms {
         let prefix = prefixes
             .get_prefix_for_atom(&normalize_atom_name(a))
@@ -837,20 +837,21 @@ fn compile_atoms(
         let compiler = engine_inner.compiler()?;
         let features = engine_inner.features();
         let tunables = engine.tunables();
-        let (module_info, obj, _, _) = Artifact::generate_object(
-            compiler,
-            data,
-            Some(prefix.as_str()),
-            target,
-            tunables,
-            features,
-        )?;
-        module_infos.insert(atom_name, module_info);
-        // Write object file with functions
-        let mut writer = BufWriter::new(File::create(&output_object_path)?);
-        obj.write_stream(&mut writer)
-            .map_err(|err| anyhow::anyhow!(err.to_string()))?;
-        writer.flush()?;
+        unimplemented!();
+        // let (module_info, obj, _, _) = Artifact::generate_object(
+        //     compiler,
+        //     data,
+        //     Some(prefix.as_str()),
+        //     target,
+        //     tunables,
+        //     features,
+        // )?;
+        // module_infos.insert(atom_name, module_info);
+        // // Write object file with functions
+        // let mut writer = BufWriter::new(File::create(&output_object_path)?);
+        // obj.write_stream(&mut writer)
+        //     .map_err(|err| anyhow::anyhow!(err.to_string()))?;
+        // writer.flush()?;
     }
 
     Ok(module_infos)
@@ -1081,7 +1082,8 @@ pub(crate) fn create_header_files_in_dir(
         let object_file = std::fs::read(&object_file_src)
             .map_err(|e| anyhow::anyhow!("could not read {}: {e}", object_file_src.display()))?;
         let obj_file = object::File::parse(&*object_file)?;
-        let mut symbol_name = symbol_registry.symbol_to_name(Symbol::Metadata);
+        // TODO
+        let mut symbol_name = String::new();
         if matches!(binary_fmt, BinaryFormat::Macho) {
             symbol_name = format!("_{symbol_name}");
         }
@@ -1120,18 +1122,19 @@ pub(crate) fn create_header_files_in_dir(
         let base_path = Path::new("include").join(format!("static_defs_{prefix}.h"));
         let header_file_path = directory.join(&base_path);
 
-        let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
-            &prefix,
-            module_info,
-            &symbol_registry,
-            metadata_length,
-        );
+        // TODO
+        // let header_file_src = crate::c_gen::staticlib_header::generate_header_file(
+        //     &prefix,
+        //     module_info,
+        //     &symbol_registry,
+        //     metadata_length,
+        // );
 
-        std::fs::write(&header_file_path, &header_file_src).map_err(|e| {
-            anyhow::anyhow!(
-                "could not write static_defs.h for atom {atom_name} in generate-header step: {e}"
-            )
-        })?;
+        // std::fs::write(&header_file_path, &header_file_src).map_err(|e| {
+        //     anyhow::anyhow!(
+        //         "could not write static_defs.h for atom {atom_name} in generate-header step: {e}"
+        //     )
+        // })?;
 
         atom.header = Some(base_path);
     }
