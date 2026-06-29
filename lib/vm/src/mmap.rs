@@ -20,7 +20,7 @@ pub struct Mmap {
     ptr: usize,
     total_size: usize,
     accessible_size: usize,
-    #[cfg_attr(target_os = "windows", allow(dead_code))]
+    #[cfg_attr(any(target_os = "windows", feature = "baremetal"), allow(dead_code))]
     sync_on_drop: bool,
 }
 
@@ -56,10 +56,60 @@ impl Mmap {
         Self::accessible_reserved(rounded_size, rounded_size, None, MmapType::Private)
     }
 
+    /// Allocates bytes from heap; used on platforms without mmap syscall.
+    #[cfg(feature = "baremetal")]
+    pub fn accessible_reserved(
+        accessible_size: usize,
+        mapping_size: usize,
+        backing_file: Option<std::path::PathBuf>,
+        _memory_type: MmapType,
+    ) -> Result<Self, String> {
+        let page_size = region::page::size();
+        assert_le!(accessible_size, mapping_size);
+        assert_eq!(mapping_size & (page_size - 1), 0);
+        assert_eq!(accessible_size & (page_size - 1), 0);
+
+        if mapping_size == 0 {
+            return Ok(Self::new());
+        }
+
+        assert!(backing_file.is_none());
+
+        use std::alloc::{Layout, alloc};
+
+        // mmap requires alignment to pages, we follow the same behavior
+        let layout = Layout::from_size_align(mapping_size, page_size).unwrap();
+        let ptr = unsafe { alloc(layout) } as *const u8;
+
+        if accessible_size < mapping_size {
+            unsafe {
+                region::protect(
+                    ptr.add(accessible_size),
+                    mapping_size - accessible_size,
+                    region::Protection::NONE,
+                )
+            }
+            .map_err(|e| e.to_string())?;
+        }
+
+        let mut result = Self {
+            ptr: ptr as usize,
+            total_size: mapping_size,
+            accessible_size,
+            sync_on_drop: false,
+        };
+
+        if accessible_size != 0 {
+            result.make_accessible(0, accessible_size)?;
+        }
+
+        Ok(result)
+    }
+
     /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
     /// within a reserved mapping of `mapping_size` bytes. `accessible_size` and `mapping_size`
     /// must be native page-size multiples.
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(all(not(feature = "baremetal"), not(target_os = "windows")))]
     pub fn accessible_reserved(
         mut accessible_size: usize,
         mapping_size: usize,
@@ -247,10 +297,29 @@ impl Mmap {
         })
     }
 
+    /// Make the memory accessible; used on platforms without mmap syscall.
+    /// Explicitly zeroes the region since heap memory is not guaranteed to be zeroed.
+    #[cfg(feature = "baremetal")]
+    pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
+        let page_size = region::page::size();
+        assert_eq!(start & (page_size - 1), 0);
+        assert_eq!(len & (page_size - 1), 0);
+        assert_le!(len, self.total_size);
+        assert_le!(start, self.total_size - len);
+
+        unsafe {
+            let ptr_start = (self.ptr as *mut u8).add(start);
+            region::protect(ptr_start, len, region::Protection::READ_WRITE)
+                .map_err(|e| e.to_string())?;
+            ptr::write_bytes(ptr_start, 0, len);
+        }
+        Ok(())
+    }
+
     /// Make the memory starting at `start` and extending for `len` bytes accessible.
     /// `start` and `len` must be native page-size multiples and describe a range within
     /// `self`'s reserved memory.
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(all(not(feature = "baremetal"), not(target_os = "windows")))]
     pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
@@ -371,7 +440,27 @@ impl Mmap {
 }
 
 impl Drop for Mmap {
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(feature = "baremetal")]
+    fn drop(&mut self) {
+        if self.total_size != 0 {
+            unsafe {
+                region::protect(
+                    self.ptr as *const u8,
+                    self.total_size,
+                    region::Protection::READ_WRITE,
+                )
+            }
+            .expect("restore memory as accessible again");
+
+            use std::alloc::{Layout, dealloc};
+
+            let layout =
+                Layout::from_size_align(self.total_size, region::page::size()).unwrap();
+            unsafe { dealloc(self.ptr as *mut u8, layout) }
+        }
+    }
+
+    #[cfg(all(not(feature = "baremetal"), not(target_os = "windows")))]
     fn drop(&mut self) {
         if self.total_size != 0 {
             if self.sync_on_drop {
