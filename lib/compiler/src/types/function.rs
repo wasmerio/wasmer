@@ -11,7 +11,6 @@
 
 use super::{
     address_map::FunctionAddressMap,
-    relocation::Relocation,
     section::SectionIndex,
     unwind::{
         ArchivedCompiledFunctionUnwindInfo, CompiledFunctionUnwindInfo,
@@ -106,9 +105,6 @@ impl<'a> FunctionBodyLike<'a> for ArchivedFunctionBody {
 pub struct CompiledFunction {
     /// The function body.
     pub body: FunctionBody,
-
-    /// The relocations (in the body)
-    pub relocations: Vec<Relocation>,
 
     /// The frame information.
     pub frame_info: CompiledFunctionFrameInfo,

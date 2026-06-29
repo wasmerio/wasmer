@@ -27,7 +27,7 @@ use std::collections::hash_map::Entry;
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::io::{Cursor, Write};
-use wasmer_compiler::types::section::{CustomSection, CustomSectionProtection, SectionBody};
+use wasmer_compiler::types::section::{CustomSectionProtection, SectionBody};
 use wasmer_types::target::{BinaryFormat, Triple};
 use wasmer_types::{LibCall, LocalFunctionIndex};
 
@@ -225,42 +225,6 @@ pub fn build_function_lsda<'a>(
         bytes: writer.into_inner(),
         relocations,
     })
-}
-
-/// Build the global tag section and a tag->offset map.
-pub fn build_tag_section(
-    lsda_data: &[Option<FunctionLsdaData>],
-) -> Option<(CustomSection, HashMap<u32, u32>)> {
-    let mut unique_tags = HashSet::new();
-    for data in lsda_data.iter().flatten() {
-        for reloc in &data.relocations {
-            unique_tags.insert(reloc.tag);
-        }
-    }
-
-    if unique_tags.is_empty() {
-        return None;
-    }
-
-    let mut tags: Vec<u32> = unique_tags.into_iter().collect();
-    tags.sort_unstable();
-
-    let mut bytes = Vec::with_capacity(tags.len() * std::mem::size_of::<u32>());
-    let mut offsets = HashMap::new();
-    for tag in tags {
-        let offset = bytes.len() as u32;
-        bytes.extend_from_slice(&tag.to_ne_bytes());
-        offsets.insert(tag, offset);
-    }
-
-    let section = CustomSection {
-        protection: CustomSectionProtection::Read,
-        alignment: None,
-        bytes: SectionBody::new_with_vec(bytes),
-        relocations: Vec::new(),
-    };
-
-    Some((section, offsets))
 }
 
 #[derive(Debug, Clone)]

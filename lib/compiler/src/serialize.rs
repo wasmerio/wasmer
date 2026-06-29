@@ -7,7 +7,6 @@
 use crate::types::{
     function::{CompiledFunctionFrameInfo, FunctionBody, GOT, UnwindInfo},
     module::CompileModuleInfo,
-    relocation::Relocation,
     section::SectionIndex,
 };
 use enumset::EnumSet;

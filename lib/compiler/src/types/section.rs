@@ -11,7 +11,6 @@
 //! to emit a custom relocation: `RelocationTarget::CustomSection`, so
 //! it can be patched later by the engine (native or JIT).
 
-use super::relocation::Relocation;
 use crate::lib::std::vec::Vec;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -54,34 +53,6 @@ pub enum CustomSectionProtection {
 
     /// A custom section with read and execute permissions.
     ReadExecute,
-}
-
-/// A Section for a `Compilation`.
-///
-/// This is used so compilers can store arbitrary information
-/// in the emitted module.
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-#[derive(RkyvSerialize, RkyvDeserialize, Archive, Debug, Clone, PartialEq, Eq)]
-#[rkyv(derive(Debug), compare(PartialEq))]
-pub struct CustomSection {
-    /// Memory protection that applies to this section.
-    pub protection: CustomSectionProtection,
-
-    /// Alignment of this section. When missing, the default value for
-    /// each platform shall be used.
-    pub alignment: Option<u64>,
-
-    /// The bytes corresponding to this section.
-    ///
-    /// > Note: These bytes have to be at-least 8-byte aligned
-    /// > (the start of the memory pointer).
-    /// > We might need to create another field for alignment in case it's
-    /// > needed in the future.
-    pub bytes: SectionBody,
-
-    /// Relocations that apply to this custom section.
-    pub relocations: Vec<Relocation>,
 }
 
 /// The bytes in the section.

@@ -28,7 +28,6 @@ use wasmer_compiler::{
     types::{
         function::FunctionBody,
         module::CompileModuleInfo,
-        relocation::{Relocation, RelocationTarget},
         section::{CustomSectionProtection, SectionBody, SectionIndex},
     },
 };

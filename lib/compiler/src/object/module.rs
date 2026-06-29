@@ -3,7 +3,6 @@ use crate::{
     serialize::MetadataHeader,
     types::{
         function::Compilation,
-        relocation::RelocationTarget,
         section::{CustomSectionProtection, SectionIndex},
         symbols::{ModuleMetadata, Symbol, SymbolRegistry},
     },

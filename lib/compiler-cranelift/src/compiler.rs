@@ -1,8 +1,6 @@
 //! Support for compiling with Cranelift.
 #[cfg(feature = "unwind")]
 use crate::translator::CraneliftUnwindInfo;
-#[cfg(feature = "unwind")]
-use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
 use crate::{
     address_map::get_function_address_map,
     config::Cranelift,
@@ -20,14 +18,16 @@ use cranelift_codegen::{
     binemit::Reloc,
     ir::{self, ExternalName, UserFuncName},
 };
-
 #[cfg(feature = "unwind")]
-use wasmer_compiler::dwarf::EhTarget;
+use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
+
 #[cfg(feature = "unwind")]
 use gimli::{
     constants::{DW_EH_PE_indirect, DW_EH_PE_pcrel, DW_EH_PE_sdata4},
     write::{Address, EhFrame, FrameTable},
 };
+#[cfg(feature = "unwind")]
+use wasmer_compiler::dwarf::EhTarget;
 
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind as ObjectRelocationKind, SectionKind, elf,
@@ -53,11 +53,7 @@ use wasmer_compiler::{
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, WASM_LARGE_FUNCTION_THRESHOLD,
     WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, WASMER_TRAPS_SECTION_NAME, build_function_buckets,
     emit_metadata_and_link, translate_function_buckets,
-    types::{
-        function::FunctionBody,
-        module::CompileModuleInfo,
-        relocation::RelocationTarget,
-    },
+    types::{function::FunctionBody, module::CompileModuleInfo},
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{BinaryFormat, CallingConvention, Target, Triple};
@@ -65,6 +61,16 @@ use wasmer_types::{
     Addend, CodeOffset, CompilationProgressCallback, CompileError, FunctionIndex, LibCall,
     LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode, TrapInformation, VMOffsets,
 };
+
+#[derive(Debug)]
+pub enum RelocationTarget {
+    /// A relocation to a function defined locally in the wasm (not an imported one).
+    LocalFunc(LocalFunctionIndex),
+    /// A relocation to a dynamic trampoline.
+    DynamicTrampoline(FunctionIndex),
+    /// A compiler-generated libcall.
+    LibCall(LibCall),
+}
 
 /// A relocation emitted by Cranelift for a compiled function body. The kind is
 /// kept as Cranelift's own [`Reloc`] so it can be mapped straight onto
