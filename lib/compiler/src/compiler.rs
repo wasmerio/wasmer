@@ -5,6 +5,8 @@ use std::cmp::Reverse;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 
+use crate::misc::{CompiledFunctionExt, CompiledKind};
+use crate::object::get_object_for_target;
 use crate::progress::ProgressContext;
 use crate::serialize::SerializableModule;
 use crate::types::module::CompileModuleInfo;
@@ -20,7 +22,6 @@ use crate::{
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
 use itertools::Itertools;
-use crate::object::get_object_for_target;
 use object::write::{Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
@@ -28,8 +29,9 @@ use object::{
 };
 use tempfile::NamedTempFile;
 use wasmer_types::{
-    CompilationProgressCallback, Features, LocalFunctionIndex, MetadataHeader,
-    entity::PrimaryMap,
+    CompilationProgressCallback, Features, FunctionIndex, FunctionType, LocalFunctionIndex,
+    MetadataHeader, SignatureIndex,
+    entity::{EntityRef, PrimaryMap},
     error::CompileError,
     target::{CpuFeature, Target, UserCompilerOptimizations},
 };
@@ -422,10 +424,24 @@ fn emit_wasmer_meta_object(
     // dt{number} for dynamic trampolines. Import call trampolines use i{number}
     // symbols, but are internal linker targets and do not get metadata offsets.
     let function_offset_names = (0..compiled_objects.object_files.len())
-        .map(|i| format!("f{i}"))
-        .chain((0..compiled_objects.trampoline_object_files.len()).map(|i| format!("t{i}")))
+        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).linkage_name())
         .chain(
-            (0..compiled_objects.dynamic_trampoline_object_files.len()).map(|i| format!("dt{i}")),
+            (0..compiled_objects.trampoline_object_files.len()).map(|i| {
+                CompiledKind::FunctionCallTrampoline(
+                    SignatureIndex::new(i),
+                    FunctionType::new([], []),
+                )
+                .linkage_name()
+            }),
+        )
+        .chain(
+            (0..compiled_objects.dynamic_trampoline_object_files.len()).map(|i| {
+                CompiledKind::DynamicFunctionTrampoline(
+                    FunctionIndex::new(i),
+                    FunctionType::new([], []),
+                )
+                .linkage_name()
+            }),
         );
     for function_name in function_offset_names {
         let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
@@ -465,7 +481,9 @@ fn emit_wasmer_meta_object(
     obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
         sh_flags: u64::from(elf::SHF_GNU_RETAIN),
     };
-    for traps_name in (0..compiled_objects.object_files.len()).map(|i| format!("f{i}.traps")) {
+    for traps_name in (0..compiled_objects.object_files.len())
+        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
+    {
         let offset =
             obj.append_section_data(trap_fn_offsets_section_id, &zero_pointer, pointer_size);
         let symbol_id = obj.add_symbol(ObjSymbol {

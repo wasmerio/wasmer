@@ -52,7 +52,9 @@ use wasmer_compiler::{
     CompiledObjects, Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, WASM_LARGE_FUNCTION_THRESHOLD,
     WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, WASMER_TRAPS_SECTION_NAME, build_function_buckets,
-    emit_metadata_and_link, translate_function_buckets,
+    emit_metadata_and_link,
+    misc::{CompiledFunctionExt, CompiledKind},
+    translate_function_buckets,
     types::{function::FunctionBody, module::CompileModuleInfo},
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
@@ -311,7 +313,8 @@ impl CraneliftCompiler {
                 lsda,
             };
 
-            let object_path = build_dir.join(format!("f{}.o", i.as_u32()));
+            let object_path =
+                build_dir.join(CompiledKind::Local(*i, function_name.clone()).object_filename());
             emit_function_object(
                 isa_ref,
                 triple,
@@ -369,20 +372,21 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, (index, func_type)| {
+                let kind = CompiledKind::FunctionCallTrampoline(*index, (*func_type).clone());
                 let trampoline = make_trampoline_function_call(
                     &self.config().callbacks,
                     isa_ref,
                     triple.architecture,
                     cx,
+                    &kind,
                     func_type,
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                let obj =
-                    emit_trampoline_object(triple, &format!("t{}", index.as_u32()), &trampoline)?;
-                save_object(obj, format!("t{}.o", index.as_u32()))
+                let obj = emit_trampoline_object(triple, &kind.linkage_name(), &trampoline)?;
+                save_object(obj, kind.object_filename())
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
@@ -394,20 +398,25 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, (index, func_type)| {
+                let kind = CompiledKind::DynamicFunctionTrampoline(
+                    FunctionIndex::new(*index),
+                    func_type.clone(),
+                );
                 let trampoline = make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     isa_ref,
                     triple.architecture,
                     &offsets,
                     cx,
+                    &kind,
                     func_type,
                     &module_hash,
                 )?;
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                let obj = emit_trampoline_object(triple, &format!("dt{index}"), &trampoline)?;
-                save_object(obj, format!("dt{index}.o"))
+                let obj = emit_trampoline_object(triple, &kind.linkage_name(), &trampoline)?;
+                save_object(obj, kind.object_filename())
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
@@ -461,9 +470,10 @@ fn emit_function_object(
     let mut obj = get_object_for_target(triple)
         .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
 
+    let kind = CompiledKind::Local(local_func_index, function_name.to_string());
     // Emit the function body into the text section.
     let function_symbol = obj.add_symbol(ObjectSymbol {
-        name: format!("f{}", local_func_index.as_u32()).into(),
+        name: kind.linkage_name().into(),
         value: 0,
         size: compiled.body.len() as u64,
         kind: SymbolKind::Text,
@@ -481,7 +491,7 @@ fn emit_function_object(
         let flags = relocation_to_flags(obj.format(), triple, r.kind)?;
         let (symbol, addend) = match &r.reloc_target {
             RelocationTarget::LocalFunc(index) => {
-                let name = format!("f{}", index.index());
+                let name = CompiledKind::Local(*index, String::new()).linkage_name();
                 let symbol = *referenced_symbols.entry(name.clone()).or_insert_with(|| {
                     obj.add_symbol(ObjectSymbol {
                         name: name.into_bytes(),
@@ -554,7 +564,7 @@ fn emit_function_object(
         SectionKind::Other,
     );
     let trap_symbol = obj.add_symbol(ObjectSymbol {
-        name: format!("f{}.traps", local_func_index.as_u32()).into(),
+        name: kind.traps_name().into(),
         value: 0,
         size: trap_data.len() as u64,
         kind: SymbolKind::Data,

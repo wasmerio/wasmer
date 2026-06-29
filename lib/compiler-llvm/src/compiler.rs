@@ -12,13 +12,13 @@ use wasmer_compiler::serialize::SerializableModule;
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::{
     CompiledObjects, WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE,
-    build_function_buckets, emit_metadata_and_link, translate_function_buckets,
+    build_function_buckets, emit_metadata_and_link, misc::CompiledKind, translate_function_buckets,
 };
 use wasmer_compiler::{Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState};
 use wasmer_types::ExportIndex;
-use wasmer_types::entity::PrimaryMap;
+use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
-use wasmer_types::{CompilationProgressCallback, CompileError, LocalFunctionIndex};
+use wasmer_types::{CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex};
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
@@ -184,11 +184,11 @@ impl Compiler for LLVMCompiler {
                         FuncTrampoline::new(target_machine, target.triple().clone()).unwrap()
                     },
                     |func_trampoline, (index, sig)| {
-                        let function_name = format!("t{}", index.as_u32());
+                        let kind = CompiledKind::FunctionCallTrampoline(*index, (*sig).clone());
                         let trampoline = func_trampoline.trampoline(
                             sig,
                             self.config(),
-                            &function_name,
+                            &kind,
                             compile_info,
                             build_directory.path(),
                         );
@@ -216,11 +216,14 @@ impl Compiler for LLVMCompiler {
                 .into_iter()
                 .enumerate()
                 .map(|(index, func_type)| {
-                    let function_name = format!("dt{}", index);
+                    let kind = CompiledKind::DynamicFunctionTrampoline(
+                        FunctionIndex::new(index),
+                        func_type.clone(),
+                    );
                     let trampoline = func_trampoline.dynamic_trampoline(
                         &func_type,
                         self.config(),
-                        &function_name,
+                        &kind,
                         index as u32,
                         &module_hash,
                         build_directory.path(),

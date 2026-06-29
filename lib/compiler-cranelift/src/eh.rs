@@ -28,6 +28,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::io::{Cursor, Write};
 use wasmer_types::target::{BinaryFormat, Triple};
+use wasmer_compiler::misc::{CompiledFunctionExt, CompiledKind};
 use wasmer_types::{LibCall, LocalFunctionIndex};
 
 /// Relocation information for an LSDA entry that references a tag constant.
@@ -293,7 +294,8 @@ pub fn emit_compact_unwind_section(
         let base = section_offset + (i * ENTRY_SIZE) as u64;
 
         // Function address: reference the per-object function symbol `f{index}`.
-        let func_name = format!("f{}", entry.function.as_u32());
+        let func_name =
+            CompiledKind::Local(entry.function, String::new()).linkage_name();
         let func_symbol = obj.add_symbol(ObjectSymbol {
             name: func_name.into_bytes(),
             value: 0,

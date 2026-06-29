@@ -46,7 +46,7 @@ use wasmer_compiler::{
     LEF32_GEQ_U32_MIN, LEF32_GEQ_U64_MIN, LEF64_GEQ_I32_MIN, LEF64_GEQ_I64_MIN, LEF64_GEQ_U32_MIN,
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
     from_binaryreadererror_wasmerror,
-    misc::CompiledKind,
+    misc::{CompiledFunctionExt, CompiledKind},
     wasmparser::{Catch, MemArg, Operator},
     wpheaptype_to_type, wptype_to_type,
 };
@@ -170,11 +170,7 @@ impl FuncTranslator {
             m0_is_enabled,
         )?;
 
-        let func = module.add_function(
-            &format!("f{}", local_func_index.as_u32()),
-            func_type,
-            Some(Linkage::External),
-        );
+        let func = module.add_function(&function.linkage_name(), func_type, Some(Linkage::External));
         let debug_info = {
             let debug_metadata_version = self
                 .ctx
@@ -534,9 +530,7 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        let object_path = build_directory
-            .to_path_buf()
-            .join(format!("f{}.o", local_func_index.as_u32()));
+        let object_path = build_directory.to_path_buf().join(function.object_filename());
         std::fs::write(&object_path, memory_buffer.as_slice())
             .map_err(|e| CompileError::Codegen(format!("Cannot save emitted assembly: {e}")))?;
         Ok(object_path)
@@ -3326,7 +3320,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.module,
                         self.context,
                         func_type,
-                        &format!("f{}", local_func_index.as_u32()),
+                        &CompiledKind::Local(local_func_index, String::new()).linkage_name(),
                     )?
                 } else {
                     self.ctx

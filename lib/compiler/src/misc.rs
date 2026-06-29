@@ -8,7 +8,9 @@ use std::process::{Command, Stdio};
 
 use itertools::Itertools;
 use target_lexicon::Architecture;
-use wasmer_types::{CompileError, FunctionType, LocalFunctionIndex, Type};
+use wasmer_types::{
+    CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex, Type,
+};
 
 #[cfg(not(target_arch = "wasm32"))]
 use tempfile::NamedTempFile;
@@ -20,11 +22,9 @@ pub enum CompiledKind {
     /// A locally-defined function in the Wasm file.
     Local(LocalFunctionIndex, String),
     /// A function call trampoline for a given signature.
-    FunctionCallTrampoline(FunctionType),
-    /// A dynamic function trampoline for a given signature.
-    DynamicFunctionTrampoline(FunctionType),
-    /// An entire Wasm module.
-    Module,
+    FunctionCallTrampoline(SignatureIndex, FunctionType),
+    /// A dynamic function trampoline for a given imported function.
+    DynamicFunctionTrampoline(FunctionIndex, FunctionType),
 }
 
 /// Converts a slice of `Type` into a string signature, mapping each type to a specific character.
@@ -92,17 +92,42 @@ pub fn function_kind_to_filename(kind: &CompiledKind, suffix: &str) -> String {
             debug_assert!(name.len() <= PATH_LIMIT);
             name
         }
-        CompiledKind::FunctionCallTrampoline(func_type) => format!(
+        CompiledKind::FunctionCallTrampoline(_, func_type) => format!(
             "trampoline_call_{}_{}{suffix}",
             types_to_signature(func_type.params()),
             types_to_signature(func_type.results())
         ),
-        CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
+        CompiledKind::DynamicFunctionTrampoline(_, func_type) => format!(
             "trampoline_dynamic_{}_{}{suffix}",
             types_to_signature(func_type.params()),
             types_to_signature(func_type.results())
         ),
-        CompiledKind::Module => "module".into(),
+    }
+}
+
+/// An extended methods related to a compiled function.
+pub trait CompiledFunctionExt {
+    /// Return a name of the function for linkage purpose.
+    fn linkage_name(&self) -> String;
+
+    /// For serialization purpose, provide an object file name.
+    fn object_filename(&self) -> String {
+        format!("{}.o", self.linkage_name())
+    }
+
+    /// Symbol name holding the trap information for this function.
+    fn traps_name(&self) -> String {
+        format!("{}.traps", self.linkage_name())
+    }
+}
+
+impl CompiledFunctionExt for CompiledKind {
+    fn linkage_name(&self) -> String {
+        match self {
+            Self::Local(index, _) => format!("f{}", index.as_u32()),
+            Self::FunctionCallTrampoline(index, _) => format!("t{}", index.as_u32()),
+            Self::DynamicFunctionTrampoline(index, _) => format!("dt{}", index.as_u32()),
+        }
     }
 }
 

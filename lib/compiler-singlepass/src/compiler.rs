@@ -21,7 +21,9 @@ use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tempfile::{NamedTempFile, tempdir};
-use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
+use wasmer_compiler::misc::{
+    CompiledFunctionExt, CompiledKind, save_assembly_to_file, types_to_signature,
+};
 use wasmer_compiler::object::get_object_for_target;
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::{
@@ -297,15 +299,12 @@ impl SinglepassCompiler {
             .collect_vec()
             .into_par_iter()
             .map(|(index, func_type)| -> Result<PathBuf, CompileError> {
+                let kind = CompiledKind::FunctionCallTrampoline(index, func_type.clone());
                 let body = gen_std_trampoline(func_type, target, calling_convention)?;
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
-                        &module_hash,
-                        &body.body,
-                    );
+                    callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
                     callbacks.asm_memory_buffer(
-                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+                        &kind,
                         &module_hash,
                         arch,
                         &body.body,
@@ -319,7 +318,7 @@ impl SinglepassCompiler {
                 let mut obj = get_object_for_target(target.triple())
                     .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
                 let symbol = obj.add_symbol(Symbol {
-                    name: format!("t{}", index.as_u32()).into(),
+                    name: kind.linkage_name().into(),
                     value: 0,
                     size: body.body.len() as u64,
                     kind: SymbolKind::Text,
@@ -337,7 +336,7 @@ impl SinglepassCompiler {
                     4,
                 );
 
-                save_object(obj, format!("t{}.o", index.as_u32()))
+                save_object(obj, kind.object_filename())
             })
             .collect::<Result<Vec<_>, _>>()?;
 
@@ -347,6 +346,10 @@ impl SinglepassCompiler {
             .collect_vec()
             .into_par_iter()
             .map(|(index, func_type)| -> Result<PathBuf, CompileError> {
+                let kind = CompiledKind::DynamicFunctionTrampoline(
+                    FunctionIndex::new(index),
+                    func_type.clone(),
+                );
                 let body = gen_std_dynamic_import_trampoline(
                     &vmoffsets,
                     &func_type,
@@ -354,13 +357,9 @@ impl SinglepassCompiler {
                     calling_convention,
                 )?;
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-                        &module_hash,
-                        &body.body,
-                    );
+                    callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
                     callbacks.asm_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &kind,
                         &module_hash,
                         arch,
                         &body.body,
@@ -374,7 +373,7 @@ impl SinglepassCompiler {
                 let mut obj = get_object_for_target(target.triple())
                     .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
                 let symbol = obj.add_symbol(Symbol {
-                    name: format!("dt{index}").into(),
+                    name: kind.linkage_name().into(),
                     value: 0,
                     size: body.body.len() as u64,
                     kind: SymbolKind::Text,
@@ -392,7 +391,7 @@ impl SinglepassCompiler {
                     4,
                 );
 
-                save_object(obj, format!("dt{index}.o"))
+                save_object(obj, kind.object_filename())
             })
             .collect::<Result<Vec<_>, _>>()?;
 

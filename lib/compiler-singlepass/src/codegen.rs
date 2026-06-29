@@ -34,7 +34,7 @@ use wasmer_compiler::dwarf::{DwarfState, WriterRelocate, init_dwarf_unit};
 
 use wasmer_compiler::{
     WASMER_TRAPS_SECTION_NAME,
-    misc::CompiledKind,
+    misc::{CompiledFunctionExt, CompiledKind},
     object::get_object_for_target,
     types::address_map::InstructionAddressMap,
     wasmparser::{
@@ -157,6 +157,9 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Map from byte offset into wasm function to native instruction ranges.
     address_map: Vec<InstructionAddressMap>,
+
+    /// Compiled function kind.
+    compiled_kind: CompiledKind,
 }
 
 struct SpecialLabelSet {
@@ -1029,6 +1032,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .map(|fname| fname.to_string())
             .unwrap_or_else(|| "<unnamed>".to_string());
 
+        let compiled_kind = CompiledKind::Local(local_func_index, function_name.clone());
         let mut fg = FuncGen {
             module,
             config,
@@ -1053,7 +1057,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?,
             object_path: build_directory
                 .to_path_buf()
-                .join(format!("f{}.o", local_func_index.as_u32())),
+                .join(compiled_kind.object_filename()),
+            compiled_kind,
             #[cfg(feature = "unwind")]
             dwarf_state: init_dwarf_unit(
                 &function_name,
@@ -2300,7 +2305,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let reloc_target_name = if function_index < self.module.num_imported_functions {
                     format!("i{function_index}")
                 } else {
-                    format!("f{}", function_index - self.module.num_imported_functions)
+                    CompiledKind::Local(
+                        LocalFunctionIndex::new(
+                            function_index - self.module.num_imported_functions,
+                        ),
+                        String::new(),
+                    )
+                    .linkage_name()
                 };
                 let reloc_target = self.object.add_symbol(object::write::Symbol {
                     name: reloc_target_name.into(),
@@ -5999,7 +6010,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         let function_symbol = self.object.add_symbol(Symbol {
-            name: format!("f{}", self.local_func_index.as_u32()).into(),
+            name: self.compiled_kind.linkage_name().into(),
             value: 0,
             size: body.len() as u64,
             kind: SymbolKind::Text,
@@ -6040,7 +6051,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             SectionKind::Other,
         );
         let trap_symbol = self.object.add_symbol(Symbol {
-            name: format!("f{}.traps", self.local_func_index.as_u32()).into(),
+            name: self.compiled_kind.traps_name().into(),
             value: 0,
             size: trap_data.len() as u64,
             kind: SymbolKind::Data,
