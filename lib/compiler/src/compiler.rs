@@ -20,10 +20,11 @@ use crate::{
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
 use itertools::Itertools;
-use object::write::{Object, Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
+use crate::object::get_object_for_target;
+use object::write::{Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
 use object::{
-    Architecture, BinaryFormat, Endianness, RelocationEncoding, RelocationFlags, RelocationKind,
-    SectionFlags, SectionKind, SymbolFlags, SymbolKind, SymbolScope, elf,
+    RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
+    SymbolKind, SymbolScope, elf,
 };
 use tempfile::NamedTempFile;
 use wasmer_types::{
@@ -377,8 +378,8 @@ fn emit_wasmer_meta_object(
             )
         })?;
 
-    // TODO
-    let mut obj = Object::new(BinaryFormat::Elf, Architecture::X86_64, Endianness::Little);
+    let mut obj = get_object_for_target(target.triple())
+        .map_err(|e| format!("failed to create Wasmer metaobject: {e}"))?;
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
         WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
