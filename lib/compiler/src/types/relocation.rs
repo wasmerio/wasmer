@@ -179,19 +179,6 @@ pub enum RelocationKind {
     Sub8,
 }
 
-impl RelocationKind {
-    pub fn needs_got(&self) -> bool {
-        matches!(
-            self,
-            Self::MachoArm64RelocGotLoadPage21
-                | Self::MachoArm64RelocGotLoadPageoff12
-                | Self::MachoArm64RelocPointerToGot
-                | Self::MachoX86_64RelocGotLoad
-                | Self::MachoX86_64RelocGot
-        )
-    }
-}
-
 /// A record of a relocation to perform.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]

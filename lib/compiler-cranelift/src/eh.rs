@@ -182,7 +182,11 @@ pub fn build_function_lsda<'a>(
         // section can remain read-only when statically linked into the shared
         // object. The runtime personality resolves these relative to the slot.
         writer
-            .write_all(&(gimli::DW_EH_PE_pcrel | gimli::DW_EH_PE_sdata4).0.to_le_bytes())
+            .write_all(
+                &(gimli::DW_EH_PE_pcrel | gimli::DW_EH_PE_sdata4)
+                    .0
+                    .to_le_bytes(),
+            )
             .unwrap();
     }
 
@@ -253,75 +257,6 @@ pub fn build_tag_section(
     };
 
     Some((section, offsets))
-}
-
-/// Build the LSDA custom section and record the offset for each function.
-///
-/// Returns the section (if any) and a vector mapping each function index to
-/// its LSDA offset inside the section. Even when utilizing the same landing pad for exception tags,
-/// Cranelift generates separate landing pad locations.
-/// These locations are essentially small trampolines that redirect to the basic block we established (the EH dispatch block).
-///
-/// The section can be dumped using the elfutils' readelf tool:
-/// ```shell
-/// objcopy -I binary -O elf64-x86-64 --rename-section .data=.gcc_except_table,alloc,contents lsda.bin object.o && eu-readelf -w object.o
-/// ```
-pub fn build_lsda_section(
-    lsda_data: Vec<Option<FunctionLsdaData>>,
-    pointer_bytes: u8,
-    tag_offsets: &HashMap<u32, u32>,
-    tag_section_index: Option<SectionIndex>,
-) -> (Option<CustomSection>, Vec<Option<u32>>) {
-    let mut bytes = Vec::new();
-    let mut relocations = Vec::new();
-    let mut offsets_per_function = Vec::with_capacity(lsda_data.len());
-
-    let pointer_kind = match pointer_bytes {
-        4 => RelocationKind::Abs4,
-        8 => RelocationKind::Abs8,
-        other => panic!("unsupported pointer size {other} for LSDA generation"),
-    };
-
-    for data in lsda_data.into_iter() {
-        if let Some(data) = data {
-            let base = bytes.len() as u32;
-            bytes.extend_from_slice(&data.bytes);
-
-            for reloc in &data.relocations {
-                let target_offset = tag_offsets
-                    .get(&reloc.tag)
-                    .copied()
-                    .expect("missing tag offset for relocation");
-                relocations.push(Relocation {
-                    kind: pointer_kind,
-                    reloc_target: RelocationTarget::CustomSection(
-                        tag_section_index
-                            .expect("tag section index must exist when relocations are present"),
-                    ),
-                    offset: base + reloc.offset,
-                    addend: target_offset as i64,
-                });
-            }
-
-            offsets_per_function.push(Some(base));
-        } else {
-            offsets_per_function.push(None);
-        }
-    }
-
-    if bytes.is_empty() {
-        (None, offsets_per_function)
-    } else {
-        (
-            Some(CustomSection {
-                protection: CustomSectionProtection::Read,
-                alignment: None,
-                bytes: SectionBody::new_with_vec(bytes),
-                relocations,
-            }),
-            offsets_per_function,
-        )
-    }
 }
 
 #[derive(Debug, Clone)]
