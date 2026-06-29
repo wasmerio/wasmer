@@ -297,29 +297,10 @@ impl Mmap {
         })
     }
 
-    /// Make the memory accessible; used on platforms without mmap syscall.
-    /// Explicitly zeroes the region since heap memory is not guaranteed to be zeroed.
-    #[cfg(feature = "baremetal")]
-    pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
-        let page_size = region::page::size();
-        assert_eq!(start & (page_size - 1), 0);
-        assert_eq!(len & (page_size - 1), 0);
-        assert_le!(len, self.total_size);
-        assert_le!(start, self.total_size - len);
-
-        unsafe {
-            let ptr_start = (self.ptr as *mut u8).add(start);
-            region::protect(ptr_start, len, region::Protection::READ_WRITE)
-                .map_err(|e| e.to_string())?;
-            ptr::write_bytes(ptr_start, 0, len);
-        }
-        Ok(())
-    }
-
     /// Make the memory starting at `start` and extending for `len` bytes accessible.
     /// `start` and `len` must be native page-size multiples and describe a range within
     /// `self`'s reserved memory.
-    #[cfg(all(not(feature = "baremetal"), not(target_os = "windows")))]
+    #[cfg(not(target_os = "windows"))]
     pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
@@ -327,10 +308,15 @@ impl Mmap {
         assert_le!(len, self.total_size);
         assert_le!(start, self.total_size - len);
 
-        // Commit the accessible size.
-        let ptr = self.ptr as *const u8;
-        unsafe { region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
-            .map_err(|e| e.to_string())
+        let ptr_start = unsafe { (self.ptr as *mut u8).add(start) };
+        unsafe { region::protect(ptr_start, len, region::Protection::READ_WRITE) }
+            .map_err(|e| e.to_string())?;
+
+        // mmap(MAP_ANONYMOUS) returns zeroed pages; heap alloc does not.
+        #[cfg(feature = "baremetal")]
+        unsafe { ptr::write_bytes(ptr_start, 0, len) };
+
+        Ok(())
     }
 
     /// Make the memory starting at `start` and extending for `len` bytes accessible.
