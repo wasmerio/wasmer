@@ -22,6 +22,8 @@ use wasmer_types::{
 };
 use wasmer_vm::FunctionBodyPtr;
 
+use crate::engine::artifact::TrapReader;
+
 /// This is a global cache of backtrace frame information for all active
 ///
 /// This global cache is used during `Trap` creation to symbolicate frames.
@@ -57,7 +59,7 @@ struct ModuleInfoFrameInfo {
     image_base: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<ModuleInfo>,
-    trap_infos: BoxedSlice<LocalFunctionIndex, Vec<TrapInformation>>,
+    trap_reader: Arc<TrapReader>,
     debug_info: Arc<Mutex<addr2line::Loader>>,
 }
 
@@ -74,16 +76,7 @@ impl ModuleInfoFrameInfo {
 
     fn trap_info(&self, func: &FunctionInfo, pc: usize) -> Option<TrapInformation> {
         let rel_pos = (pc - func.start) as u32;
-        if let Some(traps) = self.trap_infos.get(func.local_index)
-            && !traps.is_empty()
-        {
-            let idx = traps
-                .binary_search_by_key(&rel_pos, |info| info.code_offset)
-                .ok()?;
-            Some(traps[idx])
-        } else {
-            None
-        }
+        self.trap_reader.lookup(func.local_index, rel_pos)
     }
 }
 
@@ -193,7 +186,7 @@ pub struct FunctionExtent {
 pub fn register(
     module: Arc<ModuleInfo>,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
-    trap_infos: BoxedSlice<LocalFunctionIndex, Vec<TrapInformation>>,
+    trap_reader: Arc<TrapReader>,
     image_base: usize,
     #[cfg(target_os = "linux")] debug_info: Arc<Mutex<addr2line::Loader>>,
 ) -> Option<GlobalFrameInfoRegistration> {
@@ -241,7 +234,7 @@ pub fn register(
             image_base,
             functions,
             module,
-            trap_infos,
+            trap_reader,
             #[cfg(target_os = "linux")]
             debug_info,
         },

@@ -183,9 +183,6 @@ pub struct AllocatedArtifact {
     signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 
-    /// Per-function frame info for backtrace symbolication.
-    trap_infos: PrimaryMap<LocalFunctionIndex, Vec<TrapInformation>>,
-
     // This shows if the frame info has been registered already or not.
     // Because the 'GlobalFrameInfoRegistration' ownership can be transferred to EngineInner
     // this bool is needed to track the status, as 'frame_info_registration' will be None
@@ -238,8 +235,6 @@ impl AllocatedArtifact {
 
         // Parts function offsets
         let mut function_offsets = None;
-        let mut trap_section_data = None;
-        let mut trap_function_offsets = None;
         for section in image.sections() {
             let Ok(section_name) = section.name_bytes() else {
                 continue;
@@ -257,25 +252,6 @@ impl AllocatedArtifact {
                             })
                             .collect_vec(),
                     );
-                }
-                WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME => {
-                    let data = section
-                        .data()
-                        .map_err(|e| format!("cannot load image section data: {e}"))?;
-                    trap_function_offsets = Some(
-                        data.chunks_exact(size_of::<usize>())
-                            .map(|chunk| {
-                                let arr: [u8; 8] = chunk.try_into().unwrap();
-                                usize::from_le_bytes(arr)
-                            })
-                            .collect_vec(),
-                    );
-                }
-                WASMER_TRAPS_SECTION_NAME => {
-                    let data = section
-                        .data()
-                        .map_err(|e| format!("cannot load image section data: {e}"))?;
-                    trap_section_data = Some(data);
                 }
                 b".eh_frame" => {
                     memory_map.publish_eh_frame_section(section.address(), section.size())?
@@ -309,29 +285,6 @@ impl AllocatedArtifact {
             ));
         }
 
-        let trap_infos = if let (Some(trap_section_data), Some(trap_function_offsets)) =
-            (trap_section_data, trap_function_offsets)
-        {
-            if trap_function_offsets.len() != local_function_count {
-                return Err(format!(
-                    "corrupted {} section",
-                    String::from_utf8_lossy(WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME)
-                ));
-            }
-            trap_function_offsets
-                .iter()
-                .enumerate()
-                .map(|(i, &trap_offset)| {
-                    let local_function_index = LocalFunctionIndex::new(i);
-                    parse_function_traps(trap_section_data, trap_offset, local_function_index)
-                })
-                .collect::<Result<PrimaryMap<_, _>, _>>()?
-        } else {
-            (0..local_function_count)
-                .map(|_| Vec::new())
-                .collect::<PrimaryMap<LocalFunctionIndex, _>>()
-        };
-
         let base = memory_map.base();
         Ok(Self {
             finished_functions: local_fn_offsets
@@ -352,7 +305,6 @@ impl AllocatedArtifact {
                 .collect::<PrimaryMap<_, _>>()
                 .into_boxed_slice(),
             finished_function_lengths: PrimaryMap::from_iter(local_fn_sizes).into_boxed_slice(),
-            trap_infos,
             frame_info_registered: false,
             frame_info_registration: None,
             signatures: signatures.into_boxed_slice(),
@@ -379,42 +331,111 @@ impl AllocatedArtifact {
     }
 }
 
-fn parse_function_traps(
-    traps_section: &[u8],
-    trap_offset: usize,
-    local_function_index: LocalFunctionIndex,
-) -> Result<Vec<TrapInformation>, String> {
-    let data = traps_section
-        .get(trap_offset..)
-        .ok_or_else(|| "trap information points outside section data".to_string())?;
-    let count_bytes = data.get(..size_of::<u32>()).ok_or_else(|| {
-        format!(
-            "trap information for function {} is missing its trap count",
-            local_function_index.index()
-        )
-    })?;
-    let count = u32::from_le_bytes(count_bytes.try_into().unwrap()) as usize;
-    let records = data
-        .get(size_of::<u32>()..size_of::<u32>() + count * 2 * size_of::<u32>())
-        .ok_or_else(|| {
+/// On-demand reader of per-function trap information from the artifact's
+/// object file.
+///
+/// Trap lookups only happen when a trap actually fires (a rare event), so
+/// instead of eagerly parsing and keeping every function's trap table
+/// resident in memory we re-parse the relevant object sections lazily on each
+/// lookup. The reader holds its own duplicated file descriptor to the
+/// artifact, independent of the artifact's primary `module_file`.
+pub struct TrapReader {
+    file: Mutex<File>,
+}
+
+impl TrapReader {
+    fn new(file: File) -> Self {
+        Self {
+            file: Mutex::new(file),
+        }
+    }
+
+    /// Looks up the trap information for `local_index` at `rel_pos`, the offset
+    /// relative to the start of the function.
+    pub fn lookup(&self, local_index: LocalFunctionIndex, rel_pos: u32) -> Option<TrapInformation> {
+        let mut file = self.file.lock().ok()?;
+        file.seek(SeekFrom::Start(0)).ok()?;
+        let reader = BufReader::new(file.try_clone().ok()?);
+        let cache = ReadCache::new(reader);
+        let image = object::File::parse(&cache).ok()?;
+
+        let mut trap_section_data = None;
+        let mut trap_function_offsets = None;
+        for section in image.sections() {
+            let Ok(section_name) = section.name_bytes() else {
+                continue;
+            };
+            match section_name {
+                WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME => {
+                    trap_function_offsets = section.data().ok();
+                }
+                WASMER_TRAPS_SECTION_NAME => {
+                    trap_section_data = section.data().ok();
+                }
+                _ => {}
+            }
+        }
+        let trap_function_offsets = trap_function_offsets?;
+        let trap_section_data = trap_section_data?;
+
+        let offset_bytes = trap_function_offsets
+            .get(local_index.index() * size_of::<usize>()..)
+            .and_then(|s| s.get(..size_of::<usize>()))?;
+        let trap_offset = usize::from_le_bytes(offset_bytes.try_into().unwrap());
+
+        let traps = Self::parse_function_traps(trap_section_data, trap_offset, local_index).ok()?;
+        let idx = traps
+            .binary_search_by_key(&rel_pos, |info| info.code_offset)
+            .ok()?;
+        Some(traps[idx])
+    }
+
+    fn parse_function_traps(
+        traps_section: &[u8],
+        trap_offset: usize,
+        local_function_index: LocalFunctionIndex,
+    ) -> Result<Vec<TrapInformation>, String> {
+        const WORD_SIZE: usize = size_of::<u32>();
+
+        let data = traps_section
+            .get(trap_offset..)
+            .ok_or_else(|| "trap information points outside section data".to_string())?;
+        let count_bytes = data.get(..WORD_SIZE).ok_or_else(|| {
+            format!(
+                "trap information for function {} is missing its trap count",
+                local_function_index.index()
+            )
+        })?;
+        let count = u32::from_le_bytes(
+            count_bytes
+                .try_into()
+                .map_err(|e| format!("too many traps: {e}"))?,
+        ) as usize;
+        let data = &data[WORD_SIZE..];
+        let records = data.get(..count * 2 * WORD_SIZE).ok_or_else(|| {
             format!(
                 "trap information for function {} is truncated",
                 local_function_index.index()
             )
         })?;
 
-    records
-        .chunks_exact(2 * size_of::<u32>())
-        .map(|record| {
-            let code_offset = u32::from_le_bytes(record[..size_of::<u32>()].try_into().unwrap());
-            let trap_code = u32::from_le_bytes(record[size_of::<u32>()..].try_into().unwrap());
-            let trap_code = unsafe { std::mem::transmute::<u32, TrapCode>(trap_code) };
-            Ok(TrapInformation {
-                code_offset,
-                trap_code,
+        let traps = records
+            .chunks_exact(2 * WORD_SIZE)
+            .map(|record| {
+                let code_offset =
+                    u32::from_le_bytes(record[..WORD_SIZE].try_into().map_err(|e| format!("{e}"))?);
+                let trap_code =
+                    u32::from_le_bytes(record[WORD_SIZE..].try_into().map_err(|e| format!("{e}"))?);
+                // SAFETY: the serialized value is a TrapCode enum value
+                let trap_code = unsafe { std::mem::transmute::<u32, TrapCode>(trap_code) };
+                Ok(TrapInformation {
+                    code_offset,
+                    trap_code,
+                })
             })
-        })
-        .collect()
+            .collect::<Result<Vec<_>, String>>()?;
+        Ok(traps)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -684,18 +705,23 @@ impl std::fmt::Debug for Artifact {
 impl Artifact {
     fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
         let module_info = self.serializable.compile_info.module.clone();
+        let trap_file = self
+            .module_file
+            .file()
+            .try_clone()
+            .map_err(|e| DeserializeError::Generic(e.to_string()))?;
         let allocated = self.allocated.as_mut().expect("It must be allocated");
         if allocated.frame_info_registered {
             return Ok(());
         }
 
         let finished_function_extents = allocated.function_extents().into_boxed_slice();
-        let trap_infos = std::mem::take(&mut allocated.trap_infos).into_boxed_slice();
+        let trap_reader = Arc::new(TrapReader::new(trap_file));
 
         allocated.frame_info_registration = register_frame_info(
             module_info,
             &finished_function_extents,
-            trap_infos,
+            trap_reader,
             allocated._memory_map.base() as usize,
             allocated.debug_info.clone(),
         );
