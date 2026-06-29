@@ -4457,7 +4457,6 @@ impl Machine for MachineX86_64 {
         self.assembler.emit_call_label(next)?;
         self.emit_label(next)?;
 
-        // TODO
         let section = object.section_id(StandardSection::Text);
         object
             .add_relocation(

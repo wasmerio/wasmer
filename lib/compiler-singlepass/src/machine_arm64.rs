@@ -4661,19 +4661,21 @@ impl Machine for MachineARM64 {
         let reloc_at = self.assembler.get_offset().0;
         self.emit_label(next)?; // this is to be sure the current imm26 value is 0
         self.assembler.emit_call_label(next)?;
-        // TODO
+
         let section = object.section_id(StandardSection::Text);
-        object.add_relocation(
-            section,
-            Relocation {
-                symbol: reloc_target,
-                flags: RelocationFlags::Elf {
-                    r_type: R_AARCH64_CALL26,
+        object
+            .add_relocation(
+                section,
+                Relocation {
+                    symbol: reloc_target,
+                    flags: RelocationFlags::Elf {
+                        r_type: R_AARCH64_CALL26,
+                    },
+                    offset: reloc_at as u64,
+                    addend: 0,
                 },
-                offset: reloc_at as u64,
-                addend: 0,
-            },
-        );
+            )
+            .map_err(|e| CompileError::Codegen(format!("failed to add call relocation: {e}")))?;
         Ok(())
     }
 

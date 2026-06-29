@@ -17,11 +17,11 @@ use std::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
+use crate::types::module::CompileModuleInfo;
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::types::symbols::ModuleMetadata;
-use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
 use crate::{
-    Engine, EngineInner, Features, FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration,
+    Engine, EngineInner, FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration,
     InstantiationError, Tunables, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
     WASMER_MODULE_INFO_SECTION_NAME, WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME,
     WASMER_TRAPS_SECTION_NAME,

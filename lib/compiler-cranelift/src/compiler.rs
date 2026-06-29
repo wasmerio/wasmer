@@ -515,11 +515,6 @@ fn emit_function_object(
                 });
                 (symbol, r.addend)
             }
-            other => {
-                return Err(CompileError::Codegen(format!(
-                    "unsupported relocation target for Cranelift object emission: {other:?}"
-                )));
-            }
         };
 
         obj.add_relocation(
