@@ -42,6 +42,7 @@ shared-buffer.workspace = true
 libc.workspace = true
 target-lexicon.workspace = true
 object.workspace = true
+phf = { workspace = true, features = ["macros"] }
 libwild.workspace = true
 itertools.workspace = true
 tempfile.workspace = true
