@@ -1,7 +1,7 @@
 //! A common functionality used among various compilers.
 
 use core::fmt::Display;
-use std::{collections::HashMap, fmt::format, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::process::{Command, Stdio};

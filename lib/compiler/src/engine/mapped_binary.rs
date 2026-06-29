@@ -1,6 +1,5 @@
 use std::fs::File;
 use std::io::BufReader;
-use std::os::fd::AsRawFd;
 use std::slice;
 use std::{ffi::c_void, ptr};
 

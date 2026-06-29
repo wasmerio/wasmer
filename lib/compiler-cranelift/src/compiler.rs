@@ -66,8 +66,6 @@ use wasmer_types::{
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).
     LocalFunc(LocalFunctionIndex),
-    /// A relocation to a dynamic trampoline.
-    DynamicTrampoline(FunctionIndex),
     /// A compiler-generated libcall.
     LibCall(LibCall),
 }

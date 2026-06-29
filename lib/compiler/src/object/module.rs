@@ -1,18 +1,11 @@
 use super::error::ObjectError;
 use crate::{serialize::MetadataHeader, types::symbols::ModuleMetadata};
 use object::{
-    FileFlags, RelocationEncoding, RelocationFlags, RelocationKind, SectionKind, SymbolFlags,
-    SymbolKind, SymbolScope, elf, macho,
-    write::{
-        Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolId,
-        SymbolSection,
-    },
+    FileFlags, RelocationEncoding, RelocationFlags, RelocationKind, SymbolFlags, SymbolKind,
+    SymbolScope, elf,
+    write::{Object, Relocation, StandardSection, Symbol, SymbolId, SymbolSection},
 };
-use wasmer_types::LocalFunctionIndex;
-use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, BinaryFormat, Endianness, PointerWidth, Triple};
-
-const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 
 /// Create an object for a given target `Triple`.
 ///
@@ -93,7 +86,7 @@ pub fn emit_data(
     data: &[u8],
     align: u64,
 ) -> Result<u64, ObjectError> {
-    let symbol_id = obj.add_symbol(ObjSymbol {
+    let symbol_id = obj.add_symbol(Symbol {
         name: name.to_vec(),
         value: 0,
         size: 0,
@@ -150,7 +143,7 @@ pub fn emit_serialized(
 
     let len = sercomp.len();
     let section_id = obj.section_id(StandardSection::Data);
-    let symbol_id = obj.add_symbol(ObjSymbol {
+    let symbol_id = obj.add_symbol(Symbol {
         name: len_name.as_bytes().to_vec(),
         value: 0,
         size: len.to_le_bytes().len() as _,
@@ -163,7 +156,7 @@ pub fn emit_serialized(
     obj.add_symbol_data(symbol_id, section_id, &len.to_le_bytes(), align);
 
     let section_id = obj.section_id(StandardSection::Data);
-    let symbol_id = obj.add_symbol(ObjSymbol {
+    let symbol_id = obj.add_symbol(Symbol {
         name: data_name.as_bytes().to_vec(),
         value: 0,
         size: sercomp.len() as _,

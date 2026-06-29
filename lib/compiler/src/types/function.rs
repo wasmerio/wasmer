@@ -21,9 +21,7 @@ use rkyv::{
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::{
-    FunctionIndex, LocalFunctionIndex, SignatureIndex, TrapInformation, entity::PrimaryMap,
-};
+use wasmer_types::{LocalFunctionIndex, TrapInformation, entity::PrimaryMap};
 
 /// The frame info for a Compiled function.
 ///

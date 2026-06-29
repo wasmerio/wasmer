@@ -9,9 +9,7 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::{
-    DeserializeError, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SerializeError,
-    SignatureIndex,
-    entity::{EntityRef, PrimaryMap},
+    DeserializeError, LocalFunctionIndex, OwnedDataInitializer, SerializeError, entity::PrimaryMap,
 };
 
 use super::module::CompileModuleInfo;

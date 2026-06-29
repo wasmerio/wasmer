@@ -4,8 +4,6 @@
 use std::cmp::Reverse;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
-use std::thread;
-use std::time::Duration;
 
 use crate::progress::ProgressContext;
 use crate::serialize::SerializableModule;
@@ -21,7 +19,6 @@ use crate::{
 };
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
-use gimli::Error::DuplicateAbbreviationCode;
 use itertools::Itertools;
 use object::write::{Object, Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
 use object::{
@@ -29,7 +26,6 @@ use object::{
     SectionFlags, SectionKind, SymbolFlags, SymbolKind, SymbolScope, elf,
 };
 use tempfile::NamedTempFile;
-use wasmer_types::ModuleHash;
 use wasmer_types::{
     CompilationProgressCallback, Features, LocalFunctionIndex, MetadataHeader,
     entity::PrimaryMap,

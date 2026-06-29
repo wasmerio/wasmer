@@ -14,8 +14,8 @@ use gimli::{
     },
 };
 use object::{
-    RelocationEncoding, RelocationFlags, RelocationKind as ObjectRelocationKind, SectionKind,
-    write::{Object, Relocation as ObjectRelocation, StandardSegment, SymbolId},
+    RelocationEncoding, RelocationFlags, RelocationKind, SectionKind,
+    write::{Object, Relocation, StandardSegment, SymbolId},
 };
 use wasmer_types::{CompileError, SourceLoc, target::Endianness};
 
@@ -37,7 +37,7 @@ pub struct EhRelocation {
     /// Offset of the relocation within the `.eh_frame` section.
     pub offset: u64,
     /// The relocation kind to apply.
-    pub kind: ObjectRelocationKind,
+    pub kind: RelocationKind,
     /// Relocation size, in bytes.
     pub size: u8,
     /// The symbolic target this relocation resolves against.
@@ -119,7 +119,7 @@ impl Writer for WriterRelocate {
                 let offset = self.len() as u64;
                 self.relocs.push(EhRelocation {
                     offset,
-                    kind: ObjectRelocationKind::Absolute,
+                    kind: RelocationKind::Absolute,
                     size,
                     target,
                     addend,
@@ -149,7 +149,7 @@ impl Writer for WriterRelocate {
                 let offset = self.len() as u64;
                 self.relocs.push(EhRelocation {
                     offset,
-                    kind: ObjectRelocationKind::Relative,
+                    kind: RelocationKind::Relative,
                     size: 4,
                     target,
                     addend,
@@ -172,7 +172,7 @@ impl Writer for WriterRelocate {
                 let offset = self.len() as u64;
                 self.relocs.push(EhRelocation {
                     offset,
-                    kind: ObjectRelocationKind::GotRelative,
+                    kind: RelocationKind::GotRelative,
                     size: 4,
                     target,
                     addend,
@@ -201,7 +201,6 @@ impl Writer for WriterRelocate {
 #[derive(Clone, Debug)]
 struct DebugRelocation {
     offset: u64,
-    kind: ObjectRelocationKind,
     size: u8,
     target: DebugRelocationTarget,
     addend: i64,
@@ -258,7 +257,6 @@ impl Writer for DebugWriter {
                 let offset = self.len() as u64;
                 self.relocs.push(DebugRelocation {
                     offset,
-                    kind: ObjectRelocationKind::Absolute,
                     size,
                     target: DebugRelocationTarget::Function,
                     addend,
@@ -272,7 +270,6 @@ impl Writer for DebugWriter {
         let offset = self.len() as u64;
         self.relocs.push(DebugRelocation {
             offset,
-            kind: ObjectRelocationKind::Absolute,
             size,
             target: DebugRelocationTarget::Section(section),
             addend: val as i64,
@@ -289,7 +286,6 @@ impl Writer for DebugWriter {
     ) -> GimliResult<()> {
         self.relocs.push(DebugRelocation {
             offset: offset as u64,
-            kind: ObjectRelocationKind::Absolute,
             size,
             target: DebugRelocationTarget::Section(section),
             addend: val as i64,
@@ -465,12 +461,12 @@ impl DwarfState {
                 object
                     .add_relocation(
                         section,
-                        ObjectRelocation {
+                        Relocation {
                             offset: reloc.offset,
                             symbol,
                             addend: reloc.addend,
                             flags: RelocationFlags::Generic {
-                                kind: ObjectRelocationKind::Absolute,
+                                kind: RelocationKind::Absolute,
                                 encoding: RelocationEncoding::Generic,
                                 size: u8::checked_mul(reloc.size, 8).unwrap_or(64),
                             },
