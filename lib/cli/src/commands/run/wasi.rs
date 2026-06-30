@@ -51,15 +51,16 @@ use wasmer_wasix::{
 
 use crate::{
     config::{UserRegistry, WasmerEnv},
-    utils::{parse_envvar, parse_mapdir, parse_volume},
+    utils::{
+        WAPM_SOURCE_CACHE_TIMEOUT, parse_envvar, parse_mapdir, parse_volume,
+        registry_query_cache_dir,
+    },
 };
 
 use super::{
     CliPackageSource, ExecutableTarget,
     capabilities::{self, PkgCapabilityCache},
 };
-
-const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
@@ -257,13 +258,6 @@ pub struct RunProperties {
     pub path: PathBuf,
     pub invoke: Option<String>,
     pub args: Vec<String>,
-}
-
-fn endpoint_to_folder(url: &Url) -> String {
-    url.to_string()
-        .replace("registry.wasmer.io", "wasmer.io")
-        .replace("registry.wasmer.wtf", "wasmer.wtf")
-        .replace(|c| "/:?&=#%\\".contains(c), "_")
 }
 
 #[allow(dead_code)]
@@ -726,10 +720,7 @@ impl Wasi {
         source.add_source(preloaded);
 
         let graphql_endpoint = self.graphql_endpoint(env)?;
-        let cache_dir = env
-            .cache_dir()
-            .join("queries")
-            .join(endpoint_to_folder(&graphql_endpoint));
+        let cache_dir = registry_query_cache_dir(env.cache_dir(), &graphql_endpoint);
         let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
             .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
             .with_preferred_webc_version(preferred_webc_version);

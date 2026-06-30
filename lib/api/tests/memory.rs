@@ -134,6 +134,19 @@ fn test_wasm_slice_issue_5444() {
 }
 
 #[test]
+fn test_wasm_slice_new_rejects_out_of_bounds_ranges() {
+    let mut store = Store::default();
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(1), false)).unwrap();
+    let view = memory.view(&store);
+
+    let slice = wasmer::WasmSlice::<u64>::new(&view, 0, 8193);
+    assert!(matches!(
+        slice.err(),
+        Some(wasmer::MemoryAccessError::HeapOutOfBounds)
+    ));
+}
+
+#[test]
 fn test_wasm_memory_size() {
     let mut store = Store::default();
 
