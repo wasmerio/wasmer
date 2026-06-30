@@ -362,11 +362,13 @@ impl MemoryMappedBinary {
             let dynamic_symbols = object_file.dynamic_symbol_table().unwrap();
 
             for (offset, relocation) in dynamic_relocations {
-                let is_x86_64_relative = relocation.flags()
-                    == (object::RelocationFlags::Elf {
+                let rel_flags = relocation.flags();
+                if matches!(
+                    rel_flags,
+                    object::RelocationFlags::Elf {
                         r_type: elf::R_X86_64_RELATIVE,
-                    });
-                if is_x86_64_relative {
+                    }
+                ) {
                     unsafe {
                         ptr::write_unaligned(
                             base.add(offset as usize) as *mut usize,
@@ -381,29 +383,36 @@ impl MemoryMappedBinary {
                 };
                 let symbol = dynamic_symbols.symbol_by_index(symbol_index).unwrap();
                 let symbol_name = symbol.name().unwrap();
-                let Some(libcall) =
-                    lookup_libcall(symbol_name, object_file.format(), object_file.architecture())
-                else {
+                let Some(libcall) = lookup_libcall(
+                    symbol_name,
+                    object_file.format(),
+                    object_file.architecture(),
+                ) else {
                     return Err(format!(
                         "unsupported dynamic relocation symbol {symbol_name}"
                     ));
                 };
 
-                let is_x86_64_glob_dat = relocation.flags()
-                    == (object::RelocationFlags::Elf {
-                        r_type: elf::R_X86_64_GLOB_DAT,
-                    });
                 let apply_absolute_relocation = || unsafe {
                     ptr::write_unaligned(
                         base.add(offset as usize) as *mut usize,
                         function_pointer(libcall).wrapping_add(relocation.addend() as usize),
                     );
                 };
-                match relocation.kind() {
-                    object::RelocationKind::Absolute => apply_absolute_relocation(),
-                    object::RelocationKind::Unknown if is_x86_64_glob_dat => {
-                        apply_absolute_relocation()
-                    }
+                match (relocation.kind(), rel_flags) {
+                    (object::RelocationKind::Absolute, _) => apply_absolute_relocation(),
+                    (
+                        object::RelocationKind::Unknown,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_X86_64_GLOB_DAT,
+                        },
+                    ) => apply_absolute_relocation(),
+                    (
+                        object::RelocationKind::Unknown,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_X86_64_JUMP_SLOT,
+                        },
+                    ) => apply_absolute_relocation(),
                     kind => return Err(format!("unsupported dynamic relocation kind {kind:?}")),
                 }
             }

@@ -491,7 +491,7 @@ fn emit_wasmer_meta_object(
             value: 0,
             size: 0,
             kind: SymbolKind::Data,
-            scope: SymbolScope::Compilation,
+            scope: SymbolScope::Linkage,
             weak: true,
             section: SymbolSection::Undefined,
             flags: SymbolFlags::None,
@@ -555,10 +555,13 @@ pub fn emit_metadata_and_link(
             .map_err(CompileError::Codegen)?;
 
     let mut link_args = vec![
-        "ld".to_string(),
         "-Bsymbolic".to_string(),
         "-shared".to_string(),
-        "--no-threads".to_string(),
+        "--threads=1".to_string(),
+        "-z".to_string(),
+        "now".to_string(),
+        "-z".to_string(),
+        "relro".to_string(),
         "-o".to_string(),
         module_file.path().display().to_string(),
     ];
@@ -575,13 +578,18 @@ pub fn emit_metadata_and_link(
     // records. Linkers concatenate input sections in object order, and a
     // leading terminator makes frame registration see an empty table.
     link_args.push(meta_object_path.display().to_string());
-    let mut wild_args = libwild::Args::new(|| link_args.iter().map(String::as_str))
-        .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
-    wild_args
-        .parse(|| link_args.iter().map(String::as_str))
-        .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
-    libwild::run(wild_args)
-        .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+
+    // let mut wild_args = libwild::Args::new(|| link_args.iter().map(String::as_str))
+    //     .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
+    // wild_args
+    //     .parse(|| link_args.iter().map(String::as_str))
+    //     .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
+    // libwild::run(wild_args)
+    //     .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+
+    lld_rx::link_native(link_args)
+        .ok()
+        .map_err(|e| CompileError::Codegen(format!("LLD linker failed: {e:?}")))?;
 
     let path_buf = module_file.path().to_path_buf();
     let (_, path) = module_file.into_parts();

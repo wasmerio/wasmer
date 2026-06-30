@@ -170,7 +170,8 @@ impl FuncTranslator {
             m0_is_enabled,
         )?;
 
-        let func = module.add_function(&function.linkage_name(), func_type, Some(Linkage::External));
+        let func =
+            module.add_function(&function.linkage_name(), func_type, Some(Linkage::External));
         let debug_info = {
             let debug_metadata_version = self
                 .ctx
@@ -530,7 +531,9 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        let object_path = build_directory.to_path_buf().join(function.object_filename());
+        let object_path = build_directory
+            .to_path_buf()
+            .join(function.object_filename());
         std::fs::write(&object_path, memory_buffer.as_slice())
             .map_err(|e| CompileError::Codegen(format!("Cannot save emitted assembly: {e}")))?;
         Ok(object_path)

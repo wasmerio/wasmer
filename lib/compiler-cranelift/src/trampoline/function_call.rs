@@ -126,17 +126,8 @@ pub fn make_trampoline_function_call(
     code_buf.extend_from_slice(compiled.code_buffer());
 
     if let Some(callbacks) = callbacks.as_ref() {
-        callbacks.obj_memory_buffer(
-            kind,
-            module_hash,
-            &code_buf,
-        );
-        callbacks.asm_memory_buffer(
-            kind,
-            module_hash,
-            arch,
-            &code_buf,
-        )?;
+        callbacks.obj_memory_buffer(kind, module_hash, &code_buf);
+        callbacks.asm_memory_buffer(kind, module_hash, arch, &code_buf)?;
     }
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();

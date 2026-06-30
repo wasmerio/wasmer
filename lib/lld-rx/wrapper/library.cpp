@@ -6,6 +6,7 @@
 #include <lld/Common/Driver.h>
 
 #include <cstdlib>
+#include <csignal>
 #include <mutex>
 
 #ifdef LLD_RX_HAS_MACHO_DRIVER
@@ -31,6 +32,43 @@ const char *alloc_str(const std::string &str) {
 // LLD seems not to be thread safe. This is terrible. We basically only allow single threaded access
 // to the driver using mutexes.
 std::mutex concurrencyMutex;
+
+class ScopedSignalHandlers {
+public:
+    ScopedSignalHandlers() {
+        save(SIGSEGV, &sigsegv);
+        save(SIGILL, &sigill);
+        save(SIGFPE, &sigfpe);
+#ifdef SIGBUS
+        save(SIGBUS, &sigbus);
+#endif
+    }
+
+    ~ScopedSignalHandlers() {
+        restore(SIGSEGV, &sigsegv);
+        restore(SIGILL, &sigill);
+        restore(SIGFPE, &sigfpe);
+#ifdef SIGBUS
+        restore(SIGBUS, &sigbus);
+#endif
+    }
+
+private:
+    static void save(int signal, struct sigaction *action) {
+        sigaction(signal, nullptr, action);
+    }
+
+    static void restore(int signal, const struct sigaction *action) {
+        sigaction(signal, action, nullptr);
+    }
+
+    struct sigaction sigsegv {};
+    struct sigaction sigill {};
+    struct sigaction sigfpe {};
+#ifdef SIGBUS
+    struct sigaction sigbus {};
+#endif
+};
 
 extern "C" {
     struct LldInvokeResult {
@@ -81,6 +119,7 @@ extern "C" {
 
         // LLD is not thread-safe at all, so we guard parallel invocation with a mutex
         std::unique_lock lock(concurrencyMutex);
+        ScopedSignalHandlers signalHandlers;
         result.success = link(args, outputStream, errorStream, false, false);
 
         // Delete the global context and clear the global context pointer, so that it
