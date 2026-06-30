@@ -85,14 +85,16 @@ impl Mmap {
         }
 
         if accessible_size < mapping_size {
-            unsafe {
+            if let Err(e) = unsafe {
                 region::protect(
                     ptr.add(accessible_size),
                     mapping_size - accessible_size,
                     region::Protection::NONE,
                 )
+            } {
+                unsafe { dealloc(ptr, layout) };
+                return Err(e.to_string());
             }
-            .map_err(|e| e.to_string())?;
         }
 
         // alloc does not guarantee zeroed memory unlike mmap(MAP_ANONYMOUS).
