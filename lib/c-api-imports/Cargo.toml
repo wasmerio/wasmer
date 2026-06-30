@@ -64,4 +64,3 @@ wasmer-artifact-load = ["wasmer-api/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-api/wasmer-artifact-create"]
 static-artifact-load = ["wasmer-api/static-artifact-load"]
 static-artifact-create = ["wasmer-api/static-artifact-create"]
-

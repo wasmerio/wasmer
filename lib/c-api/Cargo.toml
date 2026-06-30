@@ -81,7 +81,7 @@ singlepass = [
   "wasmer-c-api-imports/singlepass",
   "compiler",
 ]
-# Enable the `cranelift` compiler. 
+# Enable the `cranelift` compiler.
 cranelift = [
   "dep:wasmer-compiler-cranelift",
   "wasmer-api/cranelift",
@@ -123,7 +123,11 @@ v8 = ["wasmer-api/v8", "wasmer-c-api-imports/v8"]
 # Enable the `sys` backend and use it as default. Notice that this does not
 # enable a default compiler, and users should therefore add one (or more) of
 # the `singlepass`, `cranelift` and `llvm` features.
-sys-default = ["sys", "wasmer-api/sys-default", "wasmer-c-api-imports/sys-default"]
+sys-default = [
+  "sys",
+  "wasmer-api/sys-default",
+  "wasmer-c-api-imports/sys-default",
+]
 
 # Enable the `v8` backend and use it as default.
 v8-default = ["v8", "wasmer-api/v8-default", "wasmer-c-api-imports/v8-default"]
