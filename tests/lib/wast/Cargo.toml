@@ -11,7 +11,7 @@ readme = "README.md"
 edition.workspace = true
 
 [dependencies]
-wasmer = { path = "../../../lib/api", version = "=7.2.0-rc.1", default-features = false }
+wasmer = { path = "../../../lib/api", version = "=7.2.0", default-features = false }
 
 anyhow.workspace = true
 wast.workspace = true

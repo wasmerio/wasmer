@@ -13,7 +13,7 @@ version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-wasmer-api = { version = "=7.2.0-rc.1", path = "../api", default-features = false, package = "wasmer" }
+wasmer-api = { version = "=7.2.0", path = "../api", default-features = false, package = "wasmer" }
 
 [dev-dependencies]
 tokio = { workspace = true, features = [
@@ -21,8 +21,8 @@ tokio = { workspace = true, features = [
   "rt-multi-thread",
   "macros",
 ], default-features = false }
-wasmer-types = { version = "=7.2.0-rc.1", path = "../types" }
-wasmer-wasix = { path = "../wasix", version = "=0.702.0-rc.1", features = [
+wasmer-types = { version = "=7.2.0", path = "../types" }
+wasmer-wasix = { path = "../wasix", version = "=0.702.0", features = [
   "host-fs",
   "host-vnet",
   "sys",
