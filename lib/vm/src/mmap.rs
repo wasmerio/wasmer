@@ -78,7 +78,8 @@ impl Mmap {
         assert!(backing_file.is_none());
 
         // mmap requires alignment to pages, we follow the same behavior
-        let layout = Layout::from_size_align(mapping_size, page_size).unwrap();
+        let layout = Layout::from_size_align(mapping_size, page_size)
+            .map_err(|e| e.to_string())?;
         let ptr = unsafe { alloc(layout) };
         if ptr.is_null() {
             return Err("memory allocation failed".to_string());
@@ -433,9 +434,9 @@ impl Drop for Mmap {
     #[cfg(feature = "baremetal")]
     fn drop(&mut self) {
         if self.total_size != 0 {
-            let layout =
-                Layout::from_size_align(self.total_size, region::page::size()).unwrap();
-            unsafe { dealloc(self.ptr as *mut u8, layout) }
+            if let Ok(layout) = Layout::from_size_align(self.total_size, region::page::size()) {
+                unsafe { dealloc(self.ptr as *mut u8, layout) }
+            }
         }
     }
 
