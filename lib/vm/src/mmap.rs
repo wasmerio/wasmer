@@ -304,7 +304,7 @@ impl Mmap {
     /// Make the memory starting at `start` and extending for `len` bytes accessible.
     /// `start` and `len` must be native page-size multiples and describe a range within
     /// `self`'s reserved memory.
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(any(feature = "baremetal", not(target_os = "windows")))]
     pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
         let page_size = region::page::size();
         assert_eq!(start & (page_size - 1), 0);
