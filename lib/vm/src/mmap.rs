@@ -79,7 +79,7 @@ impl Mmap {
 
         // mmap requires alignment to pages, we follow the same behavior
         let layout = Layout::from_size_align(mapping_size, page_size).unwrap();
-        let ptr = unsafe { alloc(layout) } as *const u8;
+        let ptr = unsafe { alloc(layout) };
 
         if accessible_size < mapping_size {
             unsafe {
@@ -92,18 +92,17 @@ impl Mmap {
             .map_err(|e| e.to_string())?;
         }
 
-        let mut result = Self {
+        // alloc does not guarantee zeroed memory unlike mmap(MAP_ANONYMOUS).
+        if accessible_size != 0 {
+            unsafe { ptr::write_bytes(ptr, 0, accessible_size) };
+        }
+
+        Ok(Self {
             ptr: ptr as usize,
             total_size: mapping_size,
             accessible_size,
             sync_on_drop: false,
-        };
-
-        if accessible_size != 0 {
-            result.make_accessible(0, accessible_size)?;
-        }
-
-        Ok(result)
+        })
     }
 
     /// Create a new `Mmap` pointing to `accessible_size` bytes of page-aligned accessible memory,
