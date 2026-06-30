@@ -7020,6 +7020,7 @@ dependencies = [
  "typetag",
  "virtual-fs",
  "wasmer",
+ "wasmer-c-api-imports",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -7029,6 +7030,18 @@ dependencies = [
  "wasmer-wasix",
  "wat",
  "webc",
+]
+
+[[package]]
+name = "wasmer-c-api-imports"
+version = "7.2.0-rc.1"
+dependencies = [
+ "anyhow",
+ "tokio",
+ "wasmer",
+ "wasmer-types",
+ "wasmer-wasix",
+ "wat",
 ]
 
 [[package]]
@@ -7150,7 +7163,7 @@ dependencies = [
  "wasm-coredump-builder",
  "wasmer",
  "wasmer-backend-api",
- "wasmer-c-api",
+ "wasmer-c-api-imports",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -7396,7 +7409,7 @@ dependencies = [
  "ureq 2.12.1",
  "virtual-fs",
  "wasmer",
- "wasmer-c-api",
+ "wasmer-c-api-imports",
  "wasmer-cache",
  "wasmer-compiler-llvm",
  "wasmer-types",
