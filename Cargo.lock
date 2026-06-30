@@ -7667,6 +7667,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-lld-rx"
+version = "7.2.0-rc.1"
+dependencies = [
+ "cc",
+ "lazy_static",
+ "semver 1.0.28",
+]
+
+[[package]]
 name = "wasmer-middlewares"
 version = "7.2.0-rc.1"
 dependencies = [

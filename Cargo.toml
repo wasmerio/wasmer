@@ -63,6 +63,7 @@ members = [
   "lib/wasi-types",
   "lib/wasix",
   "lib/journal",
+  "lib/lld-rx",
   "lib/swift",
   "lib/package",
   "tests/integration/cli",

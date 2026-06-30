@@ -1,0 +1,22 @@
+[package]
+name = "wasmer-lld-rx"
+description = "Updated LLD bindings for Rust"
+categories = ["development-tools"]
+keywords = ["lld", "linker", "llvm"]
+readme = "README.md"
+build = "build.rs"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license = "MIT"
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[lib]
+name = "lld_rx"
+
+[build-dependencies]
+semver = "1.0.25"
+lazy_static = "1.5.0"
+cc = { workspace = true }
