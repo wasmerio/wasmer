@@ -169,7 +169,7 @@
 <a href=#169 id=169 data-nosnippet>169</a>
 <a href=#170 id=170 data-nosnippet>170</a>    <span class="attr">#[cfg(feature = <span class="string">"wasm-c-api"</span>)]
 <a href=#171 id=171 data-nosnippet>171</a>    </span><span class="kw">fn </span>module_uses_wasm_c_api(module: <span class="kw-2">&amp;</span>Module) -&gt; bool {
-<a href=#172 id=172 data-nosnippet>172</a>        wasmer_c_api::wasm_c_api::imports::module_wasm_c_api_version_used(module).is_some()
+<a href=#172 id=172 data-nosnippet>172</a>        wasmer_c_api_imports::module_wasm_c_api_version_used(module).is_some()
 <a href=#173 id=173 data-nosnippet>173</a>    }
 <a href=#174 id=174 data-nosnippet>174</a>
 <a href=#175 id=175 data-nosnippet>175</a>    <span class="attr">#[cfg(feature = <span class="string">"wasm-c-api"</span>)]
@@ -706,8 +706,8 @@
 <a href=#706 id=706 data-nosnippet>706</a>    }
 <a href=#707 id=707 data-nosnippet>707</a>
 <a href=#708 id=708 data-nosnippet>708</a>    <span class="kw">let </span>runtime_for_resolver = runtime.clone();
-<a href=#709 id=709 data-nosnippet>709</a>    <span class="kw">let </span>hooks = wasmer_c_api::wasm_c_api::imports::WasmCapiRuntimeHooks::new()
-<a href=#710 id=710 data-nosnippet>710</a>        .with_resolve_module_sync(<span class="kw">move </span>|bytes| {
+<a href=#709 id=709 data-nosnippet>709</a>    <span class="kw">let </span>hooks =
+<a href=#710 id=710 data-nosnippet>710</a>        wasmer_c_api_imports::WasmCapiRuntimeHooks::new().with_resolve_module_sync(<span class="kw">move </span>|bytes| {
 <a href=#711 id=711 data-nosnippet>711</a>            runtime_for_resolver
 <a href=#712 id=712 data-nosnippet>712</a>                .resolve_module_sync(ModuleInput::Bytes(Cow::Owned(bytes)), <span class="prelude-val">None</span>, <span class="prelude-val">None</span>)
 <a href=#713 id=713 data-nosnippet>713</a>                .context(<span class="string">"failed to resolve Wasm C API module"</span>)
