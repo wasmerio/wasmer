@@ -14,6 +14,7 @@ version.workspace = true
 
 [dependencies]
 wasmer-types = { path = "../types", version = "=7.2.0-rc.1", default-features = false }
+wasmer-lld-rx = { path = "../lld-rx", version = "=7.2.0-rc.1" }
 wasmparser = { workspace = true, default-features = false, optional = true }
 enumset.workspace = true
 hashbrown = { workspace = true, optional = true }

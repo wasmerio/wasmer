@@ -1,30 +1,17 @@
-use semver::Version;
 use std::env;
 use std::ffi::OsStr;
 use std::io::{self};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::LazyLock;
 
-lazy_static::lazy_static! {
-    static ref CRATE_VERSION: Version = {
-        let crate_version = Version::parse(env!("CARGO_PKG_VERSION"))
-            .expect("Crate version is somehow not valid semver");
-        Version {
-            major: crate_version.major / 10,
-            minor: crate_version.major % 10,
-            .. crate_version
-        }
-    };
-
-    static ref LLVM_CONFIG_PATH: PathBuf = {
-        if let Some(path) = env::var_os("DEP_LLVM_CONFIG_PATH") {
-            path.into()
-        } else {
-            // TODO: remove
-            "/home/marxin/Downloads/llvm21/bin/llvm-config".into()
-        }
-    };
-}
+static LLVM_CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
+    if let Some(prefix) = env::var_os("LLVM_SYS_221_PREFIX") {
+        Path::new(&prefix).join("bin").join("llvm-config")
+    } else {
+        which::which("llvm-config").expect("llvm-config cannot be found")
+    }
+});
 
 fn target_env_is(name: &str) -> bool {
     match env::var_os("CARGO_CFG_TARGET_ENV") {
@@ -183,7 +170,10 @@ fn is_llvm_debug() -> bool {
 }
 
 fn main() {
-    env::set_var("CXXFLAGS", get_llvm_cxxflags());
+    // SAFETY: called in a single-threaded context
+    unsafe {
+        env::set_var("CXXFLAGS", get_llvm_cxxflags());
+    }
     let mut build = cc::Build::new();
 
     build.cpp(true).file("wrapper/library.cpp");
@@ -205,6 +195,8 @@ fn main() {
     build.compile("lldwrapper");
 
     println!("cargo:rerun-if-changed=wrapper/library.cpp");
+    println!("cargo:rerun-if-env-changed=DEP_LLVM_CONFIG_PATH");
+    println!("cargo:rerun-if-env-changed=LLVM_SYS_221_PREFIX");
 
     let libdir = llvm_config("--libdir");
 

@@ -17,6 +17,5 @@ version.workspace = true
 name = "lld_rx"
 
 [build-dependencies]
-semver = "1.0.25"
-lazy_static = "1.5.0"
-cc = { workspace = true }
+cc.workspace = true
+which.workspace = true

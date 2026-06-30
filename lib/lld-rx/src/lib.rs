@@ -10,7 +10,7 @@ struct LldInvokeResult {
     messages: *const c_char,
 }
 
-extern "C" {
+unsafe extern "C" {
     fn lld_link(argc: c_int, argv: *const *const c_char) -> LldInvokeResult;
     fn link_free_result(result: *mut LldInvokeResult);
 }
@@ -69,4 +69,15 @@ pub fn link_native(args: Vec<String>) -> LldResult {
     drop(lld_result);
 
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::link_native;
+
+    #[test]
+    fn test_via_version() {
+        let res = link_native(vec!["--version".to_string()]);
+        res.debug_print();
+    }
 }

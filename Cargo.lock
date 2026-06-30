@@ -7487,6 +7487,7 @@ dependencies = [
  "target-lexicon 0.13.5",
  "tempfile",
  "thiserror 2.0.18",
+ "wasmer-lld-rx",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.252.0",
@@ -7671,8 +7672,7 @@ name = "wasmer-lld-rx"
 version = "7.2.0-rc.1"
 dependencies = [
  "cc",
- "lazy_static",
- "semver 1.0.28",
+ "which",
 ]
 
 [[package]]
