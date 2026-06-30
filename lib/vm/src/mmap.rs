@@ -434,6 +434,16 @@ impl Drop for Mmap {
     #[cfg(feature = "baremetal")]
     fn drop(&mut self) {
         if self.total_size != 0 {
+            // Restore the full range before handing back to the allocator.
+            // Some allocators write freelist metadata into freed blocks; a
+            // PROT_NONE tail would cause a segfault inside dealloc.
+            let _ = unsafe {
+                region::protect(
+                    self.ptr as *mut u8,
+                    self.total_size,
+                    region::Protection::READ_WRITE,
+                )
+            };
             if let Ok(layout) = Layout::from_size_align(self.total_size, region::page::size()) {
                 unsafe { dealloc(self.ptr as *mut u8, layout) }
             }
