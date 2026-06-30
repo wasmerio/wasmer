@@ -6,6 +6,27 @@
 
 ## **Unreleased**
 
+## 7.2.0 - 30/06/2026
+
+## Added
+
+  - [#6761](https://github.com/wasmerio/wasmer/pull/6761) Added wasm-c-api-imports
+  - [#6734](https://github.com/wasmerio/wasmer/pull/6734) cli: add namespace create command
+  - [#6755](https://github.com/wasmerio/wasmer/pull/6755) fix: address 3 CVEs
+  - [#6617](https://github.com/wasmerio/wasmer/pull/6617) Improve dependency unification + add 'package tree' command
+
+## Changed
+
+  - [#6762](https://github.com/wasmerio/wasmer/pull/6762) deps: RUSTSEC-2026-0190 (update anyhow)
+  - [#6752](https://github.com/wasmerio/wasmer/pull/6752) Wasm c api wasix
+  - [#6747](https://github.com/wasmerio/wasmer/pull/6747) Wasm c api exports as imports
+  - [#6754](https://github.com/wasmerio/wasmer/pull/6754) Document libpolly installation in LLVM setup instructions
+
+## Fixed
+
+
+
+
 ## 7.2.0-rc.1 - 24/06/2026
 
 ## Added
