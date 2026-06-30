@@ -64,7 +64,7 @@ impl Mmap {
         accessible_size: usize,
         mapping_size: usize,
         backing_file: Option<std::path::PathBuf>,
-        _memory_type: MmapType,
+        memory_type: MmapType,
     ) -> Result<Self, String> {
         let page_size = region::page::size();
         assert_le!(accessible_size, mapping_size);
@@ -75,7 +75,12 @@ impl Mmap {
             return Ok(Self::new());
         }
 
-        assert!(backing_file.is_none());
+        if backing_file.is_some() {
+            return Err("baremetal Mmap does not support file-backed mappings".to_string());
+        }
+        if memory_type == MmapType::Shared {
+            return Err("baremetal Mmap does not support shared mappings".to_string());
+        }
 
         // mmap requires alignment to pages, we follow the same behavior
         let layout = Layout::from_size_align(mapping_size, page_size).map_err(|e| e.to_string())?;
