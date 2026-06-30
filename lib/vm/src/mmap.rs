@@ -81,7 +81,10 @@ impl Mmap {
         let layout = Layout::from_size_align(mapping_size, page_size).map_err(|e| e.to_string())?;
         let ptr = unsafe { alloc(layout) };
         if ptr.is_null() {
-            return Err("memory allocation failed".to_string());
+            return Err(format!(
+                "memory allocation failed: requested {mapping_size} bytes \
+                 (accessible: {accessible_size}, alignment: {page_size})"
+            ));
         }
 
         if accessible_size < mapping_size {
