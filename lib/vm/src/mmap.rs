@@ -80,6 +80,9 @@ impl Mmap {
         // mmap requires alignment to pages, we follow the same behavior
         let layout = Layout::from_size_align(mapping_size, page_size).unwrap();
         let ptr = unsafe { alloc(layout) };
+        if ptr.is_null() {
+            return Err("memory allocation failed".to_string());
+        }
 
         if accessible_size < mapping_size {
             unsafe {
