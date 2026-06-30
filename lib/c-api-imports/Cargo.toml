@@ -33,31 +33,14 @@ wat.workspace = true
 default = ["wat", "sys-default", "cranelift", "compiler"]
 wat = ["wasmer-api/wat"]
 
-# Enable the `sys` backend.
 sys = ["wasmer-api/sys"]
-
-# Enable the `singlepass` compiler.
 singlepass = ["wasmer-api/singlepass", "compiler"]
-
-# Enable the `cranelift` compiler.
 cranelift = ["wasmer-api/cranelift", "compiler"]
-
-# Enable the `llvm` compiler.
 llvm = ["wasmer-api/llvm", "compiler"]
-
-# Enable the use of compiler. Implies enabling the `sys` feature.
 compiler = ["sys", "wasmer-api/compiler"]
-
-# Enable the `v8` backend.
 v8 = ["wasmer-api/v8"]
-
-# Enable the `sys` backend and use it as default.
 sys-default = ["sys", "wasmer-api/sys-default"]
-
-# Enable the `v8` backend and use it as default.
 v8-default = ["v8", "wasmer-api/v8-default"]
-
-# Enable WASIX-only tests for imported Wasm C API guests.
 wasi = []
 
 wasmer-artifact-load = ["wasmer-api/wasmer-artifact-load"]
