@@ -78,8 +78,7 @@ impl Mmap {
         assert!(backing_file.is_none());
 
         // mmap requires alignment to pages, we follow the same behavior
-        let layout = Layout::from_size_align(mapping_size, page_size)
-            .map_err(|e| e.to_string())?;
+        let layout = Layout::from_size_align(mapping_size, page_size).map_err(|e| e.to_string())?;
         let ptr = unsafe { alloc(layout) };
         if ptr.is_null() {
             return Err("memory allocation failed".to_string());
@@ -319,7 +318,9 @@ impl Mmap {
 
         // mmap(MAP_ANONYMOUS) returns zeroed pages; heap alloc does not.
         #[cfg(feature = "baremetal")]
-        unsafe { ptr::write_bytes(ptr_start, 0, len) };
+        unsafe {
+            ptr::write_bytes(ptr_start, 0, len)
+        };
 
         Ok(())
     }
