@@ -58,6 +58,10 @@ impl FileSystem for ArcFileSystem {
         self.fs.symlink_metadata(path)
     }
 
+    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
+        self.fs.symlink_policy(path)
+    }
+
     fn remove_file(&self, path: &Path) -> Result<()> {
         self.fs.remove_file(path)
     }

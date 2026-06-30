@@ -1,6 +1,6 @@
 use crate::{
-    DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, Result,
-    VirtualFile,
+    DirEntry, FileType, FsError, MAX_SYMLINK_TRAVERSAL_DEPTH, Metadata, OpenOptions,
+    OpenOptionsConfig, ReadDir, Result, SymlinkPolicy, VirtualFile, path,
 };
 use bytes::{Buf, Bytes};
 use futures::future::BoxFuture;
@@ -97,11 +97,133 @@ fn host_root_relative_target(root: &Path, target: PathBuf) -> PathBuf {
     target
 }
 
+fn symlink_target_path(root: &Path, symlink_path: &Path, target: &Path) -> Option<PathBuf> {
+    let base = symlink_path.parent().unwrap_or(root);
+    path::resolve_path_within(root, base, target, normalize_path).or_else(|| {
+        if target.is_absolute()
+            && !target
+                .components()
+                .any(|component| matches!(component, Component::ParentDir | Component::Prefix(..)))
+        {
+            canonicalize(target)
+                .ok()
+                .filter(|target| target.starts_with(root))
+        } else {
+            None
+        }
+    })
+}
+
+fn symlink_chain_target_within(root: &Path, target: PathBuf) -> Option<PathBuf> {
+    let normalized_root = normalize_path(root);
+    let mut current = target;
+    let mut visited = std::collections::HashSet::new();
+    let mut symlink_count = 0;
+
+    loop {
+        if !current.starts_with(&normalized_root) {
+            return None;
+        }
+
+        if !visited.insert(current.clone()) {
+            return None;
+        }
+        if symlink_count >= MAX_SYMLINK_TRAVERSAL_DEPTH {
+            return None;
+        }
+
+        let relative = match current.strip_prefix(&normalized_root) {
+            Ok(relative) => relative,
+            Err(_) => return None,
+        };
+        let mut inspected = normalized_root.clone();
+        let mut components = relative.components();
+        let mut followed_symlink = false;
+
+        while let Some(component) = components.next() {
+            inspected.push(component.as_os_str());
+
+            let metadata = match fs::symlink_metadata(&inspected) {
+                Ok(metadata) => metadata,
+                Err(_) => return None,
+            };
+
+            if !metadata.file_type().is_symlink() {
+                continue;
+            }
+
+            let raw_target = match fs::read_link(&inspected) {
+                Ok(target) => target,
+                Err(_) => return None,
+            };
+            let mut next = symlink_target_path(&normalized_root, &inspected, &raw_target)?;
+            if !components.as_path().as_os_str().is_empty() {
+                next = path::resolve_path_within(
+                    &normalized_root,
+                    &next,
+                    components.as_path(),
+                    normalize_path,
+                )?;
+            }
+
+            symlink_count += 1;
+            current = next;
+            followed_symlink = true;
+            break;
+        }
+
+        if !followed_symlink {
+            return Some(current);
+        }
+    }
+}
+
+pub fn symlink_policy_at(root: &Path, path: &Path) -> Result<SymlinkPolicy> {
+    let root = normalize_path(root);
+    let path = normalize_path(path);
+
+    if !path.starts_with(&root) {
+        return Err(FsError::InvalidInput);
+    }
+
+    let metadata = fs::symlink_metadata(&path)?;
+
+    if !metadata.file_type().is_symlink() {
+        return Ok(SymlinkPolicy::Visible);
+    }
+
+    let target = match fs::read_link(&path) {
+        Ok(target) => match symlink_target_path(&root, &path, &target) {
+            Some(target) => target,
+            None => return Ok(SymlinkPolicy::Hidden),
+        },
+        Err(_) => return Ok(SymlinkPolicy::Hidden),
+    };
+
+    if let Some(target) = symlink_chain_target_within(&root, target) {
+        Ok(SymlinkPolicy::ResolvedPath(target))
+    } else {
+        Ok(SymlinkPolicy::Hidden)
+    }
+}
+
 impl FileSystem {
     pub fn new(handle: Handle, root: impl Into<PathBuf>) -> Result<Self> {
         let root = canonicalize(&root.into())?;
 
         Ok(FileSystem { handle, root })
+    }
+
+    pub fn root_path(&self) -> &Path {
+        &self.root
+    }
+
+    fn symlink_entry_visible(&self, path: &Path, metadata: &fs::Metadata) -> bool {
+        !metadata.file_type().is_symlink()
+            || matches!(
+                symlink_policy_at(&self.root, path),
+                Ok(SymlinkPolicy::Visible | SymlinkPolicy::ResolvedPath(_))
+            )
     }
 
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
@@ -135,9 +257,14 @@ impl crate::FileSystem for FileSystem {
         let path = self.prepare_path(path)?;
 
         let read_dir = fs::read_dir(path)?;
-        let mut data = read_dir
+        let data = read_dir
             .map(|entry| {
                 let entry = entry?;
+                let metadata = fs::symlink_metadata(entry.path())?;
+
+                if !self.symlink_entry_visible(&entry.path(), &metadata) {
+                    return Ok(None);
+                }
 
                 let path = entry
                     .path()
@@ -146,15 +273,14 @@ impl crate::FileSystem for FileSystem {
                     .to_owned();
                 let path = Path::new("/").join(path);
 
-                let metadata = fs::symlink_metadata(entry.path())?;
-
-                Ok(DirEntry {
+                Ok(Some(DirEntry {
                     path,
                     metadata: Ok(metadata.try_into()?),
-                })
+                }))
             })
-            .collect::<std::result::Result<Vec<DirEntry>, io::Error>>()
+            .collect::<std::result::Result<Vec<Option<DirEntry>>, io::Error>>()
             .map_err::<FsError, _>(Into::into)?;
+        let mut data = data.into_iter().flatten().collect::<Vec<_>>();
         data.sort_by(|a, b| a.path.file_name().cmp(&b.path.file_name()));
         Ok(ReadDir::new(data))
     }
@@ -270,6 +396,11 @@ impl crate::FileSystem for FileSystem {
         fs::symlink_metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
+    }
+
+    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
+        let path = self.prepare_path(path)?;
+        symlink_policy_at(&self.root, &path)
     }
 }
 
@@ -945,9 +1076,10 @@ mod tests {
     use tokio::runtime::Handle;
 
     use super::FileSystem;
-    use crate::FileSystem as FileSystemTrait;
     use crate::FsError;
+    use crate::{ArcFileSystem, FileSystem as FileSystemTrait, OverlayFileSystem};
     use std::path::Path;
+    use std::sync::Arc;
 
     #[tokio::test]
     async fn test_new_filesystem() {
@@ -1078,11 +1210,89 @@ mod tests {
         );
     }
 
-    fn read_dir_names(fs: &FileSystem, path: impl AsRef<Path>) -> Vec<String> {
+    fn read_dir_names<F: FileSystemTrait + ?Sized>(fs: &F, path: impl AsRef<Path>) -> Vec<String> {
         fs.read_dir(path.as_ref())
             .unwrap()
             .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
             .collect::<Vec<_>>()
+    }
+
+    #[cfg(unix)]
+    fn host_symlink_visibility_fixture() -> (TempDir, FileSystem) {
+        let temp = TempDir::new().unwrap();
+        let root = temp.path().join("root");
+        let outside = temp.path().join("outside");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(root.join("inside.txt"), b"inside").unwrap();
+        std::fs::write(outside.join("outside.txt"), b"outside").unwrap();
+        std::os::unix::fs::symlink("inside.txt", root.join("inside-link")).unwrap();
+        std::os::unix::fs::symlink(root.join("inside.txt"), root.join("inside-absolute")).unwrap();
+        std::os::unix::fs::symlink("../outside/outside.txt", root.join("outside-relative"))
+            .unwrap();
+        std::os::unix::fs::symlink(outside.join("outside.txt"), root.join("outside-absolute"))
+            .unwrap();
+        std::os::unix::fs::symlink(
+            "../outside/../root/inside.txt",
+            root.join("leave-reenter-relative"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            root.join("../outside/../root/inside.txt"),
+            root.join("leave-reenter-absolute"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink("../outside", root.join("pivot")).unwrap();
+        std::os::unix::fs::symlink("pivot/outside.txt", root.join("chained-escape")).unwrap();
+        std::os::unix::fs::symlink("missing.txt", root.join("broken-link")).unwrap();
+        std::os::unix::fs::symlink("loop-b", root.join("loop-a")).unwrap();
+        std::os::unix::fs::symlink("loop-a", root.join("loop-b")).unwrap();
+
+        let fs = FileSystem::new(Handle::current(), root).unwrap();
+        (temp, fs)
+    }
+
+    #[cfg(unix)]
+    fn assert_host_symlink_visibility<F: FileSystemTrait + ?Sized>(fs: &F) {
+        let names = read_dir_names(fs, "/");
+        assert!(names.contains(&"inside.txt".to_string()));
+        assert!(names.contains(&"inside-link".to_string()));
+        assert!(names.contains(&"inside-absolute".to_string()));
+        assert!(!names.contains(&"broken-link".to_string()));
+        assert!(!names.contains(&"loop-a".to_string()));
+        assert!(!names.contains(&"loop-b".to_string()));
+        assert!(!names.contains(&"outside-relative".to_string()));
+        assert!(!names.contains(&"outside-absolute".to_string()));
+        assert!(!names.contains(&"leave-reenter-relative".to_string()));
+        assert!(!names.contains(&"leave-reenter-absolute".to_string()));
+        assert!(!names.contains(&"pivot".to_string()));
+        assert!(!names.contains(&"chained-escape".to_string()));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn read_dir_hides_host_symlinks_that_escape_root() {
+        let (_temp, fs) = host_symlink_visibility_fixture();
+
+        assert_host_symlink_visibility(&fs);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn arc_file_system_preserves_host_symlink_visibility_policy() {
+        let (_temp, fs) = host_symlink_visibility_fixture();
+        let fs = ArcFileSystem::new(Arc::new(fs));
+
+        assert_host_symlink_visibility(&fs);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn overlay_file_system_preserves_host_symlink_visibility_policy() {
+        let (_temp, fs) = host_symlink_visibility_fixture();
+        let fs = OverlayFileSystem::new(crate::mem_fs::FileSystem::default(), [fs]);
+
+        assert_host_symlink_visibility(&fs);
     }
 
     #[tokio::test]

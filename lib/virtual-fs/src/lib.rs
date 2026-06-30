@@ -41,6 +41,7 @@ pub mod mem_fs;
 pub mod mount_fs;
 pub mod null_file;
 pub mod passthru_fs;
+pub(crate) mod path;
 pub mod random_file;
 pub mod special_file;
 pub mod tmp_fs;
@@ -58,6 +59,8 @@ mod trace_fs;
 mod webc_volume_fs;
 
 pub mod limiter;
+
+pub(crate) const MAX_SYMLINK_TRAVERSAL_DEPTH: usize = 128;
 
 pub use arc_box_file::*;
 pub use arc_file::*;
@@ -94,6 +97,13 @@ pub trait CloneableVirtualFile: VirtualFile + Clone {}
 
 pub use ops::{copy_reference, copy_reference_ext, create_dir_all, walk};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SymlinkPolicy {
+    Visible,
+    Hidden,
+    ResolvedPath(PathBuf),
+}
+
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
     fn read_dir(&self, path: &Path) -> Result<ReadDir>;
@@ -111,6 +121,9 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
+    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
+        self.symlink_metadata(path).map(|_| SymlinkPolicy::Visible)
+    }
     fn remove_file(&self, path: &Path) -> Result<()>;
 
     fn new_open_options(&self) -> OpenOptions<'_>;
@@ -163,6 +176,10 @@ where
 
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         (**self).symlink_metadata(path)
+    }
+
+    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
+        (**self).symlink_policy(path)
     }
 
     fn remove_file(&self, path: &Path) -> Result<()> {
