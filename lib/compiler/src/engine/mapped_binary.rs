@@ -444,13 +444,164 @@ impl MemoryMappedBinary {
             }
         }
 
-        // Mach-O objects don't carry ELF-style dynamic relocations; libcall
-        // references are resolved through the indirect symbol table instead.
+        // Mach-O objects don't carry ELF-style dynamic relocations; local
+        // absolute pointers are slid via the rebase opcode stream and external
+        // libcall references are resolved through the indirect symbol table.
+        // Rebasing must happen first: it also slides the lazy-pointer slots that
+        // `apply_macho_indirect_symbols` then overwrites with libcall addresses.
         if is_macho {
+            Self::apply_macho_rebases(base, data)?;
             Self::apply_macho_indirect_symbols(base, data)?;
         }
 
         Ok(map)
+    }
+
+    /// Apply the Mach-O rebase opcodes of a mapped image.
+    ///
+    /// The linked dylib has a preferred base address of zero but we map it at an
+    /// arbitrary `base`, so every absolute pointer the linker embedded (local
+    /// `__got` entries such as the C++ typeinfo referenced by exception LSDAs,
+    /// lazy pointers, the wasmer function-offset tables, ...) must have the load
+    /// slide added. dyld would normally do this from the `LC_DYLD_INFO(_ONLY)`
+    /// rebase opcode stream; we interpret that stream here. The slide equals
+    /// `base` because the preferred base is zero.
+    fn apply_macho_rebases<'a, R: ReadRef<'a>>(base: *mut c_void, data: R) -> Result<(), String> {
+        use object::read::macho::MachOFile64;
+
+        let file: MachOFile64<'a, Endianness, R> =
+            MachOFile64::parse(data).map_err(|e| format!("cannot parse Mach-O image: {e}"))?;
+        let endian = file.endian();
+
+        // Collect segment virtual addresses in load-command order (rebase
+        // opcodes reference segments by that index) and locate LC_DYLD_INFO.
+        let mut segment_addrs: Vec<u64> = Vec::new();
+        let mut dyld_info = None;
+        let mut commands = file
+            .macho_load_commands()
+            .map_err(|e| format!("cannot read Mach-O load commands: {e}"))?;
+        while let Some(command) = commands
+            .next()
+            .map_err(|e| format!("cannot read Mach-O load command: {e}"))?
+        {
+            if let Some((segment, _)) = command
+                .segment_64()
+                .map_err(|e| format!("cannot read LC_SEGMENT_64: {e}"))?
+            {
+                segment_addrs.push(segment.vmaddr.get(endian));
+            }
+            if let Some(info) = command
+                .dyld_info()
+                .map_err(|e| format!("cannot read LC_DYLD_INFO: {e}"))?
+            {
+                dyld_info = Some(info);
+            }
+        }
+
+        let Some(dyld_info) = dyld_info else {
+            return Ok(());
+        };
+        let rebase_off = dyld_info.rebase_off.get(endian) as u64;
+        let rebase_size = dyld_info.rebase_size.get(endian) as u64;
+        if rebase_size == 0 {
+            return Ok(());
+        }
+        let opcodes = data
+            .read_bytes_at(rebase_off, rebase_size)
+            .map_err(|_| "cannot read Mach-O rebase opcodes".to_string())?;
+
+        // Preferred base is zero, so the load slide is the mapping base.
+        let slide = base as usize;
+        const POINTER_SIZE: u64 = size_of::<usize>() as u64;
+
+        // Adds the slide to the pointer-sized slot at virtual `address`.
+        let rebase_pointer = |address: u64| unsafe {
+            let slot = base.add(address as usize) as *mut usize;
+            let value = ptr::read_unaligned(slot);
+            ptr::write_unaligned(slot, value.wrapping_add(slide));
+        };
+
+        let read_uleb = |cursor: &mut usize| -> Result<u64, String> {
+            let mut result: u64 = 0;
+            let mut shift = 0u32;
+            loop {
+                let byte = *opcodes
+                    .get(*cursor)
+                    .ok_or_else(|| "truncated Mach-O rebase ULEB".to_string())?;
+                *cursor += 1;
+                result |= u64::from(byte & 0x7f) << shift;
+                if byte & 0x80 == 0 {
+                    break;
+                }
+                shift += 7;
+            }
+            Ok(result)
+        };
+
+        let mut cursor = 0usize;
+        let mut address: u64 = 0;
+        while cursor < opcodes.len() {
+            let byte = opcodes[cursor];
+            cursor += 1;
+            let opcode = byte & macho::REBASE_OPCODE_MASK;
+            let imm = byte & macho::REBASE_IMMEDIATE_MASK;
+
+            match opcode {
+                macho::REBASE_OPCODE_DONE => break,
+                macho::REBASE_OPCODE_SET_TYPE_IMM => {
+                    if imm != macho::REBASE_TYPE_POINTER {
+                        return Err(format!(
+                            "unsupported Mach-O rebase type {imm}; only pointer rebases are supported"
+                        ));
+                    }
+                }
+                macho::REBASE_OPCODE_SET_SEGMENT_AND_OFFSET_ULEB => {
+                    let offset = read_uleb(&mut cursor)?;
+                    let seg_addr = *segment_addrs
+                        .get(imm as usize)
+                        .ok_or_else(|| format!("Mach-O rebase references unknown segment {imm}"))?;
+                    address = seg_addr + offset;
+                }
+                macho::REBASE_OPCODE_ADD_ADDR_ULEB => {
+                    address = address.wrapping_add(read_uleb(&mut cursor)?);
+                }
+                macho::REBASE_OPCODE_ADD_ADDR_IMM_SCALED => {
+                    address = address.wrapping_add(u64::from(imm) * POINTER_SIZE);
+                }
+                macho::REBASE_OPCODE_DO_REBASE_IMM_TIMES => {
+                    for _ in 0..imm {
+                        rebase_pointer(address);
+                        address = address.wrapping_add(POINTER_SIZE);
+                    }
+                }
+                macho::REBASE_OPCODE_DO_REBASE_ULEB_TIMES => {
+                    let count = read_uleb(&mut cursor)?;
+                    for _ in 0..count {
+                        rebase_pointer(address);
+                        address = address.wrapping_add(POINTER_SIZE);
+                    }
+                }
+                macho::REBASE_OPCODE_DO_REBASE_ADD_ADDR_ULEB => {
+                    rebase_pointer(address);
+                    address = address
+                        .wrapping_add(POINTER_SIZE)
+                        .wrapping_add(read_uleb(&mut cursor)?);
+                }
+                macho::REBASE_OPCODE_DO_REBASE_ULEB_TIMES_SKIPPING_ULEB => {
+                    let count = read_uleb(&mut cursor)?;
+                    let skip = read_uleb(&mut cursor)?;
+                    for _ in 0..count {
+                        rebase_pointer(address);
+                        address = address.wrapping_add(POINTER_SIZE).wrapping_add(skip);
+                    }
+                }
+                other => {
+                    return Err(format!("unknown Mach-O rebase opcode 0x{other:x}"));
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Bind the libcall symbol-pointer slots of a Mach-O image.
@@ -526,6 +677,21 @@ impl MemoryMappedBinary {
                     continue;
                 }
 
+                // A symbol defined inside this image (e.g. the weak
+                // `___wasmer_eh_type_info_N` tag globals). The linker keeps a
+                // GOT slot for it because a weak definition can be interposed
+                // at runtime, but there is no external symbol to bind: resolve
+                // the slot to the symbol's own address inside the mapped image.
+                if nlist.is_definition() {
+                    unsafe {
+                        ptr::write_unaligned(
+                            base.add(section_address + slot * size_of::<usize>()) as *mut usize,
+                            (base as usize).wrapping_add(nlist.n_value(endian) as usize),
+                        );
+                    }
+                    continue;
+                }
+
                 let Some(libcall) =
                     lookup_libcall(&symbol_name, object::BinaryFormat::MachO, architecture)
                 else {
@@ -596,6 +762,31 @@ impl MemoryMappedBinary {
             .as_mut()
             .expect("unwind registry should remain alive until MemoryMap::drop")
             .publish_eh_frame(Some(eh_frame))
+    }
+
+    /// Registers the mapped image's linker-produced `__unwind_info` section
+    /// (`__TEXT,__unwind_info`) with the unwind registry.
+    ///
+    /// `address`/`size` are the section's virtual address and size as reported
+    /// by the object file; the section is mapped at `base + address`. The Mach-O
+    /// header sits at `base`, so it doubles as the `dso_base` every offset in
+    /// `__unwind_info` is relative to, and the whole mapped image is the range
+    /// the section covers.
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    pub(crate) fn publish_unwind_info_section(
+        &mut self,
+        address: u64,
+        size: u64,
+    ) -> Result<(), String> {
+        let dso_base = self.base as usize;
+        let section_ptr = unsafe { self.base.cast::<u8>().add(address as usize) };
+        let covered = dso_base..dso_base + self.size;
+        unsafe {
+            self.unwind_registry
+                .as_mut()
+                .expect("unwind registry should remain alive until MemoryMap::drop")
+                .publish_unwind_info(dso_base, section_ptr, size as usize, covered)
+        }
     }
 
     fn map(

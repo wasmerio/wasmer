@@ -274,6 +274,10 @@ impl AllocatedArtifact {
                 b".eh_frame" => {
                     memory_map.publish_eh_frame_section(section.address(), section.size())?
                 }
+                #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                b"__unwind_info" => {
+                    memory_map.publish_unwind_info_section(section.address(), section.size())?
+                }
                 _ => {}
             }
         }

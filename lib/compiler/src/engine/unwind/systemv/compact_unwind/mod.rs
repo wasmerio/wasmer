@@ -1,13 +1,20 @@
-/// Data types and functions to read and represent entries in the `__compact_unwind` section.
-mod cu_entry;
+//! Registration of the `__unwind_info` section shipped inside a linked image.
+//!
+//! On Apple platforms the compiler emits relocatable `__compact_unwind`
+//! entries per function. The linker (LLD) merges those into a single,
+//! ready-to-use `__unwind_info` section in the final dylib. Because we don't
+//! `dlopen` the image (we mmap its segments ourselves), the system unwinder
+//! has no knowledge of that section, so we hand it to libunwind through its
+//! dynamic-unwind lookup API.
+//!
+//! This used to re-synthesise the `__unwind_info` section by parsing the
+//! `__compact_unwind` entries and rebuilding the headers, second-level pages,
+//! LSDA and personality tables by hand. That is no longer necessary: we load
+//! the linker-produced section directly from the image.
 
 use core::ops::Range;
-pub(crate) use cu_entry::CompactUnwindEntry;
 use rangemap::RangeMap;
 use std::sync::{LazyLock, Mutex};
-use wasmer_types::CompileError;
-
-type CUResult<T> = Result<T, CompileError>;
 
 #[repr(C)]
 /// Holds a description of the object-format-header (if any) and unwind info
@@ -77,33 +84,6 @@ unsafe extern "C" {
     pub fn __unw_remove_dynamic_eh_frame_section(eh_frame_start: usize);
 }
 
-trait ToBytes {
-    fn to_bytes(&self) -> Vec<u8>;
-}
-
-impl ToBytes for u32 {
-    fn to_bytes(&self) -> Vec<u8> {
-        self.to_ne_bytes().into()
-    }
-}
-
-impl ToBytes for u16 {
-    fn to_bytes(&self) -> Vec<u8> {
-        self.to_ne_bytes().into()
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct CompactUnwindManager {
-    unwind_info_section: Vec<u8>,
-    compact_unwind_entries: Vec<CompactUnwindEntry>,
-    num_second_level_pages: usize,
-    num_lsdas: usize,
-    personalities: Vec<usize>,
-    dso_base: usize,
-    maybe_eh_personality_addr_in_got: Option<usize>,
-}
-
 static UNWIND_INFO: LazyLock<Mutex<RangeMap<usize, UnwindInfoEntry>>> =
     LazyLock::new(|| Mutex::new(RangeMap::new()));
 
@@ -145,395 +125,70 @@ unsafe extern "C" fn find_dynamic_unwind_sections(
     }
 }
 
+/// Registers the linker-produced `__unwind_info` section of a mapped image with
+/// libunwind's dynamic-unwind lookup.
+#[derive(Debug, Default)]
+pub struct CompactUnwindManager {
+    /// Address the image's Mach-O header is mapped at. Every function and
+    /// personality offset stored in `__unwind_info` is relative to it.
+    dso_base: usize,
+    /// Address ranges we inserted into [`UNWIND_INFO`], removed again on drop.
+    registered_ranges: Vec<Range<usize>>,
+}
+
 impl CompactUnwindManager {
-    const UNWIND_SECTION_VERSION: u32 = 1;
-    const UNWIND_INFO_SECTION_HEADER_SIZE: usize = 4 * 7;
-    const PERSONALITY_SHIFT: usize = 28;
-    const PERSONALITY_ENTRY_SIZE: usize = 4;
-    const INDEX_ENTRY_SIZE: usize = 3 * 4;
-    const LSDA_ENTRY_SIZE: usize = 2 * 4;
-    const SECOND_LEVEL_PAGE_SIZE: usize = 4096;
-    const SECOND_LEVEL_PAGE_HEADER_SIZE: usize = 8;
-    const SECOND_LEVEL_PAGE_ENTRY_SIZE: usize = 8;
-    const NUM_RECORDS_PER_SECOND_LEVEL_PAGE: usize = (Self::SECOND_LEVEL_PAGE_SIZE
-        - Self::SECOND_LEVEL_PAGE_HEADER_SIZE)
-        / Self::SECOND_LEVEL_PAGE_ENTRY_SIZE;
-    const UNWIND_HAS_LSDA: u32 = 0x4000_0000;
-
-    /// Analyze a `__compact_unwind` section, adding its entries to the manager.
-    pub unsafe fn read_compact_unwind_section(
+    /// Point libunwind at an already-linked `__unwind_info` section.
+    ///
+    /// * `dso_base` is the address the image's Mach-O header is mapped at.
+    /// * `section_ptr`/`section_len` describe the mapped `__unwind_info` bytes.
+    /// * `covered` is the address range the section provides unwind info for
+    ///   (the whole mapped image); libunwind narrows the lookup to the actual
+    ///   function using the section contents.
+    ///
+    /// # Safety
+    ///
+    /// `section_ptr` must point to a valid `__unwind_info` section that stays
+    /// mapped for as long as this manager is registered, and the function
+    /// offsets it contains must be relative to `dso_base`.
+    pub unsafe fn register_unwind_info(
         &mut self,
-        compact_unwind_section_ptr: *const u8,
-        len: usize,
-        eh_personality_addr_in_got: Option<usize>,
-    ) -> Result<(), String> {
-        if eh_personality_addr_in_got.is_none() {
-            return Err(
-                "Cannot register compact_unwind entries without a personality function!".into(),
-            );
-        }
-        let mut offset = 0;
-        while offset < len {
-            let entry = unsafe {
-                CompactUnwindEntry::from_ptr_and_len(
-                    compact_unwind_section_ptr.wrapping_add(offset),
-                    len,
-                )
-            };
-            self.compact_unwind_entries.push(entry);
-            offset += size_of::<CompactUnwindEntry>();
-        }
-
-        self.maybe_eh_personality_addr_in_got = eh_personality_addr_in_got;
-
-        Ok(())
-    }
-
-    /// Create the `__unwind_info` section from a list of `__compact_unwind` entries.
-    pub fn finalize(&mut self) -> CUResult<()> {
-        // At this point, users will have registered the relocated `__compact_unwind` entries. We
-        // can re-analyse the entries applying the modifications we need to operate, now that we
-        // know the actual addresses.
-        self.process_compact_unwind_entries()?;
-        self.merge_records();
-
-        if self.compact_unwind_entries.is_empty() {
-            return Ok(());
-        }
-
-        let mut info = libc::Dl_info {
-            dli_fname: core::ptr::null(),
-            dli_fbase: core::ptr::null_mut(),
-            dli_sname: core::ptr::null(),
-            dli_saddr: core::ptr::null_mut(),
-        };
-
-        unsafe {
-            /* xxx: Must find a better way to find a dso_base */
-            if let Some(personality) = self.personalities.first() {
-                _ = libc::dladdr(*personality as *const _, &mut info as *mut _);
-            }
-
-            if info.dli_fbase.is_null() {
-                _ = libc::dladdr(
-                    wasmer_vm::libcalls::wasmer_eh_personality as *const _,
-                    &mut info as *mut _,
-                );
-            }
-        }
-        self.dso_base = info.dli_fbase as usize;
-
-        self.write_unwind_info()?;
-
-        let ranges: Vec<Range<usize>> = self
-            .compact_unwind_entries
-            .iter()
-            .map(|v| v.function_addr..v.function_addr + (v.length as usize))
-            .collect();
-
-        let data: &'static mut [u8] = self.unwind_info_section.clone().leak();
-        let section_ptr = data.as_ptr() as usize;
-        let section_len = data.len();
-        let dso_base = self.dso_base;
-
-        let mut uw_info = UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO");
-        for range in ranges {
-            (*uw_info).insert(
-                range,
-                UnwindInfoEntry {
-                    dso_base,
-                    section_ptr,
-                    section_len,
-                },
-            );
-        }
-
-        Ok(())
-    }
-
-    fn process_compact_unwind_entries(&mut self) -> CUResult<()> {
-        for entry in self.compact_unwind_entries.iter_mut() {
-            if entry.personality_addr != 0 {
-                let p_idx: u32 = if let Some(p_idx) = self
-                    .personalities
-                    .iter()
-                    .position(|v| *v == entry.personality_addr)
-                {
-                    p_idx
-                } else {
-                    self.personalities.push(entry.personality_addr);
-                    self.personalities.len() - 1
-                } as u32;
-
-                entry.compact_encoding |= (p_idx + 1) << Self::PERSONALITY_SHIFT;
-            }
-
-            if entry.lsda_addr != 0 {
-                entry.compact_encoding |= Self::UNWIND_HAS_LSDA;
-                self.num_lsdas += 1;
-            }
-        }
-
-        self.num_second_level_pages = self
-            .compact_unwind_entries
-            .len()
-            .div_ceil(Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE);
-
-        self.compact_unwind_entries
-            .sort_by(|l, r| l.function_addr.cmp(&r.function_addr));
-
-        let unwind_info_section_len = Self::UNWIND_INFO_SECTION_HEADER_SIZE
-            + (self.personalities.len() * Self::PERSONALITY_ENTRY_SIZE)
-            + ((self.num_second_level_pages + 1) * Self::INDEX_ENTRY_SIZE)
-            + (self.num_lsdas * Self::LSDA_ENTRY_SIZE)
-            + (self.num_second_level_pages * Self::SECOND_LEVEL_PAGE_HEADER_SIZE)
-            + (self.compact_unwind_entries.len() * Self::SECOND_LEVEL_PAGE_ENTRY_SIZE);
-
-        self.unwind_info_section = Vec::with_capacity(unwind_info_section_len);
-
-        Ok(())
-    }
-
-    fn write_unwind_info(&mut self) -> CUResult<()> {
-        self.write_header()?;
-        self.write_personalities()?;
-        self.write_indices()?;
-        self.write_lsdas()?;
-        self.write_second_level_pages()?;
-
-        Ok(())
-    }
-
-    fn merge_records(&mut self) {
-        if self.compact_unwind_entries.len() <= 1 {
-            self.num_second_level_pages = 1;
+        dso_base: usize,
+        section_ptr: *const u8,
+        section_len: usize,
+        covered: Range<usize>,
+    ) {
+        if section_len == 0 || covered.is_empty() {
             return;
         }
 
-        let non_unique: Vec<CompactUnwindEntry> = self.compact_unwind_entries.drain(1..).collect();
-        for next in non_unique.into_iter() {
-            let last = self.compact_unwind_entries.last().unwrap();
-            if next.is_dwarf()
-                || (next.compact_encoding != last.compact_encoding)
-                || next.cannot_be_merged()
-                || next.lsda_addr != 0
-                || last.lsda_addr != 0
-            {
-                self.compact_unwind_entries.push(next);
-            }
-        }
+        self.dso_base = dso_base;
 
-        self.num_second_level_pages = self
-            .compact_unwind_entries
-            .len()
-            .div_ceil(Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE);
-    }
-
-    #[inline(always)]
-    fn write<T: ToBytes>(&mut self, value: T) -> CUResult<()> {
-        let bytes = value.to_bytes();
-        let capacity = self.unwind_info_section.capacity();
-        let len = self.unwind_info_section.len();
-
-        if len + bytes.len() > capacity {
-            return Err(CompileError::Codegen(
-                "writing the unwind_info after the allocated bytes".into(),
-            ));
-        }
-
-        for byte in bytes {
-            self.unwind_info_section.push(byte);
-        }
-
-        Ok(())
-    }
-
-    fn write_header(&mut self) -> CUResult<()> {
-        //#[derive(Debug, Default)]
-        //#[repr(C)]
-        //#[allow(non_snake_case, non_camel_case_types)]
-        //struct unwind_info_section_header {
-        //    pub version: u32,
-        //    pub commonEncodingsArraySectionOffset: u32,
-        //    pub commonEncodingsArrayCount: u32,
-        //    pub personalityArraySectionOffset: u32,
-        //    pub personalityArrayCount: u32,
-        //    pub indexSectionOffset: u32,
-        //    pub indexCount: u32,
-        //    // compact_unwind_encoding_t[]           <-- We don't use it;;
-        //    // uint32_t personalities[]
-        //    // unwind_info_section_header_index_entry[]
-        //    // unwind_info_section_header_lsda_index_entry[]
-        //}
-
-        //let mut header = unwind_info_section_header::default();
-        let num_personalities = self.personalities.len() as u32;
-        let index_section_offset: u32 = (Self::UNWIND_INFO_SECTION_HEADER_SIZE
-            + self.personalities.len() * Self::PERSONALITY_ENTRY_SIZE)
-            as u32;
-
-        let index_count = (self.num_second_level_pages + 1) as u32;
-
-        // The unwind section version.
-        self.write(Self::UNWIND_SECTION_VERSION)?;
-
-        // The offset from the base pointer at which the `commonEncodingsArraySection` can be found. We don't use it,
-        // therefore...
-        self.write(Self::UNWIND_INFO_SECTION_HEADER_SIZE as u32)?;
-
-        // Its size is zero.
-        self.write(0u32)?;
-
-        // The offset from the base pointer at which the `personalityArraySection` can be found. It is right after the
-        // header.
-        self.write(Self::UNWIND_INFO_SECTION_HEADER_SIZE as u32)?;
-
-        // Its size corresponds to the number of personality functions we've seen. Should,
-        // in fact, be 0 or 1.
-        self.write(num_personalities)?;
-
-        // The offset from the base pointer at which the `indexSection` can be found. It is right after the
-        // header.
-        self.write(index_section_offset)?;
-        self.write(index_count + 1)?;
-
-        Ok(())
-    }
-
-    fn write_personalities(&mut self) -> CUResult<()> {
-        let personalities = self.personalities.len();
-        for _ in 0..personalities {
-            let personality_pointer =
-                if let Some(personality) = self.maybe_eh_personality_addr_in_got {
-                    personality
-                } else {
-                    return Err(CompileError::Codegen(
-                        "Personality function does not appear in GOT table!".into(),
-                    ));
-                };
-            let delta = (personality_pointer - self.dso_base) as u32;
-
-            self.write(delta)?;
-        }
-
-        Ok(())
-    }
-
-    fn write_indices(&mut self) -> CUResult<()> {
-        let section_offset_to_lsdas: usize = self.unwind_info_section.len()
-            + ((self.num_second_level_pages + 1) * Self::INDEX_ENTRY_SIZE);
-
-        // Calculate the offset to the first second-level page.
-        let section_offset_to_second_level_pages =
-            section_offset_to_lsdas + (self.num_lsdas * Self::LSDA_ENTRY_SIZE);
-
-        let mut num_previous_lsdas = 0;
-        let num_entries = self.compact_unwind_entries.len();
-
-        for entry_idx in 0..num_entries {
-            let entry = &self.compact_unwind_entries[entry_idx];
-            let lsda_addr = entry.lsda_addr;
-
-            if entry_idx % Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE == 0 {
-                let fn_delta = entry.function_addr.wrapping_sub(self.dso_base);
-                let num_second_level_page = entry_idx / Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE;
-                let mut second_level_page_offset = section_offset_to_second_level_pages;
-                // How many entries have we seen before?
-                if num_second_level_page != 0 {
-                    second_level_page_offset += num_second_level_page
-                        * (Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE
-                            * Self::SECOND_LEVEL_PAGE_ENTRY_SIZE);
-                    // How many page headers have we seen before?
-                    second_level_page_offset +=
-                        num_second_level_page * Self::SECOND_LEVEL_PAGE_HEADER_SIZE;
-                }
-
-                let lsda_offset =
-                    section_offset_to_lsdas + num_previous_lsdas * Self::LSDA_ENTRY_SIZE;
-                self.write(fn_delta as u32)?;
-                self.write(second_level_page_offset as u32)?;
-                self.write(lsda_offset as u32)?;
-            }
-
-            if lsda_addr != 0 {
-                num_previous_lsdas += 1;
-            }
-        }
-
-        if let Some(last_entry) = self.compact_unwind_entries.last() {
-            let fn_end_delta = (last_entry.function_addr + (last_entry.length as usize))
-                .wrapping_sub(self.dso_base) as u32;
-
-            self.write(fn_end_delta)?;
-            self.write(0u32)?;
-            self.write(section_offset_to_second_level_pages as u32)?;
-        }
-
-        Ok(())
-    }
-
-    fn write_lsdas(&mut self) -> CUResult<()> {
-        let num_entries = self.compact_unwind_entries.len();
-        for entry_idx in 0..num_entries {
-            let entry = &self.compact_unwind_entries[entry_idx];
-            if entry.lsda_addr != 0 {
-                let fn_delta = entry.function_addr.wrapping_sub(self.dso_base);
-                let lsda_delta = entry.lsda_addr.wrapping_sub(self.dso_base);
-                self.write(fn_delta as u32)?;
-                self.write(lsda_delta as u32)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    fn write_second_level_pages(&mut self) -> CUResult<()> {
-        let num_entries = self.compact_unwind_entries.len();
-
-        for entry_idx in 0..num_entries {
-            let entry = &self.compact_unwind_entries[entry_idx];
-            let fn_delta = entry.function_addr.wrapping_sub(self.dso_base) as u32;
-            let encoding = entry.compact_encoding;
-
-            if entry_idx % Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE == 0 {
-                const SECOND_LEVEL_PAGE_HEADER_KIND: u32 = 2;
-                const SECOND_LEVEL_PAGE_HEADER_SIZE: u16 = 8;
-                let second_level_page_num_entries: u16 = std::cmp::min(
-                    num_entries - entry_idx,
-                    Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE,
-                ) as u16;
-
-                self.write(SECOND_LEVEL_PAGE_HEADER_KIND)?;
-                self.write(SECOND_LEVEL_PAGE_HEADER_SIZE)?;
-                self.write(second_level_page_num_entries)?;
-            }
-
-            self.write(fn_delta)?;
-            self.write(encoding)?;
-        }
-
-        Ok(())
-    }
-
-    pub(crate) fn deregister(&self) {
-        if self.dso_base != 0 {
-            let ranges: Vec<Range<usize>> = self
-                .compact_unwind_entries
-                .iter()
-                .map(|v| v.function_addr..v.function_addr + (v.length as usize))
-                .collect();
-            let mut uw_info = UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO");
-            for range in ranges {
-                (*uw_info).remove(range);
-            }
-        }
+        UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO").insert(
+            covered.clone(),
+            UnwindInfoEntry {
+                dso_base,
+                section_ptr: section_ptr as usize,
+                section_len,
+            },
+        );
+        self.registered_ranges.push(covered);
     }
 
     pub(crate) fn register(&self) {
-        unsafe {
-            if self.dso_base != 0 {
+        if self.dso_base != 0 {
+            unsafe {
                 __unw_add_find_dynamic_unwind_sections(find_dynamic_unwind_sections);
             }
+        }
+    }
+
+    pub(crate) fn deregister(&self) {
+        if self.registered_ranges.is_empty() {
+            return;
+        }
+        let mut uw_info = UNWIND_INFO.lock().expect("cannot lock UNWIND_INFO");
+        for range in &self.registered_ranges {
+            uw_info.remove(range.clone());
         }
     }
 }
