@@ -225,9 +225,9 @@ fn main() {
         println!("cargo:rustc-link-lib=msvcrtd");
     }
 
+    println!("cargo:rustc-link-lib=static=lldCommon");
     // Special LLD libraries!
     if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=static=lldCommon");
         println!("cargo:rustc-link-lib=static=lldELF");
     } else if cfg!(target_os = "macos") {
         println!("cargo:rustc-link-lib=static=lldMachO");

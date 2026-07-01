@@ -43,12 +43,12 @@ pub const CANONICAL_NAN_F32: u32 = 0x7fc00000;
 pub const CANONICAL_NAN_F64: u64 = 0x7ff8000000000000;
 
 /// Name of the section used for serialization of the ModuleInfo.
-pub const WASMER_MODULE_INFO_SECTION_NAME: &[u8] = b".wasmer.module_info";
+pub const WASMER_MODULE_INFO_SECTION_NAME: &[u8] = b".w.module_info";
 /// Name of the section used for serialization of the function offsets in a built image.
-pub const WASMER_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".wasmer.function_offsets";
+pub const WASMER_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".w.fn_offsets";
 /// Name of the section used for serialization of function trap-list offsets in a built image.
-pub const WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".wasmer.trap_fn_offsets";
+pub const WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".w.trap_fnoffs";
 /// Name of the section used for serialization of function trap information.
-pub const WASMER_TRAPS_SECTION_NAME: &[u8] = b".wasmer.traps";
+pub const WASMER_TRAPS_SECTION_NAME: &[u8] = b".w.traps";
 /// Name of the section used for serialization of the Artifact format version.
-pub const WASMER_VERSION_SECTION_NAME: &[u8] = b".wasmer.version";
+pub const WASMER_VERSION_SECTION_NAME: &[u8] = b".w.version";

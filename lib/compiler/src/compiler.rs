@@ -540,17 +540,37 @@ pub fn emit_metadata_and_link(
         emit_wasmer_meta_object(target, compile_info_blob, build_directory, compiled_objects)
             .map_err(CompileError::Codegen)?;
 
-    let mut link_args = vec![
-        "-Bsymbolic".to_string(),
-        "-shared".to_string(),
-        "--threads=1".to_string(),
-        "-z".to_string(),
-        "now".to_string(),
-        "-z".to_string(),
-        "relro".to_string(),
-        "-o".to_string(),
-        module_file.path().display().to_string(),
-    ];
+    let mut link_args = if cfg!(target_os = "macos") {
+        vec![
+            "-dylib".to_string(),
+            "-dynamic".to_string(),
+            "-arch".to_string(),
+            "arm64".to_string(),
+            "-platform_version".to_string(),
+            "macos".to_string(),
+            "26.0.0".to_string(),
+            "26.2".to_string(),
+            "-undefined".to_string(),
+            "dynamic_lookup".to_string(),
+            "-o".to_string(),
+            module_file.path().display().to_string(),
+        ]
+    } else if cfg!(target_os = "linux") {
+        vec![
+            "-Bsymbolic".to_string(),
+            "-shared".to_string(),
+            "--threads=1".to_string(),
+            "-z".to_string(),
+            "now".to_string(),
+            "-z".to_string(),
+            "relro".to_string(),
+            "-o".to_string(),
+            module_file.path().display().to_string(),
+        ]
+    } else {
+        vec![]
+    };
+
     link_args.extend(
         compiled_objects
             .object_files
