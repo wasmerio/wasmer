@@ -79,14 +79,8 @@ impl Compiler for LLVMCompiler {
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
+        module_file: NamedTempFile,
     ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
-        let module_file = tempfile::Builder::new()
-            .prefix("wasmer-image")
-            .suffix(".so")
-            .tempfile()
-            .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
-        tracing::trace!(path = ?module_file.path(), "compiling to module file");
-
         let module = &compile_info.module;
         let module_hash = module.hash_string();
 

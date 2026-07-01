@@ -115,6 +115,7 @@ impl CraneliftCompiler {
 
     // Helper function to create an easy scope boundary for the thread pool used
     // in [`Self::compile_module`].
+    #[allow(clippy::too_many_arguments)]
     fn compile_module_internal(
         &self,
         target: &Target,
@@ -123,6 +124,7 @@ impl CraneliftCompiler {
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
+        module_file: NamedTempFile,
     ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
         let triple = target.triple();
         let isa = self
@@ -419,12 +421,6 @@ impl CraneliftCompiler {
                 save_object(obj, kind.object_filename())
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
-
-        let module_file = tempfile::Builder::new()
-            .prefix("wasmer-image")
-            .suffix(".so")
-            .tempfile()
-            .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
 
         serializable.compile_info.function_max_stack_usage = function_body_inputs
             .keys()
@@ -913,6 +909,7 @@ impl Compiler for CraneliftCompiler {
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
+        module_file: NamedTempFile,
     ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
         self.compile_module_internal(
             target,
@@ -921,6 +918,7 @@ impl Compiler for CraneliftCompiler {
             module_translation_state,
             function_body_inputs,
             progress_callback,
+            module_file,
         )
     }
 }

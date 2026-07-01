@@ -140,6 +140,17 @@ impl ArtifactBuild {
         };
         let compile_info = serializable.compile_info.clone();
 
+        let suffix = if !cfg!(target_os = "linux") {
+            ".so"
+        } else {
+            ".dylib"
+        };
+        let module_file = tempfile::Builder::new()
+            .prefix("wasmer-image")
+            .suffix(suffix)
+            .tempfile()
+            .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
+
         // Compile the Module
         let (module_file, serializable) = compiler.compile_module(
             target,
@@ -151,6 +162,7 @@ impl ArtifactBuild {
             translation.module_translation_state.as_ref().unwrap(),
             translation.function_body_inputs,
             progress_callback,
+            module_file,
         )?;
 
         Ok(Self {

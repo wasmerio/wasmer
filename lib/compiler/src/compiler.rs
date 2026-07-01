@@ -24,8 +24,8 @@ use enumset::EnumSet;
 use itertools::Itertools;
 use object::write::{Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
 use object::{
-    RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
-    SymbolKind, SymbolScope, elf,
+    RelocationEncoding, RelocationFlags, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
+    SymbolScope,
 };
 use tempfile::NamedTempFile;
 use wasmer_types::{
@@ -175,6 +175,7 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// Compiles a parsed module.
     ///
     /// It returns the [`Compilation`] or a [`CompileError`].
+    #[allow(clippy::too_many_arguments)]
     fn compile_module(
         &self,
         target: &Target,
@@ -184,6 +185,8 @@ pub trait Compiler: Send + std::fmt::Debug {
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
+        // The temporary file the compiled module is written to
+        module_file: NamedTempFile,
     ) -> Result<(NamedTempFile, SerializableModule), CompileError>;
 
     /// Get the middlewares for this compiler

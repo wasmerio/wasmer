@@ -66,6 +66,7 @@ impl SinglepassCompiler {
         mut serializable: SerializableModule,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
+        module_file: NamedTempFile,
     ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
         let arch = target.triple().architecture;
         match arch {
@@ -394,13 +395,6 @@ impl SinglepassCompiler {
             })
             .collect::<Result<Vec<_>, _>>()?;
 
-        // TODO: create temp file in caller
-        let module_file = tempfile::Builder::new()
-            .prefix("wasmer-image")
-            .suffix(".so")
-            .tempfile()
-            .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
-
         serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
         let compile_info_blob = serializable
             .serialize()
@@ -451,6 +445,7 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
+        module_file: NamedTempFile,
     ) -> Result<(NamedTempFile, SerializableModule), CompileError> {
         let num_threads = self.config.num_threads.get();
         let pool = rayon::ThreadPoolBuilder::new()
@@ -467,6 +462,7 @@ impl Compiler for SinglepassCompiler {
                 serializable,
                 function_body_inputs,
                 progress_callback,
+                module_file,
             )
         })
     }
@@ -523,8 +519,16 @@ mod tests {
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
         let (info, serializable, translation, inputs) = dummy_compilation_ingredients();
-        let result =
-            compiler.compile_module(&linux32, &info, serializable, &translation, inputs, None);
+        let module_file = tempfile::Builder::new().tempfile().unwrap();
+        let result = compiler.compile_module(
+            &linux32,
+            &info,
+            serializable,
+            &translation,
+            inputs,
+            None,
+            module_file,
+        );
         assert!(result.is_err());
     }
 
