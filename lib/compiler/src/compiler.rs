@@ -389,11 +389,6 @@ fn emit_wasmer_meta_object(
     );
     obj.append_section_data(section_id, &compile_info_blob, 8);
 
-    // ELF-only: mark section allocatable and retained by linker GC.
-    obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-    };
-
     // Emit zero sentinel for the .eh_frame section.
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Debug).to_vec(),
@@ -408,9 +403,6 @@ fn emit_wasmer_meta_object(
         WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
-    obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-    };
     let pointer_size = target
         .triple()
         .pointer_width()
@@ -478,9 +470,6 @@ fn emit_wasmer_meta_object(
         WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
-    obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-    };
     for traps_name in (0..compiled_objects.object_files.len())
         .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
     {
@@ -520,9 +509,6 @@ fn emit_wasmer_meta_object(
         WASMER_VERSION_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
-    obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-    };
     obj.append_section_data(
         section_id,
         &MetadataHeader::CURRENT_VERSION.to_le_bytes(),
