@@ -555,6 +555,8 @@ pub fn emit_metadata_and_link(
             "26.2".to_string(),
             "-undefined".to_string(),
             "dynamic_lookup".to_string(),
+            "-bind_at_load".to_string(),
+            "-no_fixup_chains".to_string(),
             "-o".to_string(),
             module_file.path().display().to_string(),
         ]
@@ -620,7 +622,8 @@ pub fn emit_metadata_and_link(
             .and_then(|filename| filename.to_str())
         {
             std::fs::create_dir_all(&debug_dir).ok();
-            debug_dir.push(filename);
+            // TODO
+            debug_dir.push("wasmer-image.dylib");
             let _ = std::fs::copy(module_file.path(), &debug_dir);
         }
     }

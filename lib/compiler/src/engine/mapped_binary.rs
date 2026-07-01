@@ -324,6 +324,12 @@ impl MemoryMappedBinary {
         let map = Self::new_mmap(total_memory_size)?;
         let base = map.base();
 
+        // On macOS/Mach-O a file-backed `MAP_FIXED` mapping cannot be created
+        // with executable protection (the kernel rejects mapping an unsigned
+        // file page as RX), so for Mach-O objects we copy each segment from the
+        // file into an anonymous mapping instead of mapping the file directly.
+        let is_macho = object_file.format() == object::BinaryFormat::MachO;
+
         // Mmap individual load segments
         for load_segment in segments {
             // The virtual offset does not need to start at a page boundary.
@@ -336,15 +342,25 @@ impl MemoryMappedBinary {
 
             let protection = load_segment.protection()?;
 
-            map.map(
-                load_segment.mem_address_page_aligned(),
-                load_segment.file_size_page_aligned(),
-                protection,
-                libc::MAP_PRIVATE | libc::MAP_FIXED,
-                object_file_fd,
-                load_segment.file_address_page_aligned(),
-            )
-            .map_err(|error| {
+            let result = if is_macho {
+                map.map_copy(
+                    load_segment.mem_address_page_aligned(),
+                    load_segment.file_size_page_aligned(),
+                    protection,
+                    object_file_fd,
+                    load_segment.file_address_page_aligned(),
+                )
+            } else {
+                map.map(
+                    load_segment.mem_address_page_aligned(),
+                    load_segment.file_size_page_aligned(),
+                    protection,
+                    libc::MAP_PRIVATE | libc::MAP_FIXED,
+                    object_file_fd,
+                    load_segment.file_address_page_aligned(),
+                )
+            };
+            result.map_err(|error| {
                 format!(
                     "Cannot map load segment at virtual address 0x{:x}: {error}",
                     load_segment.mem_address_page_aligned()
@@ -509,6 +525,75 @@ impl MemoryMappedBinary {
         };
         if result == libc::MAP_FAILED {
             return Err(std::io::Error::last_os_error().to_string());
+        }
+        Ok(())
+    }
+
+    /// Populate a segment by copying its contents from the file rather than
+    /// mapping the file directly.
+    ///
+    /// TODO: use only for executable segment
+    fn map_copy(
+        &self,
+        offset: usize,
+        size: usize,
+        protection: i32,
+        fd: i32,
+        file_offset: usize,
+    ) -> Result<(), String> {
+        if offset + size > self.size {
+            return Err("Segment will overwrite allocated range".to_string());
+        }
+
+        // Make the already-reserved anonymous range writable while copying.
+        let parent = unsafe { self.base.add(offset) };
+        if unsafe { libc::mprotect(parent, size, libc::PROT_READ | libc::PROT_WRITE) } != 0 {
+            return Err(format!(
+                "Cannot make copied segment writable: {}",
+                std::io::Error::last_os_error()
+            ));
+        }
+
+        // Read the segment contents from the file into a heap buffer. `pread`
+        // may return fewer bytes than requested when the (page-aligned) range
+        // runs past EOF; the anonymous mapping is already zero-filled, so the
+        // tail stays zeroed just as a file-backed mmap would leave it.
+        let mut buffer = vec![0u8; size];
+        let mut read_total = 0usize;
+        while read_total < size {
+            let result = unsafe {
+                libc::pread(
+                    fd,
+                    buffer.as_mut_ptr().add(read_total).cast::<c_void>(),
+                    size - read_total,
+                    (file_offset + read_total) as libc::off_t,
+                )
+            };
+            if result < 0 {
+                return Err(format!(
+                    "Cannot read segment from object file: {}",
+                    std::io::Error::last_os_error()
+                ));
+            }
+            if result == 0 {
+                break; // reached EOF; the remaining bytes stay zero-filled
+            }
+            read_total += result as usize;
+        }
+
+        // Copy the heap buffer into the anonymous mapping.
+        unsafe {
+            ptr::copy_nonoverlapping(buffer.as_ptr(), self.base.add(offset).cast::<u8>(), size);
+        }
+
+        // Restrict the range to its real protection now that the bytes are in
+        // place (e.g. drop write access and add execute for an RX segment).
+        let result = unsafe { libc::mprotect(self.base.add(offset), size, protection) };
+        if result != 0 {
+            return Err(format!(
+                "Cannot set protection on copied segment: {}",
+                std::io::Error::last_os_error()
+            ));
         }
         Ok(())
     }

@@ -224,7 +224,7 @@ pub struct AllocatedArtifact {
     debug_info: Arc<Mutex<addr2line::Loader>>,
 
     // Compiled executable mmapped into memory.
-    _memory_map: MemoryMappedBinary,
+    memory_map: MemoryMappedBinary,
 }
 
 impl AllocatedArtifact {
@@ -328,7 +328,7 @@ impl AllocatedArtifact {
             signatures: signatures.into_boxed_slice(),
             vm_offsets: VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info),
             debug_info,
-            _memory_map: memory_map,
+            memory_map,
         })
     }
 
@@ -739,7 +739,7 @@ impl Artifact {
             module_info,
             &finished_function_extents,
             trap_reader,
-            allocated._memory_map.base() as usize,
+            allocated.memory_map.base() as usize,
             allocated.debug_info.clone(),
         );
 
