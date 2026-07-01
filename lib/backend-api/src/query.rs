@@ -415,8 +415,20 @@ pub async fn get_cron_job_invocations_page(
     let cron_job = cron_job.as_ref();
     let owner = owner.into();
     let name = name.into();
-    let start = start.map(types::DateTime::try_from).transpose()?;
-    let end = end.map(types::DateTime::try_from).transpose()?;
+    let (start, end) = match (start, end) {
+        (Some(start), Some(end)) => (start, end),
+        (Some(start), None) => (start, OffsetDateTime::now_utc()),
+        (None, Some(end)) => (end - time::Duration::days(31), end),
+        (None, None) => {
+            let end = OffsetDateTime::now_utc();
+            (end - time::Duration::days(31), end)
+        }
+    };
+    if start > end {
+        bail!("invocation start must not be after end");
+    }
+    let start = types::DateTime::try_from(start)?;
+    let end = types::DateTime::try_from(end)?;
     let mut cron_after = None;
 
     loop {
@@ -425,8 +437,8 @@ pub async fn get_cron_job_invocations_page(
             name: name.clone(),
             cron_after: cron_after.clone(),
             cron_first: Some(100),
-            invocation_start: start.clone(),
-            invocation_end: end.clone(),
+            invocation_start: Some(start.clone()),
+            invocation_end: Some(end.clone()),
             invocation_after: invocation_after.clone(),
             invocation_first,
         };
