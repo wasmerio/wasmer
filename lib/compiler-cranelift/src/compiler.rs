@@ -850,7 +850,8 @@ fn relocation_to_flags(
             object::BinaryFormat::MachO => RelocationFlags::MachO {
                 r_type: macho::ARM64_RELOC_BRANCH26,
                 r_pcrel: true,
-                r_length: 32,
+                // 4 bytes (encoded as log2)
+                r_length: 2,
             },
             fmt => {
                 return Err(CompileError::Codegen(format!(
