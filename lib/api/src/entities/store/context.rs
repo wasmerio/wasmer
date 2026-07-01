@@ -45,6 +45,7 @@ use std::{
     borrow::BorrowMut,
     cell::{RefCell, UnsafeCell},
     mem::MaybeUninit,
+    ptr::NonNull,
 };
 
 #[cfg(feature = "experimental-async")]
@@ -147,6 +148,33 @@ impl StoreContext {
                 entry: UnsafeCell::new(entry),
             });
         })
+    }
+
+    fn install_cothread(id: StoreId, store_ptr: NonNull<StoreInner>) {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            stack.push(Self {
+                id,
+                borrow_count: 1,
+                entry: UnsafeCell::new(StoreContextEntry::Sync(store_ptr.as_ptr())),
+            });
+        });
+    }
+
+    fn uninstall_cothread(id: StoreId) {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            // Search from the top so we find our entry even if the stack has
+            // been disturbed (e.g. another guard panicked mid-flight).
+            if let Some(pos) = stack.iter().rposition(|ctx| ctx.id == id) {
+                stack.remove(pos);
+            } else {
+                panic!(
+                    "CoroutineStoreGuard::drop: entry not found in context stack; \
+                        the store context stack is corrupted"
+                );
+            }
+        });
     }
 
     /// Returns true if there are no active store context entries.
@@ -302,6 +330,44 @@ impl StoreContext {
                 }
             }
         })
+    }
+}
+
+#[cfg(feature = "sys")]
+/// RAII guard that installs the store context on the thread-local stack when
+/// created and removes it on drop. See [`crate::Store::coroutine_store_guard`].
+pub struct CoroutineStoreGuard<'a> {
+    store_id: StoreId,
+    _store: std::marker::PhantomData<&'a mut StoreInner>,
+}
+
+#[cfg(feature = "sys")]
+impl<'a> CoroutineStoreGuard<'a> {
+    /// # Panics
+    /// Panics if the store is anywhere on the current thread's context stack
+    /// (active or suspended).
+    ///
+    /// # Safety
+    /// Exactly one `StorePtrWrapper` derived from `store` must be alive on
+    /// the suspended coroutine's stack for the duration of the guard.
+    pub(crate) unsafe fn new(store: &'a mut StoreInner) -> Self {
+        let store_id = store.objects.id();
+        assert!(
+            !StoreContext::is_active(store_id) && !StoreContext::is_suspended(store_id),
+            "store is already on the current thread's context stack (active or suspended)"
+        );
+        StoreContext::install_cothread(store_id, NonNull::from(store));
+        Self {
+            store_id,
+            _store: std::marker::PhantomData,
+        }
+    }
+}
+
+#[cfg(feature = "sys")]
+impl Drop for CoroutineStoreGuard<'_> {
+    fn drop(&mut self) {
+        StoreContext::uninstall_cothread(self.store_id);
     }
 }
 
