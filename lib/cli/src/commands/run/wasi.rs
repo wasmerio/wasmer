@@ -106,10 +106,16 @@ pub struct Wasi {
     #[clap(long = "use", name = "USE")]
     pub(crate) uses: Vec<String>,
 
-    /// List of webc packages that are explicitly included for execution
-    /// Note: these packages will be used instead of those in the registry
+    /// Webc packages to use instead of the registry ones: a `*.webc` file, or a
+    /// directory tree of them resolved by location. Resolves named dependencies
+    /// from local files, offline.
     #[clap(long = "include-webc", name = "WEBC")]
     pub(super) include_webcs: Vec<PathBuf>,
+
+    /// Resolve only from local sources (`--include-webc`, filesystem paths), never
+    /// the registry. Needed offline, where a registry query would fail resolution.
+    #[clap(long = "offline")]
+    pub(super) offline: bool,
 
     /// List of injected atoms
     #[clap(long = "map-command", name = "MAPCMD")]
@@ -709,32 +715,36 @@ impl Wasi {
     ) -> Result<MultiSource> {
         let mut source = MultiSource::default();
 
-        // Note: This should be first so our "preloaded" sources get a chance to
-        // override the main registry.
+        // Local packages go first so they override the registry.
         let mut preloaded = InMemorySource::new();
         for path in &self.include_webcs {
             preloaded
-                .add_webc(path)
-                .with_context(|| format!("Unable to load \"{}\"", path.display()))?;
+                .add_packages(path)
+                .with_context(|| format!("Unable to load packages from \"{}\"", path.display()))?;
         }
         source.add_source(preloaded);
 
-        let graphql_endpoint = self.graphql_endpoint(env)?;
-        let cache_dir = registry_query_cache_dir(env.cache_dir(), &graphql_endpoint);
-        let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
-            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
-            .with_preferred_webc_version(preferred_webc_version);
-        if let Some(token) = env
-            .config()?
-            .registry
-            .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
-        {
-            wapm_source = wapm_source.with_auth_token(token);
-        }
-        source.add_source(wapm_source);
+        // Drop the registry/web sources offline. Their network errors bubble out
+        // of the merging MultiSource and abort resolution even when a local
+        // source already matched.
+        if !self.offline {
+            let graphql_endpoint = self.graphql_endpoint(env)?;
+            let cache_dir = registry_query_cache_dir(env.cache_dir(), &graphql_endpoint);
+            let mut wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(&client))
+                .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
+                .with_preferred_webc_version(preferred_webc_version);
+            if let Some(token) = env
+                .config()?
+                .registry
+                .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
+            {
+                wapm_source = wapm_source.with_auth_token(token);
+            }
+            source.add_source(wapm_source);
 
-        let cache_dir = env.cache_dir().join("downloads");
-        source.add_source(WebSource::new(cache_dir, client));
+            let cache_dir = env.cache_dir().join("downloads");
+            source.add_source(WebSource::new(cache_dir, client));
+        }
 
         source.add_source(FileSystemSource::default());
 
