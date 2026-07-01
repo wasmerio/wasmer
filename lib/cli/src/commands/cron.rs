@@ -305,7 +305,7 @@ async fn toggle_cron_job(
     let cron_job = cron_jobs
         .into_iter()
         .find(|job| job.id.inner() == cron_job || job.name == cron_job)
-        .with_context(|| format!("cron job '{}' not found", cron_job))?;
+        .with_context(|| format!("cron job '{cron_job}' not found"))?;
 
     let cron_job =
         wasmer_backend_api::query::toggle_cron_job(&client, cron_job.id.inner(), enabled).await?;
