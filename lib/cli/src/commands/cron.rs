@@ -130,11 +130,15 @@ pub struct CmdCronInvocations {
 
     /// The earliest invocation timestamp to include.
     ///
+    /// Defaults to 31 days before --end, or 31 days before now.
+    ///
     /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
     #[clap(long = "start", alias = "from", value_parser = parse_timestamp_or_relative_time_negative_offset)]
     start: Option<OffsetDateTime>,
 
     /// The latest invocation timestamp to include.
+    ///
+    /// Defaults to now.
     ///
     /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
     #[clap(long = "end", alias = "until", value_parser = parse_timestamp_or_relative_time_negative_offset)]
