@@ -381,6 +381,7 @@ impl TrapReader {
         let image = object::File::parse(&cache).ok()?;
 
         let mut trap_section_data = None;
+        let mut trap_section_address = 0u64;
         let mut trap_function_offsets = None;
         for section in image.sections() {
             let Ok(section_name) = section.name_bytes() else {
@@ -392,6 +393,7 @@ impl TrapReader {
                 }
                 WASMER_TRAPS_SECTION_NAME => {
                     trap_section_data = section.data().ok();
+                    trap_section_address = section.address();
                 }
                 _ => {}
             }
@@ -402,7 +404,13 @@ impl TrapReader {
         let offset_bytes = trap_function_offsets
             .get(local_index.index() * size_of::<usize>()..)
             .and_then(|s| s.get(..size_of::<usize>()))?;
-        let trap_offset = usize::from_le_bytes(offset_bytes.try_into().unwrap());
+        // The `.w.trap_fnoffs` slots are filled by an `Absolute` relocation to
+        // each function's trap symbol, so they hold the *virtual address* of the
+        // trap data. Convert it back to an offset relative to the start of the
+        // `.w.traps` section by subtracting that section's address (which is 0 on
+        // ELF but non-zero on Mach-O, where the data lands in `__DATA`).
+        let trap_address = usize::from_le_bytes(offset_bytes.try_into().unwrap());
+        let trap_offset = trap_address.checked_sub(trap_section_address as usize)?;
 
         let traps = Self::parse_function_traps(trap_section_data, trap_offset, local_index).ok()?;
         let idx = traps
