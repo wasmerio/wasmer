@@ -1,11 +1,10 @@
-use std::fs::File;
-use std::io::BufReader;
 use std::slice;
 use std::{ffi::c_void, ptr};
 
 use itertools::Itertools;
 use object::{
-    Object, ObjectSegment, ObjectSymbol, ObjectSymbolTable, ReadCache, SegmentFlags, elf, macho,
+    Endianness, Object, ObjectSection, ObjectSegment, ObjectSymbol, ObjectSymbolTable, ReadRef,
+    SegmentFlags, SymbolIndex, elf, macho,
 };
 use wasmer_vm::LibCall;
 use wasmer_vm::libcalls::function_pointer;
@@ -289,9 +288,10 @@ unsafe impl Send for MemoryMappedBinary {}
 unsafe impl Sync for MemoryMappedBinary {}
 
 impl MemoryMappedBinary {
-    pub(crate) fn try_from_file<'a>(
+    pub(crate) fn try_from_file<'a, R: ReadRef<'a>>(
         object_file_fd: i32,
-        object_file: &object::File<'a, &'a ReadCache<BufReader<&mut File>>>,
+        object_file: &object::File<'a, R>,
+        data: R,
     ) -> Result<Self, String> {
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
 
@@ -444,7 +444,104 @@ impl MemoryMappedBinary {
             }
         }
 
+        // Mach-O objects don't carry ELF-style dynamic relocations; libcall
+        // references are resolved through the indirect symbol table instead.
+        if is_macho {
+            Self::apply_macho_indirect_symbols(base, data)?;
+        }
+
         Ok(map)
+    }
+
+    /// Bind the libcall symbol-pointer slots of a Mach-O image.
+    fn apply_macho_indirect_symbols<'a, R: ReadRef<'a>>(
+        base: *mut c_void,
+        data: R,
+    ) -> Result<(), String> {
+        use object::read::macho::{MachOFile64, Nlist, Section};
+
+        let file: MachOFile64<'a, Endianness, R> =
+            MachOFile64::parse(data).map_err(|e| format!("cannot parse Mach-O image: {e}"))?;
+        let endian = file.endian();
+
+        // Locate the LC_DYSYMTAB command; without it there is nothing to bind.
+        let mut dysymtab = None;
+        let mut commands = file
+            .macho_load_commands()
+            .map_err(|e| format!("cannot read Mach-O load commands: {e}"))?;
+        // TODO: use find instead of the while loop
+        while let Some(command) = commands
+            .next()
+            .map_err(|e| format!("cannot read Mach-O load command: {e}"))?
+        {
+            if let Some(command) = command
+                .dysymtab()
+                .map_err(|e| format!("cannot read LC_DYSYMTAB: {e}"))?
+            {
+                dysymtab = Some(command);
+                break;
+            }
+        }
+        let Some(dysymtab) = dysymtab else {
+            return Ok(());
+        };
+
+        // The indirect symbol table is a flat array of symbol-table indexes
+        // shared by every pointer section; each section selects its window into
+        // this array via its `reserved1` field.
+        let indirect_symbols = dysymtab
+            .indirect_symbols(endian, data)
+            .map_err(|e| format!("cannot read Mach-O indirect symbols: {e}"))?;
+        let symbols = file.macho_symbol_table();
+        let architecture = file.architecture();
+
+        for section in file.sections() {
+            let raw = section.macho_section();
+            match raw.section_type(endian) {
+                macho::S_LAZY_SYMBOL_POINTERS | macho::S_NON_LAZY_SYMBOL_POINTERS => {}
+                _ => continue,
+            }
+
+            // One entry per 8-byte pointer slot, already sliced to this section.
+            let entries = raw
+                .indirect_symbols(endian, indirect_symbols)
+                .map_err(|e| format!("cannot read section indirect symbols: {e}"))?;
+            let section_address = section.address() as usize;
+
+            for (slot, entry) in entries.iter().enumerate() {
+                let symbol_index = entry.get(endian);
+                if symbol_index & (macho::INDIRECT_SYMBOL_LOCAL | macho::INDIRECT_SYMBOL_ABS) != 0 {
+                    continue;
+                }
+
+                let nlist = symbols
+                    .symbol(SymbolIndex(symbol_index as usize))
+                    .map_err(|e| format!("invalid Mach-O indirect symbol index: {e}"))?;
+                let symbol_name = String::from_utf8_lossy(
+                    nlist
+                        .name(endian, symbols.strings())
+                        .map_err(|e| format!("invalid Mach-O symbol name: {e}"))?,
+                );
+                if symbol_name == "dyld_stub_binder" {
+                    continue;
+                }
+
+                let Some(libcall) =
+                    lookup_libcall(&symbol_name, object::BinaryFormat::MachO, architecture)
+                else {
+                    return Err(format!("unsupported Mach-O indirect symbol {symbol_name}"));
+                };
+
+                unsafe {
+                    ptr::write_unaligned(
+                        base.add(section_address + slot * size_of::<usize>()) as *mut usize,
+                        function_pointer(libcall),
+                    );
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn new_mmap(size: usize) -> Result<Self, String> {

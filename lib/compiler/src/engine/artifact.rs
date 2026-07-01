@@ -249,7 +249,7 @@ impl AllocatedArtifact {
         let reader = BufReader::new(module_file);
         let cache = ReadCache::new(reader);
         let image = object::File::parse(&cache).map_err(|e| format!("cannot parse image: {e}"))?;
-        let mut memory_map = MemoryMappedBinary::try_from_file(module_file_fd, &image)?;
+        let mut memory_map = MemoryMappedBinary::try_from_file(module_file_fd, &image, &cache)?;
 
         // Parts function offsets
         let mut function_offsets = None;
