@@ -1,6 +1,7 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::{
     ffi::c_void,
@@ -232,8 +233,14 @@ impl AllocatedArtifact {
         module_file: &mut File,
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, String> {
+        // TODO
+        let path_prefix = if cfg!(target_os = "linux") {
+            PathBuf::from("/proc/self/fd")
+        } else {
+            PathBuf::from("/dev/fd")
+        };
         let module_file_fd = module_file.as_raw_fd();
-        let debug_info = addr2line::Loader::new(format!("/proc/self/fd/{module_file_fd}"))
+        let debug_info = addr2line::Loader::new(path_prefix.join(module_file_fd.to_string()))
             .map(|loader| Arc::new(Mutex::new(loader)))
             .map_err(|e| format!("cannot parse debug info from an artifact file: {e}"))?;
         module_file

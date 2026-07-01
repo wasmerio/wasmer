@@ -5,7 +5,7 @@ use std::{ffi::c_void, ptr};
 
 use itertools::Itertools;
 use object::{
-    Object, ObjectSegment, ObjectSymbol, ObjectSymbolTable, ReadCache, SegmentFlags, elf,
+    Object, ObjectSegment, ObjectSymbol, ObjectSymbolTable, ReadCache, SegmentFlags, elf, macho,
 };
 use wasmer_vm::LibCall;
 use wasmer_vm::libcalls::function_pointer;
@@ -229,18 +229,28 @@ struct ImageSegment {
 
 impl ImageSegment {
     fn protection(&self) -> Result<i32, String> {
-        let SegmentFlags::Elf { p_flags } = self.flags else {
-            return Err(format!("unsupported segment flags: {:?}", self.flags));
+        let (read, write, exec) = match self.flags {
+            SegmentFlags::Elf { p_flags } => (
+                p_flags & elf::PF_R != 0,
+                p_flags & elf::PF_W != 0,
+                p_flags & elf::PF_X != 0,
+            ),
+            SegmentFlags::MachO { initprot, .. } => (
+                initprot & macho::VM_PROT_READ != 0,
+                initprot & macho::VM_PROT_WRITE != 0,
+                initprot & macho::VM_PROT_EXECUTE != 0,
+            ),
+            _ => return Err(format!("unsupported segment flags: {:?}", self.flags)),
         };
 
         let mut protection = 0;
-        if p_flags & elf::PF_R != 0 {
+        if read {
             protection |= libc::PROT_READ;
         }
-        if p_flags & elf::PF_W != 0 {
+        if write {
             protection |= libc::PROT_WRITE;
         }
-        if p_flags & elf::PF_X != 0 {
+        if exec {
             protection |= libc::PROT_EXEC;
         }
         Ok(protection)

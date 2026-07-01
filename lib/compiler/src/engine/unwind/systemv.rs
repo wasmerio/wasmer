@@ -129,9 +129,10 @@ impl UnwindRegistry {
         }
 
         unsafe {
-            if let Some(eh_frame) = eh_frame {
-                self.register_eh_frames(eh_frame)?;
-            }
+            // TODO
+            // if let Some(eh_frame) = eh_frame {
+            //     self.register_eh_frames(eh_frame)?;
+            // }
         }
 
         self.published = true;

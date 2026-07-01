@@ -613,10 +613,16 @@ pub fn emit_metadata_and_link(
         if let Some(ref hash) = module_hash {
             debug_dir.push(hash);
         }
-        std::fs::create_dir_all(&debug_dir).ok();
-        debug_dir.push("wasmer-image.so");
-        // TODO
-        let _ = std::fs::copy(module_file.path(), &debug_dir);
+
+        if let Some(filename) = module_file
+            .path()
+            .file_name()
+            .and_then(|filename| filename.to_str())
+        {
+            std::fs::create_dir_all(&debug_dir).ok();
+            debug_dir.push(filename);
+            let _ = std::fs::copy(module_file.path(), &debug_dir);
+        }
     }
 
     Ok(module_file)

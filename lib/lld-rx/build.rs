@@ -9,7 +9,9 @@ static LLVM_CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     if let Some(prefix) = env::var_os("LLVM_SYS_221_PREFIX") {
         Path::new(&prefix).join("bin").join("llvm-config")
     } else {
-        which::which("llvm-config").expect("llvm-config cannot be found")
+        PathBuf::from("/users/apple/Downloads/llvm22/bin/llvm-config")
+        // TODO
+        // which::which("llvm-config").expect("llvm-config cannot be found")
     }
 });
 
