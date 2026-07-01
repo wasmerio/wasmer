@@ -233,7 +233,6 @@ impl AllocatedArtifact {
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, String> {
         let module_file_fd = module_file.as_raw_fd();
-        #[cfg(target_os = "linux")]
         let debug_info = addr2line::Loader::new(format!("/proc/self/fd/{module_file_fd}"))
             .map(|loader| Arc::new(Mutex::new(loader)))
             .map_err(|e| format!("cannot parse debug info from an artifact file: {e}"))?;
@@ -321,7 +320,6 @@ impl AllocatedArtifact {
             frame_info_registration: None,
             signatures: signatures.into_boxed_slice(),
             vm_offsets: VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info),
-            #[cfg(target_os = "linux")]
             debug_info,
             _memory_map: memory_map,
         })

@@ -332,14 +332,15 @@ impl EngineInner {
         compact_unwind: &[u8],
         eh_personality_addr_in_got: Option<usize>,
     ) -> Result<(), CompileError> {
-        self.code_memory
-            .last_mut()
-            .unwrap()
-            .unwind_registry_mut()
-            .publish_compact_unwind(compact_unwind, eh_personality_addr_in_got)
-            .map_err(|e| {
-                CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
-            })?;
+        todo!();
+        // self.code_memory
+        //     .last_mut()
+        //     .unwrap()
+        //     .unwind_registry_mut()
+        //     .publish_compact_unwind(compact_unwind, eh_personality_addr_in_got)
+        //     .map_err(|e| {
+        //         CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
+        //     })?;
         Ok(())
     }
 

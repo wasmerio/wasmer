@@ -188,7 +188,7 @@ pub fn register(
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
     trap_reader: Arc<TrapReader>,
     image_base: usize,
-    #[cfg(target_os = "linux")] debug_info: Arc<Mutex<addr2line::Loader>>,
+    debug_info: Arc<Mutex<addr2line::Loader>>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::MAX;
     let mut max = 0;
@@ -235,7 +235,6 @@ pub fn register(
             functions,
             module,
             trap_reader,
-            #[cfg(target_os = "linux")]
             debug_info,
         },
     );
