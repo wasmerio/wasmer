@@ -47,6 +47,9 @@
 //!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
 //!
+//! `MinimalLibc:{version}` ignores the configuration when the selected sysroot
+//! version is older than the given minimal libc version.
+//!
 //! `MappedDirectory:{host}:{guest}` maps a host directory into the guest. Relative
 //!  host paths are resolved from the test source directory; `$temp` creates a fresh
 //!  temporary host directory.
@@ -77,7 +80,10 @@ use std::io::{IsTerminal, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 use strum::IntoEnumIterator;
 
 use anyhow::bail;
@@ -89,7 +95,10 @@ use wasmer_wasix::virtual_fs::{
     StaticFile, TmpFileSystem, create_dir_all as create_virtual_dir_all, mem_fs,
 };
 
+mod error;
 mod runner;
+
+const TESTED_LIBC_VERSIONS: &[Option<&str>] = &[None, Some("v2026-05-12.1")];
 
 fn should_emit_colour() -> bool {
     std::io::stdout().is_terminal()
@@ -197,6 +206,9 @@ struct Config {
     expected_files: Vec<(PathBuf, String)>,
     program_name: Option<String>,
     default_mapped_directories: bool,
+    minimal_libc: Option<String>,
+    // Used for configuration display name purpose.
+    sysroot_version: Option<&'static str>,
 }
 
 impl Config {
@@ -233,6 +245,8 @@ impl Config {
             expected_files: Vec::new(),
             program_name: None,
             default_mapped_directories: true,
+            minimal_libc: None,
+            sysroot_version: None,
         }
     }
 
@@ -249,8 +263,31 @@ impl Config {
         if self.selected_file_system != FileSystemKind::Host {
             parts.push(self.selected_file_system.to_string());
         }
+        if let Some(sysroot_version) = &self.sysroot_version {
+            parts.push(sysroot_version.to_string());
+        }
         parts.push(self.engine.to_string());
         parts.join("/")
+    }
+
+    fn set_sysroot(&mut self, sysroot_version: &'static str) -> Result<()> {
+        let sysroot_path = dirs::home_dir()
+            .ok_or_else(|| anyhow!("cannot expand home dir"))?
+            .join(format!(".wasixcc/sysroot-{sysroot_version}"));
+        ensure!(
+            sysroot_path.exists(),
+            "Missing sysroot, install with: `WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-{sysroot_version} wasixccenv download-sysroot {sysroot_version}`"
+        );
+
+        self.sysroot_version = Some(sysroot_version);
+        self.build_env.push((
+            "WASIXCC_SYSROOT_PREFIX".to_owned(),
+            sysroot_path
+                .to_str()
+                .expect("valid path expected")
+                .to_string(),
+        ));
+        Ok(())
     }
 }
 
@@ -452,6 +489,10 @@ fn process_directive(
             }
         }
         "UnixOnly" => config.unix_only = arg.parse::<bool>()?,
+        "MinimalLibc" => {
+            ensure!(!arg.is_empty(), "MinimalLibc version must not be empty");
+            config.minimal_libc = Some(arg.to_owned());
+        }
         "MappedDirectory" => {
             let (host, guest) = arg
                 .split_once(':')
@@ -520,6 +561,33 @@ fn process_directive(
         other => bail!("Unknown directive '{other}'"),
     }
     Ok(())
+}
+
+fn normalize_libc_version(version: &str) -> &str {
+    version.trim().strip_prefix('v').unwrap_or(version.trim())
+}
+
+fn minimal_libc_skip_reason(config: &Config) -> Result<Option<String>> {
+    let Some(minimal_libc) = &config.minimal_libc else {
+        return Ok(None);
+    };
+    let Some(sysroot_version) = config.sysroot_version else {
+        return Ok(None);
+    };
+
+    let is_supported = version_compare::compare_to(
+        normalize_libc_version(sysroot_version),
+        normalize_libc_version(minimal_libc),
+        version_compare::Cmp::Ge,
+    )
+    .map_err(|_| anyhow!("cannot parse version strings: {sysroot_version}, {minimal_libc}"))?;
+    Ok(if is_supported {
+        None
+    } else {
+        Some(format!(
+            "selected libc version {sysroot_version} is older than required {minimal_libc}"
+        ))
+    })
 }
 
 fn process_directive_file(
@@ -926,6 +994,9 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     {
         return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
     }
+    if let Some(reason) = minimal_libc_skip_reason(&config)? {
+        return Ok(libtest_mimic::Completion::ignored_with(reason));
+    }
 
     let wasm = run_build_script(&config)?;
     let run_dir = &config.build_path();
@@ -1166,12 +1237,21 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
 
+    tests.push(libtest_mimic::Trial::test("wasm/dynamic_runtime_hooks", {
+        let tests_dir = tests_dir.clone();
+        let tests_build_root = tests_build_root.clone();
+        move || {
+            run_dynamic_runtime_hook_smoke(&tests_dir, &tests_build_root)
+                .map(|_| ())
+                .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
+        }
+    }));
+
     for entry in WalkDir::new(&tests_dir)
         .into_iter()
         .filter_map(Result::ok)
         .filter(|e| e.path() != tests_dir)
         .filter(|e| e.path().strip_prefix(&tests_build_root).is_err())
-        // Skip temporary helper directories (like 'a', 'b', etc.).
         .filter(|e| e.file_type().is_dir())
         .filter(|e| has_primary_source_file(e.path()))
     {
@@ -1180,18 +1260,14 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let test_name = relative_test_path.display().to_string();
         let primary_sources = identify_primary_sources(entry.path())?;
 
-        let mut supported_engines = vec![];
+        let mut supported_engines = Vec::new();
+        supported_engines.push(Engine::Cranelift);
         #[cfg(feature = "llvm")]
         supported_engines.push(Engine::LLVM);
         #[cfg(feature = "singlepass")]
         supported_engines.push(Engine::Singlepass);
         #[cfg(feature = "v8")]
         supported_engines.push(Engine::V8);
-
-        // Cranelift EH support for macOS is still missing: #6419.
-        if !cfg!(target_os = "macos") {
-            supported_engines.push(Engine::Cranelift);
-        }
 
         let default_file_systems = vec![FileSystemKind::Host];
         for primary_source in primary_sources {
@@ -1206,7 +1282,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                 for file_system in config
                     .file_systems
                     .as_ref()
-                    .unwrap_or_else(|| &default_file_systems)
+                    .unwrap_or(&default_file_systems)
                 {
                     for engine in &supported_engines {
                         // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
@@ -1233,16 +1309,30 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                             continue;
                         }
 
-                        let mut config = config.clone();
-                        config.engine = *engine;
-                        config.selected_file_system = *file_system;
-                        tests.push(libtest_mimic::Trial::ignorable_test(
-                            config.full_test_name(),
-                            move || {
-                                run_integration_test(config)
-                                    .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
-                            },
-                        ));
+                        for sysroot in TESTED_LIBC_VERSIONS {
+                            // For performance reasons, run the wasix-libc compatibility tests
+                            // only with the Cranelift compiler.
+                            if sysroot.is_some()
+                                && (*engine != Engine::Cranelift || cfg!(target_os = "windows"))
+                            {
+                                continue;
+                            }
+
+                            let mut config = config.clone();
+                            config.engine = *engine;
+                            config.selected_file_system = *file_system;
+                            if let Some(sysroot_version) = sysroot {
+                                config.set_sysroot(sysroot_version)?;
+                            }
+
+                            tests.push(libtest_mimic::Trial::ignorable_test(
+                                config.full_test_name(),
+                                move || {
+                                    run_integration_test(config)
+                                        .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
+                                },
+                            ));
+                        }
                     }
                 }
             }
@@ -1250,4 +1340,78 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn run_dynamic_runtime_hook_smoke(
+    tests_dir: &Path,
+    tests_build_root: &Path,
+) -> Result<libtest_mimic::Completion> {
+    if cfg!(target_os = "windows") {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "WASIXCC toolchain does not cover Windows yet",
+        ));
+    }
+
+    let source_dir = tests_dir.join("dynamic_library/simple-dynamic-lib");
+    let config = Config::new(
+        PrimarySource::BashScript("build.sh".to_owned()),
+        source_dir,
+        tests_build_root.to_path_buf(),
+        "dynamic_runtime_hooks".to_owned(),
+    );
+    let wasm = run_build_script(&config)?;
+    let run_dir = config.build_path();
+
+    let additional_import_calls = Arc::new(AtomicUsize::new(0));
+    let instance_setup_calls = Arc::new(AtomicUsize::new(0));
+    let setup_with_imported_memory = Arc::new(AtomicUsize::new(0));
+
+    let result = runner::run_wasm_with_runner_and_runtime_config(
+        &wasm,
+        &run_dir,
+        config.engine,
+        config.program_name.as_deref(),
+        config.default_mapped_directories,
+        |_| Ok(()),
+        {
+            let additional_import_calls = additional_import_calls.clone();
+            let instance_setup_calls = instance_setup_calls.clone();
+            let setup_with_imported_memory = setup_with_imported_memory.clone();
+            move |runtime| {
+                runtime.with_additional_imports(move |_module, _store| {
+                    additional_import_calls.fetch_add(1, Ordering::SeqCst);
+                    Ok(wasmer::Imports::new())
+                });
+                runtime.with_instance_setup(move |_module, _store, _instance, imported_memory| {
+                    instance_setup_calls.fetch_add(1, Ordering::SeqCst);
+                    if imported_memory.is_some() {
+                        setup_with_imported_memory.fetch_add(1, Ordering::SeqCst);
+                    }
+                    Ok(())
+                });
+                Ok(())
+            }
+        },
+    )?;
+
+    ensure!(
+        result.exit_code == 0,
+        "dynamic runtime hook smoke exited with {}\n{}",
+        result.exit_code,
+        runner::format_captured_output(&result),
+    );
+    ensure!(
+        additional_import_calls.load(Ordering::SeqCst) >= 2,
+        "expected runtime additional_imports for main and side modules"
+    );
+    ensure!(
+        instance_setup_calls.load(Ordering::SeqCst) >= 2,
+        "expected runtime instance setup for main and side modules"
+    );
+    ensure!(
+        setup_with_imported_memory.load(Ordering::SeqCst) >= 2,
+        "expected imported memory for dynamic main and side modules"
+    );
+
+    Ok(libtest_mimic::Completion::Completed)
 }

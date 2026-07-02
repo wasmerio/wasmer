@@ -31,8 +31,6 @@ use std::{
     time::Duration,
 };
 
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasix_types::wasi::{
     Disposition, Errno, Fd as WasiFd, Rights, Signal, Snapshot0Clockid,
@@ -115,7 +113,6 @@ impl WasiBusState {
 
 /// Stores the state of the futexes
 #[derive(Debug, Default)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiFutexState {
     pub poller_seed: u64,
     pub futexes: HashMap<u64, WasiFutex>,
@@ -128,7 +125,6 @@ pub(crate) struct WasiFutexState {
 ///   other, concurrently running programs.  Data such as the contents
 ///   of directories are lazily loaded.
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct WasiState {
     pub secret: [u8; 32],
 
@@ -208,18 +204,6 @@ impl WasiState {
 
     pub(crate) fn fs_new_open_options(&self) -> OpenOptions<'_> {
         self.fs.root_fs.new_open_options()
-    }
-
-    /// Turn the WasiState into bytes
-    #[cfg(feature = "enable-serde")]
-    pub fn freeze(&self) -> Option<Vec<u8>> {
-        bincode::serialize(self).ok()
-    }
-
-    /// Get a WasiState from bytes
-    #[cfg(feature = "enable-serde")]
-    pub fn unfreeze(bytes: &[u8]) -> Option<Self> {
-        bincode::deserialize(bytes).ok()
     }
 
     /// Get the `VirtualFile` object at stdout

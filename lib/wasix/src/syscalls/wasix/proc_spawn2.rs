@@ -1,15 +1,10 @@
-use virtual_mio::block_on;
-use wasmer::FromToNativeWasmType;
-use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
-
 use super::*;
-use crate::{
-    VIRTUAL_ROOT_FD, WasiFs,
-    os::task::{OwnedTaskStatus, TaskStatus},
-    syscalls::*,
-};
+use crate::syscalls::*;
 
-/// Replaces the current process with a new process
+/// Spawns a new sub-process (posix-spawn style).
+///
+/// Legacy delimiter-based API: `args` and `envs` are single strings with entries
+/// separated by line feeds. Prefer `proc_spawn3` for proper string lists.
 ///
 /// ## Parameters
 ///
@@ -20,7 +15,8 @@ use crate::{
 ///
 /// ## Return
 ///
-/// If the execution fails, returns an error code. Does not return otherwise.
+/// On success, writes the child PID to `ret` and returns `Errno::Success`.
+/// On failure, returns an error code.
 #[instrument(
     level = "trace",
     skip_all,
@@ -45,32 +41,15 @@ pub fn proc_spawn2<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
-    let env = ctx.data();
     let memory = unsafe { ctx.data().memory_view(&ctx) };
     let mut name = unsafe { get_input_str_ok!(&memory, name, name_len) };
     Span::current().record("name", name.as_str());
     let args = unsafe { get_input_str_ok!(&memory, args, args_len) };
-    let args: Vec<_> = args
-        .split(&['\n', '\r'])
-        .map(|a| a.to_string())
-        .filter(|a| !a.is_empty())
-        .collect();
+    let args = parse_delimited_string_list(&args);
 
     let envs = if !envs.is_null() {
         let envs = unsafe { get_input_str_ok!(&memory, envs, envs_len) };
-
-        let envs = envs
-            .split(&['\n', '\r'])
-            .map(|a| a.to_string())
-            .filter(|a| !a.is_empty());
-
-        let mut vec = vec![];
-        for env in envs {
-            let (key, value) = wasi_try_ok!(env.split_once('=').ok_or(Errno::Inval));
-            vec.push((key.to_string(), value.to_string()));
-        }
-
-        Some(vec)
+        Some(wasi_try_ok!(parse_delimited_env_list(&envs)))
     } else {
         None
     };
@@ -97,167 +76,21 @@ pub fn proc_spawn2<M: MemorySize>(
         vec![]
     };
 
-    // Convert relative paths into absolute paths
-    if search_path == Bool::True && !name.contains('/') {
-        let path_str;
-
-        let path = if path.is_null() {
-            vec!["/usr/local/bin", "/bin", "/usr/bin"]
-        } else {
-            path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
-            path_str.split(':').collect()
-        };
-        let (_, state, inodes) =
-            unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), &name) {
-            FindExecutableResult::Found(p) => name = p,
-            FindExecutableResult::AccessError => return Ok(Errno::Access),
-            FindExecutableResult::NotFound => return Ok(Errno::Noexec),
-        }
-    } else if name.starts_with("./") {
-        name = ctx.data().state.fs.relative_path_to_absolute(name);
-    }
-
-    Span::current().record("full_path", &name);
-
-    // Fork the environment which will copy all the open file handlers
-    // and associate a new context but otherwise shares things like the
-    // file system interface. The handle to the forked process is stored
-    // in the parent process context
-    let (mut child_env, mut child_handle) = match ctx.data().fork() {
-        Ok(p) => p,
-        Err(err) => {
-            debug!("could not fork process: {err}");
-            // TODO: evaluate the appropriate error code, document it in the spec.
-            return Ok(Errno::Perm);
-        }
+    let path = if path.is_null() {
+        None
+    } else {
+        Some(unsafe { get_input_str_ok!(&memory, path, path_len) })
     };
 
-    {
-        let mut inner = ctx.data().process.lock();
-        inner.children.push(child_env.process.clone());
-    }
-
-    // Setup some properties in the child environment
-    let pid = child_env.pid();
-    let tid = child_env.tid();
-    wasi_try_mem_ok!(ret.write(&memory, pid.raw()));
-    Span::current()
-        .record("pid", pid.raw())
-        .record("tid", tid.raw());
-
-    _prepare_wasi(&mut child_env, Some(args), envs, signals);
-
-    for fd_op in fd_ops {
-        wasi_try_ok!(apply_fd_op(&mut child_env, &memory, &fd_op));
-    }
-
-    // Create the process and drop the context
-    let bin_factory = Box::new(child_env.bin_factory.clone());
-
-    let mut builder = Some(child_env);
-
-    let process = match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut builder) {
-        Ok(a) => Ok(a),
-        Err(err) => {
-            if !err.is_not_found() {
-                error!("builtin failed - {}", err);
-            }
-
-            let env = builder.take().unwrap();
-
-            // Spawn a new process with this current execution environment
-            block_on(bin_factory.spawn(name, env))
-        }
-    };
-
-    match process {
-        Ok(_) => {
-            ctx.data_mut().owned_handles.push(child_handle);
-            trace!(child_pid = %pid, "spawned sub-process");
-            Ok(Errno::Success)
-        }
-        Err(err) => {
-            let err_exit_code = conv_spawn_err_to_exit_code(&err);
-
-            debug!(child_pid = %pid, "process failed with (err={})", err_exit_code);
-
-            Ok(Errno::Noexec)
-        }
-    }
-}
-
-fn apply_fd_op<M: MemorySize>(
-    env: &mut WasiEnv,
-    memory: &MemoryView,
-    op: &ProcSpawnFdOp<M>,
-) -> Result<(), Errno> {
-    match op.cmd {
-        ProcSpawnFdOpName::Close => {
-            if let Ok(fd) = env.state.fs.get_fd(op.fd)
-                && !fd.is_stdio
-                && fd.inode.is_preopened
-            {
-                trace!("Skipping close FD action for pre-opened FD ({})", op.fd);
-                return Ok(());
-            }
-            env.state.fs.close_fd(op.fd)
-        }
-        ProcSpawnFdOpName::Dup2 => {
-            let flush_target = env.state.fs.dup2_at(op.src_fd, op.fd)?;
-            if let Some(file) = flush_target {
-                block_on(WasiFs::flush_file_best_effort(file));
-            }
-            Ok(())
-        }
-        ProcSpawnFdOpName::Open => {
-            let mut name = unsafe {
-                WasmPtr::<u8, M>::new(op.name)
-                    .read_utf8_string(memory, op.name_len)
-                    .map_err(mem_error_to_wasi)?
-            };
-            name = env.state.fs.relative_path_to_absolute(name.to_owned());
-            match path_open_internal(
-                env,
-                VIRTUAL_ROOT_FD,
-                op.dirflags,
-                &name,
-                op.oflags,
-                op.fs_rights_base,
-                op.fs_rights_inheriting,
-                op.fdflags,
-                op.fdflagsext,
-                Some(op.fd),
-            ) {
-                Err(e) => {
-                    tracing::warn!("Failed to open file for posix_spawn: {:?}", e);
-                    Err(Errno::Io)
-                }
-                Ok(Err(e)) => Err(e),
-                Ok(Ok(_)) => Ok(()),
-            }
-        }
-        ProcSpawnFdOpName::Chdir => {
-            let mut path = unsafe {
-                WasmPtr::<u8, M>::new(op.name)
-                    .read_utf8_string(memory, op.name_len)
-                    .map_err(mem_error_to_wasi)?
-            };
-            path = env.state.fs.relative_path_to_absolute(path.to_owned());
-            chdir_internal(env, &path)
-        }
-        ProcSpawnFdOpName::Fchdir => {
-            let fd = env.state.fs.get_fd(op.fd)?;
-            let inode_kind = fd.inode.read();
-            match inode_kind.deref() {
-                Kind::Dir { path, .. } => {
-                    let path = path.to_str().ok_or(Errno::Notsup)?;
-                    env.state.fs.set_current_dir(path);
-                    Ok(())
-                }
-                _ => Err(Errno::Notdir),
-            }
-        }
-        _ => Err(Errno::Inval),
-    }
+    proc_spawn3_impl(
+        ctx,
+        &mut name,
+        args,
+        envs,
+        fd_ops,
+        signals,
+        search_path,
+        path.as_deref(),
+        ret,
+    )
 }

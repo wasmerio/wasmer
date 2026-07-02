@@ -200,6 +200,10 @@ mod queries {
         pub id: cynic::Id,
         pub version: String,
         pub created_at: DateTime,
+        pub description: String,
+        pub license: Option<String>,
+        pub homepage: Option<String>,
+        pub repository: Option<String>,
         pub pirita_manifest: Option<JSONString>,
         pub package: Package,
 
@@ -434,6 +438,25 @@ mod queries {
         pub get_package: Option<Package>,
     }
 
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetPackageVars")]
+    pub struct GetPackageVersionNumbers {
+        #[arguments(name: $name)]
+        pub get_package: Option<PackageVersionNumbers>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Package")]
+    pub struct PackageVersionNumbers {
+        pub versions: Option<Vec<Option<PackageVersionNumber>>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct PackageVersionNumber {
+        pub version: String,
+    }
+
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetPackageVersionVars {
         pub name: String,
@@ -646,6 +669,125 @@ mod queries {
     pub struct PackageVersionEdge {
         pub node: Option<PackageVersionWithPackage>,
         pub cursor: String,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum SearchOrderSort {
+        Asc,
+        Desc,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum SearchPublishDate {
+        LastDay,
+        LastWeek,
+        LastMonth,
+        LastYear,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum PackageOrderBy {
+        Alphabetically,
+        Size,
+        TotalDownloads,
+        PublishedDate,
+        CreatedDate,
+        TotalLikes,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum CountComparison {
+        Equal,
+        GreaterThan,
+        LessThan,
+        GreaterThanOrEqual,
+        LessThanOrEqual,
+    }
+
+    #[derive(cynic::InputObject, Debug, Clone)]
+    pub struct CountFilter {
+        pub count: Option<i32>,
+        pub comparison: Option<CountComparison>,
+    }
+
+    /// Filters for [`search_packages`](crate::query::search_packages).
+    #[derive(cynic::InputObject, Debug, Clone, Default)]
+    pub struct PackagesFilter {
+        pub count: Option<i32>,
+        pub sort_by: Option<SearchOrderSort>,
+        pub curated: Option<bool>,
+        pub publish_date: Option<SearchPublishDate>,
+        pub has_bindings: Option<bool>,
+        pub is_standalone: Option<bool>,
+        pub has_commands: Option<bool>,
+        pub with_interfaces: Option<Vec<Option<String>>>,
+        pub deployable: Option<bool>,
+        pub license: Option<String>,
+        pub created_after: Option<DateTime>,
+        pub created_before: Option<DateTime>,
+        pub last_published_after: Option<DateTime>,
+        pub last_published_before: Option<DateTime>,
+        pub size: Option<CountFilter>,
+        pub downloads: Option<CountFilter>,
+        pub likes: Option<CountFilter>,
+        pub owner: Option<String>,
+        pub published_by: Option<String>,
+        pub order_by: Option<PackageOrderBy>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct SearchPackageVersion {
+        pub id: cynic::Id,
+        pub version: String,
+        pub created_at: DateTime,
+        pub package: Package,
+    }
+
+    #[derive(cynic::InlineFragments, Debug, Clone)]
+    #[cynic(graphql_type = "SearchResult")]
+    pub enum SearchResult {
+        PackageVersion(Box<SearchPackageVersion>),
+        #[cynic(fallback)]
+        Unknown,
+    }
+
+    impl SearchResult {
+        /// Extract the package version from a search result, if it is one.
+        pub fn into_package_version(self) -> Option<SearchPackageVersion> {
+            match self {
+                SearchResult::PackageVersion(v) => Some(*v),
+                SearchResult::Unknown => None,
+            }
+        }
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct SearchEdge {
+        pub node: Option<SearchResult>,
+        pub cursor: String,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct SearchConnection {
+        pub page_info: PageInfo,
+        pub edges: Vec<Option<SearchEdge>>,
+        pub total_count: Option<i32>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Default)]
+    pub struct SearchPackagesVars {
+        pub query: String,
+        pub packages: Option<PackagesFilter>,
+        pub first: Option<i32>,
+        pub after: Option<String>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "SearchPackagesVars")]
+    pub struct SearchPackages {
+        #[arguments(query: $query, packages: $packages, first: $first, after: $after)]
+        pub search: SearchConnection,
     }
 
     #[derive(cynic::QueryVariables, Debug)]
@@ -969,14 +1111,13 @@ mod queries {
 
     #[derive(cynic::QueryVariables, Debug)]
     pub struct CreateNamespaceVars {
-        pub name: String,
-        pub description: Option<String>,
+        pub input: CreateNamespaceInput,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "Mutation", variables = "CreateNamespaceVars")]
     pub struct CreateNamespace {
-        #[arguments(input: {name: $name, description: $description})]
+        #[arguments(input: $input)]
         pub create_namespace: Option<CreateNamespacePayload>,
     }
 

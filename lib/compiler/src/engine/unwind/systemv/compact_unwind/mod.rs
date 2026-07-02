@@ -158,6 +158,7 @@ impl CompactUnwindManager {
     const NUM_RECORDS_PER_SECOND_LEVEL_PAGE: usize = (Self::SECOND_LEVEL_PAGE_SIZE
         - Self::SECOND_LEVEL_PAGE_HEADER_SIZE)
         / Self::SECOND_LEVEL_PAGE_ENTRY_SIZE;
+    const UNWIND_HAS_LSDA: u32 = 0x4000_0000;
 
     /// Analyze a `__compact_unwind` section, adding its entries to the manager.
     pub unsafe fn read_compact_unwind_section(
@@ -268,6 +269,7 @@ impl CompactUnwindManager {
             }
 
             if entry.lsda_addr != 0 {
+                entry.compact_encoding |= Self::UNWIND_HAS_LSDA;
                 self.num_lsdas += 1;
             }
         }

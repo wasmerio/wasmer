@@ -437,6 +437,7 @@ where
     // Build the trigger using the timeout
     let trigger = async move {
         tokio::select! {
+            biased;
             res = batch => res,
             _ = timeout => Err(Errno::Timedout)
         }

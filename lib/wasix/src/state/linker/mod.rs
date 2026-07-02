@@ -266,6 +266,7 @@ mod internal_types;
 mod linker_state;
 mod locator;
 mod memory_allocator;
+mod runtime_hooks;
 mod sync;
 mod types;
 mod wasm_utils;
@@ -279,6 +280,7 @@ use internal_types::*;
 use linker_state::*;
 use locator::*;
 use memory_allocator::*;
+use runtime_hooks::instantiate_with_runtime_hooks;
 use sync::*;
 use wasm_utils::*;
 
@@ -291,7 +293,7 @@ use std::{
 
 use bus::Bus;
 use tracing::trace;
-use wasmer::{AsStoreMut, Engine, FunctionEnvMut, Instance, Memory, Module, StoreMut, Tag, Type};
+use wasmer::{AsStoreMut, Engine, FunctionEnvMut, Memory, Module, StoreMut, Tag, Type};
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use crate::{WasiEnv, WasiFunctionEnv, WasiModuleTreeHandles, import_object_for_all_wasi_versions};
@@ -465,7 +467,13 @@ impl Linker {
         // use that ordering. My *guess* is that, since main exports all the libc
         // functions and those are called frequently by basically any code, then giving
         // stubs to main will be faster, but we need numbers before we decide this.
-        let main_instance = Instance::new(store, main_module, &imports)?;
+        let main_instance = instantiate_with_runtime_hooks(
+            &func_env.env,
+            store,
+            main_module,
+            &mut imports,
+            &memory,
+        )?;
         instance_group.main_instance = Some(main_instance.clone());
 
         let tls_base = get_tls_base_export(&main_instance, store)?;
@@ -753,7 +761,13 @@ impl Linker {
             &mut pending_resolutions,
         )?;
 
-        let main_instance = Instance::new(store, &main_module, &imports)?;
+        let main_instance = instantiate_with_runtime_hooks(
+            &func_env.env,
+            store,
+            &main_module,
+            &mut imports,
+            &memory,
+        )?;
 
         instance_group.main_instance = Some(main_instance.clone());
 

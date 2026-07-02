@@ -179,7 +179,7 @@ impl IntoWasmerExternType for *const wasm_externtype_t {
                 bindings::wasm_externkind_enum_WASM_EXTERN_FUNC => {
                     let functype = wasm_externtype_as_functype_const(self);
                     let params = wasm_functype_params(functype);
-                    let params = if params.is_null() || (*params).size == 0 {
+                    let params = if params.is_null() {
                         vec![]
                     } else {
                         std::slice::from_raw_parts((*params).data, (*params).size)
@@ -190,7 +190,7 @@ impl IntoWasmerExternType for *const wasm_externtype_t {
                     };
 
                     let returns = wasm_functype_results(functype);
-                    let returns = if returns.is_null() || (*returns).size == 0 {
+                    let returns = if returns.is_null() {
                         vec![]
                     } else {
                         std::slice::from_raw_parts((*returns).data, (*returns).size)
@@ -249,7 +249,7 @@ impl IntoWasmerExternType for *const wasm_externtype_t {
                 bindings::wasm_externkind_enum_WASM_EXTERN_TAG => {
                     let tagtype = wasm_externtype_as_tagtype_const(self);
                     let params = wasm_tagtype_params(tagtype);
-                    let params = if params.is_null() || (*params).size == 0 {
+                    let params = if params.is_null() {
                         vec![]
                     } else {
                         std::slice::from_raw_parts((*params).data, (*params).size)

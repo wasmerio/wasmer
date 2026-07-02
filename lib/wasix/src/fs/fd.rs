@@ -5,8 +5,6 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::AtomicU64},
 };
 
-#[cfg(feature = "enable-serde")]
-use serde_derive::{Deserialize, Serialize};
 use virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
 use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Filestat, Rights};
 
@@ -19,9 +17,7 @@ use super::{InodeGuard, InodeWeakGuard, NotificationInner};
 pub(crate) type VirtualFileLock = Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>;
 
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Fd {
-    #[cfg_attr(feature = "enable-serde", serde(flatten))]
     pub inner: FdInner,
 
     /// Flags that determine how the [`Fd`] can be used.
@@ -35,7 +31,6 @@ pub struct Fd {
 // This struct contains the bits of Fd that are safe to mutate, so that
 // FdList::get_mut can safely return mutable references.
 #[derive(Debug, Clone)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct FdInner {
     pub rights: Rights,
     pub rights_inheriting: Rights,
@@ -66,7 +61,6 @@ impl Fd {
 
 /// A file that Wasi knows about that may or may not be open
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct InodeVal {
     pub stat: RwLock<Filestat>,
     pub is_preopened: bool,
@@ -87,11 +81,9 @@ impl InodeVal {
 /// The core of the filesystem abstraction.  Includes directories,
 /// files, and symlinks.
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Kind {
     File {
         /// The open file, if it's open
-        #[cfg_attr(feature = "enable-serde", serde(skip))]
         handle: Option<VirtualFileLock>,
         /// The path on the host system where the file is located
         /// This is deprecated and will be removed soon
@@ -102,24 +94,19 @@ pub enum Kind {
         /// TODO: clarify here?
         fd: Option<u32>,
     },
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     Socket {
         /// Represents a networking socket
         socket: InodeSocket,
     },
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     PipeTx {
         tx: PipeTx,
     },
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     PipeRx {
         rx: PipeRx,
     },
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     DuplexPipe {
         pipe: Pipe,
     },
-    #[cfg_attr(feature = "enable-serde", serde(skip))]
     Epoll {
         state: Arc<EpollState>,
     },
@@ -161,7 +148,6 @@ pub enum Kind {
 }
 
 #[derive(Clone, Copy, Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum SymlinkKind {
     Backing,
     Virtual,
