@@ -22,11 +22,14 @@ use crate::{
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
 use itertools::Itertools;
+use object::SectionFlags;
+use object::elf;
 use object::write::{Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
     SymbolScope,
 };
+use target_lexicon::BinaryFormat;
 use tempfile::NamedTempFile;
 use wasmer_types::{
     CompilationProgressCallback, Features, FunctionIndex, FunctionType, LocalFunctionIndex,
@@ -383,6 +386,9 @@ fn emit_wasmer_meta_object(
             )
         })?;
 
+    // Mark sections as retained by linker GC, only used on Linux targets.
+    let retain_section = target.triple().binary_format == BinaryFormat::Elf;
+
     let mut obj = get_object_for_target(target.triple())
         .map_err(|e| format!("failed to create Wasmer metaobject: {e}"))?;
     let section_id = obj.add_section(
@@ -391,6 +397,11 @@ fn emit_wasmer_meta_object(
         SectionKind::Other,
     );
     obj.append_section_data(section_id, &compile_info_blob, 8);
+    if retain_section {
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        }
+    };
 
     // Emit zero sentinel for the .eh_frame section.
     let section_id = obj.add_section(
@@ -406,6 +417,11 @@ fn emit_wasmer_meta_object(
         WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
+    if retain_section {
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        }
+    };
     let pointer_size = target
         .triple()
         .pointer_width()
@@ -473,6 +489,11 @@ fn emit_wasmer_meta_object(
         WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
+    if retain_section {
+        obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
+            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        }
+    };
     for traps_name in (0..compiled_objects.object_files.len())
         .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
     {
@@ -512,6 +533,11 @@ fn emit_wasmer_meta_object(
         WASMER_VERSION_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
+    if retain_section {
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        }
+    };
     obj.append_section_data(
         section_id,
         &MetadataHeader::CURRENT_VERSION.to_le_bytes(),
@@ -560,6 +586,7 @@ pub fn emit_metadata_and_link(
         ]
     } else if cfg!(target_os = "linux") {
         vec![
+            "ld".to_string(),
             "-Bsymbolic".to_string(),
             "-shared".to_string(),
             "--threads=1".to_string(),
@@ -588,17 +615,17 @@ pub fn emit_metadata_and_link(
     // leading terminator makes frame registration see an empty table.
     link_args.push(meta_object_path.display().to_string());
 
-    // let mut wild_args = libwild::Args::new(|| link_args.iter().map(String::as_str))
-    //     .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
-    // wild_args
-    //     .parse(|| link_args.iter().map(String::as_str))
-    //     .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
-    // libwild::run(wild_args)
-    //     .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+    let mut wild_args = libwild::Args::new(|| link_args.iter().map(String::as_str))
+        .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
+    wild_args
+        .parse(|| link_args.iter().map(String::as_str))
+        .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
+    libwild::run(wild_args)
+        .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
 
-    lld_rx::link_native(link_args)
-        .ok()
-        .map_err(|e| CompileError::Codegen(format!("LLD linker failed: {e:?}")))?;
+    // lld_rx::link_native(link_args)
+    //     .ok()
+    //     .map_err(|e| CompileError::Codegen(format!("LLD linker failed: {e:?}")))?;
 
     let path_buf = module_file.path().to_path_buf();
     let (_, path) = module_file.into_parts();
