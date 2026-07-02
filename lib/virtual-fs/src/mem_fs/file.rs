@@ -1317,6 +1317,7 @@ impl AsyncWrite for FileHandle {
 
 #[cfg(test)]
 mod test_read_write_seek {
+    use shared_buffer::OwnedBuffer;
     use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
     use crate::{FileSystem as FS, mem_fs::*};
@@ -1598,6 +1599,39 @@ mod test_read_write_seek {
             "failing to read an exact buffer",
         );
     }
+
+    #[tokio::test]
+    async fn test_readonly_file_seek_and_reading_at_eof_returns_zero() {
+        let fs = FileSystem::default();
+        fs.insert_ro_file(path!("/foo.txt"), OwnedBuffer::from_static(b"foo"))
+            .expect("failed to insert readonly file");
+
+        let mut file = fs
+            .new_open_options()
+            .read(true)
+            .open(path!("/foo.txt"))
+            .expect("failed to open readonly file");
+
+        assert!(
+            matches!(file.seek(io::SeekFrom::End(0)).await, Ok(3)),
+            "seeking to EOF",
+        );
+
+        let mut buf = [0; 8];
+        assert!(
+            matches!(file.read(&mut buf).await, Ok(0)),
+            "reading at EOF should return zero bytes",
+        );
+
+        assert!(
+            matches!(file.seek(io::SeekFrom::Start(10)).await, Ok(10)),
+            "seeking past EOF",
+        );
+        assert!(
+            matches!(file.read(&mut buf).await, Ok(0)),
+            "reading past EOF should return zero bytes",
+        );
+    }
 }
 
 impl fmt::Debug for FileHandle {
@@ -1771,6 +1805,11 @@ impl ReadOnlyFile {
 impl ReadOnlyFile {
     pub fn read(&self, buf: &mut [u8], cursor: &mut u64) -> io::Result<usize> {
         let cur_pos = *cursor as usize;
+
+        if cur_pos >= self.buffer.len() {
+            return Ok(0);
+        }
+
         let max_to_read = cmp::min(self.buffer.len() - cur_pos, buf.len());
         let data_to_copy = &self.buffer[cur_pos..][..max_to_read];
 
@@ -1785,11 +1824,28 @@ impl ReadOnlyFile {
 }
 
 impl ReadOnlyFile {
-    pub fn seek(&self, _position: io::SeekFrom, _cursor: &mut u64) -> io::Result<u64> {
-        Err(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            "file is read-only",
-        ))
+    pub fn seek(&self, position: io::SeekFrom, cursor: &mut u64) -> io::Result<u64> {
+        let to_err = |_| io::ErrorKind::InvalidInput;
+
+        let next_cursor: i64 = match position {
+            io::SeekFrom::Start(offset) => offset.try_into().map_err(to_err)?,
+            io::SeekFrom::End(offset) => {
+                TryInto::<i64>::try_into(self.buffer.len()).map_err(to_err)? + offset
+            }
+            io::SeekFrom::Current(offset) => {
+                TryInto::<i64>::try_into(*cursor).map_err(to_err)? + offset
+            }
+        };
+
+        if next_cursor < 0 {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "seeking before the byte 0",
+            ));
+        }
+
+        *cursor = next_cursor.try_into().map_err(to_err)?;
+        Ok(*cursor)
     }
 }
 
