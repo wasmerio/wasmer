@@ -128,6 +128,7 @@ impl UnwindRegistry {
             return Err("unwind registry has already been published".to_string());
         }
 
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         unsafe {
             if let Some(eh_frame) = eh_frame {
                 self.register_eh_frames(eh_frame)?;

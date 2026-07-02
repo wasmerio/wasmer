@@ -617,17 +617,27 @@ pub fn emit_metadata_and_link(
     // leading terminator makes frame registration see an empty table.
     link_args.push(meta_object_path.display().to_string());
 
-    let mut wild_args = libwild::Args::new(|| link_args.iter().map(String::as_str))
-        .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
-    wild_args
-        .parse(|| link_args.iter().map(String::as_str))
-        .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
-    libwild::run(wild_args)
-        .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
-
-    // lld_rx::link_native(link_args)
-    //     .ok()
-    //     .map_err(|e| CompileError::Codegen(format!("LLD linker failed: {e:?}")))?;
+    if cfg!(target_os = "macos") {
+        lld_rx::link_native(link_args)
+            .ok()
+            .map_err(|e| CompileError::Codegen(format!("LLD linker failed: {e:?}")))?;
+    } else if cfg!(target_os = "linux") {
+        let mut wild_args =
+            libwild::Args::new(|| link_args.iter().map(String::as_str)).map_err(|e| {
+                CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}"))
+            })?;
+        wild_args
+            .parse(|| link_args.iter().map(String::as_str))
+            .map_err(|e| {
+                CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}"))
+            })?;
+        libwild::run(wild_args)
+            .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+    } else {
+        return Err(CompileError::Codegen(
+            "Unsupported linker platform".to_string(),
+        ));
+    }
 
     let path_buf = module_file.path().to_path_buf();
     let (_, path) = module_file.into_parts();
