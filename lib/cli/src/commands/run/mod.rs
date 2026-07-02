@@ -167,7 +167,7 @@ impl Run {
 
     #[cfg(feature = "wasm-c-api")]
     fn module_uses_wasm_c_api(module: &Module) -> bool {
-        wasmer_c_api::wasm_c_api::imports::module_wasm_c_api_version_used(module).is_some()
+        wasmer_c_api_imports::module_wasm_c_api_version_used(module).is_some()
     }
 
     #[cfg(feature = "wasm-c-api")]
@@ -704,8 +704,8 @@ fn maybe_wrap_runtime_with_wasm_c_api(
     }
 
     let runtime_for_resolver = runtime.clone();
-    let hooks = wasmer_c_api::wasm_c_api::imports::WasmCapiRuntimeHooks::new()
-        .with_resolve_module_sync(move |bytes| {
+    let hooks =
+        wasmer_c_api_imports::WasmCapiRuntimeHooks::new().with_resolve_module_sync(move |bytes| {
             runtime_for_resolver
                 .resolve_module_sync(ModuleInput::Bytes(Cow::Owned(bytes)), None, None)
                 .context("failed to resolve Wasm C API module")

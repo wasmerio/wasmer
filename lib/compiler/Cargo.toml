@@ -13,8 +13,8 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-types = { path = "../types", version = "=7.2.0-rc.1", default-features = false }
-wasmer-lld-rx = { path = "../lld-rx", version = "=7.2.0-rc.1" }
+wasmer-types = { path = "../types", version = "=7.2.0", default-features = false }
+wasmer-lld-rx = { path = "../lld-rx", version = "=7.2.0" }
 wasmparser = { workspace = true, default-features = false, optional = true }
 enumset.workspace = true
 hashbrown = { workspace = true, optional = true }
@@ -51,7 +51,7 @@ rangemap.workspace = true
 gimli.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-vm = { path = "../vm", version = "=7.2.0-rc.1" }
+wasmer-vm = { path = "../vm", version = "=7.2.0" }
 region.workspace = true
 which.workspace = true
 rayon.workspace = true

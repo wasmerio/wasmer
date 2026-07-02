@@ -313,9 +313,9 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "aws-lc-rs"
-version = "1.17.0"
+version = "1.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ec2f1fc3ec205783a5da9a7e6c1509cc69dedf09a1949e412c1e18469326d00"
+checksum = "4342d8937fc7e5dd9b1c60292261c0670c882a2cd1719cfc11b1af41731e32ad"
 dependencies = [
  "aws-lc-sys",
  "zeroize",
@@ -323,14 +323,15 @@ dependencies = [
 
 [[package]]
 name = "aws-lc-sys"
-version = "0.41.0"
+version = "0.42.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1a2f9779ce85b93ab6170dd940ad0169b5766ff848247aff13bb788b832fe3f4"
+checksum = "6d9ceb1da931507a12f4fccea479dccd00da1943e1b4ae72d8e502d707361444"
 dependencies = [
  "cc",
  "cmake",
  "dunce",
  "fs_extra",
+ "pkg-config",
 ]
 
 [[package]]
@@ -621,9 +622,9 @@ dependencies = [
 
 [[package]]
 name = "camino"
-version = "1.2.3"
+version = "1.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4ce8d3bd5823c7504d3f579f13e7b2f3da252fcb938c594d5680ee508bf846f"
+checksum = "5f2d30e4173c4026932d51d31d6b0613b1fd3014bf3f9f8943d4ba139c437ba0"
 dependencies = [
  "serde_core",
 ]
@@ -1899,18 +1900,18 @@ dependencies = [
 
 [[package]]
 name = "enum-ordinalize"
-version = "4.3.2"
+version = "4.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a1091a7bb1f8f2c4b28f1fe2cef4980ca2d410a3d727d67ecc3178c9b0800f0"
+checksum = "07f808d588c10e464ea6f7d3eaed500049eff30aaac103460f61828c2d65b3eb"
 dependencies = [
  "enum-ordinalize-derive",
 ]
 
 [[package]]
 name = "enum-ordinalize-derive"
-version = "4.3.2"
+version = "4.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8ca9601fb2d62598ee17836250842873a413586e5d7ed88b356e38ddbb0ec631"
+checksum = "42e528e2d34ba8a67a1a650b86beae8ef69fc5fdb638016f386b973226590432"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2656,9 +2657,9 @@ checksum = "135b12329e5e3ce057a9f972339ea52bc954fe1e9358ef27f95e89716fbc5424"
 
 [[package]]
 name = "hybrid-array"
-version = "0.4.12"
+version = "0.4.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9155a582abd142abc056962c29e3ce5ff2ad5469f4246b537ed42c5deba857da"
+checksum = "818356c5132c1fede50f837ca96afbe78ff42413047f4abb886217845e1b6c8c"
 dependencies = [
  "typenum",
 ]
@@ -2936,9 +2937,9 @@ dependencies = [
 
 [[package]]
 name = "indicatif"
-version = "0.18.4"
+version = "0.18.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25470f23803092da7d239834776d653104d551bc4d7eacaf31e6837854b8e9eb"
+checksum = "993f007684f2e9727160da8b960ec161264703bfd1af084fd2e34d040c9a0dd4"
 dependencies = [
  "console",
  "portable-atomic",
@@ -3548,7 +3549,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-engine-test"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -5859,9 +5860,9 @@ dependencies = [
 
 [[package]]
 name = "time"
-version = "0.3.51"
+version = "0.3.52"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "85c17d80feb7334b40c484e45ed1a5273dfd8bfda537c3be2e74a06a6686f327"
+checksum = "0e48db7b415311b615f910b3dcaa4557bcd4bf1982379c95c223fd8c2a20e210"
 dependencies = [
  "deranged",
  "num-conv",
@@ -5879,9 +5880,9 @@ checksum = "9e1c906769ad99c88eaa54e728060edef082f8e358ff32030cb7c7d315e81109"
 
 [[package]]
 name = "time-macros"
-version = "0.2.30"
+version = "0.2.31"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dcef1a61bdb119096e153208ec5cbec23944ce8bca13be5c7f60c634f7403935"
+checksum = "c431b87111666e491a90baa837f914fb45cd5dc3c268591b0220ff5057f2085f"
 dependencies = [
  "num-conv",
  "time-core",
@@ -6752,7 +6753,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "virtual-fs"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6785,7 +6786,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-mio"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "async-trait",
  "bytes",
@@ -6800,7 +6801,7 @@ dependencies = [
 
 [[package]]
 name = "virtual-net"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6914,7 +6915,7 @@ dependencies = [
 
 [[package]]
 name = "wai-bindgen-wasmer"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7167,7 +7168,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -7218,7 +7219,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-argus"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7243,7 +7244,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-backend-api"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "async-tungstenite",
@@ -7288,7 +7289,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "anyhow",
  "cbindgen",
@@ -7305,6 +7306,7 @@ dependencies = [
  "typetag",
  "virtual-fs",
  "wasmer",
+ "wasmer-c-api-imports",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -7317,8 +7319,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-c-api-imports"
+version = "7.2.0"
+dependencies = [
+ "anyhow",
+ "tokio",
+ "wasmer",
+ "wasmer-types",
+ "wasmer-wasix",
+ "wat",
+]
+
+[[package]]
 name = "wasmer-c-api-test-runner"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "cc",
  "regex",
@@ -7328,7 +7342,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "blake3",
  "clap",
@@ -7346,7 +7360,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "cc",
  "regex",
@@ -7356,7 +7370,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.2",
@@ -7435,7 +7449,7 @@ dependencies = [
  "wasm-coredump-builder",
  "wasmer",
  "wasmer-backend-api",
- "wasmer-c-api",
+ "wasmer-c-api-imports",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -7454,7 +7468,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "addr2line",
  "backtrace",
@@ -7497,7 +7511,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -7523,7 +7537,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -7550,7 +7564,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -7574,7 +7588,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-config"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -7597,7 +7611,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error2",
@@ -7609,7 +7623,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "anyhow",
  "assert_cmd 2.2.2",
@@ -7637,11 +7651,11 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 
 [[package]]
 name = "wasmer-journal"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7669,7 +7683,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-lld-rx"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "cc",
  "which",
@@ -7677,7 +7691,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -7686,7 +7700,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-napi"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "cc",
@@ -7709,7 +7723,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-package"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7740,7 +7754,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sdk"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -7768,7 +7782,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-swift"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "thiserror 2.0.18",
  "tokio",
@@ -7782,7 +7796,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-sys-utils"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "libc",
  "region",
@@ -7796,7 +7810,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "bytecheck",
  "crc32fast",
@@ -7821,7 +7835,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "backtrace",
  "bytesize",
@@ -7854,7 +7868,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "assert-panic",
@@ -7955,7 +7969,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasix-types"
-version = "0.702.0-rc.1"
+version = "0.702.0"
 dependencies = [
  "anyhow",
  "bitflags 2.13.0",
@@ -7978,7 +7992,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -7989,7 +8003,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "7.2.0-rc.1"
+version = "7.2.0"
 dependencies = [
  "anyhow",
  "build-deps",
