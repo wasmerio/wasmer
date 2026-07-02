@@ -54,6 +54,7 @@ pub fn build_function_lsda<'a>(
     call_sites: impl Iterator<Item = FinalizedMachCallSite<'a>>,
     function_length: usize,
     _pointer_bytes: u8,
+    use_absolute_type_table: bool,
 ) -> Option<FunctionLsdaData> {
     let mut sites = Vec::new();
 
@@ -168,7 +169,11 @@ pub fn build_function_lsda<'a>(
 
     let action_table = encode_action_table(&callsite_actions);
     let call_site_table = encode_call_site_table(&sites, &action_table);
-    let (type_table_bytes, type_table_relocs) = type_entries.encode();
+    let (type_table_bytes, type_table_relocs) = if use_absolute_type_table {
+        type_entries.encode_inline_tags()
+    } else {
+        type_entries.encode_relocated()
+    };
 
     let call_site_table_len = call_site_table.len() as u64;
     let mut writer = Cursor::new(Vec::new());
@@ -247,6 +252,7 @@ pub fn emit_compact_unwind_section(
     const FUNCTION_ADDR_OFFSET: u64 = 0;
     const PERSONALITY_ADDR_OFFSET: u64 = 16;
     const LSDA_ADDR_OFFSET: u64 = 24;
+    const UNWIND_HAS_LSDA: u32 = 0x4000_0000;
 
     const ABS8: RelocationFlags = RelocationFlags::Generic {
         kind: ObjectRelocationKind::Absolute,
@@ -261,9 +267,14 @@ pub fn emit_compact_unwind_section(
 
     let mut bytes = Vec::with_capacity(entries.len() * ENTRY_SIZE);
     for entry in &entries {
+        let compact_encoding = if entry.lsda_offset.is_some() {
+            entry.compact_encoding | UNWIND_HAS_LSDA
+        } else {
+            entry.compact_encoding
+        };
         bytes.extend_from_slice(&0u64.to_le_bytes());
         bytes.extend_from_slice(&entry.function_length.to_le_bytes());
-        bytes.extend_from_slice(&entry.compact_encoding.to_le_bytes());
+        bytes.extend_from_slice(&compact_encoding.to_le_bytes());
         bytes.extend_from_slice(&0u64.to_le_bytes());
         bytes.extend_from_slice(&0u64.to_le_bytes());
     }
@@ -492,8 +503,7 @@ impl TypeTable {
             + 1
     }
 
-    fn encode(&self) -> (Vec<u8>, Vec<TagRelocation>) {
-        // Each entry is a 4-byte PC-relative slot (`DW_EH_PE_pcrel | sdata4`).
+    fn encode_relocated(&self) -> (Vec<u8>, Vec<TagRelocation>) {
         const ENTRY_SIZE: usize = 4;
         let mut bytes = Vec::with_capacity(self.entries.len() * ENTRY_SIZE);
         let mut relocations = Vec::new();
@@ -513,6 +523,37 @@ impl TypeTable {
         }
 
         (bytes, relocations)
+    }
+
+    fn encode_inline_tags(&self) -> (Vec<u8>, Vec<TagRelocation>) {
+        const ENTRY_SIZE: usize = 4;
+        let mut bytes = Vec::with_capacity(self.entries.len() * ENTRY_SIZE * 2);
+        let mut entries = Vec::new();
+
+        for entry in self.entries.iter().rev() {
+            let tag_offset = match entry {
+                ExceptionType::Tag { tag } => {
+                    let offset = bytes.len() as u32;
+                    bytes.extend_from_slice(&tag.to_ne_bytes());
+                    Some(offset)
+                }
+                ExceptionType::CatchAll => None,
+            };
+            entries.push(tag_offset);
+        }
+
+        for tag_offset in entries {
+            let slot_offset = bytes.len() as u32;
+            let pcrel_offset = tag_offset
+                .map(|tag_offset| {
+                    i32::try_from(tag_offset as i64 - slot_offset as i64)
+                        .expect("inline LSDA tag offset fits in i32")
+                })
+                .unwrap_or(0);
+            bytes.extend_from_slice(&pcrel_offset.to_le_bytes());
+        }
+
+        (bytes, Vec::new())
     }
 }
 

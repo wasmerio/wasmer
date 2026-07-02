@@ -92,6 +92,8 @@ struct CraneliftCompiledFunction {
     #[cfg(feature = "unwind")]
     fde: Option<gimli::write::FrameDescriptionEntry>,
     #[cfg(feature = "unwind")]
+    compact_unwind_encoding: Option<u32>,
+    #[cfg(feature = "unwind")]
     lsda: Option<crate::eh::FunctionLsdaData>,
 }
 
@@ -272,6 +274,20 @@ impl CraneliftCompiler {
                     result.buffer.call_sites(),
                     code_buf.len(),
                     pointer_bytes,
+                    matches!(triple.binary_format, BinaryFormat::Macho),
+                )
+            } else {
+                None
+            };
+
+            #[cfg(feature = "unwind")]
+            let compact_unwind_encoding = if matches!(triple.binary_format, BinaryFormat::Macho)
+                && matches!(triple.architecture, Architecture::Aarch64(_))
+                && !result.buffer.unwind_info.is_empty()
+            {
+                Some(
+                    crate::eh::compact_unwind_encoding_aarch64(&result.buffer.unwind_info)
+                        .map_err(CompileError::Codegen)?,
                 )
             } else {
                 None
@@ -311,6 +327,8 @@ impl CraneliftCompiler {
                 address_map,
                 #[cfg(feature = "unwind")]
                 fde,
+                #[cfg(feature = "unwind")]
+                compact_unwind_encoding,
                 #[cfg(feature = "unwind")]
                 lsda,
             };
@@ -581,7 +599,7 @@ fn emit_function_object(
 
         // Emit the LSDA into `.gcc_except_table`, plus a per-object tag section
         // holding the exception tag constants referenced by its type table.
-        let lsda_section_symbol = if let Some(lsda) = &compiled.lsda {
+        let (lsda_section_symbol, lsda_section_offset) = if let Some(lsda) = &compiled.lsda {
             let tag_section_symbol = emit_eh_tag_section(&mut obj, lsda);
 
             let gcc_section_name: &[u8] = if matches!(triple.binary_format, BinaryFormat::Macho) {
@@ -596,13 +614,21 @@ fn emit_function_object(
             );
             let lsda_offset =
                 obj.append_section_data(gcc_section, &lsda.bytes, u64::from(pointer_bytes));
-            // The type-table slots use `DW_EH_PE_pcrel | sdata4` encoding, so
-            // their relocations are PC-relative 32-bit (`R_X86_64_PC32`). This
-            // keeps `.gcc_except_table` position-independent and read-only.
-            let pcrel32 = RelocationFlags::Generic {
-                kind: ObjectRelocationKind::Relative,
-                encoding: RelocationEncoding::Generic,
-                size: 32,
+            let tag_relocation_flags = if matches!(triple.binary_format, BinaryFormat::Macho) {
+                RelocationFlags::Generic {
+                    kind: ObjectRelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: u8::checked_mul(pointer_bytes, 8).unwrap_or(64),
+                }
+            } else {
+                // The type-table slots use `DW_EH_PE_pcrel | sdata4` encoding,
+                // so their relocations are PC-relative 32-bit (`R_X86_64_PC32`).
+                // This keeps `.gcc_except_table` position-independent and read-only.
+                RelocationFlags::Generic {
+                    kind: ObjectRelocationKind::Relative,
+                    encoding: RelocationEncoding::Generic,
+                    size: 32,
+                }
             };
             for reloc in &lsda.relocations {
                 let (tag_symbol, tag_offset) = tag_section_symbol
@@ -620,7 +646,7 @@ fn emit_function_object(
                     gcc_section,
                     ObjectRelocation {
                         offset: lsda_offset + reloc.offset as u64,
-                        flags: pcrel32,
+                        flags: tag_relocation_flags,
                         symbol: tag_symbol,
                         addend: tag_offset as i64,
                     },
@@ -629,10 +655,36 @@ fn emit_function_object(
                     CompileError::Codegen(format!("failed to add LSDA relocation: {e}"))
                 })?;
             }
-            Some(obj.section_symbol(gcc_section))
+            (Some(obj.section_symbol(gcc_section)), Some(lsda_offset))
         } else {
-            None
+            (None, None)
         };
+
+        if matches!(triple.binary_format, BinaryFormat::Macho)
+            && let Some(compact_encoding) = compiled.compact_unwind_encoding
+        {
+            let function_length = u32::try_from(compiled.body.len()).map_err(|_| {
+                CompileError::Codegen("function too large for compact-unwind entry".to_string())
+            })?;
+            crate::eh::emit_compact_unwind_section(
+                &mut obj,
+                triple,
+                [crate::eh::CompactUnwindEntryData {
+                    function: local_func_index,
+                    function_length,
+                    compact_encoding,
+                    lsda_offset: lsda_section_offset.map(u32::try_from).transpose().map_err(
+                        |_| {
+                            CompileError::Codegen(
+                                "LSDA offset too large for compact-unwind entry".to_string(),
+                            )
+                        },
+                    )?,
+                }],
+                lsda_section_symbol,
+            )
+            .map_err(CompileError::Codegen)?;
+        }
 
         cie.fde_address_encoding = DW_EH_PE_pcrel | DW_EH_PE_sdata4;
         let mut fde = fde.clone();

@@ -250,6 +250,13 @@ impl AllocatedArtifact {
         let cache = ReadCache::new(reader);
         let image = object::File::parse(&cache).map_err(|e| format!("cannot parse image: {e}"))?;
         let mut memory_map = MemoryMappedBinary::try_from_file(module_file_fd, &image, &cache)?;
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        let has_macho_unwind_info = image.format() == object::BinaryFormat::MachO
+            && image.sections().any(|section| {
+                section
+                    .name_bytes()
+                    .is_ok_and(|name| name == b"__unwind_info")
+            });
 
         // Parts function offsets
         let mut function_offsets = None;
@@ -272,6 +279,10 @@ impl AllocatedArtifact {
                     );
                 }
                 b".eh_frame" => {
+                    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                    if has_macho_unwind_info {
+                        continue;
+                    }
                     memory_map.publish_eh_frame_section(section.address(), section.size())?
                 }
                 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
