@@ -8,6 +8,7 @@ use gimli::{AArch64, write::CallFrameInstruction};
 use object::{
     RelocationFlags,
     elf::R_AARCH64_CALL26,
+    macho::ARM64_RELOC_BRANCH26,
     write::{Object, Relocation, StandardSection, SymbolId},
 };
 use wasmer_compiler::{types::function::FunctionBody, wasmparser::MemArg};
@@ -4653,7 +4654,7 @@ impl Machine for MachineARM64 {
 
     fn emit_call_with_reloc(
         &mut self,
-        _calling_convention: CallingConvention,
+        calling_convention: CallingConvention,
         reloc_target: SymbolId,
         object: &mut Object<'static>,
     ) -> Result<(), CompileError> {
@@ -4663,14 +4664,28 @@ impl Machine for MachineARM64 {
         self.assembler.emit_call_label(next)?;
 
         let section = object.section_id(StandardSection::Text);
+        let flags = match calling_convention {
+            CallingConvention::AppleAarch64 => RelocationFlags::MachO {
+                r_type: ARM64_RELOC_BRANCH26,
+                r_pcrel: true,
+                // 4 bytes (encoded as log2)
+                r_length: 2,
+            },
+            CallingConvention::SystemV => RelocationFlags::Elf {
+                r_type: R_AARCH64_CALL26,
+            },
+            _ => {
+                return Err(CompileError::Codegen(format!(
+                    "unsupported calling conventions: {calling_convention:?}"
+                )));
+            }
+        };
         object
             .add_relocation(
                 section,
                 Relocation {
                     symbol: reloc_target,
-                    flags: RelocationFlags::Elf {
-                        r_type: R_AARCH64_CALL26,
-                    },
+                    flags,
                     offset: reloc_at as u64,
                     addend: 0,
                 },

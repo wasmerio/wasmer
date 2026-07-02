@@ -581,6 +581,8 @@ pub fn emit_metadata_and_link(
             "26.2".to_string(),
             "-undefined".to_string(),
             "dynamic_lookup".to_string(),
+            "-bind_at_load".to_string(),
+            "-no_fixup_chains".to_string(),
             "-o".to_string(),
             module_file.path().display().to_string(),
         ]

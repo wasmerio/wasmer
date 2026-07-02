@@ -1,6 +1,7 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::{
     ffi::c_void,
@@ -223,7 +224,7 @@ pub struct AllocatedArtifact {
     debug_info: Arc<Mutex<addr2line::Loader>>,
 
     // Compiled executable mmapped into memory.
-    _memory_map: MemoryMappedBinary,
+    memory_map: MemoryMappedBinary,
 }
 
 impl AllocatedArtifact {
@@ -232,8 +233,14 @@ impl AllocatedArtifact {
         module_file: &mut File,
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, String> {
+        // TODO
+        let path_prefix = if cfg!(target_os = "linux") {
+            PathBuf::from("/proc/self/fd")
+        } else {
+            PathBuf::from("/dev/fd")
+        };
         let module_file_fd = module_file.as_raw_fd();
-        let debug_info = addr2line::Loader::new(format!("/proc/self/fd/{module_file_fd}"))
+        let debug_info = addr2line::Loader::new(path_prefix.join(module_file_fd.to_string()))
             .map(|loader| Arc::new(Mutex::new(loader)))
             .map_err(|e| format!("cannot parse debug info from an artifact file: {e}"))?;
         module_file
@@ -242,7 +249,7 @@ impl AllocatedArtifact {
         let reader = BufReader::new(module_file);
         let cache = ReadCache::new(reader);
         let image = object::File::parse(&cache).map_err(|e| format!("cannot parse image: {e}"))?;
-        let mut memory_map = MemoryMappedBinary::try_from_file(module_file_fd, &image)?;
+        let mut memory_map = MemoryMappedBinary::try_from_file(module_file_fd, &image, &cache)?;
 
         // Parts function offsets
         let mut function_offsets = None;
@@ -266,6 +273,10 @@ impl AllocatedArtifact {
                 }
                 b".eh_frame" => {
                     memory_map.publish_eh_frame_section(section.address(), section.size())?
+                }
+                #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                b"__unwind_info" => {
+                    memory_map.publish_unwind_info_section(section.address(), section.size())?
                 }
                 _ => {}
             }
@@ -321,7 +332,7 @@ impl AllocatedArtifact {
             signatures: signatures.into_boxed_slice(),
             vm_offsets: VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info),
             debug_info,
-            _memory_map: memory_map,
+            memory_map,
         })
     }
 
@@ -370,6 +381,7 @@ impl TrapReader {
         let image = object::File::parse(&cache).ok()?;
 
         let mut trap_section_data = None;
+        let mut trap_section_address = 0u64;
         let mut trap_function_offsets = None;
         for section in image.sections() {
             let Ok(section_name) = section.name_bytes() else {
@@ -381,6 +393,7 @@ impl TrapReader {
                 }
                 WASMER_TRAPS_SECTION_NAME => {
                     trap_section_data = section.data().ok();
+                    trap_section_address = section.address();
                 }
                 _ => {}
             }
@@ -391,7 +404,13 @@ impl TrapReader {
         let offset_bytes = trap_function_offsets
             .get(local_index.index() * size_of::<usize>()..)
             .and_then(|s| s.get(..size_of::<usize>()))?;
-        let trap_offset = usize::from_le_bytes(offset_bytes.try_into().unwrap());
+        // The `.w.trap_fnoffs` slots are filled by an `Absolute` relocation to
+        // each function's trap symbol, so they hold the *virtual address* of the
+        // trap data. Convert it back to an offset relative to the start of the
+        // `.w.traps` section by subtracting that section's address (which is 0 on
+        // ELF but non-zero on Mach-O, where the data lands in `__DATA`).
+        let trap_address = usize::from_le_bytes(offset_bytes.try_into().unwrap());
+        let trap_offset = trap_address.checked_sub(trap_section_address as usize)?;
 
         let traps = Self::parse_function_traps(trap_section_data, trap_offset, local_index).ok()?;
         let idx = traps
@@ -732,7 +751,7 @@ impl Artifact {
             module_info,
             &finished_function_extents,
             trap_reader,
-            allocated._memory_map.base() as usize,
+            allocated.memory_map.base() as usize,
             allocated.debug_info.clone(),
         );
 

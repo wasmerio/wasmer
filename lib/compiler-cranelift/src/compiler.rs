@@ -58,7 +58,7 @@ use wasmer_compiler::{
     types::{function::FunctionBody, module::CompileModuleInfo},
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
-use wasmer_types::target::{BinaryFormat, CallingConvention, Target, Triple};
+use wasmer_types::target::{Architecture, BinaryFormat, CallingConvention, Target, Triple};
 use wasmer_types::{
     Addend, CodeOffset, CompilationProgressCallback, CompileError, FunctionIndex, LibCall,
     LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode, TrapInformation, VMOffsets,
@@ -584,9 +584,14 @@ fn emit_function_object(
         let lsda_section_symbol = if let Some(lsda) = &compiled.lsda {
             let tag_section_symbol = emit_eh_tag_section(&mut obj, lsda);
 
+            let gcc_section_name: &[u8] = if matches!(triple.binary_format, BinaryFormat::Macho) {
+                b".gcc_except_tab"
+            } else {
+                b".gcc_except_table"
+            };
             let gcc_section = obj.add_section(
                 obj.segment_name(StandardSegment::Data).to_vec(),
-                b".gcc_except_table".to_vec(),
+                gcc_section_name.to_vec(),
                 SectionKind::ReadOnlyData,
             );
             let lsda_offset =
@@ -697,15 +702,27 @@ fn emit_function_object(
                     )
                 })?,
             };
+            let flags = if reloc.kind == ObjectRelocationKind::GotRelative
+                && matches!(triple.binary_format, BinaryFormat::Macho)
+            {
+                RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_POINTER_TO_GOT,
+                    r_pcrel: true,
+                    // 4 bytes (encoded as log2)
+                    r_length: 2,
+                }
+            } else {
+                RelocationFlags::Generic {
+                    kind: reloc.kind,
+                    encoding: RelocationEncoding::Generic,
+                    size: u8::checked_mul(reloc.size, 8).unwrap_or(64),
+                }
+            };
             obj.add_relocation(
                 section_id,
                 ObjectRelocation {
                     offset: data_offset + reloc.offset,
-                    flags: RelocationFlags::Generic {
-                        kind: reloc.kind,
-                        encoding: RelocationEncoding::Generic,
-                        size: u8::checked_mul(reloc.size, 8).unwrap_or(64),
-                    },
+                    flags,
                     symbol,
                     addend: reloc.addend,
                 },
@@ -850,7 +867,8 @@ fn relocation_to_flags(
             object::BinaryFormat::MachO => RelocationFlags::MachO {
                 r_type: macho::ARM64_RELOC_BRANCH26,
                 r_pcrel: true,
-                r_length: 32,
+                // 4 bytes (encoded as log2)
+                r_length: 2,
             },
             fmt => {
                 return Err(CompileError::Codegen(format!(

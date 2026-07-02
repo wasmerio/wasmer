@@ -194,25 +194,40 @@ impl UnwindRegistry {
         Ok(())
     }
 
+    /// Registers the linker-produced `__unwind_info` section of a mapped image.
+    ///
+    /// Unlike `.eh_frame`, the `__unwind_info` section is already in its final
+    /// form in the dylib, so we only point libunwind's dynamic-unwind lookup at
+    /// it instead of rebuilding it from `__compact_unwind` entries.
+    ///
+    /// * `dso_base` is the address the image's Mach-O header is mapped at.
+    /// * `section_ptr`/`section_len` describe the mapped `__unwind_info` bytes.
+    /// * `covered` is the address range the section covers (the mapped image).
+    ///
+    /// # Safety
+    ///
+    /// `section_ptr` must reference a valid `__unwind_info` section that stays
+    /// mapped for the lifetime of this registry, with offsets relative to
+    /// `dso_base`.
     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-    pub(crate) fn publish_compact_unwind(
+    pub(crate) unsafe fn publish_unwind_info(
         &mut self,
-        compact_unwind: &[u8],
-        eh_personality_addr_in_got: Option<usize>,
+        dso_base: usize,
+        section_ptr: *const u8,
+        section_len: usize,
+        covered: core::ops::Range<usize>,
     ) -> Result<(), String> {
         if self.published {
             return Err("unwind registry has already been published".to_string());
         }
 
         unsafe {
-            self.compact_unwind_mgr.read_compact_unwind_section(
-                compact_unwind.as_ptr() as _,
-                compact_unwind.len(),
-                eh_personality_addr_in_got,
-            )?;
-            self.compact_unwind_mgr
-                .finalize()
-                .map_err(|v| v.to_string())?;
+            self.compact_unwind_mgr.register_unwind_info(
+                dso_base,
+                section_ptr,
+                section_len,
+                covered,
+            );
             self.compact_unwind_mgr.register();
         }
 
