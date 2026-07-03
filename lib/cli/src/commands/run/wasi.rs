@@ -106,9 +106,11 @@ pub struct Wasi {
     #[clap(long = "use", name = "USE")]
     pub(crate) uses: Vec<String>,
 
-    /// Webc packages to use instead of the registry ones: a `*.webc` file, or a
-    /// directory tree of them resolved by location. Resolves named dependencies
-    /// from local files, offline.
+    /// Webc packages to use instead of the registry ones: a `*.webc` or
+    /// `*.webcm` file, or a directory tree of them. A `.webcm` sidecar manifest
+    /// (as written by `wasmer package build`) names the anonymous `.webc` next
+    /// to it; webcs without one keep the id from their own manifest. Resolves
+    /// named dependencies from local files, offline.
     #[clap(long = "include-webc", name = "WEBC")]
     pub(super) include_webcs: Vec<PathBuf>,
 
