@@ -3,6 +3,7 @@ use crate::{
     config::WasmerEnv,
     utils::load_package_manifest,
 };
+use anyhow::Context;
 use bytes::Bytes;
 use colored::Colorize;
 use dialoguer::Confirm;
@@ -10,7 +11,7 @@ use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Body;
 use std::path::{Path, PathBuf};
 use wasmer_backend_api::{WasmerClient, query::UploadMethod};
-use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash};
+use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash, Webcm};
 
 pub mod macros;
 pub mod wait;
@@ -131,12 +132,33 @@ pub(super) async fn upload(
 
 /// Read and return a manifest given a path.
 ///
+/// For a prebuilt package (a `.webc`, or the `.webcm` sidecar naming one) the
+/// returned path is the `.webc` and the manifest is reconstructed from its
+/// metadata, with the sidecar (when present) as the authoritative source of
+/// the package's name and version.
+///
 // The difference with the `load_package_manifest` is that
 // this function returns an error if no manifest is found.
 pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
-    // Check if the path is a .webc file
-    if path.is_file() && path.extension().and_then(|s| s.to_str()) == Some("webc") {
-        return Ok((path.to_path_buf(), get_manifest_from_webc_file(path)?));
+    if path.is_file() {
+        let extension = path.extension().and_then(|s| s.to_str());
+        if extension == Some(Webcm::EXTENSION) {
+            let webc = Webcm::webc_path(path);
+            anyhow::ensure!(
+                webc.is_file(),
+                "the webcm '{}' has no paired webc '{}'",
+                path.display(),
+                webc.display()
+            );
+            let manifest = get_manifest_from_webc_file(&webc, Some(path))?;
+            return Ok((webc, manifest));
+        }
+        if extension == Some("webc") {
+            let sidecar = Webcm::path_for_webc(path);
+            let sidecar = sidecar.is_file().then_some(sidecar);
+            let manifest = get_manifest_from_webc_file(path, sidecar.as_deref())?;
+            return Ok((path.to_path_buf(), manifest));
+        }
     }
 
     load_package_manifest(path).and_then(|j| {
@@ -144,14 +166,52 @@ pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
     })
 }
 
-/// Load a manifest from a .webc file
-fn get_manifest_from_webc_file(path: &Path) -> anyhow::Result<Manifest> {
-    use wasmer_package::utils::from_disk;
+/// Load a manifest from a .webc file, with the package identity taken from
+/// `webcm_path` when given. The webc is verified against the hash the sidecar
+/// records, if any.
+fn get_manifest_from_webc_file(path: &Path, webcm_path: Option<&Path>) -> anyhow::Result<Manifest> {
+    use sha2::Digest;
+    use wasmer_package::utils::{from_bytes, from_disk};
 
-    let container = from_disk(path)
-        .map_err(|e| anyhow::anyhow!("Failed to load webc file '{}': {}", path.display(), e))?;
+    let webcm = webcm_path
+        .map(|webcm_path| -> anyhow::Result<Webcm> {
+            let contents = std::fs::read_to_string(webcm_path)
+                .with_context(|| format!("Failed to read '{}'", webcm_path.display()))?;
+            contents
+                .parse()
+                .with_context(|| format!("Invalid webcm '{}'", webcm_path.display()))
+        })
+        .transpose()?;
 
-    manifest_from_webc_metadata(container.manifest())
+    // When the sidecar records a hash, read the bytes once to both verify and
+    // parse; otherwise let `from_disk` load the manifest without a full read.
+    let container = match webcm.as_ref().and_then(|w| w.package.hash.as_ref()) {
+        Some(expected) => {
+            let bytes = std::fs::read(path)
+                .with_context(|| format!("Failed to read webc file '{}'", path.display()))?;
+            let actual = PackageHash::from_sha256_bytes(sha2::Sha256::digest(&bytes).into());
+            anyhow::ensure!(
+                *expected == actual,
+                "hash mismatch for '{}': the webcm records {expected}, the file hashes to {actual}",
+                path.display()
+            );
+            from_bytes(bytes)
+        }
+        None => from_disk(path),
+    }
+    .map_err(|e| anyhow::anyhow!("Failed to load webc file '{}': {}", path.display(), e))?;
+
+    let mut manifest = manifest_from_webc_metadata(container.manifest())?;
+
+    if let Some(webcm) = webcm {
+        let package = manifest
+            .package
+            .get_or_insert_with(wasmer_config::package::Package::new_empty);
+        package.name = Some(webcm.package.name);
+        package.version = Some(webcm.package.version);
+    }
+
+    Ok(manifest)
 }
 
 /// Convert a webc manifest into a [`Manifest`], extracting the package metadata.
@@ -385,6 +445,96 @@ data = "data"
             package.description, None,
             "Package description should be None in webc (stripped by Package::from_manifest)"
         );
+
+        Ok(())
+    }
+
+    /// Build a stripped webc in `dir` and return its path and package hash.
+    fn build_test_webc(dir: &Path) -> anyhow::Result<(PathBuf, PackageHash)> {
+        use wasmer_package::package::Package;
+
+        std::fs::write(
+            dir.join("wasmer.toml"),
+            r#"
+[package]
+name = "test/mypackage"
+version = "0.1.0"
+
+[fs]
+data = "data"
+"#,
+        )?;
+        std::fs::create_dir(dir.join("data"))?;
+        std::fs::write(dir.join("data/test.txt"), "Hello World")?;
+
+        let pkg = Package::from_manifest(dir.join("wasmer.toml"))?;
+        let webc_bytes = pkg.serialize()?;
+        let hash_bytes: [u8; 32] = Sha256::digest(&webc_bytes).into();
+
+        let webc_path = dir.join("test.webc");
+        std::fs::write(&webc_path, &webc_bytes)?;
+
+        Ok((webc_path, PackageHash::from_sha256_bytes(hash_bytes)))
+    }
+
+    #[test]
+    fn test_get_manifest_takes_identity_from_webcm() -> anyhow::Result<()> {
+        let temp_dir = tempfile::TempDir::new()?;
+        let (webc_path, hash) = build_test_webc(temp_dir.path())?;
+
+        // The name intentionally differs from the wasmer.toml the webc was
+        // built from: the sidecar is authoritative (and the webc is stripped
+        // of its identity anyway).
+        let webcm = Webcm::new(
+            wasmer_config::package::NamedPackageId::try_new("acme/published", "9.9.9")?,
+            Some(hash),
+        );
+        std::fs::write(Webcm::path_for_webc(&webc_path), webcm.to_toml()?)?;
+
+        // Both the webc and its sidecar are accepted as the input path.
+        for input in [webc_path.clone(), Webcm::path_for_webc(&webc_path)] {
+            let (path, manifest) = get_manifest(&input)?;
+
+            assert_eq!(path, webc_path, "input: {}", input.display());
+            let package = manifest.package.unwrap();
+            assert_eq!(package.name.as_deref(), Some("acme/published"));
+            assert_eq!(
+                package.version.map(|v| v.to_string()).as_deref(),
+                Some("9.9.9")
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_manifest_rejects_webcm_hash_mismatch() -> anyhow::Result<()> {
+        let temp_dir = tempfile::TempDir::new()?;
+        let (webc_path, _) = build_test_webc(temp_dir.path())?;
+
+        let webcm = Webcm::new(
+            wasmer_config::package::NamedPackageId::try_new("acme/published", "9.9.9")?,
+            Some(format!("sha256:{}", "a".repeat(64)).parse()?),
+        );
+        std::fs::write(Webcm::path_for_webc(&webc_path), webcm.to_toml()?)?;
+
+        let err = get_manifest(&webc_path).unwrap_err();
+        assert!(format!("{err:#}").contains("hash mismatch"), "{err:#}");
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_get_manifest_rejects_orphaned_webcm() -> anyhow::Result<()> {
+        let temp_dir = tempfile::TempDir::new()?;
+        let webcm_path = temp_dir.path().join("test.webcm");
+        std::fs::write(
+            &webcm_path,
+            "[package]\nname = \"acme/published\"\nversion = \"9.9.9\"\n",
+        )?;
+
+        let err = get_manifest(&webcm_path).unwrap_err();
+        assert!(format!("{err:#}").contains("no paired webc"), "{err:#}");
 
         Ok(())
     }

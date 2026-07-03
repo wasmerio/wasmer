@@ -52,7 +52,9 @@ pub struct PackagePush {
     /// Path to a package source:
     /// - a directory containing `wasmer.toml`
     /// - a custom `*.toml` manifest file
-    /// - a pre-built raw `*.webc` file
+    /// - a pre-built raw `*.webc` file (a `*.webcm` sidecar next to it, when
+    ///   present, provides the package's name and version)
+    /// - a `*.webcm` sidecar manifest naming the pre-built `*.webc` beside it
     ///
     /// Defaults to current working directory.
     #[clap(name = "path", default_value = ".")]
@@ -268,12 +270,14 @@ impl AsyncCliCommand for PackagePush {
     type Output = ();
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
-        tracing::info!("Checking if user is logged in");
-        let client = login_user(&self.env, !self.non_interactive, "push a package").await?;
-
+        // Load and validate the package before prompting for login, so bad
+        // input (e.g. a webcm hash mismatch) fails fast without auth.
         tracing::info!("Loading manifest");
         let (manifest_path, manifest) = get_manifest(&self.package_path)?;
         tracing::info!("Got manifest at path {}", manifest_path.display());
+
+        tracing::info!("Checking if user is logged in");
+        let client = login_user(&self.env, !self.non_interactive, "push a package").await?;
 
         let (_, hash) = self.push(&client, &manifest, &manifest_path).await?;
 
