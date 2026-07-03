@@ -367,6 +367,9 @@ impl<'a> CoroutineStoreGuard<'a> {
 #[cfg(feature = "sys")]
 impl Drop for CoroutineStoreGuard<'_> {
     fn drop(&mut self) {
+        if std::thread::panicking() {
+            return;
+        }
         StoreContext::uninstall_cothread(self.store_id);
     }
 }
