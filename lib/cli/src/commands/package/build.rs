@@ -4,7 +4,7 @@ use anyhow::Context;
 use dialoguer::console::{Emoji, style};
 use indicatif::ProgressBar;
 use sha2::Digest;
-use wasmer_config::package::PackageHash;
+use wasmer_config::package::{NamedPackageId, PackageHash, Webcm};
 use wasmer_package::package::Package;
 
 use crate::utils::load_package_manifest;
@@ -29,6 +29,14 @@ pub struct PackageBuild {
     /// Only checks whether the package could be built successfully
     #[clap(long)]
     check: bool,
+
+    /// Don't write the `.webcm` sidecar manifest next to the built package.
+    ///
+    /// The sidecar records the package's name, version, and hash, which the
+    /// `.webc` itself does not retain. Local tooling (e.g. `wasmer run
+    /// --include-webc`) uses it to identify the package.
+    #[clap(long)]
+    no_webcm: bool,
 }
 
 static READING_MANIFEST_EMOJI: Emoji<'_, '_> = Emoji("📖 ", "");
@@ -43,6 +51,7 @@ impl PackageBuild {
             quiet: true,
             package: Some(package_path),
             check: true,
+            no_webcm: true,
         }
     }
 
@@ -62,16 +71,22 @@ impl PackageBuild {
         let hash = sha2::Sha256::digest(&data).into();
         let pkg_hash = PackageHash::from_sha256_bytes(hash);
 
-        let name = if let Some(manifest_pkg) = manifest.package {
-            if let Some(name) = manifest_pkg.name {
-                if let Some(version) = manifest_pkg.version {
-                    format!("{}-{}.webc", name.replace('/', "-"), version)
-                } else {
-                    format!("{}-{}.webc", name.replace('/', "-"), pkg_hash)
-                }
-            } else {
-                format!("{pkg_hash}.webc")
-            }
+        let manifest_pkg = manifest.package.as_ref();
+        let ident = manifest_pkg.and_then(|p| {
+            Some(NamedPackageId {
+                full_name: p.name.clone()?,
+                version: p.version.clone()?,
+            })
+        });
+
+        let name = if let Some(ident) = &ident {
+            format!(
+                "{}-{}.webc",
+                ident.full_name.replace('/', "-"),
+                ident.version
+            )
+        } else if let Some(name) = manifest_pkg.and_then(|p| p.name.as_deref()) {
+            format!("{}-{}.webc", name.replace('/', "-"), pkg_hash)
         } else {
             format!("{pkg_hash}.webc")
         };
@@ -132,6 +147,19 @@ impl PackageBuild {
 
         std::fs::write(&out_path, &data)
             .with_context(|| format!("could not write contents to '{}'", out_path.display()))?;
+
+        // Only named packages have an identity worth recording in a sidecar.
+        if let Some(ident) = ident.filter(|_| !self.no_webcm) {
+            let webcm_path = Webcm::path_for_webc(&out_path);
+            let webcm = Webcm::new(ident, Some(pkg_hash.clone()));
+            std::fs::write(&webcm_path, webcm.to_toml()?)
+                .with_context(|| format!("could not write '{}'", webcm_path.display()))?;
+
+            pb.println(format!(
+                "{WRITING_PACKAGE_EMOJI}Sidecar manifest written to '{}'",
+                webcm_path.display()
+            ));
+        }
 
         pb.finish_with_message(format!(
             "{} Package written to '{}'",
@@ -211,10 +239,21 @@ description = "hello"
             out: Some(path.to_owned()),
             quiet: true,
             check: false,
+            no_webcm: false,
         };
 
-        cmd.execute().unwrap();
+        let (_, pkg_hash) = cmd.execute().unwrap();
 
         from_disk(path.join("wasmer-hello-0.1.0.webc")).unwrap();
+
+        let webcm: Webcm = std::fs::read_to_string(path.join("wasmer-hello-0.1.0.webcm"))
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(
+            webcm.id(),
+            NamedPackageId::try_new("wasmer/hello", "0.1.0").unwrap()
+        );
+        assert_eq!(webcm.package.hash, Some(pkg_hash));
     }
 }
