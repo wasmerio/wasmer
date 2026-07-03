@@ -1,5 +1,5 @@
 //#BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
-//#Ignored: file-backed mmap writeback does not currently persist under WasiRunner
+//#MinimalLibc: v2026-07-03.1
 //#ExpectedStdout: 0
 
 #include <fcntl.h>
@@ -26,17 +26,17 @@ int main() {
   fstat(fd, &statbuf);
   size_t filesize = statbuf.st_size;
 
-  data = mmap(NULL, 3, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 3);
+  data = mmap(NULL, filesize, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
   if (data == MAP_FAILED) {
     printf("mmap");
     exit(1);
   }
 
-  memcpy(data, "hij", 3);
+  memcpy(data + 3, "hij", 3);
 
-  msync(data, 3, MS_SYNC);
+  msync(data, filesize, MS_SYNC);
 
-  munmap(data, 3);
+  munmap(data, filesize);
 
   fd = open("/data/my_file.txt", O_RDONLY);
   if (fd == -1) {
