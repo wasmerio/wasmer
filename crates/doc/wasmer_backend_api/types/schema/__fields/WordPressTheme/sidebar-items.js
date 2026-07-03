@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","active","description","latestVersion","name","slug","version"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","active","autoUpdate","description","latestVersion","name","slug","status","title","version"]};

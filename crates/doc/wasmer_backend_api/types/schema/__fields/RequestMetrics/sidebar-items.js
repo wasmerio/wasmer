@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","cachedRequests","dataCachedBytes","dataServedBytes","http2xx","http3xx","http4xx","http5xx","httpOther","percentageCached","requestDurationMillis","totalRequests","uniqueUsers"]};

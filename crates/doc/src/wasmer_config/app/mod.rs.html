@@ -209,226 +209,245 @@
 <a href=#209 id=209 data-nosnippet>209</a>    <span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
 <a href=#210 id=210 data-nosnippet>210</a>    </span><span class="kw">pub </span>ssh: <span class="prelude-ty">Option</span>&lt;CapabilitySshServerV1&gt;,
 <a href=#211 id=211 data-nosnippet>211</a>
-<a href=#212 id=212 data-nosnippet>212</a>    <span class="doccomment">/// Additional unknown capabilities.
-<a href=#213 id=213 data-nosnippet>213</a>    ///
-<a href=#214 id=214 data-nosnippet>214</a>    /// This provides a small bit of forwards compatibility for newly added
-<a href=#215 id=215 data-nosnippet>215</a>    /// capabilities.
-<a href=#216 id=216 data-nosnippet>216</a>    </span><span class="attr">#[serde(flatten)]
-<a href=#217 id=217 data-nosnippet>217</a>    </span><span class="kw">pub </span>other: IndexMap&lt;String, serde_json::Value&gt;,
-<a href=#218 id=218 data-nosnippet>218</a>}
-<a href=#219 id=219 data-nosnippet>219</a>
-<a href=#220 id=220 data-nosnippet>220</a><span class="doccomment">/// Memory capability settings.
-<a href=#221 id=221 data-nosnippet>221</a>///
-<a href=#222 id=222 data-nosnippet>222</a>/// NOTE: this is kept separate from the internal `CapabilityMemoryV1` struct
-<a href=#223 id=223 data-nosnippet>223</a>/// to keep the high-level app.yaml distinct from the internal App entity.
-<a href=#224 id=224 data-nosnippet>224</a></span><span class="attr">#[derive(
-<a href=#225 id=225 data-nosnippet>225</a>    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
-<a href=#226 id=226 data-nosnippet>226</a>)]
-<a href=#227 id=227 data-nosnippet>227</a></span><span class="kw">pub struct </span>AppConfigCapabilityMemoryV1 {
-<a href=#228 id=228 data-nosnippet>228</a>    <span class="doccomment">/// Memory limit for an instance.
-<a href=#229 id=229 data-nosnippet>229</a>    ///
-<a href=#230 id=230 data-nosnippet>230</a>    /// Format: [digit][unit], where unit is Mb/Gb/MiB/GiB,...
-<a href=#231 id=231 data-nosnippet>231</a>    </span><span class="attr">#[schemars(with = <span class="string">"Option&lt;String&gt;"</span>)]
-<a href=#232 id=232 data-nosnippet>232</a>    #[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-<a href=#233 id=233 data-nosnippet>233</a>    </span><span class="kw">pub </span>limit: <span class="prelude-ty">Option</span>&lt;ByteSize&gt;,
-<a href=#234 id=234 data-nosnippet>234</a>}
-<a href=#235 id=235 data-nosnippet>235</a>
-<a href=#236 id=236 data-nosnippet>236</a><span class="doccomment">/// Runtime capability settings.
-<a href=#237 id=237 data-nosnippet>237</a></span><span class="attr">#[derive(
-<a href=#238 id=238 data-nosnippet>238</a>    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
-<a href=#239 id=239 data-nosnippet>239</a>)]
-<a href=#240 id=240 data-nosnippet>240</a></span><span class="kw">pub struct </span>AppConfigCapabilityRuntimeV1 {
-<a href=#241 id=241 data-nosnippet>241</a>    <span class="doccomment">/// Engine to use for an instance, e.g. wasmer_cranelift, wasmer_llvm, etc.
-<a href=#242 id=242 data-nosnippet>242</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-<a href=#243 id=243 data-nosnippet>243</a>    </span><span class="kw">pub </span>engine: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#244 id=244 data-nosnippet>244</a>    <span class="doccomment">/// Whether to enable asynchronous threads/deep sleeping.
-<a href=#245 id=245 data-nosnippet>245</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-<a href=#246 id=246 data-nosnippet>246</a>    </span><span class="kw">pub </span>async_threads: <span class="prelude-ty">Option</span>&lt;bool&gt;,
-<a href=#247 id=247 data-nosnippet>247</a>}
-<a href=#248 id=248 data-nosnippet>248</a>
-<a href=#249 id=249 data-nosnippet>249</a><span class="doccomment">/// Enables accelerated instance boot times with startup snapshots.
-<a href=#250 id=250 data-nosnippet>250</a>///
-<a href=#251 id=251 data-nosnippet>251</a>/// How it works:
-<a href=#252 id=252 data-nosnippet>252</a>/// The Edge runtime will create a pre-initialized snapshot of apps that is
-<a href=#253 id=253 data-nosnippet>253</a>/// ready to serve requests
-<a href=#254 id=254 data-nosnippet>254</a>/// Your app will then restore from the generated snapshot, which has the
-<a href=#255 id=255 data-nosnippet>255</a>/// potential to significantly speed up cold starts.
-<a href=#256 id=256 data-nosnippet>256</a>///
-<a href=#257 id=257 data-nosnippet>257</a>/// To drive the initialization, multiple http requests can be specified.
-<a href=#258 id=258 data-nosnippet>258</a>/// All the specified requests will be sent to the app before the snapshot is
-<a href=#259 id=259 data-nosnippet>259</a>/// created, allowing the app to pre-load files, pre initialize caches, ...
-<a href=#260 id=260 data-nosnippet>260</a></span><span class="attr">#[derive(
-<a href=#261 id=261 data-nosnippet>261</a>    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
-<a href=#262 id=262 data-nosnippet>262</a>)]
-<a href=#263 id=263 data-nosnippet>263</a></span><span class="kw">pub struct </span>AppConfigCapabilityInstaBootV1 {
-<a href=#264 id=264 data-nosnippet>264</a>    <span class="doccomment">/// The method to use to generate the instaboot snapshot for the instance.
-<a href=#265 id=265 data-nosnippet>265</a>    </span><span class="attr">#[serde(default)]
-<a href=#266 id=266 data-nosnippet>266</a>    </span><span class="kw">pub </span>mode: <span class="prelude-ty">Option</span>&lt;InstabootSnapshotModeV1&gt;,
-<a href=#267 id=267 data-nosnippet>267</a>
-<a href=#268 id=268 data-nosnippet>268</a>    <span class="doccomment">/// HTTP requests to perform during startup snapshot creation.
-<a href=#269 id=269 data-nosnippet>269</a>    /// Apps can perform all the appropriate warmup logic in these requests.
-<a href=#270 id=270 data-nosnippet>270</a>    ///
-<a href=#271 id=271 data-nosnippet>271</a>    /// NOTE: if no requests are configured, then a single HTTP
-<a href=#272 id=272 data-nosnippet>272</a>    /// request to '/' will be performed instead.
-<a href=#273 id=273 data-nosnippet>273</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
-<a href=#274 id=274 data-nosnippet>274</a>    </span><span class="kw">pub </span>requests: Vec&lt;HttpRequest&gt;,
-<a href=#275 id=275 data-nosnippet>275</a>
-<a href=#276 id=276 data-nosnippet>276</a>    <span class="doccomment">/// Maximum age of snapshots.
-<a href=#277 id=277 data-nosnippet>277</a>    ///
-<a href=#278 id=278 data-nosnippet>278</a>    /// Format: 5m, 1h, 2d, ...
-<a href=#279 id=279 data-nosnippet>279</a>    ///
-<a href=#280 id=280 data-nosnippet>280</a>    /// After the specified time new snapshots will be created, and the old
-<a href=#281 id=281 data-nosnippet>281</a>    /// ones discarded.
-<a href=#282 id=282 data-nosnippet>282</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-<a href=#283 id=283 data-nosnippet>283</a>    </span><span class="kw">pub </span>max_age: <span class="prelude-ty">Option</span>&lt;PrettyDuration&gt;,
-<a href=#284 id=284 data-nosnippet>284</a>}
-<a href=#285 id=285 data-nosnippet>285</a>
-<a href=#286 id=286 data-nosnippet>286</a><span class="doccomment">/// How will an instance be bootstrapped?
-<a href=#287 id=287 data-nosnippet>287</a></span><span class="attr">#[derive(
-<a href=#288 id=288 data-nosnippet>288</a>    serde::Serialize,
-<a href=#289 id=289 data-nosnippet>289</a>    serde::Deserialize,
-<a href=#290 id=290 data-nosnippet>290</a>    PartialEq,
-<a href=#291 id=291 data-nosnippet>291</a>    Eq,
-<a href=#292 id=292 data-nosnippet>292</a>    Hash,
-<a href=#293 id=293 data-nosnippet>293</a>    Clone,
-<a href=#294 id=294 data-nosnippet>294</a>    Debug,
-<a href=#295 id=295 data-nosnippet>295</a>    schemars::JsonSchema,
-<a href=#296 id=296 data-nosnippet>296</a>    Default,
-<a href=#297 id=297 data-nosnippet>297</a>)]
-<a href=#298 id=298 data-nosnippet>298</a>#[serde(rename_all = <span class="string">"snake_case"</span>)]
-<a href=#299 id=299 data-nosnippet>299</a></span><span class="kw">pub enum </span>InstabootSnapshotModeV1 {
-<a href=#300 id=300 data-nosnippet>300</a>    <span class="doccomment">/// Start the instance without any snapshot triggers. Once the requests are done,
-<a href=#301 id=301 data-nosnippet>301</a>    /// use `wasmer_wasix::WasiProcess::snapshot_and_stop` to capture a snapshot
-<a href=#302 id=302 data-nosnippet>302</a>    /// and shut the instance down.
-<a href=#303 id=303 data-nosnippet>303</a>    </span><span class="attr">#[default]
-<a href=#304 id=304 data-nosnippet>304</a>    </span>Bootstrap,
-<a href=#305 id=305 data-nosnippet>305</a>
-<a href=#306 id=306 data-nosnippet>306</a>    <span class="doccomment">/// Explicitly enable the given snapshot triggers before starting the instance.
-<a href=#307 id=307 data-nosnippet>307</a>    /// The instance's process will have its stop_running_after_checkpoint flag set,
-<a href=#308 id=308 data-nosnippet>308</a>    /// so the first snapshot will cause the instance to shut down.
-<a href=#309 id=309 data-nosnippet>309</a>    </span><span class="comment">// FIXME: make this strongly typed
-<a href=#310 id=310 data-nosnippet>310</a>    </span>Triggers(Vec&lt;SnapshotTrigger&gt;),
-<a href=#311 id=311 data-nosnippet>311</a>}
-<a href=#312 id=312 data-nosnippet>312</a>
-<a href=#313 id=313 data-nosnippet>313</a><span class="doccomment">/// App redirect configuration.
-<a href=#314 id=314 data-nosnippet>314</a></span><span class="attr">#[derive(
-<a href=#315 id=315 data-nosnippet>315</a>    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+<a href=#212 id=212 data-nosnippet>212</a>    <span class="doccomment">/// CDN cache settings.
+<a href=#213 id=213 data-nosnippet>213</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#214 id=214 data-nosnippet>214</a>    </span><span class="kw">pub </span>cdn_cache: <span class="prelude-ty">Option</span>&lt;AppConfigCapabilityCdnCacheV1&gt;,
+<a href=#215 id=215 data-nosnippet>215</a>
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="doccomment">/// Additional unknown capabilities.
+<a href=#217 id=217 data-nosnippet>217</a>    ///
+<a href=#218 id=218 data-nosnippet>218</a>    /// This provides a small bit of forwards compatibility for newly added
+<a href=#219 id=219 data-nosnippet>219</a>    /// capabilities.
+<a href=#220 id=220 data-nosnippet>220</a>    </span><span class="attr">#[serde(flatten)]
+<a href=#221 id=221 data-nosnippet>221</a>    </span><span class="kw">pub </span>other: IndexMap&lt;String, serde_json::Value&gt;,
+<a href=#222 id=222 data-nosnippet>222</a>}
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a><span class="doccomment">/// Memory capability settings.
+<a href=#225 id=225 data-nosnippet>225</a>///
+<a href=#226 id=226 data-nosnippet>226</a>/// NOTE: this is kept separate from the internal `CapabilityMemoryV1` struct
+<a href=#227 id=227 data-nosnippet>227</a>/// to keep the high-level app.yaml distinct from the internal App entity.
+<a href=#228 id=228 data-nosnippet>228</a></span><span class="attr">#[derive(
+<a href=#229 id=229 data-nosnippet>229</a>    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+<a href=#230 id=230 data-nosnippet>230</a>)]
+<a href=#231 id=231 data-nosnippet>231</a></span><span class="kw">pub struct </span>AppConfigCapabilityMemoryV1 {
+<a href=#232 id=232 data-nosnippet>232</a>    <span class="doccomment">/// Memory limit for an instance.
+<a href=#233 id=233 data-nosnippet>233</a>    ///
+<a href=#234 id=234 data-nosnippet>234</a>    /// Format: [digit][unit], where unit is Mb/Gb/MiB/GiB,...
+<a href=#235 id=235 data-nosnippet>235</a>    </span><span class="attr">#[schemars(with = <span class="string">"Option&lt;String&gt;"</span>)]
+<a href=#236 id=236 data-nosnippet>236</a>    #[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#237 id=237 data-nosnippet>237</a>    </span><span class="kw">pub </span>limit: <span class="prelude-ty">Option</span>&lt;ByteSize&gt;,
+<a href=#238 id=238 data-nosnippet>238</a>}
+<a href=#239 id=239 data-nosnippet>239</a>
+<a href=#240 id=240 data-nosnippet>240</a><span class="doccomment">/// Runtime capability settings.
+<a href=#241 id=241 data-nosnippet>241</a></span><span class="attr">#[derive(
+<a href=#242 id=242 data-nosnippet>242</a>    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+<a href=#243 id=243 data-nosnippet>243</a>)]
+<a href=#244 id=244 data-nosnippet>244</a></span><span class="kw">pub struct </span>AppConfigCapabilityRuntimeV1 {
+<a href=#245 id=245 data-nosnippet>245</a>    <span class="doccomment">/// Engine to use for an instance, e.g. wasmer_cranelift, wasmer_llvm, etc.
+<a href=#246 id=246 data-nosnippet>246</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#247 id=247 data-nosnippet>247</a>    </span><span class="kw">pub </span>engine: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#248 id=248 data-nosnippet>248</a>    <span class="doccomment">/// Whether to enable asynchronous threads/deep sleeping.
+<a href=#249 id=249 data-nosnippet>249</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#250 id=250 data-nosnippet>250</a>    </span><span class="kw">pub </span>async_threads: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+<a href=#251 id=251 data-nosnippet>251</a>}
+<a href=#252 id=252 data-nosnippet>252</a>
+<a href=#253 id=253 data-nosnippet>253</a><span class="doccomment">/// Enables accelerated instance boot times with startup snapshots.
+<a href=#254 id=254 data-nosnippet>254</a>///
+<a href=#255 id=255 data-nosnippet>255</a>/// How it works:
+<a href=#256 id=256 data-nosnippet>256</a>/// The Edge runtime will create a pre-initialized snapshot of apps that is
+<a href=#257 id=257 data-nosnippet>257</a>/// ready to serve requests
+<a href=#258 id=258 data-nosnippet>258</a>/// Your app will then restore from the generated snapshot, which has the
+<a href=#259 id=259 data-nosnippet>259</a>/// potential to significantly speed up cold starts.
+<a href=#260 id=260 data-nosnippet>260</a>///
+<a href=#261 id=261 data-nosnippet>261</a>/// To drive the initialization, multiple http requests can be specified.
+<a href=#262 id=262 data-nosnippet>262</a>/// All the specified requests will be sent to the app before the snapshot is
+<a href=#263 id=263 data-nosnippet>263</a>/// created, allowing the app to pre-load files, pre initialize caches, ...
+<a href=#264 id=264 data-nosnippet>264</a></span><span class="attr">#[derive(
+<a href=#265 id=265 data-nosnippet>265</a>    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+<a href=#266 id=266 data-nosnippet>266</a>)]
+<a href=#267 id=267 data-nosnippet>267</a></span><span class="kw">pub struct </span>AppConfigCapabilityInstaBootV1 {
+<a href=#268 id=268 data-nosnippet>268</a>    <span class="doccomment">/// The method to use to generate the instaboot snapshot for the instance.
+<a href=#269 id=269 data-nosnippet>269</a>    </span><span class="attr">#[serde(default)]
+<a href=#270 id=270 data-nosnippet>270</a>    </span><span class="kw">pub </span>mode: <span class="prelude-ty">Option</span>&lt;InstabootSnapshotModeV1&gt;,
+<a href=#271 id=271 data-nosnippet>271</a>
+<a href=#272 id=272 data-nosnippet>272</a>    <span class="doccomment">/// HTTP requests to perform during startup snapshot creation.
+<a href=#273 id=273 data-nosnippet>273</a>    /// Apps can perform all the appropriate warmup logic in these requests.
+<a href=#274 id=274 data-nosnippet>274</a>    ///
+<a href=#275 id=275 data-nosnippet>275</a>    /// NOTE: if no requests are configured, then a single HTTP
+<a href=#276 id=276 data-nosnippet>276</a>    /// request to '/' will be performed instead.
+<a href=#277 id=277 data-nosnippet>277</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
+<a href=#278 id=278 data-nosnippet>278</a>    </span><span class="kw">pub </span>requests: Vec&lt;HttpRequest&gt;,
+<a href=#279 id=279 data-nosnippet>279</a>
+<a href=#280 id=280 data-nosnippet>280</a>    <span class="doccomment">/// Maximum age of snapshots.
+<a href=#281 id=281 data-nosnippet>281</a>    ///
+<a href=#282 id=282 data-nosnippet>282</a>    /// Format: 5m, 1h, 2d, ...
+<a href=#283 id=283 data-nosnippet>283</a>    ///
+<a href=#284 id=284 data-nosnippet>284</a>    /// After the specified time new snapshots will be created, and the old
+<a href=#285 id=285 data-nosnippet>285</a>    /// ones discarded.
+<a href=#286 id=286 data-nosnippet>286</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#287 id=287 data-nosnippet>287</a>    </span><span class="kw">pub </span>max_age: <span class="prelude-ty">Option</span>&lt;PrettyDuration&gt;,
+<a href=#288 id=288 data-nosnippet>288</a>}
+<a href=#289 id=289 data-nosnippet>289</a>
+<a href=#290 id=290 data-nosnippet>290</a><span class="doccomment">/// CDN cache capability settings.
+<a href=#291 id=291 data-nosnippet>291</a></span><span class="attr">#[derive(
+<a href=#292 id=292 data-nosnippet>292</a>    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+<a href=#293 id=293 data-nosnippet>293</a>)]
+<a href=#294 id=294 data-nosnippet>294</a></span><span class="kw">pub struct </span>AppConfigCapabilityCdnCacheV1 {
+<a href=#295 id=295 data-nosnippet>295</a>    <span class="doccomment">/// Enable CDN caching for the app.
+<a href=#296 id=296 data-nosnippet>296</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#297 id=297 data-nosnippet>297</a>    </span><span class="kw">pub </span>enabled: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+<a href=#298 id=298 data-nosnippet>298</a>
+<a href=#299 id=299 data-nosnippet>299</a>    <span class="doccomment">/// Additional unknown fields.
+<a href=#300 id=300 data-nosnippet>300</a>    /// This provides a small bit of forwards compatibility.
+<a href=#301 id=301 data-nosnippet>301</a>    </span><span class="attr">#[serde(flatten)]
+<a href=#302 id=302 data-nosnippet>302</a>    </span><span class="kw">pub </span>other: IndexMap&lt;String, serde_json::Value&gt;,
+<a href=#303 id=303 data-nosnippet>303</a>}
+<a href=#304 id=304 data-nosnippet>304</a>
+<a href=#305 id=305 data-nosnippet>305</a><span class="doccomment">/// How will an instance be bootstrapped?
+<a href=#306 id=306 data-nosnippet>306</a></span><span class="attr">#[derive(
+<a href=#307 id=307 data-nosnippet>307</a>    serde::Serialize,
+<a href=#308 id=308 data-nosnippet>308</a>    serde::Deserialize,
+<a href=#309 id=309 data-nosnippet>309</a>    PartialEq,
+<a href=#310 id=310 data-nosnippet>310</a>    Eq,
+<a href=#311 id=311 data-nosnippet>311</a>    Hash,
+<a href=#312 id=312 data-nosnippet>312</a>    Clone,
+<a href=#313 id=313 data-nosnippet>313</a>    Debug,
+<a href=#314 id=314 data-nosnippet>314</a>    schemars::JsonSchema,
+<a href=#315 id=315 data-nosnippet>315</a>    Default,
 <a href=#316 id=316 data-nosnippet>316</a>)]
-<a href=#317 id=317 data-nosnippet>317</a></span><span class="kw">pub struct </span>Redirect {
-<a href=#318 id=318 data-nosnippet>318</a>    <span class="doccomment">/// Force https by redirecting http requests to https automatically.
-<a href=#319 id=319 data-nosnippet>319</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
-<a href=#320 id=320 data-nosnippet>320</a>    </span><span class="kw">pub </span>force_https: <span class="prelude-ty">Option</span>&lt;bool&gt;,
-<a href=#321 id=321 data-nosnippet>321</a>}
-<a href=#322 id=322 data-nosnippet>322</a>
-<a href=#323 id=323 data-nosnippet>323</a><span class="attr">#[cfg(test)]
-<a href=#324 id=324 data-nosnippet>324</a></span><span class="kw">mod </span>tests {
-<a href=#325 id=325 data-nosnippet>325</a>    <span class="kw">use </span>pretty_assertions::assert_eq;
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
-<a href=#328 id=328 data-nosnippet>328</a>
-<a href=#329 id=329 data-nosnippet>329</a>    <span class="attr">#[test]
-<a href=#330 id=330 data-nosnippet>330</a>    </span><span class="kw">fn </span>test_app_config_v1_deser() {
-<a href=#331 id=331 data-nosnippet>331</a>        <span class="kw">let </span>config = <span class="string">r#"
-<a href=#332 id=332 data-nosnippet>332</a>kind: wasmer.io/App.v0
-<a href=#333 id=333 data-nosnippet>333</a>name: test
-<a href=#334 id=334 data-nosnippet>334</a>package: ns/name@0.1.0
-<a href=#335 id=335 data-nosnippet>335</a>debug: true
-<a href=#336 id=336 data-nosnippet>336</a>env:
-<a href=#337 id=337 data-nosnippet>337</a>  e1: v1
-<a href=#338 id=338 data-nosnippet>338</a>  E2: V2
-<a href=#339 id=339 data-nosnippet>339</a>cli_args:
-<a href=#340 id=340 data-nosnippet>340</a>  - arg1
-<a href=#341 id=341 data-nosnippet>341</a>  - arg2
-<a href=#342 id=342 data-nosnippet>342</a>locality: 
-<a href=#343 id=343 data-nosnippet>343</a>  regions: 
-<a href=#344 id=344 data-nosnippet>344</a>    - eu-rome
-<a href=#345 id=345 data-nosnippet>345</a>redirect:
-<a href=#346 id=346 data-nosnippet>346</a>  force_https: true
-<a href=#347 id=347 data-nosnippet>347</a>scheduled_tasks:
-<a href=#348 id=348 data-nosnippet>348</a>  - name: backup
-<a href=#349 id=349 data-nosnippet>349</a>    schedule: 1day
-<a href=#350 id=350 data-nosnippet>350</a>    max_retries: 3
-<a href=#351 id=351 data-nosnippet>351</a>    timeout: 10m
-<a href=#352 id=352 data-nosnippet>352</a>    invoke:
-<a href=#353 id=353 data-nosnippet>353</a>      fetch:
-<a href=#354 id=354 data-nosnippet>354</a>        url: /api/do-backup
-<a href=#355 id=355 data-nosnippet>355</a>        headers:
-<a href=#356 id=356 data-nosnippet>356</a>          h1: v1
-<a href=#357 id=357 data-nosnippet>357</a>        success_status_codes: [200, 201]
-<a href=#358 id=358 data-nosnippet>358</a>        "#</span>;
-<a href=#359 id=359 data-nosnippet>359</a>
-<a href=#360 id=360 data-nosnippet>360</a>        <span class="kw">let </span>parsed = AppConfigV1::parse_yaml(config).unwrap();
-<a href=#361 id=361 data-nosnippet>361</a>
-<a href=#362 id=362 data-nosnippet>362</a>        <span class="macro">assert_eq!</span>(
-<a href=#363 id=363 data-nosnippet>363</a>            parsed,
-<a href=#364 id=364 data-nosnippet>364</a>            AppConfigV1 {
-<a href=#365 id=365 data-nosnippet>365</a>                name: <span class="prelude-val">Some</span>(<span class="string">"test"</span>.to_string()),
-<a href=#366 id=366 data-nosnippet>366</a>                app_id: <span class="prelude-val">None</span>,
-<a href=#367 id=367 data-nosnippet>367</a>                package: <span class="string">"ns/name@0.1.0"</span>.parse().unwrap(),
-<a href=#368 id=368 data-nosnippet>368</a>                owner: <span class="prelude-val">None</span>,
-<a href=#369 id=369 data-nosnippet>369</a>                domains: <span class="prelude-val">None</span>,
-<a href=#370 id=370 data-nosnippet>370</a>                env: [
-<a href=#371 id=371 data-nosnippet>371</a>                    (<span class="string">"e1"</span>.to_string(), <span class="string">"v1"</span>.to_string()),
-<a href=#372 id=372 data-nosnippet>372</a>                    (<span class="string">"E2"</span>.to_string(), <span class="string">"V2"</span>.to_string())
-<a href=#373 id=373 data-nosnippet>373</a>                ]
-<a href=#374 id=374 data-nosnippet>374</a>                .into_iter()
-<a href=#375 id=375 data-nosnippet>375</a>                .collect(),
-<a href=#376 id=376 data-nosnippet>376</a>                volumes: <span class="prelude-val">None</span>,
-<a href=#377 id=377 data-nosnippet>377</a>                cli_args: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">"arg1"</span>.to_string(), <span class="string">"arg2"</span>.to_string()]),
-<a href=#378 id=378 data-nosnippet>378</a>                capabilities: <span class="prelude-val">None</span>,
-<a href=#379 id=379 data-nosnippet>379</a>                scaling: <span class="prelude-val">None</span>,
-<a href=#380 id=380 data-nosnippet>380</a>                scheduled_tasks: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[AppScheduledTask {
-<a href=#381 id=381 data-nosnippet>381</a>                    name: <span class="string">"backup"</span>.to_string(),
-<a href=#382 id=382 data-nosnippet>382</a>                }]),
-<a href=#383 id=383 data-nosnippet>383</a>                health_checks: <span class="prelude-val">None</span>,
-<a href=#384 id=384 data-nosnippet>384</a>                extra: [(
-<a href=#385 id=385 data-nosnippet>385</a>                    <span class="string">"kind"</span>.to_string(),
-<a href=#386 id=386 data-nosnippet>386</a>                    serde_json::Value::from(<span class="string">"wasmer.io/App.v0"</span>)
-<a href=#387 id=387 data-nosnippet>387</a>                ),]
-<a href=#388 id=388 data-nosnippet>388</a>                .into_iter()
-<a href=#389 id=389 data-nosnippet>389</a>                .collect(),
-<a href=#390 id=390 data-nosnippet>390</a>                debug: <span class="prelude-val">Some</span>(<span class="bool-val">true</span>),
-<a href=#391 id=391 data-nosnippet>391</a>                redirect: <span class="prelude-val">Some</span>(Redirect {
-<a href=#392 id=392 data-nosnippet>392</a>                    force_https: <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)
-<a href=#393 id=393 data-nosnippet>393</a>                }),
-<a href=#394 id=394 data-nosnippet>394</a>                locality: <span class="prelude-val">Some</span>(Locality {
-<a href=#395 id=395 data-nosnippet>395</a>                    regions: <span class="macro">vec!</span>[<span class="string">"eu-rome"</span>.to_string()]
-<a href=#396 id=396 data-nosnippet>396</a>                }),
-<a href=#397 id=397 data-nosnippet>397</a>                jobs: <span class="prelude-val">None</span>,
-<a href=#398 id=398 data-nosnippet>398</a>            }
-<a href=#399 id=399 data-nosnippet>399</a>        );
-<a href=#400 id=400 data-nosnippet>400</a>    }
-<a href=#401 id=401 data-nosnippet>401</a>
-<a href=#402 id=402 data-nosnippet>402</a>    <span class="attr">#[test]
-<a href=#403 id=403 data-nosnippet>403</a>    </span><span class="kw">fn </span>test_app_config_v1_volumes() {
-<a href=#404 id=404 data-nosnippet>404</a>        <span class="kw">let </span>config = <span class="string">r#"
-<a href=#405 id=405 data-nosnippet>405</a>kind: wasmer.io/App.v0
-<a href=#406 id=406 data-nosnippet>406</a>name: test
-<a href=#407 id=407 data-nosnippet>407</a>package: ns/name@0.1.0
-<a href=#408 id=408 data-nosnippet>408</a>volumes:
-<a href=#409 id=409 data-nosnippet>409</a>  - name: vol1
-<a href=#410 id=410 data-nosnippet>410</a>    mount: /vol1
-<a href=#411 id=411 data-nosnippet>411</a>  - name: vol2
-<a href=#412 id=412 data-nosnippet>412</a>    mount: /vol2
-<a href=#413 id=413 data-nosnippet>413</a>
-<a href=#414 id=414 data-nosnippet>414</a>"#</span>;
-<a href=#415 id=415 data-nosnippet>415</a>
-<a href=#416 id=416 data-nosnippet>416</a>        <span class="kw">let </span>parsed = AppConfigV1::parse_yaml(config).unwrap();
-<a href=#417 id=417 data-nosnippet>417</a>        <span class="kw">let </span>expected_volumes = <span class="macro">vec!</span>[
-<a href=#418 id=418 data-nosnippet>418</a>            AppVolume {
-<a href=#419 id=419 data-nosnippet>419</a>                name: <span class="string">"vol1"</span>.to_string(),
-<a href=#420 id=420 data-nosnippet>420</a>                mount: <span class="string">"/vol1"</span>.to_string(),
-<a href=#421 id=421 data-nosnippet>421</a>            },
-<a href=#422 id=422 data-nosnippet>422</a>            AppVolume {
-<a href=#423 id=423 data-nosnippet>423</a>                name: <span class="string">"vol2"</span>.to_string(),
-<a href=#424 id=424 data-nosnippet>424</a>                mount: <span class="string">"/vol2"</span>.to_string(),
-<a href=#425 id=425 data-nosnippet>425</a>            },
-<a href=#426 id=426 data-nosnippet>426</a>        ];
-<a href=#427 id=427 data-nosnippet>427</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(actual_volumes) = parsed.volumes {
-<a href=#428 id=428 data-nosnippet>428</a>            <span class="macro">assert_eq!</span>(actual_volumes, expected_volumes);
-<a href=#429 id=429 data-nosnippet>429</a>        } <span class="kw">else </span>{
-<a href=#430 id=430 data-nosnippet>430</a>            <span class="macro">panic!</span>(<span class="string">"Parsed volumes are None, expected Some({expected_volumes:?})"</span>);
-<a href=#431 id=431 data-nosnippet>431</a>        }
-<a href=#432 id=432 data-nosnippet>432</a>    }
-<a href=#433 id=433 data-nosnippet>433</a>}
+<a href=#317 id=317 data-nosnippet>317</a>#[serde(rename_all = <span class="string">"snake_case"</span>)]
+<a href=#318 id=318 data-nosnippet>318</a></span><span class="kw">pub enum </span>InstabootSnapshotModeV1 {
+<a href=#319 id=319 data-nosnippet>319</a>    <span class="doccomment">/// Start the instance without any snapshot triggers. Once the requests are done,
+<a href=#320 id=320 data-nosnippet>320</a>    /// use `wasmer_wasix::WasiProcess::snapshot_and_stop` to capture a snapshot
+<a href=#321 id=321 data-nosnippet>321</a>    /// and shut the instance down.
+<a href=#322 id=322 data-nosnippet>322</a>    </span><span class="attr">#[default]
+<a href=#323 id=323 data-nosnippet>323</a>    </span>Bootstrap,
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>    <span class="doccomment">/// Explicitly enable the given snapshot triggers before starting the instance.
+<a href=#326 id=326 data-nosnippet>326</a>    /// The instance's process will have its stop_running_after_checkpoint flag set,
+<a href=#327 id=327 data-nosnippet>327</a>    /// so the first snapshot will cause the instance to shut down.
+<a href=#328 id=328 data-nosnippet>328</a>    </span><span class="comment">// FIXME: make this strongly typed
+<a href=#329 id=329 data-nosnippet>329</a>    </span>Triggers(Vec&lt;SnapshotTrigger&gt;),
+<a href=#330 id=330 data-nosnippet>330</a>}
+<a href=#331 id=331 data-nosnippet>331</a>
+<a href=#332 id=332 data-nosnippet>332</a><span class="doccomment">/// App redirect configuration.
+<a href=#333 id=333 data-nosnippet>333</a></span><span class="attr">#[derive(
+<a href=#334 id=334 data-nosnippet>334</a>    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+<a href=#335 id=335 data-nosnippet>335</a>)]
+<a href=#336 id=336 data-nosnippet>336</a></span><span class="kw">pub struct </span>Redirect {
+<a href=#337 id=337 data-nosnippet>337</a>    <span class="doccomment">/// Force https by redirecting http requests to https automatically.
+<a href=#338 id=338 data-nosnippet>338</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href=#339 id=339 data-nosnippet>339</a>    </span><span class="kw">pub </span>force_https: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+<a href=#340 id=340 data-nosnippet>340</a>}
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a><span class="attr">#[cfg(test)]
+<a href=#343 id=343 data-nosnippet>343</a></span><span class="kw">mod </span>tests {
+<a href=#344 id=344 data-nosnippet>344</a>    <span class="kw">use </span>pretty_assertions::assert_eq;
+<a href=#345 id=345 data-nosnippet>345</a>
+<a href=#346 id=346 data-nosnippet>346</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#347 id=347 data-nosnippet>347</a>
+<a href=#348 id=348 data-nosnippet>348</a>    <span class="attr">#[test]
+<a href=#349 id=349 data-nosnippet>349</a>    </span><span class="kw">fn </span>test_app_config_v1_deser() {
+<a href=#350 id=350 data-nosnippet>350</a>        <span class="kw">let </span>config = <span class="string">r#"
+<a href=#351 id=351 data-nosnippet>351</a>kind: wasmer.io/App.v0
+<a href=#352 id=352 data-nosnippet>352</a>name: test
+<a href=#353 id=353 data-nosnippet>353</a>package: ns/name@0.1.0
+<a href=#354 id=354 data-nosnippet>354</a>debug: true
+<a href=#355 id=355 data-nosnippet>355</a>env:
+<a href=#356 id=356 data-nosnippet>356</a>  e1: v1
+<a href=#357 id=357 data-nosnippet>357</a>  E2: V2
+<a href=#358 id=358 data-nosnippet>358</a>cli_args:
+<a href=#359 id=359 data-nosnippet>359</a>  - arg1
+<a href=#360 id=360 data-nosnippet>360</a>  - arg2
+<a href=#361 id=361 data-nosnippet>361</a>locality: 
+<a href=#362 id=362 data-nosnippet>362</a>  regions: 
+<a href=#363 id=363 data-nosnippet>363</a>    - eu-rome
+<a href=#364 id=364 data-nosnippet>364</a>redirect:
+<a href=#365 id=365 data-nosnippet>365</a>  force_https: true
+<a href=#366 id=366 data-nosnippet>366</a>scheduled_tasks:
+<a href=#367 id=367 data-nosnippet>367</a>  - name: backup
+<a href=#368 id=368 data-nosnippet>368</a>    schedule: 1day
+<a href=#369 id=369 data-nosnippet>369</a>    max_retries: 3
+<a href=#370 id=370 data-nosnippet>370</a>    timeout: 10m
+<a href=#371 id=371 data-nosnippet>371</a>    invoke:
+<a href=#372 id=372 data-nosnippet>372</a>      fetch:
+<a href=#373 id=373 data-nosnippet>373</a>        url: /api/do-backup
+<a href=#374 id=374 data-nosnippet>374</a>        headers:
+<a href=#375 id=375 data-nosnippet>375</a>          h1: v1
+<a href=#376 id=376 data-nosnippet>376</a>        success_status_codes: [200, 201]
+<a href=#377 id=377 data-nosnippet>377</a>        "#</span>;
+<a href=#378 id=378 data-nosnippet>378</a>
+<a href=#379 id=379 data-nosnippet>379</a>        <span class="kw">let </span>parsed = AppConfigV1::parse_yaml(config).unwrap();
+<a href=#380 id=380 data-nosnippet>380</a>
+<a href=#381 id=381 data-nosnippet>381</a>        <span class="macro">assert_eq!</span>(
+<a href=#382 id=382 data-nosnippet>382</a>            parsed,
+<a href=#383 id=383 data-nosnippet>383</a>            AppConfigV1 {
+<a href=#384 id=384 data-nosnippet>384</a>                name: <span class="prelude-val">Some</span>(<span class="string">"test"</span>.to_string()),
+<a href=#385 id=385 data-nosnippet>385</a>                app_id: <span class="prelude-val">None</span>,
+<a href=#386 id=386 data-nosnippet>386</a>                package: <span class="string">"ns/name@0.1.0"</span>.parse().unwrap(),
+<a href=#387 id=387 data-nosnippet>387</a>                owner: <span class="prelude-val">None</span>,
+<a href=#388 id=388 data-nosnippet>388</a>                domains: <span class="prelude-val">None</span>,
+<a href=#389 id=389 data-nosnippet>389</a>                env: [
+<a href=#390 id=390 data-nosnippet>390</a>                    (<span class="string">"e1"</span>.to_string(), <span class="string">"v1"</span>.to_string()),
+<a href=#391 id=391 data-nosnippet>391</a>                    (<span class="string">"E2"</span>.to_string(), <span class="string">"V2"</span>.to_string())
+<a href=#392 id=392 data-nosnippet>392</a>                ]
+<a href=#393 id=393 data-nosnippet>393</a>                .into_iter()
+<a href=#394 id=394 data-nosnippet>394</a>                .collect(),
+<a href=#395 id=395 data-nosnippet>395</a>                volumes: <span class="prelude-val">None</span>,
+<a href=#396 id=396 data-nosnippet>396</a>                cli_args: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">"arg1"</span>.to_string(), <span class="string">"arg2"</span>.to_string()]),
+<a href=#397 id=397 data-nosnippet>397</a>                capabilities: <span class="prelude-val">None</span>,
+<a href=#398 id=398 data-nosnippet>398</a>                scaling: <span class="prelude-val">None</span>,
+<a href=#399 id=399 data-nosnippet>399</a>                scheduled_tasks: <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[AppScheduledTask {
+<a href=#400 id=400 data-nosnippet>400</a>                    name: <span class="string">"backup"</span>.to_string(),
+<a href=#401 id=401 data-nosnippet>401</a>                }]),
+<a href=#402 id=402 data-nosnippet>402</a>                health_checks: <span class="prelude-val">None</span>,
+<a href=#403 id=403 data-nosnippet>403</a>                extra: [(
+<a href=#404 id=404 data-nosnippet>404</a>                    <span class="string">"kind"</span>.to_string(),
+<a href=#405 id=405 data-nosnippet>405</a>                    serde_json::Value::from(<span class="string">"wasmer.io/App.v0"</span>)
+<a href=#406 id=406 data-nosnippet>406</a>                ),]
+<a href=#407 id=407 data-nosnippet>407</a>                .into_iter()
+<a href=#408 id=408 data-nosnippet>408</a>                .collect(),
+<a href=#409 id=409 data-nosnippet>409</a>                debug: <span class="prelude-val">Some</span>(<span class="bool-val">true</span>),
+<a href=#410 id=410 data-nosnippet>410</a>                redirect: <span class="prelude-val">Some</span>(Redirect {
+<a href=#411 id=411 data-nosnippet>411</a>                    force_https: <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)
+<a href=#412 id=412 data-nosnippet>412</a>                }),
+<a href=#413 id=413 data-nosnippet>413</a>                locality: <span class="prelude-val">Some</span>(Locality {
+<a href=#414 id=414 data-nosnippet>414</a>                    regions: <span class="macro">vec!</span>[<span class="string">"eu-rome"</span>.to_string()]
+<a href=#415 id=415 data-nosnippet>415</a>                }),
+<a href=#416 id=416 data-nosnippet>416</a>                jobs: <span class="prelude-val">None</span>,
+<a href=#417 id=417 data-nosnippet>417</a>            }
+<a href=#418 id=418 data-nosnippet>418</a>        );
+<a href=#419 id=419 data-nosnippet>419</a>    }
+<a href=#420 id=420 data-nosnippet>420</a>
+<a href=#421 id=421 data-nosnippet>421</a>    <span class="attr">#[test]
+<a href=#422 id=422 data-nosnippet>422</a>    </span><span class="kw">fn </span>test_app_config_v1_volumes() {
+<a href=#423 id=423 data-nosnippet>423</a>        <span class="kw">let </span>config = <span class="string">r#"
+<a href=#424 id=424 data-nosnippet>424</a>kind: wasmer.io/App.v0
+<a href=#425 id=425 data-nosnippet>425</a>name: test
+<a href=#426 id=426 data-nosnippet>426</a>package: ns/name@0.1.0
+<a href=#427 id=427 data-nosnippet>427</a>volumes:
+<a href=#428 id=428 data-nosnippet>428</a>  - name: vol1
+<a href=#429 id=429 data-nosnippet>429</a>    mount: /vol1
+<a href=#430 id=430 data-nosnippet>430</a>  - name: vol2
+<a href=#431 id=431 data-nosnippet>431</a>    mount: /vol2
+<a href=#432 id=432 data-nosnippet>432</a>
+<a href=#433 id=433 data-nosnippet>433</a>"#</span>;
+<a href=#434 id=434 data-nosnippet>434</a>
+<a href=#435 id=435 data-nosnippet>435</a>        <span class="kw">let </span>parsed = AppConfigV1::parse_yaml(config).unwrap();
+<a href=#436 id=436 data-nosnippet>436</a>        <span class="kw">let </span>expected_volumes = <span class="macro">vec!</span>[
+<a href=#437 id=437 data-nosnippet>437</a>            AppVolume {
+<a href=#438 id=438 data-nosnippet>438</a>                name: <span class="string">"vol1"</span>.to_string(),
+<a href=#439 id=439 data-nosnippet>439</a>                mount: <span class="string">"/vol1"</span>.to_string(),
+<a href=#440 id=440 data-nosnippet>440</a>            },
+<a href=#441 id=441 data-nosnippet>441</a>            AppVolume {
+<a href=#442 id=442 data-nosnippet>442</a>                name: <span class="string">"vol2"</span>.to_string(),
+<a href=#443 id=443 data-nosnippet>443</a>                mount: <span class="string">"/vol2"</span>.to_string(),
+<a href=#444 id=444 data-nosnippet>444</a>            },
+<a href=#445 id=445 data-nosnippet>445</a>        ];
+<a href=#446 id=446 data-nosnippet>446</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(actual_volumes) = parsed.volumes {
+<a href=#447 id=447 data-nosnippet>447</a>            <span class="macro">assert_eq!</span>(actual_volumes, expected_volumes);
+<a href=#448 id=448 data-nosnippet>448</a>        } <span class="kw">else </span>{
+<a href=#449 id=449 data-nosnippet>449</a>            <span class="macro">panic!</span>(<span class="string">"Parsed volumes are None, expected Some({expected_volumes:?})"</span>);
+<a href=#450 id=450 data-nosnippet>450</a>        }
+<a href=#451 id=451 data-nosnippet>451</a>    }
+<a href=#452 id=452 data-nosnippet>452</a>}
 </code></pre></div></section></main></body></html>

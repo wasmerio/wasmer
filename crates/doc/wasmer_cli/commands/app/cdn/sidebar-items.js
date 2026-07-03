@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CmdAppCdn"],"fn":["configure_cdn_cache"],"mod":["disable","enable","purge","status"]};

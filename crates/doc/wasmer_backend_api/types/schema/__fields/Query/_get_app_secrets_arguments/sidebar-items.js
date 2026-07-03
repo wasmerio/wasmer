@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["after","appId","before","first","last","names","offset"]};
+window.SIDEBAR_ITEMS = {"struct":["after","appId","before","first","last","nameRegex","names","offset"]};

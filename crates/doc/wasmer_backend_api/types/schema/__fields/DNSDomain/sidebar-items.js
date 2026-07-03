@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","createdAt","deletedAt","id","name","owner","records","slug","updatedAt","zoneFile"]};
+window.SIDEBAR_ITEMS = {"mod":["_records_connection_arguments"],"struct":["__typename","createdAt","delegationStatus","deletedAt","id","lastCheckedAt","name","nameservers","owner","records","recordsConnection","slug","updatedAt","verifiedAt","zoneFile"]};

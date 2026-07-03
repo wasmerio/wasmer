@@ -311,7 +311,7 @@
 <a href=#311 id=311 data-nosnippet>311</a>    </span><span class="kw">pub struct </span>AppTemplate {
 <a href=#312 id=312 data-nosnippet>312</a>        <span class="attr">#[serde(rename = <span class="string">"demoUrl"</span>)]
 <a href=#313 id=313 data-nosnippet>313</a>        </span><span class="kw">pub </span>demo_url: String,
-<a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">pub </span>language: String,
+<a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">pub </span>language: <span class="prelude-ty">Option</span>&lt;String&gt;,
 <a href=#315 id=315 data-nosnippet>315</a>        <span class="kw">pub </span>name: String,
 <a href=#316 id=316 data-nosnippet>316</a>        <span class="kw">pub </span>framework: String,
 <a href=#317 id=317 data-nosnippet>317</a>        <span class="attr">#[serde(rename = <span class="string">"createdAt"</span>)]
@@ -2543,141 +2543,280 @@
 <a href=#2543 id=2543 data-nosnippet>2543</a>        </span><span class="kw">pub </span>purge_cache_for_app_version: <span class="prelude-ty">Option</span>&lt;PurgeCacheForAppVersionPayload&gt;,
 <a href=#2544 id=2544 data-nosnippet>2544</a>    }
 <a href=#2545 id=2545 data-nosnippet>2545</a>
-<a href=#2546 id=2546 data-nosnippet>2546</a>    <span class="attr">#[derive(cynic::Scalar, Debug, Clone)]
-<a href=#2547 id=2547 data-nosnippet>2547</a>    #[cynic(graphql_type = <span class="string">"URL"</span>)]
-<a href=#2548 id=2548 data-nosnippet>2548</a>    </span><span class="kw">pub struct </span>Url(<span class="kw">pub </span>String);
-<a href=#2549 id=2549 data-nosnippet>2549</a>
-<a href=#2550 id=2550 data-nosnippet>2550</a>    <span class="attr">#[derive(cynic::Scalar, Debug, Clone)]
-<a href=#2551 id=2551 data-nosnippet>2551</a>    </span><span class="kw">pub struct </span>BigInt(<span class="kw">pub </span>i64);
-<a href=#2552 id=2552 data-nosnippet>2552</a>
-<a href=#2553 id=2553 data-nosnippet>2553</a>    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug, PartialEq, Eq)]
-<a href=#2554 id=2554 data-nosnippet>2554</a>    </span><span class="kw">pub enum </span>ProgrammingLanguage {
-<a href=#2555 id=2555 data-nosnippet>2555</a>        Python,
-<a href=#2556 id=2556 data-nosnippet>2556</a>        Javascript,
-<a href=#2557 id=2557 data-nosnippet>2557</a>    }
-<a href=#2558 id=2558 data-nosnippet>2558</a>
-<a href=#2559 id=2559 data-nosnippet>2559</a>    <span class="doccomment">/// A library that exposes bindings to a Wasmer package.
-<a href=#2560 id=2560 data-nosnippet>2560</a>    </span><span class="attr">#[derive(Debug, Clone)]
-<a href=#2561 id=2561 data-nosnippet>2561</a>    </span><span class="kw">pub struct </span>Bindings {
-<a href=#2562 id=2562 data-nosnippet>2562</a>        <span class="doccomment">/// A unique ID specifying this set of bindings.
-<a href=#2563 id=2563 data-nosnippet>2563</a>        </span><span class="kw">pub </span>id: String,
-<a href=#2564 id=2564 data-nosnippet>2564</a>        <span class="doccomment">/// The URL which can be used to download the files that were generated
-<a href=#2565 id=2565 data-nosnippet>2565</a>        /// (typically as a `*.tar.gz` file).
-<a href=#2566 id=2566 data-nosnippet>2566</a>        </span><span class="kw">pub </span>url: String,
-<a href=#2567 id=2567 data-nosnippet>2567</a>        <span class="doccomment">/// The programming language these bindings are written in.
-<a href=#2568 id=2568 data-nosnippet>2568</a>        </span><span class="kw">pub </span>language: ProgrammingLanguage,
-<a href=#2569 id=2569 data-nosnippet>2569</a>        <span class="doccomment">/// The generator used to generate these bindings.
-<a href=#2570 id=2570 data-nosnippet>2570</a>        </span><span class="kw">pub </span>generator: BindingsGenerator,
-<a href=#2571 id=2571 data-nosnippet>2571</a>    }
-<a href=#2572 id=2572 data-nosnippet>2572</a>
-<a href=#2573 id=2573 data-nosnippet>2573</a>    <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone)]
-<a href=#2574 id=2574 data-nosnippet>2574</a>    </span><span class="kw">pub struct </span>GetBindingsQueryVariables&lt;<span class="lifetime">'a</span>&gt; {
-<a href=#2575 id=2575 data-nosnippet>2575</a>        <span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
-<a href=#2576 id=2576 data-nosnippet>2576</a>        <span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-<a href=#2577 id=2577 data-nosnippet>2577</a>    }
-<a href=#2578 id=2578 data-nosnippet>2578</a>
-<a href=#2579 id=2579 data-nosnippet>2579</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
-<a href=#2580 id=2580 data-nosnippet>2580</a>    #[cynic(graphql_type = <span class="string">"Query"</span>, variables = <span class="string">"GetBindingsQueryVariables"</span>)]
-<a href=#2581 id=2581 data-nosnippet>2581</a>    </span><span class="kw">pub struct </span>GetBindingsQuery {
-<a href=#2582 id=2582 data-nosnippet>2582</a>        <span class="attr">#[arguments(name: <span class="macro-nonterminal">$name</span>, version: <span class="macro-nonterminal">$version</span>)]
-<a href=#2583 id=2583 data-nosnippet>2583</a>        #[cynic(rename = <span class="string">"getPackageVersion"</span>)]
-<a href=#2584 id=2584 data-nosnippet>2584</a>        </span><span class="kw">pub </span>package_version: <span class="prelude-ty">Option</span>&lt;PackageBindingsVersion&gt;,
-<a href=#2585 id=2585 data-nosnippet>2585</a>    }
-<a href=#2586 id=2586 data-nosnippet>2586</a>
-<a href=#2587 id=2587 data-nosnippet>2587</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
-<a href=#2588 id=2588 data-nosnippet>2588</a>    #[cynic(graphql_type = <span class="string">"PackageVersion"</span>)]
-<a href=#2589 id=2589 data-nosnippet>2589</a>    </span><span class="kw">pub struct </span>PackageBindingsVersion {
-<a href=#2590 id=2590 data-nosnippet>2590</a>        <span class="kw">pub </span>bindings: Vec&lt;<span class="prelude-ty">Option</span>&lt;PackageVersionLanguageBinding&gt;&gt;,
-<a href=#2591 id=2591 data-nosnippet>2591</a>    }
-<a href=#2592 id=2592 data-nosnippet>2592</a>
-<a href=#2593 id=2593 data-nosnippet>2593</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
-<a href=#2594 id=2594 data-nosnippet>2594</a>    </span><span class="kw">pub struct </span>BindingsGenerator {
-<a href=#2595 id=2595 data-nosnippet>2595</a>        <span class="kw">pub </span>package_version: PackageVersion,
-<a href=#2596 id=2596 data-nosnippet>2596</a>        <span class="kw">pub </span>command_name: String,
-<a href=#2597 id=2597 data-nosnippet>2597</a>    }
-<a href=#2598 id=2598 data-nosnippet>2598</a>
-<a href=#2599 id=2599 data-nosnippet>2599</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
-<a href=#2600 id=2600 data-nosnippet>2600</a>    </span><span class="kw">pub struct </span>PackageVersionLanguageBinding {
-<a href=#2601 id=2601 data-nosnippet>2601</a>        <span class="kw">pub </span>id: cynic::Id,
-<a href=#2602 id=2602 data-nosnippet>2602</a>        <span class="kw">pub </span>language: ProgrammingLanguage,
-<a href=#2603 id=2603 data-nosnippet>2603</a>        <span class="kw">pub </span>url: String,
-<a href=#2604 id=2604 data-nosnippet>2604</a>        <span class="kw">pub </span>generator: BindingsGenerator,
-<a href=#2605 id=2605 data-nosnippet>2605</a>        <span class="kw">pub </span>__typename: String,
-<a href=#2606 id=2606 data-nosnippet>2606</a>    }
-<a href=#2607 id=2607 data-nosnippet>2607</a>
-<a href=#2608 id=2608 data-nosnippet>2608</a>    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
-<a href=#2609 id=2609 data-nosnippet>2609</a>    </span><span class="kw">pub struct </span>PackageVersionReadySubscriptionVariables {
-<a href=#2610 id=2610 data-nosnippet>2610</a>        <span class="kw">pub </span>package_version_id: cynic::Id,
+<a href=#2546 id=2546 data-nosnippet>2546</a>    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+<a href=#2547 id=2547 data-nosnippet>2547</a>    </span><span class="kw">pub struct </span>ConfigureAppCdnCacheVars {
+<a href=#2548 id=2548 data-nosnippet>2548</a>        <span class="kw">pub </span>app: cynic::Id,
+<a href=#2549 id=2549 data-nosnippet>2549</a>        <span class="kw">pub </span>enabled: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+<a href=#2550 id=2550 data-nosnippet>2550</a>    }
+<a href=#2551 id=2551 data-nosnippet>2551</a>
+<a href=#2552 id=2552 data-nosnippet>2552</a>    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+<a href=#2553 id=2553 data-nosnippet>2553</a>    </span><span class="kw">pub struct </span>PurgeAppCdnCacheVars {
+<a href=#2554 id=2554 data-nosnippet>2554</a>        <span class="kw">pub </span>app: cynic::Id,
+<a href=#2555 id=2555 data-nosnippet>2555</a>    }
+<a href=#2556 id=2556 data-nosnippet>2556</a>
+<a href=#2557 id=2557 data-nosnippet>2557</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2558 id=2558 data-nosnippet>2558</a>    </span><span class="kw">pub struct </span>AppCdnCacheMutationPayload {
+<a href=#2559 id=2559 data-nosnippet>2559</a>        <span class="kw">pub </span>success: bool,
+<a href=#2560 id=2560 data-nosnippet>2560</a>    }
+<a href=#2561 id=2561 data-nosnippet>2561</a>
+<a href=#2562 id=2562 data-nosnippet>2562</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2563 id=2563 data-nosnippet>2563</a>    #[cynic(graphql_type = <span class="string">"Mutation"</span>, variables = <span class="string">"ConfigureAppCdnCacheVars"</span>)]
+<a href=#2564 id=2564 data-nosnippet>2564</a>    </span><span class="kw">pub struct </span>ConfigureAppCdnCache {
+<a href=#2565 id=2565 data-nosnippet>2565</a>        <span class="attr">#[arguments(app: <span class="macro-nonterminal">$app</span>, config: {enabled: <span class="macro-nonterminal">$enabled</span>})]
+<a href=#2566 id=2566 data-nosnippet>2566</a>        </span><span class="kw">pub </span>configure_app_cdn_cache: AppCdnCacheMutationPayload,
+<a href=#2567 id=2567 data-nosnippet>2567</a>    }
+<a href=#2568 id=2568 data-nosnippet>2568</a>
+<a href=#2569 id=2569 data-nosnippet>2569</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2570 id=2570 data-nosnippet>2570</a>    #[cynic(graphql_type = <span class="string">"Mutation"</span>, variables = <span class="string">"PurgeAppCdnCacheVars"</span>)]
+<a href=#2571 id=2571 data-nosnippet>2571</a>    </span><span class="kw">pub struct </span>PurgeAppCdnCache {
+<a href=#2572 id=2572 data-nosnippet>2572</a>        <span class="attr">#[arguments(app: <span class="macro-nonterminal">$app</span>)]
+<a href=#2573 id=2573 data-nosnippet>2573</a>        </span><span class="kw">pub </span>purge_app_cdn_cache: AppCdnCacheMutationPayload,
+<a href=#2574 id=2574 data-nosnippet>2574</a>    }
+<a href=#2575 id=2575 data-nosnippet>2575</a>
+<a href=#2576 id=2576 data-nosnippet>2576</a>    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+<a href=#2577 id=2577 data-nosnippet>2577</a>    </span><span class="kw">pub struct </span>GetAppCdnCacheStatusVars {
+<a href=#2578 id=2578 data-nosnippet>2578</a>        <span class="kw">pub </span>app: cynic::Id,
+<a href=#2579 id=2579 data-nosnippet>2579</a>    }
+<a href=#2580 id=2580 data-nosnippet>2580</a>
+<a href=#2581 id=2581 data-nosnippet>2581</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2582 id=2582 data-nosnippet>2582</a>    #[cynic(graphql_type = <span class="string">"Query"</span>, variables = <span class="string">"GetAppCdnCacheStatusVars"</span>)]
+<a href=#2583 id=2583 data-nosnippet>2583</a>    </span><span class="kw">pub struct </span>GetAppCdnCacheStatus {
+<a href=#2584 id=2584 data-nosnippet>2584</a>        <span class="attr">#[arguments(id: <span class="macro-nonterminal">$app</span>)]
+<a href=#2585 id=2585 data-nosnippet>2585</a>        #[cynic(rename = <span class="string">"node"</span>)]
+<a href=#2586 id=2586 data-nosnippet>2586</a>        </span><span class="kw">pub </span>app: <span class="prelude-ty">Option</span>&lt;NodeAppCdnCacheStatus&gt;,
+<a href=#2587 id=2587 data-nosnippet>2587</a>    }
+<a href=#2588 id=2588 data-nosnippet>2588</a>
+<a href=#2589 id=2589 data-nosnippet>2589</a>    <span class="attr">#[derive(cynic::InlineFragments, Debug)]
+<a href=#2590 id=2590 data-nosnippet>2590</a>    #[cynic(graphql_type = <span class="string">"Node"</span>)]
+<a href=#2591 id=2591 data-nosnippet>2591</a>    </span><span class="kw">pub enum </span>NodeAppCdnCacheStatus {
+<a href=#2592 id=2592 data-nosnippet>2592</a>        DeployApp(Box&lt;AppCdnCacheStatus&gt;),
+<a href=#2593 id=2593 data-nosnippet>2593</a>        <span class="attr">#[cynic(fallback)]
+<a href=#2594 id=2594 data-nosnippet>2594</a>        </span>Unknown,
+<a href=#2595 id=2595 data-nosnippet>2595</a>    }
+<a href=#2596 id=2596 data-nosnippet>2596</a>
+<a href=#2597 id=2597 data-nosnippet>2597</a>    <span class="kw">impl </span>NodeAppCdnCacheStatus {
+<a href=#2598 id=2598 data-nosnippet>2598</a>        <span class="kw">pub fn </span>into_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;AppCdnCacheStatus&gt; {
+<a href=#2599 id=2599 data-nosnippet>2599</a>            <span class="kw">match </span><span class="self">self </span>{
+<a href=#2600 id=2600 data-nosnippet>2600</a>                <span class="self">Self</span>::DeployApp(app) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>app),
+<a href=#2601 id=2601 data-nosnippet>2601</a>                <span class="self">Self</span>::Unknown =&gt; <span class="prelude-val">None</span>,
+<a href=#2602 id=2602 data-nosnippet>2602</a>            }
+<a href=#2603 id=2603 data-nosnippet>2603</a>        }
+<a href=#2604 id=2604 data-nosnippet>2604</a>    }
+<a href=#2605 id=2605 data-nosnippet>2605</a>
+<a href=#2606 id=2606 data-nosnippet>2606</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2607 id=2607 data-nosnippet>2607</a>    #[cynic(graphql_type = <span class="string">"DeployApp"</span>)]
+<a href=#2608 id=2608 data-nosnippet>2608</a>    </span><span class="kw">pub struct </span>AppCdnCacheStatus {
+<a href=#2609 id=2609 data-nosnippet>2609</a>        <span class="kw">pub </span>cdn_cache_enabled: bool,
+<a href=#2610 id=2610 data-nosnippet>2610</a>        <span class="kw">pub </span>cdn_cache_purged_at: <span class="prelude-ty">Option</span>&lt;DateTime&gt;,
 <a href=#2611 id=2611 data-nosnippet>2611</a>    }
 <a href=#2612 id=2612 data-nosnippet>2612</a>
-<a href=#2613 id=2613 data-nosnippet>2613</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
-<a href=#2614 id=2614 data-nosnippet>2614</a>    #[cynic(
-<a href=#2615 id=2615 data-nosnippet>2615</a>        graphql_type = <span class="string">"Subscription"</span>,
-<a href=#2616 id=2616 data-nosnippet>2616</a>        variables = <span class="string">"PackageVersionReadySubscriptionVariables"
-<a href=#2617 id=2617 data-nosnippet>2617</a>    </span>)]
-<a href=#2618 id=2618 data-nosnippet>2618</a>    </span><span class="kw">pub struct </span>PackageVersionReadySubscription {
-<a href=#2619 id=2619 data-nosnippet>2619</a>        <span class="attr">#[arguments(packageVersionId: <span class="macro-nonterminal">$package_version_id</span>)]
-<a href=#2620 id=2620 data-nosnippet>2620</a>        </span><span class="kw">pub </span>package_version_ready: PackageVersionReadyResponse,
-<a href=#2621 id=2621 data-nosnippet>2621</a>    }
-<a href=#2622 id=2622 data-nosnippet>2622</a>
-<a href=#2623 id=2623 data-nosnippet>2623</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
-<a href=#2624 id=2624 data-nosnippet>2624</a>    </span><span class="kw">pub struct </span>PackageVersionReadyResponse {
-<a href=#2625 id=2625 data-nosnippet>2625</a>        <span class="kw">pub </span>state: PackageVersionState,
-<a href=#2626 id=2626 data-nosnippet>2626</a>        <span class="kw">pub </span>success: bool,
+<a href=#2613 id=2613 data-nosnippet>2613</a>    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+<a href=#2614 id=2614 data-nosnippet>2614</a>    </span><span class="kw">pub struct </span>GetAppCdnCacheMetricsVars {
+<a href=#2615 id=2615 data-nosnippet>2615</a>        <span class="kw">pub </span>app: cynic::Id,
+<a href=#2616 id=2616 data-nosnippet>2616</a>        <span class="kw">pub </span>start_at: DateTime,
+<a href=#2617 id=2617 data-nosnippet>2617</a>        <span class="kw">pub </span>end_at: DateTime,
+<a href=#2618 id=2618 data-nosnippet>2618</a>        <span class="kw">pub </span>grouped_by: MetricGrouping,
+<a href=#2619 id=2619 data-nosnippet>2619</a>    }
+<a href=#2620 id=2620 data-nosnippet>2620</a>
+<a href=#2621 id=2621 data-nosnippet>2621</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2622 id=2622 data-nosnippet>2622</a>    #[cynic(graphql_type = <span class="string">"Query"</span>, variables = <span class="string">"GetAppCdnCacheMetricsVars"</span>)]
+<a href=#2623 id=2623 data-nosnippet>2623</a>    </span><span class="kw">pub struct </span>GetAppCdnCacheMetrics {
+<a href=#2624 id=2624 data-nosnippet>2624</a>        <span class="attr">#[arguments(id: <span class="macro-nonterminal">$app</span>)]
+<a href=#2625 id=2625 data-nosnippet>2625</a>        #[cynic(rename = <span class="string">"node"</span>)]
+<a href=#2626 id=2626 data-nosnippet>2626</a>        </span><span class="kw">pub </span>app: <span class="prelude-ty">Option</span>&lt;NodeAppCdnCacheMetrics&gt;,
 <a href=#2627 id=2627 data-nosnippet>2627</a>    }
 <a href=#2628 id=2628 data-nosnippet>2628</a>
-<a href=#2629 id=2629 data-nosnippet>2629</a>    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug)]
-<a href=#2630 id=2630 data-nosnippet>2630</a>    </span><span class="kw">pub enum </span>PackageVersionState {
-<a href=#2631 id=2631 data-nosnippet>2631</a>        WebcGenerated,
-<a href=#2632 id=2632 data-nosnippet>2632</a>        BindingsGenerated,
-<a href=#2633 id=2633 data-nosnippet>2633</a>        NativeExesGenerated,
-<a href=#2634 id=2634 data-nosnippet>2634</a>    }
-<a href=#2635 id=2635 data-nosnippet>2635</a>
-<a href=#2636 id=2636 data-nosnippet>2636</a>    <span class="attr">#[derive(cynic::InlineFragments, Debug, Clone)]
-<a href=#2637 id=2637 data-nosnippet>2637</a>    #[cynic(graphql_type = <span class="string">"Node"</span>, variables = <span class="string">"GetDeployAppVersionsByIdVars"</span>)]
-<a href=#2638 id=2638 data-nosnippet>2638</a>    </span><span class="kw">pub enum </span>NodeDeployAppVersions {
-<a href=#2639 id=2639 data-nosnippet>2639</a>        DeployApp(Box&lt;DeployAppVersionsById&gt;),
-<a href=#2640 id=2640 data-nosnippet>2640</a>        <span class="attr">#[cynic(fallback)]
-<a href=#2641 id=2641 data-nosnippet>2641</a>        </span>Unknown,
-<a href=#2642 id=2642 data-nosnippet>2642</a>    }
-<a href=#2643 id=2643 data-nosnippet>2643</a>
-<a href=#2644 id=2644 data-nosnippet>2644</a>    <span class="kw">impl </span>NodeDeployAppVersions {
-<a href=#2645 id=2645 data-nosnippet>2645</a>        <span class="kw">pub fn </span>into_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeployAppVersionsById&gt; {
-<a href=#2646 id=2646 data-nosnippet>2646</a>            <span class="kw">match </span><span class="self">self </span>{
-<a href=#2647 id=2647 data-nosnippet>2647</a>                <span class="self">Self</span>::DeployApp(v) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>v),
-<a href=#2648 id=2648 data-nosnippet>2648</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#2649 id=2649 data-nosnippet>2649</a>            }
-<a href=#2650 id=2650 data-nosnippet>2650</a>        }
+<a href=#2629 id=2629 data-nosnippet>2629</a>    <span class="attr">#[derive(cynic::InlineFragments, Debug)]
+<a href=#2630 id=2630 data-nosnippet>2630</a>    #[cynic(graphql_type = <span class="string">"Node"</span>, variables = <span class="string">"GetAppCdnCacheMetricsVars"</span>)]
+<a href=#2631 id=2631 data-nosnippet>2631</a>    </span><span class="kw">pub enum </span>NodeAppCdnCacheMetrics {
+<a href=#2632 id=2632 data-nosnippet>2632</a>        DeployApp(Box&lt;AppCdnCacheMetrics&gt;),
+<a href=#2633 id=2633 data-nosnippet>2633</a>        <span class="attr">#[cynic(fallback)]
+<a href=#2634 id=2634 data-nosnippet>2634</a>        </span>Unknown,
+<a href=#2635 id=2635 data-nosnippet>2635</a>    }
+<a href=#2636 id=2636 data-nosnippet>2636</a>
+<a href=#2637 id=2637 data-nosnippet>2637</a>    <span class="kw">impl </span>NodeAppCdnCacheMetrics {
+<a href=#2638 id=2638 data-nosnippet>2638</a>        <span class="kw">pub fn </span>into_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;AppCdnCacheMetrics&gt; {
+<a href=#2639 id=2639 data-nosnippet>2639</a>            <span class="kw">match </span><span class="self">self </span>{
+<a href=#2640 id=2640 data-nosnippet>2640</a>                <span class="self">Self</span>::DeployApp(app) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>app),
+<a href=#2641 id=2641 data-nosnippet>2641</a>                <span class="self">Self</span>::Unknown =&gt; <span class="prelude-val">None</span>,
+<a href=#2642 id=2642 data-nosnippet>2642</a>            }
+<a href=#2643 id=2643 data-nosnippet>2643</a>        }
+<a href=#2644 id=2644 data-nosnippet>2644</a>    }
+<a href=#2645 id=2645 data-nosnippet>2645</a>
+<a href=#2646 id=2646 data-nosnippet>2646</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2647 id=2647 data-nosnippet>2647</a>    #[cynic(graphql_type = <span class="string">"DeployApp"</span>, variables = <span class="string">"GetAppCdnCacheMetricsVars"</span>)]
+<a href=#2648 id=2648 data-nosnippet>2648</a>    </span><span class="kw">pub struct </span>AppCdnCacheMetrics {
+<a href=#2649 id=2649 data-nosnippet>2649</a>        <span class="attr">#[arguments(startAt: <span class="macro-nonterminal">$start_at</span>, endAt: <span class="macro-nonterminal">$end_at</span>, groupedBy: <span class="macro-nonterminal">$grouped_by</span>)]
+<a href=#2650 id=2650 data-nosnippet>2650</a>        </span><span class="kw">pub </span>grouped_metrics: UsageMetrics,
 <a href=#2651 id=2651 data-nosnippet>2651</a>    }
 <a href=#2652 id=2652 data-nosnippet>2652</a>
-<a href=#2653 id=2653 data-nosnippet>2653</a>    <span class="attr">#[derive(cynic::InlineFragments, Debug)]
-<a href=#2654 id=2654 data-nosnippet>2654</a>    </span><span class="kw">pub enum </span>Node {
-<a href=#2655 id=2655 data-nosnippet>2655</a>        DeployApp(Box&lt;DeployApp&gt;),
-<a href=#2656 id=2656 data-nosnippet>2656</a>        DeployAppVersion(Box&lt;DeployAppVersion&gt;),
-<a href=#2657 id=2657 data-nosnippet>2657</a>        AutobuildRepository(Box&lt;AutobuildRepository&gt;),
-<a href=#2658 id=2658 data-nosnippet>2658</a>        <span class="attr">#[cynic(fallback)]
-<a href=#2659 id=2659 data-nosnippet>2659</a>        </span>Unknown,
-<a href=#2660 id=2660 data-nosnippet>2660</a>    }
-<a href=#2661 id=2661 data-nosnippet>2661</a>
-<a href=#2662 id=2662 data-nosnippet>2662</a>    <span class="kw">impl </span>Node {
-<a href=#2663 id=2663 data-nosnippet>2663</a>        <span class="kw">pub fn </span>into_deploy_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeployApp&gt; {
-<a href=#2664 id=2664 data-nosnippet>2664</a>            <span class="kw">match </span><span class="self">self </span>{
-<a href=#2665 id=2665 data-nosnippet>2665</a>                Node::DeployApp(app) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>app),
-<a href=#2666 id=2666 data-nosnippet>2666</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#2667 id=2667 data-nosnippet>2667</a>            }
-<a href=#2668 id=2668 data-nosnippet>2668</a>        }
-<a href=#2669 id=2669 data-nosnippet>2669</a>
-<a href=#2670 id=2670 data-nosnippet>2670</a>        <span class="kw">pub fn </span>into_deploy_app_version(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeployAppVersion&gt; {
-<a href=#2671 id=2671 data-nosnippet>2671</a>            <span class="kw">match </span><span class="self">self </span>{
-<a href=#2672 id=2672 data-nosnippet>2672</a>                Node::DeployAppVersion(version) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>version),
-<a href=#2673 id=2673 data-nosnippet>2673</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#2674 id=2674 data-nosnippet>2674</a>            }
-<a href=#2675 id=2675 data-nosnippet>2675</a>        }
-<a href=#2676 id=2676 data-nosnippet>2676</a>    }
-<a href=#2677 id=2677 data-nosnippet>2677</a>}
-<a href=#2678 id=2678 data-nosnippet>2678</a>
-<a href=#2679 id=2679 data-nosnippet>2679</a><span class="attr">#[allow(non_snake_case, non_camel_case_types)]
-<a href=#2680 id=2680 data-nosnippet>2680</a></span><span class="kw">mod </span>schema {
-<a href=#2681 id=2681 data-nosnippet>2681</a>    <span class="macro">cynic::use_schema!</span>(<span class="string">r#"schema.graphql"#</span>);
-<a href=#2682 id=2682 data-nosnippet>2682</a>}
+<a href=#2653 id=2653 data-nosnippet>2653</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2654 id=2654 data-nosnippet>2654</a>    </span><span class="kw">pub struct </span>UsageMetrics {
+<a href=#2655 id=2655 data-nosnippet>2655</a>        <span class="kw">pub </span>totals: MetricsTotals,
+<a href=#2656 id=2656 data-nosnippet>2656</a>    }
+<a href=#2657 id=2657 data-nosnippet>2657</a>
+<a href=#2658 id=2658 data-nosnippet>2658</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2659 id=2659 data-nosnippet>2659</a>    </span><span class="kw">pub struct </span>MetricsTotals {
+<a href=#2660 id=2660 data-nosnippet>2660</a>        <span class="kw">pub </span>requests: RequestMetrics,
+<a href=#2661 id=2661 data-nosnippet>2661</a>    }
+<a href=#2662 id=2662 data-nosnippet>2662</a>
+<a href=#2663 id=2663 data-nosnippet>2663</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2664 id=2664 data-nosnippet>2664</a>    </span><span class="kw">pub struct </span>RequestMetrics {
+<a href=#2665 id=2665 data-nosnippet>2665</a>        <span class="kw">pub </span>total_requests: BigInt,
+<a href=#2666 id=2666 data-nosnippet>2666</a>        <span class="kw">pub </span>cached_requests: BigInt,
+<a href=#2667 id=2667 data-nosnippet>2667</a>        <span class="kw">pub </span>data_served_bytes: BigInt,
+<a href=#2668 id=2668 data-nosnippet>2668</a>        <span class="kw">pub </span>data_cached_bytes: BigInt,
+<a href=#2669 id=2669 data-nosnippet>2669</a>    }
+<a href=#2670 id=2670 data-nosnippet>2670</a>
+<a href=#2671 id=2671 data-nosnippet>2671</a>    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug)]
+<a href=#2672 id=2672 data-nosnippet>2672</a>    </span><span class="kw">pub enum </span>MetricGrouping {
+<a href=#2673 id=2673 data-nosnippet>2673</a>        <span class="attr">#[cynic(rename = <span class="string">"BY_15_MINUTES"</span>)]
+<a href=#2674 id=2674 data-nosnippet>2674</a>        </span>By15Minutes,
+<a href=#2675 id=2675 data-nosnippet>2675</a>        <span class="attr">#[cynic(rename = <span class="string">"BY_5_MINUTES"</span>)]
+<a href=#2676 id=2676 data-nosnippet>2676</a>        </span>By5Minutes,
+<a href=#2677 id=2677 data-nosnippet>2677</a>        <span class="attr">#[cynic(rename = <span class="string">"BY_HOUR"</span>)]
+<a href=#2678 id=2678 data-nosnippet>2678</a>        </span>ByHour,
+<a href=#2679 id=2679 data-nosnippet>2679</a>        <span class="attr">#[cynic(rename = <span class="string">"BY_DAY"</span>)]
+<a href=#2680 id=2680 data-nosnippet>2680</a>        </span>ByDay,
+<a href=#2681 id=2681 data-nosnippet>2681</a>        <span class="attr">#[cynic(rename = <span class="string">"BY_WEEK"</span>)]
+<a href=#2682 id=2682 data-nosnippet>2682</a>        </span>ByWeek,
+<a href=#2683 id=2683 data-nosnippet>2683</a>    }
+<a href=#2684 id=2684 data-nosnippet>2684</a>
+<a href=#2685 id=2685 data-nosnippet>2685</a>    <span class="attr">#[derive(cynic::Scalar, Debug, Clone)]
+<a href=#2686 id=2686 data-nosnippet>2686</a>    #[cynic(graphql_type = <span class="string">"URL"</span>)]
+<a href=#2687 id=2687 data-nosnippet>2687</a>    </span><span class="kw">pub struct </span>Url(<span class="kw">pub </span>String);
+<a href=#2688 id=2688 data-nosnippet>2688</a>
+<a href=#2689 id=2689 data-nosnippet>2689</a>    <span class="attr">#[derive(cynic::Scalar, Debug, Clone)]
+<a href=#2690 id=2690 data-nosnippet>2690</a>    </span><span class="kw">pub struct </span>BigInt(<span class="kw">pub </span>i64);
+<a href=#2691 id=2691 data-nosnippet>2691</a>
+<a href=#2692 id=2692 data-nosnippet>2692</a>    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+<a href=#2693 id=2693 data-nosnippet>2693</a>    </span><span class="kw">pub enum </span>ProgrammingLanguage {
+<a href=#2694 id=2694 data-nosnippet>2694</a>        Python,
+<a href=#2695 id=2695 data-nosnippet>2695</a>        Javascript,
+<a href=#2696 id=2696 data-nosnippet>2696</a>    }
+<a href=#2697 id=2697 data-nosnippet>2697</a>
+<a href=#2698 id=2698 data-nosnippet>2698</a>    <span class="doccomment">/// A library that exposes bindings to a Wasmer package.
+<a href=#2699 id=2699 data-nosnippet>2699</a>    </span><span class="attr">#[derive(Debug, Clone)]
+<a href=#2700 id=2700 data-nosnippet>2700</a>    </span><span class="kw">pub struct </span>Bindings {
+<a href=#2701 id=2701 data-nosnippet>2701</a>        <span class="doccomment">/// A unique ID specifying this set of bindings.
+<a href=#2702 id=2702 data-nosnippet>2702</a>        </span><span class="kw">pub </span>id: String,
+<a href=#2703 id=2703 data-nosnippet>2703</a>        <span class="doccomment">/// The URL which can be used to download the files that were generated
+<a href=#2704 id=2704 data-nosnippet>2704</a>        /// (typically as a `*.tar.gz` file).
+<a href=#2705 id=2705 data-nosnippet>2705</a>        </span><span class="kw">pub </span>url: String,
+<a href=#2706 id=2706 data-nosnippet>2706</a>        <span class="doccomment">/// The programming language these bindings are written in.
+<a href=#2707 id=2707 data-nosnippet>2707</a>        </span><span class="kw">pub </span>language: ProgrammingLanguage,
+<a href=#2708 id=2708 data-nosnippet>2708</a>        <span class="doccomment">/// The generator used to generate these bindings.
+<a href=#2709 id=2709 data-nosnippet>2709</a>        </span><span class="kw">pub </span>generator: BindingsGenerator,
+<a href=#2710 id=2710 data-nosnippet>2710</a>    }
+<a href=#2711 id=2711 data-nosnippet>2711</a>
+<a href=#2712 id=2712 data-nosnippet>2712</a>    <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone)]
+<a href=#2713 id=2713 data-nosnippet>2713</a>    </span><span class="kw">pub struct </span>GetBindingsQueryVariables&lt;<span class="lifetime">'a</span>&gt; {
+<a href=#2714 id=2714 data-nosnippet>2714</a>        <span class="kw">pub </span>name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+<a href=#2715 id=2715 data-nosnippet>2715</a>        <span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
+<a href=#2716 id=2716 data-nosnippet>2716</a>    }
+<a href=#2717 id=2717 data-nosnippet>2717</a>
+<a href=#2718 id=2718 data-nosnippet>2718</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
+<a href=#2719 id=2719 data-nosnippet>2719</a>    #[cynic(graphql_type = <span class="string">"Query"</span>, variables = <span class="string">"GetBindingsQueryVariables"</span>)]
+<a href=#2720 id=2720 data-nosnippet>2720</a>    </span><span class="kw">pub struct </span>GetBindingsQuery {
+<a href=#2721 id=2721 data-nosnippet>2721</a>        <span class="attr">#[arguments(name: <span class="macro-nonterminal">$name</span>, version: <span class="macro-nonterminal">$version</span>)]
+<a href=#2722 id=2722 data-nosnippet>2722</a>        #[cynic(rename = <span class="string">"getPackageVersion"</span>)]
+<a href=#2723 id=2723 data-nosnippet>2723</a>        </span><span class="kw">pub </span>package_version: <span class="prelude-ty">Option</span>&lt;PackageBindingsVersion&gt;,
+<a href=#2724 id=2724 data-nosnippet>2724</a>    }
+<a href=#2725 id=2725 data-nosnippet>2725</a>
+<a href=#2726 id=2726 data-nosnippet>2726</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
+<a href=#2727 id=2727 data-nosnippet>2727</a>    #[cynic(graphql_type = <span class="string">"PackageVersion"</span>)]
+<a href=#2728 id=2728 data-nosnippet>2728</a>    </span><span class="kw">pub struct </span>PackageBindingsVersion {
+<a href=#2729 id=2729 data-nosnippet>2729</a>        <span class="kw">pub </span>bindings: Vec&lt;<span class="prelude-ty">Option</span>&lt;PackageVersionLanguageBinding&gt;&gt;,
+<a href=#2730 id=2730 data-nosnippet>2730</a>    }
+<a href=#2731 id=2731 data-nosnippet>2731</a>
+<a href=#2732 id=2732 data-nosnippet>2732</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
+<a href=#2733 id=2733 data-nosnippet>2733</a>    </span><span class="kw">pub struct </span>BindingsGenerator {
+<a href=#2734 id=2734 data-nosnippet>2734</a>        <span class="kw">pub </span>package_version: PackageVersion,
+<a href=#2735 id=2735 data-nosnippet>2735</a>        <span class="kw">pub </span>command_name: String,
+<a href=#2736 id=2736 data-nosnippet>2736</a>    }
+<a href=#2737 id=2737 data-nosnippet>2737</a>
+<a href=#2738 id=2738 data-nosnippet>2738</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone)]
+<a href=#2739 id=2739 data-nosnippet>2739</a>    </span><span class="kw">pub struct </span>PackageVersionLanguageBinding {
+<a href=#2740 id=2740 data-nosnippet>2740</a>        <span class="kw">pub </span>id: cynic::Id,
+<a href=#2741 id=2741 data-nosnippet>2741</a>        <span class="kw">pub </span>language: ProgrammingLanguage,
+<a href=#2742 id=2742 data-nosnippet>2742</a>        <span class="kw">pub </span>url: String,
+<a href=#2743 id=2743 data-nosnippet>2743</a>        <span class="kw">pub </span>generator: BindingsGenerator,
+<a href=#2744 id=2744 data-nosnippet>2744</a>        <span class="kw">pub </span>__typename: String,
+<a href=#2745 id=2745 data-nosnippet>2745</a>    }
+<a href=#2746 id=2746 data-nosnippet>2746</a>
+<a href=#2747 id=2747 data-nosnippet>2747</a>    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+<a href=#2748 id=2748 data-nosnippet>2748</a>    </span><span class="kw">pub struct </span>PackageVersionReadySubscriptionVariables {
+<a href=#2749 id=2749 data-nosnippet>2749</a>        <span class="kw">pub </span>package_version_id: cynic::Id,
+<a href=#2750 id=2750 data-nosnippet>2750</a>    }
+<a href=#2751 id=2751 data-nosnippet>2751</a>
+<a href=#2752 id=2752 data-nosnippet>2752</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2753 id=2753 data-nosnippet>2753</a>    #[cynic(
+<a href=#2754 id=2754 data-nosnippet>2754</a>        graphql_type = <span class="string">"Subscription"</span>,
+<a href=#2755 id=2755 data-nosnippet>2755</a>        variables = <span class="string">"PackageVersionReadySubscriptionVariables"
+<a href=#2756 id=2756 data-nosnippet>2756</a>    </span>)]
+<a href=#2757 id=2757 data-nosnippet>2757</a>    </span><span class="kw">pub struct </span>PackageVersionReadySubscription {
+<a href=#2758 id=2758 data-nosnippet>2758</a>        <span class="attr">#[arguments(packageVersionId: <span class="macro-nonterminal">$package_version_id</span>)]
+<a href=#2759 id=2759 data-nosnippet>2759</a>        </span><span class="kw">pub </span>package_version_ready: PackageVersionReadyResponse,
+<a href=#2760 id=2760 data-nosnippet>2760</a>    }
+<a href=#2761 id=2761 data-nosnippet>2761</a>
+<a href=#2762 id=2762 data-nosnippet>2762</a>    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+<a href=#2763 id=2763 data-nosnippet>2763</a>    </span><span class="kw">pub struct </span>PackageVersionReadyResponse {
+<a href=#2764 id=2764 data-nosnippet>2764</a>        <span class="kw">pub </span>state: PackageVersionState,
+<a href=#2765 id=2765 data-nosnippet>2765</a>        <span class="kw">pub </span>success: bool,
+<a href=#2766 id=2766 data-nosnippet>2766</a>    }
+<a href=#2767 id=2767 data-nosnippet>2767</a>
+<a href=#2768 id=2768 data-nosnippet>2768</a>    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug)]
+<a href=#2769 id=2769 data-nosnippet>2769</a>    </span><span class="kw">pub enum </span>PackageVersionState {
+<a href=#2770 id=2770 data-nosnippet>2770</a>        WebcGenerated,
+<a href=#2771 id=2771 data-nosnippet>2771</a>        BindingsGenerated,
+<a href=#2772 id=2772 data-nosnippet>2772</a>        NativeExesGenerated,
+<a href=#2773 id=2773 data-nosnippet>2773</a>    }
+<a href=#2774 id=2774 data-nosnippet>2774</a>
+<a href=#2775 id=2775 data-nosnippet>2775</a>    <span class="attr">#[derive(cynic::InlineFragments, Debug, Clone)]
+<a href=#2776 id=2776 data-nosnippet>2776</a>    #[cynic(graphql_type = <span class="string">"Node"</span>, variables = <span class="string">"GetDeployAppVersionsByIdVars"</span>)]
+<a href=#2777 id=2777 data-nosnippet>2777</a>    </span><span class="kw">pub enum </span>NodeDeployAppVersions {
+<a href=#2778 id=2778 data-nosnippet>2778</a>        DeployApp(Box&lt;DeployAppVersionsById&gt;),
+<a href=#2779 id=2779 data-nosnippet>2779</a>        <span class="attr">#[cynic(fallback)]
+<a href=#2780 id=2780 data-nosnippet>2780</a>        </span>Unknown,
+<a href=#2781 id=2781 data-nosnippet>2781</a>    }
+<a href=#2782 id=2782 data-nosnippet>2782</a>
+<a href=#2783 id=2783 data-nosnippet>2783</a>    <span class="kw">impl </span>NodeDeployAppVersions {
+<a href=#2784 id=2784 data-nosnippet>2784</a>        <span class="kw">pub fn </span>into_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeployAppVersionsById&gt; {
+<a href=#2785 id=2785 data-nosnippet>2785</a>            <span class="kw">match </span><span class="self">self </span>{
+<a href=#2786 id=2786 data-nosnippet>2786</a>                <span class="self">Self</span>::DeployApp(v) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>v),
+<a href=#2787 id=2787 data-nosnippet>2787</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#2788 id=2788 data-nosnippet>2788</a>            }
+<a href=#2789 id=2789 data-nosnippet>2789</a>        }
+<a href=#2790 id=2790 data-nosnippet>2790</a>    }
+<a href=#2791 id=2791 data-nosnippet>2791</a>
+<a href=#2792 id=2792 data-nosnippet>2792</a>    <span class="attr">#[derive(cynic::InlineFragments, Debug)]
+<a href=#2793 id=2793 data-nosnippet>2793</a>    </span><span class="kw">pub enum </span>Node {
+<a href=#2794 id=2794 data-nosnippet>2794</a>        DeployApp(Box&lt;DeployApp&gt;),
+<a href=#2795 id=2795 data-nosnippet>2795</a>        DeployAppVersion(Box&lt;DeployAppVersion&gt;),
+<a href=#2796 id=2796 data-nosnippet>2796</a>        AutobuildRepository(Box&lt;AutobuildRepository&gt;),
+<a href=#2797 id=2797 data-nosnippet>2797</a>        <span class="attr">#[cynic(fallback)]
+<a href=#2798 id=2798 data-nosnippet>2798</a>        </span>Unknown,
+<a href=#2799 id=2799 data-nosnippet>2799</a>    }
+<a href=#2800 id=2800 data-nosnippet>2800</a>
+<a href=#2801 id=2801 data-nosnippet>2801</a>    <span class="kw">impl </span>Node {
+<a href=#2802 id=2802 data-nosnippet>2802</a>        <span class="kw">pub fn </span>into_deploy_app(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeployApp&gt; {
+<a href=#2803 id=2803 data-nosnippet>2803</a>            <span class="kw">match </span><span class="self">self </span>{
+<a href=#2804 id=2804 data-nosnippet>2804</a>                Node::DeployApp(app) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>app),
+<a href=#2805 id=2805 data-nosnippet>2805</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#2806 id=2806 data-nosnippet>2806</a>            }
+<a href=#2807 id=2807 data-nosnippet>2807</a>        }
+<a href=#2808 id=2808 data-nosnippet>2808</a>
+<a href=#2809 id=2809 data-nosnippet>2809</a>        <span class="kw">pub fn </span>into_deploy_app_version(<span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;DeployAppVersion&gt; {
+<a href=#2810 id=2810 data-nosnippet>2810</a>            <span class="kw">match </span><span class="self">self </span>{
+<a href=#2811 id=2811 data-nosnippet>2811</a>                Node::DeployAppVersion(version) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>version),
+<a href=#2812 id=2812 data-nosnippet>2812</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#2813 id=2813 data-nosnippet>2813</a>            }
+<a href=#2814 id=2814 data-nosnippet>2814</a>        }
+<a href=#2815 id=2815 data-nosnippet>2815</a>    }
+<a href=#2816 id=2816 data-nosnippet>2816</a>}
+<a href=#2817 id=2817 data-nosnippet>2817</a>
+<a href=#2818 id=2818 data-nosnippet>2818</a><span class="attr">#[allow(non_snake_case, non_camel_case_types)]
+<a href=#2819 id=2819 data-nosnippet>2819</a></span><span class="kw">mod </span>schema {
+<a href=#2820 id=2820 data-nosnippet>2820</a>    <span class="macro">cynic::use_schema!</span>(<span class="string">r#"schema.graphql"#</span>);
+<a href=#2821 id=2821 data-nosnippet>2821</a>}
 </code></pre></div></section></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["branch","canDeployWithoutRepo","category","clientMutationId","completionTimeInSeconds","defaultImageUpload","demoUrl","description","framework","highlighted","isPublic","language","name","readme","repoLicense","repoUrl","rootDir","slug","templateId","useCases"]};

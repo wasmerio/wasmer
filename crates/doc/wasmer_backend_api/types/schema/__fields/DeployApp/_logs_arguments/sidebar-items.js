@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["after","before","first","instanceId","last","textSearch"]};

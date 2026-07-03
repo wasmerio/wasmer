@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","defaultTheme","downloadUrl","githubRepo","githubTag","id","isLatest","minPhpVersion","mysqlVersion","version","zip"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","memoryBytes","networkEgressBytes","networkIngressBytes","realCpuTimeMillis","wallCpuTimeMillis","workloads"]};

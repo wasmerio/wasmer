@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","app","explorerUrl","id","isAddedByUi","maxSizeBytes","mountPath","region","s3","s3Enabled","s3Url","volumeId"]};

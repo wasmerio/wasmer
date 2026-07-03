@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","baseRef","buildId","createdAt","databaseId","githubCommentId","headRef","headSha","prNumber","previewUrl","rolloutId","status","updatedAt"]};

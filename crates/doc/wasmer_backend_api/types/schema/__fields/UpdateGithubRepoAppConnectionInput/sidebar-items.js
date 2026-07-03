@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["clientMutationId","connectionId","deploymentStatusEvents","pullRequestComments"]};
+window.SIDEBAR_ITEMS = {"struct":["appId","clientMutationId","connectionId","deployBranch","deploymentStatusEvents","pullRequestComments"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["appId","bcc","cc","clientMutationId","fromAddress","fromEmailId","htmlBody","rawMessage","replyTo","subject","textBody","to"]};

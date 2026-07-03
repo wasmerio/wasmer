@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","body","expectBodyIncludes","expectBodyRegex","expectStatusCodes","headers","method","path"]};

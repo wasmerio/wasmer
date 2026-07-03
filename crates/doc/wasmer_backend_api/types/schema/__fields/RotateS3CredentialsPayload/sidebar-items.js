@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","accessKey","clientMutationId","endpoint","secretKey","success","volume"]};

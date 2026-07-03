@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","endAt","grouped","startAt","totals"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["expire","minimum","mname","refresh","retry","rname","serial"]};

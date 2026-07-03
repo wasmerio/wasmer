@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["after","before","first","last","offset","sortBy","updatedAfter"]};
+window.SIDEBAR_ITEMS = {"struct":["after","before","first","last","offset","ownerId","sortBy","updatedAfter"]};

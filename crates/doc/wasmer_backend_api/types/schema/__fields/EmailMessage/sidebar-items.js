@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","app","bcc","cc","createdAt","direction","from","htmlBody","id","owner","receivedAt","replyTo","sentAt","status","subject","textBody","to"]};

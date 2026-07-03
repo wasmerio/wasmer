@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["adminEmail","adminPassword","adminUsername","language","siteName"]};
+window.SIDEBAR_ITEMS = {"struct":["adminEmail","adminPassword","adminUsername","language","siteName","theme"]};

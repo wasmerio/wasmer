@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["clientMutationId","domainId","kind","mx","name","recordId","ttl","value"]};
+window.SIDEBAR_ITEMS = {"struct":["caa","clientMutationId","domainId","kind","mx","name","recordId","soa","srv","sshfp","ttl","value"]};
