@@ -4,7 +4,7 @@ use anyhow::{Context, bail};
 use dialoguer::console::{Emoji, style};
 use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
-use wasmer_config::package::{PackageIdent, PackageSource};
+use wasmer_config::package::{NamedPackageId, PackageHash, PackageIdent, PackageSource, Webcm};
 use wasmer_package::utils::from_disk;
 
 use crate::config::WasmerEnv;
@@ -43,6 +43,15 @@ pub struct PackageDownload {
     /// Note: unpacking can also be done manually with the `wasmer package unpack` command.
     #[clap(short, long)]
     unpack: bool,
+
+    /// Don't write the `.webcm` sidecar manifest next to the downloaded package.
+    ///
+    /// The sidecar records the package's name, version, and hash, which the
+    /// `.webc` itself does not retain. Local tooling (e.g. `wasmer run
+    /// --include-webc`) uses it to identify the package. It is only written
+    /// when downloading a package by name.
+    #[clap(long)]
+    no_webcm: bool,
 
     /// The package to download.
     package: PackageSource,
@@ -126,7 +135,7 @@ impl PackageDownload {
 
         step_num += 1;
 
-        let (download_url, ident, filename) = match &self.package {
+        let (download_url, ident, filename, webcm_id) = match &self.package {
             PackageSource::Ident(PackageIdent::Named(id)) => {
                 // caveat: client_unauthennticated will use a token if provided, it
                 // just won't fail if none is present. So, _unauthenticated() can actually
@@ -172,7 +181,20 @@ impl PackageDownload {
                     format!("{}@{}.webc", package.package.package_name, package.version)
                 };
 
-                (download_url, ident, filename)
+                let webcm_id = NamedPackageId {
+                    full_name,
+                    version: package.version.parse().with_context(|| {
+                        format!("registry returned invalid version '{}'", package.version)
+                    })?,
+                };
+                let webcm_hash = package
+                    .distribution_v3
+                    .pirita_sha256_hash
+                    .map(|hex| format!("sha256:{hex}").parse::<PackageHash>())
+                    .transpose()
+                    .context("registry returned an invalid container hash")?;
+
+                (download_url, ident, filename, Some((webcm_id, webcm_hash)))
             }
             PackageSource::Ident(PackageIdent::Hash(hash)) => {
                 // caveat: client_unauthennticated will use a token if provided, it
@@ -187,7 +209,7 @@ impl PackageDownload {
                 let ident = hash.to_string();
                 let filename = format!("{hash}.webc");
 
-                (pkg.webc_url, ident, filename)
+                (pkg.webc_url, ident, filename, None)
             }
             PackageSource::Path(p) => bail!("cannot download a package from a local path: '{p}'"),
             PackageSource::Url(url) => bail!("cannot download a package from a URL: '{url}'"),
@@ -286,6 +308,26 @@ impl PackageDownload {
             )
         })?;
 
+        // Record the registry's hash, not one we compute: if the download was
+        // corrupted, the pair fails verification instead of blessing bad bytes.
+        if let Some((id, hash)) = webcm_id.filter(|_| !self.no_webcm) {
+            if hash.is_none() {
+                pb.println(
+                    "Warning: the registry did not provide a container hash; \
+                     writing the sidecar manifest without one",
+                );
+            }
+
+            let webcm_path = Webcm::path_for_webc(&out_path);
+            std::fs::write(&webcm_path, Webcm::new(id, hash).to_toml()?)
+                .with_context(|| format!("could not write '{}'", webcm_path.display()))?;
+
+            pb.println(format!(
+                "{WRITING_PACKAGE_EMOJI}Sidecar manifest written to '{}'",
+                webcm_path.display()
+            ));
+        }
+
         pb.println(format!(
             "{} {WRITING_PACKAGE_EMOJI}Package downloaded to '{}'",
             style(format!("[{step_num}/{total_steps}]")).bold().dim(),
@@ -319,6 +361,7 @@ impl PackageDownload {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sha2::Digest;
 
     /// Download a package from the dev registry.
     #[test]
@@ -336,15 +379,29 @@ mod tests {
             ),
             validate: true,
             out_path: Some(out_path.clone()),
-            package: "wasmer/hello@0.1.0".parse().unwrap(),
+            package: "wasmer/hello@=0.1.0".parse().unwrap(),
             unpack: true,
             quiet: true,
+            no_webcm: false,
         };
 
         cmd.execute().unwrap();
 
-        from_disk(out_path).unwrap();
+        from_disk(&out_path).unwrap();
 
         assert!(dir.path().join("hello/wasmer.toml").is_file());
+
+        let webcm: Webcm = std::fs::read_to_string(dir.path().join("hello.webcm"))
+            .unwrap()
+            .parse()
+            .unwrap();
+        assert_eq!(
+            webcm.id(),
+            NamedPackageId::try_new("wasmer/hello", "0.1.0").unwrap()
+        );
+        // The recorded hash is the registry's; it must match the actual bytes.
+        let bytes = std::fs::read(&out_path).unwrap();
+        let actual = PackageHash::from_sha256_bytes(sha2::Sha256::digest(&bytes).into());
+        assert_eq!(webcm.package.hash.unwrap(), actual);
     }
 }
