@@ -132,6 +132,9 @@ headless = []
 # Experimental concurrent execution support
 experimental-async = ["dep:futures", "dep:corosensei"]
 
+# Enables Store::coroutine_store_guard for manual cothread store context management.
+unsafe-cothread = ["sys"]
+
 # Experimental host-triggered interruption support
 experimental-host-interrupt = ["wasmer-vm/experimental-host-interrupt"]
 
