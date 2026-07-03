@@ -150,6 +150,7 @@ impl StoreContext {
         })
     }
 
+    #[cfg(feature = "unsafe-cothread")]
     fn install_cothread(id: StoreId, store_ptr: NonNull<StoreInner>) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
@@ -161,6 +162,7 @@ impl StoreContext {
         });
     }
 
+    #[cfg(feature = "unsafe-cothread")]
     fn uninstall_cothread(id: StoreId) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
@@ -333,7 +335,7 @@ impl StoreContext {
     }
 }
 
-#[cfg(feature = "sys")]
+#[cfg(feature = "unsafe-cothread")]
 /// RAII guard that installs the store context on the thread-local stack when
 /// created and removes it on drop. See [`crate::Store::coroutine_store_guard`].
 pub struct CoroutineStoreGuard<'a> {
@@ -341,7 +343,7 @@ pub struct CoroutineStoreGuard<'a> {
     _store: std::marker::PhantomData<&'a mut StoreInner>,
 }
 
-#[cfg(feature = "sys")]
+#[cfg(feature = "unsafe-cothread")]
 impl<'a> CoroutineStoreGuard<'a> {
     /// # Panics
     /// Panics if the store is anywhere on the current thread's context stack
@@ -364,7 +366,7 @@ impl<'a> CoroutineStoreGuard<'a> {
     }
 }
 
-#[cfg(feature = "sys")]
+#[cfg(feature = "unsafe-cothread")]
 impl Drop for CoroutineStoreGuard<'_> {
     fn drop(&mut self) {
         if std::thread::panicking() {

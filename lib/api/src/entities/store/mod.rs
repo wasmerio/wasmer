@@ -33,7 +33,7 @@ mod obj;
 pub use obj::*;
 
 use crate::{AsEngineRef, BackendEngine, Engine, EngineRef};
-#[cfg(feature = "sys")]
+#[cfg(feature = "unsafe-cothread")]
 pub use context::CoroutineStoreGuard;
 pub(crate) use context::*;
 pub(crate) use inner::*;
@@ -132,7 +132,7 @@ impl Store {
     /// # Safety
     /// Exactly one `StorePtrWrapper` derived from this store must be alive on
     /// the suspended coroutine's stack for the duration of the guard.
-    #[cfg(feature = "sys")]
+    #[cfg(feature = "unsafe-cothread")]
     pub unsafe fn coroutine_store_guard(&mut self) -> CoroutineStoreGuard<'_> {
         unsafe { CoroutineStoreGuard::new(self.inner.as_mut()) }
     }
