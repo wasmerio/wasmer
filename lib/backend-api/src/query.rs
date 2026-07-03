@@ -2341,6 +2341,52 @@ pub async fn purge_cache_for_app_version(
     Ok(())
 }
 
+pub async fn configure_app_cdn_cache(
+    client: &WasmerClient,
+    vars: types::ConfigureAppCdnCacheVars,
+) -> Result<types::AppCdnCacheMutationPayload, anyhow::Error> {
+    client
+        .run_graphql_strict(types::ConfigureAppCdnCache::build(vars))
+        .await
+        .map(|x| x.configure_app_cdn_cache)
+}
+
+pub async fn purge_app_cdn_cache(
+    client: &WasmerClient,
+    vars: types::PurgeAppCdnCacheVars,
+) -> Result<types::AppCdnCacheMutationPayload, anyhow::Error> {
+    client
+        .run_graphql_strict(types::PurgeAppCdnCache::build(vars))
+        .await
+        .map(|x| x.purge_app_cdn_cache)
+}
+
+pub async fn app_cdn_cache_status(
+    client: &WasmerClient,
+    vars: types::GetAppCdnCacheStatusVars,
+) -> Result<types::AppCdnCacheStatus, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAppCdnCacheStatus::build(vars))
+        .await?
+        .app
+        .context("app not found")?
+        .into_app()
+        .context("invalid node type returned")
+}
+
+pub async fn app_cdn_cache_metrics(
+    client: &WasmerClient,
+    vars: types::GetAppCdnCacheMetricsVars,
+) -> Result<types::AppCdnCacheMetrics, anyhow::Error> {
+    client
+        .run_graphql_strict(types::GetAppCdnCacheMetrics::build(vars))
+        .await?
+        .app
+        .context("app not found")?
+        .into_app()
+        .context("invalid node type returned")
+}
+
 /// Convert a [`OffsetDateTime`] to a unix timestamp that the WAPM backend
 /// understands.
 fn unix_timestamp(ts: OffsetDateTime) -> f64 {

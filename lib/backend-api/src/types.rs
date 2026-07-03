@@ -311,7 +311,7 @@ mod queries {
     pub struct AppTemplate {
         #[serde(rename = "demoUrl")]
         pub demo_url: String,
-        pub language: String,
+        pub language: Option<String>,
         pub name: String,
         pub framework: String,
         #[serde(rename = "createdAt")]
@@ -2541,6 +2541,145 @@ mod queries {
     pub struct PurgeCacheForAppVersion {
         #[arguments(input: {id: $id})]
         pub purge_cache_for_app_version: Option<PurgeCacheForAppVersionPayload>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct ConfigureAppCdnCacheVars {
+        pub app: cynic::Id,
+        pub enabled: Option<bool>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct PurgeAppCdnCacheVars {
+        pub app: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppCdnCacheMutationPayload {
+        pub success: bool,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "ConfigureAppCdnCacheVars")]
+    pub struct ConfigureAppCdnCache {
+        #[arguments(app: $app, config: {enabled: $enabled})]
+        pub configure_app_cdn_cache: AppCdnCacheMutationPayload,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "PurgeAppCdnCacheVars")]
+    pub struct PurgeAppCdnCache {
+        #[arguments(app: $app)]
+        pub purge_app_cdn_cache: AppCdnCacheMutationPayload,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetAppCdnCacheStatusVars {
+        pub app: cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppCdnCacheStatusVars")]
+    pub struct GetAppCdnCacheStatus {
+        #[arguments(id: $app)]
+        #[cynic(rename = "node")]
+        pub app: Option<NodeAppCdnCacheStatus>,
+    }
+
+    #[derive(cynic::InlineFragments, Debug)]
+    #[cynic(graphql_type = "Node")]
+    pub enum NodeAppCdnCacheStatus {
+        DeployApp(Box<AppCdnCacheStatus>),
+        #[cynic(fallback)]
+        Unknown,
+    }
+
+    impl NodeAppCdnCacheStatus {
+        pub fn into_app(self) -> Option<AppCdnCacheStatus> {
+            match self {
+                Self::DeployApp(app) => Some(*app),
+                Self::Unknown => None,
+            }
+        }
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp")]
+    pub struct AppCdnCacheStatus {
+        pub cdn_cache_enabled: bool,
+        pub cdn_cache_purged_at: Option<DateTime>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GetAppCdnCacheMetricsVars {
+        pub app: cynic::Id,
+        pub start_at: DateTime,
+        pub end_at: DateTime,
+        pub grouped_by: MetricGrouping,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppCdnCacheMetricsVars")]
+    pub struct GetAppCdnCacheMetrics {
+        #[arguments(id: $app)]
+        #[cynic(rename = "node")]
+        pub app: Option<NodeAppCdnCacheMetrics>,
+    }
+
+    #[derive(cynic::InlineFragments, Debug)]
+    #[cynic(graphql_type = "Node", variables = "GetAppCdnCacheMetricsVars")]
+    pub enum NodeAppCdnCacheMetrics {
+        DeployApp(Box<AppCdnCacheMetrics>),
+        #[cynic(fallback)]
+        Unknown,
+    }
+
+    impl NodeAppCdnCacheMetrics {
+        pub fn into_app(self) -> Option<AppCdnCacheMetrics> {
+            match self {
+                Self::DeployApp(app) => Some(*app),
+                Self::Unknown => None,
+            }
+        }
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp", variables = "GetAppCdnCacheMetricsVars")]
+    pub struct AppCdnCacheMetrics {
+        #[arguments(startAt: $start_at, endAt: $end_at, groupedBy: $grouped_by)]
+        pub grouped_metrics: UsageMetrics,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct UsageMetrics {
+        pub totals: MetricsTotals,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct MetricsTotals {
+        pub requests: RequestMetrics,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct RequestMetrics {
+        pub total_requests: BigInt,
+        pub cached_requests: BigInt,
+        pub data_served_bytes: BigInt,
+        pub data_cached_bytes: BigInt,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug)]
+    pub enum MetricGrouping {
+        #[cynic(rename = "BY_15_MINUTES")]
+        By15Minutes,
+        #[cynic(rename = "BY_5_MINUTES")]
+        By5Minutes,
+        #[cynic(rename = "BY_HOUR")]
+        ByHour,
+        #[cynic(rename = "BY_DAY")]
+        ByDay,
+        #[cynic(rename = "BY_WEEK")]
+        ByWeek,
     }
 
     #[derive(cynic::Scalar, Debug, Clone)]
