@@ -8,6 +8,7 @@ use wasmer::{AsStoreMut, FunctionEnv, Global, Instance, Memory, Table, Tag};
 
 use crate::{WasiEnv, import_object_for_all_wasi_versions};
 
+use super::runtime_hooks::instantiate_with_runtime_hooks;
 use super::{
     DlModule, DlOperation, DylinkInfo, InProgressLinkState, InProgressSymbolResolution, LinkError,
     LinkerState, MAIN_MODULE_HANDLE, ModuleHandle, NeededSymbolResolutionKey,
@@ -27,6 +28,11 @@ pub(super) struct DlInstance {
     #[allow(dead_code)]
     pub(super) instance_handles: WasiModuleInstanceHandles,
     pub(super) tls_base: Option<u64>,
+}
+
+pub(super) struct PreparedSideFromLinker {
+    pub(super) module_handle: ModuleHandle,
+    pub(super) instance: Instance,
 }
 
 pub(super) struct InstanceGroupState {
@@ -155,7 +161,8 @@ impl InstanceGroupState {
             &well_known_imports,
         )?;
 
-        let instance = Instance::new(store, &module, &imports)?;
+        let instance =
+            instantiate_with_runtime_hooks(env, store, &module, &mut imports, &self.memory)?;
 
         let instance_handles = WasiModuleInstanceHandles::new(
             self.memory.clone(),
@@ -190,15 +197,14 @@ impl InstanceGroupState {
         Ok(())
     }
 
-    // For when we receive a module loaded DL operation
-    pub(super) fn instantiate_side_module_from_linker(
+    pub(super) fn prepare_side_module_from_linker(
         &mut self,
         linker_state: &LinkerState,
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<WasiEnv>,
         module_handle: ModuleHandle,
         pending_resolutions: &mut PendingResolutionsFromLinker,
-    ) -> Result<(), LinkError> {
+    ) -> Result<PreparedSideFromLinker, LinkError> {
         if self.side_instances.contains_key(&module_handle) {
             panic!(
                 "Internal error: Module with handle {module_handle:?} \
@@ -232,11 +238,30 @@ impl InstanceGroupState {
             pending_resolutions,
         )?;
 
-        let instance = Instance::new(store, &dl_module.module, &imports)?;
+        let instance = instantiate_with_runtime_hooks(
+            env,
+            store,
+            &dl_module.module,
+            &mut imports,
+            &self.memory,
+        )?;
 
-        // This is a non-main instance of a side module, so it needs a new TLS area
-        let tls_base = call_initialization_function::<i32>(&instance, store, "__wasix_init_tls")?
-            .map(|v| v as u64);
+        Ok(PreparedSideFromLinker {
+            module_handle,
+            instance,
+        })
+    }
+
+    pub(super) fn complete_side_module_from_linker(
+        &mut self,
+        prepared: PreparedSideFromLinker,
+        tls_base: Option<u64>,
+        store: &mut impl AsStoreMut,
+    ) -> Result<(), LinkError> {
+        let PreparedSideFromLinker {
+            module_handle,
+            instance,
+        } = prepared;
 
         let instance_handles = WasiModuleInstanceHandles::new(
             self.memory.clone(),
@@ -260,6 +285,31 @@ impl InstanceGroupState {
         trace!(?module_handle, "Existing module instantiated successfully");
 
         Ok(())
+    }
+
+    // For when we receive a module loaded DL operation
+    pub(super) fn instantiate_side_module_from_linker(
+        &mut self,
+        linker_state: &LinkerState,
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<WasiEnv>,
+        module_handle: ModuleHandle,
+        pending_resolutions: &mut PendingResolutionsFromLinker,
+    ) -> Result<(), LinkError> {
+        let prepared = self.prepare_side_module_from_linker(
+            linker_state,
+            store,
+            env,
+            module_handle,
+            pending_resolutions,
+        )?;
+
+        // This is a non-main instance of a side module, so it needs a new TLS area
+        let tls_base =
+            call_initialization_function::<i32>(&prepared.instance, store, "__wasix_init_tls")?
+                .map(|v| v as u64);
+
+        self.complete_side_module_from_linker(prepared, tls_base, store)
     }
 
     pub(super) fn finalize_pending_resolutions_from_linker(

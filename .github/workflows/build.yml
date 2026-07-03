@@ -59,8 +59,7 @@ jobs:
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             build_wasm: true
             enable_llvm: true
-            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
-            enable_v8: false
+            enable_v8: true
             enable_napi_v8: true
           - build: macos-arm
             os: depot-macos-14
@@ -69,8 +68,7 @@ jobs:
             build_wasm: false
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-aarch64.tar.xz"
             enable_llvm: true
-            # V8 issue broken right now: https://github.com/wasmerio/wasmer/pull/6124
-            enable_v8: false
+            enable_v8: true
             enable_napi_v8: true
           - build: windows-x64
             os: windows-2022
@@ -79,8 +77,8 @@ jobs:
             cross_compilation_artifact_name: "cross_compiled_from_win"
             build_wasm: false
             enable_llvm: true
-            enable_v8: false
-            enable_napi_v8: false
+            enable_v8: true
+            enable_napi_v8: true
             #- build: linux-musl-x64
             #  os: ubuntu-22.04
             #  artifact_name: 'wasmer-linux-musl-amd64'
@@ -285,7 +283,12 @@ jobs:
           mkdir -p /tmp/xwincache
           git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
           cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
-          /tmp/xwin/target/release/xwin --accept-license --cache-dir /tmp/xwincache splat --output /tmp/xwindownload
+          /tmp/xwin/target/release/xwin \
+            --accept-license \
+            --cache-dir /tmp/xwincache \
+            --timeout 180s \
+            splat \
+            --output /tmp/xwindownload
           mkdir -p /tmp/winsdk
           SDK_VERSION=$(ls /tmp/xwindownload/sdk/lib | head -n 1)
           cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/WS2_32.lib /tmp/winsdk/

@@ -1,3 +1,5 @@
+use super::*;
+
 mod call_dynamic;
 mod callback_signal;
 mod chdir;
@@ -38,6 +40,7 @@ mod port_unbridge;
 mod proc_exec;
 mod proc_exec2;
 mod proc_exec3;
+mod proc_exec4;
 mod proc_exit2;
 mod proc_fork;
 mod proc_fork_env;
@@ -50,6 +53,7 @@ mod proc_signals_sizes_get;
 mod proc_snapshot;
 mod proc_spawn;
 mod proc_spawn2;
+mod proc_spawn3;
 mod reflect_signature;
 mod resolve;
 mod sched_yield;
@@ -130,6 +134,7 @@ pub use port_unbridge::*;
 pub use proc_exec::*;
 pub use proc_exec2::*;
 pub use proc_exec3::*;
+pub use proc_exec4::*;
 pub use proc_exit2::*;
 pub use proc_fork::*;
 pub use proc_fork_env::*;
@@ -142,6 +147,7 @@ pub use proc_signals_sizes_get::*;
 pub use proc_snapshot::*;
 pub use proc_spawn::*;
 pub use proc_spawn2::*;
+pub use proc_spawn3::*;
 pub use reflect_signature::*;
 pub use resolve::*;
 pub use sched_yield::*;
@@ -183,3 +189,56 @@ pub use tty_get::*;
 pub use tty_set::*;
 
 use tracing::{Span, debug_span, field, instrument, trace_span};
+use wasmer::WasmRef;
+
+pub(super) fn checked_sock_recv_size<'a, M: MemorySize + 'a>(
+    iovs: impl IntoIterator<Item = WasmRef<'a, __wasi_iovec_t<M>>>,
+    max_sock_recv_size: Option<u64>,
+) -> Result<usize, Errno> {
+    let mut max_size = 0usize;
+    for iovs in iovs {
+        let iovs = iovs.read().map_err(mem_error_to_wasi)?;
+        let buf_len = from_offset::<M>(iovs.buf_len)?;
+        max_size = max_size.checked_add(buf_len).ok_or(Errno::Overflow)?;
+        if let Some(max) = max_sock_recv_size
+            && (max_size as u64) > max
+        {
+            return Err(Errno::Inval);
+        }
+    }
+    Ok(max_size)
+}
+
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests {
+    use super::checked_sock_recv_size;
+    use crate::syscalls::types::{__wasi_iovec_t, wasi::Errno};
+    use wasmer::{Memory, Memory64, MemoryType, Store, WasmRef};
+
+    #[test]
+    fn checked_sock_recv_size_catches_iovec_len_overflow() {
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
+        let view = memory.view(&store);
+
+        let iovs = [
+            __wasi_iovec_t::<Memory64> {
+                buf: 0,
+                buf_len: usize::MAX as u64,
+            },
+            __wasi_iovec_t::<Memory64> { buf: 0, buf_len: 1 },
+        ];
+        let first_iov = WasmRef::new(&view, 0);
+        let second_iov = WasmRef::new(
+            &view,
+            std::mem::size_of::<__wasi_iovec_t<Memory64>>() as u64,
+        );
+        first_iov.write(iovs[0]).unwrap();
+        second_iov.write(iovs[1]).unwrap();
+
+        let err = checked_sock_recv_size::<Memory64>([first_iov, second_iov], Some(u64::MAX))
+            .unwrap_err();
+
+        assert_eq!(err, Errno::Overflow);
+    }
+}

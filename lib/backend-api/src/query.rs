@@ -1717,6 +1717,31 @@ pub async fn get_package(
         .map(|x| x.get_package)
 }
 
+/// Retrieve the published version numbers of a package, if it exists.
+///
+/// Returns `None` when the package does not exist in the registry, and an
+/// (possibly empty) list of version strings otherwise.
+pub async fn get_package_version_numbers(
+    client: &WasmerClient,
+    name: String,
+) -> Result<Option<Vec<String>>, anyhow::Error> {
+    let package = client
+        .run_graphql_strict(types::GetPackageVersionNumbers::build(
+            types::GetPackageVars { name },
+        ))
+        .await?
+        .get_package;
+
+    Ok(package.map(|p| {
+        p.versions
+            .unwrap_or_default()
+            .into_iter()
+            .flatten()
+            .map(|v| v.version)
+            .collect()
+    }))
+}
+
 /// Retrieve a package version by its name.
 pub async fn get_package_version(
     client: &WasmerClient,
@@ -1740,6 +1765,69 @@ pub async fn get_package_versions(
         .run_graphql(types::GetAllPackageVersions::build(vars))
         .await?;
     Ok(res.all_package_versions)
+}
+
+/// Search the registry for packages matching `query`, optionally constrained by
+/// `filter` (e.g. by owner, curated status, downloads).
+///
+/// Returns a single page of matching package versions; pass `first`/`after` for
+/// pagination. Use [`fetch_all_matching_packages`] to stream every page.
+pub async fn search_packages(
+    client: &WasmerClient,
+    query: impl Into<String>,
+    filter: Option<types::PackagesFilter>,
+    first: Option<i32>,
+    after: Option<String>,
+) -> Result<types::Paginated<types::SearchPackageVersion>, anyhow::Error> {
+    let con = client
+        .run_graphql_strict(types::SearchPackages::build(types::SearchPackagesVars {
+            query: query.into(),
+            packages: filter,
+            first,
+            after,
+        }))
+        .await?
+        .search;
+
+    let items = con
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|edge| edge.node)
+        .filter_map(types::SearchResult::into_package_version)
+        .collect();
+
+    let next_cursor = con
+        .page_info
+        .end_cursor
+        .filter(|_| con.page_info.has_next_page);
+
+    Ok(types::Paginated { items, next_cursor })
+}
+
+/// Stream every package matching `query`/`filter`, fetching `page_size` results
+/// per request until the registry is exhausted.
+pub fn fetch_all_matching_packages(
+    client: &WasmerClient,
+    query: impl Into<String>,
+    filter: Option<types::PackagesFilter>,
+    page_size: i32,
+) -> impl futures::Stream<Item = Result<Vec<types::SearchPackageVersion>, anyhow::Error>> + '_ {
+    let query = query.into();
+    futures::stream::try_unfold(Some(None), move |state| {
+        let query = query.clone();
+        let filter = filter.clone();
+        async move {
+            let Some(after) = state else {
+                return Ok(None);
+            };
+
+            let page = search_packages(client, query, filter, Some(page_size), after).await?;
+            let next_state = page.next_cursor.map(Some);
+
+            Ok::<_, anyhow::Error>(Some((page.items, next_state)))
+        }
+    })
 }
 
 /// Retrieve a package release by hash.

@@ -4,7 +4,10 @@
 use crate::dwarf::WriterRelocate;
 
 #[cfg(feature = "unwind")]
-use crate::eh::{FunctionLsdaData, build_function_lsda, build_lsda_section, build_tag_section};
+use crate::eh::{
+    CompactUnwindEntryData, FunctionLsdaData, build_compact_unwind_section, build_function_lsda,
+    build_lsda_section, build_tag_section, compact_unwind_encoding_aarch64,
+};
 
 #[cfg(feature = "unwind")]
 use crate::translator::CraneliftUnwindInfo;
@@ -31,7 +34,6 @@ use gimli::{
     write::{Address, EhFrame, FrameDescriptionEntry, FrameTable, Writer},
 };
 
-#[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
@@ -49,11 +51,13 @@ use wasmer_compiler::{
             Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
         },
         module::CompileModuleInfo,
-        relocation::{Relocation, RelocationTarget},
+        relocation::{Relocation, RelocationKind, RelocationTarget},
+        section::{CustomSection, CustomSectionProtection, SectionBody},
     },
 };
-#[cfg(feature = "rayon")]
 use wasmer_compiler::{build_function_buckets, translate_function_buckets};
+#[cfg(feature = "unwind")]
+use wasmer_types::LibCall;
 #[cfg(feature = "unwind")]
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
@@ -71,6 +75,8 @@ pub struct CraneliftCompiledFunction {
     fde: Option<FrameDescriptionEntry>,
     #[cfg(feature = "unwind")]
     function_lsda: Option<FunctionLsdaData>,
+    #[cfg(feature = "unwind")]
+    compact_unwind_encoding: Option<u32>,
 }
 
 impl wasmer_compiler::CompiledFunction for CraneliftCompiledFunction {}
@@ -110,6 +116,16 @@ impl CraneliftCompiler {
         let frontend_config = isa.frontend_config();
         #[cfg(feature = "unwind")]
         let pointer_bytes = frontend_config.pointer_bytes();
+        #[cfg(feature = "unwind")]
+        let emit_macho_compact_unwind = matches!(
+            target.triple(),
+            target_lexicon::Triple {
+                binary_format: target_lexicon::BinaryFormat::Macho,
+                operating_system: target_lexicon::OperatingSystem::Darwin(_),
+                architecture: target_lexicon::Architecture::Aarch64(_),
+                ..
+            }
+        );
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
@@ -260,7 +276,24 @@ impl CraneliftCompiler {
                 .collect::<Vec<_>>();
 
             #[cfg(feature = "unwind")]
-            let function_lsda = if dwarf_frametable.is_some() {
+            let emit_lsda = dwarf_frametable.is_some() || emit_macho_compact_unwind;
+
+            #[cfg(feature = "unwind")]
+            let compact_unwind_encoding = if emit_macho_compact_unwind {
+                Some(
+                    compact_unwind_encoding_aarch64(&result.buffer.unwind_info).map_err(|error| {
+                        CompileError::Codegen(format!(
+                            "failed to encode aarch64 Mach-O compact unwind for function {}: {error}",
+                            i.index()
+                        ))
+                    })?,
+                )
+            } else {
+                None
+            };
+
+            #[cfg(feature = "unwind")]
+            let function_lsda = if emit_lsda {
                 build_function_lsda(
                     result.buffer.call_sites(),
                     result.buffer.data().len(),
@@ -309,34 +342,20 @@ impl CraneliftCompiler {
                     },
                     relocations: func_relocs,
                     frame_info: CompiledFunctionFrameInfo { address_map, traps },
+                    maximum_stack_usage: None,
                 },
                 #[cfg(feature = "unwind")]
                 fde,
                 #[cfg(feature = "unwind")]
                 function_lsda,
+                #[cfg(feature = "unwind")]
+                compact_unwind_encoding,
             })
         };
 
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut custom_sections = PrimaryMap::new();
 
-        #[cfg(not(feature = "rayon"))]
-        let mut func_translator =
-            FuncTranslator::new(self.config.allow_experimental_unaligned_memory_accesses);
-        #[cfg(not(feature = "rayon"))]
-        let results = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .into_iter()
-            .map(|(i, input)| {
-                let result = compile_function(&mut func_translator, &i, input)?;
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(input.data.len() as u64)?;
-                }
-                Ok(result)
-            })
-            .collect::<Result<Vec<_>, CompileError>>()?;
-        #[cfg(feature = "rayon")]
         let results = {
             use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
@@ -364,6 +383,8 @@ impl CraneliftCompiler {
         let mut fdes = Vec::with_capacity(function_body_inputs.len());
         #[cfg(feature = "unwind")]
         let mut lsda_data = Vec::with_capacity(function_body_inputs.len());
+        #[cfg(feature = "unwind")]
+        let mut compact_unwind_entries = Vec::new();
 
         for compiled in results {
             let CraneliftCompiledFunction {
@@ -372,18 +393,41 @@ impl CraneliftCompiler {
                 fde,
                 #[cfg(feature = "unwind")]
                 function_lsda,
+                #[cfg(feature = "unwind")]
+                compact_unwind_encoding,
             } = compiled;
+            #[cfg(feature = "unwind")]
+            let local_function_index = LocalFunctionIndex::new(functions.len());
             functions.push(function);
             #[cfg(feature = "unwind")]
             {
                 fdes.push(fde);
                 lsda_data.push(function_lsda);
+                if let Some(compact_encoding) = compact_unwind_encoding {
+                    let function_length = functions
+                        .last()
+                        .expect("function was just pushed")
+                        .body
+                        .body
+                        .len()
+                        .try_into()
+                        .map_err(|_| {
+                            CompileError::Codegen(
+                                "function body too large for Mach-O compact unwind".into(),
+                            )
+                        })?;
+                    compact_unwind_entries.push((
+                        local_function_index,
+                        function_length,
+                        compact_encoding,
+                    ));
+                }
             }
         }
 
         #[cfg(feature = "unwind")]
         let (_tag_section_index, lsda_section_index, function_lsda_offsets) =
-            if dwarf_frametable.is_some() {
+            if dwarf_frametable.is_some() || emit_macho_compact_unwind {
                 let mut tag_section_index = None;
                 let mut tag_offsets = HashMap::new();
                 if let Some((tag_section, offsets)) = build_tag_section(&lsda_data) {
@@ -457,35 +501,31 @@ impl CraneliftCompiler {
             unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1));
         };
 
+        #[cfg(feature = "unwind")]
+        if emit_macho_compact_unwind {
+            let entries = compact_unwind_entries
+                .into_iter()
+                .map(|(function, function_length, compact_encoding)| {
+                    let lsda_offset = function_lsda_offsets
+                        .get(function.index())
+                        .and_then(|offset| *offset);
+                    CompactUnwindEntryData {
+                        function,
+                        function_length,
+                        compact_encoding,
+                        lsda_offset,
+                    }
+                })
+                .collect::<Vec<_>>();
+            if let Some(section) = build_compact_unwind_section(entries, lsda_section_index) {
+                custom_sections.push(section);
+                unwind_info.compact_unwind = Some(SectionIndex::new(custom_sections.len() - 1));
+            }
+        }
+
         let module_hash = module.hash_string();
 
         // function call trampolines (only for local functions, by signature)
-        #[cfg(not(feature = "rayon"))]
-        let mut cx = FunctionBuilderContext::new();
-        #[cfg(not(feature = "rayon"))]
-        let function_call_trampolines = module
-            .signatures
-            .values()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|sig| {
-                let trampoline = make_trampoline_function_call(
-                    &self.config().callbacks,
-                    &*isa,
-                    target.triple().architecture,
-                    &mut cx,
-                    sig,
-                    &module_hash,
-                )?;
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
-                Ok(trampoline)
-            })
-            .collect::<Result<Vec<FunctionBody>, CompileError>>()?
-            .into_iter()
-            .collect();
-        #[cfg(feature = "rayon")]
         let function_call_trampolines = module
             .signatures
             .values()
@@ -512,32 +552,6 @@ impl CraneliftCompiler {
         use wasmer_types::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
         // dynamic function trampolines (only for imported functions)
-        #[cfg(not(feature = "rayon"))]
-        let mut cx = FunctionBuilderContext::new();
-        #[cfg(not(feature = "rayon"))]
-        let dynamic_function_trampolines = module
-            .imported_function_types()
-            .collect::<Vec<_>>()
-            .into_iter()
-            .map(|func_type| {
-                let trampoline = make_trampoline_dynamic_function(
-                    &self.config().callbacks,
-                    &*isa,
-                    target.triple().architecture,
-                    &offsets,
-                    &mut cx,
-                    &func_type,
-                    &module_hash,
-                )?;
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
-                Ok(trampoline)
-            })
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .collect();
-        #[cfg(feature = "rayon")]
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
@@ -561,7 +575,28 @@ impl CraneliftCompiler {
             .into_iter()
             .collect();
 
-        let got = wasmer_compiler::types::function::GOT::empty();
+        let mut got = wasmer_compiler::types::function::GOT::empty();
+
+        #[cfg(feature = "unwind")]
+        if emit_macho_compact_unwind {
+            let got_idx = SectionIndex::from_u32(custom_sections.len() as u32);
+            custom_sections.push(CustomSection {
+                protection: CustomSectionProtection::Read,
+                alignment: Some(pointer_bytes.into()),
+                bytes: SectionBody::new_with_vec(vec![0; pointer_bytes as usize]),
+                relocations: vec![Relocation {
+                    kind: match pointer_bytes {
+                        4 => RelocationKind::Abs4,
+                        8 => RelocationKind::Abs8,
+                        _ => unreachable!("unsupported pointer size for Mach-O compact unwind GOT"),
+                    },
+                    reloc_target: RelocationTarget::LibCall(LibCall::EHPersonality),
+                    offset: 0,
+                    addend: 0,
+                }],
+            });
+            got.index = Some(got_idx);
+        }
 
         Ok(Compilation {
             functions: functions.into_iter().collect(),

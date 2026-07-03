@@ -145,7 +145,7 @@ impl AsyncCliCommand for PackagePublish {
 
         match ident {
             PackageIdent::Named(ref n) => {
-                let url = make_package_url(&client, n);
+                let url = package_web_url_for_ident(&client, n);
                 eprintln!("\n{} Package URL: {url}", "𖥔".yellow().bold());
             }
             PackageIdent::Hash(ref h) => {

@@ -87,8 +87,8 @@ make build-wasmer
 
 **Note**: you should see `cranelift` appear in the `Enabled Compilers: ...` message in the console.
 
-You may disable the Cranelift backend with the `ENABLE_SINGLEPASS=0` environment
-variable, and force its enabling with `ENABLE_SINGLEPASS=1`.
+You may disable the Cranelift backend with the `ENABLE_CRANELIFT=0` environment
+variable, and force its enabling with `ENABLE_CRANELIFT=1`.
 
 ### LLVM Compiler
 

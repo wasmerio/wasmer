@@ -86,11 +86,11 @@ use crate::{HashMap, hash_map};
 use core::convert::TryFrom;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 use cranelift_codegen::ir::immediates::Offset32;
-use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
-    self, AtomicRmwOp, BlockArg, ConstantData, InstBuilder, JumpTableData, MemFlags, Value,
+    self, AtomicRmwOp, BlockArg, ConstantData, InstBuilder, JumpTableData, MemFlagsData, Value,
     ValueLabel,
 };
+use cranelift_codegen::ir::{Function, types::*};
 use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_frontend::{FunctionBuilder, Variable};
 use itertools::Itertools;
@@ -120,6 +120,32 @@ macro_rules! unwrap_or_return_unreachable_state {
             }
         }
     };
+}
+
+pub(crate) enum MemoryAliasRegion {
+    Heap,
+    Table,
+}
+
+fn insert_mem_flags(func: &mut Function, flags: ir::MemFlagsData) -> ir::MemFlags {
+    func.dfg.mem_flags.insert(flags).unwrap()
+}
+
+pub fn set_memflags_alias_region(
+    func: &mut Function,
+    flags: &mut MemFlagsData,
+    region: MemoryAliasRegion,
+) {
+    flags.set_alias_region(Some(func.dfg.alias_regions.insert(match region {
+        MemoryAliasRegion::Heap => ir::AliasRegionData {
+            user_id: 0,
+            description: "heap".into(),
+        },
+        MemoryAliasRegion::Table => ir::AliasRegionData {
+            user_id: 1,
+            description: "table".into(),
+        },
+    })));
 }
 
 // Clippy warns about "align: _" but its important to document that the align field is ignored
@@ -185,9 +211,9 @@ pub fn translate_operator(
                 GlobalVariable::Const(val) => val,
                 GlobalVariable::Memory { gv, offset, ty } => {
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
-                    let mut flags = ir::MemFlags::trusted();
+                    let mut flags = ir::MemFlagsData::trusted();
                     // Put globals in the "table" abstract heap category as well.
-                    flags.set_alias_region(Some(ir::AliasRegion::Table));
+                    set_memflags_alias_region(builder.func, &mut flags, MemoryAliasRegion::Table);
                     builder.ins().load(ty, flags, addr, offset)
                 }
                 GlobalVariable::Custom => environ.translate_custom_global_get(
@@ -202,9 +228,9 @@ pub fn translate_operator(
                 GlobalVariable::Const(_) => panic!("global #{} is a constant", *global_index),
                 GlobalVariable::Memory { gv, offset, ty } => {
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
-                    let mut flags = ir::MemFlags::trusted();
+                    let mut flags = ir::MemFlagsData::trusted();
                     // Put globals in the "table" abstract heap category as well.
-                    flags.set_alias_region(Some(ir::AliasRegion::Table));
+                    set_memflags_alias_region(builder.func, &mut flags, MemoryAliasRegion::Table);
                     let mut val = state.pop1();
                     // Ensure SIMD values are cast to their default Cranelift type, I8x16.
                     if ty.is_vector() {
@@ -1201,19 +1227,19 @@ pub fn translate_operator(
         }
         Operator::F32ReinterpretI32 => {
             let val = state.pop1();
-            state.push1(builder.ins().bitcast(F32, MemFlags::new(), val));
+            state.push1(builder.ins().bitcast(F32, MemFlagsData::new(), val));
         }
         Operator::F64ReinterpretI64 => {
             let val = state.pop1();
-            state.push1(builder.ins().bitcast(F64, MemFlags::new(), val));
+            state.push1(builder.ins().bitcast(F64, MemFlagsData::new(), val));
         }
         Operator::I32ReinterpretF32 => {
             let val = state.pop1();
-            state.push1(builder.ins().bitcast(I32, MemFlags::new(), val));
+            state.push1(builder.ins().bitcast(I32, MemFlagsData::new(), val));
         }
         Operator::I64ReinterpretF64 => {
             let val = state.pop1();
-            state.push1(builder.ins().bitcast(I64, MemFlags::new(), val));
+            state.push1(builder.ins().bitcast(I64, MemFlagsData::new(), val));
         }
         Operator::I32Extend8S => {
             let val = state.pop1();
@@ -2790,7 +2816,7 @@ fn prepare_addr(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FuncEnvironment<'_>,
-) -> WasmResult<Reachability<(MemFlags, Value, Value)>> {
+) -> WasmResult<Reachability<(MemFlagsData, Value, Value)>> {
     let index = state.pop1();
     let heap = state.get_heap(builder.func, memarg.memory, environ)?;
 
@@ -2928,14 +2954,14 @@ fn prepare_addr(
     // alignment immediate may says it's aligned, because WebAssembly's
     // immediate field is just a hint, while Cranelift's aligned flag needs a
     // guarantee. WebAssembly memory accesses are always little-endian.
-    let mut flags = MemFlags::new();
+    let mut flags = MemFlagsData::new();
     flags.set_endianness(ir::Endianness::Little);
 
     // The access occurs to the `heap` disjoint category of abstract
     // state. This may allow alias analysis to merge redundant loads,
     // etc. when heap accesses occur interleaved with other (table,
     // vmctx, stack) accesses.
-    flags.set_alias_region(Some(ir::AliasRegion::Heap));
+    set_memflags_alias_region(builder.func, &mut flags, MemoryAliasRegion::Heap);
 
     Ok(Reachability::Reachable((flags, index, addr)))
 }
@@ -2984,7 +3010,7 @@ fn prepare_atomic_addr(
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FuncEnvironment<'_>,
-) -> WasmResult<Reachability<(MemFlags, Value, Value)>> {
+) -> WasmResult<Reachability<(MemFlagsData, Value, Value)>> {
     align_atomic_addr(memarg, loaded_bytes, builder, state);
     prepare_addr(memarg, loaded_bytes, builder, state, environ)
 }
@@ -3023,6 +3049,7 @@ fn translate_load(
             Reachability::Unreachable => return Ok(Reachability::Unreachable),
             Reachability::Reachable((f, i, b)) => (f, i, b),
         };
+    let raw_flags = insert_mem_flags(builder.func, flags);
 
     // TODO: maybe support also v128
     if allow_unaligned_memory_accesses && mem_op_size > 1 && mem_op_size < 16 {
@@ -3044,7 +3071,7 @@ fn translate_load(
         let (fast_load, fast_dfg) =
             builder
                 .ins()
-                .Load(opcode, result_ty, flags, Offset32::new(0), base);
+                .Load(opcode, result_ty, raw_flags, Offset32::new(0), base);
         let fast_val = fast_dfg.first_result(fast_load);
         builder.ins().jump(block_merge, &[fast_val.into()]);
 
@@ -3075,7 +3102,7 @@ fn translate_load(
         }
         let slow_val = builder.ins().bitcast(
             result_ty,
-            MemFlags::new().with_endianness(ir::Endianness::Little),
+            MemFlagsData::new().with_endianness(ir::Endianness::Little),
             slow_val,
         );
         builder.ins().jump(block_merge, &[slow_val.into()]);
@@ -3086,7 +3113,7 @@ fn translate_load(
     } else {
         let (load, dfg) = builder
             .ins()
-            .Load(opcode, result_ty, flags, Offset32::new(0), base);
+            .Load(opcode, result_ty, raw_flags, Offset32::new(0), base);
         state.push1(dfg.first_result(load));
     }
 
@@ -3110,6 +3137,7 @@ fn translate_store(
         state,
         prepare_addr(memarg, mem_op_size, builder, state, environ)?
     );
+    let raw_flags = insert_mem_flags(builder.func, flags);
 
     if allow_unaligned_memory_accesses && mem_op_size > 1 && mem_op_size < 16 {
         let block_aligned = builder.create_block();
@@ -3127,7 +3155,7 @@ fn translate_store(
         builder.switch_to_block(block_aligned);
         builder
             .ins()
-            .Store(opcode, val_ty, flags, Offset32::new(0), val, base);
+            .Store(opcode, val_ty, raw_flags, Offset32::new(0), val, base);
         builder.ins().jump(block_merge, &[]);
 
         builder.switch_to_block(block_unaligned);
@@ -3141,7 +3169,7 @@ fn translate_store(
             )?;
             builder.ins().bitcast(
                 result_uint_type,
-                MemFlags::new().with_endianness(ir::Endianness::Little),
+                MemFlagsData::new().with_endianness(ir::Endianness::Little),
                 val,
             )
         };
@@ -3156,7 +3184,7 @@ fn translate_store(
     } else {
         builder
             .ins()
-            .Store(opcode, val_ty, flags, Offset32::new(0), val, base);
+            .Store(opcode, val_ty, raw_flags, Offset32::new(0), val, base);
     }
 
     Ok(())
@@ -3696,7 +3724,7 @@ fn optionally_bitcast_vector(
     if builder.func.dfg.value_type(value) != needed_type {
         builder.ins().bitcast(
             needed_type,
-            MemFlags::new().with_endianness(ir::Endianness::Little),
+            MemFlagsData::new().with_endianness(ir::Endianness::Little),
             value,
         )
     } else {
@@ -3723,7 +3751,7 @@ fn canonicalise_v128_values<'a>(
         let value = if is_non_canonical_v128(builder.func.dfg.value_type(*v)) {
             builder.ins().bitcast(
                 I8X16,
-                MemFlags::new().with_endianness(ir::Endianness::Little),
+                MemFlagsData::new().with_endianness(ir::Endianness::Little),
                 *v,
             )
         } else {
@@ -3849,7 +3877,7 @@ pub fn bitcast_wasm_returns(
         environ.is_wasm_return(&builder.func.signature, i)
     });
     for (t, arg) in changes {
-        let mut flags = MemFlags::new();
+        let mut flags = MemFlagsData::new();
         flags.set_endianness(ir::Endianness::Little);
         *arg = builder.ins().bitcast(t, flags, *arg);
     }
@@ -3867,7 +3895,7 @@ pub fn bitcast_wasm_params(
         environ.is_wasm_parameter(callee_signature, i)
     });
     for (t, arg) in changes {
-        let mut flags = MemFlags::new();
+        let mut flags = MemFlagsData::new();
         flags.set_endianness(ir::Endianness::Little);
         *arg = builder.ins().bitcast(t, flags, *arg);
     }

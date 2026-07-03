@@ -14,11 +14,11 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=7.2.0-alpha.3", features = [
+wasmer-compiler = { path = "../compiler", version = "=7.2.0", features = [
   "translator",
   "compiler",
 ] }
-wasmer-types = { path = "../types", version = "=7.2.0-alpha.3", features = [
+wasmer-types = { path = "../types", version = "=7.2.0", features = [
   "std",
 ], default-features = false }
 hashbrown = { workspace = true, optional = true }
@@ -33,9 +33,13 @@ tempfile.workspace = true
 itertools.workspace = true
 target-lexicon.workspace = true
 fixedbitset.workspace = true
+serde_derive = { workspace = true, optional = true }
+serde = { workspace = true, default-features = false, features = [
+  "derive",
+], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = { workspace = true, optional = true }
+rayon.workspace = true
 
 [dev-dependencies]
 target-lexicon.workspace = true
@@ -44,14 +48,14 @@ target-lexicon.workspace = true
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "rayon", "unwind", "avx"]
+default = ["std", "unwind", "avx"]
 wasm = ["std", "unwind", "avx"]
 std = ["wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 unwind = ["gimli"]
 sse = []
 avx = []
-enable-serde = []
+enable-serde = ["serde", "serde_derive"]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

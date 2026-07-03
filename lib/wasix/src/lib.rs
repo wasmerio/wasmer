@@ -15,6 +15,15 @@
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/main/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
+#[cfg(feature = "enable-serde")]
+const _: () = {
+    #[deprecated(
+        note = "The `enable-serde` feature is deprecated and will be removed in the next major release of Wasmer."
+    )]
+    fn __enable_serde_deprecated() {}
+    let _ = __enable_serde_deprecated;
+};
+
 #[cfg(all(
     not(feature = "sys"),
     not(feature = "js"),
@@ -568,12 +577,14 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "proc_exec" => Function::new_typed_with_env(&mut store, env, proc_exec::<Memory32>),
         "proc_exec2" => Function::new_typed_with_env(&mut store, env, proc_exec2::<Memory32>),
         "proc_exec3" => Function::new_typed_with_env(&mut store, env, proc_exec3::<Memory32>),
+        "proc_exec4" => Function::new_typed_with_env(&mut store, env, proc_exec4::<Memory32>),
         "proc_exit2" => Function::new_typed_with_env(&mut store, env, proc_exit2::<Memory32>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "proc_raise_interval" => Function::new_typed_with_env(&mut store, env, proc_raise_interval),
         "proc_snapshot" => Function::new_typed_with_env(&mut store, env, proc_snapshot::<Memory32>),
         "proc_spawn" => Function::new_typed_with_env(&mut store, env, proc_spawn::<Memory32>),
         "proc_spawn2" => Function::new_typed_with_env(&mut store, env, proc_spawn2::<Memory32>),
+        "proc_spawn3" => Function::new_typed_with_env(&mut store, env, proc_spawn3::<Memory32>),
         "proc_id" => Function::new_typed_with_env(&mut store, env, proc_id::<Memory32>),
         "proc_parent" => Function::new_typed_with_env(&mut store, env, proc_parent::<Memory32>),
         "random_get" => Function::new_typed_with_env(&mut store, env, random_get::<Memory32>),
@@ -715,12 +726,14 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "proc_exec" => Function::new_typed_with_env(&mut store, env, proc_exec::<Memory64>),
         "proc_exec2" => Function::new_typed_with_env(&mut store, env, proc_exec2::<Memory64>),
         "proc_exec3" => Function::new_typed_with_env(&mut store, env, proc_exec3::<Memory64>),
+        "proc_exec4" => Function::new_typed_with_env(&mut store, env, proc_exec4::<Memory64>),
         "proc_exit2" => Function::new_typed_with_env(&mut store, env, proc_exit2::<Memory64>),
         "proc_raise" => Function::new_typed_with_env(&mut store, env, proc_raise),
         "proc_raise_interval" => Function::new_typed_with_env(&mut store, env, proc_raise_interval),
         "proc_snapshot" => Function::new_typed_with_env(&mut store, env, proc_snapshot::<Memory64>),
         "proc_spawn" => Function::new_typed_with_env(&mut store, env, proc_spawn::<Memory64>),
         "proc_spawn2" => Function::new_typed_with_env(&mut store, env, proc_spawn2::<Memory64>),
+        "proc_spawn3" => Function::new_typed_with_env(&mut store, env, proc_spawn3::<Memory64>),
         "proc_id" => Function::new_typed_with_env(&mut store, env, proc_id::<Memory64>),
         "proc_parent" => Function::new_typed_with_env(&mut store, env, proc_parent::<Memory64>),
         "random_get" => Function::new_typed_with_env(&mut store, env, random_get::<Memory64>),

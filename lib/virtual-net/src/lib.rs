@@ -53,6 +53,10 @@ pub use virtual_mio::{InterestHandler, handler_into_waker};
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
 
+/// Largest datagram payload (65535 - UDP header).
+/// Caps host allocation across address families; the OS rejects oversize packets.
+pub const MAX_SOCKET_PAYLOAD: usize = 65535 - 8;
+
 /// Represents an IP address and its netmask
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 #[cfg_attr(feature = "rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
@@ -183,6 +187,18 @@ pub trait VirtualNetworking: fmt::Debug + Send + Sync + 'static {
         Err(NetworkError::Unsupported)
     }
 
+    /// Binds a TCP socket to a specific IP and port without immediately
+    /// listening for connections or connecting to a peer.
+    async fn bind_tcp(
+        &self,
+        addr: SocketAddr,
+        only_v6: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
+    ) -> Result<Box<dyn VirtualTcpBoundSocket + Sync>> {
+        Err(NetworkError::Unsupported)
+    }
+
     /// Opens a UDP socket that listens on a specific IP and Port combination
     /// Multiple servers (processes or threads) can bind to the same port if they each set
     /// the reuse-port and-or reuse-addr flags
@@ -241,6 +257,23 @@ pub trait VirtualTcpListener: VirtualIoSource + fmt::Debug + Send + Sync + 'stat
     fn ttl(&self) -> Result<u8>;
 }
 
+pub trait VirtualTcpBoundSocket: fmt::Debug + Send + Sync + 'static {
+    /// Returns the local address of this bound TCP socket.
+    fn addr_local(&self) -> Result<SocketAddr>;
+
+    /// Places the socket into listening mode.
+    fn listen(&mut self) -> Result<Box<dyn VirtualTcpListener + Sync>>;
+
+    /// Initiates a TCP connection using the already-bound local address.
+    fn connect(&mut self, peer: SocketAddr) -> Result<Box<dyn VirtualTcpSocket + Sync>>;
+
+    /// Sets how many network hops the packets are permitted for this socket.
+    fn set_ttl(&mut self, ttl: u32) -> Result<()>;
+
+    /// Returns the maximum number of network hops before packets are dropped.
+    fn ttl(&self) -> Result<u32>;
+}
+
 #[async_trait::async_trait]
 pub trait VirtualTcpListenerExt: VirtualTcpListener {
     /// Accepts a new connection from the TCP listener
@@ -289,6 +322,11 @@ pub trait VirtualSocket: VirtualIoSource + fmt::Debug + Send + Sync + 'static {
 
     /// Returns the status/state of the socket
     fn status(&self) -> Result<SocketStatus>;
+
+    /// Returns and clears the last socket error when the backend can report one.
+    fn last_error(&self) -> Result<Option<NetworkError>> {
+        Ok(None)
+    }
 
     /// Registers a waker for when this connection is ready to receive
     /// more data. Uses a stack machine which means more than one waker
@@ -820,6 +858,9 @@ pub enum NetworkError {
     /// The provided data is invalid
     #[error("invalid input")]
     InvalidInput,
+    /// The message is too large to send as one packet
+    #[error("message too large")]
+    MessageSize,
     /// Could not perform the operation because there was not an open connection
     #[error("connection is not open")]
     NotConnected,
@@ -864,7 +905,13 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
         ErrorKind::ConnectionReset => NetworkError::ConnectionReset,
         ErrorKind::Interrupted => NetworkError::Interrupted,
         ErrorKind::InvalidData => NetworkError::InvalidData,
-        ErrorKind::InvalidInput => NetworkError::InvalidInput,
+        ErrorKind::InvalidInput => {
+            #[cfg(all(target_family = "unix", feature = "libc"))]
+            if net_error.raw_os_error() == Some(libc::EMSGSIZE) {
+                return NetworkError::MessageSize;
+            }
+            NetworkError::InvalidInput
+        }
         ErrorKind::NotConnected => NetworkError::NotConnected,
         ErrorKind::PermissionDenied => NetworkError::PermissionDenied,
         ErrorKind::TimedOut => NetworkError::TimedOut,
@@ -889,6 +936,7 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
                     libc::EACCES => NetworkError::PermissionDenied,
                     libc::ENODEV => NetworkError::NoDevice,
                     libc::EINVAL => NetworkError::InvalidInput,
+                    libc::EMSGSIZE => NetworkError::MessageSize,
                     libc::EPIPE => NetworkError::BrokenPipe,
                     err => {
                         tracing::trace!("unknown os error {}", err);
@@ -930,6 +978,16 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::Unsupported => ErrorKind::Unsupported.into(),
         NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
         NetworkError::InsufficientMemory => ErrorKind::OutOfMemory.into(),
+        NetworkError::MessageSize => {
+            #[cfg(all(target_family = "unix", feature = "libc"))]
+            {
+                std::io::Error::from_raw_os_error(libc::EMSGSIZE)
+            }
+            #[cfg(not(all(target_family = "unix", feature = "libc")))]
+            {
+                ErrorKind::Other.into()
+            }
+        }
         NetworkError::TooManyOpenFiles => {
             #[cfg(all(target_family = "unix", feature = "libc"))]
             {

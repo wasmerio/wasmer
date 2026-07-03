@@ -64,7 +64,7 @@ impl Binfmt {
     /// execute [Binfmt]
     pub fn execute(&self) -> Result<()> {
         if !self.binfmt_misc.exists() {
-            panic!("{} does not exist", self.binfmt_misc.to_string_lossy());
+            bail!("{} does not exist", self.binfmt_misc.to_string_lossy());
         }
         let temp_dir;
         let specs = match self.action {
@@ -160,5 +160,27 @@ impl Binfmt {
                 .collect::<Result<Vec<_>>>()?;
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_binfmt_mount_returns_error() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let missing = tempdir.path().join("missing-binfmt-misc");
+        let cmd = Binfmt {
+            binfmt_misc: missing.clone(),
+            action: Action::Register,
+        };
+
+        let error = cmd.execute().unwrap_err();
+
+        assert_eq!(
+            error.to_string(),
+            format!("{} does not exist", missing.display())
+        );
     }
 }

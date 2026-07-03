@@ -38,8 +38,6 @@ use crate::{
     state::{Stderr, Stdin, Stdout},
 };
 use futures::{Future, future::BoxFuture};
-#[cfg(feature = "enable-serde")]
-use serde_derive::{Deserialize, Serialize};
 use tracing::{debug, trace, warn};
 use virtual_fs::{
     ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
@@ -158,7 +156,6 @@ const STDERR_DEFAULT_RIGHTS: Rights = STDOUT_DEFAULT_RIGHTS;
 pub const MAX_SYMLINKS: u32 = 128;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Inode(u64);
 
 impl Inode {
@@ -285,14 +282,12 @@ impl InodeWeakGuard {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 struct EphemeralSymlinkEntry {
     path_to_symlink: PathBuf,
     relative_path: PathBuf,
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[warn(unused)]
 enum ComponentResolution {
     Create {
@@ -316,13 +311,11 @@ enum ComponentResolution {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 struct WasiInodesProtected {
     lookup: HashMap<Inode, Weak<InodeVal>>,
 }
 
 #[derive(Clone, Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiInodes {
     protected: Arc<RwLock<WasiInodesProtected>>,
 }
@@ -573,13 +566,11 @@ impl FileSystem for WasiFsRoot {
 /// `inode`**. Prefer the `*_locked` helpers on [`WasiFs`] (`insert_fd_locked`,
 /// `clone_fd_locked`, `close_fd_locked`, `dup2_at`) so handle counts and map slots
 /// stay consistent under concurrency.
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
     pub fd_map: RwLock<FdList>,
     pub current_dir: Mutex<String>,
-    #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
     pub root_inode: InodeGuard,
     pub has_unioned: Mutex<HashSet<PackageId>>,
@@ -655,6 +646,29 @@ impl WasiFs {
             .normalize_virtual_symlink_key()
             .into_path_buf();
         guard.remove(&key);
+    }
+
+    /// Removes a symlink's backing file (if any) and drops its ephemeral record.
+    ///
+    /// A purely ephemeral (virtual) link has no host file, so `Noent` for a
+    /// still-registered ephemeral link counts as success. Returns the `Errno`
+    /// the syscall should report.
+    pub(crate) fn remove_symlink_file(&self, host_path: &Path) -> Errno {
+        match self
+            .root_fs
+            .remove_file(host_path)
+            .map_err(fs_error_into_wasi_err)
+        {
+            Ok(()) => {
+                self.unregister_ephemeral_symlink(host_path);
+                Errno::Success
+            }
+            Err(Errno::Noent) if self.ephemeral_symlink_at(host_path).is_some() => {
+                self.unregister_ephemeral_symlink(host_path);
+                Errno::Success
+            }
+            Err(e) => e,
+        }
     }
 
     pub(crate) fn move_ephemeral_symlink(
@@ -3470,6 +3484,98 @@ mod tests {
                 .metadata(Path::new("/public/index.html"))
                 .unwrap()
                 .is_file()
+        );
+    }
+
+    #[tokio::test]
+    async fn ephemeral_symlink_resolves_without_caching_a_directory_entry() {
+        // An ephemeral symlink must resolve to a `Kind::Symlink` that is NOT cached in
+        // the parent's `entries`, so unlink takes the uncached branch.
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs =
+            WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
+
+        wasi_fs.register_ephemeral_symlink(
+            PathBuf::from("/link"),
+            PathBuf::from("link"),
+            PathBuf::from("target.txt"),
+        );
+
+        let link = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", false)
+            .unwrap();
+        assert!(matches!(
+            link.read().deref(),
+            Kind::Symlink {
+                symlink_kind: SymlinkKind::Virtual,
+                relative_path,
+                ..
+            } if relative_path == Path::new("target.txt")
+        ));
+
+        // Parent must not have cached the symlink.
+        let (parent_inode, child_name) = wasi_fs
+            .get_parent_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, Path::new("/link"), false)
+            .unwrap();
+        assert_eq!(child_name, "link");
+        match parent_inode.read().deref() {
+            Kind::Dir { entries, .. } | Kind::Root { entries } => {
+                assert!(!entries.contains_key("link"));
+            }
+            _ => panic!("expected the parent of /link to be a directory"),
+        }
+    }
+
+    #[tokio::test]
+    async fn remove_symlink_file_drops_ephemeral_link_without_backing_file() {
+        // Ephemeral link, no host file: removal succeeds, unregisters, target untouched.
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs =
+            WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
+
+        wasi_fs
+            .root_fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/target.txt"))
+            .unwrap();
+        wasi_fs.register_ephemeral_symlink(
+            PathBuf::from("/link"),
+            PathBuf::from("link"),
+            PathBuf::from("target.txt"),
+        );
+        assert!(wasi_fs.ephemeral_symlink_at(Path::new("/link")).is_some());
+
+        assert_eq!(
+            wasi_fs.remove_symlink_file(Path::new("/link")),
+            Errno::Success
+        );
+        assert!(wasi_fs.ephemeral_symlink_at(Path::new("/link")).is_none());
+        assert!(
+            wasi_fs
+                .root_fs
+                .metadata(Path::new("/target.txt"))
+                .unwrap()
+                .is_file()
+        );
+    }
+
+    #[tokio::test]
+    async fn remove_symlink_file_reports_noent_when_nothing_to_remove() {
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs =
+            WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
+
+        assert_eq!(
+            wasi_fs.remove_symlink_file(Path::new("/missing")),
+            Errno::Noent
         );
     }
 }

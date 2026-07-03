@@ -31,6 +31,7 @@ You can install LLVM easily on your Debian-like system via this command:
 ```bash
 wget https://apt.llvm.org/llvm.sh -O /tmp/llvm.sh
 sudo bash /tmp/llvm.sh 22
+sudo apt install libpolly-22-dev
 ```
 
 Or in macOS:

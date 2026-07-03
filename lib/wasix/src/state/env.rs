@@ -1305,11 +1305,11 @@ impl WasiEnv {
                         }
                     }
 
-                    // Now send a signal that the thread is terminated
-                    process.signal_process(Signal::Sigquit);
-
-                    // Terminate the process
+                    // Record the real exit code before broadcasting Sigquit.
+                    // Otherwise a pending Sigquit can win the status race and
+                    // make waiters observe a successful exit.
                     process.terminate(process_exit_code);
+                    process.signal_process(Signal::Sigquit);
                 }
             })
         } else {
