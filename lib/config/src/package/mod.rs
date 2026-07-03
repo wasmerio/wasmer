@@ -10,6 +10,7 @@ mod package_hash;
 mod package_id;
 mod package_ident;
 mod package_source;
+mod webcm;
 
 pub use self::{
     error::PackageParseError,
@@ -18,6 +19,7 @@ pub use self::{
     package_id::{NamedPackageId, PackageId},
     package_ident::PackageIdent,
     package_source::PackageSource,
+    webcm::{Webcm, WebcmError, WebcmPackage},
 };
 
 use std::{
