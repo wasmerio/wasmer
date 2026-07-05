@@ -583,6 +583,11 @@ pub fn emit_metadata_and_link(
             "dynamic_lookup".to_string(),
             "-bind_at_load".to_string(),
             "-no_fixup_chains".to_string(),
+            // Make a stable library name in the LC_ID_DYLIB command.
+            "-install_name".to_string(),
+            "wasmer-image.dylib".to_string(),
+            // For a deterministic output, don't emit any UUID.
+            "-no_uuid".to_string(),
             "-o".to_string(),
             module_file.path().display().to_string(),
         ]
