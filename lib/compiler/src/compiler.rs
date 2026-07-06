@@ -594,9 +594,12 @@ pub fn emit_metadata_and_link(
     } else if cfg!(target_os = "linux") {
         vec![
             "ld".to_string(),
+            // Allow resolution of the public symbols directly without PLT entries!
             "-Bsymbolic".to_string(),
             "-shared".to_string(),
-            "--threads=1".to_string(),
+            // Intentionally do not create extra Rayon pool, in the future,
+            // add support for parallel linking.
+            "--no-threads".to_string(),
             "-z".to_string(),
             "now".to_string(),
             "-z".to_string(),
