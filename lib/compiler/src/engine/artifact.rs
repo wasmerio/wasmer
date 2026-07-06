@@ -682,6 +682,12 @@ impl Artifact {
                         "allocated artifact creation failed: {e}"
                     ))
                 })?;
+
+        let finished_functions = allocated_artifact.function_extents();
+        engine_inner
+            .register_perfmap(&finished_functions, module_info)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
+
         let ArtifactBuild {
             module_file,
             serializable,
