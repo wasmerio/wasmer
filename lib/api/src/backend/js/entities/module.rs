@@ -224,12 +224,14 @@ impl Module {
         ));
     }
 
-    pub unsafe fn load_from_file(
+    pub unsafe fn deserialize_file(
         engine: &impl AsEngineRef,
-        file: std::fs::File,
+        path: impl AsRef<std::path::Path>,
     ) -> Result<Self, DeserializeError> {
         use std::io::Read;
         let mut bytes = Vec::new();
+        let file = std::fs::File::open(path.as_ref())
+            .map_err(|e| DeserializeError::Generic(e.to_string()))?;
         let mut reader = std::io::BufReader::new(file);
         reader
             .read_to_end(&mut bytes)

@@ -105,16 +105,16 @@ impl Module {
         self.artifact.serialize_to_file(path.as_ref())
     }
 
-    pub(crate) unsafe fn load_from_file(
+    pub(crate) unsafe fn deserialize_file(
         engine: &impl AsEngineRef,
-        file: std::fs::File,
+        path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let artifact = unsafe {
             engine
                 .as_engine_ref()
                 .engine()
                 .as_sys()
-                .load_from_file(file)?
+                .deserialize_file(path)?
         };
         Ok(Self::from_artifact(artifact))
     }

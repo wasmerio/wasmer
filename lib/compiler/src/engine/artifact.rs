@@ -606,7 +606,7 @@ impl Artifact {
 
     /// Serialize the artifact to a file by copying the underlying binary file.
     ///
-    /// The resulting file can later be loaded with [`Self::load_from_file`].
+    /// The resulting file can later be loaded with [`Self::deserialize_file`].
     pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
         let mut reader = self.module_file.try_clone_reader().map_err(|e| {
             SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
@@ -621,7 +621,12 @@ impl Artifact {
     }
 
     /// Load a compiled artifact from a file.
-    pub fn load_from_file(engine: &Engine, mut file: File) -> Result<Self, DeserializeError> {
+    pub fn deserialize_file(
+        engine: &Engine,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let mut file = File::open(path.as_ref())
+            .map_err(|e| DeserializeError::Generic(format!("cannot open artifact file: {e}")))?;
         file.seek(SeekFrom::Start(0))
             .map_err(|e| DeserializeError::Generic(format!("cannot seek artifact format: {e}")))?;
         let reader = BufReader::new(

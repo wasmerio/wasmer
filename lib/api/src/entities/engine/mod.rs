@@ -146,12 +146,12 @@ impl Engine {
     /// architecture is not `wasm32`.
     ///
     /// # Safety
-    /// See [`Artifact::load_from_file`].
-    unsafe fn load_from_file(
+    /// See [`Artifact::deserialize_file`].
+    unsafe fn deserialize_file(
         &self,
-        file: std::fs::File,
+        path: impl AsRef<std::path::Path>,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        unsafe { self.be.load_from_file(file) }
+        unsafe { self.be.deserialize_file(path) }
     }
 
     /// Add suggested optimizations to this engine.

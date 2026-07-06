@@ -126,8 +126,7 @@ impl ExecutableTarget {
             TargetOnDisk::Artifact => {
                 let engine = runtime.engine();
                 pb.set_message("Deserializing pre-compiled WebAssembly module");
-                let file = std::fs::File::open(path)?;
-                let module = unsafe { Module::load_from_file(&engine, file)? };
+                let module = unsafe { Module::deserialize_file(&engine, path)? };
 
                 let module_hash = module.info().hash.ok_or_else(|| {
                     anyhow::Error::msg("module hash is not present in the artifact")

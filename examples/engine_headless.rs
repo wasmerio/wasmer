@@ -104,8 +104,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // because Wasmer can't assert the bytes are valid (see the
         // `wasmer::Module::deserialize`'s documentation to learn
         // more).
-        let file = std::fs::File::open(&serialized_module_file)?;
-        let module = unsafe { Module::load_from_file(&store, file) }?;
+        let module = unsafe { Module::deserialize_file(&store, &serialized_module_file) }?;
 
         // Congrats, the Wasm module has been deserialized! Now let's
         // execute it for the sake of having a complete example.

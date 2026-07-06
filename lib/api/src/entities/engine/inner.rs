@@ -33,15 +33,15 @@ impl BackendEngine {
     /// Currently, only the `sys` engines support it, and only when the target
     /// architecture is not `wasm32`.
     #[inline]
-    pub(crate) fn load_from_file(
+    pub(crate) fn deserialize_file(
         &self,
-        file: std::fs::File,
+        path: impl AsRef<std::path::Path>,
     ) -> Result<Arc<Artifact>, DeserializeError> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => s.load_from_file(file),
+            Self::Sys(s) => s.deserialize_file(path),
             _ => Err(DeserializeError::Generic(
-                "The selected runtime does not support `load_from_file`".into(),
+                "The selected runtime does not support `deserialize_file`".into(),
             )),
         }
     }

@@ -209,8 +209,11 @@ impl Engine {
 
     /// Load a compiled WebAssembly artifact from a file.
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn load_from_file(&self, file: std::fs::File) -> Result<Arc<Artifact>, DeserializeError> {
-        Ok(Arc::new(Artifact::load_from_file(self, file)?))
+    pub fn deserialize_file(
+        &self,
+        path: impl AsRef<std::path::Path>,
+    ) -> Result<Arc<Artifact>, DeserializeError> {
+        Ok(Arc::new(Artifact::deserialize_file(self, path)?))
     }
 
     /// A unique identifier for this object.

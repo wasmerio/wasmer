@@ -20,8 +20,8 @@ fn artifact_serialization_roundtrip(config: crate::Config) -> Result<()> {
         let module = Module::new(&store, wasm_module).unwrap();
         let artifact_path = tmpdir.join(format!("{file_name}.wasmu"));
         module.serialize_to_file(&artifact_path)?;
-        let artifact_file = std::fs::File::open(&artifact_path)?;
-        let deserialized_module = unsafe { Module::load_from_file(&store, artifact_file) }.unwrap();
+        let deserialized_module =
+            unsafe { Module::deserialize_file(&store, &artifact_path) }.unwrap();
         let reserialized_bytes = deserialized_module.serialize().unwrap();
         let serialized_bytes = fs::read(&artifact_path)?;
         // Do not use `assert_eq!`; it produces excessively long console output.
@@ -76,8 +76,7 @@ fn artifact_deserialization_roundtrip() {
             .join("wasmer-test-files/compilers/linux")
             .join(format!("{file_name}u"));
         let engine = wasmer::Engine::default();
-        let file = std::fs::File::open(&path).unwrap();
-        let module = unsafe { Module::load_from_file(&engine, file) }.unwrap();
+        let module = unsafe { Module::deserialize_file(&engine, &path) }.unwrap();
         let reserialized_bytes = module.serialize().unwrap();
         let wasm_module_bytes = fs::read(&path).unwrap();
         // Do not use `assert_eq!`; it produces excessively long console output.

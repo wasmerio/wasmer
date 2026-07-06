@@ -206,7 +206,7 @@ impl BackendModule {
     }
 
     /// Serializes a module into a file that the `Engine`
-    /// can later process via [`Self::load_from_file`].
+    /// can later process via [`Self::deserialize_file`].
     ///
     /// # Usage
     ///
@@ -233,11 +233,10 @@ impl BackendModule {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # use std::fs::File;
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
-    /// # let file = File::open("path/to/foo.wasmu")?;
-    /// let module = Module::load_from_file(&store, file)?;
+    /// # let path = "path/to/foo.wasmu";
+    /// let module = Module::deserialize_file(&store, path)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -249,39 +248,30 @@ impl BackendModule {
     /// The loaded file must be trusted to contain a valid artifact previously
     /// built with [`Self::serialize`].
     #[inline]
-    pub unsafe fn load_from_file(
+    pub unsafe fn deserialize_file(
         engine: &impl AsEngineRef,
-        file: std::fs::File,
+        path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let mut file = Some(file);
+        let path = path.as_ref();
         match engine.as_engine_ref().inner.be {
             #[cfg(feature = "sys")]
             crate::BackendEngine::Sys(_) => {
                 let module = unsafe {
-                    crate::backend::sys::entities::module::Module::load_from_file(
-                        engine,
-                        file.take().unwrap(),
-                    )?
+                    crate::backend::sys::entities::module::Module::deserialize_file(engine, path)?
                 };
                 Ok(Self::Sys(module))
             }
             #[cfg(feature = "v8")]
             crate::BackendEngine::V8(_) => {
                 let module = unsafe {
-                    crate::backend::v8::entities::module::Module::load_from_file(
-                        engine,
-                        file.take().unwrap(),
-                    )?
+                    crate::backend::v8::entities::module::Module::deserialize_file(engine, path)?
                 };
                 Ok(Self::V8(module))
             }
             #[cfg(feature = "js")]
             crate::BackendEngine::Js(_) => {
                 let module = unsafe {
-                    crate::backend::js::entities::module::Module::load_from_file(
-                        engine,
-                        file.take().unwrap(),
-                    )?
+                    crate::backend::js::entities::module::Module::deserialize_file(engine, path)?
                 };
                 Ok(Self::Js(module))
             }

@@ -7,8 +7,7 @@ fn sanity_test_artifact_deserialize() {
     // An empty file is not a valid artifact.
     let path = std::env::temp_dir().join("wasmer_empty_test");
     std::fs::write(&path, []).unwrap();
-    let empty_file = std::fs::File::open(&path).unwrap();
-    let result = unsafe { Module::load_from_file(&engine, empty_file) };
+    let result = unsafe { Module::deserialize_file(&engine, &path) };
     let _ = std::fs::remove_file(&path);
     assert!(result.is_err());
 }
@@ -51,10 +50,10 @@ fn test_deserialize(config: crate::Config) -> Result<()> {
 
     let artifact_path = std::env::temp_dir().join("wasmer_test_deserialize.wasmu");
     std::fs::write(&artifact_path, &serialized_bytes)?;
-    let file = std::fs::File::open(&artifact_path)?;
 
     let headless_store = config.headless_store();
-    let deserialized_module = unsafe { Module::load_from_file(&headless_store, file)? };
+    let deserialized_module =
+        unsafe { Module::deserialize_file(&headless_store, &artifact_path)? };
     assert_eq!(deserialized_module.name(), Some("name"));
     assert_eq!(
         deserialized_module.exports().collect::<Vec<_>>(),

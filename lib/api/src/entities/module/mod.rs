@@ -157,7 +157,7 @@ impl Module {
     }
 
     /// Serializes a module into a binary representation that the `Engine`
-    /// can later process via [`Module::load_from_file`].
+    /// can later process via [`Module::deserialize_file`].
     ///
     /// # Important
     ///
@@ -180,7 +180,7 @@ impl Module {
     }
 
     /// Serializes a module into a file that the `Engine`
-    /// can later process via [`Module::load_from_file`].
+    /// can later process via [`Module::deserialize_file`].
     ///
     /// # Usage
     ///
@@ -206,11 +206,10 @@ impl Module {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # use std::fs::File;
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
-    /// # let file = File::open("path/to/foo.wasmu")?;
-    /// let module = Module::load_from_file(&store, file)?;
+    /// # let path = "path/to/foo.wasmu";
+    /// let module = Module::deserialize_file(&store, path)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -221,11 +220,11 @@ impl Module {
     /// into memory.
     /// The loaded file must be trusted to contain a valid artifact previously
     /// built with [`Self::serialize`].
-    pub unsafe fn load_from_file(
+    pub unsafe fn deserialize_file(
         engine: &impl AsEngineRef,
-        file: std::fs::File,
+        path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        unsafe { BackendModule::load_from_file(engine, file) }.map(Self)
+        unsafe { BackendModule::deserialize_file(engine, path) }.map(Self)
     }
 
     /// Returns the name of the current module.
