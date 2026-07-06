@@ -14,7 +14,6 @@ version.workspace = true
 
 [dependencies]
 wasmer-types = { path = "../types", version = "=7.2.0", default-features = false }
-wasmer-lld-rx = { path = "../lld-rx", version = "=7.2.0" }
 wasmparser = { workspace = true, default-features = false, optional = true }
 enumset.workspace = true
 hashbrown = { workspace = true, optional = true }
@@ -64,6 +63,12 @@ windows-sys = { workspace = true, features = [
 
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
 macho-unwind-info.workspace = true
+
+# On Linux, we use libwild directly, while macOS requires the lld wrapper
+# because Wild’s Mach-O support is not complete yet:
+# https://github.com/wild-linker/wild/issues/757
+[target.'cfg(target_os = "macos")'.dependencies]
+wasmer-lld-rx = { path = "../lld-rx", version = "=7.2.0" }
 
 [features]
 default = ["std"]
