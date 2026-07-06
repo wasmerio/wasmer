@@ -661,7 +661,6 @@ pub fn emit_metadata_and_link(
         }
         std::fs::create_dir_all(&debug_dir).ok();
         debug_dir.push("wasmer-image.so");
-        // TODO
         let _ = std::fs::copy(module_file.path(), &debug_dir);
     }
 
