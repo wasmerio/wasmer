@@ -24,6 +24,7 @@ use crate::{
     InstantiationError, Tunables,
     WASMER_FUNCTION_OFFSETS_SECTION_NAME, WASMER_MODULE_INFO_SECTION_NAME,
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
+    WASMER_VERSION_SECTION_NAME,
     engine::{mapped_binary::MemoryMappedBinary, resolver::resolve_tags},
     register_frame_info, resolve_imports,
     serialize::SerializableModule,
@@ -36,8 +37,8 @@ use tempfile::NamedTempFile;
 use wasmer_types::Features;
 use wasmer_types::{
     CompilationProgressCallback, CompileError, DataInitializer, DeserializeError, FunctionIndex,
-    LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer, SerializeError,
-    SignatureIndex, TableIndex, TrapCode, TrapInformation,
+    LocalFunctionIndex, MemoryIndex, MetadataHeader, ModuleInfo, OwnedDataInitializer,
+    SerializeError, SignatureIndex, TableIndex, TrapCode, TrapInformation,
     entity::{BoxedSlice, EntityRef, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -241,11 +242,23 @@ impl AllocatedArtifact {
 
         // Parts function offsets
         let mut function_offsets = None;
+        let mut version = None;
         for section in image.sections() {
             let Ok(section_name) = section.name_bytes() else {
                 continue;
             };
             match section_name {
+                WASMER_VERSION_SECTION_NAME => {
+                    let data = section
+                        .data()
+                        .map_err(|e| format!("cannot load image section data: {e}"))?;
+                    let arr: [u8; 4] = data
+                        .get(..4)
+                        .ok_or_else(|| "corrupted version section".to_string())?
+                        .try_into()
+                        .map_err(|_| "corrupted version section".to_string())?;
+                    version = Some(u32::from_le_bytes(arr));
+                }
                 WASMER_FUNCTION_OFFSETS_SECTION_NAME => {
                     let data = section
                         .data()
@@ -276,6 +289,18 @@ impl AllocatedArtifact {
         let Some(function_offsets) = function_offsets else {
             return Err("missing function offset section in the image".to_string());
         };
+        match version {
+            Some(version) if version == MetadataHeader::CURRENT_VERSION => {}
+            Some(version) => {
+                return Err(format!(
+                    "incompatible artifact version: expected {}, got {version}",
+                    MetadataHeader::CURRENT_VERSION
+                ));
+            }
+            None => {
+                return Err("missing version section in the image".to_string());
+            }
+        }
         let local_function_count = module_info.functions.len() - module_info.num_imported_functions;
 
         let local_fn_sizes = function_offsets
