@@ -482,41 +482,42 @@ impl AsyncRead for PipeRx {
     }
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for Pipe {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         0
     }
 
     /// the last time the file was modified in nanoseconds as a UNIX timestamp
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         0
     }
 
     /// the time at which the file was created in nanoseconds as a UNIX timestamp
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         0
     }
 
     /// the size of the file in bytes
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         0
     }
 
     /// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
-    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
 
     /// Request deletion of the file
-    fn unlink(&mut self) -> Result<(), FsError> {
+    async fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
 
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
-    fn is_open(&self) -> bool {
+    async fn is_open(&self) -> bool {
         self.send
             .tx
             .as_ref()

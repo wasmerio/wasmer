@@ -11,12 +11,13 @@ use crate::*;
 pub struct EmptyFileSystem {}
 
 #[allow(unused_variables)]
+#[async_trait::async_trait]
 impl FileSystem for EmptyFileSystem {
-    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+    async fn readlink(&self, path: &Path) -> Result<PathBuf> {
         Err(FsError::EntryNotFound)
     }
 
-    fn read_dir(&self, path: &Path) -> Result<ReadDir> {
+    async fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         // Special-case the root path by returning an empty iterator.
         // An empty file system should still be readable, just not contain
         // any entries.
@@ -27,19 +28,20 @@ impl FileSystem for EmptyFileSystem {
         }
     }
 
-    fn create_dir(&self, path: &Path) -> Result<()> {
+    async fn create_dir(&self, path: &Path) -> Result<()> {
         Err(FsError::EntryNotFound)
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
+    async fn remove_dir(&self, path: &Path) -> Result<()> {
         Err(FsError::EntryNotFound)
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async { Err(FsError::EntryNotFound) })
+    async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        let _ = (from, to);
+        Err(FsError::EntryNotFound)
     }
 
-    fn metadata(&self, path: &Path) -> Result<Metadata> {
+    async fn metadata(&self, path: &Path) -> Result<Metadata> {
         // Special-case the root path by returning an stub value.
         // An empty file system should still be readable, just not contain
         // any entries.
@@ -56,26 +58,23 @@ impl FileSystem for EmptyFileSystem {
         }
     }
 
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+    async fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         Err(FsError::EntryNotFound)
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
+    async fn remove_file(&self, path: &Path) -> Result<()> {
         Err(FsError::EntryNotFound)
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
-}
-
-impl FileOpener for EmptyFileSystem {
-    #[allow(unused_variables)]
-    fn open(
+    async fn open(
         &self,
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        let _ = (path, conf);
         Err(FsError::EntryNotFound)
     }
 }

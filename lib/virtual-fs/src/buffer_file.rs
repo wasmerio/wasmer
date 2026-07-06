@@ -67,24 +67,25 @@ impl AsyncRead for BufferFile {
     }
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for BufferFile {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         1_000_000_000 // 1 second after epoch, since zero times are bad!
     }
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         1_000_000_000
     }
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         1_000_000_000
     }
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         self.data.get_ref().len() as u64
     }
-    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         self.data.get_mut().resize(new_size as usize, 0);
         Ok(())
     }
-    fn unlink(&mut self) -> crate::Result<()> {
+    async fn unlink(&mut self) -> crate::Result<()> {
         Ok(())
     }
     fn poll_read_ready(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

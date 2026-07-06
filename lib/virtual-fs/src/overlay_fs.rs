@@ -8,16 +8,15 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::BoxFuture;
 use replace_with::replace_with_or_abort;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use crate::{
-    FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
-    ReadDir, VirtualFile, ops,
+    FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir,
+    VirtualFile, ops,
 };
 
-fn unlink_overlay_path<P>(primary: &Arc<P>, path: &Path) -> Result<(), FsError>
+async fn unlink_overlay_path<P>(primary: &Arc<P>, path: &Path) -> Result<(), FsError>
 where
     P: FileSystem + ?Sized,
 {
@@ -25,12 +24,12 @@ where
     // fails we abort early so the lower-layer entry never becomes visible.
     // Removing from primary first and then failing to create the whiteout
     // would cause the secondary file to re-appear.
-    match ops::create_white_out(primary, path) {
+    match ops::create_white_out(primary, path).await {
         Ok(()) | Err(FsError::AlreadyExists) => {}
         Err(e) => return Err(e),
     }
 
-    match primary.remove_file(path) {
+    match primary.remove_file(path).await {
         // File was not in primary (only in a secondary) – the whiteout alone
         // is sufficient to suppress it.
         Err(e) if should_continue(e) => Ok(()),
@@ -53,40 +52,41 @@ where
     }
 }
 
+#[async_trait::async_trait]
 impl<P> VirtualFile for SecondaryFile<P>
 where
     P: FileSystem + 'static,
 {
-    fn last_accessed(&self) -> u64 {
-        self.inner.last_accessed()
+    async fn last_accessed(&self) -> u64 {
+        self.inner.last_accessed().await
     }
 
-    fn last_modified(&self) -> u64 {
-        self.inner.last_modified()
+    async fn last_modified(&self) -> u64 {
+        self.inner.last_modified().await
     }
 
-    fn created_time(&self) -> u64 {
-        self.inner.created_time()
+    async fn created_time(&self) -> u64 {
+        self.inner.created_time().await
     }
 
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
-        self.inner.set_times(atime, mtime)
+    async fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        self.inner.set_times(atime, mtime).await
     }
 
-    fn size(&self) -> u64 {
-        self.inner.size()
+    async fn size(&self) -> u64 {
+        self.inner.size().await
     }
 
-    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
-        self.inner.set_len(new_size)
+    async fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+        self.inner.set_len(new_size).await
     }
 
-    fn unlink(&mut self) -> crate::Result<()> {
+    async fn unlink(&mut self) -> crate::Result<()> {
         // A SecondaryFile is only created when the primary has no binding for
         // this path at open time. Any file currently at this path in primary is
         // a different, independently-created object. Only create a whiteout to
         // hide the secondary entry; never remove from primary.
-        match ops::create_white_out(&self.primary, &self.path) {
+        match ops::create_white_out(&self.primary, &self.path).await {
             Ok(()) => Ok(()),
             // The whiteout already exists: the path was already deleted from the
             // overlay's perspective, so report it as not found.
@@ -95,20 +95,20 @@ where
         }
     }
 
-    fn is_open(&self) -> bool {
-        self.inner.is_open()
+    async fn is_open(&self) -> bool {
+        self.inner.is_open().await
     }
 
-    fn get_special_fd(&self) -> Option<u32> {
-        self.inner.get_special_fd()
+    async fn get_special_fd(&self) -> Option<u32> {
+        self.inner.get_special_fd().await
     }
 
-    fn write_from_mmap(&mut self, offset: u64, len: u64) -> std::io::Result<()> {
-        self.inner.write_from_mmap(offset, len)
+    async fn write_from_mmap(&mut self, offset: u64, len: u64) -> std::io::Result<()> {
+        self.inner.write_from_mmap(offset, len).await
     }
 
-    fn as_owned_buffer(&self) -> Option<shared_buffer::OwnedBuffer> {
-        self.inner.as_owned_buffer()
+    async fn as_owned_buffer(&self) -> Option<shared_buffer::OwnedBuffer> {
+        self.inner.as_owned_buffer().await
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -260,7 +260,7 @@ where
 
     fn permission_error_or_not_found(&self, path: &Path) -> Result<(), FsError> {
         for fs in self.secondaries.filesystems() {
-            if ops::exists(fs, path) {
+            if futures::executor::block_on(ops::exists(fs, path)) {
                 return Err(FsError::PermissionDenied);
             }
         }
@@ -269,33 +269,34 @@ where
     }
 }
 
+#[async_trait::async_trait]
 impl<P, S> FileSystem for OverlayFileSystem<P, S>
 where
     P: FileSystem + Send + 'static,
     S: for<'a> FileSystems<'a> + Send + Sync + 'static,
     for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
 {
-    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+    async fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
         // Whiteout files can not be read, they are just markers
         if ops::is_white_out(path).is_some() {
             return Err(FsError::EntryNotFound);
         }
 
         // Check if the file is in the primary
-        match self.primary.readlink(path) {
+        match self.primary.readlink(path).await {
             Ok(meta) => return Ok(meta),
             Err(e) if should_continue(e) => {}
             Err(e) => return Err(e),
         }
 
         // There might be a whiteout, search for this
-        if ops::has_white_out(&self.primary, path) {
+        if ops::has_white_out(&self.primary, path).await {
             return Err(FsError::EntryNotFound);
         }
 
         // Otherwise scan the secondaries
         for fs in self.secondaries.filesystems() {
-            match fs.readlink(path) {
+            match fs.readlink(path).await {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
             }
@@ -304,7 +305,7 @@ where
         Err(FsError::EntryNotFound)
     }
 
-    fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
+    async fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let mut entries = Vec::new();
         let mut had_at_least_one_success = false;
         let mut white_outs = HashSet::new();
@@ -313,7 +314,7 @@ where
             .chain(self.secondaries().filesystems());
 
         for fs in filesystems {
-            match fs.read_dir(path) {
+            match fs.read_dir(path).await {
                 Ok(r) => {
                     for entry in r {
                         let entry = entry?;
@@ -359,7 +360,7 @@ where
         }
     }
 
-    fn create_dir(&self, path: &Path) -> Result<(), FsError> {
+    async fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         // You can not create directories that use the whiteout prefix
         if ops::is_white_out(path).is_some() {
             return Err(FsError::InvalidInput);
@@ -367,19 +368,19 @@ where
 
         // It could be the case that the directory was earlier hidden in the secondaries
         // by a whiteout file, hence we need to make sure those are cleared out.
-        ops::remove_white_out(self.primary.as_ref(), path);
+        ops::remove_white_out(self.primary.as_ref(), path).await;
 
         // Make sure the parent tree is in place on the primary, this is to cover the
         // scenario where the secondaries has a parent structure that is not yet in the
         // primary and the primary needs it to create a sub-directory
         if let Some(parent) = path.parent()
-            && self.read_dir(parent).is_ok()
+            && self.read_dir(parent).await.is_ok()
         {
-            ops::create_dir_all(&self.primary, parent).ok();
+            ops::create_dir_all(&self.primary, parent).await.ok();
         }
 
         // Create the directory in the primary
-        match self.primary.create_dir(path) {
+        match self.primary.create_dir(path).await {
             Err(e) if should_continue(e) => {}
             other => return other,
         }
@@ -387,39 +388,39 @@ where
         self.permission_error_or_not_found(path)
     }
 
-    fn create_symlink(&self, source: &Path, target: &Path) -> Result<(), FsError> {
+    async fn create_symlink(&self, source: &Path, target: &Path) -> Result<(), FsError> {
         if ops::is_white_out(target).is_some() {
             return Err(FsError::InvalidInput);
         }
 
-        ops::remove_white_out(self.primary.as_ref(), target);
+        ops::remove_white_out(self.primary.as_ref(), target).await;
 
         if let Some(parent) = target.parent()
-            && self.read_dir(parent).is_ok()
+            && self.read_dir(parent).await.is_ok()
         {
-            ops::create_dir_all(&self.primary, parent).ok();
+            ops::create_dir_all(&self.primary, parent).await.ok();
         }
 
-        self.primary.create_symlink(source, target)
+        self.primary.create_symlink(source, target).await
     }
 
-    fn hard_link(&self, source: &Path, target: &Path) -> Result<(), FsError> {
+    async fn hard_link(&self, source: &Path, target: &Path) -> Result<(), FsError> {
         if ops::is_white_out(source).is_some() || ops::is_white_out(target).is_some() {
             return Err(FsError::InvalidInput);
         }
 
-        ops::remove_white_out(self.primary.as_ref(), target);
+        ops::remove_white_out(self.primary.as_ref(), target).await;
 
         if let Some(parent) = target.parent()
-            && self.read_dir(parent).is_ok()
+            && self.read_dir(parent).await.is_ok()
         {
-            ops::create_dir_all(&self.primary, parent).ok();
+            ops::create_dir_all(&self.primary, parent).await.ok();
         }
 
-        self.primary.hard_link(source, target)
+        self.primary.hard_link(source, target).await
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+    async fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         // Whiteout files can not be removed, instead the original directory
         // must be removed or recreated.
         if ops::is_white_out(path).is_some() {
@@ -433,14 +434,20 @@ where
         // If the directory is contained in a secondary file system then we need to create a
         // whiteout file so that it is suppressed and is no longer returned in `readdir` calls.
 
-        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
-            fs.read_dir(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
-        });
+        let mut had_at_least_one_success = false;
+        for fs in self.secondaries.filesystems() {
+            if fs.read_dir(path).await.is_ok()
+                && ops::create_white_out(&self.primary, path).await.is_ok()
+            {
+                had_at_least_one_success = true;
+                break;
+            }
+        }
 
         // Attempt to remove it from the primary, if this succeeds then we may have also
         // added the whiteout file in the earlier step, but are required in this case to
         // properly delete the directory.
-        match self.primary.remove_dir(path) {
+        match self.primary.remove_dir(path).await {
             Err(e) if should_continue(e) => {}
             other => return other,
         }
@@ -451,10 +458,9 @@ where
         self.permission_error_or_not_found(path)
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
+    async fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
         let from = from.to_owned();
         let to = to.to_owned();
-        Box::pin(async move {
             // Whiteout files can not be renamed
             if ops::is_white_out(&from).is_some() {
                 tracing::trace!(
@@ -492,7 +498,7 @@ where
             // primary rather than rename it
             if !had_at_least_one_success {
                 for fs in self.secondaries.filesystems() {
-                    if fs.metadata(&from).is_ok() {
+                    if fs.metadata(&from).await.is_ok() {
                         ops::copy_reference_ext(fs, &self.primary, &from, &to).await?;
                         had_at_least_one_success = true;
                         break;
@@ -504,45 +510,44 @@ where
             // whiteout files on the primary before we return success.
             if had_at_least_one_success {
                 for fs in self.secondaries.filesystems() {
-                    if fs.metadata(&from).is_ok() {
+                    if fs.metadata(&from).await.is_ok() {
                         tracing::trace!(
                             path=%from.display(),
                             "Creating a whiteout for the file that was renamed",
                         );
-                        ops::create_white_out(&self.primary, &from).ok();
+                        ops::create_white_out(&self.primary, &from).await.ok();
                         break;
                     }
                 }
-                ops::remove_white_out(&self.primary, &to);
+                ops::remove_white_out(&self.primary, &to).await;
                 return Ok(());
             }
 
             // Otherwise we are in a failure scenario
             self.permission_error_or_not_found(&from)
-        })
     }
 
-    fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
+    async fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         // Whiteout files can not be read, they are just markers
         if ops::is_white_out(path).is_some() {
             return Err(FsError::EntryNotFound);
         }
 
         // Check if the file is in the primary
-        match self.primary.metadata(path) {
+        match self.primary.metadata(path).await {
             Ok(meta) => return Ok(meta),
             Err(e) if should_continue(e) => {}
             Err(e) => return Err(e),
         }
 
         // There might be a whiteout, search for this
-        if ops::has_white_out(&self.primary, path) {
+        if ops::has_white_out(&self.primary, path).await {
             return Err(FsError::EntryNotFound);
         }
 
         // Otherwise scan the secondaries
         for fs in self.secondaries.filesystems() {
-            match fs.metadata(path) {
+            match fs.metadata(path).await {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
             }
@@ -551,27 +556,27 @@ where
         Err(FsError::EntryNotFound)
     }
 
-    fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
+    async fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
         // Whiteout files can not be read, they are just markers
         if ops::is_white_out(path).is_some() {
             return Err(FsError::EntryNotFound);
         }
 
         // Check if the file is in the primary
-        match self.primary.symlink_metadata(path) {
+        match self.primary.symlink_metadata(path).await {
             Ok(meta) => return Ok(meta),
             Err(e) if should_continue(e) => {}
             Err(e) => return Err(e),
         }
 
         // There might be a whiteout, search for this
-        if ops::has_white_out(&self.primary, path) {
+        if ops::has_white_out(&self.primary, path).await {
             return Err(FsError::EntryNotFound);
         }
 
         // Otherwise scan the secondaries
         for fs in self.secondaries.filesystems() {
-            match fs.symlink_metadata(path) {
+            match fs.symlink_metadata(path).await {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
             }
@@ -580,7 +585,7 @@ where
         Err(FsError::EntryNotFound)
     }
 
-    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+    async fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         // It is not possible to delete whiteout files directly, instead
         // one must delete the original file
         if ops::is_white_out(path).is_some() {
@@ -589,12 +594,18 @@ where
 
         // If the file is contained in a secondary then then we need to create a
         // whiteout file so that it is suppressed.
-        let had_at_least_one_success = self.secondaries.filesystems().into_iter().any(|fs| {
-            fs.metadata(path).is_ok() && ops::create_white_out(&self.primary, path).is_ok()
-        });
+        let mut had_at_least_one_success = false;
+        for fs in self.secondaries.filesystems() {
+            if fs.metadata(path).await.is_ok()
+                && ops::create_white_out(&self.primary, path).await.is_ok()
+            {
+                had_at_least_one_success = true;
+                break;
+            }
+        }
 
         // Attempt to remove it from the primary
-        match self.primary.remove_file(path) {
+        match self.primary.remove_file(path).await {
             Err(e) if should_continue(e) => {}
             other => return other,
         }
@@ -608,15 +619,8 @@ where
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
-}
 
-impl<P, S> FileOpener for OverlayFileSystem<P, S>
-where
-    P: FileSystem + Send + 'static,
-    S: for<'a> FileSystems<'a> + Send + Sync + 'static,
-    for<'a> <<S as FileSystems<'a>>::Iter as IntoIterator>::IntoIter: Send,
-{
-    fn open(
+    async fn open(
         &self,
         path: &Path,
         conf: &OpenOptionsConfig,
@@ -637,7 +641,7 @@ where
             let mut conf = conf.clone();
             conf.create = false;
             conf.create_new = false;
-            match self.primary.new_open_options().options(conf).open(path) {
+            match self.primary.open(path, &conf).await {
                 Err(e) if should_continue(e) => {}
                 other => return other,
             }
@@ -650,32 +654,31 @@ where
             // does not then we need to make sure we create all the structure
             // in the primary
             if let Some(parent) = path.parent() {
-                if ops::exists(self, parent) {
+                if ops::exists(self, parent).await {
                     // We create the directory structure on the primary so that
                     // the new file can be created, this will make it override
                     // whatever is in the primary
-                    ops::create_dir_all(&self.primary, parent)?;
+                    ops::create_dir_all(&self.primary, parent).await?;
                 } else {
                     return Err(FsError::EntryNotFound);
                 }
             }
 
             // Remove any whiteout
-            ops::remove_white_out(&self.primary, path);
+            ops::remove_white_out(&self.primary, path).await;
 
             // Create the file in the primary
             return self
                 .primary
-                .new_open_options()
-                .options(conf.clone())
-                .open(path);
+                .open(path, conf)
+                .await;
         }
 
         // There might be a whiteout, search for this and if its found then
         // we are done as the secondary file or directory has been earlier
         // deleted via a white out (when the create flag is set then
         // the white out marker is ignored)
-        if !conf.create && ops::has_white_out(&self.primary, path) {
+        if !conf.create && ops::has_white_out(&self.primary, path).await {
             tracing::trace!(
                 path=%path.display(),
                 "The file has been whited out",
@@ -687,14 +690,14 @@ where
         let require_mutations = conf.append || conf.write || conf.create_new | conf.truncate;
 
         // If the file is on a secondary then we should open it
-        if !ops::has_white_out(&self.primary, path) {
+        if !ops::has_white_out(&self.primary, path).await {
             for fs in self.secondaries.filesystems() {
                 let mut sub_conf = conf.clone();
                 sub_conf.create = false;
                 sub_conf.create_new = false;
                 sub_conf.append = false;
                 sub_conf.truncate = false;
-                match fs.new_open_options().options(sub_conf.clone()).open(path) {
+                match fs.open(path, &sub_conf).await {
                     Err(e) if should_continue(e) => continue,
                     Ok(file) if require_mutations => {
                         // If the file was opened with the ability to mutate then we need
@@ -719,18 +722,17 @@ where
         if conf.create {
             // Create the parent structure and remove any whiteouts
             if let Some(parent) = path.parent()
-                && ops::exists(self, parent)
+                && ops::exists(self, parent).await
             {
-                ops::create_dir_all(&self.primary, parent)?;
+                ops::create_dir_all(&self.primary, parent).await?;
             }
-            ops::remove_white_out(&self.primary, path);
+            ops::remove_white_out(&self.primary, path).await;
 
             // Create the file in the primary
             return self
                 .primary
-                .new_open_options()
-                .options(conf.clone())
-                .open(path);
+                .open(path, conf)
+                .await;
         }
 
         // The file does not exist anywhere
@@ -873,21 +875,32 @@ where
                                 // Remove the whiteout, create the parent structure and open
                                 // the new file on the primary
                                 if let Some(parent) = self.path.parent() {
-                                    ops::create_dir_all(&self.primary, parent).ok();
+                                    futures::executor::block_on(ops::create_dir_all(
+                                        &self.primary,
+                                        parent,
+                                    ))
+                                    .ok();
                                 }
                                 let mut had_white_out = false;
-                                if ops::has_white_out(&self.primary, &self.path) {
-                                    ops::remove_white_out(&self.primary, &self.path);
+                                if futures::executor::block_on(ops::has_white_out(
+                                    &self.primary,
+                                    &self.path,
+                                )) {
+                                    futures::executor::block_on(ops::remove_white_out(
+                                        &self.primary,
+                                        &self.path,
+                                    ));
                                     had_white_out = true;
                                 }
-                                let dst = self
-                                    .primary
-                                    .new_open_options()
-                                    .create(true)
-                                    .read(self.readable)
-                                    .write(true)
-                                    .truncate(true)
-                                    .open(&self.path);
+                                let dst = futures::executor::block_on(
+                                    self.primary
+                                        .new_open_options()
+                                        .create(true)
+                                        .read(self.readable)
+                                        .write(true)
+                                        .truncate(true)
+                                        .open(&self.path),
+                                );
                                 match dst {
                                     Ok(dst) if had_white_out => {
                                         again = true;
@@ -989,7 +1002,7 @@ where
                             Poll::Ready(_) => {
                                 // If we have changed the length then set it
                                 if let Some(new_size) = self.new_size.take() {
-                                    dst.set_len(new_size).ok();
+                                    futures::executor::block_on(dst.set_len(new_size)).ok();
                                 }
                                 CowState::Copied(dst)
                             }
@@ -1045,31 +1058,32 @@ where
         }
     }
 
-    impl<P> VirtualFile for CopyOnWriteFile<P>
+    #[async_trait::async_trait]
+impl<P> VirtualFile for CopyOnWriteFile<P>
     where
         P: FileSystem + 'static,
     {
-        fn last_accessed(&self) -> u64 {
-            self.state.as_ref().last_accessed()
+        async fn last_accessed(&self) -> u64 {
+            self.state.as_ref().last_accessed().await
         }
 
-        fn last_modified(&self) -> u64 {
-            self.state.as_ref().last_modified()
+        async fn last_modified(&self) -> u64 {
+            self.state.as_ref().last_modified().await
         }
 
-        fn created_time(&self) -> u64 {
-            self.state.as_ref().created_time()
+        async fn created_time(&self) -> u64 {
+            self.state.as_ref().created_time().await
         }
 
-        fn size(&self) -> u64 {
-            self.state.as_ref().size()
+        async fn size(&self) -> u64 {
+            self.state.as_ref().size().await
         }
 
-        fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+        async fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
             self.new_size = Some(new_size);
             replace_with_or_abort(&mut self.state, |state| match state {
                 CowState::Copied(mut file) => {
-                    file.set_len(new_size).ok();
+                    futures::executor::block_on(file.set_len(new_size)).ok();
                     CowState::Copied(file)
                 }
                 state => {
@@ -1083,16 +1097,18 @@ where
                     // in the scenario where the length is set but the file is not
                     // polled then we need to make sure we create a file properly
                     if let Some(parent) = self.path.parent() {
-                        ops::create_dir_all(&self.primary, parent).ok();
+                        futures::executor::block_on(ops::create_dir_all(&self.primary, parent))
+                            .ok();
                     }
-                    let dst = self
-                        .primary
-                        .new_open_options()
-                        .create(true)
-                        .write(true)
-                        .open(&self.path);
+                    let dst = futures::executor::block_on(
+                        self.primary
+                            .new_open_options()
+                            .create(true)
+                            .write(true)
+                            .open(&self.path),
+                    );
                     if let Ok(mut file) = dst {
-                        file.set_len(new_size).ok();
+                        futures::executor::block_on(file.set_len(new_size)).ok();
                     }
                     state
                 }
@@ -1100,19 +1116,19 @@ where
             Ok(())
         }
 
-        fn unlink(&mut self) -> crate::Result<()> {
+        async fn unlink(&mut self) -> crate::Result<()> {
             match &self.state {
                 CowState::Copied(_) => {
                     // The COW copy has landed in primary – it is our file, so it
                     // is safe to remove it and create a whiteout for the secondary.
-                    unlink_overlay_path(&self.primary, &self.path)?;
+                    unlink_overlay_path(&self.primary, &self.path).await?;
                 }
                 _ => {
                     // The file has not yet been written to primary. Only create a
                     // whiteout to hide the secondary entry; do NOT remove anything
                     // from primary, because whatever is currently bound to this
                     // path may be an independently-created file.
-                    match ops::create_white_out(&self.primary, &self.path) {
+                    match ops::create_white_out(&self.primary, &self.path).await {
                         Ok(()) => {}
                         // The whiteout already exists: the path was already deleted
                         // from the overlay's perspective.
@@ -1262,8 +1278,7 @@ where
                             .checked_add_signed(delta)
                             .unwrap_or(*original_offset),
                         SeekFrom::Start(pos) => pos,
-                        SeekFrom::End(pos) => src
-                            .size()
+                        SeekFrom::End(pos) => futures::executor::block_on(src.size())
                             .checked_add_signed(pos)
                             .unwrap_or(*original_offset),
                     };
@@ -1349,16 +1364,16 @@ mod tests {
     use crate::mem_fs::FileSystem as MemFS;
     use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-    #[test]
-    fn overlay_read_dir_rebases_mounted_entries() {
+    #[tokio::test]
+    async fn overlay_read_dir_rebases_mounted_entries() {
         let primary = MemFS::default();
-        ops::create_dir_all(&primary, "/app").unwrap();
+        ops::create_dir_all(&primary, "/app").await.unwrap();
 
         let volume = MemFS::default();
-        ops::create_dir_all(&volume, "/themes/twentytwentyfour").unwrap();
+        ops::create_dir_all(&volume, "/themes/twentytwentyfour").await.unwrap();
 
         let container = MemFS::default();
-        ops::create_dir_all(&container, "/app/wp-content/themes/twentytwentyfour").unwrap();
+        ops::create_dir_all(&container, "/app/wp-content/themes/twentytwentyfour").await.unwrap();
 
         let volume: Arc<dyn FileSystem + Send + Sync> = Arc::new(volume);
         primary
@@ -1373,6 +1388,7 @@ mod tests {
 
         let mut entries: Vec<_> = overlay
             .read_dir(Path::new("/app/wp-content/themes"))
+            .await
             .unwrap()
             .map(|entry| entry.unwrap().path)
             .collect();
@@ -1392,56 +1408,57 @@ mod tests {
         let second = Path::new("/second");
         let file_txt = second.join("file.txt");
         let third = Path::new("/third");
-        primary.create_dir(first).unwrap();
-        primary.create_dir(second).unwrap();
+        primary.create_dir(first).await.unwrap();
+        primary.create_dir(second).await.unwrap();
         primary
             .new_open_options()
             .create(true)
             .write(true)
             .open(&file_txt)
+            .await
             .unwrap()
             .write_all(b"Hello, World!")
             .await
             .unwrap();
-        secondary.create_dir(third).unwrap();
+        secondary.create_dir(third).await.unwrap();
 
         let overlay = OverlayFileSystem::new(primary, [secondary]);
 
         // Delete a folder on the primary filesystem
-        overlay.remove_dir(first).unwrap();
+        overlay.remove_dir(first).await.unwrap();
         assert_eq!(
-            overlay.primary().metadata(first).unwrap_err(),
+            overlay.primary().metadata(first).await.unwrap_err(),
             FsError::EntryNotFound,
             "Deleted from primary"
         );
-        assert!(!ops::exists(&overlay.secondaries[0], second));
+        assert!(!ops::exists(&overlay.secondaries[0], second).await);
 
         // Directory on the primary fs isn't empty
         assert_eq!(
-            overlay.remove_dir(second).unwrap_err(),
+            overlay.remove_dir(second).await.unwrap_err(),
             FsError::DirectoryNotEmpty,
         );
 
         // Try to remove something on one of the overlay filesystems
-        assert_eq!(overlay.remove_dir(third), Ok(()));
+        assert_eq!(overlay.remove_dir(third).await, Ok(()));
 
         // It should no longer exist
-        assert_eq!(overlay.metadata(third).unwrap_err(), FsError::EntryNotFound);
+        assert_eq!(overlay.metadata(third).await.unwrap_err(), FsError::EntryNotFound);
 
-        assert!(ops::exists(&overlay.secondaries[0], third));
+        assert!(ops::exists(&overlay.secondaries[0], third).await);
     }
 
     #[tokio::test]
     async fn open_files() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&primary, "/primary").unwrap();
-        ops::touch(&primary, "/primary/read.txt").unwrap();
-        ops::touch(&primary, "/primary/write.txt").unwrap();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
-        ops::touch(&secondary, "/secondary/read.txt").unwrap();
-        ops::touch(&secondary, "/secondary/write.txt").unwrap();
-        ops::create_dir_all(&secondary, "/primary").unwrap();
+        ops::create_dir_all(&primary, "/primary").await.unwrap();
+        ops::touch(&primary, "/primary/read.txt").await.unwrap();
+        ops::touch(&primary, "/primary/write.txt").await.unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
+        ops::touch(&secondary, "/secondary/read.txt").await.unwrap();
+        ops::touch(&secondary, "/secondary/write.txt").await.unwrap();
+        ops::create_dir_all(&secondary, "/primary").await.unwrap();
         ops::write(&secondary, "/primary/read.txt", "This is shadowed")
             .await
             .unwrap();
@@ -1454,9 +1471,10 @@ mod tests {
             .create(true)
             .write(true)
             .open("/new.txt")
+            .await
             .unwrap();
-        assert!(ops::exists(&fs.primary, "/new.txt"));
-        assert!(!ops::exists(&fs.secondaries[0], "/new.txt"));
+        assert!(ops::exists(&fs.primary, "/new.txt").await);
+        assert!(!ops::exists(&fs.secondaries[0], "/new.txt").await);
 
         // You can open a file for reading and writing on the primary fs
         let _ = fs
@@ -1465,6 +1483,7 @@ mod tests {
             .write(true)
             .read(true)
             .open("/primary/write.txt")
+            .await
             .unwrap();
 
         // Files on the primary should always shadow the secondary
@@ -1476,7 +1495,7 @@ mod tests {
     async fn open_secondary_file_preserves_owned_buffer_access() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         secondary
             .insert_ro_file(
                 "/secondary/buffer.txt".as_ref(),
@@ -1490,10 +1509,12 @@ mod tests {
             .new_open_options()
             .read(true)
             .open("/secondary/buffer.txt")
+            .await
             .unwrap();
 
         let buffer = file
             .as_owned_buffer()
+            .await
             .expect("secondary wrapper should preserve inner owned-buffer access");
         assert_eq!(buffer.as_slice(), b"overlay-buffer");
     }
@@ -1502,15 +1523,15 @@ mod tests {
     async fn create_file_that_looks_like_it_is_in_a_secondary_filesystem_folder() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/path/to/").unwrap();
-        assert!(!ops::is_dir(&primary, "/path/to/"));
+        ops::create_dir_all(&secondary, "/path/to/").await.unwrap();
+        assert!(!ops::is_dir(&primary, "/path/to/").await);
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
-        ops::touch(&fs, "/path/to/file.txt").unwrap();
+        ops::touch(&fs, "/path/to/file.txt").await.unwrap();
 
-        assert!(ops::is_dir(&fs.primary, "/path/to/"));
-        assert!(ops::is_file(&fs.primary, "/path/to/file.txt"));
-        assert!(!ops::is_file(&fs.secondaries[0], "/path/to/file.txt"));
+        assert!(ops::is_dir(&fs.primary, "/path/to/").await);
+        assert!(ops::is_file(&fs.primary, "/path/to/file.txt").await);
+        assert!(!ops::is_file(&fs.secondaries[0], "/path/to/file.txt").await);
     }
 
     #[tokio::test]
@@ -1518,20 +1539,24 @@ mod tests {
         let primary = MemFS::default();
         let secondary = MemFS::default();
         let secondary_overlaid = MemFS::default();
-        ops::create_dir_all(&primary, "/primary").unwrap();
-        ops::touch(&primary, "/primary/read.txt").unwrap();
-        ops::touch(&primary, "/primary/write.txt").unwrap();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
-        ops::touch(&secondary, "/secondary/read.txt").unwrap();
-        ops::touch(&secondary, "/secondary/write.txt").unwrap();
+        ops::create_dir_all(&primary, "/primary").await.unwrap();
+        ops::touch(&primary, "/primary/read.txt").await.unwrap();
+        ops::touch(&primary, "/primary/write.txt").await.unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
+        ops::touch(&secondary, "/secondary/read.txt").await.unwrap();
+        ops::touch(&secondary, "/secondary/write.txt").await.unwrap();
         // This second "secondary" filesystem should share the same folders as
         // the first one.
-        ops::create_dir_all(&secondary_overlaid, "/secondary").unwrap();
-        ops::touch(&secondary_overlaid, "/secondary/overlayed.txt").unwrap();
+        ops::create_dir_all(&secondary_overlaid, "/secondary").await.unwrap();
+        ops::touch(&secondary_overlaid, "/secondary/overlayed.txt").await.unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary, secondary_overlaid]);
 
-        let paths: Vec<_> = ops::walk(&fs, "/").map(|entry| entry.path()).collect();
+        let paths: Vec<_> = ops::walk(&fs, "/")
+            .await
+            .into_iter()
+            .map(|entry| entry.path())
+            .collect();
         assert_eq!(
             paths,
             vec![
@@ -1550,7 +1575,7 @@ mod tests {
     async fn open_secondary_fs_files_in_write_mode() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
@@ -1562,6 +1587,7 @@ mod tests {
             .write(true)
             .read(true)
             .open("/secondary/file.txt")
+            .await
             .unwrap();
         // reading is fine
         let mut buf = String::new();
@@ -1569,7 +1595,7 @@ mod tests {
         assert_eq!(buf, "Hello, World!");
         f.seek(SeekFrom::Start(0)).await.unwrap();
         // next we will write a new set of bytes
-        f.set_len(0).unwrap();
+        f.set_len(0).await.unwrap();
         assert_eq!(f.write(b"Hi").await.unwrap(), 2);
         // Same with flushing
         assert_eq!(f.flush().await.unwrap(), ());
@@ -1586,6 +1612,7 @@ mod tests {
             .new_open_options()
             .read(true)
             .open("/secondary/file.txt")
+            .await
             .unwrap();
         buf = String::new();
         f.read_to_string(&mut buf).await.unwrap();
@@ -1596,19 +1623,19 @@ mod tests {
     async fn open_secondary_fs_files_unlink() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
-        fs.metadata(Path::new("/secondary/file.txt")).unwrap();
+        fs.metadata(Path::new("/secondary/file.txt")).await.unwrap();
 
         // Now delete the file and make sure its not found
-        fs.remove_file(Path::new("/secondary/file.txt")).unwrap();
+        fs.remove_file(Path::new("/secondary/file.txt")).await.unwrap();
         assert_eq!(
-            fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
+            fs.metadata(Path::new("/secondary/file.txt")).await.unwrap_err(),
             FsError::EntryNotFound
         )
     }
@@ -1617,7 +1644,7 @@ mod tests {
     async fn open_secondary_fs_without_cow() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
@@ -1629,25 +1656,26 @@ mod tests {
             .create(true)
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
-        assert_eq!(f.size() as usize, 13);
+        assert_eq!(f.size().await as usize, 13);
 
         let mut buf = String::new();
         f.read_to_string(&mut buf).await.unwrap();
         assert_eq!(buf, "Hello, World!");
 
         // it should not be in the primary and nor should the secondary folder
-        assert!(!ops::is_dir(&fs.primary, "/secondary"));
-        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
-        assert!(ops::is_dir(&fs.secondaries[0], "/secondary"));
-        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+        assert!(!ops::is_dir(&fs.primary, "/secondary").await);
+        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt").await);
+        assert!(ops::is_dir(&fs.secondaries[0], "/secondary").await);
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt").await);
     }
 
     #[tokio::test]
     async fn unlink_open_secondary_fs_without_cow_keeps_handle_alive() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
@@ -1658,16 +1686,17 @@ mod tests {
             .new_open_options()
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
 
-        f.unlink().unwrap();
+        f.unlink().await.unwrap();
         assert_eq!(
-            fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
+            fs.metadata(Path::new("/secondary/file.txt")).await.unwrap_err(),
             FsError::EntryNotFound
         );
-        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
-        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
-        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt").await);
+        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt").await);
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt").await);
 
         let mut buf = String::new();
         f.read_to_string(&mut buf).await.unwrap();
@@ -1678,7 +1707,7 @@ mod tests {
     async fn unlink_open_secondary_fs_without_cow_returns_not_found_when_whiteout_already_exists() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
@@ -1689,12 +1718,15 @@ mod tests {
             .new_open_options()
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
 
         // The path was already deleted via another route before this handle
         // called unlink(). The handle should see EntryNotFound, not Ok(()).
-        ops::create_white_out(&fs.primary, "/secondary/file.txt").unwrap();
-        assert_eq!(f.unlink(), Err(FsError::EntryNotFound));
+        ops::create_white_out(&fs.primary, "/secondary/file.txt")
+            .await
+            .unwrap();
+        assert_eq!(f.unlink().await, Err(FsError::EntryNotFound));
     }
 
     #[tokio::test]
@@ -1704,7 +1736,7 @@ mod tests {
         ops::write(&primary, "/secondary", b"not a directory")
             .await
             .unwrap();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
@@ -1715,16 +1747,17 @@ mod tests {
             .new_open_options()
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
 
-        assert_eq!(f.unlink(), Err(FsError::BaseNotDirectory));
+        assert_eq!(f.unlink().await, Err(FsError::BaseNotDirectory));
     }
 
     #[tokio::test]
     async fn create_and_append_secondary_fs_with_cow() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
@@ -1737,11 +1770,12 @@ mod tests {
             .append(true)
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
-        assert_eq!(f.size() as usize, 13);
+        assert_eq!(f.size().await as usize, 13);
 
         f.write_all(b"asdf").await.unwrap();
-        assert_eq!(f.size() as usize, 17);
+        assert_eq!(f.size().await as usize, 17);
 
         f.seek(SeekFrom::Start(0)).await.unwrap();
 
@@ -1757,29 +1791,31 @@ mod tests {
             .append(true)
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
-        assert_eq!(f.size() as usize, 17);
+        assert_eq!(f.size().await as usize, 17);
         let f = fs.secondaries[0]
             .new_open_options()
             .create(true)
             .append(true)
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
-        assert_eq!(f.size() as usize, 13);
+        assert_eq!(f.size().await as usize, 13);
 
         // it should now exist in both the primary and secondary
-        assert!(ops::is_dir(&fs.primary, "/secondary"));
-        assert!(ops::is_file(&fs.primary, "/secondary/file.txt"));
-        assert!(ops::is_dir(&fs.secondaries[0], "/secondary"));
-        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+        assert!(ops::is_dir(&fs.primary, "/secondary").await);
+        assert!(ops::is_file(&fs.primary, "/secondary/file.txt").await);
+        assert!(ops::is_dir(&fs.secondaries[0], "/secondary").await);
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt").await);
     }
 
     #[tokio::test]
     async fn unlink_open_secondary_fs_with_cow_does_not_recreate_path() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
@@ -1791,16 +1827,17 @@ mod tests {
             .append(true)
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
 
-        f.unlink().unwrap();
+        f.unlink().await.unwrap();
         assert_eq!(
-            fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
+            fs.metadata(Path::new("/secondary/file.txt")).await.unwrap_err(),
             FsError::EntryNotFound
         );
-        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
-        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
-        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt").await);
+        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt").await);
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt").await);
 
         f.write_all(b"asdf").await.unwrap();
         f.seek(SeekFrom::Start(0)).await.unwrap();
@@ -1810,12 +1847,12 @@ mod tests {
         assert_eq!(buf, "Hello, World!asdf");
 
         assert_eq!(
-            fs.metadata(Path::new("/secondary/file.txt")).unwrap_err(),
+            fs.metadata(Path::new("/secondary/file.txt")).await.unwrap_err(),
             FsError::EntryNotFound
         );
-        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
-        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
-        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt").await);
+        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt").await);
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt").await);
     }
 
     /// Regression test: unlinking a handle opened from the secondary must not
@@ -1825,7 +1862,7 @@ mod tests {
     async fn unlink_secondary_handle_does_not_delete_later_primary_file() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/dir").unwrap();
+        ops::create_dir_all(&secondary, "/dir").await.unwrap();
         ops::write(&secondary, "/dir/file.txt", b"secondary")
             .await
             .unwrap();
@@ -1837,23 +1874,24 @@ mod tests {
             .new_open_options()
             .read(true)
             .open(Path::new("/dir/file.txt"))
+            .await
             .unwrap();
 
         // A new file is created at the same path in primary AFTER the handle
         // was opened.
-        ops::create_dir_all(&fs.primary, "/dir").unwrap();
+        ops::create_dir_all(&fs.primary, "/dir").await.unwrap();
         ops::write(&fs.primary, "/dir/file.txt", b"primary replacement")
             .await
             .unwrap();
 
         // Unlinking the old handle should only whiteout the secondary entry,
         // never delete the new primary file.
-        f.unlink().unwrap();
+        f.unlink().await.unwrap();
 
         // The whiteout must exist.
-        assert!(ops::is_file(&fs.primary, "/dir/.wh.file.txt"));
+        assert!(ops::is_file(&fs.primary, "/dir/.wh.file.txt").await);
         // The newer primary file must still be intact.
-        assert!(ops::is_file(&fs.primary, "/dir/file.txt"));
+        assert!(ops::is_file(&fs.primary, "/dir/file.txt").await);
         assert_eq!(
             ops::read_to_string(&fs.primary, "/dir/file.txt")
                 .await
@@ -1868,7 +1906,7 @@ mod tests {
     async fn unlink_cow_handle_does_not_delete_later_primary_file() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/dir").unwrap();
+        ops::create_dir_all(&secondary, "/dir").await.unwrap();
         ops::write(&secondary, "/dir/file.txt", b"secondary")
             .await
             .unwrap();
@@ -1882,21 +1920,22 @@ mod tests {
             .write(true)
             .read(true)
             .open(Path::new("/dir/file.txt"))
+            .await
             .unwrap();
 
         // A new file is created at the same path in primary AFTER the handle
         // was opened.
-        ops::create_dir_all(&fs.primary, "/dir").unwrap();
+        ops::create_dir_all(&fs.primary, "/dir").await.unwrap();
         ops::write(&fs.primary, "/dir/file.txt", b"primary replacement")
             .await
             .unwrap();
 
         // Unlink before any write → COW copy has not started, so the primary
         // file we just created must not be deleted.
-        f.unlink().unwrap();
+        f.unlink().await.unwrap();
 
-        assert!(ops::is_file(&fs.primary, "/dir/.wh.file.txt"));
-        assert!(ops::is_file(&fs.primary, "/dir/file.txt"));
+        assert!(ops::is_file(&fs.primary, "/dir/.wh.file.txt").await);
+        assert!(ops::is_file(&fs.primary, "/dir/file.txt").await);
         assert_eq!(
             ops::read_to_string(&fs.primary, "/dir/file.txt")
                 .await
@@ -1909,18 +1948,21 @@ mod tests {
     async fn unlink_file_from_secondary_fs() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
-        fs.remove_file(Path::new("/secondary/file.txt")).unwrap();
-        assert_eq!(ops::exists(&fs, Path::new("/secondary/file.txt")), false);
+        fs.remove_file(Path::new("/secondary/file.txt")).await.unwrap();
+        assert_eq!(
+            ops::exists(&fs, Path::new("/secondary/file.txt")).await,
+            false
+        );
 
-        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
-        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+        assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt").await);
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt").await);
 
         // Now create the file again after the unlink
         let mut f = fs
@@ -1929,66 +1971,67 @@ mod tests {
             .write(true)
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
-        assert_eq!(f.size() as usize, 0);
+        assert_eq!(f.size().await as usize, 0);
         f.write_all(b"asdf").await.unwrap();
-        assert_eq!(f.size() as usize, 4);
+        assert_eq!(f.size().await as usize, 4);
 
         // The whiteout should be gone and new file exist
-        assert!(!ops::is_file(&fs.primary, "/secondary/.wh.file.txt"));
-        assert!(ops::is_file(&fs.primary, "/secondary/file.txt"));
-        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+        assert!(!ops::is_file(&fs.primary, "/secondary/.wh.file.txt").await);
+        assert!(ops::is_file(&fs.primary, "/secondary/file.txt").await);
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt").await);
     }
 
     #[tokio::test]
     async fn rmdir_from_secondary_fs() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
-        assert!(ops::is_dir(&fs, "/secondary"));
-        fs.remove_dir(Path::new("/secondary")).unwrap();
+        assert!(ops::is_dir(&fs, "/secondary").await);
+        fs.remove_dir(Path::new("/secondary")).await.unwrap();
 
-        assert!(!ops::is_dir(&fs, "/secondary"));
-        assert!(ops::is_file(&fs.primary, "/.wh.secondary"));
-        assert!(ops::is_dir(&fs.secondaries[0], "/secondary"));
+        assert!(!ops::is_dir(&fs, "/secondary").await);
+        assert!(ops::is_file(&fs.primary, "/.wh.secondary").await);
+        assert!(ops::is_dir(&fs.secondaries[0], "/secondary").await);
 
-        fs.create_dir(Path::new("/secondary")).unwrap();
-        assert!(ops::is_dir(&fs, "/secondary"));
-        assert!(ops::is_dir(&fs.primary, "/secondary"));
-        assert!(!ops::is_file(&fs.primary, "/.wh.secondary"));
-        assert!(ops::is_dir(&fs.secondaries[0], "/secondary"));
+        fs.create_dir(Path::new("/secondary")).await.unwrap();
+        assert!(ops::is_dir(&fs, "/secondary").await);
+        assert!(ops::is_dir(&fs.primary, "/secondary").await);
+        assert!(!ops::is_file(&fs.primary, "/.wh.secondary").await);
+        assert!(ops::is_dir(&fs.secondaries[0], "/secondary").await);
     }
 
     #[tokio::test]
     async fn rmdir_sub_from_secondary_fs() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/first/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/first/secondary").await.unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
-        assert!(ops::is_dir(&fs, "/first/secondary"));
-        fs.remove_dir(Path::new("/first/secondary")).unwrap();
+        assert!(ops::is_dir(&fs, "/first/secondary").await);
+        fs.remove_dir(Path::new("/first/secondary")).await.unwrap();
 
-        assert!(!ops::is_dir(&fs, "/first/secondary"));
-        assert!(ops::is_file(&fs.primary, "/first/.wh.secondary"));
-        assert!(ops::is_dir(&fs.secondaries[0], "/first/secondary"));
+        assert!(!ops::is_dir(&fs, "/first/secondary").await);
+        assert!(ops::is_file(&fs.primary, "/first/.wh.secondary").await);
+        assert!(ops::is_dir(&fs.secondaries[0], "/first/secondary").await);
 
-        fs.create_dir(Path::new("/first/secondary")).unwrap();
-        assert!(ops::is_dir(&fs, "/first/secondary"));
-        assert!(ops::is_dir(&fs.primary, "/first/secondary"));
-        assert!(!ops::is_file(&fs.primary, "/first/.wh.secondary"));
-        assert!(ops::is_dir(&fs.secondaries[0], "/first/secondary"));
+        fs.create_dir(Path::new("/first/secondary")).await.unwrap();
+        assert!(ops::is_dir(&fs, "/first/secondary").await);
+        assert!(ops::is_dir(&fs.primary, "/first/secondary").await);
+        assert!(!ops::is_file(&fs.primary, "/first/.wh.secondary").await);
+        assert!(ops::is_dir(&fs.secondaries[0], "/first/secondary").await);
     }
 
     #[tokio::test]
     async fn create_new_secondary_fs_without_cow() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
@@ -2000,34 +2043,35 @@ mod tests {
             .create_new(true)
             .read(true)
             .open(Path::new("/secondary/file.txt"))
+            .await
             .unwrap();
-        assert_eq!(f.size() as usize, 0);
+        assert_eq!(f.size().await as usize, 0);
 
         let mut buf = String::new();
         f.read_to_string(&mut buf).await.unwrap();
         assert_eq!(buf, "");
 
         // it should now exist in both the primary and secondary
-        assert!(ops::is_dir(&fs.primary, "/secondary"));
-        assert!(ops::is_file(&fs.primary, "/secondary/file.txt"));
-        assert!(ops::is_dir(&fs.secondaries[0], "/secondary"));
-        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt"));
+        assert!(ops::is_dir(&fs.primary, "/secondary").await);
+        assert!(ops::is_file(&fs.primary, "/secondary/file.txt").await);
+        assert!(ops::is_dir(&fs.secondaries[0], "/secondary").await);
+        assert!(ops::is_file(&fs.secondaries[0], "/secondary/file.txt").await);
     }
 
     #[tokio::test]
     async fn open_secondary_fs_files_remove_dir() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
-        fs.metadata(Path::new("/secondary")).unwrap();
+        fs.metadata(Path::new("/secondary")).await.unwrap();
 
         // Now delete the file and make sure its not found
-        fs.remove_dir(Path::new("/secondary")).unwrap();
+        fs.remove_dir(Path::new("/secondary")).await.unwrap();
         assert_eq!(
-            fs.metadata(Path::new("/secondary")).unwrap_err(),
+            fs.metadata(Path::new("/secondary")).await.unwrap_err(),
             FsError::EntryNotFound
         )
     }
@@ -2039,7 +2083,7 @@ mod tests {
     async fn test_overlayfs_readonly_files_not_copied() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/secondary").unwrap();
+        ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::write(&secondary, "/secondary/file.txt", b"Hello, World!")
             .await
             .unwrap();
@@ -2052,6 +2096,7 @@ mod tests {
                 .read(true)
                 .write(true)
                 .open(Path::new("/secondary/file.txt"))
+                .await
                 .unwrap();
             let mut s = String::new();
             f.read_to_string(&mut s).await.unwrap();
@@ -2062,7 +2107,7 @@ mod tests {
         }
 
         // Primary should not have the file
-        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt"));
+        assert!(!ops::is_file(&fs.primary, "/secondary/file.txt").await);
     }
 
     // OLD tests that used WebcFileSystem.
@@ -2096,13 +2141,13 @@ mod tests {
     //     let fs = OverlayFileSystem::new(primary, [webc]);
     //
     //     // We should get all the normal directories from rootfs (primary)
-    //     assert!(ops::is_dir(&fs, "/lib"));
-    //     assert!(ops::is_dir(&fs, "/bin"));
-    //     assert!(ops::is_file(&fs, "/dev/stdin"));
-    //     assert!(ops::is_file(&fs, "/dev/stdout"));
+    //     assert!(ops::is_dir(&fs, "/lib").await);
+    //     assert!(ops::is_dir(&fs, "/bin").await);
+    //     assert!(ops::is_file(&fs, "/dev/stdin").await);
+    //     assert!(ops::is_file(&fs, "/dev/stdout").await);
     //     // We also want to see files from the WEBC volumes (secondary)
-    //     assert!(ops::is_dir(&fs, "/lib/python3.6"));
-    //     assert!(ops::is_file(&fs, "/lib/python3.6/collections/__init__.py"));
+    //     assert!(ops::is_dir(&fs, "/lib/python3.6").await);
+    //     assert!(ops::is_file(&fs, "/lib/python3.6/collections/__init__.py").await);
     //     #[cfg(never)]
     //     {
     //         // files on a secondary fs aren't writable
@@ -2118,7 +2163,7 @@ mod tests {
     //     }
     //     // you are allowed to create files that look like they are in a secondary
     //     // folder, though
-    //     ops::touch(&fs, "/lib/python3.6/collections/something-else.py").unwrap();
+    //     ops::touch(&fs, "/lib/python3.6/collections/something-else.py").await.unwrap();
     //     // But it'll be on the primary filesystem, not the secondary one
     //     assert!(ops::is_file(
     //         &fs.primary,
@@ -2131,7 +2176,7 @@ mod tests {
     //     // You can do the same thing with folders
     //     fs.create_dir("/lib/python3.6/something-else".as_ref())
     //         .unwrap();
-    //     assert!(ops::is_dir(&fs.primary, "/lib/python3.6/something-else"));
+    //     assert!(ops::is_dir(&fs.primary, "/lib/python3.6/something-else").await);
     //     assert!(!ops::is_dir(
     //         &fs.secondaries[0],
     //         "/lib/python3.6/something-else"
@@ -2143,8 +2188,8 @@ mod tests {
     //         FsError::EntryNotFound
     //     );
     //     // you should also be able to read files mounted from the host
-    //     assert!(ops::is_dir(&fs, "/first"));
-    //     assert!(ops::is_file(&fs, "/first/file.txt"));
+    //     assert!(ops::is_dir(&fs, "/first").await);
+    //     assert!(ops::is_file(&fs, "/first/file.txt").await);
     //     assert_eq!(
     //         ops::read_to_string(&fs, "/first/file.txt").await.unwrap(),
     //         "First!"

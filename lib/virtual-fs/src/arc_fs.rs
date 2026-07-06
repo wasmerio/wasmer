@@ -21,45 +21,54 @@ impl ArcFileSystem {
     }
 }
 
+#[async_trait::async_trait]
 impl FileSystem for ArcFileSystem {
-    fn readlink(&self, path: &Path) -> Result<PathBuf> {
-        self.fs.readlink(path)
+    async fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        self.fs.readlink(path).await
     }
 
-    fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        self.fs.read_dir(path)
+    async fn read_dir(&self, path: &Path) -> Result<ReadDir> {
+        self.fs.read_dir(path).await
     }
 
-    fn create_dir(&self, path: &Path) -> Result<()> {
-        self.fs.create_dir(path)
+    async fn create_dir(&self, path: &Path) -> Result<()> {
+        self.fs.create_dir(path).await
     }
 
-    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
-        self.fs.create_symlink(source, target)
+    async fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        self.fs.create_symlink(source, target).await
     }
 
-    fn hard_link(&self, source: &Path, target: &Path) -> Result<()> {
-        self.fs.hard_link(source, target)
+    async fn hard_link(&self, source: &Path, target: &Path) -> Result<()> {
+        self.fs.hard_link(source, target).await
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
-        self.fs.remove_dir(path)
+    async fn remove_dir(&self, path: &Path) -> Result<()> {
+        self.fs.remove_dir(path).await
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async { self.fs.rename(from, to).await })
+    async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        self.fs.rename(from, to).await
     }
 
-    fn metadata(&self, path: &Path) -> Result<Metadata> {
-        self.fs.metadata(path)
+    async fn metadata(&self, path: &Path) -> Result<Metadata> {
+        self.fs.metadata(path).await
     }
 
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        self.fs.symlink_metadata(path)
+    async fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        self.fs.symlink_metadata(path).await
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
-        self.fs.remove_file(path)
+    async fn remove_file(&self, path: &Path) -> Result<()> {
+        self.fs.remove_file(path).await
+    }
+
+    async fn open(
+        &self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        self.fs.open(path, conf).await
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {

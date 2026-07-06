@@ -97,7 +97,7 @@ impl FileSystem {
                 let mut fs_lock = self.inner.write().map_err(|_| FsError::Lock)?;
 
                 // Read the metadata or generate a dummy one
-                let meta = match fs.metadata(&target_path) {
+                let meta = match futures::executor::block_on(fs.metadata(&target_path)) {
                     Ok(meta) => meta,
                     _ => {
                         let time = time();
@@ -324,8 +324,8 @@ impl FileSystem {
     }
 }
 
-impl crate::FileOpener for FileSystem {
-    fn open(
+impl FileSystem {
+    pub(crate) async fn open_internal(
         &self,
         path: &Path,
         conf: &OpenOptionsConfig,
@@ -365,13 +365,14 @@ impl crate::FileOpener for FileSystem {
                 return fs
                     .new_open_options()
                     .options(conf.clone())
-                    .open(parent_path);
+                    .open(parent_path)
+                    .await;
             }
         };
         let maybe_inode_of_file = match maybe_inode_of_file {
             Some(InodeResolution::Found(inode)) => Some(inode),
             Some(InodeResolution::Redirect(fs, path)) => {
-                return fs.new_open_options().options(conf.clone()).open(path);
+                return fs.new_open_options().options(conf.clone()).open(path).await;
             }
             None => None,
         };
@@ -443,7 +444,7 @@ impl crate::FileOpener for FileSystem {
                         // Truncate if needed.
                         let mut file = node.file.lock().unwrap();
                         if truncate {
-                            file.set_len(0)?;
+                            futures::executor::block_on(file.set_len(0))?;
                             node.metadata.len = 0;
                         }
 
@@ -454,20 +455,21 @@ impl crate::FileOpener for FileSystem {
                         // Update the accessed time.
                         node.metadata.accessed = time();
 
-                        let mut file = node
-                            .fs
-                            .new_open_options()
-                            .read(read)
-                            .write(write)
-                            .append(append)
-                            .truncate(truncate)
-                            .create(create)
-                            .create_new(create_new)
-                            .open(node.path.as_path())?;
+                        let mut file = futures::executor::block_on(
+                            node.fs
+                                .new_open_options()
+                                .read(read)
+                                .write(write)
+                                .append(append)
+                                .truncate(truncate)
+                                .create(create)
+                                .create_new(create_new)
+                                .open(node.path.as_path()),
+                        )?;
 
                         // Truncate if needed.
                         if truncate {
-                            file.set_len(0)?;
+                            futures::executor::block_on(file.set_len(0))?;
                             node.metadata.len = 0;
                         }
 
@@ -627,6 +629,7 @@ mod test_file_opener {
                 .write(true)
                 .create_new(true)
                 .open(path!("/foo.txt"))
+                .await
                 .is_ok(),
             "creating a new file",
         );
@@ -665,7 +668,8 @@ mod test_file_opener {
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(path!("/foo.txt")),
+                    .open(path!("/foo.txt"))
+                    .await,
                 Err(FsError::AlreadyExists)
             ),
             "creating a new file that already exist",
@@ -676,18 +680,24 @@ mod test_file_opener {
                 .write(true)
                 .create_new(true)
                 .open(path!("/foo/bar.txt"))
+                .await
                 .map(|_| ()),
             Err(FsError::EntryNotFound),
             "creating a file in a directory that doesn't exist",
         );
 
-        assert_eq!(fs.remove_file(path!("/foo.txt")), Ok(()), "removing a file");
+        assert_eq!(
+            fs.remove_file(path!("/foo.txt")).await,
+            Ok(()),
+            "removing a file"
+        );
 
         assert!(
             fs.new_open_options()
                 .write(false)
                 .create_new(true)
                 .open(path!("/foo.txt"))
+                .await
                 .is_ok(),
             "creating a file without the `write` option",
         );
@@ -702,7 +712,8 @@ mod test_file_opener {
                 fs.new_open_options()
                     .write(false)
                     .truncate(true)
-                    .open(path!("/foo.txt")),
+                    .open(path!("/foo.txt"))
+                    .await,
                 Err(FsError::PermissionDenied),
             ),
             "truncating a read-only file",
@@ -718,6 +729,7 @@ mod test_file_opener {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         assert!(
@@ -739,6 +751,7 @@ mod test_file_opener {
             .write(true)
             .truncate(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to open + truncate `foo.txt`");
 
         assert!(
@@ -760,6 +773,7 @@ mod test_file_opener {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         assert!(
@@ -780,6 +794,7 @@ mod test_file_opener {
             .new_open_options()
             .append(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to open `foo.txt`");
 
         assert!(
@@ -796,6 +811,7 @@ mod test_file_opener {
             .new_open_options()
             .read(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to open `foo.txt");
 
         assert!(
@@ -823,6 +839,7 @@ mod test_file_opener {
                 .write(true)
                 .create_new(true)
                 .open(path!("/foo.txt"))
+                .await
                 .is_ok(),
             "creating a _new_ file",
         );
@@ -831,7 +848,8 @@ mod test_file_opener {
             matches!(
                 fs.new_open_options()
                     .create_new(true)
-                    .open(path!("/foo.txt")),
+                    .open(path!("/foo.txt"))
+                    .await,
                 Err(FsError::AlreadyExists),
             ),
             "creating a _new_ file that already exists",
@@ -841,6 +859,7 @@ mod test_file_opener {
             fs.new_open_options()
                 .read(true)
                 .open(path!("/foo.txt"))
+                .await
                 .is_ok(),
             "opening a file that already exists",
         );
@@ -857,6 +876,7 @@ mod test_file_opener {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("create file in backing fs");
 
         fs.insert_arc_directory_at(
@@ -870,6 +890,7 @@ mod test_file_opener {
             .new_open_options()
             .read(true)
             .open(path!("/mnt/foo.txt"))
+            .await
             .expect("open should redirect to the backing fs");
 
         let mut contents = String::new();
@@ -882,7 +903,8 @@ mod test_file_opener {
             matches!(
                 fs.new_open_options()
                     .create_new(true)
-                    .open(path!("/mnt/foo.txt")),
+                    .open(path!("/mnt/foo.txt"))
+                    .await,
                 Err(FsError::AlreadyExists),
             ),
             "create_new on a redirected existing file follows the backing fs result",
@@ -897,13 +919,14 @@ mod test_file_opener {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("create /foo.txt");
 
         let _hook = OpenBeforeHandleHookGuard::install(Box::new({
             let fs = fs.clone();
             move || {
                 assert_eq!(
-                    fs.remove_file(path!("/foo.txt")),
+                    futures::executor::block_on(fs.remove_file(path!("/foo.txt"))),
                     Ok(()),
                     "unlink during the open-return window",
                 );
@@ -915,12 +938,13 @@ mod test_file_opener {
             .read(true)
             .write(true)
             .open(path!("/foo.txt"))
+            .await
             .expect(
                 "open should succeed even if the path is unlinked before the handle is returned",
             );
 
         assert_eq!(
-            fs.metadata(path!("/foo.txt")),
+            fs.metadata(path!("/foo.txt")).await,
             Err(FsError::EntryNotFound),
             "the path is gone immediately after unlink",
         );

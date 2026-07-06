@@ -25,33 +25,34 @@ impl DualWriteFile {
     }
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for DualWriteFile {
-    fn last_accessed(&self) -> u64 {
-        self.inner.last_accessed()
+    async fn last_accessed(&self) -> u64 {
+        self.inner.last_accessed().await
     }
 
-    fn last_modified(&self) -> u64 {
-        self.inner.last_modified()
+    async fn last_modified(&self) -> u64 {
+        self.inner.last_modified().await
     }
 
-    fn created_time(&self) -> u64 {
-        self.inner.created_time()
+    async fn created_time(&self) -> u64 {
+        self.inner.created_time().await
     }
 
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
-        self.inner.set_times(atime, mtime)
+    async fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        self.inner.set_times(atime, mtime).await
     }
 
-    fn size(&self) -> u64 {
-        self.inner.size()
+    async fn size(&self) -> u64 {
+        self.inner.size().await
     }
 
-    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
-        self.inner.set_len(new_size)
+    async fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+        self.inner.set_len(new_size).await
     }
 
-    fn unlink(&mut self) -> Result<()> {
-        self.inner.unlink()
+    async fn unlink(&mut self) -> Result<()> {
+        self.inner.unlink().await
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

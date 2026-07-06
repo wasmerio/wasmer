@@ -13,7 +13,6 @@ const _: () = {
 #[macro_use]
 extern crate pretty_assertions;
 
-use futures::future::BoxFuture;
 use shared_buffer::OwnedBuffer;
 use std::any::Any;
 use std::ffi::OsString;
@@ -94,26 +93,45 @@ pub trait CloneableVirtualFile: VirtualFile + Clone {}
 
 pub use ops::{copy_reference, copy_reference_ext, create_dir_all, walk};
 
+#[async_trait::async_trait]
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
-    fn readlink(&self, path: &Path) -> Result<PathBuf>;
-    fn read_dir(&self, path: &Path) -> Result<ReadDir>;
-    fn create_dir(&self, path: &Path) -> Result<()>;
-    fn create_symlink(&self, _source: &Path, _target: &Path) -> Result<()> {
+    async fn readlink(&self, path: &Path) -> Result<PathBuf>;
+    async fn read_dir(&self, path: &Path) -> Result<ReadDir>;
+    async fn create_dir(&self, path: &Path) -> Result<()>;
+    async fn create_symlink(&self, _source: &Path, _target: &Path) -> Result<()> {
         Err(FsError::Unsupported)
     }
-    fn hard_link(&self, _source: &Path, _target: &Path) -> Result<()> {
+    async fn hard_link(&self, _source: &Path, _target: &Path) -> Result<()> {
         Err(FsError::Unsupported)
     }
-    fn remove_dir(&self, path: &Path) -> Result<()>;
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>>;
-    fn metadata(&self, path: &Path) -> Result<Metadata>;
+    async fn remove_dir(&self, path: &Path) -> Result<()>;
+    async fn rename(&self, from: &Path, to: &Path) -> Result<()>;
+    async fn metadata(&self, path: &Path) -> Result<Metadata>;
     /// This method gets metadata without following symlinks in the path.
     /// Currently identical to `metadata` because symlinks aren't implemented
     /// yet.
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
-    fn remove_file(&self, path: &Path) -> Result<()>;
+    async fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
+    async fn remove_file(&self, path: &Path) -> Result<()>;
+
+    async fn open(
+        &self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        let _ = (path, conf);
+        Err(FsError::Unsupported)
+    }
 
     fn new_open_options(&self) -> OpenOptions<'_>;
+}
+
+#[deprecated(note = "Use async FileSystem::open instead")]
+pub trait FileOpener {
+    fn open(
+        &self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>>;
 }
 
 impl dyn FileSystem + 'static {
@@ -133,53 +151,57 @@ where
     D: Deref<Target = F> + std::fmt::Debug + Send + Sync + 'static,
     F: FileSystem + ?Sized,
 {
-    fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        (**self).read_dir(path)
+    async fn read_dir(&self, path: &Path) -> Result<ReadDir> {
+        (**self).read_dir(path).await
     }
 
-    fn readlink(&self, path: &Path) -> Result<PathBuf> {
-        (**self).readlink(path)
+    async fn readlink(&self, path: &Path) -> Result<PathBuf> {
+        (**self).readlink(path).await
     }
 
-    fn create_dir(&self, path: &Path) -> Result<()> {
-        (**self).create_dir(path)
+    async fn create_dir(&self, path: &Path) -> Result<()> {
+        (**self).create_dir(path).await
     }
 
-    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
-        (**self).create_symlink(source, target)
+    async fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+        (**self).create_symlink(source, target).await
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
-        (**self).remove_dir(path)
+    async fn hard_link(&self, source: &Path, target: &Path) -> Result<()> {
+        (**self).hard_link(source, target).await
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async { (**self).rename(from, to).await })
+    async fn remove_dir(&self, path: &Path) -> Result<()> {
+        (**self).remove_dir(path).await
     }
 
-    fn metadata(&self, path: &Path) -> Result<Metadata> {
-        (**self).metadata(path)
+    async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        (**self).rename(from, to).await
     }
 
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
-        (**self).symlink_metadata(path)
+    async fn metadata(&self, path: &Path) -> Result<Metadata> {
+        (**self).metadata(path).await
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
-        (**self).remove_file(path)
+    async fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+        (**self).symlink_metadata(path).await
     }
 
-    fn new_open_options(&self) -> OpenOptions<'_> {
-        (**self).new_open_options()
+    async fn remove_file(&self, path: &Path) -> Result<()> {
+        (**self).remove_file(path).await
     }
-}
 
-pub trait FileOpener {
-    fn open(
+    async fn open(
         &self,
         path: &Path,
         conf: &OpenOptionsConfig,
-    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>>;
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        (**self).open(path, conf).await
+    }
+
+    fn new_open_options(&self) -> OpenOptions<'_> {
+        OpenOptions::new(self)
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -251,14 +273,14 @@ impl fmt::Debug for OpenOptions<'_> {
 }
 
 pub struct OpenOptions<'a> {
-    opener: &'a dyn FileOpener,
+    fs: &'a dyn FileSystem,
     conf: OpenOptionsConfig,
 }
 
 impl<'a> OpenOptions<'a> {
-    pub fn new(opener: &'a dyn FileOpener) -> Self {
+    pub fn new(fs: &'a dyn FileSystem) -> Self {
         Self {
-            opener,
+            fs,
             conf: OpenOptionsConfig {
                 read: false,
                 write: false,
@@ -335,91 +357,87 @@ impl<'a> OpenOptions<'a> {
         self
     }
 
-    pub fn open<P: AsRef<Path>>(
-        &mut self,
+    pub async fn open<P: AsRef<Path> + Send>(
+        &self,
         path: P,
     ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        self.opener.open(path.as_ref(), &self.conf)
+        self.fs.open(path.as_ref(), &self.conf).await
     }
 }
 
+pub fn open_options(fs: &dyn FileSystem) -> OpenOptions<'_> {
+    OpenOptions::new(fs)
+}
+
 /// This trait relies on your file closing when it goes out of scope via `Drop`
+#[async_trait::async_trait]
 pub trait VirtualFile:
-    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
+    fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send + Sync
 {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
-    fn last_accessed(&self) -> u64;
+    async fn last_accessed(&self) -> u64;
 
     /// the last time the file was modified in nanoseconds as a UNIX timestamp
-    fn last_modified(&self) -> u64;
+    async fn last_modified(&self) -> u64;
 
     /// the time at which the file was created in nanoseconds as a UNIX timestamp
-    fn created_time(&self) -> u64;
+    async fn created_time(&self) -> u64;
 
     #[allow(unused_variables)]
     /// sets accessed and modified time
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+    async fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
         Ok(())
     }
 
     /// the size of the file in bytes
-    fn size(&self) -> u64;
+    async fn size(&self) -> u64;
 
     /// Change the size of the file, if the `new_size` is greater than the current size
     /// the extra bytes will be allocated and zeroed
-    fn set_len(&mut self, new_size: u64) -> Result<()>;
+    async fn set_len(&mut self, new_size: u64) -> Result<()>;
 
     /// Remove the file from the filesystem namespace.
     ///
     /// Existing open handles may continue to operate after this call.
     /// Backends may defer final storage reclamation until the last open
     /// handle is dropped.
-    fn unlink(&mut self) -> Result<()>;
+    async fn unlink(&mut self) -> Result<()>;
 
     /// Indicates if the file is opened or closed. This function must not block
     /// Defaults to a status of being constantly open
-    fn is_open(&self) -> bool {
+    async fn is_open(&self) -> bool {
         true
     }
 
     /// Used for "special" files such as `stdin`, `stdout` and `stderr`.
     /// Always returns the same file descriptor (0, 1 or 2). Returns `None`
     /// on normal files
-    fn get_special_fd(&self) -> Option<u32> {
+    async fn get_special_fd(&self) -> Option<u32> {
         None
     }
 
     /// Writes to this file using an mmap offset and reference
     /// (this method only works for mmap optimized file systems)
-    fn write_from_mmap(&mut self, _offset: u64, _len: u64) -> std::io::Result<()> {
-        Err(std::io::ErrorKind::Unsupported.into())
+    async fn write_from_mmap(&mut self, _offset: u64, _len: u64) -> std::io::Result<()> {
+        Err(std::io::Error::other(FsError::Unsupported))
     }
 
     /// This method will copy a file from a source to this destination where
     /// the default is to do a straight byte copy however file system implementors
     /// may optimize this to do a zero copy
-    fn copy_reference(
+    async fn copy_reference(
         &mut self,
-        mut src: Box<dyn VirtualFile + Send + Sync + 'static>,
-    ) -> BoxFuture<'_, std::io::Result<()>> {
-        Box::pin(async move {
-            let bytes_written = tokio::io::copy(&mut src, self).await?;
-            tracing::trace!(bytes_written, "Copying file into host filesystem");
-            Ok(())
-        })
+        src: Box<dyn VirtualFile + Send + Sync + 'static>,
+    ) -> std::io::Result<()> {
+        tokio::io::copy(&mut tokio::io::BufReader::new(src), self).await?;
+        Ok(())
     }
 
     /// This method will copy a file from a source to this destination where
     /// the default is to do a straight byte copy however file system implementors
     /// may optimize this to cheaply clone and store the OwnedBuffer directly
-    fn copy_from_owned_buffer(&mut self, src: &OwnedBuffer) -> BoxFuture<'_, std::io::Result<()>> {
-        let src = src.clone();
-        Box::pin(async move {
-            let mut bytes = src.as_slice();
-            let bytes_written = tokio::io::copy(&mut bytes, self).await?;
-            tracing::trace!(bytes_written, "Copying file into host filesystem");
-            Ok(())
-        })
+    async fn copy_from_owned_buffer(&mut self, src: &OwnedBuffer) -> std::io::Result<()> {
+        self.copy_reference(Box::new(StaticFile::new(src.clone()))).await
     }
 
     /// Get the full contents of this file as an [`OwnedBuffer`].
@@ -428,7 +446,7 @@ pub trait VirtualFile:
     /// and can be cloned cheaply!
     ///
     /// Allows consumers to do zero-copy cloning of the underlying data.
-    fn as_owned_buffer(&self) -> Option<OwnedBuffer> {
+    async fn as_owned_buffer(&self) -> Option<OwnedBuffer> {
         None
     }
 

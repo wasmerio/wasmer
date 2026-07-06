@@ -7,7 +7,6 @@ use std::{
     task::Poll,
 };
 
-use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{
     Container, Metadata as WebcMetadata, PathSegmentError, PathSegments, ToPathSegments, Volume,
@@ -15,8 +14,8 @@ use webc::{
 };
 
 use crate::{
-    DirEntry, EmptyFileSystem, FileOpener, FileSystem, FileType, FsError, Metadata,
-    OpenOptionsConfig, OverlayFileSystem, ReadDir, VirtualFile,
+    DirEntry, EmptyFileSystem, FileSystem, FileType, FsError, Metadata, OpenOptionsConfig,
+    OverlayFileSystem, ReadDir, VirtualFile,
 };
 
 #[derive(Debug, Clone)]
@@ -48,8 +47,9 @@ impl WebcVolumeFileSystem {
     }
 }
 
+#[async_trait::async_trait]
 impl FileSystem for WebcVolumeFileSystem {
-    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+    async fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
         let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
 
         match self.volume().metadata(&path) {
@@ -63,8 +63,8 @@ impl FileSystem for WebcVolumeFileSystem {
         }
     }
 
-    fn read_dir(&self, path: &Path) -> Result<crate::ReadDir, FsError> {
-        let meta = self.metadata(path)?;
+    async fn read_dir(&self, path: &Path) -> Result<crate::ReadDir, FsError> {
+        let meta = self.metadata(path).await?;
 
         if !meta.is_dir() {
             return Err(FsError::BaseNotDirectory);
@@ -89,16 +89,16 @@ impl FileSystem for WebcVolumeFileSystem {
         Ok(ReadDir::new(entries))
     }
 
-    fn create_dir(&self, path: &Path) -> Result<(), FsError> {
+    async fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         // the directory shouldn't exist yet
-        if self.metadata(path).is_ok() {
+        if self.metadata(path).await.is_ok() {
             return Err(FsError::AlreadyExists);
         }
 
         // it's parent should exist
         let parent = path.parent().unwrap_or_else(|| Path::new("/"));
 
-        match self.metadata(parent) {
+        match self.metadata(parent).await {
             Ok(parent_meta) if parent_meta.is_dir() => {
                 // The operation would normally be doable... but we're a readonly
                 // filesystem
@@ -109,9 +109,9 @@ impl FileSystem for WebcVolumeFileSystem {
         }
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+    async fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         // The original directory should exist
-        let meta = self.metadata(path)?;
+        let meta = self.metadata(path).await?;
 
         // and it should be a directory
         if !meta.is_dir() {
@@ -122,24 +122,22 @@ impl FileSystem for WebcVolumeFileSystem {
         Err(FsError::PermissionDenied)
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
-        Box::pin(async {
+    async fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
             // The original file should exist
-            let _ = self.metadata(from)?;
+            let _ = self.metadata(from).await?;
 
             // we also want to make sure the destination's folder exists, too
             let dest_parent = to.parent().unwrap_or_else(|| Path::new("/"));
-            let parent_meta = self.metadata(dest_parent)?;
+            let parent_meta = self.metadata(dest_parent).await?;
             if !parent_meta.is_dir() {
                 return Err(FsError::BaseNotDirectory);
             }
 
             // but we are a readonly filesystem, so you can't modify anything
             Err(FsError::PermissionDenied)
-        })
     }
 
-    fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
+    async fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
 
         self.volume()
@@ -148,12 +146,12 @@ impl FileSystem for WebcVolumeFileSystem {
             .ok_or(FsError::EntryNotFound)
     }
 
-    fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
-        self.metadata(path)
+    async fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
+        self.metadata(path).await
     }
 
-    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
-        let meta = self.metadata(path)?;
+    async fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+        let meta = self.metadata(path).await?;
 
         if !meta.is_file() {
             return Err(FsError::NotAFile);
@@ -165,16 +163,14 @@ impl FileSystem for WebcVolumeFileSystem {
     fn new_open_options(&self) -> crate::OpenOptions<'_> {
         crate::OpenOptions::new(self)
     }
-}
 
-impl FileOpener for WebcVolumeFileSystem {
-    fn open(
+    async fn open(
         &self,
         path: &Path,
         conf: &OpenOptionsConfig,
     ) -> crate::Result<Box<dyn crate::VirtualFile + Send + Sync + 'static>> {
         if let Some(parent) = path.parent() {
-            let parent_meta = self.metadata(parent)?;
+            let parent_meta = self.metadata(parent).await?;
             if !parent_meta.is_dir() {
                 return Err(FsError::BaseNotDirectory);
             }
@@ -210,30 +206,31 @@ struct File {
     content: Cursor<SharedBytes>,
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for File {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         0
     }
 
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         self.timestamps
             .map(|t| t.modified())
             .unwrap_or_else(|| get_modified(None))
     }
 
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         0
     }
 
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         self.content.get_ref().len().try_into().unwrap()
     }
 
-    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Err(FsError::PermissionDenied)
     }
 
-    fn unlink(&mut self) -> crate::Result<()> {
+    async fn unlink(&mut self) -> crate::Result<()> {
         Err(FsError::PermissionDenied)
     }
 
@@ -253,7 +250,7 @@ impl VirtualFile for File {
         Poll::Ready(Err(std::io::ErrorKind::PermissionDenied.into()))
     }
 
-    fn as_owned_buffer(&self) -> Option<SharedBytes> {
+    async fn as_owned_buffer(&self) -> Option<SharedBytes> {
         Some(self.content.get_ref().clone())
     }
 }
@@ -473,24 +470,29 @@ mod tests {
         }
     }
 
-    #[test]
-    fn symlink_metadata_and_readlink() {
+    #[tokio::test]
+    async fn symlink_metadata_and_readlink() {
         let fs = symlink_fs();
 
-        let link = fs.symlink_metadata("/link".as_ref()).unwrap();
+        let link = fs.symlink_metadata("/link".as_ref()).await.unwrap();
         assert!(link.ft.is_symlink());
         assert_eq!(link.len(), "target.txt".len() as u64);
         assert_eq!(
-            fs.readlink("/link".as_ref()).unwrap(),
+            fs.readlink("/link".as_ref()).await.unwrap(),
             Path::new("target.txt")
         );
         assert_eq!(
-            fs.new_open_options().read(true).open("/link").unwrap_err(),
+            fs.new_open_options()
+                .read(true)
+                .open("/link")
+                .await
+                .unwrap_err(),
             FsError::NotAFile,
         );
 
         let entries: Vec<_> = fs
             .read_dir("/".as_ref())
+            .await
             .unwrap()
             .map(|entry| entry.unwrap())
             .collect();
@@ -501,28 +503,28 @@ mod tests {
         assert!(link_entry.metadata().unwrap().ft.is_symlink());
 
         assert_eq!(
-            fs.readlink("/target.txt".as_ref()).unwrap_err(),
+            fs.readlink("/target.txt".as_ref()).await.unwrap_err(),
             FsError::InvalidInput
         );
         assert_eq!(
-            fs.readlink("/missing".as_ref()).unwrap_err(),
+            fs.readlink("/missing".as_ref()).await.unwrap_err(),
             FsError::EntryNotFound
         );
     }
 
-    #[test]
-    fn mount_all_volumes_in_python() {
+    #[tokio::test]
+    async fn mount_all_volumes_in_python() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
 
         let fs = WebcVolumeFileSystem::mount_all(&container);
 
         // We should now have access to the python directory
-        let lib_meta = fs.metadata("/lib/python3.6/".as_ref()).unwrap();
+        let lib_meta = fs.metadata("/lib/python3.6/".as_ref()).await.unwrap();
         assert!(lib_meta.is_dir());
     }
 
-    #[test]
-    fn read_dir() {
+    #[tokio::test]
+    async fn read_dir() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
@@ -531,6 +533,7 @@ mod tests {
 
         let entries: Vec<_> = fs
             .read_dir("/lib".as_ref())
+            .await
             .unwrap()
             .map(|r| r.unwrap())
             .collect();
@@ -593,8 +596,8 @@ mod tests {
         assert_eq!(entries, expected);
     }
 
-    #[test]
-    fn metadata() {
+    #[tokio::test]
+    async fn metadata() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
@@ -613,21 +616,23 @@ mod tests {
             len: 4694941,
         };
         assert_eq!(
-            fs.metadata("/lib/python.wasm".as_ref()).unwrap(),
+            fs.metadata("/lib/python.wasm".as_ref()).await.unwrap(),
             python_wasm,
         );
         assert_eq!(
             fs.metadata("/../../../../lib/python.wasm".as_ref())
+                .await
                 .unwrap(),
             python_wasm,
         );
         assert_eq!(
             fs.metadata("/lib/python3.6/../python3.6/../python.wasm".as_ref())
+                .await
                 .unwrap(),
             python_wasm,
         );
         assert_eq!(
-            fs.metadata("/lib/python3.6".as_ref()).unwrap(),
+            fs.metadata("/lib/python3.6".as_ref()).await.unwrap(),
             crate::Metadata {
                 ft: crate::FileType {
                     dir: true,
@@ -640,7 +645,9 @@ mod tests {
             },
         );
         assert_eq!(
-            fs.metadata("/this/does/not/exist".as_ref()).unwrap_err(),
+            fs.metadata("/this/does/not/exist".as_ref())
+                .await
+                .unwrap_err(),
             FsError::EntryNotFound
         );
     }
@@ -658,17 +665,23 @@ mod tests {
                 .create(true)
                 .write(true)
                 .open("/file.txt")
+                .await
                 .unwrap_err(),
             FsError::PermissionDenied,
         );
         assert_eq!(
-            fs.new_open_options().read(true).open("/lib").unwrap_err(),
+            fs.new_open_options()
+                .read(true)
+                .open("/lib")
+                .await
+                .unwrap_err(),
             FsError::NotAFile,
         );
         assert_eq!(
             fs.new_open_options()
                 .read(true)
                 .open("/this/does/not/exist.txt")
+                .await
                 .unwrap_err(),
             FsError::EntryNotFound,
         );
@@ -678,18 +691,22 @@ mod tests {
             .new_open_options()
             .read(true)
             .open("/lib/python.wasm")
+            .await
             .unwrap();
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer).await.unwrap();
         assert!(buffer.starts_with(b"\0asm"));
         assert_eq!(
-            fs.metadata("/lib/python.wasm".as_ref()).unwrap().len(),
+            fs.metadata("/lib/python.wasm".as_ref())
+                .await
+                .unwrap()
+                .len(),
             u64::try_from(buffer.len()).unwrap(),
         );
     }
 
-    #[test]
-    fn remove_dir_is_not_allowed() {
+    #[tokio::test]
+    async fn remove_dir_is_not_allowed() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
@@ -697,21 +714,25 @@ mod tests {
         let fs = WebcVolumeFileSystem::new(volume);
 
         assert_eq!(
-            fs.remove_dir("/lib".as_ref()).unwrap_err(),
+            fs.remove_dir("/lib".as_ref()).await.unwrap_err(),
             FsError::PermissionDenied,
         );
         assert_eq!(
-            fs.remove_dir("/this/does/not/exist".as_ref()).unwrap_err(),
+            fs.remove_dir("/this/does/not/exist".as_ref())
+                .await
+                .unwrap_err(),
             FsError::EntryNotFound,
         );
         assert_eq!(
-            fs.remove_dir("/lib/python.wasm".as_ref()).unwrap_err(),
+            fs.remove_dir("/lib/python.wasm".as_ref())
+                .await
+                .unwrap_err(),
             FsError::BaseNotDirectory,
         );
     }
 
-    #[test]
-    fn remove_file_is_not_allowed() {
+    #[tokio::test]
+    async fn remove_file_is_not_allowed() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
@@ -719,21 +740,25 @@ mod tests {
         let fs = WebcVolumeFileSystem::new(volume);
 
         assert_eq!(
-            fs.remove_file("/lib".as_ref()).unwrap_err(),
+            fs.remove_file("/lib".as_ref()).await.unwrap_err(),
             FsError::NotAFile,
         );
         assert_eq!(
-            fs.remove_file("/this/does/not/exist".as_ref()).unwrap_err(),
+            fs.remove_file("/this/does/not/exist".as_ref())
+                .await
+                .unwrap_err(),
             FsError::EntryNotFound,
         );
         assert_eq!(
-            fs.remove_file("/lib/python.wasm".as_ref()).unwrap_err(),
+            fs.remove_file("/lib/python.wasm".as_ref())
+                .await
+                .unwrap_err(),
             FsError::PermissionDenied,
         );
     }
 
-    #[test]
-    fn create_dir_is_not_allowed() {
+    #[tokio::test]
+    async fn create_dir_is_not_allowed() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
         let volume = volumes["atom"].clone();
@@ -741,15 +766,17 @@ mod tests {
         let fs = WebcVolumeFileSystem::new(volume);
 
         assert_eq!(
-            fs.create_dir("/lib".as_ref()).unwrap_err(),
+            fs.create_dir("/lib".as_ref()).await.unwrap_err(),
             FsError::AlreadyExists,
         );
         assert_eq!(
-            fs.create_dir("/this/does/not/exist".as_ref()).unwrap_err(),
+            fs.create_dir("/this/does/not/exist".as_ref())
+                .await
+                .unwrap_err(),
             FsError::BaseNotDirectory,
         );
         assert_eq!(
-            fs.create_dir("/lib/nested/".as_ref()).unwrap_err(),
+            fs.create_dir("/lib/nested/".as_ref()).await.unwrap_err(),
             FsError::PermissionDenied,
         );
     }
