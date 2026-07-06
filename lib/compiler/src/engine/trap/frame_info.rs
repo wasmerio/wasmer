@@ -12,8 +12,8 @@
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 
-use addr2line::Loader;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::sync::{Arc, LazyLock, Mutex, MutexGuard, RwLock};
 use wasmer_types::lib::std::cmp;
 use wasmer_types::{
@@ -23,6 +23,34 @@ use wasmer_types::{
 use wasmer_vm::FunctionBodyPtr;
 
 use crate::engine::artifact::TrapReader;
+
+/// Holds the path to an artifact's debug info and lazily creates the
+/// `addr2line::Loader` for it the first time it's needed.
+pub struct DebugInfo {
+    path: PathBuf,
+    loader: Mutex<Option<addr2line::Loader>>,
+}
+
+impl DebugInfo {
+    /// Create a new DebugInfo from an existing file.
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            loader: Mutex::new(None),
+        }
+    }
+
+    /// Returns a guard giving access to the lazily-initialized
+    /// `addr2line::Loader`, parsing it on first access. The inner `Option`
+    /// is `None` if the loader couldn't be locked or created.
+    fn loader(&self) -> MutexGuard<'_, Option<addr2line::Loader>> {
+        let mut guard = self.loader.lock().unwrap();
+        if guard.is_none() {
+            *guard = addr2line::Loader::new(&self.path).ok();
+        }
+        guard
+    }
+}
 
 /// This is a global cache of backtrace frame information for all active
 ///
@@ -60,7 +88,7 @@ struct ModuleInfoFrameInfo {
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<ModuleInfo>,
     trap_reader: Arc<TrapReader>,
-    debug_info: Arc<Mutex<addr2line::Loader>>,
+    debug_info: Arc<DebugInfo>,
 }
 
 impl ModuleInfoFrameInfo {
@@ -101,7 +129,7 @@ impl GlobalFrameInfo {
         let func_index = module.module.func_index(func.local_index);
         let mut function_name = module.module.function_names.get(&func_index).cloned();
 
-        let get_line = |debug_info: &MutexGuard<Loader>, pc| {
+        let get_line = |debug_info: &addr2line::Loader, pc| {
             if let Ok(Some(location)) = debug_info.find_location(pc)
                 && let Some(line) = location.line
                 && let Some(line) = line.checked_sub(1)
@@ -114,11 +142,11 @@ impl GlobalFrameInfo {
 
         let mut instr = SourceLoc::default();
         let mut func_start = SourceLoc::default();
-        if let Ok(debug_info) = module.debug_info.lock() {
+        if let Some(debug_info) = module.debug_info.loader().as_ref() {
             let probe = (pc - module.image_base) as u64;
 
-            instr = get_line(&debug_info, probe);
-            func_start = get_line(&debug_info, (func.start - module.image_base) as u64);
+            instr = get_line(debug_info, probe);
+            func_start = get_line(debug_info, (func.start - module.image_base) as u64);
 
             if let Ok(mut frames) = debug_info.find_frames(probe)
                 && let Ok(Some(frame)) = frames.next()
@@ -192,7 +220,7 @@ pub fn register(
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
     trap_reader: Arc<TrapReader>,
     image_base: usize,
-    debug_info: Arc<Mutex<addr2line::Loader>>,
+    debug_info: Arc<DebugInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::MAX;
     let mut max = 0;

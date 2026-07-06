@@ -20,7 +20,8 @@ use crate::types::symbols::ModuleMetadata;
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use crate::{
-    Engine, EngineInner, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
+    DebugInfo, Engine, EngineInner, FunctionExtent, GlobalFrameInfoRegistration,
+    InstantiationError, Tunables,
     WASMER_FUNCTION_OFFSETS_SECTION_NAME, WASMER_MODULE_INFO_SECTION_NAME,
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{mapped_binary::MemoryMappedBinary, resolver::resolve_tags},
@@ -210,7 +211,7 @@ pub struct AllocatedArtifact {
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
 
-    debug_info: Arc<Mutex<addr2line::Loader>>,
+    debug_info: Arc<DebugInfo>,
 
     // Compiled executable mmapped into memory.
     memory_map: MemoryMappedBinary,
@@ -225,9 +226,7 @@ impl AllocatedArtifact {
         let module_file =
             File::open(module_file_path).map_err(|e| format!("cannot open artifact file: {e}"))?;
         let module_file_fd = module_file.as_raw_fd();
-        let debug_info = addr2line::Loader::new(module_file_path)
-            .map(|loader| Arc::new(Mutex::new(loader)))
-            .map_err(|e| format!("cannot parse debug info from an artifact file: {e}"))?;
+        let debug_info = Arc::new(DebugInfo::new(module_file_path));
         let reader = BufReader::new(module_file);
         let cache = ReadCache::new(reader);
         let image = object::File::parse(&cache).map_err(|e| format!("cannot parse image: {e}"))?;
