@@ -146,6 +146,20 @@
     "package"
   ],
   "$defs": {
+    "AppConfigCapabilityCdnCacheV1": {
+      "description": "CDN cache capability settings.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enable CDN caching for the app.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
     "AppConfigCapabilityInstaBootV1": {
       "description": "Enables accelerated instance boot times with startup snapshots.\n\nHow it works:\nThe Edge runtime will create a pre-initialized snapshot of apps that is\nready to serve requests\nYour app will then restore from the generated snapshot, which has the\npotential to significantly speed up cold starts.\n\nTo drive the initialization, multiple http requests can be specified.\nAll the specified requests will be sent to the app before the snapshot is\ncreated, allowing the app to pre-load files, pre initialize caches, ...",
       "type": "object",
@@ -186,6 +200,17 @@
       "description": "Restricted version of the internal `CapabilityMapV1`, with only a select\nsubset of settings.",
       "type": "object",
       "properties": {
+        "cdn_cache": {
+          "description": "CDN cache settings.",
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AppConfigCapabilityCdnCacheV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "instaboot": {
           "description": "Enables app bootstrapping with startup snapshots.",
           "anyOf": [
