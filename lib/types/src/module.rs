@@ -24,6 +24,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
@@ -145,7 +146,13 @@ pub struct ModuleInfo {
     pub passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
 
     /// WebAssembly passive data segments.
-    pub passive_data: HashMap<DataIndex, Box<[u8]>>,
+    ///
+    /// Stored as `Arc<[u8]>` so that every instance created from this module can
+    /// share the same immutable segment bytes (a cheap refcount bump) instead of
+    /// deep-copying them. `memory.init` only ever reads these bytes, and
+    /// `data.drop` is tracked per-instance, so there is no reason to clone them
+    /// per instance.
+    pub passive_data: HashMap<DataIndex, Arc<[u8]>>,
 
     /// WebAssembly global initializers.
     pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
@@ -236,7 +243,13 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements.into_iter().collect(),
-            passive_data: it.passive_data.into_iter().collect(),
+            // `ArchivableModuleInfo` owns its bytes (`Box<[u8]>`); copy them out
+            // of the shared `Arc` for the on-disk representation.
+            passive_data: it
+                .passive_data
+                .into_iter()
+                .map(|(idx, bytes)| (idx, Box::from(&*bytes)))
+                .collect(),
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
@@ -268,7 +281,11 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements.into_iter().collect(),
-            passive_data: it.passive_data.into_iter().collect(),
+            passive_data: it
+                .passive_data
+                .into_iter()
+                .map(|(idx, bytes)| (idx, Arc::from(bytes)))
+                .collect(),
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
