@@ -13,6 +13,19 @@ static LLVM_CONFIG_PATH: LazyLock<PathBuf> = LazyLock::new(|| {
     }
 });
 
+static LINK_STATIC: LazyLock<bool> = LazyLock::new(|| {
+    Command::new(&*LLVM_CONFIG_PATH)
+        .arg("--system-libs")
+        .arg("--link-static")
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+});
+
+fn link_static() -> bool {
+    *LINK_STATIC
+}
+
 fn target_env_is(name: &str) -> bool {
     match env::var_os("CARGO_CFG_TARGET_ENV") {
         Some(s) => s == name,
@@ -27,6 +40,10 @@ fn target_os_is(name: &str) -> bool {
     }
 }
 
+fn link_kind() -> &'static str {
+    if link_static() { "static" } else { "dylib" }
+}
+
 fn llvm_config(arg: &str) -> String {
     llvm_config_ex(&*LLVM_CONFIG_PATH, arg).expect("Surprising failure from llvm-config")
 }
@@ -34,7 +51,11 @@ fn llvm_config(arg: &str) -> String {
 fn llvm_config_ex<S: AsRef<OsStr>>(binary: S, arg: &str) -> io::Result<String> {
     Command::new(binary)
         .arg(arg)
-        .arg("--link-static")
+        .arg(if link_static() {
+            "--link-static"
+        } else {
+            "--link-shared"
+        })
         // .arg("core") // We do, in fact need everything!
         .output()
         .and_then(|output| {
@@ -133,13 +154,23 @@ fn get_link_libraries() -> Vec<String> {
                     name
                 );
                 &name[..name.len() - 4]
-            } else {
+            } else if link_static() {
                 assert!(
                     name.starts_with("lib") && name.ends_with(".a"),
                     "library name {:?} does not appear to be a static library",
                     name
                 );
                 &name[3..name.len() - 2]
+            } else {
+                let stem = name
+                    .strip_suffix(target_dylib_extension())
+                    .unwrap_or_else(|| {
+                        panic!(
+                            "library name {:?} does not appear to be a shared library",
+                            name
+                        )
+                    });
+                stem.trim_start_matches("lib")
             }
         })
         .map(str::to_owned)
@@ -209,7 +240,7 @@ fn main() {
         .iter()
         .filter(|n| !blacklist.iter().any(|blacklisted| n.contains(*blacklisted)))
     {
-        println!("cargo:rustc-link-lib=static={}", name);
+        println!("cargo:rustc-link-lib={}={}", link_kind(), name);
     }
 
     for name in get_system_libraries() {
@@ -225,15 +256,15 @@ fn main() {
         println!("cargo:rustc-link-lib=msvcrtd");
     }
 
-    println!("cargo:rustc-link-lib=static=lldCommon");
+    println!("cargo:rustc-link-lib={}=lldCommon", link_kind());
     // Special LLD libraries!
     if cfg!(target_os = "linux") {
-        println!("cargo:rustc-link-lib=static=lldELF");
+        println!("cargo:rustc-link-lib={}=lldELF", link_kind());
     } else if cfg!(target_os = "macos") {
-        println!("cargo:rustc-link-lib=static=lldMachO");
+        println!("cargo:rustc-link-lib={}=lldMachO", link_kind());
     } else if cfg!(target_os = "windows") {
-        println!("cargo:rustc-link-lib=static=lldCOFF");
-        println!("cargo:rustc-link-lib=static=lldMinGW");
+        println!("cargo:rustc-link-lib={}=lldCOFF", link_kind());
+        println!("cargo:rustc-link-lib={}=lldMinGW", link_kind());
     }
 
     if cfg!(target_os = "macos") {
