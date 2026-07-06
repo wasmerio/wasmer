@@ -18,7 +18,7 @@ fn artifact_serialization_roundtrip(config: crate::Config) -> Result<()> {
         let wasm_module = fs::read(path).unwrap();
         let store = config.store();
         let module = Module::new(&store, wasm_module).unwrap();
-        let artifact_path = tmpdir.join(format!("{file_name}.wasmu"));
+        let artifact_path = tmpdir.join(format!("{file_name}.{:?}.wasmu", config.compiler));
         module.serialize_to_file(&artifact_path)?;
         let deserialized_module =
             unsafe { Module::deserialize_file(&store, &artifact_path) }.unwrap();
