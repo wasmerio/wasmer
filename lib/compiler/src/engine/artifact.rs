@@ -6,7 +6,7 @@ use std::sync::{Arc, Mutex};
 use std::{
     ffi::c_void,
     fs::File,
-    io::{self, BufReader, Read, Seek, SeekFrom},
+    io::{BufReader, Seek, SeekFrom},
     os::fd::AsRawFd,
     path::Path,
     sync::atomic::{AtomicUsize, Ordering::SeqCst},
@@ -50,25 +50,14 @@ use wasmer_vm::{
 #[derive(Debug)]
 pub(crate) enum ModuleFile {
     TempFile(NamedTempFile),
-    OwnedFile(File),
+    OwnedFile(PathBuf),
 }
 
 impl ModuleFile {
-    pub(crate) fn file(&mut self) -> &mut File {
+    fn path(&self) -> &Path {
         match self {
-            Self::OwnedFile(file) => file,
-            Self::TempFile(tempfile) => tempfile.as_file_mut(),
-        }
-    }
-
-    fn try_clone_reader(&self) -> Result<BufReader<File>, io::Error> {
-        match self {
-            Self::OwnedFile(file) => {
-                let mut clone = file.try_clone()?;
-                clone.seek(io::SeekFrom::Start(0))?;
-                Ok(BufReader::new(clone))
-            }
-            Self::TempFile(tempfile) => Ok(BufReader::new(File::open(tempfile.path())?)),
+            Self::OwnedFile(path) => path,
+            Self::TempFile(tempfile) => tempfile.path(),
         }
     }
 }
@@ -230,22 +219,15 @@ pub struct AllocatedArtifact {
 impl AllocatedArtifact {
     fn from_binary(
         module_info: &ModuleInfo,
-        module_file: &mut File,
+        module_file_path: &Path,
         signatures: PrimaryMap<SignatureIndex, VMSignatureHash>,
     ) -> Result<Self, String> {
-        // TODO
-        let path_prefix = if cfg!(target_os = "linux") {
-            PathBuf::from("/proc/self/fd")
-        } else {
-            PathBuf::from("/dev/fd")
-        };
+        let module_file =
+            File::open(module_file_path).map_err(|e| format!("cannot open artifact file: {e}"))?;
         let module_file_fd = module_file.as_raw_fd();
-        let debug_info = addr2line::Loader::new(path_prefix.join(module_file_fd.to_string()))
+        let debug_info = addr2line::Loader::new(module_file_path)
             .map(|loader| Arc::new(Mutex::new(loader)))
             .map_err(|e| format!("cannot parse debug info from an artifact file: {e}"))?;
-        module_file
-            .seek(io::SeekFrom::Start(0))
-            .map_err(|e| format!("cannot seek artifact file: {e}"))?;
         let reader = BufReader::new(module_file);
         let cache = ReadCache::new(reader);
         let image = object::File::parse(&cache).map_err(|e| format!("cannot parse image: {e}"))?;
@@ -594,27 +576,15 @@ impl Artifact {
 
     /// Serialize the artifact.
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        let mut reader = self.module_file.try_clone_reader().map_err(|e| {
-            SerializeError::Generic(format!("Failed to serialize the Artifact: {e}"))
-        })?;
-        let mut buf = Vec::new();
-        reader.read_to_end(&mut buf).map_err(|e| {
-            SerializeError::Generic(format!("Failed to serialize the Artifact: {e}"))
-        })?;
-        Ok(buf)
+        std::fs::read(self.module_file.path())
+            .map_err(|e| SerializeError::Generic(format!("Failed to serialize the Artifact: {e}")))
     }
 
     /// Serialize the artifact to a file by copying the underlying binary file.
     ///
     /// The resulting file can later be loaded with [`Self::deserialize_file`].
     pub fn serialize_to_file(&self, path: &Path) -> Result<(), SerializeError> {
-        let mut reader = self.module_file.try_clone_reader().map_err(|e| {
-            SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
-        })?;
-        let mut writer = File::create(path).map_err(|e| {
-            SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
-        })?;
-        io::copy(&mut reader, &mut writer).map_err(|e| {
+        std::fs::copy(self.module_file.path(), path).map_err(|e| {
             SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
         })?;
         Ok(())
@@ -625,14 +595,10 @@ impl Artifact {
         engine: &Engine,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let mut file = File::open(path.as_ref())
+        let path = path.as_ref().to_path_buf();
+        let file = File::open(&path)
             .map_err(|e| DeserializeError::Generic(format!("cannot open artifact file: {e}")))?;
-        file.seek(SeekFrom::Start(0))
-            .map_err(|e| DeserializeError::Generic(format!("cannot seek artifact format: {e}")))?;
-        let reader = BufReader::new(
-            file.try_clone()
-                .map_err(|e| DeserializeError::Generic(e.to_string()))?,
-        );
+        let reader = BufReader::new(file);
         let cache = ReadCache::new(reader);
         let image = object::File::parse(&cache)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
@@ -655,7 +621,7 @@ impl Artifact {
 
         let artifact = ArtifactBuild {
             serializable,
-            module_file: ModuleFile::OwnedFile(file),
+            module_file: ModuleFile::OwnedFile(path),
         };
         let mut inner_engine = engine.inner_mut();
         Self::from_parts(&mut inner_engine, artifact, engine.target())
@@ -664,7 +630,7 @@ impl Artifact {
     /// Construct a `ArtifactBuild` from component parts.
     fn from_parts(
         engine_inner: &mut EngineInner,
-        mut artifact: ArtifactBuild,
+        artifact: ArtifactBuild,
         target: &Target,
     ) -> Result<Self, DeserializeError> {
         if !target.is_native() {
@@ -691,7 +657,7 @@ impl Artifact {
         };
 
         let allocated_artifact =
-            AllocatedArtifact::from_binary(module_info, artifact.module_file.file(), signatures)
+            AllocatedArtifact::from_binary(module_info, artifact.module_file.path(), signatures)
                 // TODO
                 .unwrap();
         let ArtifactBuild {
@@ -750,10 +716,7 @@ impl std::fmt::Debug for Artifact {
 impl Artifact {
     fn internal_register_frame_info(&mut self) -> Result<(), DeserializeError> {
         let module_info = self.serializable.compile_info.module.clone();
-        let trap_file = self
-            .module_file
-            .file()
-            .try_clone()
+        let trap_file = File::open(self.module_file.path())
             .map_err(|e| DeserializeError::Generic(e.to_string()))?;
         let allocated = self.allocated.as_mut().expect("It must be allocated");
         if allocated.frame_info_registered {
