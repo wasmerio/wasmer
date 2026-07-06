@@ -126,6 +126,10 @@ impl GlobalFrameInfo {
                 && let Ok(name) = function.raw_name()
                 // TODO: add constant
                 && name != "<unnamed>"
+                // The DWARF symbol name falls back to a synthetic
+                // `function_{index}` name when the wasm module has no name
+                // for this function; don't treat that as a real name.
+                && name != module.module.get_function_name(func_index)
             {
                 function_name = Some(name.into_owned());
             }
