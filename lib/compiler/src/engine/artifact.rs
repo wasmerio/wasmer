@@ -21,10 +21,9 @@ use crate::types::symbols::ModuleMetadata;
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState};
 use crate::{
     DebugInfo, Engine, EngineInner, FunctionExtent, GlobalFrameInfoRegistration,
-    InstantiationError, Tunables,
-    WASMER_FUNCTION_OFFSETS_SECTION_NAME, WASMER_MODULE_INFO_SECTION_NAME,
-    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
-    WASMER_VERSION_SECTION_NAME,
+    InstantiationError, Tunables, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
+    WASMER_MODULE_INFO_SECTION_NAME, WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME,
+    WASMER_TRAPS_SECTION_NAME, WASMER_VERSION_SECTION_NAME,
     engine::{mapped_binary::MemoryMappedBinary, resolver::resolve_tags},
     register_frame_info, resolve_imports,
     serialize::SerializableModule,
@@ -657,17 +656,13 @@ impl Artifact {
         artifact: ArtifactBuild,
         target: &Target,
     ) -> Result<Self, DeserializeError> {
-        if !target.is_native() {
-            todo!("remove the branch");
-        } else {
-            // check if cpu features are compatible before anything else
-            let cpu_features = artifact.serializable.cpu_features();
-            if !target.cpu_features().is_superset(cpu_features) {
-                return Err(DeserializeError::Incompatible(format!(
-                    "Some CPU Features needed for the artifact are missing: {:?}",
-                    cpu_features.difference(*target.cpu_features())
-                )));
-            }
+        // check if cpu features are compatible before anything else
+        let cpu_features = artifact.serializable.cpu_features();
+        if !target.cpu_features().is_superset(cpu_features) {
+            return Err(DeserializeError::Incompatible(format!(
+                "Some CPU Features needed for the artifact are missing: {:?}",
+                cpu_features.difference(*target.cpu_features())
+            )));
         }
         let module_info = artifact.serializable.module_info();
         let signatures = {
@@ -682,8 +677,11 @@ impl Artifact {
 
         let allocated_artifact =
             AllocatedArtifact::from_binary(module_info, artifact.module_file.path(), signatures)
-                // TODO
-                .unwrap();
+                .map_err(|e| {
+                    DeserializeError::CorruptedBinary(format!(
+                        "allocated artifact creation failed: {e}"
+                    ))
+                })?;
         let ArtifactBuild {
             module_file,
             serializable,
@@ -710,7 +708,7 @@ impl Artifact {
         })
     }
 
-    /// Get ModuleInfo: TODO
+    /// Get ModuleInfo
     pub fn module_info(&self) -> &ModuleInfo {
         &self.serializable.compile_info.module
     }
