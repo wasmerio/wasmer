@@ -314,20 +314,25 @@ impl MountFileSystem {
 
     fn rebase_entries(entries: &mut ReadDir, source_prefix: &Path, target_prefix: &Path) {
         for entry in &mut entries.data {
-            let suffix = entry
-                .path
-                .strip_prefix(source_prefix)
-                .map(Path::to_path_buf)
-                .unwrap_or_else(|_| {
-                    entry
-                        .path
-                        .components()
-                        .filter_map(|component| match component {
-                            std::path::Component::Normal(part) => Some(part),
-                            _ => None,
-                        })
-                        .collect::<PathBuf>()
-                });
+            let component_suffix = || {
+                entry
+                    .path
+                    .components()
+                    .filter_map(|component| match component {
+                        std::path::Component::Normal(part) => Some(part),
+                        _ => None,
+                    })
+                    .collect::<PathBuf>()
+            };
+            let suffix = if source_prefix == Path::new("/") {
+                component_suffix()
+            } else {
+                entry
+                    .path
+                    .strip_prefix(source_prefix)
+                    .map(Path::to_path_buf)
+                    .unwrap_or_else(|_| component_suffix())
+            };
             entry.path = target_prefix.join(suffix);
         }
     }
