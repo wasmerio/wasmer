@@ -23,6 +23,34 @@ impl PackageHash {
     pub fn from_sha256_bytes(bytes: [u8; 32]) -> Self {
         Self::Sha256(Sha256Hash(bytes))
     }
+
+    /// Parse a bare (un-prefixed) sha256 hex digest, e.g. one straight from the
+    /// registry, into a [`PackageHash`].
+    pub fn from_sha256_hex(hex: &str) -> Result<Self, PackageParseError> {
+        hex.parse::<Sha256Hash>()
+            .map(Self::Sha256)
+            .map_err(|e| PackageParseError::new(hex, e.to_string()))
+    }
+
+    /// Error if this (expected) hash does not match `actual`.
+    pub fn ensure_matches(&self, actual: &PackageHash) -> Result<(), PackageHashMismatch> {
+        if self == actual {
+            Ok(())
+        } else {
+            Err(PackageHashMismatch {
+                expected: self.clone(),
+                actual: actual.clone(),
+            })
+        }
+    }
+}
+
+/// A package's hash did not match the expected one.
+#[derive(Debug, Clone, thiserror::Error)]
+#[error("hash mismatch: expected {expected}, found {actual}")]
+pub struct PackageHashMismatch {
+    pub expected: PackageHash,
+    pub actual: PackageHash,
 }
 
 impl From<Sha256Hash> for PackageHash {

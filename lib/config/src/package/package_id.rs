@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-use super::PackageHash;
+use super::{PackageHash, Webcm};
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct NamedPackageId {
@@ -17,6 +17,18 @@ impl NamedPackageId {
             full_name: name.into(),
             version: version.as_ref().parse()?,
         })
+    }
+
+    /// The default `.webc` file name for this package, e.g.
+    /// `wasmer-hello-0.1.0.webc`. Slashes in the name become dashes to keep
+    /// the result a single path component.
+    pub fn webc_file_name(&self) -> String {
+        format!(
+            "{}-{}.{}",
+            self.full_name.replace('/', "-"),
+            self.version,
+            Webcm::WEBC_EXTENSION,
+        )
     }
 }
 

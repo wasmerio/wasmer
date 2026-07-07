@@ -8,7 +8,7 @@ use wasmer_config::package::{
     NamedPackageId, PackageHash, PackageId, PackageIdent, PackageSource, Webcm,
 };
 
-use crate::runtime::resolver::{PackageSummary, QueryError, Source, WebcHash};
+use crate::runtime::resolver::{PackageSummary, QueryError, Source};
 
 /// A [`Source`] that tracks packages in memory.
 ///
@@ -90,7 +90,7 @@ impl InMemorySource {
                 }
             } else if current.extension().and_then(|e| e.to_str()) == Some(Webcm::EXTENSION) {
                 self.add_from_webcm(&current)?;
-            } else if current.extension().and_then(|e| e.to_str()) == Some("webc") {
+            } else if current.extension().and_then(|e| e.to_str()) == Some(Webcm::WEBC_EXTENSION) {
                 let sidecar = Webcm::path_for_webc(&current);
                 if !sidecar.is_file() {
                     self.add_bare_webc(root, &current)?;
@@ -113,18 +113,15 @@ impl InMemorySource {
             .parse()
             .with_context(|| format!("Invalid webcm \"{}\"", webcm_path.display()))?;
 
-        let webc = Webcm::webc_path(webcm_path);
-        anyhow::ensure!(
-            webc.is_file(),
-            "the webcm \"{}\" has no paired webc \"{}\"",
-            webcm_path.display(),
-            webc.display(),
-        );
+        let webc = Webcm::require_paired_webc(webcm_path)?;
         let mut summary = PackageSummary::from_webc_file(&webc)
             .with_context(|| format!("Unable to load \"{}\"", webc.display()))?;
 
         if let Some(expected) = &webcm.package.hash {
-            verify_hash(&webc, &summary.dist.webc_sha256, expected)?;
+            let actual = PackageHash::from_sha256_bytes(summary.dist.webc_sha256.as_bytes());
+            expected
+                .ensure_matches(&actual)
+                .with_context(|| format!("for webc \"{}\"", webc.display()))?;
         }
         summary.pkg.id = PackageId::Named(webcm.id());
         self.add(summary);
@@ -172,21 +169,6 @@ impl InMemorySource {
         // as the named packages are also always added as hashed.
         self.hash_packages.len()
     }
-}
-
-/// Error if the webc's `actual` hash doesn't match the one its webcm records.
-fn verify_hash(webc: &Path, actual: &WebcHash, expected: &PackageHash) -> Result<(), Error> {
-    let matches = match expected.as_sha256() {
-        Some(expected) => *expected.as_bytes() == actual.as_bytes(),
-        None => anyhow::bail!("unsupported hash algorithm in webcm: {expected}"),
-    };
-    anyhow::ensure!(
-        matches,
-        "hash mismatch for \"{}\": the webcm records {expected}, the file hashes to sha256:{}",
-        webc.display(),
-        actual.as_hex(),
-    );
-    Ok(())
 }
 
 #[async_trait::async_trait]

@@ -10,7 +10,7 @@ use sha2::Digest;
 use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 use wasmer_backend_api::WasmerClient;
-use wasmer_config::package::{Manifest, PackageHash};
+use wasmer_config::package::{Manifest, PackageHash, Webcm};
 
 /// Push a package to the registry from a `wasmer.toml` project or a raw `.webc` file.
 ///
@@ -179,7 +179,7 @@ impl PackagePush {
     ) -> anyhow::Result<(String, PackageHash)> {
         // Check if manifest_path is a .webc file
         let is_webc = manifest_path.is_file()
-            && manifest_path.extension().and_then(|s| s.to_str()) == Some("webc");
+            && manifest_path.extension().and_then(|s| s.to_str()) == Some(Webcm::WEBC_EXTENSION);
 
         let (hash, package_bytes) = if is_webc {
             tracing::info!("Loading pre-built package from webc");

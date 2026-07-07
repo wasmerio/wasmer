@@ -15,7 +15,7 @@ mod webcm;
 pub use self::{
     error::PackageParseError,
     named_package_ident::{NamedPackageIdent, Tag},
-    package_hash::PackageHash,
+    package_hash::{PackageHash, PackageHashMismatch},
     package_id::{NamedPackageId, PackageId},
     package_ident::PackageIdent,
     package_source::PackageSource,

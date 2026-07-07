@@ -56,6 +56,9 @@ impl Webcm {
     /// The file extension of sidecar manifests, without the dot.
     pub const EXTENSION: &'static str = "webcm";
 
+    /// The file extension of the packages a sidecar pairs with, without the dot.
+    pub const WEBC_EXTENSION: &'static str = "webc";
+
     pub fn new(id: NamedPackageId, hash: Option<PackageHash>) -> Self {
         Webcm {
             format_version: Self::FORMAT_VERSION,
@@ -84,7 +87,22 @@ impl Webcm {
     /// The path of the `.webc` pairing with `webcm` (same basename, swapped
     /// extension).
     pub fn webc_path(webcm: impl AsRef<Path>) -> PathBuf {
-        webcm.as_ref().with_extension("webc")
+        webcm.as_ref().with_extension(Self::WEBC_EXTENSION)
+    }
+
+    /// The paired `.webc` for the `.webcm` at `webcm_path`, erroring if no such
+    /// file exists beside it.
+    pub fn require_paired_webc(webcm_path: impl AsRef<Path>) -> Result<PathBuf, WebcmError> {
+        let webcm_path = webcm_path.as_ref();
+        let webc = Self::webc_path(webcm_path);
+        if webc.is_file() {
+            Ok(webc)
+        } else {
+            Err(WebcmError::MissingPairedWebc {
+                webcm: webcm_path.to_path_buf(),
+                webc,
+            })
+        }
     }
 
     pub fn to_toml(&self) -> Result<String, toml::ser::Error> {
@@ -106,7 +124,7 @@ impl std::str::FromStr for Webcm {
     }
 }
 
-/// An error parsing a [`Webcm`].
+/// An error working with a [`Webcm`].
 #[derive(Debug, thiserror::Error)]
 pub enum WebcmError {
     #[error("invalid webcm")]
@@ -116,6 +134,8 @@ pub enum WebcmError {
         Webcm::FORMAT_VERSION
     )]
     UnsupportedFormatVersion { found: u32 },
+    #[error("the webcm \"{}\" has no paired webc \"{}\"", webcm.display(), webc.display())]
+    MissingPairedWebc { webcm: PathBuf, webc: PathBuf },
 }
 
 #[cfg(test)]

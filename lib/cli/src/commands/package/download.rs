@@ -190,7 +190,7 @@ impl PackageDownload {
                 let webcm_hash = package
                     .distribution_v3
                     .pirita_sha256_hash
-                    .map(|hex| format!("sha256:{hex}").parse::<PackageHash>())
+                    .map(|hex| PackageHash::from_sha256_hex(&hex))
                     .transpose()
                     .context("registry returned an invalid container hash")?;
 
@@ -310,7 +310,9 @@ impl PackageDownload {
 
         // Record the registry's hash, not one we compute: if the download was
         // corrupted, the pair fails verification instead of blessing bad bytes.
-        if let Some((id, hash)) = webcm_id.filter(|_| !self.no_webcm) {
+        if !self.no_webcm
+            && let Some((id, hash)) = webcm_id
+        {
             if hash.is_none() {
                 pb.println(
                     "Warning: the registry did not provide a container hash; \

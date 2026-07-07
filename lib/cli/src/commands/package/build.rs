@@ -80,11 +80,7 @@ impl PackageBuild {
         });
 
         let name = if let Some(ident) = &ident {
-            format!(
-                "{}-{}.webc",
-                ident.full_name.replace('/', "-"),
-                ident.version
-            )
+            ident.webc_file_name()
         } else if let Some(name) = manifest_pkg.and_then(|p| p.name.as_deref()) {
             format!("{}-{}.webc", name.replace('/', "-"), pkg_hash)
         } else {
@@ -149,7 +145,9 @@ impl PackageBuild {
             .with_context(|| format!("could not write contents to '{}'", out_path.display()))?;
 
         // Only named packages have an identity worth recording in a sidecar.
-        if let Some(ident) = ident.filter(|_| !self.no_webcm) {
+        if !self.no_webcm
+            && let Some(ident) = ident
+        {
             let webcm_path = Webcm::path_for_webc(&out_path);
             let webcm = Webcm::new(ident, Some(pkg_hash.clone()));
             std::fs::write(&webcm_path, webcm.to_toml()?)

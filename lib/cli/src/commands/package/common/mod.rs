@@ -9,9 +9,11 @@ use colored::Colorize;
 use dialoguer::Confirm;
 use indicatif::{ProgressBar, ProgressStyle};
 use reqwest::Body;
+use sha2::Digest;
 use std::path::{Path, PathBuf};
 use wasmer_backend_api::{WasmerClient, query::UploadMethod};
 use wasmer_config::package::{Manifest, NamedPackageIdent, PackageHash, Webcm};
+use wasmer_package::utils::{from_bytes, from_disk};
 
 pub mod macros;
 pub mod wait;
@@ -142,22 +144,19 @@ pub(super) async fn upload(
 pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
     if path.is_file() {
         let extension = path.extension().and_then(|s| s.to_str());
-        if extension == Some(Webcm::EXTENSION) {
-            let webc = Webcm::webc_path(path);
-            anyhow::ensure!(
-                webc.is_file(),
-                "the webcm '{}' has no paired webc '{}'",
-                path.display(),
-                webc.display()
-            );
-            let manifest = get_manifest_from_webc_file(&webc, Some(path))?;
-            return Ok((webc, manifest));
-        }
-        if extension == Some("webc") {
-            let sidecar = Webcm::path_for_webc(path);
-            let sidecar = sidecar.is_file().then_some(sidecar);
-            let manifest = get_manifest_from_webc_file(path, sidecar.as_deref())?;
-            return Ok((path.to_path_buf(), manifest));
+        match extension {
+            Some(Webcm::EXTENSION) => {
+                let webc = Webcm::require_paired_webc(path)?;
+                let manifest = get_manifest_from_webc_file(&webc, Some(path))?;
+                return Ok((webc, manifest));
+            }
+            Some(Webcm::WEBC_EXTENSION) => {
+                let sidecar = Webcm::path_for_webc(path);
+                let sidecar = sidecar.is_file().then_some(sidecar);
+                let manifest = get_manifest_from_webc_file(path, sidecar.as_deref())?;
+                return Ok((path.to_path_buf(), manifest));
+            }
+            _ => {}
         }
     }
 
@@ -170,9 +169,6 @@ pub(super) fn get_manifest(path: &Path) -> anyhow::Result<(PathBuf, Manifest)> {
 /// `webcm_path` when given. The webc is verified against the hash the sidecar
 /// records, if any.
 fn get_manifest_from_webc_file(path: &Path, webcm_path: Option<&Path>) -> anyhow::Result<Manifest> {
-    use sha2::Digest;
-    use wasmer_package::utils::{from_bytes, from_disk};
-
     let webcm = webcm_path
         .map(|webcm_path| -> anyhow::Result<Webcm> {
             let contents = std::fs::read_to_string(webcm_path)
@@ -190,11 +186,9 @@ fn get_manifest_from_webc_file(path: &Path, webcm_path: Option<&Path>) -> anyhow
             let bytes = std::fs::read(path)
                 .with_context(|| format!("Failed to read webc file '{}'", path.display()))?;
             let actual = PackageHash::from_sha256_bytes(sha2::Sha256::digest(&bytes).into());
-            anyhow::ensure!(
-                *expected == actual,
-                "hash mismatch for '{}': the webcm records {expected}, the file hashes to {actual}",
-                path.display()
-            );
+            expected
+                .ensure_matches(&actual)
+                .with_context(|| format!("for webc '{}'", path.display()))?;
             from_bytes(bytes)
         }
         None => from_disk(path),
