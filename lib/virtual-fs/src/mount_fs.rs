@@ -209,6 +209,14 @@ impl MountFileSystem {
         PathBuf::from(path)
     }
 
+    fn append_guest_components(prefix: &Path, suffix: &[OsString]) -> PathBuf {
+        let components = Self::normal_components(prefix)
+            .into_iter()
+            .chain(suffix.iter().cloned())
+            .collect::<Vec<_>>();
+        Self::guest_path_from_components(&components)
+    }
+
     fn normalize_source_path(path: &Path) -> PathBuf {
         Self::guest_path_from_components(&Self::normal_components(path))
     }
@@ -238,8 +246,9 @@ impl MountFileSystem {
     }
 
     fn synthetic_entry(name: OsString, base: &Path, ts: u64) -> DirEntry {
+        let path = Self::append_guest_components(base, &[name]);
         DirEntry {
-            path: base.join(PathBuf::from(name)),
+            path,
             metadata: Ok(Self::directory_metadata_at(ts)),
         }
     }
@@ -274,7 +283,7 @@ impl MountFileSystem {
     fn exact_node(&self, path: &Path) -> Option<ExactNode> {
         let path = self.prepare_path(path).ok()?;
         let components = Self::path_components(&path);
-        let visible_path = Path::new("/").join(&path);
+        let visible_path = Self::guest_path_from_components(&components);
         let root = self.root.read().unwrap();
         let node = Self::find_node(&root, &components)?;
         let mounted = Self::mounted(node);
@@ -297,11 +306,7 @@ impl MountFileSystem {
         let mut node = &*root;
         let mut best = Self::mounted(node).map(|mount| ResolvedMount {
             mount_path: PathBuf::from("/"),
-            delegated_path: mount.source_path.join(
-                Self::absolute_path(&components)
-                    .strip_prefix("/")
-                    .unwrap_or(Path::new("")),
-            ),
+            delegated_path: Self::append_guest_components(&mount.source_path, &components),
             fs: mount.fs,
         });
 
@@ -314,10 +319,9 @@ impl MountFileSystem {
             if let Some(mount) = Self::mounted(node) {
                 best = Some(ResolvedMount {
                     mount_path: Self::absolute_path(&components[..=index]),
-                    delegated_path: mount.source_path.join(
-                        Self::absolute_path(&components[index + 1..])
-                            .strip_prefix("/")
-                            .unwrap_or(Path::new("")),
+                    delegated_path: Self::append_guest_components(
+                        &mount.source_path,
+                        &components[index + 1..],
                     ),
                     fs: mount.fs,
                 });
@@ -520,7 +524,7 @@ impl FileSystem for MountFileSystem {
                 Self::rebase_entries(
                     &mut entries,
                     &resolved.delegated_path,
-                    &Path::new("/").join(&path),
+                    &Self::guest_path_from_components(&Self::path_components(&path)),
                 );
                 Ok(entries)
             }
