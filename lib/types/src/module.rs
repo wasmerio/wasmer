@@ -203,6 +203,18 @@ pub struct ModuleInfo {
     pub num_imported_globals: usize,
 }
 
+// Tripwire for `ModuleInfo::passive_data` above: the runtime form is `Arc<[u8]>`
+// (shared across instances), but the archived form `ArchivableModuleInfo::passive_data`
+// is still `Box<[u8]>`, so the two `From` impls copy the bytes on every module
+// serialize/deserialize. Switching the archived form to `Arc<[u8]>` (rkyv supports
+// it) drops those copies but changes the artifact layout. Do it the next time the
+// artifact format version is bumped anyway.
+const _: () = assert!(
+    crate::MetadataHeader::CURRENT_VERSION == 21,
+    "Artifact version bumped: change `ArchivableModuleInfo::passive_data` from \
+     `Box<[u8]>` to `Arc<[u8]>` (and drop the copies in the `From` impls)",
+);
+
 /// Mirror version of ModuleInfo that can derive rkyv traits
 #[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug))]
