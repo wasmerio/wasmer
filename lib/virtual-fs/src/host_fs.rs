@@ -114,8 +114,21 @@ impl FileSystem {
             return Err(FsError::InvalidInput);
         }
 
-        let path = path.strip_prefix("/").unwrap_or(&path);
-        let path = self.root.join(path);
+        let mut relative = PathBuf::new();
+        for component in path.components() {
+            match component {
+                Component::Prefix(..) => return Err(FsError::InvalidInput),
+                Component::RootDir | Component::CurDir => {}
+                Component::ParentDir => {
+                    if !relative.pop() {
+                        return Err(FsError::InvalidInput);
+                    }
+                }
+                Component::Normal(part) => relative.push(part),
+            }
+        }
+
+        let path = self.root.join(relative);
 
         debug_assert!(path.starts_with(&self.root));
         Ok(path)
@@ -133,28 +146,32 @@ impl crate::FileSystem for FileSystem {
 
     async fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let path = self.prepare_path(path)?;
+        let root = self.root.clone();
 
-        let read_dir = fs::read_dir(path)?;
-        let mut data = read_dir
-            .map(|entry| {
-                let entry = entry?;
+        let mut data = self
+            .handle
+            .spawn(async move {
+                let mut read_dir = tfs::read_dir(path).await?;
+                let mut data = Vec::new();
+                while let Some(entry) = read_dir.next_entry().await? {
+                    let path = entry
+                        .path()
+                        .strip_prefix(&root)
+                        .map_err(|_| FsError::InvalidData)?
+                        .to_owned();
+                    let path = Path::new("/").join(path);
 
-                let path = entry
-                    .path()
-                    .strip_prefix(&self.root)
-                    .map_err(|_| FsError::InvalidData)?
-                    .to_owned();
-                let path = Path::new("/").join(path);
+                    let metadata = tfs::symlink_metadata(entry.path()).await?;
 
-                let metadata = fs::symlink_metadata(entry.path())?;
-
-                Ok(DirEntry {
-                    path,
-                    metadata: Ok(metadata.try_into()?),
-                })
+                    data.push(DirEntry {
+                        path,
+                        metadata: Ok(metadata.try_into()?),
+                    });
+                }
+                Ok::<_, FsError>(data)
             })
-            .collect::<std::result::Result<Vec<DirEntry>, io::Error>>()
-            .map_err::<FsError, _>(Into::into)?;
+            .await
+            .map_err(|_| FsError::IOError)??;
         data.sort_by(|a, b| a.path.file_name().cmp(&b.path.file_name()));
         Ok(ReadDir::new(data))
     }
