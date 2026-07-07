@@ -23,8 +23,8 @@ use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_ca
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::{export::VMExtern, threadconditions::ExpectedValue};
 pub use allocator::InstanceAllocator;
+use core::mem::offset_of;
 use itertools::Itertools;
-use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::Layout;
 use std::cell::RefCell;

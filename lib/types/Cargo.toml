@@ -37,7 +37,6 @@ workspace = true
 features = ["wasm_js"]
 
 [dev-dependencies]
-memoffset.workspace = true
 criterion.workspace = true
 
 [[bench]]
