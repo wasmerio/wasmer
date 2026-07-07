@@ -267,7 +267,7 @@ impl MountFileSystem {
         }
 
         for (child_name, child) in &node.children {
-            let child_path = Self::append_guest_components(path, &[child_name.clone()]);
+            let child_path = Self::append_guest_components(path, std::slice::from_ref(child_name));
             Self::collect_mount_entries(child, &child_path, entries);
         }
     }
