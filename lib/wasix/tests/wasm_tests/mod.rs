@@ -24,6 +24,10 @@
 //! The harness also sets `WASMER_BACKEND` to the engine name (`cranelift`, `v8`,
 //! etc.) before every build so shell scripts can tune compile-time parameters per backend.
 //!
+//! It also sets `WASMER_HOST_OS` to the host operating system (`macOS`, `Linux`,
+//! or `Windows`) before every build, so `build.sh` scripts can tune compile-time
+//! parameters (e.g. via `-D` defines) per host OS.
+//!
 //! `Env:{key}={value}` sets an environment variable before running.
 //!
 //! `ExpectedStdout:{line}` appends one expected stdout line.
@@ -655,6 +659,16 @@ fn rustc_command(toolchain: Option<&str>) -> Command {
     }
 }
 
+fn host_os_name() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "macOS"
+    } else if cfg!(target_os = "windows") {
+        "Windows"
+    } else {
+        "Linux"
+    }
+}
+
 fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
     // First, copy the test source directory to the 'build' subfolder that will
     // be unique for each configuration of a test.
@@ -720,6 +734,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         cmd.env(k, v);
     }
     cmd.env("WASMER_BACKEND", config.engine.name());
+    cmd.env("WASMER_HOST_OS", host_os_name());
     let output = cmd.output()?;
 
     if !output.status.success() {

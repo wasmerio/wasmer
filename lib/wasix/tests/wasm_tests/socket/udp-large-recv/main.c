@@ -1,5 +1,3 @@
-//#ExpectedStdout: large UDP datagram receive works
-
 #include <arpa/inet.h>
 #include <errno.h>
 #include <stdint.h>
@@ -8,8 +6,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#define PAYLOAD_SIZE 20480
-
+// build.sh passes -DPAYLOAD_SIZE based on $WASMER_HOST_OS.
 static uint8_t sendbuf[PAYLOAD_SIZE];
 static uint8_t recvbuf[PAYLOAD_SIZE];
 
