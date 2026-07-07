@@ -159,7 +159,7 @@ impl crate::FileSystem for FileSystem {
                         .strip_prefix(&root)
                         .map_err(|_| FsError::InvalidData)?
                         .to_owned();
-                    let path = Path::new("/").join(path);
+                    let path = path_suffix_to_guest_absolute(&path);
 
                     let metadata = tfs::symlink_metadata(entry.path()).await?;
 
