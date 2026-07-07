@@ -328,26 +328,27 @@ impl FileSystem {
 #[async_trait::async_trait]
 impl crate::FileSystem for FileSystem {
     async fn readlink(&self, path: &Path) -> Result<PathBuf> {
-        // Read lock.
-        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+        let redirected = {
+            // Read lock.
+            let guard = self.inner.read().map_err(|_| FsError::Lock)?;
 
-        // Canonicalize the path.
-        let (_, inode_of_directory) = guard.canonicalize(path)?;
-        match inode_of_directory {
-            InodeResolution::Found(inode) => match guard.storage.get(inode) {
-                Some(Node::Symlink(SymlinkNode { target, .. })) => Ok(target.clone()),
-                _ => Err(FsError::InvalidInput),
-            },
-            InodeResolution::Redirect(fs, path) => {
-                futures::executor::block_on(fs.readlink(path.as_path()))
+            // Canonicalize the path.
+            let (_, inode_of_directory) = guard.canonicalize(path)?;
+            match inode_of_directory {
+                InodeResolution::Found(inode) => {
+                    return match guard.storage.get(inode) {
+                        Some(Node::Symlink(SymlinkNode { target, .. })) => Ok(target.clone()),
+                        _ => Err(FsError::InvalidInput),
+                    };
+                }
+                InodeResolution::Redirect(fs, path) => (fs, path),
             }
-        }
+        };
+
+        redirected.0.readlink(redirected.1.as_path()).await
     }
 
     async fn read_dir(&self, path: &Path) -> Result<ReadDir> {
-        // Read lock.
-        let guard = self.inner.read().map_err(|_| FsError::Lock)?;
-
         fn rebase_entries(entries: &mut ReadDir, base: &Path) {
             for entry in &mut entries.data {
                 let name = entry.file_name();
@@ -355,44 +356,102 @@ impl crate::FileSystem for FileSystem {
             }
         }
 
-        // Canonicalize the path.
-        let (guest_path, inode_of_directory) = guard.canonicalize(path)?;
-        let inode_of_directory = match inode_of_directory {
-            InodeResolution::Found(a) => a,
-            InodeResolution::Redirect(fs, redirect_path) => {
-                let mut entries =
-                    futures::executor::block_on(fs.read_dir(redirect_path.as_path()))?;
-                rebase_entries(&mut entries, &guest_path);
-                return Ok(entries);
+        enum ReadDirTarget {
+            Local {
+                guest_path: PathBuf,
+                inode: Inode,
+            },
+            Redirect {
+                fs: Arc<dyn crate::FileSystem + Send + Sync>,
+                source_path: PathBuf,
+                guest_path: PathBuf,
+            },
+        }
+
+        enum ReadDirResolved {
+            Ready(Vec<DirEntry>),
+            Redirect {
+                fs: Arc<dyn crate::FileSystem + Send + Sync>,
+                source_path: PathBuf,
+                guest_path: PathBuf,
+            },
+        }
+
+        let resolved = {
+            // Read lock.
+            let guard = self.inner.read().map_err(|_| FsError::Lock)?;
+
+            // Canonicalize the path.
+            let (guest_path, inode_of_directory) = guard.canonicalize(path)?;
+            let target = match inode_of_directory {
+                InodeResolution::Found(inode) => ReadDirTarget::Local { guest_path, inode },
+                InodeResolution::Redirect(fs, source_path) => ReadDirTarget::Redirect {
+                    fs,
+                    source_path,
+                    guest_path,
+                },
+            };
+
+            // Check it's a directory and fetch the immediate children as `DirEntry`.
+            match target {
+                ReadDirTarget::Local {
+                    guest_path,
+                    inode: inode_of_directory,
+                } => {
+                    let inode = guard.storage.get(inode_of_directory);
+                    match inode {
+                        Some(Node::Directory(DirectoryNode { children, .. })) => {
+                            ReadDirResolved::Ready(
+                                children
+                                    .iter()
+                                    .filter_map(|inode| guard.storage.get(*inode))
+                                    .map(|node| DirEntry {
+                                        path: {
+                                            let mut entry_path = path.to_path_buf();
+                                            entry_path.push(node.name());
+
+                                            entry_path
+                                        },
+                                        metadata: Ok(node.metadata().clone()),
+                                    })
+                                    .collect(),
+                            )
+                        }
+
+                        Some(Node::ArcDirectory(ArcDirectoryNode {
+                            fs, path: fs_path, ..
+                        })) => ReadDirResolved::Redirect {
+                            fs: fs.clone(),
+                            source_path: fs_path.clone(),
+                            guest_path,
+                        },
+
+                        _ => return Err(FsError::InvalidInput),
+                    }
+                }
+                ReadDirTarget::Redirect {
+                    fs,
+                    source_path,
+                    guest_path,
+                } => ReadDirResolved::Redirect {
+                    fs,
+                    source_path,
+                    guest_path,
+                },
             }
         };
 
-        // Check it's a directory and fetch the immediate children as `DirEntry`.
-        let inode = guard.storage.get(inode_of_directory);
-        let children = match inode {
-            Some(Node::Directory(DirectoryNode { children, .. })) => children
-                .iter()
-                .filter_map(|inode| guard.storage.get(*inode))
-                .map(|node| DirEntry {
-                    path: {
-                        let mut entry_path = path.to_path_buf();
-                        entry_path.push(node.name());
-
-                        entry_path
-                    },
-                    metadata: Ok(node.metadata().clone()),
-                })
-                .collect(),
-
-            Some(Node::ArcDirectory(ArcDirectoryNode {
-                fs, path: fs_path, ..
-            })) => {
-                let mut entries = futures::executor::block_on(fs.read_dir(fs_path.as_path()))?;
+        let children = match resolved {
+            ReadDirResolved::Ready(children) => children,
+            ReadDirResolved::Redirect {
+                fs,
+                source_path,
+                guest_path,
+            } => {
+                let mut entries = fs.read_dir(source_path.as_path()).await?;
                 rebase_entries(&mut entries, &guest_path);
                 return Ok(entries);
             }
-
-            _ => return Err(FsError::InvalidInput),
         };
 
         Ok(ReadDir::new(children))

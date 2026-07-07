@@ -1141,6 +1141,47 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_host_backed_nested_read_dir_with_root_mount() {
+        let root = tempfile::tempdir().unwrap();
+        let a_dir = root.path().join("a");
+        let b_dir = root.path().join("b");
+        std::fs::create_dir_all(&a_dir).unwrap();
+        std::fs::create_dir_all(&b_dir).unwrap();
+        std::fs::write(a_dir.join("data-a.txt"), b"a").unwrap();
+        std::fs::write(b_dir.join("data-b.txt"), b"b").unwrap();
+
+        let fs = MountFileSystem::new();
+        fs.mount(
+            Path::new("/app/a"),
+            Arc::new(
+                crate::host_fs::FileSystem::new(tokio::runtime::Handle::current(), &a_dir).unwrap(),
+            ),
+        )
+        .unwrap();
+        fs.mount(
+            Path::new("/app/b"),
+            Arc::new(
+                crate::host_fs::FileSystem::new(tokio::runtime::Handle::current(), &b_dir).unwrap(),
+            ),
+        )
+        .unwrap();
+
+        let root_fs = crate::RootFileSystemBuilder::default()
+            .default_root_dirs(true)
+            .build_tmp();
+        fs.mount(Path::new("/"), Arc::new(root_fs)).unwrap();
+
+        assert_eq!(
+            read_dir_names(&fs, "/app/a").await,
+            vec!["data-a.txt".to_string()]
+        );
+        assert_eq!(
+            read_dir_names(&fs, "/app/b").await,
+            vec!["data-b.txt".to_string()]
+        );
+    }
+
+    #[tokio::test]
     async fn test_nested_metadata() {
         let fs = gen_nested_filesystem().await;
 
