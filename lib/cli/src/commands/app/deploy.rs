@@ -1308,7 +1308,7 @@ fn format_time_left(will_perish_at: &wasmer_backend_api::types::DateTime) -> Opt
 }
 
 fn format_autobuild_datetime(datetime: &wasmer_backend_api::types::DateTime) -> String {
-    let format = format_description::parse(
+    let format = format_description::parse_borrowed::<1>(
         "[month repr:short] [day padding:none] [hour]:[minute]:[second].[subsecond digits:3]",
     );
     let Ok(format) = format else {

@@ -186,6 +186,18 @@ fn is_fixed_to_resolved(specified: &PackageSource, resolved_id: &PackageId) -> b
     }
 }
 
+fn version_req_is_exact(req: &VersionReq, version: &Version) -> bool {
+    let [comparator] = req.comparators.as_slice() else {
+        return false;
+    };
+
+    comparator.op == Op::Exact
+        && comparator.major == version.major
+        && comparator.minor == Some(version.minor)
+        && comparator.patch == Some(version.patch)
+        && comparator.pre == version.pre
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -209,16 +221,4 @@ mod tests {
             "wasmer/log@^1=>1.2.3"
         );
     }
-}
-
-fn version_req_is_exact(req: &VersionReq, version: &Version) -> bool {
-    let [comparator] = req.comparators.as_slice() else {
-        return false;
-    };
-
-    comparator.op == Op::Exact
-        && comparator.major == version.major
-        && comparator.minor == Some(version.minor)
-        && comparator.patch == Some(version.patch)
-        && comparator.pre == version.pre
 }
