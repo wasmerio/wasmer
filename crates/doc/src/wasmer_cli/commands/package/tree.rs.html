@@ -186,40 +186,40 @@
 <a href=#186 id=186 data-nosnippet>186</a>    }
 <a href=#187 id=187 data-nosnippet>187</a>}
 <a href=#188 id=188 data-nosnippet>188</a>
-<a href=#189 id=189 data-nosnippet>189</a><span class="attr">#[cfg(test)]
-<a href=#190 id=190 data-nosnippet>190</a></span><span class="kw">mod </span>tests {
-<a href=#191 id=191 data-nosnippet>191</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
-<a href=#192 id=192 data-nosnippet>192</a>
-<a href=#193 id=193 data-nosnippet>193</a>    <span class="attr">#[test]
-<a href=#194 id=194 data-nosnippet>194</a>    </span><span class="kw">fn </span>format_dependency_never_includes_aliases() {
-<a href=#195 id=195 data-nosnippet>195</a>        <span class="kw">let </span>dependency = Dependency {
-<a href=#196 id=196 data-nosnippet>196</a>            alias: <span class="string">"logger"</span>.to_string(),
-<a href=#197 id=197 data-nosnippet>197</a>            pkg: PackageSource::from(
-<a href=#198 id=198 data-nosnippet>198</a>                wasmer_config::package::NamedPackageIdent::try_from_full_name_and_version(
-<a href=#199 id=199 data-nosnippet>199</a>                    <span class="string">"wasmer/log"</span>,
-<a href=#200 id=200 data-nosnippet>200</a>                    <span class="string">"^1"</span>,
-<a href=#201 id=201 data-nosnippet>201</a>                )
-<a href=#202 id=202 data-nosnippet>202</a>                .unwrap(),
-<a href=#203 id=203 data-nosnippet>203</a>            ),
-<a href=#204 id=204 data-nosnippet>204</a>        };
-<a href=#205 id=205 data-nosnippet>205</a>        <span class="kw">let </span>resolved_id = PackageId::new_named(<span class="string">"wasmer/log"</span>, <span class="string">"1.2.3"</span>.parse().unwrap());
-<a href=#206 id=206 data-nosnippet>206</a>
-<a href=#207 id=207 data-nosnippet>207</a>        <span class="macro">assert_eq!</span>(
-<a href=#208 id=208 data-nosnippet>208</a>            format_dependency(<span class="kw-2">&amp;</span>dependency, <span class="kw-2">&amp;</span>resolved_id),
-<a href=#209 id=209 data-nosnippet>209</a>            <span class="string">"wasmer/log@^1=&gt;1.2.3"
-<a href=#210 id=210 data-nosnippet>210</a>        </span>);
-<a href=#211 id=211 data-nosnippet>211</a>    }
-<a href=#212 id=212 data-nosnippet>212</a>}
-<a href=#213 id=213 data-nosnippet>213</a>
-<a href=#214 id=214 data-nosnippet>214</a><span class="kw">fn </span>version_req_is_exact(req: <span class="kw-2">&amp;</span>VersionReq, version: <span class="kw-2">&amp;</span>Version) -&gt; bool {
-<a href=#215 id=215 data-nosnippet>215</a>    <span class="kw">let </span>[comparator] = req.comparators.as_slice() <span class="kw">else </span>{
-<a href=#216 id=216 data-nosnippet>216</a>        <span class="kw">return </span><span class="bool-val">false</span>;
-<a href=#217 id=217 data-nosnippet>217</a>    };
+<a href=#189 id=189 data-nosnippet>189</a><span class="kw">fn </span>version_req_is_exact(req: <span class="kw-2">&amp;</span>VersionReq, version: <span class="kw-2">&amp;</span>Version) -&gt; bool {
+<a href=#190 id=190 data-nosnippet>190</a>    <span class="kw">let </span>[comparator] = req.comparators.as_slice() <span class="kw">else </span>{
+<a href=#191 id=191 data-nosnippet>191</a>        <span class="kw">return </span><span class="bool-val">false</span>;
+<a href=#192 id=192 data-nosnippet>192</a>    };
+<a href=#193 id=193 data-nosnippet>193</a>
+<a href=#194 id=194 data-nosnippet>194</a>    comparator.op == Op::Exact
+<a href=#195 id=195 data-nosnippet>195</a>        &amp;&amp; comparator.major == version.major
+<a href=#196 id=196 data-nosnippet>196</a>        &amp;&amp; comparator.minor == <span class="prelude-val">Some</span>(version.minor)
+<a href=#197 id=197 data-nosnippet>197</a>        &amp;&amp; comparator.patch == <span class="prelude-val">Some</span>(version.patch)
+<a href=#198 id=198 data-nosnippet>198</a>        &amp;&amp; comparator.pre == version.pre
+<a href=#199 id=199 data-nosnippet>199</a>}
+<a href=#200 id=200 data-nosnippet>200</a>
+<a href=#201 id=201 data-nosnippet>201</a><span class="attr">#[cfg(test)]
+<a href=#202 id=202 data-nosnippet>202</a></span><span class="kw">mod </span>tests {
+<a href=#203 id=203 data-nosnippet>203</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#204 id=204 data-nosnippet>204</a>
+<a href=#205 id=205 data-nosnippet>205</a>    <span class="attr">#[test]
+<a href=#206 id=206 data-nosnippet>206</a>    </span><span class="kw">fn </span>format_dependency_never_includes_aliases() {
+<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">let </span>dependency = Dependency {
+<a href=#208 id=208 data-nosnippet>208</a>            alias: <span class="string">"logger"</span>.to_string(),
+<a href=#209 id=209 data-nosnippet>209</a>            pkg: PackageSource::from(
+<a href=#210 id=210 data-nosnippet>210</a>                wasmer_config::package::NamedPackageIdent::try_from_full_name_and_version(
+<a href=#211 id=211 data-nosnippet>211</a>                    <span class="string">"wasmer/log"</span>,
+<a href=#212 id=212 data-nosnippet>212</a>                    <span class="string">"^1"</span>,
+<a href=#213 id=213 data-nosnippet>213</a>                )
+<a href=#214 id=214 data-nosnippet>214</a>                .unwrap(),
+<a href=#215 id=215 data-nosnippet>215</a>            ),
+<a href=#216 id=216 data-nosnippet>216</a>        };
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>resolved_id = PackageId::new_named(<span class="string">"wasmer/log"</span>, <span class="string">"1.2.3"</span>.parse().unwrap());
 <a href=#218 id=218 data-nosnippet>218</a>
-<a href=#219 id=219 data-nosnippet>219</a>    comparator.op == Op::Exact
-<a href=#220 id=220 data-nosnippet>220</a>        &amp;&amp; comparator.major == version.major
-<a href=#221 id=221 data-nosnippet>221</a>        &amp;&amp; comparator.minor == <span class="prelude-val">Some</span>(version.minor)
-<a href=#222 id=222 data-nosnippet>222</a>        &amp;&amp; comparator.patch == <span class="prelude-val">Some</span>(version.patch)
-<a href=#223 id=223 data-nosnippet>223</a>        &amp;&amp; comparator.pre == version.pre
+<a href=#219 id=219 data-nosnippet>219</a>        <span class="macro">assert_eq!</span>(
+<a href=#220 id=220 data-nosnippet>220</a>            format_dependency(<span class="kw-2">&amp;</span>dependency, <span class="kw-2">&amp;</span>resolved_id),
+<a href=#221 id=221 data-nosnippet>221</a>            <span class="string">"wasmer/log@^1=&gt;1.2.3"
+<a href=#222 id=222 data-nosnippet>222</a>        </span>);
+<a href=#223 id=223 data-nosnippet>223</a>    }
 <a href=#224 id=224 data-nosnippet>224</a>}
 </code></pre></div></section></main></body></html>

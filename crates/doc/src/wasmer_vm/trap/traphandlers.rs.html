@@ -1371,7 +1371,7 @@
 <a href=#1371 id=1371 data-nosnippet>1371</a>        </span><span class="kw">let </span>big_size = ByteSize::mib(<span class="number">1</span>).as_u64() <span class="kw">as </span>usize;
 <a href=#1372 id=1372 data-nosnippet>1372</a>        <span class="kw">let </span>result = on_wasm_stack(big_size, <span class="prelude-val">None</span>, || <span class="number">42</span>);
 <a href=#1373 id=1373 data-nosnippet>1373</a>
-<a href=#1374 id=1374 data-nosnippet>1374</a>        <span class="macro">assert_eq!</span>(result.ok().expect(<span class="string">"on_wasm_stack should succeed"</span>), <span class="number">42</span>);
+<a href=#1374 id=1374 data-nosnippet>1374</a>        <span class="macro">assert_eq!</span>(result.expect(<span class="string">"on_wasm_stack should succeed"</span>), <span class="number">42</span>);
 <a href=#1375 id=1375 data-nosnippet>1375</a>        <span class="comment">// The undersized stack was discarded; the correctly-sized stack
 <a href=#1376 id=1376 data-nosnippet>1376</a>        // allocated for the call now lives in the TLS cache (the hot path).
 <a href=#1377 id=1377 data-nosnippet>1377</a>        // It will end up in the global pool only on thread exit or eviction.
@@ -1915,205 +1915,201 @@
 <a href=#1915 id=1915 data-nosnippet>1915</a>        clear_tls_stack();
 <a href=#1916 id=1916 data-nosnippet>1916</a>
 <a href=#1917 id=1917 data-nosnippet>1917</a>        <span class="kw">let </span>outer = on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || {
-<a href=#1918 id=1918 data-nosnippet>1918</a>            on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || <span class="number">42i32</span>)
-<a href=#1919 id=1919 data-nosnippet>1919</a>                .ok()
-<a href=#1920 id=1920 data-nosnippet>1920</a>                .expect(<span class="string">"inner must succeed"</span>)
-<a href=#1921 id=1921 data-nosnippet>1921</a>        });
-<a href=#1922 id=1922 data-nosnippet>1922</a>        <span class="macro">assert_eq!</span>(outer.ok(), <span class="prelude-val">Some</span>(<span class="number">42</span>));
-<a href=#1923 id=1923 data-nosnippet>1923</a>
-<a href=#1924 id=1924 data-nosnippet>1924</a>        clear_tls_stack();
-<a href=#1925 id=1925 data-nosnippet>1925</a>        drain_stack_pool();
-<a href=#1926 id=1926 data-nosnippet>1926</a>    }
-<a href=#1927 id=1927 data-nosnippet>1927</a>
-<a href=#1928 id=1928 data-nosnippet>1928</a>    <span class="attr">#[test]
-<a href=#1929 id=1929 data-nosnippet>1929</a>    </span><span class="kw">fn </span>reentrant_calls_run_to_completion_under_pool_pressure() {
-<a href=#1930 id=1930 data-nosnippet>1930</a>        <span class="comment">// The outer call's stack is held by its scopeguard for the duration
-<a href=#1931 id=1931 data-nosnippet>1931</a>        // of the call; the inner call must therefore pop a separate stack
-<a href=#1932 id=1932 data-nosnippet>1932</a>        // from the pool (or allocate one). With a pre-populated pool the
-<a href=#1933 id=1933 data-nosnippet>1933</a>        // inner call should consume that stack; either way the nested call
-<a href=#1934 id=1934 data-nosnippet>1934</a>        // chain must complete without deadlocking or panicking from
-<a href=#1935 id=1935 data-nosnippet>1935</a>        // corosensei.
-<a href=#1936 id=1936 data-nosnippet>1936</a>        </span><span class="kw">use </span>std::sync::Arc;
-<a href=#1937 id=1937 data-nosnippet>1937</a>        <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering <span class="kw">as </span>O};
-<a href=#1938 id=1938 data-nosnippet>1938</a>
-<a href=#1939 id=1939 data-nosnippet>1939</a>        <span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
-<a href=#1940 id=1940 data-nosnippet>1940</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
-<a href=#1941 id=1941 data-nosnippet>1941</a>        drain_stack_pool();
-<a href=#1942 id=1942 data-nosnippet>1942</a>        clear_tls_stack();
-<a href=#1943 id=1943 data-nosnippet>1943</a>
-<a href=#1944 id=1944 data-nosnippet>1944</a>        <span class="comment">// Pre-populate the pool with one stack so the inner call can grab
-<a href=#1945 id=1945 data-nosnippet>1945</a>        // it instead of allocating.
-<a href=#1946 id=1946 data-nosnippet>1946</a>        </span><span class="kw">let </span>pre = DefaultStack::new(get_stack_size()).unwrap();
-<a href=#1947 id=1947 data-nosnippet>1947</a>        STACK_POOL.push(pre);
-<a href=#1948 id=1948 data-nosnippet>1948</a>
-<a href=#1949 id=1949 data-nosnippet>1949</a>        <span class="kw">let </span>inner_completed = Arc::new(AtomicUsize::new(<span class="number">0</span>));
-<a href=#1950 id=1950 data-nosnippet>1950</a>        <span class="kw">let </span>inner_completed_outer = inner_completed.clone();
-<a href=#1951 id=1951 data-nosnippet>1951</a>        <span class="kw">let _ </span>= on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, <span class="kw">move </span>|| {
-<a href=#1952 id=1952 data-nosnippet>1952</a>            <span class="kw">let </span>inner_completed = inner_completed_outer.clone();
-<a href=#1953 id=1953 data-nosnippet>1953</a>            <span class="kw">let </span>inner = on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, <span class="kw">move </span>|| {
-<a href=#1954 id=1954 data-nosnippet>1954</a>                inner_completed.fetch_add(<span class="number">1</span>, O::Relaxed);
-<a href=#1955 id=1955 data-nosnippet>1955</a>            });
-<a href=#1956 id=1956 data-nosnippet>1956</a>            <span class="macro">assert!</span>(inner.is_ok(), <span class="string">"inner re-entrant call must succeed"</span>);
-<a href=#1957 id=1957 data-nosnippet>1957</a>        });
-<a href=#1958 id=1958 data-nosnippet>1958</a>        <span class="macro">assert_eq!</span>(
-<a href=#1959 id=1959 data-nosnippet>1959</a>            inner_completed.load(O::Relaxed),
-<a href=#1960 id=1960 data-nosnippet>1960</a>            <span class="number">1</span>,
-<a href=#1961 id=1961 data-nosnippet>1961</a>            <span class="string">"inner closure must have executed exactly once"</span>,
-<a href=#1962 id=1962 data-nosnippet>1962</a>        );
-<a href=#1963 id=1963 data-nosnippet>1963</a>
-<a href=#1964 id=1964 data-nosnippet>1964</a>        clear_tls_stack();
-<a href=#1965 id=1965 data-nosnippet>1965</a>        drain_stack_pool();
-<a href=#1966 id=1966 data-nosnippet>1966</a>    }
-<a href=#1967 id=1967 data-nosnippet>1967</a>
-<a href=#1968 id=1968 data-nosnippet>1968</a>    <span class="attr">#[test]
-<a href=#1969 id=1969 data-nosnippet>1969</a>    </span><span class="kw">fn </span>reentrant_inner_trap_does_not_kill_outer() {
-<a href=#1970 id=1970 data-nosnippet>1970</a>        <span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
-<a href=#1971 id=1971 data-nosnippet>1971</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
-<a href=#1972 id=1972 data-nosnippet>1972</a>        drain_stack_pool();
-<a href=#1973 id=1973 data-nosnippet>1973</a>        clear_tls_stack();
-<a href=#1974 id=1974 data-nosnippet>1974</a>
-<a href=#1975 id=1975 data-nosnippet>1975</a>        <span class="kw">let </span>outer = on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || {
-<a href=#1976 id=1976 data-nosnippet>1976</a>            <span class="kw">let </span>inner: <span class="prelude-ty">Result</span>&lt;i32, UnwindReason&gt; =
-<a href=#1977 id=1977 data-nosnippet>1977</a>                on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || <span class="kw">unsafe </span>{
-<a href=#1978 id=1978 data-nosnippet>1978</a>                    raise_user_trap(Box::new(io::Error::other(<span class="string">"inner trap"</span>)));
-<a href=#1979 id=1979 data-nosnippet>1979</a>                });
-<a href=#1980 id=1980 data-nosnippet>1980</a>            <span class="comment">// Outer observes inner's Err and recovers.
-<a href=#1981 id=1981 data-nosnippet>1981</a>            </span><span class="kw">match </span>inner {
-<a href=#1982 id=1982 data-nosnippet>1982</a>                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="number">1234i32</span>,
-<a href=#1983 id=1983 data-nosnippet>1983</a>                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"inner should have trapped"</span>),
-<a href=#1984 id=1984 data-nosnippet>1984</a>            }
-<a href=#1985 id=1985 data-nosnippet>1985</a>        });
-<a href=#1986 id=1986 data-nosnippet>1986</a>        <span class="macro">assert_eq!</span>(
-<a href=#1987 id=1987 data-nosnippet>1987</a>            outer.ok(),
-<a href=#1988 id=1988 data-nosnippet>1988</a>            <span class="prelude-val">Some</span>(<span class="number">1234</span>),
-<a href=#1989 id=1989 data-nosnippet>1989</a>            <span class="string">"outer must recover after inner trap and run to completion"
-<a href=#1990 id=1990 data-nosnippet>1990</a>        </span>);
-<a href=#1991 id=1991 data-nosnippet>1991</a>
-<a href=#1992 id=1992 data-nosnippet>1992</a>        clear_tls_stack();
-<a href=#1993 id=1993 data-nosnippet>1993</a>        drain_stack_pool();
-<a href=#1994 id=1994 data-nosnippet>1994</a>    }
-<a href=#1995 id=1995 data-nosnippet>1995</a>
-<a href=#1996 id=1996 data-nosnippet>1996</a>    <span class="attr">#[test]
-<a href=#1997 id=1997 data-nosnippet>1997</a>    </span><span class="kw">fn </span>reentrant_with_on_host_stack_in_between() {
-<a href=#1998 id=1998 data-nosnippet>1998</a>        <span class="comment">// Outer wasm → on_host_stack → inner wasm. This exercises the
-<a href=#1999 id=1999 data-nosnippet>1999</a>        // YIELDER save/restore in `unwind_with` / `on_host_stack` against
-<a href=#2000 id=2000 data-nosnippet>2000</a>        // a re-entrant boundary.
-<a href=#2001 id=2001 data-nosnippet>2001</a>        </span><span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
-<a href=#2002 id=2002 data-nosnippet>2002</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
-<a href=#2003 id=2003 data-nosnippet>2003</a>        drain_stack_pool();
-<a href=#2004 id=2004 data-nosnippet>2004</a>        clear_tls_stack();
-<a href=#2005 id=2005 data-nosnippet>2005</a>
-<a href=#2006 id=2006 data-nosnippet>2006</a>        <span class="kw">let </span>r = on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || {
-<a href=#2007 id=2007 data-nosnippet>2007</a>            on_host_stack(|| {
-<a href=#2008 id=2008 data-nosnippet>2008</a>                on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || <span class="number">5i32</span>)
-<a href=#2009 id=2009 data-nosnippet>2009</a>                    .ok()
-<a href=#2010 id=2010 data-nosnippet>2010</a>                    .expect(<span class="string">"nested inner must succeed"</span>)
-<a href=#2011 id=2011 data-nosnippet>2011</a>            })
-<a href=#2012 id=2012 data-nosnippet>2012</a>        });
-<a href=#2013 id=2013 data-nosnippet>2013</a>        <span class="macro">assert_eq!</span>(r.ok(), <span class="prelude-val">Some</span>(<span class="number">5</span>));
+<a href=#1918 id=1918 data-nosnippet>1918</a>            on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || <span class="number">42i32</span>).expect(<span class="string">"inner must succeed"</span>)
+<a href=#1919 id=1919 data-nosnippet>1919</a>        });
+<a href=#1920 id=1920 data-nosnippet>1920</a>        <span class="macro">assert_eq!</span>(outer.ok(), <span class="prelude-val">Some</span>(<span class="number">42</span>));
+<a href=#1921 id=1921 data-nosnippet>1921</a>
+<a href=#1922 id=1922 data-nosnippet>1922</a>        clear_tls_stack();
+<a href=#1923 id=1923 data-nosnippet>1923</a>        drain_stack_pool();
+<a href=#1924 id=1924 data-nosnippet>1924</a>    }
+<a href=#1925 id=1925 data-nosnippet>1925</a>
+<a href=#1926 id=1926 data-nosnippet>1926</a>    <span class="attr">#[test]
+<a href=#1927 id=1927 data-nosnippet>1927</a>    </span><span class="kw">fn </span>reentrant_calls_run_to_completion_under_pool_pressure() {
+<a href=#1928 id=1928 data-nosnippet>1928</a>        <span class="comment">// The outer call's stack is held by its scopeguard for the duration
+<a href=#1929 id=1929 data-nosnippet>1929</a>        // of the call; the inner call must therefore pop a separate stack
+<a href=#1930 id=1930 data-nosnippet>1930</a>        // from the pool (or allocate one). With a pre-populated pool the
+<a href=#1931 id=1931 data-nosnippet>1931</a>        // inner call should consume that stack; either way the nested call
+<a href=#1932 id=1932 data-nosnippet>1932</a>        // chain must complete without deadlocking or panicking from
+<a href=#1933 id=1933 data-nosnippet>1933</a>        // corosensei.
+<a href=#1934 id=1934 data-nosnippet>1934</a>        </span><span class="kw">use </span>std::sync::Arc;
+<a href=#1935 id=1935 data-nosnippet>1935</a>        <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering <span class="kw">as </span>O};
+<a href=#1936 id=1936 data-nosnippet>1936</a>
+<a href=#1937 id=1937 data-nosnippet>1937</a>        <span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
+<a href=#1938 id=1938 data-nosnippet>1938</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
+<a href=#1939 id=1939 data-nosnippet>1939</a>        drain_stack_pool();
+<a href=#1940 id=1940 data-nosnippet>1940</a>        clear_tls_stack();
+<a href=#1941 id=1941 data-nosnippet>1941</a>
+<a href=#1942 id=1942 data-nosnippet>1942</a>        <span class="comment">// Pre-populate the pool with one stack so the inner call can grab
+<a href=#1943 id=1943 data-nosnippet>1943</a>        // it instead of allocating.
+<a href=#1944 id=1944 data-nosnippet>1944</a>        </span><span class="kw">let </span>pre = DefaultStack::new(get_stack_size()).unwrap();
+<a href=#1945 id=1945 data-nosnippet>1945</a>        STACK_POOL.push(pre);
+<a href=#1946 id=1946 data-nosnippet>1946</a>
+<a href=#1947 id=1947 data-nosnippet>1947</a>        <span class="kw">let </span>inner_completed = Arc::new(AtomicUsize::new(<span class="number">0</span>));
+<a href=#1948 id=1948 data-nosnippet>1948</a>        <span class="kw">let </span>inner_completed_outer = inner_completed.clone();
+<a href=#1949 id=1949 data-nosnippet>1949</a>        <span class="kw">let _ </span>= on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, <span class="kw">move </span>|| {
+<a href=#1950 id=1950 data-nosnippet>1950</a>            <span class="kw">let </span>inner_completed = inner_completed_outer.clone();
+<a href=#1951 id=1951 data-nosnippet>1951</a>            <span class="kw">let </span>inner = on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, <span class="kw">move </span>|| {
+<a href=#1952 id=1952 data-nosnippet>1952</a>                inner_completed.fetch_add(<span class="number">1</span>, O::Relaxed);
+<a href=#1953 id=1953 data-nosnippet>1953</a>            });
+<a href=#1954 id=1954 data-nosnippet>1954</a>            <span class="macro">assert!</span>(inner.is_ok(), <span class="string">"inner re-entrant call must succeed"</span>);
+<a href=#1955 id=1955 data-nosnippet>1955</a>        });
+<a href=#1956 id=1956 data-nosnippet>1956</a>        <span class="macro">assert_eq!</span>(
+<a href=#1957 id=1957 data-nosnippet>1957</a>            inner_completed.load(O::Relaxed),
+<a href=#1958 id=1958 data-nosnippet>1958</a>            <span class="number">1</span>,
+<a href=#1959 id=1959 data-nosnippet>1959</a>            <span class="string">"inner closure must have executed exactly once"</span>,
+<a href=#1960 id=1960 data-nosnippet>1960</a>        );
+<a href=#1961 id=1961 data-nosnippet>1961</a>
+<a href=#1962 id=1962 data-nosnippet>1962</a>        clear_tls_stack();
+<a href=#1963 id=1963 data-nosnippet>1963</a>        drain_stack_pool();
+<a href=#1964 id=1964 data-nosnippet>1964</a>    }
+<a href=#1965 id=1965 data-nosnippet>1965</a>
+<a href=#1966 id=1966 data-nosnippet>1966</a>    <span class="attr">#[test]
+<a href=#1967 id=1967 data-nosnippet>1967</a>    </span><span class="kw">fn </span>reentrant_inner_trap_does_not_kill_outer() {
+<a href=#1968 id=1968 data-nosnippet>1968</a>        <span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
+<a href=#1969 id=1969 data-nosnippet>1969</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
+<a href=#1970 id=1970 data-nosnippet>1970</a>        drain_stack_pool();
+<a href=#1971 id=1971 data-nosnippet>1971</a>        clear_tls_stack();
+<a href=#1972 id=1972 data-nosnippet>1972</a>
+<a href=#1973 id=1973 data-nosnippet>1973</a>        <span class="kw">let </span>outer = on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || {
+<a href=#1974 id=1974 data-nosnippet>1974</a>            <span class="kw">let </span>inner: <span class="prelude-ty">Result</span>&lt;i32, UnwindReason&gt; =
+<a href=#1975 id=1975 data-nosnippet>1975</a>                on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || <span class="kw">unsafe </span>{
+<a href=#1976 id=1976 data-nosnippet>1976</a>                    raise_user_trap(Box::new(io::Error::other(<span class="string">"inner trap"</span>)));
+<a href=#1977 id=1977 data-nosnippet>1977</a>                });
+<a href=#1978 id=1978 data-nosnippet>1978</a>            <span class="comment">// Outer observes inner's Err and recovers.
+<a href=#1979 id=1979 data-nosnippet>1979</a>            </span><span class="kw">match </span>inner {
+<a href=#1980 id=1980 data-nosnippet>1980</a>                <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; <span class="number">1234i32</span>,
+<a href=#1981 id=1981 data-nosnippet>1981</a>                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="macro">panic!</span>(<span class="string">"inner should have trapped"</span>),
+<a href=#1982 id=1982 data-nosnippet>1982</a>            }
+<a href=#1983 id=1983 data-nosnippet>1983</a>        });
+<a href=#1984 id=1984 data-nosnippet>1984</a>        <span class="macro">assert_eq!</span>(
+<a href=#1985 id=1985 data-nosnippet>1985</a>            outer.ok(),
+<a href=#1986 id=1986 data-nosnippet>1986</a>            <span class="prelude-val">Some</span>(<span class="number">1234</span>),
+<a href=#1987 id=1987 data-nosnippet>1987</a>            <span class="string">"outer must recover after inner trap and run to completion"
+<a href=#1988 id=1988 data-nosnippet>1988</a>        </span>);
+<a href=#1989 id=1989 data-nosnippet>1989</a>
+<a href=#1990 id=1990 data-nosnippet>1990</a>        clear_tls_stack();
+<a href=#1991 id=1991 data-nosnippet>1991</a>        drain_stack_pool();
+<a href=#1992 id=1992 data-nosnippet>1992</a>    }
+<a href=#1993 id=1993 data-nosnippet>1993</a>
+<a href=#1994 id=1994 data-nosnippet>1994</a>    <span class="attr">#[test]
+<a href=#1995 id=1995 data-nosnippet>1995</a>    </span><span class="kw">fn </span>reentrant_with_on_host_stack_in_between() {
+<a href=#1996 id=1996 data-nosnippet>1996</a>        <span class="comment">// Outer wasm → on_host_stack → inner wasm. This exercises the
+<a href=#1997 id=1997 data-nosnippet>1997</a>        // YIELDER save/restore in `unwind_with` / `on_host_stack` against
+<a href=#1998 id=1998 data-nosnippet>1998</a>        // a re-entrant boundary.
+<a href=#1999 id=1999 data-nosnippet>1999</a>        </span><span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
+<a href=#2000 id=2000 data-nosnippet>2000</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
+<a href=#2001 id=2001 data-nosnippet>2001</a>        drain_stack_pool();
+<a href=#2002 id=2002 data-nosnippet>2002</a>        clear_tls_stack();
+<a href=#2003 id=2003 data-nosnippet>2003</a>
+<a href=#2004 id=2004 data-nosnippet>2004</a>        <span class="kw">let </span>r = on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || {
+<a href=#2005 id=2005 data-nosnippet>2005</a>            on_host_stack(|| {
+<a href=#2006 id=2006 data-nosnippet>2006</a>                on_wasm_stack(get_stack_size(), <span class="prelude-val">None</span>, || <span class="number">5i32</span>).expect(<span class="string">"nested inner must succeed"</span>)
+<a href=#2007 id=2007 data-nosnippet>2007</a>            })
+<a href=#2008 id=2008 data-nosnippet>2008</a>        });
+<a href=#2009 id=2009 data-nosnippet>2009</a>        <span class="macro">assert_eq!</span>(r.ok(), <span class="prelude-val">Some</span>(<span class="number">5</span>));
+<a href=#2010 id=2010 data-nosnippet>2010</a>
+<a href=#2011 id=2011 data-nosnippet>2011</a>        clear_tls_stack();
+<a href=#2012 id=2012 data-nosnippet>2012</a>        drain_stack_pool();
+<a href=#2013 id=2013 data-nosnippet>2013</a>    }
 <a href=#2014 id=2014 data-nosnippet>2014</a>
-<a href=#2015 id=2015 data-nosnippet>2015</a>        clear_tls_stack();
-<a href=#2016 id=2016 data-nosnippet>2016</a>        drain_stack_pool();
-<a href=#2017 id=2017 data-nosnippet>2017</a>    }
+<a href=#2015 id=2015 data-nosnippet>2015</a>    <span class="comment">// -----------------------------------------------------------------
+<a href=#2016 id=2016 data-nosnippet>2016</a>    // Concurrency
+<a href=#2017 id=2017 data-nosnippet>2017</a>    // -----------------------------------------------------------------
 <a href=#2018 id=2018 data-nosnippet>2018</a>
-<a href=#2019 id=2019 data-nosnippet>2019</a>    <span class="comment">// -----------------------------------------------------------------
-<a href=#2020 id=2020 data-nosnippet>2020</a>    // Concurrency
-<a href=#2021 id=2021 data-nosnippet>2021</a>    // -----------------------------------------------------------------
-<a href=#2022 id=2022 data-nosnippet>2022</a>
-<a href=#2023 id=2023 data-nosnippet>2023</a>    </span><span class="attr">#[test]
-<a href=#2024 id=2024 data-nosnippet>2024</a>    </span><span class="kw">fn </span>many_threads_in_parallel_all_succeed() {
-<a href=#2025 id=2025 data-nosnippet>2025</a>        <span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
-<a href=#2026 id=2026 data-nosnippet>2026</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
-<a href=#2027 id=2027 data-nosnippet>2027</a>        drain_stack_pool();
-<a href=#2028 id=2028 data-nosnippet>2028</a>
-<a href=#2029 id=2029 data-nosnippet>2029</a>        <span class="kw">use </span>std::sync::Arc;
-<a href=#2030 id=2030 data-nosnippet>2030</a>        <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering <span class="kw">as </span>O};
+<a href=#2019 id=2019 data-nosnippet>2019</a>    </span><span class="attr">#[test]
+<a href=#2020 id=2020 data-nosnippet>2020</a>    </span><span class="kw">fn </span>many_threads_in_parallel_all_succeed() {
+<a href=#2021 id=2021 data-nosnippet>2021</a>        <span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
+<a href=#2022 id=2022 data-nosnippet>2022</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
+<a href=#2023 id=2023 data-nosnippet>2023</a>        drain_stack_pool();
+<a href=#2024 id=2024 data-nosnippet>2024</a>
+<a href=#2025 id=2025 data-nosnippet>2025</a>        <span class="kw">use </span>std::sync::Arc;
+<a href=#2026 id=2026 data-nosnippet>2026</a>        <span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering <span class="kw">as </span>O};
+<a href=#2027 id=2027 data-nosnippet>2027</a>
+<a href=#2028 id=2028 data-nosnippet>2028</a>        <span class="kw">let </span>counter = Arc::new(AtomicUsize::new(<span class="number">0</span>));
+<a href=#2029 id=2029 data-nosnippet>2029</a>        <span class="kw">const </span>THREADS: usize = <span class="number">8</span>;
+<a href=#2030 id=2030 data-nosnippet>2030</a>        <span class="kw">const </span>CALLS_PER_THREAD: usize = <span class="number">200</span>;
 <a href=#2031 id=2031 data-nosnippet>2031</a>
-<a href=#2032 id=2032 data-nosnippet>2032</a>        <span class="kw">let </span>counter = Arc::new(AtomicUsize::new(<span class="number">0</span>));
-<a href=#2033 id=2033 data-nosnippet>2033</a>        <span class="kw">const </span>THREADS: usize = <span class="number">8</span>;
-<a href=#2034 id=2034 data-nosnippet>2034</a>        <span class="kw">const </span>CALLS_PER_THREAD: usize = <span class="number">200</span>;
-<a href=#2035 id=2035 data-nosnippet>2035</a>
-<a href=#2036 id=2036 data-nosnippet>2036</a>        <span class="kw">let </span>handles: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..THREADS)
-<a href=#2037 id=2037 data-nosnippet>2037</a>            .map(|<span class="kw">_</span>| {
-<a href=#2038 id=2038 data-nosnippet>2038</a>                <span class="kw">let </span>counter = counter.clone();
-<a href=#2039 id=2039 data-nosnippet>2039</a>                std::thread::spawn(<span class="kw">move </span>|| {
-<a href=#2040 id=2040 data-nosnippet>2040</a>                    <span class="kw">let </span>size = get_stack_size();
-<a href=#2041 id=2041 data-nosnippet>2041</a>                    <span class="kw">for _ in </span><span class="number">0</span>..CALLS_PER_THREAD {
-<a href=#2042 id=2042 data-nosnippet>2042</a>                        <span class="kw">if </span>on_wasm_stack(size, <span class="prelude-val">None</span>, || <span class="number">1u32</span>).ok() == <span class="prelude-val">Some</span>(<span class="number">1</span>) {
-<a href=#2043 id=2043 data-nosnippet>2043</a>                            counter.fetch_add(<span class="number">1</span>, O::Relaxed);
-<a href=#2044 id=2044 data-nosnippet>2044</a>                        }
-<a href=#2045 id=2045 data-nosnippet>2045</a>                    }
-<a href=#2046 id=2046 data-nosnippet>2046</a>                })
-<a href=#2047 id=2047 data-nosnippet>2047</a>            })
-<a href=#2048 id=2048 data-nosnippet>2048</a>            .collect();
-<a href=#2049 id=2049 data-nosnippet>2049</a>        <span class="kw">for </span>h <span class="kw">in </span>handles {
-<a href=#2050 id=2050 data-nosnippet>2050</a>            h.join().unwrap();
-<a href=#2051 id=2051 data-nosnippet>2051</a>        }
-<a href=#2052 id=2052 data-nosnippet>2052</a>
-<a href=#2053 id=2053 data-nosnippet>2053</a>        <span class="macro">assert_eq!</span>(counter.load(O::Relaxed), THREADS * CALLS_PER_THREAD);
-<a href=#2054 id=2054 data-nosnippet>2054</a>        <span class="comment">// Pool should now hold at most `THREADS` stacks (one per thread that
-<a href=#2055 id=2055 data-nosnippet>2055</a>        // exited). Each thread also drops its TLS slot on exit, which pushes
-<a href=#2056 id=2056 data-nosnippet>2056</a>        // the stack to the pool.
-<a href=#2057 id=2057 data-nosnippet>2057</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>pooled = <span class="number">0usize</span>;
-<a href=#2058 id=2058 data-nosnippet>2058</a>        <span class="kw">while </span>STACK_POOL.pop().is_some() {
-<a href=#2059 id=2059 data-nosnippet>2059</a>            pooled += <span class="number">1</span>;
-<a href=#2060 id=2060 data-nosnippet>2060</a>        }
-<a href=#2061 id=2061 data-nosnippet>2061</a>        <span class="macro">assert!</span>(
-<a href=#2062 id=2062 data-nosnippet>2062</a>            pooled &lt;= THREADS,
-<a href=#2063 id=2063 data-nosnippet>2063</a>            <span class="string">"pool should hold at most one stack per terminated thread (got {pooled} for {THREADS} threads)"
-<a href=#2064 id=2064 data-nosnippet>2064</a>        </span>);
+<a href=#2032 id=2032 data-nosnippet>2032</a>        <span class="kw">let </span>handles: Vec&lt;<span class="kw">_</span>&gt; = (<span class="number">0</span>..THREADS)
+<a href=#2033 id=2033 data-nosnippet>2033</a>            .map(|<span class="kw">_</span>| {
+<a href=#2034 id=2034 data-nosnippet>2034</a>                <span class="kw">let </span>counter = counter.clone();
+<a href=#2035 id=2035 data-nosnippet>2035</a>                std::thread::spawn(<span class="kw">move </span>|| {
+<a href=#2036 id=2036 data-nosnippet>2036</a>                    <span class="kw">let </span>size = get_stack_size();
+<a href=#2037 id=2037 data-nosnippet>2037</a>                    <span class="kw">for _ in </span><span class="number">0</span>..CALLS_PER_THREAD {
+<a href=#2038 id=2038 data-nosnippet>2038</a>                        <span class="kw">if </span>on_wasm_stack(size, <span class="prelude-val">None</span>, || <span class="number">1u32</span>).ok() == <span class="prelude-val">Some</span>(<span class="number">1</span>) {
+<a href=#2039 id=2039 data-nosnippet>2039</a>                            counter.fetch_add(<span class="number">1</span>, O::Relaxed);
+<a href=#2040 id=2040 data-nosnippet>2040</a>                        }
+<a href=#2041 id=2041 data-nosnippet>2041</a>                    }
+<a href=#2042 id=2042 data-nosnippet>2042</a>                })
+<a href=#2043 id=2043 data-nosnippet>2043</a>            })
+<a href=#2044 id=2044 data-nosnippet>2044</a>            .collect();
+<a href=#2045 id=2045 data-nosnippet>2045</a>        <span class="kw">for </span>h <span class="kw">in </span>handles {
+<a href=#2046 id=2046 data-nosnippet>2046</a>            h.join().unwrap();
+<a href=#2047 id=2047 data-nosnippet>2047</a>        }
+<a href=#2048 id=2048 data-nosnippet>2048</a>
+<a href=#2049 id=2049 data-nosnippet>2049</a>        <span class="macro">assert_eq!</span>(counter.load(O::Relaxed), THREADS * CALLS_PER_THREAD);
+<a href=#2050 id=2050 data-nosnippet>2050</a>        <span class="comment">// Pool should now hold at most `THREADS` stacks (one per thread that
+<a href=#2051 id=2051 data-nosnippet>2051</a>        // exited). Each thread also drops its TLS slot on exit, which pushes
+<a href=#2052 id=2052 data-nosnippet>2052</a>        // the stack to the pool.
+<a href=#2053 id=2053 data-nosnippet>2053</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>pooled = <span class="number">0usize</span>;
+<a href=#2054 id=2054 data-nosnippet>2054</a>        <span class="kw">while </span>STACK_POOL.pop().is_some() {
+<a href=#2055 id=2055 data-nosnippet>2055</a>            pooled += <span class="number">1</span>;
+<a href=#2056 id=2056 data-nosnippet>2056</a>        }
+<a href=#2057 id=2057 data-nosnippet>2057</a>        <span class="macro">assert!</span>(
+<a href=#2058 id=2058 data-nosnippet>2058</a>            pooled &lt;= THREADS,
+<a href=#2059 id=2059 data-nosnippet>2059</a>            <span class="string">"pool should hold at most one stack per terminated thread (got {pooled} for {THREADS} threads)"
+<a href=#2060 id=2060 data-nosnippet>2060</a>        </span>);
+<a href=#2061 id=2061 data-nosnippet>2061</a>
+<a href=#2062 id=2062 data-nosnippet>2062</a>        clear_tls_stack();
+<a href=#2063 id=2063 data-nosnippet>2063</a>        drain_stack_pool();
+<a href=#2064 id=2064 data-nosnippet>2064</a>    }
 <a href=#2065 id=2065 data-nosnippet>2065</a>
-<a href=#2066 id=2066 data-nosnippet>2066</a>        clear_tls_stack();
-<a href=#2067 id=2067 data-nosnippet>2067</a>        drain_stack_pool();
-<a href=#2068 id=2068 data-nosnippet>2068</a>    }
+<a href=#2066 id=2066 data-nosnippet>2066</a>    <span class="comment">// -----------------------------------------------------------------
+<a href=#2067 id=2067 data-nosnippet>2067</a>    // Stack size dynamics
+<a href=#2068 id=2068 data-nosnippet>2068</a>    // -----------------------------------------------------------------
 <a href=#2069 id=2069 data-nosnippet>2069</a>
-<a href=#2070 id=2070 data-nosnippet>2070</a>    <span class="comment">// -----------------------------------------------------------------
-<a href=#2071 id=2071 data-nosnippet>2071</a>    // Stack size dynamics
-<a href=#2072 id=2072 data-nosnippet>2072</a>    // -----------------------------------------------------------------
-<a href=#2073 id=2073 data-nosnippet>2073</a>
-<a href=#2074 id=2074 data-nosnippet>2074</a>    </span><span class="attr">#[test]
-<a href=#2075 id=2075 data-nosnippet>2075</a>    </span><span class="kw">fn </span>growing_request_discards_smaller_tls_stack() {
-<a href=#2076 id=2076 data-nosnippet>2076</a>        <span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
-<a href=#2077 id=2077 data-nosnippet>2077</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
-<a href=#2078 id=2078 data-nosnippet>2078</a>        drain_stack_pool();
-<a href=#2079 id=2079 data-nosnippet>2079</a>        clear_tls_stack();
-<a href=#2080 id=2080 data-nosnippet>2080</a>
-<a href=#2081 id=2081 data-nosnippet>2081</a>        <span class="comment">// First call at a small size populates TLS with a small stack.
-<a href=#2082 id=2082 data-nosnippet>2082</a>        </span><span class="kw">let </span>small = ByteSize::mib(<span class="number">1</span>).as_u64() <span class="kw">as </span>usize;
-<a href=#2083 id=2083 data-nosnippet>2083</a>        set_stack_size(small);
-<a href=#2084 id=2084 data-nosnippet>2084</a>        <span class="macro">assert!</span>(on_wasm_stack(small, <span class="prelude-val">None</span>, || ()).is_ok());
-<a href=#2085 id=2085 data-nosnippet>2085</a>
-<a href=#2086 id=2086 data-nosnippet>2086</a>        <span class="kw">let </span>cached_size = TLS_STACK.with(|cache| {
-<a href=#2087 id=2087 data-nosnippet>2087</a>            <span class="kw">let </span>s = cache.<span class="number">0</span>.take();
-<a href=#2088 id=2088 data-nosnippet>2088</a>            <span class="kw">let </span>sz = s.as_ref().map_or(<span class="number">0</span>, |s| s.size());
-<a href=#2089 id=2089 data-nosnippet>2089</a>            cache.<span class="number">0</span>.set(s);
-<a href=#2090 id=2090 data-nosnippet>2090</a>            sz
-<a href=#2091 id=2091 data-nosnippet>2091</a>        });
-<a href=#2092 id=2092 data-nosnippet>2092</a>        <span class="macro">assert!</span>(
-<a href=#2093 id=2093 data-nosnippet>2093</a>            cached_size &gt;= small,
-<a href=#2094 id=2094 data-nosnippet>2094</a>            <span class="string">"TLS should hold the small-sized stack"
-<a href=#2095 id=2095 data-nosnippet>2095</a>        </span>);
-<a href=#2096 id=2096 data-nosnippet>2096</a>
-<a href=#2097 id=2097 data-nosnippet>2097</a>        <span class="comment">// Now request a larger stack. acquire_stack should discard the TLS
-<a href=#2098 id=2098 data-nosnippet>2098</a>        // entry and either pop a big-enough one from pool or allocate.
-<a href=#2099 id=2099 data-nosnippet>2099</a>        </span><span class="kw">let </span>big = ByteSize::mib(<span class="number">4</span>).as_u64() <span class="kw">as </span>usize;
-<a href=#2100 id=2100 data-nosnippet>2100</a>        set_stack_size(big);
-<a href=#2101 id=2101 data-nosnippet>2101</a>        <span class="macro">assert!</span>(on_wasm_stack(big, <span class="prelude-val">None</span>, || ()).is_ok());
-<a href=#2102 id=2102 data-nosnippet>2102</a>
-<a href=#2103 id=2103 data-nosnippet>2103</a>        <span class="comment">// The TLS slot should now hold a stack that's big enough.
-<a href=#2104 id=2104 data-nosnippet>2104</a>        </span><span class="kw">let </span>cached_size = TLS_STACK.with(|cache| {
-<a href=#2105 id=2105 data-nosnippet>2105</a>            <span class="kw">let </span>s = cache.<span class="number">0</span>.take();
-<a href=#2106 id=2106 data-nosnippet>2106</a>            <span class="kw">let </span>sz = s.as_ref().map_or(<span class="number">0</span>, |s| s.size());
-<a href=#2107 id=2107 data-nosnippet>2107</a>            cache.<span class="number">0</span>.set(s);
-<a href=#2108 id=2108 data-nosnippet>2108</a>            sz
-<a href=#2109 id=2109 data-nosnippet>2109</a>        });
-<a href=#2110 id=2110 data-nosnippet>2110</a>        <span class="macro">assert!</span>(
-<a href=#2111 id=2111 data-nosnippet>2111</a>            cached_size &gt;= big,
-<a href=#2112 id=2112 data-nosnippet>2112</a>            <span class="string">"TLS should hold the bigger stack after size bump"
-<a href=#2113 id=2113 data-nosnippet>2113</a>        </span>);
-<a href=#2114 id=2114 data-nosnippet>2114</a>
-<a href=#2115 id=2115 data-nosnippet>2115</a>        clear_tls_stack();
-<a href=#2116 id=2116 data-nosnippet>2116</a>        drain_stack_pool();
-<a href=#2117 id=2117 data-nosnippet>2117</a>    }
-<a href=#2118 id=2118 data-nosnippet>2118</a>}
+<a href=#2070 id=2070 data-nosnippet>2070</a>    </span><span class="attr">#[test]
+<a href=#2071 id=2071 data-nosnippet>2071</a>    </span><span class="kw">fn </span>growing_request_discards_smaller_tls_stack() {
+<a href=#2072 id=2072 data-nosnippet>2072</a>        <span class="kw">let </span>_lock = GLOBAL_STATE.lock().unwrap();
+<a href=#2073 id=2073 data-nosnippet>2073</a>        <span class="kw">let </span>_restore = RestoreStackSize(get_stack_size());
+<a href=#2074 id=2074 data-nosnippet>2074</a>        drain_stack_pool();
+<a href=#2075 id=2075 data-nosnippet>2075</a>        clear_tls_stack();
+<a href=#2076 id=2076 data-nosnippet>2076</a>
+<a href=#2077 id=2077 data-nosnippet>2077</a>        <span class="comment">// First call at a small size populates TLS with a small stack.
+<a href=#2078 id=2078 data-nosnippet>2078</a>        </span><span class="kw">let </span>small = ByteSize::mib(<span class="number">1</span>).as_u64() <span class="kw">as </span>usize;
+<a href=#2079 id=2079 data-nosnippet>2079</a>        set_stack_size(small);
+<a href=#2080 id=2080 data-nosnippet>2080</a>        <span class="macro">assert!</span>(on_wasm_stack(small, <span class="prelude-val">None</span>, || ()).is_ok());
+<a href=#2081 id=2081 data-nosnippet>2081</a>
+<a href=#2082 id=2082 data-nosnippet>2082</a>        <span class="kw">let </span>cached_size = TLS_STACK.with(|cache| {
+<a href=#2083 id=2083 data-nosnippet>2083</a>            <span class="kw">let </span>s = cache.<span class="number">0</span>.take();
+<a href=#2084 id=2084 data-nosnippet>2084</a>            <span class="kw">let </span>sz = s.as_ref().map_or(<span class="number">0</span>, |s| s.size());
+<a href=#2085 id=2085 data-nosnippet>2085</a>            cache.<span class="number">0</span>.set(s);
+<a href=#2086 id=2086 data-nosnippet>2086</a>            sz
+<a href=#2087 id=2087 data-nosnippet>2087</a>        });
+<a href=#2088 id=2088 data-nosnippet>2088</a>        <span class="macro">assert!</span>(
+<a href=#2089 id=2089 data-nosnippet>2089</a>            cached_size &gt;= small,
+<a href=#2090 id=2090 data-nosnippet>2090</a>            <span class="string">"TLS should hold the small-sized stack"
+<a href=#2091 id=2091 data-nosnippet>2091</a>        </span>);
+<a href=#2092 id=2092 data-nosnippet>2092</a>
+<a href=#2093 id=2093 data-nosnippet>2093</a>        <span class="comment">// Now request a larger stack. acquire_stack should discard the TLS
+<a href=#2094 id=2094 data-nosnippet>2094</a>        // entry and either pop a big-enough one from pool or allocate.
+<a href=#2095 id=2095 data-nosnippet>2095</a>        </span><span class="kw">let </span>big = ByteSize::mib(<span class="number">4</span>).as_u64() <span class="kw">as </span>usize;
+<a href=#2096 id=2096 data-nosnippet>2096</a>        set_stack_size(big);
+<a href=#2097 id=2097 data-nosnippet>2097</a>        <span class="macro">assert!</span>(on_wasm_stack(big, <span class="prelude-val">None</span>, || ()).is_ok());
+<a href=#2098 id=2098 data-nosnippet>2098</a>
+<a href=#2099 id=2099 data-nosnippet>2099</a>        <span class="comment">// The TLS slot should now hold a stack that's big enough.
+<a href=#2100 id=2100 data-nosnippet>2100</a>        </span><span class="kw">let </span>cached_size = TLS_STACK.with(|cache| {
+<a href=#2101 id=2101 data-nosnippet>2101</a>            <span class="kw">let </span>s = cache.<span class="number">0</span>.take();
+<a href=#2102 id=2102 data-nosnippet>2102</a>            <span class="kw">let </span>sz = s.as_ref().map_or(<span class="number">0</span>, |s| s.size());
+<a href=#2103 id=2103 data-nosnippet>2103</a>            cache.<span class="number">0</span>.set(s);
+<a href=#2104 id=2104 data-nosnippet>2104</a>            sz
+<a href=#2105 id=2105 data-nosnippet>2105</a>        });
+<a href=#2106 id=2106 data-nosnippet>2106</a>        <span class="macro">assert!</span>(
+<a href=#2107 id=2107 data-nosnippet>2107</a>            cached_size &gt;= big,
+<a href=#2108 id=2108 data-nosnippet>2108</a>            <span class="string">"TLS should hold the bigger stack after size bump"
+<a href=#2109 id=2109 data-nosnippet>2109</a>        </span>);
+<a href=#2110 id=2110 data-nosnippet>2110</a>
+<a href=#2111 id=2111 data-nosnippet>2111</a>        clear_tls_stack();
+<a href=#2112 id=2112 data-nosnippet>2112</a>        drain_stack_pool();
+<a href=#2113 id=2113 data-nosnippet>2113</a>    }
+<a href=#2114 id=2114 data-nosnippet>2114</a>}
 </code></pre></div></section></main></body></html>

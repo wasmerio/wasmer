@@ -1308,7 +1308,7 @@
 <a href=#1308 id=1308 data-nosnippet>1308</a>}
 <a href=#1309 id=1309 data-nosnippet>1309</a>
 <a href=#1310 id=1310 data-nosnippet>1310</a><span class="kw">fn </span>format_autobuild_datetime(datetime: <span class="kw-2">&amp;</span>wasmer_backend_api::types::DateTime) -&gt; String {
-<a href=#1311 id=1311 data-nosnippet>1311</a>    <span class="kw">let </span>format = format_description::parse(
+<a href=#1311 id=1311 data-nosnippet>1311</a>    <span class="kw">let </span>format = format_description::parse_borrowed::&lt;<span class="number">1</span>&gt;(
 <a href=#1312 id=1312 data-nosnippet>1312</a>        <span class="string">"[month repr:short] [day padding:none] [hour]:[minute]:[second].[subsecond digits:3]"</span>,
 <a href=#1313 id=1313 data-nosnippet>1313</a>    );
 <a href=#1314 id=1314 data-nosnippet>1314</a>    <span class="kw">let </span><span class="prelude-val">Ok</span>(format) = format <span class="kw">else </span>{
