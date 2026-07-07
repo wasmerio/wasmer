@@ -288,7 +288,7 @@ impl crate::FileSystem for FileSystem {
         // truncate is going to be applied first and append is going to be ignored anyway.
         let append = if conf.truncate { false } else { conf.append() };
 
-        let mut oo = tfs::OpenOptions::new();
+        let mut oo = fs::OpenOptions::new();
         let file = oo
             .read(conf.read())
             .write(conf.write())
@@ -297,10 +297,7 @@ impl crate::FileSystem for FileSystem {
             .append(append)
             .truncate(conf.truncate())
             .open(&path)
-            .await
-            .map_err(FsError::from)?
-            .into_std()
-            .await;
+            .map_err(FsError::from)?;
 
         Ok(Box::new(File::new(
             self.handle.clone(),
