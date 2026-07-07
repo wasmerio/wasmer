@@ -192,6 +192,23 @@ impl MountFileSystem {
         path
     }
 
+    fn normal_components(path: &Path) -> Vec<OsString> {
+        path.components()
+            .filter_map(|component| match component {
+                std::path::Component::Normal(part) => Some(part.to_os_string()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn guest_path_from_components(components: &[OsString]) -> PathBuf {
+        let mut path = PathBuf::from("/");
+        for component in components {
+            path.push(component);
+        }
+        path
+    }
+
     fn normalize_source_path(path: &Path) -> PathBuf {
         let mut normalized = PathBuf::from("/");
         normalized.push(path.strip_prefix("/").unwrap_or(path));
@@ -313,27 +330,20 @@ impl MountFileSystem {
     }
 
     fn rebase_entries(entries: &mut ReadDir, source_prefix: &Path, target_prefix: &Path) {
+        let source_components = Self::normal_components(source_prefix);
+        let target_components = Self::normal_components(target_prefix);
+
         for entry in &mut entries.data {
-            let component_suffix = || {
-                entry
-                    .path
-                    .components()
-                    .filter_map(|component| match component {
-                        std::path::Component::Normal(part) => Some(part),
-                        _ => None,
-                    })
-                    .collect::<PathBuf>()
-            };
-            let suffix = if source_prefix == Path::new("/") {
-                component_suffix()
-            } else {
-                entry
-                    .path
-                    .strip_prefix(source_prefix)
-                    .map(Path::to_path_buf)
-                    .unwrap_or_else(|_| component_suffix())
-            };
-            entry.path = target_prefix.join(suffix);
+            let entry_components = Self::normal_components(&entry.path);
+            let suffix = entry_components
+                .strip_prefix(source_components.as_slice())
+                .unwrap_or(entry_components.as_slice());
+            let rebased_components = target_components
+                .iter()
+                .chain(suffix.iter())
+                .cloned()
+                .collect::<Vec<_>>();
+            entry.path = Self::guest_path_from_components(&rebased_components);
         }
     }
 
