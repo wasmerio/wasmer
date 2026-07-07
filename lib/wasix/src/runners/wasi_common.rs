@@ -178,19 +178,31 @@ impl CommonWasiOptions {
 //     OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
 
 fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
+    fn guest_path_from_components(components: &[std::ffi::OsString]) -> PathBuf {
+        let mut path = String::from("/");
+        path.push_str(
+            &components
+                .iter()
+                .map(|component| component.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/"),
+        );
+        PathBuf::from(path)
+    }
+
     let mut guest_path = PathBuf::from(guest_path);
 
     if guest_path.is_relative() {
         guest_path = apply_relative_path_mounting_hack(&guest_path);
     }
 
-    let mut normalized = PathBuf::from("/");
+    let mut normalized = Vec::new();
     for component in guest_path.components() {
         match component {
-            Component::RootDir => normalized = PathBuf::from("/"),
+            Component::RootDir => normalized.clear(),
             Component::CurDir => {}
             Component::ParentDir => {
-                if normalized.as_os_str() == "/" {
+                if normalized.is_empty() {
                     anyhow::bail!(
                         "Invalid guest mount path \"{}\": parent traversal escapes the virtual root",
                         guest_path.display()
@@ -198,7 +210,7 @@ fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
                 }
                 normalized.pop();
             }
-            Component::Normal(part) => normalized.push(part),
+            Component::Normal(part) => normalized.push(part.to_os_string()),
             Component::Prefix(_) => {
                 anyhow::bail!(
                     "Invalid guest mount path \"{}\": platform-specific prefixes are not supported",
@@ -208,7 +220,7 @@ fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
         }
     }
 
-    Ok(normalized)
+    Ok(guest_path_from_components(&normalized))
 }
 
 fn prepare_filesystem(
@@ -884,6 +896,18 @@ mod tests {
                 .to_string()
                 .contains("parent traversal escapes the virtual root"),
             "{error:#}"
+        );
+    }
+
+    #[test]
+    fn normalized_guest_mount_paths_use_guest_separators() {
+        assert_eq!(
+            normalized_mount_path("/mnt/dir").unwrap(),
+            PathBuf::from("/mnt/dir")
+        );
+        assert_eq!(
+            normalized_mount_path("/mnt/./dir/../data").unwrap(),
+            PathBuf::from("/mnt/data")
         );
     }
 
