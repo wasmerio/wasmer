@@ -29,7 +29,11 @@ pub fn path_unlink_file<M: MemorySize>(
     let path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
 
-    let ret = path_unlink_file_internal(&mut ctx, fd, &path_str)?;
+    let ret = wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        path_unlink_file_internal(env, fd, &path_str)
+    )?);
     let env = ctx.data();
 
     if ret == Errno::Success {
@@ -47,21 +51,22 @@ pub fn path_unlink_file<M: MemorySize>(
     Ok(ret)
 }
 
-pub(crate) fn path_unlink_file_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn path_unlink_file_internal(
+    env: &WasiEnv,
     fd: WasiFd,
     path: &str,
-) -> Result<Errno, WasiError> {
-    let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+) -> Result<Errno, Errno> {
+    let state = env.state();
+    let inodes = &state.inodes;
 
-    let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false));
+    let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, fd, path, false).await);
     let (parent_inode, child_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         fd,
         std::path::Path::new(path),
         false
-    ));
+    )
+    .await);
     let host_adjusted_path = {
         let guard = parent_inode.read();
         match guard.deref() {
@@ -94,7 +99,10 @@ pub(crate) fn path_unlink_file_internal(
                 );
                 return Ok(Errno::Noent);
             }
-            return Ok(state.fs.remove_symlink_file(host_adjusted_path.as_path()));
+            return Ok(state
+                .fs
+                .remove_symlink_file(host_adjusted_path.as_path())
+                .await);
         };
         // TODO: make this a debug assert in the future
         assert!(inode.ino() == removed_inode.ino());
@@ -113,21 +121,26 @@ pub(crate) fn path_unlink_file_internal(
             match guard.deref() {
                 Kind::File { handle, path, .. } => {
                     if let Some(h) = handle {
-                        let mut h = h.write().unwrap();
-                        wasi_try_ok!(h.unlink().map_err(fs_error_into_wasi_err));
+                        let h = h.clone();
+                        drop(guard);
+                        let mut h = h.lock().await;
+                        wasi_try_ok!(h.unlink().await.map_err(fs_error_into_wasi_err));
                     } else {
                         // File is closed
                         // problem with the abstraction, we can't call unlink because there's no handle
                         // drop mutable borrow on `path`
                         let path = path.clone();
                         drop(guard);
-                        wasi_try_ok!(state.fs_remove_file(path));
+                        wasi_try_ok!(state.fs_remove_file(path).await);
                     }
                 }
                 Kind::Dir { .. } | Kind::Root { .. } => return Ok(Errno::Isdir),
                 Kind::Symlink { .. } => {
                     drop(guard);
-                    let errno = state.fs.remove_symlink_file(host_adjusted_path.as_path());
+                    let errno = state
+                        .fs
+                        .remove_symlink_file(host_adjusted_path.as_path())
+                        .await;
                     if errno != Errno::Success {
                         return Ok(errno);
                     }

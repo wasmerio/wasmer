@@ -37,15 +37,19 @@ pub fn path_filestat_set_times<M: MemorySize>(
     let path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
-    wasi_try_ok!(path_filestat_set_times_internal(
-        &mut ctx,
-        fd,
-        flags,
-        &path_string,
-        st_atim,
-        st_mtim,
-        fst_flags
-    ));
+    wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        path_filestat_set_times_internal(
+            env,
+            fd,
+            flags,
+            &path_string,
+            st_atim,
+            st_mtim,
+            fst_flags
+        )
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -68,8 +72,8 @@ pub fn path_filestat_set_times<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub(crate) fn path_filestat_set_times_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn path_filestat_set_times_internal(
+    env: &WasiEnv,
     fd: WasiFd,
     flags: LookupFlags,
     path: &str,
@@ -77,8 +81,8 @@ pub(crate) fn path_filestat_set_times_internal(
     st_mtim: Timestamp,
     fst_flags: Fstflags,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let state = env.state();
+    let inodes = &state.inodes;
     let fd_entry = state.fs.get_fd(fd)?;
     let fd_inode = fd_entry.inode;
     if !fd_entry
@@ -97,10 +101,11 @@ pub(crate) fn path_filestat_set_times_internal(
     let file_inode =
         state
             .fs
-            .get_inode_at_path(inodes, fd, path, flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0)?;
+            .get_inode_at_path(inodes, fd, path, flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0)
+            .await?;
     let stat = {
         let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())?
+        state.fs.get_stat_for_kind(guard.deref()).await?
     };
 
     if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {

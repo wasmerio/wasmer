@@ -19,7 +19,11 @@ pub fn fd_allocate(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
-    wasi_try_ok!(fd_allocate_internal(&mut ctx, fd, offset, len));
+    wasi_try_ok!(__asyncify_light(
+        ctx.data(),
+        None,
+        fd_allocate_internal(ctx.data(), fd, offset, len)
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -33,14 +37,13 @@ pub fn fd_allocate(
     Ok(Errno::Success)
 }
 
-pub(crate) fn fd_allocate_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn fd_allocate_internal(
+    env: &WasiEnv,
     fd: WasiFd,
     offset: Filesize,
     len: Filesize,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let mut state = env.state();
     let fd_entry = state.fs.get_fd(fd)?;
     let inode = fd_entry.inode;
 
@@ -53,11 +56,15 @@ pub(crate) fn fd_allocate_internal(
         let mut guard = inode.write();
         match guard.deref_mut() {
             Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    let mut handle = handle.write().unwrap();
-                    current_size = handle.size();
+                if let Some(handle) = handle.clone() {
+                    drop(guard);
+                    let mut handle = handle.lock().await;
+                    current_size = handle.size().await;
                     if new_size > current_size {
-                        handle.set_len(new_size).map_err(fs_error_into_wasi_err)?;
+                        handle
+                            .set_len(new_size)
+                            .await
+                            .map_err(fs_error_into_wasi_err)?;
                         current_size = new_size;
                     }
                 } else {

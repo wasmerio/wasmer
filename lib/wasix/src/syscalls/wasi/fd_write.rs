@@ -207,7 +207,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                                 None
                             },
                             async {
-                                let mut handle = handle.write().unwrap();
+                                let mut handle = handle.lock().await;
                                 if !is_stdio {
                                     if fd_entry.inner.flags.contains(Fdflags::APPEND) {
                                         // `fdflags::append` means we need to seek to the end before writing.

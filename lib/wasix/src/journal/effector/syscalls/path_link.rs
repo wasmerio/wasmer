@@ -29,8 +29,19 @@ impl JournalEffector {
         new_fd: Fd,
         new_path: &str,
     ) -> anyhow::Result<()> {
-        crate::syscalls::path_link_internal(ctx, old_fd, old_flags, old_path, new_fd, new_path)
-            .map_err(|err| {
+        crate::syscalls::__asyncify_light(
+            ctx.data(),
+            None,
+            crate::syscalls::path_link_internal(
+                ctx.data(),
+                old_fd,
+                old_flags,
+                old_path,
+                new_fd,
+                new_path,
+            ),
+        )?
+        .map_err(|err| {
                 anyhow::format_err!(
                     "journal restore error: failed to create hard link (old_fd={old_fd}, old_flags={old_flags}, old_path={old_path}, new_fd={new_fd}, new_path={new_path}) - {err}")
             })?;

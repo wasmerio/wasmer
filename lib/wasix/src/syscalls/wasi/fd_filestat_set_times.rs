@@ -22,9 +22,11 @@ pub fn fd_filestat_set_times(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
-    wasi_try_ok!(fd_filestat_set_times_internal(
-        &mut ctx, fd, st_atim, st_mtim, fst_flags
-    ));
+    wasi_try_ok!(__asyncify_light(
+        ctx.data(),
+        None,
+        fd_filestat_set_times_internal(ctx.data(), fd, st_atim, st_mtim, fst_flags)
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -40,15 +42,14 @@ pub fn fd_filestat_set_times(
     Ok(Errno::Success)
 }
 
-pub(crate) fn fd_filestat_set_times_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn fd_filestat_set_times_internal(
+    env: &WasiEnv,
     fd: WasiFd,
     st_atim: Timestamp,
     st_mtim: Timestamp,
     fst_flags: Fstflags,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let mut state = env.state();
     let fd_entry = state.fs.get_fd(fd)?;
 
     if !fd_entry
@@ -90,14 +91,22 @@ pub(crate) fn fd_filestat_set_times_internal(
         mtime = Some(time_to_set);
     }
 
-    if let Kind::File {
-        handle: Some(handle),
-        ..
-    } = inode.kind.write().unwrap().deref()
-    {
-        let mut handle = handle.write().unwrap();
-
-        handle.set_times(atime, mtime);
+    let handle = {
+        let guard = inode.kind.write().unwrap();
+        match guard.deref() {
+            Kind::File {
+                handle: Some(handle),
+                ..
+            } => Some(handle.clone()),
+            _ => None,
+        }
+    };
+    if let Some(handle) = handle {
+        let mut handle = handle.lock().await;
+        handle
+            .set_times(atime, mtime)
+            .await
+            .map_err(fs_error_into_wasi_err)?;
     }
 
     Ok(())

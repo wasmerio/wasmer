@@ -32,12 +32,14 @@ use std::{
     },
     task::{Context, Poll},
 };
+use tokio::sync::Mutex as AsyncMutex;
+use virtual_mio::block_on;
 
 use crate::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
-use futures::{Future, future::BoxFuture};
+use futures::{Future, future::LocalBoxFuture};
 use tracing::{debug, trace, warn};
 use virtual_fs::{
     ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
@@ -94,7 +96,10 @@ impl Future for FlushPoller {
     type Output = Result<(), Errno>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut file = self.file.write().unwrap();
+        let Ok(mut file) = self.file.try_lock() else {
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
+        };
         Pin::new(file.as_mut())
             .poll_flush(cx)
             .map_err(|_| Errno::Io)
@@ -386,7 +391,7 @@ impl WasiInodes {
                 ..
             } = guard.deref()
             {
-                Ok(InodeValFileReadGuard::new(handle))
+                InodeValFileReadGuard::new(handle).ok_or(FsError::Lock)
             } else {
                 // Our public API should ensure that this is not possible
                 Err(FsError::NotAFile)
@@ -409,7 +414,7 @@ impl WasiInodes {
                 ..
             } = guard.deref()
             {
-                Ok(InodeValFileWriteGuard::new(handle))
+                InodeValFileWriteGuard::new(handle).ok_or(FsError::Lock)
             } else {
                 // Our public API should ensure that this is not possible
                 Err(FsError::NotAFile)
@@ -510,48 +515,46 @@ fn find_writable_root(fs: &(dyn FileSystem + Send + Sync)) -> Option<TmpFileSyst
     None
 }
 
+#[async_trait::async_trait]
 impl FileSystem for WasiFsRoot {
-    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
-        self.root.readlink(path)
+    async fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
+        self.root.readlink(path).await
     }
 
-    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
-        self.root.read_dir(path)
+    async fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
+        self.root.read_dir(path).await
     }
 
-    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.root.create_dir(path)
+    async fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.root.create_dir(path).await
     }
 
-    fn create_symlink(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
-        self.root.create_symlink(source, target)
+    async fn create_symlink(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
+        self.root.create_symlink(source, target).await
     }
 
-    fn hard_link(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
-        self.root.hard_link(source, target)
+    async fn hard_link(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
+        self.root.hard_link(source, target).await
     }
 
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.root.remove_dir(path)
+    async fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.root.remove_dir(path).await
     }
 
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
-        let from = from.to_owned();
-        let to = to.to_owned();
-        let this = self.clone();
-        Box::pin(async move { this.root.rename(&from, &to).await })
+    async fn rename(&self, from: &Path, to: &Path) -> virtual_fs::Result<()> {
+        self.root.rename(from, to).await
     }
 
-    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        self.root.metadata(path)
+    async fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        self.root.metadata(path).await
     }
 
-    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        self.root.symlink_metadata(path)
+    async fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        self.root.symlink_metadata(path).await
     }
 
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.root.remove_file(path)
+    async fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.root.remove_file(path).await
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
@@ -653,10 +656,11 @@ impl WasiFs {
     /// A purely ephemeral (virtual) link has no host file, so `Noent` for a
     /// still-registered ephemeral link counts as success. Returns the `Errno`
     /// the syscall should report.
-    pub(crate) fn remove_symlink_file(&self, host_path: &Path) -> Errno {
+    pub(crate) async fn remove_symlink_file(&self, host_path: &Path) -> Errno {
         match self
             .root_fs
             .remove_file(host_path)
+            .await
             .map_err(fs_error_into_wasi_err)
         {
             Ok(()) => {
@@ -989,7 +993,7 @@ impl WasiFs {
                 }
 
                 let kind = Kind::File {
-                    handle: Some(Arc::new(RwLock::new(file))),
+                    handle: Some(Arc::new(AsyncMutex::new(file))),
                     path: PathBuf::from(""),
                     fd: None,
                 };
@@ -1067,7 +1071,7 @@ impl WasiFs {
                     match guard.deref() {
                         Kind::File { handle, .. } => {
                             if let Some(handle) = handle {
-                                let mut handle = handle.write().unwrap();
+                                let mut handle = handle.try_lock().map_err(|_| FsError::Lock)?;
                                 std::mem::swap(handle.deref_mut(), &mut file);
                                 return Ok(Some(file));
                             }
@@ -1080,11 +1084,11 @@ impl WasiFs {
                 match guard.deref_mut() {
                     Kind::File { handle, .. } => {
                         if let Some(handle) = handle {
-                            let mut handle = handle.write().unwrap();
+                            let mut handle = handle.try_lock().map_err(|_| FsError::Lock)?;
                             std::mem::swap(handle.deref_mut(), &mut file);
                             Ok(Some(file))
                         } else {
-                            handle.replace(Arc::new(RwLock::new(file)));
+                            handle.replace(Arc::new(AsyncMutex::new(file)));
                             Ok(None)
                         }
                     }
@@ -1095,26 +1099,72 @@ impl WasiFs {
     }
 
     /// refresh size from filesystem
-    pub fn filestat_resync_size(&self, fd: WasiFd) -> Result<Filesize, Errno> {
+    pub async fn filestat_resync_size(&self, fd: WasiFd) -> Result<Filesize, Errno> {
         let inode = self.get_fd_inode(fd)?;
-        let mut guard = inode.write();
-        match guard.deref_mut() {
+        let handle = {
+            let guard = inode.read();
+            match guard.deref() {
+                Kind::File { handle, .. } => handle.clone(),
+                Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
+                _ => return Err(Errno::Inval),
+            }
+        };
+        match handle {
+            Some(h) => {
+                let new_size = h.lock().await.size().await;
+                inode.stat.write().unwrap().st_size = new_size;
+                Ok(new_size as Filesize)
+            }
+            None => Err(Errno::Badf),
+        }
+    }
+
+    pub async fn get_stat_for_kind(&self, kind: &Kind) -> Result<Filestat, Errno> {
+        let md = match kind {
             Kind::File { handle, .. } => {
                 if let Some(h) = handle {
-                    let h = h.read().unwrap();
-                    let new_size = h.size();
-                    drop(h);
-                    drop(guard);
+                    let h = h.lock().await;
+                    return Ok(Filestat {
+                        st_filetype: Filetype::RegularFile,
+                        st_size: h.size().await,
+                        st_atim: h.last_accessed().await,
+                        st_mtim: h.last_modified().await,
+                        st_ctim: h.created_time().await,
 
-                    inode.stat.write().unwrap().st_size = new_size;
-                    Ok(new_size as Filesize)
+                        ..Filestat::default()
+                    });
                 } else {
-                    Err(Errno::Badf)
+                    return Err(Errno::Badf);
                 }
             }
-            Kind::Dir { .. } | Kind::Root { .. } => Err(Errno::Isdir),
-            _ => Err(Errno::Inval),
-        }
+            Kind::Dir { path, .. } => {
+                self.root_fs.metadata(path).await.map_err(fs_error_into_wasi_err)?
+            }
+            Kind::Root { .. } => {
+                let mut stat = Filestat::default();
+                stat.st_filetype = Filetype::Directory;
+                return Ok(stat);
+            }
+            Kind::Symlink { path_to_symlink, .. } => self
+                .root_fs
+                .symlink_metadata(path_to_symlink)
+                .await
+                .map_err(fs_error_into_wasi_err)?,
+            Kind::Buffer { buffer } => {
+                let mut stat = Filestat::default();
+                stat.st_size = buffer.len() as u64;
+                return Ok(stat);
+            }
+            _ => return Err(Errno::Inval),
+        };
+        Ok(Filestat {
+            st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
+            st_size: md.len,
+            st_atim: md.accessed,
+            st_mtim: md.modified,
+            st_ctim: md.created,
+            ..Filestat::default()
+        })
     }
 
     /// Changes the current directory
@@ -1124,15 +1174,15 @@ impl WasiFs {
     }
 
     /// Gets the current directory
-    pub fn get_current_dir(
+    pub async fn get_current_dir(
         &self,
         inodes: &WasiInodes,
         base: WasiFd,
     ) -> Result<(InodeGuard, String), Errno> {
-        self.get_current_dir_inner(inodes, base, 0)
+        self.get_current_dir_inner(inodes, base, 0).await
     }
 
-    pub(crate) fn get_current_dir_inner(
+    pub(crate) async fn get_current_dir_inner(
         &self,
         inodes: &WasiInodes,
         base: WasiFd,
@@ -1147,10 +1197,10 @@ impl WasiFs {
         let inode = self.get_inode_at_path_inner(
             inodes,
             cur_inode,
-            current_dir.as_str(),
+            current_dir.clone(),
             &mut symlink_count,
             true,
-        )?;
+        ).await?;
         Ok((inode, current_dir))
     }
 
@@ -1238,14 +1288,16 @@ impl WasiFs {
     /// without re-statting. Syscalls that mutate the filesystem are responsible
     /// for keeping the inode cache and ephemeral symlink map coherent with their
     /// changes.
-    fn get_inode_at_path_inner(
-        &self,
-        inodes: &WasiInodes,
+    fn get_inode_at_path_inner<'a>(
+        &'a self,
+        inodes: &'a WasiInodes,
         mut cur_inode: InodeGuard,
-        path_str: &str,
-        symlink_count: &mut u32,
+        path_str: String,
+        symlink_count: &'a mut u32,
         follow_symlinks: bool,
-    ) -> Result<InodeGuard, Errno> {
+    ) -> LocalBoxFuture<'a, Result<InodeGuard, Errno>> {
+        Box::pin(async move {
+        let path_str = path_str.as_str();
         if *symlink_count > MAX_SYMLINKS {
             return Err(Errno::Loop);
         }
@@ -1439,6 +1491,7 @@ impl WasiFs {
                                 let metadata = self
                                     .root_fs
                                     .symlink_metadata(&entry_path_buf)
+                                    .await
                                     .ok()
                                     .ok_or(Errno::Noent)?;
                                 let file_type = metadata.file_type();
@@ -1476,6 +1529,7 @@ impl WasiFs {
                                     let link_value = self
                                         .root_fs
                                         .readlink(&entry_path_buf)
+                                        .await
                                         .ok()
                                         .ok_or(Errno::Noent)?;
                                     debug!("attempting to decompose path {:?}", link_value);
@@ -1656,10 +1710,10 @@ impl WasiFs {
             let symlink_inode = self.get_inode_at_path_inner(
                 inodes,
                 new_base_inode,
-                &new_path,
+                new_path,
                 symlink_count,
                 follow_symlinks_inner,
-            )?;
+            ).await?;
 
             // The rest of the path resolution will be relative to resolved
             // symlink target.
@@ -1667,6 +1721,7 @@ impl WasiFs {
         }
 
         Ok(cur_inode)
+        })
     }
 
     pub(crate) fn resolve_symlink_target_path(
@@ -1751,7 +1806,7 @@ impl WasiFs {
     // even if it's false, it still follows symlinks, just not the last
     // symlink so
     // This will be resolved when we have tests asserting the correct behavior
-    pub(crate) fn get_inode_at_path(
+    pub(crate) async fn get_inode_at_path(
         &self,
         inodes: &WasiInodes,
         base: WasiFd,
@@ -1763,13 +1818,13 @@ impl WasiFs {
         self.get_inode_at_path_inner(
             inodes,
             base_inode,
-            path,
+            path.to_string(),
             &mut symlink_count,
             follow_symlinks,
-        )
+        ).await
     }
 
-    pub(crate) fn get_inode_at_path_from_inode(
+    pub(crate) async fn get_inode_at_path_from_inode(
         &self,
         inodes: &WasiInodes,
         base_inode: InodeGuard,
@@ -1780,15 +1835,15 @@ impl WasiFs {
         self.get_inode_at_path_inner(
             inodes,
             base_inode,
-            path,
+            path.to_string(),
             &mut symlink_count,
             follow_symlinks,
-        )
+        ).await
     }
 
     /// Returns the parent Dir or Root that the file at a given path is in and the file name
     /// stripped off
-    pub(crate) fn get_parent_inode_at_path(
+    pub(crate) async fn get_parent_inode_at_path(
         &self,
         inodes: &WasiInodes,
         base: WasiFd,
@@ -1800,6 +1855,7 @@ impl WasiFs {
             return self.get_fd_inode(base).map(|v| (v, new_entity_name));
         }
         self.get_inode_at_path(inodes, base, parent_dir.as_str(), follow_symlinks)
+            .await
             .map(|v| (v, new_entity_name))
     }
 
@@ -1934,7 +1990,7 @@ impl WasiFs {
         is_preopened: bool,
         name: String,
     ) -> Result<InodeGuard, Errno> {
-        let stat = self.get_stat_for_kind(&kind)?;
+        let stat = Filestat::default();
         Ok(self.create_inode_with_stat(inodes, kind, is_preopened, name.into(), stat))
     }
 
@@ -1960,13 +2016,7 @@ impl WasiFs {
         mut stat: Filestat,
     ) -> InodeGuard {
         match &kind {
-            Kind::File {
-                handle: Some(handle),
-                ..
-            } => {
-                let guard = handle.read().unwrap();
-                stat.st_size = guard.size();
-            }
+            Kind::File { .. } => {}
             Kind::Buffer { buffer } => {
                 stat.st_size = buffer.len() as u64;
             }
@@ -2447,9 +2497,7 @@ impl WasiFs {
                 &path.to_string_lossy(),
                 &alias
             );
-            let cur_dir_metadata = self
-                .root_fs
-                .metadata(path)
+            let cur_dir_metadata = block_on(self.root_fs.metadata(path))
                 .map_err(|e| format!("Could not get metadata for file {path:?}: {e}"))?;
 
             let kind = if cur_dir_metadata.is_dir() {
@@ -2579,7 +2627,7 @@ impl WasiFs {
             };
             let kind = Kind::File {
                 fd: Some(raw_fd),
-                handle: Some(Arc::new(RwLock::new(handle))),
+                handle: Some(Arc::new(AsyncMutex::new(handle))),
                 path: "".into(),
             };
             inodes.add_inode_val(InodeVal {
@@ -2606,66 +2654,6 @@ impl WasiFs {
                 is_stdio: true,
             },
         );
-    }
-
-    pub fn get_stat_for_kind(&self, kind: &Kind) -> Result<Filestat, Errno> {
-        let md = match kind {
-            Kind::File { handle, path, .. } => match handle {
-                Some(wf) => {
-                    let wf = wf.read().unwrap();
-                    return Ok(Filestat {
-                        st_filetype: Filetype::RegularFile,
-                        st_ino: Inode::from_path(path.to_string_lossy().as_ref()).as_u64(),
-                        st_size: wf.size(),
-                        st_atim: wf.last_accessed(),
-                        st_mtim: wf.last_modified(),
-                        st_ctim: wf.created_time(),
-
-                        ..Filestat::default()
-                    });
-                }
-                None => self
-                    .root_fs
-                    .metadata(path)
-                    .map_err(fs_error_into_wasi_err)?,
-            },
-            Kind::Dir { path, .. } => self
-                .root_fs
-                .metadata(path)
-                .map_err(fs_error_into_wasi_err)?,
-            Kind::Symlink {
-                path_to_symlink,
-                relative_path,
-                ..
-            } => {
-                let symlink_path = PosixPath::new("/")
-                    .join(&PosixPath::from_path(path_to_symlink))
-                    .into_path_buf();
-
-                match self.root_fs.symlink_metadata(&symlink_path) {
-                    Ok(md) => md,
-                    Err(FsError::EntryNotFound)
-                        if self.ephemeral_symlink_at(&symlink_path).is_some() =>
-                    {
-                        return Ok(Filestat {
-                            st_filetype: Filetype::SymbolicLink,
-                            st_size: relative_path.as_os_str().len() as u64,
-                            ..Filestat::default()
-                        });
-                    }
-                    Err(err) => return Err(fs_error_into_wasi_err(err)),
-                }
-            }
-            _ => return Err(Errno::Io),
-        };
-        Ok(Filestat {
-            st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
-            st_size: md.len(),
-            st_atim: md.accessed(),
-            st_mtim: md.modified(),
-            st_ctim: md.created(),
-            ..Filestat::default()
-        })
     }
 
     /// Closes an open FD under `fd_map.write()`, capturing a file handle for
@@ -2792,29 +2780,30 @@ impl FallbackFileSystem {
     }
 }
 
+#[async_trait::async_trait]
 impl FileSystem for FallbackFileSystem {
-    fn readlink(&self, _path: &Path) -> virtual_fs::Result<PathBuf> {
+    async fn readlink(&self, _path: &Path) -> virtual_fs::Result<PathBuf> {
         Self::fail()
     }
-    fn read_dir(&self, _path: &Path) -> Result<virtual_fs::ReadDir, FsError> {
+    async fn read_dir(&self, _path: &Path) -> Result<virtual_fs::ReadDir, FsError> {
         Self::fail();
     }
-    fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
+    async fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
+    async fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn rename<'a>(&'a self, _from: &Path, _to: &Path) -> BoxFuture<'a, Result<(), FsError>> {
+    async fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
+    async fn metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
         Self::fail();
     }
-    fn symlink_metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
+    async fn symlink_metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
         Self::fail();
     }
-    fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
+    async fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
     fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {

@@ -107,7 +107,7 @@ pub(crate) fn sock_send_file_internal(
                                         wasi_try_ok_ok!(__asyncify(ctx, None, async move {
                                             let mut buf = vec![0u8; sub_count as usize];
 
-                                            let mut handle = handle.write().unwrap();
+                                            let mut handle = handle.lock().await;
                                             handle
                                                 .seek(std::io::SeekFrom::Start(offset as u64))
                                                 .await

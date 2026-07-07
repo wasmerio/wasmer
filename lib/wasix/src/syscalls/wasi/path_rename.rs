@@ -39,7 +39,11 @@ pub fn path_rename<M: MemorySize>(
     let target_str = unsafe { get_input_str_ok!(&memory, new_path, new_path_len) };
     Span::current().record("new_path", target_str.as_str());
 
-    let ret = path_rename_internal(&mut ctx, old_fd, &source_str, new_fd, &target_str)?;
+    let ret = wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        path_rename_internal(env, old_fd, &source_str, new_fd, &target_str),
+    )?);
     let env = ctx.data();
 
     if ret == Errno::Success {
@@ -55,15 +59,15 @@ pub fn path_rename<M: MemorySize>(
     Ok(ret)
 }
 
-pub fn path_rename_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub async fn path_rename_internal(
+    env: &WasiEnv,
     source_fd: WasiFd,
     source_path: &str,
     target_fd: WasiFd,
     target_path: &str,
-) -> Result<Errno, WasiError> {
-    let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+) -> Result<Errno, Errno> {
+    let state = env.state();
+    let inodes = &state.inodes;
 
     let mut moved_ephemeral_symlink = false;
 
@@ -84,23 +88,27 @@ pub fn path_rename_internal(
         source_fd,
         source_path,
         true
-    ));
+    )
+    .await);
     // Create the destination inode if the file exists.
     let _ = state
         .fs
-        .get_inode_at_path(inodes, target_fd, target_path, true);
+        .get_inode_at_path(inodes, target_fd, target_path, true)
+        .await;
     let (source_parent_inode, source_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         source_fd,
         Path::new(source_path),
         true
-    ));
+    )
+    .await);
     let (target_parent_inode, target_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
         inodes,
         target_fd,
         Path::new(target_path),
         true
-    ));
+    )
+    .await);
     let source_guest_path = {
         let guard = source_parent_inode.read();
         match guard.deref() {
@@ -193,11 +201,8 @@ pub fn path_rename_internal(
                 let result = {
                     let path_clone = path.clone();
                     drop(guard);
-                    let state = state;
                     let target_guest_path = target_guest_path.clone();
-                    __asyncify_light(env, None, async move {
-                        state.fs_rename(path_clone, &target_guest_path).await
-                    })?
+                    state.fs_rename(path_clone, &target_guest_path).await
                 };
                 // if the above operation failed we have to revert the previous change and then fail
                 if let Err(e) = result {
@@ -217,21 +222,16 @@ pub fn path_rename_internal(
             }
             Kind::Dir { path, .. } => {
                 let cloned_path = path.clone();
+                let source_dir_path = path.clone();
+                drop(guard);
                 let res = {
-                    let state = state;
                     let target_guest_path = target_guest_path.clone();
-                    __asyncify_light(env, None, async move {
-                        state.fs_rename(cloned_path, &target_guest_path).await
-                    })?
+                    state.fs_rename(cloned_path, &target_guest_path).await
                 };
                 if let Err(e) = res {
                     return Ok(e);
                 }
-                {
-                    let source_dir_path = path.clone();
-                    drop(guard);
-                    rename_inode_tree(&source_entry, &source_dir_path, &target_guest_path);
-                }
+                rename_inode_tree(&source_entry, &source_dir_path, &target_guest_path);
             }
             Kind::Symlink {
                 path_to_symlink,
@@ -242,12 +242,9 @@ pub fn path_rename_internal(
                     .fs
                     .ephemeral_symlink_at(source_guest_path.as_path())
                     .is_some();
-                let res = {
-                    let state = state;
-                    let from = source_guest_path.clone();
-                    let to = target_guest_path.clone();
-                    __asyncify_light(env, None, async move { state.fs_rename(from, to).await })?
-                };
+                let from = source_guest_path.clone();
+                let to = target_guest_path.clone();
+                let res = state.fs_rename(from, to).await;
                 match (res, is_ephemeral) {
                     (Ok(()), _) | (Err(Errno::Noent), true) => {}
                     (Err(e), _) => {
@@ -301,6 +298,7 @@ pub fn path_rename_internal(
     let target_inode = state
         .fs
         .get_inode_at_path(inodes, target_fd, target_path, true)
+        .await
         .expect("Expected target inode to exist, and it's too late to safely fail");
     *target_inode.name.write().unwrap() = target_entry_name.into();
     target_inode.stat.write().unwrap().st_size = source_size;

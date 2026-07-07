@@ -25,18 +25,19 @@ pub(super) async fn locate_module(
         fs: &WasiFsRoot,
         path: impl AsRef<Path>,
     ) -> Result<(PathBuf, OwnedBuffer), FsError> {
-        let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
+        let mut file = match fs.new_open_options().read(true).open(path.as_ref()).await {
             Ok(f) => f,
             // Fallback for cases where the module thinks it's running on unix,
             // but the compiled side module is a .wasm file
             Err(_) if path.as_ref().extension() == Some(OsStr::new("so")) => fs
                 .new_open_options()
                 .read(true)
-                .open(path.as_ref().with_extension("wasm"))?,
+                .open(path.as_ref().with_extension("wasm"))
+                .await?,
             Err(e) => return Err(e),
         };
 
-        let buf = if let Some(buf) = file.as_owned_buffer() {
+        let buf = if let Some(buf) = file.as_owned_buffer().await {
             buf
         } else {
             let mut buf = Vec::new();

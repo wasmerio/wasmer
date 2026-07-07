@@ -9,6 +9,7 @@ use futures::{StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, WebcVolumeFileSystem};
+use virtual_mio::block_on;
 use wasmer_config::package::PackageId;
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
@@ -366,7 +367,7 @@ fn packages_needed_for_load(pkg: &ResolvedPackage) -> HashSet<PackageId> {
 fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
     let mut total = 0;
 
-    let dir = match fs.read_dir(path) {
+    let dir = match block_on(fs.read_dir(path)) {
         Ok(d) => d,
         Err(_err) => {
             return 0;

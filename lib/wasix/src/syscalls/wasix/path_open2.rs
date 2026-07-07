@@ -2,6 +2,8 @@ use super::*;
 use crate::VIRTUAL_ROOT_FD;
 use crate::fs::{FdList, WasiFs};
 use crate::syscalls::*;
+use futures::future::LocalBoxFuture;
+use tokio::sync::Mutex as AsyncMutex;
 
 /// ### `path_open()`
 /// Open file located at the given path
@@ -68,18 +70,18 @@ pub fn path_open2<M: MemorySize>(
     let path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
-    let out_fd = wasi_try_ok!(path_open_internal(
+    let out_fd = wasi_try_ok!(wasi_try_ok!(__asyncify_light(env, None, path_open_internal(
         ctx.data(),
         dirfd,
         dirflags,
-        &path_string,
+        path_string.clone(),
         o_flags,
         fs_rights_base,
         fs_rights_inheriting,
         fs_flags,
         fd_flags,
         None,
-    )?);
+    ))?));
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -159,14 +161,14 @@ pub(crate) fn path_open_internal(
     env: &WasiEnv,
     dirfd: WasiFd,
     dirflags: LookupFlags,
-    path: &str,
+    path: String,
     o_flags: Oflags,
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
     fs_flags: Fdflags,
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
-) -> Result<Result<WasiFd, Errno>, WasiError> {
+) -> LocalBoxFuture<'_, Result<Result<WasiFd, Errno>, Errno>> {
     path_open_internal_with_symlink_depth(
         env,
         dirfd,
@@ -187,7 +189,7 @@ fn path_open_internal_with_symlink_depth(
     env: &WasiEnv,
     dirfd: WasiFd,
     dirflags: LookupFlags,
-    path: &str,
+    path: String,
     o_flags: Oflags,
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
@@ -195,7 +197,9 @@ fn path_open_internal_with_symlink_depth(
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
     symlink_depth: u32,
-) -> Result<Result<WasiFd, Errno>, WasiError> {
+) -> LocalBoxFuture<'_, Result<Result<WasiFd, Errno>, Errno>> {
+    Box::pin(async move {
+    let path = path.as_str();
     fn implied_fd_rights(has_read_access: bool, has_write_access: bool) -> Rights {
         let mut rights = Rights::FD_ADVISE | Rights::FD_TELL | Rights::FD_SEEK;
 
@@ -232,7 +236,8 @@ fn path_open_internal_with_symlink_depth(
     };
     let maybe_inode = state
         .fs
-        .get_inode_at_path(inodes, effective_dirfd, path, follow_symlinks);
+        .get_inode_at_path(inodes, effective_dirfd, path, follow_symlinks)
+        .await;
     let working_dir_rights_inheriting = working_dir.inner.rights_inheriting;
 
     // ASSUMPTION: open rights apply recursively
@@ -314,13 +319,14 @@ fn path_open_internal_with_symlink_depth(
     // open (and vice versa). If the backing filesystem denies duplex access,
     // fall back to the narrower requested mode.
     let open_shared_file_handle =
-        |path: &std::path::Path,
+        |path: std::path::PathBuf,
          requested_config: virtual_fs::OpenOptionsConfig,
          shared_config: virtual_fs::OpenOptionsConfig|
-         -> Result<Box<dyn VirtualFile + Send + Sync + 'static>, Errno> {
+         -> LocalBoxFuture<'_, Result<Box<dyn VirtualFile + Send + Sync + 'static>, Errno>> {
+            Box::pin(async move {
             let mut open_options = state.fs_new_open_options();
             open_options.options(shared_config.clone());
-            match open_options.open(path) {
+            match open_options.open(&path).await {
                 Ok(handle) => Ok(handle),
                 Err(FsError::PermissionDenied)
                     if shared_config.read != requested_config.read
@@ -328,10 +334,11 @@ fn path_open_internal_with_symlink_depth(
                 {
                     let mut open_options = state.fs_new_open_options();
                     open_options.options(requested_config);
-                    open_options.open(path).map_err(fs_error_into_wasi_err)
+                    open_options.open(&path).await.map_err(fs_error_into_wasi_err)
                 }
                 Err(err) => Err(fs_error_into_wasi_err(err)),
             }
+            })
         };
 
     let orig_path = path;
@@ -370,7 +377,7 @@ fn path_open_internal_with_symlink_depth(
                     env,
                     resolved_base_fd,
                     __WASI_LOOKUP_SYMLINK_FOLLOW,
-                    &resolved_path,
+                    resolved_path,
                     o_flags,
                     fs_rights_base,
                     fs_rights_inheriting,
@@ -378,7 +385,7 @@ fn path_open_internal_with_symlink_depth(
                     fd_flags,
                     with_fd,
                     next_symlink_depth,
-                );
+                ).await;
             }
         }
 
@@ -414,6 +421,30 @@ fn path_open_internal_with_symlink_depth(
             file_open_flags |= Fd::TRUNCATE;
         }
 
+        let mut preopened_file = None;
+        {
+            let guard = inode.read();
+            if let Kind::File {
+                handle,
+                path,
+                fd: None,
+                ..
+            } = guard.deref()
+                && handle.is_none()
+            {
+                let open_path = path.clone();
+                drop(guard);
+                preopened_file = Some(wasi_try_ok_ok!(
+                    open_shared_file_handle(
+                        open_path,
+                        file_requested_config.clone(),
+                        file_shared_config.clone(),
+                    )
+                    .await
+                ));
+            }
+        }
+
         // Phase B: fd_map first; every inode-dependent decision under lock. For regular
         // files keep inode write through insert_fd so handle install and acquire_handle()
         // cannot interleave with close on this inode.
@@ -442,36 +473,11 @@ fn path_open_internal_with_symlink_depth(
                 // Install or refresh the shared inode handle before checking for special
                 // stdio paths (/dev/stdin, /dev/stdout, /dev/stderr). DeviceFile stubs
                 // only report get_special_fd() once the backing open has run.
-                if handle.is_none() || requires_stronger_handle {
-                    let file = wasi_try_ok_ok!(open_shared_file_handle(
-                        path.as_path(),
-                        file_requested_config.clone(),
-                        file_shared_config.clone(),
-                    ));
-                    if handle.is_none() {
-                        *handle = Some(Arc::new(std::sync::RwLock::new(file)));
-                    } else {
-                        let mut existing = handle.as_ref().unwrap().write().unwrap();
-                        *existing = file;
-                    }
-                }
-
-                if let Some(file_handle) = handle.as_ref()
-                    && let Some(special_fd) = {
-                        let file = file_handle.read().unwrap();
-                        file.get_special_fd()
-                    }
-                {
-                    drop(guard);
-                    let dup_fd = wasi_try_ok_ok!(WasiFs::clone_fd_locked(
-                        &state.fs,
-                        &mut fd_map,
-                        special_fd,
-                        0,
-                        None,
-                    ));
-                    trace!(%dup_fd);
-                    return Ok(Ok(dup_fd));
+                if handle.is_none() {
+                    let Some(file) = preopened_file.take() else {
+                        return Ok(Err(Errno::Io));
+                    };
+                    *handle = Some(Arc::new(AsyncMutex::new(file)));
                 }
 
                 let out_fd = wasi_try_ok_ok!(insert_fd_locked(
@@ -566,7 +572,8 @@ fn path_open_internal_with_symlink_depth(
                 let final_symlink_target_lookup =
                     state
                         .fs
-                        .get_inode_at_path(inodes, effective_dirfd, path, false);
+                        .get_inode_at_path(inodes, effective_dirfd, path, false)
+                        .await;
                 let final_symlink_target = match final_symlink_target_lookup {
                     Ok(inode) => {
                         let guard = inode.read();
@@ -607,7 +614,7 @@ fn path_open_internal_with_symlink_depth(
                         env,
                         resolved_base_fd,
                         __WASI_LOOKUP_SYMLINK_FOLLOW,
-                        &resolved_path,
+                        resolved_path,
                         o_flags,
                         fs_rights_base,
                         fs_rights_inheriting,
@@ -615,7 +622,7 @@ fn path_open_internal_with_symlink_depth(
                         fd_flags,
                         with_fd,
                         next_symlink_depth,
-                    );
+                    ).await;
                 }
             }
 
@@ -627,7 +634,7 @@ fn path_open_internal_with_symlink_depth(
                     effective_dirfd,
                     &path_arg,
                     follow_symlinks
-                ));
+                ).await);
             let new_file_host_path = {
                 let guard = parent_inode.read();
                 match guard.deref() {
@@ -668,10 +675,10 @@ fn path_open_internal_with_symlink_depth(
             }
 
             let handle = match open_shared_file_handle(
-                new_file_host_path.as_path(),
+                new_file_host_path.clone(),
                 requested_config,
                 shared_config,
-            ) {
+            ).await {
                 Ok(handle) => Some(handle),
                 Err(err) => {
                     if err == Errno::Exist {
@@ -683,7 +690,7 @@ fn path_open_internal_with_symlink_depth(
 
             let new_inode = {
                 let kind = Kind::File {
-                    handle: handle.map(|a| Arc::new(std::sync::RwLock::new(a))),
+                    handle: handle.map(|a| Arc::new(AsyncMutex::new(a))),
                     path: new_file_host_path,
                     fd: None,
                 };
@@ -716,6 +723,7 @@ fn path_open_internal_with_symlink_depth(
             Ok(Err(maybe_inode.unwrap_err()))
         }
     }
+    })
 }
 
 fn insert_fd_locked(

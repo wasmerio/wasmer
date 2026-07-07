@@ -21,9 +21,11 @@ pub fn path_remove_directory<M: MemorySize>(
     let path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
 
-    wasi_try_ok!(path_remove_directory_internal(
-        &mut ctx, fd, base_dir, &path_str
-    ));
+    wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        path_remove_directory_internal(env, fd, base_dir, &path_str)
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -39,19 +41,20 @@ pub fn path_remove_directory<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub(crate) fn path_remove_directory_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn path_remove_directory_internal(
+    env: &WasiEnv,
     fd: WasiFd,
     _base_dir: Fd,
     path: &str,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let state = env.state();
+    let inodes = &state.inodes;
 
     let (parent_inode, dir_name) =
         state
             .fs
-            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
+            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)
+            .await?;
 
     let mut guard = parent_inode.write();
     match guard.deref_mut() {
@@ -77,7 +80,7 @@ pub(crate) fn path_remove_directory_internal(
                     return Err(Errno::Notempty);
                 }
 
-                if let Err(e) = state.fs_remove_dir(child_path) {
+                if let Err(e) = state.fs_remove_dir(child_path).await {
                     tracing::warn!(path = ?child_path, error = ?e, "failed to remove directory");
                     return Err(e);
                 }

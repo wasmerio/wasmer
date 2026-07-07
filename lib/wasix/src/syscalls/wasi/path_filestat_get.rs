@@ -43,14 +43,14 @@ pub fn path_filestat_get<M: MemorySize>(
     // }
     tracing::trace!(path = path_string.as_str());
 
-    let stat = wasi_try!(path_filestat_get_internal(
-        &memory,
-        state,
-        inodes,
-        fd,
-        flags,
-        &path_string
-    ));
+    let stat = match __asyncify_light(
+        env,
+        None,
+        path_filestat_get_internal(state, inodes, fd, flags, &path_string),
+    ) {
+        Ok(res) => wasi_try!(res),
+        Err(_) => return Errno::Fault,
+    };
 
     wasi_try_mem!(buf.deref(&memory).write(stat));
 
@@ -59,8 +59,7 @@ pub fn path_filestat_get<M: MemorySize>(
 
 /// ### `path_filestat_get_internal()`
 /// return a Filstat or Errno
-pub(crate) fn path_filestat_get_internal(
-    memory: &MemoryView,
+pub(crate) async fn path_filestat_get_internal(
     state: &WasiState,
     inodes: &crate::WasiInodes,
     fd: WasiFd,
@@ -77,14 +76,15 @@ pub(crate) fn path_filestat_get_internal(
         root_dir.inode,
         path_string,
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
-    )?;
+    )
+    .await?;
 
     let st_ino = file_inode.ino().as_u64();
     let mut stat = if file_inode.is_preopened {
         *file_inode.stat.read().unwrap().deref()
     } else {
         let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref())?
+        state.fs.get_stat_for_kind(guard.deref()).await?
     };
     stat.st_ino = st_ino;
     Ok(stat)
@@ -119,14 +119,14 @@ pub fn path_filestat_get_old<M: MemorySize>(
     let path_string = unsafe { get_input_str!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
-    let stat = wasi_try!(path_filestat_get_internal(
-        &memory,
-        state,
-        inodes,
-        fd,
-        flags,
-        &path_string
-    ));
+    let stat = match __asyncify_light(
+        env,
+        None,
+        path_filestat_get_internal(state, inodes, fd, flags, &path_string),
+    ) {
+        Ok(res) => wasi_try!(res),
+        Err(_) => return Errno::Fault,
+    };
 
     let old_stat = Snapshot0Filestat {
         st_dev: stat.st_dev,

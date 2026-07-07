@@ -37,8 +37,17 @@ impl JournalEffector {
                 state.fs_rename(old_path, new_path).await
             })??;
         } else {
-            let ret =
-                crate::syscalls::path_rename_internal(ctx, old_fd, old_path, new_fd, new_path)?;
+            let ret = __asyncify_light(
+                ctx.data(),
+                None,
+                crate::syscalls::path_rename_internal(
+                    ctx.data(),
+                    old_fd,
+                    old_path,
+                    new_fd,
+                    new_path,
+                ),
+            )??;
             if ret != Errno::Success {
                 bail!(
                     "journal restore error: failed to rename path (old_fd={old_fd}, old_path={old_path}, new_fd={new_fd}, new_path={new_path}) - {ret}"

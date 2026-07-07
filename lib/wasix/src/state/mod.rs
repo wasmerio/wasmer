@@ -31,7 +31,7 @@ use std::{
     time::Duration,
 };
 
-use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
+use virtual_fs::{FileSystem, FsError, OpenOptions, VirtualFile};
 use wasmer_wasix_types::wasi::{
     Disposition, Errno, Fd as WasiFd, Rights, Signal, Snapshot0Clockid,
 };
@@ -53,23 +53,6 @@ pub(crate) use linker::*;
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();
-
-#[allow(dead_code)]
-struct WasiStateOpener {
-    root_fs: WasiFsRoot,
-}
-
-impl FileOpener for WasiStateOpener {
-    fn open(
-        &self,
-        path: &Path,
-        conf: &virtual_fs::OpenOptionsConfig,
-    ) -> virtual_fs::Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        let mut new_options = self.root_fs.new_open_options();
-        new_options.options(conf.clone());
-        new_options.open(path)
-    }
-}
 
 /// Represents a futex which will make threads wait for completion in a more
 /// CPU efficient manner
@@ -159,27 +142,30 @@ impl WasiState {
 
 // Implementations of direct to FS calls so that we can easily change their implementation
 impl WasiState {
-    pub(crate) fn fs_read_dir<P: AsRef<Path>>(
+    pub(crate) async fn fs_read_dir<P: AsRef<Path>>(
         &self,
         path: P,
     ) -> Result<virtual_fs::ReadDir, Errno> {
         self.fs
             .root_fs
             .read_dir(path.as_ref())
+            .await
             .map_err(fs_error_into_wasi_err)
     }
 
-    pub(crate) fn fs_create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+    pub(crate) async fn fs_create_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
         self.fs
             .root_fs
             .create_dir(path.as_ref())
+            .await
             .map_err(fs_error_into_wasi_err)
     }
 
-    pub(crate) fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+    pub(crate) async fn fs_remove_dir<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
         self.fs
             .root_fs
             .remove_dir(path.as_ref())
+            .await
             .map_err(fs_error_into_wasi_err)
     }
 
@@ -195,10 +181,11 @@ impl WasiState {
             .map_err(fs_error_into_wasi_err)
     }
 
-    pub(crate) fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
+    pub(crate) async fn fs_remove_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Errno> {
         self.fs
             .root_fs
             .remove_file(path.as_ref())
+            .await
             .map_err(fs_error_into_wasi_err)
     }
 

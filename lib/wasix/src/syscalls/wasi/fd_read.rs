@@ -176,10 +176,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                             None
                         },
                         async move {
-                            let mut handle = match handle.write() {
-                                Ok(a) => a,
-                                Err(_) => return Err(Errno::Fault),
-                            };
+                            let mut handle = handle.lock().await;
                             if !is_stdio {
                                 handle
                                     .seek(std::io::SeekFrom::Start(offset as u64))

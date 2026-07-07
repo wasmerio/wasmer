@@ -42,12 +42,21 @@ pub fn fd_readdir<M: MemorySize>(
         match guard.deref() {
             Kind::Dir { path, entries, .. } => {
                 trace!("reading dir {:?}", path);
+                let path = path.clone();
+                let memory_entries = entries
+                    .iter()
+                    .map(|(name, inode)| {
+                        let stat = inode.stat.read().unwrap();
+                        (name.clone(), stat.st_filetype, stat.st_ino)
+                    })
+                    .collect::<Vec<_>>();
+                drop(guard);
                 // TODO: refactor this code
                 // we need to support multiple calls,
                 // simple and obviously correct implementation for now:
                 // maintain consistent order via lexacographic sorting
                 let fs_info = wasi_try_ok!(
-                    wasi_try_ok!(state.fs_read_dir(path))
+                    wasi_try_ok!(__asyncify_light(env, None, state.fs_read_dir(&path))?)
                         .collect::<Result<Vec<_>, _>>()
                         .map_err(fs_error_into_wasi_err)
                 );
@@ -69,13 +78,9 @@ pub fn fd_readdir<M: MemorySize>(
                 let entry_names: std::collections::HashSet<_> =
                     entry_vec.iter().map(|(name, _, _)| name.clone()).collect();
                 entry_vec.extend(
-                    entries
-                        .iter()
-                        .filter(|(name, _)| !entry_names.contains(*name))
-                        .map(|(name, inode)| {
-                            let stat = inode.stat.read().unwrap();
-                            (name.clone(), stat.st_filetype, stat.st_ino)
-                        }),
+                    memory_entries
+                        .into_iter()
+                        .filter(|(name, _, _)| !entry_names.contains(name))
                 );
                 // adding . and .. special folders
                 // TODO: inode

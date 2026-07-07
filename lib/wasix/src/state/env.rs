@@ -50,7 +50,7 @@ async fn write_readonly_buffer_to_fs(
     contents: &shared_buffer::OwnedBuffer,
 ) -> Result<(), FsError> {
     if let Some(parent) = path.parent() {
-        virtual_fs::create_dir_all(fs, parent)?;
+        virtual_fs::create_dir_all(fs, parent).await?;
     }
 
     if let Some(root_fs) = fs.writable_root() {
@@ -64,7 +64,8 @@ async fn write_readonly_buffer_to_fs(
         .create(true)
         .truncate(true)
         .write(true)
-        .open(path)?;
+        .open(path)
+        .await?;
     file.copy_from_owned_buffer(contents)
         .await
         .map_err(virtual_fs::FsError::from)

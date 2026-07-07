@@ -34,7 +34,11 @@ pub fn path_create_directory<M: MemorySize>(
     let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
-    wasi_try_ok!(path_create_directory_internal(&mut ctx, fd, &path_string));
+    wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        path_create_directory_internal(env, fd, &path_string)
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -48,13 +52,13 @@ pub fn path_create_directory<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub(crate) fn path_create_directory_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn path_create_directory_internal(
+    env: &WasiEnv,
     fd: WasiFd,
     path: &str,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let state = env.state();
+    let inodes = &state.inodes;
     let working_dir = state.fs.get_fd(fd)?;
 
     if !working_dir
@@ -69,7 +73,8 @@ pub(crate) fn path_create_directory_internal(
     let (parent_inode, dir_name) =
         state
             .fs
-            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
+            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)
+            .await?;
 
     let mut guard = parent_inode.write();
     match guard.deref_mut() {
@@ -86,19 +91,19 @@ pub(crate) fn path_create_directory_internal(
             // TODO: This condition should already have been checked by the entries.get check
             // above, but it was in the code before my refactor and I'm keeping it just in case.
             if path_filestat_get_internal(
-                &memory,
                 state,
                 inodes,
                 fd,
                 0,
                 &new_dir_path.to_string_lossy(),
             )
+            .await
             .is_ok()
             {
                 return Err(Errno::Exist);
             }
 
-            state.fs_create_dir(&new_dir_path)?;
+            state.fs_create_dir(&new_dir_path).await?;
 
             let kind = Kind::Dir {
                 parent: parent_inode.downgrade(),

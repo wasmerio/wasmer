@@ -14,7 +14,12 @@ impl JournalEffector {
         fd: Fd,
         st_size: Filesize,
     ) -> anyhow::Result<()> {
-        crate::syscalls::fd_filestat_set_size_internal(ctx, fd, st_size).map_err(|err| {
+        crate::syscalls::__asyncify_light(
+            ctx.data(),
+            None,
+            crate::syscalls::fd_filestat_set_size_internal(ctx.data(), fd, st_size),
+        )?
+        .map_err(|err| {
             anyhow::format_err!(
                 "journal restore error: failed to set file size (fd={fd}, st_size={st_size}) - {err}")
         })?;
