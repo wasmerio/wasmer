@@ -28,19 +28,15 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         // see `VIRTUAL_ROOT_FD` for details as to why this exists
         if fd == VIRTUAL_ROOT_FD {
-            crate::syscalls::__asyncify_light(
-                ctx.data(),
-                None,
-                async {
-                    ctx.data()
-                        .state
-                        .fs
-                        .root_fs
-                        .remove_file(Path::new(path))
-                        .await
-                        .map_err(crate::fs::fs_error_into_wasi_err)
-                },
-            )??;
+            crate::syscalls::__asyncify_light(ctx.data(), None, async {
+                ctx.data()
+                    .state
+                    .fs
+                    .root_fs
+                    .remove_file(Path::new(path))
+                    .await
+                    .map_err(crate::fs::fs_error_into_wasi_err)
+            })??;
         } else {
             let ret = crate::syscalls::__asyncify_light(
                 ctx.data(),

@@ -83,32 +83,29 @@ pub async fn path_rename_internal(
     }
 
     // this is to be sure the source file is fetched from the filesystem if needed
-    let source_inode = wasi_try_ok!(state.fs.get_inode_at_path(
-        inodes,
-        source_fd,
-        source_path,
-        true
-    )
-    .await);
+    let source_inode = wasi_try_ok!(
+        state
+            .fs
+            .get_inode_at_path(inodes, source_fd, source_path, true)
+            .await
+    );
     // Create the destination inode if the file exists.
     let _ = state
         .fs
         .get_inode_at_path(inodes, target_fd, target_path, true)
         .await;
-    let (source_parent_inode, source_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
-        inodes,
-        source_fd,
-        Path::new(source_path),
-        true
-    )
-    .await);
-    let (target_parent_inode, target_entry_name) = wasi_try_ok!(state.fs.get_parent_inode_at_path(
-        inodes,
-        target_fd,
-        Path::new(target_path),
-        true
-    )
-    .await);
+    let (source_parent_inode, source_entry_name) = wasi_try_ok!(
+        state
+            .fs
+            .get_parent_inode_at_path(inodes, source_fd, Path::new(source_path), true)
+            .await
+    );
+    let (target_parent_inode, target_entry_name) = wasi_try_ok!(
+        state
+            .fs
+            .get_parent_inode_at_path(inodes, target_fd, Path::new(target_path), true)
+            .await
+    );
     let source_guest_path = {
         let guard = source_parent_inode.read();
         match guard.deref() {
@@ -194,91 +191,101 @@ pub async fn path_rename_internal(
         }
     };
 
-    {
-        let mut guard = source_entry.write();
-        match guard.deref_mut() {
-            Kind::File { path, .. } => {
-                let result = {
-                    let path_clone = path.clone();
-                    drop(guard);
-                    let target_guest_path = target_guest_path.clone();
-                    state.fs_rename(path_clone, &target_guest_path).await
-                };
-                // if the above operation failed we have to revert the previous change and then fail
-                if let Err(e) = result {
-                    let mut guard = source_parent_inode.write();
-                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
-                        entries.insert(source_entry_name, source_entry);
-                        return Ok(e);
-                    }
-                } else {
-                    let mut guard = source_entry.write();
-                    if let Kind::File { path, .. } = guard.deref_mut() {
-                        *path = target_guest_path.clone();
-                    } else {
-                        unreachable!()
-                    }
-                }
-            }
-            Kind::Dir { path, .. } => {
-                let cloned_path = path.clone();
-                let source_dir_path = path.clone();
-                drop(guard);
-                let res = {
-                    let target_guest_path = target_guest_path.clone();
-                    state.fs_rename(cloned_path, &target_guest_path).await
-                };
-                if let Err(e) = res {
-                    return Ok(e);
-                }
-                rename_inode_tree(&source_entry, &source_dir_path, &target_guest_path);
-            }
-            Kind::Symlink {
-                path_to_symlink,
-                relative_path,
-                ..
-            } => {
-                let is_ephemeral = state
-                    .fs
-                    .ephemeral_symlink_at(source_guest_path.as_path())
-                    .is_some();
-                let from = source_guest_path.clone();
-                let to = target_guest_path.clone();
-                let res = state.fs_rename(from, to).await;
-                match (res, is_ephemeral) {
-                    (Ok(()), _) | (Err(Errno::Noent), true) => {}
-                    (Err(e), _) => {
-                        let mut guard = source_parent_inode.write();
-                        if let Kind::Dir { entries, .. } = guard.deref_mut() {
-                            entries.insert(source_entry_name, source_entry.clone());
-                            return Ok(e);
-                        }
-                    }
-                }
+    enum RenameSource {
+        File(PathBuf),
+        Dir(PathBuf),
+        Symlink(PathBuf),
+        Other,
+    }
 
-                let new_path_to_symlink = state
-                    .fs
-                    .rebase_symlink_location(target_guest_path.as_path());
-                *path_to_symlink = new_path_to_symlink.clone();
-                if is_ephemeral {
-                    state.fs.move_ephemeral_symlink(
-                        source_guest_path.as_path(),
-                        target_guest_path.as_path(),
-                        new_path_to_symlink,
-                        relative_path.clone(),
-                    );
-                    moved_ephemeral_symlink = true;
-                }
-            }
+    let rename_source = {
+        let guard = source_entry.read();
+        match guard.deref() {
+            Kind::File { path, .. } => RenameSource::File(path.clone()),
+            Kind::Dir { path, .. } => RenameSource::Dir(path.clone()),
+            Kind::Symlink { relative_path, .. } => RenameSource::Symlink(relative_path.clone()),
             Kind::Buffer { .. }
             | Kind::Socket { .. }
             | Kind::PipeTx { .. }
             | Kind::PipeRx { .. }
             | Kind::DuplexPipe { .. }
             | Kind::Epoll { .. }
-            | Kind::EventNotifications { .. } => {}
+            | Kind::EventNotifications { .. } => RenameSource::Other,
             Kind::Root { .. } => unreachable!("The root can not be moved"),
         }
+    };
+
+    match rename_source {
+        RenameSource::File(path) => {
+            let result = state.fs_rename(path, &target_guest_path).await;
+            // if the above operation failed we have to revert the previous change and then fail
+            if let Err(e) = result {
+                let mut guard = source_parent_inode.write();
+                if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                    entries.insert(source_entry_name, source_entry.clone());
+                    return Ok(e);
+                }
+            } else {
+                let mut guard = source_entry.write();
+                if let Kind::File { path, .. } = guard.deref_mut() {
+                    *path = target_guest_path.clone();
+                } else {
+                    unreachable!()
+                }
+            }
+        }
+        RenameSource::Dir(source_dir_path) => {
+            let res = state
+                .fs_rename(source_dir_path.clone(), &target_guest_path)
+                .await;
+            if let Err(e) = res {
+                return Ok(e);
+            }
+            rename_inode_tree(&source_entry, &source_dir_path, &target_guest_path);
+        }
+        RenameSource::Symlink(relative_path) => {
+            let is_ephemeral = state
+                .fs
+                .ephemeral_symlink_at(source_guest_path.as_path())
+                .is_some();
+            let from = source_guest_path.clone();
+            let to = target_guest_path.clone();
+            let res = state.fs_rename(from, to).await;
+            match (res, is_ephemeral) {
+                (Ok(()), _) | (Err(Errno::Noent), true) => {}
+                (Err(e), _) => {
+                    let mut guard = source_parent_inode.write();
+                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
+                        entries.insert(source_entry_name, source_entry.clone());
+                        return Ok(e);
+                    }
+                }
+            }
+
+            let new_path_to_symlink = state
+                .fs
+                .rebase_symlink_location(target_guest_path.as_path());
+            {
+                let mut guard = source_entry.write();
+                let Kind::Symlink {
+                    path_to_symlink, ..
+                } = guard.deref_mut()
+                else {
+                    unreachable!()
+                };
+                *path_to_symlink = new_path_to_symlink.clone();
+            }
+            if is_ephemeral {
+                state.fs.move_ephemeral_symlink(
+                    source_guest_path.as_path(),
+                    target_guest_path.as_path(),
+                    new_path_to_symlink,
+                    relative_path,
+                );
+                moved_ephemeral_symlink = true;
+            }
+        }
+        RenameSource::Other => {}
     }
 
     let source_size = source_entry.stat.read().unwrap().st_size;

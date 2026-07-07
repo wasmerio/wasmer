@@ -80,7 +80,7 @@ pub fn fd_readdir<M: MemorySize>(
                 entry_vec.extend(
                     memory_entries
                         .into_iter()
-                        .filter(|(name, _, _)| !entry_names.contains(name))
+                        .filter(|(name, _, _)| !entry_names.contains(name)),
                 );
                 // adding . and .. special folders
                 // TODO: inode

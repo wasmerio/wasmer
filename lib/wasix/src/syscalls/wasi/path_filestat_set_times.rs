@@ -40,15 +40,7 @@ pub fn path_filestat_set_times<M: MemorySize>(
     wasi_try_ok!(__asyncify_light(
         env,
         None,
-        path_filestat_set_times_internal(
-            env,
-            fd,
-            flags,
-            &path_string,
-            st_atim,
-            st_mtim,
-            fst_flags
-        )
+        path_filestat_set_times_internal(env, fd, flags, &path_string, st_atim, st_mtim, fst_flags)
     )?);
     let env = ctx.data();
 
@@ -98,15 +90,11 @@ pub(crate) async fn path_filestat_set_times_internal(
         return Err(Errno::Inval);
     }
 
-    let file_inode =
-        state
-            .fs
-            .get_inode_at_path(inodes, fd, path, flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0)
-            .await?;
-    let stat = {
-        let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref()).await?
-    };
+    let file_inode = state
+        .fs
+        .get_inode_at_path(inodes, fd, path, flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0)
+        .await?;
+    let stat = state.fs.get_stat_for_inode(&file_inode).await?;
 
     if fst_flags.contains(Fstflags::SET_ATIM) || fst_flags.contains(Fstflags::SET_ATIM_NOW) {
         let time_to_set = if fst_flags.contains(Fstflags::SET_ATIM) {

@@ -724,10 +724,13 @@ mod tests {
 
         let mounts = filesystem_v2(&packages, &pkg, false).unwrap();
         let mount_fs = mounts.to_mount_fs().unwrap();
-        assert!(mount_fs.metadata(Path::new("/public")).unwrap().is_dir());
         assert!(
-            mount_fs
-                .metadata(Path::new("/public/index.html"))
+            virtual_mio::block_on(mount_fs.metadata(Path::new("/public")))
+                .unwrap()
+                .is_dir()
+        );
+        assert!(
+            virtual_mio::block_on(mount_fs.metadata(Path::new("/public/index.html")))
                 .unwrap()
                 .is_file()
         );
@@ -929,8 +932,7 @@ mod tests {
             .as_ref()
             .expect("expected root layer mount");
         assert!(
-            root_layer
-                .metadata(Path::new("/root.txt"))
+            virtual_mio::block_on(root_layer.metadata(Path::new("/root.txt")))
                 .unwrap()
                 .is_file()
         );

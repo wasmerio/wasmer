@@ -10,9 +10,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use crate::mem_fs::FileSystem as MemFileSystem;
-use crate::{
-    FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
-};
+use crate::{FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile};
 use indexmap::IndexMap;
 use webc::v1::{FsEntry, FsEntryType, OwnedFsEntryFile};
 
@@ -244,19 +242,19 @@ impl FileSystem for StaticFileSystem {
         }
     }
     async fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
-            let from = normalizes_path(from);
-            let to = normalizes_path(to);
-            let result = self.memory.rename(Path::new(&from), Path::new(&to)).await;
-            if self
-                .volumes
-                .values()
-                .find_map(|v| v.get_file_entry(&from).ok())
-                .is_some()
-            {
-                Ok(())
-            } else {
-                result
-            }
+        let from = normalizes_path(from);
+        let to = normalizes_path(to);
+        let result = self.memory.rename(Path::new(&from), Path::new(&to)).await;
+        if self
+            .volumes
+            .values()
+            .find_map(|v| v.get_file_entry(&from).ok())
+            .is_some()
+        {
+            Ok(())
+        } else {
+            result
+        }
     }
     async fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);

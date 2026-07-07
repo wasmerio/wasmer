@@ -9,7 +9,7 @@ impl FileSystem {
     /// Inserts a readonly file into the file system that uses copy-on-write
     /// (this is required for zero-copy creation of the same file)
     pub fn insert_ro_file(&self, path: &Path, contents: OwnedBuffer) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, path);
+        futures::executor::block_on(crate::FileSystem::remove_file(self, path)).ok();
         let (inode_of_parent, maybe_inode_of_file, name_of_file) = self.insert_inode(path)?;
 
         let inode_of_parent = match inode_of_parent {
@@ -76,7 +76,8 @@ impl FileSystem {
         fs: Arc<dyn crate::FileSystem + Send + Sync>,
         source_path: PathBuf,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, target_path.as_path());
+        futures::executor::block_on(crate::FileSystem::remove_file(self, target_path.as_path()))
+            .ok();
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(target_path.as_path())?;
 
@@ -157,7 +158,8 @@ impl FileSystem {
         other: Arc<dyn crate::FileSystem + Send + Sync>,
         source_path: PathBuf,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_dir(self, target_path.as_path());
+        futures::executor::block_on(crate::FileSystem::remove_dir(self, target_path.as_path()))
+            .ok();
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(target_path.as_path())?;
 
@@ -231,7 +233,7 @@ impl FileSystem {
         path: PathBuf,
         file: Box<dyn crate::VirtualFile + Send + Sync>,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, path.as_path());
+        futures::executor::block_on(crate::FileSystem::remove_file(self, path.as_path())).ok();
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(path.as_path())?;
 

@@ -620,45 +620,43 @@ impl FileSystem for MountFileSystem {
     }
 
     async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-            let from = self.prepare_path(from)?;
-            let to = self.prepare_path(to)?;
+        let from = self.prepare_path(from)?;
+        let to = self.prepare_path(to)?;
 
-            if from.as_os_str().is_empty() {
-                return Err(FsError::PermissionDenied);
-            }
+        if from.as_os_str().is_empty() {
+            return Err(FsError::PermissionDenied);
+        }
 
-            if let Some(node) = self.exact_node(&from)
-                && (node.fs.is_some() || node.has_children())
-            {
-                return Err(FsError::PermissionDenied);
-            }
+        if let Some(node) = self.exact_node(&from)
+            && (node.fs.is_some() || node.has_children())
+        {
+            return Err(FsError::PermissionDenied);
+        }
 
-            if let Some(node) = self.exact_node(&to)
-                && (node.fs.is_some() || node.has_children())
-            {
-                return Err(FsError::PermissionDenied);
-            }
+        if let Some(node) = self.exact_node(&to)
+            && (node.fs.is_some() || node.has_children())
+        {
+            return Err(FsError::PermissionDenied);
+        }
 
-            match (self.resolve_mount(from), self.resolve_mount(to)) {
-                (Some(from_mount), Some(to_mount))
-                    if from_mount.mount_path == to_mount.mount_path =>
-                {
-                    from_mount
-                        .fs
-                        .rename(&from_mount.delegated_path, &to_mount.delegated_path)
-                        .await
-                }
-                (Some(from_mount), Some(to_mount)) => {
-                    ops::move_across_filesystems(
-                        from_mount.fs.as_ref(),
-                        to_mount.fs.as_ref(),
-                        &from_mount.delegated_path,
-                        &to_mount.delegated_path,
-                    )
+        match (self.resolve_mount(from), self.resolve_mount(to)) {
+            (Some(from_mount), Some(to_mount)) if from_mount.mount_path == to_mount.mount_path => {
+                from_mount
+                    .fs
+                    .rename(&from_mount.delegated_path, &to_mount.delegated_path)
                     .await
-                }
-                _ => Err(FsError::EntryNotFound),
             }
+            (Some(from_mount), Some(to_mount)) => {
+                ops::move_across_filesystems(
+                    from_mount.fs.as_ref(),
+                    to_mount.fs.as_ref(),
+                    &from_mount.delegated_path,
+                    &to_mount.delegated_path,
+                )
+                .await
+            }
+            _ => Err(FsError::EntryNotFound),
+        }
     }
 
     async fn metadata(&self, path: &Path) -> Result<Metadata> {
@@ -669,11 +667,11 @@ impl FileSystem for MountFileSystem {
                 match fs.metadata(&node.source_path).await {
                     Ok(metadata) => Ok(metadata),
                     Err(error) => {
-                    if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata_at(node.created_at))
-                    } else {
-                        Err(error)
-                    }
+                        if Self::should_fallback_to_synthetic_dir(&error) {
+                            Ok(Self::directory_metadata_at(node.created_at))
+                        } else {
+                            Err(error)
+                        }
                     }
                 }
             } else if node.has_children() {
@@ -697,11 +695,11 @@ impl FileSystem for MountFileSystem {
                 match fs.symlink_metadata(&node.source_path).await {
                     Ok(metadata) => Ok(metadata),
                     Err(error) => {
-                    if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata_at(node.created_at))
-                    } else {
-                        Err(error)
-                    }
+                        if Self::should_fallback_to_synthetic_dir(&error) {
+                            Ok(Self::directory_metadata_at(node.created_at))
+                        } else {
+                            Err(error)
+                        }
                     }
                 }
             } else if node.has_children() {
@@ -760,10 +758,7 @@ impl FileSystem for MountFileSystem {
         }
 
         match self.resolve_mount(path) {
-            Some(resolved) => resolved
-                .fs
-                .open(&resolved.delegated_path, conf)
-                .await,
+            Some(resolved) => resolved.fs.open(&resolved.delegated_path, conf).await,
             None => Err(FsError::EntryNotFound),
         }
     }
@@ -1092,8 +1087,16 @@ mod tests {
         assert!(fs.metadata(&PathBuf::from("/app")).await.is_ok());
         assert!(fs.metadata(&PathBuf::from("/app/a")).await.is_ok());
         assert!(fs.metadata(&PathBuf::from("/app/b")).await.is_ok());
-        assert!(fs.metadata(&PathBuf::from("/app/a/data-a.txt")).await.is_ok());
-        assert!(fs.metadata(&PathBuf::from("/app/b/data-b.txt")).await.is_ok());
+        assert!(
+            fs.metadata(&PathBuf::from("/app/a/data-a.txt"))
+                .await
+                .is_ok()
+        );
+        assert!(
+            fs.metadata(&PathBuf::from("/app/b/data-b.txt"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
@@ -1173,7 +1176,12 @@ mod tests {
                 .await
                 .is_ok()
         );
-        assert!(primary.metadata(Path::new("/openssl/certs/ca.pem")).await.is_ok());
+        assert!(
+            primary
+                .metadata(Path::new("/openssl/certs/ca.pem"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
@@ -1204,7 +1212,11 @@ mod tests {
             .unwrap();
 
         assert!(fs.metadata(Path::new("/opt/bin/tool")).await.is_ok());
-        assert!(fs.metadata(Path::new("/opt/assets/css/site.css")).await.is_ok());
+        assert!(
+            fs.metadata(Path::new("/opt/assets/css/site.css"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
@@ -1248,7 +1260,10 @@ mod tests {
         fs.mount(Path::new("/"), Arc::new(mem_fs::FileSystem::default()))
             .unwrap();
 
-        assert_eq!(fs.metadata(Path::new("../foo")).await, Err(FsError::InvalidInput));
+        assert_eq!(
+            fs.metadata(Path::new("../foo")).await,
+            Err(FsError::InvalidInput)
+        );
     }
 
     #[tokio::test]
@@ -1293,7 +1308,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(read_dir_names(&fs, "/opaque").await, vec!["assets".to_string()]);
+        assert_eq!(
+            read_dir_names(&fs, "/opaque").await,
+            vec!["assets".to_string()]
+        );
     }
 
     #[tokio::test]
@@ -1387,9 +1405,7 @@ mod tests {
             Err(FsError::EntryNotFound)
         );
         assert_eq!(
-            primary
-                .metadata(Path::new("/python/lib/child.txt"))
-                .await,
+            primary.metadata(Path::new("/python/lib/child.txt")).await,
             Err(FsError::EntryNotFound)
         );
     }
@@ -1569,15 +1585,25 @@ mod tests {
         fs.mount(Path::new("/opt/assets"), Arc::new(nested))
             .unwrap();
 
-        assert!(fs.metadata(Path::new("/opt/assets")).await.unwrap().is_dir());
+        assert!(
+            fs.metadata(Path::new("/opt/assets"))
+                .await
+                .unwrap()
+                .is_dir()
+        );
         assert_eq!(
-            read_dir_names(&fs, "/opt").await
+            read_dir_names(&fs, "/opt")
+                .await
                 .into_iter()
                 .filter(|entry| entry == "assets")
                 .count(),
             1,
         );
-        assert!(fs.metadata(Path::new("/opt/assets/css/site.css")).await.is_ok());
+        assert!(
+            fs.metadata(Path::new("/opt/assets/css/site.css"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
@@ -1631,8 +1657,16 @@ mod tests {
         )
         .unwrap();
 
-        assert!(fs.metadata(Path::new("/runtime/lib.py")).await.unwrap().is_file());
-        assert_eq!(read_dir_names(&fs, "/runtime").await, vec!["lib.py".to_string()]);
+        assert!(
+            fs.metadata(Path::new("/runtime/lib.py"))
+                .await
+                .unwrap()
+                .is_file()
+        );
+        assert_eq!(
+            read_dir_names(&fs, "/runtime").await,
+            vec!["lib.py".to_string()]
+        );
     }
 
     #[tokio::test]
@@ -1743,7 +1777,12 @@ mod tests {
             .unwrap();
 
         assert!(primary.metadata(Path::new("/opt/bin/tool")).await.is_ok());
-        assert!(primary.metadata(Path::new("/opt/assets/logo.svg")).await.is_ok());
+        assert!(
+            primary
+                .metadata(Path::new("/opt/assets/logo.svg"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
@@ -1777,9 +1816,7 @@ mod tests {
     async fn test_new_filesystem() {
         let fs = gen_filesystem();
         assert!(
-            fs.read_dir(Path::new("/test_new_filesystem"))
-                .await
-                .is_ok(),
+            fs.read_dir(Path::new("/test_new_filesystem")).await.is_ok(),
             "hostfs can read root"
         );
         let mut file_write = fs
@@ -1872,7 +1909,9 @@ mod tests {
         );
 
         assert!(
-            read_dir_names(&fs, "/test_remove_dir/foo").await.contains(&"bar".to_string()),
+            read_dir_names(&fs, "/test_remove_dir/foo")
+                .await
+                .contains(&"bar".to_string()),
             "./foo/bar exists"
         );
 
@@ -1895,7 +1934,9 @@ mod tests {
         );
 
         assert!(
-            !read_dir_names(&fs, "/test_remove_dir").await.contains(&"foo".to_string()),
+            !read_dir_names(&fs, "/test_remove_dir")
+                .await
+                .contains(&"foo".to_string()),
             "the foo directory still exists"
         );
     }
@@ -1937,7 +1978,10 @@ mod tests {
 
         assert_eq!(fs.create_dir(Path::new("/test_rename")).await, Ok(()));
         assert_eq!(fs.create_dir(Path::new("/test_rename/foo")).await, Ok(()));
-        assert_eq!(fs.create_dir(Path::new("/test_rename/foo/qux")).await, Ok(()));
+        assert_eq!(
+            fs.create_dir(Path::new("/test_rename/foo/qux")).await,
+            Ok(())
+        );
 
         assert_eq!(
             fs.rename(
@@ -1949,10 +1993,7 @@ mod tests {
             "renaming to a directory that has parent that doesn't exist",
         );
 
-        assert_eq!(
-            fs.create_dir(Path::new("/test_rename/bar")).await,
-            Ok(())
-        );
+        assert_eq!(fs.create_dir(Path::new("/test_rename/bar")).await, Ok(()));
 
         assert_eq!(
             fs.rename(Path::new("/test_rename/foo"), Path::new("/test_rename/bar"))
@@ -2003,12 +2044,16 @@ mod tests {
         assert!(qux_dir.is_empty(), "the qux directory is empty");
 
         assert!(
-            read_dir_names(&fs, "/test_rename/bar").await.contains(&"hello1.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"hello1.txt".to_string()),
             "the /bar/hello1.txt file exists"
         );
 
         assert!(
-            read_dir_names(&fs, "/test_rename/bar").await.contains(&"hello2.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"hello2.txt".to_string()),
             "the /bar/hello2.txt file exists"
         );
 
@@ -2049,36 +2094,52 @@ mod tests {
         );
 
         assert!(
-            read_dir_names(&fs, "/test_rename").await.contains(&"bar".to_string()),
+            read_dir_names(&fs, "/test_rename")
+                .await
+                .contains(&"bar".to_string()),
             "./bar exists"
         );
 
         assert!(
-            read_dir_names(&fs, "/test_rename/bar").await.contains(&"baz".to_string()),
+            read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"baz".to_string()),
             "/bar/baz exists"
         );
         assert!(
-            !read_dir_names(&fs, "/test_rename").await.contains(&"foo".to_string()),
+            !read_dir_names(&fs, "/test_rename")
+                .await
+                .contains(&"foo".to_string()),
             "foo does not exist anymore"
         );
         assert!(
-            read_dir_names(&fs, "/test_rename/bar/baz").await.contains(&"world2.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar/baz")
+                .await
+                .contains(&"world2.txt".to_string()),
             "/bar/baz/world2.txt exists"
         );
         assert!(
-            read_dir_names(&fs, "/test_rename/bar").await.contains(&"world1.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"world1.txt".to_string()),
             "/bar/world1.txt (ex hello1.txt) exists"
         );
         assert!(
-            !read_dir_names(&fs, "/test_rename/bar").await.contains(&"hello1.txt".to_string()),
+            !read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"hello1.txt".to_string()),
             "hello1.txt was moved"
         );
         assert!(
-            !read_dir_names(&fs, "/test_rename/bar").await.contains(&"hello2.txt".to_string()),
+            !read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"hello2.txt".to_string()),
             "hello2.txt was moved"
         );
         assert!(
-            read_dir_names(&fs, "/test_rename/bar/baz").await.contains(&"world2.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar/baz")
+                .await
+                .contains(&"world2.txt".to_string()),
             "world2.txt was moved to the correct place"
         );
 
@@ -2111,7 +2172,13 @@ mod tests {
             left.metadata(Path::new("/from.txt")).await,
             Err(FsError::EntryNotFound)
         );
-        assert!(right.metadata(Path::new("/to.txt")).await.unwrap().is_file());
+        assert!(
+            right
+                .metadata(Path::new("/to.txt"))
+                .await
+                .unwrap()
+                .is_file()
+        );
     }
 
     #[tokio::test]
@@ -2128,10 +2195,7 @@ mod tests {
         assert_eq!(root_metadata.modified, root_metadata.created);
         assert!(root_metadata.modified > 0);
 
-        assert_eq!(
-            fs.create_dir(Path::new("/test_metadata/foo")).await,
-            Ok(())
-        );
+        assert_eq!(fs.create_dir(Path::new("/test_metadata/foo")).await, Ok(()));
 
         let foo_metadata = fs.metadata(Path::new("/test_metadata/foo")).await;
         assert!(foo_metadata.is_ok());
@@ -2182,7 +2246,11 @@ mod tests {
             "creating a new file",
         );
 
-        assert!(read_dir_names(&fs, "/test_remove_file").await.contains(&"foo.txt".to_string()));
+        assert!(
+            read_dir_names(&fs, "/test_remove_file")
+                .await
+                .contains(&"foo.txt".to_string())
+        );
 
         assert_eq!(
             fs.remove_file(Path::new("/test_remove_file/foo.txt")).await,
@@ -2190,7 +2258,11 @@ mod tests {
             "removing a file that exists",
         );
 
-        assert!(!read_dir_names(&fs, "/test_remove_file").await.contains(&"foo.txt".to_string()));
+        assert!(
+            !read_dir_names(&fs, "/test_remove_file")
+                .await
+                .contains(&"foo.txt".to_string())
+        );
 
         assert_eq!(
             fs.remove_file(Path::new("/test_remove_file/foo.txt")).await,

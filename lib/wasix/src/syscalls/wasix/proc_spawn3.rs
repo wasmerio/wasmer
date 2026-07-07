@@ -108,16 +108,13 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
         };
         let (_, state, inodes) =
             unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match wasi_try_ok!(__asyncify_light(
-            ctx.data(),
-            None,
-            async {
-                Ok(
-                    find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), name)
-                        .await,
-                )
-            },
-        )?) {
+        match wasi_try_ok!(__asyncify_light(ctx.data(), None, async {
+            Ok(
+                find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), name)
+                    .await,
+            )
+        },)?)
+        {
             FindExecutableResult::Found(p) => *name = p,
             FindExecutableResult::AccessError => return Ok(Errno::Access),
             FindExecutableResult::NotFound => return Ok(Errno::Noexec),

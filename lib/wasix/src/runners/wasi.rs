@@ -648,7 +648,7 @@ mod tests {
 
         let fs = &init.state.fs.root_fs;
 
-        fs.read_dir(std::path::Path::new("/host")).unwrap();
+        fs.read_dir(std::path::Path::new("/host")).await.unwrap();
     }
 
     #[cfg(all(feature = "host-fs", feature = "sys"))]
@@ -699,7 +699,9 @@ mod tests {
 
         let fs = &init.state.fs.root_fs;
 
-        fs.read_dir(std::path::Path::new("/host")).unwrap();
-        fs.read_dir(std::path::Path::new("/settings")).unwrap();
+        fs.read_dir(std::path::Path::new("/host")).await.unwrap();
+        fs.read_dir(std::path::Path::new("/settings"))
+            .await
+            .unwrap();
     }
 }

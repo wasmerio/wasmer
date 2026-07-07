@@ -44,14 +44,7 @@ pub fn path_link<M: MemorySize>(
     wasi_try_ok!(__asyncify_light(
         env,
         None,
-        path_link_internal(
-            env,
-            old_fd,
-            old_flags,
-            &old_path_str,
-            new_fd,
-            &new_path_str
-        )
+        path_link_internal(env, old_fd, old_flags, &old_path_str, new_fd, &new_path_str)
     )?);
     let env = ctx.data();
 
@@ -96,19 +89,20 @@ pub(crate) async fn path_link_internal(
     Span::current().record("old_path", old_path);
     Span::current().record("new_path", new_path);
 
-    let source_inode = state.fs.get_inode_at_path(
-        inodes,
-        old_fd,
-        old_path,
-        old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
-    )
-    .await?;
+    let source_inode = state
+        .fs
+        .get_inode_at_path(
+            inodes,
+            old_fd,
+            old_path,
+            old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+        )
+        .await?;
     let target_path_arg = std::path::PathBuf::from(new_path);
-    let (target_parent_inode, new_entry_name) =
-        state
-            .fs
-            .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, true)
-            .await?;
+    let (target_parent_inode, new_entry_name) = state
+        .fs
+        .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, true)
+        .await?;
 
     if source_inode.stat.write().unwrap().st_nlink == Linkcount::MAX {
         return Err(Errno::Mlink);

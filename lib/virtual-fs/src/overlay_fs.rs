@@ -461,70 +461,70 @@ where
     async fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
         let from = from.to_owned();
         let to = to.to_owned();
-            // Whiteout files can not be renamed
-            if ops::is_white_out(&from).is_some() {
-                tracing::trace!(
-                    from=%from.display(),
-                    to=%to.display(),
-                    "Attempting to rename a file that was whited out"
-                );
-                return Err(FsError::EntryNotFound);
-            }
-            // You can not rename a file into a whiteout file
-            if ops::is_white_out(&to).is_some() {
-                tracing::trace!(
-                    from=%from.display(),
-                    to=%to.display(),
-                    "Attempting to rename a file into a whiteout file"
-                );
-                return Err(FsError::InvalidInput);
-            }
+        // Whiteout files can not be renamed
+        if ops::is_white_out(&from).is_some() {
+            tracing::trace!(
+                from=%from.display(),
+                to=%to.display(),
+                "Attempting to rename a file that was whited out"
+            );
+            return Err(FsError::EntryNotFound);
+        }
+        // You can not rename a file into a whiteout file
+        if ops::is_white_out(&to).is_some() {
+            tracing::trace!(
+                from=%from.display(),
+                to=%to.display(),
+                "Attempting to rename a file into a whiteout file"
+            );
+            return Err(FsError::InvalidInput);
+        }
 
-            // We attempt to rename the file or directory in the primary
-            // if this succeeds then we also need to ensure the white out
-            // files are created where we need them, so we do not immediately
-            // return until that is done
-            let mut had_at_least_one_success = false;
-            match self.primary.rename(&from, &to).await {
-                Err(e) if should_continue(e) => {}
-                Ok(()) => {
+        // We attempt to rename the file or directory in the primary
+        // if this succeeds then we also need to ensure the white out
+        // files are created where we need them, so we do not immediately
+        // return until that is done
+        let mut had_at_least_one_success = false;
+        match self.primary.rename(&from, &to).await {
+            Err(e) if should_continue(e) => {}
+            Ok(()) => {
+                had_at_least_one_success = true;
+            }
+            other => return other,
+        }
+
+        // If we have not yet renamed the file it may still reside in
+        // the secondaries, in which case we need to copy it to the
+        // primary rather than rename it
+        if !had_at_least_one_success {
+            for fs in self.secondaries.filesystems() {
+                if fs.metadata(&from).await.is_ok() {
+                    ops::copy_reference_ext(fs, &self.primary, &from, &to).await?;
                     had_at_least_one_success = true;
-                }
-                other => return other,
-            }
-
-            // If we have not yet renamed the file it may still reside in
-            // the secondaries, in which case we need to copy it to the
-            // primary rather than rename it
-            if !had_at_least_one_success {
-                for fs in self.secondaries.filesystems() {
-                    if fs.metadata(&from).await.is_ok() {
-                        ops::copy_reference_ext(fs, &self.primary, &from, &to).await?;
-                        had_at_least_one_success = true;
-                        break;
-                    }
+                    break;
                 }
             }
+        }
 
-            // If the rename operation was a success then we need to update any
-            // whiteout files on the primary before we return success.
-            if had_at_least_one_success {
-                for fs in self.secondaries.filesystems() {
-                    if fs.metadata(&from).await.is_ok() {
-                        tracing::trace!(
-                            path=%from.display(),
-                            "Creating a whiteout for the file that was renamed",
-                        );
-                        ops::create_white_out(&self.primary, &from).await.ok();
-                        break;
-                    }
+        // If the rename operation was a success then we need to update any
+        // whiteout files on the primary before we return success.
+        if had_at_least_one_success {
+            for fs in self.secondaries.filesystems() {
+                if fs.metadata(&from).await.is_ok() {
+                    tracing::trace!(
+                        path=%from.display(),
+                        "Creating a whiteout for the file that was renamed",
+                    );
+                    ops::create_white_out(&self.primary, &from).await.ok();
+                    break;
                 }
-                ops::remove_white_out(&self.primary, &to).await;
-                return Ok(());
             }
+            ops::remove_white_out(&self.primary, &to).await;
+            return Ok(());
+        }
 
-            // Otherwise we are in a failure scenario
-            self.permission_error_or_not_found(&from)
+        // Otherwise we are in a failure scenario
+        self.permission_error_or_not_found(&from)
     }
 
     async fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
@@ -668,10 +668,7 @@ where
             ops::remove_white_out(&self.primary, path).await;
 
             // Create the file in the primary
-            return self
-                .primary
-                .open(path, conf)
-                .await;
+            return self.primary.open(path, conf).await;
         }
 
         // There might be a whiteout, search for this and if its found then
@@ -729,10 +726,7 @@ where
             ops::remove_white_out(&self.primary, path).await;
 
             // Create the file in the primary
-            return self
-                .primary
-                .open(path, conf)
-                .await;
+            return self.primary.open(path, conf).await;
         }
 
         // The file does not exist anywhere
@@ -1059,7 +1053,7 @@ where
     }
 
     #[async_trait::async_trait]
-impl<P> VirtualFile for CopyOnWriteFile<P>
+    impl<P> VirtualFile for CopyOnWriteFile<P>
     where
         P: FileSystem + 'static,
     {
@@ -1370,10 +1364,14 @@ mod tests {
         ops::create_dir_all(&primary, "/app").await.unwrap();
 
         let volume = MemFS::default();
-        ops::create_dir_all(&volume, "/themes/twentytwentyfour").await.unwrap();
+        ops::create_dir_all(&volume, "/themes/twentytwentyfour")
+            .await
+            .unwrap();
 
         let container = MemFS::default();
-        ops::create_dir_all(&container, "/app/wp-content/themes/twentytwentyfour").await.unwrap();
+        ops::create_dir_all(&container, "/app/wp-content/themes/twentytwentyfour")
+            .await
+            .unwrap();
 
         let volume: Arc<dyn FileSystem + Send + Sync> = Arc::new(volume);
         primary
@@ -1443,7 +1441,10 @@ mod tests {
         assert_eq!(overlay.remove_dir(third).await, Ok(()));
 
         // It should no longer exist
-        assert_eq!(overlay.metadata(third).await.unwrap_err(), FsError::EntryNotFound);
+        assert_eq!(
+            overlay.metadata(third).await.unwrap_err(),
+            FsError::EntryNotFound
+        );
 
         assert!(ops::exists(&overlay.secondaries[0], third).await);
     }
@@ -1457,7 +1458,9 @@ mod tests {
         ops::touch(&primary, "/primary/write.txt").await.unwrap();
         ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::touch(&secondary, "/secondary/read.txt").await.unwrap();
-        ops::touch(&secondary, "/secondary/write.txt").await.unwrap();
+        ops::touch(&secondary, "/secondary/write.txt")
+            .await
+            .unwrap();
         ops::create_dir_all(&secondary, "/primary").await.unwrap();
         ops::write(&secondary, "/primary/read.txt", "This is shadowed")
             .await
@@ -1544,11 +1547,17 @@ mod tests {
         ops::touch(&primary, "/primary/write.txt").await.unwrap();
         ops::create_dir_all(&secondary, "/secondary").await.unwrap();
         ops::touch(&secondary, "/secondary/read.txt").await.unwrap();
-        ops::touch(&secondary, "/secondary/write.txt").await.unwrap();
+        ops::touch(&secondary, "/secondary/write.txt")
+            .await
+            .unwrap();
         // This second "secondary" filesystem should share the same folders as
         // the first one.
-        ops::create_dir_all(&secondary_overlaid, "/secondary").await.unwrap();
-        ops::touch(&secondary_overlaid, "/secondary/overlayed.txt").await.unwrap();
+        ops::create_dir_all(&secondary_overlaid, "/secondary")
+            .await
+            .unwrap();
+        ops::touch(&secondary_overlaid, "/secondary/overlayed.txt")
+            .await
+            .unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary, secondary_overlaid]);
 
@@ -1633,9 +1642,13 @@ mod tests {
         fs.metadata(Path::new("/secondary/file.txt")).await.unwrap();
 
         // Now delete the file and make sure its not found
-        fs.remove_file(Path::new("/secondary/file.txt")).await.unwrap();
+        fs.remove_file(Path::new("/secondary/file.txt"))
+            .await
+            .unwrap();
         assert_eq!(
-            fs.metadata(Path::new("/secondary/file.txt")).await.unwrap_err(),
+            fs.metadata(Path::new("/secondary/file.txt"))
+                .await
+                .unwrap_err(),
             FsError::EntryNotFound
         )
     }
@@ -1691,7 +1704,9 @@ mod tests {
 
         f.unlink().await.unwrap();
         assert_eq!(
-            fs.metadata(Path::new("/secondary/file.txt")).await.unwrap_err(),
+            fs.metadata(Path::new("/secondary/file.txt"))
+                .await
+                .unwrap_err(),
             FsError::EntryNotFound
         );
         assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt").await);
@@ -1832,7 +1847,9 @@ mod tests {
 
         f.unlink().await.unwrap();
         assert_eq!(
-            fs.metadata(Path::new("/secondary/file.txt")).await.unwrap_err(),
+            fs.metadata(Path::new("/secondary/file.txt"))
+                .await
+                .unwrap_err(),
             FsError::EntryNotFound
         );
         assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt").await);
@@ -1847,7 +1864,9 @@ mod tests {
         assert_eq!(buf, "Hello, World!asdf");
 
         assert_eq!(
-            fs.metadata(Path::new("/secondary/file.txt")).await.unwrap_err(),
+            fs.metadata(Path::new("/secondary/file.txt"))
+                .await
+                .unwrap_err(),
             FsError::EntryNotFound
         );
         assert!(ops::is_file(&fs.primary, "/secondary/.wh.file.txt").await);
@@ -1955,7 +1974,9 @@ mod tests {
 
         let fs = OverlayFileSystem::new(primary, [secondary]);
 
-        fs.remove_file(Path::new("/secondary/file.txt")).await.unwrap();
+        fs.remove_file(Path::new("/secondary/file.txt"))
+            .await
+            .unwrap();
         assert_eq!(
             ops::exists(&fs, Path::new("/secondary/file.txt")).await,
             false
@@ -2009,7 +2030,9 @@ mod tests {
     async fn rmdir_sub_from_secondary_fs() {
         let primary = MemFS::default();
         let secondary = MemFS::default();
-        ops::create_dir_all(&secondary, "/first/secondary").await.unwrap();
+        ops::create_dir_all(&secondary, "/first/secondary")
+            .await
+            .unwrap();
 
         let fs = OverlayFileSystem::new(primary, [secondary]);
 

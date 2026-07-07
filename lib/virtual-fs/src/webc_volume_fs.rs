@@ -123,18 +123,18 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     async fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
-            // The original file should exist
-            let _ = self.metadata(from).await?;
+        // The original file should exist
+        let _ = self.metadata(from).await?;
 
-            // we also want to make sure the destination's folder exists, too
-            let dest_parent = to.parent().unwrap_or_else(|| Path::new("/"));
-            let parent_meta = self.metadata(dest_parent).await?;
-            if !parent_meta.is_dir() {
-                return Err(FsError::BaseNotDirectory);
-            }
+        // we also want to make sure the destination's folder exists, too
+        let dest_parent = to.parent().unwrap_or_else(|| Path::new("/"));
+        let parent_meta = self.metadata(dest_parent).await?;
+        if !parent_meta.is_dir() {
+            return Err(FsError::BaseNotDirectory);
+        }
 
-            // but we are a readonly filesystem, so you can't modify anything
-            Err(FsError::PermissionDenied)
+        // but we are a readonly filesystem, so you can't modify anything
+        Err(FsError::PermissionDenied)
     }
 
     async fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {

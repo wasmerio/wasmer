@@ -71,20 +71,21 @@ pub(crate) async fn path_filestat_get_internal(
     if !root_dir.inner.rights.contains(Rights::PATH_FILESTAT_GET) {
         return Err(Errno::Access);
     }
-    let file_inode = state.fs.get_inode_at_path_from_inode(
-        inodes,
-        root_dir.inode,
-        path_string,
-        flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
-    )
-    .await?;
+    let file_inode = state
+        .fs
+        .get_inode_at_path_from_inode(
+            inodes,
+            root_dir.inode,
+            path_string,
+            flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+        )
+        .await?;
 
     let st_ino = file_inode.ino().as_u64();
     let mut stat = if file_inode.is_preopened {
         *file_inode.stat.read().unwrap().deref()
     } else {
-        let guard = file_inode.read();
-        state.fs.get_stat_for_kind(guard.deref()).await?
+        state.fs.get_stat_for_inode(&file_inode).await?
     };
     stat.st_ino = st_ino;
     Ok(stat)

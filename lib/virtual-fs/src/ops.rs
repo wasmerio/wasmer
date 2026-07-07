@@ -355,11 +355,15 @@ mod tests {
         super::write(&fs, "/file.txt", b"").await.unwrap();
 
         assert!(!super::exists(&fs, "/really/nested/directory").await);
-        super::create_dir_all(&fs, "/really/nested/directory").await.unwrap();
+        super::create_dir_all(&fs, "/really/nested/directory")
+            .await
+            .unwrap();
         assert!(super::exists(&fs, "/really/nested/directory").await);
 
         // It's okay to create the same directory multiple times
-        super::create_dir_all(&fs, "/really/nested/directory").await.unwrap();
+        super::create_dir_all(&fs, "/really/nested/directory")
+            .await
+            .unwrap();
 
         // You can't create a directory on top of a file
         assert_eq!(
@@ -367,7 +371,9 @@ mod tests {
             FsError::BaseNotDirectory
         );
         assert_eq!(
-            super::create_dir_all(&fs, "/file.txt/invalid/path").await.unwrap_err(),
+            super::create_dir_all(&fs, "/file.txt/invalid/path")
+                .await
+                .unwrap_err(),
             FsError::BaseNotDirectory
         );
     }

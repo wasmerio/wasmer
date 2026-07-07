@@ -116,36 +116,37 @@ impl CaptureFile {
     }
 }
 
+#[async_trait::async_trait]
 impl VirtualFileTrait for CaptureFile {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         0
     }
 
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         0
     }
 
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         0
     }
 
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         self.buffer.lock().unwrap().len() as u64
     }
 
-    fn set_len(&mut self, _new_size: u64) -> Result<(), wasmer_wasix::FsError> {
+    async fn set_len(&mut self, _new_size: u64) -> Result<(), wasmer_wasix::FsError> {
         Err(wasmer_wasix::FsError::PermissionDenied)
     }
 
-    fn unlink(&mut self) -> Result<(), wasmer_wasix::FsError> {
+    async fn unlink(&mut self) -> Result<(), wasmer_wasix::FsError> {
         Ok(())
     }
 
-    fn is_open(&self) -> bool {
+    async fn is_open(&self) -> bool {
         true
     }
 
-    fn get_special_fd(&self) -> Option<u32> {
+    async fn get_special_fd(&self) -> Option<u32> {
         None
     }
 

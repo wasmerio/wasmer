@@ -53,6 +53,7 @@ impl Clone for FileHandle {
 }
 
 impl FileHandle {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn new_opened(
         inode: Inode,
         filesystem: FileSystem,
@@ -493,7 +494,9 @@ impl VirtualFile for FileHandle {
         let inode = fs.storage.get(self.inode)?;
         match inode {
             Node::ReadOnlyFile(f) => Some(f.file.buffer.clone()),
-            Node::CustomFile(f) => futures::executor::block_on(f.file.lock().ok()?.as_owned_buffer()),
+            Node::CustomFile(f) => {
+                futures::executor::block_on(f.file.lock().ok()?.as_owned_buffer())
+            }
             _ => None,
         }
     }
@@ -558,7 +561,10 @@ mod test_virtual_file {
             .await
             .expect("failed to create a new file");
 
-        assert!(file.last_modified().await > 0, "last modified time is not zero");
+        assert!(
+            file.last_modified().await > 0,
+            "last modified time is not zero"
+        );
     }
 
     #[tokio::test]
@@ -617,7 +623,10 @@ mod test_virtual_file {
             .await
             .expect("failed to create a new file");
 
-        assert!(matches!(file.set_len(7).await, Ok(())), "setting a new length");
+        assert!(
+            matches!(file.set_len(7).await, Ok(())),
+            "setting a new length"
+        );
         assert_eq!(file.size().await, 7, "file has a new length");
     }
 

@@ -29,11 +29,12 @@ pub(super) async fn locate_module(
             Ok(f) => f,
             // Fallback for cases where the module thinks it's running on unix,
             // but the compiled side module is a .wasm file
-            Err(_) if path.as_ref().extension() == Some(OsStr::new("so")) => fs
-                .new_open_options()
-                .read(true)
-                .open(path.as_ref().with_extension("wasm"))
-                .await?,
+            Err(_) if path.as_ref().extension() == Some(OsStr::new("so")) => {
+                fs.new_open_options()
+                    .read(true)
+                    .open(path.as_ref().with_extension("wasm"))
+                    .await?
+            }
             Err(e) => return Err(e),
         };
 

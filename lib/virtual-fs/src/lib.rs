@@ -438,7 +438,8 @@ pub trait VirtualFile:
     /// the default is to do a straight byte copy however file system implementors
     /// may optimize this to cheaply clone and store the OwnedBuffer directly
     async fn copy_from_owned_buffer(&mut self, src: &OwnedBuffer) -> std::io::Result<()> {
-        self.copy_reference(Box::new(StaticFile::new(src.clone()))).await
+        self.copy_reference(Box::new(StaticFile::new(src.clone())))
+            .await
     }
 
     /// Get the full contents of this file as an [`OwnedBuffer`].

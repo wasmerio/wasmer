@@ -67,11 +67,10 @@ pub async fn path_symlink_internal(
     }
 
     let new_path_path = std::path::Path::new(new_path);
-    let (target_parent_inode, entry_name) =
-        state
-            .fs
-            .get_parent_inode_at_path(inodes, fd, new_path_path, true)
-            .await?;
+    let (target_parent_inode, entry_name) = state
+        .fs
+        .get_parent_inode_at_path(inodes, fd, new_path_path, true)
+        .await?;
 
     let symlink_path = {
         let guard = target_parent_inode.read();

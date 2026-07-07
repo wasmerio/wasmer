@@ -47,23 +47,13 @@ pub(crate) async fn fd_filestat_set_size_internal(
         return Err(Errno::Access);
     }
 
-    {
+    let handle = {
         let mut guard = inode.write();
         match guard.deref_mut() {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle.clone() {
-                    drop(guard);
-                    let mut handle = handle.lock().await;
-                    handle
-                        .set_len(st_size)
-                        .await
-                        .map_err(fs_error_into_wasi_err)?;
-                } else {
-                    return Err(Errno::Badf);
-                }
-            }
+            Kind::File { handle, .. } => Some(handle.clone().ok_or(Errno::Badf)?),
             Kind::Buffer { buffer } => {
                 buffer.resize(st_size as usize, 0);
+                None
             }
             Kind::Socket { .. }
             | Kind::PipeRx { .. }
@@ -74,6 +64,13 @@ pub(crate) async fn fd_filestat_set_size_internal(
             | Kind::Epoll { .. } => return Err(Errno::Badf),
             Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
         }
+    };
+    if let Some(handle) = handle {
+        let mut handle = handle.lock().await;
+        handle
+            .set_len(st_size)
+            .await
+            .map_err(fs_error_into_wasi_err)?;
     }
     inode.stat.write().unwrap().st_size = st_size;
 

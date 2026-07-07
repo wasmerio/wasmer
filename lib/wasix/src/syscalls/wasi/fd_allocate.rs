@@ -51,32 +51,18 @@ pub(crate) async fn fd_allocate_internal(
         return Err(Errno::Access);
     }
     let new_size = offset.checked_add(len).ok_or(Errno::Inval)?;
-    let mut current_size;
-    {
+    let mut current_size = 0;
+    let handle = {
         let mut guard = inode.write();
         match guard.deref_mut() {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle.clone() {
-                    drop(guard);
-                    let mut handle = handle.lock().await;
-                    current_size = handle.size().await;
-                    if new_size > current_size {
-                        handle
-                            .set_len(new_size)
-                            .await
-                            .map_err(fs_error_into_wasi_err)?;
-                        current_size = new_size;
-                    }
-                } else {
-                    return Err(Errno::Badf);
-                }
-            }
+            Kind::File { handle, .. } => Some(handle.clone().ok_or(Errno::Badf)?),
             Kind::Buffer { buffer } => {
                 current_size = buffer.len() as u64;
                 if new_size > current_size {
                     buffer.resize(new_size as usize, 0);
                     current_size = new_size;
                 }
+                None
             }
             Kind::Socket { .. }
             | Kind::PipeRx { .. }
@@ -86,6 +72,17 @@ pub(crate) async fn fd_allocate_internal(
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Err(Errno::Badf),
             Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
+        }
+    };
+    if let Some(handle) = handle {
+        let mut handle = handle.lock().await;
+        current_size = handle.size().await;
+        if new_size > current_size {
+            handle
+                .set_len(new_size)
+                .await
+                .map_err(fs_error_into_wasi_err)?;
+            current_size = new_size;
         }
     }
     inode.stat.write().unwrap().st_size = current_size;

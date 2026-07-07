@@ -92,7 +92,7 @@ pub(crate) async fn fd_filestat_set_times_internal(
     }
 
     let handle = {
-        let guard = inode.kind.write().unwrap();
+        let guard = inode.kind.read().unwrap();
         match guard.deref() {
             Kind::File {
                 handle: Some(handle),

@@ -1129,9 +1129,9 @@ impl WasiEnv {
         // Next, make sure all commands will be available
 
         if !pkg.commands.is_empty() {
-            let _ = root_fs.create_dir(Path::new("/bin"));
-            let _ = root_fs.create_dir(Path::new("/usr"));
-            let _ = root_fs.create_dir(Path::new("/usr/bin"));
+            let _ = root_fs.create_dir(Path::new("/bin")).await;
+            let _ = root_fs.create_dir(Path::new("/usr")).await;
+            let _ = root_fs.create_dir(Path::new("/usr/bin")).await;
 
             for command in &pkg.commands {
                 let path = format!("/bin/{}", command.name());

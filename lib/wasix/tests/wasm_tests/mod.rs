@@ -827,30 +827,33 @@ fn copy_host_tree_to_virtual_fs(
         guest_root,
         CopyHostTreeActions {
             create_directory: |path: &Path| {
-                create_virtual_dir_all(fs, path).with_context(|| {
-                    format!(
-                        "failed to create mapped directory {} in virtual filesystem",
-                        path.display()
-                    )
+                block_on(async {
+                    create_virtual_dir_all(fs, path).await.with_context(|| {
+                        format!(
+                            "failed to create mapped directory {} in virtual filesystem",
+                            path.display()
+                        )
+                    })
                 })
             },
             copy_file: |source: &Path, target: &Path| {
                 let bytes = fs::read(source).with_context(|| {
                     format!("failed to read mapped fixture {}", source.display())
                 })?;
-                let mut file = fs
-                    .new_open_options()
-                    .write(true)
-                    .create(true)
-                    .truncate(true)
-                    .open(target)
-                    .with_context(|| {
-                        format!(
-                            "failed to open mapped fixture {} in virtual filesystem",
-                            target.display()
-                        )
-                    })?;
                 block_on(async {
+                    let mut file = fs
+                        .new_open_options()
+                        .write(true)
+                        .create(true)
+                        .truncate(true)
+                        .open(target)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to open mapped fixture {} in virtual filesystem",
+                                target.display()
+                            )
+                        })?;
                     file.write_all(&bytes).await.with_context(|| {
                         format!("failed to write mapped fixture {}", target.display())
                     })
@@ -860,11 +863,15 @@ fn copy_host_tree_to_virtual_fs(
                 let link_target = fs::read_link(source).with_context(|| {
                     format!("failed to read symlink fixture {}", source.display())
                 })?;
-                fs.create_symlink(&link_target, target).with_context(|| {
-                    format!(
-                        "failed to create symlink fixture {} in virtual filesystem",
-                        target.display()
-                    )
+                block_on(async {
+                    fs.create_symlink(&link_target, target)
+                        .await
+                        .with_context(|| {
+                            format!(
+                                "failed to create symlink fixture {} in virtual filesystem",
+                                target.display()
+                            )
+                        })
                 })
             },
         },
@@ -896,11 +903,13 @@ fn create_filesystem(kind: FileSystemKind) -> Arc<dyn FileSystem + Send + Sync> 
 }
 
 fn create_empty_dir_in_virtual_fs(fs: &(dyn FileSystem + Send + Sync), guest: &Path) -> Result<()> {
-    create_virtual_dir_all(fs, guest).with_context(|| {
-        format!(
-            "failed to create empty mapped directory {} in virtual filesystem",
-            guest.display()
-        )
+    block_on(async {
+        create_virtual_dir_all(fs, guest).await.with_context(|| {
+            format!(
+                "failed to create empty mapped directory {} in virtual filesystem",
+                guest.display()
+            )
+        })
     })
 }
 

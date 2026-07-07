@@ -189,55 +189,55 @@ impl crate::FileSystem for FileSystem {
     }
 
     async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
-            use filetime::{FileTime, set_file_mtime};
-            let norm_from = normalize_path(from);
-            let norm_to = normalize_path(to);
+        use filetime::{FileTime, set_file_mtime};
+        let norm_from = normalize_path(from);
+        let norm_to = normalize_path(to);
 
-            if norm_from.parent().is_none() {
-                return Err(FsError::BaseNotDirectory);
-            }
-            if norm_to.parent().is_none() {
-                return Err(FsError::BaseNotDirectory);
-            }
+        if norm_from.parent().is_none() {
+            return Err(FsError::BaseNotDirectory);
+        }
+        if norm_to.parent().is_none() {
+            return Err(FsError::BaseNotDirectory);
+        }
 
-            let from = self.prepare_path(from)?;
-            let to = self.prepare_path(to)?;
+        let from = self.prepare_path(from)?;
+        let to = self.prepare_path(to)?;
 
-            if !from.exists() {
-                return Err(FsError::EntryNotFound);
-            }
-            let from_parent = from.parent().unwrap();
-            let to_parent = to.parent().unwrap();
-            if !from_parent.exists() {
-                return Err(FsError::EntryNotFound);
-            }
-            if !to_parent.exists() {
-                return Err(FsError::EntryNotFound);
-            }
-            let result = if from_parent != to_parent {
-                let _ = std::fs::create_dir_all(to_parent);
-                if from.is_dir() {
-                    fs_extra::move_items(
-                        &[&from],
-                        &to,
-                        &fs_extra::dir::CopyOptions {
-                            copy_inside: true,
-                            ..Default::default()
-                        },
-                    )
-                    .map(|_| ())
-                    .map_err(|_| FsError::UnknownError)?;
-                    let _ = fs_extra::remove_items(&[&from]);
-                    Ok(())
-                } else {
-                    fs::copy(&from, &to).map(|_| ()).map_err(FsError::from)?;
-                    fs::remove_file(&from).map(|_| ()).map_err(Into::into)
-                }
+        if !from.exists() {
+            return Err(FsError::EntryNotFound);
+        }
+        let from_parent = from.parent().unwrap();
+        let to_parent = to.parent().unwrap();
+        if !from_parent.exists() {
+            return Err(FsError::EntryNotFound);
+        }
+        if !to_parent.exists() {
+            return Err(FsError::EntryNotFound);
+        }
+        let result = if from_parent != to_parent {
+            let _ = std::fs::create_dir_all(to_parent);
+            if from.is_dir() {
+                fs_extra::move_items(
+                    &[&from],
+                    &to,
+                    &fs_extra::dir::CopyOptions {
+                        copy_inside: true,
+                        ..Default::default()
+                    },
+                )
+                .map(|_| ())
+                .map_err(|_| FsError::UnknownError)?;
+                let _ = fs_extra::remove_items(&[&from]);
+                Ok(())
             } else {
-                fs::rename(&from, &to).map_err(Into::into)
-            };
-            let _ = set_file_mtime(&to, FileTime::now()).map(|_| ());
-            result
+                fs::copy(&from, &to).map(|_| ()).map_err(FsError::from)?;
+                fs::remove_file(&from).map(|_| ()).map_err(Into::into)
+            }
+        } else {
+            fs::rename(&from, &to).map_err(Into::into)
+        };
+        let _ = set_file_mtime(&to, FileTime::now()).map(|_| ());
+        result
     }
 
     async fn remove_file(&self, path: &Path) -> Result<()> {
@@ -1311,9 +1311,11 @@ mod tests {
             "creating a new file",
         );
 
-        assert!(read_dir_names(&fs, Path::new("/"))
-            .await
-            .contains(&"foo.txt".to_string()));
+        assert!(
+            read_dir_names(&fs, Path::new("/"))
+                .await
+                .contains(&"foo.txt".to_string())
+        );
 
         assert!(temp.path().join("foo.txt").is_file());
 
@@ -1337,14 +1339,26 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
-        assert_eq!(fs.create_dir(Path::new("foo")).await, Ok(()), "creating `foo`");
+        assert_eq!(
+            fs.create_dir(Path::new("foo")).await,
+            Ok(()),
+            "creating `foo`"
+        );
         assert_eq!(
             fs.create_dir(Path::new("foo/sub")).await,
             Ok(()),
             "creating `sub`"
         );
-        assert_eq!(fs.create_dir(Path::new("bar")).await, Ok(()), "creating `bar`");
-        assert_eq!(fs.create_dir(Path::new("baz")).await, Ok(()), "creating `bar`");
+        assert_eq!(
+            fs.create_dir(Path::new("bar")).await,
+            Ok(()),
+            "creating `bar`"
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("baz")).await,
+            Ok(()),
+            "creating `bar`"
+        );
         assert!(
             fs.new_open_options()
                 .write(true)
