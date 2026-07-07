@@ -185,11 +185,7 @@ impl MountFileSystem {
     }
 
     fn absolute_path(components: &[OsString]) -> PathBuf {
-        let mut path = PathBuf::from("/");
-        for component in components {
-            path.push(component);
-        }
-        path
+        Self::guest_path_from_components(components)
     }
 
     fn normal_components(path: &Path) -> Vec<OsString> {
@@ -202,17 +198,19 @@ impl MountFileSystem {
     }
 
     fn guest_path_from_components(components: &[OsString]) -> PathBuf {
-        let mut path = PathBuf::from("/");
-        for component in components {
-            path.push(component);
-        }
-        path
+        let mut path = String::from("/");
+        path.push_str(
+            &components
+                .iter()
+                .map(|component| component.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/"),
+        );
+        PathBuf::from(path)
     }
 
     fn normalize_source_path(path: &Path) -> PathBuf {
-        let mut normalized = PathBuf::from("/");
-        normalized.push(path.strip_prefix("/").unwrap_or(path));
-        normalized
+        Self::guest_path_from_components(&Self::normal_components(path))
     }
 
     fn now_nanos() -> u64 {
@@ -1726,6 +1724,40 @@ mod tests {
             read_dir_names(&fs, "/runtime").await,
             vec!["lib.py".to_string()]
         );
+    }
+
+    #[tokio::test]
+    async fn test_mount_with_relative_source_path_exposes_subtree() {
+        let fs = MountFileSystem::new();
+
+        let source = mem_fs::FileSystem::default();
+        source.create_dir(Path::new("/python")).await.unwrap();
+        source
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/python/lib.py"))
+            .await
+            .unwrap();
+
+        fs.mount_with_source(Path::new("/runtime"), Path::new("python"), Arc::new(source))
+            .unwrap();
+
+        assert!(
+            fs.metadata(Path::new("/runtime/lib.py"))
+                .await
+                .unwrap()
+                .is_file()
+        );
+
+        let entries: Vec<PathBuf> = fs
+            .read_dir(Path::new("/runtime"))
+            .await
+            .unwrap()
+            .map(|entry| entry.unwrap().path)
+            .collect();
+
+        assert_eq!(entries, vec![PathBuf::from("/runtime/lib.py")]);
     }
 
     #[tokio::test]
