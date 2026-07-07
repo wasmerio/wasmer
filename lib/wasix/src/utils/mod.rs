@@ -9,6 +9,7 @@ pub(crate) mod web;
 
 pub use self::{dummy_waker::WasiDummyWaker, thread_parker::WasiParkingLot};
 
+#[allow(unused_imports)]
 pub(crate) use owned_mutex_guard::{
     OwnedRwLockReadGuard, OwnedRwLockWriteGuard, read_owned, write_owned,
 };

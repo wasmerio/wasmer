@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 /// Extends the standard library RwLock to include an owned version of the read
 /// and write locking functions.
 ///

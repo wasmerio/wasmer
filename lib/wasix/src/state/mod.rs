@@ -44,7 +44,7 @@ pub use self::{
 };
 pub use crate::fs::{InodeGuard, InodeWeakGuard};
 use crate::{
-    fs::{WasiFs, WasiFsRoot, WasiInodes, WasiStateFileGuard, fs_error_into_wasi_err},
+    fs::{WasiFs, WasiInodes, WasiStateFileGuard, fs_error_into_wasi_err},
     syscalls::types::*,
     utils::WasiParkingLot,
 };

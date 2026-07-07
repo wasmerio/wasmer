@@ -466,6 +466,7 @@ impl WasiStateFileGuard {
         }
     }
 
+    #[allow(dead_code)]
     pub fn lock_read(&self) -> Option<InodeValFileReadGuard> {
         let guard = self.inode.read();
         if let Kind::File { handle, .. } = guard.deref() {
