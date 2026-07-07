@@ -378,6 +378,7 @@ impl FileSystem {
         };
 
         let cursor = 0u64;
+        let mut arc_file = None;
         let (inode_of_file, handle_lifecycle) = match maybe_inode_of_file {
             // The file already exists, and a _new_ one _must_ be
             // created; it's not OK.
@@ -385,99 +386,128 @@ impl FileSystem {
 
             // The file already exists; it's OK.
             Some(inode_of_file) => {
-                // Write lock.
-                let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+                enum OpenedNode {
+                    Other(Arc<FileLifecycle>),
+                    ArcFile {
+                        lifecycle: Arc<FileLifecycle>,
+                        fs: Arc<dyn crate::FileSystem + Send + Sync>,
+                        path: std::path::PathBuf,
+                    },
+                }
 
-                let handle_lifecycle = match fs.storage.get_mut(inode_of_file) {
-                    Some(Node::File(FileNode {
-                        metadata,
-                        file,
+                let opened_node = {
+                    // Write lock.
+                    let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+                    match fs.storage.get_mut(inode_of_file) {
+                        Some(Node::File(FileNode {
+                            metadata,
+                            file,
+                            lifecycle,
+                            ..
+                        })) => {
+                            // Update the accessed time.
+                            metadata.accessed = time();
+
+                            // Truncate if needed.
+                            if truncate {
+                                file.truncate();
+                                metadata.len = 0;
+                            }
+
+                            OpenedNode::Other(lifecycle.clone())
+                        }
+
+                        Some(Node::OffloadedFile(OffloadedFileNode {
+                            metadata,
+                            file,
+                            lifecycle,
+                            ..
+                        })) => {
+                            // Update the accessed time.
+                            metadata.accessed = time();
+
+                            // Truncate if needed.
+                            if truncate {
+                                file.truncate();
+                                metadata.len = 0;
+                            }
+
+                            OpenedNode::Other(lifecycle.clone())
+                        }
+
+                        Some(Node::ReadOnlyFile(node)) => {
+                            // Update the accessed time.
+                            node.metadata.accessed = time();
+
+                            // Truncate if needed.
+                            if truncate || append {
+                                return Err(FsError::PermissionDenied);
+                            }
+
+                            OpenedNode::Other(node.lifecycle.clone())
+                        }
+
+                        Some(Node::CustomFile(node)) => {
+                            // Update the accessed time.
+                            node.metadata.accessed = time();
+
+                            // Truncate if needed.
+                            let mut file = node.file.lock().unwrap();
+                            if truncate {
+                                futures::executor::block_on(file.set_len(0))?;
+                                node.metadata.len = 0;
+                            }
+
+                            OpenedNode::Other(node.lifecycle.clone())
+                        }
+
+                        Some(Node::ArcFile(node)) => {
+                            // Update the accessed time.
+                            node.metadata.accessed = time();
+
+                            OpenedNode::ArcFile {
+                                lifecycle: node.lifecycle.clone(),
+                                fs: node.fs.clone(),
+                                path: node.path.clone(),
+                            }
+                        }
+
+                        None => return Err(FsError::EntryNotFound),
+                        _ => return Err(FsError::NotAFile),
+                    }
+                };
+
+                let handle_lifecycle = match opened_node {
+                    OpenedNode::Other(lifecycle) => lifecycle,
+                    OpenedNode::ArcFile {
                         lifecycle,
-                        ..
-                    })) => {
-                        // Update the accessed time.
-                        metadata.accessed = time();
+                        fs: node_fs,
+                        path: node_path,
+                    } => {
+                        let mut file = node_fs
+                            .new_open_options()
+                            .read(read)
+                            .write(write)
+                            .append(append)
+                            .truncate(truncate)
+                            .create(create)
+                            .create_new(create_new)
+                            .open(node_path.as_path())
+                            .await?;
 
                         // Truncate if needed.
                         if truncate {
-                            file.truncate();
-                            metadata.len = 0;
+                            file.set_len(0).await?;
+                            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+                            if let Some(Node::ArcFile(node)) = fs.storage.get_mut(inode_of_file) {
+                                node.metadata.len = 0;
+                            }
                         }
 
-                        lifecycle.clone()
+                        arc_file = Some(file);
+                        lifecycle
                     }
-
-                    Some(Node::OffloadedFile(OffloadedFileNode {
-                        metadata,
-                        file,
-                        lifecycle,
-                        ..
-                    })) => {
-                        // Update the accessed time.
-                        metadata.accessed = time();
-
-                        // Truncate if needed.
-                        if truncate {
-                            file.truncate();
-                            metadata.len = 0;
-                        }
-
-                        lifecycle.clone()
-                    }
-
-                    Some(Node::ReadOnlyFile(node)) => {
-                        // Update the accessed time.
-                        node.metadata.accessed = time();
-
-                        // Truncate if needed.
-                        if truncate || append {
-                            return Err(FsError::PermissionDenied);
-                        }
-
-                        node.lifecycle.clone()
-                    }
-
-                    Some(Node::CustomFile(node)) => {
-                        // Update the accessed time.
-                        node.metadata.accessed = time();
-
-                        // Truncate if needed.
-                        let mut file = node.file.lock().unwrap();
-                        if truncate {
-                            futures::executor::block_on(file.set_len(0))?;
-                            node.metadata.len = 0;
-                        }
-
-                        node.lifecycle.clone()
-                    }
-
-                    Some(Node::ArcFile(node)) => {
-                        // Update the accessed time.
-                        node.metadata.accessed = time();
-
-                        let mut file = futures::executor::block_on(
-                            node.fs
-                                .new_open_options()
-                                .read(read)
-                                .write(write)
-                                .append(append)
-                                .truncate(truncate)
-                                .create(create)
-                                .create_new(create_new)
-                                .open(node.path.as_path()),
-                        )?;
-
-                        // Truncate if needed.
-                        if truncate {
-                            futures::executor::block_on(file.set_len(0))?;
-                            node.metadata.len = 0;
-                        }
-
-                        node.lifecycle.clone()
-                    }
-
-                    None => return Err(FsError::EntryNotFound),
-                    _ => return Err(FsError::NotAFile),
                 };
 
                 handle_lifecycle.opened();
@@ -562,6 +592,7 @@ impl FileSystem {
             write || append || truncate,
             append,
             cursor,
+            arc_file,
         )))
     }
 }

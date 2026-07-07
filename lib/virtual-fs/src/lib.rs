@@ -429,7 +429,8 @@ pub trait VirtualFile:
         &mut self,
         src: Box<dyn VirtualFile + Send + Sync + 'static>,
     ) -> std::io::Result<()> {
-        tokio::io::copy(&mut tokio::io::BufReader::new(src), self).await?;
+        let mut src = tokio::io::BufReader::new(src);
+        tokio::io::copy(&mut src, self).await?;
         Ok(())
     }
 

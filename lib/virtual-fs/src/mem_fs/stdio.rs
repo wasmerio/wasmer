@@ -24,8 +24,7 @@ macro_rules! impl_virtualfile_on_std_streams {
         }
 
         #[async_trait::async_trait]
-        #[async_trait::async_trait]
-impl VirtualFile for $name {
+        impl VirtualFile for $name {
             async fn last_accessed(&self) -> u64 {
                 0
             }

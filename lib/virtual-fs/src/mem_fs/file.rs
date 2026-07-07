@@ -33,7 +33,7 @@ pub(super) struct FileHandle {
     writable: bool,
     append_mode: bool,
     cursor: u64,
-    arc_file: Option<Result<Box<dyn VirtualFile + Send + Sync + 'static>>>,
+    arc_file: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
 }
 
 impl Clone for FileHandle {
@@ -61,6 +61,7 @@ impl FileHandle {
         writable: bool,
         append_mode: bool,
         cursor: u64,
+        arc_file: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     ) -> Self {
         Self {
             inode,
@@ -70,40 +71,15 @@ impl FileHandle {
             writable,
             append_mode,
             cursor,
-            arc_file: None,
+            arc_file,
         }
     }
 
     fn lazy_load_arc_file_mut(&mut self) -> Result<&mut dyn VirtualFile> {
-        if self.arc_file.is_none() {
-            let (node_fs, node_path) = {
-                let fs = match self.filesystem.inner.read() {
-                    Ok(fs) => fs,
-                    _ => return Err(FsError::EntryNotFound),
-                };
-
-                let inode = fs.storage.get(self.inode);
-                match inode {
-                    Some(Node::ArcFile(node)) => (node.fs.clone(), node.path.clone()),
-                    _ => return Err(FsError::EntryNotFound),
-                }
-            };
-
-            self.arc_file.replace(futures::executor::block_on(
-                node_fs
-                    .new_open_options()
-                    .read(self.readable)
-                    .write(self.writable)
-                    .append(self.append_mode)
-                    .open(node_path.as_path()),
-            ));
-        }
         Ok(self
             .arc_file
             .as_mut()
-            .unwrap()
-            .as_mut()
-            .map_err(|err| *err)?
+            .ok_or(FsError::EntryNotFound)?
             .as_mut())
     }
 
@@ -181,41 +157,29 @@ impl VirtualFile for FileHandle {
     }
 
     async fn size(&self) -> u64 {
-        let fs = match self.filesystem.inner.read() {
-            Ok(fs) => fs,
-            _ => return 0,
+        let size = {
+            let fs = match self.filesystem.inner.read() {
+                Ok(fs) => fs,
+                _ => return 0,
+            };
+
+            let inode = fs.storage.get(self.inode);
+            match inode {
+                Some(Node::File(node)) => return node.file.len().try_into().unwrap_or(0),
+                Some(Node::OffloadedFile(node)) => return node.file.len(),
+                Some(Node::ReadOnlyFile(node)) => return node.file.len().try_into().unwrap_or(0),
+                Some(Node::CustomFile(node)) => {
+                    let file = node.file.lock().unwrap();
+                    return futures::executor::block_on(file.size());
+                }
+                Some(Node::ArcFile(_)) => self.arc_file.as_ref().map(|file| file.as_ref()),
+                _ => return 0,
+            }
         };
 
-        let inode = fs.storage.get(self.inode);
-        match inode {
-            Some(Node::File(node)) => node.file.len().try_into().unwrap_or(0),
-            Some(Node::OffloadedFile(node)) => node.file.len(),
-            Some(Node::ReadOnlyFile(node)) => node.file.len().try_into().unwrap_or(0),
-            Some(Node::CustomFile(node)) => {
-                let file = node.file.lock().unwrap();
-                futures::executor::block_on(file.size())
-            }
-            Some(Node::ArcFile(node)) => match self.arc_file.as_ref() {
-                Some(file) => file
-                    .as_ref()
-                    .map(|file| futures::executor::block_on(file.size()))
-                    .unwrap_or(0),
-                None => {
-                    let file = futures::executor::block_on(
-                        node.fs
-                            .new_open_options()
-                            .read(self.readable)
-                            .write(self.writable)
-                            .append(self.append_mode)
-                            .open(node.path.as_path()),
-                    );
-                    match file {
-                        Ok(file) => futures::executor::block_on(file.size()),
-                        Err(_) => 0,
-                    }
-                }
-            },
-            _ => 0,
+        match size {
+            Some(file) => file.size().await,
+            None => 0,
         }
     }
 
@@ -309,25 +273,9 @@ impl VirtualFile for FileHandle {
                 let file = node.file.lock().unwrap();
                 futures::executor::block_on(file.get_special_fd())
             }
-            Some(Node::ArcFile(node)) => match self.arc_file.as_ref() {
-                Some(file) => file
-                    .as_ref()
-                    .map(|file| futures::executor::block_on(file.get_special_fd()))
-                    .unwrap_or(None),
-                None => {
-                    let file = futures::executor::block_on(
-                        node.fs
-                            .new_open_options()
-                            .read(self.readable)
-                            .write(self.writable)
-                            .append(self.append_mode)
-                            .open(node.path.as_path()),
-                    );
-                    match file {
-                        Ok(file) => futures::executor::block_on(file.get_special_fd()),
-                        Err(_) => None,
-                    }
-                }
+            Some(Node::ArcFile(_)) => match self.arc_file.as_ref() {
+                Some(file) => futures::executor::block_on(file.get_special_fd()),
+                None => None,
             },
             _ => None,
         }
@@ -1128,7 +1076,7 @@ impl AsyncWrite for FileHandle {
                 }
                 Some(Node::CustomFile(node)) => {
                     let mut guard = node.file.lock().unwrap();
-                    cursor = self.write_cursor(futures::executor::block_on(guard.size()));
+                    cursor = self.write_cursor(node.metadata.len);
 
                     let file = Pin::new(guard.as_mut());
                     if let Err(err) = file.start_seek(io::SeekFrom::Start(cursor)) {
@@ -1145,7 +1093,7 @@ impl AsyncWrite for FileHandle {
                         Poll::Pending => return Poll::Pending,
                     };
                     cursor += bytes_written as u64;
-                    node.metadata.len = futures::executor::block_on(guard.size());
+                    node.metadata.len = node.metadata.len.max(cursor);
                     bytes_written
                 }
                 Some(Node::ArcFile(_)) => {
@@ -1340,7 +1288,7 @@ impl AsyncWrite for FileHandle {
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 match self.arc_file.as_ref() {
-                    Some(Ok(file)) => file.is_write_vectored(),
+                    Some(file) => file.is_write_vectored(),
                     _ => false,
                 }
             }
