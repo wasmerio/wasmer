@@ -80,7 +80,7 @@
 <a href=#80 id=80 data-nosnippet>80</a><span class="attr">#[cfg(test)]
 <a href=#81 id=81 data-nosnippet>81</a></span><span class="kw">mod </span>test_vmfunction_import {
 <a href=#82 id=82 data-nosnippet>82</a>    <span class="kw">use </span><span class="kw">super</span>::VMFunctionImport;
-<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">use </span>memoffset::offset_of;
+<a href=#83 id=83 data-nosnippet>83</a>    <span class="kw">use </span>core::mem::offset_of;
 <a href=#84 id=84 data-nosnippet>84</a>    <span class="kw">use </span>std::mem::size_of;
 <a href=#85 id=85 data-nosnippet>85</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
 <a href=#86 id=86 data-nosnippet>86</a>    <span class="kw">use </span>wasmer_types::VMOffsets;
@@ -144,7 +144,7 @@
 <a href=#144 id=144 data-nosnippet>144</a></span><span class="kw">mod </span>test_vmdynamicfunction_import_context {
 <a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">use </span><span class="kw">super</span>::VMDynamicFunctionContext;
 <a href=#146 id=146 data-nosnippet>146</a>    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
-<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">use </span>memoffset::offset_of;
+<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">use </span>core::mem::offset_of;
 <a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">use </span>std::mem::size_of;
 <a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
 <a href=#150 id=150 data-nosnippet>150</a>
@@ -203,7 +203,7 @@
 <a href=#203 id=203 data-nosnippet>203</a></span><span class="kw">mod </span>test_vmtable_import {
 <a href=#204 id=204 data-nosnippet>204</a>    <span class="kw">use </span><span class="kw">super</span>::VMTableImport;
 <a href=#205 id=205 data-nosnippet>205</a>    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
-<a href=#206 id=206 data-nosnippet>206</a>    <span class="kw">use </span>memoffset::offset_of;
+<a href=#206 id=206 data-nosnippet>206</a>    <span class="kw">use </span>core::mem::offset_of;
 <a href=#207 id=207 data-nosnippet>207</a>    <span class="kw">use </span>std::mem::size_of;
 <a href=#208 id=208 data-nosnippet>208</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
 <a href=#209 id=209 data-nosnippet>209</a>
@@ -238,7 +238,7 @@
 <a href=#238 id=238 data-nosnippet>238</a></span><span class="kw">mod </span>test_vmmemory_import {
 <a href=#239 id=239 data-nosnippet>239</a>    <span class="kw">use </span><span class="kw">super</span>::VMMemoryImport;
 <a href=#240 id=240 data-nosnippet>240</a>    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
-<a href=#241 id=241 data-nosnippet>241</a>    <span class="kw">use </span>memoffset::offset_of;
+<a href=#241 id=241 data-nosnippet>241</a>    <span class="kw">use </span>core::mem::offset_of;
 <a href=#242 id=242 data-nosnippet>242</a>    <span class="kw">use </span>std::mem::size_of;
 <a href=#243 id=243 data-nosnippet>243</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
 <a href=#244 id=244 data-nosnippet>244</a>
@@ -289,7 +289,7 @@
 <a href=#289 id=289 data-nosnippet>289</a></span><span class="kw">mod </span>test_vmglobal_import {
 <a href=#290 id=290 data-nosnippet>290</a>    <span class="kw">use </span><span class="kw">super</span>::VMGlobalImport;
 <a href=#291 id=291 data-nosnippet>291</a>    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
-<a href=#292 id=292 data-nosnippet>292</a>    <span class="kw">use </span>memoffset::offset_of;
+<a href=#292 id=292 data-nosnippet>292</a>    <span class="kw">use </span>core::mem::offset_of;
 <a href=#293 id=293 data-nosnippet>293</a>    <span class="kw">use </span>std::mem::size_of;
 <a href=#294 id=294 data-nosnippet>294</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
 <a href=#295 id=295 data-nosnippet>295</a>
@@ -465,7 +465,7 @@
 <a href=#465 id=465 data-nosnippet>465</a></span><span class="kw">mod </span>test_vmtable_definition {
 <a href=#466 id=466 data-nosnippet>466</a>    <span class="kw">use </span><span class="kw">super</span>::VMTableDefinition;
 <a href=#467 id=467 data-nosnippet>467</a>    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
-<a href=#468 id=468 data-nosnippet>468</a>    <span class="kw">use </span>memoffset::offset_of;
+<a href=#468 id=468 data-nosnippet>468</a>    <span class="kw">use </span>core::mem::offset_of;
 <a href=#469 id=469 data-nosnippet>469</a>    <span class="kw">use </span>std::mem::size_of;
 <a href=#470 id=470 data-nosnippet>470</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
 <a href=#471 id=471 data-nosnippet>471</a>
@@ -640,7 +640,7 @@
 <a href=#640 id=640 data-nosnippet>640</a></span><span class="kw">mod </span>test_vmcaller_checked_anyfunc {
 <a href=#641 id=641 data-nosnippet>641</a>    <span class="kw">use </span><span class="kw">super</span>::VMCallerCheckedAnyfunc;
 <a href=#642 id=642 data-nosnippet>642</a>    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
-<a href=#643 id=643 data-nosnippet>643</a>    <span class="kw">use </span>memoffset::offset_of;
+<a href=#643 id=643 data-nosnippet>643</a>    <span class="kw">use </span>core::mem::offset_of;
 <a href=#644 id=644 data-nosnippet>644</a>    <span class="kw">use </span>std::mem::size_of;
 <a href=#645 id=645 data-nosnippet>645</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
 <a href=#646 id=646 data-nosnippet>646</a>
@@ -837,7 +837,7 @@
 <a href=#837 id=837 data-nosnippet>837</a></span><span class="kw">mod </span>test_vmmemory_definition {
 <a href=#838 id=838 data-nosnippet>838</a>    <span class="kw">use </span><span class="kw">super</span>::VMMemoryDefinition;
 <a href=#839 id=839 data-nosnippet>839</a>    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
-<a href=#840 id=840 data-nosnippet>840</a>    <span class="kw">use </span>memoffset::offset_of;
+<a href=#840 id=840 data-nosnippet>840</a>    <span class="kw">use </span>core::mem::offset_of;
 <a href=#841 id=841 data-nosnippet>841</a>    <span class="kw">use </span>std::mem::size_of;
 <a href=#842 id=842 data-nosnippet>842</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
 <a href=#843 id=843 data-nosnippet>843</a>
