@@ -3,7 +3,22 @@ use super::*;
 use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
 use shared_buffer::OwnedBuffer;
 use std::path::Path;
+use std::task::{Context, Poll};
 use tracing::*;
+
+fn poll_custom_file_set_len(
+    file: &mut (dyn VirtualFile + Send + Sync),
+    new_size: u64,
+) -> Result<()> {
+    let mut future = file.set_len(new_size);
+    let waker = futures::task::noop_waker_ref();
+    let mut context = Context::from_waker(waker);
+
+    match future.as_mut().poll(&mut context) {
+        Poll::Ready(result) => result,
+        Poll::Pending => Err(FsError::Unsupported),
+    }
+}
 
 impl FileSystem {
     /// Inserts a readonly file into the file system that uses copy-on-write
@@ -457,7 +472,7 @@ impl FileSystem {
                             // Truncate if needed.
                             let mut file = node.file.lock().unwrap();
                             if truncate {
-                                futures::executor::block_on(file.set_len(0))?;
+                                poll_custom_file_set_len(file.as_mut(), 0)?;
                                 node.metadata.len = 0;
                             }
 
