@@ -80,7 +80,7 @@ pub struct VMFunctionImport {
 #[cfg(test)]
 mod test_vmfunction_import {
     use super::VMFunctionImport;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
     use wasmer_types::VMOffsets;
@@ -144,7 +144,7 @@ impl<T: Sized + Clone + Send + Sync> Clone for VMDynamicFunctionContext<T> {
 mod test_vmdynamicfunction_import_context {
     use super::VMDynamicFunctionContext;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
@@ -203,7 +203,7 @@ pub struct VMTableImport {
 mod test_vmtable_import {
     use super::VMTableImport;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
@@ -238,7 +238,7 @@ pub struct VMMemoryImport {
 mod test_vmmemory_import {
     use super::VMMemoryImport;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
@@ -289,7 +289,7 @@ unsafe impl Sync for VMGlobalImport {}
 mod test_vmglobal_import {
     use super::VMGlobalImport;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
@@ -465,7 +465,7 @@ pub struct VMTableDefinition {
 mod test_vmtable_definition {
     use super::VMTableDefinition;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
@@ -640,7 +640,7 @@ impl Hash for VMCallerCheckedAnyfunc {
 mod test_vmcaller_checked_anyfunc {
     use super::VMCallerCheckedAnyfunc;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
@@ -837,7 +837,7 @@ unsafe impl Sync for VMMemoryDefinition {}
 mod test_vmmemory_definition {
     use super::VMMemoryDefinition;
     use crate::VMOffsets;
-    use memoffset::offset_of;
+    use core::mem::offset_of;
     use std::mem::size_of;
     use wasmer_types::ModuleInfo;
 
