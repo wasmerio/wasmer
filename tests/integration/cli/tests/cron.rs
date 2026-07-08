@@ -66,6 +66,7 @@ jobs:
     let list_output = wasmer_command()
         .arg("cron")
         .arg("list")
+        .arg("--app")
         .arg(&app_ident)
         .arg("--format=json")
         .arg(format!("--registry={REGISTRY}"))
@@ -89,8 +90,9 @@ jobs:
     wasmer_command()
         .arg("cron")
         .arg("get")
-        .arg(&app_ident)
         .arg(HOURLY_JOB)
+        .arg("--app")
+        .arg(&app_ident)
         .arg("--format=json")
         .arg(format!("--registry={REGISTRY}"))
         .arg("--token")
@@ -102,8 +104,9 @@ jobs:
     wasmer_command()
         .arg("cron")
         .arg("disable")
-        .arg(&app_ident)
         .arg(HOURLY_JOB)
+        .arg("--app")
+        .arg(&app_ident)
         .arg(format!("--registry={REGISTRY}"))
         .arg("--token")
         .arg(&ciuser_token)
@@ -114,8 +117,9 @@ jobs:
     wasmer_command()
         .arg("cron")
         .arg("get")
-        .arg(&app_ident)
         .arg(HOURLY_JOB)
+        .arg("--app")
+        .arg(&app_ident)
         .arg("--format=json")
         .arg(format!("--registry={REGISTRY}"))
         .arg("--token")
@@ -127,8 +131,9 @@ jobs:
     wasmer_command()
         .arg("cron")
         .arg("enable")
-        .arg(&app_ident)
         .arg(HOURLY_JOB)
+        .arg("--app")
+        .arg(&app_ident)
         .arg(format!("--registry={REGISTRY}"))
         .arg("--token")
         .arg(&ciuser_token)
@@ -136,43 +141,101 @@ jobs:
         .success()
         .stderr(contains(format!("Cron job {HOURLY_JOB} is now enabled.")));
 
-    wasmer_command()
+    let invocations_output = wasmer_command()
         .arg("cron")
         .arg("invocations")
-        .arg(&app_ident)
         .arg(HOURLY_JOB)
+        .arg("--app")
+        .arg(&app_ident)
         .arg("--all")
         .arg("--page-size=1")
         .arg("--format=json")
         .arg(format!("--registry={REGISTRY}"))
         .arg("--token")
         .arg(&ciuser_token)
-        .output()
-        .map(|output| {
+        .output()?;
+
+    assert!(
+        invocations_output.status.success(),
+        "cron invocations failed: stdout: {}\nstderr: {}",
+        String::from_utf8_lossy(&invocations_output.stdout),
+        String::from_utf8_lossy(&invocations_output.stderr)
+    );
+
+    if invocations_output.stdout.is_empty() {
+        assert!(
+            String::from_utf8_lossy(&invocations_output.stderr)
+                .contains(&format!("Cron job {HOURLY_JOB} has no invocations!")),
+            "cron invocations returned no JSON and no empty-invocations message: {}",
+            String::from_utf8_lossy(&invocations_output.stderr)
+        );
+    } else {
+        let invocations: Value = serde_json::from_slice(&invocations_output.stdout)
+            .expect("cron invocations output should be valid JSON");
+        let invocations = invocations.as_array().unwrap_or_else(|| {
+            panic!(
+                "cron invocations JSON should be an array: {}",
+                String::from_utf8_lossy(&invocations_output.stdout)
+            )
+        });
+
+        if let Some(invocation) = invocations.first() {
+            let invocation_id = invocation["id"]
+                .as_str()
+                .or_else(|| invocation["edge_job_id"].as_str())
+                .unwrap_or_else(|| {
+                    panic!(
+                        "cron invocation should include id or edge_job_id: {}",
+                        serde_json::to_string(invocation).unwrap()
+                    )
+                });
+
+            let logs_output = wasmer_command()
+                .arg("cron")
+                .arg("logs")
+                .arg(HOURLY_JOB)
+                .arg(invocation_id)
+                .arg("--app")
+                .arg(&app_ident)
+                .arg("--max=1")
+                .arg("--format=json")
+                .arg(format!("--registry={REGISTRY}"))
+                .arg("--token")
+                .arg(&ciuser_token)
+                .output()?;
+
             assert!(
-                output.status.success(),
-                "cron invocations failed: stdout: {}\nstderr: {}",
-                String::from_utf8_lossy(&output.stdout),
-                String::from_utf8_lossy(&output.stderr)
+                logs_output.status.success(),
+                "cron logs failed: stdout: {}\nstderr: {}",
+                String::from_utf8_lossy(&logs_output.stdout),
+                String::from_utf8_lossy(&logs_output.stderr)
             );
 
-            if output.stdout.is_empty() {
+            if logs_output.stdout.is_empty() {
                 assert!(
-                    String::from_utf8_lossy(&output.stderr)
-                        .contains(&format!("Cron job {HOURLY_JOB} has no invocations!")),
-                    "cron invocations returned no JSON and no empty-invocations message: {}",
-                    String::from_utf8_lossy(&output.stderr)
+                    String::from_utf8_lossy(&logs_output.stderr)
+                        .contains(&format!("Cron job invocation {invocation_id} has no logs!")),
+                    "cron logs returned no JSON and no empty-logs message: {}",
+                    String::from_utf8_lossy(&logs_output.stderr)
                 );
             } else {
-                let invocations: Value = serde_json::from_slice(&output.stdout)
-                    .expect("cron invocations output should be valid JSON");
+                let logs: Value = serde_json::from_slice(&logs_output.stdout)
+                    .expect("cron logs output should be valid JSON");
+                let logs = logs.as_array().unwrap_or_else(|| {
+                    panic!(
+                        "cron logs JSON should be an array: {}",
+                        String::from_utf8_lossy(&logs_output.stdout)
+                    )
+                });
                 assert!(
-                    invocations.is_array(),
-                    "cron invocations JSON should be an array: {}",
-                    String::from_utf8_lossy(&output.stdout)
+                    logs.iter()
+                        .all(|log| log["message"].is_string() && log["datetime"].is_string()),
+                    "cron logs should include message and datetime fields: {}",
+                    String::from_utf8_lossy(&logs_output.stdout)
                 );
             }
-        })?;
+        }
+    }
 
     drop(cleanup);
     Ok(())

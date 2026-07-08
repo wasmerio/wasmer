@@ -550,6 +550,7 @@ pub async fn get_cron_job_invocations_page_by_id(
     ))
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn get_cron_job_invocation_logs(
     client: &WasmerClient,
     owner: impl Into<String>,

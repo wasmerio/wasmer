@@ -2240,7 +2240,7 @@ mod queries {
     #[derive(cynic::InlineFragments, Debug, Clone)]
     #[cynic(graphql_type = "Node")]
     pub enum NodeCronJob {
-        CronJob(CronJob),
+        CronJob(Box<CronJob>),
         #[cynic(fallback)]
         Unknown,
     }
@@ -2248,7 +2248,7 @@ mod queries {
     impl NodeCronJob {
         pub fn into_cron_job(self) -> Option<CronJob> {
             match self {
-                Self::CronJob(cron_job) => Some(cron_job),
+                Self::CronJob(cron_job) => Some(*cron_job),
                 Self::Unknown => None,
             }
         }
