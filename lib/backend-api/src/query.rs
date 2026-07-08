@@ -18,18 +18,80 @@ use crate::{
 
 pub const CRON_JOB_PAGE_SIZE: i32 = 100;
 
-/// Rotate the s3 secrets tied to an app given its id.
-pub async fn rotate_s3_secrets(
+/// Retrieve the persistent `AppVolume` nodes of an app, including their S3
+/// state and (for S3-enabled volumes) credentials.
+///
+/// Unlike [`get_app_volumes`], which returns the active version's volume
+/// descriptors (`AppVersionVolume`, keyed by the user-chosen name), this returns
+/// the persistent `DeployApp.volumes` nodes with the ids required to rotate S3
+/// credentials or toggle the S3 endpoint per volume.
+pub async fn get_deploy_app_volumes(
     client: &WasmerClient,
-    app_id: types::Id,
-) -> Result<(), anyhow::Error> {
-    client
-        .run_graphql_strict(types::RotateS3SecretsForApp::build(
-            RotateS3SecretsForAppVariables { id: app_id },
-        ))
-        .await?;
+    owner: impl Into<String>,
+    name: impl Into<String>,
+) -> Result<Vec<types::AppVolume>, anyhow::Error> {
+    let mut vars = types::GetDeployAppVolumesVars {
+        owner: owner.into(),
+        name: name.into(),
+        after: None,
+    };
 
-    Ok(())
+    let mut volumes = Vec::new();
+    loop {
+        let connection = client
+            .run_graphql_strict(types::GetDeployAppVolumes::build(vars.clone()))
+            .await?
+            .get_deploy_app
+            .context("app not found")?
+            .volumes;
+
+        volumes.extend(connection.edges.into_iter().map(|edge| edge.node));
+
+        match connection
+            .page_info
+            .end_cursor
+            .filter(|_| connection.page_info.has_next_page)
+        {
+            Some(after) => vars.after = Some(after),
+            None => break,
+        }
+    }
+
+    Ok(volumes)
+}
+
+/// Rotate the S3 credentials of a single app volume, identified by its
+/// `AppVolume` id.
+pub async fn rotate_s3_credentials(
+    client: &WasmerClient,
+    volume_id: types::Id,
+) -> Result<types::RotateS3CredentialsPayload, anyhow::Error> {
+    let payload = client
+        .run_graphql_strict(types::RotateS3Credentials::build(
+            RotateS3CredentialsVariables { id: volume_id },
+        ))
+        .await?
+        .rotate_s3_credentials;
+
+    Ok(payload)
+}
+
+/// Enable or disable the S3 endpoint of a single app volume, identified by its
+/// `AppVolume` id.
+pub async fn update_volume_s3_enabled(
+    client: &WasmerClient,
+    volume_id: types::Id,
+    s3_enabled: bool,
+) -> Result<types::UpdateVolumePayload, anyhow::Error> {
+    let payload = client
+        .run_graphql_strict(types::UpdateVolume::build(types::UpdateVolumeVariables {
+            id: volume_id,
+            s3_enabled: Some(s3_enabled),
+        }))
+        .await?
+        .update_volume;
+
+    Ok(payload)
 }
 
 pub async fn viewer_can_deploy_to_namespace(

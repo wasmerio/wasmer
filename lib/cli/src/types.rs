@@ -415,32 +415,6 @@ impl CliRender for DeployAppVersion {
     }
 }
 
-impl CliRender for wasmer_backend_api::types::AppVersionVolume {
-    fn render_item_table(&self) -> String {
-        let mut table = Table::new();
-        table.add_rows([
-            vec!["Name".to_string(), self.name.clone()],
-            vec![
-                "Used size".to_string(),
-                format_disk_size_opt(self.used_size.clone()),
-            ],
-        ]);
-        table.to_string()
-    }
-
-    fn render_list_table(items: &[Self]) -> String {
-        let mut table = Table::new();
-        table.set_header(vec!["Name".to_string(), "Used size".to_string()]);
-        table.add_rows(items.iter().map(|vol| {
-            vec![
-                vol.name.clone(),
-                format_disk_size_opt(vol.used_size.clone()),
-            ]
-        }));
-        table.to_string()
-    }
-}
-
 impl CliRender for wasmer_backend_api::types::AppDatabase {
     fn render_item_table(&self) -> String {
         let mut table = Table::new();
@@ -487,7 +461,7 @@ impl CliRender for wasmer_backend_api::types::AppDatabase {
     }
 }
 
-fn format_disk_size_opt(value: Option<wasmer_backend_api::types::BigInt>) -> String {
+pub(crate) fn format_disk_size_opt(value: Option<wasmer_backend_api::types::BigInt>) -> String {
     let value = value.and_then(|x| {
         let y: Option<u64> = x.0.try_into().ok();
         y

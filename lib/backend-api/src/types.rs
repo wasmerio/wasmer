@@ -891,24 +891,92 @@ mod queries {
         pub endpoint: String,
     }
 
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub(crate) struct GetDeployAppVolumesVars {
+        pub owner: String,
+        pub name: String,
+        pub after: Option<String>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetDeployAppVolumesVars")]
+    pub(crate) struct GetDeployAppVolumes {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<AppWithVolumes>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp", variables = "GetDeployAppVolumesVars")]
+    pub(crate) struct AppWithVolumes {
+        #[arguments(first: 100, after: $after)]
+        pub volumes: AppVolumeConnection,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub(crate) struct AppVolumeConnection {
+        pub page_info: PageInfo,
+        pub edges: Vec<AppVolumeEdge>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub(crate) struct AppVolumeEdge {
+        pub node: AppVolume,
+    }
+
+    /// A persistent `DeployApp.volumes` node, including its S3 state and (if S3
+    /// is enabled) credentials. `s3` is `None` unless the volume has S3 enabled.
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AppVolume {
+        pub id: cynic::Id,
+        pub volume_id: String,
+        pub mount_path: String,
+        pub s3_enabled: bool,
+        pub s3: Option<S3>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct S3 {
+        pub access_key: String,
+        pub secret_key: String,
+        pub endpoint: String,
+    }
+
     #[derive(cynic::QueryVariables, Debug)]
-    pub struct RotateS3SecretsForAppVariables {
+    pub struct UpdateVolumeVariables {
+        pub id: cynic::Id,
+        pub s3_enabled: Option<bool>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "UpdateVolumeVariables")]
+    pub struct UpdateVolume {
+        #[arguments(input: { id: $id, s3Enabled: $s3_enabled })]
+        pub update_volume: UpdateVolumePayload,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct UpdateVolumePayload {
+        pub success: bool,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct RotateS3CredentialsVariables {
         pub id: cynic::Id,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
-    #[cynic(
-        graphql_type = "Mutation",
-        variables = "RotateS3SecretsForAppVariables"
-    )]
-    pub struct RotateS3SecretsForApp {
+    #[cynic(graphql_type = "Mutation", variables = "RotateS3CredentialsVariables")]
+    pub struct RotateS3Credentials {
         #[arguments(input: { id: $id })]
-        pub rotate_s3_secrets_for_app: Option<RotateS3SecretsForAppPayload>,
+        pub rotate_s3_credentials: RotateS3CredentialsPayload,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
-    pub struct RotateS3SecretsForAppPayload {
-        pub client_mutation_id: Option<String>,
+    pub struct RotateS3CredentialsPayload {
+        pub access_key: String,
+        pub secret_key: String,
+        pub endpoint: String,
+        pub success: bool,
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone)]
@@ -1026,6 +1094,12 @@ mod queries {
         pub name: String,
         pub size: Option<BigInt>,
         pub used_size: Option<BigInt>,
+        pub mount_paths: Vec<AppVersionVolumeMountPath>,
+    }
+
+    #[derive(serde::Serialize, cynic::QueryFragment, Debug)]
+    pub struct AppVersionVolumeMountPath {
+        pub path: String,
     }
 
     #[derive(cynic::QueryVariables, Debug)]
