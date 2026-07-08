@@ -16,7 +16,7 @@
 <a href=#16 id=16 data-nosnippet>16</a>    time::Duration,
 <a href=#17 id=17 data-nosnippet>17</a>};
 <a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>tracing::trace;
-<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>wasmer::{FunctionEnvMut, SharedMemory};
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>wasmer::{FunctionEnvMut, MemoryOps};
 <a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>wasmer_types::ModuleHash;
 <a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>wasmer_wasix_types::{
 <a href=#22 id=22 data-nosnippet>22</a>    types::Signal,
@@ -182,7 +182,7 @@
 <a href=#182 id=182 data-nosnippet>182</a>    <span class="doccomment">/// If true then the process has started cleaning up
 <a href=#183 id=183 data-nosnippet>183</a>    </span><span class="kw">pub </span>cleanup_started: bool,
 <a href=#184 id=184 data-nosnippet>184</a>    <span class="doccomment">/// Shared process memory.
-<a href=#185 id=185 data-nosnippet>185</a>    </span><span class="kw">pub </span>memory: <span class="prelude-ty">Option</span>&lt;SharedMemory&gt;,
+<a href=#185 id=185 data-nosnippet>185</a>    </span><span class="kw">pub </span>memory: <span class="prelude-ty">Option</span>&lt;MemoryOps&gt;,
 <a href=#186 id=186 data-nosnippet>186</a>    <span class="doccomment">/// The snapshot memory significantly reduce the amount of
 <a href=#187 id=187 data-nosnippet>187</a>    /// duplicate entries in the journal for memory that has not changed
 <a href=#188 id=188 data-nosnippet>188</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
@@ -618,9 +618,9 @@
 <a href=#618 id=618 data-nosnippet>618</a>    }
 <a href=#619 id=619 data-nosnippet>619</a>
 <a href=#620 id=620 data-nosnippet>620</a>    <span class="doccomment">/// Registers the shared memory used by this process.
-<a href=#621 id=621 data-nosnippet>621</a>    </span><span class="kw">pub fn </span>register_memory(<span class="kw-2">&amp;</span><span class="self">self</span>, memory: SharedMemory) {
+<a href=#621 id=621 data-nosnippet>621</a>    </span><span class="kw">pub fn </span>register_memory(<span class="kw-2">&amp;</span><span class="self">self</span>, memory: <span class="kw">impl </span>Into&lt;MemoryOps&gt;) {
 <a href=#622 id=622 data-nosnippet>622</a>        <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
-<a href=#623 id=623 data-nosnippet>623</a>        inner.memory = <span class="prelude-val">Some</span>(memory);
+<a href=#623 id=623 data-nosnippet>623</a>        inner.memory = <span class="prelude-val">Some</span>(memory.into());
 <a href=#624 id=624 data-nosnippet>624</a>    }
 <a href=#625 id=625 data-nosnippet>625</a>
 <a href=#626 id=626 data-nosnippet>626</a>    <span class="doccomment">/// Takes a snapshot of the process and disables journaling returning
