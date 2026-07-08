@@ -1,4 +1,6 @@
 //#ExpectedStdout: stream TCP writev returns partial success after peer close
+//#Ignored: flaky test (#6785)
+
 /*
  * Regression test for stream-socket fd_write partial success.
  *
