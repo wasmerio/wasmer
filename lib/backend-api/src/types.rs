@@ -1255,6 +1255,24 @@ mod queries {
         pub target: CronJobTarget,
     }
 
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct ToggleCronJobVars {
+        pub cron_job_id: cynic::Id,
+        pub enabled: bool,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "Mutation", variables = "ToggleCronJobVars")]
+    pub struct ToggleCronJob {
+        #[arguments(input: { cronJobId: $cron_job_id, enabled: $enabled })]
+        pub toggle_cron_job: Option<ToggleCronJobPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    pub struct ToggleCronJobPayload {
+        pub cron_job: CronJob,
+    }
+
     #[derive(cynic::InlineFragments, Debug, Clone, Serialize)]
     #[cynic(graphql_type = "CronJobTarget")]
     pub enum CronJobTarget {

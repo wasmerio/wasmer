@@ -324,6 +324,25 @@ pub async fn get_app_cron_jobs(
     Ok(cron_jobs)
 }
 
+/// Enable or disable a cron job.
+pub async fn toggle_cron_job(
+    client: &WasmerClient,
+    cron_job_id: impl Into<String>,
+    enabled: bool,
+) -> Result<types::CronJob, anyhow::Error> {
+    let res = client
+        .run_graphql_strict(types::ToggleCronJob::build(types::ToggleCronJobVars {
+            cron_job_id: types::Id::from(cron_job_id),
+            enabled,
+        }))
+        .await?;
+
+    Ok(res
+        .toggle_cron_job
+        .context("backend did not return toggled cron job")?
+        .cron_job)
+}
+
 /// Retrieve invocations for a cron job. The cron job can be referenced by id or name.
 pub async fn get_cron_job_invocations(
     client: &WasmerClient,
@@ -376,6 +395,7 @@ pub async fn get_cron_job_invocations(
 }
 
 /// Retrieve one page of invocations for a cron job. The cron job can be referenced by id or name.
+#[allow(clippy::too_many_arguments)]
 pub async fn get_cron_job_invocations_page(
     client: &WasmerClient,
     owner: impl Into<String>,
