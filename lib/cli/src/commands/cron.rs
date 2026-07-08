@@ -1,6 +1,9 @@
 //! Cron job commands.
 
-use std::io::{self, IsTerminal, Write};
+use std::{
+    io::{self, IsTerminal, Write},
+    num::NonZeroU32,
+};
 
 use anyhow::{Context, bail};
 use time::OffsetDateTime;
@@ -12,11 +15,17 @@ use crate::{
     utils::{render::ListFormat, timestamp::parse_timestamp_or_relative_time_negative_offset},
 };
 
+const DEFAULT_CRON_JOB_PAGE_SIZE: NonZeroU32 =
+    match NonZeroU32::new(wasmer_backend_api::query::CRON_JOB_PAGE_SIZE as u32) {
+        Some(value) => value,
+        None => panic!("cron job page size must be non-zero"),
+    };
+
 /// Manage cron jobs for Wasmer Edge apps.
 #[derive(clap::Subcommand, Debug)]
 pub enum CmdCron {
     List(CmdCronList),
-    Show(CmdCronShow),
+    Get(CmdCronGet),
     Invocations(CmdCronInvocations),
     Enable(CmdCronEnable),
     Disable(CmdCronDisable),
@@ -29,7 +38,7 @@ impl AsyncCliCommand for CmdCron {
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
         match self {
             Self::List(cmd) => cmd.run_async().await,
-            Self::Show(cmd) => cmd.run_async().await,
+            Self::Get(cmd) => cmd.run_async().await,
             Self::Invocations(cmd) => cmd.run_async().await,
             Self::Enable(cmd) => cmd.run_async().await,
             Self::Disable(cmd) => cmd.run_async().await,
@@ -74,9 +83,9 @@ impl AsyncCliCommand for CmdCronList {
     }
 }
 
-/// Show one cron job.
+/// Get one cron job.
 #[derive(clap::Parser, Debug)]
-pub struct CmdCronShow {
+pub struct CmdCronGet {
     #[clap(flatten)]
     fmt: ItemFormatOpts,
 
@@ -91,22 +100,13 @@ pub struct CmdCronShow {
 }
 
 #[async_trait::async_trait]
-impl AsyncCliCommand for CmdCronShow {
+impl AsyncCliCommand for CmdCronGet {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
         let (_ident, app) = self.ident.to_opts().load_app(&client).await?;
-        let cron_jobs = wasmer_backend_api::query::get_app_cron_jobs(
-            &client,
-            &app.owner.global_name,
-            &app.name,
-        )
-        .await?;
-        let cron_job = cron_jobs
-            .into_iter()
-            .find(|job| job.id.inner() == self.cron_job || job.name == self.cron_job)
-            .with_context(|| format!("cron job '{}' not found", self.cron_job))?;
+        let cron_job = find_app_cron_job(&client, &app, &self.cron_job).await?;
 
         println!("{}", self.fmt.get().render(&cron_job));
         Ok(())
@@ -145,8 +145,8 @@ pub struct CmdCronInvocations {
     end: Option<OffsetDateTime>,
 
     /// Number of invocations to fetch per page.
-    #[clap(long, default_value = "100")]
-    page_size: i32,
+    #[clap(long, default_value_t = DEFAULT_CRON_JOB_PAGE_SIZE)]
+    page_size: NonZeroU32,
 
     /// Fetch all invocation pages without prompting.
     #[clap(long)]
@@ -158,9 +158,8 @@ impl AsyncCliCommand for CmdCronInvocations {
     type Output = ();
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
-        if self.page_size <= 0 {
-            bail!("--page-size must be greater than 0");
-        }
+        let invocation_first = invocation_page_size(self.page_size)?;
+
         if let (Some(start), Some(end)) = (self.start, self.end)
             && start > end
         {
@@ -186,7 +185,7 @@ impl AsyncCliCommand for CmdCronInvocations {
                 &app.name,
                 &self.cron_job,
                 invocation_after,
-                Some(self.page_size),
+                Some(invocation_first),
                 self.start,
                 self.end,
             )
@@ -299,13 +298,7 @@ async fn toggle_cron_job(
 ) -> Result<(), anyhow::Error> {
     let client = env.client()?;
     let (_ident, app) = ident.to_opts().load_app(&client).await?;
-    let cron_jobs =
-        wasmer_backend_api::query::get_app_cron_jobs(&client, &app.owner.global_name, &app.name)
-            .await?;
-    let cron_job = cron_jobs
-        .into_iter()
-        .find(|job| job.id.inner() == cron_job || job.name == cron_job)
-        .with_context(|| format!("cron job '{cron_job}' not found"))?;
+    let cron_job = find_app_cron_job(&client, &app, &cron_job).await?;
 
     let cron_job =
         wasmer_backend_api::query::toggle_cron_job(&client, cron_job.id.inner(), enabled).await?;
@@ -317,4 +310,20 @@ async fn toggle_cron_job(
 
     eprintln!("Cron job {} is now {}.", cron_job.name, state);
     Ok(())
+}
+
+async fn find_app_cron_job(
+    client: &wasmer_backend_api::WasmerClient,
+    app: &wasmer_backend_api::types::DeployApp,
+    cron_job: &str,
+) -> Result<wasmer_backend_api::types::CronJob, anyhow::Error> {
+    wasmer_backend_api::query::get_app_cron_jobs(client, &app.owner.global_name, &app.name)
+        .await?
+        .into_iter()
+        .find(|job| job.id.inner() == cron_job || job.name == cron_job)
+        .with_context(|| format!("cron job '{cron_job}' not found"))
+}
+
+fn invocation_page_size(page_size: NonZeroU32) -> Result<i32, anyhow::Error> {
+    i32::try_from(page_size.get()).context("--page-size must be less than or equal to 2147483647")
 }

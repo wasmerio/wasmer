@@ -16,6 +16,8 @@ use crate::{
     types::{self, *},
 };
 
+pub const CRON_JOB_PAGE_SIZE: i32 = 100;
+
 /// Rotate the s3 secrets tied to an app given its id.
 pub async fn rotate_s3_secrets(
     client: &WasmerClient,
@@ -304,7 +306,7 @@ pub async fn get_app_cron_jobs(
             owner: owner.clone(),
             name: name.clone(),
             after,
-            first: Some(100),
+            first: Some(CRON_JOB_PAGE_SIZE),
         };
         let res = client
             .run_graphql_strict(types::GetAppCronJobs::build(vars))
@@ -364,7 +366,7 @@ pub async fn get_cron_job_invocations(
             name.clone(),
             &cron_job,
             invocation_after,
-            Some(100),
+            Some(CRON_JOB_PAGE_SIZE),
             None,
             None,
         )
@@ -436,7 +438,7 @@ pub async fn get_cron_job_invocations_page(
             owner: owner.clone(),
             name: name.clone(),
             cron_after: cron_after.clone(),
-            cron_first: Some(100),
+            cron_first: Some(CRON_JOB_PAGE_SIZE),
             invocation_start: Some(start.clone()),
             invocation_end: Some(end.clone()),
             invocation_after: invocation_after.clone(),

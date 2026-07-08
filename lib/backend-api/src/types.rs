@@ -1297,7 +1297,7 @@ mod queries {
     pub struct ExecuteCronJobTarget {
         pub package_name: Option<String>,
         pub command: Option<String>,
-        pub cli_args: Vec<String>,
+        pub cli_args: GenericScalar,
         pub env: GenericScalar,
     }
 
@@ -1360,7 +1360,7 @@ mod queries {
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     pub struct CronJobInvocation {
-        pub id: String,
+        pub id: cynic::Id,
         pub edge_job_id: String,
         pub status: Option<CronJobInvocationStatus>,
         pub scheduled_at: Option<DateTime>,

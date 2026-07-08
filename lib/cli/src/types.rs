@@ -105,7 +105,7 @@ impl CliRender for CronJobInvocation {
     fn render_item_table(&self) -> String {
         let mut table = Table::new();
         table.add_rows([
-            vec!["Id".to_string(), self.id.clone()],
+            vec!["Id".to_string(), self.id.inner().to_string()],
             vec!["Edge job id".to_string(), self.edge_job_id.clone()],
             vec![
                 "Status".to_string(),
@@ -166,7 +166,7 @@ impl CliRender for CronJobInvocation {
         ]);
         table.add_rows(items.iter().map(|invocation| {
             vec![
-                invocation.id.clone(),
+                invocation.id.inner().to_string(),
                 invocation
                     .status
                     .map(|status| format!("{status:?}"))
