@@ -27,6 +27,7 @@ pub enum CmdCron {
     List(CmdCronList),
     Get(CmdCronGet),
     Invocations(CmdCronInvocations),
+    Logs(CmdCronLogs),
     Enable(CmdCronEnable),
     Disable(CmdCronDisable),
 }
@@ -40,6 +41,7 @@ impl AsyncCliCommand for CmdCron {
             Self::List(cmd) => cmd.run_async().await,
             Self::Get(cmd) => cmd.run_async().await,
             Self::Invocations(cmd) => cmd.run_async().await,
+            Self::Logs(cmd) => cmd.run_async().await,
             Self::Enable(cmd) => cmd.run_async().await,
             Self::Disable(cmd) => cmd.run_async().await,
         }
@@ -105,8 +107,7 @@ impl AsyncCliCommand for CmdCronGet {
 
     async fn run_async(self) -> Result<(), anyhow::Error> {
         let client = self.env.client()?;
-        let (_ident, app) = self.ident.to_opts().load_app(&client).await?;
-        let cron_job = find_app_cron_job(&client, &app, &self.cron_job).await?;
+        let cron_job = resolve_cron_job(&client, self.ident, &self.cron_job).await?;
 
         println!("{}", self.fmt.get().render(&cron_job));
         Ok(())
@@ -167,8 +168,13 @@ impl AsyncCliCommand for CmdCronInvocations {
         }
 
         let client = self.env.client()?;
-        let (_ident, app) = self.ident.to_opts().load_app(&client).await?;
         let format = self.fmt.format;
+        let resolve_by_id = should_resolve_cron_job_by_id(&self.ident, &self.cron_job);
+        let app = if resolve_by_id {
+            None
+        } else {
+            Some(self.ident.to_opts().load_app(&client).await?.1)
+        };
         let interactive = io::stdin().is_terminal()
             && matches!(format, ListFormat::Table | ListFormat::ItemTable)
             && !self.all;
@@ -179,17 +185,32 @@ impl AsyncCliCommand for CmdCronInvocations {
         let mut saw_invocations = false;
 
         loop {
-            let (_cron_job, page) = wasmer_backend_api::query::get_cron_job_invocations_page(
-                &client,
-                &app.owner.global_name,
-                &app.name,
-                &self.cron_job,
-                invocation_after,
-                Some(invocation_first),
-                self.start,
-                self.end,
-            )
-            .await?;
+            let page = if resolve_by_id {
+                wasmer_backend_api::query::get_cron_job_invocations_page_by_id(
+                    &client,
+                    &self.cron_job,
+                    invocation_after,
+                    Some(invocation_first),
+                    self.start,
+                    self.end,
+                )
+                .await?
+                .1
+            } else {
+                let app = app.as_ref().expect("app is loaded for name-based lookup");
+                wasmer_backend_api::query::get_cron_job_invocations_page(
+                    &client,
+                    &app.owner.global_name,
+                    &app.name,
+                    &self.cron_job,
+                    invocation_after,
+                    Some(invocation_first),
+                    self.start,
+                    self.end,
+                )
+                .await?
+                .1
+            };
 
             saw_invocations |= !page.items.is_empty();
             invocation_after = page.next_cursor;
@@ -246,6 +267,95 @@ fn prompt_next_invocation_page() -> Result<bool, anyhow::Error> {
     }
 }
 
+/// Show logs for one cron job invocation.
+#[derive(clap::Parser, Debug)]
+pub struct CmdCronLogs {
+    #[clap(flatten)]
+    fmt: ListFormatOpts,
+
+    #[clap(flatten)]
+    env: WasmerEnv,
+
+    #[clap(flatten)]
+    ident: AppIdentArgOpts,
+
+    /// Cron job id or name.
+    cron_job: String,
+
+    /// Cron job invocation id or edge job id.
+    invocation: String,
+
+    /// The earliest invocation timestamp to include.
+    ///
+    /// Defaults to 31 days before --end, or 31 days before now.
+    ///
+    /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
+    #[clap(long = "start", alias = "from", value_parser = parse_timestamp_or_relative_time_negative_offset)]
+    start: Option<OffsetDateTime>,
+
+    /// The latest invocation timestamp to include.
+    ///
+    /// Defaults to now.
+    ///
+    /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
+    #[clap(long = "end", alias = "until", value_parser = parse_timestamp_or_relative_time_negative_offset)]
+    end: Option<OffsetDateTime>,
+
+    /// Maximum log lines to fetch.
+    #[clap(long, default_value = "1000")]
+    max: i32,
+}
+
+#[async_trait::async_trait]
+impl AsyncCliCommand for CmdCronLogs {
+    type Output = ();
+
+    async fn run_async(self) -> Result<(), anyhow::Error> {
+        if self.max < 1 {
+            bail!("--max must be greater than 0");
+        }
+        if let (Some(start), Some(end)) = (self.start, self.end)
+            && start > end
+        {
+            bail!("--start must be before or equal to --end");
+        }
+
+        let client = self.env.client()?;
+        let logs = if should_resolve_cron_job_by_id(&self.ident, &self.cron_job) {
+            wasmer_backend_api::query::get_cron_job_invocation_logs_by_id(
+                &client,
+                &self.cron_job,
+                &self.invocation,
+                Some(self.max),
+                self.start,
+                self.end,
+            )
+            .await?
+        } else {
+            let (_ident, app) = self.ident.to_opts().load_app(&client).await?;
+            wasmer_backend_api::query::get_cron_job_invocation_logs(
+                &client,
+                &app.owner.global_name,
+                &app.name,
+                &self.cron_job,
+                &self.invocation,
+                Some(self.max),
+                self.start,
+                self.end,
+            )
+            .await?
+        };
+
+        if logs.is_empty() {
+            eprintln!("Cron job invocation {} has no logs!", self.invocation);
+        } else {
+            println!("{}", self.fmt.format.render(logs.as_slice()));
+        }
+
+        Ok(())
+    }
+}
+
 /// Enable one cron job.
 #[derive(clap::Parser, Debug)]
 pub struct CmdCronEnable {
@@ -297,8 +407,7 @@ async fn toggle_cron_job(
     enabled: bool,
 ) -> Result<(), anyhow::Error> {
     let client = env.client()?;
-    let (_ident, app) = ident.to_opts().load_app(&client).await?;
-    let cron_job = find_app_cron_job(&client, &app, &cron_job).await?;
+    let cron_job = resolve_cron_job(&client, ident, &cron_job).await?;
 
     let cron_job =
         wasmer_backend_api::query::toggle_cron_job(&client, cron_job.id.inner(), enabled).await?;
@@ -310,6 +419,23 @@ async fn toggle_cron_job(
 
     eprintln!("Cron job {} is now {}.", cron_job.name, state);
     Ok(())
+}
+
+async fn resolve_cron_job(
+    client: &wasmer_backend_api::WasmerClient,
+    ident: AppIdentArgOpts,
+    cron_job: &str,
+) -> Result<wasmer_backend_api::types::CronJob, anyhow::Error> {
+    if should_resolve_cron_job_by_id(&ident, cron_job) {
+        return wasmer_backend_api::query::get_cron_job_by_id(client, cron_job).await;
+    }
+
+    let (_ident, app) = ident.to_opts().load_app(client).await?;
+    find_app_cron_job(client, &app, cron_job).await
+}
+
+fn should_resolve_cron_job_by_id(ident: &AppIdentArgOpts, cron_job: &str) -> bool {
+    ident.app.is_none() && cron_job.starts_with("cron_")
 }
 
 async fn find_app_cron_job(

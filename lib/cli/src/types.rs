@@ -1,7 +1,9 @@
+use colored::Colorize;
 use comfy_table::Table;
 use wasmer_backend_api::types::{
-    CronJob, CronJobInvocation, CronJobInvocationResult, CronJobKind, CronJobTarget, DeployApp,
-    DeployAppVersion, Deployment, DnsDomain, DnsDomainWithRecords, Namespace, SearchPackageVersion,
+    CronJob, CronJobInvocation, CronJobInvocationResult, CronJobKind, CronJobLog, CronJobTarget,
+    DeployApp, DeployAppVersion, Deployment, DnsDomain, DnsDomainWithRecords, LogStream, Namespace,
+    SearchPackageVersion,
 };
 
 use crate::utils::render::CliRender;
@@ -188,6 +190,37 @@ impl CliRender for CronJobInvocation {
                 cron_invocation_result_summary(&invocation.result),
             ]
         }));
+        table.to_string()
+    }
+}
+
+impl CliRender for CronJobLog {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Timestamp".to_string(), self.datetime.0.clone()],
+            vec!["Message".to_string(), self.message.clone()],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.load_preset(comfy_table::presets::NOTHING);
+        table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
+
+        for item in items {
+            let message = match item.stream {
+                Some(LogStream::Stderr) => item.message.clone().yellow(),
+                Some(LogStream::Runtime) => item.message.clone().cyan(),
+                Some(LogStream::Stdout) | None => item.message.clone().bold(),
+            };
+            table.add_row([
+                comfy_table::Cell::new(format!("[{}]", item.datetime.0))
+                    .set_alignment(comfy_table::CellAlignment::Right),
+                comfy_table::Cell::new(message),
+            ]);
+        }
         table.to_string()
     }
 }
