@@ -288,6 +288,172 @@ pub async fn get_app_databases(
     Ok(dbs)
 }
 
+/// Retrieve cron jobs for an app.
+pub async fn get_app_cron_jobs(
+    client: &WasmerClient,
+    owner: impl Into<String>,
+    name: impl Into<String>,
+) -> Result<Vec<types::CronJob>, anyhow::Error> {
+    let owner = owner.into();
+    let name = name.into();
+    let mut after = None;
+    let mut cron_jobs = Vec::new();
+
+    loop {
+        let vars = types::GetAppCronJobsVars {
+            owner: owner.clone(),
+            name: name.clone(),
+            after,
+            first: Some(100),
+        };
+        let res = client
+            .run_graphql_strict(types::GetAppCronJobs::build(vars))
+            .await?;
+
+        let app = res.get_deploy_app.context("app not found")?;
+        let con = app.cron_jobs;
+        let page_info = con.page_info;
+        cron_jobs.extend(con.edges.into_iter().flatten().flat_map(|edge| edge.node));
+
+        if !page_info.has_next_page {
+            break;
+        }
+        after = Some(page_info.end_cursor.context("cron jobs cursor missing")?);
+    }
+
+    Ok(cron_jobs)
+}
+
+/// Retrieve invocations for a cron job. The cron job can be referenced by id or name.
+pub async fn get_cron_job_invocations(
+    client: &WasmerClient,
+    owner: impl Into<String>,
+    name: impl Into<String>,
+    cron_job: impl AsRef<str>,
+) -> Result<(types::CronJobWithInvocations, Vec<types::CronJobInvocation>), anyhow::Error> {
+    let cron_job = cron_job.as_ref().to_string();
+    let owner = owner.into();
+    let name = name.into();
+    let mut invocation_after = None;
+    let mut all_invocations = Vec::new();
+    let mut cron_job_with_invocations: Option<types::CronJobWithInvocations> = None;
+
+    loop {
+        let (mut cron, page) = get_cron_job_invocations_page(
+            client,
+            owner.clone(),
+            name.clone(),
+            &cron_job,
+            invocation_after,
+            Some(100),
+            None,
+            None,
+        )
+        .await?;
+
+        all_invocations.extend(page.items);
+        invocation_after = page.next_cursor;
+
+        if let Some(existing_cron) = &mut cron_job_with_invocations {
+            existing_cron
+                .invocations
+                .edges
+                .append(&mut cron.invocations.edges);
+            existing_cron.invocations.page_info = cron.invocations.page_info;
+        } else {
+            cron_job_with_invocations = Some(cron);
+        }
+
+        if invocation_after.is_none() {
+            break;
+        }
+    }
+
+    Ok((
+        cron_job_with_invocations.context("cron job missing from invocations response")?,
+        all_invocations,
+    ))
+}
+
+/// Retrieve one page of invocations for a cron job. The cron job can be referenced by id or name.
+pub async fn get_cron_job_invocations_page(
+    client: &WasmerClient,
+    owner: impl Into<String>,
+    name: impl Into<String>,
+    cron_job: impl AsRef<str>,
+    invocation_after: Option<String>,
+    invocation_first: Option<i32>,
+    start: Option<OffsetDateTime>,
+    end: Option<OffsetDateTime>,
+) -> Result<
+    (
+        types::CronJobWithInvocations,
+        Paginated<types::CronJobInvocation>,
+    ),
+    anyhow::Error,
+> {
+    let cron_job = cron_job.as_ref();
+    let owner = owner.into();
+    let name = name.into();
+    let start = start.map(types::DateTime::try_from).transpose()?;
+    let end = end.map(types::DateTime::try_from).transpose()?;
+    let mut cron_after = None;
+
+    loop {
+        let vars = types::GetCronJobInvocationsVars {
+            owner: owner.clone(),
+            name: name.clone(),
+            cron_after: cron_after.clone(),
+            cron_first: Some(100),
+            invocation_start: start.clone(),
+            invocation_end: end.clone(),
+            invocation_after: invocation_after.clone(),
+            invocation_first,
+        };
+        let res = client
+            .run_graphql_strict(types::GetCronJobInvocations::build(vars))
+            .await?;
+
+        let app = res.get_deploy_app.context("app not found")?;
+        let con = app.cron_jobs;
+        let page_info = con.page_info;
+        if let Some(cron) = con
+            .nodes
+            .into_iter()
+            .find(|node| node.id.inner() == cron_job || node.name == cron_job)
+        {
+            let invocations = cron
+                .invocations
+                .edges
+                .iter()
+                .flatten()
+                .flat_map(|edge| edge.node.clone())
+                .collect::<Vec<_>>();
+            let next_cursor = cron
+                .invocations
+                .page_info
+                .has_next_page
+                .then(|| cron.invocations.page_info.end_cursor.clone())
+                .flatten();
+
+            return Ok((
+                cron,
+                Paginated {
+                    items: invocations,
+                    next_cursor,
+                },
+            ));
+        }
+
+        if !page_info.has_next_page {
+            break;
+        }
+        cron_after = Some(page_info.end_cursor.context("cron jobs cursor missing")?);
+    }
+
+    bail!("cron job '{cron_job}' not found")
+}
+
 /// Load the S3 credentials.
 ///
 /// S3 can be used to get access to an apps volumes.
