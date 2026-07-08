@@ -528,15 +528,20 @@ impl CraneliftCompiler {
         // function call trampolines (only for local functions, by signature)
         let function_call_trampolines = module
             .signatures
-            .values()
+            .iter()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FunctionBuilderContext::new, |cx, sig| {
+            .map_init(FunctionBuilderContext::new, |cx, (sig_index, sig)| {
+                let kind = wasmer_compiler::misc::CompiledKind::FunctionCallTrampoline(
+                    *sig_index,
+                    (*sig).clone(),
+                );
                 let trampoline = make_trampoline_function_call(
                     &self.config().callbacks,
                     &*isa,
                     target.triple().architecture,
                     cx,
+                    &kind,
                     sig,
                     &module_hash,
                 )?;
@@ -554,15 +559,21 @@ impl CraneliftCompiler {
         // dynamic function trampolines (only for imported functions)
         let dynamic_function_trampolines = module
             .imported_function_types()
+            .enumerate()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FunctionBuilderContext::new, |cx, func_type| {
+            .map_init(FunctionBuilderContext::new, |cx, (index, func_type)| {
+                let kind = wasmer_compiler::misc::CompiledKind::DynamicFunctionTrampoline(
+                    FunctionIndex::from_u32(*index as u32),
+                    func_type.clone(),
+                );
                 let trampoline = make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     &*isa,
                     target.triple().architecture,
                     &offsets,
                     cx,
+                    &kind,
                     func_type,
                     &module_hash,
                 )?;

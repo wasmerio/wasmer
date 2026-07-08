@@ -43,7 +43,7 @@ use wasmer_compiler::{
     LEF32_GEQ_U32_MIN, LEF32_GEQ_U64_MIN, LEF64_GEQ_I32_MIN, LEF64_GEQ_I64_MIN, LEF64_GEQ_U32_MIN,
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
     from_binaryreadererror_wasmerror,
-    misc::CompiledKind,
+    misc::{CompiledFunctionExt, CompiledKind},
     types::{
         relocation::RelocationTarget,
         symbols::{Symbol, SymbolRegistry},
@@ -3290,10 +3290,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     imported_include_m0_param,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    let function_name = self
-                        .symbol_registry
-                        .symbol_to_name(Symbol::LocalFunction(local_func_index));
-
                     self.ctx.local_func(
                         local_func_index,
                         func_index,
@@ -3301,7 +3297,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.module,
                         self.context,
                         func_type,
-                        &function_name,
+                        &CompiledKind::Local(local_func_index, String::new()).linkage_name(),
                     )?
                 } else {
                     self.ctx

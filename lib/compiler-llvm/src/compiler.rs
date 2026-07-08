@@ -389,7 +389,7 @@ impl Compiler for LLVMCompiler {
         let function_call_trampolines = pool.install(|| {
             module
                 .signatures
-                .values()
+                .iter()
                 .collect::<Vec<_>>()
                 .par_iter()
                 .map_init(
@@ -398,9 +398,17 @@ impl Compiler for LLVMCompiler {
                         FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
                             .unwrap()
                     },
-                    |func_trampoline, sig| {
-                        let trampoline =
-                            func_trampoline.trampoline(sig, self.config(), "", compile_info);
+                    |func_trampoline, (sig_index, sig)| {
+                        let kind = wasmer_compiler::misc::CompiledKind::FunctionCallTrampoline(
+                            *sig_index,
+                            (*sig).clone(),
+                        );
+                        let trampoline = func_trampoline.trampoline(
+                            sig,
+                            self.config(),
+                            &kind,
+                            compile_info,
+                        );
                         if let Some(progress) = progress.as_ref() {
                             progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                         }
@@ -428,10 +436,14 @@ impl Compiler for LLVMCompiler {
                 .into_iter()
                 .enumerate()
                 .map(|(index, func_type)| {
+                    let kind = wasmer_compiler::misc::CompiledKind::DynamicFunctionTrampoline(
+                        FunctionIndex::from_u32(index as u32),
+                        func_type.clone(),
+                    );
                     let trampoline = func_trampoline.dynamic_trampoline(
                         &func_type,
                         self.config(),
-                        "",
+                        &kind,
                         index as u32,
                         &mut module_custom_sections,
                         &mut eh_frame_section_bytes,

@@ -255,19 +255,16 @@ impl SinglepassCompiler {
         let module_hash = module.hash_string();
         let function_call_trampolines = module
             .signatures
-            .values()
+            .iter()
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|func_type| -> Result<FunctionBody, CompileError> {
+            .map(|(sig_index, func_type)| -> Result<FunctionBody, CompileError> {
                 let body = gen_std_trampoline(func_type, target, calling_convention)?;
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
-                        &module_hash,
-                        &body.body,
-                    );
+                    let kind = CompiledKind::FunctionCallTrampoline(sig_index, func_type.clone());
+                    callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
                     callbacks.asm_memory_buffer(
-                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+                        &kind,
                         &module_hash,
                         arch,
                         &body.body,
@@ -286,9 +283,10 @@ impl SinglepassCompiler {
 
         let dynamic_function_trampolines = module
             .imported_function_types()
+            .enumerate()
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|func_type| -> Result<FunctionBody, CompileError> {
+            .map(|(index, func_type)| -> Result<FunctionBody, CompileError> {
                 let body = gen_std_dynamic_import_trampoline(
                     &vmoffsets,
                     &func_type,
@@ -296,13 +294,13 @@ impl SinglepassCompiler {
                     calling_convention,
                 )?;
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-                        &module_hash,
-                        &body.body,
+                    let kind = CompiledKind::DynamicFunctionTrampoline(
+                        FunctionIndex::from_u32(index as u32),
+                        func_type.clone(),
                     );
+                    callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
                     callbacks.asm_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &kind,
                         &module_hash,
                         arch,
                         &body.body,
