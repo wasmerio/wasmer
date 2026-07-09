@@ -85,6 +85,13 @@ pub struct AllocatedArtifact {
     /// host calling `Module::instantiate` in a tight loop.
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
     vm_offsets: VMOffsets,
+
+    /// The base address the module's code was loaded at, and the raw ELF
+    /// image bytes it was loaded from, when this artifact was built from a
+    /// native ELF image. Used to lazily build DWARF debug info for frame
+    /// symbolication. `None` for non-ELF artifacts.
+    #[cfg_attr(feature = "artifact-size", loupe(skip))]
+    elf_image: Option<(usize, Arc<[u8]>)>,
 }
 
 impl AllocatedArtifact {
@@ -613,6 +620,7 @@ impl Artifact {
                 finished_function_lengths,
                 vm_offsets,
                 function_max_stack_usage: functions_max_stack_usage.into_boxed_slice(),
+                elf_image: None,
             }
         };
 
@@ -622,11 +630,22 @@ impl Artifact {
             allocated: Some(allocated),
         };
 
+        let is_elf = artifact
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .elf_image
+            .is_some();
+
         artifact
             .internal_register_frame_info()
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
         if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
-            engine_inner.register_frame_info(frame_info);
+            if is_elf {
+                engine_inner.register_elf_frame_info(frame_info);
+            } else {
+                engine_inner.register_frame_info(frame_info);
+            }
         }
 
         Ok(artifact)
@@ -752,6 +771,7 @@ impl Artifact {
             finished_function_lengths,
             vm_offsets,
             function_max_stack_usage,
+            elf_image: Some((base as usize, Arc::from(elf_file_data))),
         })
     }
 
@@ -966,8 +986,9 @@ impl Artifact {
             return Ok(()); // already done
         }
 
-        // ELF artifacts don't carry the RKYV frame-info section, so stack
-        // trace symbolication isn't available for them yet.
+        // ELF artifacts don't carry the RKYV frame-info section (per-instruction
+        // address maps); they get symbolicated from DWARF debug info instead,
+        // lazily loaded from the ELF image (see `elf_image` below).
         let frame_infos = match &self.artifact {
             ArtifactBuildVariant::Plain(p) => p
                 .get_frame_info_ref()
@@ -977,13 +998,25 @@ impl Artifact {
                 .map(|_| FrameInfosVariant::Archived(a.clone())),
         };
 
-        if let Some(frame_infos) = frame_infos {
+        let elf_image = self
+            .allocated
+            .as_ref()
+            .expect("It must be allocated")
+            .elf_image
+            .clone();
+
+        if frame_infos.is_some() || elf_image.is_some() {
             let finished_function_extents = self
                 .allocated
                 .as_ref()
                 .expect("It must be allocated")
                 .function_extents()
                 .into_boxed_slice();
+
+            let (image_base, elf_data) = match elf_image {
+                Some((base, data)) => (base, Some(data)),
+                None => (0, None),
+            };
 
             let frame_info_registration = &mut self
                 .allocated
@@ -995,6 +1028,8 @@ impl Artifact {
                 self.artifact.create_module_info(),
                 &finished_function_extents,
                 frame_infos,
+                image_base,
+                elf_data,
             );
         }
 
@@ -1598,6 +1633,7 @@ impl Artifact {
                     finished_function_lengths,
                     vm_offsets,
                     function_max_stack_usage,
+                    elf_image: None,
                 }),
             })
         }

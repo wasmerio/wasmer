@@ -598,6 +598,15 @@ impl EngineInner {
             .register_frame_info(frame_info);
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Register the frame info for the most recently mapped ELF binary.
+    pub(crate) fn register_elf_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
+        self.elf_mapped_binary
+            .last_mut()
+            .unwrap()
+            .register_frame_info(frame_info);
+    }
+
     #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
     pub(crate) fn register_perfmap(
         &self,

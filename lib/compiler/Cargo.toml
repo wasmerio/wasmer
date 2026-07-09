@@ -41,6 +41,14 @@ shared-buffer.workspace = true
 libc.workspace = true
 target-lexicon.workspace = true
 object.workspace = true
+addr2line.workspace = true
+# Pinned to the exact version `addr2line` depends on so that features unify
+# onto a single resolved `gimli` crate instead of pulling in a second copy
+# alongside the workspace's `gimli` (used by cranelift/singlepass/vm).
+gimli = { version = "=0.32.3", default-features = false, features = [
+  "read",
+  "endian-reader",
+] }
 itertools.workspace = true
 tempfile.workspace = true
 rangemap.workspace = true

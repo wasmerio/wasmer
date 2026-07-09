@@ -185,12 +185,17 @@ impl Compiler for LLVMCompiler {
 
     fn deterministic_id(&self) -> String {
         format!(
-            "llvm-{}",
+            "llvm-{}{}",
             match self.config.opt_level {
                 inkwell::OptimizationLevel::None => "opt0",
                 inkwell::OptimizationLevel::Less => "optl",
                 inkwell::OptimizationLevel::Default => "optd",
                 inkwell::OptimizationLevel::Aggressive => "opta",
+            },
+            if self.config.elf_artifact_format {
+                "-elf"
+            } else {
+                ""
             }
         )
     }
