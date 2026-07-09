@@ -192,6 +192,8 @@ impl LLVM {
     /// Enables an experimental ELF-based version of the Artifact format.
     pub fn elf_artifact_format(&mut self, elf_artifact_format: bool) -> &mut Self {
         self.elf_artifact_format = elf_artifact_format;
+        // We will link a shared library and so PIC must be enabled.
+        self.is_pic = true;
         self
     }
 
