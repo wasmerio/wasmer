@@ -44,7 +44,7 @@ use wasmer_types::*;
 /// A compiled wasm module, ready to be instantiated.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct ArtifactBuild {
-    serializable: SerializableModule,
+    pub(crate) serializable: SerializableModule,
 }
 
 impl ArtifactBuild {
@@ -516,10 +516,7 @@ impl ArtifactBuildFromArchive {
         if let ArchivedSerializableCompilation::Rkyv(compilation) =
             self.cell.borrow_dependent().compilation
         {
-            Some(
-                rkyv::deserialize::<_, RkyvError>(&compilation.libcall_trampolines)
-                    .unwrap(),
-            )
+            Some(rkyv::deserialize::<_, RkyvError>(&compilation.libcall_trampolines).unwrap())
         } else {
             None
         }
@@ -541,9 +538,7 @@ impl ArtifactBuildFromArchive {
         if let ArchivedSerializableCompilation::Rkyv(compilation) =
             self.cell.borrow_dependent().compilation
         {
-            Some(
-                rkyv::deserialize::<_, rkyv::rancor::Error>(&compilation.unwind_info).unwrap(),
-            )
+            Some(rkyv::deserialize::<_, rkyv::rancor::Error>(&compilation.unwind_info).unwrap())
         } else {
             None
         }
@@ -599,6 +594,16 @@ impl ArtifactBuildFromArchive {
             self.cell.borrow_dependent().compilation
         {
             Some(&compilation.function_max_stack_usage)
+        } else {
+            None
+        }
+    }
+
+    /// Get compiled ELF file data.
+    pub fn get_elf_file(&self) -> Option<&[u8]> {
+        if let ArchivedSerializableCompilation::Elf(data) = self.cell.borrow_dependent().compilation
+        {
+            Some(data)
         } else {
             None
         }

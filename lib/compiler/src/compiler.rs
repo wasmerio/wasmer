@@ -548,7 +548,7 @@ pub fn emit_metadata_and_link(
     module_hash: Option<String>,
 ) -> Result<NamedTempFile, CompileError> {
     let meta_object_path = emit_wasmer_meta_object(target, build_directory, compiled_objects)
-            .map_err(CompileError::Codegen)?;
+        .map_err(CompileError::Codegen)?;
 
     let mut link_args = vec![
         "ld".to_string(),

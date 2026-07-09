@@ -14,7 +14,7 @@ use crate::{
     engine::{link::link_module, resolver::resolve_tags},
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
-    serialize::{MetadataHeader, SerializableModule},
+    serialize::{MetadataHeader, SerializableCompilation, SerializableModule},
     types::relocation::{RelocationLike, RelocationTarget},
 };
 #[cfg(feature = "static-artifact-create")]
@@ -347,274 +347,287 @@ impl Artifact {
             }
         }
         let module_info = artifact.module_info();
-        let (
-            finished_functions,
-            finished_function_call_trampolines,
-            finished_dynamic_function_trampolines,
-            custom_sections,
-        ) = match &artifact {
-            ArtifactBuildVariant::Plain(p) => engine_inner.allocate(
-                module_info,
-                p.get_function_bodies_ref()
-                    .expect("RKYV path expected")
-                    .values(),
-                p.get_function_call_trampolines_ref()
-                    .expect("RKYV path expected")
-                    .values(),
-                p.get_dynamic_function_trampolines_ref()
-                    .expect("RKYV path expected")
-                    .values(),
-                p.get_custom_sections_ref()
-                    .expect("RKYV path expected")
-                    .values(),
-            )?,
 
-            ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
-                module_info,
-                a.get_function_bodies_ref()
-                    .expect("RKYV path expected")
-                    .values(),
-                a.get_function_call_trampolines_ref()
-                    .expect("RKYV path expected")
-                    .values(),
-                a.get_dynamic_function_trampolines_ref()
-                    .expect("RKYV path expected")
-                    .values(),
-                a.get_custom_sections_ref()
-                    .expect("RKYV path expected")
-                    .values(),
-            )?,
-        };
-
-        let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
+        if let Some(elf_file_data) = match &artifact {
             ArtifactBuildVariant::Plain(p) => {
-                if let Some(got) = p.get_got_ref().expect("RKYV path expected").index {
-                    let relocs: Vec<_> = p
-                        .get_custom_section_relocations_ref()
-                        .expect("RKYV path expected")[got]
-                        .iter()
-                        .map(|v| (v.reloc_target, v.offset))
-                        .collect();
-                    let got_base = custom_sections[got].0 as usize;
-                    Box::new(move |t: RelocationTarget| {
-                        relocs
-                            .iter()
-                            .find(|(v, _)| v == &t)
-                            .map(|(_, o)| got_base + (*o as usize))
-                    })
+                if let SerializableCompilation::Elf(data) = &p.serializable.compilation {
+                    Some(data.as_ref())
                 } else {
-                    Box::new(|_: RelocationTarget| None)
+                    None
                 }
             }
-
-            ArtifactBuildVariant::Archived(p) => {
-                if let Some(got) = p.get_got_ref().expect("RKYV path expected").index {
-                    let relocs: Vec<_> = p
-                        .get_custom_section_relocations_ref()
-                        .expect("RKYV path expected")[got]
-                        .iter()
-                        .map(|v| (v.reloc_target(), v.offset))
-                        .collect();
-                    let got_base = custom_sections[got].0 as usize;
-                    Box::new(move |t: RelocationTarget| {
-                        relocs
-                            .iter()
-                            .find(|(v, _)| v == &t)
-                            .map(|(_, o)| got_base + (o.to_native() as usize))
-                    })
-                } else {
-                    Box::new(|_: RelocationTarget| None)
-                }
-            }
-        };
-        let functions_max_stack_usage = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p
-                .get_function_max_stack_usage()
-                .expect("RKYV path expected")
-                .values()
-                .cloned()
-                .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
-            ArtifactBuildVariant::Archived(a) => a
-                .get_function_max_stack_usage()
-                .expect("RKYV path expected")
-                .values()
-                .map(|v| match v {
-                    ArchivedOption::None => None,
-                    ArchivedOption::Some(v) => Some(v.to_native() as usize),
-                })
-                .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
-        };
-
-        match &artifact {
-            ArtifactBuildVariant::Plain(p) => link_module(
-                module_info,
-                &finished_functions,
-                &finished_dynamic_function_trampolines,
-                p.get_function_relocations()
-                    .expect("RKYV path expected")
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                &custom_sections,
-                p.get_custom_section_relocations_ref()
-                    .expect("RKYV path expected")
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                p.get_libcall_trampolines().expect("RKYV path expected"),
-                p.get_libcall_trampoline_len()
-                    .expect("RKYV path expected"),
-                &get_got_address,
-            ),
-            ArtifactBuildVariant::Archived(a) => link_module(
-                module_info,
-                &finished_functions,
-                &finished_dynamic_function_trampolines,
-                a.get_function_relocations()
-                    .expect("RKYV path expected")
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                &custom_sections,
-                a.get_custom_section_relocations_ref()
-                    .expect("RKYV path expected")
-                    .iter()
-                    .map(|(k, v)| (k, v.iter())),
-                a.get_libcall_trampolines().expect("RKYV path expected"),
-                a.get_libcall_trampoline_len()
-                    .expect("RKYV path expected"),
-                &get_got_address,
-            ),
-        };
-
-        // Compute indices into the shared signature table.
-        let signatures = {
-            let signature_registry = engine_inner.signatures();
-            module_info
-                .signatures
-                .values()
-                .zip(module_info.signature_hashes.values())
-                .map(|(sig, sig_hash)| signature_registry.register(sig, *sig_hash))
-                .collect::<PrimaryMap<_, _>>()
-        };
-
-        #[allow(unused_variables)]
-        let eh_frame = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p
-                .get_unwind_info()
-                .expect("RKYV path expected")
-                .eh_frame
-                .map(|v| unsafe {
-                    std::slice::from_raw_parts(
-                        *custom_sections[v],
-                        p.get_custom_sections_ref().expect("RKYV path expected")[v]
-                            .bytes
-                            .len(),
-                    )
-                }),
-            ArtifactBuildVariant::Archived(a) => a
-                .get_unwind_info()
-                .expect("RKYV path expected")
-                .eh_frame
-                .map(|v| unsafe {
-                    std::slice::from_raw_parts(
-                        *custom_sections[v],
-                        a.get_custom_sections_ref().expect("RKYV path expected")[v]
-                            .bytes
-                            .len(),
-                    )
-                }),
-        };
-        #[allow(unused_variables)]
-        let compact_unwind = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p
-                .get_unwind_info()
-                .expect("RKYV path expected")
-                .compact_unwind
-                .map(|v| unsafe {
-                    std::slice::from_raw_parts(
-                        *custom_sections[v],
-                        p.get_custom_sections_ref().expect("RKYV path expected")[v]
-                            .bytes
-                            .len(),
-                    )
-                }),
-            ArtifactBuildVariant::Archived(a) => a
-                .get_unwind_info()
-                .expect("RKYV path expected")
-                .compact_unwind
-                .map(|v| unsafe {
-                    std::slice::from_raw_parts(
-                        *custom_sections[v],
-                        a.get_custom_sections_ref().expect("RKYV path expected")[v]
-                            .bytes
-                            .len(),
-                    )
-                }),
-        };
-
-        #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
-        {
-            engine_inner.register_perfmap(&finished_functions, module_info)?;
-        }
-
-        // Make all code compiled thus far executable.
-        engine_inner.publish_compiled_code();
-
-        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-        if let Some(compact_unwind) = compact_unwind {
-            engine_inner.publish_compact_unwind(
-                compact_unwind,
-                get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
-            )?;
-        }
-        #[cfg(not(any(
-            target_arch = "wasm32",
-            all(target_os = "macos", target_arch = "aarch64")
-        )))]
-        engine_inner.publish_eh_frame(eh_frame)?;
-
-        drop(get_got_address);
-
-        let finished_function_lengths = finished_functions
-            .values()
-            .map(|extent| extent.length)
-            .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
-            .into_boxed_slice();
-        let finished_functions = finished_functions
-            .values()
-            .map(|extent| extent.ptr)
-            .collect::<PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>>()
-            .into_boxed_slice();
-        let finished_function_call_trampolines =
-            finished_function_call_trampolines.into_boxed_slice();
-        let finished_dynamic_function_trampolines =
-            finished_dynamic_function_trampolines.into_boxed_slice();
-        let signatures = signatures.into_boxed_slice();
-
-        let vm_offsets = VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info);
-
-        let mut artifact = Self {
-            id: Default::default(),
-            artifact,
-            allocated: Some(AllocatedArtifact {
-                frame_info_registered: false,
-                frame_info_registration: None,
+            ArtifactBuildVariant::Archived(a) => a.get_elf_file(),
+        } {
+            dbg!(elf_file_data.len());
+            todo!()
+        } else {
+            let (
                 finished_functions,
                 finished_function_call_trampolines,
                 finished_dynamic_function_trampolines,
-                signatures,
-                finished_function_lengths,
-                vm_offsets,
-                function_max_stack_usage: functions_max_stack_usage.into_boxed_slice(),
-            }),
-        };
+                custom_sections,
+            ) = match &artifact {
+                ArtifactBuildVariant::Plain(p) => engine_inner.allocate(
+                    module_info,
+                    p.get_function_bodies_ref()
+                        .expect("RKYV path expected")
+                        .values(),
+                    p.get_function_call_trampolines_ref()
+                        .expect("RKYV path expected")
+                        .values(),
+                    p.get_dynamic_function_trampolines_ref()
+                        .expect("RKYV path expected")
+                        .values(),
+                    p.get_custom_sections_ref()
+                        .expect("RKYV path expected")
+                        .values(),
+                )?,
 
-        artifact
-            .internal_register_frame_info()
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
-        if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
-            engine_inner.register_frame_info(frame_info);
+                ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
+                    module_info,
+                    a.get_function_bodies_ref()
+                        .expect("RKYV path expected")
+                        .values(),
+                    a.get_function_call_trampolines_ref()
+                        .expect("RKYV path expected")
+                        .values(),
+                    a.get_dynamic_function_trampolines_ref()
+                        .expect("RKYV path expected")
+                        .values(),
+                    a.get_custom_sections_ref()
+                        .expect("RKYV path expected")
+                        .values(),
+                )?,
+            };
+
+            let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
+                ArtifactBuildVariant::Plain(p) => {
+                    if let Some(got) = p.get_got_ref().expect("RKYV path expected").index {
+                        let relocs: Vec<_> = p
+                            .get_custom_section_relocations_ref()
+                            .expect("RKYV path expected")[got]
+                            .iter()
+                            .map(|v| (v.reloc_target, v.offset))
+                            .collect();
+                        let got_base = custom_sections[got].0 as usize;
+                        Box::new(move |t: RelocationTarget| {
+                            relocs
+                                .iter()
+                                .find(|(v, _)| v == &t)
+                                .map(|(_, o)| got_base + (*o as usize))
+                        })
+                    } else {
+                        Box::new(|_: RelocationTarget| None)
+                    }
+                }
+
+                ArtifactBuildVariant::Archived(p) => {
+                    if let Some(got) = p.get_got_ref().expect("RKYV path expected").index {
+                        let relocs: Vec<_> = p
+                            .get_custom_section_relocations_ref()
+                            .expect("RKYV path expected")[got]
+                            .iter()
+                            .map(|v| (v.reloc_target(), v.offset))
+                            .collect();
+                        let got_base = custom_sections[got].0 as usize;
+                        Box::new(move |t: RelocationTarget| {
+                            relocs
+                                .iter()
+                                .find(|(v, _)| v == &t)
+                                .map(|(_, o)| got_base + (o.to_native() as usize))
+                        })
+                    } else {
+                        Box::new(|_: RelocationTarget| None)
+                    }
+                }
+            };
+            let functions_max_stack_usage = match &artifact {
+                ArtifactBuildVariant::Plain(p) => p
+                    .get_function_max_stack_usage()
+                    .expect("RKYV path expected")
+                    .values()
+                    .cloned()
+                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
+                ArtifactBuildVariant::Archived(a) => a
+                    .get_function_max_stack_usage()
+                    .expect("RKYV path expected")
+                    .values()
+                    .map(|v| match v {
+                        ArchivedOption::None => None,
+                        ArchivedOption::Some(v) => Some(v.to_native() as usize),
+                    })
+                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
+            };
+
+            match &artifact {
+                ArtifactBuildVariant::Plain(p) => link_module(
+                    module_info,
+                    &finished_functions,
+                    &finished_dynamic_function_trampolines,
+                    p.get_function_relocations()
+                        .expect("RKYV path expected")
+                        .iter()
+                        .map(|(k, v)| (k, v.iter())),
+                    &custom_sections,
+                    p.get_custom_section_relocations_ref()
+                        .expect("RKYV path expected")
+                        .iter()
+                        .map(|(k, v)| (k, v.iter())),
+                    p.get_libcall_trampolines().expect("RKYV path expected"),
+                    p.get_libcall_trampoline_len().expect("RKYV path expected"),
+                    &get_got_address,
+                ),
+                ArtifactBuildVariant::Archived(a) => link_module(
+                    module_info,
+                    &finished_functions,
+                    &finished_dynamic_function_trampolines,
+                    a.get_function_relocations()
+                        .expect("RKYV path expected")
+                        .iter()
+                        .map(|(k, v)| (k, v.iter())),
+                    &custom_sections,
+                    a.get_custom_section_relocations_ref()
+                        .expect("RKYV path expected")
+                        .iter()
+                        .map(|(k, v)| (k, v.iter())),
+                    a.get_libcall_trampolines().expect("RKYV path expected"),
+                    a.get_libcall_trampoline_len().expect("RKYV path expected"),
+                    &get_got_address,
+                ),
+            };
+
+            // Compute indices into the shared signature table.
+            let signatures = {
+                let signature_registry = engine_inner.signatures();
+                module_info
+                    .signatures
+                    .values()
+                    .zip(module_info.signature_hashes.values())
+                    .map(|(sig, sig_hash)| signature_registry.register(sig, *sig_hash))
+                    .collect::<PrimaryMap<_, _>>()
+            };
+
+            #[allow(unused_variables)]
+            let eh_frame = match &artifact {
+                ArtifactBuildVariant::Plain(p) => p
+                    .get_unwind_info()
+                    .expect("RKYV path expected")
+                    .eh_frame
+                    .map(|v| unsafe {
+                        std::slice::from_raw_parts(
+                            *custom_sections[v],
+                            p.get_custom_sections_ref().expect("RKYV path expected")[v]
+                                .bytes
+                                .len(),
+                        )
+                    }),
+                ArtifactBuildVariant::Archived(a) => a
+                    .get_unwind_info()
+                    .expect("RKYV path expected")
+                    .eh_frame
+                    .map(|v| unsafe {
+                        std::slice::from_raw_parts(
+                            *custom_sections[v],
+                            a.get_custom_sections_ref().expect("RKYV path expected")[v]
+                                .bytes
+                                .len(),
+                        )
+                    }),
+            };
+            #[allow(unused_variables)]
+            let compact_unwind = match &artifact {
+                ArtifactBuildVariant::Plain(p) => p
+                    .get_unwind_info()
+                    .expect("RKYV path expected")
+                    .compact_unwind
+                    .map(|v| unsafe {
+                        std::slice::from_raw_parts(
+                            *custom_sections[v],
+                            p.get_custom_sections_ref().expect("RKYV path expected")[v]
+                                .bytes
+                                .len(),
+                        )
+                    }),
+                ArtifactBuildVariant::Archived(a) => a
+                    .get_unwind_info()
+                    .expect("RKYV path expected")
+                    .compact_unwind
+                    .map(|v| unsafe {
+                        std::slice::from_raw_parts(
+                            *custom_sections[v],
+                            a.get_custom_sections_ref().expect("RKYV path expected")[v]
+                                .bytes
+                                .len(),
+                        )
+                    }),
+            };
+
+            #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
+            {
+                engine_inner.register_perfmap(&finished_functions, module_info)?;
+            }
+
+            // Make all code compiled thus far executable.
+            engine_inner.publish_compiled_code();
+
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            if let Some(compact_unwind) = compact_unwind {
+                engine_inner.publish_compact_unwind(
+                    compact_unwind,
+                    get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
+                )?;
+            }
+            #[cfg(not(any(
+                target_arch = "wasm32",
+                all(target_os = "macos", target_arch = "aarch64")
+            )))]
+            engine_inner.publish_eh_frame(eh_frame)?;
+
+            drop(get_got_address);
+
+            let finished_function_lengths = finished_functions
+                .values()
+                .map(|extent| extent.length)
+                .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
+                .into_boxed_slice();
+            let finished_functions = finished_functions
+                .values()
+                .map(|extent| extent.ptr)
+                .collect::<PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>>()
+                .into_boxed_slice();
+            let finished_function_call_trampolines =
+                finished_function_call_trampolines.into_boxed_slice();
+            let finished_dynamic_function_trampolines =
+                finished_dynamic_function_trampolines.into_boxed_slice();
+            let signatures = signatures.into_boxed_slice();
+
+            let vm_offsets = VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info);
+
+            let mut artifact = Self {
+                id: Default::default(),
+                artifact,
+                allocated: Some(AllocatedArtifact {
+                    frame_info_registered: false,
+                    frame_info_registration: None,
+                    finished_functions,
+                    finished_function_call_trampolines,
+                    finished_dynamic_function_trampolines,
+                    signatures,
+                    finished_function_lengths,
+                    vm_offsets,
+                    function_max_stack_usage: functions_max_stack_usage.into_boxed_slice(),
+                }),
+            };
+
+            artifact
+                .internal_register_frame_info()
+                .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
+            if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
+                engine_inner.register_frame_info(frame_info);
+            }
+
+            Ok(artifact)
         }
-
-        Ok(artifact)
     }
 
     /// Check if the provided bytes look like a serialized `ArtifactBuild`.
