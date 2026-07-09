@@ -210,7 +210,7 @@ pub struct ModuleInfo {
 // it) drops those copies but changes the artifact layout. Do it the next time the
 // artifact format version is bumped anyway.
 const _: () = assert!(
-    crate::MetadataHeader::CURRENT_VERSION == 21,
+    crate::MetadataHeader::CURRENT_VERSION == 22,
     "Artifact version bumped: change `ArchivableModuleInfo::passive_data` from \
      `Box<[u8]>` to `Arc<[u8]>` (and drop the copies in the `From` impls)",
 );
