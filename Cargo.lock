@@ -7492,6 +7492,7 @@ dependencies = [
  "memmap2 0.9.11",
  "more-asserts",
  "object 0.39.1",
+ "phf",
  "rangemap",
  "rayon",
  "region",

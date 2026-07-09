@@ -50,5 +50,5 @@ pub const WASMER_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".w.fn_offsets";
 pub const WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME: &[u8] = b".w.trap_fnoffs";
 /// Name of the section used for serialization of function trap information.
 pub const WASMER_TRAPS_SECTION_NAME: &[u8] = b".w.traps";
-/// Name of the section used for serialization of the Artifact format version.
-pub const WASMER_VERSION_SECTION_NAME: &[u8] = b".w.version";
+/// ELF's EH frame section name.
+pub const EH_FRAME_SECTION_NAME: &[u8] = b".eh_frame";

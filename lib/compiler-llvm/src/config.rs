@@ -144,11 +144,11 @@ impl LLVM {
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
             is_pic: false,
+            elf_artifact_format: false,
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
-            elf_artifact_format: false,
         }
     }
 

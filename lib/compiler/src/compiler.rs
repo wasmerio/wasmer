@@ -8,12 +8,11 @@ use std::path::{Path, PathBuf};
 use crate::misc::{CompiledFunctionExt, CompiledKind};
 use crate::object::get_object_for_target;
 use crate::progress::ProgressContext;
-use crate::serialize::MetadataHeader;
 use crate::types::function::Compilation;
 use crate::types::module::CompileModuleInfo;
 use crate::{
     FunctionBodyData, ModuleTranslationState, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
-    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_VERSION_SECTION_NAME,
+    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME,
     lib::std::{boxed::Box, sync::Arc},
     translator::ModuleMiddleware,
 };
@@ -509,23 +508,6 @@ fn emit_wasmer_meta_object(
             format!("failed to add function trap offset relocation for {traps_name}: {e}")
         })?;
     }
-
-    // Save artifact format version.
-    let section_id = obj.add_section(
-        obj.segment_name(StandardSegment::Data).to_vec(),
-        WASMER_VERSION_SECTION_NAME.to_vec(),
-        SectionKind::Other,
-    );
-    if retain_section {
-        obj.section_mut(section_id).flags = SectionFlags::Elf {
-            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-        }
-    };
-    obj.append_section_data(
-        section_id,
-        &MetadataHeader::CURRENT_VERSION.to_le_bytes(),
-        pointer_size,
-    );
 
     // Save the generated object file.
     obj.write_stream(&mut meta_object).map_err(|e| {

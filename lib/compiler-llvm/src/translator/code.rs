@@ -2306,6 +2306,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module_translation: &'a ModuleTranslationState,
     signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
     wasm_module: &'a ModuleInfo,
+    #[allow(dead_code)]
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
     config: &'a LLVM,
