@@ -65,13 +65,24 @@ int main(void) {
   for (int attempt = 0; attempt < MAX_ATTEMPTS; ++attempt) {
     ssize_t nsent = sendto(sender, sendbuf, PAYLOAD_SIZE, 0,
                            (struct sockaddr*)&addr, sizeof(addr));
+    if (nsent < 0) {
+      // Only tolerate the expected best-effort/oversize/transient failures and
+      // treat them as a dropped attempt (e.g. macOS rejects datagrams larger
+      // than net.inet.udp.maxdgram with EMSGSIZE). Any other errno is a real
+      // bug in sendto rather than a lost datagram, so fail instead of skipping.
+      if (errno == EMSGSIZE || errno == ENOBUFS || errno == EAGAIN ||
+          errno == EWOULDBLOCK || errno == EINTR) {
+        fprintf(stderr, "attempt %d: sendto could not deliver (errno %d: %s)\n",
+                attempt, errno, strerror(errno));
+        continue;
+      }
+      fprintf(stderr, "sendto failed (errno %d: %s)\n", errno, strerror(errno));
+      return 1;
+    }
     if (nsent != PAYLOAD_SIZE) {
-      // e.g. macOS rejects datagrams larger than net.inet.udp.maxdgram with
-      // EMSGSIZE. That is not the behaviour under test, so treat it as a
-      // dropped attempt.
-      fprintf(stderr, "attempt %d: sendto returned %zd (errno %d: %s)\n",
-              attempt, nsent, errno, strerror(errno));
-      continue;
+      // A datagram send is all-or-nothing; a short count is a real bug.
+      fprintf(stderr, "sendto sent %zd of %d bytes\n", nsent, PAYLOAD_SIZE);
+      return 1;
     }
 
     // Wait for the datagram with a bounded timeout so a dropped datagram costs

@@ -119,12 +119,16 @@ int main(void) {
 
   char* big = malloc(SECOND_IOV_LEN);
   if (big == NULL) {
-    fprintf(stderr, "malloc failed\n");
+    // A 64 MiB allocation failing is an environment constraint, not the
+    // fd_write contract under test, so skip rather than fail.
+    fprintf(stderr, "skipping: could not allocate %zu bytes\n",
+            (size_t)SECOND_IOV_LEN);
     close(client);
     close(server);
-    return 1;
+    return 0;
   }
-  memset(big, 'w', SECOND_IOV_LEN);
+  // Contents are irrelevant - only the returned byte count is asserted - so the
+  // buffer is left uninitialized rather than paying for a 64 MiB memset.
 
   struct iovec iov[2] = {
       {.iov_base = "hello", .iov_len = FIRST_IOV_LEN},
@@ -141,7 +145,8 @@ int main(void) {
   if (written < 0) {
     // The whole syscall failed instead of returning the bytes already
     // transferred. This is the regression the test guards against.
-    fprintf(stderr, "writev failed instead of a partial count: %zd errno=%d (%s)\n",
+    fprintf(stderr,
+            "writev failed instead of a partial count: %zd errno=%d (%s)\n",
             written, errno, strerror(errno));
     return 1;
   }
@@ -154,8 +159,9 @@ int main(void) {
     return 0;
   }
 
-  // 0 <= written < total: fd_write returned the bytes already transferred from a
-  // short write instead of failing the whole syscall - the contract under test.
+  // 0 <= written < total: fd_write returned the bytes already transferred from
+  // a short write instead of failing the whole syscall - the contract under
+  // test.
   puts("stream TCP writev returns partial count on short write");
   return 0;
 }
