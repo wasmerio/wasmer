@@ -119,9 +119,11 @@ impl FuncTrampoline {
             trampoline_ty,
             Some(Linkage::External),
         );
-        trampoline_func
-            .as_global_value()
-            .set_section(Some(&self.func_section));
+        if !config.elf_artifact_format {
+            trampoline_func
+                .as_global_value()
+                .set_section(Some(&self.func_section));
+        }
         trampoline_func
             .as_global_value()
             .set_linkage(Linkage::DLLExport);
@@ -296,9 +298,11 @@ impl FuncTrampoline {
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
         }
-        trampoline_func
-            .as_global_value()
-            .set_section(Some(&self.func_section));
+        if !config.elf_artifact_format {
+            trampoline_func
+                .as_global_value()
+                .set_section(Some(&self.func_section));
+        }
         trampoline_func
             .as_global_value()
             .set_linkage(Linkage::DLLExport);

@@ -141,8 +141,6 @@ impl FuncTranslator {
         let func_index = wasm_module.func_index(*local_func_index);
         let function =
             CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
         // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
         // the allocated heap is never moved to a different location.
@@ -150,10 +148,18 @@ impl FuncTranslator {
             .get(MemoryIndex::from_u32(0))
             .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
-        let module_name = match wasm_module.name.as_ref() {
-            None => format!("<anonymous module> function {function_name}"),
-            Some(module_name) => format!("module {module_name} function {function_name}"),
+        let (function_name, module_name) = if config.elf_artifact_format {
+            (function.linkage_name(), String::new())
+        } else {
+            let function_name =
+                symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
+            let module_name = match wasm_module.name.as_ref() {
+                None => format!("<anonymous module> function {function_name}"),
+                Some(module_name) => format!("module {module_name} function {function_name}"),
+            };
+            (function_name, module_name)
         };
+
         let module = self.ctx.create_module(module_name.as_str());
 
         let target_machine = &self.target_machines.values().next().unwrap();
@@ -208,7 +214,9 @@ impl FuncTranslator {
         };
 
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(Some(&section));
+        if !config.elf_artifact_format {
+            func.as_global_value().set_section(Some(&section));
+        }
 
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
