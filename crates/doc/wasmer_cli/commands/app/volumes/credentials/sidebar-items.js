@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CredsItemFormat"],"mod":["rotate_secrets"],"struct":["CmdAppVolumesCredentials","ItemFormatOpts"]};
+window.SIDEBAR_ITEMS = {"enum":["CredsItemFormat"],"fn":["render_rclone_section","render_s3_credentials"],"mod":["rotate_secrets"],"struct":["CmdAppVolumesCredentials","ItemFormatOpts","S3CredentialRecord"]};

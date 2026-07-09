@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CmdAppVolumes"],"mod":["credentials","list"]};
+window.SIDEBAR_ITEMS = {"enum":["CmdAppVolumes"],"fn":["list_volumes","select_volume_by_selector"],"mod":["credentials","enable_s3","list"],"struct":["Volume","VolumeListItem"]};
