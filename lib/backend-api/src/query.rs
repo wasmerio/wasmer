@@ -361,57 +361,6 @@ pub async fn get_cron_job_by_id(
         .with_context(|| format!("cron job '{cron_job_id}' not found"))
 }
 
-/// Retrieve invocations for a cron job. The cron job can be referenced by id or name.
-pub async fn get_cron_job_invocations(
-    client: &WasmerClient,
-    owner: impl Into<String>,
-    name: impl Into<String>,
-    cron_job: impl AsRef<str>,
-) -> Result<(types::CronJobWithInvocations, Vec<types::CronJobInvocation>), anyhow::Error> {
-    let cron_job = cron_job.as_ref().to_string();
-    let owner = owner.into();
-    let name = name.into();
-    let mut invocation_after = None;
-    let mut all_invocations = Vec::new();
-    let mut cron_job_with_invocations: Option<types::CronJobWithInvocations> = None;
-
-    loop {
-        let (mut cron, page) = get_cron_job_invocations_page(
-            client,
-            owner.clone(),
-            name.clone(),
-            &cron_job,
-            invocation_after,
-            Some(CRON_JOB_PAGE_SIZE),
-            None,
-            None,
-        )
-        .await?;
-
-        all_invocations.extend(page.items);
-        invocation_after = page.next_cursor;
-
-        if let Some(existing_cron) = &mut cron_job_with_invocations {
-            existing_cron
-                .invocations
-                .edges
-                .append(&mut cron.invocations.edges);
-            existing_cron.invocations.page_info = cron.invocations.page_info;
-        } else {
-            cron_job_with_invocations = Some(cron);
-        }
-
-        if invocation_after.is_none() {
-            break;
-        }
-    }
-
-    Ok((
-        cron_job_with_invocations.context("cron job missing from invocations response")?,
-        all_invocations,
-    ))
-}
-
 /// Retrieve one page of invocations for a cron job. The cron job can be referenced by id or name.
 #[allow(clippy::too_many_arguments)]
 pub async fn get_cron_job_invocations_page(
