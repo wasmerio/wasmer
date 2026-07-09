@@ -189,6 +189,12 @@ impl LLVM {
         self
     }
 
+    /// Enables an experimental ELF-based version of the Artifact format.
+    pub fn elf_artifact_format(&mut self, elf_artifact_format: bool) -> &mut Self {
+        self.elf_artifact_format = elf_artifact_format;
+        self
+    }
+
     fn reloc_mode(&self, binary_format: BinaryFormat) -> RelocMode {
         if matches!(binary_format, BinaryFormat::Macho) {
             return RelocMode::Static;
