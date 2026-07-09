@@ -79,18 +79,37 @@ int main(void) {
     // (wasix-libc does not wire SO_RCVTIMEO, so poll() is used instead.)
     struct pollfd pfd = {.fd = receiver, .events = POLLIN};
     int pr = poll(&pfd, 1, RECV_TIMEOUT_MS);
-    if (pr <= 0 || (pfd.revents & POLLIN) == 0) {
-      // Timed out waiting for the datagram (dropped in transit); retry.
-      fprintf(stderr, "attempt %d: poll timed out (pr=%d revents=0x%x)\n",
-              attempt, pr, pfd.revents);
+    if (pr < 0) {
+      if (errno == EINTR) {
+        continue;  // interrupted before the datagram arrived; retry
+      }
+      // A genuine poll error (bad fd, unsupported poll, ...) is a real failure,
+      // not a dropped datagram, so surface it instead of skipping.
+      fprintf(stderr, "poll failed (errno %d: %s)\n", errno, strerror(errno));
+      return 1;
+    }
+    if (pr == 0) {
+      // Nothing arrived within the timeout: the datagram was dropped. Retry.
+      fprintf(stderr, "attempt %d: no datagram within %d ms\n", attempt,
+              RECV_TIMEOUT_MS);
       continue;
+    }
+    if ((pfd.revents & POLLIN) == 0) {
+      // Readiness reported an error/hangup rather than readable data.
+      fprintf(stderr, "poll returned unexpected revents=0x%x\n", pfd.revents);
+      return 1;
     }
 
     ssize_t nread = recvfrom(receiver, recvbuf, sizeof(recvbuf), 0, NULL, NULL);
     if (nread < 0) {
-      fprintf(stderr, "attempt %d: recvfrom failed (errno %d: %s)\n", attempt,
-              errno, strerror(errno));
-      continue;
+      if (errno == EINTR) {
+        continue;  // interrupted before reading; retry
+      }
+      // poll() reported the socket readable but recvfrom failed: a real bug,
+      // not a dropped datagram, so fail rather than silently retry/skip.
+      fprintf(stderr, "recvfrom failed after POLLIN (errno %d: %s)\n", errno,
+              strerror(errno));
+      return 1;
     }
 
     // A datagram was delivered: it must match exactly. Anything else is the
