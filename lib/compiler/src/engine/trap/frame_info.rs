@@ -13,6 +13,7 @@
 //! ```
 
 use crate::ArtifactBuildFromArchive;
+use crate::engine::mapped_binary::DebugInfo;
 use crate::types::address_map::{
     ArchivedFunctionAddressMap, ArchivedInstructionAddressMap, FunctionAddressMap,
     InstructionAddressMap,
@@ -58,20 +59,26 @@ pub struct GlobalFrameInfoRegistration {
     key: usize,
 }
 
-#[derive(Debug)]
 struct ModuleInfoFrameInfo {
     start: usize,
     functions: BTreeMap<usize, FunctionInfo>,
     module: Arc<ModuleInfo>,
-    frame_infos: FrameInfosVariant,
+    /// Per-instruction address maps, when available (non-ELF artifacts).
+    frame_infos: Option<FrameInfosVariant>,
+    /// The base address the module's code was loaded at. Used together with
+    /// `debug_info` to translate a `pc` back into an offset within the
+    /// original ELF image for DWARF lookups.
+    image_base: usize,
+    /// Lazily-loaded DWARF debug info, available for ELF-backed artifacts.
+    debug_info: DebugInfo,
 }
 
 impl ModuleInfoFrameInfo {
     fn function_debug_info(
         &self,
         local_index: LocalFunctionIndex,
-    ) -> CompiledFunctionFrameInfoVariant<'_> {
-        self.frame_infos.get(local_index).unwrap()
+    ) -> Option<CompiledFunctionFrameInfoVariant<'_>> {
+        self.frame_infos.as_ref()?.get(local_index)
     }
 
     /// Gets a function given a pc
@@ -99,50 +106,103 @@ impl GlobalFrameInfo {
     pub fn lookup_frame_info(&self, pc: usize) -> Option<FrameInfo> {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
+        let func_index = module.module.func_index(func.local_index);
+        let mut function_name = module.module.function_names.get(&func_index).cloned();
 
-        // Use our relative position from the start of the function to find the
-        // machine instruction that corresponds to `pc`, which then allows us to
-        // map that to a wasm original source location.
-        let rel_pos = pc - func.start;
-        let debug_info = module.function_debug_info(func.local_index);
-        let instr_map = debug_info.address_map();
-        let pos = match instr_map.instructions().code_offset_by_key(rel_pos) {
-            // Exact hit!
-            Ok(pos) => Some(pos),
+        // Non-ELF artifacts carry a per-instruction address map that we use
+        // to precisely map `pc` back to a wasm source location.
+        if let Some(debug_info) = module.function_debug_info(func.local_index) {
+            // Use our relative position from the start of the function to find the
+            // machine instruction that corresponds to `pc`, which then allows us to
+            // map that to a wasm original source location.
+            let rel_pos = pc - func.start;
+            let instr_map = debug_info.address_map();
+            let pos = match instr_map.instructions().code_offset_by_key(rel_pos) {
+                // Exact hit!
+                Ok(pos) => Some(pos),
 
-            // This *would* be at the first slot in the array, so no
-            // instructions cover `pc`.
-            Err(0) => None,
+                // This *would* be at the first slot in the array, so no
+                // instructions cover `pc`.
+                Err(0) => None,
 
-            // This would be at the `nth` slot, so check `n-1` to see if we're
-            // part of that instruction. This happens due to the minus one when
-            // this function is called form trap symbolication, where we don't
-            // always get called with a `pc` that's an exact instruction
-            // boundary.
-            Err(n) => {
-                let instr = &instr_map.instructions().get(n - 1);
-                if instr.code_offset <= rel_pos && rel_pos < instr.code_offset + instr.code_len {
-                    Some(n - 1)
-                } else {
-                    None
+                // This would be at the `nth` slot, so check `n-1` to see if we're
+                // part of that instruction. This happens due to the minus one when
+                // this function is called form trap symbolication, where we don't
+                // always get called with a `pc` that's an exact instruction
+                // boundary.
+                Err(n) => {
+                    let instr = &instr_map.instructions().get(n - 1);
+                    if instr.code_offset <= rel_pos && rel_pos < instr.code_offset + instr.code_len
+                    {
+                        Some(n - 1)
+                    } else {
+                        None
+                    }
                 }
+            };
+
+            let instr = match pos {
+                Some(pos) => instr_map.instructions().get(pos).srcloc,
+                // Some compilers don't emit yet the full trap information for each of
+                // the instructions (such as LLVM).
+                // In case no specific instruction is found, we return by default the
+                // start offset of the function.
+                None => instr_map.start_srcloc(),
+            };
+            return Some(FrameInfo::new(
+                module.module.name(),
+                func_index.index() as u32,
+                function_name,
+                instr_map.start_srcloc(),
+                instr,
+            ));
+        }
+
+        // ELF-backed artifacts have no per-instruction address map; fall back
+        // to DWARF line info via `addr2line`, keyed off offsets into the
+        // original ELF image.
+        let get_line = |context: &addr2line::Context<crate::engine::mapped_binary::DwarfReader>,
+                         pc: u64| {
+            if let Ok(Some(location)) = context.find_location(pc)
+                && let Some(line) = location.line
+                && let Some(line) = line.checked_sub(1)
+            {
+                SourceLoc::new(line)
+            } else {
+                SourceLoc::default()
             }
         };
 
-        let instr = match pos {
-            Some(pos) => instr_map.instructions().get(pos).srcloc,
-            // Some compilers don't emit yet the full trap information for each of
-            // the instructions (such as LLVM).
-            // In case no specific instruction is found, we return by default the
-            // start offset of the function.
-            None => instr_map.start_srcloc(),
-        };
-        let func_index = module.module.func_index(func.local_index);
+        let (func_start, instr, resolved_name) = module.debug_info.with_context(|context| {
+            let Some(context) = context else {
+                return (SourceLoc::default(), SourceLoc::default(), None);
+            };
+
+            let probe = (pc - module.image_base) as u64;
+            let instr = get_line(context, probe);
+            let func_start = get_line(context, (func.start - module.image_base) as u64);
+
+            let resolved_name = if let Ok(mut frames) = context.find_frames(probe).skip_all_loads()
+                && let Ok(Some(frame)) = frames.next()
+                && let Some(function) = frame.function
+                && let Ok(name) = function.raw_name()
+                && name != module.module.get_function_name(func_index)
+            {
+                Some(name.into_owned())
+            } else {
+                None
+            };
+
+            (func_start, instr, resolved_name)
+        });
+        if let Some(resolved_name) = resolved_name {
+            function_name = Some(resolved_name);
+        }
         Some(FrameInfo::new(
             module.module.name(),
             func_index.index() as u32,
-            module.module.function_names.get(&func_index).cloned(),
-            instr_map.start_srcloc(),
+            function_name,
+            func_start,
             instr,
         ))
     }
@@ -151,7 +211,7 @@ impl GlobalFrameInfo {
     pub fn lookup_trap_info(&self, pc: usize) -> Option<TrapInformation> {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
-        let debug_info = module.function_debug_info(func.local_index);
+        let debug_info = module.function_debug_info(func.local_index)?;
         let traps = debug_info.traps();
         let idx = traps
             .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
@@ -207,6 +267,7 @@ impl FrameInfosVariant {
             Self::Owned(map) => map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
             Self::Archived(archive) => archive
                 .get_frame_info_ref()
+                .expect("RKYV path expected")
                 .get(index)
                 .map(CompiledFunctionFrameInfoVariant::Archived),
         }
@@ -361,7 +422,9 @@ impl FunctionAddressMapInstructionVariant<'_> {
 pub fn register(
     module: Arc<ModuleInfo>,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
-    frame_infos: FrameInfosVariant,
+    frame_infos: Option<FrameInfosVariant>,
+    image_base: usize,
+    elf_data: Option<Arc<[u8]>>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::MAX;
     let mut max = 0;
@@ -407,6 +470,8 @@ pub fn register(
             functions,
             module,
             frame_infos,
+            image_base,
+            debug_info: DebugInfo::new(elf_data),
         },
     );
     assert!(prev.is_none());

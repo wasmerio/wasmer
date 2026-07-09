@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::num::NonZero;
+use std::{collections::HashMap, path::Path};
 
 use super::{
     intrinsics::{
@@ -8,14 +8,17 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
-use crate::{compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle};
+use crate::{
+    compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle, object_file::CompiledFunction,
+};
 use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
-    module::{Linkage, Module},
+    debug_info::{AsDIScope, DIFlags, DIFlagsConstants, DWARFEmissionKind, DWARFSourceLanguage},
+    module::{FlagBehavior, Linkage, Module},
     passes::PassBuilderOptions,
     targets::{FileType, TargetData, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
@@ -34,7 +37,7 @@ use crate::{
     abi::{Abi, get_abi},
     config::LLVM,
     error::{err, err_nt},
-    object_file::{CompiledFunction, load_object_file},
+    object_file::load_object_file,
 };
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64, FunctionBinaryReader, FunctionBodyData,
@@ -43,7 +46,7 @@ use wasmer_compiler::{
     LEF32_GEQ_U32_MIN, LEF32_GEQ_U64_MIN, LEF64_GEQ_I32_MIN, LEF64_GEQ_I64_MIN, LEF64_GEQ_U32_MIN,
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
     from_binaryreadererror_wasmerror,
-    misc::CompiledKind,
+    misc::{CompiledFunctionExt, CompiledKind},
     types::{
         relocation::RelocationTarget,
         symbols::{Symbol, SymbolRegistry},
@@ -139,8 +142,6 @@ impl FuncTranslator {
         let func_index = wasm_module.func_index(*local_func_index);
         let function =
             CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
         // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
         // the allocated heap is never moved to a different location.
@@ -148,10 +149,18 @@ impl FuncTranslator {
             .get(MemoryIndex::from_u32(0))
             .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
-        let module_name = match wasm_module.name.as_ref() {
-            None => format!("<anonymous module> function {function_name}"),
-            Some(module_name) => format!("module {module_name} function {function_name}"),
+        let (function_name, module_name) = if config.elf_artifact_format {
+            (function.linkage_name(), String::new())
+        } else {
+            let function_name =
+                symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
+            let module_name = match wasm_module.name.as_ref() {
+                None => format!("<anonymous module> function {function_name}"),
+                Some(module_name) => format!("module {module_name} function {function_name}"),
+            };
+            (function_name, module_name)
         };
+
         let module = self.ctx.create_module(module_name.as_str());
 
         let target_machine = &self.target_machines.values().next().unwrap();
@@ -181,6 +190,65 @@ impl FuncTranslator {
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
+        let debug_info = if config.elf_artifact_format {
+            let debug_metadata_version = self
+                .ctx
+                .i32_type()
+                .const_int(inkwell::debug_info::debug_metadata_version().into(), false);
+            module.add_basic_value_flag(
+                "Debug Info Version",
+                FlagBehavior::Warning,
+                debug_metadata_version,
+            );
+            module.add_basic_value_flag(
+                "Dwarf Version",
+                FlagBehavior::Warning,
+                self.ctx.i32_type().const_int(5, false),
+            );
+
+            let (dibuilder, compile_unit) = module.create_debug_info_builder(
+                true,
+                DWARFSourceLanguage::C,
+                &wasm_module.name(),
+                ".",
+                "wasmer",
+                true,
+                "",
+                0,
+                "",
+                DWARFEmissionKind::Full,
+                0,
+                false,
+                false,
+                "",
+                "",
+            );
+            let subroutine_type = dibuilder.create_subroutine_type(
+                compile_unit.get_file(),
+                None,
+                &[],
+                DIFlags::PUBLIC,
+            );
+            let function_name = wasm_module.get_function_name(func_index);
+            let start_line = (function_body.module_offset as u32).saturating_add(1);
+            let subprogram = dibuilder.create_function(
+                compile_unit.as_debug_info_scope(),
+                &function_name,
+                None,
+                compile_unit.get_file(),
+                start_line,
+                subroutine_type,
+                false,
+                true,
+                start_line,
+                DIFlags::PUBLIC,
+                true,
+            );
+            func.set_subprogram(subprogram);
+            Some((dibuilder, subprogram))
+        } else {
+            None
+        };
         for (attr, attr_loc) in &func_attrs {
             func.add_attribute(*attr_loc, *attr);
         }
@@ -206,7 +274,9 @@ impl FuncTranslator {
         };
 
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(Some(&section));
+        if !config.elf_artifact_format {
+            func.as_global_value().set_section(Some(&section));
+        }
 
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
@@ -362,11 +432,26 @@ impl FuncTranslator {
 
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
+            let original_pos = reader.original_position() as u32;
             let op = reader.read_operator()?;
+            if let Some((dibuilder, subprogram)) = debug_info.as_ref() {
+                let line = original_pos.saturating_add(1);
+                let loc = dibuilder.create_debug_location(
+                    &self.ctx,
+                    line,
+                    1,
+                    subprogram.as_debug_info_scope(),
+                    None,
+                );
+                fcg.builder.set_current_debug_location(loc);
+            }
             fcg.translate_operator(op, pos)?;
         }
 
         fcg.finalize(wasm_fn_type)?;
+        if let Some((dibuilder, _)) = debug_info {
+            dibuilder.finalize();
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.preopt_ir(&function, &wasm_module.hash_string(), &module);
@@ -443,6 +528,7 @@ impl FuncTranslator {
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
+        build_directory: &Path,
     ) -> Result<CompiledFunction, CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
         let opt_style = if Some(func_index) == self.wasm_apply_data_relocs_fn_index {
@@ -485,32 +571,39 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        let mem_buf_slice = memory_buffer.as_slice();
-
-        load_object_file(
-            mem_buf_slice,
-            &self.func_section,
-            RelocationTarget::LocalFunc(*local_func_index),
-            |name: &str| {
-                Ok({
-                    let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
-                        name.strip_prefix("_").unwrap_or(name)
-                    } else {
-                        name
-                    }
-                    .to_string();
-                    if let Some(Symbol::LocalFunction(local_func_index)) =
-                        symbol_registry.name_to_symbol(&name)
-                    {
-                        Some(RelocationTarget::LocalFunc(local_func_index))
-                    } else {
-                        None
-                    }
-                })
-            },
-            self.binary_fmt,
-            &self.target_triple,
-        )
+        if config.elf_artifact_format {
+            let object_path = build_directory
+                .to_path_buf()
+                .join(function.object_filename());
+            std::fs::write(&object_path, memory_buffer.as_slice())
+                .map_err(|e| CompileError::Codegen(format!("Cannot save emitted assembly: {e}")))?;
+            Ok(CompiledFunction::Elf(object_path))
+        } else {
+            Ok(CompiledFunction::Rkyv(Box::new(load_object_file(
+                memory_buffer.as_slice(),
+                &self.func_section,
+                RelocationTarget::LocalFunc(*local_func_index),
+                |name: &str| {
+                    Ok({
+                        let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
+                            name.strip_prefix("_").unwrap_or(name)
+                        } else {
+                            name
+                        }
+                        .to_string();
+                        if let Some(Symbol::LocalFunction(local_func_index)) =
+                            symbol_registry.name_to_symbol(&name)
+                        {
+                            Some(RelocationTarget::LocalFunc(local_func_index))
+                        } else {
+                            None
+                        }
+                    })
+                },
+                self.binary_fmt,
+                &self.target_triple,
+            )?)))
+        }
     }
 }
 
@@ -1892,7 +1985,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 .as_basic_value_enum(),
         );
 
-        tag_glbl.set_linkage(Linkage::External);
+        tag_glbl.set_linkage(Linkage::LinkOnceODR);
         tag_glbl.set_constant(true);
         // Why set this to a specific section? On macOS it would land on a specific read only data
         // section. GOT-based relocations will probably be generated with a non-zero addend, making
@@ -2288,6 +2381,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module_translation: &'a ModuleTranslationState,
     signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
     wasm_module: &'a ModuleInfo,
+    #[allow(dead_code)]
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
     config: &'a LLVM,
@@ -3290,10 +3384,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     imported_include_m0_param,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    let function_name = self
-                        .symbol_registry
-                        .symbol_to_name(Symbol::LocalFunction(local_func_index));
-
                     self.ctx.local_func(
                         local_func_index,
                         func_index,
@@ -3301,7 +3391,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.module,
                         self.context,
                         func_type,
-                        &function_name,
+                        &CompiledKind::Local(local_func_index, String::new()).linkage_name(),
                     )?
                 } else {
                     self.ctx

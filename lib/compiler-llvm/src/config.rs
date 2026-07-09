@@ -38,6 +38,11 @@ impl LLVMCallbacks {
         Ok(Self { debug_dir })
     }
 
+    /// Returns the debug directory used to dump compilation artifacts.
+    pub fn debug_dir(&self) -> &PathBuf {
+        &self.debug_dir
+    }
+
     fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
         if let Some(hash) = module_hash {
@@ -116,6 +121,8 @@ pub struct LLVM {
     /// Number of threads to use when compiling a module.
     pub(crate) num_threads: NonZero<usize>,
     pub(crate) verbose_asm: bool,
+    /// Enable an experimental ELF-based version of the Artifact format.
+    pub(crate) elf_artifact_format: bool,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Sequence)]
@@ -136,7 +143,8 @@ impl LLVM {
             enable_verifier: false,
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
-            is_pic: false,
+            is_pic: true,
+            elf_artifact_format: true,
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,
@@ -178,6 +186,14 @@ impl LLVM {
     /// place them in read-only data.
     pub fn readonly_funcref_table(&mut self, enable_readonly_funcref_table: bool) -> &mut Self {
         self.enable_readonly_funcref_table = enable_readonly_funcref_table;
+        self
+    }
+
+    /// Enables an experimental ELF-based version of the Artifact format.
+    pub fn elf_artifact_format(&mut self, elf_artifact_format: bool) -> &mut Self {
+        self.elf_artifact_format = elf_artifact_format;
+        // We will link a shared library and so PIC must be enabled.
+        self.is_pic = true;
         self
     }
 
