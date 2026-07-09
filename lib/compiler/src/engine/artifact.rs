@@ -20,7 +20,7 @@ use crate::{
 #[cfg(feature = "static-artifact-create")]
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
-use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
+use crate::{serialize::RkyvSerializableCompilation, types::symbols::ModuleMetadata};
 
 use enumset::EnumSet;
 use rkyv::option::ArchivedOption;
@@ -355,25 +355,43 @@ impl Artifact {
         ) = match &artifact {
             ArtifactBuildVariant::Plain(p) => engine_inner.allocate(
                 module_info,
-                p.get_function_bodies_ref().values(),
-                p.get_function_call_trampolines_ref().values(),
-                p.get_dynamic_function_trampolines_ref().values(),
-                p.get_custom_sections_ref().values(),
+                p.get_function_bodies_ref()
+                    .expect("RKYV path expected")
+                    .values(),
+                p.get_function_call_trampolines_ref()
+                    .expect("RKYV path expected")
+                    .values(),
+                p.get_dynamic_function_trampolines_ref()
+                    .expect("RKYV path expected")
+                    .values(),
+                p.get_custom_sections_ref()
+                    .expect("RKYV path expected")
+                    .values(),
             )?,
 
             ArtifactBuildVariant::Archived(a) => engine_inner.allocate(
                 module_info,
-                a.get_function_bodies_ref().values(),
-                a.get_function_call_trampolines_ref().values(),
-                a.get_dynamic_function_trampolines_ref().values(),
-                a.get_custom_sections_ref().values(),
+                a.get_function_bodies_ref()
+                    .expect("RKYV path expected")
+                    .values(),
+                a.get_function_call_trampolines_ref()
+                    .expect("RKYV path expected")
+                    .values(),
+                a.get_dynamic_function_trampolines_ref()
+                    .expect("RKYV path expected")
+                    .values(),
+                a.get_custom_sections_ref()
+                    .expect("RKYV path expected")
+                    .values(),
             )?,
         };
 
         let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
             ArtifactBuildVariant::Plain(p) => {
-                if let Some(got) = p.get_got_ref().index {
-                    let relocs: Vec<_> = p.get_custom_section_relocations_ref()[got]
+                if let Some(got) = p.get_got_ref().expect("RKYV path expected").index {
+                    let relocs: Vec<_> = p
+                        .get_custom_section_relocations_ref()
+                        .expect("RKYV path expected")[got]
                         .iter()
                         .map(|v| (v.reloc_target, v.offset))
                         .collect();
@@ -390,8 +408,10 @@ impl Artifact {
             }
 
             ArtifactBuildVariant::Archived(p) => {
-                if let Some(got) = p.get_got_ref().index {
-                    let relocs: Vec<_> = p.get_custom_section_relocations_ref()[got]
+                if let Some(got) = p.get_got_ref().expect("RKYV path expected").index {
+                    let relocs: Vec<_> = p
+                        .get_custom_section_relocations_ref()
+                        .expect("RKYV path expected")[got]
                         .iter()
                         .map(|v| (v.reloc_target(), v.offset))
                         .collect();
@@ -410,11 +430,13 @@ impl Artifact {
         let functions_max_stack_usage = match &artifact {
             ArtifactBuildVariant::Plain(p) => p
                 .get_function_max_stack_usage()
+                .expect("RKYV path expected")
                 .values()
                 .cloned()
                 .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
             ArtifactBuildVariant::Archived(a) => a
                 .get_function_max_stack_usage()
+                .expect("RKYV path expected")
                 .values()
                 .map(|v| match v {
                     ArchivedOption::None => None,
@@ -429,14 +451,17 @@ impl Artifact {
                 &finished_functions,
                 &finished_dynamic_function_trampolines,
                 p.get_function_relocations()
+                    .expect("RKYV path expected")
                     .iter()
                     .map(|(k, v)| (k, v.iter())),
                 &custom_sections,
                 p.get_custom_section_relocations_ref()
+                    .expect("RKYV path expected")
                     .iter()
                     .map(|(k, v)| (k, v.iter())),
-                p.get_libcall_trampolines(),
-                p.get_libcall_trampoline_len(),
+                p.get_libcall_trampolines().expect("RKYV path expected"),
+                p.get_libcall_trampoline_len()
+                    .expect("RKYV path expected"),
                 &get_got_address,
             ),
             ArtifactBuildVariant::Archived(a) => link_module(
@@ -444,14 +469,17 @@ impl Artifact {
                 &finished_functions,
                 &finished_dynamic_function_trampolines,
                 a.get_function_relocations()
+                    .expect("RKYV path expected")
                     .iter()
                     .map(|(k, v)| (k, v.iter())),
                 &custom_sections,
                 a.get_custom_section_relocations_ref()
+                    .expect("RKYV path expected")
                     .iter()
                     .map(|(k, v)| (k, v.iter())),
-                a.get_libcall_trampolines(),
-                a.get_libcall_trampoline_len(),
+                a.get_libcall_trampolines().expect("RKYV path expected"),
+                a.get_libcall_trampoline_len()
+                    .expect("RKYV path expected"),
                 &get_got_address,
             ),
         };
@@ -469,35 +497,57 @@ impl Artifact {
 
         #[allow(unused_variables)]
         let eh_frame = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p.get_unwind_info().eh_frame.map(|v| unsafe {
-                std::slice::from_raw_parts(
-                    *custom_sections[v],
-                    p.get_custom_sections_ref()[v].bytes.len(),
-                )
-            }),
-            ArtifactBuildVariant::Archived(a) => a.get_unwind_info().eh_frame.map(|v| unsafe {
-                std::slice::from_raw_parts(
-                    *custom_sections[v],
-                    a.get_custom_sections_ref()[v].bytes.len(),
-                )
-            }),
+            ArtifactBuildVariant::Plain(p) => p
+                .get_unwind_info()
+                .expect("RKYV path expected")
+                .eh_frame
+                .map(|v| unsafe {
+                    std::slice::from_raw_parts(
+                        *custom_sections[v],
+                        p.get_custom_sections_ref().expect("RKYV path expected")[v]
+                            .bytes
+                            .len(),
+                    )
+                }),
+            ArtifactBuildVariant::Archived(a) => a
+                .get_unwind_info()
+                .expect("RKYV path expected")
+                .eh_frame
+                .map(|v| unsafe {
+                    std::slice::from_raw_parts(
+                        *custom_sections[v],
+                        a.get_custom_sections_ref().expect("RKYV path expected")[v]
+                            .bytes
+                            .len(),
+                    )
+                }),
         };
         #[allow(unused_variables)]
         let compact_unwind = match &artifact {
-            ArtifactBuildVariant::Plain(p) => p.get_unwind_info().compact_unwind.map(|v| unsafe {
-                std::slice::from_raw_parts(
-                    *custom_sections[v],
-                    p.get_custom_sections_ref()[v].bytes.len(),
-                )
-            }),
-            ArtifactBuildVariant::Archived(a) => {
-                a.get_unwind_info().compact_unwind.map(|v| unsafe {
+            ArtifactBuildVariant::Plain(p) => p
+                .get_unwind_info()
+                .expect("RKYV path expected")
+                .compact_unwind
+                .map(|v| unsafe {
                     std::slice::from_raw_parts(
                         *custom_sections[v],
-                        a.get_custom_sections_ref()[v].bytes.len(),
+                        p.get_custom_sections_ref().expect("RKYV path expected")[v]
+                            .bytes
+                            .len(),
                     )
-                })
-            }
+                }),
+            ArtifactBuildVariant::Archived(a) => a
+                .get_unwind_info()
+                .expect("RKYV path expected")
+                .compact_unwind
+                .map(|v| unsafe {
+                    std::slice::from_raw_parts(
+                        *custom_sections[v],
+                        a.get_custom_sections_ref().expect("RKYV path expected")[v]
+                            .bytes
+                            .len(),
+                    )
+                }),
         };
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
@@ -795,9 +845,9 @@ impl Artifact {
             self.artifact.create_module_info(),
             &finished_function_extents,
             match &self.artifact {
-                ArtifactBuildVariant::Plain(p) => {
-                    FrameInfosVariant::Owned(p.get_frame_info_ref().clone())
-                }
+                ArtifactBuildVariant::Plain(p) => FrameInfosVariant::Owned(
+                    p.get_frame_info_ref().expect("RKYV path expected").clone(),
+                ),
                 ArtifactBuildVariant::Archived(a) => FrameInfosVariant::Archived(a.clone()),
             },
         );
@@ -1275,6 +1325,8 @@ impl Artifact {
         bytes: OwnedBuffer,
     ) -> Result<Self, DeserializeError> {
         unsafe {
+            use crate::serialize::SerializableCompilation;
+
             let bytes = bytes.as_slice();
             let metadata_len = MetadataHeader::parse(bytes)?;
             let metadata_slice = Self::get_byte_slice(bytes, MetadataHeader::LEN, bytes.len())?;
@@ -1360,7 +1412,7 @@ impl Artifact {
             }
 
             let artifact = ArtifactBuild::from_serializable(SerializableModule {
-                compilation: SerializableCompilation::default(),
+                compilation: SerializableCompilation::Rkyv(RkyvSerializableCompilation::default()),
                 compile_info: metadata.compile_info,
                 data_initializers: metadata.data_initializers,
                 cpu_features: metadata.cpu_features,

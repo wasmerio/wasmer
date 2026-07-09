@@ -207,6 +207,7 @@ impl FrameInfosVariant {
             Self::Owned(map) => map.get(index).map(CompiledFunctionFrameInfoVariant::Ref),
             Self::Archived(archive) => archive
                 .get_frame_info_ref()
+                .expect("RKYV path expected")
                 .get(index)
                 .map(CompiledFunctionFrameInfoVariant::Archived),
         }
