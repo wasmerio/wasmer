@@ -5,12 +5,14 @@ use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::io::Read;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
+    path::PathBuf,
     sync::Arc,
 };
-use tempfile::tempdir;
+use tempfile::{NamedTempFile, tempdir};
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::types::function::CompiledFunctionBody;
@@ -18,7 +20,8 @@ use wasmer_compiler::types::function::{RkyvCompilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
 use wasmer_compiler::{
-    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
+    CompiledObjects, Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
+    emit_metadata_and_link,
     types::{
         relocation::RelocationTarget,
         section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
@@ -395,7 +398,58 @@ impl Compiler for LLVMCompiler {
         };
 
         if self.config.elf_artifact_format {
-            todo!()
+            let object_files = functions
+                .into_iter()
+                .map(|compiled_function| match compiled_function {
+                    CompiledFunction::Elf(path) => path,
+                    CompiledFunction::Rkyv(_) => {
+                        unreachable!()
+                    }
+                })
+                .collect::<Vec<PathBuf>>();
+            let trampolines_objects = function_call_trampolines
+                .into_iter()
+                .map(|f| match f {
+                    CompiledFunctionBody::Elf(path) => path,
+                    CompiledFunctionBody::Rkyv(_) => {
+                        unreachable!()
+                    }
+                })
+                .collect::<Vec<PathBuf>>();
+            let dynamic_trampolines_objects = dynamic_function_trampolines
+                .into_iter()
+                .map(|f| match f {
+                    CompiledFunctionBody::Elf(path) => path,
+                    CompiledFunctionBody::Rkyv(_) => unreachable!(),
+                })
+                .collect::<Vec<PathBuf>>();
+
+            let module_file = NamedTempFile::new_in(build_directory.path()).map_err(|e| {
+                CompileError::Codegen(format!("cannot create temporary module file: {e}"))
+            })?;
+
+            let mut module_file = emit_metadata_and_link(
+                target,
+                build_directory.path(),
+                module_file,
+                &CompiledObjects {
+                    object_files: &object_files,
+                    import_trampoline_object_files: &[],
+                    trampoline_object_files: &trampolines_objects,
+                    dynamic_trampoline_object_files: &dynamic_trampolines_objects,
+                },
+                self.config
+                    .callbacks
+                    .as_ref()
+                    .map(|callbacks| callbacks.debug_dir().clone()),
+                module.hash().map(|hash| hash.to_string()),
+            )?;
+
+            let mut elf_content = Vec::new();
+            module_file.read_to_end(&mut elf_content).map_err(|e| {
+                CompileError::Codegen(format!("cannot persist linked shared object: {e}"))
+            })?;
+            Ok(Compilation::Elf(elf_content))
         } else {
             let functions = functions
                 .into_iter()

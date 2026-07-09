@@ -241,5 +241,5 @@ pub struct RkyvCompilation {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Compilation {
     Rkyv(RkyvCompilation),
-    Elf(PathBuf),
+    Elf(Vec<u8>),
 }
