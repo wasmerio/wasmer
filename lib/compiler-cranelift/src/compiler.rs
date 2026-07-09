@@ -39,6 +39,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
+use wasmer_compiler::types::function::Compilation;
 
 use wasmer_compiler::progress::ProgressContext;
 #[cfg(feature = "unwind")]
@@ -48,7 +49,7 @@ use wasmer_compiler::{
     ModuleMiddlewareChain, ModuleTranslationState,
     types::{
         function::{
-            Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
+            CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, RkyvCompilation, UnwindInfo,
         },
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationKind, RelocationTarget},
@@ -609,14 +610,14 @@ impl CraneliftCompiler {
             got.index = Some(got_idx);
         }
 
-        Ok(Compilation {
+        Ok(Compilation::Rkyv(RkyvCompilation {
             functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
             unwind_info,
             got,
-        })
+        }))
     }
 }
 

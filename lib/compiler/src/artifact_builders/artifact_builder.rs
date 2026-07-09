@@ -66,6 +66,8 @@ impl ArtifactBuild {
         table_styles: PrimaryMap<TableIndex, TableStyle>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
+        use crate::types::function::Compilation;
+
         let environ = ModuleEnvironment::new();
         let features = inner_engine.features().clone();
 
@@ -106,6 +108,12 @@ impl ArtifactBuild {
             translation.function_body_inputs,
             progress_callback,
         )?;
+
+        let Compilation::Rkyv(compilation) = compilation else {
+            return Err(CompileError::Codegen(
+                "ELF compilation unsupported yet".to_string(),
+            ));
+        };
 
         let data_initializers = translation
             .data_initializers

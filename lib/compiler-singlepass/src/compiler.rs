@@ -24,11 +24,12 @@ use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::progress::ProgressContext;
+use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
     types::{
-        function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
+        function::{CompiledFunction, FunctionBody, RkyvCompilation, UnwindInfo},
         module::CompileModuleInfo,
         section::SectionIndex,
     },
@@ -258,25 +259,28 @@ impl SinglepassCompiler {
             .iter()
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|(sig_index, func_type)| -> Result<FunctionBody, CompileError> {
-                let body = gen_std_trampoline(func_type, target, calling_convention)?;
-                if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    let kind = CompiledKind::FunctionCallTrampoline(sig_index, func_type.clone());
-                    callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
-                    callbacks.asm_memory_buffer(
-                        &kind,
-                        &module_hash,
-                        arch,
-                        &body.body,
-                        HashMap::new(),
-                    )?;
-                }
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
+            .map(
+                |(sig_index, func_type)| -> Result<FunctionBody, CompileError> {
+                    let body = gen_std_trampoline(func_type, target, calling_convention)?;
+                    if let Some(callbacks) = self.config.callbacks.as_ref() {
+                        let kind =
+                            CompiledKind::FunctionCallTrampoline(sig_index, func_type.clone());
+                        callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
+                        callbacks.asm_memory_buffer(
+                            &kind,
+                            &module_hash,
+                            arch,
+                            &body.body,
+                            HashMap::new(),
+                        )?;
+                    }
+                    if let Some(progress) = progress.as_ref() {
+                        progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                    }
 
-                Ok(body)
-            })
+                    Ok(body)
+                },
+            )
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -337,14 +341,14 @@ impl SinglepassCompiler {
 
         let got = wasmer_compiler::types::function::GOT::empty();
 
-        Ok(Compilation {
+        Ok(Compilation::Rkyv(RkyvCompilation {
             functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
             unwind_info,
             got,
-        })
+        }))
     }
 }
 

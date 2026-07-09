@@ -9,6 +9,8 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
+use std::path::PathBuf;
+
 use super::{
     address_map::FunctionAddressMap,
     relocation::Relocation,
@@ -180,7 +182,7 @@ impl GOT {
 /// The result of compiling a WebAssembly module's functions.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
-pub struct Compilation {
+pub struct RkyvCompilation {
     /// Compiled code for the function bodies.
     pub functions: Functions,
 
@@ -226,4 +228,13 @@ pub struct Compilation {
 
     /// A reference to the [`GOT`] instance for the compilation.
     pub got: GOT,
+}
+
+/// The result of compiling a WebAssembly module's functions can be either an RKYV-based data structure
+/// or a relocable ELF file on disk.
+#[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[derive(Debug, PartialEq, Eq)]
+pub enum Compilation {
+    Rkyv(RkyvCompilation),
+    Elf(PathBuf),
 }

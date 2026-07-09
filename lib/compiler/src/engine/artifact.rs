@@ -1142,7 +1142,10 @@ impl Artifact {
         ),
         CompileError,
     > {
-        use crate::types::symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry};
+        use crate::types::{
+            function::Compilation,
+            symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry},
+        };
 
         fn to_compile_error(err: impl std::error::Error) -> CompileError {
             CompileError::Codegen(format!("{err}"))
@@ -1175,13 +1178,18 @@ impl Artifact {
 
         let (_compile_info, symbol_registry) = metadata.split();
 
-        let compilation: crate::types::function::Compilation = compiler.compile_module(
+        let compilation = compiler.compile_module(
             target,
             &metadata.compile_info,
             module_translation.as_ref().unwrap(),
             function_body_inputs,
             None,
         )?;
+        let Compilation::Rkyv(compilation) = compilation else {
+            return Err(CompileError::Codegen(
+                "ELF compilation unsupported yet".to_string(),
+            ));
+        };
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
         let object_name = ModuleMetadataSymbolRegistry {

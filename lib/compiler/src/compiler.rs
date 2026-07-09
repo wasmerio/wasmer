@@ -4,12 +4,13 @@
 use std::cmp::Reverse;
 
 use crate::progress::ProgressContext;
+use crate::types::function::Compilation;
 use crate::types::module::CompileModuleInfo;
 use crate::{
     FunctionBodyData, ModuleTranslationState,
     lib::std::{boxed::Box, sync::Arc},
     translator::ModuleMiddleware,
-    types::function::Compilation,
+    types::function::RkyvCompilation,
 };
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;

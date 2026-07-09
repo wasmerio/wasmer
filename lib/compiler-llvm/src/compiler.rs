@@ -10,7 +10,8 @@ use std::{
     sync::Arc,
 };
 use wasmer_compiler::progress::ProgressContext;
-use wasmer_compiler::types::function::{Compilation, UnwindInfo};
+use wasmer_compiler::types::function::Compilation;
+use wasmer_compiler::types::function::{RkyvCompilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
 use wasmer_compiler::{
@@ -403,12 +404,8 @@ impl Compiler for LLVMCompiler {
                             *sig_index,
                             (*sig).clone(),
                         );
-                        let trampoline = func_trampoline.trampoline(
-                            sig,
-                            self.config(),
-                            &kind,
-                            compile_info,
-                        );
+                        let trampoline =
+                            func_trampoline.trampoline(sig, self.config(), &kind, compile_info);
                         if let Some(progress) = progress.as_ref() {
                             progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                         }
@@ -528,14 +525,14 @@ impl Compiler for LLVMCompiler {
             got.index = Some(got_idx);
         };
 
-        Ok(Compilation {
+        Ok(Compilation::Rkyv(RkyvCompilation {
             functions,
             custom_sections: module_custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
             unwind_info,
             got,
-        })
+        }))
     }
 
     fn with_opts(
