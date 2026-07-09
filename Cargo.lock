@@ -7558,7 +7558,6 @@ dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
  "cranelift-frontend",
- "gimli 0.34.0",
  "hashbrown 0.17.1",
  "indexmap",
  "itertools 0.15.0",

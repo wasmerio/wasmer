@@ -29,7 +29,7 @@ use cranelift_codegen::{
 };
 
 #[cfg(feature = "unwind")]
-use gimli::{
+use cranelift_codegen::gimli::{
     constants::DW_EH_PE_absptr,
     write::{Address, EhFrame, FrameDescriptionEntry, FrameTable, Writer},
 };

@@ -163,16 +163,16 @@ pub fn build_function_lsda<'a>(
     let call_site_table_len = call_site_table.len() as u64;
     let mut writer = Cursor::new(Vec::new());
     writer
-        .write_all(&gimli::DW_EH_PE_omit.0.to_le_bytes())
+        .write_all(&cranelift_codegen::gimli::DW_EH_PE_omit.0.to_le_bytes())
         .unwrap(); // lpstart encoding omitted (relative to function start)
 
     if type_entries.is_empty() {
         writer
-            .write_all(&gimli::DW_EH_PE_omit.0.to_le_bytes())
+            .write_all(&cranelift_codegen::gimli::DW_EH_PE_omit.0.to_le_bytes())
             .unwrap();
     } else {
         writer
-            .write_all(&gimli::DW_EH_PE_absptr.0.to_le_bytes())
+            .write_all(&cranelift_codegen::gimli::DW_EH_PE_absptr.0.to_le_bytes())
             .unwrap();
     }
 
@@ -186,7 +186,7 @@ pub fn build_function_lsda<'a>(
     }
 
     writer
-        .write_all(&gimli::DW_EH_PE_udata4.0.to_le_bytes())
+        .write_all(&cranelift_codegen::gimli::DW_EH_PE_udata4.0.to_le_bytes())
         .unwrap();
     leb128::write::unsigned(&mut writer, call_site_table_len).unwrap();
     writer.write_all(&call_site_table).unwrap();
