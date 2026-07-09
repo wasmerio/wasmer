@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["format_disk_size_opt","package_full_name"]};
+window.SIDEBAR_ITEMS = {"fn":["cron_invocation_result_summary","cron_job_kind","cron_job_target_summary","format_disk_size_opt","package_full_name"]};
