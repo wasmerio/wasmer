@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use std::num::NonZero;
+use std::{collections::HashMap, path::Path};
 
 use super::{
     intrinsics::{
@@ -8,7 +8,9 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
-use crate::{compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle};
+use crate::{
+    compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle, object_file::CompiledFunction,
+};
 use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
@@ -34,7 +36,7 @@ use crate::{
     abi::{Abi, get_abi},
     config::LLVM,
     error::{err, err_nt},
-    object_file::{CompiledFunction, load_object_file},
+    object_file::{RkyvCompiledFunction, load_object_file},
 };
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64, FunctionBinaryReader, FunctionBodyData,
@@ -443,6 +445,7 @@ impl FuncTranslator {
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
+        build_directory: &Path,
     ) -> Result<CompiledFunction, CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
         let opt_style = if Some(func_index) == self.wasm_apply_data_relocs_fn_index {
@@ -485,32 +488,39 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        let mem_buf_slice = memory_buffer.as_slice();
-
-        load_object_file(
-            mem_buf_slice,
-            &self.func_section,
-            RelocationTarget::LocalFunc(*local_func_index),
-            |name: &str| {
-                Ok({
-                    let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
-                        name.strip_prefix("_").unwrap_or(name)
-                    } else {
-                        name
-                    }
-                    .to_string();
-                    if let Some(Symbol::LocalFunction(local_func_index)) =
-                        symbol_registry.name_to_symbol(&name)
-                    {
-                        Some(RelocationTarget::LocalFunc(local_func_index))
-                    } else {
-                        None
-                    }
-                })
-            },
-            self.binary_fmt,
-            &self.target_triple,
-        )
+        if config.elf_artifact_format {
+            let object_path = build_directory
+                .to_path_buf()
+                .join(function.object_filename());
+            std::fs::write(&object_path, memory_buffer.as_slice())
+                .map_err(|e| CompileError::Codegen(format!("Cannot save emitted assembly: {e}")))?;
+            Ok(CompiledFunction::Elf(object_path))
+        } else {
+            Ok(CompiledFunction::Rkyv(Box::new(load_object_file(
+                memory_buffer.as_slice(),
+                &self.func_section,
+                RelocationTarget::LocalFunc(*local_func_index),
+                |name: &str| {
+                    Ok({
+                        let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
+                            name.strip_prefix("_").unwrap_or(name)
+                        } else {
+                            name
+                        }
+                        .to_string();
+                        if let Some(Symbol::LocalFunction(local_func_index)) =
+                            symbol_registry.name_to_symbol(&name)
+                        {
+                            Some(RelocationTarget::LocalFunc(local_func_index))
+                        } else {
+                            None
+                        }
+                    })
+                },
+                self.binary_fmt,
+                &self.target_triple,
+            )?)))
+        }
     }
 }
 

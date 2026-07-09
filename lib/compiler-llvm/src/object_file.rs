@@ -6,6 +6,7 @@ use target_lexicon::{
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
+use std::path::PathBuf;
 
 use wasmer_types::{CompileError, SourceLoc, entity::PrimaryMap};
 
@@ -27,13 +28,19 @@ fn map_object_err(error: object::read::Error) -> CompileError {
 }
 
 #[derive(Debug)]
-pub struct CompiledFunction {
+pub struct RkyvCompiledFunction {
     pub compiled_function: wasmer_compiler::types::function::CompiledFunction,
     pub custom_sections: CustomSections,
     pub eh_frame_section_indices: Vec<SectionIndex>,
     pub compact_unwind_section_indices: Vec<SectionIndex>,
     pub gcc_except_table_section_indices: Vec<SectionIndex>,
     pub data_dw_ref_personality_section_indices: Vec<SectionIndex>,
+}
+
+#[derive(Debug)]
+pub enum CompiledFunction {
+    Rkyv(Box<RkyvCompiledFunction>),
+    Elf(PathBuf),
 }
 
 impl wasmer_compiler::CompiledFunction for CompiledFunction {}
@@ -255,7 +262,7 @@ pub fn load_object_file<F>(
     mut symbol_name_to_relocation_target: F,
     binary_fmt: BinaryFormat,
     triple: &Triple,
-) -> Result<CompiledFunction, CompileError>
+) -> Result<RkyvCompiledFunction, CompileError>
 where
     F: FnMut(&str) -> Result<Option<RelocationTarget>, CompileError>,
 {
@@ -997,7 +1004,7 @@ where
         body_len: function_body.body.len(),
     };
 
-    Ok(CompiledFunction {
+    Ok(RkyvCompiledFunction {
         compiled_function: wasmer_compiler::types::function::CompiledFunction {
             body: function_body,
             relocations: relocations

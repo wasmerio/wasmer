@@ -7295,6 +7295,7 @@ dependencies = [
  "semver 1.0.28",
  "smallvec",
  "target-lexicon 0.13.5",
+ "tempfile",
  "tracing",
  "wasmer-compiler",
  "wasmer-types",

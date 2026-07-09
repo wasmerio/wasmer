@@ -116,6 +116,8 @@ pub struct LLVM {
     /// Number of threads to use when compiling a module.
     pub(crate) num_threads: NonZero<usize>,
     pub(crate) verbose_asm: bool,
+    /// Enable an experimental ELF-based version of the Artifact format.
+    pub(crate) elf_artifact_format: bool,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Sequence)]
@@ -141,6 +143,7 @@ impl LLVM {
             middlewares: vec![],
             verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
+            elf_artifact_format: false,
         }
     }
 

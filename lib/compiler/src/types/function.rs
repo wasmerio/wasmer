@@ -61,6 +61,11 @@ pub struct FunctionBody {
     pub unwind_info: Option<CompiledFunctionUnwindInfo>,
 }
 
+pub enum CompiledFunctionBody {
+    Rkyv(FunctionBody),
+    Elf(PathBuf),
+}
+
 /// Any struct that acts like a `FunctionBody`.
 #[allow(missing_docs)]
 pub trait FunctionBodyLike<'a> {
