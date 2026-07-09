@@ -262,17 +262,21 @@ impl Console {
         // otherwise they will be overridden by their attached file systems
         for (path, data) in self.ro_files.clone() {
             let path = PathBuf::from(path);
-            env.fs_root().remove_file(&path).ok();
-            let mut file = env
-                .fs_root()
-                .new_open_options()
-                .create(true)
-                .truncate(true)
-                .write(true)
-                .open(&path)
-                .map_err(|err| SpawnError::Other(err.into()))?;
-            block_on(file.copy_reference(Box::new(StaticFile::new(data))))
-                .map_err(|err| SpawnError::Other(err.into()))?;
+            block_on(async {
+                env.fs_root().remove_file(&path).await.ok();
+                let mut file = env
+                    .fs_root()
+                    .new_open_options()
+                    .create(true)
+                    .truncate(true)
+                    .write(true)
+                    .open(&path)
+                    .await
+                    .map_err(|err| SpawnError::Other(err.into()))?;
+                file.copy_reference(Box::new(StaticFile::new(data)))
+                    .await
+                    .map_err(|err| SpawnError::Other(err.into()))
+            })?;
         }
 
         // Build the config

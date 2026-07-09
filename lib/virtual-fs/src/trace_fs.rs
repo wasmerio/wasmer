@@ -4,10 +4,9 @@ use std::{
     task::{Context, Poll},
 };
 
-use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
-use crate::{FileOpener, FileSystem, OpenOptionsConfig, VirtualFile};
+use crate::{FileSystem, OpenOptionsConfig, VirtualFile};
 
 /// A [`FileSystem`] wrapper that will automatically log all operations at the
 /// `trace` level.
@@ -35,71 +34,62 @@ impl<F> TraceFileSystem<F> {
     }
 }
 
+#[async_trait::async_trait]
 impl<F> FileSystem for TraceFileSystem<F>
 where
     F: FileSystem,
 {
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn readlink(&self, path: &std::path::Path) -> crate::Result<PathBuf> {
-        self.0.readlink(path)
+    async fn readlink(&self, path: &std::path::Path) -> crate::Result<PathBuf> {
+        self.0.readlink(path).await
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn read_dir(&self, path: &std::path::Path) -> crate::Result<crate::ReadDir> {
-        self.0.read_dir(path)
+    async fn read_dir(&self, path: &std::path::Path) -> crate::Result<crate::ReadDir> {
+        self.0.read_dir(path).await
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn create_dir(&self, path: &std::path::Path) -> crate::Result<()> {
-        self.0.create_dir(path)
+    async fn create_dir(&self, path: &std::path::Path) -> crate::Result<()> {
+        self.0.create_dir(path).await
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn remove_dir(&self, path: &std::path::Path) -> crate::Result<()> {
-        self.0.remove_dir(path)
+    async fn remove_dir(&self, path: &std::path::Path) -> crate::Result<()> {
+        self.0.remove_dir(path).await
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn rename<'a>(
-        &'a self,
-        from: &'a std::path::Path,
-        to: &'a std::path::Path,
-    ) -> BoxFuture<'a, crate::Result<()>> {
-        Box::pin(async { self.0.rename(from, to).await })
+    async fn rename(&self, from: &std::path::Path, to: &std::path::Path) -> crate::Result<()> {
+        self.0.rename(from, to).await
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn metadata(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
-        self.0.metadata(path)
+    async fn metadata(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
+        self.0.metadata(path).await
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn symlink_metadata(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
-        self.0.symlink_metadata(path)
+    async fn symlink_metadata(&self, path: &std::path::Path) -> crate::Result<crate::Metadata> {
+        self.0.symlink_metadata(path).await
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn remove_file(&self, path: &std::path::Path) -> crate::Result<()> {
-        self.0.remove_file(path)
+    async fn remove_file(&self, path: &std::path::Path) -> crate::Result<()> {
+        self.0.remove_file(path).await
     }
 
     #[tracing::instrument(level = "trace", skip(self))]
     fn new_open_options(&self) -> crate::OpenOptions<'_> {
         crate::OpenOptions::new(self)
     }
-}
-
-impl<F> FileOpener for TraceFileSystem<F>
-where
-    F: FileSystem,
-{
     #[tracing::instrument(level = "trace", skip(self))]
-    fn open(
+    async fn open(
         &self,
         path: &std::path::Path,
         conf: &OpenOptionsConfig,
     ) -> crate::Result<Box<dyn crate::VirtualFile + Send + Sync + 'static>> {
-        let file = self.0.new_open_options().options(conf.clone()).open(path)?;
+        let file = self.0.open(path, conf).await?;
         Ok(Box::new(TraceFile {
             file,
             path: path.to_owned(),
@@ -113,39 +103,40 @@ struct TraceFile {
     file: Box<dyn crate::VirtualFile + Send + Sync + 'static>,
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for TraceFile {
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
-    fn last_accessed(&self) -> u64 {
-        self.file.last_accessed()
+    async fn last_accessed(&self) -> u64 {
+        self.file.last_accessed().await
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
-    fn last_modified(&self) -> u64 {
-        self.file.last_modified()
+    async fn last_modified(&self) -> u64 {
+        self.file.last_modified().await
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
-    fn created_time(&self) -> u64 {
-        self.file.created_time()
+    async fn created_time(&self) -> u64 {
+        self.file.created_time().await
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
-        self.file.set_times(atime, mtime)
+    async fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        self.file.set_times(atime, mtime).await
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()))]
-    fn size(&self) -> u64 {
-        self.file.size()
+    async fn size(&self) -> u64 {
+        self.file.size().await
     }
 
     #[tracing::instrument(level = "trace", skip(self), fields(path=%self.path.display()), err)]
-    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
-        self.file.set_len(new_size)
+    async fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+        self.file.set_len(new_size).await
     }
 
-    fn unlink(&mut self) -> crate::Result<()> {
-        self.file.unlink()
+    async fn unlink(&mut self) -> crate::Result<()> {
+        self.file.unlink().await
     }
 
     #[tracing::instrument(level = "trace", skip_all, fields(path=%self.path.display()))]

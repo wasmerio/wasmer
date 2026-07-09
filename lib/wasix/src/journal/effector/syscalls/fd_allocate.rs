@@ -19,8 +19,12 @@ impl JournalEffector {
         offset: Filesize,
         len: Filesize,
     ) -> anyhow::Result<()> {
-        crate::syscalls::fd_allocate_internal(ctx, fd, offset, len)
-            .map_err(|err| {
+        crate::syscalls::__asyncify_light(
+            ctx.data(),
+            None,
+            crate::syscalls::fd_allocate_internal(ctx.data(), fd, offset, len),
+        )?
+        .map_err(|err| {
                 anyhow::format_err!(
                     "journal restore error: failed to allocate on file descriptor (fd={fd}, offset={offset}, len={len}) - {err}")
             })?;

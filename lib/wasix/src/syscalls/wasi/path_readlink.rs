@@ -39,7 +39,11 @@ pub fn path_readlink<M: MemorySize>(
     let mut path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
 
-    let inode = wasi_try_ok!(state.fs.get_inode_at_path(inodes, dir_fd, &path_str, false));
+    let inode = wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        state.fs.get_inode_at_path(inodes, dir_fd, &path_str, false)
+    )?);
 
     {
         let guard = inode.read();

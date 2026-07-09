@@ -9,6 +9,7 @@ use futures::{StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, WebcVolumeFileSystem};
+use virtual_mio::block_on;
 use wasmer_config::package::PackageId;
 use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
@@ -366,7 +367,7 @@ fn packages_needed_for_load(pkg: &ResolvedPackage) -> HashSet<PackageId> {
 fn count_file_system(fs: &dyn FileSystem, path: &Path) -> u64 {
     let mut total = 0;
 
-    let dir = match fs.read_dir(path) {
+    let dir = match block_on(fs.read_dir(path)) {
         Ok(d) => d,
         Err(_err) => {
             return 0;
@@ -723,10 +724,13 @@ mod tests {
 
         let mounts = filesystem_v2(&packages, &pkg, false).unwrap();
         let mount_fs = mounts.to_mount_fs().unwrap();
-        assert!(mount_fs.metadata(Path::new("/public")).unwrap().is_dir());
         assert!(
-            mount_fs
-                .metadata(Path::new("/public/index.html"))
+            virtual_mio::block_on(mount_fs.metadata(Path::new("/public")))
+                .unwrap()
+                .is_dir()
+        );
+        assert!(
+            virtual_mio::block_on(mount_fs.metadata(Path::new("/public/index.html")))
                 .unwrap()
                 .is_file()
         );
@@ -928,8 +932,7 @@ mod tests {
             .as_ref()
             .expect("expected root layer mount");
         assert!(
-            root_layer
-                .metadata(Path::new("/root.txt"))
+            virtual_mio::block_on(root_layer.metadata(Path::new("/root.txt")))
                 .unwrap()
                 .is_file()
         );

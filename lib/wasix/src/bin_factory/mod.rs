@@ -223,11 +223,12 @@ async fn load_executable_from_filesystem(
         .new_open_options()
         .read(true)
         .open(path)
+        .await
         .context("Unable to open the file")?;
 
     // Fast path if the file is fully available in memory.
     // Prevents redundant copying of the file data.
-    if let Some(buf) = f.as_owned_buffer() {
+    if let Some(buf) = f.as_owned_buffer().await {
         if wasmer_package::utils::is_container(buf.as_slice()) {
             let bytes = buf.clone().into_bytes();
             if let Ok(container) = from_bytes(bytes.clone()) {
@@ -241,7 +242,7 @@ async fn load_executable_from_filesystem(
 
         Ok(Executable::Wasm(buf))
     } else {
-        let mut data = Vec::with_capacity(f.size() as usize);
+        let mut data = Vec::with_capacity(f.size().await as usize);
         f.read_to_end(&mut data).await.context("Read failed")?;
 
         let bytes: bytes::Bytes = data.into();

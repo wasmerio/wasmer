@@ -5,6 +5,8 @@ use std::{
     sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::AtomicU64},
 };
 
+use tokio::sync::Mutex;
+
 use virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
 use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Filestat, Rights};
 
@@ -14,7 +16,7 @@ use crate::os::epoll::EpollState;
 use super::{InodeGuard, InodeWeakGuard, NotificationInner};
 
 /// Shared handle to an open [`VirtualFile`].
-pub(crate) type VirtualFileLock = Arc<RwLock<Box<dyn VirtualFile + Send + Sync + 'static>>>;
+pub(crate) type VirtualFileLock = Arc<Mutex<Box<dyn VirtualFile + Send + Sync + 'static>>>;
 
 #[derive(Debug, Clone)]
 pub struct Fd {

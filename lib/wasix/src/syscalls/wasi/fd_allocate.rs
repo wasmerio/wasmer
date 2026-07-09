@@ -19,7 +19,11 @@ pub fn fd_allocate(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
-    wasi_try_ok!(fd_allocate_internal(&mut ctx, fd, offset, len));
+    wasi_try_ok!(__asyncify_light(
+        ctx.data(),
+        None,
+        fd_allocate_internal(ctx.data(), fd, offset, len)
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -33,14 +37,13 @@ pub fn fd_allocate(
     Ok(Errno::Success)
 }
 
-pub(crate) fn fd_allocate_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn fd_allocate_internal(
+    env: &WasiEnv,
     fd: WasiFd,
     offset: Filesize,
     len: Filesize,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+    let mut state = env.state();
     let fd_entry = state.fs.get_fd(fd)?;
     let inode = fd_entry.inode;
 
@@ -48,28 +51,18 @@ pub(crate) fn fd_allocate_internal(
         return Err(Errno::Access);
     }
     let new_size = offset.checked_add(len).ok_or(Errno::Inval)?;
-    let mut current_size;
-    {
+    let mut current_size = 0;
+    let handle = {
         let mut guard = inode.write();
         match guard.deref_mut() {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    let mut handle = handle.write().unwrap();
-                    current_size = handle.size();
-                    if new_size > current_size {
-                        handle.set_len(new_size).map_err(fs_error_into_wasi_err)?;
-                        current_size = new_size;
-                    }
-                } else {
-                    return Err(Errno::Badf);
-                }
-            }
+            Kind::File { handle, .. } => Some(handle.clone().ok_or(Errno::Badf)?),
             Kind::Buffer { buffer } => {
                 current_size = buffer.len() as u64;
                 if new_size > current_size {
                     buffer.resize(new_size as usize, 0);
                     current_size = new_size;
                 }
+                None
             }
             Kind::Socket { .. }
             | Kind::PipeRx { .. }
@@ -79,6 +72,17 @@ pub(crate) fn fd_allocate_internal(
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Err(Errno::Badf),
             Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
+        }
+    };
+    if let Some(handle) = handle {
+        let mut handle = handle.lock().await;
+        current_size = handle.size().await;
+        if new_size > current_size {
+            handle
+                .set_len(new_size)
+                .await
+                .map_err(fs_error_into_wasi_err)?;
+            current_size = new_size;
         }
     }
     inode.stat.write().unwrap().st_size = current_size;

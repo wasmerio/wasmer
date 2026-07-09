@@ -65,18 +65,22 @@ pub fn path_open<M: MemorySize>(
     let path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
-    let out_fd = wasi_try_ok!(path_open_internal(
-        ctx.data(),
-        dirfd,
-        dirflags,
-        &path_string,
-        o_flags,
-        fs_rights_base,
-        fs_rights_inheriting,
-        fs_flags,
-        Fdflagsext::empty(),
+    let out_fd = wasi_try_ok!(wasi_try_ok!(__asyncify_light(
+        env,
         None,
-    )?);
+        path_open_internal(
+            ctx.data(),
+            dirfd,
+            dirflags,
+            path_string.clone(),
+            o_flags,
+            fs_rights_base,
+            fs_rights_inheriting,
+            fs_flags,
+            Fdflagsext::empty(),
+            None,
+        )
+    )?));
     let env = ctx.data();
 
     #[cfg(feature = "journal")]

@@ -17,7 +17,14 @@ pub fn getcwd<M: MemorySize>(
     let max_path_len64: u64 = wasi_try_mem!(path_len.read(&memory)).into();
     Span::current().record("max_path_len", max_path_len64);
 
-    let (_, cur_dir) = wasi_try!(state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD));
+    let (_, cur_dir) = match __asyncify_light(
+        env,
+        None,
+        state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD),
+    ) {
+        Ok(res) => wasi_try!(res),
+        Err(_) => return Errno::Fault,
+    };
     Span::current().record("path", cur_dir.as_str());
 
     let cur_dir_len = cur_dir.len();

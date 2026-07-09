@@ -34,7 +34,11 @@ pub fn path_create_directory<M: MemorySize>(
     let mut path_string = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_string.as_str());
 
-    wasi_try_ok!(path_create_directory_internal(&mut ctx, fd, &path_string));
+    wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        path_create_directory_internal(env, fd, &path_string)
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -48,13 +52,13 @@ pub fn path_create_directory<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub(crate) fn path_create_directory_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn path_create_directory_internal(
+    env: &WasiEnv,
     fd: WasiFd,
     path: &str,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let state = env.state();
+    let inodes = &state.inodes;
     let working_dir = state.fs.get_fd(fd)?;
 
     if !working_dir
@@ -66,67 +70,61 @@ pub(crate) fn path_create_directory_internal(
         return Err(Errno::Access);
     }
 
-    let (parent_inode, dir_name) =
-        state
-            .fs
-            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
+    let (parent_inode, dir_name) = state
+        .fs
+        .get_parent_inode_at_path(inodes, fd, Path::new(path), true)
+        .await?;
 
-    let mut guard = parent_inode.write();
-    match guard.deref_mut() {
-        Kind::Dir { entries, path, .. } => {
-            if let Some(child) = entries.get(&dir_name) {
-                return Err(Errno::Exist);
+    let new_dir_path = {
+        let guard = parent_inode.read();
+        match guard.deref() {
+            Kind::Dir { entries, path, .. } => {
+                if let Some(child) = entries.get(&dir_name) {
+                    return Err(Errno::Exist);
+                }
+
+                let mut new_dir_path = path.clone();
+                new_dir_path.push(&dir_name);
+                new_dir_path
             }
-
-            let mut new_dir_path = path.clone();
-            new_dir_path.push(&dir_name);
-
-            drop(guard);
-
-            // TODO: This condition should already have been checked by the entries.get check
-            // above, but it was in the code before my refactor and I'm keeping it just in case.
-            if path_filestat_get_internal(
-                &memory,
-                state,
-                inodes,
-                fd,
-                0,
-                &new_dir_path.to_string_lossy(),
-            )
-            .is_ok()
-            {
-                return Err(Errno::Exist);
+            Kind::Root { .. } => {
+                trace!("the root node can only contain pre-opened directories");
+                return Err(Errno::Access);
             }
-
-            state.fs_create_dir(&new_dir_path)?;
-
-            let kind = Kind::Dir {
-                parent: parent_inode.downgrade(),
-                path: new_dir_path,
-                entries: Default::default(),
-            };
-            let new_inode = state
-                .fs
-                .create_inode(inodes, kind, false, dir_name.clone())?;
-
-            // reborrow to insert
-            {
-                let mut guard = parent_inode.write();
-                let Kind::Dir { entries, .. } = guard.deref_mut() else {
-                    unreachable!();
-                };
-
-                entries.insert(dir_name, new_inode.clone());
+            _ => {
+                trace!("path is not a directory");
+                return Err(Errno::Notdir);
             }
         }
-        Kind::Root { .. } => {
-            trace!("the root node can only contain pre-opened directories");
-            return Err(Errno::Access);
-        }
-        _ => {
-            trace!("path is not a directory");
-            return Err(Errno::Notdir);
-        }
+    };
+
+    // TODO: This condition should already have been checked by the entries.get check
+    // above, but it was in the code before my refactor and I'm keeping it just in case.
+    if path_filestat_get_internal(state, inodes, fd, 0, &new_dir_path.to_string_lossy())
+        .await
+        .is_ok()
+    {
+        return Err(Errno::Exist);
+    }
+
+    state.fs_create_dir(&new_dir_path).await?;
+
+    let kind = Kind::Dir {
+        parent: parent_inode.downgrade(),
+        path: new_dir_path,
+        entries: Default::default(),
+    };
+    let new_inode = state
+        .fs
+        .create_inode(inodes, kind, false, dir_name.clone())?;
+
+    {
+        let mut guard = parent_inode.write();
+        let Kind::Dir { entries, .. } = guard.deref_mut() else {
+            unreachable!();
+        };
+
+        entries.insert(dir_name, new_inode.clone());
     }
 
     Ok(())

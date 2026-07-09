@@ -17,33 +17,34 @@ impl CombineFile {
     }
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for CombineFile {
-    fn last_accessed(&self) -> u64 {
-        self.rx.last_accessed()
+    async fn last_accessed(&self) -> u64 {
+        self.rx.last_accessed().await
     }
 
-    fn last_modified(&self) -> u64 {
-        self.tx.last_modified()
+    async fn last_modified(&self) -> u64 {
+        self.tx.last_modified().await
     }
 
-    fn created_time(&self) -> u64 {
-        self.tx.created_time()
+    async fn created_time(&self) -> u64 {
+        self.tx.created_time().await
     }
 
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
-        self.tx.set_times(atime, mtime)
+    async fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+        self.tx.set_times(atime, mtime).await
     }
 
-    fn size(&self) -> u64 {
-        self.rx.size()
+    async fn size(&self) -> u64 {
+        self.rx.size().await
     }
 
-    fn set_len(&mut self, new_size: u64) -> Result<()> {
-        self.tx.set_len(new_size)
+    async fn set_len(&mut self, new_size: u64) -> Result<()> {
+        self.tx.set_len(new_size).await
     }
 
-    fn unlink(&mut self) -> Result<()> {
-        self.tx.unlink()
+    async fn unlink(&mut self) -> Result<()> {
+        self.tx.unlink().await
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

@@ -3,7 +3,6 @@ use crate::{
     VirtualFile,
 };
 use bytes::{Buf, Bytes};
-use futures::future::BoxFuture;
 use std::convert::TryInto;
 use std::fs;
 use std::io::{self, Seek};
@@ -115,51 +114,69 @@ impl FileSystem {
             return Err(FsError::InvalidInput);
         }
 
-        let path = path.strip_prefix("/").unwrap_or(&path);
-        let path = self.root.join(path);
+        let mut relative = PathBuf::new();
+        for component in path.components() {
+            match component {
+                Component::Prefix(..) => return Err(FsError::InvalidInput),
+                Component::RootDir | Component::CurDir => {}
+                Component::ParentDir => {
+                    if !relative.pop() {
+                        return Err(FsError::InvalidInput);
+                    }
+                }
+                Component::Normal(part) => relative.push(part),
+            }
+        }
+
+        let path = self.root.join(relative);
 
         debug_assert!(path.starts_with(&self.root));
         Ok(path)
     }
 }
 
+#[async_trait::async_trait]
 impl crate::FileSystem for FileSystem {
-    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+    async fn readlink(&self, path: &Path) -> Result<PathBuf> {
         let path = self.prepare_path(path)?;
 
         let target = fs::read_link(path)?;
         Ok(host_root_relative_target(&self.root, target))
     }
 
-    fn read_dir(&self, path: &Path) -> Result<ReadDir> {
+    async fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let path = self.prepare_path(path)?;
+        let root = self.root.clone();
 
-        let read_dir = fs::read_dir(path)?;
-        let mut data = read_dir
-            .map(|entry| {
-                let entry = entry?;
+        let mut data = self
+            .handle
+            .spawn(async move {
+                let mut read_dir = tfs::read_dir(path).await?;
+                let mut data = Vec::new();
+                while let Some(entry) = read_dir.next_entry().await? {
+                    let path = entry
+                        .path()
+                        .strip_prefix(&root)
+                        .map_err(|_| FsError::InvalidData)?
+                        .to_owned();
+                    let path = path_suffix_to_guest_absolute(&path);
 
-                let path = entry
-                    .path()
-                    .strip_prefix(&self.root)
-                    .map_err(|_| FsError::InvalidData)?
-                    .to_owned();
-                let path = Path::new("/").join(path);
+                    let metadata = tfs::symlink_metadata(entry.path()).await?;
 
-                let metadata = fs::symlink_metadata(entry.path())?;
-
-                Ok(DirEntry {
-                    path,
-                    metadata: Ok(metadata.try_into()?),
-                })
+                    data.push(DirEntry {
+                        path,
+                        metadata: Ok(metadata.try_into()?),
+                    });
+                }
+                Ok::<_, FsError>(data)
             })
-            .collect::<std::result::Result<Vec<DirEntry>, io::Error>>()
-            .map_err::<FsError, _>(Into::into)?;
+            .await
+            .map_err(|_| FsError::IOError)??;
         data.sort_by(|a, b| a.path.file_name().cmp(&b.path.file_name()));
         Ok(ReadDir::new(data))
     }
 
-    fn create_dir(&self, path: &Path) -> Result<()> {
+    async fn create_dir(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 
         if path.parent().is_none() {
@@ -169,7 +186,7 @@ impl crate::FileSystem for FileSystem {
         fs::create_dir(path).map_err(Into::into)
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
+    async fn remove_dir(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 
         if path.parent().is_none() {
@@ -188,61 +205,59 @@ impl crate::FileSystem for FileSystem {
         fs::remove_dir(path).map_err(Into::into)
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async move {
-            use filetime::{FileTime, set_file_mtime};
-            let norm_from = normalize_path(from);
-            let norm_to = normalize_path(to);
+    async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        use filetime::{FileTime, set_file_mtime};
+        let norm_from = normalize_path(from);
+        let norm_to = normalize_path(to);
 
-            if norm_from.parent().is_none() {
-                return Err(FsError::BaseNotDirectory);
-            }
-            if norm_to.parent().is_none() {
-                return Err(FsError::BaseNotDirectory);
-            }
+        if norm_from.parent().is_none() {
+            return Err(FsError::BaseNotDirectory);
+        }
+        if norm_to.parent().is_none() {
+            return Err(FsError::BaseNotDirectory);
+        }
 
-            let from = self.prepare_path(from)?;
-            let to = self.prepare_path(to)?;
+        let from = self.prepare_path(from)?;
+        let to = self.prepare_path(to)?;
 
-            if !from.exists() {
-                return Err(FsError::EntryNotFound);
-            }
-            let from_parent = from.parent().unwrap();
-            let to_parent = to.parent().unwrap();
-            if !from_parent.exists() {
-                return Err(FsError::EntryNotFound);
-            }
-            if !to_parent.exists() {
-                return Err(FsError::EntryNotFound);
-            }
-            let result = if from_parent != to_parent {
-                let _ = std::fs::create_dir_all(to_parent);
-                if from.is_dir() {
-                    fs_extra::move_items(
-                        &[&from],
-                        &to,
-                        &fs_extra::dir::CopyOptions {
-                            copy_inside: true,
-                            ..Default::default()
-                        },
-                    )
-                    .map(|_| ())
-                    .map_err(|_| FsError::UnknownError)?;
-                    let _ = fs_extra::remove_items(&[&from]);
-                    Ok(())
-                } else {
-                    fs::copy(&from, &to).map(|_| ()).map_err(FsError::from)?;
-                    fs::remove_file(&from).map(|_| ()).map_err(Into::into)
-                }
+        if !from.exists() {
+            return Err(FsError::EntryNotFound);
+        }
+        let from_parent = from.parent().unwrap();
+        let to_parent = to.parent().unwrap();
+        if !from_parent.exists() {
+            return Err(FsError::EntryNotFound);
+        }
+        if !to_parent.exists() {
+            return Err(FsError::EntryNotFound);
+        }
+        let result = if from_parent != to_parent {
+            let _ = std::fs::create_dir_all(to_parent);
+            if from.is_dir() {
+                fs_extra::move_items(
+                    &[&from],
+                    &to,
+                    &fs_extra::dir::CopyOptions {
+                        copy_inside: true,
+                        ..Default::default()
+                    },
+                )
+                .map(|_| ())
+                .map_err(|_| FsError::UnknownError)?;
+                let _ = fs_extra::remove_items(&[&from]);
+                Ok(())
             } else {
-                fs::rename(&from, &to).map_err(Into::into)
-            };
-            let _ = set_file_mtime(&to, FileTime::now()).map(|_| ());
-            result
-        })
+                fs::copy(&from, &to).map(|_| ()).map_err(FsError::from)?;
+                fs::remove_file(&from).map(|_| ()).map_err(Into::into)
+            }
+        } else {
+            fs::rename(&from, &to).map_err(Into::into)
+        };
+        let _ = set_file_mtime(&to, FileTime::now()).map(|_| ());
+        result
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
+    async fn remove_file(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 
         if path.parent().is_none() {
@@ -256,7 +271,7 @@ impl crate::FileSystem for FileSystem {
         OpenOptions::new(self)
     }
 
-    fn metadata(&self, path: &Path) -> Result<Metadata> {
+    async fn metadata(&self, path: &Path) -> Result<Metadata> {
         let path = self.prepare_path(path)?;
 
         fs::metadata(path)
@@ -264,12 +279,62 @@ impl crate::FileSystem for FileSystem {
             .map_err(Into::into)
     }
 
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+    async fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         let path = self.prepare_path(path)?;
 
         fs::symlink_metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
+    }
+
+    async fn open(
+        &self,
+        path: &Path,
+        conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
+        let path = self.prepare_path(path)?;
+
+        // TODO: handle create implying write, etc.
+        let read = conf.read();
+        let write = conf.write();
+
+        // according to Rust's stdlib, specifying both truncate and append is nonsensical,
+        // and it will return an error if we try to open a file with both flags set.
+        // in order to prevent this, and stay compatible with native binaries, we just ignore
+        // the append flag if truncate is set. the rationale behind this decision is that
+        // truncate is going to be applied first and append is going to be ignored anyway.
+        let append = if conf.truncate { false } else { conf.append() };
+
+        let create_new = conf.create_new();
+        let create = conf.create();
+        let truncate = conf.truncate();
+        let path_for_open = path.clone();
+        let file = self
+            .handle
+            .spawn(async move {
+                let file = tfs::OpenOptions::new()
+                    .read(read)
+                    .write(write)
+                    .create_new(create_new)
+                    .create(create)
+                    .append(append)
+                    .truncate(truncate)
+                    .open(path_for_open)
+                    .await
+                    .map_err(FsError::from)?;
+                Ok::<_, FsError>(file.into_std().await)
+            })
+            .await
+            .map_err(|_| FsError::IOError)??;
+
+        Ok(Box::new(File::new(
+            self.handle.clone(),
+            file,
+            path.to_owned(),
+            read,
+            write,
+            append,
+        )) as Box<dyn VirtualFile + Send + Sync + 'static>)
     }
 }
 
@@ -322,47 +387,6 @@ impl TryInto<Metadata> for std::fs::Metadata {
     }
 }
 
-impl crate::FileOpener for FileSystem {
-    fn open(
-        &self,
-        path: &Path,
-        conf: &OpenOptionsConfig,
-    ) -> Result<Box<dyn VirtualFile + Send + Sync + 'static>> {
-        let path = self.prepare_path(path)?;
-
-        // TODO: handle create implying write, etc.
-        let read = conf.read();
-        let write = conf.write();
-
-        // according to Rust's stdlib, specifying both truncate and append is nonsensical,
-        // and it will return an error if we try to open a file with both flags set.
-        // in order to prevent this, and stay compatible with native binaries, we just ignore
-        // the append flag if truncate is set. the rationale behind this decision is that
-        // truncate is going to be applied first and append is going to be ignored anyway.
-        let append = if conf.truncate { false } else { conf.append() };
-
-        let mut oo = fs::OpenOptions::new();
-        oo.read(conf.read())
-            .write(conf.write())
-            .create_new(conf.create_new())
-            .create(conf.create())
-            .append(append)
-            .truncate(conf.truncate())
-            .open(&path)
-            .map_err(Into::into)
-            .map(|file| {
-                Box::new(File::new(
-                    self.handle.clone(),
-                    file,
-                    path.to_owned(),
-                    read,
-                    write,
-                    append,
-                )) as Box<dyn VirtualFile + Send + Sync + 'static>
-            })
-    }
-}
-
 /// A thin wrapper around `std::fs::File`
 #[derive(Debug)]
 pub struct File {
@@ -409,7 +433,7 @@ impl File {
         }
     }
 
-    fn metadata(&self) -> std::fs::Metadata {
+    async fn metadata(&self) -> std::fs::Metadata {
         // FIXME: no unwrap!
         self.inner_std.metadata().unwrap()
     }
@@ -417,8 +441,9 @@ impl File {
 
 #[async_trait::async_trait]
 impl VirtualFile for File {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         self.metadata()
+            .await
             .accessed()
             .ok()
             .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
@@ -426,8 +451,9 @@ impl VirtualFile for File {
             .unwrap_or(0)
     }
 
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         self.metadata()
+            .await
             .modified()
             .ok()
             .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
@@ -435,8 +461,9 @@ impl VirtualFile for File {
             .unwrap_or(0)
     }
 
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         self.metadata()
+            .await
             .created()
             .ok()
             .and_then(|ct| ct.duration_since(SystemTime::UNIX_EPOCH).ok())
@@ -444,7 +471,7 @@ impl VirtualFile for File {
             .unwrap_or(0)
     }
 
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+    async fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
         let atime = atime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
         let mtime = mtime.map(|t| filetime::FileTime::from_unix_time(t as i64, 0));
 
@@ -452,19 +479,19 @@ impl VirtualFile for File {
             .map_err(|_| crate::FsError::IOError)
     }
 
-    fn size(&self) -> u64 {
-        self.metadata().len()
+    async fn size(&self) -> u64 {
+        self.metadata().await.len()
     }
 
-    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         fs::File::set_len(&self.inner_std, new_size).map_err(Into::into)
     }
 
-    fn unlink(&mut self) -> Result<()> {
+    async fn unlink(&mut self) -> Result<()> {
         fs::remove_file(&self.host_path).map_err(Into::into)
     }
 
-    fn get_special_fd(&self) -> Option<u32> {
+    async fn get_special_fd(&self) -> Option<u32> {
         None
     }
 
@@ -588,31 +615,31 @@ const DEFAULT_BUF_SIZE_HINT: usize = 8 * 1024;
 
 #[async_trait::async_trait]
 impl VirtualFile for Stdout {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         0
     }
 
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         0
     }
 
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         0
     }
 
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         0
     }
 
-    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
 
-    fn unlink(&mut self) -> Result<()> {
+    async fn unlink(&mut self) -> Result<()> {
         Ok(())
     }
 
-    fn get_special_fd(&self) -> Option<u32> {
+    async fn get_special_fd(&self) -> Option<u32> {
         Some(1)
     }
 
@@ -762,31 +789,31 @@ impl AsyncSeek for Stderr {
 
 #[async_trait::async_trait]
 impl VirtualFile for Stderr {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         0
     }
 
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         0
     }
 
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         0
     }
 
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         0
     }
 
-    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
 
-    fn unlink(&mut self) -> Result<()> {
+    async fn unlink(&mut self) -> Result<()> {
         Ok(())
     }
 
-    fn get_special_fd(&self) -> Option<u32> {
+    async fn get_special_fd(&self) -> Option<u32> {
         Some(2)
     }
 
@@ -884,25 +911,25 @@ impl AsyncSeek for Stdin {
 
 #[async_trait::async_trait]
 impl VirtualFile for Stdin {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         0
     }
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         0
     }
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         0
     }
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> Result<()> {
+    async fn unlink(&mut self) -> Result<()> {
         Ok(())
     }
-    fn get_special_fd(&self) -> Option<u32> {
+    async fn get_special_fd(&self) -> Option<u32> {
         Some(0)
     }
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -956,13 +983,14 @@ mod tests {
 
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
         assert!(
-            fs.read_dir(Path::new("/")).is_ok(),
+            fs.read_dir(Path::new("/")).await.is_ok(),
             "NativeFS can read root"
         );
         assert!(
             fs.new_open_options()
                 .read(true)
                 .open(Path::new("/foo2.txt"))
+                .await
                 .is_ok(),
             "created foo2.txt"
         );
@@ -974,13 +1002,13 @@ mod tests {
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
         assert_eq!(
-            fs.create_dir(Path::new("../")),
+            fs.create_dir(Path::new("../")).await,
             Err(FsError::AlreadyExists),
             "creating a directory out of bounds",
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("/foo")),
+            fs.create_dir(Path::new("/foo")).await,
             Ok(()),
             "creating a directory",
         );
@@ -990,7 +1018,7 @@ mod tests {
             "foo dir exists in host_fs"
         );
 
-        let cur_dir = read_dir_names(&fs, "/");
+        let cur_dir = read_dir_names(&fs, "/").await;
 
         if !cur_dir.contains(&"foo".to_string()) {
             panic!("cur_dir does not contain foo: {cur_dir:#?}");
@@ -1002,7 +1030,7 @@ mod tests {
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("foo/bar")),
+            fs.create_dir(Path::new("foo/bar")).await,
             Ok(()),
             "creating a sub-directory",
         );
@@ -1012,14 +1040,14 @@ mod tests {
             "foo dir exists in host_fs"
         );
 
-        let foo_dir = read_dir_names(&fs, Path::new("/foo"));
+        let foo_dir = read_dir_names(&fs, Path::new("/foo")).await;
 
         assert!(
             foo_dir.contains(&"bar".to_string()),
             "the foo directory is updated and well-defined"
         );
 
-        let bar_dir = read_dir_names(&fs, Path::new("/foo/bar"));
+        let bar_dir = read_dir_names(&fs, Path::new("/foo/bar")).await;
 
         assert!(
             bar_dir.is_empty(),
@@ -1033,19 +1061,19 @@ mod tests {
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
         assert_eq!(
-            fs.remove_dir(Path::new("/foo")),
+            fs.remove_dir(Path::new("/foo")).await,
             Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("foo")),
+            fs.create_dir(Path::new("foo")).await,
             Ok(()),
             "creating a directory",
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("foo/bar")),
+            fs.create_dir(Path::new("foo/bar")).await,
             Ok(()),
             "creating a sub-directory",
         );
@@ -1053,24 +1081,24 @@ mod tests {
         assert!(temp.path().join("foo/bar").exists(), "./foo/bar exists");
 
         assert_eq!(
-            fs.remove_dir(Path::new("foo")),
+            fs.remove_dir(Path::new("foo")).await,
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("foo/bar")),
+            fs.remove_dir(Path::new("foo/bar")).await,
             Ok(()),
             "removing a sub-directory",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("foo")),
+            fs.remove_dir(Path::new("foo")).await,
             Ok(()),
             "removing a directory",
         );
 
-        let cur_dir = read_dir_names(&fs, "/");
+        let cur_dir = read_dir_names(&fs, "/").await;
 
         assert!(
             !cur_dir.contains(&"foo".to_string()),
@@ -1078,8 +1106,9 @@ mod tests {
         );
     }
 
-    fn read_dir_names(fs: &FileSystem, path: impl AsRef<Path>) -> Vec<String> {
+    async fn read_dir_names(fs: &FileSystem, path: impl AsRef<Path>) -> Vec<String> {
         fs.read_dir(path.as_ref())
+            .await
             .unwrap()
             .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
             .collect::<Vec<_>>()
@@ -1114,7 +1143,7 @@ mod tests {
 
         // On Windows, rename "to" must not be an existing directory
         #[cfg(not(target_os = "windows"))]
-        assert_eq!(fs.create_dir(bar), Ok(()));
+        assert_eq!(fs.create_dir(bar).await, Ok(()));
 
         assert_eq!(
             fs.rename(foo, bar).await,
@@ -1127,6 +1156,7 @@ mod tests {
                 .write(true)
                 .create_new(true)
                 .open(bar.join("hello1.txt"))
+                .await
                 .is_ok(),
             "creating a new file (`hello1.txt`)",
         );
@@ -1135,11 +1165,12 @@ mod tests {
                 .write(true)
                 .create_new(true)
                 .open(bar.join("hello2.txt"))
+                .await
                 .is_ok(),
             "creating a new file (`hello2.txt`)",
         );
 
-        let cur_dir = read_dir_names(&fs, Path::new("/"));
+        let cur_dir = read_dir_names(&fs, Path::new("/")).await;
 
         assert!(
             !cur_dir.contains(&"foo".to_string()),
@@ -1151,13 +1182,13 @@ mod tests {
             "the bar directory still exists"
         );
 
-        let bar_dir = read_dir_names(&fs, bar);
+        let bar_dir = read_dir_names(&fs, bar).await;
 
         if !bar_dir.contains(&"qux".to_string()) {
             println!("qux does not exist: {bar_dir:?}")
         }
 
-        let qux_dir = read_dir_names(&fs, bar.join("qux"));
+        let qux_dir = read_dir_names(&fs, bar.join("qux")).await;
 
         assert!(qux_dir.is_empty(), "the qux directory is empty");
 
@@ -1171,7 +1202,7 @@ mod tests {
             "the /bar/hello2.txt file exists"
         );
 
-        assert_eq!(fs.create_dir(foo), Ok(()), "create ./foo again");
+        assert_eq!(fs.create_dir(foo).await, Ok(()), "create ./foo again");
 
         assert_eq!(
             fs.rename(&bar.join("hello2.txt"), &foo.join("world2.txt"))
@@ -1227,7 +1258,7 @@ mod tests {
 
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
-        let root_metadata = fs.metadata(Path::new("/")).unwrap();
+        let root_metadata = fs.metadata(Path::new("/")).await.unwrap();
 
         assert!(root_metadata.ft.dir);
         // it seems created is not available on musl, at least on CI testing.
@@ -1239,9 +1270,9 @@ mod tests {
 
         let foo = Path::new("foo");
 
-        assert_eq!(fs.create_dir(foo), Ok(()));
+        assert_eq!(fs.create_dir(foo).await, Ok(()));
 
-        let foo_metadata = fs.metadata(foo);
+        let foo_metadata = fs.metadata(foo).await;
         assert!(foo_metadata.is_ok());
         let foo_metadata = foo_metadata.unwrap();
 
@@ -1258,13 +1289,13 @@ mod tests {
 
         assert_eq!(fs.rename(foo, bar).await, Ok(()));
 
-        let bar_metadata = fs.metadata(bar).unwrap();
+        let bar_metadata = fs.metadata(bar).await.unwrap();
         assert!(bar_metadata.ft.dir);
         assert!(bar_metadata.accessed >= foo_metadata.accessed);
         assert_eq!(bar_metadata.created, foo_metadata.created);
         assert!(bar_metadata.modified > foo_metadata.modified);
 
-        let root_metadata = fs.metadata(bar).unwrap();
+        let root_metadata = fs.metadata(bar).await.unwrap();
         assert!(
             root_metadata.modified > foo_metadata.modified,
             "the parent modified time was updated"
@@ -1283,9 +1314,9 @@ mod tests {
 
         let fs = FileSystem::new(Handle::current(), &temp_canon).expect("get filesystem");
 
-        assert_eq!(fs.metadata(&file_path), Err(FsError::InvalidInput));
+        assert_eq!(fs.metadata(&file_path).await, Err(FsError::InvalidInput));
         assert!(matches!(
-            fs.new_open_options().read(true).open(&file_path),
+            fs.new_open_options().read(true).open(&file_path).await,
             Err(FsError::InvalidInput)
         ));
     }
@@ -1300,16 +1331,21 @@ mod tests {
                 .write(true)
                 .create_new(true)
                 .open(Path::new("foo.txt"))
+                .await
                 .is_ok(),
             "creating a new file",
         );
 
-        assert!(read_dir_names(&fs, Path::new("/")).contains(&"foo.txt".to_string()));
+        assert!(
+            read_dir_names(&fs, Path::new("/"))
+                .await
+                .contains(&"foo.txt".to_string())
+        );
 
         assert!(temp.path().join("foo.txt").is_file());
 
         assert_eq!(
-            fs.remove_file(Path::new("foo.txt")),
+            fs.remove_file(Path::new("foo.txt")).await,
             Ok(()),
             "removing a file that exists",
         );
@@ -1317,7 +1353,7 @@ mod tests {
         assert!(!temp.path().join("foo.txt").exists());
 
         assert_eq!(
-            fs.remove_file(Path::new("foo.txt")),
+            fs.remove_file(Path::new("foo.txt")).await,
             Err(FsError::EntryNotFound),
             "removing a file that doesn't exists",
         );
@@ -1328,19 +1364,32 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let fs = FileSystem::new(Handle::current(), temp.path()).expect("get filesystem");
 
-        assert_eq!(fs.create_dir(Path::new("foo")), Ok(()), "creating `foo`");
         assert_eq!(
-            fs.create_dir(Path::new("foo/sub")),
+            fs.create_dir(Path::new("foo")).await,
+            Ok(()),
+            "creating `foo`"
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("foo/sub")).await,
             Ok(()),
             "creating `sub`"
         );
-        assert_eq!(fs.create_dir(Path::new("bar")), Ok(()), "creating `bar`");
-        assert_eq!(fs.create_dir(Path::new("baz")), Ok(()), "creating `bar`");
+        assert_eq!(
+            fs.create_dir(Path::new("bar")).await,
+            Ok(()),
+            "creating `bar`"
+        );
+        assert_eq!(
+            fs.create_dir(Path::new("baz")).await,
+            Ok(()),
+            "creating `bar`"
+        );
         assert!(
             fs.new_open_options()
                 .write(true)
                 .create_new(true)
                 .open(Path::new("a.txt"))
+                .await
                 .is_ok(),
             "creating `a.txt`",
         );
@@ -1349,11 +1398,12 @@ mod tests {
                 .write(true)
                 .create_new(true)
                 .open(Path::new("b.txt"))
+                .await
                 .is_ok(),
             "creating `b.txt`",
         );
 
-        let readdir = fs.read_dir(Path::new("/"));
+        let readdir = fs.read_dir(Path::new("/")).await;
 
         assert!(
             readdir.is_ok(),

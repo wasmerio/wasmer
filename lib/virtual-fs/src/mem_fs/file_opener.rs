@@ -3,13 +3,28 @@ use super::*;
 use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
 use shared_buffer::OwnedBuffer;
 use std::path::Path;
+use std::task::{Context, Poll};
 use tracing::*;
+
+fn poll_custom_file_set_len(
+    file: &mut (dyn VirtualFile + Send + Sync),
+    new_size: u64,
+) -> Result<()> {
+    let mut future = file.set_len(new_size);
+    let waker = futures::task::noop_waker_ref();
+    let mut context = Context::from_waker(waker);
+
+    match future.as_mut().poll(&mut context) {
+        Poll::Ready(result) => result,
+        Poll::Pending => Err(FsError::Unsupported),
+    }
+}
 
 impl FileSystem {
     /// Inserts a readonly file into the file system that uses copy-on-write
     /// (this is required for zero-copy creation of the same file)
     pub fn insert_ro_file(&self, path: &Path, contents: OwnedBuffer) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, path);
+        futures::executor::block_on(crate::FileSystem::remove_file(self, path)).ok();
         let (inode_of_parent, maybe_inode_of_file, name_of_file) = self.insert_inode(path)?;
 
         let inode_of_parent = match inode_of_parent {
@@ -76,7 +91,8 @@ impl FileSystem {
         fs: Arc<dyn crate::FileSystem + Send + Sync>,
         source_path: PathBuf,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, target_path.as_path());
+        futures::executor::block_on(crate::FileSystem::remove_file(self, target_path.as_path()))
+            .ok();
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(target_path.as_path())?;
 
@@ -97,7 +113,7 @@ impl FileSystem {
                 let mut fs_lock = self.inner.write().map_err(|_| FsError::Lock)?;
 
                 // Read the metadata or generate a dummy one
-                let meta = match fs.metadata(&target_path) {
+                let meta = match futures::executor::block_on(fs.metadata(&target_path)) {
                     Ok(meta) => meta,
                     _ => {
                         let time = time();
@@ -157,7 +173,8 @@ impl FileSystem {
         other: Arc<dyn crate::FileSystem + Send + Sync>,
         source_path: PathBuf,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_dir(self, target_path.as_path());
+        futures::executor::block_on(crate::FileSystem::remove_dir(self, target_path.as_path()))
+            .ok();
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(target_path.as_path())?;
 
@@ -231,7 +248,7 @@ impl FileSystem {
         path: PathBuf,
         file: Box<dyn crate::VirtualFile + Send + Sync>,
     ) -> Result<()> {
-        let _ = crate::FileSystem::remove_file(self, path.as_path());
+        futures::executor::block_on(crate::FileSystem::remove_file(self, path.as_path())).ok();
         let (inode_of_parent, maybe_inode_of_file, name_of_file) =
             self.insert_inode(path.as_path())?;
 
@@ -324,8 +341,8 @@ impl FileSystem {
     }
 }
 
-impl crate::FileOpener for FileSystem {
-    fn open(
+impl FileSystem {
+    pub(crate) async fn open_internal(
         &self,
         path: &Path,
         conf: &OpenOptionsConfig,
@@ -365,18 +382,20 @@ impl crate::FileOpener for FileSystem {
                 return fs
                     .new_open_options()
                     .options(conf.clone())
-                    .open(parent_path);
+                    .open(parent_path)
+                    .await;
             }
         };
         let maybe_inode_of_file = match maybe_inode_of_file {
             Some(InodeResolution::Found(inode)) => Some(inode),
             Some(InodeResolution::Redirect(fs, path)) => {
-                return fs.new_open_options().options(conf.clone()).open(path);
+                return fs.new_open_options().options(conf.clone()).open(path).await;
             }
             None => None,
         };
 
         let cursor = 0u64;
+        let mut arc_file = None;
         let (inode_of_file, handle_lifecycle) = match maybe_inode_of_file {
             // The file already exists, and a _new_ one _must_ be
             // created; it's not OK.
@@ -384,78 +403,106 @@ impl crate::FileOpener for FileSystem {
 
             // The file already exists; it's OK.
             Some(inode_of_file) => {
-                // Write lock.
-                let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+                enum OpenedNode {
+                    Other(Arc<FileLifecycle>),
+                    ArcFile {
+                        lifecycle: Arc<FileLifecycle>,
+                        fs: Arc<dyn crate::FileSystem + Send + Sync>,
+                        path: std::path::PathBuf,
+                    },
+                }
 
-                let handle_lifecycle = match fs.storage.get_mut(inode_of_file) {
-                    Some(Node::File(FileNode {
-                        metadata,
-                        file,
+                let opened_node = {
+                    // Write lock.
+                    let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+
+                    match fs.storage.get_mut(inode_of_file) {
+                        Some(Node::File(FileNode {
+                            metadata,
+                            file,
+                            lifecycle,
+                            ..
+                        })) => {
+                            // Update the accessed time.
+                            metadata.accessed = time();
+
+                            // Truncate if needed.
+                            if truncate {
+                                file.truncate();
+                                metadata.len = 0;
+                            }
+
+                            OpenedNode::Other(lifecycle.clone())
+                        }
+
+                        Some(Node::OffloadedFile(OffloadedFileNode {
+                            metadata,
+                            file,
+                            lifecycle,
+                            ..
+                        })) => {
+                            // Update the accessed time.
+                            metadata.accessed = time();
+
+                            // Truncate if needed.
+                            if truncate {
+                                file.truncate();
+                                metadata.len = 0;
+                            }
+
+                            OpenedNode::Other(lifecycle.clone())
+                        }
+
+                        Some(Node::ReadOnlyFile(node)) => {
+                            // Update the accessed time.
+                            node.metadata.accessed = time();
+
+                            // Truncate if needed.
+                            if truncate || append {
+                                return Err(FsError::PermissionDenied);
+                            }
+
+                            OpenedNode::Other(node.lifecycle.clone())
+                        }
+
+                        Some(Node::CustomFile(node)) => {
+                            // Update the accessed time.
+                            node.metadata.accessed = time();
+
+                            // Truncate if needed.
+                            let mut file = node.file.lock().unwrap();
+                            if truncate {
+                                poll_custom_file_set_len(file.as_mut(), 0)?;
+                                node.metadata.len = 0;
+                            }
+
+                            OpenedNode::Other(node.lifecycle.clone())
+                        }
+
+                        Some(Node::ArcFile(node)) => {
+                            // Update the accessed time.
+                            node.metadata.accessed = time();
+
+                            OpenedNode::ArcFile {
+                                lifecycle: node.lifecycle.clone(),
+                                fs: node.fs.clone(),
+                                path: node.path.clone(),
+                            }
+                        }
+
+                        None => return Err(FsError::EntryNotFound),
+                        _ => return Err(FsError::NotAFile),
+                    }
+                };
+
+                let handle_lifecycle = match opened_node {
+                    OpenedNode::Other(lifecycle) => lifecycle,
+                    OpenedNode::ArcFile {
                         lifecycle,
-                        ..
-                    })) => {
-                        // Update the accessed time.
-                        metadata.accessed = time();
-
-                        // Truncate if needed.
-                        if truncate {
-                            file.truncate();
-                            metadata.len = 0;
-                        }
-
-                        lifecycle.clone()
-                    }
-
-                    Some(Node::OffloadedFile(OffloadedFileNode {
-                        metadata,
-                        file,
-                        lifecycle,
-                        ..
-                    })) => {
-                        // Update the accessed time.
-                        metadata.accessed = time();
-
-                        // Truncate if needed.
-                        if truncate {
-                            file.truncate();
-                            metadata.len = 0;
-                        }
-
-                        lifecycle.clone()
-                    }
-
-                    Some(Node::ReadOnlyFile(node)) => {
-                        // Update the accessed time.
-                        node.metadata.accessed = time();
-
-                        // Truncate if needed.
-                        if truncate || append {
-                            return Err(FsError::PermissionDenied);
-                        }
-
-                        node.lifecycle.clone()
-                    }
-
-                    Some(Node::CustomFile(node)) => {
-                        // Update the accessed time.
-                        node.metadata.accessed = time();
-
-                        // Truncate if needed.
-                        let mut file = node.file.lock().unwrap();
-                        if truncate {
-                            file.set_len(0)?;
-                            node.metadata.len = 0;
-                        }
-
-                        node.lifecycle.clone()
-                    }
-
-                    Some(Node::ArcFile(node)) => {
-                        // Update the accessed time.
-                        node.metadata.accessed = time();
-
-                        let mut file = node
-                            .fs
+                        fs: node_fs,
+                        path: node_path,
+                    } => {
+                        let mut file = node_fs
                             .new_open_options()
                             .read(read)
                             .write(write)
@@ -463,19 +510,21 @@ impl crate::FileOpener for FileSystem {
                             .truncate(truncate)
                             .create(create)
                             .create_new(create_new)
-                            .open(node.path.as_path())?;
+                            .open(node_path.as_path())
+                            .await?;
 
                         // Truncate if needed.
                         if truncate {
-                            file.set_len(0)?;
-                            node.metadata.len = 0;
+                            file.set_len(0).await?;
+                            let mut fs = self.inner.write().map_err(|_| FsError::Lock)?;
+                            if let Some(Node::ArcFile(node)) = fs.storage.get_mut(inode_of_file) {
+                                node.metadata.len = 0;
+                            }
                         }
 
-                        node.lifecycle.clone()
+                        arc_file = Some(file);
+                        lifecycle
                     }
-
-                    None => return Err(FsError::EntryNotFound),
-                    _ => return Err(FsError::NotAFile),
                 };
 
                 handle_lifecycle.opened();
@@ -560,6 +609,7 @@ impl crate::FileOpener for FileSystem {
             write || append || truncate,
             append,
             cursor,
+            arc_file,
         )))
     }
 }
@@ -627,6 +677,7 @@ mod test_file_opener {
                 .write(true)
                 .create_new(true)
                 .open(path!("/foo.txt"))
+                .await
                 .is_ok(),
             "creating a new file",
         );
@@ -665,7 +716,8 @@ mod test_file_opener {
                 fs.new_open_options()
                     .write(true)
                     .create_new(true)
-                    .open(path!("/foo.txt")),
+                    .open(path!("/foo.txt"))
+                    .await,
                 Err(FsError::AlreadyExists)
             ),
             "creating a new file that already exist",
@@ -676,18 +728,24 @@ mod test_file_opener {
                 .write(true)
                 .create_new(true)
                 .open(path!("/foo/bar.txt"))
+                .await
                 .map(|_| ()),
             Err(FsError::EntryNotFound),
             "creating a file in a directory that doesn't exist",
         );
 
-        assert_eq!(fs.remove_file(path!("/foo.txt")), Ok(()), "removing a file");
+        assert_eq!(
+            fs.remove_file(path!("/foo.txt")).await,
+            Ok(()),
+            "removing a file"
+        );
 
         assert!(
             fs.new_open_options()
                 .write(false)
                 .create_new(true)
                 .open(path!("/foo.txt"))
+                .await
                 .is_ok(),
             "creating a file without the `write` option",
         );
@@ -702,7 +760,8 @@ mod test_file_opener {
                 fs.new_open_options()
                     .write(false)
                     .truncate(true)
-                    .open(path!("/foo.txt")),
+                    .open(path!("/foo.txt"))
+                    .await,
                 Err(FsError::PermissionDenied),
             ),
             "truncating a read-only file",
@@ -718,6 +777,7 @@ mod test_file_opener {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         assert!(
@@ -739,6 +799,7 @@ mod test_file_opener {
             .write(true)
             .truncate(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to open + truncate `foo.txt`");
 
         assert!(
@@ -760,6 +821,7 @@ mod test_file_opener {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         assert!(
@@ -780,6 +842,7 @@ mod test_file_opener {
             .new_open_options()
             .append(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to open `foo.txt`");
 
         assert!(
@@ -796,6 +859,7 @@ mod test_file_opener {
             .new_open_options()
             .read(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to open `foo.txt");
 
         assert!(
@@ -823,6 +887,7 @@ mod test_file_opener {
                 .write(true)
                 .create_new(true)
                 .open(path!("/foo.txt"))
+                .await
                 .is_ok(),
             "creating a _new_ file",
         );
@@ -831,7 +896,8 @@ mod test_file_opener {
             matches!(
                 fs.new_open_options()
                     .create_new(true)
-                    .open(path!("/foo.txt")),
+                    .open(path!("/foo.txt"))
+                    .await,
                 Err(FsError::AlreadyExists),
             ),
             "creating a _new_ file that already exists",
@@ -841,6 +907,7 @@ mod test_file_opener {
             fs.new_open_options()
                 .read(true)
                 .open(path!("/foo.txt"))
+                .await
                 .is_ok(),
             "opening a file that already exists",
         );
@@ -857,6 +924,7 @@ mod test_file_opener {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("create file in backing fs");
 
         fs.insert_arc_directory_at(
@@ -870,6 +938,7 @@ mod test_file_opener {
             .new_open_options()
             .read(true)
             .open(path!("/mnt/foo.txt"))
+            .await
             .expect("open should redirect to the backing fs");
 
         let mut contents = String::new();
@@ -882,7 +951,8 @@ mod test_file_opener {
             matches!(
                 fs.new_open_options()
                     .create_new(true)
-                    .open(path!("/mnt/foo.txt")),
+                    .open(path!("/mnt/foo.txt"))
+                    .await,
                 Err(FsError::AlreadyExists),
             ),
             "create_new on a redirected existing file follows the backing fs result",
@@ -897,13 +967,14 @@ mod test_file_opener {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("create /foo.txt");
 
         let _hook = OpenBeforeHandleHookGuard::install(Box::new({
             let fs = fs.clone();
             move || {
                 assert_eq!(
-                    fs.remove_file(path!("/foo.txt")),
+                    futures::executor::block_on(fs.remove_file(path!("/foo.txt"))),
                     Ok(()),
                     "unlink during the open-return window",
                 );
@@ -915,12 +986,13 @@ mod test_file_opener {
             .read(true)
             .write(true)
             .open(path!("/foo.txt"))
+            .await
             .expect(
                 "open should succeed even if the path is unlinked before the handle is returned",
             );
 
         assert_eq!(
-            fs.metadata(path!("/foo.txt")),
+            fs.metadata(path!("/foo.txt")).await,
             Err(FsError::EntryNotFound),
             "the path is gone immediately after unlink",
         );

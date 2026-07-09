@@ -57,23 +57,24 @@ impl AsyncRead for NullFile {
     }
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for NullFile {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         0
     }
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         0
     }
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         0
     }
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         0
     }
-    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> crate::Result<()> {
+    async fn unlink(&mut self) -> crate::Result<()> {
         Ok(())
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {

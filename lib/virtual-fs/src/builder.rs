@@ -107,7 +107,7 @@ impl RootFileSystemBuilder {
                 .collect::<Vec<_>>();
 
             for root_dir in &default_dirs {
-                if let Err(err) = tmp.create_dir(Path::new(root_dir)) {
+                if let Err(err) = futures::executor::block_on(tmp.create_dir(Path::new(root_dir))) {
                     debug!("failed to create dir [{}] - {}", root_dir, err);
                 }
             }
@@ -147,7 +147,7 @@ impl RootFileSystemBuilder {
                 self.tty.unwrap_or_else(|| Box::<NullFile>::default()),
             );
 
-            let _ = tmp.create_dir(Path::new("/dev/shm"));
+            let _ = futures::executor::block_on(tmp.create_dir(Path::new("/dev/shm")));
         }
         tmp
     }
@@ -167,41 +167,45 @@ mod test_builder {
             .read(true)
             .write(true)
             .open("/dev/null")
+            .await
             .unwrap();
         assert_eq!(dev_null.write(b"hello").await.unwrap(), 5);
         let mut buf = Vec::new();
         dev_null.read_to_end(&mut buf).await.unwrap();
         assert!(buf.is_empty());
-        assert!(dev_null.get_special_fd().is_none());
+        assert!(dev_null.get_special_fd().await.is_none());
 
         let mut dev_zero = root_fs
             .new_open_options()
             .read(true)
             .write(true)
             .open("/dev/zero")
+            .await
             .unwrap();
         assert_eq!(dev_zero.write(b"hello").await.unwrap(), 5);
         let mut buf = vec![1; 10];
         dev_zero.read_exact(&mut buf[..]).await.unwrap();
         assert_eq!(buf, vec![0; 10]);
-        assert!(dev_zero.get_special_fd().is_none());
+        assert!(dev_zero.get_special_fd().await.is_none());
 
         let mut dev_tty = root_fs
             .new_open_options()
             .read(true)
             .write(true)
             .open("/dev/tty")
+            .await
             .unwrap();
         assert_eq!(dev_tty.write(b"hello").await.unwrap(), 5);
         let mut buf = Vec::new();
         dev_tty.read_to_end(&mut buf).await.unwrap();
         assert!(buf.is_empty());
-        assert!(dev_tty.get_special_fd().is_none());
+        assert!(dev_tty.get_special_fd().await.is_none());
 
         root_fs
             .new_open_options()
             .read(true)
             .open("/bin/wasmer")
+            .await
             .unwrap();
 
         let dev_stdin = root_fs
@@ -209,24 +213,27 @@ mod test_builder {
             .read(true)
             .write(true)
             .open("/dev/stdin")
+            .await
             .unwrap();
-        assert_eq!(dev_stdin.get_special_fd().unwrap(), 0);
+        assert_eq!(dev_stdin.get_special_fd().await.unwrap(), 0);
         let dev_stdout = root_fs
             .new_open_options()
             .read(true)
             .write(true)
             .open("/dev/stdout")
+            .await
             .unwrap();
-        assert_eq!(dev_stdout.get_special_fd().unwrap(), 1);
+        assert_eq!(dev_stdout.get_special_fd().await.unwrap(), 1);
         let dev_stderr = root_fs
             .new_open_options()
             .read(true)
             .write(true)
             .open("/dev/stderr")
+            .await
             .unwrap();
-        assert_eq!(dev_stderr.get_special_fd().unwrap(), 2);
+        assert_eq!(dev_stderr.get_special_fd().await.unwrap(), 2);
 
-        let dev_shm_metadata = root_fs.metadata(Path::new("/dev/shm")).unwrap();
+        let dev_shm_metadata = root_fs.metadata(Path::new("/dev/shm")).await.unwrap();
         assert!(dev_shm_metadata.is_dir());
     }
 }

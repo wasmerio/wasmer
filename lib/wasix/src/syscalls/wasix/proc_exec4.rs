@@ -92,7 +92,13 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
         };
         let (_, state, inodes) =
             unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), name) {
+        match wasi_try_ok!(__asyncify_light(ctx.data(), None, async {
+            Ok(
+                find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), name)
+                    .await,
+            )
+        },)?)
+        {
             FindExecutableResult::Found(p) => *name = p,
             FindExecutableResult::AccessError => return Ok(Errno::Access),
             FindExecutableResult::NotFound => return Ok(Errno::Noent),
@@ -115,10 +121,13 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
     if name.contains('/') {
         let (_, state, inodes) =
             unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match state
-            .fs
-            .get_inode_at_path(inodes, VIRTUAL_ROOT_FD, name, true)
-        {
+        match __asyncify_light(
+            ctx.data(),
+            None,
+            state
+                .fs
+                .get_inode_at_path(inodes, VIRTUAL_ROOT_FD, name, true),
+        )? {
             Ok(_) => (),
             Err(Errno::Notdir) => return Ok(Errno::Notdir),
             Err(Errno::Noent) => return Ok(Errno::Noent),
@@ -134,7 +143,11 @@ pub(crate) fn proc_exec4_impl<M: MemorySize>(
     let (_, cur_dir) = {
         let (memory, state, inodes) =
             unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD) {
+        match __asyncify_light(
+            ctx.data(),
+            None,
+            state.fs.get_current_dir(inodes, crate::VIRTUAL_ROOT_FD),
+        )? {
             Ok(a) => a,
             Err(err) => {
                 warn!("failed to create subprocess for fork - {}", err);
@@ -336,7 +349,7 @@ pub(crate) enum FindExecutableResult {
     NotFound,
 }
 
-pub(crate) fn find_executable_in_path<'a>(
+pub(crate) async fn find_executable_in_path<'a>(
     fs: &WasiFs,
     inodes: &WasiInodes,
     path: impl IntoIterator<Item = &'a str>,
@@ -345,7 +358,10 @@ pub(crate) fn find_executable_in_path<'a>(
     let mut encountered_eaccess = false;
     for p in path {
         let full_path = format!("{}/{}", p.trim_end_matches('/'), file_name);
-        match fs.get_inode_at_path(inodes, VIRTUAL_ROOT_FD, &full_path, true) {
+        match fs
+            .get_inode_at_path(inodes, VIRTUAL_ROOT_FD, &full_path, true)
+            .await
+        {
             Ok(_) => return FindExecutableResult::Found(full_path),
             Err(Errno::Access) => encountered_eaccess = true,
             Err(_) => (),

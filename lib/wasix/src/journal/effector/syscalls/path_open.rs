@@ -47,7 +47,7 @@ impl JournalEffector {
             ctx.data(),
             dirfd,
             dirflags,
-            path,
+            path.to_string(),
             o_flags,
             fs_rights_base,
             fs_rights_inheriting,
@@ -55,7 +55,7 @@ impl JournalEffector {
             fd_flags,
             Some(fd),
         );
-        match res? {
+        match crate::syscalls::__asyncify_light(ctx.data(), None, res)?? {
             Ok(fd) => fd,
             Err(err) => {
                 bail!(

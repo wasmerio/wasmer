@@ -25,27 +25,27 @@ macro_rules! impl_virtualfile_on_std_streams {
 
         #[async_trait::async_trait]
         impl VirtualFile for $name {
-            fn last_accessed(&self) -> u64 {
+            async fn last_accessed(&self) -> u64 {
                 0
             }
 
-            fn last_modified(&self) -> u64 {
+            async fn last_modified(&self) -> u64 {
                 0
             }
 
-            fn created_time(&self) -> u64 {
+            async fn created_time(&self) -> u64 {
                 0
             }
 
-            fn size(&self) -> u64 {
+            async fn size(&self) -> u64 {
                 0
             }
 
-            fn set_len(& mut self, _new_size: u64) -> Result<()> {
+            async fn set_len(& mut self, _new_size: u64) -> Result<()> {
                 Err(FsError::PermissionDenied)
             }
 
-            fn unlink(&mut self) -> Result<()> {
+            async fn unlink(&mut self) -> Result<()> {
                 Ok(())
             }
 

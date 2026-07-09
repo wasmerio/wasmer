@@ -108,7 +108,13 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
         };
         let (_, state, inodes) =
             unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), name) {
+        match wasi_try_ok!(__asyncify_light(ctx.data(), None, async {
+            Ok(
+                find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), name)
+                    .await,
+            )
+        },)?)
+        {
             FindExecutableResult::Found(p) => *name = p,
             FindExecutableResult::AccessError => return Ok(Errno::Access),
             FindExecutableResult::NotFound => return Ok(Errno::Noexec),
@@ -216,18 +222,24 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
                     .map_err(mem_error_to_wasi)?
             };
             name = env.state.fs.relative_path_to_absolute(name.to_owned());
-            match path_open_internal(
+            match __asyncify_light(
                 env,
-                VIRTUAL_ROOT_FD,
-                op.dirflags,
-                &name,
-                op.oflags,
-                op.fs_rights_base,
-                op.fs_rights_inheriting,
-                op.fdflags,
-                op.fdflagsext,
-                Some(op.fd),
-            ) {
+                None,
+                path_open_internal(
+                    env,
+                    VIRTUAL_ROOT_FD,
+                    op.dirflags,
+                    name,
+                    op.oflags,
+                    op.fs_rights_base,
+                    op.fs_rights_inheriting,
+                    op.fdflags,
+                    op.fdflagsext,
+                    Some(op.fd),
+                ),
+            )
+            .map_err(|_| Errno::Io)?
+            {
                 Err(e) => {
                     tracing::warn!("Failed to open file for posix_spawn: {:?}", e);
                     Err(Errno::Io)
@@ -243,7 +255,7 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
                     .map_err(mem_error_to_wasi)?
             };
             path = env.state.fs.relative_path_to_absolute(path.to_owned());
-            chdir_internal(env, &path)
+            __asyncify_light(env, None, chdir_internal(env, &path)).map_err(|_| Errno::Io)?
         }
         ProcSpawnFdOpName::Fchdir => {
             let fd = env.state.fs.get_fd(op.fd)?;

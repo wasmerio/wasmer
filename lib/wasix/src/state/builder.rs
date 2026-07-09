@@ -11,6 +11,7 @@ use thiserror::Error;
 use virtual_fs::{
     ArcFile, FileSystem, FsError, MountFileSystem, RootFileSystemBuilder, VirtualFile,
 };
+use virtual_mio::block_on;
 use wasmer::{AsStoreMut, Engine, Instance, Module};
 use wasmer_config::package::PackageId;
 
@@ -922,12 +923,12 @@ impl WasiEnvBuilder {
         });
 
         if let Some(dir) = &self.current_dir {
-            match fs_backing.read_dir(dir) {
+            match block_on(fs_backing.read_dir(dir)) {
                 Ok(_) => {
                     // All good
                 }
                 Err(FsError::EntryNotFound) => {
-                    fs_backing.create_dir(dir).map_err(|err| {
+                    block_on(fs_backing.create_dir(dir)).map_err(|err| {
                         WasiStateCreationError::WasiFsSetupError(format!(
                             "Could not create specified current directory at '{}': {err}",
                             dir.display()

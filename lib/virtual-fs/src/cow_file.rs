@@ -48,9 +48,9 @@ pub struct CopyOnWriteFile {
 impl CopyOnWriteFile {
     pub fn new(inner: Box<dyn VirtualFile + Send + Sync>) -> Self {
         Self {
-            last_accessed: inner.last_accessed(),
-            last_modified: inner.last_modified(),
-            created_time: inner.created_time(),
+            last_accessed: futures::executor::block_on(inner.last_accessed()),
+            last_modified: futures::executor::block_on(inner.last_modified()),
+            created_time: futures::executor::block_on(inner.created_time()),
             state: CowState::ReadOnly(inner),
         }
     }
@@ -84,7 +84,7 @@ impl CopyOnWriteFile {
             } => match future.as_mut().poll(cx) {
                 Poll::Ready(Ok(mut buf)) => {
                     if let Some(requested_size) = requested_size {
-                        buf.set_len(requested_size)?;
+                        futures::executor::block_on(buf.set_len(requested_size))?;
                     }
                     if let Some(requested_position) = requested_position {
                         Pin::new(&mut buf).start_seek(requested_position)?;
@@ -102,7 +102,7 @@ impl CopyOnWriteFile {
     fn start_copy(&mut self) {
         replace_with_or_abort(&mut self.state, |state| match state {
             CowState::ReadOnly(inner) => CowState::Copying {
-                cached_size: inner.size(),
+                cached_size: futures::executor::block_on(inner.size()),
                 requested_size: None,
                 requested_position: None,
                 future: Box::pin(Self::copy(inner)),
@@ -201,20 +201,21 @@ impl AsyncRead for CopyOnWriteFile {
     }
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for CopyOnWriteFile {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         self.last_accessed
     }
 
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         self.last_modified
     }
 
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         self.created_time
     }
 
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+    async fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
         if let Some(atime) = atime {
             self.last_accessed = atime;
         }
@@ -225,19 +226,19 @@ impl VirtualFile for CopyOnWriteFile {
         Ok(())
     }
 
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         match &self.state {
-            CowState::ReadOnly(inner) => inner.size(),
+            CowState::ReadOnly(inner) => inner.size().await,
             CowState::Copying {
                 requested_size: Some(size),
                 ..
             } => *size,
             CowState::Copying { cached_size, .. } => *cached_size,
-            CowState::Copied(buffer_file) => buffer_file.size(),
+            CowState::Copied(buffer_file) => buffer_file.size().await,
         }
     }
 
-    fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, new_size: u64) -> crate::Result<()> {
         match self.state {
             CowState::ReadOnly(_) => {
                 self.start_copy();
@@ -259,16 +260,16 @@ impl VirtualFile for CopyOnWriteFile {
             }
 
             CowState::Copied(ref mut buf) => {
-                buf.set_len(new_size)?;
+                buf.set_len(new_size).await?;
             }
         }
 
         Ok(())
     }
 
-    fn unlink(&mut self) -> crate::Result<()> {
+    async fn unlink(&mut self) -> crate::Result<()> {
         // TODO: one can imagine interrupting an in-progress copy here
-        self.set_len(0)
+        self.set_len(0).await
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -303,10 +304,10 @@ mod tests {
         let mut file = CopyOnWriteFile::new(Box::new(inner));
 
         assert!(matches!(file.state, CowState::ReadOnly(_)));
-        assert_eq!(file.size(), 16385);
-        assert_ne!(file.created_time(), 0);
-        assert_ne!(file.last_accessed(), 0);
-        assert_ne!(file.last_modified(), 0);
+        assert_eq!(file.size().await, 16385);
+        assert_ne!(file.created_time().await, 0);
+        assert_ne!(file.last_accessed().await, 0);
+        assert_ne!(file.last_modified().await, 0);
 
         let mut buf = [0u8; 4];
         let read = file.read_exact(buf.as_mut()).await.unwrap();
@@ -319,12 +320,12 @@ mod tests {
         // future won't be polled until we try to read or write.
         file.start_copy();
         assert!(matches!(file.state, CowState::Copying { .. }));
-        assert_eq!(file.size(), 16385);
+        assert_eq!(file.size().await, 16385);
 
         // The cached length should be returned while copying
-        file.set_len(16400).unwrap();
+        file.set_len(16400).await.unwrap();
         assert!(matches!(file.state, CowState::Copying { .. }));
-        assert_eq!(file.size(), 16400);
+        assert_eq!(file.size().await, 16400);
 
         // Now try to read from the file, which will trigger the copy
         let read = file.read_exact(buf.as_mut()).await.unwrap();
@@ -332,7 +333,7 @@ mod tests {
         assert_eq!(read, 4);
         assert_eq!(buf, [4, 5, 6, 7]);
         assert_eq!(file.seek(SeekFrom::Current(0)).await.unwrap(), 8);
-        assert_eq!(file.size(), 16400);
+        assert_eq!(file.size().await, 16400);
 
         file.seek(SeekFrom::Start(16383)).await.unwrap();
         let read = file.read_exact(buf.as_mut()).await.unwrap();

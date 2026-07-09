@@ -26,8 +26,18 @@ impl JournalEffector {
         st_mtim: Timestamp,
         fst_flags: Fstflags,
     ) -> anyhow::Result<()> {
-        crate::syscalls::fd_filestat_set_times_internal(ctx, fd, st_atim, st_mtim, fst_flags)
-            .map_err(|err| {
+        crate::syscalls::__asyncify_light(
+            ctx.data(),
+            None,
+            crate::syscalls::fd_filestat_set_times_internal(
+                ctx.data(),
+                fd,
+                st_atim,
+                st_mtim,
+                fst_flags,
+            ),
+        )?
+        .map_err(|err| {
                 anyhow::format_err!(
                     "journal restore error: failed to set file times (fd={fd}, st_atim={st_atim}, st_mtim={st_mtim}, fst_flags={fst_flags:?}) - {err}")
             })?;

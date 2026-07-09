@@ -1,5 +1,4 @@
 use anyhow::anyhow;
-use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 
 use std::convert::TryInto;
@@ -11,9 +10,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll};
 
 use crate::mem_fs::FileSystem as MemFileSystem;
-use crate::{
-    FileOpener, FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile,
-};
+use crate::{FileSystem, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, VirtualFile};
 use indexmap::IndexMap;
 use webc::v1::{FsEntry, FsEntryType, OwnedFsEntryFile};
 
@@ -37,56 +34,10 @@ impl StaticFileSystem {
         for volume_name in volume_names {
             let directories = volumes.get(&volume_name).unwrap().list_directories();
             for directory in directories {
-                let _ = fs.create_dir(Path::new(&directory));
+                let _ = futures::executor::block_on(fs.create_dir(Path::new(&directory)));
             }
         }
         Some(fs)
-    }
-}
-
-/// Custom file opener, returns a WebCFile
-impl FileOpener for StaticFileSystem {
-    fn open(
-        &self,
-        path: &Path,
-        _conf: &OpenOptionsConfig,
-    ) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError> {
-        match get_volume_name_opt(path) {
-            Some(volume) => {
-                let file = (*self.volumes)
-                    .get(&volume)
-                    .ok_or(FsError::EntryNotFound)?
-                    .get_file_entry(path.to_string_lossy().as_ref())
-                    .map_err(|_e| FsError::EntryNotFound)?;
-
-                Ok(Box::new(WebCFile {
-                    package: self.package.clone(),
-                    volume,
-                    volumes: self.volumes.clone(),
-                    path: path.to_path_buf(),
-                    entry: file,
-                    cursor: 0,
-                }))
-            }
-            None => {
-                for (volume, v) in self.volumes.iter() {
-                    let entry = match v.get_file_entry(path.to_string_lossy().as_ref()) {
-                        Ok(s) => s,
-                        Err(_) => continue, // error
-                    };
-
-                    return Ok(Box::new(WebCFile {
-                        package: self.package.clone(),
-                        volume: volume.clone(),
-                        volumes: self.volumes.clone(),
-                        path: path.to_path_buf(),
-                        entry,
-                        cursor: 0,
-                    }));
-                }
-                self.memory.new_open_options().open(path)
-            }
-        }
     }
 }
 
@@ -102,22 +53,22 @@ pub struct WebCFile {
 
 #[async_trait::async_trait]
 impl VirtualFile for WebCFile {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         0
     }
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         0
     }
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         0
     }
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         self.entry.get_len()
     }
-    fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
+    async fn set_len(&mut self, _new_size: u64) -> crate::Result<()> {
         Ok(())
     }
-    fn unlink(&mut self) -> Result<(), FsError> {
+    async fn unlink(&mut self) -> Result<(), FsError> {
         Ok(())
     }
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -181,7 +132,7 @@ impl AsyncWrite for WebCFile {
 
 impl AsyncSeek for WebCFile {
     fn start_seek(mut self: Pin<&mut Self>, pos: io::SeekFrom) -> io::Result<()> {
-        let self_size = self.size();
+        let self_size = self.entry.get_len();
         match pos {
             SeekFrom::Start(s) => {
                 self.cursor = s.min(self_size);
@@ -236,8 +187,9 @@ fn transform_into_read_dir(path: &Path, fs_entries: &[FsEntry<'_>]) -> crate::Re
     crate::ReadDir::new(entries)
 }
 
+#[async_trait::async_trait]
 impl FileSystem for StaticFileSystem {
-    fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+    async fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
         let path = normalizes_path(path);
         if self
             .volumes
@@ -247,11 +199,11 @@ impl FileSystem for StaticFileSystem {
         {
             Err(FsError::InvalidInput)
         } else {
-            self.memory.readlink(Path::new(&path))
+            self.memory.readlink(Path::new(&path)).await
         }
     }
 
-    fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
+    async fn read_dir(&self, path: &Path) -> Result<ReadDir, FsError> {
         let path = normalizes_path(path);
         for volume in self.volumes.values() {
             let read_dir_result = volume
@@ -269,15 +221,15 @@ impl FileSystem for StaticFileSystem {
             }
         }
 
-        self.memory.read_dir(Path::new(&path))
+        self.memory.read_dir(Path::new(&path)).await
     }
-    fn create_dir(&self, path: &Path) -> Result<(), FsError> {
+    async fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        self.memory.create_dir(Path::new(&path))
+        self.memory.create_dir(Path::new(&path)).await
     }
-    fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+    async fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        let result = self.memory.remove_dir(Path::new(&path));
+        let result = self.memory.remove_dir(Path::new(&path)).await;
         if self
             .volumes
             .values()
@@ -289,24 +241,22 @@ impl FileSystem for StaticFileSystem {
             result
         }
     }
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
-        Box::pin(async {
-            let from = normalizes_path(from);
-            let to = normalizes_path(to);
-            let result = self.memory.rename(Path::new(&from), Path::new(&to)).await;
-            if self
-                .volumes
-                .values()
-                .find_map(|v| v.get_file_entry(&from).ok())
-                .is_some()
-            {
-                Ok(())
-            } else {
-                result
-            }
-        })
+    async fn rename(&self, from: &Path, to: &Path) -> Result<(), FsError> {
+        let from = normalizes_path(from);
+        let to = normalizes_path(to);
+        let result = self.memory.rename(Path::new(&from), Path::new(&to)).await;
+        if self
+            .volumes
+            .values()
+            .find_map(|v| v.get_file_entry(&from).ok())
+            .is_some()
+        {
+            Ok(())
+        } else {
+            result
+        }
     }
-    fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
+    async fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
         if let Some(fs_entry) = self
             .volumes
@@ -329,12 +279,12 @@ impl FileSystem for StaticFileSystem {
                 len: 0,
             })
         } else {
-            self.memory.metadata(Path::new(&path))
+            self.memory.metadata(Path::new(&path)).await
         }
     }
-    fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+    async fn remove_file(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        let result = self.memory.remove_file(Path::new(&path));
+        let result = self.memory.remove_file(Path::new(&path)).await;
         if self
             .volumes
             .values()
@@ -349,7 +299,7 @@ impl FileSystem for StaticFileSystem {
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
+    async fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         let path = normalizes_path(path);
         if let Some(fs_entry) = self
             .volumes
@@ -377,7 +327,50 @@ impl FileSystem for StaticFileSystem {
                 len: 0,
             })
         } else {
-            self.memory.symlink_metadata(Path::new(&path))
+            self.memory.symlink_metadata(Path::new(&path)).await
+        }
+    }
+
+    async fn open(
+        &self,
+        path: &Path,
+        _conf: &OpenOptionsConfig,
+    ) -> Result<Box<dyn VirtualFile + Send + Sync>, FsError> {
+        match get_volume_name_opt(path) {
+            Some(volume) => {
+                let file = (*self.volumes)
+                    .get(&volume)
+                    .ok_or(FsError::EntryNotFound)?
+                    .get_file_entry(path.to_string_lossy().as_ref())
+                    .map_err(|_e| FsError::EntryNotFound)?;
+
+                Ok(Box::new(WebCFile {
+                    package: self.package.clone(),
+                    volume,
+                    volumes: self.volumes.clone(),
+                    path: path.to_path_buf(),
+                    entry: file,
+                    cursor: 0,
+                }))
+            }
+            None => {
+                for (volume, v) in self.volumes.iter() {
+                    let entry = match v.get_file_entry(path.to_string_lossy().as_ref()) {
+                        Ok(s) => s,
+                        Err(_) => continue,
+                    };
+
+                    return Ok(Box::new(WebCFile {
+                        package: self.package.clone(),
+                        volume: volume.clone(),
+                        volumes: self.volumes.clone(),
+                        path: path.to_path_buf(),
+                        entry,
+                        cursor: 0,
+                    }));
+                }
+                self.memory.open(path, _conf).await
+            }
         }
     }
 }
@@ -447,6 +440,7 @@ mod tests {
             .new_open_options()
             .read(true)
             .open("/lib/python.wasm")
+            .await
             .unwrap();
 
         let mut first = [0; 4];

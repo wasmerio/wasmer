@@ -185,17 +185,40 @@ impl MountFileSystem {
     }
 
     fn absolute_path(components: &[OsString]) -> PathBuf {
-        let mut path = PathBuf::from("/");
-        for component in components {
-            path.push(component);
-        }
-        path
+        Self::guest_path_from_components(components)
+    }
+
+    fn normal_components(path: &Path) -> Vec<OsString> {
+        path.components()
+            .filter_map(|component| match component {
+                std::path::Component::Normal(part) => Some(part.to_os_string()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn guest_path_from_components(components: &[OsString]) -> PathBuf {
+        let mut path = String::from("/");
+        path.push_str(
+            &components
+                .iter()
+                .map(|component| component.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/"),
+        );
+        PathBuf::from(path)
+    }
+
+    fn append_guest_components(prefix: &Path, suffix: &[OsString]) -> PathBuf {
+        let components = Self::normal_components(prefix)
+            .into_iter()
+            .chain(suffix.iter().cloned())
+            .collect::<Vec<_>>();
+        Self::guest_path_from_components(&components)
     }
 
     fn normalize_source_path(path: &Path) -> PathBuf {
-        let mut normalized = PathBuf::from("/");
-        normalized.push(path.strip_prefix("/").unwrap_or(path));
-        normalized
+        Self::guest_path_from_components(&Self::normal_components(path))
     }
 
     fn now_nanos() -> u64 {
@@ -223,8 +246,9 @@ impl MountFileSystem {
     }
 
     fn synthetic_entry(name: OsString, base: &Path, ts: u64) -> DirEntry {
+        let path = Self::append_guest_components(base, &[name]);
         DirEntry {
-            path: base.join(PathBuf::from(name)),
+            path,
             metadata: Ok(Self::directory_metadata_at(ts)),
         }
     }
@@ -243,7 +267,7 @@ impl MountFileSystem {
         }
 
         for (child_name, child) in &node.children {
-            let child_path = path.join(child_name);
+            let child_path = Self::append_guest_components(path, std::slice::from_ref(child_name));
             Self::collect_mount_entries(child, &child_path, entries);
         }
     }
@@ -259,7 +283,7 @@ impl MountFileSystem {
     fn exact_node(&self, path: &Path) -> Option<ExactNode> {
         let path = self.prepare_path(path).ok()?;
         let components = Self::path_components(&path);
-        let visible_path = Path::new("/").join(&path);
+        let visible_path = Self::guest_path_from_components(&components);
         let root = self.root.read().unwrap();
         let node = Self::find_node(&root, &components)?;
         let mounted = Self::mounted(node);
@@ -282,11 +306,7 @@ impl MountFileSystem {
         let mut node = &*root;
         let mut best = Self::mounted(node).map(|mount| ResolvedMount {
             mount_path: PathBuf::from("/"),
-            delegated_path: mount.source_path.join(
-                Self::absolute_path(&components)
-                    .strip_prefix("/")
-                    .unwrap_or(Path::new("")),
-            ),
+            delegated_path: Self::append_guest_components(&mount.source_path, &components),
             fs: mount.fs,
         });
 
@@ -299,10 +319,9 @@ impl MountFileSystem {
             if let Some(mount) = Self::mounted(node) {
                 best = Some(ResolvedMount {
                     mount_path: Self::absolute_path(&components[..=index]),
-                    delegated_path: mount.source_path.join(
-                        Self::absolute_path(&components[index + 1..])
-                            .strip_prefix("/")
-                            .unwrap_or(Path::new("")),
+                    delegated_path: Self::append_guest_components(
+                        &mount.source_path,
+                        &components[index + 1..],
                     ),
                     fs: mount.fs,
                 });
@@ -313,32 +332,39 @@ impl MountFileSystem {
     }
 
     fn rebase_entries(entries: &mut ReadDir, source_prefix: &Path, target_prefix: &Path) {
+        let source_components = Self::normal_components(source_prefix);
+        let target_components = Self::normal_components(target_prefix);
+
         for entry in &mut entries.data {
-            let suffix = entry.path.strip_prefix(source_prefix).unwrap_or_else(|_| {
-                entry
-                    .path
-                    .strip_prefix(Path::new("/"))
-                    .unwrap_or(&entry.path)
-            });
-            entry.path = target_prefix.join(suffix);
+            let entry_components = Self::normal_components(&entry.path);
+            let suffix = entry_components
+                .strip_prefix(source_components.as_slice())
+                .unwrap_or(entry_components.as_slice());
+            let rebased_components = target_components
+                .iter()
+                .chain(suffix.iter())
+                .cloned()
+                .collect::<Vec<_>>();
+            entry.path = Self::guest_path_from_components(&rebased_components);
         }
     }
 
-    fn read_dir_from_exact_node(&self, node: &ExactNode) -> Result<ReadDir> {
+    async fn read_dir_from_exact_node(&self, node: &ExactNode) -> Result<ReadDir> {
         let mut entries = Vec::new();
 
         let backing = if let Some(fs) = &node.fs {
             Some((
-                fs.read_dir(&node.source_path),
+                fs.read_dir(&node.source_path).await,
                 Cow::Borrowed(node.source_path.as_path()),
             ))
         } else {
-            self.resolve_mount(&node.path).map(|resolved| {
-                (
-                    resolved.fs.read_dir(&resolved.delegated_path),
+            match self.resolve_mount(&node.path) {
+                Some(resolved) => Some((
+                    resolved.fs.read_dir(&resolved.delegated_path).await,
                     Cow::Owned(resolved.delegated_path),
-                )
-            })
+                )),
+                None => None,
+            }
         };
 
         if let Some((base_entries, source_path)) = backing {
@@ -464,8 +490,9 @@ impl MountFileSystem {
     }
 }
 
+#[async_trait::async_trait]
 impl FileSystem for MountFileSystem {
-    fn readlink(&self, path: &Path) -> Result<PathBuf> {
+    async fn readlink(&self, path: &Path) -> Result<PathBuf> {
         let path = self.prepare_path(path)?;
 
         if path.as_os_str().is_empty() {
@@ -478,26 +505,26 @@ impl FileSystem for MountFileSystem {
             }
 
             match self.resolve_mount(path) {
-                Some(resolved) => resolved.fs.readlink(&resolved.delegated_path),
+                Some(resolved) => resolved.fs.readlink(&resolved.delegated_path).await,
                 None => Err(FsError::EntryNotFound),
             }
         }
     }
 
-    fn read_dir(&self, path: &Path) -> Result<ReadDir> {
+    async fn read_dir(&self, path: &Path) -> Result<ReadDir> {
         let path = self.prepare_path(path)?;
 
         if let Some(node) = self.exact_node(&path) {
-            return self.read_dir_from_exact_node(&node);
+            return self.read_dir_from_exact_node(&node).await;
         }
 
         match self.resolve_mount(path.clone()) {
             Some(resolved) => {
-                let mut entries = resolved.fs.read_dir(&resolved.delegated_path)?;
+                let mut entries = resolved.fs.read_dir(&resolved.delegated_path).await?;
                 Self::rebase_entries(
                     &mut entries,
                     &resolved.delegated_path,
-                    &Path::new("/").join(&path),
+                    &Self::guest_path_from_components(&Self::path_components(&path)),
                 );
                 Ok(entries)
             }
@@ -505,7 +532,7 @@ impl FileSystem for MountFileSystem {
         }
     }
 
-    fn create_dir(&self, path: &Path) -> Result<()> {
+    async fn create_dir(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 
         if path.as_os_str().is_empty() {
@@ -514,7 +541,7 @@ impl FileSystem for MountFileSystem {
 
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
-                let result = fs.create_dir(Path::new("/"));
+                let result = fs.create_dir(Path::new("/")).await;
 
                 match result {
                     Ok(()) | Err(FsError::AlreadyExists) => Ok(()),
@@ -528,7 +555,7 @@ impl FileSystem for MountFileSystem {
 
         match self.resolve_mount(path) {
             Some(resolved) => {
-                let result = resolved.fs.create_dir(&resolved.delegated_path);
+                let result = resolved.fs.create_dir(&resolved.delegated_path).await;
 
                 if let Err(error) = result
                     && error == FsError::AlreadyExists
@@ -542,7 +569,7 @@ impl FileSystem for MountFileSystem {
         }
     }
 
-    fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
+    async fn create_symlink(&self, source: &Path, target: &Path) -> Result<()> {
         let target = self.prepare_path(target)?;
 
         if target.as_os_str().is_empty() {
@@ -554,12 +581,17 @@ impl FileSystem for MountFileSystem {
         }
 
         match self.resolve_mount(target) {
-            Some(resolved) => resolved.fs.create_symlink(source, &resolved.delegated_path),
+            Some(resolved) => {
+                resolved
+                    .fs
+                    .create_symlink(source, &resolved.delegated_path)
+                    .await
+            }
             None => Err(FsError::EntryNotFound),
         }
     }
 
-    fn hard_link(&self, source: &Path, target: &Path) -> Result<()> {
+    async fn hard_link(&self, source: &Path, target: &Path) -> Result<()> {
         let source = self.prepare_path(source)?;
         let target = self.prepare_path(target)?;
 
@@ -584,13 +616,14 @@ impl FileSystem for MountFileSystem {
                 source_mount
                     .fs
                     .hard_link(&source_mount.delegated_path, &target_mount.delegated_path)
+                    .await
             }
             (Some(_), Some(_)) => Err(FsError::Unsupported),
             _ => Err(FsError::EntryNotFound),
         }
     }
 
-    fn remove_dir(&self, path: &Path) -> Result<()> {
+    async fn remove_dir(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 
         if path.as_os_str().is_empty() {
@@ -606,67 +639,66 @@ impl FileSystem for MountFileSystem {
         }
 
         match self.resolve_mount(path) {
-            Some(resolved) => resolved.fs.remove_dir(&resolved.delegated_path),
+            Some(resolved) => resolved.fs.remove_dir(&resolved.delegated_path).await,
             None => Err(FsError::EntryNotFound),
         }
     }
 
-    fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async move {
-            let from = self.prepare_path(from)?;
-            let to = self.prepare_path(to)?;
+    async fn rename(&self, from: &Path, to: &Path) -> Result<()> {
+        let from = self.prepare_path(from)?;
+        let to = self.prepare_path(to)?;
 
-            if from.as_os_str().is_empty() {
-                return Err(FsError::PermissionDenied);
-            }
+        if from.as_os_str().is_empty() {
+            return Err(FsError::PermissionDenied);
+        }
 
-            if let Some(node) = self.exact_node(&from)
-                && (node.fs.is_some() || node.has_children())
-            {
-                return Err(FsError::PermissionDenied);
-            }
+        if let Some(node) = self.exact_node(&from)
+            && (node.fs.is_some() || node.has_children())
+        {
+            return Err(FsError::PermissionDenied);
+        }
 
-            if let Some(node) = self.exact_node(&to)
-                && (node.fs.is_some() || node.has_children())
-            {
-                return Err(FsError::PermissionDenied);
-            }
+        if let Some(node) = self.exact_node(&to)
+            && (node.fs.is_some() || node.has_children())
+        {
+            return Err(FsError::PermissionDenied);
+        }
 
-            match (self.resolve_mount(from), self.resolve_mount(to)) {
-                (Some(from_mount), Some(to_mount))
-                    if from_mount.mount_path == to_mount.mount_path =>
-                {
-                    from_mount
-                        .fs
-                        .rename(&from_mount.delegated_path, &to_mount.delegated_path)
-                        .await
-                }
-                (Some(from_mount), Some(to_mount)) => {
-                    ops::move_across_filesystems(
-                        from_mount.fs.as_ref(),
-                        to_mount.fs.as_ref(),
-                        &from_mount.delegated_path,
-                        &to_mount.delegated_path,
-                    )
+        match (self.resolve_mount(from), self.resolve_mount(to)) {
+            (Some(from_mount), Some(to_mount)) if from_mount.mount_path == to_mount.mount_path => {
+                from_mount
+                    .fs
+                    .rename(&from_mount.delegated_path, &to_mount.delegated_path)
                     .await
-                }
-                _ => Err(FsError::EntryNotFound),
             }
-        })
+            (Some(from_mount), Some(to_mount)) => {
+                ops::move_across_filesystems(
+                    from_mount.fs.as_ref(),
+                    to_mount.fs.as_ref(),
+                    &from_mount.delegated_path,
+                    &to_mount.delegated_path,
+                )
+                .await
+            }
+            _ => Err(FsError::EntryNotFound),
+        }
     }
 
-    fn metadata(&self, path: &Path) -> Result<Metadata> {
+    async fn metadata(&self, path: &Path) -> Result<Metadata> {
         let path = self.prepare_path(path)?;
 
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
-                fs.metadata(&node.source_path).or_else(|error| {
-                    if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata_at(node.created_at))
-                    } else {
-                        Err(error)
+                match fs.metadata(&node.source_path).await {
+                    Ok(metadata) => Ok(metadata),
+                    Err(error) => {
+                        if Self::should_fallback_to_synthetic_dir(&error) {
+                            Ok(Self::directory_metadata_at(node.created_at))
+                        } else {
+                            Err(error)
+                        }
                     }
-                })
+                }
             } else if node.has_children() {
                 Ok(Self::directory_metadata_at(node.created_at))
             } else {
@@ -675,23 +707,26 @@ impl FileSystem for MountFileSystem {
         }
 
         match self.resolve_mount(path) {
-            Some(resolved) => resolved.fs.metadata(&resolved.delegated_path),
+            Some(resolved) => resolved.fs.metadata(&resolved.delegated_path).await,
             None => Err(FsError::EntryNotFound),
         }
     }
 
-    fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
+    async fn symlink_metadata(&self, path: &Path) -> Result<Metadata> {
         let path = self.prepare_path(path)?;
 
         if let Some(node) = self.exact_node(&path) {
             return if let Some(fs) = node.fs {
-                fs.symlink_metadata(&node.source_path).or_else(|error| {
-                    if Self::should_fallback_to_synthetic_dir(&error) {
-                        Ok(Self::directory_metadata_at(node.created_at))
-                    } else {
-                        Err(error)
+                match fs.symlink_metadata(&node.source_path).await {
+                    Ok(metadata) => Ok(metadata),
+                    Err(error) => {
+                        if Self::should_fallback_to_synthetic_dir(&error) {
+                            Ok(Self::directory_metadata_at(node.created_at))
+                        } else {
+                            Err(error)
+                        }
                     }
-                })
+                }
             } else if node.has_children() {
                 Ok(Self::directory_metadata_at(node.created_at))
             } else {
@@ -700,12 +735,12 @@ impl FileSystem for MountFileSystem {
         }
 
         match self.resolve_mount(path) {
-            Some(resolved) => resolved.fs.symlink_metadata(&resolved.delegated_path),
+            Some(resolved) => resolved.fs.symlink_metadata(&resolved.delegated_path).await,
             None => Err(FsError::EntryNotFound),
         }
     }
 
-    fn remove_file(&self, path: &Path) -> Result<()> {
+    async fn remove_file(&self, path: &Path) -> Result<()> {
         let path = self.prepare_path(path)?;
 
         if path.as_os_str().is_empty() {
@@ -721,7 +756,7 @@ impl FileSystem for MountFileSystem {
         }
 
         match self.resolve_mount(path) {
-            Some(resolved) => resolved.fs.remove_file(&resolved.delegated_path),
+            Some(resolved) => resolved.fs.remove_file(&resolved.delegated_path).await,
             None => Err(FsError::EntryNotFound),
         }
     }
@@ -729,17 +764,8 @@ impl FileSystem for MountFileSystem {
     fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
-}
 
-#[derive(Debug)]
-pub struct MountPointRef<'a> {
-    pub path: PathBuf,
-    pub name: String,
-    pub fs: Option<&'a (dyn FileSystem + Send + Sync)>,
-}
-
-impl FileOpener for MountFileSystem {
-    fn open(
+    async fn open(
         &self,
         path: &Path,
         conf: &OpenOptionsConfig,
@@ -757,14 +783,17 @@ impl FileOpener for MountFileSystem {
         }
 
         match self.resolve_mount(path) {
-            Some(resolved) => resolved
-                .fs
-                .new_open_options()
-                .options(conf.clone())
-                .open(resolved.delegated_path),
+            Some(resolved) => resolved.fs.open(&resolved.delegated_path, conf).await,
             None => Err(FsError::EntryNotFound),
         }
     }
+}
+
+#[derive(Debug)]
+pub struct MountPointRef<'a> {
+    pub path: PathBuf,
+    pub name: String,
+    pub fs: Option<&'a (dyn FileSystem + Send + Sync)>,
 }
 
 #[cfg(test)]
@@ -779,7 +808,7 @@ mod tests {
 
     use crate::{FileSystem as FileSystemTrait, FsError, MountFileSystem, TmpFileSystem, mem_fs};
 
-    use super::{FileOpener, OpenOptionsConfig};
+    use super::OpenOptionsConfig;
 
     #[derive(Debug, Clone, Default)]
     struct MountlessFileSystem {
@@ -794,50 +823,45 @@ mod tests {
     #[derive(Debug, Clone, Default)]
     struct RootPermissionDeniedFileSystem;
 
+    #[async_trait::async_trait]
     impl FileSystemTrait for MountlessFileSystem {
-        fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
-            self.inner.readlink(path)
+        async fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+            self.inner.readlink(path).await
         }
 
-        fn read_dir(&self, path: &Path) -> crate::Result<crate::ReadDir> {
-            self.inner.read_dir(path)
+        async fn read_dir(&self, path: &Path) -> crate::Result<crate::ReadDir> {
+            self.inner.read_dir(path).await
         }
 
-        fn create_dir(&self, path: &Path) -> crate::Result<()> {
-            self.inner.create_dir(path)
+        async fn create_dir(&self, path: &Path) -> crate::Result<()> {
+            self.inner.create_dir(path).await
         }
 
-        fn remove_dir(&self, path: &Path) -> crate::Result<()> {
-            self.inner.remove_dir(path)
+        async fn remove_dir(&self, path: &Path) -> crate::Result<()> {
+            self.inner.remove_dir(path).await
         }
 
-        fn rename<'a>(
-            &'a self,
-            from: &'a Path,
-            to: &'a Path,
-        ) -> futures::future::BoxFuture<'a, crate::Result<()>> {
-            Box::pin(async move { self.inner.rename(from, to).await })
+        async fn rename(&self, from: &Path, to: &Path) -> crate::Result<()> {
+            self.inner.rename(from, to).await
         }
 
-        fn metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
-            self.inner.metadata(path)
+        async fn metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
+            self.inner.metadata(path).await
         }
 
-        fn symlink_metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
-            self.inner.symlink_metadata(path)
+        async fn symlink_metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
+            self.inner.symlink_metadata(path).await
         }
 
-        fn remove_file(&self, path: &Path) -> crate::Result<()> {
-            self.inner.remove_file(path)
+        async fn remove_file(&self, path: &Path) -> crate::Result<()> {
+            self.inner.remove_file(path).await
         }
 
         fn new_open_options(&self) -> crate::OpenOptions<'_> {
-            self.inner.new_open_options()
+            crate::OpenOptions::new(self)
         }
-    }
 
-    impl FileOpener for MountlessFileSystem {
-        fn open(
+        async fn open(
             &self,
             path: &Path,
             conf: &OpenOptionsConfig,
@@ -846,65 +870,61 @@ mod tests {
                 .new_open_options()
                 .options(conf.clone())
                 .open(path)
+                .await
         }
     }
 
+    #[async_trait::async_trait]
     impl FileSystemTrait for RootOpaqueFileSystem {
-        fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
-            self.inner.readlink(path)
+        async fn readlink(&self, path: &Path) -> crate::Result<PathBuf> {
+            self.inner.readlink(path).await
         }
 
-        fn read_dir(&self, path: &Path) -> crate::Result<crate::ReadDir> {
+        async fn read_dir(&self, path: &Path) -> crate::Result<crate::ReadDir> {
             if path == Path::new("/") {
                 Err(FsError::Unsupported)
             } else {
-                self.inner.read_dir(path)
+                self.inner.read_dir(path).await
             }
         }
 
-        fn create_dir(&self, path: &Path) -> crate::Result<()> {
-            self.inner.create_dir(path)
+        async fn create_dir(&self, path: &Path) -> crate::Result<()> {
+            self.inner.create_dir(path).await
         }
 
-        fn remove_dir(&self, path: &Path) -> crate::Result<()> {
-            self.inner.remove_dir(path)
+        async fn remove_dir(&self, path: &Path) -> crate::Result<()> {
+            self.inner.remove_dir(path).await
         }
 
-        fn rename<'a>(
-            &'a self,
-            from: &'a Path,
-            to: &'a Path,
-        ) -> futures::future::BoxFuture<'a, crate::Result<()>> {
-            Box::pin(async move { self.inner.rename(from, to).await })
+        async fn rename(&self, from: &Path, to: &Path) -> crate::Result<()> {
+            self.inner.rename(from, to).await
         }
 
-        fn metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
+        async fn metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
             if path == Path::new("/") {
                 Err(FsError::Unsupported)
             } else {
-                self.inner.metadata(path)
+                self.inner.metadata(path).await
             }
         }
 
-        fn symlink_metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
+        async fn symlink_metadata(&self, path: &Path) -> crate::Result<crate::Metadata> {
             if path == Path::new("/") {
                 Err(FsError::Unsupported)
             } else {
-                self.inner.symlink_metadata(path)
+                self.inner.symlink_metadata(path).await
             }
         }
 
-        fn remove_file(&self, path: &Path) -> crate::Result<()> {
-            self.inner.remove_file(path)
+        async fn remove_file(&self, path: &Path) -> crate::Result<()> {
+            self.inner.remove_file(path).await
         }
 
         fn new_open_options(&self) -> crate::OpenOptions<'_> {
-            self.inner.new_open_options()
+            crate::OpenOptions::new(self)
         }
-    }
 
-    impl FileOpener for RootOpaqueFileSystem {
-        fn open(
+        async fn open(
             &self,
             path: &Path,
             conf: &OpenOptionsConfig,
@@ -913,53 +933,49 @@ mod tests {
                 .new_open_options()
                 .options(conf.clone())
                 .open(path)
+                .await
         }
     }
 
+    #[async_trait::async_trait]
     impl FileSystemTrait for RootPermissionDeniedFileSystem {
-        fn readlink(&self, _path: &Path) -> crate::Result<PathBuf> {
+        async fn readlink(&self, _path: &Path) -> crate::Result<PathBuf> {
             Err(FsError::PermissionDenied)
         }
 
-        fn read_dir(&self, _path: &Path) -> crate::Result<crate::ReadDir> {
+        async fn read_dir(&self, _path: &Path) -> crate::Result<crate::ReadDir> {
             Err(FsError::PermissionDenied)
         }
 
-        fn create_dir(&self, _path: &Path) -> crate::Result<()> {
+        async fn create_dir(&self, _path: &Path) -> crate::Result<()> {
             Err(FsError::PermissionDenied)
         }
 
-        fn remove_dir(&self, _path: &Path) -> crate::Result<()> {
+        async fn remove_dir(&self, _path: &Path) -> crate::Result<()> {
             Err(FsError::PermissionDenied)
         }
 
-        fn rename<'a>(
-            &'a self,
-            _from: &'a Path,
-            _to: &'a Path,
-        ) -> futures::future::BoxFuture<'a, crate::Result<()>> {
-            Box::pin(async { Err(FsError::PermissionDenied) })
-        }
-
-        fn metadata(&self, _path: &Path) -> crate::Result<crate::Metadata> {
+        async fn rename(&self, _from: &Path, _to: &Path) -> crate::Result<()> {
             Err(FsError::PermissionDenied)
         }
 
-        fn symlink_metadata(&self, _path: &Path) -> crate::Result<crate::Metadata> {
+        async fn metadata(&self, _path: &Path) -> crate::Result<crate::Metadata> {
             Err(FsError::PermissionDenied)
         }
 
-        fn remove_file(&self, _path: &Path) -> crate::Result<()> {
+        async fn symlink_metadata(&self, _path: &Path) -> crate::Result<crate::Metadata> {
+            Err(FsError::PermissionDenied)
+        }
+
+        async fn remove_file(&self, _path: &Path) -> crate::Result<()> {
             Err(FsError::PermissionDenied)
         }
 
         fn new_open_options(&self) -> crate::OpenOptions<'_> {
             crate::OpenOptions::new(self)
         }
-    }
 
-    impl FileOpener for RootPermissionDeniedFileSystem {
-        fn open(
+        async fn open(
             &self,
             _path: &Path,
             _conf: &OpenOptionsConfig,
@@ -1007,7 +1023,7 @@ mod tests {
         union
     }
 
-    fn gen_nested_filesystem() -> MountFileSystem {
+    async fn gen_nested_filesystem() -> MountFileSystem {
         let union = MountFileSystem::new();
         let a = mem_fs::FileSystem::default();
         a.open(
@@ -1021,6 +1037,7 @@ mod tests {
                 truncate: false,
             },
         )
+        .await
         .unwrap();
         let b = mem_fs::FileSystem::default();
         b.open(
@@ -1034,6 +1051,7 @@ mod tests {
                 truncate: false,
             },
         )
+        .await
         .unwrap();
 
         union
@@ -1048,10 +1066,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_nested_read_dir() {
-        let fs = gen_nested_filesystem();
+        let fs = gen_nested_filesystem().await;
 
         let root_contents: Vec<PathBuf> = fs
             .read_dir(&PathBuf::from("/"))
+            .await
             .unwrap()
             .map(|e| e.unwrap().path.clone())
             .collect();
@@ -1059,6 +1078,7 @@ mod tests {
 
         let app_contents: HashSet<PathBuf> = fs
             .read_dir(&PathBuf::from("/app"))
+            .await
             .unwrap()
             .map(|e| e.unwrap().path)
             .collect();
@@ -1069,6 +1089,7 @@ mod tests {
 
         let a_contents: Vec<PathBuf> = fs
             .read_dir(&PathBuf::from("/app/a"))
+            .await
             .unwrap()
             .map(|e| e.unwrap().path.clone())
             .collect();
@@ -1076,6 +1097,7 @@ mod tests {
 
         let b_contents: Vec<PathBuf> = fs
             .read_dir(&PathBuf::from("/app/b"))
+            .await
             .unwrap()
             .map(|e| e.unwrap().path)
             .collect();
@@ -1083,31 +1105,118 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_nested_metadata() {
-        let fs = gen_nested_filesystem();
+    async fn test_host_backed_nested_read_dir() {
+        let root = tempfile::tempdir().unwrap();
+        let a_dir = root.path().join("a");
+        let b_dir = root.path().join("b");
+        std::fs::create_dir_all(&a_dir).unwrap();
+        std::fs::create_dir_all(&b_dir).unwrap();
+        std::fs::write(a_dir.join("data-a.txt"), b"a").unwrap();
+        std::fs::write(b_dir.join("data-b.txt"), b"b").unwrap();
 
-        assert!(fs.metadata(&PathBuf::from("/")).is_ok());
-        assert!(fs.metadata(&PathBuf::from("/app")).is_ok());
-        assert!(fs.metadata(&PathBuf::from("/app/a")).is_ok());
-        assert!(fs.metadata(&PathBuf::from("/app/b")).is_ok());
-        assert!(fs.metadata(&PathBuf::from("/app/a/data-a.txt")).is_ok());
-        assert!(fs.metadata(&PathBuf::from("/app/b/data-b.txt")).is_ok());
+        let fs = MountFileSystem::new();
+        fs.mount(
+            Path::new("/app/a"),
+            Arc::new(
+                crate::host_fs::FileSystem::new(tokio::runtime::Handle::current(), &a_dir).unwrap(),
+            ),
+        )
+        .unwrap();
+        fs.mount(
+            Path::new("/app/b"),
+            Arc::new(
+                crate::host_fs::FileSystem::new(tokio::runtime::Handle::current(), &b_dir).unwrap(),
+            ),
+        )
+        .unwrap();
+
+        assert_eq!(
+            read_dir_names(&fs, "/app/a").await,
+            vec!["data-a.txt".to_string()]
+        );
+        assert_eq!(
+            read_dir_names(&fs, "/app/b").await,
+            vec!["data-b.txt".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_host_backed_nested_read_dir_with_root_mount() {
+        let root = tempfile::tempdir().unwrap();
+        let a_dir = root.path().join("a");
+        let b_dir = root.path().join("b");
+        std::fs::create_dir_all(&a_dir).unwrap();
+        std::fs::create_dir_all(&b_dir).unwrap();
+        std::fs::write(a_dir.join("data-a.txt"), b"a").unwrap();
+        std::fs::write(b_dir.join("data-b.txt"), b"b").unwrap();
+
+        let fs = MountFileSystem::new();
+        fs.mount(
+            Path::new("/app/a"),
+            Arc::new(
+                crate::host_fs::FileSystem::new(tokio::runtime::Handle::current(), &a_dir).unwrap(),
+            ),
+        )
+        .unwrap();
+        fs.mount(
+            Path::new("/app/b"),
+            Arc::new(
+                crate::host_fs::FileSystem::new(tokio::runtime::Handle::current(), &b_dir).unwrap(),
+            ),
+        )
+        .unwrap();
+
+        let root_fs = crate::RootFileSystemBuilder::default()
+            .default_root_dirs(true)
+            .build_tmp();
+        fs.mount(Path::new("/"), Arc::new(root_fs)).unwrap();
+
+        assert_eq!(
+            read_dir_names(&fs, "/app/a").await,
+            vec!["data-a.txt".to_string()]
+        );
+        assert_eq!(
+            read_dir_names(&fs, "/app/b").await,
+            vec!["data-b.txt".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_nested_metadata() {
+        let fs = gen_nested_filesystem().await;
+
+        assert!(fs.metadata(&PathBuf::from("/")).await.is_ok());
+        assert!(fs.metadata(&PathBuf::from("/app")).await.is_ok());
+        assert!(fs.metadata(&PathBuf::from("/app/a")).await.is_ok());
+        assert!(fs.metadata(&PathBuf::from("/app/b")).await.is_ok());
+        assert!(
+            fs.metadata(&PathBuf::from("/app/a/data-a.txt"))
+                .await
+                .is_ok()
+        );
+        assert!(
+            fs.metadata(&PathBuf::from("/app/b/data-b.txt"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
     async fn test_nested_symlink_metadata() {
-        let fs = gen_nested_filesystem();
+        let fs = gen_nested_filesystem().await;
 
-        assert!(fs.symlink_metadata(&PathBuf::from("/")).is_ok());
-        assert!(fs.symlink_metadata(&PathBuf::from("/app")).is_ok());
-        assert!(fs.symlink_metadata(&PathBuf::from("/app/a")).is_ok());
-        assert!(fs.symlink_metadata(&PathBuf::from("/app/b")).is_ok());
+        assert!(fs.symlink_metadata(&PathBuf::from("/")).await.is_ok());
+        assert!(fs.symlink_metadata(&PathBuf::from("/app")).await.is_ok());
+        assert!(fs.symlink_metadata(&PathBuf::from("/app/a")).await.is_ok());
+        assert!(fs.symlink_metadata(&PathBuf::from("/app/b")).await.is_ok());
         assert!(
             fs.symlink_metadata(&PathBuf::from("/app/a/data-a.txt"))
+                .await
                 .is_ok()
         );
         assert!(
             fs.symlink_metadata(&PathBuf::from("/app/b/data-b.txt"))
+                .await
                 .is_ok()
         );
     }
@@ -1116,12 +1225,13 @@ mod tests {
     async fn test_import_mounts_preserves_nested_root_mounts() {
         let primary = MountFileSystem::new();
         let openssl = mem_fs::FileSystem::default();
-        openssl.create_dir(Path::new("/certs")).unwrap();
+        openssl.create_dir(Path::new("/certs")).await.unwrap();
         openssl
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/certs/ca.pem"))
+            .await
             .unwrap();
         primary
             .mount(Path::new("/openssl"), Arc::new(openssl))
@@ -1133,16 +1243,18 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/index.php"))
+            .await
             .unwrap();
         injected.mount(Path::new("/app"), Arc::new(app)).unwrap();
 
         let assets = mem_fs::FileSystem::default();
-        assets.create_dir(Path::new("/css")).unwrap();
+        assets.create_dir(Path::new("/css")).await.unwrap();
         assets
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/css/site.css"))
+            .await
             .unwrap();
         injected
             .mount(Path::new("/opt/assets"), Arc::new(assets))
@@ -1155,17 +1267,23 @@ mod tests {
             )
             .unwrap();
 
-        let root_contents = read_dir_names(&primary, "/");
+        let root_contents = read_dir_names(&primary, "/").await;
         assert!(root_contents.contains(&"app".to_string()));
         assert!(root_contents.contains(&"opt".to_string()));
         assert!(root_contents.contains(&"openssl".to_string()));
-        assert!(primary.metadata(Path::new("/app/index.php")).is_ok());
+        assert!(primary.metadata(Path::new("/app/index.php")).await.is_ok());
         assert!(
             primary
                 .metadata(Path::new("/opt/assets/css/site.css"))
+                .await
                 .is_ok()
         );
-        assert!(primary.metadata(Path::new("/openssl/certs/ca.pem")).is_ok());
+        assert!(
+            primary
+                .metadata(Path::new("/openssl/certs/ca.pem"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
@@ -1173,28 +1291,34 @@ mod tests {
         let fs = MountFileSystem::new();
 
         let top = MountlessFileSystem::default();
-        top.create_dir(Path::new("/bin")).unwrap();
+        top.create_dir(Path::new("/bin")).await.unwrap();
         top.new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/bin/tool"))
+            .await
             .unwrap();
 
         let nested = mem_fs::FileSystem::default();
-        nested.create_dir(Path::new("/css")).unwrap();
+        nested.create_dir(Path::new("/css")).await.unwrap();
         nested
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/css/site.css"))
+            .await
             .unwrap();
 
         fs.mount(Path::new("/opt"), Arc::new(top)).unwrap();
         fs.mount(Path::new("/opt/assets"), Arc::new(nested))
             .unwrap();
 
-        assert!(fs.metadata(Path::new("/opt/bin/tool")).is_ok());
-        assert!(fs.metadata(Path::new("/opt/assets/css/site.css")).is_ok());
+        assert!(fs.metadata(Path::new("/opt/bin/tool")).await.is_ok());
+        assert!(
+            fs.metadata(Path::new("/opt/assets/css/site.css"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
@@ -1202,20 +1326,22 @@ mod tests {
         let fs = MountFileSystem::new();
 
         let top = MountlessFileSystem::default();
-        top.create_dir(Path::new("/bin")).unwrap();
+        top.create_dir(Path::new("/bin")).await.unwrap();
         top.new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/bin/tool"))
+            .await
             .unwrap();
 
         let nested = mem_fs::FileSystem::default();
-        nested.create_dir(Path::new("/css")).unwrap();
+        nested.create_dir(Path::new("/css")).await.unwrap();
         nested
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/css/site.css"))
+            .await
             .unwrap();
 
         fs.mount(Path::new("/opt"), Arc::new(top)).unwrap();
@@ -1224,6 +1350,7 @@ mod tests {
 
         assert!(
             fs.metadata(Path::new("/opt/./assets/../assets/css/site.css"))
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -1235,7 +1362,10 @@ mod tests {
         fs.mount(Path::new("/"), Arc::new(mem_fs::FileSystem::default()))
             .unwrap();
 
-        assert_eq!(fs.metadata(Path::new("../foo")), Err(FsError::InvalidInput));
+        assert_eq!(
+            fs.metadata(Path::new("../foo")).await,
+            Err(FsError::InvalidInput)
+        );
     }
 
     #[tokio::test]
@@ -1247,8 +1377,8 @@ mod tests {
         )
         .unwrap();
 
-        let meta1 = fs.metadata(Path::new("/opaque")).unwrap();
-        let sym1 = fs.symlink_metadata(Path::new("/opaque")).unwrap();
+        let meta1 = fs.metadata(Path::new("/opaque")).await.unwrap();
+        let sym1 = fs.symlink_metadata(Path::new("/opaque")).await.unwrap();
         assert!(meta1.is_dir());
         assert!(sym1.is_dir());
 
@@ -1258,12 +1388,12 @@ mod tests {
         assert!(meta1.accessed > 0, "accessed timestamp must be non-zero");
 
         // Repeated calls must return the same stable timestamps (not re-sampled each time).
-        let meta2 = fs.metadata(Path::new("/opaque")).unwrap();
+        let meta2 = fs.metadata(Path::new("/opaque")).await.unwrap();
         assert_eq!(meta1.created, meta2.created, "created must be stable");
         assert_eq!(meta1.modified, meta2.modified, "modified must be stable");
         assert_eq!(meta1.accessed, meta2.accessed, "accessed must be stable");
 
-        assert_eq!(fs.create_dir(Path::new("/opaque")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/opaque")).await, Ok(()));
     }
 
     #[tokio::test]
@@ -1280,7 +1410,10 @@ mod tests {
         )
         .unwrap();
 
-        assert_eq!(read_dir_names(&fs, "/opaque"), vec!["assets".to_string()]);
+        assert_eq!(
+            read_dir_names(&fs, "/opaque").await,
+            vec!["assets".to_string()]
+        );
     }
 
     #[tokio::test]
@@ -1298,19 +1431,19 @@ mod tests {
         .unwrap();
 
         assert_eq!(
-            fs.metadata(Path::new("/denied")),
+            fs.metadata(Path::new("/denied")).await,
             Err(FsError::PermissionDenied)
         );
         assert_eq!(
-            fs.symlink_metadata(Path::new("/denied")),
+            fs.symlink_metadata(Path::new("/denied")).await,
             Err(FsError::PermissionDenied)
         );
         assert_eq!(
-            fs.read_dir(Path::new("/denied")).map(|_| ()),
+            fs.read_dir(Path::new("/denied")).await.map(|_| ()),
             Err(FsError::PermissionDenied)
         );
         assert_eq!(
-            fs.create_dir(Path::new("/denied")),
+            fs.create_dir(Path::new("/denied")).await,
             Err(FsError::PermissionDenied)
         );
     }
@@ -1324,6 +1457,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/user.txt"))
+            .await
             .unwrap();
         primary
             .mount(Path::new("/python"), Arc::new(user_mount))
@@ -1336,6 +1470,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/pkg.txt"))
+            .await
             .unwrap();
         injected
             .mount(Path::new("/python"), Arc::new(package_mount))
@@ -1347,6 +1482,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/child.txt"))
+            .await
             .unwrap();
         injected
             .mount(Path::new("/python/lib"), Arc::new(package_child))
@@ -1362,15 +1498,16 @@ mod tests {
         assert!(
             primary
                 .metadata(Path::new("/python/user.txt"))
+                .await
                 .unwrap()
                 .is_file()
         );
         assert_eq!(
-            primary.metadata(Path::new("/python/pkg.txt")),
+            primary.metadata(Path::new("/python/pkg.txt")).await,
             Err(FsError::EntryNotFound)
         );
         assert_eq!(
-            primary.metadata(Path::new("/python/lib/child.txt")),
+            primary.metadata(Path::new("/python/lib/child.txt")).await,
             Err(FsError::EntryNotFound)
         );
     }
@@ -1384,6 +1521,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/user.txt"))
+            .await
             .unwrap();
         let user_child = mem_fs::FileSystem::default();
         user_child
@@ -1391,6 +1529,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/user-child.txt"))
+            .await
             .unwrap();
         primary
             .mount(Path::new("/python"), Arc::new(user_mount))
@@ -1406,6 +1545,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/pkg.txt"))
+            .await
             .unwrap();
         let package_child = mem_fs::FileSystem::default();
         package_child
@@ -1413,6 +1553,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/pkg-child.txt"))
+            .await
             .unwrap();
         injected
             .mount(Path::new("/python"), Arc::new(package_mount))
@@ -1429,22 +1570,26 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            primary.metadata(Path::new("/python/user.txt")),
+            primary.metadata(Path::new("/python/user.txt")).await,
             Err(FsError::EntryNotFound)
         );
         assert_eq!(
-            primary.metadata(Path::new("/python/lib/user-child.txt")),
+            primary
+                .metadata(Path::new("/python/lib/user-child.txt"))
+                .await,
             Err(FsError::EntryNotFound)
         );
         assert!(
             primary
                 .metadata(Path::new("/python/pkg.txt"))
+                .await
                 .unwrap()
                 .is_file()
         );
         assert!(
             primary
                 .metadata(Path::new("/python/lib/pkg-child.txt"))
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -1454,22 +1599,23 @@ mod tests {
     async fn test_exact_mountpoints_reject_destructive_mutation() {
         let fs = MountFileSystem::new();
         let mounted = mem_fs::FileSystem::default();
-        mounted.create_dir(Path::new("/dir")).unwrap();
+        mounted.create_dir(Path::new("/dir")).await.unwrap();
         mounted
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/file.txt"))
+            .await
             .unwrap();
 
         fs.mount(Path::new("/mounted"), Arc::new(mounted)).unwrap();
 
         assert_eq!(
-            fs.remove_dir(Path::new("/mounted")),
+            fs.remove_dir(Path::new("/mounted")).await,
             Err(FsError::PermissionDenied)
         );
         assert_eq!(
-            fs.remove_file(Path::new("/mounted")),
+            fs.remove_file(Path::new("/mounted")).await,
             Err(FsError::PermissionDenied)
         );
         assert_eq!(
@@ -1488,27 +1634,29 @@ mod tests {
         let fs = MountFileSystem::new();
 
         let top = MountlessFileSystem::default();
-        top.create_dir(Path::new("/bin")).unwrap();
+        top.create_dir(Path::new("/bin")).await.unwrap();
         top.new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/bin/tool"))
+            .await
             .unwrap();
 
         let nested = mem_fs::FileSystem::default();
-        nested.create_dir(Path::new("/css")).unwrap();
+        nested.create_dir(Path::new("/css")).await.unwrap();
         nested
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/css/site.css"))
+            .await
             .unwrap();
 
         fs.mount(Path::new("/opt"), Arc::new(top)).unwrap();
         fs.mount(Path::new("/opt/assets"), Arc::new(nested))
             .unwrap();
 
-        let opt_contents = read_dir_names(&fs, "/opt");
+        let opt_contents = read_dir_names(&fs, "/opt").await;
         assert!(opt_contents.contains(&"bin".to_string()));
         assert!(opt_contents.contains(&"assets".to_string()));
     }
@@ -1522,30 +1670,42 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/assets"))
+            .await
             .unwrap();
 
         let nested = mem_fs::FileSystem::default();
-        nested.create_dir(Path::new("/css")).unwrap();
+        nested.create_dir(Path::new("/css")).await.unwrap();
         nested
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/css/site.css"))
+            .await
             .unwrap();
 
         fs.mount(Path::new("/opt"), Arc::new(top)).unwrap();
         fs.mount(Path::new("/opt/assets"), Arc::new(nested))
             .unwrap();
 
-        assert!(fs.metadata(Path::new("/opt/assets")).unwrap().is_dir());
+        assert!(
+            fs.metadata(Path::new("/opt/assets"))
+                .await
+                .unwrap()
+                .is_dir()
+        );
         assert_eq!(
             read_dir_names(&fs, "/opt")
+                .await
                 .into_iter()
                 .filter(|entry| entry == "assets")
                 .count(),
             1,
         );
-        assert!(fs.metadata(Path::new("/opt/assets/css/site.css")).is_ok());
+        assert!(
+            fs.metadata(Path::new("/opt/assets/css/site.css"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
@@ -1553,12 +1713,13 @@ mod tests {
         let fs = MountFileSystem::new();
 
         let nested = mem_fs::FileSystem::default();
-        nested.create_dir(Path::new("/css")).unwrap();
+        nested.create_dir(Path::new("/css")).await.unwrap();
         nested
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/css/site.css"))
+            .await
             .unwrap();
 
         fs.mount(Path::new("/opt/assets"), Arc::new(nested))
@@ -1566,6 +1727,7 @@ mod tests {
 
         let css_contents: Vec<PathBuf> = fs
             .read_dir(Path::new("/opt/assets/css"))
+            .await
             .unwrap()
             .map(|entry| entry.unwrap().path)
             .collect();
@@ -1581,12 +1743,13 @@ mod tests {
         let fs = MountFileSystem::new();
 
         let source = mem_fs::FileSystem::default();
-        source.create_dir(Path::new("/python")).unwrap();
+        source.create_dir(Path::new("/python")).await.unwrap();
         source
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/python/lib.py"))
+            .await
             .unwrap();
 
         fs.mount_with_source(
@@ -1596,8 +1759,50 @@ mod tests {
         )
         .unwrap();
 
-        assert!(fs.metadata(Path::new("/runtime/lib.py")).unwrap().is_file());
-        assert_eq!(read_dir_names(&fs, "/runtime"), vec!["lib.py".to_string()]);
+        assert!(
+            fs.metadata(Path::new("/runtime/lib.py"))
+                .await
+                .unwrap()
+                .is_file()
+        );
+        assert_eq!(
+            read_dir_names(&fs, "/runtime").await,
+            vec!["lib.py".to_string()]
+        );
+    }
+
+    #[tokio::test]
+    async fn test_mount_with_relative_source_path_exposes_subtree() {
+        let fs = MountFileSystem::new();
+
+        let source = mem_fs::FileSystem::default();
+        source.create_dir(Path::new("/python")).await.unwrap();
+        source
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/python/lib.py"))
+            .await
+            .unwrap();
+
+        fs.mount_with_source(Path::new("/runtime"), Path::new("python"), Arc::new(source))
+            .unwrap();
+
+        assert!(
+            fs.metadata(Path::new("/runtime/lib.py"))
+                .await
+                .unwrap()
+                .is_file()
+        );
+
+        let entries: Vec<PathBuf> = fs
+            .read_dir(Path::new("/runtime"))
+            .await
+            .unwrap()
+            .map(|entry| entry.unwrap().path)
+            .collect();
+
+        assert_eq!(entries, vec![PathBuf::from("/runtime/lib.py")]);
     }
 
     #[tokio::test]
@@ -1605,12 +1810,13 @@ mod tests {
         let fs = MountFileSystem::new();
 
         let python = mem_fs::FileSystem::default();
-        create_dir_all(&python, Path::new("/usr/local/lib/python3.13/encodings"));
+        create_dir_all(&python, Path::new("/usr/local/lib/python3.13/encodings")).await;
         python
             .new_open_options()
             .write(true)
             .create_new(true)
             .open(Path::new("/usr/local/lib/python3.13/encodings/__init__.py"))
+            .await
             .unwrap();
 
         let host = mem_fs::FileSystem::default();
@@ -1618,6 +1824,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/marker.txt"))
+            .await
             .unwrap();
 
         fs.mount(Path::new("/"), Arc::new(python)).unwrap();
@@ -1626,11 +1833,13 @@ mod tests {
 
         assert!(
             fs.metadata(Path::new("/usr/local/lib/python3.13/encodings/__init__.py"))
+                .await
                 .unwrap()
                 .is_file()
         );
         assert!(
             fs.metadata(Path::new("/usr/local/lib/python3.13/test/marker.txt"))
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -1638,13 +1847,15 @@ mod tests {
         fs.new_open_options()
             .read(true)
             .open(Path::new("/usr/local/lib/python3.13/encodings/__init__.py"))
+            .await
             .unwrap();
         fs.new_open_options()
             .read(true)
             .open(Path::new("/usr/local/lib/python3.13/test/marker.txt"))
+            .await
             .unwrap();
 
-        let mut entries = read_dir_names(&fs, "/usr/local/lib/python3.13");
+        let mut entries = read_dir_names(&fs, "/usr/local/lib/python3.13").await;
         entries.sort();
         assert_eq!(entries, vec!["encodings".to_string(), "test".to_string()]);
     }
@@ -1661,10 +1872,11 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/marker.txt"))
+            .await
             .unwrap();
         fs.mount(Path::new("/foo/bar"), Arc::new(child)).unwrap();
 
-        let entries = read_dir_names(&fs, "/foo");
+        let entries = read_dir_names(&fs, "/foo").await;
         assert_eq!(entries, vec!["bar".to_string()]);
     }
 
@@ -1676,6 +1888,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/tool"))
+            .await
             .unwrap();
         primary.mount(Path::new("/opt/bin"), Arc::new(bin)).unwrap();
 
@@ -1686,6 +1899,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/logo.svg"))
+            .await
             .unwrap();
         injected
             .mount(Path::new("/opt/assets"), Arc::new(assets))
@@ -1698,8 +1912,13 @@ mod tests {
             )
             .unwrap();
 
-        assert!(primary.metadata(Path::new("/opt/bin/tool")).is_ok());
-        assert!(primary.metadata(Path::new("/opt/assets/logo.svg")).is_ok());
+        assert!(primary.metadata(Path::new("/opt/bin/tool")).await.is_ok());
+        assert!(
+            primary
+                .metadata(Path::new("/opt/assets/logo.svg"))
+                .await
+                .is_ok()
+        );
     }
 
     #[tokio::test]
@@ -1733,7 +1952,7 @@ mod tests {
     async fn test_new_filesystem() {
         let fs = gen_filesystem();
         assert!(
-            fs.read_dir(Path::new("/test_new_filesystem")).is_ok(),
+            fs.read_dir(Path::new("/test_new_filesystem")).await.is_ok(),
             "hostfs can read root"
         );
         let mut file_write = fs
@@ -1742,6 +1961,7 @@ mod tests {
             .write(true)
             .create_new(true)
             .open(Path::new("/test_new_filesystem/foo2.txt"))
+            .await
             .unwrap();
         file_write.write_all(b"hello").await.unwrap();
         let _ = std::fs::remove_file("/test_new_filesystem/foo2.txt");
@@ -1751,17 +1971,17 @@ mod tests {
     async fn test_create_dir() {
         let fs = gen_filesystem();
 
-        assert_eq!(fs.create_dir(Path::new("/")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/")).await, Ok(()));
 
-        assert_eq!(fs.create_dir(Path::new("/test_create_dir")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/test_create_dir")).await, Ok(()));
 
         assert_eq!(
-            fs.create_dir(Path::new("/test_create_dir/foo")),
+            fs.create_dir(Path::new("/test_create_dir/foo")).await,
             Ok(()),
             "creating a directory",
         );
 
-        let cur_dir = read_dir_names(&fs, "/test_create_dir");
+        let cur_dir = read_dir_names(&fs, "/test_create_dir").await;
 
         if !cur_dir.contains(&"foo".to_string()) {
             panic!("cur_dir does not contain foo: {cur_dir:#?}");
@@ -1773,19 +1993,19 @@ mod tests {
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("/test_create_dir/foo/bar")),
+            fs.create_dir(Path::new("/test_create_dir/foo/bar")).await,
             Ok(()),
             "creating a sub-directory",
         );
 
-        let foo_dir = read_dir_names(&fs, "/test_create_dir/foo");
+        let foo_dir = read_dir_names(&fs, "/test_create_dir/foo").await;
 
         assert!(
             foo_dir.contains(&"bar".to_string()),
             "the foo directory is updated and well-defined"
         );
 
-        let bar_dir = read_dir_names(&fs, "/test_create_dir/foo/bar");
+        let bar_dir = read_dir_names(&fs, "/test_create_dir/foo/bar").await;
 
         assert!(
             bar_dir.is_empty(),
@@ -1799,75 +2019,80 @@ mod tests {
         let fs = gen_filesystem();
 
         assert_eq!(
-            fs.remove_dir(Path::new("/")),
+            fs.remove_dir(Path::new("/")).await,
             Err(FsError::PermissionDenied),
             "cannot remove the root directory",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/foo")),
+            fs.remove_dir(Path::new("/foo")).await,
             Err(FsError::EntryNotFound),
             "cannot remove a directory that doesn't exist",
         );
 
-        assert_eq!(fs.create_dir(Path::new("/test_remove_dir")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/test_remove_dir")).await, Ok(()));
 
         assert_eq!(
-            fs.create_dir(Path::new("/test_remove_dir/foo")),
+            fs.create_dir(Path::new("/test_remove_dir/foo")).await,
             Ok(()),
             "creating a directory",
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("/test_remove_dir/foo/bar")),
+            fs.create_dir(Path::new("/test_remove_dir/foo/bar")).await,
             Ok(()),
             "creating a sub-directory",
         );
 
         assert!(
-            read_dir_names(&fs, "/test_remove_dir/foo").contains(&"bar".to_string()),
+            read_dir_names(&fs, "/test_remove_dir/foo")
+                .await
+                .contains(&"bar".to_string()),
             "./foo/bar exists"
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/test_remove_dir/foo")),
+            fs.remove_dir(Path::new("/test_remove_dir/foo")).await,
             Err(FsError::DirectoryNotEmpty),
             "removing a directory that has children",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/test_remove_dir/foo/bar")),
+            fs.remove_dir(Path::new("/test_remove_dir/foo/bar")).await,
             Ok(()),
             "removing a sub-directory",
         );
 
         assert_eq!(
-            fs.remove_dir(Path::new("/test_remove_dir/foo")),
+            fs.remove_dir(Path::new("/test_remove_dir/foo")).await,
             Ok(()),
             "removing a directory",
         );
 
         assert!(
-            !read_dir_names(&fs, "/test_remove_dir").contains(&"foo".to_string()),
+            !read_dir_names(&fs, "/test_remove_dir")
+                .await
+                .contains(&"foo".to_string()),
             "the foo directory still exists"
         );
     }
 
-    fn read_dir_names(fs: &dyn crate::FileSystem, path: &str) -> Vec<String> {
+    async fn read_dir_names(fs: &dyn crate::FileSystem, path: &str) -> Vec<String> {
         fs.read_dir(Path::new(path))
+            .await
             .unwrap()
             .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
             .collect::<Vec<_>>()
     }
 
-    fn create_dir_all(fs: &mem_fs::FileSystem, path: &Path) {
+    async fn create_dir_all(fs: &mem_fs::FileSystem, path: &Path) {
         let mut current = PathBuf::from("/");
 
         for component in path.iter().skip(1) {
             current.push(component);
 
-            if fs.metadata(&current).is_err() {
-                fs.create_dir(&current).unwrap();
+            if fs.metadata(&current).await.is_err() {
+                fs.create_dir(&current).await.unwrap();
             }
         }
     }
@@ -1887,9 +2112,12 @@ mod tests {
             "renaming to the synthetic root directory is rejected",
         );
 
-        assert_eq!(fs.create_dir(Path::new("/test_rename")), Ok(()));
-        assert_eq!(fs.create_dir(Path::new("/test_rename/foo")), Ok(()));
-        assert_eq!(fs.create_dir(Path::new("/test_rename/foo/qux")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/test_rename")).await, Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/test_rename/foo")).await, Ok(()));
+        assert_eq!(
+            fs.create_dir(Path::new("/test_rename/foo/qux")).await,
+            Ok(())
+        );
 
         assert_eq!(
             fs.rename(
@@ -1901,7 +2129,7 @@ mod tests {
             "renaming to a directory that has parent that doesn't exist",
         );
 
-        assert_eq!(fs.create_dir(Path::new("/test_rename/bar")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/test_rename/bar")).await, Ok(()));
 
         assert_eq!(
             fs.rename(Path::new("/test_rename/foo"), Path::new("/test_rename/bar"))
@@ -1915,6 +2143,7 @@ mod tests {
                 .write(true)
                 .create_new(true)
                 .open(Path::new("/test_rename/bar/hello1.txt"))
+                .await
                 .is_ok(),
             "creating a new file (`hello1.txt`)",
         );
@@ -1923,11 +2152,12 @@ mod tests {
                 .write(true)
                 .create_new(true)
                 .open(Path::new("/test_rename/bar/hello2.txt"))
+                .await
                 .is_ok(),
             "creating a new file (`hello2.txt`)",
         );
 
-        let cur_dir = read_dir_names(&fs, "/test_rename");
+        let cur_dir = read_dir_names(&fs, "/test_rename").await;
 
         assert!(
             !cur_dir.contains(&"foo".to_string()),
@@ -1939,28 +2169,32 @@ mod tests {
             "the bar directory still exists"
         );
 
-        let bar_dir = read_dir_names(&fs, "/test_rename/bar");
+        let bar_dir = read_dir_names(&fs, "/test_rename/bar").await;
 
         if !bar_dir.contains(&"qux".to_string()) {
             println!("qux does not exist: {bar_dir:?}")
         }
 
-        let qux_dir = read_dir_names(&fs, "/test_rename/bar/qux");
+        let qux_dir = read_dir_names(&fs, "/test_rename/bar/qux").await;
 
         assert!(qux_dir.is_empty(), "the qux directory is empty");
 
         assert!(
-            read_dir_names(&fs, "/test_rename/bar").contains(&"hello1.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"hello1.txt".to_string()),
             "the /bar/hello1.txt file exists"
         );
 
         assert!(
-            read_dir_names(&fs, "/test_rename/bar").contains(&"hello2.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"hello2.txt".to_string()),
             "the /bar/hello2.txt file exists"
         );
 
         assert_eq!(
-            fs.create_dir(Path::new("/test_rename/foo")),
+            fs.create_dir(Path::new("/test_rename/foo")).await,
             Ok(()),
             "create ./foo again",
         );
@@ -1996,36 +2230,52 @@ mod tests {
         );
 
         assert!(
-            read_dir_names(&fs, "/test_rename").contains(&"bar".to_string()),
+            read_dir_names(&fs, "/test_rename")
+                .await
+                .contains(&"bar".to_string()),
             "./bar exists"
         );
 
         assert!(
-            read_dir_names(&fs, "/test_rename/bar").contains(&"baz".to_string()),
+            read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"baz".to_string()),
             "/bar/baz exists"
         );
         assert!(
-            !read_dir_names(&fs, "/test_rename").contains(&"foo".to_string()),
+            !read_dir_names(&fs, "/test_rename")
+                .await
+                .contains(&"foo".to_string()),
             "foo does not exist anymore"
         );
         assert!(
-            read_dir_names(&fs, "/test_rename/bar/baz").contains(&"world2.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar/baz")
+                .await
+                .contains(&"world2.txt".to_string()),
             "/bar/baz/world2.txt exists"
         );
         assert!(
-            read_dir_names(&fs, "/test_rename/bar").contains(&"world1.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"world1.txt".to_string()),
             "/bar/world1.txt (ex hello1.txt) exists"
         );
         assert!(
-            !read_dir_names(&fs, "/test_rename/bar").contains(&"hello1.txt".to_string()),
+            !read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"hello1.txt".to_string()),
             "hello1.txt was moved"
         );
         assert!(
-            !read_dir_names(&fs, "/test_rename/bar").contains(&"hello2.txt".to_string()),
+            !read_dir_names(&fs, "/test_rename/bar")
+                .await
+                .contains(&"hello2.txt".to_string()),
             "hello2.txt was moved"
         );
         assert!(
-            read_dir_names(&fs, "/test_rename/bar/baz").contains(&"world2.txt".to_string()),
+            read_dir_names(&fs, "/test_rename/bar/baz")
+                .await
+                .contains(&"world2.txt".to_string()),
             "world2.txt was moved to the correct place"
         );
 
@@ -2042,6 +2292,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/from.txt"))
+            .await
             .unwrap();
 
         fs.mount(Path::new("/left"), Arc::new(left.clone()))
@@ -2054,10 +2305,16 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            left.metadata(Path::new("/from.txt")),
+            left.metadata(Path::new("/from.txt")).await,
             Err(FsError::EntryNotFound)
         );
-        assert!(right.metadata(Path::new("/to.txt")).unwrap().is_file());
+        assert!(
+            right
+                .metadata(Path::new("/to.txt"))
+                .await
+                .unwrap()
+                .is_file()
+        );
     }
 
     #[tokio::test]
@@ -2067,16 +2324,16 @@ mod tests {
 
         let fs = gen_filesystem();
 
-        let root_metadata = fs.metadata(Path::new("/test_metadata")).unwrap();
+        let root_metadata = fs.metadata(Path::new("/test_metadata")).await.unwrap();
 
         assert!(root_metadata.ft.dir);
         assert_eq!(root_metadata.accessed, root_metadata.created);
         assert_eq!(root_metadata.modified, root_metadata.created);
         assert!(root_metadata.modified > 0);
 
-        assert_eq!(fs.create_dir(Path::new("/test_metadata/foo")), Ok(()));
+        assert_eq!(fs.create_dir(Path::new("/test_metadata/foo")).await, Ok(()));
 
-        let foo_metadata = fs.metadata(Path::new("/test_metadata/foo"));
+        let foo_metadata = fs.metadata(Path::new("/test_metadata/foo")).await;
         assert!(foo_metadata.is_ok());
         let foo_metadata = foo_metadata.unwrap();
 
@@ -2096,13 +2353,13 @@ mod tests {
             Ok(())
         );
 
-        let bar_metadata = fs.metadata(Path::new("/test_metadata/bar")).unwrap();
+        let bar_metadata = fs.metadata(Path::new("/test_metadata/bar")).await.unwrap();
         assert!(bar_metadata.ft.dir);
         assert!(bar_metadata.accessed == foo_metadata.accessed);
         assert!(bar_metadata.created == foo_metadata.created);
         assert!(bar_metadata.modified > foo_metadata.modified);
 
-        let root_metadata = fs.metadata(Path::new("/test_metadata/bar")).unwrap();
+        let root_metadata = fs.metadata(Path::new("/test_metadata/bar")).await.unwrap();
         assert!(
             root_metadata.modified > foo_metadata.modified,
             "the parent modified time was updated"
@@ -2120,22 +2377,31 @@ mod tests {
                 .write(true)
                 .create_new(true)
                 .open(Path::new("/test_remove_file/foo.txt"))
+                .await
                 .is_ok(),
             "creating a new file",
         );
 
-        assert!(read_dir_names(&fs, "/test_remove_file").contains(&"foo.txt".to_string()));
+        assert!(
+            read_dir_names(&fs, "/test_remove_file")
+                .await
+                .contains(&"foo.txt".to_string())
+        );
 
         assert_eq!(
-            fs.remove_file(Path::new("/test_remove_file/foo.txt")),
+            fs.remove_file(Path::new("/test_remove_file/foo.txt")).await,
             Ok(()),
             "removing a file that exists",
         );
 
-        assert!(!read_dir_names(&fs, "/test_remove_file").contains(&"foo.txt".to_string()));
+        assert!(
+            !read_dir_names(&fs, "/test_remove_file")
+                .await
+                .contains(&"foo.txt".to_string())
+        );
 
         assert_eq!(
-            fs.remove_file(Path::new("/test_remove_file/foo.txt")),
+            fs.remove_file(Path::new("/test_remove_file/foo.txt")).await,
             Err(FsError::EntryNotFound),
             "removing a file that doesn't exists",
         );
@@ -2148,22 +2414,22 @@ mod tests {
         let fs = gen_filesystem();
 
         assert_eq!(
-            fs.create_dir(Path::new("/test_readdir/foo")),
+            fs.create_dir(Path::new("/test_readdir/foo")).await,
             Ok(()),
             "creating `foo`"
         );
         assert_eq!(
-            fs.create_dir(Path::new("/test_readdir/foo/sub")),
+            fs.create_dir(Path::new("/test_readdir/foo/sub")).await,
             Ok(()),
             "creating `sub`"
         );
         assert_eq!(
-            fs.create_dir(Path::new("/test_readdir/bar")),
+            fs.create_dir(Path::new("/test_readdir/bar")).await,
             Ok(()),
             "creating `bar`"
         );
         assert_eq!(
-            fs.create_dir(Path::new("/test_readdir/baz")),
+            fs.create_dir(Path::new("/test_readdir/baz")).await,
             Ok(()),
             "creating `bar`"
         );
@@ -2172,6 +2438,7 @@ mod tests {
                 .write(true)
                 .create_new(true)
                 .open(Path::new("/test_readdir/a.txt"))
+                .await
                 .is_ok(),
             "creating `a.txt`",
         );
@@ -2180,13 +2447,14 @@ mod tests {
                 .write(true)
                 .create_new(true)
                 .open(Path::new("/test_readdir/b.txt"))
+                .await
                 .is_ok(),
             "creating `b.txt`",
         );
 
         println!("fs: {fs:?}");
 
-        let readdir = fs.read_dir(Path::new("/test_readdir"));
+        let readdir = fs.read_dir(Path::new("/test_readdir")).await;
 
         assert!(readdir.is_ok(), "reading the directory `/test_readdir/`");
 

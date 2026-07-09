@@ -8,6 +8,7 @@ use std::{
 };
 
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
+use tokio::sync::OwnedMutexGuard;
 use virtual_fs::{FsError, Pipe, PipeRx, PipeTx, VirtualFile};
 use wasmer_wasix_types::{
     types::Eventtype,
@@ -20,7 +21,6 @@ use crate::{
     net::socket::{InodeSocketInner, InodeSocketKind},
     state::{PollEvent, PollEventSet, WasiState, iterate_poll_events},
     syscalls::{EventResult, EventResultType, map_io_err},
-    utils::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard},
 };
 
 #[derive(Debug, Clone)]
@@ -189,9 +189,11 @@ impl Future for InodeValFilePollGuardJoin {
         if has_read {
             let poll_result = match &mut self.mode {
                 InodeValFilePollGuardMode::File(file) => {
-                    let mut guard = file.write().unwrap();
-                    let file = Pin::new(guard.as_mut());
-                    file.poll_read_ready(cx)
+                    let Ok(mut guard) = file.try_lock() else {
+                        cx.waker().wake_by_ref();
+                        return Poll::Pending;
+                    };
+                    Pin::new(guard.as_mut()).poll_read_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { inner } => {
@@ -288,9 +290,11 @@ impl Future for InodeValFilePollGuardJoin {
         if has_write {
             let poll_result = match &mut self.mode {
                 InodeValFilePollGuardMode::File(file) => {
-                    let mut guard = file.write().unwrap();
-                    let file = Pin::new(guard.as_mut());
-                    file.poll_write_ready(cx)
+                    let Ok(mut guard) = file.try_lock() else {
+                        cx.waker().wake_by_ref();
+                        return Poll::Pending;
+                    };
+                    Pin::new(guard.as_mut()).poll_write_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
                 InodeValFilePollGuardMode::Socket { inner } => {
@@ -393,14 +397,15 @@ impl Future for InodeValFilePollGuardJoin {
 
 #[derive(Debug)]
 pub(crate) struct InodeValFileReadGuard {
-    guard: OwnedRwLockReadGuard<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    guard: OwnedMutexGuard<Box<dyn VirtualFile + Send + Sync + 'static>>,
 }
 
 impl InodeValFileReadGuard {
-    pub(crate) fn new(file: &VirtualFileLock) -> Self {
-        Self {
-            guard: crate::utils::read_owned(file).unwrap(),
-        }
+    pub(crate) fn new(file: &VirtualFileLock) -> Option<Self> {
+        file.clone()
+            .try_lock_owned()
+            .ok()
+            .map(|guard| Self { guard })
     }
 }
 
@@ -413,14 +418,15 @@ impl Deref for InodeValFileReadGuard {
 
 #[derive(Debug)]
 pub struct InodeValFileWriteGuard {
-    guard: OwnedRwLockWriteGuard<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    guard: OwnedMutexGuard<Box<dyn VirtualFile + Send + Sync + 'static>>,
 }
 
 impl InodeValFileWriteGuard {
-    pub(crate) fn new(file: &VirtualFileLock) -> Self {
-        Self {
-            guard: crate::utils::write_owned(file).unwrap(),
-        }
+    pub(crate) fn new(file: &VirtualFileLock) -> Option<Self> {
+        file.clone()
+            .try_lock_owned()
+            .ok()
+            .map(|guard| Self { guard })
     }
     pub(crate) fn swap(
         &mut self,
@@ -460,10 +466,11 @@ impl WasiStateFileGuard {
         }
     }
 
+    #[allow(dead_code)]
     pub fn lock_read(&self) -> Option<InodeValFileReadGuard> {
         let guard = self.inode.read();
         if let Kind::File { handle, .. } = guard.deref() {
-            handle.as_ref().map(InodeValFileReadGuard::new)
+            handle.as_ref().and_then(InodeValFileReadGuard::new)
         } else {
             // Our public API should ensure that this is not possible
             unreachable!("Non-file found in standard device location")
@@ -473,7 +480,7 @@ impl WasiStateFileGuard {
     pub fn lock_write(&self) -> Option<InodeValFileWriteGuard> {
         let guard = self.inode.read();
         if let Kind::File { handle, .. } = guard.deref() {
-            handle.as_ref().map(InodeValFileWriteGuard::new)
+            handle.as_ref().and_then(InodeValFileWriteGuard::new)
         } else {
             // Our public API should ensure that this is not possible
             unreachable!("Non-file found in standard device location")
@@ -481,78 +488,135 @@ impl WasiStateFileGuard {
     }
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for WasiStateFileGuard {
-    fn last_accessed(&self) -> u64 {
-        let guard = self.lock_read();
-        if let Some(file) = guard.as_ref() {
-            file.last_accessed()
+    async fn last_accessed(&self) -> u64 {
+        let handle = {
+            let guard = self.inode.read();
+            if let Kind::File { handle, .. } = guard.deref() {
+                handle.clone()
+            } else {
+                unreachable!("Non-file found in standard device location")
+            }
+        };
+        if let Some(file) = handle {
+            file.lock().await.last_accessed().await
         } else {
             0
         }
     }
 
-    fn last_modified(&self) -> u64 {
-        let guard = self.lock_read();
-        if let Some(file) = guard.as_ref() {
-            file.last_modified()
+    async fn last_modified(&self) -> u64 {
+        let handle = {
+            let guard = self.inode.read();
+            if let Kind::File { handle, .. } = guard.deref() {
+                handle.clone()
+            } else {
+                unreachable!("Non-file found in standard device location")
+            }
+        };
+        if let Some(file) = handle {
+            file.lock().await.last_modified().await
         } else {
             0
         }
     }
 
-    fn created_time(&self) -> u64 {
-        let guard = self.lock_read();
-        if let Some(file) = guard.as_ref() {
-            file.created_time()
+    async fn created_time(&self) -> u64 {
+        let handle = {
+            let guard = self.inode.read();
+            if let Kind::File { handle, .. } = guard.deref() {
+                handle.clone()
+            } else {
+                unreachable!("Non-file found in standard device location")
+            }
+        };
+        if let Some(file) = handle {
+            file.lock().await.created_time().await
         } else {
             0
         }
     }
 
-    fn set_times(
+    async fn set_times(
         &mut self,
         atime: Option<u64>,
         mtime: Option<u64>,
     ) -> Result<(), virtual_fs::FsError> {
-        let mut guard = self.lock_write();
-        if let Some(file) = guard.as_mut() {
-            file.set_times(atime, mtime)
+        let handle = {
+            let guard = self.inode.read();
+            if let Kind::File { handle, .. } = guard.deref() {
+                handle.clone()
+            } else {
+                unreachable!("Non-file found in standard device location")
+            }
+        };
+        if let Some(file) = handle {
+            file.lock().await.set_times(atime, mtime).await
         } else {
             Err(crate::FsError::Lock)
         }
     }
 
-    fn size(&self) -> u64 {
-        let guard = self.lock_read();
-        if let Some(file) = guard.as_ref() {
-            file.size()
+    async fn size(&self) -> u64 {
+        let handle = {
+            let guard = self.inode.read();
+            if let Kind::File { handle, .. } = guard.deref() {
+                handle.clone()
+            } else {
+                unreachable!("Non-file found in standard device location")
+            }
+        };
+        if let Some(file) = handle {
+            file.lock().await.size().await
         } else {
             0
         }
     }
 
-    fn set_len(&mut self, new_size: u64) -> Result<(), FsError> {
-        let mut guard = self.lock_write();
-        if let Some(file) = guard.as_mut() {
-            file.set_len(new_size)
+    async fn set_len(&mut self, new_size: u64) -> Result<(), FsError> {
+        let handle = {
+            let guard = self.inode.read();
+            if let Kind::File { handle, .. } = guard.deref() {
+                handle.clone()
+            } else {
+                unreachable!("Non-file found in standard device location")
+            }
+        };
+        if let Some(file) = handle {
+            file.lock().await.set_len(new_size).await
         } else {
             Err(FsError::IOError)
         }
     }
 
-    fn unlink(&mut self) -> Result<(), FsError> {
-        let mut guard = self.lock_write();
-        if let Some(file) = guard.as_mut() {
-            file.unlink()
+    async fn unlink(&mut self) -> Result<(), FsError> {
+        let handle = {
+            let guard = self.inode.read();
+            if let Kind::File { handle, .. } = guard.deref() {
+                handle.clone()
+            } else {
+                unreachable!("Non-file found in standard device location")
+            }
+        };
+        if let Some(file) = handle {
+            file.lock().await.unlink().await
         } else {
             Err(FsError::IOError)
         }
     }
 
-    fn is_open(&self) -> bool {
-        let guard = self.lock_read();
-        if let Some(file) = guard.as_ref() {
-            file.is_open()
+    async fn is_open(&self) -> bool {
+        let handle = {
+            let guard = self.inode.read();
+            if let Kind::File { handle, .. } = guard.deref() {
+                handle.clone()
+            } else {
+                unreachable!("Non-file found in standard device location")
+            }
+        };
+        if let Some(file) = handle {
+            file.lock().await.is_open().await
         } else {
             false
         }

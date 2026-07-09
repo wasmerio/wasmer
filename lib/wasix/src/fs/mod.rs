@@ -32,12 +32,14 @@ use std::{
     },
     task::{Context, Poll},
 };
+use tokio::sync::Mutex as AsyncMutex;
+use virtual_mio::block_on;
 
 use crate::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
-use futures::{Future, future::BoxFuture};
+use futures::{Future, future::LocalBoxFuture};
 use tracing::{debug, trace, warn};
 use virtual_fs::{
     ArcFileSystem, FileSystem, FsError, MountFileSystem, OpenOptions, OverlayFileSystem,
@@ -94,7 +96,10 @@ impl Future for FlushPoller {
     type Output = Result<(), Errno>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        let mut file = self.file.write().unwrap();
+        let Ok(mut file) = self.file.try_lock() else {
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
+        };
         Pin::new(file.as_mut())
             .poll_flush(cx)
             .map_err(|_| Errno::Io)
@@ -386,7 +391,7 @@ impl WasiInodes {
                 ..
             } = guard.deref()
             {
-                Ok(InodeValFileReadGuard::new(handle))
+                InodeValFileReadGuard::new(handle).ok_or(FsError::Lock)
             } else {
                 // Our public API should ensure that this is not possible
                 Err(FsError::NotAFile)
@@ -409,7 +414,7 @@ impl WasiInodes {
                 ..
             } = guard.deref()
             {
-                Ok(InodeValFileWriteGuard::new(handle))
+                InodeValFileWriteGuard::new(handle).ok_or(FsError::Lock)
             } else {
                 // Our public API should ensure that this is not possible
                 Err(FsError::NotAFile)
@@ -510,48 +515,46 @@ fn find_writable_root(fs: &(dyn FileSystem + Send + Sync)) -> Option<TmpFileSyst
     None
 }
 
+#[async_trait::async_trait]
 impl FileSystem for WasiFsRoot {
-    fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
-        self.root.readlink(path)
+    async fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
+        self.root.readlink(path).await
     }
 
-    fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
-        self.root.read_dir(path)
+    async fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
+        self.root.read_dir(path).await
     }
 
-    fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.root.create_dir(path)
+    async fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.root.create_dir(path).await
     }
 
-    fn create_symlink(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
-        self.root.create_symlink(source, target)
+    async fn create_symlink(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
+        self.root.create_symlink(source, target).await
     }
 
-    fn hard_link(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
-        self.root.hard_link(source, target)
+    async fn hard_link(&self, source: &Path, target: &Path) -> virtual_fs::Result<()> {
+        self.root.hard_link(source, target).await
     }
 
-    fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.root.remove_dir(path)
+    async fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.root.remove_dir(path).await
     }
 
-    fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
-        let from = from.to_owned();
-        let to = to.to_owned();
-        let this = self.clone();
-        Box::pin(async move { this.root.rename(&from, &to).await })
+    async fn rename(&self, from: &Path, to: &Path) -> virtual_fs::Result<()> {
+        self.root.rename(from, to).await
     }
 
-    fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        self.root.metadata(path)
+    async fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        self.root.metadata(path).await
     }
 
-    fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
-        self.root.symlink_metadata(path)
+    async fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
+        self.root.symlink_metadata(path).await
     }
 
-    fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
-        self.root.remove_file(path)
+    async fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
+        self.root.remove_file(path).await
     }
 
     fn new_open_options(&self) -> OpenOptions<'_> {
@@ -653,10 +656,11 @@ impl WasiFs {
     /// A purely ephemeral (virtual) link has no host file, so `Noent` for a
     /// still-registered ephemeral link counts as success. Returns the `Errno`
     /// the syscall should report.
-    pub(crate) fn remove_symlink_file(&self, host_path: &Path) -> Errno {
+    pub(crate) async fn remove_symlink_file(&self, host_path: &Path) -> Errno {
         match self
             .root_fs
             .remove_file(host_path)
+            .await
             .map_err(fs_error_into_wasi_err)
         {
             Ok(()) => {
@@ -989,7 +993,7 @@ impl WasiFs {
                 }
 
                 let kind = Kind::File {
-                    handle: Some(Arc::new(RwLock::new(file))),
+                    handle: Some(Arc::new(AsyncMutex::new(file))),
                     path: PathBuf::from(""),
                     fd: None,
                 };
@@ -1067,7 +1071,7 @@ impl WasiFs {
                     match guard.deref() {
                         Kind::File { handle, .. } => {
                             if let Some(handle) = handle {
-                                let mut handle = handle.write().unwrap();
+                                let mut handle = handle.try_lock().map_err(|_| FsError::Lock)?;
                                 std::mem::swap(handle.deref_mut(), &mut file);
                                 return Ok(Some(file));
                             }
@@ -1080,11 +1084,11 @@ impl WasiFs {
                 match guard.deref_mut() {
                     Kind::File { handle, .. } => {
                         if let Some(handle) = handle {
-                            let mut handle = handle.write().unwrap();
+                            let mut handle = handle.try_lock().map_err(|_| FsError::Lock)?;
                             std::mem::swap(handle.deref_mut(), &mut file);
                             Ok(Some(file))
                         } else {
-                            handle.replace(Arc::new(RwLock::new(file)));
+                            handle.replace(Arc::new(AsyncMutex::new(file)));
                             Ok(None)
                         }
                     }
@@ -1095,25 +1099,153 @@ impl WasiFs {
     }
 
     /// refresh size from filesystem
-    pub fn filestat_resync_size(&self, fd: WasiFd) -> Result<Filesize, Errno> {
+    pub async fn filestat_resync_size(&self, fd: WasiFd) -> Result<Filesize, Errno> {
         let inode = self.get_fd_inode(fd)?;
-        let mut guard = inode.write();
-        match guard.deref_mut() {
+        let handle = {
+            let guard = inode.read();
+            match guard.deref() {
+                Kind::File { handle, .. } => handle.clone(),
+                Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
+                _ => return Err(Errno::Inval),
+            }
+        };
+        match handle {
+            Some(h) => {
+                let new_size = h.lock().await.size().await;
+                inode.stat.write().unwrap().st_size = new_size;
+                Ok(new_size as Filesize)
+            }
+            None => Err(Errno::Badf),
+        }
+    }
+
+    pub async fn get_stat_for_kind(&self, kind: &Kind) -> Result<Filestat, Errno> {
+        let md = match kind {
             Kind::File { handle, .. } => {
                 if let Some(h) = handle {
-                    let h = h.read().unwrap();
-                    let new_size = h.size();
-                    drop(h);
-                    drop(guard);
+                    let h = h.lock().await;
+                    return Ok(Filestat {
+                        st_filetype: Filetype::RegularFile,
+                        st_size: h.size().await,
+                        st_atim: h.last_accessed().await,
+                        st_mtim: h.last_modified().await,
+                        st_ctim: h.created_time().await,
 
-                    inode.stat.write().unwrap().st_size = new_size;
-                    Ok(new_size as Filesize)
+                        ..Filestat::default()
+                    });
                 } else {
-                    Err(Errno::Badf)
+                    return Err(Errno::Badf);
                 }
             }
-            Kind::Dir { .. } | Kind::Root { .. } => Err(Errno::Isdir),
-            _ => Err(Errno::Inval),
+            Kind::Dir { path, .. } => self
+                .root_fs
+                .metadata(path)
+                .await
+                .map_err(fs_error_into_wasi_err)?,
+            Kind::Root { .. } => {
+                return Ok(Filestat {
+                    st_filetype: Filetype::Directory,
+                    ..Filestat::default()
+                });
+            }
+            Kind::Symlink {
+                path_to_symlink, ..
+            } => self
+                .root_fs
+                .symlink_metadata(path_to_symlink)
+                .await
+                .map_err(fs_error_into_wasi_err)?,
+            Kind::Buffer { buffer } => {
+                return Ok(Filestat {
+                    st_size: buffer.len() as u64,
+                    ..Filestat::default()
+                });
+            }
+            _ => return Err(Errno::Inval),
+        };
+        Ok(Filestat {
+            st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
+            st_size: md.len,
+            st_atim: md.accessed,
+            st_mtim: md.modified,
+            st_ctim: md.created,
+            ..Filestat::default()
+        })
+    }
+
+    pub async fn get_stat_for_inode(&self, inode: &InodeGuard) -> Result<Filestat, Errno> {
+        enum StatSource {
+            File(VirtualFileLock),
+            Dir(PathBuf),
+            Root,
+            Symlink(PathBuf),
+            Buffer(u64),
+        }
+
+        let source = {
+            let guard = inode.read();
+            match guard.deref() {
+                Kind::File { handle, .. } => StatSource::File(handle.clone().ok_or(Errno::Badf)?),
+                Kind::Dir { path, .. } => StatSource::Dir(path.clone()),
+                Kind::Root { .. } => StatSource::Root,
+                Kind::Symlink {
+                    path_to_symlink, ..
+                } => StatSource::Symlink(path_to_symlink.clone()),
+                Kind::Buffer { buffer } => StatSource::Buffer(buffer.len() as u64),
+                _ => return Err(Errno::Inval),
+            }
+        };
+
+        match source {
+            StatSource::File(handle) => {
+                let handle = handle.lock().await;
+                Ok(Filestat {
+                    st_filetype: Filetype::RegularFile,
+                    st_size: handle.size().await,
+                    st_atim: handle.last_accessed().await,
+                    st_mtim: handle.last_modified().await,
+                    st_ctim: handle.created_time().await,
+                    ..Filestat::default()
+                })
+            }
+            StatSource::Dir(path) => {
+                let md = self
+                    .root_fs
+                    .metadata(&path)
+                    .await
+                    .map_err(fs_error_into_wasi_err)?;
+                Ok(Filestat {
+                    st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
+                    st_size: md.len,
+                    st_atim: md.accessed,
+                    st_mtim: md.modified,
+                    st_ctim: md.created,
+                    ..Filestat::default()
+                })
+            }
+            StatSource::Root => Ok(Filestat {
+                st_filetype: Filetype::Directory,
+                ..Filestat::default()
+            }),
+            StatSource::Symlink(path) => {
+                let md = self
+                    .root_fs
+                    .symlink_metadata(&path)
+                    .await
+                    .map_err(fs_error_into_wasi_err)?;
+                Ok(Filestat {
+                    st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
+                    st_size: md.len,
+                    st_atim: md.accessed,
+                    st_mtim: md.modified,
+                    st_ctim: md.created,
+                    ..Filestat::default()
+                })
+            }
+            StatSource::Buffer(size) => Ok(Filestat {
+                st_size: size,
+                ..Filestat::default()
+            }),
         }
     }
 
@@ -1124,15 +1256,15 @@ impl WasiFs {
     }
 
     /// Gets the current directory
-    pub fn get_current_dir(
+    pub async fn get_current_dir(
         &self,
         inodes: &WasiInodes,
         base: WasiFd,
     ) -> Result<(InodeGuard, String), Errno> {
-        self.get_current_dir_inner(inodes, base, 0)
+        self.get_current_dir_inner(inodes, base, 0).await
     }
 
-    pub(crate) fn get_current_dir_inner(
+    pub(crate) async fn get_current_dir_inner(
         &self,
         inodes: &WasiInodes,
         base: WasiFd,
@@ -1144,13 +1276,15 @@ impl WasiFs {
             guard.clone()
         };
         let cur_inode = self.get_fd_inode(base)?;
-        let inode = self.get_inode_at_path_inner(
-            inodes,
-            cur_inode,
-            current_dir.as_str(),
-            &mut symlink_count,
-            true,
-        )?;
+        let inode = self
+            .get_inode_at_path_inner(
+                inodes,
+                cur_inode,
+                current_dir.clone(),
+                &mut symlink_count,
+                true,
+            )
+            .await?;
         Ok((inode, current_dir))
     }
 
@@ -1238,435 +1372,447 @@ impl WasiFs {
     /// without re-statting. Syscalls that mutate the filesystem are responsible
     /// for keeping the inode cache and ephemeral symlink map coherent with their
     /// changes.
-    fn get_inode_at_path_inner(
-        &self,
-        inodes: &WasiInodes,
+    #[allow(clippy::await_holding_lock)]
+    fn get_inode_at_path_inner<'a>(
+        &'a self,
+        inodes: &'a WasiInodes,
         mut cur_inode: InodeGuard,
-        path_str: &str,
-        symlink_count: &mut u32,
+        path_str: String,
+        symlink_count: &'a mut u32,
         follow_symlinks: bool,
-    ) -> Result<InodeGuard, Errno> {
-        if *symlink_count > MAX_SYMLINKS {
-            return Err(Errno::Loop);
-        }
-
-        if path_str.is_empty() {
-            return Err(Errno::Noent);
-        }
-
-        if path_str.starts_with('/') {
-            cur_inode = self.get_fd_inode(VIRTUAL_ROOT_FD)?;
-        }
-
-        let is_all_slashes = path_str.bytes().all(|b| b == b'/');
-
-        // Absolute root paths should resolve to the mounted "/" inode when present.
-        // This keeps "/" behavior aligned with historical path traversal semantics.
-        if is_all_slashes {
-            if let Kind::Root { entries } = cur_inode.read().deref()
-                && let Some(root_entry) = entries.get("/")
-            {
-                return Ok(root_entry.clone());
-            }
-            return Ok(cur_inode);
-        }
-
-        // POSIX path resolution is stricter than `Path::components()`: explicit
-        // `.`/`..` and a trailing slash are observable because they require the
-        // current result to be a directory after symlink resolution.
-        let path = PosixPath::new(path_str);
-        let components = path.components(true, true);
-
-        let n_components = components.len();
-
-        // TODO: rights checks
-        // for each component traverse file structure loading inodes as
-        // necessary.
-        'path_iter: for (i, component) in components.into_iter().enumerate() {
-            // Since we're resolving the path against the given inode, we want to
-            // assume '/a/b' to be the same as `a/b` relative to the inode, so
-            // we skip over the RootDir component.
-            if matches!(component, PosixPathComponent::RootDir) {
-                continue 'path_iter;
+    ) -> LocalBoxFuture<'a, Result<InodeGuard, Errno>> {
+        Box::pin(async move {
+            let path_str = path_str.as_str();
+            if *symlink_count > MAX_SYMLINKS {
+                return Err(Errno::Loop);
             }
 
-            // Note: when current component is last and follow is off, then we
-            // return inode of the symlink itself, however if current component
-            // is inner we will follow symlinks even with follow off.
-            // Following symlinks uses recursive resolution, thus if current
-            // component is not last, we recurse with follow always on. Only
-            // last component with follow off will result in symlink not being
-            // followed.
-            let last_component = i == n_components - 1;
+            if path_str.is_empty() {
+                return Err(Errno::Noent);
+            }
 
-            let component_str = match component {
-                PosixPathComponent::CurDir => {
-                    let is_dir = {
-                        let guard = cur_inode.read();
-                        matches!(guard.deref(), Kind::Dir { .. } | Kind::Root { .. })
-                    };
-                    if is_dir {
-                        continue 'path_iter;
-                    }
-                    return Err(Errno::Notdir);
+            if path_str.starts_with('/') {
+                cur_inode = self.get_fd_inode(VIRTUAL_ROOT_FD)?;
+            }
+
+            let is_all_slashes = path_str.bytes().all(|b| b == b'/');
+
+            // Absolute root paths should resolve to the mounted "/" inode when present.
+            // This keeps "/" behavior aligned with historical path traversal semantics.
+            if is_all_slashes {
+                if let Kind::Root { entries } = cur_inode.read().deref()
+                    && let Some(root_entry) = entries.get("/")
+                {
+                    return Ok(root_entry.clone());
                 }
-                PosixPathComponent::ParentDir => {
-                    let parent_inode = {
-                        let guard = cur_inode.read();
-                        match guard.deref() {
-                            Kind::Root { .. } => None,
-                            Kind::Dir { parent, .. } => {
-                                Some(parent.upgrade().ok_or(Errno::Access)?)
-                            }
-                            _ => return Err(Errno::Notdir),
-                        }
-                    };
-                    if let Some(parent_inode) = parent_inode {
-                        cur_inode = parent_inode;
-                    }
+                return Ok(cur_inode);
+            }
+
+            // POSIX path resolution is stricter than `Path::components()`: explicit
+            // `.`/`..` and a trailing slash are observable because they require the
+            // current result to be a directory after symlink resolution.
+            let path = PosixPath::new(path_str);
+            let components = path.components(true, true);
+
+            let n_components = components.len();
+
+            // TODO: rights checks
+            // for each component traverse file structure loading inodes as
+            // necessary.
+            'path_iter: for (i, component) in components.into_iter().enumerate() {
+                // Since we're resolving the path against the given inode, we want to
+                // assume '/a/b' to be the same as `a/b` relative to the inode, so
+                // we skip over the RootDir component.
+                if matches!(component, PosixPathComponent::RootDir) {
                     continue 'path_iter;
                 }
-                PosixPathComponent::Normal(component) => component,
-                PosixPathComponent::RootDir => unreachable!("RootDir is handled above"),
-            };
 
-            'component_lookup: loop {
-                // 1. Read-Only Lookup Phase
-                // --
-                // Match current inode against known entry types, and if it happens
-                // to be a directory, then resolve current component as an entry in
-                // that directory.
-                // Note: this loop practically never does more than one iteration.
-                // There is only one exotic case when this loop would do another
-                // iteration, and it is when current inode happens to be Root
-                // containing '/' entry.
-                let component_resolution = {
-                    match cur_inode.clone().read().deref() {
-                        Kind::Buffer { .. } => {
-                            unimplemented!("state::get_inode_at_path for buffers")
+                // Note: when current component is last and follow is off, then we
+                // return inode of the symlink itself, however if current component
+                // is inner we will follow symlinks even with follow off.
+                // Following symlinks uses recursive resolution, thus if current
+                // component is not last, we recurse with follow always on. Only
+                // last component with follow off will result in symlink not being
+                // followed.
+                let last_component = i == n_components - 1;
+
+                let component_str = match component {
+                    PosixPathComponent::CurDir => {
+                        let is_dir = {
+                            let guard = cur_inode.read();
+                            matches!(guard.deref(), Kind::Dir { .. } | Kind::Root { .. })
+                        };
+                        if is_dir {
+                            continue 'path_iter;
                         }
-                        Kind::File { .. }
-                        | Kind::Socket { .. }
-                        | Kind::PipeRx { .. }
-                        | Kind::PipeTx { .. }
-                        | Kind::DuplexPipe { .. }
-                        | Kind::EventNotifications { .. }
-                        | Kind::Epoll { .. } => {
-                            return Err(Errno::Notdir);
-                        }
-                        Kind::Symlink { .. } => break 'component_lookup,
-                        Kind::Root { entries } => {
-                            if let Some(entry) = entries.get(component_str) {
-                                cur_inode = entry.clone();
-                                break 'component_lookup;
-                            } else if let Some(root) = entries.get("/") {
-                                // This is quite exotic case where Root itself
-                                // has '/' entry in it, and we want to follow
-                                // from there.
-                                // Note: this is one and only case where
-                                // 'component_lookup loop would do another
-                                // iteration - the only actual reason for it to
-                                // be a loop.
-                                cur_inode = root.clone();
-                                continue 'component_lookup;
-                            } else {
-                                // Root is not capable of having something other
-                                // then preopenned folders
-                                return Err(Errno::Notcapable);
-                            }
-                        }
-                        Kind::Dir {
-                            entries,
-                            path: cur_dir,
-                            ..
-                        } => {
-                            // When component resolves to directory entry, then
-                            // next component needs to resolve to a child node
-                            // within that directory.
-                            // Here we are handling all variants of directory
-                            // children.
-
-                            if let Some(entry) = entries.get(component_str) {
-                                // We found component in cached entries, so we
-                                // can continue. If it is a symlink it will be
-                                // resolved in next the step.
-                                cur_inode = entry.clone();
-                                break 'component_lookup;
-                            }
-
-                            // We did not find the component in cached entries,
-                            // so we will create new inode for it.
-                            let entry_path_buf = PosixPath::from_path(cur_dir)
-                                .join(&PosixPath::new(component_str))
-                                .into_path_buf();
-
-                            // Current component of the path we're resolving, as
-                            // a string...
-                            let entry_name = component_str.to_string();
-
-                            // ...and its relevant path within current inode
-                            // being the directory.
-                            // Note: the entry_path does not need to match the
-                            // path we're resolving, e.g. if this is a recursive
-                            // call from symlink resolution branch.
-                            let entry_path = entry_path_buf.to_string_lossy().to_string();
-
-                            if let Some((path_to_symlink, relative_path)) =
-                                self.ephemeral_symlink_at(&entry_path_buf)
-                            {
-                                // Ephemeral symlink are transient records; they
-                                // are virtual, and they are not persisted in
-                                // directory like symbolic links, so we will
-                                // create a temporary inode for them.
-                                // We resolve them but don't cache them as dir
-                                // entries.
-                                ComponentResolution::Create {
-                                    kind: Kind::Symlink {
-                                        symlink_kind: SymlinkKind::Virtual,
-                                        path_to_symlink,
-                                        relative_path,
-                                    },
-                                    name: entry_path,
-                                    entry_name,
-                                    is_ephemeral: true,
+                        return Err(Errno::Notdir);
+                    }
+                    PosixPathComponent::ParentDir => {
+                        let parent_inode = {
+                            let guard = cur_inode.read();
+                            match guard.deref() {
+                                Kind::Root { .. } => None,
+                                Kind::Dir { parent, .. } => {
+                                    Some(parent.upgrade().ok_or(Errno::Access)?)
                                 }
-                            } else {
-                                // Otherwise it is persistent, and we create new
-                                // inode for it that we will cache in directory
-                                // entries.
-                                // Note: this gets metadata of the file entry
-                                // without following symbolic links.
-                                let metadata = self
-                                    .root_fs
-                                    .symlink_metadata(&entry_path_buf)
-                                    .ok()
-                                    .ok_or(Errno::Noent)?;
-                                let file_type = metadata.file_type();
-                                if file_type.is_dir() {
-                                    // load DIR
+                                _ => return Err(Errno::Notdir),
+                            }
+                        };
+                        if let Some(parent_inode) = parent_inode {
+                            cur_inode = parent_inode;
+                        }
+                        continue 'path_iter;
+                    }
+                    PosixPathComponent::Normal(component) => component,
+                    PosixPathComponent::RootDir => unreachable!("RootDir is handled above"),
+                };
+
+                'component_lookup: loop {
+                    // 1. Read-Only Lookup Phase
+                    // --
+                    // Match current inode against known entry types, and if it happens
+                    // to be a directory, then resolve current component as an entry in
+                    // that directory.
+                    // Note: this loop practically never does more than one iteration.
+                    // There is only one exotic case when this loop would do another
+                    // iteration, and it is when current inode happens to be Root
+                    // containing '/' entry.
+                    let component_resolution = {
+                        match cur_inode.clone().read().deref() {
+                            Kind::Buffer { .. } => {
+                                unimplemented!("state::get_inode_at_path for buffers")
+                            }
+                            Kind::File { .. }
+                            | Kind::Socket { .. }
+                            | Kind::PipeRx { .. }
+                            | Kind::PipeTx { .. }
+                            | Kind::DuplexPipe { .. }
+                            | Kind::EventNotifications { .. }
+                            | Kind::Epoll { .. } => {
+                                return Err(Errno::Notdir);
+                            }
+                            Kind::Symlink { .. } => break 'component_lookup,
+                            Kind::Root { entries } => {
+                                if let Some(entry) = entries.get(component_str) {
+                                    cur_inode = entry.clone();
+                                    break 'component_lookup;
+                                } else if let Some(root) = entries.get("/") {
+                                    // This is quite exotic case where Root itself
+                                    // has '/' entry in it, and we want to follow
+                                    // from there.
+                                    // Note: this is one and only case where
+                                    // 'component_lookup loop would do another
+                                    // iteration - the only actual reason for it to
+                                    // be a loop.
+                                    cur_inode = root.clone();
+                                    continue 'component_lookup;
+                                } else {
+                                    // Root is not capable of having something other
+                                    // then preopenned folders
+                                    return Err(Errno::Notcapable);
+                                }
+                            }
+                            Kind::Dir {
+                                entries,
+                                path: cur_dir,
+                                ..
+                            } => {
+                                // When component resolves to directory entry, then
+                                // next component needs to resolve to a child node
+                                // within that directory.
+                                // Here we are handling all variants of directory
+                                // children.
+
+                                if let Some(entry) = entries.get(component_str) {
+                                    // We found component in cached entries, so we
+                                    // can continue. If it is a symlink it will be
+                                    // resolved in next the step.
+                                    cur_inode = entry.clone();
+                                    break 'component_lookup;
+                                }
+
+                                // We did not find the component in cached entries,
+                                // so we will create new inode for it.
+                                let entry_path_buf = PosixPath::from_path(cur_dir)
+                                    .join(&PosixPath::new(component_str))
+                                    .into_path_buf();
+
+                                // Current component of the path we're resolving, as
+                                // a string...
+                                let entry_name = component_str.to_string();
+
+                                // ...and its relevant path within current inode
+                                // being the directory.
+                                // Note: the entry_path does not need to match the
+                                // path we're resolving, e.g. if this is a recursive
+                                // call from symlink resolution branch.
+                                let entry_path = entry_path_buf.to_string_lossy().to_string();
+
+                                if let Some((path_to_symlink, relative_path)) =
+                                    self.ephemeral_symlink_at(&entry_path_buf)
+                                {
+                                    // Ephemeral symlink are transient records; they
+                                    // are virtual, and they are not persisted in
+                                    // directory like symbolic links, so we will
+                                    // create a temporary inode for them.
+                                    // We resolve them but don't cache them as dir
+                                    // entries.
                                     ComponentResolution::Create {
-                                        kind: Kind::Dir {
-                                            parent: cur_inode.downgrade(),
-                                            path: entry_path_buf,
-                                            entries: Default::default(),
+                                        kind: Kind::Symlink {
+                                            symlink_kind: SymlinkKind::Virtual,
+                                            path_to_symlink,
+                                            relative_path,
                                         },
                                         name: entry_path,
                                         entry_name,
-                                        is_ephemeral: false,
-                                    }
-                                } else if file_type.is_file() {
-                                    // load file
-                                    ComponentResolution::Create {
-                                        kind: Kind::File {
-                                            handle: None,
-                                            path: entry_path_buf,
-                                            fd: None,
-                                        },
-                                        name: entry_path,
-                                        entry_name,
-                                        is_ephemeral: false,
-                                    }
-                                } else if file_type.is_symlink() {
-                                    // load symbolic link
-                                    // Note: as opposed to ephemeral symlinks,
-                                    // which are transient, these are
-                                    // persistent, i.e. they have actual entry
-                                    // in the directory
-                                    // structure.
-                                    let link_value = self
-                                        .root_fs
-                                        .readlink(&entry_path_buf)
-                                        .ok()
-                                        .ok_or(Errno::Noent)?;
-                                    debug!("attempting to decompose path {:?}", link_value);
-                                    ComponentResolution::BackingSymlink {
-                                        file: entry_path_buf,
-                                        link_value,
-                                        entry_name,
+                                        is_ephemeral: true,
                                     }
                                 } else {
-                                    #[cfg(unix)]
-                                    {
-                                        //use std::os::unix::fs::FileTypeExt;
-                                        let file_type: Filetype = if file_type.is_char_device() {
-                                            Filetype::CharacterDevice
-                                        } else if file_type.is_block_device() {
-                                            Filetype::BlockDevice
-                                        } else if file_type.is_fifo() {
-                                            // FIFO doesn't seem to fit any other type, so unknown
-                                            Filetype::Unknown
-                                        } else if file_type.is_socket() {
-                                            // TODO: how do we know if it's a `SocketStream` or
-                                            // a `SocketDgram`?
-                                            Filetype::SocketStream
-                                        } else {
-                                            unimplemented!(
-                                                "state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket"
-                                            );
-                                        };
-
-                                        ComponentResolution::Special {
+                                    // Otherwise it is persistent, and we create new
+                                    // inode for it that we will cache in directory
+                                    // entries.
+                                    // Note: this gets metadata of the file entry
+                                    // without following symbolic links.
+                                    let metadata = self
+                                        .root_fs
+                                        .symlink_metadata(&entry_path_buf)
+                                        .await
+                                        .ok()
+                                        .ok_or(Errno::Noent)?;
+                                    let file_type = metadata.file_type();
+                                    if file_type.is_dir() {
+                                        // load DIR
+                                        ComponentResolution::Create {
+                                            kind: Kind::Dir {
+                                                parent: cur_inode.downgrade(),
+                                                path: entry_path_buf,
+                                                entries: Default::default(),
+                                            },
+                                            name: entry_path,
+                                            entry_name,
+                                            is_ephemeral: false,
+                                        }
+                                    } else if file_type.is_file() {
+                                        // load file
+                                        ComponentResolution::Create {
                                             kind: Kind::File {
                                                 handle: None,
                                                 path: entry_path_buf,
                                                 fd: None,
                                             },
-                                            name: entry_path.into(),
+                                            name: entry_path,
                                             entry_name,
-                                            stat: Filestat {
-                                                st_filetype: file_type,
-                                                st_ino: Inode::from_path(path_str).as_u64(),
-                                                st_size: metadata.len(),
-                                                st_ctim: metadata.created(),
-                                                st_mtim: metadata.modified(),
-                                                st_atim: metadata.accessed(),
-                                                ..Filestat::default()
-                                            },
+                                            is_ephemeral: false,
                                         }
+                                    } else if file_type.is_symlink() {
+                                        // load symbolic link
+                                        // Note: as opposed to ephemeral symlinks,
+                                        // which are transient, these are
+                                        // persistent, i.e. they have actual entry
+                                        // in the directory
+                                        // structure.
+                                        let link_value = self
+                                            .root_fs
+                                            .readlink(&entry_path_buf)
+                                            .await
+                                            .ok()
+                                            .ok_or(Errno::Noent)?;
+                                        debug!("attempting to decompose path {:?}", link_value);
+                                        ComponentResolution::BackingSymlink {
+                                            file: entry_path_buf,
+                                            link_value,
+                                            entry_name,
+                                        }
+                                    } else {
+                                        #[cfg(unix)]
+                                        {
+                                            //use std::os::unix::fs::FileTypeExt;
+                                            let file_type: Filetype = if file_type.is_char_device()
+                                            {
+                                                Filetype::CharacterDevice
+                                            } else if file_type.is_block_device() {
+                                                Filetype::BlockDevice
+                                            } else if file_type.is_fifo() {
+                                                // FIFO doesn't seem to fit any other type, so unknown
+                                                Filetype::Unknown
+                                            } else if file_type.is_socket() {
+                                                // TODO: how do we know if it's a `SocketStream` or
+                                                // a `SocketDgram`?
+                                                Filetype::SocketStream
+                                            } else {
+                                                unimplemented!(
+                                                    "state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket"
+                                                );
+                                            };
+
+                                            ComponentResolution::Special {
+                                                kind: Kind::File {
+                                                    handle: None,
+                                                    path: entry_path_buf,
+                                                    fd: None,
+                                                },
+                                                name: entry_path.into(),
+                                                entry_name,
+                                                stat: Filestat {
+                                                    st_filetype: file_type,
+                                                    st_ino: Inode::from_path(path_str).as_u64(),
+                                                    st_size: metadata.len(),
+                                                    st_ctim: metadata.created(),
+                                                    st_mtim: metadata.modified(),
+                                                    st_atim: metadata.accessed(),
+                                                    ..Filestat::default()
+                                                },
+                                            }
+                                        }
+                                        #[cfg(not(unix))]
+                                        unimplemented!(
+                                            "state::get_inode_at_path unknown file type: not file, directory, or symlink"
+                                        );
                                     }
-                                    #[cfg(not(unix))]
-                                    unimplemented!(
-                                        "state::get_inode_at_path unknown file type: not file, directory, or symlink"
-                                    );
-                                }
-                            } // end of non-ephemeral entry case
-                        } // end of Kind::Dir match case
-                    } // end of match
-                }; // end of component_resolution block
+                                } // end of non-ephemeral entry case
+                            } // end of Kind::Dir match case
+                        } // end of match
+                    }; // end of component_resolution block
 
-                // 2. Create an INode and update directory entries
+                    // 2. Create an INode and update directory entries
+                    // --
+                    // The cur_inode is definitely a directory (Kind::Dir) at this
+                    // stage, and we need to create an inode (new_inode) and cache
+                    // as an entry in current directory (entry_name => cur_inode).
+                    let (entry_name, new_inode, should_insert, should_return) =
+                        match component_resolution {
+                            ComponentResolution::Create {
+                                kind,
+                                name,
+                                entry_name,
+                                is_ephemeral,
+                            } => {
+                                let new_inode = self.create_inode(inodes, kind, false, name)?;
+                                (entry_name, new_inode, !is_ephemeral, false)
+                            }
+                            ComponentResolution::BackingSymlink {
+                                file,
+                                link_value,
+                                entry_name,
+                            } => {
+                                let new_inode = self.create_inode(
+                                    inodes,
+                                    Kind::Symlink {
+                                        symlink_kind: SymlinkKind::Backing,
+                                        path_to_symlink: PosixPath::from_path(&file)
+                                            .strip_root_prefix()
+                                            .into_path_buf(),
+                                        relative_path: link_value,
+                                    },
+                                    false,
+                                    file.to_string_lossy().to_string(),
+                                )?;
+                                (entry_name, new_inode, false, false)
+                            }
+                            #[cfg(unix)]
+                            ComponentResolution::Special {
+                                kind,
+                                name,
+                                entry_name,
+                                stat,
+                            } => {
+                                let new_inode =
+                                    self.create_inode_with_stat(inodes, kind, false, name, stat);
+                                (entry_name, new_inode, true, true)
+                            }
+                        };
+
+                    {
+                        let mut guard = cur_inode.write();
+                        let Kind::Dir { entries, .. } = guard.deref_mut() else {
+                            unreachable!("Attempted to insert special device into non-directory");
+                        };
+
+                        if should_insert {
+                            entries.insert(entry_name, new_inode.clone());
+                        }
+
+                        if should_return {
+                            // Special files cannot be traversed further, so return the inode directly.
+                            if last_component {
+                                return Ok(new_inode);
+                            }
+                            return Err(Errno::Notdir);
+                        }
+                    }
+
+                    // Assign current inode and leave 'component_loop
+                    // Note: this is a shortcut for doing next iteration matching
+                    // Kind::Dir for same cur_inode and finding there matching entry
+                    // that we just inserted, and exiting 'component_lookup.
+                    cur_inode = new_inode;
+                    break 'component_lookup;
+                } // end of 'component_lookup loop
+
+                // 3. Follow Symbolic Links
                 // --
-                // The cur_inode is definitely a directory (Kind::Dir) at this
-                // stage, and we need to create an inode (new_inode) and cache
-                // as an entry in current directory (entry_name => cur_inode).
-                let (entry_name, new_inode, should_insert, should_return) =
-                    match component_resolution {
-                        ComponentResolution::Create {
-                            kind,
-                            name,
-                            entry_name,
-                            is_ephemeral,
-                        } => {
-                            let new_inode = self.create_inode(inodes, kind, false, name)?;
-                            (entry_name, new_inode, !is_ephemeral, false)
-                        }
-                        ComponentResolution::BackingSymlink {
-                            file,
-                            link_value,
-                            entry_name,
-                        } => {
-                            let new_inode = self.create_inode(
-                                inodes,
-                                Kind::Symlink {
-                                    symlink_kind: SymlinkKind::Backing,
-                                    path_to_symlink: PosixPath::from_path(&file)
-                                        .strip_root_prefix()
-                                        .into_path_buf(),
-                                    relative_path: link_value,
-                                },
-                                false,
-                                file.to_string_lossy().to_string(),
-                            )?;
-                            (entry_name, new_inode, false, false)
-                        }
-                        #[cfg(unix)]
-                        ComponentResolution::Special {
-                            kind,
-                            name,
-                            entry_name,
-                            stat,
-                        } => {
-                            let new_inode =
-                                self.create_inode_with_stat(inodes, kind, false, name, stat);
-                            (entry_name, new_inode, true, true)
-                        }
-                    };
-
-                {
-                    let mut guard = cur_inode.write();
-                    let Kind::Dir { entries, .. } = guard.deref_mut() else {
-                        unreachable!("Attempted to insert special device into non-directory");
-                    };
-
-                    if should_insert {
-                        entries.insert(entry_name, new_inode.clone());
-                    }
-
-                    if should_return {
-                        // Special files cannot be traversed further, so return the inode directly.
-                        if last_component {
-                            return Ok(new_inode);
-                        }
-                        return Err(Errno::Notdir);
-                    }
+                // We continue with Symlink resolution unless...
+                if last_component && !follow_symlinks {
+                    // ...this symlink is the very last component of the path to
+                    // resolve, and symlink following is off,
+                    // ...or this is not a symlink at all
+                    continue 'path_iter;
                 }
 
-                // Assign current inode and leave 'component_loop
-                // Note: this is a shortcut for doing next iteration matching
-                // Kind::Dir for same cur_inode and finding there matching entry
-                // that we just inserted, and exiting 'component_lookup.
-                cur_inode = new_inode;
-                break 'component_lookup;
-            } // end of 'component_lookup loop
-
-            // 3. Follow Symbolic Links
-            // --
-            // We continue with Symlink resolution unless...
-            if last_component && !follow_symlinks {
-                // ...this symlink is the very last component of the path to
-                // resolve, and symlink following is off,
-                // ...or this is not a symlink at all
-                continue 'path_iter;
-            }
-
-            // The cur_inode can be a symlink (Kind::Symlink) or something else.
-            let (symlink_kind, path_to_symlink, relative_path) = {
-                let guard = cur_inode.read();
-                let Kind::Symlink {
-                    symlink_kind,
-                    path_to_symlink,
-                    relative_path,
-                } = guard.deref()
-                else {
-                    // not a symlink, so we continue with next path component
-                    continue 'path_iter;
+                // The cur_inode can be a symlink (Kind::Symlink) or something else.
+                let (symlink_kind, path_to_symlink, relative_path) = {
+                    let guard = cur_inode.read();
+                    let Kind::Symlink {
+                        symlink_kind,
+                        path_to_symlink,
+                        relative_path,
+                    } = guard.deref()
+                    else {
+                        // not a symlink, so we continue with next path component
+                        continue 'path_iter;
+                    };
+                    (
+                        *symlink_kind,
+                        path_to_symlink.clone(),
+                        relative_path.clone(),
+                    )
                 };
-                (
-                    *symlink_kind,
-                    path_to_symlink.clone(),
-                    relative_path.clone(),
-                )
-            };
 
-            let (new_base_fd, new_path) =
-                self.resolve_symlink_target_path(symlink_kind, &path_to_symlink, &relative_path)?;
-            let new_base_inode = self.get_fd_inode(new_base_fd)?;
-            let new_path = PosixPath::from_path(&new_path).as_str().to_owned();
+                let (new_base_fd, new_path) = self.resolve_symlink_target_path(
+                    symlink_kind,
+                    &path_to_symlink,
+                    &relative_path,
+                )?;
+                let new_base_inode = self.get_fd_inode(new_base_fd)?;
+                let new_path = PosixPath::from_path(&new_path).as_str().to_owned();
 
-            // We want to always follow symlinks unless we're resolving very
-            // last path component, then and only then we want to stop symlink
-            // following if it was originally off.
-            let follow_symlinks_inner = !last_component || follow_symlinks;
+                // We want to always follow symlinks unless we're resolving very
+                // last path component, then and only then we want to stop symlink
+                // following if it was originally off.
+                let follow_symlinks_inner = !last_component || follow_symlinks;
 
-            debug!("Following symlink recursively");
-            *symlink_count += 1;
-            if *symlink_count > MAX_SYMLINKS {
-                return Err(Errno::Loop);
+                debug!("Following symlink recursively");
+                *symlink_count += 1;
+                if *symlink_count > MAX_SYMLINKS {
+                    return Err(Errno::Loop);
+                }
+                let symlink_inode = self
+                    .get_inode_at_path_inner(
+                        inodes,
+                        new_base_inode,
+                        new_path,
+                        symlink_count,
+                        follow_symlinks_inner,
+                    )
+                    .await?;
+
+                // The rest of the path resolution will be relative to resolved
+                // symlink target.
+                cur_inode = symlink_inode;
             }
-            let symlink_inode = self.get_inode_at_path_inner(
-                inodes,
-                new_base_inode,
-                &new_path,
-                symlink_count,
-                follow_symlinks_inner,
-            )?;
 
-            // The rest of the path resolution will be relative to resolved
-            // symlink target.
-            cur_inode = symlink_inode;
-        }
-
-        Ok(cur_inode)
+            Ok(cur_inode)
+        })
     }
 
     pub(crate) fn resolve_symlink_target_path(
@@ -1751,7 +1897,7 @@ impl WasiFs {
     // even if it's false, it still follows symlinks, just not the last
     // symlink so
     // This will be resolved when we have tests asserting the correct behavior
-    pub(crate) fn get_inode_at_path(
+    pub(crate) async fn get_inode_at_path(
         &self,
         inodes: &WasiInodes,
         base: WasiFd,
@@ -1763,13 +1909,14 @@ impl WasiFs {
         self.get_inode_at_path_inner(
             inodes,
             base_inode,
-            path,
+            path.to_string(),
             &mut symlink_count,
             follow_symlinks,
         )
+        .await
     }
 
-    pub(crate) fn get_inode_at_path_from_inode(
+    pub(crate) async fn get_inode_at_path_from_inode(
         &self,
         inodes: &WasiInodes,
         base_inode: InodeGuard,
@@ -1780,15 +1927,16 @@ impl WasiFs {
         self.get_inode_at_path_inner(
             inodes,
             base_inode,
-            path,
+            path.to_string(),
             &mut symlink_count,
             follow_symlinks,
         )
+        .await
     }
 
     /// Returns the parent Dir or Root that the file at a given path is in and the file name
     /// stripped off
-    pub(crate) fn get_parent_inode_at_path(
+    pub(crate) async fn get_parent_inode_at_path(
         &self,
         inodes: &WasiInodes,
         base: WasiFd,
@@ -1800,6 +1948,7 @@ impl WasiFs {
             return self.get_fd_inode(base).map(|v| (v, new_entity_name));
         }
         self.get_inode_at_path(inodes, base, parent_dir.as_str(), follow_symlinks)
+            .await
             .map(|v| (v, new_entity_name))
     }
 
@@ -1934,7 +2083,7 @@ impl WasiFs {
         is_preopened: bool,
         name: String,
     ) -> Result<InodeGuard, Errno> {
-        let stat = self.get_stat_for_kind(&kind)?;
+        let stat = Filestat::default();
         Ok(self.create_inode_with_stat(inodes, kind, is_preopened, name.into(), stat))
     }
 
@@ -1960,13 +2109,7 @@ impl WasiFs {
         mut stat: Filestat,
     ) -> InodeGuard {
         match &kind {
-            Kind::File {
-                handle: Some(handle),
-                ..
-            } => {
-                let guard = handle.read().unwrap();
-                stat.st_size = guard.size();
-            }
+            Kind::File { .. } => {}
             Kind::Buffer { buffer } => {
                 stat.st_size = buffer.len() as u64;
             }
@@ -2447,9 +2590,7 @@ impl WasiFs {
                 &path.to_string_lossy(),
                 &alias
             );
-            let cur_dir_metadata = self
-                .root_fs
-                .metadata(path)
+            let cur_dir_metadata = block_on(self.root_fs.metadata(path))
                 .map_err(|e| format!("Could not get metadata for file {path:?}: {e}"))?;
 
             let kind = if cur_dir_metadata.is_dir() {
@@ -2579,7 +2720,7 @@ impl WasiFs {
             };
             let kind = Kind::File {
                 fd: Some(raw_fd),
-                handle: Some(Arc::new(RwLock::new(handle))),
+                handle: Some(Arc::new(AsyncMutex::new(handle))),
                 path: "".into(),
             };
             inodes.add_inode_val(InodeVal {
@@ -2606,66 +2747,6 @@ impl WasiFs {
                 is_stdio: true,
             },
         );
-    }
-
-    pub fn get_stat_for_kind(&self, kind: &Kind) -> Result<Filestat, Errno> {
-        let md = match kind {
-            Kind::File { handle, path, .. } => match handle {
-                Some(wf) => {
-                    let wf = wf.read().unwrap();
-                    return Ok(Filestat {
-                        st_filetype: Filetype::RegularFile,
-                        st_ino: Inode::from_path(path.to_string_lossy().as_ref()).as_u64(),
-                        st_size: wf.size(),
-                        st_atim: wf.last_accessed(),
-                        st_mtim: wf.last_modified(),
-                        st_ctim: wf.created_time(),
-
-                        ..Filestat::default()
-                    });
-                }
-                None => self
-                    .root_fs
-                    .metadata(path)
-                    .map_err(fs_error_into_wasi_err)?,
-            },
-            Kind::Dir { path, .. } => self
-                .root_fs
-                .metadata(path)
-                .map_err(fs_error_into_wasi_err)?,
-            Kind::Symlink {
-                path_to_symlink,
-                relative_path,
-                ..
-            } => {
-                let symlink_path = PosixPath::new("/")
-                    .join(&PosixPath::from_path(path_to_symlink))
-                    .into_path_buf();
-
-                match self.root_fs.symlink_metadata(&symlink_path) {
-                    Ok(md) => md,
-                    Err(FsError::EntryNotFound)
-                        if self.ephemeral_symlink_at(&symlink_path).is_some() =>
-                    {
-                        return Ok(Filestat {
-                            st_filetype: Filetype::SymbolicLink,
-                            st_size: relative_path.as_os_str().len() as u64,
-                            ..Filestat::default()
-                        });
-                    }
-                    Err(err) => return Err(fs_error_into_wasi_err(err)),
-                }
-            }
-            _ => return Err(Errno::Io),
-        };
-        Ok(Filestat {
-            st_filetype: virtual_file_type_to_wasi_file_type(md.file_type()),
-            st_size: md.len(),
-            st_atim: md.accessed(),
-            st_mtim: md.modified(),
-            st_ctim: md.created(),
-            ..Filestat::default()
-        })
     }
 
     /// Closes an open FD under `fd_map.write()`, capturing a file handle for
@@ -2792,29 +2873,30 @@ impl FallbackFileSystem {
     }
 }
 
+#[async_trait::async_trait]
 impl FileSystem for FallbackFileSystem {
-    fn readlink(&self, _path: &Path) -> virtual_fs::Result<PathBuf> {
+    async fn readlink(&self, _path: &Path) -> virtual_fs::Result<PathBuf> {
         Self::fail()
     }
-    fn read_dir(&self, _path: &Path) -> Result<virtual_fs::ReadDir, FsError> {
+    async fn read_dir(&self, _path: &Path) -> Result<virtual_fs::ReadDir, FsError> {
         Self::fail();
     }
-    fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
+    async fn create_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
+    async fn remove_dir(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn rename<'a>(&'a self, _from: &Path, _to: &Path) -> BoxFuture<'a, Result<(), FsError>> {
+    async fn rename(&self, _from: &Path, _to: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
+    async fn metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
         Self::fail();
     }
-    fn symlink_metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
+    async fn symlink_metadata(&self, _path: &Path) -> Result<virtual_fs::Metadata, FsError> {
         Self::fail();
     }
-    fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
+    async fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
     fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
@@ -3101,6 +3183,7 @@ mod tests {
 
         let literal_link = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/host/dir2", false)
+            .await
             .unwrap();
         assert!(matches!(
             literal_link.read().deref(),
@@ -3113,6 +3196,7 @@ mod tests {
 
         let followed_dir = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/host/dir2", true)
+            .await
             .unwrap();
         let followed_dir_path = {
             let guard = followed_dir.read();
@@ -3122,11 +3206,12 @@ mod tests {
             assert_eq!(path, Path::new("/host/dir1"));
             path.clone()
         };
-        let mut entries = wasi_fs.root_fs.read_dir(&followed_dir_path).unwrap();
+        let mut entries = wasi_fs.root_fs.read_dir(&followed_dir_path).await.unwrap();
         assert!(entries.any(|entry| entry.unwrap().path() == Path::new("/host/dir1/file1")));
 
         let child = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/host/dir2/file1", true)
+            .await
             .unwrap();
         assert!(matches!(
             child.read().deref(),
@@ -3169,17 +3254,20 @@ mod tests {
             WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
         let root = &wasi_fs.root_fs;
 
-        root.create_dir(Path::new("/orig")).unwrap();
+        root.create_dir(Path::new("/orig")).await.unwrap();
         root.new_open_options()
             .create(true)
             .write(true)
             .open(Path::new("/orig/child.txt"))
+            .await
             .unwrap();
         root.create_symlink(Path::new("/orig"), Path::new("/linked"))
+            .await
             .unwrap();
 
         let literal_link = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/linked", false)
+            .await
             .unwrap();
         assert!(matches!(
             literal_link.read().deref(),
@@ -3191,6 +3279,7 @@ mod tests {
 
         let followed_dir = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/linked", true)
+            .await
             .unwrap();
         assert!(matches!(
             followed_dir.read().deref(),
@@ -3199,6 +3288,7 @@ mod tests {
 
         let child = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/linked/child.txt", true)
+            .await
             .unwrap();
         assert!(matches!(
             child.read().deref(),
@@ -3207,6 +3297,7 @@ mod tests {
 
         let child_without_final_follow = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/linked/child.txt", false)
+            .await
             .unwrap();
         assert!(matches!(
             child_without_final_follow.read().deref(),
@@ -3223,6 +3314,7 @@ mod tests {
 
         let literal_link = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", false)
+            .await
             .unwrap();
         assert!(matches!(
             literal_link.read().deref(),
@@ -3234,6 +3326,7 @@ mod tests {
 
         let followed_file = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", true)
+            .await
             .unwrap();
         assert!(matches!(
             followed_file.read().deref(),
@@ -3250,24 +3343,29 @@ mod tests {
             WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
         let root = &wasi_fs.root_fs;
 
-        root.create_dir(Path::new("/dir")).unwrap();
+        root.create_dir(Path::new("/dir")).await.unwrap();
         root.new_open_options()
             .create(true)
             .write(true)
             .open(Path::new("/file"))
+            .await
             .unwrap();
         root.create_symlink(Path::new("/dir"), Path::new("/dir-link"))
+            .await
             .unwrap();
         root.create_symlink(Path::new("/file"), Path::new("/file-link"))
+            .await
             .unwrap();
 
         let empty_path = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "", true)
+            .await
             .unwrap_err();
         assert_eq!(empty_path, Errno::Noent);
 
         let (single_component_parent, single_component_name) = wasi_fs
             .get_parent_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, Path::new("new-file"), true)
+            .await
             .unwrap();
         assert_eq!(single_component_name, "new-file");
         assert!(matches!(
@@ -3277,6 +3375,7 @@ mod tests {
 
         let root_parent = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/..", true)
+            .await
             .unwrap();
         assert!(matches!(root_parent.read().deref(), Kind::Root { .. }));
 
@@ -3316,15 +3415,17 @@ mod tests {
             .unwrap_err();
         assert_eq!(escaped_sibling_preopen_symlink_target, Errno::Perm);
 
-        root.create_dir(Path::new("/outerdir")).unwrap();
-        root.create_dir(Path::new("/outerdir/dest")).unwrap();
+        root.create_dir(Path::new("/outerdir")).await.unwrap();
+        root.create_dir(Path::new("/outerdir/dest")).await.unwrap();
         root.new_open_options()
             .create(true)
             .write(true)
             .open(Path::new("/outerdir/evil"))
+            .await
             .unwrap();
         let dest_dir = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/outerdir/dest", true)
+            .await
             .unwrap();
         let current_link = wasi_fs.create_inode_with_default_stat(
             &inodes,
@@ -3362,6 +3463,7 @@ mod tests {
                 "/outerdir/dest/parent/evil",
                 true,
             )
+            .await
             .unwrap();
         assert!(matches!(
             parent_symlink_target.read().deref(),
@@ -3370,16 +3472,19 @@ mod tests {
 
         let file_dot = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/file/.", true)
+            .await
             .unwrap_err();
         assert_eq!(file_dot, Errno::Notdir);
 
         let file_slash = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/file/", true)
+            .await
             .unwrap_err();
         assert_eq!(file_slash, Errno::Notdir);
 
         let symlinked_dir_slash = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/dir-link/", false)
+            .await
             .unwrap();
         assert!(matches!(
             symlinked_dir_slash.read().deref(),
@@ -3388,13 +3493,16 @@ mod tests {
 
         let symlinked_file_slash = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/file-link/", false)
+            .await
             .unwrap_err();
         assert_eq!(symlinked_file_slash, Errno::Notdir);
 
         root.create_symlink(Path::new("/loop"), Path::new("/loop"))
+            .await
             .unwrap();
         let symlink_loop = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/loop", true)
+            .await
             .unwrap_err();
         assert_eq!(symlink_loop, Errno::Loop);
     }
@@ -3424,6 +3532,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/root.txt"))
+            .await
             .unwrap();
 
         let public_mount = TmpFileSystem::new();
@@ -3432,6 +3541,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/index.html"))
+            .await
             .unwrap();
 
         let pkg = BinaryPackage {
@@ -3459,6 +3569,7 @@ mod tests {
             wasi_fs
                 .root_fs
                 .metadata(Path::new("/root.txt"))
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -3466,6 +3577,7 @@ mod tests {
             wasi_fs
                 .root_fs
                 .metadata(Path::new("/public/index.html"))
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -3475,6 +3587,7 @@ mod tests {
             wasi_fs
                 .root_fs
                 .metadata(Path::new("/root.txt"))
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -3482,6 +3595,7 @@ mod tests {
             wasi_fs
                 .root_fs
                 .metadata(Path::new("/public/index.html"))
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -3505,6 +3619,7 @@ mod tests {
 
         let link = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", false)
+            .await
             .unwrap();
         assert!(matches!(
             link.read().deref(),
@@ -3518,6 +3633,7 @@ mod tests {
         // Parent must not have cached the symlink.
         let (parent_inode, child_name) = wasi_fs
             .get_parent_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, Path::new("/link"), false)
+            .await
             .unwrap();
         assert_eq!(child_name, "link");
         match parent_inode.read().deref() {
@@ -3543,6 +3659,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/target.txt"))
+            .await
             .unwrap();
         wasi_fs.register_ephemeral_symlink(
             PathBuf::from("/link"),
@@ -3552,7 +3669,7 @@ mod tests {
         assert!(wasi_fs.ephemeral_symlink_at(Path::new("/link")).is_some());
 
         assert_eq!(
-            wasi_fs.remove_symlink_file(Path::new("/link")),
+            wasi_fs.remove_symlink_file(Path::new("/link")).await,
             Errno::Success
         );
         assert!(wasi_fs.ephemeral_symlink_at(Path::new("/link")).is_none());
@@ -3560,6 +3677,7 @@ mod tests {
             wasi_fs
                 .root_fs
                 .metadata(Path::new("/target.txt"))
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -3574,7 +3692,7 @@ mod tests {
             WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], fs_backing).unwrap();
 
         assert_eq!(
-            wasi_fs.remove_symlink_file(Path::new("/missing")),
+            wasi_fs.remove_symlink_file(Path::new("/missing")).await,
             Errno::Noent
         );
     }

@@ -2,7 +2,6 @@
 //! implementations. They aren't exposed to the public API. Only
 //! `FileHandle` can be used through the `VirtualFile` trait object.
 
-use futures::future::BoxFuture;
 use shared_buffer::OwnedBuffer;
 use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
@@ -34,7 +33,7 @@ pub(super) struct FileHandle {
     writable: bool,
     append_mode: bool,
     cursor: u64,
-    arc_file: Option<Result<Box<dyn VirtualFile + Send + Sync + 'static>>>,
+    arc_file: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
 }
 
 impl Clone for FileHandle {
@@ -54,6 +53,7 @@ impl Clone for FileHandle {
 }
 
 impl FileHandle {
+    #[allow(clippy::too_many_arguments)]
     pub(super) fn new_opened(
         inode: Inode,
         filesystem: FileSystem,
@@ -62,6 +62,7 @@ impl FileHandle {
         writable: bool,
         append_mode: bool,
         cursor: u64,
+        arc_file: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     ) -> Self {
         Self {
             inode,
@@ -71,38 +72,15 @@ impl FileHandle {
             writable,
             append_mode,
             cursor,
-            arc_file: None,
+            arc_file,
         }
     }
 
     fn lazy_load_arc_file_mut(&mut self) -> Result<&mut dyn VirtualFile> {
-        if self.arc_file.is_none() {
-            let fs = match self.filesystem.inner.read() {
-                Ok(fs) => fs,
-                _ => return Err(FsError::EntryNotFound),
-            };
-
-            let inode = fs.storage.get(self.inode);
-            match inode {
-                Some(Node::ArcFile(node)) => {
-                    self.arc_file.replace(
-                        node.fs
-                            .new_open_options()
-                            .read(self.readable)
-                            .write(self.writable)
-                            .append(self.append_mode)
-                            .open(node.path.as_path()),
-                    );
-                }
-                _ => return Err(FsError::EntryNotFound),
-            }
-        }
         Ok(self
             .arc_file
             .as_mut()
-            .unwrap()
-            .as_mut()
-            .map_err(|err| *err)?
+            .ok_or(FsError::EntryNotFound)?
             .as_mut())
     }
 
@@ -115,8 +93,9 @@ impl FileHandle {
     }
 }
 
+#[async_trait::async_trait]
 impl VirtualFile for FileHandle {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,
             _ => return 0,
@@ -129,7 +108,7 @@ impl VirtualFile for FileHandle {
         }
     }
 
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,
             _ => return 0,
@@ -142,7 +121,7 @@ impl VirtualFile for FileHandle {
         }
     }
 
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         let fs = match self.filesystem.inner.read() {
             Ok(fs) => fs,
             _ => return 0,
@@ -157,7 +136,7 @@ impl VirtualFile for FileHandle {
         node.metadata().created
     }
 
-    fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
+    async fn set_times(&mut self, atime: Option<u64>, mtime: Option<u64>) -> crate::Result<()> {
         let mut fs = match self.filesystem.inner.write() {
             Ok(fs) => fs,
             _ => return Err(crate::FsError::Lock),
@@ -178,38 +157,34 @@ impl VirtualFile for FileHandle {
         Err(crate::FsError::UnknownError)
     }
 
-    fn size(&self) -> u64 {
-        let fs = match self.filesystem.inner.read() {
-            Ok(fs) => fs,
-            _ => return 0,
+    async fn size(&self) -> u64 {
+        let size = {
+            let fs = match self.filesystem.inner.read() {
+                Ok(fs) => fs,
+                _ => return 0,
+            };
+
+            let inode = fs.storage.get(self.inode);
+            match inode {
+                Some(Node::File(node)) => return node.file.len().try_into().unwrap_or(0),
+                Some(Node::OffloadedFile(node)) => return node.file.len(),
+                Some(Node::ReadOnlyFile(node)) => return node.file.len().try_into().unwrap_or(0),
+                Some(Node::CustomFile(node)) => {
+                    let file = node.file.lock().unwrap();
+                    return futures::executor::block_on(file.size());
+                }
+                Some(Node::ArcFile(_)) => self.arc_file.as_ref().map(|file| file.as_ref()),
+                _ => return 0,
+            }
         };
 
-        let inode = fs.storage.get(self.inode);
-        match inode {
-            Some(Node::File(node)) => node.file.len().try_into().unwrap_or(0),
-            Some(Node::OffloadedFile(node)) => node.file.len(),
-            Some(Node::ReadOnlyFile(node)) => node.file.len().try_into().unwrap_or(0),
-            Some(Node::CustomFile(node)) => {
-                let file = node.file.lock().unwrap();
-                file.size()
-            }
-            Some(Node::ArcFile(node)) => match self.arc_file.as_ref() {
-                Some(file) => file.as_ref().map(|file| file.size()).unwrap_or(0),
-                None => node
-                    .fs
-                    .new_open_options()
-                    .read(self.readable)
-                    .write(self.writable)
-                    .append(self.append_mode)
-                    .open(node.path.as_path())
-                    .map(|file| file.size())
-                    .unwrap_or(0),
-            },
-            _ => 0,
+        match size {
+            Some(file) => file.size().await,
+            None => 0,
         }
     }
 
-    fn set_len(&mut self, new_size: u64) -> Result<()> {
+    async fn set_len(&mut self, new_size: u64) -> Result<()> {
         let mut fs = self.filesystem.inner.write().map_err(|_| FsError::Lock)?;
 
         let inode = fs.storage.get_mut(self.inode);
@@ -225,14 +200,14 @@ impl VirtualFile for FileHandle {
             }
             Some(Node::CustomFile(node)) => {
                 let mut file = node.file.lock().unwrap();
-                file.set_len(new_size)?;
+                futures::executor::block_on(file.set_len(new_size))?;
                 node.metadata.len = new_size;
             }
             Some(Node::ReadOnlyFile { .. }) => return Err(FsError::PermissionDenied),
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 let file = self.lazy_load_arc_file_mut()?;
-                file.set_len(new_size)?;
+                futures::executor::block_on(file.set_len(new_size))?;
             }
             _ => return Err(FsError::NotAFile),
         }
@@ -242,7 +217,7 @@ impl VirtualFile for FileHandle {
         Ok(())
     }
 
-    fn unlink(&mut self) -> Result<()> {
+    async fn unlink(&mut self) -> Result<()> {
         let filesystem = self.filesystem.clone();
         let inode = self.inode;
 
@@ -285,7 +260,7 @@ impl VirtualFile for FileHandle {
         Ok(())
     }
 
-    fn get_special_fd(&self) -> Option<u32> {
+    async fn get_special_fd(&self) -> Option<u32> {
         let fs = match self.filesystem.inner.read() {
             Ok(a) => a,
             Err(_) => {
@@ -297,93 +272,82 @@ impl VirtualFile for FileHandle {
         match inode {
             Some(Node::CustomFile(node)) => {
                 let file = node.file.lock().unwrap();
-                file.get_special_fd()
+                futures::executor::block_on(file.get_special_fd())
             }
-            Some(Node::ArcFile(node)) => match self.arc_file.as_ref() {
-                Some(file) => file
-                    .as_ref()
-                    .map(|file| file.get_special_fd())
-                    .unwrap_or(None),
-                None => node
-                    .fs
-                    .new_open_options()
-                    .read(self.readable)
-                    .write(self.writable)
-                    .append(self.append_mode)
-                    .open(node.path.as_path())
-                    .map(|file| file.get_special_fd())
-                    .unwrap_or(None),
+            Some(Node::ArcFile(_)) => match self.arc_file.as_ref() {
+                Some(file) => futures::executor::block_on(file.get_special_fd()),
+                None => None,
             },
             _ => None,
         }
     }
 
-    fn copy_reference(
+    async fn copy_reference(
         &mut self,
         src: Box<dyn VirtualFile + Send + Sync + 'static>,
-    ) -> BoxFuture<'_, std::io::Result<()>> {
+    ) -> std::io::Result<()> {
+        let accessed = src.last_accessed().await;
+        let created = src.created_time().await;
+        let modified = src.last_modified().await;
+        let len = src.size().await;
         let inner = self.filesystem.inner.clone();
-        Box::pin(async move {
-            let mut fs = inner.write().unwrap();
-            let inode = fs.storage.get_mut(self.inode);
-            match inode {
-                Some(inode) => {
-                    let metadata = Metadata {
-                        ft: crate::FileType {
-                            file: true,
-                            ..Default::default()
-                        },
-                        accessed: src.last_accessed(),
-                        created: src.created_time(),
-                        modified: src.last_modified(),
-                        len: src.size(),
-                    };
+        let mut fs = inner.write().unwrap();
+        let inode = fs.storage.get_mut(self.inode);
+        match inode {
+            Some(inode) => {
+                let metadata = Metadata {
+                    ft: crate::FileType {
+                        file: true,
+                        ..Default::default()
+                    },
+                    accessed,
+                    created,
+                    modified,
+                    len,
+                };
 
-                    *inode = Node::CustomFile(CustomFileNode {
-                        inode: inode.inode(),
-                        name: inode.name().to_string_lossy().to_string().into(),
-                        file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
-                        metadata,
-                        lifecycle: inode.file_lifecycle().cloned().unwrap_or_else(Arc::default),
-                    });
-                    Ok(())
-                }
-                None => Err(std::io::ErrorKind::InvalidInput.into()),
+                *inode = Node::CustomFile(CustomFileNode {
+                    inode: inode.inode(),
+                    name: inode.name().to_string_lossy().to_string().into(),
+                    file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
+                    metadata,
+                    lifecycle: inode.file_lifecycle().cloned().unwrap_or_else(Arc::default),
+                });
+                Ok(())
             }
-        })
+            None => Err(std::io::ErrorKind::InvalidInput.into()),
+        }
     }
 
-    fn copy_from_owned_buffer(&mut self, src: &OwnedBuffer) -> BoxFuture<'_, std::io::Result<()>> {
+    async fn copy_from_owned_buffer(&mut self, src: &OwnedBuffer) -> std::io::Result<()> {
         let inner = self.filesystem.inner.clone();
         let src = src.clone();
-        Box::pin(async move {
-            let mut fs = inner.write().unwrap();
-            let inode = fs.storage.get_mut(self.inode);
-            match inode {
-                Some(inode) => {
-                    let metadata = Metadata {
-                        ft: crate::FileType {
-                            file: true,
-                            ..Default::default()
-                        },
-                        accessed: 1,
-                        created: 1,
-                        modified: 1,
-                        len: src.len() as u64,
-                    };
+        let mut fs = inner.write().unwrap();
+        let inode = fs.storage.get_mut(self.inode);
+        match inode {
+            Some(inode) => {
+                let metadata = Metadata {
+                    ft: crate::FileType {
+                        file: true,
+                        ..Default::default()
+                    },
+                    accessed: 1,
+                    created: 1,
+                    modified: 1,
+                    len: src.len() as u64,
+                };
 
-                    *inode = Node::ReadOnlyFile(ReadOnlyFileNode {
-                        inode: inode.inode(),
-                        name: inode.name().to_string_lossy().to_string().into(),
-                        file: ReadOnlyFile { buffer: src },
-                        metadata,
-                        lifecycle: inode.file_lifecycle().cloned().unwrap_or_else(Arc::default),
-                    });
-                    Ok(())
-                }
-                None => Err(std::io::ErrorKind::InvalidInput.into()),
+                *inode = Node::ReadOnlyFile(ReadOnlyFileNode {
+                    inode: inode.inode(),
+                    name: inode.name().to_string_lossy().to_string().into(),
+                    file: ReadOnlyFile { buffer: src },
+                    metadata,
+                    lifecycle: inode.file_lifecycle().cloned().unwrap_or_else(Arc::default),
+                });
+                Ok(())
             }
-        })
+            None => Err(std::io::ErrorKind::InvalidInput.into()),
+        }
     }
 
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -489,7 +453,7 @@ impl VirtualFile for FileHandle {
         }
     }
 
-    fn write_from_mmap(&mut self, offset: u64, size: u64) -> std::io::Result<()> {
+    async fn write_from_mmap(&mut self, offset: u64, size: u64) -> std::io::Result<()> {
         if !self.writable {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,
@@ -524,13 +488,15 @@ impl VirtualFile for FileHandle {
         Ok(())
     }
 
-    fn as_owned_buffer(&self) -> Option<OwnedBuffer> {
+    async fn as_owned_buffer(&self) -> Option<OwnedBuffer> {
         let fs = self.filesystem.inner.read().ok()?;
 
         let inode = fs.storage.get(self.inode)?;
         match inode {
             Node::ReadOnlyFile(f) => Some(f.file.buffer.clone()),
-            Node::CustomFile(f) => f.file.lock().ok()?.as_owned_buffer(),
+            Node::CustomFile(f) => {
+                futures::executor::block_on(f.file.lock().ok()?.as_owned_buffer())
+            }
             _ => None,
         }
     }
@@ -561,8 +527,9 @@ mod test_virtual_file {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
-        let last_accessed_time = file.last_accessed();
+        let last_accessed_time = file.last_accessed().await;
 
         assert!(last_accessed_time > 0, "last accessed time is not zero");
 
@@ -572,8 +539,9 @@ mod test_virtual_file {
             .new_open_options()
             .read(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to open a file");
-        let next_last_accessed_time = file.last_accessed();
+        let next_last_accessed_time = file.last_accessed().await;
 
         assert!(
             next_last_accessed_time > last_accessed_time,
@@ -590,9 +558,13 @@ mod test_virtual_file {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
-        assert!(file.last_modified() > 0, "last modified time is not zero");
+        assert!(
+            file.last_modified().await > 0,
+            "last modified time is not zero"
+        );
     }
 
     #[tokio::test]
@@ -604,8 +576,9 @@ mod test_virtual_file {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
-        let created_time = file.created_time();
+        let created_time = file.created_time().await;
 
         assert!(created_time > 0, "created time is not zero");
 
@@ -613,8 +586,9 @@ mod test_virtual_file {
             .new_open_options()
             .read(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
-        let next_created_time = file.created_time();
+        let next_created_time = file.created_time().await;
 
         assert_eq!(
             next_created_time, created_time,
@@ -631,9 +605,10 @@ mod test_virtual_file {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
-        assert_eq!(file.size(), 0, "new file is empty");
+        assert_eq!(file.size().await, 0, "new file is empty");
     }
 
     #[tokio::test]
@@ -645,10 +620,14 @@ mod test_virtual_file {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
-        assert!(matches!(file.set_len(7), Ok(())), "setting a new length");
-        assert_eq!(file.size(), 7, "file has a new length");
+        assert!(
+            matches!(file.set_len(7).await, Ok(())),
+            "setting a new length"
+        );
+        assert_eq!(file.size().await, 7, "file has a new length");
     }
 
     #[tokio::test]
@@ -661,6 +640,7 @@ mod test_virtual_file {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         file.write_all(b"foo").await.expect("write before unlink");
@@ -694,10 +674,13 @@ mod test_virtual_file {
             );
         }
 
-        assert_eq!(file.unlink(), Ok(()), "unlinking the file");
+        assert_eq!(file.unlink().await, Ok(()), "unlinking the file");
         assert!(
             matches!(
-                fs.new_open_options().read(true).open(path!("/foo.txt")),
+                fs.new_open_options()
+                    .read(true)
+                    .open(path!("/foo.txt"))
+                    .await,
                 Err(FsError::EntryNotFound)
             ),
             "the path disappears immediately after unlink",
@@ -758,6 +741,7 @@ mod test_virtual_file {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
         first.write_all(b"foo").await.expect("seed contents");
 
@@ -766,9 +750,14 @@ mod test_virtual_file {
             .read(true)
             .write(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to open the same file a second time");
 
-        assert_eq!(first.unlink(), Ok(()), "unlinking through the first handle");
+        assert_eq!(
+            first.unlink().await,
+            Ok(()),
+            "unlinking through the first handle"
+        );
 
         second
             .seek(io::SeekFrom::End(0))
@@ -819,6 +808,7 @@ mod test_virtual_file {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
         let waker = Waker::noop();
         let mut cx = Context::from_waker(waker);
@@ -839,6 +829,7 @@ mod test_virtual_file {
             .new_open_options()
             .write(true)
             .open(path!("/dev"))
+            .await
             .expect("failed to open device file");
         let waker = Waker::noop();
         let mut cx = Context::from_waker(waker);
@@ -1094,7 +1085,7 @@ impl AsyncWrite for FileHandle {
                 }
                 Some(Node::CustomFile(node)) => {
                     let mut guard = node.file.lock().unwrap();
-                    cursor = self.write_cursor(guard.size());
+                    cursor = self.write_cursor(node.metadata.len);
 
                     let file = Pin::new(guard.as_mut());
                     if let Err(err) = file.start_seek(io::SeekFrom::Start(cursor)) {
@@ -1111,7 +1102,7 @@ impl AsyncWrite for FileHandle {
                         Poll::Pending => return Poll::Pending,
                     };
                     cursor += bytes_written as u64;
-                    node.metadata.len = guard.size();
+                    node.metadata.len = node.metadata.len.max(cursor);
                     bytes_written
                 }
                 Some(Node::ArcFile(_)) => {
@@ -1306,7 +1297,7 @@ impl AsyncWrite for FileHandle {
             Some(Node::ArcFile { .. }) => {
                 drop(fs);
                 match self.arc_file.as_ref() {
-                    Some(Ok(file)) => file.is_write_vectored(),
+                    Some(file) => file.is_write_vectored(),
                     _ => false,
                 }
             }
@@ -1339,19 +1330,20 @@ mod test_read_write_seek {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         assert!(
             matches!(file.write(b"foo").await, Ok(3)),
             "writing `foo` at the end of the file",
         );
-        assert_eq!(file.size(), 3, "checking the size of the file");
+        assert_eq!(file.size().await, 3, "checking the size of the file");
 
         assert!(
             matches!(file.write(b"bar").await, Ok(3)),
             "writing `bar` at the end of the file",
         );
-        assert_eq!(file.size(), 6, "checking the size of the file");
+        assert_eq!(file.size().await, 6, "checking the size of the file");
 
         assert!(
             matches!(file.seek(io::SeekFrom::Start(0)).await, Ok(0)),
@@ -1362,13 +1354,13 @@ mod test_read_write_seek {
             matches!(file.write(b"baz").await, Ok(3)),
             "writing `baz` at the beginning of the file",
         );
-        assert_eq!(file.size(), 6, "checking the size of the file");
+        assert_eq!(file.size().await, 6, "checking the size of the file");
 
         assert!(
             matches!(file.write(b"qux").await, Ok(3)),
             "writing `qux` in the middle of the file",
         );
-        assert_eq!(file.size(), 6, "checking the size of the file");
+        assert_eq!(file.size().await, 6, "checking the size of the file");
 
         assert!(
             matches!(file.seek(io::SeekFrom::Start(0)).await, Ok(0)),
@@ -1460,10 +1452,14 @@ mod test_read_write_seek {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         assert!(
-            matches!(fs.metadata(path!("/foo.txt")), Ok(Metadata { len: 0, .. })),
+            matches!(
+                fs.metadata(path!("/foo.txt")).await,
+                Ok(Metadata { len: 0, .. })
+            ),
             "checking the `metadata.len` is 0",
         );
         assert!(
@@ -1495,7 +1491,10 @@ mod test_read_write_seek {
         );
         assert_eq!(buffer[..12], b"foobarbazqux"[..], "checking the 12 bytes");
         assert!(
-            matches!(fs.metadata(path!("/foo.txt")), Ok(Metadata { len: 12, .. })),
+            matches!(
+                fs.metadata(path!("/foo.txt")).await,
+                Ok(Metadata { len: 12, .. })
+            ),
             "checking the `metadata.len` is 0",
         );
     }
@@ -1510,6 +1509,7 @@ mod test_read_write_seek {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         assert!(
@@ -1540,6 +1540,7 @@ mod test_read_write_seek {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         assert!(
@@ -1570,6 +1571,7 @@ mod test_read_write_seek {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
+            .await
             .expect("failed to create a new file");
 
         assert!(

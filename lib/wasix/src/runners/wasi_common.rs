@@ -178,19 +178,31 @@ impl CommonWasiOptions {
 //     OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
 
 fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
+    fn guest_path_from_components(components: &[std::ffi::OsString]) -> PathBuf {
+        let mut path = String::from("/");
+        path.push_str(
+            &components
+                .iter()
+                .map(|component| component.to_string_lossy())
+                .collect::<Vec<_>>()
+                .join("/"),
+        );
+        PathBuf::from(path)
+    }
+
     let mut guest_path = PathBuf::from(guest_path);
 
     if guest_path.is_relative() {
         guest_path = apply_relative_path_mounting_hack(&guest_path);
     }
 
-    let mut normalized = PathBuf::from("/");
+    let mut normalized = Vec::new();
     for component in guest_path.components() {
         match component {
-            Component::RootDir => normalized = PathBuf::from("/"),
+            Component::RootDir => normalized.clear(),
             Component::CurDir => {}
             Component::ParentDir => {
-                if normalized.as_os_str() == "/" {
+                if normalized.is_empty() {
                     anyhow::bail!(
                         "Invalid guest mount path \"{}\": parent traversal escapes the virtual root",
                         guest_path.display()
@@ -198,7 +210,7 @@ fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
                 }
                 normalized.pop();
             }
-            Component::Normal(part) => normalized.push(part),
+            Component::Normal(part) => normalized.push(part.to_os_string()),
             Component::Prefix(_) => {
                 anyhow::bail!(
                     "Invalid guest mount path \"{}\": platform-specific prefixes are not supported",
@@ -208,7 +220,7 @@ fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
         }
     }
 
-    Ok(normalized)
+    Ok(guest_path_from_components(&normalized))
 }
 
 fn prepare_filesystem(
@@ -555,15 +567,22 @@ mod tests {
         .unwrap();
 
         use virtual_fs::FileSystem;
-        assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
-        assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
+        assert!(
+            fs.metadata("/home/file.txt".as_ref())
+                .await
+                .unwrap()
+                .is_file()
+        );
+        assert!(fs.metadata("lib".as_ref()).await.unwrap().is_dir());
         assert!(
             fs.metadata("lib/python3.6/collections/__init__.py".as_ref())
+                .await
                 .unwrap()
                 .is_file()
         );
         assert!(
             fs.metadata("lib/python3.6/encodings/__init__.py".as_ref())
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -591,20 +610,23 @@ mod tests {
         )
         .unwrap();
 
-        fs.create_dir(Path::new("/python/custom")).unwrap();
+        fs.create_dir(Path::new("/python/custom")).await.unwrap();
         fs.new_open_options()
             .create(true)
             .write(true)
             .open(Path::new("/python/custom/sitecustomize.py"))
+            .await
             .unwrap();
 
         assert!(
             fs.metadata(Path::new("/python/custom/sitecustomize.py"))
+                .await
                 .unwrap()
                 .is_file()
         );
         assert!(
             fs.metadata(Path::new("/python/lib/python3.6/collections/__init__.py"))
+                .await
                 .unwrap()
                 .is_file()
         );
@@ -636,14 +658,18 @@ mod tests {
             Path::new("lib/python3.6/collections"),
             Path::new("/python/collections-link"),
         )
+        .await
         .unwrap();
 
         assert_eq!(
-            fs.readlink(Path::new("/python/collections-link")).unwrap(),
+            fs.readlink(Path::new("/python/collections-link"))
+                .await
+                .unwrap(),
             Path::new("lib/python3.6/collections")
         );
         assert!(
             fs.symlink_metadata(Path::new("/python/collections-link"))
+                .await
                 .unwrap()
                 .ft
                 .is_symlink()
@@ -660,6 +686,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/user.txt"))
+            .await
             .unwrap();
 
         let package_mount = TmpFileSystem::new();
@@ -668,6 +695,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/pkg.txt"))
+            .await
             .unwrap();
 
         let mounted_dirs = [MountedDirectory {
@@ -692,11 +720,12 @@ mod tests {
 
         assert!(
             fs.metadata(Path::new("/python/user.txt"))
+                .await
                 .unwrap()
                 .is_file()
         );
         assert_eq!(
-            fs.metadata(Path::new("/python/pkg.txt")),
+            fs.metadata(Path::new("/python/pkg.txt")).await,
             Err(virtual_fs::FsError::EntryNotFound)
         );
     }
@@ -744,6 +773,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/user.txt"))
+            .await
             .unwrap();
 
         let mounted_dirs = [MountedDirectory {
@@ -758,6 +788,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/pkg.txt"))
+            .await
             .unwrap();
         container_mounts
             .mount(Path::new("/"), Arc::new(container_root))
@@ -773,8 +804,8 @@ mod tests {
         )
         .unwrap();
 
-        assert!(fs.metadata(Path::new("/user.txt")).unwrap().is_file());
-        assert!(fs.metadata(Path::new("/pkg.txt")).unwrap().is_file());
+        assert!(fs.metadata(Path::new("/user.txt")).await.unwrap().is_file());
+        assert!(fs.metadata(Path::new("/pkg.txt")).await.unwrap().is_file());
     }
 
     #[tokio::test]
@@ -787,6 +818,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/first.txt"))
+            .await
             .unwrap();
 
         let second_root = TmpFileSystem::new();
@@ -795,6 +827,7 @@ mod tests {
             .create(true)
             .write(true)
             .open(Path::new("/second.txt"))
+            .await
             .unwrap();
 
         let mounted_dirs = [
@@ -818,8 +851,18 @@ mod tests {
         )
         .unwrap();
 
-        assert!(fs.metadata(Path::new("/first.txt")).unwrap().is_file());
-        assert!(fs.metadata(Path::new("/second.txt")).unwrap().is_file());
+        assert!(
+            fs.metadata(Path::new("/first.txt"))
+                .await
+                .unwrap()
+                .is_file()
+        );
+        assert!(
+            fs.metadata(Path::new("/second.txt"))
+                .await
+                .unwrap()
+                .is_file()
+        );
     }
 
     #[tokio::test]
@@ -856,6 +899,18 @@ mod tests {
         );
     }
 
+    #[test]
+    fn normalized_guest_mount_paths_use_guest_separators() {
+        assert_eq!(
+            normalized_mount_path("/mnt/dir").unwrap(),
+            PathBuf::from("/mnt/dir")
+        );
+        assert_eq!(
+            normalized_mount_path("/mnt/./dir/../data").unwrap(),
+            PathBuf::from("/mnt/data")
+        );
+    }
+
     #[tokio::test]
     #[cfg_attr(not(feature = "host-fs"), ignore)]
     async fn convert_mapped_directory_to_mounted_directory() {
@@ -874,6 +929,7 @@ mod tests {
         let directory_contents: Vec<_> = got
             .fs
             .read_dir("/".as_ref())
+            .await
             .unwrap()
             .map(|entry| entry.unwrap())
             .collect();

@@ -98,7 +98,7 @@ pub(crate) fn fd_seek_internal(
                         drop(guard);
 
                         wasi_try_ok_ok!(__asyncify(ctx, None, async move {
-                            let mut handle = handle.write().unwrap();
+                            let mut handle = handle.lock().await;
                             let end = handle
                                 .seek(SeekFrom::End(offset))
                                 .await

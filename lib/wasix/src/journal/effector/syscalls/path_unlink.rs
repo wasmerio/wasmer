@@ -28,9 +28,21 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         // see `VIRTUAL_ROOT_FD` for details as to why this exists
         if fd == VIRTUAL_ROOT_FD {
-            ctx.data().state.fs.root_fs.remove_file(Path::new(path))?;
+            crate::syscalls::__asyncify_light(ctx.data(), None, async {
+                ctx.data()
+                    .state
+                    .fs
+                    .root_fs
+                    .remove_file(Path::new(path))
+                    .await
+                    .map_err(crate::fs::fs_error_into_wasi_err)
+            })??;
         } else {
-            let ret = crate::syscalls::path_unlink_file_internal(ctx, fd, path)?;
+            let ret = crate::syscalls::__asyncify_light(
+                ctx.data(),
+                None,
+                crate::syscalls::path_unlink_file_internal(ctx.data(), fd, path),
+            )??;
             if ret != Errno::Success {
                 bail!(
                     "journal restore error: failed to remove file (fd={fd}, path={path}) - {ret}"

@@ -50,7 +50,7 @@ async fn write_readonly_buffer_to_fs(
     contents: &shared_buffer::OwnedBuffer,
 ) -> Result<(), FsError> {
     if let Some(parent) = path.parent() {
-        virtual_fs::create_dir_all(fs, parent)?;
+        virtual_fs::create_dir_all(fs, parent).await?;
     }
 
     if let Some(root_fs) = fs.writable_root() {
@@ -64,7 +64,8 @@ async fn write_readonly_buffer_to_fs(
         .create(true)
         .truncate(true)
         .write(true)
-        .open(path)?;
+        .open(path)
+        .await?;
     file.copy_from_owned_buffer(contents)
         .await
         .map_err(virtual_fs::FsError::from)
@@ -1128,9 +1129,9 @@ impl WasiEnv {
         // Next, make sure all commands will be available
 
         if !pkg.commands.is_empty() {
-            let _ = root_fs.create_dir(Path::new("/bin"));
-            let _ = root_fs.create_dir(Path::new("/usr"));
-            let _ = root_fs.create_dir(Path::new("/usr/bin"));
+            let _ = root_fs.create_dir(Path::new("/bin")).await;
+            let _ = root_fs.create_dir(Path::new("/usr")).await;
+            let _ = root_fs.create_dir(Path::new("/usr/bin")).await;
 
             for command in &pkg.commands {
                 let path = format!("/bin/{}", command.name());

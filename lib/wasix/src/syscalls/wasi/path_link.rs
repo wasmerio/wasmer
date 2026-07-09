@@ -41,14 +41,11 @@ pub fn path_link<M: MemorySize>(
     let mut new_path_str = unsafe { get_input_str_ok!(&memory, new_path, new_path_len) };
     Span::current().record("new_path", new_path_str.as_str());
 
-    wasi_try_ok!(path_link_internal(
-        &mut ctx,
-        old_fd,
-        old_flags,
-        &old_path_str,
-        new_fd,
-        &new_path_str
-    ));
+    wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        path_link_internal(env, old_fd, old_flags, &old_path_str, new_fd, &new_path_str)
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -70,16 +67,16 @@ pub fn path_link<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub(crate) fn path_link_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn path_link_internal(
+    env: &WasiEnv,
     old_fd: WasiFd,
     old_flags: LookupFlags,
     old_path: &str,
     new_fd: WasiFd,
     new_path: &str,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let state = env.state();
+    let inodes = &state.inodes;
     let source_fd = state.fs.get_fd(old_fd)?;
     let target_fd = state.fs.get_fd(new_fd)?;
 
@@ -92,17 +89,20 @@ pub(crate) fn path_link_internal(
     Span::current().record("old_path", old_path);
     Span::current().record("new_path", new_path);
 
-    let source_inode = state.fs.get_inode_at_path(
-        inodes,
-        old_fd,
-        old_path,
-        old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
-    )?;
+    let source_inode = state
+        .fs
+        .get_inode_at_path(
+            inodes,
+            old_fd,
+            old_path,
+            old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
+        )
+        .await?;
     let target_path_arg = std::path::PathBuf::from(new_path);
-    let (target_parent_inode, new_entry_name) =
-        state
-            .fs
-            .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, true)?;
+    let (target_parent_inode, new_entry_name) = state
+        .fs
+        .get_parent_inode_at_path(inodes, new_fd, &target_path_arg, true)
+        .await?;
 
     if source_inode.stat.write().unwrap().st_nlink == Linkcount::MAX {
         return Err(Errno::Mlink);
@@ -158,13 +158,13 @@ pub(crate) fn path_link_internal(
     };
 
     let target_inode = if let Some((source_path, target_path)) = materialized_paths {
-        match state.fs.root_fs.symlink_metadata(&target_path) {
+        match state.fs.root_fs.symlink_metadata(&target_path).await {
             Ok(_) => return Err(Errno::Exist),
             Err(virtual_fs::FsError::EntryNotFound) => {}
             Err(err) => return Err(fs_error_into_wasi_err(err)),
         }
 
-        match state.fs.root_fs.hard_link(&source_path, &target_path) {
+        match state.fs.root_fs.hard_link(&source_path, &target_path).await {
             Ok(()) => {
                 let kind = Kind::File {
                     handle: None,
@@ -177,7 +177,7 @@ pub(crate) fn path_link_internal(
                 {
                     Ok(inode) => inode,
                     Err(err) => {
-                        let _ = state.fs.root_fs.remove_file(&target_path);
+                        let _ = state.fs.root_fs.remove_file(&target_path).await;
                         return Err(err);
                     }
                 }

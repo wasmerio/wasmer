@@ -32,12 +32,11 @@ pub fn path_symlink<M: MemorySize>(
     let new_path_str = unsafe { get_input_str_ok!(&memory, new_path, new_path_len) };
     Span::current().record("new_path", new_path_str.as_str());
 
-    wasi_try_ok!(path_symlink_internal(
-        &mut ctx,
-        &old_path_str,
-        fd,
-        &new_path_str
-    ));
+    wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        path_symlink_internal(env, &old_path_str, fd, &new_path_str)
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -53,14 +52,14 @@ pub fn path_symlink<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub fn path_symlink_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub async fn path_symlink_internal(
+    env: &WasiEnv,
     old_path: &str,
     fd: WasiFd,
     new_path: &str,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let state = env.state();
+    let inodes = &state.inodes;
 
     let base_fd = state.fs.get_fd(fd)?;
     if !base_fd.inner.rights.contains(Rights::PATH_SYMLINK) {
@@ -68,10 +67,10 @@ pub fn path_symlink_internal(
     }
 
     let new_path_path = std::path::Path::new(new_path);
-    let (target_parent_inode, entry_name) =
-        state
-            .fs
-            .get_parent_inode_at_path(inodes, fd, new_path_path, true)?;
+    let (target_parent_inode, entry_name) = state
+        .fs
+        .get_parent_inode_at_path(inodes, fd, new_path_path, true)
+        .await?;
 
     let symlink_path = {
         let guard = target_parent_inode.read();
@@ -108,7 +107,11 @@ pub fn path_symlink_internal(
 
     let source_path = std::path::Path::new(old_path);
     let target_path = symlink_path.as_path();
-    let persisted_in_backing_fs = state.fs.root_fs.create_symlink(source_path, target_path);
+    let persisted_in_backing_fs = state
+        .fs
+        .root_fs
+        .create_symlink(source_path, target_path)
+        .await;
 
     let needs_ephemeral_fallback = match persisted_in_backing_fs {
         Ok(()) => false,

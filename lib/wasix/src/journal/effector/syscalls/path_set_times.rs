@@ -38,8 +38,20 @@ impl JournalEffector {
         if fd == VIRTUAL_ROOT_FD {
             // we ignore this record as its not implemented yet
         } else {
-            crate::syscalls::path_filestat_set_times_internal(ctx, fd, flags, path, st_atim, st_mtim, fst_flags)
-                .map_err(|err| {
+            crate::syscalls::__asyncify_light(
+                ctx.data(),
+                None,
+                crate::syscalls::path_filestat_set_times_internal(
+                    ctx.data(),
+                    fd,
+                    flags,
+                    path,
+                    st_atim,
+                    st_mtim,
+                    fst_flags,
+                ),
+            )?
+            .map_err(|err| {
                     anyhow::format_err!(
                         "journal restore error: failed to set path times (fd={fd}, flags={flags}, path={path}, st_atim={st_atim}, st_mtim={st_mtim}, fst_flags={fst_flags:?}) - {err}")
                 })?;

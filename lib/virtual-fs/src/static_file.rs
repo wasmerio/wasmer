@@ -27,32 +27,33 @@ impl StaticFile {
 
 #[async_trait::async_trait]
 impl VirtualFile for StaticFile {
-    fn last_accessed(&self) -> u64 {
+    async fn last_accessed(&self) -> u64 {
         0
     }
 
-    fn last_modified(&self) -> u64 {
+    async fn last_modified(&self) -> u64 {
         0
     }
 
-    fn created_time(&self) -> u64 {
+    async fn created_time(&self) -> u64 {
         0
     }
 
-    fn size(&self) -> u64 {
+    async fn size(&self) -> u64 {
         self.0.get_ref().len().try_into().unwrap()
     }
 
-    fn set_len(&mut self, _new_size: u64) -> Result<(), FsError> {
+    async fn set_len(&mut self, _new_size: u64) -> Result<(), FsError> {
         Err(FsError::PermissionDenied)
     }
 
-    fn unlink(&mut self) -> Result<(), FsError> {
+    async fn unlink(&mut self) -> Result<(), FsError> {
         Err(FsError::PermissionDenied)
     }
 
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
-        let remaining = self.size() - self.0.position();
+        let size = self.0.get_ref().len() as u64;
+        let remaining = size - self.0.position();
         Poll::Ready(Ok(remaining.try_into().unwrap()))
     }
 

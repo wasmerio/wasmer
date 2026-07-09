@@ -21,9 +21,11 @@ pub fn path_remove_directory<M: MemorySize>(
     let path_str = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path_str.as_str());
 
-    wasi_try_ok!(path_remove_directory_internal(
-        &mut ctx, fd, base_dir, &path_str
-    ));
+    wasi_try_ok!(__asyncify_light(
+        env,
+        None,
+        path_remove_directory_internal(env, fd, base_dir, &path_str)
+    )?);
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
@@ -39,36 +41,37 @@ pub fn path_remove_directory<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub(crate) fn path_remove_directory_internal(
-    ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+pub(crate) async fn path_remove_directory_internal(
+    env: &WasiEnv,
     fd: WasiFd,
     _base_dir: Fd,
     path: &str,
 ) -> Result<(), Errno> {
-    let env = ctx.data();
-    let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let state = env.state();
+    let inodes = &state.inodes;
 
-    let (parent_inode, dir_name) =
-        state
-            .fs
-            .get_parent_inode_at_path(inodes, fd, Path::new(path), true)?;
+    let (parent_inode, dir_name) = state
+        .fs
+        .get_parent_inode_at_path(inodes, fd, Path::new(path), true)
+        .await?;
 
-    let mut guard = parent_inode.write();
-    match guard.deref_mut() {
-        Kind::Dir {
-            entries: parent_entries,
-            ..
-        } => {
-            let Some(child_inode) = parent_entries.get(&dir_name) else {
-                return Err(Errno::Noent);
-            };
+    let child_path = {
+        let guard = parent_inode.read();
+        match guard.deref() {
+            Kind::Dir {
+                entries: parent_entries,
+                ..
+            } => {
+                let Some(child_inode) = parent_entries.get(&dir_name) else {
+                    return Err(Errno::Noent);
+                };
 
-            {
+                let child_guard = child_inode.read();
                 let Kind::Dir {
-                    entries: ref child_entries,
-                    path: ref child_path,
+                    entries: child_entries,
+                    path: child_path,
                     ..
-                } = *child_inode.read()
+                } = child_guard.deref()
                 else {
                     return Err(Errno::Notdir);
                 };
@@ -77,25 +80,32 @@ pub(crate) fn path_remove_directory_internal(
                     return Err(Errno::Notempty);
                 }
 
-                if let Err(e) = state.fs_remove_dir(child_path) {
-                    tracing::warn!(path = ?child_path, error = ?e, "failed to remove directory");
-                    return Err(e);
-                }
+                child_path.clone()
             }
+            Kind::Root { .. } => {
+                trace!("directories directly in the root node can not be removed");
+                return Err(Errno::Access);
+            }
+            _ => {
+                trace!("path is not a directory");
+                return Err(Errno::Notdir);
+            }
+        }
+    };
 
-            parent_entries.remove(&dir_name).expect(
+    if let Err(e) = state.fs_remove_dir(&child_path).await {
+        tracing::warn!(path = ?child_path, error = ?e, "failed to remove directory");
+        return Err(e);
+    }
+
+    {
+        let mut guard = parent_inode.write();
+        if let Kind::Dir { entries, .. } = guard.deref_mut() {
+            entries.remove(&dir_name).expect(
                 "Entry should exist since we checked before and have an exclusive write lock",
             );
+        }
+    };
 
-            Ok(())
-        }
-        Kind::Root { .. } => {
-            trace!("directories directly in the root node can not be removed");
-            Err(Errno::Access)
-        }
-        _ => {
-            trace!("path is not a directory");
-            Err(Errno::Notdir)
-        }
-    }
+    Ok(())
 }

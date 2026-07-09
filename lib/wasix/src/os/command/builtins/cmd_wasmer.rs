@@ -91,9 +91,10 @@ impl CmdWasmer {
             };
 
             let fs = env.fs_root();
-            let f = fs.new_open_options().read(true).open(&file_path);
-            let executable = if let Ok(mut file) = f {
-                let mut data = Vec::with_capacity(file.size() as usize);
+            let mut open_options = fs.new_open_options();
+            let f = open_options.read(true).open(&file_path);
+            let executable = if let Ok(mut file) = f.await {
+                let mut data = Vec::with_capacity(file.size().await as usize);
                 file.read_to_end(&mut data).await.unwrap();
 
                 let bytes: bytes::Bytes = data.into();

@@ -415,6 +415,7 @@ mod tests {
             .new_open_options()
             .read(true)
             .open("/public/file.txt")
+            .await
             .unwrap();
         let mut buffer = String::new();
         f.read_to_string(&mut buffer).await.unwrap();
