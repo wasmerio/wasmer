@@ -96,6 +96,7 @@ use wasmer_wasix::virtual_fs::{
 };
 
 mod error;
+mod mock_net;
 mod runner;
 
 const TESTED_LIBC_VERSIONS: &[Option<&str>] = &[None, Some("v2026-05-12.1")];
@@ -1247,6 +1248,19 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         }
     }));
 
+    tests.push(libtest_mimic::Trial::test(
+        "wasm/writev_partial_send_error",
+        {
+            let tests_dir = tests_dir.clone();
+            let tests_build_root = tests_build_root.clone();
+            move || {
+                run_writev_partial_send_error(&tests_dir, &tests_build_root)
+                    .map(|_| ())
+                    .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
+            }
+        },
+    ));
+
     for entry in WalkDir::new(&tests_dir)
         .into_iter()
         .filter_map(Result::ok)
@@ -1411,6 +1425,57 @@ fn run_dynamic_runtime_hook_smoke(
     ensure!(
         setup_with_imported_memory.load(Ordering::SeqCst) >= 2,
         "expected imported memory for dynamic main and side modules"
+    );
+
+    Ok(libtest_mimic::Completion::Completed)
+}
+
+/// Drives the stream writev partial-success path where a *later* per-iovec
+/// send() errors after an earlier iovec was fully sent. This cannot be
+/// triggered deterministically over real host sockets (it would race an
+/// asynchronous RST between two back-to-back sends of a single writev - see
+/// issue #6785), so it runs against a mock networking backend whose TCP socket
+/// succeeds on the first send and returns ECONNRESET afterwards. fd_write must
+/// return the bytes already transferred (the first iovec length) rather than
+/// failing the whole syscall.
+fn run_writev_partial_send_error(
+    tests_dir: &Path,
+    tests_build_root: &Path,
+) -> Result<libtest_mimic::Completion> {
+    if cfg!(target_os = "windows") {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "WASIXCC toolchain does not cover Windows yet",
+        ));
+    }
+
+    let source_dir = tests_dir.join("socket/writev-partial-send-error");
+    let config = Config::new(
+        PrimarySource::CSourceFile("main.c".to_owned()),
+        source_dir,
+        tests_build_root.to_path_buf(),
+        "writev_partial_send_error".to_owned(),
+    );
+    let wasm = run_build_script(&config)?;
+    let run_dir = config.build_path();
+
+    let result = runner::run_wasm_with_runner_and_runtime_config(
+        &wasm,
+        &run_dir,
+        config.engine,
+        config.program_name.as_deref(),
+        false,
+        |_| Ok(()),
+        |runtime| {
+            runtime.set_networking_implementation(mock_net::FailAfterFirstSendNetworking);
+            Ok(())
+        },
+    )?;
+
+    ensure!(
+        result.exit_code == 0,
+        "writev partial send error exited with {}\n{}",
+        result.exit_code,
+        runner::format_captured_output(&result),
     );
 
     Ok(libtest_mimic::Completion::Completed)
