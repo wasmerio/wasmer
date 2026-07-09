@@ -641,6 +641,7 @@ impl Artifact {
         let image = object::File::parse(elf_file_data)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
 
+        dbg!("mapping ELF file of size: {}", elf_file_data.len());
         let base = engine_inner.map_elf_binary(&image, elf_file_data)?;
 
         let mut function_offsets = None;

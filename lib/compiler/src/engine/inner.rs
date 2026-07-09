@@ -71,7 +71,7 @@ impl Engine {
                 #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
-                elf_mapped_binary: vec![],
+                elf_mapped_binary: None,
                 #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
@@ -132,7 +132,7 @@ impl Engine {
                 #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
-                elf_mapped_binary: vec![],
+                elf_mapped_binary: None,
                 #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
@@ -364,9 +364,9 @@ pub struct EngineInner {
     /// functions to memory.
     #[cfg(not(target_arch = "wasm32"))]
     code_memory: Vec<CodeMemory>,
-    /// Memory-mapped ELF artifact images, produced by `--elf-artifact`.
+    /// Memory-mapped ELF artifact image, produced by `--elf-artifact`.
     #[cfg(not(target_arch = "wasm32"))]
-    elf_mapped_binary: Vec<MemoryMappedBinary>,
+    elf_mapped_binary: Option<MemoryMappedBinary>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     #[cfg(not(target_arch = "wasm32"))]
@@ -563,7 +563,7 @@ impl EngineInner {
         let map = MemoryMappedBinary::try_from_bytes(object_file, data)
             .map_err(CompileError::Resource)?;
         let base = map.base();
-        self.elf_mapped_binary.push(map);
+        self.elf_mapped_binary = Some(map);
         Ok(base)
     }
 
@@ -575,7 +575,7 @@ impl EngineInner {
         size: u64,
     ) -> Result<(), CompileError> {
         self.elf_mapped_binary
-            .last_mut()
+            .as_mut()
             .unwrap()
             .publish_eh_frame_section(address, size)
             .map_err(|e| {
