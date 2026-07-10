@@ -101,4 +101,19 @@ impl BackendExternRef {
             r.is_from_store(store)
         })
     }
+
+    /// Whether two [`BackendExternRef`]s point to the same underlying extern object.
+    #[inline]
+    pub fn ptr_eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            #[cfg(feature = "sys")]
+            (Self::Sys(a), Self::Sys(b)) => a.ptr_eq(b),
+            #[cfg(feature = "v8")]
+            (Self::V8(a), Self::V8(b)) => a.ptr_eq(b),
+            #[cfg(feature = "js")]
+            (Self::Js(a), Self::Js(b)) => a.ptr_eq(b),
+            #[allow(unreachable_patterns)]
+            _ => false,
+        }
+    }
 }

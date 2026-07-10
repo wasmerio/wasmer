@@ -51,4 +51,32 @@ impl ExternRef {
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.0.is_from_store(store)
     }
+
+    /// Whether two [`ExternRef`]s refer to the same underlying extern object.
+    pub fn ptr_eq(&self, other: &ExternRef) -> bool {
+        self.0.ptr_eq(&other.0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{ExternRef, Store};
+
+    #[test]
+    fn ptr_eq_tracks_object_identity() {
+        let mut store = Store::default();
+
+        let a = ExternRef::new(&mut store, 7i32);
+        // A clone is the same underlying extern object.
+        assert!(a.ptr_eq(&a.clone()));
+
+        // A separately created ref (even with an equal payload) is distinct.
+        let b = ExternRef::new(&mut store, 7i32);
+        assert!(!a.ptr_eq(&b));
+        assert!(!b.ptr_eq(&a));
+
+        // The downcast payloads are what we expect.
+        assert_eq!(a.downcast::<i32>(&store), Some(&7));
+        assert_eq!(b.downcast::<i32>(&store), Some(&7));
+    }
 }
