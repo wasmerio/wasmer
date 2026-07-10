@@ -327,7 +327,6 @@ wcgi = "0.3.0"
 wcgi-host = "0.3.0"
 web-sys = "0.3.64"
 web-time = "1.1"
-weezl = "0.2"
 which = "8.0.0"
 windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
@@ -421,8 +420,6 @@ opt-level = 3
 [profile.dev.package.rkyv]
 opt-level = 3
 [profile.dev.package.wasmer-types]
-opt-level = 3
-[profile.dev.package.weezl]
 opt-level = 3
 [profile.dev.package.sha2]
 opt-level = 3

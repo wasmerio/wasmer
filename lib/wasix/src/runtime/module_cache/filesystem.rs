@@ -203,26 +203,6 @@ fn deserialize_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> 
             path: path.to_path_buf(),
             error,
         }),
-        Err(wasmer::DeserializeError::Incompatible(_)) => {
-            // Fall back to the legacy LZW-compressed cache format.
-            let bytes = match std::fs::read(path) {
-                Ok(bytes) => bytes,
-                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                    return Err(CacheError::NotFound);
-                }
-                Err(error) => {
-                    return Err(CacheError::FileRead {
-                        path: path.to_path_buf(),
-                        error,
-                    });
-                }
-            };
-            let bytes = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8)
-                .decode(&bytes)
-                .map_err(CacheError::other)?;
-
-            Ok(unsafe { Module::deserialize(engine, bytes)? })
-        }
         Err(e) => Err(CacheError::Deserialize(e)),
     }
 }
@@ -300,30 +280,6 @@ mod tests {
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
         std::fs::write(&expected_path, &serialized).unwrap();
-
-        let module = cache.load(key, &engine).await.unwrap();
-
-        let exports: Vec<_> = module
-            .exports()
-            .map(|export| export.name().to_string())
-            .collect();
-        assert_eq!(exports, ["add"]);
-    }
-
-    /// For backwards compatibility, make sure we can still work with LZW
-    /// compressed modules.
-    #[tokio::test]
-    async fn can_still_load_lzw_compressed_binaries() {
-        let temp = TempDir::new().unwrap();
-        let engine = Engine::default();
-        let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::from_bytes([0; _]);
-        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        let expected_path = cache.path(key, &engine.deterministic_id());
-        std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
-        let serialized = module.serialize().unwrap();
-        let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
-        std::fs::write(&expected_path, encoder.encode(&serialized).unwrap()).unwrap();
 
         let module = cache.load(key, &engine).await.unwrap();
 
