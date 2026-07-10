@@ -5,11 +5,15 @@ use crate::engine::builder::EngineBuilder;
 #[cfg(feature = "compiler")]
 use crate::{Compiler, CompilerConfig};
 
-use wasmer_types::{CompilationProgressCallback, Features};
+use wasmer_types::CompilationProgressCallback;
+#[cfg(feature = "compiler")]
+use wasmer_types::Features;
 use wasmer_types::{CompileError, target::Target};
 
 #[cfg(not(target_arch = "wasm32"))]
 use shared_buffer::OwnedBuffer;
+#[cfg(not(target_arch = "wasm32"))]
+use std::ffi::c_void;
 #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
 use std::io::Write;
 #[cfg(not(target_arch = "wasm32"))]
@@ -25,6 +29,7 @@ use wasmer_types::{
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
+    engine::mapped_binary::MemoryMappedBinary,
     types::{
         function::FunctionBodyLike,
         section::{CustomSectionLike, CustomSectionProtection, SectionIndex},
@@ -67,6 +72,8 @@ impl Engine {
                 features,
                 #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
+                #[cfg(not(target_arch = "wasm32"))]
+                elf_mapped_binary: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
@@ -126,6 +133,8 @@ impl Engine {
                 features: Features::default(),
                 #[cfg(not(target_arch = "wasm32"))]
                 code_memory: vec![],
+                #[cfg(not(target_arch = "wasm32"))]
+                elf_mapped_binary: vec![],
                 #[cfg(not(target_arch = "wasm32"))]
                 signatures: SignatureRegistry::new(),
             })),
@@ -357,6 +366,9 @@ pub struct EngineInner {
     /// functions to memory.
     #[cfg(not(target_arch = "wasm32"))]
     code_memory: Vec<CodeMemory>,
+    /// Memory-mapped ELF artifact image, produced by `--elf-artifact`.
+    #[cfg(not(target_arch = "wasm32"))]
+    elf_mapped_binary: Vec<MemoryMappedBinary>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     #[cfg(not(target_arch = "wasm32"))]
@@ -541,6 +553,38 @@ impl EngineInner {
         Ok(())
     }
 
+    /// Memory-map a compiled ELF artifact image, keeping the mapping alive
+    /// for the lifetime of the engine. Returns the base address of the
+    /// mapping, which section/symbol offsets from the image are relative to.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn map_elf_binary<'a, R: object::ReadRef<'a>>(
+        &mut self,
+        object_file: &object::File<'a, R>,
+        data: &[u8],
+    ) -> Result<*mut c_void, CompileError> {
+        let map = MemoryMappedBinary::try_from_bytes(object_file, data)
+            .map_err(CompileError::Resource)?;
+        let base = map.base();
+        self.elf_mapped_binary.push(map);
+        Ok(base)
+    }
+
+    /// Register DWARF-type exception handling information associated with the code.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn publish_elf_eh_frame(
+        &mut self,
+        address: u64,
+        size: u64,
+    ) -> Result<(), CompileError> {
+        self.elf_mapped_binary
+            .last_mut()
+            .unwrap()
+            .publish_eh_frame_section(address, size)
+            .map_err(|e| {
+                CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
+            })
+    }
+
     /// Shared signature registry.
     #[cfg(not(target_arch = "wasm32"))]
     pub fn signatures(&self) -> &SignatureRegistry {
@@ -551,6 +595,15 @@ impl EngineInner {
     /// Register the frame info for the code memory
     pub(crate) fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
         self.code_memory
+            .last_mut()
+            .unwrap()
+            .register_frame_info(frame_info);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Register the frame info for the most recently mapped ELF binary.
+    pub(crate) fn register_elf_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
+        self.elf_mapped_binary
             .last_mut()
             .unwrap()
             .register_frame_info(frame_info);

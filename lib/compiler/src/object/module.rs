@@ -2,7 +2,7 @@ use super::error::ObjectError;
 use crate::{
     serialize::MetadataHeader,
     types::{
-        function::Compilation,
+        function::RkyvCompilation,
         relocation::{RelocationKind as Reloc, RelocationTarget},
         section::{CustomSectionProtection, SectionIndex},
         symbols::{ModuleMetadata, Symbol, SymbolRegistry},
@@ -139,7 +139,7 @@ pub fn emit_data(
 /// ```
 pub fn emit_compilation(
     obj: &mut Object,
-    compilation: Compilation,
+    compilation: RkyvCompilation,
     symbol_registry: &impl SymbolRegistry,
     triple: &Triple,
     relocs_builder: &ObjectMetadataBuilder,
