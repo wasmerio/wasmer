@@ -129,7 +129,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
         let f = quote! {
             #[test_log::test]
             #attrs
-            #[cfg(feature = "llvm")]
+            #[cfg(all(feature = "llvm", feature = "elf-artifact-format"))]
             #new_sig {
                 let mut config = crate::Config::new(crate::Compiler::LLVM);
                 config.set_elf_artifact(true);

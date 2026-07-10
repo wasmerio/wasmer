@@ -48,6 +48,7 @@ semver.workspace = true
 rustc_version.workspace = true
 
 [features]
+elf-artifact-format = []
 test = []
 
 [package.metadata.docs.rs]

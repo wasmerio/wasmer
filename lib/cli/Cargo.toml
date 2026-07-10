@@ -103,6 +103,7 @@ llvm = [
   "wasmer/llvm",
   "wasmer-c-api-imports?/llvm",
 ]
+elf-artifact-format = ["llvm", "wasmer-compiler-llvm/elf-artifact-format"]
 disable-all-logging = [
   "wasmer-wasix/disable-all-logging",
   "log/release_max_level_off",

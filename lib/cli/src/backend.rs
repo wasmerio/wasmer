@@ -180,7 +180,7 @@ pub struct RuntimeOptions {
     /// Enable an experimental ELF-based version of the Artifact format.
     ///
     /// Available for LLVM.
-    #[cfg(feature = "llvm")]
+    #[cfg(feature = "elf-artifact-format")]
     #[clap(long = "elf-artifact")]
     elf_artifact: bool,
 
@@ -482,6 +482,7 @@ impl RuntimeOptions {
                     config.enable_non_volatile_memops();
                 }
                 config.enable_readonly_funcref_table();
+                #[cfg(feature = "elf-artifact-format")]
                 if self.elf_artifact {
                     config.elf_artifact_format(true);
                 }
@@ -640,6 +641,7 @@ impl BackendType {
                     config.enable_non_volatile_memops();
                 }
                 config.enable_readonly_funcref_table();
+                #[cfg(feature = "elf-artifact-format")]
                 if runtime_opts.elf_artifact {
                     config.elf_artifact_format(true);
                 }
