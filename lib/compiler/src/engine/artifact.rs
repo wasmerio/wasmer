@@ -8,8 +8,6 @@ use std::sync::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
-#[cfg(feature = "compiler")]
-use wasmer_types::CompilationProgressCallback;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
@@ -23,6 +21,9 @@ use crate::{
 use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::{serialize::RkyvSerializableCompilation, types::symbols::ModuleMetadata};
+use itertools::Itertools;
+#[cfg(feature = "compiler")]
+use wasmer_types::CompilationProgressCallback;
 
 use enumset::EnumSet;
 use object::{Object as _, ObjectSection as _};
@@ -39,9 +40,9 @@ use crate::object::{
 
 use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
-    DataInitializerLike, DataInitializerLocation,
-    DataInitializerLocationLike, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex,
-    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
+    DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
+    SerializeError, SignatureIndex, TableIndex,
     entity::{BoxedSlice, PrimaryMap},
     target::{CpuFeature, Target},
 };
@@ -694,28 +695,34 @@ impl Artifact {
             ));
         };
 
-        let local_function_count = module_info.functions.len() - module_info.num_imported_functions;
+        let local_function_count = module_info.local_func_count();
+        let corrupted_offsets = || {
+            DeserializeError::CorruptedBinary(format!(
+                "corrupted {} section",
+                String::from_utf8_lossy(crate::WASMER_FUNCTION_OFFSETS_SECTION_NAME)
+            ))
+        };
+        let signature_count = module_info.signatures.len();
+        let dynamic_trampoline_count = module_info.imported_function_types().count();
+        let expected_offset_count = local_function_count
+            .checked_add(signature_count)
+            .and_then(|count| count.checked_add(dynamic_trampoline_count))
+            .ok_or_else(&corrupted_offsets)?;
+        if function_offsets.len() != expected_offset_count {
+            return Err(corrupted_offsets());
+        }
 
-        // Right now, we calculate function sizes as a different from the next function, can be improved in the future.
+        let (local_fn_offsets, rest) = function_offsets.split_at(local_function_count);
+        let (trampoline_offsets, dynamic_trampoline_offsets) = rest.split_at(signature_count);
+
+        // Right now, we calculate function sizes as the difference from the next function.
         let local_fn_sizes = function_offsets
             .iter()
             .skip(1)
             .take(local_function_count)
             .zip(function_offsets.iter())
             .map(|(f1, f0)| f1 - f0)
-            .collect::<Vec<_>>();
-        let (local_fn_offsets, rest) = function_offsets.split_at(local_function_count);
-        let (trampoline_offsets, dynamic_trampoline_offsets) =
-            rest.split_at(module_info.signatures.len());
-        if local_fn_offsets.len() != local_function_count
-            || trampoline_offsets.len() != module_info.signatures.len()
-            || dynamic_trampoline_offsets.len() != module_info.imported_function_types().count()
-        {
-            return Err(DeserializeError::CorruptedBinary(format!(
-                "corrupted {} section",
-                String::from_utf8_lossy(crate::WASMER_FUNCTION_OFFSETS_SECTION_NAME)
-            )));
-        }
+            .collect_vec();
 
         let signatures = {
             let signature_registry = engine_inner.signatures();

@@ -546,6 +546,11 @@ impl ModuleInfo {
         index.index() < self.num_imported_functions
     }
 
+    /// Get number of local functions.
+    pub fn local_func_count(&self) -> usize {
+        self.functions.len() - self.num_imported_functions
+    }
+
     /// Convert a `LocalTableIndex` into a `TableIndex`.
     pub fn table_index(&self, local_table: LocalTableIndex) -> TableIndex {
         TableIndex::new(self.num_imported_tables + local_table.index())
