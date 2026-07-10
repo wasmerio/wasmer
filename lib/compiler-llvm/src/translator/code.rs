@@ -576,7 +576,7 @@ impl FuncTranslator {
                 .to_path_buf()
                 .join(function.object_filename());
             std::fs::write(&object_path, memory_buffer.as_slice())
-                .map_err(|e| CompileError::Codegen(format!("Cannot save emitted assembly: {e}")))?;
+                .map_err(|e| CompileError::Codegen(format!("Cannot save LLVM object file: {e}")))?;
             Ok(CompiledFunction::Elf(object_path))
         } else {
             Ok(CompiledFunction::Rkyv(Box::new(load_object_file(

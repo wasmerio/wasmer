@@ -197,7 +197,7 @@ impl FuncTrampoline {
         if config.elf_artifact_format {
             let object_path = build_directory.to_path_buf().join(function.linkage_name());
             std::fs::write(&object_path, memory_buffer.as_slice()).map_err(|e| {
-                CompileError::Codegen(format!("Cannot save emitted assembly for trampoline: {e}"))
+                CompileError::Codegen(format!("Cannot save LLVM object file for trampoline: {e}"))
             })?;
 
             Ok(CompiledFunctionBody::Elf(object_path))
@@ -373,7 +373,9 @@ impl FuncTrampoline {
         if config.elf_artifact_format {
             let object_path = build_directory.to_path_buf().join(function.linkage_name());
             std::fs::write(&object_path, memory_buffer.as_slice()).map_err(|e| {
-                CompileError::Codegen(format!("Cannot save emitted assembly for trampoline: {e}"))
+                CompileError::Codegen(format!(
+                    "Cannot save LLVM object file for dynamic trampoline: {e}"
+                ))
             })?;
 
             Ok(CompiledFunctionBody::Elf(object_path))
