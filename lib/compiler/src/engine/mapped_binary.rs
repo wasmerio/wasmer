@@ -224,7 +224,7 @@ impl ImageSegment {
     }
 }
 
-// TODO: generate comment
+// A data structure holding a memory map of a binary in the memory.
 pub(crate) struct MemoryMappedBinary {
     base: *mut c_void,
     size: usize,
