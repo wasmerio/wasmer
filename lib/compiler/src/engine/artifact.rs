@@ -4,7 +4,6 @@
 use std::{
     fs::File,
     io::BufReader,
-    os::fd::AsRawFd,
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -14,6 +13,8 @@ use std::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
@@ -747,6 +748,7 @@ impl Artifact {
         )
     }
 
+    #[cfg(unix)]
     fn allocate_elf_artifact_from_path(
         engine_inner: &mut EngineInner,
         module_info: &ModuleInfo,
@@ -771,6 +773,17 @@ impl Artifact {
             base,
             DebugInfoSource::File(debug_file),
         )
+    }
+
+    #[cfg(not(unix))]
+    fn allocate_elf_artifact_from_path(
+        _engine_inner: &mut EngineInner,
+        _module_info: &ModuleInfo,
+        _path: &Path,
+    ) -> Result<AllocatedArtifact, DeserializeError> {
+        Err(DeserializeError::Incompatible(
+            "file-backed ELF artifacts are only supported on Unix".to_string(),
+        ))
     }
 
     fn allocate_elf_artifact_from_image<'a, R: object::ReadRef<'a>>(

@@ -1,19 +1,22 @@
 use std::{
     ffi::c_void,
     fs::File,
-    os::fd::RawFd,
-    ptr, slice,
     sync::{Arc, Mutex},
 };
+#[cfg(unix)]
+use std::{os::fd::RawFd, ptr, slice};
 
+#[cfg(unix)]
 use itertools::Itertools;
-use object::{
-    Object, ObjectSection, ObjectSegment, ObjectSymbol, ObjectSymbolTable, ReadRef, SegmentFlags,
-    elf,
-};
-use wasmer_vm::{LibCall, libcalls::function_pointer};
+use object::{Object, ObjectSection, ReadRef};
+#[cfg(unix)]
+use object::{ObjectSegment, ObjectSymbol, ObjectSymbolTable, SegmentFlags, elf};
+use wasmer_vm::LibCall;
+#[cfg(unix)]
+use wasmer_vm::libcalls::function_pointer;
 
 use crate::GlobalFrameInfoRegistration;
+#[cfg(unix)]
 use crate::engine::unwind::UnwindRegistry;
 
 /// The `gimli` reader type used for DWARF sections loaded from an ELF image.
@@ -171,6 +174,7 @@ pub static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
+#[cfg(unix)]
 #[derive(Debug)]
 struct ImageSegment {
     pub(crate) mem_address: usize,
@@ -181,6 +185,7 @@ struct ImageSegment {
     pub(crate) flags: SegmentFlags,
 }
 
+#[cfg(unix)]
 impl ImageSegment {
     fn protection(&self) -> Result<i32, String> {
         let (read, write, exec) = match self.flags {
@@ -226,14 +231,18 @@ impl ImageSegment {
 
 // A data structure holding a memory map of a binary in the memory.
 pub(crate) struct MemoryMappedBinary {
+    #[cfg(unix)]
     base: *mut c_void,
+    #[cfg(unix)]
     size: usize,
 
     // Unwind registry associated with the binary.
+    #[cfg(unix)]
     unwind_registry: Option<UnwindRegistry>,
 
     // Keeps the module's frame info alive in the global registry for exactly
     // as long as this mapping (and thus the code it points at) is alive.
+    #[cfg(unix)]
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
 }
 
@@ -241,6 +250,7 @@ pub(crate) struct MemoryMappedBinary {
 unsafe impl Send for MemoryMappedBinary {}
 unsafe impl Sync for MemoryMappedBinary {}
 
+#[cfg(unix)]
 impl MemoryMappedBinary {
     /// Maps `object_file`'s load segments into a freshly allocated, private
     /// virtual address range, copying segment bytes out of the in-memory
@@ -562,6 +572,31 @@ impl MemoryMappedBinary {
     }
 }
 
+#[cfg(not(unix))]
+impl MemoryMappedBinary {
+    pub(crate) fn try_from_bytes<'a, R: ReadRef<'a>>(
+        _object_file: &object::File<'a, R>,
+        _data: &[u8],
+    ) -> Result<Self, String> {
+        Err("ELF memory mapping is only supported on Unix".to_string())
+    }
+
+    pub(crate) fn base(&self) -> *mut c_void {
+        std::ptr::null_mut()
+    }
+
+    pub(crate) fn publish_eh_frame_section(
+        &mut self,
+        _address: u64,
+        _size: u64,
+    ) -> Result<(), String> {
+        Err("ELF memory mapping is only supported on Unix".to_string())
+    }
+
+    pub(crate) fn register_frame_info(&mut self, _frame_info: GlobalFrameInfoRegistration) {}
+}
+
+#[cfg(unix)]
 impl Drop for MemoryMappedBinary {
     fn drop(&mut self) {
         // The registered `.eh_frame` records point into this mmap, so deregister

@@ -19,7 +19,7 @@ use std::ffi::c_void;
 use std::io::Write;
 #[cfg(not(target_arch = "wasm32"))]
 use std::io::{Read, Seek};
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(all(not(target_arch = "wasm32"), unix))]
 use std::os::fd::RawFd;
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
@@ -581,7 +581,7 @@ impl EngineInner {
     }
 
     /// Memory-map a compiled ELF artifact directly from a file.
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(not(target_arch = "wasm32"), unix))]
     pub(crate) fn map_elf_binary_file<'a, R: object::ReadRef<'a>>(
         &mut self,
         object_file: &object::File<'a, R>,
