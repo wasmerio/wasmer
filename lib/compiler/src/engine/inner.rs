@@ -5,6 +5,7 @@ use crate::engine::builder::EngineBuilder;
 #[cfg(feature = "compiler")]
 use crate::{Compiler, CompilerConfig};
 
+#[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::CompilationProgressCallback;
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
