@@ -376,7 +376,7 @@ pub struct EngineInner {
     /// functions to memory.
     #[cfg(not(target_arch = "wasm32"))]
     code_memory: Vec<CodeMemory>,
-    /// Memory-mapped ELF artifact image, produced by `--elf-artifact`.
+    /// Memory-mapped ELF artifact image, produced by `--experimental-artifact`.
     #[cfg(not(target_arch = "wasm32"))]
     elf_mapped_binary: Vec<MemoryMappedBinary>,
     /// The signature registry is used mainly to operate with trampolines

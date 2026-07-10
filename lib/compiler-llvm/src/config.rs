@@ -190,7 +190,7 @@ impl LLVM {
     }
 
     /// Enables an experimental ELF-based version of the Artifact format.
-    #[cfg(feature = "elf-artifact-format")]
+    #[cfg(feature = "experimental-artifact")]
     pub fn elf_artifact_format(&mut self, elf_artifact_format: bool) -> &mut Self {
         self.elf_artifact_format = elf_artifact_format;
         if elf_artifact_format {
