@@ -265,7 +265,11 @@ impl MemoryMappedBinary {
         data: Option<&[u8]>,
         file: Option<RawFd>,
     ) -> Result<Self, String> {
-        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
+        let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
+        if page_size == -1 {
+            return Err("Cannot get page size".to_string());
+        }
+        let page_size = page_size as usize;
 
         let segments = object_file
             .segments()

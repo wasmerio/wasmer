@@ -192,7 +192,7 @@ fn deserialize_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> 
     // - ModuleCache::load(): 822ms
 
     match unsafe { Module::deserialize_from_file(engine, path) } {
-        // The happy case. ELF artifacts are mmaped directly from the cache file.
+        // The happy case. ELF artifacts are memory mapped directly from the cache file.
         Ok(m) => Ok(m),
         Err(wasmer::DeserializeError::Io(error))
             if error.kind() == std::io::ErrorKind::NotFound =>
