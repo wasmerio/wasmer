@@ -144,6 +144,13 @@ pub enum Engine {
     Cranelift,
     #[cfg(feature = "llvm")]
     LLVM,
+    #[cfg(all(
+        feature = "experimental-artifact",
+        target_os = "linux",
+        target_arch = "x86_64"
+    ))]
+    #[strum(serialize = "llvm_exp_artifact")]
+    LLVMExperimentalArtifact,
     #[cfg(feature = "singlepass")]
     Singlepass,
     #[cfg(feature = "v8")]
@@ -167,6 +174,12 @@ impl Engine {
             Self::Cranelift => "cranelift",
             #[cfg(feature = "llvm")]
             Self::LLVM => "llvm",
+            #[cfg(all(
+                feature = "experimental-artifact",
+                target_os = "linux",
+                target_arch = "x86_64"
+            ))]
+            Self::LLVMExperimentalArtifact => "llvm",
             #[cfg(feature = "singlepass")]
             Self::Singlepass => "singlepass",
             #[cfg(feature = "v8")]
@@ -1264,6 +1277,12 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let mut supported_engines = vec![Engine::Cranelift];
         #[cfg(feature = "llvm")]
         supported_engines.push(Engine::LLVM);
+        #[cfg(all(
+            feature = "experimental-artifact",
+            target_os = "linux",
+            target_arch = "x86_64"
+        ))]
+        supported_engines.push(Engine::LLVMExperimentalArtifact);
         #[cfg(feature = "singlepass")]
         supported_engines.push(Engine::Singlepass);
         #[cfg(feature = "v8")]
