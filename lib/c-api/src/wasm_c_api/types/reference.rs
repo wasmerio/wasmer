@@ -1,13 +1,14 @@
 //! Implementation of the `wasm_ref_t` reference surface of the wasm-c-api.
 //!
-//! A `wasm_ref_t` is a boxed `{ Value, StoreRef }` mirroring [`wasm_extern_t`],
-//! carrying either an `externref` or a `funcref`. A `NULL` `wasm_ref_t*` is the
-//! null reference; non-null references are always the `Some(_)` variant.
+//! A `wasm_ref_t` is a boxed `{ Value, store handle }` mirroring
+//! [`wasm_extern_t`], carrying either an `externref` or a `funcref`. A `NULL`
+//! `wasm_ref_t*` is the null reference; non-null references are always the
+//! `Some(_)` variant.
 //!
-//! NOTE (Part A / WARP-70): references here are non-owning. The underlying
-//! extern object lives in the store arena until the store is dropped, so every
-//! `wasm_ref_t` (and its host info) leaks until store death. Reference lifetime
-//! management is Part B.
+//! NOTE: references here are non-owning. The underlying extern object lives in
+//! the store arena until the store is dropped, so every `wasm_ref_t` (and its
+//! host info) leaks until store death. Reference lifetime management (a proper
+//! reference GC) is a planned follow-up.
 
 use std::cell::Cell;
 use std::os::raw::c_void;
@@ -126,8 +127,7 @@ pub unsafe extern "C" fn wasm_ref_same(
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_ref_get_host_info(ref_: Option<&wasm_ref_t>) -> *mut c_void {
-    ref_
-        .and_then(|r| with_foreign(r, |f| f.host_info.get()))
+    ref_.and_then(|r| with_foreign(r, |f| f.host_info.get()))
         .unwrap_or(std::ptr::null_mut())
 }
 
@@ -250,7 +250,8 @@ pub unsafe extern "C" fn wasm_ref_as_foreign_const(
     ref_
 }
 
-#[cfg(test)]
+// Externref creation is only implemented on the `sys` backend.
+#[cfg(all(test, feature = "sys"))]
 mod tests {
     use super::*;
     use crate::wasm_c_api::engine::wasm_engine_new;
@@ -267,7 +268,10 @@ mod tests {
             // Host info defaults to null and round-trips through set/get.
             assert!(wasm_ref_get_host_info(Some(&foreign)).is_null());
             wasm_ref_set_host_info(Some(&foreign), 42usize as *mut c_void);
-            assert_eq!(wasm_ref_get_host_info(Some(&foreign)), 42usize as *mut c_void);
+            assert_eq!(
+                wasm_ref_get_host_info(Some(&foreign)),
+                42usize as *mut c_void
+            );
 
             // A copy is a distinct box referring to the same extern object, so
             // it is `same` and observes the same (shared) host info.

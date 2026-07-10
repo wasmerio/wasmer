@@ -44,10 +44,7 @@ pub type wasm_env_finalizer_t = unsafe extern "C" fn(*mut c_void);
 
 /// Convert host-callback argument [`Value`]s into C `wasm_val_t`s, boxing
 /// reference values into `store`.
-fn callback_args_to_wasm(
-    args: &[Value],
-    store: &StoreRef,
-) -> Result<wasm_val_vec_t, RuntimeError> {
+fn callback_args_to_wasm(args: &[Value], store: &StoreRef) -> Result<wasm_val_vec_t, RuntimeError> {
     let vals = args
         .iter()
         .map(|v| wasm_val_t::from_value(v, store))
@@ -203,8 +200,8 @@ pub unsafe extern "C" fn wasm_func_delete(_func: Option<Box<wasm_func_t>>) {}
 
 // A `funcref` view of a function, and back. Per `wasm.h` these are non-owning
 // views; since our `wasm_ref_t` is a distinct allocation the returned ref is
-// typically never freed and leaks (Part A). It holds only a weak store handle,
-// so it does not pin the store.
+// typically never freed and leaks. It holds only a weak store handle, so it
+// does not pin the store.
 //
 // NOTE: storing the resulting funcref into a table or global works only for
 // *static* functions. Dynamic host functions (created via `wasm_func_new`) have

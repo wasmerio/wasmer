@@ -118,10 +118,10 @@ impl Clone for wasm_val_t {
     fn clone(&self) -> Self {
         // Reference values own their boxed `wasm_ref_t`, so a shallow copy of
         // the pointer would double-free on drop. Deep-copy the box instead.
+        // Kept in sync with `Drop`, which only frees EXTERNREF/FUNCREF (EXNREF
+        // is never boxed, so it stays a plain, non-owning copy).
         match self.kind.try_into() {
-            Ok(wasm_valkind_enum::WASM_EXTERNREF)
-            | Ok(wasm_valkind_enum::WASM_FUNCREF)
-            | Ok(wasm_valkind_enum::WASM_EXNREF) => {
+            Ok(wasm_valkind_enum::WASM_EXTERNREF) | Ok(wasm_valkind_enum::WASM_FUNCREF) => {
                 let wref = unsafe { self.of.wref };
                 let cloned = if wref.is_null() {
                     std::ptr::null_mut()

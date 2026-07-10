@@ -81,7 +81,10 @@ pub unsafe extern "C" fn wasm_table_size(table: Option<&wasm_table_t>) -> usize 
 pub unsafe extern "C" fn wasm_table_type(
     table: Option<&wasm_table_t>,
 ) -> Option<Box<wasm_tabletype_t>> {
-    let table = table?;
+    let Some(table) = table else {
+        update_last_error("table pointer is null");
+        return None;
+    };
     let store_ref = unsafe { table.extern_.store.store() };
     Some(Box::new(wasm_tabletype_t::new(
         table.extern_.table().ty(&store_ref),
@@ -101,14 +104,25 @@ pub unsafe extern "C" fn wasm_table_get(
     table: Option<&wasm_table_t>,
     index: wasm_table_size_t,
 ) -> Option<Box<wasm_ref_t>> {
-    let table = table?;
+    let Some(table) = table else {
+        update_last_error("table pointer is null");
+        return None;
+    };
     let table_obj = table.extern_.table();
     let mut store: StoreRef = table.extern_.store.clone();
+    // `Table::get` returns `None` only for an out-of-bounds index; an in-bounds
+    // null element is `Some(ExternRef(None))`, which boxes to a null
+    // `wasm_ref_t*` below without registering an error.
     let value = {
         let mut store_mut = unsafe { store.store_mut() };
-        table_obj.get(&mut store_mut, index)?
+        match table_obj.get(&mut store_mut, index) {
+            Some(value) => value,
+            None => {
+                update_last_error("table index out of bounds");
+                return None;
+            }
+        }
     };
-    // Null reference slots (and out-of-bounds) map to a null `wasm_ref_t*`.
     wasm_ref_t::new(table.extern_.store.clone(), value)
 }
 
@@ -127,7 +141,13 @@ pub unsafe extern "C" fn wasm_table_set(
     let mut store_mut = unsafe { store.store_mut() };
     let element_ty = table_obj.ty(&store_mut).ty;
     let value = init_value(r, element_ty);
-    table_obj.set(&mut store_mut, index, value).is_ok()
+    match table_obj.set(&mut store_mut, index, value) {
+        Ok(()) => true,
+        Err(e) => {
+            update_last_error(e);
+            false
+        }
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -141,5 +161,11 @@ pub unsafe extern "C" fn wasm_table_grow(
     let mut store_mut = unsafe { store.store_mut() };
     let element_ty = table_obj.ty(&store_mut).ty;
     let init_val = init_value(init, element_ty);
-    table_obj.grow(&mut store_mut, delta, init_val).is_ok()
+    match table_obj.grow(&mut store_mut, delta, init_val) {
+        Ok(_) => true,
+        Err(e) => {
+            update_last_error(e);
+            false
+        }
+    }
 }

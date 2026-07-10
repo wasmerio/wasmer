@@ -2089,7 +2089,10 @@ fn wasm_tabletype_new(
     let Some((min, max)) = read_limits(&mut env, limits_ptr) else {
         return INVALID_HANDLE;
     };
-    insert(&mut env, WasmObject::TableType(TableType::new(ty, min, max)))
+    insert(
+        &mut env,
+        WasmObject::TableType(TableType::new(ty, min, max)),
+    )
 }
 
 fn wasm_tabletype_element(mut env: FunctionEnvMut<WasmCapiEnv>, tabletype_handle: i32) -> i32 {
@@ -2169,7 +2172,10 @@ fn wasm_foreign_new(mut env: FunctionEnvMut<WasmCapiEnv>, _store: i32) -> i32 {
             },
         )
     };
-    insert(&mut env, WasmObject::Ref(Value::ExternRef(Some(extern_ref))))
+    insert(
+        &mut env,
+        WasmObject::Ref(Value::ExternRef(Some(extern_ref))),
+    )
 }
 
 fn wasm_ref_copy(mut env: FunctionEnvMut<WasmCapiEnv>, ref_handle: i32) -> i32 {
@@ -2442,9 +2448,10 @@ mod tests {
         guest_byte_ptr, guest_memory_offset, guest_ptr_with_offset, module_wasm_c_api_version_used,
         non_null_guest_ptr, read_wasm_val, ref_values_same, refresh_memory_shadows_from_wasmer,
         sync_memory_shadows_to_wasmer, type_to_wasm_kind, wasm_foreign_new, wasm_func_as_ref,
-        wasm_kind_to_type, wasm_memory_data, wasm_memory_data_size, wasm_memory_size, wasm_ref_as_func,
-        wasm_ref_copy, wasm_ref_get_host_info, wasm_ref_same, wasm_ref_set_host_info, wasm_table_get,
-        wasm_table_grow, wasm_table_set, wasm_table_size, write_wasm_val,
+        wasm_kind_to_type, wasm_memory_data, wasm_memory_data_size, wasm_memory_size,
+        wasm_ref_as_func, wasm_ref_copy, wasm_ref_get_host_info, wasm_ref_same,
+        wasm_ref_set_host_info, wasm_table_get, wasm_table_grow, wasm_table_set, wasm_table_size,
+        write_wasm_val,
     };
     use wasmer_api::{
         Function, FunctionEnv, Memory, MemoryType, Module, Pages, Store, Table, TableType, Value,
@@ -2874,7 +2881,10 @@ mod tests {
             &Value::ExternRef(None),
             &Value::ExternRef(None)
         ));
-        assert!(ref_values_same(&Value::FuncRef(None), &Value::FuncRef(None)));
+        assert!(ref_values_same(
+            &Value::FuncRef(None),
+            &Value::FuncRef(None)
+        ));
         // A null externref and a null funcref are not the same reference.
         assert!(!ref_values_same(
             &Value::ExternRef(None),
@@ -2882,6 +2892,8 @@ mod tests {
         ));
     }
 
+    // Externref/table reference ops are only implemented on the `sys` backend.
+    #[cfg(feature = "sys")]
     #[test]
     fn foreign_ref_host_info_and_copy_share_the_payload() {
         let mut store = Store::default();
@@ -2922,6 +2934,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "sys")]
     #[test]
     fn externref_table_get_set_grow_via_handles() {
         let mut store = Store::default();
@@ -2945,7 +2958,12 @@ mod tests {
 
         let ref_handle = wasm_foreign_new(func_env.clone().into_mut(&mut store), 0);
         assert_eq!(
-            wasm_table_set(func_env.clone().into_mut(&mut store), table_handle, 0, ref_handle),
+            wasm_table_set(
+                func_env.clone().into_mut(&mut store),
+                table_handle,
+                0,
+                ref_handle
+            ),
             BOOL_TRUE
         );
 
@@ -2959,13 +2977,23 @@ mod tests {
 
         // Out-of-bounds set fails without aborting.
         assert_eq!(
-            wasm_table_set(func_env.clone().into_mut(&mut store), table_handle, 5, ref_handle),
+            wasm_table_set(
+                func_env.clone().into_mut(&mut store),
+                table_handle,
+                5,
+                ref_handle
+            ),
             BOOL_FALSE
         );
 
         // Grow with a null init, then confirm the new size.
         assert_eq!(
-            wasm_table_grow(func_env.clone().into_mut(&mut store), table_handle, 3, INVALID_HANDLE),
+            wasm_table_grow(
+                func_env.clone().into_mut(&mut store),
+                table_handle,
+                3,
+                INVALID_HANDLE
+            ),
             BOOL_TRUE
         );
         assert_eq!(
@@ -2974,6 +3002,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "sys")]
     #[test]
     fn func_as_ref_and_back_roundtrips() {
         let mut store = Store::default();
@@ -2997,6 +3026,7 @@ mod tests {
         ));
     }
 
+    #[cfg(feature = "sys")]
     #[test]
     fn externref_marshals_through_guest_memory() {
         let mut store = Store::default();
