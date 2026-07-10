@@ -30,7 +30,7 @@ use wasmer_types::{
     CompilationProgressCallback, Features, FunctionIndex, LocalFunctionIndex,
     entity::{EntityRef, PrimaryMap},
     error::CompileError,
-    target::{BinaryFormat, CpuFeature, Target, UserCompilerOptimizations},
+    target::{CpuFeature, Target, UserCompilerOptimizations},
 };
 use wasmer_types::{FunctionType, SignatureIndex};
 #[cfg(feature = "translator")]

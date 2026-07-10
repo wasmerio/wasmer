@@ -35,7 +35,6 @@ use enumset::EnumSet;
 use object::{Object as _, ObjectSection as _, ReadCache};
 use rkyv::option::ArchivedOption;
 use shared_buffer::OwnedBuffer;
-use tempfile::NamedTempFile;
 
 use crate::engine::mapped_binary::DebugInfoSource;
 
@@ -61,22 +60,6 @@ use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
     VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline,
 };
-
-#[derive(Debug)]
-#[allow(dead_code)]
-pub(crate) enum ModuleFile {
-    TempFile(NamedTempFile),
-    OwnedFile(PathBuf),
-}
-
-impl ModuleFile {
-    fn path(&self) -> &Path {
-        match self {
-            Self::TempFile(file) => file.path(),
-            Self::OwnedFile(path) => path,
-        }
-    }
-}
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct AllocatedArtifact {
@@ -175,7 +158,7 @@ pub struct Artifact {
     id: ArtifactId,
     artifact: ArtifactBuildVariant,
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
-    module_file: Option<ModuleFile>,
+    module_file: Option<PathBuf>,
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
     allocated: Option<AllocatedArtifact>,
@@ -215,7 +198,7 @@ impl Artifact {
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
-        let mut artifact = ArtifactBuild::new(
+        let artifact = ArtifactBuild::new(
             &mut inner_engine,
             data,
             engine.target(),
@@ -224,28 +207,11 @@ impl Artifact {
             progress_callback.as_ref(),
         )?;
 
-        let module_file = if let SerializableCompilation::Elf(data) =
-            &mut artifact.serializable.compilation
-        {
-            use std::io::Write as _;
-            let mut file = tempfile::Builder::new()
-                .prefix("wasmer-image")
-                .suffix(".so")
-                .tempfile()
-                .map_err(|e| CompileError::Codegen(format!("cannot create artifact file: {e}")))?;
-            file.write_all(data)
-                .map_err(|e| CompileError::Codegen(format!("cannot write artifact file: {e}")))?;
-            *data = Vec::new();
-            Some(ModuleFile::TempFile(file))
-        } else {
-            None
-        };
-
         Self::from_parts_with_module_file(
             &mut inner_engine,
             ArtifactBuildVariant::Plain(artifact),
             engine.target(),
-            module_file,
+            None,
         )
         .map_err(|e| match e {
             DeserializeError::Compiler(c) => c,
@@ -328,12 +294,7 @@ impl Artifact {
 
         let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
         let mut inner_engine = engine.inner_mut();
-        Self::from_parts_with_module_file(
-            &mut inner_engine,
-            artifact,
-            engine.target(),
-            Some(ModuleFile::OwnedFile(path)),
-        )
+        Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
     }
 
     /// Deserialize a serialized artifact.
@@ -443,7 +404,7 @@ impl Artifact {
         engine_inner: &mut EngineInner,
         artifact: ArtifactBuildVariant,
         target: &Target,
-        module_file: Option<ModuleFile>,
+        module_file: Option<PathBuf>,
     ) -> Result<Self, DeserializeError> {
         if !target.is_native() {
             return Ok(Self {
@@ -480,7 +441,7 @@ impl Artifact {
                     "file-backed loading only supports ELF artifacts".to_string(),
                 ));
             }
-            Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file.path())?
+            Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file)?
         } else if let Some(elf_file_data) = elf_file_data {
             Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
         } else {
@@ -1003,7 +964,7 @@ impl<'a> ArtifactCreate<'a> for Artifact {
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         if let Some(module_file) = &self.module_file {
-            return std::fs::read(module_file.path()).map_err(|e| {
+            return std::fs::read(module_file).map_err(|e| {
                 SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
             });
         }
