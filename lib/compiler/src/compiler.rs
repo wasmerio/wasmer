@@ -2,24 +2,37 @@
 //! compilers will need to implement.
 
 use std::cmp::Reverse;
+use std::fs::OpenOptions;
+use std::path::{Path, PathBuf};
 
+use crate::EH_FRAME_SECTION_NAME;
+use crate::misc::{CompiledFunctionExt, CompiledKind};
+use crate::object::get_object_for_target;
 use crate::progress::ProgressContext;
+use crate::types::function::Compilation;
 use crate::types::module::CompileModuleInfo;
 use crate::{
-    FunctionBodyData, ModuleTranslationState,
+    FunctionBodyData, ModuleTranslationState, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
+    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME,
     lib::std::{boxed::Box, sync::Arc},
     translator::ModuleMiddleware,
-    types::function::Compilation,
 };
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
 use itertools::Itertools;
-use wasmer_types::{
-    CompilationProgressCallback, Features, LocalFunctionIndex,
-    entity::PrimaryMap,
-    error::CompileError,
-    target::{CpuFeature, Target, UserCompilerOptimizations},
+use object::write::{Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
+use object::{
+    RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
+    SymbolKind, SymbolScope, elf,
 };
+use tempfile::NamedTempFile;
+use wasmer_types::{
+    CompilationProgressCallback, Features, FunctionIndex, LocalFunctionIndex,
+    entity::{EntityRef, PrimaryMap},
+    error::CompileError,
+    target::{BinaryFormat, CpuFeature, Target, UserCompilerOptimizations},
+};
+use wasmer_types::{FunctionType, SignatureIndex};
 #[cfg(feature = "translator")]
 use wasmparser::{Validator, WasmFeatures};
 
@@ -164,6 +177,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         &self,
         target: &Target,
         module: &CompileModuleInfo,
+        compile_info_blob: &[u8],
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
@@ -333,3 +347,251 @@ pub const WASM_LARGE_FUNCTION_THRESHOLD: u64 = 100_000;
 
 /// Estimated byte size of a trampoline (used for progress bar reporting).
 pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;
+
+/// Holds the sets of compiled object files produced during compilation.
+///
+/// Counts of each category are derived from the slice lengths.
+pub struct CompiledObjects<'a> {
+    /// Object files for local (user-defined) functions.
+    pub object_files: &'a [PathBuf],
+    /// Object files for imported function call trampolines.
+    pub import_trampoline_object_files: &'a [PathBuf],
+    /// Object files for static trampolines.
+    pub trampoline_object_files: &'a [PathBuf],
+    /// Object files for dynamic trampolines.
+    pub dynamic_trampoline_object_files: &'a [PathBuf],
+}
+
+fn emit_wasmer_meta_object(
+    target: &Target,
+    compile_info_blob: &[u8],
+    build_directory: &Path,
+    compiled_objects: &CompiledObjects<'_>,
+) -> Result<PathBuf, String> {
+    let meta_object_path = build_directory.to_path_buf().join("__wasmer_meta.o");
+    let mut meta_object = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&meta_object_path)
+        .map_err(|e| {
+            format!(
+                "failed to create Wasmer meta object file {}: {e}",
+                meta_object_path.display()
+            )
+        })?;
+
+    let mut obj = get_object_for_target(target.triple())
+        .map_err(|e| format!("failed to create Wasmer meta object file: {e}"))?;
+
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        crate::WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
+        SectionKind::Other,
+    );
+    obj.append_section_data(section_id, compile_info_blob, 8);
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+
+    // Emit zero sentinel for the .eh_frame section.
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Debug).to_vec(),
+        EH_FRAME_SECTION_NAME.to_vec(),
+        SectionKind::Debug,
+    );
+    obj.append_section_data(section_id, &0u64.to_ne_bytes(), 4);
+
+    // Emit offsets of the functions
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
+        SectionKind::Other,
+    );
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+    let pointer_size = target
+        .triple()
+        .pointer_width()
+        .map_err(|_| "unknown pointer width".to_string())?
+        .bytes() as u64;
+    let pointer_bits = (pointer_size * 8) as u8;
+    let zero_pointer = vec![0; pointer_size as usize];
+
+    let function_offset_names = (0..compiled_objects.object_files.len())
+        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).linkage_name())
+        .chain(
+            (0..compiled_objects.trampoline_object_files.len()).map(|i| {
+                CompiledKind::FunctionCallTrampoline(
+                    SignatureIndex::new(i),
+                    // Unused by the linkage_name.
+                    FunctionType::new([], []),
+                )
+                .linkage_name()
+            }),
+        )
+        .chain(
+            (0..compiled_objects.dynamic_trampoline_object_files.len()).map(|i| {
+                CompiledKind::DynamicFunctionTrampoline(
+                    FunctionIndex::new(i),
+                    // Unused by the linkage_name.
+                    FunctionType::new([], []),
+                )
+                .linkage_name()
+            }),
+        );
+    for function_name in function_offset_names {
+        let offset = obj.append_section_data(section_id, &zero_pointer, pointer_size);
+        let symbol_id = obj.add_symbol(ObjSymbol {
+            name: function_name.to_owned().into(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Text,
+            scope: SymbolScope::Unknown,
+            weak: false,
+            section: SymbolSection::Undefined,
+            flags: SymbolFlags::None,
+        });
+        obj.add_relocation(
+            section_id,
+            Relocation {
+                offset,
+                flags: RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: pointer_bits,
+                },
+                symbol: symbol_id,
+                addend: 0,
+            },
+        )
+        .map_err(|e| {
+            format!("failed to add function offset relocation for {function_name}: {e}")
+        })?;
+    }
+
+    let trap_fn_offsets_section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
+        SectionKind::Other,
+    );
+    obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
+    for traps_name in (0..compiled_objects.object_files.len())
+        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
+    {
+        let offset =
+            obj.append_section_data(trap_fn_offsets_section_id, &zero_pointer, pointer_size);
+        let symbol_id = obj.add_symbol(ObjSymbol {
+            name: traps_name.as_bytes().into(),
+            value: 0,
+            size: 0,
+            kind: SymbolKind::Data,
+            scope: SymbolScope::Linkage,
+            weak: true,
+            section: SymbolSection::Undefined,
+            flags: SymbolFlags::None,
+        });
+        obj.add_relocation(
+            trap_fn_offsets_section_id,
+            Relocation {
+                offset,
+                flags: RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: pointer_bits,
+                },
+                symbol: symbol_id,
+                addend: 0,
+            },
+        )
+        .map_err(|e| {
+            format!("failed to add function trap offset relocation for {traps_name}: {e}")
+        })?;
+    }
+
+    // Save the generated object file.
+    obj.write_stream(&mut meta_object).map_err(|e| {
+        format!(
+            "failed to write Wasmer meta object file {}: {e}",
+            meta_object_path.display(),
+        )
+    })?;
+
+    Ok(meta_object_path)
+}
+
+/// Emits Wasmer metadata sections and links backend-generated object files into a shared object.
+pub fn emit_metadata_and_link(
+    target: &Target,
+    compile_info_blob: &[u8],
+    build_directory: &Path,
+    module_file: NamedTempFile,
+    compiled_objects: &CompiledObjects<'_>,
+    mut debug_dir: Option<PathBuf>,
+    module_hash: Option<String>,
+) -> Result<NamedTempFile, CompileError> {
+    let meta_object_path =
+        emit_wasmer_meta_object(target, compile_info_blob, build_directory, compiled_objects)
+            .map_err(CompileError::Codegen)?;
+
+    let mut link_args = vec![
+        "ld".to_string(),
+        // Allow resolution of the public symbols directly without PLT entries!
+        "-Bsymbolic".to_string(),
+        "-shared".to_string(),
+        // Intentionally do not create extra Rayon pool, in the future,
+        // add support for parallel linking.
+        "--no-threads".to_string(),
+        "-z".to_string(),
+        "now".to_string(),
+        "-z".to_string(),
+        "relro".to_string(),
+        "-o".to_string(),
+        module_file.path().display().to_string(),
+    ];
+
+    link_args.extend(
+        compiled_objects
+            .object_files
+            .iter()
+            .chain(compiled_objects.import_trampoline_object_files.iter())
+            .chain(compiled_objects.trampoline_object_files.iter())
+            .chain(compiled_objects.dynamic_trampoline_object_files.iter())
+            .map(|path| path.display().to_string()),
+    );
+    // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
+    // records. Linkers concatenate input sections in object order, and a
+    // leading terminator makes frame registration see an empty table.
+    link_args.push(meta_object_path.display().to_string());
+
+    let mut wild_args = libwild::Args::new(|| link_args.iter().map(String::as_str))
+        .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
+    wild_args
+        .parse(|| link_args.iter().map(String::as_str))
+        .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
+    libwild::run(wild_args)
+        .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+
+    let path_buf = module_file.path().to_path_buf();
+    let (_, path) = module_file.into_parts();
+    let new_file = std::fs::File::open(&path_buf).map_err(|e| {
+        CompileError::Codegen(format!("cannot reopen final file after Wild linker: {e:?}"))
+    })?;
+    let module_file = NamedTempFile::from_parts(new_file, path);
+
+    // If compiler-debug-dir is set, copy the final linked .so image
+    // into the module_hash subfolder.
+    if let Some(debug_dir) = debug_dir.as_mut() {
+        if let Some(ref hash) = module_hash {
+            debug_dir.push(hash);
+        }
+        std::fs::create_dir_all(&debug_dir).ok();
+        debug_dir.push("wasmer-image.so");
+        let _ = std::fs::copy(module_file.path(), &debug_dir);
+    }
+
+    Ok(module_file)
+}

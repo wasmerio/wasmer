@@ -117,6 +117,48 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
     let llvm_compiler_test = construct_compiler_test(&my_fn, "LLVM");
     let v8_compiler_test = construct_compiler_test(&my_fn, "V8");
 
+    let llvm_elf_engine_test = {
+        let mut new_sig = my_fn.sig.clone();
+        let attrs = my_fn
+            .attrs
+            .clone()
+            .iter()
+            .fold(quote! {}, |acc, new| quote! {#acc #new});
+        new_sig.ident = ::quote::format_ident!("llvm_elf");
+        new_sig.inputs = ::syn::punctuated::Punctuated::new();
+        let f = quote! {
+            #[test_log::test]
+            #attrs
+            #[cfg(feature = "llvm")]
+            #new_sig {
+                let mut config = crate::Config::new(crate::Compiler::LLVM);
+                config.set_elf_artifact(true);
+                #fn_name(config)
+            }
+        };
+        if should_ignore(
+            &my_fn.sig.ident.to_string().replace("r#", ""),
+            "LLVM",
+            "llvm_elf",
+        ) && !cfg!(test)
+        {
+            quote! {
+                #[ignore]
+                #f
+            }
+        } else {
+            f
+        }
+    };
+    let llvm_elf_compiler_test = quote! {
+        #[cfg(feature = "llvm")]
+        mod llvm_elf {
+            use super::*;
+
+            #llvm_elf_engine_test
+        }
+    };
+
     // We remove the method decorators
     my_fn.attrs = vec![];
 
@@ -132,6 +174,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
             #cranelift_compiler_test
             #llvm_compiler_test
             #v8_compiler_test
+            #llvm_elf_compiler_test
         }
     };
 

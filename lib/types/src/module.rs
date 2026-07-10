@@ -210,7 +210,7 @@ pub struct ModuleInfo {
 // it) drops those copies but changes the artifact layout. Do it the next time the
 // artifact format version is bumped anyway.
 const _: () = assert!(
-    crate::MetadataHeader::CURRENT_VERSION == 21,
+    crate::MetadataHeader::CURRENT_VERSION == 22,
     "Artifact version bumped: change `ArchivableModuleInfo::passive_data` from \
      `Box<[u8]>` to `Arc<[u8]>` (and drop the copies in the `From` impls)",
 );
@@ -544,6 +544,11 @@ impl ModuleInfo {
     /// Test whether the given function index is for an imported function.
     pub fn is_imported_function(&self, index: FunctionIndex) -> bool {
         index.index() < self.num_imported_functions
+    }
+
+    /// Get number of local functions.
+    pub fn local_func_count(&self) -> usize {
+        self.functions.len() - self.num_imported_functions
     }
 
     /// Convert a `LocalTableIndex` into a `TableIndex`.

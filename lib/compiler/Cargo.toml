@@ -40,10 +40,14 @@ rkyv.workspace = true
 shared-buffer.workspace = true
 libc.workspace = true
 target-lexicon.workspace = true
-object = { workspace = true, features = ["write"] }
+object.workspace = true
+addr2line.workspace = true
+gimli.workspace = true
 itertools.workspace = true
 tempfile.workspace = true
 rangemap.workspace = true
+libwild.workspace = true
+phf = { workspace = true, features = ["macros"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-vm = { path = "../vm", version = "=7.2.0" }

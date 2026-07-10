@@ -179,6 +179,7 @@ pub struct Intrinsics<'ctx> {
     pub readonly: Attribute,
     pub stack_probe: Attribute,
     pub uwtable: Attribute,
+    pub nounwind: Attribute,
     pub frame_pointer: Attribute,
     // Stack probe function used on Windows MSVC
     pub chkstk: FunctionValue<'ctx>,
@@ -869,6 +870,8 @@ impl<'ctx> Intrinsics<'ctx> {
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
             stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
             uwtable: context.create_enum_attribute(Attribute::get_named_enum_kind_id("uwtable"), 1),
+            nounwind: context
+                .create_enum_attribute(Attribute::get_named_enum_kind_id("nounwind"), 1),
             frame_pointer: context.create_string_attribute("frame-pointer", "non-leaf"),
             chkstk: add_function_with_attrs("__chkstk", void_ty.fn_type(&[], false), None),
             void_ty,

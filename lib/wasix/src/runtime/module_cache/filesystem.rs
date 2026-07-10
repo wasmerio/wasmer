@@ -42,10 +42,11 @@ impl FileSystemCache {
 /// A tokio reactor must be available
 #[tracing::instrument(level = "debug", skip_all, fields(? path))]
 async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError> {
-    let bytes = read_file(&path).await?;
-    let deserialized = tokio::task::spawn_blocking(move || deserialize(&bytes, &engine))
-        .await
-        .unwrap();
+    let artifact_path = path.clone();
+    let deserialized =
+        tokio::task::spawn_blocking(move || deserialize_file(&artifact_path, &engine))
+            .await
+            .unwrap();
     match deserialized {
         Ok(m) => {
             tracing::debug!("Cache hit!");
@@ -174,18 +175,7 @@ impl ModuleCache for FileSystemCache {
     }
 }
 
-async fn read_file(path: &Path) -> Result<Vec<u8>, CacheError> {
-    match tokio::fs::read(path).await {
-        Ok(bytes) => Ok(bytes),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(CacheError::NotFound),
-        Err(error) => Err(CacheError::FileRead {
-            path: path.to_path_buf(),
-            error,
-        }),
-    }
-}
-
-fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
+fn deserialize_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> {
     // We used to compress our compiled modules using LZW encoding in the past.
     // This was removed because it has a negative impact on startup times for
     // "wasmer run", so all new compiled modules should be saved directly to
@@ -201,17 +191,37 @@ fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
     // - ModuleCache::save(): 2.4s, 72MB binary
     // - ModuleCache::load(): 822ms
 
-    match unsafe { Module::deserialize(engine, bytes) } {
-        // The happy case
+    match unsafe { Module::deserialize_from_file(engine, path) } {
+        // The happy case. ELF artifacts are mmaped directly from the cache file.
         Ok(m) => Ok(m),
+        Err(wasmer::DeserializeError::Io(error))
+            if error.kind() == std::io::ErrorKind::NotFound =>
+        {
+            Err(CacheError::NotFound)
+        }
+        Err(wasmer::DeserializeError::Io(error)) => Err(CacheError::FileRead {
+            path: path.to_path_buf(),
+            error,
+        }),
         Err(wasmer::DeserializeError::Incompatible(_)) => {
+            // Fall back to the legacy LZW-compressed cache format.
+            let bytes = match std::fs::read(path) {
+                Ok(bytes) => bytes,
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                    return Err(CacheError::NotFound);
+                }
+                Err(error) => {
+                    return Err(CacheError::FileRead {
+                        path: path.to_path_buf(),
+                        error,
+                    });
+                }
+            };
             let bytes = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8)
-                .decode(bytes)
+                .decode(&bytes)
                 .map_err(CacheError::other)?;
 
-            let m = unsafe { Module::deserialize(engine, bytes)? };
-
-            Ok(m)
+            Ok(unsafe { Module::deserialize(engine, bytes)? })
         }
         Err(e) => Err(CacheError::Deserialize(e)),
     }
