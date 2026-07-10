@@ -215,6 +215,7 @@ impl Compiler for LLVMCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        compile_info_blob: &[u8],
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -435,6 +436,7 @@ impl Compiler for LLVMCompiler {
 
             let mut module_file = emit_metadata_and_link(
                 target,
+                compile_info_blob,
                 build_directory.path(),
                 module_file,
                 &CompiledObjects {

@@ -1424,6 +1424,7 @@ impl Artifact {
         let compilation = compiler.compile_module(
             target,
             &metadata.compile_info,
+            &[],
             module_translation.as_ref().unwrap(),
             function_body_inputs,
             None,

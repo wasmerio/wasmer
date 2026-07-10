@@ -96,11 +96,29 @@ impl ArtifactBuild {
             memory_styles,
             table_styles,
         };
+        let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
+        let mut serializable = SerializableModule {
+            // The native ELF image does not exist yet. This placeholder is only
+            // used for the metadata copy embedded in that image.
+            compilation: SerializableCompilation::Elf(Vec::new()),
+            compile_info,
+            data_initializers: translation
+                .data_initializers
+                .iter()
+                .map(OwnedDataInitializer::new)
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+            cpu_features: cpu_features.as_u64(),
+        };
+        let compile_info_blob = serializable.serialize().map_err(|e| {
+            CompileError::Codegen(format!("cannot serialize SerializeModule: {e}"))
+        })?;
 
         // Compile the Module
         let compilation = compiler.compile_module(
             target,
-            &compile_info,
+            &serializable.compile_info,
+            &compile_info_blob,
             // SAFETY: Calling `unwrap` is correct since
             // `environ.translate()` above will write some data into
             // `module_translation_state`.
@@ -108,13 +126,6 @@ impl ArtifactBuild {
             translation.function_body_inputs,
             progress_callback,
         )?;
-        let data_initializers = translation
-            .data_initializers
-            .iter()
-            .map(OwnedDataInitializer::new)
-            .collect::<Vec<_>>()
-            .into_boxed_slice();
-        let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
 
         let compilation = match compilation {
             Compilation::Rkyv(compilation) => {
@@ -162,14 +173,8 @@ impl ArtifactBuild {
             Compilation::Elf(data) => SerializableCompilation::Elf(data),
         };
 
-        Ok(Self {
-            serializable: SerializableModule {
-                compilation,
-                compile_info,
-                data_initializers,
-                cpu_features: cpu_features.as_u64(),
-            },
-        })
+        serializable.compilation = compilation;
+        Ok(Self { serializable })
     }
 
     /// Create a new ArtifactBuild from a SerializableModule

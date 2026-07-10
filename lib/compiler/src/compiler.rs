@@ -177,6 +177,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         &self,
         target: &Target,
         module: &CompileModuleInfo,
+        compile_info_blob: &[u8],
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
@@ -363,6 +364,7 @@ pub struct CompiledObjects<'a> {
 
 fn emit_wasmer_meta_object(
     target: &Target,
+    compile_info_blob: &[u8],
     build_directory: &Path,
     compiled_objects: &CompiledObjects<'_>,
 ) -> Result<PathBuf, String> {
@@ -384,6 +386,18 @@ fn emit_wasmer_meta_object(
 
     let mut obj = get_object_for_target(target.triple())
         .map_err(|e| format!("failed to create Wasmer metaobject: {e}"))?;
+
+    let section_id = obj.add_section(
+        obj.segment_name(StandardSegment::Data).to_vec(),
+        crate::WASMER_MODULE_INFO_SECTION_NAME.to_vec(),
+        SectionKind::Other,
+    );
+    obj.append_section_data(section_id, compile_info_blob, 8);
+    if retain_section {
+        obj.section_mut(section_id).flags = SectionFlags::Elf {
+            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        };
+    }
 
     // Emit zero sentinel for the .eh_frame section.
     let section_id = obj.add_section(
@@ -521,14 +535,16 @@ fn emit_wasmer_meta_object(
 /// Emits Wasmer metadata sections and links backend-generated object files into a shared object.
 pub fn emit_metadata_and_link(
     target: &Target,
+    compile_info_blob: &[u8],
     build_directory: &Path,
     module_file: NamedTempFile,
     compiled_objects: &CompiledObjects<'_>,
     mut debug_dir: Option<PathBuf>,
     module_hash: Option<String>,
 ) -> Result<NamedTempFile, CompileError> {
-    let meta_object_path = emit_wasmer_meta_object(target, build_directory, compiled_objects)
-        .map_err(CompileError::Codegen)?;
+    let meta_object_path =
+        emit_wasmer_meta_object(target, compile_info_blob, build_directory, compiled_objects)
+            .map_err(CompileError::Codegen)?;
 
     let mut link_args = vec![
         "ld".to_string(),
