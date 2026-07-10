@@ -387,6 +387,11 @@ compiler = ["wasmer/compiler", "backend", "wasmer-compiler/translator"]
 singlepass = ["compiler", "wasmer-compiler-singlepass", "wasmer/singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift", "wasmer/cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm", "wasmer/llvm"]
+experimental-artifact-format = [
+  "wasmer/experimental-artifact-format",
+  "wasmer-compiler/experimental-artifact-format",
+  "wasmer-compiler-llvm?/experimental-artifact-format",
+]
 middlewares = ["wasmer-middlewares"]
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]

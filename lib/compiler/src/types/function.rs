@@ -9,6 +9,7 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
+#[cfg(feature = "experimental-artifact-format")]
 use std::path::PathBuf;
 
 use super::{
@@ -61,10 +62,13 @@ pub struct FunctionBody {
     pub unwind_info: Option<CompiledFunctionUnwindInfo>,
 }
 
-pub enum CompiledFunctionBody {
-    Rkyv(FunctionBody),
-    Elf(PathBuf),
-}
+/// A compiled function body in the format selected at compile time.
+#[cfg(not(feature = "experimental-artifact-format"))]
+pub struct CompiledFunctionBody(pub FunctionBody);
+
+/// A path to a compiled object file in the experimental artifact format.
+#[cfg(feature = "experimental-artifact-format")]
+pub struct CompiledFunctionBody(pub PathBuf);
 
 /// Any struct that acts like a `FunctionBody`.
 #[allow(missing_docs)]

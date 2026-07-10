@@ -17,8 +17,7 @@ use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
-    debug_info::{AsDIScope, DIFlags, DIFlagsConstants, DWARFEmissionKind, DWARFSourceLanguage},
-    module::{FlagBehavior, Linkage, Module},
+    module::{Linkage, Module},
     passes::PassBuilderOptions,
     targets::{FileType, TargetData, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
@@ -28,17 +27,25 @@ use inkwell::{
         PointerValue, VectorValue,
     },
 };
+#[cfg(feature = "experimental-artifact-format")]
+use inkwell::{
+    debug_info::{AsDIScope, DIFlags, DIFlagsConstants, DWARFEmissionKind, DWARFSourceLanguage},
+    module::FlagBehavior,
+};
 use itertools::Itertools;
 use smallvec::SmallVec;
 use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
 use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
+#[cfg(not(feature = "experimental-artifact-format"))]
+use crate::object_file::load_object_file;
 use crate::{
     abi::{Abi, get_abi},
     config::LLVM,
     error::{err, err_nt},
-    object_file::load_object_file,
 };
+#[cfg(not(feature = "experimental-artifact-format"))]
+use wasmer_compiler::types::{relocation::RelocationTarget, symbols::Symbol};
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64, FunctionBinaryReader, FunctionBodyData,
     GEF32_LEQ_I32_MAX, GEF32_LEQ_I64_MAX, GEF32_LEQ_U32_MAX, GEF32_LEQ_U64_MAX, GEF64_LEQ_I32_MAX,
@@ -47,10 +54,7 @@ use wasmer_compiler::{
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
     from_binaryreadererror_wasmerror,
     misc::{CompiledFunctionExt, CompiledKind},
-    types::{
-        relocation::RelocationTarget,
-        symbols::{Symbol, SymbolRegistry},
-    },
+    types::symbols::SymbolRegistry,
     wasmparser::{Catch, MemArg, Operator},
     wpheaptype_to_type, wptype_to_type,
 };
@@ -61,8 +65,10 @@ use wasmer_types::{
 use wasmer_types::{TagIndex, entity::PrimaryMap};
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
+#[cfg(not(feature = "experimental-artifact-format"))]
 const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_function";
 const FUNCTION_SECTION_MACHO: &str = "__TEXT";
+#[cfg(not(feature = "experimental-artifact-format"))]
 const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
 
 // Since we want to use module-local tag numbers for landing pads,
@@ -78,6 +84,7 @@ pub struct FuncTranslator {
     target_machines: HashMap<OptimizationStyle, TargetMachine>,
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
+    #[cfg(not(feature = "experimental-artifact-format"))]
     func_section: String,
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
@@ -106,6 +113,7 @@ impl FuncTranslator {
             target_triple,
             target_machines,
             abi,
+            #[cfg(not(feature = "experimental-artifact-format"))]
             func_section: match binary_fmt {
                 BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
                 BinaryFormat::Macho => FUNCTION_SEGMENT_MACHO.to_string(),
@@ -149,9 +157,10 @@ impl FuncTranslator {
             .get(MemoryIndex::from_u32(0))
             .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
-        let (function_name, module_name) = if config.elf_artifact_format {
-            (function.linkage_name(), String::new())
-        } else {
+        #[cfg(feature = "experimental-artifact-format")]
+        let (function_name, module_name) = (function.linkage_name(), String::new());
+        #[cfg(not(feature = "experimental-artifact-format"))]
+        let (function_name, module_name) = {
             let function_name =
                 symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
             let module_name = match wasm_module.name.as_ref() {
@@ -190,7 +199,8 @@ impl FuncTranslator {
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
-        let debug_info = if config.elf_artifact_format {
+        #[cfg(feature = "experimental-artifact-format")]
+        let debug_info = {
             let debug_metadata_version = self
                 .ctx
                 .i32_type()
@@ -245,9 +255,7 @@ impl FuncTranslator {
                 true,
             );
             func.set_subprogram(subprogram);
-            Some((dibuilder, subprogram))
-        } else {
-            None
+            (dibuilder, subprogram)
         };
         for (attr, attr_loc) in &func_attrs {
             func.add_attribute(*attr_loc, *attr);
@@ -260,6 +268,7 @@ impl FuncTranslator {
         func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
         func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
 
+        #[cfg(not(feature = "experimental-artifact-format"))]
         let section = match self.binary_fmt {
             BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
             BinaryFormat::Macho => {
@@ -274,9 +283,8 @@ impl FuncTranslator {
         };
 
         func.set_personality_function(intrinsics.personality);
-        if !config.elf_artifact_format {
-            func.as_global_value().set_section(Some(&section));
-        }
+        #[cfg(not(feature = "experimental-artifact-format"))]
+        func.as_global_value().set_section(Some(&section));
 
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
@@ -432,9 +440,12 @@ impl FuncTranslator {
 
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
+            #[cfg(feature = "experimental-artifact-format")]
             let original_pos = reader.original_position() as u32;
             let op = reader.read_operator()?;
-            if let Some((dibuilder, subprogram)) = debug_info.as_ref() {
+            #[cfg(feature = "experimental-artifact-format")]
+            {
+                let (dibuilder, subprogram) = &debug_info;
                 let line = original_pos.saturating_add(1);
                 let loc = dibuilder.create_debug_location(
                     &self.ctx,
@@ -449,9 +460,8 @@ impl FuncTranslator {
         }
 
         fcg.finalize(wasm_fn_type)?;
-        if let Some((dibuilder, _)) = debug_info {
-            dibuilder.finalize();
-        }
+        #[cfg(feature = "experimental-artifact-format")]
+        debug_info.0.finalize();
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.preopt_ir(&function, &wasm_module.hash_string(), &module);
@@ -528,7 +538,7 @@ impl FuncTranslator {
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
-        build_directory: &Path,
+        _build_directory: &Path,
     ) -> Result<CompiledFunction, CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
         let opt_style = if Some(func_index) == self.wasm_apply_data_relocs_fn_index {
@@ -571,15 +581,18 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        if config.elf_artifact_format {
-            let object_path = build_directory
+        #[cfg(feature = "experimental-artifact-format")]
+        {
+            let object_path = _build_directory
                 .to_path_buf()
                 .join(function.object_filename());
             std::fs::write(&object_path, memory_buffer.as_slice())
                 .map_err(|e| CompileError::Codegen(format!("Cannot save LLVM object file: {e}")))?;
-            Ok(CompiledFunction::Elf(object_path))
-        } else {
-            Ok(CompiledFunction::Rkyv(Box::new(load_object_file(
+            Ok(CompiledFunction(object_path))
+        }
+        #[cfg(not(feature = "experimental-artifact-format"))]
+        {
+            Ok(CompiledFunction(load_object_file(
                 memory_buffer.as_slice(),
                 &self.func_section,
                 RelocationTarget::LocalFunc(*local_func_index),
@@ -602,7 +615,7 @@ impl FuncTranslator {
                 },
                 self.binary_fmt,
                 &self.target_triple,
-            )?)))
+            )?))
         }
     }
 }

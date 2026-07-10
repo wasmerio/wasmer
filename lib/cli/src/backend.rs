@@ -177,13 +177,6 @@ pub struct RuntimeOptions {
     #[clap(long = "disable-non-volatile-memops")]
     disable_non_volatile_memops: bool,
 
-    /// Enable an experimental ELF-based version of the Artifact format.
-    ///
-    /// Available for LLVM.
-    #[cfg(feature = "llvm")]
-    #[clap(long = "elf-artifact")]
-    elf_artifact: bool,
-
     /// Allow unaligned memory accesses.
     ///
     /// This feature is experimental and currently supports only Cranelift scalar types
@@ -482,10 +475,6 @@ impl RuntimeOptions {
                     config.enable_non_volatile_memops();
                 }
                 config.enable_readonly_funcref_table();
-                if self.elf_artifact {
-                    config.elf_artifact_format(true);
-                }
-
                 if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
                 }
@@ -640,10 +629,6 @@ impl BackendType {
                     config.enable_non_volatile_memops();
                 }
                 config.enable_readonly_funcref_table();
-                if runtime_opts.elf_artifact {
-                    config.elf_artifact_format(true);
-                }
-
                 let supported_features = config.supported_features_for_target(target);
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");

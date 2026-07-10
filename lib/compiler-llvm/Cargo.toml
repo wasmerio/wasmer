@@ -49,6 +49,7 @@ rustc_version.workspace = true
 
 [features]
 test = []
+experimental-artifact-format = ["wasmer-compiler/experimental-artifact-format"]
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

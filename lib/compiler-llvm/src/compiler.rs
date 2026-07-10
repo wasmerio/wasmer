@@ -1,30 +1,34 @@
 use crate::config::LLVM;
 use crate::config::OptimizationStyle;
-use crate::object_file::CompiledFunction;
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+#[cfg(not(feature = "experimental-artifact-format"))]
+use std::collections::HashSet;
+#[cfg(feature = "experimental-artifact-format")]
 use std::io::Read;
-use std::{
-    borrow::Cow,
-    collections::{HashMap, HashSet},
-    path::PathBuf,
-    sync::Arc,
-};
-use tempfile::{NamedTempFile, tempdir};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
+#[cfg(feature = "experimental-artifact-format")]
+use tempfile::NamedTempFile;
+use tempfile::tempdir;
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::Compilation;
-use wasmer_compiler::types::function::CompiledFunctionBody;
+#[cfg(not(feature = "experimental-artifact-format"))]
 use wasmer_compiler::types::function::{RkyvCompilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
+#[cfg(not(feature = "experimental-artifact-format"))]
 use wasmer_compiler::types::relocation::RelocationKind;
+#[cfg(not(feature = "experimental-artifact-format"))]
+use wasmer_compiler::types::relocation::RelocationTarget;
+#[cfg(not(feature = "experimental-artifact-format"))]
+use wasmer_compiler::types::section::{CustomSection, CustomSectionProtection, SectionBody};
+#[cfg(feature = "experimental-artifact-format")]
+use wasmer_compiler::{CompiledObjects, emit_metadata_and_link};
 use wasmer_compiler::{
-    CompiledObjects, Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
-    emit_metadata_and_link,
+    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
     types::{
-        relocation::RelocationTarget,
-        section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
+        section::SectionIndex,
         symbols::{Symbol, SymbolRegistry},
     },
 };
@@ -39,6 +43,7 @@ use wasmer_types::{
     CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
     SignatureIndex,
 };
+#[cfg(not(feature = "experimental-artifact-format"))]
 use wasmer_vm::LibCall;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
@@ -192,7 +197,7 @@ impl Compiler for LLVMCompiler {
                 inkwell::OptimizationLevel::Default => "optd",
                 inkwell::OptimizationLevel::Aggressive => "opta",
             },
-            if self.config.elf_artifact_format {
+            if cfg!(feature = "experimental-artifact-format") {
                 "-elf"
             } else {
                 ""
@@ -247,6 +252,7 @@ impl Compiler for LLVMCompiler {
         let mut compact_unwind_section_bytes = vec![];
         let mut compact_unwind_section_relocations = vec![];
 
+        #[cfg(not(feature = "experimental-artifact-format"))]
         let mut got_targets: HashSet<wasmer_compiler::types::relocation::RelocationTarget> = if matches!(
             target.triple().binary_format,
             target_lexicon::BinaryFormat::Macho
@@ -402,32 +408,20 @@ impl Compiler for LLVMCompiler {
                 .collect::<Result<Vec<_>, CompileError>>()?
         };
 
-        if self.config.elf_artifact_format {
+        #[cfg(feature = "experimental-artifact-format")]
+        {
             let object_files = functions
                 .into_iter()
-                .map(|compiled_function| match compiled_function {
-                    CompiledFunction::Elf(path) => path,
-                    CompiledFunction::Rkyv(_) => {
-                        unreachable!()
-                    }
-                })
-                .collect::<Vec<PathBuf>>();
+                .map(|compiled_function| compiled_function.0)
+                .collect::<Vec<_>>();
             let trampolines_objects = function_call_trampolines
                 .into_iter()
-                .map(|f| match f {
-                    CompiledFunctionBody::Elf(path) => path,
-                    CompiledFunctionBody::Rkyv(_) => {
-                        unreachable!()
-                    }
-                })
-                .collect::<Vec<PathBuf>>();
+                .map(|f| f.0)
+                .collect::<Vec<_>>();
             let dynamic_trampolines_objects = dynamic_function_trampolines
                 .into_iter()
-                .map(|f| match f {
-                    CompiledFunctionBody::Elf(path) => path,
-                    CompiledFunctionBody::Rkyv(_) => unreachable!(),
-                })
-                .collect::<Vec<PathBuf>>();
+                .map(|f| f.0)
+                .collect::<Vec<_>>();
 
             let module_file = NamedTempFile::new_in(build_directory.path()).map_err(|e| {
                 CompileError::Codegen(format!("cannot create temporary module file: {e}"))
@@ -455,13 +449,13 @@ impl Compiler for LLVMCompiler {
                 CompileError::Codegen(format!("cannot persist linked shared object: {e}"))
             })?;
             Ok(Compilation::Elf(elf_content))
-        } else {
+        }
+        #[cfg(not(feature = "experimental-artifact-format"))]
+        {
             let functions = functions
                 .into_iter()
                 .map(|compiled_function| {
-                    let CompiledFunction::Rkyv(mut compiled_function) = compiled_function else {
-                        unreachable!()
-                    };
+                    let mut compiled_function = compiled_function.0;
 
                     let first_section = module_custom_sections.len() as u32;
                     for (section_index, custom_section) in compiled_function.custom_sections.iter()
@@ -602,23 +596,11 @@ impl Compiler for LLVMCompiler {
                 got.index = Some(got_idx);
             };
 
-            let function_call_trampolines = function_call_trampolines
-                .into_iter()
-                .map(|f| {
-                    let CompiledFunctionBody::Rkyv(function) = f else {
-                        unreachable!()
-                    };
-                    function
-                })
-                .collect();
+            let function_call_trampolines =
+                function_call_trampolines.into_iter().map(|f| f.0).collect();
             let dynamic_function_trampolines = dynamic_function_trampolines
                 .into_iter()
-                .map(|f| {
-                    let CompiledFunctionBody::Rkyv(function) = f else {
-                        unreachable!()
-                    };
-                    function
-                })
+                .map(|f| f.0)
                 .collect();
 
             Ok(Compilation::Rkyv(RkyvCompilation {

@@ -6,6 +6,7 @@ use target_lexicon::{
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
+#[cfg(feature = "experimental-artifact-format")]
 use std::path::PathBuf;
 
 use wasmer_types::{CompileError, SourceLoc, entity::PrimaryMap};
@@ -28,6 +29,7 @@ fn map_object_err(error: object::read::Error) -> CompileError {
     CompileError::Codegen(format!("error parsing object file: {error}"))
 }
 
+#[cfg_attr(feature = "experimental-artifact-format", allow(dead_code))]
 #[derive(Debug)]
 pub struct RkyvCompiledFunction {
     pub compiled_function: wasmer_compiler::types::function::CompiledFunction,
@@ -38,11 +40,13 @@ pub struct RkyvCompiledFunction {
     pub data_dw_ref_personality_section_indices: Vec<SectionIndex>,
 }
 
+#[cfg(not(feature = "experimental-artifact-format"))]
 #[derive(Debug)]
-pub enum CompiledFunction {
-    Rkyv(Box<RkyvCompiledFunction>),
-    Elf(PathBuf),
-}
+pub struct CompiledFunction(pub RkyvCompiledFunction);
+
+#[cfg(feature = "experimental-artifact-format")]
+#[derive(Debug)]
+pub struct CompiledFunction(pub PathBuf);
 
 impl wasmer_compiler::CompiledFunction for CompiledFunction {}
 

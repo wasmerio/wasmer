@@ -119,11 +119,10 @@ impl FuncTrampoline {
             trampoline_ty,
             Some(Linkage::External),
         );
-        if !config.elf_artifact_format {
-            trampoline_func
-                .as_global_value()
-                .set_section(Some(&self.func_section));
-        }
+        #[cfg(not(feature = "experimental-artifact-format"))]
+        trampoline_func
+            .as_global_value()
+            .set_section(Some(&self.func_section));
         trampoline_func
             .as_global_value()
             .set_linkage(Linkage::DLLExport);
@@ -194,14 +193,17 @@ impl FuncTrampoline {
             callbacks.asm_memory_buffer(function, &module_hash, &asm_buffer);
         }
 
-        if config.elf_artifact_format {
+        #[cfg(feature = "experimental-artifact-format")]
+        {
             let object_path = build_directory.to_path_buf().join(function.linkage_name());
             std::fs::write(&object_path, memory_buffer.as_slice()).map_err(|e| {
                 CompileError::Codegen(format!("Cannot save LLVM object file for trampoline: {e}"))
             })?;
 
-            Ok(CompiledFunctionBody::Elf(object_path))
-        } else {
+            Ok(CompiledFunctionBody(object_path))
+        }
+        #[cfg(not(feature = "experimental-artifact-format"))]
+        {
             // Use a dummy function index to detect relocations against the trampoline
             // function's address, which shouldn't exist and are not supported.
             // Note, we just drop all custom sections, and verify that the function
@@ -258,7 +260,7 @@ impl FuncTrampoline {
             }
             // Ignore CompiledFunctionFrameInfo. Extra frame info isn't a problem.
 
-            Ok(CompiledFunctionBody::Rkyv(FunctionBody {
+            Ok(CompiledFunctionBody(FunctionBody {
                 body: compiled_function.body.body,
                 unwind_info: compiled_function.body.unwind_info,
             }))
@@ -300,11 +302,10 @@ impl FuncTrampoline {
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
         }
-        if !config.elf_artifact_format {
-            trampoline_func
-                .as_global_value()
-                .set_section(Some(&self.func_section));
-        }
+        #[cfg(not(feature = "experimental-artifact-format"))]
+        trampoline_func
+            .as_global_value()
+            .set_section(Some(&self.func_section));
         trampoline_func
             .as_global_value()
             .set_linkage(Linkage::DLLExport);
@@ -370,7 +371,8 @@ impl FuncTrampoline {
             callbacks.asm_memory_buffer(function, module_hash, &asm_buffer)
         }
 
-        if config.elf_artifact_format {
+        #[cfg(feature = "experimental-artifact-format")]
+        {
             let object_path = build_directory.to_path_buf().join(function.linkage_name());
             std::fs::write(&object_path, memory_buffer.as_slice()).map_err(|e| {
                 CompileError::Codegen(format!(
@@ -378,8 +380,10 @@ impl FuncTrampoline {
                 ))
             })?;
 
-            Ok(CompiledFunctionBody::Elf(object_path))
-        } else {
+            Ok(CompiledFunctionBody(object_path))
+        }
+        #[cfg(not(feature = "experimental-artifact-format"))]
+        {
             let RkyvCompiledFunction {
                 compiled_function,
                 custom_sections,
@@ -471,7 +475,7 @@ impl FuncTrampoline {
                 }
             }
 
-            Ok(CompiledFunctionBody::Rkyv(FunctionBody {
+            Ok(CompiledFunctionBody(FunctionBody {
                 body: compiled_function.body.body,
                 unwind_info: compiled_function.body.unwind_info,
             }))
