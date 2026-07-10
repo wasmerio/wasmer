@@ -117,19 +117,24 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
     let llvm_compiler_test = construct_compiler_test(&my_fn, "LLVM");
     let v8_compiler_test = construct_compiler_test(&my_fn, "V8");
 
-    let llvm_elf_engine_test = {
+    let llvm_exp_artifact_engine_test = {
         let mut new_sig = my_fn.sig.clone();
         let attrs = my_fn
             .attrs
             .clone()
             .iter()
             .fold(quote! {}, |acc, new| quote! {#acc #new});
-        new_sig.ident = ::quote::format_ident!("llvm_elf");
+        new_sig.ident = ::quote::format_ident!("llvm_exp_artifact");
         new_sig.inputs = ::syn::punctuated::Punctuated::new();
         let f = quote! {
             #[test_log::test]
             #attrs
-            #[cfg(all(feature = "llvm", feature = "experimental-artifact"))]
+            #[cfg(all(
+                feature = "llvm",
+                feature = "experimental-artifact",
+                target_os = "linux",
+                target_arch = "x86_64"
+            ))]
             #new_sig {
                 let mut config = crate::Config::new(crate::Compiler::LLVM);
                 config.set_elf_artifact(true);
@@ -139,7 +144,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
         if should_ignore(
             &my_fn.sig.ident.to_string().replace("r#", ""),
             "LLVM",
-            "llvm_elf",
+            "llvm_exp_artifact",
         ) && !cfg!(test)
         {
             quote! {
@@ -150,12 +155,17 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
             f
         }
     };
-    let llvm_elf_compiler_test = quote! {
-        #[cfg(feature = "llvm")]
-        mod llvm_elf {
+    let llvm_exp_artifact_compiler_test = quote! {
+        #[cfg(all(
+            feature = "llvm",
+            feature = "experimental-artifact",
+            target_os = "linux",
+            target_arch = "x86_64"
+        ))]
+        mod llvm_exp_artifact {
             use super::*;
 
-            #llvm_elf_engine_test
+            #llvm_exp_artifact_engine_test
         }
     };
 
@@ -174,7 +184,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
             #cranelift_compiler_test
             #llvm_compiler_test
             #v8_compiler_test
-            #llvm_elf_compiler_test
+            #llvm_exp_artifact_compiler_test
         }
     };
 

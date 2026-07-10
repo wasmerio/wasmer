@@ -190,7 +190,13 @@ impl LLVM {
     }
 
     /// Enables an experimental ELF-based version of the Artifact format.
-    #[cfg(feature = "experimental-artifact")]
+    ///
+    /// This format is currently supported only on x86-64 Linux.
+    #[cfg(all(
+        feature = "experimental-artifact",
+        target_os = "linux",
+        target_arch = "x86_64"
+    ))]
     pub fn elf_artifact_format(&mut self, elf_artifact_format: bool) -> &mut Self {
         self.elf_artifact_format = elf_artifact_format;
         if elf_artifact_format {

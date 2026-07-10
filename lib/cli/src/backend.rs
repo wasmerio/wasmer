@@ -179,8 +179,12 @@ pub struct RuntimeOptions {
 
     /// Enable an experimental ELF-based version of the Artifact format.
     ///
-    /// Available for LLVM.
-    #[cfg(feature = "experimental-artifact")]
+    /// Available for LLVM on x86-64 Linux.
+    #[cfg(all(
+        feature = "experimental-artifact",
+        target_os = "linux",
+        target_arch = "x86_64"
+    ))]
     #[clap(long = "experimental-artifact")]
     experimental_artifact: bool,
 
@@ -482,7 +486,11 @@ impl RuntimeOptions {
                     config.enable_non_volatile_memops();
                 }
                 config.enable_readonly_funcref_table();
-                #[cfg(feature = "experimental-artifact")]
+                #[cfg(all(
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
                 if self.experimental_artifact {
                     config.elf_artifact_format(true);
                 }
@@ -641,7 +649,11 @@ impl BackendType {
                     config.enable_non_volatile_memops();
                 }
                 config.enable_readonly_funcref_table();
-                #[cfg(feature = "experimental-artifact")]
+                #[cfg(all(
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
                 if runtime_opts.experimental_artifact {
                     config.elf_artifact_format(true);
                 }
