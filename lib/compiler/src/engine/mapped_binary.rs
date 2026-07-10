@@ -1,5 +1,7 @@
 use std::{
     ffi::c_void,
+    fs::File,
+    os::fd::RawFd,
     ptr, slice,
     sync::{Arc, Mutex},
 };
@@ -26,10 +28,16 @@ pub type DwarfReader = gimli::EndianArcSlice<gimli::RunTimeEndian>;
 /// Building an `addr2line::Context` parses the DWARF sections eagerly, which
 /// is wasted work for modules that are never symbolicated (e.g. no trap or
 /// backtrace ever occurs). This defers that work until the first lookup.
+#[derive(Clone)]
+pub(crate) enum DebugInfoSource {
+    Bytes(Arc<[u8]>),
+    File(Arc<File>),
+}
+
 pub(crate) struct DebugInfo {
-    /// The raw ELF image bytes, kept around so the DWARF sections can be
+    /// The ELF image, kept around (or reopened) so the DWARF sections can be
     /// loaded on first use. `None` for non-ELF artifacts.
-    elf_data: Option<Arc<[u8]>>,
+    elf_data: Option<DebugInfoSource>,
     /// `None` until first accessed; `Some(None)` once loading was attempted
     /// and failed (or there was no ELF image to load from).
     ///
@@ -42,7 +50,7 @@ pub(crate) struct DebugInfo {
 }
 
 impl DebugInfo {
-    pub(crate) fn new(elf_data: Option<Arc<[u8]>>) -> Self {
+    pub(crate) fn new(elf_data: Option<DebugInfoSource>) -> Self {
         Self {
             elf_data,
             context: Mutex::new(None),
@@ -58,7 +66,17 @@ impl DebugInfo {
     ) -> T {
         let mut context = self.context.lock().unwrap();
         let context = context.get_or_insert_with(|| {
-            let elf_data = self.elf_data.as_ref()?;
+            let elf_data = match self.elf_data.as_ref()? {
+                DebugInfoSource::Bytes(data) => data.clone(),
+                DebugInfoSource::File(file) => {
+                    let mut file = file.try_clone().ok()?;
+                    use std::io::{Read as _, Seek as _};
+                    file.rewind().ok()?;
+                    let mut data = Vec::new();
+                    file.read_to_end(&mut data).ok()?;
+                    Arc::from(data)
+                }
+            };
             let object_file = object::File::parse(&elf_data[..]).ok()?;
             load_dwarf_context(&object_file).ok()
         });
@@ -231,6 +249,22 @@ impl MemoryMappedBinary {
         object_file: &object::File<'a, R>,
         data: &[u8],
     ) -> Result<Self, String> {
+        Self::try_from_source(object_file, Some(data), None)
+    }
+
+    /// Maps an ELF image's load segments directly from an open file.
+    pub(crate) fn try_from_file<'a, R: ReadRef<'a>>(
+        object_file: &object::File<'a, R>,
+        file: RawFd,
+    ) -> Result<Self, String> {
+        Self::try_from_source(object_file, None, Some(file))
+    }
+
+    fn try_from_source<'a, R: ReadRef<'a>>(
+        object_file: &object::File<'a, R>,
+        data: Option<&[u8]>,
+        file: Option<RawFd>,
+    ) -> Result<Self, String> {
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) as usize };
 
         let segments = object_file
@@ -274,14 +308,21 @@ impl MemoryMappedBinary {
 
             let protection = load_segment.protection()?;
 
-            map.map_copy(
-                load_segment.mem_address_page_aligned(),
-                load_segment.file_size_page_aligned(),
-                protection,
-                data,
-                load_segment.file_address_page_aligned(),
-            )
-            .map_err(|error| {
+            let offset = load_segment.mem_address_page_aligned();
+            let size = load_segment.file_size_page_aligned();
+            let file_offset = load_segment.file_address_page_aligned();
+            let result = if let Some(file) = file {
+                map.map_file(offset, size, protection, file, file_offset)
+            } else {
+                map.map_copy(
+                    offset,
+                    size,
+                    protection,
+                    data.expect("byte-backed mapping requires image data"),
+                    file_offset,
+                )
+            };
+            result.map_err(|error| {
                 format!(
                     "Cannot map load segment at virtual address 0x{:x}: {error}",
                     load_segment.mem_address_page_aligned()
@@ -434,6 +475,34 @@ impl MemoryMappedBinary {
                 libc::MAP_PRIVATE | libc::MAP_ANONYMOUS | libc::MAP_FIXED,
                 -1,
                 0,
+            )
+        };
+        if result == libc::MAP_FAILED {
+            return Err(std::io::Error::last_os_error().to_string());
+        }
+        Ok(())
+    }
+
+    /// Maps a region at `offset` directly from a file.
+    fn map_file(
+        &self,
+        offset: usize,
+        size: usize,
+        protection: i32,
+        file: RawFd,
+        file_offset: usize,
+    ) -> Result<(), String> {
+        if offset + size > self.size {
+            return Err("Segment will overwrite allocated range".to_string());
+        }
+        let result = unsafe {
+            libc::mmap(
+                self.base.add(offset),
+                size,
+                protection,
+                libc::MAP_PRIVATE | libc::MAP_FIXED,
+                file,
+                file_offset as libc::off_t,
             )
         };
         if result == libc::MAP_FAILED {

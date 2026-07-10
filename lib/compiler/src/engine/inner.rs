@@ -17,6 +17,10 @@ use std::ffi::c_void;
 #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
 use std::io::Write;
 #[cfg(not(target_arch = "wasm32"))]
+use std::io::{Read, Seek};
+#[cfg(not(target_arch = "wasm32"))]
+use std::os::fd::RawFd;
+#[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
 #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
 use wasmer_types::ModuleInfo;
@@ -272,7 +276,13 @@ impl Engine {
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
         unsafe {
-            let file = std::fs::File::open(file_ref)?;
+            let mut file = std::fs::File::open(file_ref)?;
+            let mut magic = [0; 4];
+            let is_elf = file.read_exact(&mut magic).is_ok() && magic == object::elf::ELFMAG;
+            if is_elf {
+                return Ok(Arc::new(Artifact::deserialize_file(self, file_ref)?));
+            }
+            file.rewind()?;
             self.deserialize(
                 OwnedBuffer::from_file(&file)
                     .map_err(|e| DeserializeError::Generic(e.to_string()))?,
@@ -564,6 +574,20 @@ impl EngineInner {
     ) -> Result<*mut c_void, CompileError> {
         let map = MemoryMappedBinary::try_from_bytes(object_file, data)
             .map_err(CompileError::Resource)?;
+        let base = map.base();
+        self.elf_mapped_binary.push(map);
+        Ok(base)
+    }
+
+    /// Memory-map a compiled ELF artifact directly from a file.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn map_elf_binary_file<'a, R: object::ReadRef<'a>>(
+        &mut self,
+        object_file: &object::File<'a, R>,
+        file: RawFd,
+    ) -> Result<*mut c_void, CompileError> {
+        let map =
+            MemoryMappedBinary::try_from_file(object_file, file).map_err(CompileError::Resource)?;
         let base = map.base();
         self.elf_mapped_binary.push(map);
         Ok(base)

@@ -1,9 +1,15 @@
 //! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering::SeqCst},
+use std::{
+    fs::File,
+    io::BufReader,
+    os::fd::AsRawFd,
+    path::{Path, PathBuf},
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering::SeqCst},
+    },
 };
 
 #[cfg(feature = "compiler")]
@@ -11,9 +17,9 @@ use crate::ModuleEnvironment;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
-    engine::{link::link_module, resolver::resolve_tags},
+    engine::{link::link_module, resolver::resolve_tags, trap::register_frame_info_source},
     lib::std::vec::IntoIter,
-    register_frame_info, resolve_imports,
+    resolve_imports,
     serialize::{MetadataHeader, SerializableCompilation, SerializableModule},
     types::relocation::{RelocationLike, RelocationTarget},
 };
@@ -26,9 +32,12 @@ use itertools::Itertools;
 use wasmer_types::CompilationProgressCallback;
 
 use enumset::EnumSet;
-use object::{Object as _, ObjectSection as _};
+use object::{Object as _, ObjectSection as _, ReadCache};
 use rkyv::option::ArchivedOption;
 use shared_buffer::OwnedBuffer;
+use tempfile::NamedTempFile;
+
+use crate::engine::mapped_binary::DebugInfoSource;
 
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
@@ -52,6 +61,22 @@ use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
     VMConfig, VMExtern, VMInstance, VMSignatureHash, VMTrampoline,
 };
+
+#[derive(Debug)]
+#[allow(dead_code)]
+pub(crate) enum ModuleFile {
+    TempFile(NamedTempFile),
+    OwnedFile(PathBuf),
+}
+
+impl ModuleFile {
+    fn path(&self) -> &Path {
+        match self {
+            Self::TempFile(file) => file.path(),
+            Self::OwnedFile(path) => path,
+        }
+    }
+}
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 pub struct AllocatedArtifact {
@@ -94,7 +119,7 @@ pub struct AllocatedArtifact {
     /// native ELF image. Used to lazily build DWARF debug info for frame
     /// symbolication. `None` for non-ELF artifacts.
     #[cfg_attr(feature = "artifact-size", loupe(skip))]
-    elf_image: Option<(usize, Arc<[u8]>)>,
+    elf_image: Option<(usize, DebugInfoSource)>,
 }
 
 impl AllocatedArtifact {
@@ -149,6 +174,8 @@ impl Default for ArtifactId {
 pub struct Artifact {
     id: ArtifactId,
     artifact: ArtifactBuildVariant,
+    #[cfg_attr(feature = "artifact-size", loupe(skip))]
+    module_file: Option<ModuleFile>,
     // The artifact will only be allocated in memory in case we can execute it
     // (that means, if the target != host then this will be None).
     allocated: Option<AllocatedArtifact>,
@@ -188,7 +215,7 @@ impl Artifact {
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
-        let artifact = ArtifactBuild::new(
+        let mut artifact = ArtifactBuild::new(
             &mut inner_engine,
             data,
             engine.target(),
@@ -197,10 +224,28 @@ impl Artifact {
             progress_callback.as_ref(),
         )?;
 
-        Self::from_parts(
+        let module_file = if let SerializableCompilation::Elf(data) =
+            &mut artifact.serializable.compilation
+        {
+            use std::io::Write as _;
+            let mut file = tempfile::Builder::new()
+                .prefix("wasmer-image")
+                .suffix(".so")
+                .tempfile()
+                .map_err(|e| CompileError::Codegen(format!("cannot create artifact file: {e}")))?;
+            file.write_all(data)
+                .map_err(|e| CompileError::Codegen(format!("cannot write artifact file: {e}")))?;
+            *data = Vec::new();
+            Some(ModuleFile::TempFile(file))
+        } else {
+            None
+        };
+
+        Self::from_parts_with_module_file(
             &mut inner_engine,
             ArtifactBuildVariant::Plain(artifact),
             engine.target(),
+            module_file,
         )
         .map_err(|e| match e {
             DeserializeError::Compiler(c) => c,
@@ -239,6 +284,56 @@ impl Artifact {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
+    }
+
+    /// Load an ELF artifact directly from a file-backed memory map.
+    ///
+    /// Unlike [`Self::deserialize`], this entrypoint only accepts ELF artifacts.
+    ///
+    /// # Safety
+    /// This function loads executable code into memory. The file must be trusted
+    /// and must not be modified while the returned artifact is in use.
+    pub unsafe fn deserialize_file(
+        engine: &Engine,
+        path: impl AsRef<Path>,
+    ) -> Result<Self, DeserializeError> {
+        let path = path.as_ref().to_path_buf();
+        let file = File::open(&path)?;
+        let cache = ReadCache::new(BufReader::new(file));
+        let image = object::File::parse(&cache)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
+        if image.format() != object::BinaryFormat::Elf {
+            return Err(DeserializeError::Incompatible(
+                "Artifact::load_from_path only supports ELF artifacts".to_string(),
+            ));
+        }
+
+        let module_info = image
+            .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
+            .ok_or_else(|| {
+                DeserializeError::CorruptedBinary("missing ModuleInfo section".to_string())
+            })?
+            .data()
+            .map_err(|e| {
+                DeserializeError::CorruptedBinary(format!(
+                    "cannot load ModuleInfo section data: {e}"
+                ))
+            })?;
+        let serializable = unsafe { SerializableModule::deserialize(module_info)? };
+        if !matches!(serializable.compilation, SerializableCompilation::Elf(_)) {
+            return Err(DeserializeError::Incompatible(
+                "file does not contain an ELF artifact".to_string(),
+            ));
+        }
+
+        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
+        let mut inner_engine = engine.inner_mut();
+        Self::from_parts_with_module_file(
+            &mut inner_engine,
+            artifact,
+            engine.target(),
+            Some(ModuleFile::OwnedFile(path)),
+        )
     }
 
     /// Deserialize a serialized artifact.
@@ -341,10 +436,20 @@ impl Artifact {
         artifact: ArtifactBuildVariant,
         target: &Target,
     ) -> Result<Self, DeserializeError> {
+        Self::from_parts_with_module_file(engine_inner, artifact, target, None)
+    }
+
+    fn from_parts_with_module_file(
+        engine_inner: &mut EngineInner,
+        artifact: ArtifactBuildVariant,
+        target: &Target,
+        module_file: Option<ModuleFile>,
+    ) -> Result<Self, DeserializeError> {
         if !target.is_native() {
             return Ok(Self {
                 id: Default::default(),
                 artifact,
+                module_file,
                 allocated: None,
             });
         } else {
@@ -359,7 +464,7 @@ impl Artifact {
         }
         let module_info = artifact.module_info();
 
-        let allocated = if let Some(elf_file_data) = match &artifact {
+        let elf_file_data = match &artifact {
             ArtifactBuildVariant::Plain(p) => {
                 if let SerializableCompilation::Elf(data) = &p.serializable.compilation {
                     Some(data.as_ref())
@@ -368,7 +473,15 @@ impl Artifact {
                 }
             }
             ArtifactBuildVariant::Archived(a) => a.get_elf_file(),
-        } {
+        };
+        let allocated = if let Some(module_file) = module_file.as_ref() {
+            if elf_file_data.is_none() {
+                return Err(DeserializeError::Incompatible(
+                    "file-backed loading only supports ELF artifacts".to_string(),
+                ));
+            }
+            Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file.path())?
+        } else if let Some(elf_file_data) = elf_file_data {
             Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
         } else {
             let (
@@ -630,6 +743,7 @@ impl Artifact {
         let mut artifact = Self {
             id: Default::default(),
             artifact,
+            module_file,
             allocated: Some(allocated),
         };
 
@@ -663,7 +777,48 @@ impl Artifact {
         let image = object::File::parse(elf_file_data)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
         let base = engine_inner.map_elf_binary(&image, elf_file_data)?;
+        Self::allocate_elf_artifact_from_image(
+            engine_inner,
+            module_info,
+            &image,
+            base,
+            DebugInfoSource::Bytes(Arc::from(elf_file_data)),
+        )
+    }
 
+    fn allocate_elf_artifact_from_path(
+        engine_inner: &mut EngineInner,
+        module_info: &ModuleInfo,
+        path: &Path,
+    ) -> Result<AllocatedArtifact, DeserializeError> {
+        let file = File::open(path)?;
+        let fd = file.as_raw_fd();
+        let debug_file = Arc::new(file.try_clone()?);
+        let cache = ReadCache::new(BufReader::new(file));
+        let image = object::File::parse(&cache)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
+        if image.format() != object::BinaryFormat::Elf {
+            return Err(DeserializeError::Incompatible(
+                "file-backed Artifact is not ELF".to_string(),
+            ));
+        }
+        let base = engine_inner.map_elf_binary_file(&image, fd)?;
+        Self::allocate_elf_artifact_from_image(
+            engine_inner,
+            module_info,
+            &image,
+            base,
+            DebugInfoSource::File(debug_file),
+        )
+    }
+
+    fn allocate_elf_artifact_from_image<'a, R: object::ReadRef<'a>>(
+        engine_inner: &mut EngineInner,
+        module_info: &ModuleInfo,
+        image: &object::File<'a, R>,
+        base: *mut std::ffi::c_void,
+        debug_info: DebugInfoSource,
+    ) -> Result<AllocatedArtifact, DeserializeError> {
         let mut function_offsets = None;
         for section in image.sections() {
             let Ok(section_name) = section.name_bytes() else {
@@ -783,7 +938,7 @@ impl Artifact {
             finished_function_lengths,
             vm_offsets,
             function_max_stack_usage,
-            elf_image: Some((base as usize, Arc::from(elf_file_data))),
+            elf_image: Some((base as usize, debug_info)),
         })
     }
 
@@ -847,6 +1002,11 @@ impl<'a> ArtifactCreate<'a> for Artifact {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        if let Some(module_file) = &self.module_file {
+            return std::fs::read(module_file.path()).map_err(|e| {
+                SerializeError::Generic(format!("Failed to serialize Artifact file: {e}"))
+            });
+        }
         self.artifact.serialize()
     }
 }
@@ -1036,7 +1196,7 @@ impl Artifact {
                 .expect("It must be allocated")
                 .frame_info_registration;
 
-            *frame_info_registration = register_frame_info(
+            *frame_info_registration = register_frame_info_source(
                 self.artifact.create_module_info(),
                 &finished_function_extents,
                 frame_infos,
@@ -1634,6 +1794,7 @@ impl Artifact {
             Ok(Self {
                 id: Default::default(),
                 artifact: artifact_variant,
+                module_file: None,
                 allocated: Some(AllocatedArtifact {
                     frame_info_registered: false,
                     frame_info_registration: None,

@@ -345,7 +345,10 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        serialize_module(&self.serializable)
+        match &self.serializable.compilation {
+            SerializableCompilation::Elf(data) => Ok(data.clone()),
+            SerializableCompilation::Rkyv(_) => serialize_module(&self.serializable),
+        }
     }
 }
 
@@ -655,6 +658,12 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        if let ArchivedSerializableCompilation::Elf(data) =
+            self.cell.borrow_dependent().compilation
+        {
+            return Ok(data.to_vec());
+        }
+
         // We could have stored the original bytes, but since the module info name
         // is mutable, we have to assume the data may have changed and serialize
         // everything all over again. Also, to be able to serialize, first we have

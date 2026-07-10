@@ -13,7 +13,7 @@
 //! ```
 
 use crate::ArtifactBuildFromArchive;
-use crate::engine::mapped_binary::DebugInfo;
+use crate::engine::mapped_binary::{DebugInfo, DebugInfoSource};
 use crate::types::address_map::{
     ArchivedFunctionAddressMap, ArchivedInstructionAddressMap, FunctionAddressMap,
     InstructionAddressMap,
@@ -425,6 +425,22 @@ pub fn register(
     frame_infos: Option<FrameInfosVariant>,
     image_base: usize,
     elf_data: Option<Arc<[u8]>>,
+) -> Option<GlobalFrameInfoRegistration> {
+    register_with_source(
+        module,
+        finished_functions,
+        frame_infos,
+        image_base,
+        elf_data.map(DebugInfoSource::Bytes),
+    )
+}
+
+pub(crate) fn register_with_source(
+    module: Arc<ModuleInfo>,
+    finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
+    frame_infos: Option<FrameInfosVariant>,
+    image_base: usize,
+    elf_data: Option<DebugInfoSource>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::MAX;
     let mut max = 0;

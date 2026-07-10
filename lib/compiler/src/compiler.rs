@@ -376,16 +376,13 @@ fn emit_wasmer_meta_object(
         .open(&meta_object_path)
         .map_err(|e| {
             format!(
-                "failed to create Wasmer metaobject {}: {e}",
+                "failed to create Wasmer meta object file {}: {e}",
                 meta_object_path.display()
             )
         })?;
 
-    // Mark sections as retained by linker GC, only used on Linux targets.
-    let retain_section = target.triple().binary_format == BinaryFormat::Elf;
-
     let mut obj = get_object_for_target(target.triple())
-        .map_err(|e| format!("failed to create Wasmer metaobject: {e}"))?;
+        .map_err(|e| format!("failed to create Wasmer meta object file: {e}"))?;
 
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
@@ -393,11 +390,9 @@ fn emit_wasmer_meta_object(
         SectionKind::Other,
     );
     obj.append_section_data(section_id, compile_info_blob, 8);
-    if retain_section {
-        obj.section_mut(section_id).flags = SectionFlags::Elf {
-            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-        };
-    }
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+    };
 
     // Emit zero sentinel for the .eh_frame section.
     let section_id = obj.add_section(
@@ -413,10 +408,8 @@ fn emit_wasmer_meta_object(
         WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
-    if retain_section {
-        obj.section_mut(section_id).flags = SectionFlags::Elf {
-            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-        }
+    obj.section_mut(section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
     };
     let pointer_size = target
         .triple()
@@ -483,10 +476,8 @@ fn emit_wasmer_meta_object(
         WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
         SectionKind::Other,
     );
-    if retain_section {
-        obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
-            sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-        }
+    obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
+        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
     };
     for traps_name in (0..compiled_objects.object_files.len())
         .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
@@ -524,7 +515,7 @@ fn emit_wasmer_meta_object(
     // Save the generated object file.
     obj.write_stream(&mut meta_object).map_err(|e| {
         format!(
-            "failed to write Wasmer metaobject {}: {e}",
+            "failed to write Wasmer meta object file {}: {e}",
             meta_object_path.display(),
         )
     })?;
