@@ -237,7 +237,7 @@ pub(crate) struct MemoryMappedBinary {
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
 }
 
-// SAFERY: mmaped base pointer does not escape the type.
+// SAFERY: memory mapped base pointer does not escape the type.
 unsafe impl Send for MemoryMappedBinary {}
 unsafe impl Sync for MemoryMappedBinary {}
 
