@@ -86,9 +86,7 @@ pub use crate::compiler::{
     emit_metadata_and_link, translate_function_buckets,
 };
 
-#[cfg(feature = "compiler")]
 mod constants;
-#[cfg(feature = "compiler")]
 pub use crate::constants::*;
 
 #[cfg(feature = "translator")]

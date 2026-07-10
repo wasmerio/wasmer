@@ -8,6 +8,8 @@ use std::sync::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
+#[cfg(feature = "compiler")]
+use wasmer_types::CompilationProgressCallback;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
@@ -36,8 +38,8 @@ use crate::object::{
 };
 
 use wasmer_types::{
-    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompilationProgressCallback,
-    CompileError, DataInitializer, DataInitializerLike, DataInitializerLocation,
+    ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
+    DataInitializerLike, DataInitializerLocation,
     DataInitializerLocationLike, DeserializeError, FunctionIndex, LocalFunctionIndex, MemoryIndex,
     ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
     entity::{BoxedSlice, PrimaryMap},
@@ -731,6 +733,7 @@ impl Artifact {
             .map(|&offset| FunctionBodyPtr(unsafe { base.add(offset) as _ }))
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
+        #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
         let finished_function_extents = local_fn_offsets
             .iter()
             .zip(local_fn_sizes.iter())
@@ -739,6 +742,7 @@ impl Artifact {
                 length,
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+        #[cfg(all(not(target_arch = "wasm32"), feature = "compiler"))]
         engine_inner.register_perfmap(&finished_function_extents, module_info)?;
         let finished_function_call_trampolines = trampoline_offsets
             .iter()
