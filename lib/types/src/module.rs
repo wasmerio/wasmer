@@ -152,7 +152,7 @@ pub struct ModuleInfo {
     /// deep-copying them. `memory.init` only ever reads these bytes, and
     /// `data.drop` is tracked per-instance, so there is no reason to clone them
     /// per instance.
-    pub passive_data: HashMap<DataIndex, Arc<[u8]>>,
+    pub passive_data: BTreeMap<DataIndex, Arc<[u8]>>,
 
     /// WebAssembly global initializers.
     pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
@@ -203,18 +203,6 @@ pub struct ModuleInfo {
     pub num_imported_globals: usize,
 }
 
-// Tripwire for `ModuleInfo::passive_data` above: the runtime form is `Arc<[u8]>`
-// (shared across instances), but the archived form `ArchivableModuleInfo::passive_data`
-// is still `Box<[u8]>`, so the two `From` impls copy the bytes on every module
-// serialize/deserialize. Switching the archived form to `Arc<[u8]>` (rkyv supports
-// it) drops those copies but changes the artifact layout. Do it the next time the
-// artifact format version is bumped anyway.
-const _: () = assert!(
-    crate::MetadataHeader::CURRENT_VERSION == 22,
-    "Artifact version bumped: change `ArchivableModuleInfo::passive_data` from \
-     `Box<[u8]>` to `Arc<[u8]>` (and drop the copies in the `From` impls)",
-);
-
 /// Mirror version of ModuleInfo that can derive rkyv traits
 #[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug))]
@@ -226,7 +214,7 @@ pub struct ArchivableModuleInfo {
     start_function: Option<FunctionIndex>,
     table_initializers: Vec<TableInitializer>,
     passive_elements: BTreeMap<ElemIndex, Box<[FunctionIndex]>>,
-    passive_data: BTreeMap<DataIndex, Box<[u8]>>,
+    passive_data: BTreeMap<DataIndex, Arc<[u8]>>,
     global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
     function_names: BTreeMap<FunctionIndex, String>,
     signatures: PrimaryMap<SignatureIndex, FunctionType>,
@@ -255,13 +243,7 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements.into_iter().collect(),
-            // `ArchivableModuleInfo` owns its bytes (`Box<[u8]>`); copy them out
-            // of the shared `Arc` for the on-disk representation.
-            passive_data: it
-                .passive_data
-                .into_iter()
-                .map(|(idx, bytes)| (idx, Box::from(&*bytes)))
-                .collect(),
+            passive_data: it.passive_data,
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
@@ -293,11 +275,7 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements.into_iter().collect(),
-            passive_data: it
-                .passive_data
-                .into_iter()
-                .map(|(idx, bytes)| (idx, Arc::from(bytes)))
-                .collect(),
+            passive_data: it.passive_data,
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
@@ -333,8 +311,8 @@ impl Archive for ModuleInfo {
     }
 }
 
-impl<S: rkyv::ser::Allocator + rkyv::ser::Writer + Fallible + ?Sized> RkyvSerialize<S>
-    for ModuleInfo
+impl<S: rkyv::ser::Allocator + rkyv::ser::Writer + rkyv::ser::Sharing + Fallible + ?Sized>
+    RkyvSerialize<S> for ModuleInfo
 where
     <S as Fallible>::Error: rkyv::rancor::Source + rkyv::rancor::Trace,
 {
@@ -343,7 +321,8 @@ where
     }
 }
 
-impl<D: Fallible + ?Sized> RkyvDeserialize<ModuleInfo, D> for ArchivedArchivableModuleInfo
+impl<D: rkyv::de::Pooling + Fallible + ?Sized> RkyvDeserialize<ModuleInfo, D>
+    for ArchivedArchivableModuleInfo
 where
     D::Error: Source + Trace,
 {
