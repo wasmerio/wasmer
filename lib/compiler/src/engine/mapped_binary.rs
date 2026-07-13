@@ -461,6 +461,7 @@ impl MemoryMappedBinary {
         unsafe { slice::from_raw_parts(self.base.cast::<u8>(), self.size) }
     }
 
+    #[cfg(not(target_os = "macos"))]
     pub(crate) fn publish_eh_frame_section(
         &mut self,
         address: u64,
@@ -473,6 +474,15 @@ impl MemoryMappedBinary {
             .as_mut()
             .expect("unwind registry should remain alive until MemoryMap::drop")
             .publish_eh_frame(Some(eh_frame))
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn publish_eh_frame_section(
+        &mut self,
+        _address: u64,
+        _size: u64,
+    ) -> Result<(), String> {
+        Err("ELF artifacts are not supported on macOS".to_string())
     }
 
     /// Maps an anonymous zero-filled region at `offset` with the given
