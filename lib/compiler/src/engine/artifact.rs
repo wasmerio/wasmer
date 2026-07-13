@@ -271,7 +271,7 @@ impl Artifact {
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
         if image.format() != object::BinaryFormat::Elf {
             return Err(DeserializeError::Incompatible(
-                "Artifact::load_from_path only supports ELF artifacts".to_string(),
+                "Artifact::deserialize_file only supports ELF artifacts".to_string(),
             ));
         }
 
