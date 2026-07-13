@@ -13,7 +13,6 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-memoffset.workspace = true
 dashmap.workspace = true
 wasmer-types = { path = "../types", version = "=7.2.0" }
 libc.workspace = true

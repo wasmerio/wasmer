@@ -209,6 +209,10 @@ pub struct AppConfigCapabilityMapV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub ssh: Option<CapabilitySshServerV1>,
 
+    /// CDN cache settings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cdn_cache: Option<AppConfigCapabilityCdnCacheV1>,
+
     /// Additional unknown capabilities.
     ///
     /// This provides a small bit of forwards compatibility for newly added
@@ -281,6 +285,21 @@ pub struct AppConfigCapabilityInstaBootV1 {
     /// ones discarded.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_age: Option<PrettyDuration>,
+}
+
+/// CDN cache capability settings.
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct AppConfigCapabilityCdnCacheV1 {
+    /// Enable CDN caching for the app.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enabled: Option<bool>,
+
+    /// Additional unknown fields.
+    /// This provides a small bit of forwards compatibility.
+    #[serde(flatten)]
+    pub other: IndexMap<String, serde_json::Value>,
 }
 
 /// How will an instance be bootstrapped?

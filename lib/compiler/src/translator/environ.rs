@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 use super::state::ModuleTranslationState;
 use crate::lib::std::string::ToString;
-use crate::lib::std::{boxed::Box, string::String, vec::Vec};
+use crate::lib::std::{boxed::Box, string::String, sync::Arc, vec::Vec};
 use crate::translate_module;
 use crate::wasmparser::{Operator, ValType};
 use std::collections::HashMap;
@@ -453,7 +453,7 @@ impl<'data> ModuleEnvironment<'data> {
         data_index: DataIndex,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        let old = self.module.passive_data.insert(data_index, Box::from(data));
+        let old = self.module.passive_data.insert(data_index, Arc::from(data));
         debug_assert!(
             old.is_none(),
             "a module can't have duplicate indices, this would be a wasmer-compiler bug"

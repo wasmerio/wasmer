@@ -23,8 +23,8 @@ use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_ca
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
 use crate::{export::VMExtern, threadconditions::ExpectedValue};
 pub use allocator::InstanceAllocator;
+use core::mem::offset_of;
 use itertools::Itertools;
-use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::Layout;
 use std::cell::RefCell;
@@ -83,9 +83,15 @@ pub(crate) struct Instance {
     /// entries get removed.
     passive_elements: RefCell<HashMap<ElemIndex, Box<[Option<VMFuncRef>]>>>,
 
-    /// Passive data segments from our module. As `data.drop`s happen, entries
-    /// get removed. A missing entry is considered equivalent to an empty slice.
-    passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
+    /// Per-instance view of the module's passive data segments.
+    ///
+    /// A `None` entry (dropped) or a missing entry is treated as an empty slice.
+    ///
+    /// The bytes are shared with the module via `Arc` (no per-instance copy).
+    /// `data.drop` replaces an entry's value with `None` to mark the segment
+    /// unusable for subsequent `memory.init` on this instance, without
+    /// affecting the shared module bytes or any other instance.
+    passive_data: RefCell<HashMap<DataIndex, Option<Arc<[u8]>>>>,
 
     /// Mapping of function indices to their func ref backing data. `VMFuncRef`s
     /// will point to elements here for functions defined by this instance.
@@ -860,7 +866,13 @@ impl Instance {
 
         let memory = self.get_vmmemory(memory_index);
         let passive_data = self.passive_data.borrow();
-        let data = passive_data.get(&data_index).map_or(&[][..], |d| &**d);
+        // A missing entry (never existed) or a dropped one (`None`) both behave
+        // as a zero-length segment, so an in-bounds `memory.init` of non-zero
+        // length traps below.
+        let data = passive_data
+            .get(&data_index)
+            .and_then(|d| d.as_deref())
+            .unwrap_or(&[]);
 
         let current_length = unsafe { memory.vmmemory().as_ref().current_length };
         if src.checked_add(len).is_none_or(|n| n as usize > data.len())
@@ -877,7 +889,11 @@ impl Instance {
     /// Drop the given data segment, truncating its length to zero.
     pub(crate) fn data_drop(&self, data_index: DataIndex) {
         let mut passive_data = self.passive_data.borrow_mut();
-        passive_data.remove(&data_index);
+        // Release this instance's reference to the shared bytes and mark the
+        // segment unusable. Other instances (and the module) are unaffected.
+        if let Some(slot) = passive_data.get_mut(&data_index) {
+            *slot = None;
+        }
     }
 
     /// Get a table by index regardless of whether it is locally-defined or an
@@ -1151,12 +1167,13 @@ impl VMInstance {
                 .map(|m: &InternalStoreHandle<VMTag>| VMSharedTagIndex::new(m.index() as u32))
                 .collect::<PrimaryMap<TagIndex, VMSharedTagIndex>>()
                 .into_boxed_slice();
+            // Share the module's passive data bytes via `Arc` (refcount bump)
+            // rather than deep-copying them into every instance.
             let passive_data = RefCell::new(
                 module
                     .passive_data
-                    .clone()
-                    .into_iter()
-                    .map(|(idx, bytes)| (idx, Arc::from(bytes)))
+                    .iter()
+                    .map(|(&idx, bytes)| (idx, Some(Arc::clone(bytes))))
                     .collect::<HashMap<_, _>>(),
             );
 

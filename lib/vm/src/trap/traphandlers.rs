@@ -1371,7 +1371,7 @@ mod tests {
         let big_size = ByteSize::mib(1).as_u64() as usize;
         let result = on_wasm_stack(big_size, None, || 42);
 
-        assert_eq!(result.ok().expect("on_wasm_stack should succeed"), 42);
+        assert_eq!(result.expect("on_wasm_stack should succeed"), 42);
         // The undersized stack was discarded; the correctly-sized stack
         // allocated for the call now lives in the TLS cache (the hot path).
         // It will end up in the global pool only on thread exit or eviction.
@@ -1915,9 +1915,7 @@ mod tests {
         clear_tls_stack();
 
         let outer = on_wasm_stack(get_stack_size(), None, || {
-            on_wasm_stack(get_stack_size(), None, || 42i32)
-                .ok()
-                .expect("inner must succeed")
+            on_wasm_stack(get_stack_size(), None, || 42i32).expect("inner must succeed")
         });
         assert_eq!(outer.ok(), Some(42));
 
@@ -2005,9 +2003,7 @@ mod tests {
 
         let r = on_wasm_stack(get_stack_size(), None, || {
             on_host_stack(|| {
-                on_wasm_stack(get_stack_size(), None, || 5i32)
-                    .ok()
-                    .expect("nested inner must succeed")
+                on_wasm_stack(get_stack_size(), None, || 5i32).expect("nested inner must succeed")
             })
         });
         assert_eq!(r.ok(), Some(5));

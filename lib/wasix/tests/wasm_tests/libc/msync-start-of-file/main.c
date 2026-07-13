@@ -1,5 +1,5 @@
 //#BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
-//#Ignored: file-backed mmap writeback does not currently persist under WasiRunner
+//#MinimalLibc: v2026-07-03.1
 //#ExpectedStdout: 0
 
 #include <fcntl.h>

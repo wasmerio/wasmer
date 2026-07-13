@@ -206,7 +206,6 @@ mach2 = "0.6.0"
 macho-unwind-info = "0.5.0"
 md5 = "0.8.0"
 memmap2 = { version = "0.9.9" }
-memoffset = "0.9.1"
 merge-streams = "0.1.2"
 mio = "1"
 more-asserts = "0.3.1"
@@ -260,6 +259,7 @@ serde_derive = "1"
 serde_json = { version = "1" }
 serde_path_to_error = "0.1.14"
 serde_yaml = { version = "0.9.34" }
+yaml-edit = { version = "0.2", default-features = false }
 serial_test = { version = "3.2.0", default-features = false }
 sha2 = "0.11.0"
 slab = "0.4"

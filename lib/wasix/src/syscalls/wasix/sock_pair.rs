@@ -83,17 +83,26 @@ pub(crate) fn sock_pair_internal(
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let (end1, end2) = Pipe::channel();
 
-    let inode1 = state.fs.create_inode_with_default_stat(
+    // Report a proper socket filetype: callers (e.g. libuv's uv_guess_handle)
+    // fstat socketpair fds to classify them, and the default filestat's
+    // Unknown filetype makes them unusable as streams.
+    let stat = Filestat {
+        st_filetype: Filetype::SocketStream,
+        ..Filestat::default()
+    };
+    let inode1 = state.fs.create_inode_with_stat(
         inodes,
         Kind::DuplexPipe { pipe: end1 },
         false,
         "socketpair".into(),
+        stat,
     );
-    let inode2 = state.fs.create_inode_with_default_stat(
+    let inode2 = state.fs.create_inode_with_stat(
         inodes,
         Kind::DuplexPipe { pipe: end2 },
         false,
         "socketpair".into(),
+        stat,
     );
 
     let rights = Rights::all_socket();

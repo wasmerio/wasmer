@@ -24,6 +24,7 @@ use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
@@ -145,7 +146,13 @@ pub struct ModuleInfo {
     pub passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
 
     /// WebAssembly passive data segments.
-    pub passive_data: HashMap<DataIndex, Box<[u8]>>,
+    ///
+    /// Stored as `Arc<[u8]>` so that every instance created from this module can
+    /// share the same immutable segment bytes (a cheap refcount bump) instead of
+    /// deep-copying them. `memory.init` only ever reads these bytes, and
+    /// `data.drop` is tracked per-instance, so there is no reason to clone them
+    /// per instance.
+    pub passive_data: HashMap<DataIndex, Arc<[u8]>>,
 
     /// WebAssembly global initializers.
     pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
@@ -196,6 +203,18 @@ pub struct ModuleInfo {
     pub num_imported_globals: usize,
 }
 
+// Tripwire for `ModuleInfo::passive_data` above: the runtime form is `Arc<[u8]>`
+// (shared across instances), but the archived form `ArchivableModuleInfo::passive_data`
+// is still `Box<[u8]>`, so the two `From` impls copy the bytes on every module
+// serialize/deserialize. Switching the archived form to `Arc<[u8]>` (rkyv supports
+// it) drops those copies but changes the artifact layout. Do it the next time the
+// artifact format version is bumped anyway.
+const _: () = assert!(
+    crate::MetadataHeader::CURRENT_VERSION == 21,
+    "Artifact version bumped: change `ArchivableModuleInfo::passive_data` from \
+     `Box<[u8]>` to `Arc<[u8]>` (and drop the copies in the `From` impls)",
+);
+
 /// Mirror version of ModuleInfo that can derive rkyv traits
 #[derive(Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug))]
@@ -236,7 +255,13 @@ impl From<ModuleInfo> for ArchivableModuleInfo {
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements.into_iter().collect(),
-            passive_data: it.passive_data.into_iter().collect(),
+            // `ArchivableModuleInfo` owns its bytes (`Box<[u8]>`); copy them out
+            // of the shared `Arc` for the on-disk representation.
+            passive_data: it
+                .passive_data
+                .into_iter()
+                .map(|(idx, bytes)| (idx, Box::from(&*bytes)))
+                .collect(),
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
@@ -268,7 +293,11 @@ impl From<ArchivableModuleInfo> for ModuleInfo {
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements.into_iter().collect(),
-            passive_data: it.passive_data.into_iter().collect(),
+            passive_data: it
+                .passive_data
+                .into_iter()
+                .map(|(idx, bytes)| (idx, Arc::from(bytes)))
+                .collect(),
             global_initializers: it.global_initializers,
             function_names: it.function_names.into_iter().collect(),
             signatures: it.signatures,
