@@ -13,8 +13,6 @@ use std::{
 
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
-#[cfg(unix)]
-use std::os::fd::AsRawFd;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
@@ -29,6 +27,8 @@ use crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::C
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::{serialize::RkyvSerializableCompilation, types::symbols::ModuleMetadata};
 use itertools::Itertools;
+#[cfg(unix)]
+use std::os::fd::AsRawFd;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompilationProgressCallback;
 
@@ -808,7 +808,7 @@ impl Artifact {
                     function_offsets = Some(
                         data.chunks_exact(std::mem::size_of::<usize>())
                             .map(|chunk| usize::from_le_bytes(chunk.try_into().unwrap()))
-                            .collect::<Vec<_>>(),
+                            .collect_vec(),
                     );
                 }
                 crate::EH_FRAME_SECTION_NAME => {
@@ -850,8 +850,8 @@ impl Artifact {
             .skip(1)
             .take(local_function_count)
             .zip(function_offsets.iter())
-            .map(|(f1, f0)| f1 - f0)
-            .collect_vec();
+            .map(|(f1, f0)| f1.checked_sub(*f0).ok_or_else(&corrupted_offsets))
+            .collect::<Result<Vec<_>, _>>()?;
 
         let signatures = {
             let signature_registry = engine_inner.signatures();
