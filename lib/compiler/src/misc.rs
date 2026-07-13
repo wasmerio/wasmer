@@ -108,7 +108,7 @@ pub fn function_kind_to_filename(kind: &CompiledKind, suffix: &str) -> String {
     }
 }
 
-/// An extended methods related to a compiled function.
+/// Extended methods related to a compiled function.
 pub trait CompiledFunctionExt {
     /// Return a name of the function for linkage purpose.
     fn linkage_name(&self) -> String;

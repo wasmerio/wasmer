@@ -236,7 +236,7 @@ pub struct RkyvCompilation {
 }
 
 /// The result of compiling a WebAssembly module's functions can be either an RKYV-based data structure
-/// or a relocable ELF file on disk.
+/// or relocatable ELF image bytes.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
 pub enum Compilation {
