@@ -122,13 +122,13 @@ pub fn emit_data(
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, function::{Compilation} };
+/// # use wasmer_compiler::types::{symbols::SymbolRegistry, function::RkyvCompilation};
 /// # use wasmer_types::target::Triple;
 /// # use wasmer_compiler::object::{ObjectError, ObjectMetadataBuilder, get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
 /// #     triple: &Triple,
-/// #     compilation: Compilation,
+/// #     compilation: RkyvCompilation,
 /// #     builder: ObjectMetadataBuilder,
 /// #     symbol_registry: impl SymbolRegistry,
 /// # ) -> Result<(), ObjectError> {
