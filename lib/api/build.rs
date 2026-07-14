@@ -11,7 +11,7 @@ fn build_v8() {
     // wasmerio/v8-custom-builds#12). The tar layout ships include/ plus
     // lib/libv8.a (the wee8 static archive renamed). The same tag provides
     // binaries for every supported target.
-    const WEE8_RELEASE_VERSION: &str = "15.0.1-3";
+    const WEE8_RELEASE_VERSION: &str = "15.0.1-4";
 
     let (asset_name, platform_name) = match (
         env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
