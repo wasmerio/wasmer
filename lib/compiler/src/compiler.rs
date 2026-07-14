@@ -542,9 +542,6 @@ pub fn emit_metadata_and_link(
         // Allow resolution of the public symbols directly without PLT entries!
         "-Bsymbolic".to_string(),
         "-shared".to_string(),
-        // Intentionally do not create extra Rayon pool, in the future,
-        // add support for parallel linking.
-        "--no-threads".to_string(),
         "-z".to_string(),
         "now".to_string(),
         "-z".to_string(),
@@ -572,7 +569,10 @@ pub fn emit_metadata_and_link(
     wild_args
         .parse(|| link_args.iter().map(String::as_str))
         .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
-    libwild::run(wild_args)
+    let thread_pool = libwild::args::ThreadPool::new();
+    let linker = libwild::Linker::new();
+    linker
+        .run(&wild_args, &thread_pool)
         .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
 
     let path_buf = module_file.path().to_path_buf();
