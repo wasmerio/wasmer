@@ -72,7 +72,7 @@ members = [
   "tests/lib/wast",
   "tests/wasmer-argus",
 ]
-exclude = ["./lib/cli/tests/packages/axum"]
+exclude = ["./lib/cli/tests/packages/axum", "lib/wild"]
 resolver = "2"
 
 [workspace.package]
@@ -198,7 +198,7 @@ libc = { version = "0.2.178", default-features = false }
 libfuzzer-sys = "0.4.0"
 libtest-mimic = "0.8.2"
 libunwind = "1.3.3"
-libwild = "0.9.0"
+libwild = { package = "wasmer-libwild", path = "lib/wild/libwild" }
 linked_hash_set = "0.1.6"
 log = "0.4.22"
 lz4_flex = "0.13.0"
