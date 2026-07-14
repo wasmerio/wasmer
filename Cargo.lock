@@ -7590,6 +7590,7 @@ dependencies = [
 name = "wasmer-compiler-llvm"
 version = "7.2.0"
 dependencies = [
+ "addr2line 0.27.0",
  "byteorder",
  "cc",
  "crossbeam-channel",

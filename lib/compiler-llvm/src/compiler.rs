@@ -2,7 +2,7 @@ use crate::config::LLVM;
 use crate::config::OptimizationStyle;
 use crate::object_file::CompiledFunction;
 use crate::translator::FuncTrampoline;
-use crate::translator::FuncTranslator;
+use crate::translator::{FuncTranslator, WasmSourceMap};
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::io::Read;
@@ -268,6 +268,11 @@ impl Compiler for LLVMCompiler {
             .build()
             .map_err(|e| CompileError::Resource(e.to_string()))?;
 
+        let source_map = Arc::new(if self.config.elf_artifact_format {
+            WasmSourceMap::new(module, module_translation, &function_body_inputs)
+        } else {
+            WasmSourceMap::default()
+        });
         let buckets =
             build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
         let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
@@ -296,6 +301,7 @@ impl Compiler for LLVMCompiler {
                     pointer_width,
                     *target.cpu_features(),
                     self.config.enable_non_volatile_memops,
+                    source_map.clone(),
                     module
                         .exports
                         .get("__wasm_apply_data_relocs")

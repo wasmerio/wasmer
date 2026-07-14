@@ -309,6 +309,7 @@ impl MemoryMappedBinary {
         // per-partes with the individual protection flags.
         let map = Self::new_mmap(total_memory_size)?;
         let base = map.base();
+        dbg!(base);
 
         // Mmap individual load segments
         for load_segment in segments {
