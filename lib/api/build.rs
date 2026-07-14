@@ -7,7 +7,11 @@ fn build_v8() {
         sync::{LazyLock, Mutex},
     };
 
-    const WEE8_RELEASE_VERSION: &str = "11.9.7";
+    // V8 15.0.1 release built from synchwire/v8-custom-builds (see PR
+    // wasmerio/v8-custom-builds#12). The tar layout ships include/ plus
+    // lib/libv8.a (the wee8 static archive renamed). The same tag provides
+    // binaries for every supported target.
+    const WEE8_RELEASE_VERSION: &str = "15.0.1-3";
 
     let (asset_name, platform_name) = match (
         env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
@@ -19,8 +23,13 @@ fn build_v8() {
         ("macos", "aarch64", _) => ("v8-darwin-aarch64.tar.xz", "darwin-aarch64"),
         ("linux", "x86_64", "gnu") => ("v8-linux-amd64.tar.xz", "linux-amd64"),
         ("linux", "x86_64", "musl") => ("v8-linux-musl.tar.xz", "linux-musl"),
-        ("windows", "x86_64", _) => ("v8-windows-amd64.tar.xz", "windows-amd64"),
-        ("android", "aarch64", _) => ("v8-android-arm64.tar.xz", "android-arm64"),
+        ("android", "aarch64", _) => ("v8-android.tar.xz", "android-arm64"),
+        // Windows is not wired up: the v8-custom-builds Windows recipe builds
+        // the v8_monolith ninja target (wee8 has dllimport/dllexport issues on
+        // Windows), and v8_monolith doesn't export the wasm_* C-API symbols
+        // wasmer links against. Re-enable only once wee8 builds on Windows.
+        //("windows", "x86_64", _) => ("v8-windows-amd64.tar.xz", "windows-amd64"),
+        ("ios", "aarch64", _) => ("v8-ios.tar.xz", "ios-arm64"),
         (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
     };
 
@@ -62,7 +71,7 @@ fn build_v8() {
             use std::io::Write;
 
             let url = format!(
-                "https://github.com/wasmerio/wee8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/{asset_name}"
+                "https://github.com/synchwire/v8-custom-builds/releases/download/{WEE8_RELEASE_VERSION}/{asset_name}"
             );
             let tar_data = ureq::get(&url)
                 .call()
@@ -207,7 +216,19 @@ fn build_v8() {
         .write_to_file(out_path.join("v8_bindings.rs"))
         .expect("Couldn't write bindings");
 
-    let objcopy_names = ["llvm-objcopy", "objcopy", "gobjcopy"];
+    // llvm-objcopy is required for V8 15+: its object files use SHT_CREL
+    // sections (an LLVM ELF extension) that GNU objcopy silently skips,
+    // leaving wasm_* symbols unrenamed and breaking the link step.
+    let objcopy_names = [
+        "llvm-objcopy",
+        "llvm-objcopy-18",
+        "llvm-objcopy-17",
+        "llvm-objcopy-16",
+        "llvm-objcopy-15",
+        "llvm-objcopy-14",
+        "objcopy",
+        "gobjcopy",
+    ];
 
     let mut objcopy = None;
     for n in objcopy_names {
@@ -253,6 +274,26 @@ fn build_v8() {
             "{objcopy} failed with error code {}: {}",
             output.status,
             String::from_utf8(output.stderr).unwrap()
+        );
+    }
+
+    // Sanity-check that symbols were actually renamed. GNU objcopy silently
+    // exits 0 on V8 15+ object files (SHT_CREL sections it doesn't recognise),
+    // leaving wasm_* symbols untouched — the link then fails with undefined
+    // references. Fail loudly here with an actionable message instead.
+    let nm_out = std::process::Command::new("nm")
+        .arg("--defined-only")
+        .arg(prefixed_v8_lib_path.display().to_string())
+        .output()
+        .expect("nm not found — cannot verify symbol renaming");
+    if !String::from_utf8_lossy(&nm_out.stdout).contains("wee8_") {
+        panic!(
+            "{objcopy} did not rename any wasm_* symbols in {} — the link step \
+             will fail with undefined references. This usually means GNU objcopy \
+             was used on V8 15+ object files (SHT_CREL sections). Install \
+             llvm-objcopy (e.g. `apt install llvm`) and ensure it precedes GNU \
+             binutils objcopy in PATH.",
+            prefixed_v8_lib_path.display()
         );
     }
 
