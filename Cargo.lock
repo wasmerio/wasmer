@@ -3316,35 +3316,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "linker-layout"
-version = "0.9.0"
-dependencies = [
- "anyhow",
- "postcard",
- "serde",
-]
-
-[[package]]
-name = "linker-trace"
-version = "0.9.0"
-dependencies = [
- "anyhow",
- "postcard",
- "serde",
-]
-
-[[package]]
-name = "linker-utils"
-version = "0.9.0"
-dependencies = [
- "anyhow",
- "derive_more",
- "leb128",
- "object 0.39.1",
- "paste",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7493,9 +7464,9 @@ dependencies = [
  "target-lexicon 0.13.5",
  "tempfile",
  "thiserror 2.0.18",
- "wasmer-libwild",
  "wasmer-types",
  "wasmer-vm",
+ "wasmer-wild",
  "wasmparser 0.252.0",
  "which",
  "windows-sys 0.61.2",
@@ -7670,57 +7641,32 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-libwild"
-version = "0.9.0"
+name = "wasmer-linker-layout"
+version = "7.2.0"
 dependencies = [
  "anyhow",
- "atomic-take",
- "bitflags 2.13.0",
- "blake3",
- "bumpalo-herd",
- "bytesize",
- "cc",
- "colored",
- "colosseum",
- "crossbeam-queue",
- "crossbeam-utils",
- "derive_more",
- "flate2",
- "foldhash 0.2.0",
- "gimli 0.33.0",
- "glob",
- "hashbrown 0.17.1",
- "hex",
- "indexmap",
- "itertools 0.14.0",
- "jobserver",
- "leb128",
- "libc",
- "linker-layout",
- "linker-trace",
- "linker-utils",
- "memchr",
- "memmap2 0.9.11",
- "object 0.39.1",
- "perf-event",
- "perfetto-recorder",
- "rayon",
+ "postcard",
  "serde",
- "serde_yaml",
- "sha2 0.11.0",
- "sharded-offset-map",
- "sharded-vec-writer 0.4.0",
- "smallvec",
- "symbolic-common",
- "symbolic-demangle",
- "thread_local",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "wasmparser 0.248.0",
- "winnow 1.0.3",
- "zerocopy",
- "zstd",
+]
+
+[[package]]
+name = "wasmer-linker-trace"
+version = "7.2.0"
+dependencies = [
+ "anyhow",
+ "postcard",
+ "serde",
+]
+
+[[package]]
+name = "wasmer-linker-utils"
+version = "7.2.0"
+dependencies = [
+ "anyhow",
+ "derive_more",
+ "leb128",
+ "object 0.39.1",
+ "paste",
 ]
 
 [[package]]
@@ -8034,6 +7980,60 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-wild"
+version = "7.2.0"
+dependencies = [
+ "anyhow",
+ "atomic-take",
+ "bitflags 2.13.0",
+ "blake3",
+ "bumpalo-herd",
+ "bytesize",
+ "cc",
+ "colored",
+ "colosseum",
+ "crossbeam-queue",
+ "crossbeam-utils",
+ "derive_more",
+ "flate2",
+ "foldhash 0.2.0",
+ "gimli 0.33.0",
+ "glob",
+ "hashbrown 0.17.1",
+ "hex",
+ "indexmap",
+ "itertools 0.14.0",
+ "jobserver",
+ "leb128",
+ "libc",
+ "memchr",
+ "memmap2 0.9.11",
+ "object 0.39.1",
+ "perf-event",
+ "perfetto-recorder",
+ "rayon",
+ "serde",
+ "serde_yaml",
+ "sha2 0.11.0",
+ "sharded-offset-map",
+ "sharded-vec-writer 0.4.0",
+ "smallvec",
+ "symbolic-common",
+ "symbolic-demangle",
+ "thread_local",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "wasmer-linker-layout",
+ "wasmer-linker-trace",
+ "wasmer-linker-utils",
+ "wasmparser 0.248.0",
+ "winnow 1.0.3",
+ "zerocopy",
+ "zstd",
+]
+
+[[package]]
 name = "wasmer-workspace"
 version = "7.2.0"
 dependencies = [
@@ -8069,6 +8069,7 @@ dependencies = [
  "wasmer-types",
  "wasmer-wasix",
  "wasmer-wast",
+ "wasmer-wild",
 ]
 
 [[package]]

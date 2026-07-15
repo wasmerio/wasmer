@@ -564,13 +564,13 @@ pub fn emit_metadata_and_link(
     // leading terminator makes frame registration see an empty table.
     link_args.push(meta_object_path.display().to_string());
 
-    let mut wild_args = libwild::Args::new(|| link_args.iter().map(String::as_str))
+    let mut wild_args = wasmer_wild::Args::new(|| link_args.iter().map(String::as_str))
         .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
     wild_args
         .parse(|| link_args.iter().map(String::as_str))
         .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
-    let thread_pool = libwild::args::ThreadPool::new();
-    let linker = libwild::Linker::new();
+    let thread_pool = wasmer_wild::args::ThreadPool::new();
+    let linker = wasmer_wild::Linker::new();
     linker
         .run(&wild_args, &thread_pool)
         .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;

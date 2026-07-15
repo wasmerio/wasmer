@@ -24,6 +24,7 @@ wasmer-middlewares = { version = "=7.2.0", path = "lib/middlewares", optional = 
 wasmer-types = { version = "=7.2.0", path = "lib/types" }
 wasmer-wast = { version = "=7.2.0", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
+wasmer-wild = { version = "=7.2.0", path = "lib/wild/libwild" }
 
 # Third party dependencies
 cfg-if.workspace = true
@@ -198,7 +199,6 @@ libc = { version = "0.2.178", default-features = false }
 libfuzzer-sys = "0.4.0"
 libtest-mimic = "0.8.2"
 libunwind = "1.3.3"
-libwild = { package = "wasmer-libwild", path = "lib/wild/libwild" }
 linked_hash_set = "0.1.6"
 log = "0.4.22"
 lz4_flex = "0.13.0"
