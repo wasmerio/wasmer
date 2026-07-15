@@ -33,14 +33,15 @@ impl WebcVolumeFileSystem {
         &self.volume
     }
 
-    /// Resolve `path` to its final target, following symlinks in the trailing
-    /// component *and* any intermediate directory components.
-    ///
-    /// Relative targets resolve against the link's parent, absolute targets
-    /// against the volume root. Returns the resolved path together with the
-    /// target's metadata (`None` if it doesn't exist) so the caller needn't look
-    /// it up again.
-    fn resolve_symlinks(&self, path: &Path) -> Result<(PathBuf, Option<WebcMetadata>), FsError> {
+    /// Resolve `path`, following symlinks in every intermediate component.
+    /// `follow_trailing` also follows a trailing symlink (`stat`); otherwise it
+    /// is reported as-is (`lstat`). Returns the resolved path and its metadata
+    /// (`None` if missing) so the caller needn't look it up again.
+    fn resolve_symlinks(
+        &self,
+        path: &Path,
+        follow_trailing: bool,
+    ) -> Result<(PathBuf, Option<WebcMetadata>), FsError> {
         // Maximum number of symlinks to follow before giving up, matching Linux's
         // MAXSYMLINKS. Guards against symlink loops.
         const MAX_SYMLINK_DEPTH: usize = 40;
@@ -49,22 +50,25 @@ impl WebcVolumeFileSystem {
 
         for _ in 0..=MAX_SYMLINK_DEPTH {
             match self.volume().metadata(&current) {
-                // Fully resolved: the whole path exists and isn't a symlink.
+                // Fully resolved: exists and isn't a symlink.
                 Some(meta) if !meta.is_symlink() => {
                     return Ok((PathBuf::from(current.to_string()), Some(meta)));
                 }
-                // The trailing component is a symlink; follow it.
-                Some(_) => {
+                // Trailing symlink; intermediates are already resolved (else
+                // metadata() would have returned None, the branch below).
+                Some(meta) => {
+                    if !follow_trailing {
+                        // lstat: keep the link itself.
+                        return Ok((PathBuf::from(current.to_string()), Some(meta)));
+                    }
                     let segments: Vec<PathSegment> = current.iter().cloned().collect();
                     current = self.expand_symlink_at(&segments, segments.len() - 1)?;
                 }
-                // The path doesn't resolve directly. An intermediate component may
-                // be a symlink (a raw metadata() lookup stops at the first symlink
-                // it walks through), so look for one to expand.
+                // Not directly resolvable: an intermediate component may be a
+                // symlink (metadata() stops at the first one), so expand it.
                 None => match self.expand_first_symlink(&current)? {
                     Some(next) => current = next,
-                    // Genuinely missing; let the caller report it.
-                    None => return Ok((PathBuf::from(current.to_string()), None)),
+                    None => return Ok((PathBuf::from(current.to_string()), None)), // missing
                 },
             }
         }
@@ -161,7 +165,7 @@ impl FileSystem for WebcVolumeFileSystem {
 
     fn read_dir(&self, path: &Path) -> Result<crate::ReadDir, FsError> {
         // opendir follows symlinks, including a symlinked directory.
-        let (resolved, meta) = self.resolve_symlinks(path)?;
+        let (resolved, meta) = self.resolve_symlinks(path, true)?;
         let meta = meta.map(compat_meta).ok_or(FsError::EntryNotFound)?;
 
         if !meta.is_dir() {
@@ -191,18 +195,16 @@ impl FileSystem for WebcVolumeFileSystem {
     }
 
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
-        // These entry-existence checks operate on the path itself, not a symlink
-        // target, so they use lstat (symlink_metadata) semantics.
-
-        // the directory shouldn't exist yet
+        // The name must be free. lstat: a trailing symlink already claims it.
         if self.symlink_metadata(path).is_ok() {
             return Err(FsError::AlreadyExists);
         }
 
-        // it's parent should exist
+        // The parent must exist and be a directory. It's a traversed component,
+        // so follow symlinks to it (stat): a symlinked directory is a valid parent.
         let parent = path.parent().unwrap_or_else(|| Path::new("/"));
 
-        match self.symlink_metadata(parent) {
+        match self.metadata(parent) {
             Ok(parent_meta) if parent_meta.is_dir() => {
                 // The operation would normally be doable... but we're a readonly
                 // filesystem
@@ -229,15 +231,13 @@ impl FileSystem for WebcVolumeFileSystem {
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<(), FsError>> {
         Box::pin(async {
-            // rename operates on the named entries themselves, so use lstat
-            // semantics rather than following a trailing symlink.
-
-            // The original file should exist
+            // The source must exist. lstat: rename acts on the link, not its target.
             let _ = self.symlink_metadata(from)?;
 
-            // we also want to make sure the destination's folder exists, too
+            // The destination's parent must exist. It's a traversed component,
+            // so follow symlinks to it (stat).
             let dest_parent = to.parent().unwrap_or_else(|| Path::new("/"));
-            let parent_meta = self.symlink_metadata(dest_parent)?;
+            let parent_meta = self.metadata(dest_parent)?;
             if !parent_meta.is_dir() {
                 return Err(FsError::BaseNotDirectory);
             }
@@ -249,19 +249,14 @@ impl FileSystem for WebcVolumeFileSystem {
 
     fn metadata(&self, path: &Path) -> Result<Metadata, FsError> {
         // `stat` semantics: follow symlinks and report the target.
-        let (_, meta) = self.resolve_symlinks(path)?;
+        let (_, meta) = self.resolve_symlinks(path, true)?;
         meta.map(compat_meta).ok_or(FsError::EntryNotFound)
     }
 
     fn symlink_metadata(&self, path: &Path) -> crate::Result<Metadata> {
-        // `lstat` semantics: report the entry itself, without following a
-        // trailing symlink.
-        let path = normalize(path).map_err(|_| FsError::InvalidInput)?;
-
-        self.volume()
-            .metadata(path)
-            .map(compat_meta)
-            .ok_or(FsError::EntryNotFound)
+        // `lstat` semantics: follow intermediate symlinks, but not a trailing one.
+        let (_, meta) = self.resolve_symlinks(path, false)?;
+        meta.map(compat_meta).ok_or(FsError::EntryNotFound)
     }
 
     fn remove_file(&self, path: &Path) -> Result<(), FsError> {
@@ -289,7 +284,7 @@ impl FileOpener for WebcVolumeFileSystem {
     ) -> crate::Result<Box<dyn crate::VirtualFile + Send + Sync + 'static>> {
         // Follow symlinks so opening (and exec'ing) a symlinked file resolves to
         // its target, matching a real filesystem.
-        let (resolved, resolved_meta) = self.resolve_symlinks(path)?;
+        let (resolved, resolved_meta) = self.resolve_symlinks(path, true)?;
         let path = resolved.as_path();
         if let Some(parent) = path.parent() {
             let parent_meta = self.metadata(parent)?;
@@ -819,6 +814,42 @@ mod tests {
             .map(|entry| entry.unwrap().path)
             .collect();
         assert_eq!(entries, vec![PathBuf::from("/bindir/real.wasm")]);
+    }
+
+    #[test]
+    fn symlink_metadata_follows_intermediate_symlinks() {
+        let fs = follow_symlinks_fs();
+
+        // /bindir -> bin, so lstat resolves the intermediate link and finds the file...
+        let meta = fs.symlink_metadata("/bindir/real.wasm".as_ref()).unwrap();
+        assert!(meta.is_file());
+        assert_eq!(meta.len(), b"\0asm-real".len() as u64);
+
+        // ...but a trailing symlink is reported as-is, not followed.
+        assert!(
+            fs.symlink_metadata("/bindir".as_ref())
+                .unwrap()
+                .ft
+                .is_symlink()
+        );
+    }
+
+    #[tokio::test]
+    async fn write_ops_reach_permission_denied_through_symlinked_parent() {
+        let fs = follow_symlinks_fs();
+
+        // /bindir -> bin is a valid parent, so these should resolve it and reach
+        // the readonly rejection, not mistake the symlink for a non-directory.
+        assert_eq!(
+            fs.create_dir("/bindir/new".as_ref()).unwrap_err(),
+            FsError::PermissionDenied,
+        );
+        assert_eq!(
+            fs.rename("/bin/real.wasm".as_ref(), "/bindir/new.wasm".as_ref())
+                .await
+                .unwrap_err(),
+            FsError::PermissionDenied,
+        );
     }
 
     #[test]
