@@ -301,7 +301,12 @@ build_wasmer_extra_features_csv = $(subst $(space),$(comma),$(build_wasmer_extra
 
 test_compilers := $(compilers)
 ifeq ($(IS_AMD64), 1)
-	ifneq (, $(filter 1, $(IS_LINUX) $(IS_WINDOWS)))
+	# V8 is tested on linux-amd64 only. The synchwire/v8-custom-builds
+	# Windows recipe builds v8_monolith, which does not export the wasm_*
+	# C-API symbols the V8 backend links against, so V8 on Windows is not
+	# wired up (see lib/api/build.rs). Re-add IS_WINDOWS here once a Windows
+	# wee8 archive with the C-API is available.
+	ifneq (, $(filter 1, $(IS_LINUX)))
 		test_compilers += v8
 	endif
 else ifeq ($(IS_AARCH64), 1)
