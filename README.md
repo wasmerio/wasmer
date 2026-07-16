@@ -11,7 +11,7 @@
       <img src="https://shields.io/github/v/tag/wasmerio/wasmer" alt="Github release">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
-      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
+      <img src="https://img.shields.io/badge/license-MIT%20%2B%20BUSL--1.1-blue" alt="License">
     </a>
     <a href="https://docs.wasmer.io">
       <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Docs">

@@ -815,21 +815,25 @@ package-docs: build-docs build-docs-capi
 
 distribution-gnu: package-capi
 	cp LICENSE package/LICENSE
+	cp LICENSE-MIT package/LICENSE-MIT
+	cp LICENSE-BUSL package/LICENSE-BUSL
 	cp docs/ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
-	tar -C package -zcvf wasmer.tar.gz lib include winsdk LICENSE ATTRIBUTIONS
+	tar -C package -zcvf wasmer.tar.gz lib include winsdk LICENSE LICENSE-MIT LICENSE-BUSL ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
 # The C API builds are directly packaged in the same CI jobs (otherwise we'll overwrite it).
 distribution: package-wasmer package-minimal-headless-wasmer
 	cp LICENSE package/LICENSE
+	cp LICENSE-MIT package/LICENSE-MIT
+	cp LICENSE-BUSL package/LICENSE-BUSL
 	cp docs/ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
 ifeq ($(IS_WINDOWS), 1)
 	iscc scripts/windows-installer/wasmer.iss
 	cp scripts/windows-installer/WasmerInstaller.exe dist/
 endif
-	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
+	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE LICENSE-MIT LICENSE-BUSL ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
 #####
@@ -866,6 +870,8 @@ install-capi-lib:
 
 install-misc:
 	install -Dm644 LICENSE "$(DESTDIR)"/share/licenses/wasmer/LICENSE
+	install -Dm644 LICENSE-MIT "$(DESTDIR)"/share/licenses/wasmer/LICENSE-MIT
+	install -Dm644 LICENSE-BUSL "$(DESTDIR)"/share/licenses/wasmer/LICENSE-BUSL
 
 install-capi-pkgconfig:
 	@pkgver=$$($(CARGO_BINARY) pkgid --manifest-path lib/c-api/Cargo.toml | sed --posix 's/^.*wasmer-c-api:\([0-9.]*\)$\/\1/') && \

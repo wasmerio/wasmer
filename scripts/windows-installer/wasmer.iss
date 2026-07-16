@@ -25,6 +25,8 @@ Source: "..\..\package\bin\*"; DestDir: "{app}\bin"
 Source: "..\..\package\include\*"; DestDir: "{app}\include"
 Source: "..\..\package\lib\*"; DestDir: "{app}\lib"
 Source: "..\..\package\LICENSE"; DestDir: "{app}"
+Source: "..\..\package\LICENSE-MIT"; DestDir: "{app}"
+Source: "..\..\package\LICENSE-BUSL"; DestDir: "{app}"
 Source: "..\..\package\ATTRIBUTIONS"; DestDir: "{app}"
 Source: "wax.cmd"; DestDir: "{app}\bin"
 
