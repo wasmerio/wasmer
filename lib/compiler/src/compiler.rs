@@ -179,9 +179,6 @@ pub trait Compiler: Send + std::fmt::Debug {
         module: &CompileModuleInfo,
         compile_info_blob: &[u8],
         module_translation: &ModuleTranslationState,
-        // Address at which an ELF artifact will be loaded. ELF-producing
-        // backends use this to relocate debugger-visible addresses.
-        elf_load_address: Option<usize>,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -533,7 +530,6 @@ pub fn emit_metadata_and_link(
     build_directory: &Path,
     module_file: NamedTempFile,
     compiled_objects: &CompiledObjects<'_>,
-    elf_load_address: Option<usize>,
     mut debug_dir: Option<PathBuf>,
     module_hash: Option<String>,
 ) -> Result<NamedTempFile, CompileError> {
@@ -556,13 +552,6 @@ pub fn emit_metadata_and_link(
         "-o".to_string(),
         module_file.path().display().to_string(),
     ];
-
-    // Wild keeps the shared object's loadable segment addresses relative, but
-    // rebases the addresses emitted in its debug information. This lets the
-    // debugger use the ELF image directly through the GDB JIT interface.
-    if let Some(address) = dbg!(elf_load_address) {
-        link_args.push(format!("--debug-address=0x{address:x}"));
-    }
 
     link_args.extend(
         compiled_objects

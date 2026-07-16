@@ -14,8 +14,6 @@ use object::{ObjectSegment, ObjectSymbol, ObjectSymbolTable, SegmentFlags, elf};
 use wasmer_vm::LibCall;
 #[cfg(unix)]
 use wasmer_vm::libcalls::function_pointer;
-#[cfg(unix)]
-use wasmtime_internal_jit_debug::gdb_jit_int::GdbJitImageRegistration;
 
 use crate::GlobalFrameInfoRegistration;
 #[cfg(unix)]
@@ -246,11 +244,6 @@ pub(crate) struct MemoryMappedBinary {
     // as long as this mapping (and thus the code it points at) is alive.
     #[cfg(unix)]
     frame_info_registration: Option<GlobalFrameInfoRegistration>,
-
-    // Keeps the debugger's in-memory ELF image registered while its code is
-    // present in this mapping.
-    #[cfg(unix)]
-    jit_image_registration: Option<GdbJitImageRegistration>,
 }
 
 // SAFETY: memory mapped base pointer does not escape the type.
@@ -259,12 +252,6 @@ unsafe impl Sync for MemoryMappedBinary {}
 
 #[cfg(unix)]
 impl MemoryMappedBinary {
-    /// Reserve an empty address range. Its address can be supplied to the
-    /// linker before the ELF image that will occupy it exists.
-    pub(crate) fn new(size: usize) -> Result<Self, String> {
-        Self::new_mmap(size)
-    }
-
     /// Maps `object_file`'s load segments into a freshly allocated, private
     /// virtual address range, copying segment bytes out of the in-memory
     /// `data` buffer (rather than mapping a file directly).
@@ -272,16 +259,7 @@ impl MemoryMappedBinary {
         object_file: &object::File<'a, R>,
         data: &[u8],
     ) -> Result<Self, String> {
-        Self::try_from_source(object_file, Some(data), None, None)
-    }
-
-    /// Populates a previously reserved address range from an in-memory ELF.
-    pub(crate) fn try_from_bytes_in<'a, R: ReadRef<'a>>(
-        object_file: &object::File<'a, R>,
-        data: &[u8],
-        reservation: Self,
-    ) -> Result<Self, String> {
-        Self::try_from_source(object_file, Some(data), None, Some(reservation))
+        Self::try_from_source(object_file, Some(data), None)
     }
 
     /// Maps an ELF image's load segments directly from an open file.
@@ -289,23 +267,13 @@ impl MemoryMappedBinary {
         object_file: &object::File<'a, R>,
         file: RawFd,
     ) -> Result<Self, String> {
-        Self::try_from_source(object_file, None, Some(file), None)
-    }
-
-    /// Maps an open ELF file into a previously reserved address range.
-    pub(crate) fn try_from_file_in<'a, R: ReadRef<'a>>(
-        object_file: &object::File<'a, R>,
-        file: RawFd,
-        reservation: Self,
-    ) -> Result<Self, String> {
-        Self::try_from_source(object_file, None, Some(file), Some(reservation))
+        Self::try_from_source(object_file, None, Some(file))
     }
 
     fn try_from_source<'a, R: ReadRef<'a>>(
         object_file: &object::File<'a, R>,
         data: Option<&[u8]>,
         file: Option<RawFd>,
-        reservation: Option<Self>,
     ) -> Result<Self, String> {
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
         if page_size == -1 {
@@ -331,25 +299,15 @@ impl MemoryMappedBinary {
                 }
             })
             .collect_vec();
-        let total_memory_size = segments
-            .iter()
-            .map(|segment| segment.mem_address_page_aligned() + segment.mem_size_page_aligned())
-            .max()
+        let last_segment = segments
+            .last()
             .ok_or("at least one segment is mandatory".to_string())?;
+        let total_memory_size =
+            last_segment.mem_address_page_aligned() + last_segment.mem_size_page_aligned();
 
-        // Populate either the address range reserved before compilation or a
-        // fresh range (the deserialization path).
-        let map = if let Some(map) = reservation {
-            if total_memory_size > map.size {
-                return Err(format!(
-                    "ELF image requires {total_memory_size} bytes, exceeding the {}-byte reservation",
-                    map.size
-                ));
-            }
-            map
-        } else {
-            Self::new_mmap(total_memory_size)?
-        };
+        // Create a contiguous virtual address memory map that will be populated
+        // per-partes with the individual protection flags.
+        let map = Self::new_mmap(total_memory_size)?;
         let base = map.base();
         dbg!(base);
 
@@ -479,7 +437,6 @@ impl MemoryMappedBinary {
             size,
             unwind_registry: Some(UnwindRegistry::new()),
             frame_info_registration: None,
-            jit_image_registration: None,
         })
     }
 
@@ -489,11 +446,6 @@ impl MemoryMappedBinary {
 
     pub(crate) fn register_frame_info(&mut self, frame_info: GlobalFrameInfoRegistration) {
         self.frame_info_registration = Some(frame_info);
-    }
-
-    pub(crate) fn register_jit_image(&mut self, image: Vec<u8>) {
-        self.jit_image_registration = Some(GdbJitImageRegistration::register(image));
-        dbg!("registered gdb hook");
     }
 
     /// Returns the mapped memory as a byte slice tied to the lifetime of this map.
@@ -658,9 +610,8 @@ impl MemoryMappedBinary {
 #[cfg(unix)]
 impl Drop for MemoryMappedBinary {
     fn drop(&mut self) {
-        // Both registrations point at this image, so remove them while the
-        // mapping is still live.
-        drop(self.jit_image_registration.take());
+        // The registered `.eh_frame` records point into this mmap, so deregister
+        // them while the mapping is still live.
         drop(self.unwind_registry.take());
 
         if !self.base.is_null() && self.size != 0 {

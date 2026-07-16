@@ -217,7 +217,6 @@ impl Compiler for LLVMCompiler {
         compile_info: &CompileModuleInfo,
         compile_info_blob: &[u8],
         module_translation: &ModuleTranslationState,
-        elf_load_address: Option<usize>,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
@@ -452,7 +451,6 @@ impl Compiler for LLVMCompiler {
                     trampoline_object_files: &trampolines_objects,
                     dynamic_trampoline_object_files: &dynamic_trampolines_objects,
                 },
-                elf_load_address,
                 self.config
                     .callbacks
                     .as_ref()
