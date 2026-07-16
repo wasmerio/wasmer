@@ -765,7 +765,7 @@ impl Artifact {
                 "file-backed Artifact is not ELF".to_string(),
             ));
         }
-        let base = engine_inner.map_elf_binary_file(&image, fd)?;
+        let base = engine_inner.map_elf_binary_file(&image, fd, path)?;
         Self::allocate_elf_artifact_from_image(
             engine_inner,
             module_info,

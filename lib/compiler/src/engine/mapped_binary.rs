@@ -4,7 +4,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 #[cfg(unix)]
-use std::{os::fd::RawFd, ptr, slice};
+use std::{os::fd::RawFd, path::Path, ptr, slice};
 
 #[cfg(unix)]
 use itertools::Itertools;
@@ -259,21 +259,23 @@ impl MemoryMappedBinary {
         object_file: &object::File<'a, R>,
         data: &[u8],
     ) -> Result<Self, String> {
-        Self::try_from_source(object_file, Some(data), None)
+        Self::try_from_source(object_file, Some(data), None, None)
     }
 
     /// Maps an ELF image's load segments directly from an open file.
     pub(crate) fn try_from_file<'a, R: ReadRef<'a>>(
         object_file: &object::File<'a, R>,
         file: RawFd,
+        path: &Path,
     ) -> Result<Self, String> {
-        Self::try_from_source(object_file, None, Some(file))
+        Self::try_from_source(object_file, None, Some(file), Some(path))
     }
 
     fn try_from_source<'a, R: ReadRef<'a>>(
         object_file: &object::File<'a, R>,
         data: Option<&[u8]>,
         file: Option<RawFd>,
+        path: Option<&Path>,
     ) -> Result<Self, String> {
         let page_size = unsafe { libc::sysconf(libc::_SC_PAGESIZE) };
         if page_size == -1 {
@@ -309,7 +311,22 @@ impl MemoryMappedBinary {
         // per-partes with the individual protection flags.
         let map = Self::new_mmap(total_memory_size)?;
         let base = map.base();
-        dbg!(base);
+        if let Some(path) = path {
+            let path = path
+                .canonicalize()
+                .unwrap_or_else(|_| path.to_path_buf())
+                .to_string_lossy()
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"");
+            std::fs::write(
+                "/tmp/wasmer.gdb",
+                format!("add-symbol-file \"{path}\" -o 0x{:x}\n", base as usize),
+            )
+            .map_err(|error| format!("Cannot write /tmp/wasmer.gdb: {error}"))?;
+            eprintln!("**************************");
+            eprintln!("For debugging under GDB, use: source /tmp/wasmer.gdb");
+            eprintln!("**************************");
+        }
 
         // Mmap individual load segments
         for load_segment in segments {

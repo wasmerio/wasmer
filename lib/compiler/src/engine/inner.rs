@@ -586,9 +586,10 @@ impl EngineInner {
         &mut self,
         object_file: &object::File<'a, R>,
         file: RawFd,
+        path: &Path,
     ) -> Result<*mut c_void, CompileError> {
-        let map =
-            MemoryMappedBinary::try_from_file(object_file, file).map_err(CompileError::Resource)?;
+        let map = MemoryMappedBinary::try_from_file(object_file, file, path)
+            .map_err(CompileError::Resource)?;
         let base = map.base();
         self.elf_mapped_binary.push(map);
         Ok(base)
