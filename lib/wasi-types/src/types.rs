@@ -27,6 +27,7 @@ pub mod file {
     pub const __WASI_STDERR_FILENO: Fd = 2;
 
     pub const EVENT_FD_FLAGS_SEMAPHORE: EventFdFlags = 1;
+    pub const EVENT_FD_FLAGS_NONBLOCK: EventFdFlags = 1 << 2;
 
     pub const __WASI_LOOKUP_SYMLINK_FOLLOW: LookupFlags = 1;
 
