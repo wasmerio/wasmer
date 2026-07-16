@@ -24,7 +24,6 @@ wasmer-middlewares = { version = "=7.2.0", path = "lib/middlewares", optional = 
 wasmer-types = { version = "=7.2.0", path = "lib/types" }
 wasmer-wast = { version = "=7.2.0", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
-wasmer-wild = { version = "=7.2.0", path = "lib/wild/libwild" }
 
 # Third party dependencies
 cfg-if.workspace = true
@@ -34,6 +33,9 @@ tokio = { workspace = true, features = [
   "rt-multi-thread",
   "macros",
 ], optional = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wasmer-wild = { version = "=7.2.0", path = "lib/wild/libwild" }
 
 [workspace]
 members = [
