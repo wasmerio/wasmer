@@ -230,6 +230,11 @@ languages** with the Wasmer SDK:
 [OCaml integration]: https://github.com/wasmerio/wasmer-ocaml
 [`wasmer` OCaml package]: https://opam.ocaml.org/packages/wasmer/
 
+## License
+
+Wasmer is licensed under the MIT License (see LICENSE), with two exceptions: `wasmer-compiler-llvm`
+and `wasmer-compiler-singlepass`, these are licensed under the Business Source License 1.1.
+
 ## Develop
 
 We have different guides to help you develop Wasmer:
