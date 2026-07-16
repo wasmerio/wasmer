@@ -1,7 +1,6 @@
-use anyhow::{Context, Result, anyhow, bail};
+use anyhow::{Context, Result, bail};
 use std::{
-    any::Any, collections::HashMap, fmt::Display, mem::size_of, num::NonZeroI32, ptr, slice,
-    sync::Arc,
+    collections::HashMap, fmt::Display, mem::size_of, num::NonZeroI32, ptr, slice, sync::Arc,
 };
 
 use wasmer_api::{
@@ -256,19 +255,17 @@ impl WasmCapiSession {
 /// [`WasmCapiRuntimeHooks::add_imports`].
 ///
 /// Pass it back, unmodified, to [`WasmCapiRuntimeHooks::configure_instance`]
-/// for the instance created with those imports. The type matches
-/// wasmer-wasix's `InstantiationState`, so the hooks plug directly into a
-/// `PluggableRuntime` instantiation hook.
-pub type WasmCapiInstantiationState = Option<Box<dyn Any + Send>>;
+/// for the instance created with those imports.
+pub struct WasmCapiInstantiationState {
+    session: Option<WasmCapiSession>,
+}
 
 /// Runtime hooks that provide `wasm_c_api_v0` imports for WASIX guests.
-///
-/// The import phase creates a per-instantiation session (holding the function
-/// env backing the imported host functions) and returns it as opaque state;
-/// the caller hands that state back to [`Self::configure_instance`] after
-/// instantiation. The hooks themselves are stateless, so concurrent
-/// instantiations — same module or not, same store or not — cannot receive
-/// each other's sessions.
+// The import phase creates a per-instantiation session holding the function
+// env backing the imported host functions, and hands it to the caller as
+// opaque state. The hooks themselves are stateless, so concurrent
+// instantiations — same module or not, same store or not — cannot receive
+// each other's sessions.
 #[derive(Clone, Default)]
 pub struct WasmCapiRuntimeHooks {
     resolve_module_sync: Option<ResolveModuleSync>,
@@ -309,11 +306,13 @@ impl WasmCapiRuntimeHooks {
     ) -> Result<WasmCapiInstantiationState> {
         let mut session = WasmCapiSession::new(module, self.resolve_module_sync.clone());
         if !session.needs_imports() {
-            return Ok(None);
+            return Ok(WasmCapiInstantiationState { session: None });
         }
 
         session.register_imports(store, imports)?;
-        Ok(Some(Box::new(session)))
+        Ok(WasmCapiInstantiationState {
+            session: Some(session),
+        })
     }
 
     /// Completes memory, table, and guest allocation wiring after instantiation.
@@ -333,10 +332,10 @@ impl WasmCapiRuntimeHooks {
             return Ok(());
         }
 
-        let session = state
-            .context("missing Wasm C API session state for module instance setup")?
-            .downcast::<WasmCapiSession>()
-            .map_err(|_| anyhow!("instance setup state is not a Wasm C API session"))?;
+        let session = state.session.context(
+            "missing Wasm C API session for module instance setup \
+             (the state was not created for this module's imports)",
+        )?;
         session.configure_instance(store, instance, imported_memory)
     }
 }
@@ -2118,9 +2117,9 @@ fn register_wasm_c_api_imports(
 mod tests {
     use super::{
         INVALID_HANDLE, INVALID_SIZE, MemoryShadow, Type, WASM_EXTERNREF, WASM_F64, WASM_FUNCREF,
-        WASM_I32, WasmCAPIVersion, WasmCapiEnv, WasmCapiRuntimeHooks, WasmCapiState, WasmObject,
-        copy_guest_memory_to_wasmer, copy_wasmer_memory_to_guest, guest_byte_ptr,
-        guest_memory_offset, guest_ptr_with_offset, module_wasm_c_api_version_used,
+        WASM_I32, WasmCAPIVersion, WasmCapiEnv, WasmCapiInstantiationState, WasmCapiRuntimeHooks,
+        WasmCapiState, WasmObject, copy_guest_memory_to_wasmer, copy_wasmer_memory_to_guest,
+        guest_byte_ptr, guest_memory_offset, guest_ptr_with_offset, module_wasm_c_api_version_used,
         non_null_guest_ptr, refresh_memory_shadows_from_wasmer, sync_memory_shadows_to_wasmer,
         type_to_wasm_kind, type_to_wasm_valkind, wasm_kind_to_type, wasm_memory_data,
         wasm_memory_data_size, wasm_memory_size, wasm_table_size, write_wasm_val,
@@ -2131,6 +2130,8 @@ mod tests {
     };
     use wat::parse_str;
 
+    #[cfg(feature = "wasi")]
+    use anyhow::Context as _;
     #[cfg(feature = "wasi")]
     use std::sync::{
         Arc,
@@ -2282,9 +2283,19 @@ mod tests {
         runtime.with_instantiation_hook(
             {
                 let hooks = hooks.clone();
-                move |module, store| hooks.additional_imports(module, store)
+                move |module, store| {
+                    let (imports, state) = hooks.additional_imports(module, store)?;
+                    Ok((
+                        imports,
+                        Some(Box::new(state) as Box<dyn std::any::Any + Send>),
+                    ))
+                }
             },
             move |module, store, instance, imported_memory, state| {
+                let state = *state
+                    .context("missing instance setup state")?
+                    .downcast::<WasmCapiInstantiationState>()
+                    .map_err(|_| anyhow::anyhow!("unexpected instance setup state"))?;
                 hooks.configure_instance(module, store, instance, imported_memory, state)
             },
         );
@@ -2324,7 +2335,10 @@ mod tests {
         let (imports_a, state_a) = hooks
             .additional_imports(&module, &mut store_a.as_store_mut())
             .expect("imports register for store A");
-        assert!(state_a.is_some(), "session state travels with the caller");
+        assert!(
+            state_a.session.is_some(),
+            "session state travels with the caller"
+        );
         let (imports_b, state_b) = hooks
             .additional_imports(&module, &mut store_b.as_store_mut())
             .expect("imports register for store B");
@@ -2372,10 +2386,17 @@ mod tests {
             .expect("imports register");
         let instance = Instance::new(&mut store, &module, &imports).expect("instance");
 
+        let empty_state = WasmCapiInstantiationState { session: None };
         let err = hooks
-            .configure_instance(&module, &mut store.as_store_mut(), &instance, None, None)
-            .expect_err("configuring a Wasm C API instance without state must fail");
-        assert!(err.to_string().contains("missing Wasm C API session state"));
+            .configure_instance(
+                &module,
+                &mut store.as_store_mut(),
+                &instance,
+                None,
+                empty_state,
+            )
+            .expect_err("configuring a Wasm C API instance without its session must fail");
+        assert!(err.to_string().contains("missing Wasm C API session"));
     }
 
     #[test]

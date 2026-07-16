@@ -43,10 +43,11 @@ use crate::{
 ///
 /// Callers must hand the value back, unmodified, to
 /// [`Runtime::configure_new_instance`] for the instance created with those
-/// imports. This carries state created alongside the imports (e.g. a
-/// [`wasmer::FunctionEnv`] backing the imported host functions) to the
-/// post-instantiation setup phase, so implementations never have to guess
-/// which pending instantiation a `configure_new_instance` call belongs to.
+/// imports.
+// This carries state created alongside the imports (e.g. a FunctionEnv
+// backing the imported host functions) to the post-instantiation setup
+// phase, so implementations never have to guess which pending instantiation
+// a configure_new_instance call belongs to.
 pub type InstantiationState = Option<Box<dyn std::any::Any + Send>>;
 
 pub type MakeImportCallback = dyn Fn(
@@ -87,11 +88,9 @@ impl fmt::Debug for InstanceCallback {
 
 /// An import-creation callback paired with the instance-setup callback that
 /// receives the [`InstantiationState`] it produced.
-///
-/// Pairing the two callbacks at registration is what lets
-/// [`PluggableRuntime`] and [`OverriddenRuntime`] route each import
-/// callback's state to its own setup callback when several hooks are
-/// registered.
+// Pairing the two callbacks at registration lets PluggableRuntime and
+// OverriddenRuntime route each import callback's state to its own setup
+// callback when several hooks are registered.
 #[derive(Clone, Debug)]
 pub struct InstantiationHook {
     pub imports: ImportCallback,
