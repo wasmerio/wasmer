@@ -20,13 +20,43 @@ use yaml_edit::{Document, Mapping, YamlNode};
 ///   merged without removing keys. See [`merge_into_mapping`] for why.
 /// * A `null` in `target` is never added (avoids `name: null` noise); an
 ///   existing key can still be set to it.
+///
+/// When the edit cannot be format-preserved (a structured value changed,
+/// see [`set_value`]) or its output does not reparse, falls back to a plain
+/// serialization of `target`.
 pub(crate) fn apply_app_config_to_yaml(text: &str, target: &Value) -> anyhow::Result<String> {
+    match try_format_preserving_edit(text, target) {
+        Ok(out) if serde_yaml::from_str::<Value>(&out).is_ok() => Ok(out),
+        Ok(_) => {
+            tracing::warn!(
+                "format-preserving app YAML edit produced invalid YAML; \
+                 rewriting the file without preserving formatting"
+            );
+            Ok(serde_yaml::to_string(target)?)
+        }
+        Err(err) => {
+            tracing::warn!(
+                ?err,
+                "cannot format-preserve app YAML edit; \
+                 rewriting the file without preserving formatting"
+            );
+            Ok(serde_yaml::to_string(target)?)
+        }
+    }
+}
+
+fn try_format_preserving_edit(text: &str, target: &Value) -> anyhow::Result<String> {
     let doc = Document::from_str(text)
         .map_err(|e| anyhow::anyhow!("could not parse YAML for format-preserving edit: {e}"))?;
+    // Second parse, used to detect which keys changed. `yaml_edit` node text
+    // cannot be reparsed for this: it is dedented on the first line only, so
+    // block values are not valid standalone YAML.
+    let original: Value = serde_yaml::from_str(text)
+        .map_err(|e| anyhow::anyhow!("could not parse YAML semantically: {e}"))?;
 
-    match (doc.as_mapping(), target) {
-        (Some(mapping), Value::Mapping(target_mapping)) => {
-            merge_into_mapping(&mapping, target_mapping, true)?;
+    match (doc.as_mapping(), target, &original) {
+        (Some(mapping), Value::Mapping(target_mapping), Value::Mapping(original_mapping)) => {
+            merge_into_mapping(&mapping, target_mapping, Some(original_mapping), true)?;
             let out = doc.to_string();
             // Restore the leading comment block that `yaml_edit` drops (see
             // `leading_trivia`).
@@ -44,8 +74,9 @@ pub(crate) fn apply_app_config_to_yaml(text: &str, target: &Value) -> anyhow::Re
     }
 }
 
-/// Recursively merge `target` into `mapping`. `remove_missing` (true only at the
-/// top level) drops keys absent from `target`.
+/// Recursively merge `target` into `mapping`, using `original` (the semantic
+/// parse of the same subtree) to skip unchanged keys. `remove_missing` (true
+/// only at the top level) drops keys absent from `target`.
 ///
 /// Only the top level removes, because `AppConfigV1`'s `#[serde(flatten)] extra`
 /// re-emits unknown top-level keys: a key missing from `target` there was cleared
@@ -55,15 +86,18 @@ pub(crate) fn apply_app_config_to_yaml(text: &str, target: &Value) -> anyhow::Re
 fn merge_into_mapping(
     mapping: &Mapping,
     target: &serde_yaml::Mapping,
+    original: Option<&serde_yaml::Mapping>,
     remove_missing: bool,
 ) -> anyhow::Result<()> {
-    for (key, value) in target {
-        let Some(key) = scalar_key(key) else {
+    for (key_value, value) in target {
+        let Some(key) = scalar_key(key_value) else {
             continue;
         };
 
-        if let Some(existing) = mapping.get(&key) {
-            if node_matches(&existing.to_string(), value) {
+        let original_value = original.and_then(|m| m.get(key_value));
+
+        if mapping.get(&key).is_some() {
+            if original_value == Some(value) {
                 // Semantically identical - keep the original formatting.
                 continue;
             }
@@ -71,7 +105,12 @@ fn merge_into_mapping(
             // Recurse so we only touch what changed within the nested mapping.
             if let (Some(child), Value::Mapping(target_child)) = (mapping.get_mapping(&key), value)
             {
-                merge_into_mapping(&child, target_child, false)?;
+                let original_child = match original_value {
+                    Some(Value::Mapping(m)) => Some(m),
+                    // The key changed type; every nested key counts as changed.
+                    _ => None,
+                };
+                merge_into_mapping(&child, target_child, original_child, false)?;
             } else {
                 set_value(mapping, &key, value)
                     .with_context(|| format!("could not update app YAML key `{key}`"))?;
@@ -92,12 +131,12 @@ fn merge_into_mapping(
     Ok(())
 }
 
-/// Set `mapping[key] = value`, dispatching scalars to typed setters and
-/// structured values (mappings/sequences) to a parsed node so block style is
-/// preserved.
+/// Set `mapping[key] = value`. Only scalars are supported: `yaml_edit`
+/// mis-renders block values when setting them (as of 0.2, #6803), so
+/// structured values error out and the caller falls back to a plain rewrite.
 fn set_value(mapping: &Mapping, key: &str, value: &Value) -> anyhow::Result<()> {
     match value {
-        Value::Null => set_via_node(mapping, key, value)?,
+        Value::Null => mapping.set(key, yaml_edit::ScalarValue::null()),
         Value::Bool(b) => mapping.set(key, *b),
         Value::String(s) => mapping.set(key, s.as_str()),
         Value::Number(n) => {
@@ -108,45 +147,16 @@ fn set_value(mapping: &Mapping, key: &str, value: &Value) -> anyhow::Result<()> 
             } else if let Some(f) = n.as_f64() {
                 mapping.set(key, f);
             } else {
-                set_via_node(mapping, key, value)?;
+                // Unreachable: `serde_yaml` numbers are always i64/u64/f64.
+                anyhow::bail!("cannot represent number for app YAML key `{key}`");
             }
         }
         Value::Sequence(_) | Value::Mapping(_) | Value::Tagged(_) => {
-            set_via_node(mapping, key, value)?;
+            anyhow::bail!("cannot format-preserve an edit to structured value `{key}`");
         }
     }
 
     Ok(())
-}
-
-/// Set a structured value by serializing it and parsing it back into a node, so
-/// `yaml_edit` reconstructs the proper block/flow representation.
-fn set_via_node(mapping: &Mapping, key: &str, value: &Value) -> anyhow::Result<()> {
-    // There is no direct cast from `serde_yaml::Value` to a `yaml_edit` node, and
-    // a recursive `AsYaml` converter would be more code and easier to get wrong
-    // than this. Serialize the value under a temporary key, parse it back, and
-    // graft the resulting node.
-    let mut wrapper = serde_yaml::Mapping::new();
-    wrapper.insert(Value::String(key.to_string()), value.clone());
-    let rendered = serde_yaml::to_string(&Value::Mapping(wrapper))
-        .context("could not serialize app YAML value")?;
-
-    let node = Document::from_str(&rendered)
-        .map_err(|e| anyhow::anyhow!("could not parse serialized app YAML value: {e}"))?
-        .as_mapping()
-        .and_then(|m| m.get(key))
-        .context("serialized app YAML value did not contain the expected key")?;
-
-    mapping.set(key, node);
-    Ok(())
-}
-
-/// Whether the rendered text of an existing node is semantically equal to
-/// `target` (ignoring formatting/quoting differences).
-fn node_matches(node_text: &str, target: &Value) -> bool {
-    serde_yaml::from_str::<Value>(node_text)
-        .map(|v| &v == target)
-        .unwrap_or(false)
 }
 
 /// Return the leading run of blank and comment-only lines at the top of `text`.
@@ -409,6 +419,21 @@ package: .
     }
 
     #[test]
+    fn sets_existing_key_to_null() {
+        let original = r#"kind: wasmer.io/App.v0
+name: my-app
+package: .
+"#;
+        let mut target = serde_yaml::Mapping::new();
+        target.insert("kind".into(), "wasmer.io/App.v0".into());
+        target.insert("name".into(), Value::Null);
+        target.insert("package".into(), ".".into());
+
+        let out = apply_app_config_to_yaml(original, &Value::Mapping(target)).unwrap();
+        assert!(out.contains("name: null"), "{out}");
+    }
+
+    #[test]
     fn removes_quoted_top_level_key_absent_from_target() {
         let original = r#""app_id": da_old
 kind: wasmer.io/App.v0
@@ -453,6 +478,91 @@ package: .
         let out = apply_app_config_to_yaml(original, &target).unwrap();
         assert!(out.starts_with("# leading comment\n"), "{out}");
         assert!(out.contains("owner: bob"), "{out}");
+    }
+
+    /// The `app.yaml` from issue #6803.
+    const JOBS_APP_YAML: &str = r#"package: .
+scaling:
+  mode: single_concurrency
+jobs:
+  - name: post-deployment
+    trigger: post-deployment
+    action:
+      execute:
+        package: wasmer/bash
+        command: ls
+  - name: fetch-every-8-min
+    trigger: "*/8 * * * *"
+    action:
+      fetch:
+        path: /
+        timeout: 30s
+  - name: exec-every-min
+    trigger: 1m
+    action:
+      execute:
+        package: wasmer/bash
+        command: ls
+        cli_args:
+          - -lah
+kind: wasmer.io/App.v0
+annotations:
+  shipitcli.com/config:
+    commands: {}
+    php_version: 8.3.29
+    phpix: true
+    phpix_worker_threads: 4
+    port: 8080
+    use_composer: false
+  shipitcli.com/provider: php
+  shipitcli.com/version: 0.21.6
+"#;
+
+    /// #6803: an unchanged `jobs` was falsely detected as changed and then
+    /// corrupted to `jobs:- name: ...` on rewrite.
+    #[test]
+    fn deploy_flow_leaves_indented_jobs_sequence_untouched() {
+        use wasmer_config::app::AppConfigV1;
+
+        let mut config = AppConfigV1::parse_yaml(JOBS_APP_YAML).unwrap();
+        config.app_id = Some("da_test123".to_string());
+        config.name = Some("my-app".to_string());
+        config.owner = Some("someowner".to_string());
+        let target = config.clone().to_yaml_value().unwrap();
+
+        let out = apply_app_config_to_yaml(JOBS_APP_YAML, &target).unwrap();
+
+        // The unchanged blocks keep their exact formatting.
+        assert!(out.contains("jobs:\n  - name: post-deployment"), "{out}");
+        assert!(out.contains("    trigger: \"*/8 * * * *\""), "{out}");
+        assert!(out.contains("        cli_args:\n          - -lah"), "{out}");
+        assert!(
+            out.contains("  shipitcli.com/config:\n    commands: {}"),
+            "{out}"
+        );
+
+        // The intended changes landed and the file is still a valid config.
+        let reparsed = AppConfigV1::parse_yaml(&out).unwrap();
+        assert_eq!(reparsed.app_id.as_deref(), Some("da_test123"));
+        assert_eq!(reparsed.name.as_deref(), Some("my-app"));
+        assert_eq!(reparsed.owner.as_deref(), Some("someowner"));
+        assert_eq!(reparsed.jobs, config.jobs);
+    }
+
+    /// A genuine sequence change currently cannot be format-preserved (see
+    /// [`set_value`]); the result must be a valid plain rewrite.
+    #[test]
+    fn genuine_sequence_change_produces_valid_yaml() {
+        use wasmer_config::app::AppConfigV1;
+
+        let mut config = AppConfigV1::parse_yaml(JOBS_APP_YAML).unwrap();
+        config.jobs.as_mut().unwrap().remove(2);
+        let target = config.clone().to_yaml_value().unwrap();
+
+        let out = apply_app_config_to_yaml(JOBS_APP_YAML, &target).unwrap();
+
+        let reparsed = AppConfigV1::parse_yaml(&out).unwrap();
+        assert_eq!(reparsed.jobs, config.jobs);
     }
 
     #[test]
