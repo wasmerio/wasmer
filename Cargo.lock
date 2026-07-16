@@ -7442,7 +7442,7 @@ dependencies = [
  "ureq 2.12.1",
  "virtual-fs",
  "wasmer",
- "wasmer-c-api",
+ "wasmer-c-api-imports",
  "wasmer-cache",
  "wasmer-compiler-llvm",
  "wasmer-types",
