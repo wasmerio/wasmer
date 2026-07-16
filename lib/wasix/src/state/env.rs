@@ -590,7 +590,7 @@ impl WasiEnv {
                 imported_memory.as_ref(),
                 instantiation_state,
             )
-            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
+            .map_err(|err| WasiThreadError::InstanceConfigurationFailed(Arc::new(err)))?;
 
         let handles = match imported_memory {
             Some(memory) => WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
