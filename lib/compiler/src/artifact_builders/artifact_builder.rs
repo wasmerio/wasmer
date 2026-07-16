@@ -64,6 +64,7 @@ impl ArtifactBuild {
         target: &Target,
         memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: PrimaryMap<TableIndex, TableStyle>,
+        elf_load_address: Option<usize>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
         use crate::types::function::Compilation;
@@ -123,6 +124,7 @@ impl ArtifactBuild {
             // `environ.translate()` above will write some data into
             // `module_translation_state`.
             translation.module_translation_state.as_ref().unwrap(),
+            elf_load_address,
             translation.function_body_inputs,
             progress_callback,
         )?;

@@ -321,6 +321,7 @@ wasmparser = { version = "0.252.0", default-features = false, features = [
   "simd",
 ] }
 wasmprinter = "0.252.0"
+wasmtime-internal-jit-debug = { version = "46.0.1", features = ["gdb_jit_int"] }
 wast = "252.0.0"
 wat = "1.252.0"
 wcgi = "0.3.0"

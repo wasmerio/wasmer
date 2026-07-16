@@ -37,7 +37,10 @@ use object::{Object as _, ObjectSection as _, ReadCache};
 use rkyv::option::ArchivedOption;
 use shared_buffer::OwnedBuffer;
 
-use crate::engine::mapped_binary::DebugInfoSource;
+use crate::engine::mapped_binary::{DebugInfoSource, MemoryMappedBinary};
+
+#[cfg(unix)]
+const COMPILED_ELF_RESERVATION_SIZE: usize = 156 * 1024 * 1024;
 
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use std::mem;
@@ -185,6 +188,24 @@ impl Artifact {
         progress_callback: Option<CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
         let mut inner_engine = engine.inner_mut();
+
+        // Reserve the final code range before compiling so the linker can put
+        // runtime addresses directly into the module's debug information.
+        #[cfg(unix)]
+        let elf_reservation = if engine.target().is_native() {
+            Some(
+                MemoryMappedBinary::new(COMPILED_ELF_RESERVATION_SIZE)
+                    .map_err(CompileError::Resource)?,
+            )
+        } else {
+            None
+        };
+        #[cfg(not(unix))]
+        let elf_reservation: Option<MemoryMappedBinary> = None;
+        let elf_load_address = elf_reservation
+            .as_ref()
+            .map(|reservation| reservation.base() as usize);
+
         let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let module = translation.module;
@@ -205,14 +226,31 @@ impl Artifact {
             engine.target(),
             memory_styles,
             table_styles,
+            elf_load_address,
             progress_callback.as_ref(),
         )?;
+
+        let module_file = if let SerializableCompilation::Elf(elf) =
+            &artifact.serializable.compilation
+        {
+            let path = PathBuf::from("/tmp/x.so");
+            std::fs::write(&path, elf).map_err(|error| {
+                CompileError::Codegen(format!(
+                    "cannot save compiled ELF to {}: {error}",
+                    path.display()
+                ))
+            })?;
+            Some(path)
+        } else {
+            None
+        };
 
         Self::from_parts_with_module_file(
             &mut inner_engine,
             ArtifactBuildVariant::Plain(artifact),
             engine.target(),
-            None,
+            module_file,
+            elf_reservation,
         )
         .map_err(|e| match e {
             DeserializeError::Compiler(c) => c,
@@ -295,7 +333,13 @@ impl Artifact {
 
         let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
         let mut inner_engine = engine.inner_mut();
-        Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
+        Self::from_parts_with_module_file(
+            &mut inner_engine,
+            artifact,
+            engine.target(),
+            Some(path),
+            None,
+        )
     }
 
     /// Deserialize a serialized artifact.
@@ -398,7 +442,7 @@ impl Artifact {
         artifact: ArtifactBuildVariant,
         target: &Target,
     ) -> Result<Self, DeserializeError> {
-        Self::from_parts_with_module_file(engine_inner, artifact, target, None)
+        Self::from_parts_with_module_file(engine_inner, artifact, target, None, None)
     }
 
     fn from_parts_with_module_file(
@@ -406,6 +450,7 @@ impl Artifact {
         artifact: ArtifactBuildVariant,
         target: &Target,
         module_file: Option<PathBuf>,
+        elf_reservation: Option<MemoryMappedBinary>,
     ) -> Result<Self, DeserializeError> {
         if !target.is_native() {
             return Ok(Self {
@@ -442,9 +487,19 @@ impl Artifact {
                     "file-backed loading only supports ELF artifacts".to_string(),
                 ));
             }
-            Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file)?
+            Self::allocate_elf_artifact_from_path(
+                engine_inner,
+                module_info,
+                module_file,
+                elf_reservation,
+            )?
         } else if let Some(elf_file_data) = elf_file_data {
-            Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
+            Self::allocate_elf_artifact(
+                engine_inner,
+                module_info,
+                elf_file_data,
+                elf_reservation,
+            )?
         } else {
             let (
                 finished_functions,
@@ -735,10 +790,21 @@ impl Artifact {
         engine_inner: &mut EngineInner,
         module_info: &ModuleInfo,
         elf_file_data: &[u8],
+        elf_reservation: Option<MemoryMappedBinary>,
     ) -> Result<AllocatedArtifact, DeserializeError> {
         let image = object::File::parse(elf_file_data)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
-        let base = engine_inner.map_elf_binary(&image, elf_file_data)?;
+        #[cfg(unix)]
+        let base = if let Some(reservation) = elf_reservation {
+            engine_inner.map_elf_binary_in(&image, elf_file_data, reservation)?
+        } else {
+            engine_inner.map_elf_binary(&image, elf_file_data)?
+        };
+        #[cfg(not(unix))]
+        let base = {
+            drop(elf_reservation);
+            engine_inner.map_elf_binary(&image, elf_file_data)?
+        };
         Self::allocate_elf_artifact_from_image(
             engine_inner,
             module_info,
@@ -753,6 +819,7 @@ impl Artifact {
         engine_inner: &mut EngineInner,
         module_info: &ModuleInfo,
         path: &Path,
+        elf_reservation: Option<MemoryMappedBinary>,
     ) -> Result<AllocatedArtifact, DeserializeError> {
         let file = File::open(path)?;
         let fd = file.as_raw_fd();
@@ -765,7 +832,12 @@ impl Artifact {
                 "file-backed Artifact is not ELF".to_string(),
             ));
         }
-        let base = engine_inner.map_elf_binary_file(&image, fd)?;
+        let base = if let Some(reservation) = elf_reservation {
+            let jit_image = std::fs::read(path)?;
+            engine_inner.map_elf_binary_file_in(&image, fd, reservation, jit_image)?
+        } else {
+            engine_inner.map_elf_binary_file(&image, fd)?
+        };
         Self::allocate_elf_artifact_from_image(
             engine_inner,
             module_info,
@@ -780,6 +852,7 @@ impl Artifact {
         _engine_inner: &mut EngineInner,
         _module_info: &ModuleInfo,
         _path: &Path,
+        _elf_reservation: Option<MemoryMappedBinary>,
     ) -> Result<AllocatedArtifact, DeserializeError> {
         Err(DeserializeError::Incompatible(
             "file-backed ELF artifacts are only supported on Unix".to_string(),
@@ -1560,6 +1633,7 @@ impl Artifact {
             &metadata.compile_info,
             &[],
             module_translation.as_ref().unwrap(),
+            None,
             function_body_inputs,
             None,
         )?;

@@ -647,6 +647,7 @@ impl Compiler for CraneliftCompiler {
         compile_info: &CompileModuleInfo,
         _compile_info_blob: &[u8],
         module_translation_state: &ModuleTranslationState,
+        _elf_load_address: Option<usize>,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {

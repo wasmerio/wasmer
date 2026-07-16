@@ -7559,6 +7559,7 @@ dependencies = [
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.252.0",
+ "wasmtime-internal-jit-debug",
  "which",
  "windows-sys 0.61.2",
 ]
@@ -8123,6 +8124,27 @@ checksum = "4f6ce74d60a8ed870548e7efa9710c54f982bbfcf80e5ee5eee8498318616483"
 dependencies = [
  "hashbrown 0.17.1",
  "libm",
+]
+
+[[package]]
+name = "wasmtime-internal-jit-debug"
+version = "46.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9f667288cb4dfa68a4639ffac4d5628535dda64ebdc2b990526efb12b30ba803"
+dependencies = [
+ "cc",
+ "wasmtime-internal-versioned-export-macros",
+]
+
+[[package]]
+name = "wasmtime-internal-versioned-export-macros"
+version = "46.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e747f4a074699ba1b4e4d841fb263f9b7df5bd1555181c4752bf5990d21ba676"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.118",
 ]
 
 [[package]]

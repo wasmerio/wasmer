@@ -580,6 +580,23 @@ impl EngineInner {
         Ok(base)
     }
 
+    /// Populate the address range reserved before compilation with an ELF and
+    /// register that image with GDB/LLDB's JIT interface.
+    #[cfg(all(not(target_arch = "wasm32"), unix))]
+    pub(crate) fn map_elf_binary_in<'a, R: object::ReadRef<'a>>(
+        &mut self,
+        object_file: &object::File<'a, R>,
+        data: &[u8],
+        reservation: MemoryMappedBinary,
+    ) -> Result<*mut c_void, CompileError> {
+        let mut map = MemoryMappedBinary::try_from_bytes_in(object_file, data, reservation)
+            .map_err(CompileError::Resource)?;
+        let base = map.base();
+        map.register_jit_image(data.to_vec());
+        self.elf_mapped_binary.push(map);
+        Ok(base)
+    }
+
     /// Memory-map a compiled ELF artifact directly from a file.
     #[cfg(all(not(target_arch = "wasm32"), unix))]
     pub(crate) fn map_elf_binary_file<'a, R: object::ReadRef<'a>>(
@@ -590,6 +607,24 @@ impl EngineInner {
         let map =
             MemoryMappedBinary::try_from_file(object_file, file).map_err(CompileError::Resource)?;
         let base = map.base();
+        self.elf_mapped_binary.push(map);
+        Ok(base)
+    }
+
+    /// Map a compiled ELF file into its pre-compilation reservation and
+    /// register its complete image with GDB/LLDB.
+    #[cfg(all(not(target_arch = "wasm32"), unix))]
+    pub(crate) fn map_elf_binary_file_in<'a, R: object::ReadRef<'a>>(
+        &mut self,
+        object_file: &object::File<'a, R>,
+        file: RawFd,
+        reservation: MemoryMappedBinary,
+        jit_image: Vec<u8>,
+    ) -> Result<*mut c_void, CompileError> {
+        let mut map = MemoryMappedBinary::try_from_file_in(object_file, file, reservation)
+            .map_err(CompileError::Resource)?;
+        let base = map.base();
+        map.register_jit_image(jit_image);
         self.elf_mapped_binary.push(map);
         Ok(base)
     }
