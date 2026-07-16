@@ -277,6 +277,16 @@ mod tests {
         PackageId::Named(NamedPackageId::try_new(id, version).unwrap())
     }
 
+    /// Run [`Source::query`] synchronously via block_on.
+    /// The implementation does no async work currently,
+    /// the only reason it's async is due to the trait forcing it.
+    fn query(
+        source: &LocalRegistrySource,
+        package: &PackageSource,
+    ) -> Result<Vec<PackageSummary>, QueryError> {
+        futures::executor::block_on(source.query(package))
+    }
+
     #[test]
     fn new_rejects_a_missing_directory() {
         let temp = TempDir::new().unwrap();
@@ -284,14 +294,14 @@ mod tests {
         assert!(LocalRegistrySource::new(temp.path()).is_ok());
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn named_query_ids_come_from_the_layout() {
+    #[test]
+    fn named_query_ids_come_from_the_layout() {
         // COREUTILS_16's manifest is "sharrattj/coreutils@1.0.16"; the layout
         // must win, proving resolution keys off the path, not the artifact.
         let temp = registry(&[("acme/cutils/9.9.9.webc", COREUTILS_16)]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
 
-        let summaries = source.query(&"acme/cutils".parse().unwrap()).await.unwrap();
+        let summaries = query(&source, &"acme/cutils".parse().unwrap()).unwrap();
 
         assert_eq!(summaries.len(), 1);
         assert_eq!(summaries[0].pkg.id, named("acme/cutils", "9.9.9"));
@@ -299,8 +309,8 @@ mod tests {
         assert!(!summaries[0].pkg.commands.is_empty());
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn only_matching_versions_are_opened() {
+    #[test]
+    fn only_matching_versions_are_opened() {
         // 0.1.0 is garbage; a constraint that rules it out never reads it.
         let temp = registry(&[
             ("acme/cutils/0.1.0.webc", b"not a webc".as_slice()),
@@ -308,31 +318,25 @@ mod tests {
         ]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
 
-        let summaries = source
-            .query(&"acme/cutils@9.9.9".parse().unwrap())
-            .await
-            .unwrap();
+        let summaries = query(&source, &"acme/cutils@9.9.9".parse().unwrap()).unwrap();
         assert_eq!(summaries[0].pkg.id, named("acme/cutils", "9.9.9"));
 
         // ...while a constraint that pulls it in surfaces the corruption.
         assert!(matches!(
-            source.query(&"acme/cutils".parse().unwrap()).await,
+            query(&source, &"acme/cutils".parse().unwrap()),
             Err(QueryError::Other { .. })
         ));
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn version_constraints_filter_the_listing() {
+    #[test]
+    fn version_constraints_filter_the_listing() {
         let temp = registry(&[
             ("sharrattj/coreutils/1.0.11.webc", COREUTILS_11),
             ("sharrattj/coreutils/1.0.16.webc", COREUTILS_16),
         ]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
 
-        let all = source
-            .query(&"sharrattj/coreutils".parse().unwrap())
-            .await
-            .unwrap();
+        let all = query(&source, &"sharrattj/coreutils".parse().unwrap()).unwrap();
         assert_eq!(
             all.iter().map(|s| s.pkg.id.clone()).collect::<Vec<_>>(),
             [
@@ -341,69 +345,62 @@ mod tests {
             ]
         );
 
-        let pinned = source
-            .query(&"sharrattj/coreutils@^1.0.16".parse().unwrap())
-            .await
-            .unwrap();
+        let pinned = query(&source, &"sharrattj/coreutils@^1.0.16".parse().unwrap()).unwrap();
         assert_eq!(pinned.len(), 1);
         assert_eq!(pinned[0].pkg.id, named("sharrattj/coreutils", "1.0.16"));
 
         assert!(matches!(
-            source.query(&"sharrattj/unknown".parse().unwrap()).await,
+            query(&source, &"sharrattj/unknown".parse().unwrap()),
             Err(QueryError::NotFound { .. })
         ));
         assert!(matches!(
-            source
-                .query(&"sharrattj/coreutils@^2".parse().unwrap())
-                .await,
+            query(&source, &"sharrattj/coreutils@^2".parse().unwrap()),
             Err(QueryError::NoMatches { .. })
         ));
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn unnamespaced_packages_sit_one_level_up() {
+    #[test]
+    fn unnamespaced_packages_sit_one_level_up() {
         let temp = registry(&[("cutils/1.0.0.webc", COREUTILS_16)]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
 
-        let summaries = source.query(&"cutils".parse().unwrap()).await.unwrap();
+        let summaries = query(&source, &"cutils".parse().unwrap()).unwrap();
 
         assert_eq!(summaries[0].pkg.id, named("cutils", "1.0.0"));
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn sha256_sidecar_is_verified() {
+    #[test]
+    fn sha256_sidecar_is_verified() {
         let temp = registry(&[("acme/cutils/9.9.9.webc", COREUTILS_16)]);
         let sidecar = temp.path().join("acme/cutils/9.9.9.sha256");
         let source = LocalRegistrySource::new(temp.path()).unwrap();
-        let query: PackageSource = "acme/cutils".parse().unwrap();
+        let pkg: PackageSource = "acme/cutils".parse().unwrap();
 
         std::fs::write(&sidecar, WebcHash::sha256(COREUTILS_16).as_hex()).unwrap();
-        assert!(source.query(&query).await.is_ok());
+        assert!(query(&source, &pkg).is_ok());
 
         std::fs::write(&sidecar, "deadbeef").unwrap();
         assert!(matches!(
-            source.query(&query).await,
+            query(&source, &pkg),
             Err(QueryError::Other { .. })
         ));
     }
 
-    #[tokio::test(flavor = "multi_thread")]
-    async fn hash_queries_walk_the_tree() {
+    #[test]
+    fn hash_queries_walk_the_tree() {
         let temp = registry(&[
             ("acme/cutils/9.9.9.webc", COREUTILS_16),
             ("other/pkg/1.0.0.webc", COREUTILS_11),
         ]);
         let source = LocalRegistrySource::new(temp.path()).unwrap();
         let hash = |bytes| PackageHash::from_sha256_bytes(WebcHash::sha256(bytes).as_bytes());
-        let query = |hash| PackageSource::Ident(PackageIdent::Hash(hash));
+        let by_hash = |hash| PackageSource::Ident(PackageIdent::Hash(hash));
 
-        let summaries = source.query(&query(hash(COREUTILS_16))).await.unwrap();
+        let summaries = query(&source, &by_hash(hash(COREUTILS_16))).unwrap();
         assert_eq!(summaries[0].pkg.id, named("acme/cutils", "9.9.9"));
 
         assert!(matches!(
-            source
-                .query(&query(PackageHash::from_sha256_bytes([0; 32])))
-                .await,
+            query(&source, &by_hash(PackageHash::from_sha256_bytes([0; 32]))),
             Err(QueryError::NotFound { .. })
         ));
     }
