@@ -132,7 +132,7 @@ fn merge_into_mapping(
 }
 
 /// Set `mapping[key] = value`. Only scalars are supported: `yaml_edit`
-/// mis-renders block values when setting them (as of 0.2, #6803), so
+/// incorrectly renders block values when setting them (as of 0.2, #6803), so
 /// structured values error out and the caller falls back to a plain rewrite.
 fn set_value(mapping: &Mapping, key: &str, value: &Value) -> anyhow::Result<()> {
     match value {
