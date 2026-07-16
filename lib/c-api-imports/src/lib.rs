@@ -11,7 +11,7 @@ use std::{
 use wasmer_api::{
     Extern, ExternType, Function, Function as WasmerFunction, FunctionEnv, FunctionEnvMut,
     FunctionType, Global, GlobalType, Imports, Instance, Memory, Memory32, MemoryType, Module,
-    Mutability, Pages, RuntimeError, StoreMut, Table, Type, TypedFunction, Value, WasmPtr,
+    Mutability, Pages, RuntimeError, StoreId, StoreMut, Table, Type, TypedFunction, Value, WasmPtr,
     namespace,
 };
 
@@ -261,24 +261,34 @@ impl WasmCapiSession {
 }
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-struct ModuleKey(String);
+struct SessionKey {
+    module_id: String,
+    store_id: StoreId,
+}
 
-impl ModuleKey {
-    fn new(module: &Module) -> Self {
-        Self(module.info().id.id())
+impl SessionKey {
+    fn new(module: &Module, store: &StoreMut<'_>) -> Self {
+        Self {
+            module_id: module.info().id.id(),
+            store_id: store.id(),
+        }
     }
 }
 
 /// Runtime hooks that provide `wasm_c_api_v0` imports for WASIX guests.
 #[derive(Clone, Default)]
 pub struct WasmCapiRuntimeHooks {
-    /// Pending per-instantiation sessions, grouped by compiled module.
+    /// Pending per-instantiation sessions, grouped by compiled module and
+    /// target store.
     ///
     /// `add_imports` creates host functions before instantiation, while
     /// `configure_instance` can only discover exports like guest malloc/free
     /// after instantiation. The queue preserves that pairing when the same
-    /// module is instantiated multiple times.
-    sessions: Arc<Mutex<HashMap<ModuleKey, VecDeque<WasmCapiSession>>>>,
+    /// module is instantiated multiple times. Keying by store keeps
+    /// concurrent instantiations of one module in different stores from
+    /// receiving each other's sessions, whose store-bound function envs
+    /// would panic when used with the wrong store.
+    sessions: Arc<Mutex<HashMap<SessionKey, VecDeque<WasmCapiSession>>>>,
     resolve_module_sync: Option<ResolveModuleSync>,
 }
 
@@ -295,10 +305,6 @@ impl WasmCapiRuntimeHooks {
     ) -> Self {
         self.resolve_module_sync = Some(Arc::new(resolve));
         self
-    }
-
-    fn module_key(module: &Module) -> ModuleKey {
-        ModuleKey::new(module)
     }
 
     /// Creates `wasm_c_api_v0` imports when `module` requests them.
@@ -326,7 +332,7 @@ impl WasmCapiRuntimeHooks {
             .lock()
             .expect("poisoned WasmCapiRuntimeHooks session queue");
         sessions
-            .entry(Self::module_key(module))
+            .entry(SessionKey::new(module, store))
             .or_default()
             .push_back(session);
         Ok(())
@@ -349,7 +355,7 @@ impl WasmCapiRuntimeHooks {
                 .sessions
                 .lock()
                 .expect("poisoned WasmCapiRuntimeHooks session queue");
-            let key = Self::module_key(module);
+            let key = SessionKey::new(module, store);
             let Some(queue) = sessions.get_mut(&key) else {
                 bail!("missing pending Wasm C API session for module instance setup");
             };
@@ -2143,7 +2149,7 @@ fn register_wasm_c_api_imports(
 mod tests {
     use super::{
         INVALID_HANDLE, INVALID_SIZE, MemoryShadow, Type, WASM_EXTERNREF, WASM_F64, WASM_FUNCREF,
-        WASM_I32, WasmCAPIVersion, WasmCapiEnv, WasmCapiState, WasmObject,
+        WASM_I32, WasmCAPIVersion, WasmCapiEnv, WasmCapiRuntimeHooks, WasmCapiState, WasmObject,
         copy_guest_memory_to_wasmer, copy_wasmer_memory_to_guest, guest_byte_ptr,
         guest_memory_offset, guest_ptr_with_offset, module_wasm_c_api_version_used,
         non_null_guest_ptr, refresh_memory_shadows_from_wasmer, sync_memory_shadows_to_wasmer,
@@ -2151,12 +2157,11 @@ mod tests {
         wasm_memory_data_size, wasm_memory_size, wasm_table_size, write_wasm_val,
     };
     use wasmer_api::{
-        FunctionEnv, Memory, MemoryType, Module, Pages, Store, Table, TableType, Value,
+        AsStoreMut, FunctionEnv, Imports, Instance, Memory, MemoryType, Module, Pages, Store,
+        Table, TableType, Value,
     };
     use wat::parse_str;
 
-    #[cfg(feature = "wasi")]
-    use super::WasmCapiRuntimeHooks;
     #[cfg(feature = "wasi")]
     use std::sync::{
         Arc,
@@ -2331,6 +2336,42 @@ mod tests {
             }
         }
         assert_eq!(resolve_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn configure_instance_pairs_sessions_by_store() {
+        let mut store_a = Store::default();
+        let mut store_b = Store::new(store_a.engine().clone());
+        let module = compile_wat(
+            &store_a,
+            r#"(module
+                (import "wasm_c_api_v0" "wasm_engine_new" (func $wasm_engine_new (result i32)))
+                (memory (export "memory") 1)
+            )"#,
+        );
+
+        let hooks = WasmCapiRuntimeHooks::new();
+        let mut imports_a = Imports::new();
+        hooks
+            .add_imports(&module, &mut store_a.as_store_mut(), &mut imports_a)
+            .expect("imports register for store A");
+        let mut imports_b = Imports::new();
+        hooks
+            .add_imports(&module, &mut store_b.as_store_mut(), &mut imports_b)
+            .expect("imports register for store B");
+
+        // Instance setup completes in the reverse of the add_imports order,
+        // like two threads racing to cold-start the same module in separate
+        // stores. Each configure_instance call must receive the session whose
+        // function env lives in its own store.
+        let instance_b = Instance::new(&mut store_b, &module, &imports_b).expect("instance B");
+        hooks
+            .configure_instance(&module, &mut store_b.as_store_mut(), &instance_b, None)
+            .expect("configure instance B");
+        let instance_a = Instance::new(&mut store_a, &module, &imports_a).expect("instance A");
+        hooks
+            .configure_instance(&module, &mut store_a.as_store_mut(), &instance_a, None)
+            .expect("configure instance A");
     }
 
     #[test]

@@ -4,7 +4,7 @@ use super::{StoreObjects, inner::StoreInner};
 use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 #[cfg(feature = "experimental-async")]
 use crate::{AsStoreAsync, StoreAsync};
-use wasmer_types::{ExternType, OnCalledAction};
+use wasmer_types::{ExternType, OnCalledAction, StoreId};
 //use wasmer_vm::{StoreObjects, TrapHandlerFn};
 
 #[cfg(feature = "sys")]
@@ -32,6 +32,11 @@ impl<'a> StoreRef<'a> {
         StoreObjects::same(&a.inner.objects, &b.inner.objects)
     }
 
+    /// Returns the ID of this store
+    pub fn id(&self) -> StoreId {
+        self.inner.objects.id()
+    }
+
     /// The signal handler
     #[cfg(feature = "sys")]
     #[inline]
@@ -56,6 +61,11 @@ impl StoreMut<'_> {
     /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
         StoreObjects::same(&a.inner.objects, &b.inner.objects)
+    }
+
+    /// Returns the ID of this store
+    pub fn id(&self) -> StoreId {
+        self.inner.objects.id()
     }
 
     #[allow(unused)]
