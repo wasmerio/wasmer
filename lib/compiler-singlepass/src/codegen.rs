@@ -6,6 +6,7 @@ use crate::{
     codegen_error,
     common_decl::*,
     config::Singlepass,
+    elf::{self, CompileOutput},
     location::{Location, Reg},
     machine::{
         AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
@@ -21,6 +22,7 @@ use std::{
     collections::HashMap,
     iter,
     ops::{AddAssign, Neg, SubAssign},
+    path::Path,
 };
 use target_lexicon::Architecture;
 
@@ -41,7 +43,7 @@ use wasmer_compiler::{
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
-use wasmer_types::target::CallingConvention;
+use wasmer_types::target::{CallingConvention, Target};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
@@ -5865,7 +5867,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         mut self,
         data: &FunctionBodyData,
         arch: Architecture,
-    ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
+        target: &Target,
+        build_directory: Option<&Path>,
+    ) -> Result<CompileOutput<(CompiledFunction, Option<UnwindFrame>)>, CompileError> {
         self.stack_offset -= RED_ZONE_SIZE;
 
         self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
@@ -5954,15 +5958,23 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             )?;
         }
 
-        Ok((
-            CompiledFunction {
-                body: FunctionBody { body, unwind_info },
-                relocations: self.relocations.clone(),
-                frame_info: CompiledFunctionFrameInfo { traps, address_map },
-                maximum_stack_usage: Some(self.stack_offset.maximum_offset),
-            },
-            fde,
-        ))
+        let function = CompiledFunction {
+            body: FunctionBody { body, unwind_info },
+            relocations: self.relocations.clone(),
+            frame_info: CompiledFunctionFrameInfo { traps, address_map },
+            maximum_stack_usage: Some(self.stack_offset.maximum_offset),
+        };
+        if self.config.elf_artifact_format {
+            Ok(CompileOutput::Object(elf::emit_local_function(
+                target,
+                build_directory.expect("ELF artifact compilation requires a build directory"),
+                self.local_func_index,
+                function,
+                fde,
+            )?))
+        } else {
+            Ok(CompileOutput::InMemory((function, fde)))
+        }
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

@@ -34,6 +34,11 @@ impl SinglepassCallbacks {
         Ok(Self { debug_dir })
     }
 
+    /// Returns the debug directory used to dump compilation artifacts.
+    pub fn debug_dir(&self) -> &PathBuf {
+        &self.debug_dir
+    }
+
     fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
         if let Some(hash) = module_hash {
@@ -85,6 +90,9 @@ pub struct Singlepass {
 
     /// The number of threads to use for compilation.
     pub num_threads: NonZero<usize>,
+
+    /// Enable the experimental ELF artifact format.
+    pub(crate) elf_artifact_format: bool,
 }
 
 impl Singlepass {
@@ -97,6 +105,7 @@ impl Singlepass {
             middlewares: vec![],
             callbacks: None,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
+            elf_artifact_format: false,
         }
     }
 
@@ -126,6 +135,14 @@ impl Singlepass {
     /// Set the number of threads to use for compilation.
     pub fn num_threads(&mut self, num_threads: NonZero<usize>) -> &mut Self {
         self.num_threads = num_threads;
+        self
+    }
+
+    /// Enables the experimental ELF-based artifact format.
+    ///
+    /// This format is currently supported only on x86-64 Linux.
+    pub fn elf_artifact_format(&mut self, enable: bool) -> &mut Self {
+        self.elf_artifact_format = enable;
         self
     }
 }

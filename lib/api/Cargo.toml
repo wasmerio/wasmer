@@ -148,7 +148,11 @@ compiler = [
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
-experimental-artifact = ["llvm", "wasmer-compiler-llvm/experimental-artifact"]
+experimental-artifact = [
+  "llvm",
+  "singlepass",
+  "wasmer-compiler-llvm/experimental-artifact",
+]
 
 # --- Enable the v8 backend and use it as default backend.
 v8 = ["wasm-c-api", "std", "dep:tempfile", "dep:which", "dep:xz", "dep:ureq"]

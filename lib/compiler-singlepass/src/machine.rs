@@ -1,5 +1,6 @@
 use crate::{
     common_decl::*,
+    elf::{self, CompileOutput},
     location::{Location, Reg},
     machine_arm64::MachineARM64,
     machine_riscv::MachineRiscv,
@@ -11,8 +12,10 @@ use dynasmrt::{AssemblyOffset, DynamicLabel};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
+    path::Path,
 };
 use wasmer_compiler::{
+    misc::CompiledKind,
     types::{
         address_map::InstructionAddressMap,
         function::FunctionBody,
@@ -23,6 +26,7 @@ use wasmer_compiler::{
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
+    entity::EntityRef,
     target::{Architecture, CallingConvention, Target},
 };
 pub type Label = DynamicLabel;
@@ -2363,8 +2367,9 @@ pub fn gen_std_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-) -> Result<FunctionBody, CompileError> {
-    match target.triple().architecture {
+    object: Option<(&Path, &CompiledKind)>,
+) -> Result<CompileOutput<FunctionBody>, CompileError> {
+    let body = match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
             machine.gen_std_trampoline(sig, calling_convention)
@@ -2380,6 +2385,15 @@ pub fn gen_std_trampoline(
         _ => Err(CompileError::UnsupportedTarget(
             "singlepass unimplemented arch for gen_std_trampoline".to_owned(),
         )),
+    }?;
+    match object {
+        Some((build_directory, kind)) => Ok(CompileOutput::Object(elf::emit_function_body(
+            target,
+            build_directory,
+            kind,
+            &body,
+        )?)),
+        None => Ok(CompileOutput::InMemory(body)),
     }
 }
 
@@ -2389,8 +2403,9 @@ pub fn gen_std_dynamic_import_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-) -> Result<FunctionBody, CompileError> {
-    match target.triple().architecture {
+    object: Option<(&Path, &CompiledKind)>,
+) -> Result<CompileOutput<FunctionBody>, CompileError> {
+    let body = match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
@@ -2406,6 +2421,15 @@ pub fn gen_std_dynamic_import_trampoline(
         _ => Err(CompileError::UnsupportedTarget(
             "singlepass unimplemented arch for gen_std_dynamic_import_trampoline".to_owned(),
         )),
+    }?;
+    match object {
+        Some((build_directory, kind)) => Ok(CompileOutput::Object(elf::emit_function_body(
+            target,
+            build_directory,
+            kind,
+            &body,
+        )?)),
+        None => Ok(CompileOutput::InMemory(body)),
     }
 }
 /// Singlepass calls import functions through a trampoline.
@@ -2415,8 +2439,9 @@ pub fn gen_import_call_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-) -> Result<CustomSection, CompileError> {
-    match target.triple().architecture {
+    object_directory: Option<&Path>,
+) -> Result<CompileOutput<CustomSection>, CompileError> {
+    let section = match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
@@ -2432,6 +2457,15 @@ pub fn gen_import_call_trampoline(
         _ => Err(CompileError::UnsupportedTarget(
             "singlepass unimplemented arch for gen_import_call_trampoline".to_owned(),
         )),
+    }?;
+    match object_directory {
+        Some(build_directory) => Ok(CompileOutput::Object(elf::emit_import_trampoline(
+            target,
+            build_directory,
+            index.index(),
+            &section,
+        )?)),
+        None => Ok(CompileOutput::InMemory(section)),
     }
 }
 
