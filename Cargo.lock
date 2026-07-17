@@ -3301,62 +3301,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c6639b70a7ce854b79c70d7e83f16b5dc0137cc914f3d7d03803b513ecc67ac"
 
 [[package]]
-name = "libwild"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b8a1d26860b181ba9b177b1c80abadc806f0a39eb33cdec553c8bdf215c61e71"
-dependencies = [
- "anyhow",
- "atomic-take",
- "bitflags 2.13.0",
- "blake3",
- "bumpalo-herd",
- "bytesize",
- "cc",
- "colored",
- "colosseum",
- "crossbeam-queue",
- "crossbeam-utils",
- "derive_more",
- "flate2",
- "foldhash 0.2.0",
- "gimli 0.33.0",
- "glob",
- "hashbrown 0.17.1",
- "hex",
- "indexmap",
- "itertools 0.14.0",
- "jobserver",
- "leb128",
- "libc",
- "linker-layout",
- "linker-trace",
- "linker-utils",
- "memchr",
- "memmap2 0.9.11",
- "object 0.39.1",
- "perf-event",
- "perfetto-recorder",
- "rayon",
- "serde",
- "serde_yaml",
- "sha2 0.11.0",
- "sharded-offset-map",
- "sharded-vec-writer 0.4.0",
- "smallvec",
- "symbolic-common",
- "symbolic-demangle",
- "thread_local",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "wasmparser 0.248.0",
- "winnow 1.0.3",
- "zerocopy",
- "zstd",
-]
-
-[[package]]
 name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3369,41 +3313,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "984fb35d06508d1e69fc91050cceba9c0b748f983e6739fa2c7a9237154c52c8"
 dependencies = [
  "linked-hash-map",
-]
-
-[[package]]
-name = "linker-layout"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "738d25b189597176788c69dc3a87dba20993c60f36b4518c41150ca64b857b9d"
-dependencies = [
- "anyhow",
- "postcard",
- "serde",
-]
-
-[[package]]
-name = "linker-trace"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d621f05c002d0f05fdd1565dc451e0b95a4bfa4926adec24f14624c0f1e75a7"
-dependencies = [
- "anyhow",
- "postcard",
- "serde",
-]
-
-[[package]]
-name = "linker-utils"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f648abd9f0b18aa5d8978fd522d01f4281d01750ae0ef9d45d3dbd7f92c5f714"
-dependencies = [
- "anyhow",
- "derive_more",
- "leb128",
- "object 0.39.1",
- "paste",
 ]
 
 [[package]]
@@ -7537,7 +7446,6 @@ dependencies = [
  "itertools 0.15.0",
  "leb128",
  "libc",
- "libwild",
  "loupe",
  "macho-unwind-info",
  "memmap2 0.9.11",
@@ -7558,6 +7466,7 @@ dependencies = [
  "thiserror 2.0.18",
  "wasmer-types",
  "wasmer-vm",
+ "wasmer-wild",
  "wasmparser 0.252.0",
  "which",
  "windows-sys 0.61.2",
@@ -7730,6 +7639,35 @@ dependencies = [
  "wasmer",
  "wasmer-config",
  "wasmer-wasix-types",
+]
+
+[[package]]
+name = "wasmer-linker-layout"
+version = "7.2.0"
+dependencies = [
+ "anyhow",
+ "postcard",
+ "serde",
+]
+
+[[package]]
+name = "wasmer-linker-trace"
+version = "7.2.0"
+dependencies = [
+ "anyhow",
+ "postcard",
+ "serde",
+]
+
+[[package]]
+name = "wasmer-linker-utils"
+version = "7.2.0"
+dependencies = [
+ "anyhow",
+ "derive_more",
+ "leb128",
+ "object 0.39.1",
+ "paste",
 ]
 
 [[package]]
@@ -8043,6 +7981,60 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-wild"
+version = "7.2.0"
+dependencies = [
+ "anyhow",
+ "atomic-take",
+ "bitflags 2.13.0",
+ "blake3",
+ "bumpalo-herd",
+ "bytesize",
+ "cc",
+ "colored",
+ "colosseum",
+ "crossbeam-queue",
+ "crossbeam-utils",
+ "derive_more",
+ "flate2",
+ "foldhash 0.2.0",
+ "gimli 0.33.0",
+ "glob",
+ "hashbrown 0.17.1",
+ "hex",
+ "indexmap",
+ "itertools 0.14.0",
+ "jobserver",
+ "leb128",
+ "libc",
+ "memchr",
+ "memmap2 0.9.11",
+ "object 0.39.1",
+ "perf-event",
+ "perfetto-recorder",
+ "rayon",
+ "serde",
+ "serde_yaml",
+ "sha2 0.11.0",
+ "sharded-offset-map",
+ "sharded-vec-writer 0.4.0",
+ "smallvec",
+ "symbolic-common",
+ "symbolic-demangle",
+ "thread_local",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "wasmer-linker-layout",
+ "wasmer-linker-trace",
+ "wasmer-linker-utils",
+ "wasmparser 0.248.0",
+ "winnow 1.0.3",
+ "zerocopy",
+ "zstd",
+]
+
+[[package]]
 name = "wasmer-workspace"
 version = "7.2.0"
 dependencies = [
@@ -8078,6 +8070,7 @@ dependencies = [
  "wasmer-types",
  "wasmer-wasix",
  "wasmer-wast",
+ "wasmer-wild",
 ]
 
 [[package]]

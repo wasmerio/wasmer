@@ -34,6 +34,9 @@ tokio = { workspace = true, features = [
   "macros",
 ], optional = true }
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+wasmer-wild = { version = "=7.2.0", path = "lib/wild/libwild" }
+
 [workspace]
 members = [
   "fuzz",
@@ -72,7 +75,7 @@ members = [
   "tests/lib/wast",
   "tests/wasmer-argus",
 ]
-exclude = ["./lib/cli/tests/packages/axum"]
+exclude = ["./lib/cli/tests/packages/axum", "lib/wild"]
 resolver = "2"
 
 [workspace.package]
@@ -81,7 +84,7 @@ edition = "2024"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.93"
+rust-version = "1.94"
 version = "7.2.0"
 
 [workspace.dependencies]
@@ -198,7 +201,6 @@ libc = { version = "0.2.178", default-features = false }
 libfuzzer-sys = "0.4.0"
 libtest-mimic = "0.8.2"
 libunwind = "1.3.3"
-libwild = "0.9.0"
 linked_hash_set = "0.1.6"
 log = "0.4.22"
 lz4_flex = "0.13.0"
@@ -386,7 +388,7 @@ compiler = ["wasmer/compiler", "backend", "wasmer-compiler/translator"]
 singlepass = ["compiler", "wasmer-compiler-singlepass", "wasmer/singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift", "wasmer/cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm", "wasmer/llvm"]
-experimental-artifact = ["llvm", "wasmer-compiler-llvm/experimental-artifact"]
+experimental-artifact = ["wasmer-compiler-llvm/experimental-artifact"]
 middlewares = ["wasmer-middlewares"]
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-compiler/wasmer-artifact-create"]

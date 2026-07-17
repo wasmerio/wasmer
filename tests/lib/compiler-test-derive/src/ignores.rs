@@ -126,7 +126,7 @@ impl Ignores {
                             arch = Some(alias.to_string());
                         }
                         // Engines
-                        "engine" => {
+                        "engine" | "llvm_exp_artifact" => {
                             engine = Some(alias.to_string());
                         }
                         // Compilers

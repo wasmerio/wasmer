@@ -7,3 +7,7 @@
 [submodule "wasmer-test-files"]
 	path = wasmer-test-files
 	url = https://github.com/wasmerio/wasmer-test-files.git
+[submodule "lib/wild"]
+	path = lib/wild
+	url = https://github.com/wasmerio/wild.git
+	branch = wasmer-0.9.0
