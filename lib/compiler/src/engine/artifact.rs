@@ -3,7 +3,7 @@
 
 use std::{
     fs::File,
-    io::BufReader,
+    io::{BufReader, Write},
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -444,7 +444,11 @@ impl Artifact {
             }
             Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file)?
         } else if let Some(elf_file_data) = elf_file_data {
-            Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
+            let mut module_file = tempfile::NamedTempFile::new()?;
+            module_file.write_all(elf_file_data)?;
+            module_file.flush()?;
+            let module_file_path = module_file.keep().map_err(|error| error.error)?.1;
+            Self::allocate_elf_artifact_from_path(engine_inner, module_info, &module_file_path)?
         } else {
             let (
                 finished_functions,
