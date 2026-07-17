@@ -578,11 +578,14 @@ build-capi-headless-ios:
 test-wast:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
 # Build the Rust wasm_tests fixtures without running them, exporting the wasm
-# artifacts to WASM_TESTS_BUILD_ONLY_DIR. Requires cargo-wasix and the WASIX
-# Rust toolchain; platforms without one can then run test-all with
-# WASM_TESTS_PREBUILT_DIR pointing at the exported directory.
+# artifacts to WASM_TESTS_BUILD_ONLY_DIR (defaults to a directory under
+# target/). Requires cargo-wasix and the WASIX Rust toolchain; platforms
+# without one can then run test-all with WASM_TESTS_PREBUILT_DIR pointing at
+# the exported directory.
+build-wasm-tests-fixtures: WASM_TESTS_BUILD_ONLY_DIR ?= $(CURDIR)/target/wasm-tests-prebuilt
 build-wasm-tests-fixtures:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) -p wasmer-wasix --test wasm_tests --locked
+	WASM_TESTS_BUILD_ONLY_DIR="$(WASM_TESTS_BUILD_ONLY_DIR)" $(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) -p wasmer-wasix --test wasm_tests --locked
+	@echo "Rust wasm_tests fixtures exported to $(WASM_TESTS_BUILD_ONLY_DIR)"
 test-all:
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features experimental-async,experimental-host-interrupt --locked && \
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-net/Cargo.toml --release $(virtual_net_test_features) --locked && \
