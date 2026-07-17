@@ -16,7 +16,7 @@ use std::{
     time::Duration,
 };
 use tracing::trace;
-use wasmer::{FunctionEnvMut, SharedMemory};
+use wasmer::{FunctionEnvMut, MemoryOps};
 use wasmer_types::ModuleHash;
 use wasmer_wasix_types::{
     types::Signal,
@@ -182,7 +182,7 @@ pub struct WasiProcessInner {
     /// If true then the process has started cleaning up
     pub cleanup_started: bool,
     /// Shared process memory.
-    pub memory: Option<SharedMemory>,
+    pub memory: Option<MemoryOps>,
     /// The snapshot memory significantly reduce the amount of
     /// duplicate entries in the journal for memory that has not changed
     #[cfg(feature = "journal")]
@@ -618,9 +618,9 @@ impl WasiProcess {
     }
 
     /// Registers the shared memory used by this process.
-    pub fn register_memory(&self, memory: SharedMemory) {
+    pub fn register_memory(&self, memory: impl Into<MemoryOps>) {
         let mut inner = self.inner.0.lock().unwrap();
-        inner.memory = Some(memory);
+        inner.memory = Some(memory.into());
     }
 
     /// Takes a snapshot of the process and disables journaling returning

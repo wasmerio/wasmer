@@ -6,10 +6,10 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
+use super::trap::UnwindReason;
+use crate::Trap;
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]
 use crate::interrupt_registry;
-use crate::vmcontext::{VMFunctionContext, VMTrampoline};
-use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
 use bytesize::ByteSize;
 use core::ptr::{read, read_unaligned};
@@ -827,43 +827,6 @@ pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
     unsafe { unwind_with(UnwindReason::Panic(payload)) }
 }
 
-/// Call the wasm function pointed to by `callee`.
-///
-/// * `vmctx` - the callee vmctx argument
-/// * `caller_vmctx` - the caller vmctx argument
-/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
-///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
-///   `values_vec` argument.
-/// * `callee` - the third argument to the `trampoline` function
-/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
-///   which the outgoing return values will be written.
-///
-/// # Safety
-///
-/// Wildly unsafe because it calls raw function pointers and reads/writes raw
-/// function pointers.
-pub unsafe fn wasmer_call_trampoline(
-    trap_handler: Option<*const TrapHandlerFn<'static>>,
-    config: &VMConfig,
-    vmctx: VMFunctionContext,
-    trampoline: VMTrampoline,
-    callee: *const VMFunctionBody,
-    values_vec: *mut u8,
-) -> Result<(), Trap> {
-    unsafe {
-        catch_traps(trap_handler, config, move || {
-            mem::transmute::<
-                unsafe extern "C" fn(
-                    *mut VMContext,
-                    *const VMFunctionBody,
-                    *mut wasmer_types::RawValue,
-                ),
-                extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
-            >(trampoline)(vmctx, callee, values_vec);
-        })
-    }
-}
-
 /// Catches any wasm traps that happen within the execution of `closure`,
 /// returning them as a `Result`.
 ///
@@ -1055,36 +1018,6 @@ impl<T> TrapHandlerContextInner<T> {
                 .setup_trap_handler(move || Err(unwind));
             update_regs(regs);
             true
-        }
-    }
-}
-
-enum UnwindReason {
-    /// A panic caused by the host
-    Panic(Box<dyn Any + Send>),
-    /// A custom error triggered by the user
-    UserTrap(Box<dyn Error + Send + Sync>),
-    /// A Trap triggered by a wasm libcall
-    LibTrap(Trap),
-    /// A trap caused by the Wasm generated code
-    WasmTrap {
-        backtrace: Backtrace,
-        pc: usize,
-        signal_trap: Option<TrapCode>,
-    },
-}
-
-impl UnwindReason {
-    fn into_trap(self) -> Trap {
-        match self {
-            Self::UserTrap(data) => Trap::User(data),
-            Self::LibTrap(trap) => trap,
-            Self::WasmTrap {
-                backtrace,
-                pc,
-                signal_trap,
-            } => Trap::wasm(pc, backtrace, signal_trap),
-            Self::Panic(panic) => std::panic::resume_unwind(panic),
         }
     }
 }
@@ -1438,7 +1371,7 @@ mod tests {
         let big_size = ByteSize::mib(1).as_u64() as usize;
         let result = on_wasm_stack(big_size, None, || 42);
 
-        assert_eq!(result.ok().expect("on_wasm_stack should succeed"), 42);
+        assert_eq!(result.expect("on_wasm_stack should succeed"), 42);
         // The undersized stack was discarded; the correctly-sized stack
         // allocated for the call now lives in the TLS cache (the hot path).
         // It will end up in the global pool only on thread exit or eviction.
@@ -1982,9 +1915,7 @@ mod tests {
         clear_tls_stack();
 
         let outer = on_wasm_stack(get_stack_size(), None, || {
-            on_wasm_stack(get_stack_size(), None, || 42i32)
-                .ok()
-                .expect("inner must succeed")
+            on_wasm_stack(get_stack_size(), None, || 42i32).expect("inner must succeed")
         });
         assert_eq!(outer.ok(), Some(42));
 
@@ -2072,9 +2003,7 @@ mod tests {
 
         let r = on_wasm_stack(get_stack_size(), None, || {
             on_host_stack(|| {
-                on_wasm_stack(get_stack_size(), None, || 5i32)
-                    .ok()
-                    .expect("nested inner must succeed")
+                on_wasm_stack(get_stack_size(), None, || 5i32).expect("nested inner must succeed")
             })
         });
         assert_eq!(r.ok(), Some(5));

@@ -1,0 +1,6 @@
+---
+source: tests/integration/cli/tests/package/get.rs
+expression: masked
+---
+error: package 'wasmer/cli' has no version matching '9999.0.0' in registry 'wasmer.io'.
+Available versions: [masked]

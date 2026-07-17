@@ -67,7 +67,7 @@ pub fn make_trampoline_function_call(
         };
 
         // Load the argument values out of `values_vec`.
-        let mflags = ir::MemFlags::trusted();
+        let mflags = ir::MemFlagsData::trusted();
         let callee_args = signature
             .params
             .iter()
@@ -98,7 +98,7 @@ pub fn make_trampoline_function_call(
         let results = builder.func.dfg.inst_results(call).to_vec();
 
         // Store the return values into `values_vec`.
-        let mflags = ir::MemFlags::trusted();
+        let mflags = ir::MemFlagsData::trusted();
         for (i, r) in results.iter().enumerate() {
             builder
                 .ins()

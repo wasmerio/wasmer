@@ -14,6 +14,7 @@ mod container;
 mod create_exe;
 #[cfg(feature = "static-artifact-create")]
 mod create_obj;
+mod cron;
 pub(crate) mod domain;
 #[cfg(feature = "static-artifact-create")]
 mod gen_c_header;
@@ -197,7 +198,10 @@ impl WasmerCmd {
                 Package::Tag(cmd) => cmd.run(),
                 Package::Push(cmd) => cmd.run(),
                 Package::Publish(cmd) => cmd.run().map(|_| ()),
+                Package::Tree(cmd) => cmd.run(),
                 Package::Unpack(cmd) => cmd.execute(),
+                Package::Search(cmd) => cmd.run(),
+                Package::Get(cmd) => cmd.run(),
             },
             Some(Cmd::Container(cmd)) => match cmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),
@@ -214,6 +218,7 @@ impl WasmerCmd {
             // Deploy commands.
             Some(Cmd::Deploy(c)) => c.run(),
             Some(Cmd::App(apps)) => apps.run(),
+            Some(Cmd::Cron(cron)) => cron.run(),
             #[cfg(feature = "journal")]
             Some(Cmd::Journal(journal)) => journal.run(),
             Some(Cmd::Ssh(ssh)) => ssh.run(),
@@ -478,6 +483,10 @@ enum Cmd {
     /// Create and manage Wasmer Edge apps
     #[clap(subcommand, alias = "apps")]
     App(crate::commands::app::CmdApp),
+
+    /// Manage cron jobs for Wasmer Edge apps
+    #[clap(subcommand)]
+    Cron(crate::commands::cron::CmdCron),
 
     /// Run commands/packages on Wasmer Edge in an interactive shell session
     Ssh(crate::commands::ssh::CmdSsh),

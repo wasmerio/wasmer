@@ -13,8 +13,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[cfg(feature = "enable-serde")]
-use serde_derive::{Deserialize, Serialize};
 use wasmer_wasix_types::wasi::Errno;
 
 #[derive(Clone, Copy)]
@@ -26,14 +24,11 @@ pub(crate) enum PosixPathComponent<'a> {
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct PosixPath<'a> {
-    #[cfg_attr(feature = "enable-serde", serde(borrow))]
     path: Cow<'a, str>,
 }
 
 #[derive(Debug)]
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub(crate) struct PosixPathBuf {
     path: String,
 }

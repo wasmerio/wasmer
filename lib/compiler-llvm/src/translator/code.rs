@@ -2580,10 +2580,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let loop_next = self.context.append_basic_block(self.function, "loop_outer");
                 let pre_loop_block = self.builder.get_insert_block().unwrap();
 
-                err!(self.builder.build_unconditional_branch(loop_body));
+                let blocktypes = self.module_translation.blocktype_params_results(&blockty)?;
 
                 self.builder.position_at_end(loop_next);
-                let blocktypes = self.module_translation.blocktype_params_results(&blockty)?;
                 let phis = blocktypes
                     .1
                     .iter()
@@ -2605,11 +2604,20 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         })
                     })
                     .collect::<Result<_, _>>()?;
+
+                // Pop the loop parameters and canonicalize them in
+                // pre_loop_block (before the terminator is emitted) so that the
+                // select instruction dominates the phi uses.
+                self.builder.position_at_end(pre_loop_block);
                 for phi in loop_phis.iter().rev() {
                     let (value, info) = self.state.pop1_extra()?;
                     let value = self.apply_pending_canonicalization(value, info)?;
                     phi.add_incoming(&[(&value, pre_loop_block)]);
                 }
+
+                err!(self.builder.build_unconditional_branch(loop_body));
+
+                self.builder.position_at_end(loop_body);
                 for phi in &loop_phis {
                     self.state.push1(phi.as_basic_value());
                 }
@@ -2777,7 +2785,42 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     phis
                 };
 
+                let block_param_types = self
+                    .module_translation
+                    .blocktype_params_results(&blockty)?
+                    .0
+                    .iter()
+                    .map(|&wp_ty| {
+                        err_nt!(wptype_to_type(wp_ty))
+                            .and_then(|wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                // Build else_phis in if_else_block and then_phis in if_then_block.
+                self.builder.position_at_end(if_else_block);
+                let else_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
+                    .iter()
+                    .map(|&ty| err_nt!(self.builder.build_phi(ty, "")))
+                    .collect::<Result<SmallVec<_>, _>>()?;
+                self.builder.position_at_end(if_then_block);
+                let then_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
+                    .iter()
+                    .map(|&ty| err_nt!(self.builder.build_phi(ty, "")))
+                    .collect::<Result<SmallVec<_>, _>>()?;
+
+                // Pop the condition.
                 let cond = self.state.pop1()?;
+
+                // Pop the block parameters and canonicalize them in current_block
+                // (before the terminator is emitted) so that the select instruction
+                // dominates the phi uses.
+                self.builder.position_at_end(current_block);
+                for (else_phi, then_phi) in else_phis.iter().rev().zip(then_phis.iter().rev()) {
+                    let (value, info) = self.state.pop1_extra()?;
+                    let value = self.apply_pending_canonicalization(value, info)?;
+                    else_phi.add_incoming(&[(&value, current_block)]);
+                    then_phi.add_incoming(&[(&value, current_block)]);
+                }
 
                 let cond_value = err!(self.builder.build_int_compare(
                     IntPredicate::NE,
@@ -2791,32 +2834,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     if_then_block,
                     if_else_block
                 ));
-                self.builder.position_at_end(if_else_block);
-                let block_param_types = self
-                    .module_translation
-                    .blocktype_params_results(&blockty)?
-                    .0
-                    .iter()
-                    .map(|&wp_ty| {
-                        err_nt!(wptype_to_type(wp_ty))
-                            .and_then(|wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let else_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
-                    .iter()
-                    .map(|&ty| err_nt!(self.builder.build_phi(ty, "")))
-                    .collect::<Result<SmallVec<_>, _>>()?;
+
                 self.builder.position_at_end(if_then_block);
-                let then_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
-                    .iter()
-                    .map(|&ty| err_nt!(self.builder.build_phi(ty, "")))
-                    .collect::<Result<SmallVec<_>, _>>()?;
-                for (else_phi, then_phi) in else_phis.iter().rev().zip(then_phis.iter().rev()) {
-                    let (value, info) = self.state.pop1_extra()?;
-                    let value = self.apply_pending_canonicalization(value, info)?;
-                    else_phi.add_incoming(&[(&value, current_block)]);
-                    then_phi.add_incoming(&[(&value, current_block)]);
-                }
                 for phi in then_phis.iter() {
                     self.state.push1(phi.as_basic_value());
                 }

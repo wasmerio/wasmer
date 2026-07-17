@@ -455,7 +455,12 @@ jobs:
           mkdir -p /tmp/xwincache
           git clone https://github.com/wasmerio/xwin --depth=1 /tmp/xwin
           cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
-          /tmp/xwin/target/release/xwin --accept-license --cache-dir /tmp/xwincache splat --output /tmp/xwindownload
+          /tmp/xwin/target/release/xwin \
+            --accept-license \
+            --cache-dir /tmp/xwincache \
+            --timeout 180s \
+            splat \
+            --output /tmp/xwindownload
           mkdir -p /tmp/winsdk
           SDK_VERSION=$(ls /tmp/xwindownload/sdk/lib | head -n 1)
           cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/WS2_32.lib /tmp/winsdk/
@@ -641,11 +646,15 @@ jobs:
       matrix:
         skip_macos:
           - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'macos') }}
+        skip_musl:
+          - ${{ github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'musl') }}
         stage:
           - description: "All tests"
             make: "test-all"
           - description: "Compilers (std only)"
             make: "check-compilers-only-std"
+          - description: "VM (baremetal)"
+            make: "check-baremetal"
           - description: "Wasmer-cli"
             make: "test-wasmer-cli"
           - description: "Examples"
@@ -682,6 +691,9 @@ jobs:
           - skip_macos: true
             metadata:
               build: macos-arm
+          - skip_musl: true
+            metadata:
+              build: linux-musl
     container:
       image: ${{ matrix.metadata.container }}
       volumes:

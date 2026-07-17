@@ -39,7 +39,7 @@ mod macros;
 /// The simplest way to get a default engine is the following:
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -83,7 +83,7 @@ pub mod externals;
 /// The simplest way to instantiate a Wasm module is the following:
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -131,6 +131,11 @@ pub mod externals;
 /// cbindgen:ignore
 pub mod instance;
 
+/// Host-side import helpers for guests that import the WebAssembly C API.
+///
+/// cbindgen:ignore
+pub mod imports;
+
 /// A WebAssembly module contains stateless WebAssembly code that has
 /// already been compiled and can be instantiated multiple times.
 ///
@@ -141,7 +146,7 @@ pub mod instance;
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -198,7 +203,7 @@ pub mod module;
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -233,7 +238,7 @@ pub mod store;
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
@@ -305,15 +310,16 @@ pub mod value;
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"
+/// # #include <string.h>
 /// #
 /// int main() {
-///     // Get and print the version.
+///     // Get and check the version.
 ///     const char* version = wasmer_version();
-///     printf("%s", version);
+///     assert(strcmp(version, WASMER_VERSION) == 0);
 ///
 ///     // No need to free the string. It's statically allocated on
 ///     // the Rust side.
@@ -321,8 +327,7 @@ pub mod value;
 ///     return 0;
 /// }
 /// #    })
-/// #    .success()
-/// #    .stdout(env!("CARGO_PKG_VERSION"));
+/// #    .success();
 /// # }
 /// ```
 pub mod version;
@@ -337,7 +342,7 @@ pub mod wasi;
 /// # Example
 ///
 /// ```rust
-/// # use wasmer_inline_c::assert_c;
+/// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
 /// # #include "tests/wasmer.h"

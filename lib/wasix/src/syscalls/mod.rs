@@ -381,7 +381,9 @@ where
             return Poll::Ready(Ok(res));
         }
 
-        WasiEnv::do_pending_link_operations(self.ctx, false);
+        if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
+            return Poll::Ready(Err(err));
+        }
 
         let env = self.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {
@@ -417,6 +419,10 @@ where
                     } else {
                         // Re-subscribe so we get woken up for further signals as well
                         self.ctx.data().thread.signals_subscribe(cx.waker());
+                        // Retry after Sigwakeup drain: dl ops may have started after the check above.
+                        if let Err(err) = WasiEnv::do_pending_link_operations(self.ctx, false) {
+                            return Poll::Ready(Err(err));
+                        }
                         Poll::Pending
                     }
                 }
@@ -604,10 +610,7 @@ where
     F: FnOnce(crate::net::socket::InodeSocket, Fd) -> Fut,
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
-    let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
-        return Err(Errno::Access);
-    }
+    let fd_entry = __sock_check_rights(env, sock, rights)?;
 
     let mut work = {
         let inode = fd_entry.inode.clone();
@@ -631,6 +634,18 @@ where
     // Block until the work is finished or until we
     // unload the thread using asyncify
     block_on(work)
+}
+
+pub(crate) fn __sock_check_rights(
+    env: &WasiEnv,
+    sock: WasiFd,
+    rights: Rights,
+) -> Result<Fd, Errno> {
+    let fd_entry = env.state.fs.get_fd(sock)?;
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
+        return Err(Errno::Access);
+    }
+    Ok(fd_entry)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with

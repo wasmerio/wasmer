@@ -1,9 +1,258 @@
+use colored::Colorize;
 use comfy_table::Table;
 use wasmer_backend_api::types::{
-    DeployApp, DeployAppVersion, Deployment, DnsDomain, DnsDomainWithRecords, Namespace,
+    CronJob, CronJobInvocation, CronJobInvocationResult, CronJobKind, CronJobLog, CronJobTarget,
+    DeployApp, DeployAppVersion, Deployment, DnsDomain, DnsDomainWithRecords, LogStream, Namespace,
+    SearchPackageVersion,
 };
 
 use crate::utils::render::CliRender;
+
+/// Render the full name (`namespace/name`) of a package version's package.
+fn package_full_name(pv: &SearchPackageVersion) -> String {
+    match &pv.package.namespace {
+        Some(ns) => format!("{ns}/{}", pv.package.package_name),
+        None => pv.package.package_name.clone(),
+    }
+}
+
+fn cron_job_target_summary(target: &CronJobTarget) -> String {
+    match target {
+        CronJobTarget::FetchCronJobTarget(target) => {
+            format!("{} {}", target.method, target.path)
+        }
+        CronJobTarget::ExecuteCronJobTarget(target) => {
+            let package = target.package_name.as_deref().unwrap_or("-");
+            let command = target.command.as_deref().unwrap_or("-");
+            format!("{package} {command}")
+        }
+        CronJobTarget::Unknown => "unknown".to_string(),
+    }
+}
+
+fn cron_job_kind(kind: CronJobKind) -> &'static str {
+    match kind {
+        CronJobKind::Fetch => "fetch",
+        CronJobKind::Execute => "execute",
+    }
+}
+
+fn cron_invocation_result_summary(result: &Option<CronJobInvocationResult>) -> String {
+    match result {
+        Some(CronJobInvocationResult::ExecuteCronJobInvocationResult(result)) => result
+            .exit_code
+            .map(|code| format!("exit_code={code}"))
+            .unwrap_or_else(|| "execute".to_string()),
+        Some(CronJobInvocationResult::FetchCronJobInvocationResult(result)) => result
+            .status_code
+            .map(|code| format!("status_code={code}"))
+            .unwrap_or_else(|| "fetch".to_string()),
+        Some(CronJobInvocationResult::Unknown) => "unknown".to_string(),
+        None => "-".to_string(),
+    }
+}
+
+impl CliRender for CronJob {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Name".to_string(), self.name.clone()],
+            vec!["Id".to_string(), self.id.inner().to_string()],
+            vec!["Kind".to_string(), cron_job_kind(self.kind).to_string()],
+            vec!["Schedule".to_string(), self.schedule.clone()],
+            vec!["Enabled".to_string(), self.enabled.to_string()],
+            vec!["Managed".to_string(), self.is_managed.to_string()],
+            vec!["Target".to_string(), cron_job_target_summary(&self.target)],
+            vec![
+                "Max retries".to_string(),
+                self.max_retries
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "-".to_string()),
+            ],
+            vec![
+                "Timeout".to_string(),
+                self.timeout.clone().unwrap_or_else(|| "-".to_string()),
+            ],
+            vec!["Created".to_string(), self.created_at.0.clone()],
+            vec!["Updated".to_string(), self.updated_at.0.clone()],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.set_header(vec![
+            "Name".to_string(),
+            "Kind".to_string(),
+            "Schedule".to_string(),
+            "Enabled".to_string(),
+            "Target".to_string(),
+            "Id".to_string(),
+        ]);
+        table.add_rows(items.iter().map(|job| {
+            vec![
+                job.name.clone(),
+                cron_job_kind(job.kind).to_string(),
+                job.schedule.clone(),
+                job.enabled.to_string(),
+                cron_job_target_summary(&job.target),
+                job.id.inner().to_string(),
+            ]
+        }));
+        table.to_string()
+    }
+}
+
+impl CliRender for CronJobInvocation {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Id".to_string(), self.id.inner().to_string()],
+            vec!["Edge job id".to_string(), self.edge_job_id.clone()],
+            vec![
+                "Status".to_string(),
+                self.status
+                    .map(|status| format!("{status:?}"))
+                    .unwrap_or_else(|| "-".to_string()),
+            ],
+            vec![
+                "Scheduled".to_string(),
+                self.scheduled_at
+                    .as_ref()
+                    .map(|value| value.0.clone())
+                    .unwrap_or_else(|| "-".to_string()),
+            ],
+            vec![
+                "Started".to_string(),
+                self.started_at
+                    .as_ref()
+                    .map(|value| value.0.clone())
+                    .unwrap_or_else(|| "-".to_string()),
+            ],
+            vec![
+                "Finished".to_string(),
+                self.finished_at
+                    .as_ref()
+                    .map(|value| value.0.clone())
+                    .unwrap_or_else(|| "-".to_string()),
+            ],
+            vec![
+                "Duration ms".to_string(),
+                self.duration_ms
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "-".to_string()),
+            ],
+            vec![
+                "Result".to_string(),
+                cron_invocation_result_summary(&self.result),
+            ],
+            vec![
+                "Error".to_string(),
+                self.error_summary
+                    .clone()
+                    .unwrap_or_else(|| "-".to_string()),
+            ],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.set_header(vec![
+            "Id".to_string(),
+            "Status".to_string(),
+            "Scheduled".to_string(),
+            "Started".to_string(),
+            "Duration ms".to_string(),
+            "Result".to_string(),
+        ]);
+        table.add_rows(items.iter().map(|invocation| {
+            vec![
+                invocation.id.inner().to_string(),
+                invocation
+                    .status
+                    .map(|status| format!("{status:?}"))
+                    .unwrap_or_else(|| "-".to_string()),
+                invocation
+                    .scheduled_at
+                    .as_ref()
+                    .map(|value| value.0.clone())
+                    .unwrap_or_else(|| "-".to_string()),
+                invocation
+                    .started_at
+                    .as_ref()
+                    .map(|value| value.0.clone())
+                    .unwrap_or_else(|| "-".to_string()),
+                invocation
+                    .duration_ms
+                    .map(|value| value.to_string())
+                    .unwrap_or_else(|| "-".to_string()),
+                cron_invocation_result_summary(&invocation.result),
+            ]
+        }));
+        table.to_string()
+    }
+}
+
+impl CliRender for CronJobLog {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Timestamp".to_string(), self.datetime.0.clone()],
+            vec!["Message".to_string(), self.message.clone()],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.load_preset(comfy_table::presets::NOTHING);
+        table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
+
+        for item in items {
+            let message = match item.stream {
+                Some(LogStream::Stderr) => item.message.clone().yellow(),
+                Some(LogStream::Runtime) => item.message.clone().cyan(),
+                Some(LogStream::Stdout) | None => item.message.clone().bold(),
+            };
+            table.add_row([
+                comfy_table::Cell::new(format!("[{}]", item.datetime.0))
+                    .set_alignment(comfy_table::CellAlignment::Right),
+                comfy_table::Cell::new(message),
+            ]);
+        }
+        table.to_string()
+    }
+}
+
+impl CliRender for SearchPackageVersion {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Package".to_string(), package_full_name(self)],
+            vec!["Version".to_string(), self.version.clone()],
+            vec!["Created".to_string(), self.created_at.0.clone()],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.set_header(vec![
+            "Package".to_string(),
+            "Version".to_string(),
+            "Created".to_string(),
+        ]);
+        table.add_rows(items.iter().map(|pv| {
+            vec![
+                package_full_name(pv),
+                pv.version.clone(),
+                pv.created_at.0.clone(),
+            ]
+        }));
+        table.to_string()
+    }
+}
 
 impl CliRender for DnsDomain {
     fn render_item_table(&self) -> String {
@@ -166,32 +415,6 @@ impl CliRender for DeployAppVersion {
     }
 }
 
-impl CliRender for wasmer_backend_api::types::AppVersionVolume {
-    fn render_item_table(&self) -> String {
-        let mut table = Table::new();
-        table.add_rows([
-            vec!["Name".to_string(), self.name.clone()],
-            vec![
-                "Used size".to_string(),
-                format_disk_size_opt(self.used_size.clone()),
-            ],
-        ]);
-        table.to_string()
-    }
-
-    fn render_list_table(items: &[Self]) -> String {
-        let mut table = Table::new();
-        table.set_header(vec!["Name".to_string(), "Used size".to_string()]);
-        table.add_rows(items.iter().map(|vol| {
-            vec![
-                vol.name.clone(),
-                format_disk_size_opt(vol.used_size.clone()),
-            ]
-        }));
-        table.to_string()
-    }
-}
-
 impl CliRender for wasmer_backend_api::types::AppDatabase {
     fn render_item_table(&self) -> String {
         let mut table = Table::new();
@@ -238,7 +461,7 @@ impl CliRender for wasmer_backend_api::types::AppDatabase {
     }
 }
 
-fn format_disk_size_opt(value: Option<wasmer_backend_api::types::BigInt>) -> String {
+pub(crate) fn format_disk_size_opt(value: Option<wasmer_backend_api::types::BigInt>) -> String {
     let value = value.and_then(|x| {
         let y: Option<u64> = x.0.try_into().ok();
         y

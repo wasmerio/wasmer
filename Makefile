@@ -287,9 +287,11 @@ compilers_engines := $(strip $(compilers_engines))
 #
 #####
 
-build_wasmer_extra_features :=
-ifneq (,$(filter 1 true,$(ENABLE_NAPI_V8)))
-       build_wasmer_extra_features += napi-v8
+build_wasmer_extra_features := wasm-c-api
+ifneq ($(IS_WINDOWS), 1)
+	ifneq (,$(filter 1 true,$(ENABLE_NAPI_V8)))
+		build_wasmer_extra_features += napi-v8
+	endif
 endif
 
 # Small trick to define a space and a comma.
@@ -436,7 +438,7 @@ build-wasmer-v8:
 	$(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --release --manifest-path lib/cli/Cargo.toml --no-default-features --features="v8" --bin wasmer --locked
 
 build-wasmer-api-js:
-	$(CARGO_BINARY) rustc --target wasm32-unknown-unknown --release --manifest-path lib/api/Cargo.toml --no-default-features --features "js, js-default, wasm-types-polyfill, enable-serde" --crate-type=cdylib --locked
+	$(CARGO_BINARY) rustc --target wasm32-unknown-unknown --release --manifest-path lib/api/Cargo.toml --no-default-features --features js,js-default,wasm-types-polyfill --crate-type=cdylib --locked
 
 build-wasmer-debug:
 	RUSTFLAGS="--cfg tokio_unstable" \
@@ -555,10 +557,10 @@ build-capi-v8:
 
 build-capi-headless:
 ifeq ($(CARGO_TARGET_FLAG),)
-	CARGO_TARGET_DIR=target/headless RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
+	CARGO_TARGET_DIR=target/headless CARGO_PROFILE_RELEASE_LTO=true RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi,webc_runner,wasmer-api/cranelift --locked
 else
-	CARGO_TARGET_DIR=target/headless RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
+	CARGO_TARGET_DIR=target/headless CARGO_PROFILE_RELEASE_LTO=true RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features compiler-headless,wasi,webc_runner,wasmer-api/cranelift --locked
 endif
 
@@ -588,6 +590,8 @@ test-all:
 check-compilers-only-std:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std --locked && \
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std --locked
+check-baremetal:
+	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/vm/Cargo.toml --features baremetal --locked
 test-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-fs/Cargo.toml --release --locked && \
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(compiler_features) --release --locked
@@ -600,7 +604,7 @@ test-capi-integration-tests:
 
 test: test-all test-examples
 
-test-packages: test-all check-compilers-only-std test-wasmer-cli
+test-packages: test-all check-compilers-only-std check-baremetal test-wasmer-cli
 
 
 test-v8: test-v8-api

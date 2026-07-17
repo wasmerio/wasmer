@@ -2,7 +2,10 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::{asset_path, c_asset_path, integration_wasm_path, integration_webc_path};
+use crate::{
+    asset_path, c_asset_path, integration_wasm_c_api_path, integration_wasm_path,
+    integration_webc_path,
+};
 
 pub fn resources() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("resources")
@@ -57,4 +60,9 @@ pub fn fib() -> PathBuf {
 /// A `*.wat` file with no `_start()` function.
 pub fn wat_no_start() -> PathBuf {
     asset_path().join("no_start.wat")
+}
+
+/// C source for a WASIX guest that imports and calls `wasm_c_api_v0`.
+pub fn wasix_wasm_c_api_smoke_c() -> PathBuf {
+    integration_wasm_c_api_path().join("wasix-wasm-c-api-smoke.c")
 }
