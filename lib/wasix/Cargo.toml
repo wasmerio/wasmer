@@ -241,7 +241,6 @@ compiler = []
 singlepass = ["wasmer/singlepass"]
 v8 = ["wasmer/v8"]
 llvm = ["wasmer/llvm"]
-experimental-artifact = ["llvm", "wasmer/experimental-artifact"]
 
 js = [
   "virtual-fs/js",
