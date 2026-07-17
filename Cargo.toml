@@ -389,8 +389,7 @@ singlepass = ["compiler", "wasmer-compiler-singlepass", "wasmer/singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift", "wasmer/cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm", "wasmer/llvm"]
 experimental-artifact = [
-  "llvm",
-  "singlepass",
+  "wasmer-compiler-singlepass/experimental-artifact",
   "wasmer-compiler-llvm/experimental-artifact",
 ]
 middlewares = ["wasmer-middlewares"]

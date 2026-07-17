@@ -149,8 +149,7 @@ singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
 experimental-artifact = [
-  "llvm",
-  "singlepass",
+  "wasmer-compiler-singlepass/experimental-artifact",
   "wasmer-compiler-llvm/experimental-artifact",
 ]
 

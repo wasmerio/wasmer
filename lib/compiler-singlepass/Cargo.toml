@@ -57,6 +57,7 @@ unwind = ["gimli"]
 sse = []
 avx = []
 enable-serde = ["serde", "serde_derive"]
+experimental-artifact = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
