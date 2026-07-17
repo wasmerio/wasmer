@@ -650,7 +650,9 @@ fn write_ephemeral_cargo_toml(build_dir: &Path, source_filename: &str) -> Result
         r#"[package]
 name = "main"
 version = "0.0.0"
-edition = "2024"
+# 2021 rather than 2024 so fixtures ported from the old direct-rustc build
+# (which used edition 2015) can keep their non-unsafe extern blocks.
+edition = "2021"
 
 [[bin]]
 name = "main"
@@ -1083,13 +1085,8 @@ fn build_fixture_only(config: &Config, output_root: &Path) -> Result<libtest_mim
     let wasm = run_build_script(config)?;
     let dest = config.prebuilt_wasm_path(output_root);
     create_dir_all(dest.parent().expect("prebuilt path must have a parent"))?;
-    fs::copy(&wasm, &dest).with_context(|| {
-        format!(
-            "failed to export {} to {}",
-            wasm.display(),
-            dest.display()
-        )
-    })?;
+    fs::copy(&wasm, &dest)
+        .with_context(|| format!("failed to export {} to {}", wasm.display(), dest.display()))?;
     Ok(libtest_mimic::Completion::Completed)
 }
 
@@ -1471,6 +1468,11 @@ fn run_dynamic_runtime_hook_smoke(
     if cfg!(target_os = "windows") {
         return Ok(libtest_mimic::Completion::ignored_with(
             "WASIXCC toolchain does not cover Windows yet",
+        ));
+    }
+    if env_var_path("WASM_TESTS_BUILD_ONLY_DIR").is_some() {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "build-only: not a Rust fixture",
         ));
     }
 
