@@ -147,6 +147,14 @@ impl Config {
                 compiler
                     .allow_experimental_unaligned_memory_accesses(allow_unaligned_memory_accesses);
                 compiler.enable_verifier();
+                #[cfg(all(
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
+                if self.elf_artifact {
+                    compiler.elf_artifact_format(true);
+                }
                 if let Some(mut debug_dir) = debug_dir {
                     use wasmer_compiler_singlepass::SinglepassCallbacks;
                     debug_dir.push("singlepass");

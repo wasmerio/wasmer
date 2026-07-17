@@ -125,6 +125,29 @@ gen_tests! {
                     foo(config)
                 }
             }
+
+            #[cfg(all(
+                feature = "singlepass",
+                feature = "experimental-artifact",
+                target_os = "linux",
+                target_arch = "x86_64"
+            ))]
+            mod singlepass_exp_artifact {
+                use super:: * ;
+                #[test_log::test]
+                #[cold]
+                #[cfg(all(
+                    feature = "singlepass",
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
+                fn singlepass_exp_artifact() {
+                    let mut config = crate::Config::new(crate::Compiler::Singlepass);
+                    config.set_elf_artifact(true);
+                    foo(config)
+                }
+            }
         }
     };
 }
