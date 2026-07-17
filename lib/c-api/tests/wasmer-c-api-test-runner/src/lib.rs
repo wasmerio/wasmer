@@ -100,13 +100,18 @@ pub const CAPI_BASE_TESTS: &[&str] = &[
     "wasm-c-api/example/hello",
     "wasm-c-api/example/serialize",
     "wasm-c-api/example/multi",
+    "wasm-c-api/example/hostref",
 ];
 
 #[allow(unused_variables, dead_code)]
 pub const CAPI_BASE_TESTS_NOT_WORKING: &[&str] = &[
     "wasm-c-api/example/finalize",
-    "wasm-c-api/example/hostref",
     "wasm-c-api/example/threads",
+    // The externref/funcref reference surface `table.c` exercises is implemented
+    // (see `hostref.c`, enabled above). `table.c` additionally stores a *dynamic*
+    // host function into a funcref table (line ~167), which the sys VM rejects
+    // ("dynamic functions cannot be used in tables or as funcrefs") — a separate
+    // VM limitation, out of scope for the C API reference surface.
     "wasm-c-api/example/table",
 ];
 
