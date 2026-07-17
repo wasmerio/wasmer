@@ -52,10 +52,6 @@ impl TargetOnDisk {
             return Ok(TargetOnDisk::Artifact);
         }
 
-        if leading_bytes.starts_with(b"\x7fELF") {
-            return Ok(TargetOnDisk::Artifact);
-        }
-
         // If we can't figure out the file type based on its content, fall back
         // to checking the extension.
 
