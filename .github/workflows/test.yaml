@@ -758,6 +758,14 @@ jobs:
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.metadata.target }}
+      # For the wasip1-toolchain (Singlepass) variants of the Rust wasm_tests
+      # fixtures, which build locally on every platform.
+      - name: Install Rust WASI targets
+        if: matrix.stage.make == 'test-all'
+        shell: bash
+        run: |
+          rustup target add wasm32-wasip1
+          rustup toolchain install nightly --profile minimal --target wasm32-wasip1
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Install wasixcc

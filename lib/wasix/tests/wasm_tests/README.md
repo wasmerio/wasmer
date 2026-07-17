@@ -67,8 +67,17 @@ Cargo and nextest filtering both work. Before running the suite, make sure
 `wasixcc` is installed and available in your shell environment.
 Rust fixtures also require `cargo-wasix` on `PATH` (`cargo install cargo-wasix`).
 
-The WASIX Rust toolchain is not published for every platform, so the Rust
-fixtures can alternatively be prebuilt on a supported host and reused:
+Single-file Rust fixtures build with two toolchains by default (see the
+`Toolchains` directive): `wasix` (cargo-wasix), which runs on every engine
+except Singlepass, and `wasip1` (`rustc --target wasm32-wasip1`, nightly when
+the source uses `#![feature(...)]`), which runs on Singlepass only — the WASIX
+toolchain emits exception-handling opcodes Singlepass does not support. The
+wasip1 variants need `rustup target add wasm32-wasip1` (plus the same target on
+nightly).
+
+The WASIX Rust toolchain is not published for every platform, so the
+wasix-toolchain fixtures can alternatively be prebuilt on a supported host and
+reused:
 
 - `WASM_TESTS_BUILD_ONLY_DIR=<dir>` builds the Rust fixtures into `<dir>`
   without running any tests (CI runs this through
