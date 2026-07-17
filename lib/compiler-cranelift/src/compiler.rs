@@ -649,14 +649,19 @@ impl Compiler for CraneliftCompiler {
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<Compilation, CompileError> {
-        self.compile_module_internal(
+    ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError> {
+        let function_max_stack_usage = function_body_inputs
+            .iter()
+            .map(|_| None)
+            .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>();
+        let compilation = self.compile_module_internal(
             target,
             compile_info,
             module_translation_state,
             function_body_inputs,
             progress_callback,
-        )
+        )?;
+        Ok((compilation, function_max_stack_usage))
     }
 }
 

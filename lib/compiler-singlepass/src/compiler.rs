@@ -27,6 +27,7 @@ use tempfile::tempdir;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::progress::ProgressContext;
+use wasmer_compiler::serialize::SerializableModule;
 use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
@@ -69,7 +70,7 @@ impl SinglepassCompiler {
         compile_info_blob: &[u8],
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<Compilation, CompileError> {
+    ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError> {
         let arch = target.triple().architecture;
         match arch {
             Architecture::X86_64 => {}
@@ -278,6 +279,13 @@ impl SinglepassCompiler {
                 Ok(res)
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
+        let function_max_stack_usage = functions
+            .iter()
+            .map(|output| match output {
+                CompileOutput::InMemory((function, _)) => function.maximum_stack_usage,
+                CompileOutput::Object(_, maximum_stack_usage) => *maximum_stack_usage,
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>();
 
         let module_hash = module.hash_string();
         let function_call_trampolines = module
@@ -361,32 +369,33 @@ impl SinglepassCompiler {
             let object_files = functions
                 .into_iter()
                 .map(|output| match output {
-                    CompileOutput::Object(path) => path,
+                    CompileOutput::Object(path, _) => path,
                     CompileOutput::InMemory(_) => unreachable!(),
                 })
                 .collect::<Vec<_>>();
             let import_trampoline_objects = import_trampolines
                 .into_iter()
                 .map(|output| match output {
-                    CompileOutput::Object(path) => path,
+                    CompileOutput::Object(path, _) => path,
                     CompileOutput::InMemory(_) => unreachable!(),
                 })
                 .collect::<Vec<_>>();
             let trampoline_objects = function_call_trampolines
                 .into_iter()
                 .map(|output| match output {
-                    CompileOutput::Object(path) => path,
+                    CompileOutput::Object(path, _) => path,
                     CompileOutput::InMemory(_) => unreachable!(),
                 })
                 .collect::<Vec<_>>();
             let dynamic_trampoline_objects = dynamic_function_trampolines
                 .into_iter()
                 .map(|output| match output {
-                    CompileOutput::Object(path) => path,
+                    CompileOutput::Object(path, _) => path,
                     CompileOutput::InMemory(_) => unreachable!(),
                 })
                 .collect::<Vec<_>>();
-            return elf::link_module(
+
+            let compilation = elf::link_module(
                 target,
                 compile_info_blob,
                 build_directory.as_ref().unwrap().path(),
@@ -399,7 +408,8 @@ impl SinglepassCompiler {
                     .as_ref()
                     .map(|callbacks| callbacks.debug_dir().clone()),
                 module.hash().map(|hash| hash.to_string()),
-            );
+            )?;
+            return Ok((compilation, function_max_stack_usage));
         }
 
         #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
@@ -407,7 +417,7 @@ impl SinglepassCompiler {
             .into_iter()
             .map(|output| match output {
                 CompileOutput::InMemory(output) => output,
-                CompileOutput::Object(_) => unreachable!(),
+                CompileOutput::Object(..) => unreachable!(),
             })
             .unzip();
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
@@ -415,21 +425,21 @@ impl SinglepassCompiler {
             .into_iter()
             .map(|output| match output {
                 CompileOutput::InMemory(section) => section,
-                CompileOutput::Object(_) => unreachable!(),
+                CompileOutput::Object(..) => unreachable!(),
             })
             .collect::<PrimaryMap<SectionIndex, _>>();
         let function_call_trampolines = function_call_trampolines
             .into_iter()
             .map(|output| match output {
                 CompileOutput::InMemory(body) => body,
-                CompileOutput::Object(_) => unreachable!(),
+                CompileOutput::Object(..) => unreachable!(),
             })
             .collect::<PrimaryMap<_, _>>();
         let dynamic_function_trampolines = dynamic_function_trampolines
             .into_iter()
             .map(|output| match output {
                 CompileOutput::InMemory(body) => body,
-                CompileOutput::Object(_) => unreachable!(),
+                CompileOutput::Object(..) => unreachable!(),
             })
             .collect::<PrimaryMap<FunctionIndex, _>>();
 
@@ -454,14 +464,17 @@ impl SinglepassCompiler {
 
         let got = wasmer_compiler::types::function::GOT::empty();
 
-        Ok(Compilation::Rkyv(RkyvCompilation {
-            functions: functions.into_iter().collect(),
-            custom_sections,
-            function_call_trampolines,
-            dynamic_function_trampolines,
-            unwind_info,
-            got,
-        }))
+        Ok((
+            Compilation::Rkyv(RkyvCompilation {
+                functions: functions.into_iter().collect(),
+                custom_sections,
+                function_call_trampolines,
+                dynamic_function_trampolines,
+                unwind_info,
+                got,
+            }),
+            function_max_stack_usage,
+        ))
     }
 }
 
@@ -489,7 +502,7 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<Compilation, CompileError> {
+    ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError> {
         let num_threads = self.config.num_threads.get();
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)
@@ -536,6 +549,7 @@ mod tests {
             module: Arc::new(ModuleInfo::new()),
             memory_styles: PrimaryMap::<MemoryIndex, MemoryStyle>::new(),
             table_styles: PrimaryMap::<TableIndex, TableStyle>::new(),
+            function_max_stack_usage: PrimaryMap::new(),
         };
         let module_translation = ModuleTranslationState::new();
         let function_body_inputs = PrimaryMap::<LocalFunctionIndex, FunctionBodyData<'_>>::new();

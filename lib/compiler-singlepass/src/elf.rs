@@ -36,7 +36,7 @@ use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
 
 pub(crate) enum CompileOutput<T> {
     InMemory(T),
-    Object(PathBuf),
+    Object(PathBuf, Option<usize>),
 }
 
 fn save_object(

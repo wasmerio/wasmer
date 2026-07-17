@@ -36,7 +36,6 @@ use wasmer_types::CompilationProgressCallback;
 
 use enumset::EnumSet;
 use object::{Object as _, ObjectSection as _, ReadCache, ReadRef};
-use rkyv::option::ArchivedOption;
 use shared_buffer::OwnedBuffer;
 
 use crate::engine::mapped_binary::DebugInfoSource;
@@ -82,9 +81,6 @@ pub struct AllocatedArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSignatureHash>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
-    // The maximum stack size used for each function (available only for the Singlepass compiler).
-    function_max_stack_usage: BoxedSlice<LocalFunctionIndex, Option<usize>>,
-
     /// Precomputed `VMOffsets` for this artifact's module, cloned by
     /// `Artifact::instantiate` instead of recomputing on every call.
     ///
@@ -528,24 +524,6 @@ impl Artifact {
                     }
                 }
             };
-            let functions_max_stack_usage = match &artifact {
-                ArtifactBuildVariant::Plain(p) => p
-                    .get_function_max_stack_usage()
-                    .expect("RKYV path expected")
-                    .values()
-                    .cloned()
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
-                ArtifactBuildVariant::Archived(a) => a
-                    .get_function_max_stack_usage()
-                    .expect("RKYV path expected")
-                    .values()
-                    .map(|v| match v {
-                        ArchivedOption::None => None,
-                        ArchivedOption::Some(v) => Some(v.to_native() as usize),
-                    })
-                    .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
-            };
-
             match &artifact {
                 ArtifactBuildVariant::Plain(p) => link_module(
                     module_info,
@@ -699,7 +677,6 @@ impl Artifact {
                 signatures,
                 finished_function_lengths,
                 vm_offsets,
-                function_max_stack_usage: functions_max_stack_usage.into_boxed_slice(),
                 elf_image: None,
             }
         };
@@ -896,12 +873,6 @@ impl Artifact {
             .into_boxed_slice();
         let finished_function_lengths =
             PrimaryMap::<LocalFunctionIndex, _>::from_iter(local_fn_sizes).into_boxed_slice();
-        let function_max_stack_usage = finished_functions
-            .iter()
-            .map(|_| None)
-            .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>()
-            .into_boxed_slice();
-
         let vm_offsets = VMOffsets::new(std::mem::size_of::<usize>() as u8, module_info);
 
         Ok(AllocatedArtifact {
@@ -913,7 +884,6 @@ impl Artifact {
             signatures,
             finished_function_lengths,
             vm_offsets,
-            function_max_stack_usage,
             elf_image: Some((base as usize, debug_info)),
         })
     }
@@ -1229,14 +1199,19 @@ impl Artifact {
     pub fn finished_functions_max_stack_usage(
         &self,
     ) -> Option<Vec<(LocalFunctionIndex, Option<usize>)>> {
-        let allocated = self.allocated.as_ref()?;
-        Some(
-            allocated
-                .function_max_stack_usage
-                .into_iter()
-                .map(|f| (f.0, *f.1))
+        self.allocated.as_ref()?;
+        Some(match &self.artifact {
+            ArtifactBuildVariant::Plain(artifact) => artifact
+                .get_function_max_stack_usage()?
+                .iter()
+                .map(|(index, stack_usage)| (index, *stack_usage))
                 .collect(),
-        )
+            ArtifactBuildVariant::Archived(artifact) => artifact
+                .get_function_max_stack_usage()?
+                .iter()
+                .map(|(index, stack_usage)| (index, *stack_usage))
+                .collect(),
+        })
     }
 
     /// Returns the function call trampolines allocated in memory of this
@@ -1441,6 +1416,7 @@ impl Artifact {
             features: features.clone(),
             memory_styles,
             table_styles,
+            function_max_stack_usage: PrimaryMap::new(),
         };
         Ok((
             compile_info,
@@ -1552,12 +1528,7 @@ impl Artifact {
         - SignatureIndex -> VMSignatureHash // signatures
          */
 
-        let mut metadata_builder =
-            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
-
-        let (_compile_info, symbol_registry) = metadata.split();
-
-        let compilation = compiler.compile_module(
+        let (compilation, function_max_stack_usage) = compiler.compile_module(
             target,
             &metadata.compile_info,
             &[],
@@ -1565,11 +1536,16 @@ impl Artifact {
             function_body_inputs,
             None,
         )?;
+        metadata.compile_info.function_max_stack_usage = function_max_stack_usage;
         let Compilation::Rkyv(compilation) = compilation else {
             return Err(CompileError::Codegen(
                 "ELF compilation unsupported yet".to_string(),
             ));
         };
+
+        let mut metadata_builder =
+            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
+        let (_compile_info, symbol_registry) = metadata.split();
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
         let object_name = ModuleMetadataSymbolRegistry {

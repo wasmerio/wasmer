@@ -2387,12 +2387,10 @@ pub fn gen_std_trampoline(
         )),
     }?;
     match object {
-        Some((build_directory, kind)) => Ok(CompileOutput::Object(elf::emit_function_body(
-            target,
-            build_directory,
-            kind,
-            &body,
-        )?)),
+        Some((build_directory, kind)) => Ok(CompileOutput::Object(
+            elf::emit_function_body(target, build_directory, kind, &body)?,
+            None,
+        )),
         None => Ok(CompileOutput::InMemory(body)),
     }
 }
@@ -2423,12 +2421,10 @@ pub fn gen_std_dynamic_import_trampoline(
         )),
     }?;
     match object {
-        Some((build_directory, kind)) => Ok(CompileOutput::Object(elf::emit_function_body(
-            target,
-            build_directory,
-            kind,
-            &body,
-        )?)),
+        Some((build_directory, kind)) => Ok(CompileOutput::Object(
+            elf::emit_function_body(target, build_directory, kind, &body)?,
+            None,
+        )),
         None => Ok(CompileOutput::InMemory(body)),
     }
 }
@@ -2459,12 +2455,10 @@ pub fn gen_import_call_trampoline(
         )),
     }?;
     match object_directory {
-        Some(build_directory) => Ok(CompileOutput::Object(elf::emit_import_trampoline(
-            target,
-            build_directory,
-            index.index(),
-            &section,
-        )?)),
+        Some(build_directory) => Ok(CompileOutput::Object(
+            elf::emit_import_trampoline(target, build_directory, index.index(), &section)?,
+            None,
+        )),
         None => Ok(CompileOutput::InMemory(section)),
     }
 }

@@ -5993,15 +5993,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             maximum_stack_usage: Some(self.stack_offset.maximum_offset),
         };
         if self.config.elf_artifact_format {
-            Ok(CompileOutput::Object(elf::emit_local_function(
-                target,
-                build_directory.expect("ELF artifact compilation requires a build directory"),
-                self.local_func_index,
-                function,
-                fde,
-                #[cfg(feature = "unwind")]
-                self.dwarf_state,
-            )?))
+            let maximum_stack_usage = function.maximum_stack_usage;
+            Ok(CompileOutput::Object(
+                elf::emit_local_function(
+                    target,
+                    build_directory.expect("ELF artifact compilation requires a build directory"),
+                    self.local_func_index,
+                    function,
+                    fde,
+                    #[cfg(feature = "unwind")]
+                    self.dwarf_state,
+                )?,
+                maximum_stack_usage,
+            ))
         } else {
             Ok(CompileOutput::InMemory((function, fde)))
         }
