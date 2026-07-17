@@ -2,28 +2,30 @@
 <a href=#2 id=2 data-nosnippet>2</a><span class="kw">mod </span>filesystem_source;
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">mod </span>in_memory_source;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">mod </span>inputs;
-<a href=#5 id=5 data-nosnippet>5</a><span class="kw">mod </span>multi_source;
-<a href=#6 id=6 data-nosnippet>6</a><span class="kw">mod </span>outputs;
-<a href=#7 id=7 data-nosnippet>7</a><span class="kw">mod </span>resolve;
-<a href=#8 id=8 data-nosnippet>8</a><span class="kw">mod </span>source;
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>utils;
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">mod </span>web_source;
-<a href=#11 id=11 data-nosnippet>11</a>
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">pub use </span>self::{
-<a href=#13 id=13 data-nosnippet>13</a>    backend_source::BackendSource,
-<a href=#14 id=14 data-nosnippet>14</a>    filesystem_source::FileSystemSource,
-<a href=#15 id=15 data-nosnippet>15</a>    in_memory_source::InMemorySource,
-<a href=#16 id=16 data-nosnippet>16</a>    inputs::{
-<a href=#17 id=17 data-nosnippet>17</a>        Command, Dependency, DistributionInfo, FileSystemMapping, PackageInfo, PackageSummary,
-<a href=#18 id=18 data-nosnippet>18</a>        WebcHash,
-<a href=#19 id=19 data-nosnippet>19</a>    },
-<a href=#20 id=20 data-nosnippet>20</a>    multi_source::{MultiSource, MultiSourceStrategy},
-<a href=#21 id=21 data-nosnippet>21</a>    outputs::{
-<a href=#22 id=22 data-nosnippet>22</a>        DependencyGraph, Edge, ItemLocation, Node, Resolution, ResolvedFileSystemMapping,
-<a href=#23 id=23 data-nosnippet>23</a>        ResolvedPackage,
-<a href=#24 id=24 data-nosnippet>24</a>    },
-<a href=#25 id=25 data-nosnippet>25</a>    resolve::{ResolveError, resolve, resolve_dependency_graph, validate_dependency_graph},
-<a href=#26 id=26 data-nosnippet>26</a>    source::{QueryError, Source},
-<a href=#27 id=27 data-nosnippet>27</a>    web_source::WebSource,
-<a href=#28 id=28 data-nosnippet>28</a>};
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">mod </span>local_registry_source;
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">mod </span>multi_source;
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">mod </span>outputs;
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">mod </span>resolve;
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">mod </span>source;
+<a href=#10 id=10 data-nosnippet>10</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>utils;
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">mod </span>web_source;
+<a href=#12 id=12 data-nosnippet>12</a>
+<a href=#13 id=13 data-nosnippet>13</a><span class="kw">pub use </span>self::{
+<a href=#14 id=14 data-nosnippet>14</a>    backend_source::BackendSource,
+<a href=#15 id=15 data-nosnippet>15</a>    filesystem_source::FileSystemSource,
+<a href=#16 id=16 data-nosnippet>16</a>    in_memory_source::InMemorySource,
+<a href=#17 id=17 data-nosnippet>17</a>    inputs::{
+<a href=#18 id=18 data-nosnippet>18</a>        Command, Dependency, DistributionInfo, FileSystemMapping, PackageInfo, PackageSummary,
+<a href=#19 id=19 data-nosnippet>19</a>        WebcHash,
+<a href=#20 id=20 data-nosnippet>20</a>    },
+<a href=#21 id=21 data-nosnippet>21</a>    local_registry_source::LocalRegistrySource,
+<a href=#22 id=22 data-nosnippet>22</a>    multi_source::{MultiSource, MultiSourceStrategy},
+<a href=#23 id=23 data-nosnippet>23</a>    outputs::{
+<a href=#24 id=24 data-nosnippet>24</a>        DependencyGraph, Edge, ItemLocation, Node, Resolution, ResolvedFileSystemMapping,
+<a href=#25 id=25 data-nosnippet>25</a>        ResolvedPackage,
+<a href=#26 id=26 data-nosnippet>26</a>    },
+<a href=#27 id=27 data-nosnippet>27</a>    resolve::{ResolveError, resolve, resolve_dependency_graph, validate_dependency_graph},
+<a href=#28 id=28 data-nosnippet>28</a>    source::{QueryError, Source},
+<a href=#29 id=29 data-nosnippet>29</a>    web_source::WebSource,
+<a href=#30 id=30 data-nosnippet>30</a>};
 </code></pre></div></section></main></body></html>

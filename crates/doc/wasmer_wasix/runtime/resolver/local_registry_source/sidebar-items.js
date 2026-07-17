@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["id_from_path","load_summary","package_dir_path","published_versions","read_sha256_sibling","verify_sha256"],"struct":["LocalRegistrySource"]};
