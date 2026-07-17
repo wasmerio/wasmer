@@ -86,6 +86,9 @@ pub use crate::compiler::{
     emit_metadata_and_link, translate_function_buckets,
 };
 
+#[cfg(feature = "compiler")]
+pub mod dwarf;
+
 mod constants;
 pub use crate::constants::*;
 

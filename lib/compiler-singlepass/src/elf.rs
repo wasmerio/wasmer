@@ -1,8 +1,11 @@
 use crate::unwind::UnwindFrame;
 #[cfg(feature = "unwind")]
-use crate::{dwarf::WriterRelocate, unwind::create_systemv_cie};
+use crate::unwind::create_systemv_cie;
 #[cfg(feature = "unwind")]
-use gimli::write::{EhFrame, FrameTable};
+use gimli::{
+    constants,
+    write::{EhFrame, FrameTable},
+};
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind as ObjectRelocationKind, SectionKind,
     SymbolFlags, SymbolKind, SymbolScope,
@@ -17,6 +20,8 @@ use std::{
     path::{Path, PathBuf},
 };
 use tempfile::NamedTempFile;
+#[cfg(feature = "unwind")]
+use wasmer_compiler::dwarf::{DwarfState, WriterRelocate};
 use wasmer_compiler::{
     CompiledObjects, WASMER_TRAPS_SECTION_NAME, emit_metadata_and_link,
     misc::{CompiledFunctionExt, CompiledKind},
@@ -139,6 +144,7 @@ pub(crate) fn emit_local_function(
     index: LocalFunctionIndex,
     function: CompiledFunction,
     fde: Option<UnwindFrame>,
+    #[cfg(feature = "unwind")] mut dwarf_state: Option<DwarfState>,
 ) -> Result<PathBuf, CompileError> {
     let kind = CompiledKind::Local(index, String::new());
     let mut object = get_object_for_target(target.triple())
@@ -161,6 +167,16 @@ pub(crate) fn emit_local_function(
         &function.relocations,
         Some((index, symbol)),
     )?;
+
+    #[cfg(feature = "unwind")]
+    if let Some(dwarf_state) = dwarf_state.as_mut() {
+        dwarf_state.write_sections(
+            &mut object,
+            symbol,
+            function.body.body.len() as u64,
+            target.triple().endianness().ok(),
+        )?;
+    }
 
     let mut trap_data = Vec::with_capacity(function.frame_info.traps.len() * 8 + 4);
     trap_data.extend_from_slice(&(function.frame_info.traps.len() as u32).to_le_bytes());
@@ -187,8 +203,11 @@ pub(crate) fn emit_local_function(
 
     #[cfg(feature = "unwind")]
     if let Some(fde) = fde
-        && let Some(cie) = create_systemv_cie(target.triple().architecture)
+        && let Some(mut cie) = create_systemv_cie(target.triple().architecture)
     {
+        // The ELF image may be mapped at any base address, so make the FDE's
+        // function reference position-independent.
+        cie.fde_address_encoding = constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4;
         let mut frametable = FrameTable::default();
         let cie_id = frametable.add_cie(cie);
         match fde {
@@ -196,23 +215,40 @@ pub(crate) fn emit_local_function(
                 frametable.add_fde(cie_id, fde);
             }
         }
-        let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
+        let mut eh_frame = EhFrame(WriterRelocate::new());
         frametable
             .write_eh_frame(&mut eh_frame)
             .map_err(|e| CompileError::Codegen(format!("failed to write .eh_frame: {e}")))?;
-        let eh_frame = eh_frame.0.into_section();
+
         let section = object.add_section(
             object.segment_name(StandardSegment::Debug).to_vec(),
             b".eh_frame".to_vec(),
             SectionKind::Other,
         );
-        object.append_section_data(section, eh_frame.bytes.as_slice(), 4);
-        add_relocations(
-            &mut object,
-            section,
-            &eh_frame.relocations,
-            Some((index, symbol)),
-        )?;
+        let relocations = eh_frame.0.relocs.clone();
+        let data_offset = object.append_section_data(section, &eh_frame.0.into_bytes(), 4);
+
+        for relocation in relocations {
+            object
+                .add_relocation(
+                    section,
+                    ObjectRelocation {
+                        offset: data_offset + relocation.offset,
+                        flags: RelocationFlags::Generic {
+                            kind: relocation.kind,
+                            encoding: RelocationEncoding::Generic,
+                            size: 8 * relocation.size,
+                        },
+                        symbol,
+                        addend: relocation.addend,
+                    },
+                )
+                .map_err(|e| {
+                    CompileError::Codegen(format!(
+                        "failed to add Singlepass .eh_frame relocation: {e}"
+                    ))
+                })?;
+        }
     }
     #[cfg(not(feature = "unwind"))]
     let _ = fde;

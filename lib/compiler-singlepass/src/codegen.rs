@@ -26,6 +26,9 @@ use std::{
 };
 use target_lexicon::Architecture;
 
+#[cfg(feature = "unwind")]
+use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
+
 use wasmer_compiler::{
     FunctionBodyData,
     misc::CompiledKind,
@@ -143,6 +146,10 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Assembly comments.
     assembly_comments: HashMap<usize, AssemblyComment>,
+
+    /// DWARF debug information accumulated for this function.
+    #[cfg(feature = "unwind")]
+    dwarf_state: Option<DwarfState>,
 }
 
 struct SpecialLabelSet {
@@ -1012,6 +1019,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             relocations: vec![],
             special_labels,
             calling_convention,
+            #[cfg(feature = "unwind")]
+            dwarf_state: init_dwarf_unit(
+                &function_name,
+                module.name.as_deref(),
+                "Wasmer (Singlepass)",
+            )
+            .ok(),
             function_name,
             assembly_comments: HashMap::new(),
         };
@@ -5920,7 +5934,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if let Some(unwind) = unwind {
                     fde = Some(unwind.to_fde(Address::Symbol {
                         symbol: WriterRelocate::FUNCTION_SYMBOL,
-                        addend: self.local_func_index.index() as _,
+                        // In-memory compilation uses this addend to identify the
+                        // function relocation target. ELF artifacts already have
+                        // a per-function symbol, so applying the function index as
+                        // an address addend would shift the FDE's initial location.
+                        addend: if self.config.elf_artifact_format {
+                            0
+                        } else {
+                            self.local_func_index.index() as _
+                        },
                     }));
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
@@ -5936,6 +5958,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
+        #[cfg(feature = "unwind")]
+        if let Some(dwarf_state) = self.dwarf_state.as_mut() {
+            for instruction in &address_map.instructions {
+                dwarf_state.add_row(instruction.code_offset as u64, instruction.srcloc);
+            }
+        }
         let traps = self.machine.collect_trap_information();
         let FinalizedAssembly {
             mut body,
@@ -5971,6 +5999,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.local_func_index,
                 function,
                 fde,
+                #[cfg(feature = "unwind")]
+                self.dwarf_state,
             )?))
         } else {
             Ok(CompileOutput::InMemory((function, fde)))
