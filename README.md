@@ -232,8 +232,9 @@ languages** with the Wasmer SDK:
 
 ## License
 
-Wasmer is licensed under the MIT License (see LICENSE), with two exceptions: `wasmer-compiler-llvm`
-and `wasmer-compiler-singlepass`, these are licensed under the Business Source License 1.1.
+Wasmer is licensed under the MIT License (see LICENSE), with two exceptions:
+[`wasmer-compiler-llvm`](./lib/compiler-llvm/LICENSE) and [`wasmer-compiler-singlepass`](./lib/compiler-singlepass/LICENSE),
+these are licensed under the Business Source License 1.1.
 
 ## Develop
 
