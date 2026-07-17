@@ -67,5 +67,17 @@ Cargo and nextest filtering both work. Before running the suite, make sure
 `wasixcc` is installed and available in your shell environment.
 Rust fixtures also require `cargo-wasix` on `PATH` (`cargo install cargo-wasix`).
 
+The WASIX Rust toolchain is not published for every platform, so the Rust
+fixtures can alternatively be prebuilt on a supported host and reused:
+
+- `WASM_TESTS_BUILD_ONLY_DIR=<dir>` builds the Rust fixtures into `<dir>`
+  without running any tests (CI runs this through
+  `make build-wasm-tests-fixtures` on linux-x64). The artifacts are
+  engine-independent and are built through the Cranelift trials, so this must
+  run on a host that collects them (i.e. not macOS).
+- `WASM_TESTS_PREBUILT_DIR=<dir>` makes the suite consume those prebuilt
+  artifacts instead of invoking `cargo wasix build`, removing the need for
+  `cargo-wasix` and the WASIX Rust toolchain on the test host.
+
 On macOS, this suite collects and runs the LLVM variants only because Cranelift
 exception-handling support is still incomplete there:

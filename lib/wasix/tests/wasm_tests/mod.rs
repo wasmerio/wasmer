@@ -247,6 +247,13 @@ impl Config {
     }
 
     fn full_test_name(&self) -> String {
+        format!("{}/{}", self.engine_independent_name(), self.engine)
+    }
+
+    /// Identifies this configuration's build inputs. Unlike `full_test_name`,
+    /// this excludes the engine: Rust fixture builds don't depend on it, so
+    /// prebuilt artifacts are shared across engines.
+    fn engine_independent_name(&self) -> String {
         let mut parts = vec!["wasm".to_owned(), self.test_name.clone()];
         if !self.source.is_default() {
             parts.push(self.source.config_name());
@@ -258,8 +265,11 @@ impl Config {
         if let Some(sysroot_version) = &self.sysroot_version {
             parts.push(sysroot_version.to_string());
         }
-        parts.push(self.engine.to_string());
         parts.join("/")
+    }
+
+    fn prebuilt_wasm_path(&self, root: &Path) -> PathBuf {
+        root.join(self.engine_independent_name()).join("main.wasm")
     }
 
     fn set_sysroot(&mut self, sysroot_version: &'static str) -> Result<()> {
@@ -707,6 +717,23 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         )
     })?;
 
+    // Rust fixtures can be prebuilt elsewhere (see `build_fixture_only`),
+    // which lets platforms without a WASIX Rust toolchain run the tests.
+    if config.source.is_rust() {
+        if let Some(prebuilt_root) = env_var_path("WASM_TESTS_PREBUILT_DIR") {
+            let prebuilt = config.prebuilt_wasm_path(&prebuilt_root);
+            let main_path = build_test_path.join("main");
+            fs::copy(&prebuilt, &main_path).with_context(|| {
+                format!(
+                    "failed to copy prebuilt Rust fixture {} — \
+                     ensure the fixture prebuild ran with a matching configuration",
+                    prebuilt.display()
+                )
+            })?;
+            return Ok(main_path);
+        }
+    }
+
     let mut cmd = match &config.source {
         PrimarySource::BashScript(filename) => {
             let mut cmd = Command::new("bash");
@@ -1021,9 +1048,53 @@ fn configure_mapped_directories(
     Ok(())
 }
 
+fn env_var_path(name: &str) -> Option<PathBuf> {
+    std::env::var_os(name)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+}
+
+/// Build the Rust fixture for this configuration and export the resulting
+/// wasm to `output_root` without running the test. CI uses this to prebuild
+/// fixtures on a host that has the WASIX Rust toolchain; hosts without one
+/// consume the artifacts via `WASM_TESTS_PREBUILT_DIR`.
+fn build_fixture_only(config: &Config, output_root: &Path) -> Result<libtest_mimic::Completion> {
+    if !config.source.is_rust() {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "build-only: not a Rust fixture",
+        ));
+    }
+    // Artifacts are engine-independent, so build each configuration once
+    // through its Cranelift trial. This requires the build-only run to happen
+    // on a host that collects Cranelift trials (i.e. not macOS).
+    if config.engine != Engine::Cranelift {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "build-only: built by the cranelift variant",
+        ));
+    }
+    if let Some(reason) = minimal_libc_skip_reason(config)? {
+        return Ok(libtest_mimic::Completion::ignored_with(reason));
+    }
+
+    let wasm = run_build_script(config)?;
+    let dest = config.prebuilt_wasm_path(output_root);
+    create_dir_all(dest.parent().expect("prebuilt path must have a parent"))?;
+    fs::copy(&wasm, &dest).with_context(|| {
+        format!(
+            "failed to export {} to {}",
+            wasm.display(),
+            dest.display()
+        )
+    })?;
+    Ok(libtest_mimic::Completion::Completed)
+}
+
 fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     if let Some(reason) = &config.ignored {
         return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
+    }
+    if let Some(output_root) = env_var_path("WASM_TESTS_BUILD_ONLY_DIR") {
+        return build_fixture_only(&config, &output_root);
     }
     if !cfg!(unix) && config.unix_only {
         return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
@@ -1206,6 +1277,10 @@ impl PrimarySource {
             Self::BashScript(filename) => filename == "build.sh",
             Self::CargoProject => true,
         }
+    }
+
+    fn is_rust(&self) -> bool {
+        matches!(self, Self::RustSourceFile(_) | Self::CargoProject)
     }
 
     fn parse_directive_line<'a>(&self, line: &'a str) -> Option<&'a str> {
