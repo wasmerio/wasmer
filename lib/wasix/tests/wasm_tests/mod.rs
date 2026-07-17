@@ -43,7 +43,7 @@
 //! `Ignored:{reason}` marks the configuration as ignored with the given reason.
 //!
 //! `SkipEngine:{engine}:{reason}` marks the configuration as ignored for
-//! a given engine (LLVM, Cranelift, V8, Singlepass).
+//! a given engine (LLVM, Cranelift, V8).
 //!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
 //!
@@ -140,8 +140,6 @@ pub enum Engine {
     Cranelift,
     #[cfg(feature = "llvm")]
     LLVM,
-    #[cfg(feature = "singlepass")]
-    Singlepass,
     #[cfg(feature = "v8")]
     V8,
 }
@@ -163,8 +161,6 @@ impl Engine {
             Self::Cranelift => "cranelift",
             #[cfg(feature = "llvm")]
             Self::LLVM => "llvm",
-            #[cfg(feature = "singlepass")]
-            Self::Singlepass => "singlepass",
             #[cfg(feature = "v8")]
             Self::V8 => "v8",
         }
@@ -454,16 +450,6 @@ fn process_directive(
                         Some(Engine::V8)
                     }
                     #[cfg(not(feature = "v8"))]
-                    {
-                        None
-                    }
-                }
-                "singlepass" => {
-                    #[cfg(feature = "singlepass")]
-                    {
-                        Some(Engine::Singlepass)
-                    }
-                    #[cfg(not(feature = "singlepass"))]
                     {
                         None
                     }
@@ -1327,8 +1313,6 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let mut supported_engines = vec![];
         #[cfg(feature = "llvm")]
         supported_engines.push(Engine::LLVM);
-        #[cfg(feature = "singlepass")]
-        supported_engines.push(Engine::Singlepass);
         #[cfg(feature = "v8")]
         supported_engines.push(Engine::V8);
 
@@ -1353,23 +1337,6 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                     .unwrap_or_else(|| &default_file_systems)
                 {
                     for engine in &supported_engines {
-                        // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
-                        // but we can still run selectively some tests with Singlepass.
-                        #[cfg(feature = "singlepass")]
-                        {
-                            let test_name = entry
-                                .path()
-                                .file_name()
-                                .expect("must be valid filename")
-                                .to_string_lossy()
-                                .to_string();
-                            if *engine == Engine::Singlepass
-                                && !["wasi_fyi", "wasi_wast"].contains(&test_name.as_str())
-                            {
-                                continue;
-                            }
-                        }
-
                         // WASIXCC toolchain does not cover Windows yet.
                         if cfg!(target_os = "windows")
                             && !matches!(
