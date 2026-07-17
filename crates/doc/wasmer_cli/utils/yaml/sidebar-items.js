@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["apply_app_config_to_yaml","apply_app_config_to_yaml_file","leading_trivia","merge_into_mapping","node_matches","scalar_key","scalar_key_node","set_value","set_via_node","stale_top_level_keys"]};
+window.SIDEBAR_ITEMS = {"fn":["apply_app_config_to_yaml","apply_app_config_to_yaml_file","leading_trivia","merge_into_mapping","scalar_key","scalar_key_node","set_value","stale_top_level_keys","try_format_preserving_edit"]};
