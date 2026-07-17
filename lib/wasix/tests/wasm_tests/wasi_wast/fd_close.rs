@@ -16,8 +16,8 @@ extern "C" {
 fn main() {
     #[cfg(not(target_os = "wasi"))]
     let mut base = PathBuf::from("test_fs/hamlet");
-#[cfg(target_os = "wasi")]
-let mut base = PathBuf::from("hamlet");
+    #[cfg(target_os = "wasi")]
+    let mut base = PathBuf::from("hamlet");
 
     base.push("act3/scene3.txt");
     let file = fs::File::open(&base).expect("could not open file");

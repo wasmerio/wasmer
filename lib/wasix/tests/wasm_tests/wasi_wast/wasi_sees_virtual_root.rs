@@ -34,9 +34,7 @@ fn main() {
                 .filter_map(|entry| {
                     let path = entry.path();
                     let name = path.file_name()?.to_str()?;
-                    mapped_roots
-                        .contains(&name)
-                        .then(|| format!("\"/{name}\""))
+                    mapped_roots.contains(&name).then(|| format!("\"/{name}\""))
                 })
                 .collect::<Vec<_>>();
             roots.sort();

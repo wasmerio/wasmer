@@ -48,8 +48,8 @@ fn read(fd: u32, iovs: &[&mut [u8]]) -> u32 {
 fn main() {
     #[cfg(not(target_os = "wasi"))]
     let mut base = PathBuf::from("test_fs/hamlet");
-#[cfg(target_os = "wasi")]
-let mut base = PathBuf::from("hamlet");
+    #[cfg(target_os = "wasi")]
+    let mut base = PathBuf::from("hamlet");
 
     base.push("act3/scene4.txt");
     let mut file = fs::File::open(&base).expect("Could not open file");

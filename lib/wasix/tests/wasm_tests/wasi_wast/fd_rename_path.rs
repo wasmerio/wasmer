@@ -6,14 +6,15 @@ use std::path::PathBuf;
 
 fn main() {
     let mut idx = 0;
-    fs::create_dir_all(PathBuf::from("test_fs/wasitests")).expect("cannot create the parent directory");
+    fs::create_dir_all(PathBuf::from("test_fs/wasitests"))
+        .expect("cannot create the parent directory");
 
     let old_path = loop {
         let old_path = PathBuf::from(format!("test_fs/wasitests/dirtorename-{}", idx));
         if fs::create_dir(old_path.clone()).ok().is_some() {
             break old_path;
         }
-        idx+=1;
+        idx += 1;
         if idx > 10 {
             panic!("too many try at creating the folder");
         }

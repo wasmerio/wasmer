@@ -1,7 +1,7 @@
 //#AbstractConfigFile: wasi-fyi.config
 use std::fs::OpenOptions;
-use std::io::prelude::*;
 use std::io::SeekFrom;
+use std::io::prelude::*;
 
 fn main() {
     let mut file = OpenOptions::new()
