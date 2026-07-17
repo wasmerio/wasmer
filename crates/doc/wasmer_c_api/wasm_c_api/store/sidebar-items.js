@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["wasm_store_delete","wasm_store_new"],"struct":["StoreRef","wasm_store_t"]};
+window.SIDEBAR_ITEMS = {"fn":["wasm_store_delete","wasm_store_new"],"struct":["StoreRef","WeakStoreRef","wasm_store_t"]};

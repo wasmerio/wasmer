@@ -51,5 +51,35 @@
 <a href=#51 id=51 data-nosnippet>51</a>    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
 <a href=#52 id=52 data-nosnippet>52</a>        <span class="self">self</span>.<span class="number">0</span>.is_from_store(store)
 <a href=#53 id=53 data-nosnippet>53</a>    }
-<a href=#54 id=54 data-nosnippet>54</a>}
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a>    <span class="doccomment">/// Whether two [`ExternRef`]s refer to the same underlying extern object.
+<a href=#56 id=56 data-nosnippet>56</a>    </span><span class="kw">pub fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>ExternRef) -&gt; bool {
+<a href=#57 id=57 data-nosnippet>57</a>        <span class="self">self</span>.<span class="number">0</span>.ptr_eq(<span class="kw-2">&amp;</span>other.<span class="number">0</span>)
+<a href=#58 id=58 data-nosnippet>58</a>    }
+<a href=#59 id=59 data-nosnippet>59</a>}
+<a href=#60 id=60 data-nosnippet>60</a>
+<a href=#61 id=61 data-nosnippet>61</a><span class="comment">// `ExternRef` is only implemented on the `sys` backend; the `v8`/`js` backends
+<a href=#62 id=62 data-nosnippet>62</a>// `unimplemented!()` it, so this test is gated to `sys`.
+<a href=#63 id=63 data-nosnippet>63</a></span><span class="attr">#[cfg(all(test, feature = <span class="string">"sys"</span>))]
+<a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">mod </span>tests {
+<a href=#65 id=65 data-nosnippet>65</a>    <span class="kw">use </span>crate::{ExternRef, Store};
+<a href=#66 id=66 data-nosnippet>66</a>
+<a href=#67 id=67 data-nosnippet>67</a>    <span class="attr">#[test]
+<a href=#68 id=68 data-nosnippet>68</a>    </span><span class="kw">fn </span>ptr_eq_tracks_object_identity() {
+<a href=#69 id=69 data-nosnippet>69</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::default();
+<a href=#70 id=70 data-nosnippet>70</a>
+<a href=#71 id=71 data-nosnippet>71</a>        <span class="kw">let </span>a = ExternRef::new(<span class="kw-2">&amp;mut </span>store, <span class="number">7i32</span>);
+<a href=#72 id=72 data-nosnippet>72</a>        <span class="comment">// A clone is the same underlying extern object.
+<a href=#73 id=73 data-nosnippet>73</a>        </span><span class="macro">assert!</span>(a.ptr_eq(<span class="kw-2">&amp;</span>a.clone()));
+<a href=#74 id=74 data-nosnippet>74</a>
+<a href=#75 id=75 data-nosnippet>75</a>        <span class="comment">// A separately created ref (even with an equal payload) is distinct.
+<a href=#76 id=76 data-nosnippet>76</a>        </span><span class="kw">let </span>b = ExternRef::new(<span class="kw-2">&amp;mut </span>store, <span class="number">7i32</span>);
+<a href=#77 id=77 data-nosnippet>77</a>        <span class="macro">assert!</span>(!a.ptr_eq(<span class="kw-2">&amp;</span>b));
+<a href=#78 id=78 data-nosnippet>78</a>        <span class="macro">assert!</span>(!b.ptr_eq(<span class="kw-2">&amp;</span>a));
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a>        <span class="comment">// The downcast payloads are what we expect.
+<a href=#81 id=81 data-nosnippet>81</a>        </span><span class="macro">assert_eq!</span>(a.downcast::&lt;i32&gt;(<span class="kw-2">&amp;</span>store), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="number">7</span>));
+<a href=#82 id=82 data-nosnippet>82</a>        <span class="macro">assert_eq!</span>(b.downcast::&lt;i32&gt;(<span class="kw-2">&amp;</span>store), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="number">7</span>));
+<a href=#83 id=83 data-nosnippet>83</a>    }
+<a href=#84 id=84 data-nosnippet>84</a>}
 </code></pre></div></section></main></body></html>

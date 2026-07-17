@@ -62,5 +62,11 @@
 <a href=#62 id=62 data-nosnippet>62</a>    </span><span class="kw">pub fn </span>is_from_store(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; bool {
 <a href=#63 id=63 data-nosnippet>63</a>        <span class="self">self</span>.handle.store_id() == store.as_store_ref().objects().id()
 <a href=#64 id=64 data-nosnippet>64</a>    }
-<a href=#65 id=65 data-nosnippet>65</a>}
+<a href=#65 id=65 data-nosnippet>65</a>
+<a href=#66 id=66 data-nosnippet>66</a>    <span class="doccomment">/// Whether two [`ExternRef`]s point to the same underlying extern object.
+<a href=#67 id=67 data-nosnippet>67</a>    </span><span class="kw">pub fn </span>ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+<a href=#68 id=68 data-nosnippet>68</a>        <span class="self">self</span>.handle.store_id() == other.handle.store_id()
+<a href=#69 id=69 data-nosnippet>69</a>            &amp;&amp; <span class="self">self</span>.handle.internal_handle() == other.handle.internal_handle()
+<a href=#70 id=70 data-nosnippet>70</a>    }
+<a href=#71 id=71 data-nosnippet>71</a>}
 </code></pre></div></section></main></body></html>
