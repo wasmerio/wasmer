@@ -1729,12 +1729,6 @@ impl Artifact {
                 .map(|_| 0)
                 .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
                 .into_boxed_slice();
-            let function_max_stack_usage = finished_functions
-                .iter()
-                .map(|_| None)
-                .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>()
-                .into_boxed_slice();
-
             // Variant is built first so its module_info is available for
             // the cached VMOffsets before it is moved into Self.
             let artifact_variant = ArtifactBuildVariant::Plain(artifact);
@@ -1758,7 +1752,6 @@ impl Artifact {
                     signatures: signatures.into_boxed_slice(),
                     finished_function_lengths,
                     vm_offsets,
-                    function_max_stack_usage,
                     elf_image: None,
                 }),
             })

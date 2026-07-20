@@ -483,6 +483,14 @@ impl RuntimeOptions {
                 if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
                 }
+                #[cfg(all(
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
+                if self.experimental_artifact {
+                    config.elf_artifact_format(true);
+                }
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
@@ -647,6 +655,14 @@ impl BackendType {
                 }
                 if let Some(num_threads) = runtime_opts.compiler_threads {
                     config.num_threads(num_threads);
+                }
+                #[cfg(all(
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
+                if runtime_opts.experimental_artifact {
+                    config.elf_artifact_format(true);
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(supported_features))
