@@ -6,6 +6,7 @@ use crate::{
     codegen_error,
     common_decl::*,
     config::Singlepass,
+    elf::{self, CompileOutput},
     location::{Location, Reg},
     machine::{
         AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
@@ -21,8 +22,12 @@ use std::{
     collections::HashMap,
     iter,
     ops::{AddAssign, Neg, SubAssign},
+    path::Path,
 };
 use target_lexicon::Architecture;
+
+#[cfg(feature = "unwind")]
+use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
 
 use wasmer_compiler::{
     FunctionBodyData,
@@ -41,7 +46,7 @@ use wasmer_compiler::{
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
-use wasmer_types::target::CallingConvention;
+use wasmer_types::target::{CallingConvention, Target};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
@@ -141,6 +146,10 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Assembly comments.
     assembly_comments: HashMap<usize, AssemblyComment>,
+
+    /// DWARF debug information accumulated for this function.
+    #[cfg(feature = "unwind")]
+    dwarf_state: Option<DwarfState>,
 }
 
 struct SpecialLabelSet {
@@ -1010,6 +1019,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             relocations: vec![],
             special_labels,
             calling_convention,
+            #[cfg(feature = "unwind")]
+            dwarf_state: init_dwarf_unit(
+                &function_name,
+                module.name.as_deref(),
+                "Wasmer (Singlepass)",
+            )
+            .ok(),
             function_name,
             assembly_comments: HashMap::new(),
         };
@@ -5865,7 +5881,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         mut self,
         data: &FunctionBodyData,
         arch: Architecture,
-    ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
+        target: &Target,
+        build_directory: Option<&Path>,
+    ) -> Result<CompileOutput<(CompiledFunction, Option<UnwindFrame>)>, CompileError> {
         self.stack_offset -= RED_ZONE_SIZE;
 
         self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
@@ -5916,7 +5934,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if let Some(unwind) = unwind {
                     fde = Some(unwind.to_fde(Address::Symbol {
                         symbol: WriterRelocate::FUNCTION_SYMBOL,
-                        addend: self.local_func_index.index() as _,
+                        // In-memory compilation uses this addend to identify the
+                        // function relocation target.
+                        addend: if self.config.elf_artifact_format {
+                            0
+                        } else {
+                            self.local_func_index.index() as _
+                        },
                     }));
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
@@ -5932,6 +5956,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
+        #[cfg(feature = "unwind")]
+        if let Some(dwarf_state) = self.dwarf_state.as_mut() {
+            for instruction in &address_map.instructions {
+                dwarf_state.add_row(instruction.code_offset as u64, instruction.srcloc);
+            }
+        }
         let traps = self.machine.collect_trap_information();
         let FinalizedAssembly {
             mut body,
@@ -5954,15 +5984,29 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             )?;
         }
 
-        Ok((
-            CompiledFunction {
-                body: FunctionBody { body, unwind_info },
-                relocations: self.relocations.clone(),
-                frame_info: CompiledFunctionFrameInfo { traps, address_map },
-                maximum_stack_usage: Some(self.stack_offset.maximum_offset),
-            },
-            fde,
-        ))
+        let function = CompiledFunction {
+            body: FunctionBody { body, unwind_info },
+            relocations: self.relocations.clone(),
+            frame_info: CompiledFunctionFrameInfo { traps, address_map },
+            maximum_stack_usage: Some(self.stack_offset.maximum_offset),
+        };
+        if self.config.elf_artifact_format {
+            let maximum_stack_usage = function.maximum_stack_usage;
+            Ok(CompileOutput::Object(
+                elf::emit_local_function(
+                    target,
+                    build_directory.expect("ELF artifact compilation requires a build directory"),
+                    self.local_func_index,
+                    function,
+                    fde,
+                    #[cfg(feature = "unwind")]
+                    self.dwarf_state,
+                )?,
+                maximum_stack_usage,
+            ))
+        } else {
+            Ok(CompileOutput::InMemory((function, fde)))
+        }
     }
     // FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
     // at call place.

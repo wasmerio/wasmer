@@ -266,9 +266,16 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
     let target = Target::default();
     let backend = match engine {
         Engine::Cranelift => wasmer::BackendKind::Cranelift,
+        #[cfg(all(
+            feature = "experimental-artifact",
+            target_os = "linux",
+            target_arch = "x86_64"
+        ))]
+        Engine::CraneliftExperimentalArtifact => wasmer::BackendKind::Cranelift,
         #[cfg(feature = "llvm")]
         Engine::LLVM => wasmer::BackendKind::LLVM,
         #[cfg(all(
+            feature = "llvm",
             feature = "experimental-artifact",
             target_os = "linux",
             target_arch = "x86_64"
@@ -276,6 +283,13 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
         Engine::LLVMExperimentalArtifact => wasmer::BackendKind::LLVM,
         #[cfg(feature = "singlepass")]
         Engine::Singlepass => wasmer::BackendKind::Singlepass,
+        #[cfg(all(
+            feature = "singlepass",
+            feature = "experimental-artifact",
+            target_os = "linux",
+            target_arch = "x86_64"
+        ))]
+        Engine::SinglepassExperimentalArtifact => wasmer::BackendKind::Singlepass,
         #[cfg(feature = "v8")]
         Engine::V8 => wasmer::BackendKind::V8,
     };
@@ -289,6 +303,17 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
             config.num_threads(NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
+        #[cfg(all(
+            feature = "experimental-artifact",
+            target_os = "linux",
+            target_arch = "x86_64"
+        ))]
+        Engine::CraneliftExperimentalArtifact => {
+            let mut config = wasmer::sys::Cranelift::default();
+            config.num_threads(NonZero::new(1).unwrap());
+            config.elf_artifact_format(true);
+            EngineBuilder::new(config)
+        }
         #[cfg(feature = "llvm")]
         Engine::LLVM => {
             let mut config = wasmer::sys::LLVM::default();
@@ -296,6 +321,7 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
             EngineBuilder::new(config)
         }
         #[cfg(all(
+            feature = "llvm",
             feature = "experimental-artifact",
             target_os = "linux",
             target_arch = "x86_64"
@@ -310,6 +336,18 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
         Engine::Singlepass => {
             let mut config = wasmer::sys::Singlepass::default();
             config.num_threads(NonZero::new(1).unwrap());
+            EngineBuilder::new(config)
+        }
+        #[cfg(all(
+            feature = "singlepass",
+            feature = "experimental-artifact",
+            target_os = "linux",
+            target_arch = "x86_64"
+        ))]
+        Engine::SinglepassExperimentalArtifact => {
+            let mut config = wasmer::sys::Singlepass::default();
+            config.num_threads(NonZero::new(1).unwrap());
+            config.elf_artifact_format(true);
             EngineBuilder::new(config)
         }
         #[cfg(feature = "v8")]

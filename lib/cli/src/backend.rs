@@ -178,8 +178,6 @@ pub struct RuntimeOptions {
     disable_non_volatile_memops: bool,
 
     /// Enable an experimental ELF-based version of the Artifact format.
-    ///
-    /// Available for LLVM on x86-64 Linux.
     #[cfg(all(
         feature = "experimental-artifact",
         target_os = "linux",
@@ -433,6 +431,14 @@ impl RuntimeOptions {
                 if self.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
                 }
+                #[cfg(all(
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
+                if self.experimental_artifact {
+                    config.elf_artifact_format(true);
+                }
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
@@ -474,6 +480,14 @@ impl RuntimeOptions {
                 }
                 if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
+                }
+                #[cfg(all(
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
+                if self.experimental_artifact {
+                    config.elf_artifact_format(true);
                 }
                 Box::new(config)
             }
@@ -584,6 +598,14 @@ impl BackendType {
                 if runtime_opts.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
                 }
+                #[cfg(all(
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
+                if runtime_opts.experimental_artifact {
+                    config.elf_artifact_format(true);
+                }
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
@@ -631,6 +653,14 @@ impl BackendType {
                 }
                 if let Some(num_threads) = runtime_opts.compiler_threads {
                     config.num_threads(num_threads);
+                }
+                #[cfg(all(
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
+                if runtime_opts.experimental_artifact {
+                    config.elf_artifact_format(true);
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(supported_features))

@@ -95,6 +95,7 @@ impl ArtifactBuild {
             features,
             memory_styles,
             table_styles,
+            function_max_stack_usage: PrimaryMap::new(),
         };
         let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
         let mut serializable = SerializableModule {
@@ -115,7 +116,7 @@ impl ArtifactBuild {
         })?;
 
         // Compile the Module
-        let compilation = compiler.compile_module(
+        let (compilation, function_max_stack_usage) = compiler.compile_module(
             target,
             &serializable.compile_info,
             &compile_info_blob,
@@ -126,6 +127,8 @@ impl ArtifactBuild {
             translation.function_body_inputs,
             progress_callback,
         )?;
+
+        serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
 
         let compilation = match compilation {
             Compilation::Rkyv(compilation) => {
@@ -297,11 +300,7 @@ impl ArtifactBuild {
     pub fn get_function_max_stack_usage(
         &self,
     ) -> Option<&PrimaryMap<LocalFunctionIndex, Option<usize>>> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.function_max_stack_usage)
-        } else {
-            None
-        }
+        Some(&self.serializable.compile_info.function_max_stack_usage)
     }
 }
 
@@ -597,14 +596,8 @@ impl ArtifactBuildFromArchive {
     /// Available only for the Singlepass compiler
     pub fn get_function_max_stack_usage(
         &self,
-    ) -> Option<&ArchivedPrimaryMap<LocalFunctionIndex, Option<usize>>> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(&compilation.function_max_stack_usage)
-        } else {
-            None
-        }
+    ) -> Option<&PrimaryMap<LocalFunctionIndex, Option<usize>>> {
+        Some(&self.compile_info.function_max_stack_usage)
     }
 
     /// Get compiled ELF file data.

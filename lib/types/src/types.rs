@@ -255,7 +255,7 @@ impl ExternType {
 /// in a Wasm module or exposed to Wasm by the host.
 ///
 /// WebAssembly functions can have 0 or more parameters and results.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]

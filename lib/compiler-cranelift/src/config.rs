@@ -35,6 +35,11 @@ impl CraneliftCallbacks {
         Ok(Self { debug_dir })
     }
 
+    /// Returns the debug directory where the debug files are written.
+    pub fn debug_dir(&self) -> &PathBuf {
+        &self.debug_dir
+    }
+
     fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
         if let Some(hash) = module_hash {
@@ -116,6 +121,8 @@ pub struct Cranelift {
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     pub(crate) callbacks: Option<CraneliftCallbacks>,
+    /// Enable the experimental ELF artifact format.
+    pub(crate) elf_artifact_format: bool,
 }
 
 impl Cranelift {
@@ -132,6 +139,7 @@ impl Cranelift {
             middlewares: vec![],
             enable_perfmap: false,
             callbacks: None,
+            elf_artifact_format: false,
         }
     }
 
@@ -163,6 +171,14 @@ impl Cranelift {
     /// The optimization levels when optimizing the IR.
     pub fn opt_level(&mut self, opt_level: CraneliftOptLevel) -> &mut Self {
         self.opt_level = opt_level;
+        self
+    }
+
+    /// Enables the experimental ELF-based artifact format.
+    ///
+    /// This format is currently supported only on x86-64 Linux.
+    pub fn elf_artifact_format(&mut self, enable: bool) -> &mut Self {
+        self.elf_artifact_format = enable;
         self
     }
 

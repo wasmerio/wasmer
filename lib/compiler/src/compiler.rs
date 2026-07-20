@@ -182,7 +182,7 @@ pub trait Compiler: Send + std::fmt::Debug {
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<Compilation, CompileError>;
+    ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError>;
 
     /// Get the middlewares for this compiler
     fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
