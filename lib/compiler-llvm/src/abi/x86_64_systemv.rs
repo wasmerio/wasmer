@@ -32,25 +32,23 @@ enum ReturnAbi {
     Sret(Vec<Type>),
 }
 
-impl ReturnAbi {
-    fn classify(types: &[Type]) -> Self {
-        let widths = types.iter().map(wasm_type_bit_width).collect_vec();
-        let values = types;
+fn classify_x86_64(types: &[Type]) -> ReturnAbi {
+    let widths = types.iter().map(wasm_type_bit_width).collect_vec();
+    let values = types;
 
-        match (values, widths.as_slice()) {
-            ([], []) => Self::Void,
-            ([value], [_]) => Self::Single([*value]),
-            ([first, second], [32, 64] | [64, 32] | [64, 64]) => Self::Pair([*first, *second]),
-            ([first, second], [32, 32]) => Self::PackedPair([*first, *second]),
-            ([first, second, third], [32, 32, 32 | 64]) => {
-                Self::PackedFirst([*first, *second, *third])
-            }
-            ([first, second, third], [64, 32, 32]) => Self::PackedLast([*first, *second, *third]),
-            ([first, second, third, fourth], [32, 32, 32, 32]) => {
-                Self::PackedQuads([*first, *second, *third, *fourth])
-            }
-            _ => Self::Sret(values.to_vec()),
+    match (values, widths.as_slice()) {
+        ([], []) => ReturnAbi::Void,
+        ([value], [_]) => ReturnAbi::Single([*value]),
+        ([first, second], [32, 64] | [64, 32] | [64, 64]) => ReturnAbi::Pair([*first, *second]),
+        ([first, second], [32, 32]) => ReturnAbi::PackedPair([*first, *second]),
+        ([first, second, third], [32, 32, 32 | 64]) => {
+            ReturnAbi::PackedFirst([*first, *second, *third])
         }
+        ([first, second, third], [64, 32, 32]) => ReturnAbi::PackedLast([*first, *second, *third]),
+        ([first, second, third, fourth], [32, 32, 32, 32]) => {
+            ReturnAbi::PackedQuads([*first, *second, *third, *fourth])
+        }
+        _ => ReturnAbi::Sret(values.to_vec()),
     }
 }
 
@@ -115,26 +113,27 @@ impl Abi for X86_64SystemV {
             ]
         };
 
-        let return_abi = ReturnAbi::classify(sig.results());
+        let type_for_pair = |t0: Type, t1: Type| {
+            if t0 == Type::F32 && t1 == Type::F32 {
+                intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
+            } else {
+                intrinsics.i64_ty.as_basic_type_enum().as_basic_type_enum()
+            }
+        };
+
+        let param_llvm_types = param_types
+            .map(|v| v.map(Into::into))
+            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?;
+        let return_abi = classify_x86_64(sig.results());
         Ok(match return_abi {
             ReturnAbi::Void => (
-                intrinsics.void_ty.fn_type(
-                    param_types
-                        .map(|v| v.map(Into::into))
-                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                        .as_slice(),
-                    false,
-                ),
+                intrinsics
+                    .void_ty
+                    .fn_type(param_llvm_types.as_slice(), false),
                 vmctx_attributes(0),
             ),
             ReturnAbi::Single([single_value]) => (
-                type_to_llvm(intrinsics, single_value)?.fn_type(
-                    param_types
-                        .map(|v| v.map(Into::into))
-                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                        .as_slice(),
-                    false,
-                ),
+                type_to_llvm(intrinsics, single_value)?.fn_type(param_llvm_types.as_slice(), false),
                 vmctx_attributes(0),
             ),
             ReturnAbi::Pair(types) => {
@@ -144,132 +143,39 @@ impl Abi for X86_64SystemV {
                     .collect::<Result<_, _>>()?;
 
                 (
-                    context.struct_type(&basic_types, false).fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
+                    context
+                        .struct_type(&basic_types, false)
+                        .fn_type(param_llvm_types.as_slice(), false),
                     vmctx_attributes(0),
                 )
             }
-            ReturnAbi::PackedPair([Type::F32, Type::F32]) => (
-                intrinsics.f32_ty.vec_type(2).fn_type(
-                    param_types
-                        .map(|v| v.map(Into::into))
-                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                        .as_slice(),
-                    false,
-                ),
+            ReturnAbi::PackedPair([t0, t1]) => (
+                type_for_pair(t0, t1).fn_type(param_llvm_types.as_slice(), false),
                 vmctx_attributes(0),
             ),
-            ReturnAbi::PackedPair(_) => (
-                intrinsics.i64_ty.fn_type(
-                    param_types
-                        .map(|v| v.map(Into::into))
-                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                        .as_slice(),
-                    false,
-                ),
-                vmctx_attributes(0),
-            ),
-            ReturnAbi::PackedFirst([Type::F32, Type::F32, third]) => (
+
+            ReturnAbi::PackedFirst([t0, t1, t2]) => (
                 context
                     .struct_type(
-                        &[
-                            intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
-                            type_to_llvm(intrinsics, third)?,
-                        ],
+                        &[type_for_pair(t0, t1), type_to_llvm(intrinsics, t2)?],
                         false,
                     )
-                    .fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
+                    .fn_type(param_llvm_types.as_slice(), false),
                 vmctx_attributes(0),
             ),
-            ReturnAbi::PackedFirst([_, _, third]) => (
+            ReturnAbi::PackedLast([t0, t1, t2]) => (
                 context
                     .struct_type(
-                        &[
-                            intrinsics.i64_ty.as_basic_type_enum(),
-                            type_to_llvm(intrinsics, third)?,
-                        ],
+                        &[type_to_llvm(intrinsics, t0)?, type_for_pair(t1, t2)],
                         false,
                     )
-                    .fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
+                    .fn_type(param_llvm_types.as_slice(), false),
                 vmctx_attributes(0),
             ),
-            ReturnAbi::PackedLast([first, Type::F32, Type::F32]) => (
+            ReturnAbi::PackedQuads([t0, t1, t2, t3]) => (
                 context
-                    .struct_type(
-                        &[
-                            type_to_llvm(intrinsics, first)?,
-                            intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
-                        ],
-                        false,
-                    )
-                    .fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
-                vmctx_attributes(0),
-            ),
-            ReturnAbi::PackedLast([first, _, _]) => (
-                context
-                    .struct_type(
-                        &[
-                            type_to_llvm(intrinsics, first)?,
-                            intrinsics.i64_ty.as_basic_type_enum(),
-                        ],
-                        false,
-                    )
-                    .fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
-                vmctx_attributes(0),
-            ),
-            ReturnAbi::PackedQuads(types) => (
-                context
-                    .struct_type(
-                        &[
-                            if types[0] == Type::F32 && types[1] == Type::F32 {
-                                intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
-                            } else {
-                                intrinsics.i64_ty.as_basic_type_enum()
-                            },
-                            if types[2] == Type::F32 && types[3] == Type::F32 {
-                                intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
-                            } else {
-                                intrinsics.i64_ty.as_basic_type_enum()
-                            },
-                        ],
-                        false,
-                    )
-                    .fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
+                    .struct_type(&[type_for_pair(t0, t1), type_for_pair(t2, t3)], false)
+                    .fn_type(param_llvm_types.as_slice(), false),
                 vmctx_attributes(0),
             ),
             ReturnAbi::Sret(types) => {
@@ -281,8 +187,10 @@ impl Abi for X86_64SystemV {
                 let sret = context.struct_type(&basic_types, false);
                 let sret_ptr = context.ptr_type(AddressSpace::default());
 
-                let param_types =
-                    std::iter::once(Ok(sret_ptr.as_basic_type_enum())).chain(param_types);
+                let sret_param_llvm_types =
+                    std::iter::once(BasicMetadataTypeEnum::from(sret_ptr.as_basic_type_enum()))
+                        .chain(param_llvm_types.iter().copied())
+                        .collect_vec();
 
                 let mut attributes = vec![(
                     context.create_type_attribute(
@@ -294,13 +202,9 @@ impl Abi for X86_64SystemV {
                 attributes.append(&mut vmctx_attributes(1));
 
                 (
-                    intrinsics.void_ty.fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
+                    intrinsics
+                        .void_ty
+                        .fn_type(sret_param_llvm_types.as_slice(), false),
                     attributes,
                 )
             }
@@ -381,7 +285,7 @@ impl Abi for X86_64SystemV {
                 let rets = (0..struct_value.get_type().count_fields())
                     .map(|i| builder.build_extract_value(struct_value, i, "").unwrap())
                     .collect::<Vec<_>>();
-                let ret = match ReturnAbi::classify(func_sig.results()) {
+                let ret = match classify_x86_64(func_sig.results()) {
                     ReturnAbi::Pair(_) => {
                         assert!(func_sig.results().len() == 2);
                         vec![rets[0], rets[1]]
@@ -494,7 +398,7 @@ impl Abi for X86_64SystemV {
 
     fn is_sret(&self, func_sig: &FuncSig) -> Result<bool, CompileError> {
         Ok(matches!(
-            ReturnAbi::classify(func_sig.results()),
+            classify_x86_64(func_sig.results()),
             ReturnAbi::Sret(_)
         ))
     }
@@ -577,7 +481,7 @@ impl Abi for X86_64SystemV {
         };
 
         let value_types = values.iter().copied().map(wasm_type).collect::<Vec<_>>();
-        let return_abi = ReturnAbi::classify(&value_types);
+        let return_abi = classify_x86_64(&value_types);
 
         Ok(match return_abi {
             ReturnAbi::Single(_) => values[0],
@@ -645,37 +549,37 @@ impl Abi for X86_64SystemV {
 #[cfg(test)]
 mod tests {
     use super::{ReturnAbi, Type};
-
-    fn classify(types: &[Type]) -> ReturnAbi {
-        ReturnAbi::classify(types)
-    }
+    use crate::abi::x86_64_systemv::classify_x86_64;
 
     #[test]
-    fn classifies_return_abi_and_preserves_types() {
-        assert_eq!(classify(&[]), ReturnAbi::Void);
-        assert_eq!(classify(&[Type::I64]), ReturnAbi::Single([Type::I64]));
+    fn classify_x86_64_return_type_abi() {
+        assert_eq!(classify_x86_64(&[]), ReturnAbi::Void);
         assert_eq!(
-            classify(&[Type::I32, Type::F64]),
+            classify_x86_64(&[Type::I64]),
+            ReturnAbi::Single([Type::I64])
+        );
+        assert_eq!(
+            classify_x86_64(&[Type::I32, Type::F64]),
             ReturnAbi::Pair([Type::I32, Type::F64])
         );
         assert_eq!(
-            classify(&[Type::I32, Type::F32]),
+            classify_x86_64(&[Type::I32, Type::F32]),
             ReturnAbi::PackedPair([Type::I32, Type::F32])
         );
         assert_eq!(
-            classify(&[Type::F32, Type::F32, Type::I64]),
+            classify_x86_64(&[Type::F32, Type::F32, Type::I64]),
             ReturnAbi::PackedFirst([Type::F32, Type::F32, Type::I64])
         );
         assert_eq!(
-            classify(&[Type::F64, Type::I32, Type::F32]),
+            classify_x86_64(&[Type::F64, Type::I32, Type::F32]),
             ReturnAbi::PackedLast([Type::F64, Type::I32, Type::F32])
         );
         assert_eq!(
-            classify(&[Type::I32, Type::F32, Type::F32, Type::I32]),
+            classify_x86_64(&[Type::I32, Type::F32, Type::F32, Type::I32]),
             ReturnAbi::PackedQuads([Type::I32, Type::F32, Type::F32, Type::I32,])
         );
         assert_eq!(
-            classify(&[Type::V128, Type::I32]),
+            classify_x86_64(&[Type::V128, Type::I32]),
             ReturnAbi::Sret(vec![Type::V128, Type::I32])
         );
     }
