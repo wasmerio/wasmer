@@ -10,10 +10,57 @@ use inkwell::{
     types::{AnyType, BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
     values::{BasicValueEnum, CallSiteValue, FloatValue, IntValue, VectorValue},
 };
+use itertools::Itertools;
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
 
 use std::convert::TryInto;
+
+/// Describes how a list of values is returned by the AMD64 System V ABI.
+///
+/// Every non-void variant retains the values it classified so signature
+/// construction, packing, and unpacking all use the same ABI rules.
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum ReturnAbi {
+    Void,
+    Single([Type; 1]),
+    Pair([Type; 2]),
+    PackedPair([Type; 2]),
+    PackedFirst([Type; 3]),
+    PackedLast([Type; 3]),
+    PackedQuads([Type; 4]),
+    Sret(Vec<Type>),
+}
+
+impl ReturnAbi {
+    fn classify(types: &[Type]) -> Self {
+        let widths = types.iter().map(wasm_type_bit_width).collect_vec();
+        let values = types;
+
+        match (values, widths.as_slice()) {
+            ([], []) => Self::Void,
+            ([value], [_]) => Self::Single([*value]),
+            ([first, second], [32, 64] | [64, 32] | [64, 64]) => Self::Pair([*first, *second]),
+            ([first, second], [32, 32]) => Self::PackedPair([*first, *second]),
+            ([first, second, third], [32, 32, 32 | 64]) => {
+                Self::PackedFirst([*first, *second, *third])
+            }
+            ([first, second, third], [64, 32, 32]) => Self::PackedLast([*first, *second, *third]),
+            ([first, second, third, fourth], [32, 32, 32, 32]) => {
+                Self::PackedQuads([*first, *second, *third, *fourth])
+            }
+            _ => Self::Sret(values.to_vec()),
+        }
+    }
+}
+
+fn wasm_type_bit_width(ty: &Type) -> u32 {
+    match ty {
+        Type::I32 | Type::F32 | Type::ExceptionRef => 32,
+        Type::I64 | Type::F64 | Type::ExternRef | Type::FuncRef => 64,
+        Type::V128 => 128,
+    }
+}
 
 /// Implementation of the [`Abi`] trait for the AMD64 SystemV ABI.
 pub struct X86_64SystemV {}
@@ -68,19 +115,9 @@ impl Abi for X86_64SystemV {
             ]
         };
 
-        let sig_returns_bitwidths = sig
-            .results()
-            .iter()
-            .map(|ty| match ty {
-                Type::I32 | Type::F32 | Type::ExceptionRef => 32,
-                Type::I64 | Type::F64 => 64,
-                Type::V128 => 128,
-                Type::ExternRef | Type::FuncRef => 64, /* pointer */
-            })
-            .collect::<Vec<i32>>();
-
-        Ok(match sig_returns_bitwidths.as_slice() {
-            [] => (
+        let return_abi = ReturnAbi::classify(sig.results());
+        Ok(match return_abi {
+            ReturnAbi::Void => (
                 intrinsics.void_ty.fn_type(
                     param_types
                         .map(|v| v.map(Into::into))
@@ -90,22 +127,18 @@ impl Abi for X86_64SystemV {
                 ),
                 vmctx_attributes(0),
             ),
-            [_] => {
-                let single_value = sig.results()[0];
-                (
-                    type_to_llvm(intrinsics, single_value)?.fn_type(
-                        param_types
-                            .map(|v| v.map(Into::into))
-                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                            .as_slice(),
-                        false,
-                    ),
-                    vmctx_attributes(0),
-                )
-            }
-            [32, 64] | [64, 32] | [64, 64] => {
-                let basic_types: Vec<_> = sig
-                    .results()
+            ReturnAbi::Single([single_value]) => (
+                type_to_llvm(intrinsics, single_value)?.fn_type(
+                    param_types
+                        .map(|v| v.map(Into::into))
+                        .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                        .as_slice(),
+                    false,
+                ),
+                vmctx_attributes(0),
+            ),
+            ReturnAbi::Pair(types) => {
+                let basic_types: Vec<_> = types
                     .iter()
                     .map(|&ty| type_to_llvm(intrinsics, ty))
                     .collect::<Result<_, _>>()?;
@@ -121,7 +154,7 @@ impl Abi for X86_64SystemV {
                     vmctx_attributes(0),
                 )
             }
-            [32, 32] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
+            ReturnAbi::PackedPair([Type::F32, Type::F32]) => (
                 intrinsics.f32_ty.vec_type(2).fn_type(
                     param_types
                         .map(|v| v.map(Into::into))
@@ -131,7 +164,7 @@ impl Abi for X86_64SystemV {
                 ),
                 vmctx_attributes(0),
             ),
-            [32, 32] => (
+            ReturnAbi::PackedPair(_) => (
                 intrinsics.i64_ty.fn_type(
                     param_types
                         .map(|v| v.map(Into::into))
@@ -141,32 +174,12 @@ impl Abi for X86_64SystemV {
                 ),
                 vmctx_attributes(0),
             ),
-            [32, 32, 32 | 64] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => {
-                (
-                    context
-                        .struct_type(
-                            &[
-                                intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
-                                type_to_llvm(intrinsics, sig.results()[2])?,
-                            ],
-                            false,
-                        )
-                        .fn_type(
-                            param_types
-                                .map(|v| v.map(Into::into))
-                                .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
-                                .as_slice(),
-                            false,
-                        ),
-                    vmctx_attributes(0),
-                )
-            }
-            [32, 32, 32 | 64] => (
+            ReturnAbi::PackedFirst([Type::F32, Type::F32, third]) => (
                 context
                     .struct_type(
                         &[
-                            intrinsics.i64_ty.as_basic_type_enum(),
-                            type_to_llvm(intrinsics, sig.results()[2])?,
+                            intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
+                            type_to_llvm(intrinsics, third)?,
                         ],
                         false,
                     )
@@ -179,11 +192,29 @@ impl Abi for X86_64SystemV {
                     ),
                 vmctx_attributes(0),
             ),
-            [64, 32, 32] if sig.results()[1] == Type::F32 && sig.results()[2] == Type::F32 => (
+            ReturnAbi::PackedFirst([_, _, third]) => (
                 context
                     .struct_type(
                         &[
-                            type_to_llvm(intrinsics, sig.results()[0])?,
+                            intrinsics.i64_ty.as_basic_type_enum(),
+                            type_to_llvm(intrinsics, third)?,
+                        ],
+                        false,
+                    )
+                    .fn_type(
+                        param_types
+                            .map(|v| v.map(Into::into))
+                            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?
+                            .as_slice(),
+                        false,
+                    ),
+                vmctx_attributes(0),
+            ),
+            ReturnAbi::PackedLast([first, Type::F32, Type::F32]) => (
+                context
+                    .struct_type(
+                        &[
+                            type_to_llvm(intrinsics, first)?,
                             intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
                         ],
                         false,
@@ -197,11 +228,11 @@ impl Abi for X86_64SystemV {
                     ),
                 vmctx_attributes(0),
             ),
-            [64, 32, 32] => (
+            ReturnAbi::PackedLast([first, _, _]) => (
                 context
                     .struct_type(
                         &[
-                            type_to_llvm(intrinsics, sig.results()[0])?,
+                            type_to_llvm(intrinsics, first)?,
                             intrinsics.i64_ty.as_basic_type_enum(),
                         ],
                         false,
@@ -215,16 +246,16 @@ impl Abi for X86_64SystemV {
                     ),
                 vmctx_attributes(0),
             ),
-            [32, 32, 32, 32] => (
+            ReturnAbi::PackedQuads(types) => (
                 context
                     .struct_type(
                         &[
-                            if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 {
+                            if types[0] == Type::F32 && types[1] == Type::F32 {
                                 intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
                             } else {
                                 intrinsics.i64_ty.as_basic_type_enum()
                             },
-                            if sig.results()[2] == Type::F32 && sig.results()[3] == Type::F32 {
+                            if types[2] == Type::F32 && types[3] == Type::F32 {
                                 intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
                             } else {
                                 intrinsics.i64_ty.as_basic_type_enum()
@@ -241,9 +272,8 @@ impl Abi for X86_64SystemV {
                     ),
                 vmctx_attributes(0),
             ),
-            _ => {
-                let basic_types: Vec<_> = sig
-                    .results()
+            ReturnAbi::Sret(types) => {
+                let basic_types: Vec<_> = types
                     .iter()
                     .map(|&ty| type_to_llvm(intrinsics, ty))
                     .collect::<Result<_, _>>()?;
@@ -351,53 +381,36 @@ impl Abi for X86_64SystemV {
                 let rets = (0..struct_value.get_type().count_fields())
                     .map(|i| builder.build_extract_value(struct_value, i, "").unwrap())
                     .collect::<Vec<_>>();
-                let func_sig_returns_bitwidths = func_sig
-                    .results()
-                    .iter()
-                    .map(|ty| match ty {
-                        Type::I32 | Type::F32 | Type::ExceptionRef => 32,
-                        Type::I64 | Type::F64 => 64,
-                        Type::V128 => 128,
-                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
-                    })
-                    .collect::<Vec<i32>>();
-
-                let ret = match func_sig_returns_bitwidths.as_slice() {
-                    [32, 64] | [64, 32] | [64, 64] => {
+                let ret = match ReturnAbi::classify(func_sig.results()) {
+                    ReturnAbi::Pair(_) => {
                         assert!(func_sig.results().len() == 2);
                         vec![rets[0], rets[1]]
                     }
-                    [32, 32, _]
-                        if rets[0].get_type()
-                            == intrinsics.f32_ty.vec_type(2).as_basic_type_enum() =>
-                    {
+                    ReturnAbi::PackedFirst([Type::F32, Type::F32, _]) => {
                         assert!(func_sig.results().len() == 3);
                         let (rets0, rets1) = extract_f32x2(rets[0].into_vector_value())?;
                         vec![rets0.into(), rets1.into(), rets[1]]
                     }
-                    [32, 32, _] => {
+                    ReturnAbi::PackedFirst(types) => {
                         assert!(func_sig.results().len() == 3);
                         let (low, high) = split_i64(rets[0].into_int_value())?;
-                        let low = casted(low.into(), func_sig.results()[0])?;
-                        let high = casted(high.into(), func_sig.results()[1])?;
+                        let low = casted(low.into(), types[0])?;
+                        let high = casted(high.into(), types[1])?;
                         vec![low, high, rets[1]]
                     }
-                    [64, 32, 32]
-                        if rets[1].get_type()
-                            == intrinsics.f32_ty.vec_type(2).as_basic_type_enum() =>
-                    {
+                    ReturnAbi::PackedLast([_, Type::F32, Type::F32]) => {
                         assert!(func_sig.results().len() == 3);
                         let (rets1, rets2) = extract_f32x2(rets[1].into_vector_value())?;
                         vec![rets[0], rets1.into(), rets2.into()]
                     }
-                    [64, 32, 32] => {
+                    ReturnAbi::PackedLast(types) => {
                         assert!(func_sig.results().len() == 3);
                         let (rets1, rets2) = split_i64(rets[1].into_int_value())?;
-                        let rets1 = casted(rets1.into(), func_sig.results()[1])?;
-                        let rets2 = casted(rets2.into(), func_sig.results()[2])?;
+                        let rets1 = casted(rets1.into(), types[1])?;
+                        let rets2 = casted(rets2.into(), types[2])?;
                         vec![rets[0], rets1, rets2]
                     }
-                    [32, 32, 32, 32] => {
+                    ReturnAbi::PackedQuads(types) => {
                         assert!(func_sig.results().len() == 4);
                         let (low0, high0) = if rets[0].get_type()
                             == intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
@@ -417,13 +430,18 @@ impl Abi for X86_64SystemV {
                             let (x, y) = split_i64(rets[1].into_int_value())?;
                             (x.into(), y.into())
                         };
-                        let low0 = casted(low0, func_sig.results()[0])?;
-                        let high0 = casted(high0, func_sig.results()[1])?;
-                        let low1 = casted(low1, func_sig.results()[2])?;
-                        let high1 = casted(high1, func_sig.results()[3])?;
+                        let low0 = casted(low0, types[0])?;
+                        let high0 = casted(high0, types[1])?;
+                        let low1 = casted(low1, types[2])?;
+                        let high1 = casted(high1, types[3])?;
                         vec![low0, high0, low1, high1]
                     }
-                    _ => unreachable!("expected an sret for this type"),
+                    ReturnAbi::Void
+                    | ReturnAbi::Single(_)
+                    | ReturnAbi::PackedPair(_)
+                    | ReturnAbi::Sret(_) => {
+                        unreachable!("expected an sret for this type")
+                    }
                 };
 
                 Ok(ret)
@@ -474,6 +492,13 @@ impl Abi for X86_64SystemV {
         }
     }
 
+    fn is_sret(&self, func_sig: &FuncSig) -> Result<bool, CompileError> {
+        Ok(matches!(
+            ReturnAbi::classify(func_sig.results()),
+            ReturnAbi::Sret(_)
+        ))
+    }
+
     fn pack_values_for_register_return<'ctx>(
         &self,
         intrinsics: &Intrinsics<'ctx>,
@@ -481,21 +506,30 @@ impl Abi for X86_64SystemV {
         values: &[BasicValueEnum<'ctx>],
         func_type: &FunctionType<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        let is_32 = |value: BasicValueEnum| {
-            (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i32_ty)
-                || (value.is_float_value()
-                    && value.into_float_value().get_type() == intrinsics.f32_ty)
+        let wasm_type = |value: BasicValueEnum| {
+            if value.is_int_value() {
+                let ty = value.into_int_value().get_type();
+                if ty == intrinsics.i32_ty {
+                    Type::I32
+                } else if ty == intrinsics.i64_ty {
+                    Type::I64
+                } else if ty == intrinsics.i128_ty {
+                    Type::V128
+                } else {
+                    unreachable!("unsupported integer return type")
+                }
+            } else if value.is_float_value() {
+                if value.into_float_value().get_type() == intrinsics.f32_ty {
+                    Type::F32
+                } else {
+                    Type::F64
+                }
+            } else if value.is_pointer_value() {
+                Type::ExternRef
+            } else {
+                unreachable!("unsupported return type")
+            }
         };
-        let is_64 = |value: BasicValueEnum| {
-            value.is_pointer_value()
-                || (value.is_int_value() && value.into_int_value().get_type() == intrinsics.i64_ty)
-                || (value.is_float_value()
-                    && value.into_float_value().get_type() == intrinsics.f64_ty)
-        };
-        let is_f32 = |value: BasicValueEnum| {
-            value.is_float_value() && value.into_float_value().get_type() == intrinsics.f32_ty
-        };
-
         let pack_i32s = |low: BasicValueEnum<'ctx>, high: BasicValueEnum<'ctx>| {
             assert!(low.get_type() == intrinsics.i32_ty.as_basic_type_enum());
             assert!(high.get_type() == intrinsics.i32_ty.as_basic_type_enum());
@@ -542,58 +576,58 @@ impl Abi for X86_64SystemV {
             struct_value.as_basic_value_enum()
         };
 
-        Ok(match *values {
-            [one_value] => one_value,
-            [v1, v2] if is_f32(v1) && is_f32(v2) => pack_f32s(v1, v2)?,
-            [v1, v2] if is_32(v1) && is_32(v2) => {
-                let v1 = err!(builder.build_bit_cast(v1, intrinsics.i32_ty, ""));
-                let v2 = err!(builder.build_bit_cast(v2, intrinsics.i32_ty, ""));
+        let value_types = values.iter().copied().map(wasm_type).collect::<Vec<_>>();
+        let return_abi = ReturnAbi::classify(&value_types);
+
+        Ok(match return_abi {
+            ReturnAbi::Single(_) => values[0],
+            ReturnAbi::PackedPair([Type::F32, Type::F32]) => pack_f32s(values[0], values[1])?,
+            ReturnAbi::PackedPair(_) => {
+                let v1 = err!(builder.build_bit_cast(values[0], intrinsics.i32_ty, ""));
+                let v2 = err!(builder.build_bit_cast(values[1], intrinsics.i32_ty, ""));
                 pack_i32s(v1, v2)?
             }
-            [v1, v2] => {
-                assert!(!(is_32(v1) && is_32(v2)));
-                build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[v1, v2],
-                )
-            }
-            [v1, v2, v3] if is_f32(v1) && is_f32(v2) => build_struct(
+            ReturnAbi::Pair(_) => build_struct(
                 func_type.get_return_type().unwrap().into_struct_type(),
-                &[pack_f32s(v1, v2)?, v3],
+                values,
             ),
-            [v1, v2, v3] if is_32(v1) && is_32(v2) => {
-                let v1 = err!(builder.build_bit_cast(v1, intrinsics.i32_ty, ""));
-                let v2 = err!(builder.build_bit_cast(v2, intrinsics.i32_ty, ""));
-                build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[pack_i32s(v1, v2)?, v3],
-                )
-            }
-            [v1, v2, v3] if is_64(v1) && is_f32(v2) && is_f32(v3) => build_struct(
+            ReturnAbi::PackedFirst([Type::F32, Type::F32, _]) => build_struct(
                 func_type.get_return_type().unwrap().into_struct_type(),
-                &[v1, pack_f32s(v2, v3)?],
+                &[pack_f32s(values[0], values[1])?, values[2]],
             ),
-            [v1, v2, v3] if is_64(v1) && is_32(v2) && is_32(v3) => {
-                let v2 = err!(builder.build_bit_cast(v2, intrinsics.i32_ty, ""));
-                let v3 = err!(builder.build_bit_cast(v3, intrinsics.i32_ty, ""));
+            ReturnAbi::PackedFirst(_) => {
+                let v1 = err!(builder.build_bit_cast(values[0], intrinsics.i32_ty, ""));
+                let v2 = err!(builder.build_bit_cast(values[1], intrinsics.i32_ty, ""));
                 build_struct(
                     func_type.get_return_type().unwrap().into_struct_type(),
-                    &[v1, pack_i32s(v2, v3)?],
+                    &[pack_i32s(v1, v2)?, values[2]],
                 )
             }
-            [v1, v2, v3, v4] if is_32(v1) && is_32(v2) && is_32(v3) && is_32(v4) => {
-                let v1v2_pack = if is_f32(v1) && is_f32(v2) {
-                    pack_f32s(v1, v2)?
+            ReturnAbi::PackedLast([_, Type::F32, Type::F32]) => build_struct(
+                func_type.get_return_type().unwrap().into_struct_type(),
+                &[values[0], pack_f32s(values[1], values[2])?],
+            ),
+            ReturnAbi::PackedLast(_) => {
+                let v2 = err!(builder.build_bit_cast(values[1], intrinsics.i32_ty, ""));
+                let v3 = err!(builder.build_bit_cast(values[2], intrinsics.i32_ty, ""));
+                build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[values[0], pack_i32s(v2, v3)?],
+                )
+            }
+            ReturnAbi::PackedQuads(types) => {
+                let v1v2_pack = if types[0] == Type::F32 && types[1] == Type::F32 {
+                    pack_f32s(values[0], values[1])?
                 } else {
-                    let v1 = err!(builder.build_bit_cast(v1, intrinsics.i32_ty, ""));
-                    let v2 = err!(builder.build_bit_cast(v2, intrinsics.i32_ty, ""));
+                    let v1 = err!(builder.build_bit_cast(values[0], intrinsics.i32_ty, ""));
+                    let v2 = err!(builder.build_bit_cast(values[1], intrinsics.i32_ty, ""));
                     pack_i32s(v1, v2)?
                 };
-                let v3v4_pack = if is_f32(v3) && is_f32(v4) {
-                    pack_f32s(v3, v4)?
+                let v3v4_pack = if types[2] == Type::F32 && types[3] == Type::F32 {
+                    pack_f32s(values[2], values[3])?
                 } else {
-                    let v3 = err!(builder.build_bit_cast(v3, intrinsics.i32_ty, ""));
-                    let v4 = err!(builder.build_bit_cast(v4, intrinsics.i32_ty, ""));
+                    let v3 = err!(builder.build_bit_cast(values[2], intrinsics.i32_ty, ""));
+                    let v4 = err!(builder.build_bit_cast(values[3], intrinsics.i32_ty, ""));
                     pack_i32s(v3, v4)?
                 };
                 build_struct(
@@ -601,9 +635,48 @@ impl Abi for X86_64SystemV {
                     &[v1v2_pack, v3v4_pack],
                 )
             }
-            _ => {
+            ReturnAbi::Void | ReturnAbi::Sret(_) => {
                 unreachable!("called to perform register return on struct return or void function")
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ReturnAbi, Type};
+
+    fn classify(types: &[Type]) -> ReturnAbi {
+        ReturnAbi::classify(types)
+    }
+
+    #[test]
+    fn classifies_return_abi_and_preserves_types() {
+        assert_eq!(classify(&[]), ReturnAbi::Void);
+        assert_eq!(classify(&[Type::I64]), ReturnAbi::Single([Type::I64]));
+        assert_eq!(
+            classify(&[Type::I32, Type::F64]),
+            ReturnAbi::Pair([Type::I32, Type::F64])
+        );
+        assert_eq!(
+            classify(&[Type::I32, Type::F32]),
+            ReturnAbi::PackedPair([Type::I32, Type::F32])
+        );
+        assert_eq!(
+            classify(&[Type::F32, Type::F32, Type::I64]),
+            ReturnAbi::PackedFirst([Type::F32, Type::F32, Type::I64])
+        );
+        assert_eq!(
+            classify(&[Type::F64, Type::I32, Type::F32]),
+            ReturnAbi::PackedLast([Type::F64, Type::I32, Type::F32])
+        );
+        assert_eq!(
+            classify(&[Type::I32, Type::F32, Type::F32, Type::I32]),
+            ReturnAbi::PackedQuads([Type::I32, Type::F32, Type::F32, Type::I32,])
+        );
+        assert_eq!(
+            classify(&[Type::V128, Type::I32]),
+            ReturnAbi::Sret(vec![Type::V128, Type::I32])
+        );
     }
 }
