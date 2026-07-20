@@ -39,8 +39,8 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
-use wasmer_compiler::elf::CompileOutput;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
+use wasmer_compiler::elf::CompileOutput;
 use wasmer_compiler::types::function::Compilation;
 
 use wasmer_compiler::progress::ProgressContext;
@@ -197,7 +197,10 @@ impl CraneliftCompiler {
         let compile_function = |func_translator: &mut FuncTranslator,
                                 i: &LocalFunctionIndex,
                                 input: &FunctionBodyData|
-         -> Result<CompileOutput<CraneliftCompiledFunction>, CompileError> {
+         -> Result<
+            CompileOutput<CraneliftCompiledFunction>,
+            CompileError,
+        > {
             let func_index = module.func_index(*i);
             let mut context = Context::new();
             let mut func_env = FuncEnvironment::new(

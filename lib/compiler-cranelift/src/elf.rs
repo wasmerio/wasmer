@@ -167,7 +167,12 @@ impl Writer for EhFrameWriter {
         }
     }
 
-    fn write_offset(&mut self, _val: usize, _section: GimliSectionId, _size: u8) -> GimliResult<()> {
+    fn write_offset(
+        &mut self,
+        _val: usize,
+        _section: GimliSectionId,
+        _size: u8,
+    ) -> GimliResult<()> {
         Err(cranelift_codegen::gimli::write::Error::OffsetOutOfBounds)
     }
 

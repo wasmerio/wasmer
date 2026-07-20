@@ -13,14 +13,14 @@ use object::{
 use std::path::{Path, PathBuf};
 #[cfg(feature = "unwind")]
 use wasmer_compiler::dwarf::{DwarfState, WriterRelocate};
+#[cfg(feature = "unwind")]
+use wasmer_compiler::elf::emit_eh_frame_section;
 use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section, save_object},
     misc::{CompiledFunctionExt, CompiledKind},
     object::get_object_for_target,
     types::function::CompiledFunction,
 };
-#[cfg(feature = "unwind")]
-use wasmer_compiler::elf::emit_eh_frame_section;
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
 
 pub(crate) use wasmer_compiler::elf::{

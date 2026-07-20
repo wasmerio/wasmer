@@ -23,9 +23,7 @@ use std::{
     path::{Path, PathBuf},
 };
 use tempfile::NamedTempFile;
-use wasmer_types::{
-    CompileError, LibCall, LocalFunctionIndex, TrapInformation, target::Target,
-};
+use wasmer_types::{CompileError, LibCall, LocalFunctionIndex, TrapInformation, target::Target};
 
 /// The result of compiling a single unit (function or trampoline): either an
 /// in-memory body for the classic artifact format, or a relocatable object
