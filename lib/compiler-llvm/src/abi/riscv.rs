@@ -1,11 +1,21 @@
 use crate::abi::Architecture;
 use itertools::Itertools;
-use wasmer_compiler::abi::ReturnAbi;
+use wasmer_compiler::abi::{PairSlot, ReturnAbi, ReturnSlot};
 use wasmer_types::Type;
 
 /// RISC-V System V return-value classification.
 pub(crate) struct RiscvSystemV {
     pub(crate) is_riscv64: bool,
+}
+
+/// Two adjacent `F32`s share a vector register; anything else bit-packs
+/// into a raw integer register.
+fn pair_slot(t0: Type, t1: Type) -> PairSlot {
+    if t0 == Type::F32 && t1 == Type::F32 {
+        PairSlot::F32Vector(t0, t1)
+    } else {
+        PairSlot::Raw(t0, t1)
+    }
 }
 
 impl Architecture for RiscvSystemV {
@@ -29,16 +39,18 @@ impl Architecture for RiscvSystemV {
         match (types, widths.as_slice()) {
             ([], []) => ReturnAbi::Void,
             ([value], [_]) => ReturnAbi::Single(*value),
-            ([first, second], [32, 64] | [64, 32] | [64, 64]) => ReturnAbi::Pair(*first, *second),
-            ([first, second], [32, 32]) => ReturnAbi::PackedPair(*first, *second),
+            ([first, second], [32, 64] | [64, 32] | [64, 64]) => {
+                ReturnAbi::Pair(ReturnSlot::Natural(*first), ReturnSlot::Natural(*second))
+            }
+            ([first, second], [32, 32]) => ReturnAbi::PackedPair(pair_slot(*first, *second)),
             ([first, second, third], [32, 32, 32 | 64]) => {
-                ReturnAbi::PackedFirst(*first, *second, *third)
+                ReturnAbi::PackedFirst(pair_slot(*first, *second), ReturnSlot::Natural(*third))
             }
             ([first, second, third], [64, 32, 32]) => {
-                ReturnAbi::PackedLast(*first, *second, *third)
+                ReturnAbi::PackedLast(ReturnSlot::Natural(*first), pair_slot(*second, *third))
             }
             ([first, second, third, fourth], [32, 32, 32, 32]) => {
-                ReturnAbi::PackedQuads(*first, *second, *third, *fourth)
+                ReturnAbi::PackedQuads(pair_slot(*first, *second), pair_slot(*third, *fourth))
             }
             _ => ReturnAbi::Sret(types.to_vec()),
         }

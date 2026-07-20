@@ -18,7 +18,7 @@ use inkwell::{
     },
 };
 use itertools::Itertools;
-use wasmer_compiler::abi::ReturnAbi;
+use wasmer_compiler::abi::{PairSlot, ReturnAbi, ReturnSlot};
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
 
@@ -208,27 +208,27 @@ impl<A: Architecture> LLVMAbi<A> {
         sig: &FuncSig,
         include_m0_param: bool,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
-        let type_for_pair = |t0: Type, t1: Type| {
-            if t0 == Type::F32 && t1 == Type::F32 {
-                intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
-            } else {
-                intrinsics.i64_ty.as_basic_type_enum()
-            }
+        // The LLVM type carrying a single-register return slot.
+        let slot_llvm_type = |slot| match slot {
+            ReturnSlot::Natural(t) => type_to_llvm(intrinsics, t),
+            ReturnSlot::Raw(Type::F32) => Ok(intrinsics.i32_ty.as_basic_type_enum()),
+            ReturnSlot::Raw(Type::F64) => Ok(intrinsics.i64_ty.as_basic_type_enum()),
+            ReturnSlot::Raw(t) => type_to_llvm(intrinsics, t),
+        };
+
+        // The LLVM type carrying two 32-bit values sharing one register.
+        let pair_llvm_type = |pair| match pair {
+            PairSlot::F32Vector(_, _) => intrinsics.f32_ty.vec_type(2).as_basic_type_enum(),
+            PairSlot::Raw(_, _) => intrinsics.i64_ty.as_basic_type_enum(),
         };
 
         let return_abi = self.architecture.classify_return_type(sig.results());
         let return_llvm_type: Option<BasicTypeEnum<'ctx>> = match &return_abi {
             ReturnAbi::Void | ReturnAbi::Sret(_) => None,
             ReturnAbi::Single(single_value) => Some(type_to_llvm(intrinsics, *single_value)?),
-            ReturnAbi::Pair(t0, t1) => Some(
+            ReturnAbi::Pair(s0, s1) => Some(
                 context
-                    .struct_type(
-                        &[
-                            type_to_llvm(intrinsics, *t0)?,
-                            type_to_llvm(intrinsics, *t1)?,
-                        ],
-                        false,
-                    )
+                    .struct_type(&[slot_llvm_type(*s0)?, slot_llvm_type(*s1)?], false)
                     .as_basic_type_enum(),
             ),
             ReturnAbi::Unpacked(types) => Some(
@@ -242,26 +242,20 @@ impl<A: Architecture> LLVMAbi<A> {
                     )
                     .as_basic_type_enum(),
             ),
-            ReturnAbi::PackedPair(t0, t1) => Some(type_for_pair(*t0, *t1)),
-            ReturnAbi::PackedFirst(t0, t1, t2) => Some(
+            ReturnAbi::PackedPair(pair) => Some(pair_llvm_type(*pair)),
+            ReturnAbi::PackedFirst(pair, slot) => Some(
                 context
-                    .struct_type(
-                        &[type_for_pair(*t0, *t1), type_to_llvm(intrinsics, *t2)?],
-                        false,
-                    )
+                    .struct_type(&[pair_llvm_type(*pair), slot_llvm_type(*slot)?], false)
                     .as_basic_type_enum(),
             ),
-            ReturnAbi::PackedLast(t0, t1, t2) => Some(
+            ReturnAbi::PackedLast(slot, pair) => Some(
                 context
-                    .struct_type(
-                        &[type_to_llvm(intrinsics, *t0)?, type_for_pair(*t1, *t2)],
-                        false,
-                    )
+                    .struct_type(&[slot_llvm_type(*slot)?, pair_llvm_type(*pair)], false)
                     .as_basic_type_enum(),
             ),
-            ReturnAbi::PackedQuads(t0, t1, t2, t3) => Some(
+            ReturnAbi::PackedQuads(p0, p1) => Some(
                 context
-                    .struct_type(&[type_for_pair(*t0, *t1), type_for_pair(*t2, *t3)], false)
+                    .struct_type(&[pair_llvm_type(*p0), pair_llvm_type(*p1)], false)
                     .as_basic_type_enum(),
             ),
         };
@@ -419,6 +413,35 @@ impl<A: Architecture> LLVMAbi<A> {
                 }
             };
 
+        // Restore a single-register return slot to its natural wasm type.
+        let restore_slot = |value, slot| match slot {
+            ReturnSlot::Natural(_) => Ok(value),
+            ReturnSlot::Raw(Type::F32) => {
+                err_nt!(builder.build_bit_cast(value, intrinsics.f32_ty, ""))
+            }
+            ReturnSlot::Raw(Type::F64) => {
+                err_nt!(builder.build_bit_cast(value, intrinsics.f64_ty, ""))
+            }
+            ReturnSlot::Raw(_) => Ok(value),
+        };
+
+        // Split a packed-pair register back into its two wasm values.
+        let unpack_pair =
+            |value: BasicValueEnum<'ctx>,
+             pair: PairSlot|
+             -> Result<(BasicValueEnum<'ctx>, BasicValueEnum<'ctx>), CompileError> {
+                match pair {
+                    PairSlot::F32Vector(_, _) => {
+                        let (v0, v1) = extract_f32x2(value.into_vector_value())?;
+                        Ok((v0.into(), v1.into()))
+                    }
+                    PairSlot::Raw(t0, t1) => {
+                        let (low, high) = split_i64(value.into_int_value())?;
+                        Ok((casted(low.into(), t0)?, casted(high.into(), t1)?))
+                    }
+                }
+            };
+
         if let Some(basic_value) = call_site.try_as_basic_value().basic() {
             if func_sig.results().len() > 1 {
                 if basic_value.get_type() == intrinsics.i64_ty.as_basic_type_enum() {
@@ -439,60 +462,29 @@ impl<A: Architecture> LLVMAbi<A> {
                     .map(|i| builder.build_extract_value(struct_value, i, "").unwrap())
                     .collect_vec();
                 let ret = match self.architecture.classify_return_type(func_sig.results()) {
-                    ReturnAbi::Pair(_, _) | ReturnAbi::Unpacked(_) => rets,
-                    ReturnAbi::PackedFirst(Type::F32, Type::F32, _) => {
-                        assert!(func_sig.results().len() == 3);
-                        let (rets0, rets1) = extract_f32x2(rets[0].into_vector_value())?;
-                        vec![rets0.into(), rets1.into(), rets[1]]
+                    ReturnAbi::Unpacked(_) => rets,
+                    ReturnAbi::Pair(s0, s1) => {
+                        vec![restore_slot(rets[0], s0)?, restore_slot(rets[1], s1)?]
                     }
-                    ReturnAbi::PackedFirst(t0, t1, _) => {
+                    ReturnAbi::PackedFirst(pair, slot) => {
                         assert!(func_sig.results().len() == 3);
-                        let (low, high) = split_i64(rets[0].into_int_value())?;
-                        let low = casted(low.into(), t0)?;
-                        let high = casted(high.into(), t1)?;
-                        vec![low, high, rets[1]]
+                        let (low, high) = unpack_pair(rets[0], pair)?;
+                        vec![low, high, restore_slot(rets[1], slot)?]
                     }
-                    ReturnAbi::PackedLast(_, Type::F32, Type::F32) => {
+                    ReturnAbi::PackedLast(slot, pair) => {
                         assert!(func_sig.results().len() == 3);
-                        let (rets1, rets2) = extract_f32x2(rets[1].into_vector_value())?;
-                        vec![rets[0], rets1.into(), rets2.into()]
+                        let (low, high) = unpack_pair(rets[1], pair)?;
+                        vec![restore_slot(rets[0], slot)?, low, high]
                     }
-                    ReturnAbi::PackedLast(_, t1, t2) => {
-                        assert!(func_sig.results().len() == 3);
-                        let (rets1, rets2) = split_i64(rets[1].into_int_value())?;
-                        let rets1 = casted(rets1.into(), t1)?;
-                        let rets2 = casted(rets2.into(), t2)?;
-                        vec![rets[0], rets1, rets2]
-                    }
-                    ReturnAbi::PackedQuads(t0, t1, t2, t3) => {
+                    ReturnAbi::PackedQuads(p0, p1) => {
                         assert!(func_sig.results().len() == 4);
-                        let (low0, high0) = if rets[0].get_type()
-                            == intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
-                        {
-                            let (x, y) = extract_f32x2(rets[0].into_vector_value())?;
-                            (x.into(), y.into())
-                        } else {
-                            let (x, y) = split_i64(rets[0].into_int_value())?;
-                            (x.into(), y.into())
-                        };
-                        let (low1, high1) = if rets[1].get_type()
-                            == intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
-                        {
-                            let (x, y) = extract_f32x2(rets[1].into_vector_value())?;
-                            (x.into(), y.into())
-                        } else {
-                            let (x, y) = split_i64(rets[1].into_int_value())?;
-                            (x.into(), y.into())
-                        };
-                        let low0 = casted(low0, t0)?;
-                        let high0 = casted(high0, t1)?;
-                        let low1 = casted(low1, t2)?;
-                        let high1 = casted(high1, t3)?;
+                        let (low0, high0) = unpack_pair(rets[0], p0)?;
+                        let (low1, high1) = unpack_pair(rets[1], p1)?;
                         vec![low0, high0, low1, high1]
                     }
                     ReturnAbi::Void
                     | ReturnAbi::Single(_)
-                    | ReturnAbi::PackedPair(_, _)
+                    | ReturnAbi::PackedPair(_)
                     | ReturnAbi::Sret(_) => {
                         unreachable!("expected an sret for this type")
                     }
@@ -600,64 +592,59 @@ impl<A: Architecture> LLVMAbi<A> {
             struct_value.as_basic_value_enum()
         };
 
+        let pack_slot = |value, slot| match slot {
+            ReturnSlot::Natural(_) => Ok(value),
+            ReturnSlot::Raw(Type::F32) => {
+                err_nt!(builder.build_bit_cast(value, intrinsics.i32_ty, ""))
+            }
+            ReturnSlot::Raw(Type::F64) => {
+                err_nt!(builder.build_bit_cast(value, intrinsics.i64_ty, ""))
+            }
+            ReturnSlot::Raw(_) => Ok(value),
+        };
+
+        // Pack two 32-bit values into the single register their `PairSlot` calls for.
+        let pack_pair = |first, second, pair| match pair {
+            PairSlot::F32Vector(_, _) => pack_f32s(first, second),
+            PairSlot::Raw(_, _) => {
+                let v1 = err!(builder.build_bit_cast(first, intrinsics.i32_ty, ""));
+                let v2 = err!(builder.build_bit_cast(second, intrinsics.i32_ty, ""));
+                pack_i32s(v1, v2)
+            }
+        };
+
         let return_abi = self.architecture.classify_return_type(func_sig.results());
+        let struct_ty = || func_type.get_return_type().unwrap().into_struct_type();
 
         Ok(match return_abi {
             ReturnAbi::Single(_) => values[0],
-            ReturnAbi::PackedPair(Type::F32, Type::F32) => pack_f32s(values[0], values[1])?,
-            ReturnAbi::PackedPair(_, _) => {
-                let v1 = err!(builder.build_bit_cast(values[0], intrinsics.i32_ty, ""));
-                let v2 = err!(builder.build_bit_cast(values[1], intrinsics.i32_ty, ""));
-                pack_i32s(v1, v2)?
-            }
-            ReturnAbi::Pair(_, _) | ReturnAbi::Unpacked(_) => build_struct(
-                func_type.get_return_type().unwrap().into_struct_type(),
-                values,
+            ReturnAbi::PackedPair(pair) => pack_pair(values[0], values[1], pair)?,
+            ReturnAbi::Unpacked(_) => build_struct(struct_ty(), values),
+            ReturnAbi::Pair(s0, s1) => build_struct(
+                struct_ty(),
+                &[pack_slot(values[0], s0)?, pack_slot(values[1], s1)?],
             ),
-            ReturnAbi::PackedFirst(Type::F32, Type::F32, _) => build_struct(
-                func_type.get_return_type().unwrap().into_struct_type(),
-                &[pack_f32s(values[0], values[1])?, values[2]],
+            ReturnAbi::PackedFirst(pair, slot) => build_struct(
+                struct_ty(),
+                &[
+                    pack_pair(values[0], values[1], pair)?,
+                    pack_slot(values[2], slot)?,
+                ],
             ),
-            ReturnAbi::PackedFirst(_, _, _) => {
-                let v1 = err!(builder.build_bit_cast(values[0], intrinsics.i32_ty, ""));
-                let v2 = err!(builder.build_bit_cast(values[1], intrinsics.i32_ty, ""));
-                build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[pack_i32s(v1, v2)?, values[2]],
-                )
-            }
-            ReturnAbi::PackedLast(_, Type::F32, Type::F32) => build_struct(
-                func_type.get_return_type().unwrap().into_struct_type(),
-                &[values[0], pack_f32s(values[1], values[2])?],
+            ReturnAbi::PackedLast(slot, pair) => build_struct(
+                struct_ty(),
+                &[
+                    pack_slot(values[0], slot)?,
+                    pack_pair(values[1], values[2], pair)?,
+                ],
             ),
-            ReturnAbi::PackedLast(_, _, _) => {
-                let v2 = err!(builder.build_bit_cast(values[1], intrinsics.i32_ty, ""));
-                let v3 = err!(builder.build_bit_cast(values[2], intrinsics.i32_ty, ""));
-                build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[values[0], pack_i32s(v2, v3)?],
-                )
-            }
-            ReturnAbi::PackedQuads(t0, t1, t2, t3) => {
-                let v1v2_pack = if t0 == Type::F32 && t1 == Type::F32 {
-                    pack_f32s(values[0], values[1])?
-                } else {
-                    let v1 = err!(builder.build_bit_cast(values[0], intrinsics.i32_ty, ""));
-                    let v2 = err!(builder.build_bit_cast(values[1], intrinsics.i32_ty, ""));
-                    pack_i32s(v1, v2)?
-                };
-                let v3v4_pack = if t2 == Type::F32 && t3 == Type::F32 {
-                    pack_f32s(values[2], values[3])?
-                } else {
-                    let v3 = err!(builder.build_bit_cast(values[2], intrinsics.i32_ty, ""));
-                    let v4 = err!(builder.build_bit_cast(values[3], intrinsics.i32_ty, ""));
-                    pack_i32s(v3, v4)?
-                };
-                build_struct(
-                    func_type.get_return_type().unwrap().into_struct_type(),
-                    &[v1v2_pack, v3v4_pack],
-                )
-            }
+            ReturnAbi::PackedQuads(p0, p1) => build_struct(
+                struct_ty(),
+                &[
+                    pack_pair(values[0], values[1], p0)?,
+                    pack_pair(values[2], values[3], p1)?,
+                ],
+            ),
             ReturnAbi::Void | ReturnAbi::Sret(_) => {
                 unreachable!("called to perform register return on struct return or void function")
             }
