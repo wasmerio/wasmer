@@ -4,7 +4,7 @@
 //!
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
-use crate::abi::Abi;
+use crate::abi::LLVMAbi;
 use crate::error::err;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
@@ -1452,7 +1452,7 @@ pub struct CtxType<'ctx, 'a> {
 
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
-    abi: &'a dyn Abi,
+    abi: &'a LLVMAbi,
 
     cached_memories: HashMap<MemoryIndex, MemoryCache<'ctx>>,
     cached_tables: HashMap<TableIndex, TableCache<'ctx>>,
@@ -1468,7 +1468,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         wasm_module: &'a WasmerCompilerModule,
         func_value: &FunctionValue<'ctx>,
         cache_builder: &'a Builder<'ctx>,
-        abi: &'a dyn Abi,
+        abi: &'a LLVMAbi,
         pointer_width: u8,
         m0: Option<PointerValue<'ctx>>,
     ) -> CtxType<'ctx, 'a> {

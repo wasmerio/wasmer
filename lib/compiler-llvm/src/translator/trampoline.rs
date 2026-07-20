@@ -2,7 +2,7 @@
 #![allow(unused)]
 
 use crate::{
-    abi::{Abi, get_abi},
+    abi::{LLVMAbi, get_abi},
     config::LLVM,
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
@@ -39,7 +39,7 @@ pub struct FuncTrampoline {
     ctx: Context,
     target_machine: TargetMachine,
     target_triple: Triple,
-    abi: Box<dyn Abi>,
+    abi: LLVMAbi,
     binary_fmt: BinaryFormat,
     func_section: String,
 }
