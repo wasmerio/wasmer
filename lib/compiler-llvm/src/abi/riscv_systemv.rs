@@ -518,6 +518,7 @@ impl Abi for RiscvSystemV {
         intrinsics: &Intrinsics<'ctx>,
         builder: &Builder<'ctx>,
         values: &[BasicValueEnum<'ctx>],
+        _func_sig: &FuncSig,
         func_type: &FunctionType<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
         let is_32 = |value: BasicValueEnum| {

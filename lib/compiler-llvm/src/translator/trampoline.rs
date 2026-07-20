@@ -719,6 +719,7 @@ impl FuncTrampoline {
                         intrinsics,
                         &builder,
                         results.as_slice(),
+                        func_sig,
                         &trampoline_func.get_type(),
                     )?))
                 );

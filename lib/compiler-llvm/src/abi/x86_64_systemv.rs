@@ -16,7 +16,7 @@ use wasmer_vm::VMOffsets;
 
 use std::convert::TryInto;
 
-/// Describes how a list of values is returned by the AMD64 System V ABI.
+/// Describes how a list of values is returned by a ABI.
 ///
 /// Every non-void variant retains the values it classified so signature
 /// construction, packing, and unpacking all use the same ABI rules.
@@ -390,32 +390,9 @@ impl Abi for X86_64SystemV {
         intrinsics: &Intrinsics<'ctx>,
         builder: &Builder<'ctx>,
         values: &[BasicValueEnum<'ctx>],
+        func_sig: &FuncSig,
         func_type: &FunctionType<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        let wasm_type = |value: BasicValueEnum| {
-            if value.is_int_value() {
-                let ty = value.into_int_value().get_type();
-                if ty == intrinsics.i32_ty {
-                    Type::I32
-                } else if ty == intrinsics.i64_ty {
-                    Type::I64
-                } else if ty == intrinsics.i128_ty {
-                    Type::V128
-                } else {
-                    unreachable!("unsupported integer return type")
-                }
-            } else if value.is_float_value() {
-                if value.into_float_value().get_type() == intrinsics.f32_ty {
-                    Type::F32
-                } else {
-                    Type::F64
-                }
-            } else if value.is_pointer_value() {
-                Type::ExternRef
-            } else {
-                unreachable!("unsupported return type")
-            }
-        };
         let pack_i32s = |low: BasicValueEnum<'ctx>, high: BasicValueEnum<'ctx>| {
             assert!(low.get_type() == intrinsics.i32_ty.as_basic_type_enum());
             assert!(high.get_type() == intrinsics.i32_ty.as_basic_type_enum());
@@ -462,8 +439,7 @@ impl Abi for X86_64SystemV {
             struct_value.as_basic_value_enum()
         };
 
-        let value_types = values.iter().copied().map(wasm_type).collect::<Vec<_>>();
-        let return_abi = classify_x86_64(&value_types);
+        let return_abi = classify_x86_64(func_sig.results());
 
         Ok(match return_abi {
             ReturnAbi::Single(_) => values[0],

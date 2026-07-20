@@ -193,6 +193,7 @@ pub trait Abi {
         intrinsics: &Intrinsics<'ctx>,
         builder: &Builder<'ctx>,
         values: &[BasicValueEnum<'ctx>],
+        func_sig: &FuncSig,
         func_type: &FunctionType<'ctx>,
     ) -> Result<BasicValueEnum<'ctx>, CompileError>;
 }

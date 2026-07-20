@@ -1864,6 +1864,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.intrinsics,
                         &self.builder,
                         &results,
+                        wasm_fn_type,
                         &func_type,
                     )?))
             );
