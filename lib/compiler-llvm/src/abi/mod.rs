@@ -11,9 +11,7 @@ use inkwell::{
     builder::Builder,
     context::Context,
     targets::TargetMachine,
-    types::{
-        AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, StructType,
-    },
+    types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, StructType},
     values::{
         BasicValue, BasicValueEnum, CallSiteValue, FloatValue, FunctionValue, IntValue,
         PointerValue, VectorValue,
@@ -24,13 +22,13 @@ use wasmer_compiler::abi::ReturnAbi;
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
 
-mod aarch64_systemv;
-mod riscv_systemv;
-mod x86_64_systemv;
+mod aarch64;
+mod riscv;
+mod x86_64;
 
-use aarch64_systemv::Aarch64SystemV;
-use riscv_systemv::RiscvSystemV;
-use x86_64_systemv::X86_64SystemV;
+use aarch64::Aarch64SystemV;
+use riscv::RiscvSystemV;
+use x86_64::X86_64SystemV;
 
 /// Target-specific return-value classification.
 pub(crate) trait Architecture {
