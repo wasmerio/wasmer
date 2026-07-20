@@ -40,6 +40,28 @@ pub enum CompileOutput<T> {
 
 impl<T: crate::compiler::CompiledFunction> crate::compiler::CompiledFunction for CompileOutput<T> {}
 
+/// Extract the object-file paths from ELF-mode compile outputs.
+pub fn compile_output_paths<T>(outputs: Vec<CompileOutput<T>>) -> Vec<PathBuf> {
+    outputs
+        .into_iter()
+        .map(|output| match output {
+            CompileOutput::Object(path, _) => path,
+            CompileOutput::InMemory(_) => unreachable!(),
+        })
+        .collect()
+}
+
+/// Extract the in-memory bodies from classic-mode compile outputs.
+pub fn compile_output_in_memory<T>(outputs: Vec<CompileOutput<T>>) -> Vec<T> {
+    outputs
+        .into_iter()
+        .map(|output| match output {
+            CompileOutput::InMemory(body) => body,
+            CompileOutput::Object(..) => unreachable!(),
+        })
+        .collect()
+}
+
 /// Write a finished object into `build_directory` under `filename`.
 pub fn save_object(
     object: Object<'static>,

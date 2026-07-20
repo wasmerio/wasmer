@@ -24,7 +24,8 @@ use wasmer_compiler::{
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
 
 pub(crate) use wasmer_compiler::elf::{
-    CompileOutput, emit_function_body, emit_import_trampoline, link_module,
+    CompileOutput, compile_output_in_memory, compile_output_paths, emit_function_body,
+    emit_import_trampoline, link_module,
 };
 
 pub(crate) fn emit_local_function(

@@ -6,7 +6,7 @@ use crate::codegen::FuncGen;
 use crate::config::{self, Singlepass};
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-use crate::elf::{self, CompileOutput};
+use crate::elf::{self, CompileOutput, compile_output_in_memory, compile_output_paths};
 use crate::machine::Machine;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
@@ -366,34 +366,10 @@ impl SinglepassCompiler {
             .collect::<Result<Vec<_>, _>>()?;
 
         if self.config.elf_artifact_format {
-            let object_files = functions
-                .into_iter()
-                .map(|output| match output {
-                    CompileOutput::Object(path, _) => path,
-                    CompileOutput::InMemory(_) => unreachable!(),
-                })
-                .collect::<Vec<_>>();
-            let import_trampoline_objects = import_trampolines
-                .into_iter()
-                .map(|output| match output {
-                    CompileOutput::Object(path, _) => path,
-                    CompileOutput::InMemory(_) => unreachable!(),
-                })
-                .collect::<Vec<_>>();
-            let trampoline_objects = function_call_trampolines
-                .into_iter()
-                .map(|output| match output {
-                    CompileOutput::Object(path, _) => path,
-                    CompileOutput::InMemory(_) => unreachable!(),
-                })
-                .collect::<Vec<_>>();
-            let dynamic_trampoline_objects = dynamic_function_trampolines
-                .into_iter()
-                .map(|output| match output {
-                    CompileOutput::Object(path, _) => path,
-                    CompileOutput::InMemory(_) => unreachable!(),
-                })
-                .collect::<Vec<_>>();
+            let object_files = compile_output_paths(functions);
+            let import_trampoline_objects = compile_output_paths(import_trampolines);
+            let trampoline_objects = compile_output_paths(function_call_trampolines);
+            let dynamic_trampoline_objects = compile_output_paths(dynamic_function_trampolines);
 
             let compilation = elf::link_module(
                 target,
@@ -413,34 +389,17 @@ impl SinglepassCompiler {
         }
 
         #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
-        let (functions, fdes): (Vec<_>, Vec<_>) = functions
-            .into_iter()
-            .map(|output| match output {
-                CompileOutput::InMemory(output) => output,
-                CompileOutput::Object(..) => unreachable!(),
-            })
-            .unzip();
+        let (functions, fdes): (Vec<_>, Vec<_>) =
+            compile_output_in_memory(functions).into_iter().unzip();
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut custom_sections = import_trampolines
+        let mut custom_sections = compile_output_in_memory(import_trampolines)
             .into_iter()
-            .map(|output| match output {
-                CompileOutput::InMemory(section) => section,
-                CompileOutput::Object(..) => unreachable!(),
-            })
             .collect::<PrimaryMap<SectionIndex, _>>();
-        let function_call_trampolines = function_call_trampolines
+        let function_call_trampolines = compile_output_in_memory(function_call_trampolines)
             .into_iter()
-            .map(|output| match output {
-                CompileOutput::InMemory(body) => body,
-                CompileOutput::Object(..) => unreachable!(),
-            })
             .collect::<PrimaryMap<_, _>>();
-        let dynamic_function_trampolines = dynamic_function_trampolines
+        let dynamic_function_trampolines = compile_output_in_memory(dynamic_function_trampolines)
             .into_iter()
-            .map(|output| match output {
-                CompileOutput::InMemory(body) => body,
-                CompileOutput::Object(..) => unreachable!(),
-            })
             .collect::<PrimaryMap<FunctionIndex, _>>();
 
         #[allow(unused_mut)]

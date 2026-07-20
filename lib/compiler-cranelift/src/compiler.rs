@@ -40,7 +40,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tempfile::tempdir;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
-use wasmer_compiler::elf::CompileOutput;
+use wasmer_compiler::elf::{CompileOutput, compile_output_in_memory, compile_output_paths};
 use wasmer_compiler::types::function::Compilation;
 
 use wasmer_compiler::progress::ProgressContext;
@@ -763,28 +763,6 @@ impl Compiler for CraneliftCompiler {
         )?;
         Ok((compilation, function_max_stack_usage))
     }
-}
-
-/// Extract the object-file paths from ELF-mode compile outputs.
-fn compile_output_paths<T>(outputs: Vec<CompileOutput<T>>) -> Vec<std::path::PathBuf> {
-    outputs
-        .into_iter()
-        .map(|output| match output {
-            CompileOutput::Object(path, _) => path,
-            CompileOutput::InMemory(_) => unreachable!(),
-        })
-        .collect()
-}
-
-/// Extract the in-memory bodies from classic-mode compile outputs.
-fn compile_output_in_memory<T>(outputs: Vec<CompileOutput<T>>) -> Vec<T> {
-    outputs
-        .into_iter()
-        .map(|output| match output {
-            CompileOutput::InMemory(body) => body,
-            CompileOutput::Object(..) => unreachable!(),
-        })
-        .collect()
 }
 
 fn mach_reloc_to_reloc(
