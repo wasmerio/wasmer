@@ -113,6 +113,18 @@ jobs:
             echo "Pinned sysroot ($WASIX_LIBC_SYSROOT_TAG) is older than latest release ($latest)"
             exit 1
           fi
+      - name: Verify pinned wasix rust toolchain is up to date
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source .github/ci-constants.env
+          latest=$(gh release list --exclude-pre-releases --order desc -R wasix-org/rust --json tagName -q '.[0].tagName')
+          newest=$(printf '%s\n' "$latest" "$WASIX_RUST_TOOLCHAIN_TAG" | sort -V | tail -1)
+          if [ "$WASIX_RUST_TOOLCHAIN_TAG" != "$newest" ]; then
+            echo "Pinned rust toolchain ($WASIX_RUST_TOOLCHAIN_TAG) is older than latest release ($latest)"
+            exit 1
+          fi
   cargo_deny:
     name: cargo-deny
     runs-on: ubuntu-22.04
@@ -563,10 +575,72 @@ jobs:
           path: build-capi.tar.gz
           if-no-files-found: ignore
           retention-days: 2
+  build_wasm_tests_fixtures:
+    # The WASIX Rust toolchain is not published for every platform we test on,
+    # so the Rust wasm_tests fixtures are prebuilt here once (wasm is
+    # host-independent) and shared with the test jobs as an artifact.
+    name: Build Rust wasm_tests fixtures
+    runs-on: ubuntu-22.04
+    needs: setup
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - name: Load CI constants
+        shell: bash
+        run: grep -v '^#' .github/ci-constants.env >> $GITHUB_ENV
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
+      - name: Install Nextest
+        uses: taiki-e/install-action@nextest
+      - name: Install wasixcc
+        uses: wasix-org/wasixcc@v0.4.3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          version: v0.4.3
+          sysroot-tag: ${{ env.WASIX_LIBC_SYSROOT_TAG }}
+      - name: Install older wasix-libc for compatibility testing
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
+      - name: Install cargo-wasix
+        uses: wasix-org/cargo-wasix@main
+        with:
+          toolchain-version: ${{ env.WASIX_RUST_TOOLCHAIN_TAG }}
+      - name: Cache
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
+        with:
+          path: |
+            ~/.cargo/*
+            ./target/*
+          key: cache-v${{ env.S3_CACHE_VERSION }}-${{ github.repository }}-${{ runner.os }}-${{ hashFiles('Cargo.lock') }}-wasmer-wasm-tests-fixtures
+          aws-s3-bucket: wasmer-rust-artifacts-cache
+          aws-access-key-id: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_TOKEN }}
+          aws-secret-access-key: ${{ secrets.CLOUDFLARE_ARTIFACTS_CACHE_ACCESS_KEY }}
+          aws-region: auto
+          aws-endpoint: https://1541b1e8a3fc6ad155ce67ef38899700.r2.cloudflarestorage.com
+          aws-s3-bucket-endpoint: false
+          aws-s3-force-path-style: true
+      - name: Build fixtures
+        shell: bash
+        run: make build-wasm-tests-fixtures
+        env:
+          WASM_TESTS_BUILD_ONLY_DIR: ${{ github.workspace }}/wasm-tests-prebuilt
+      - name: Upload fixtures
+        uses: actions/upload-artifact@v4
+        with:
+          name: wasm-tests-prebuilt
+          path: wasm-tests-prebuilt
+          if-no-files-found: error
   test:
     name: ${{ matrix.stage.description }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
-    needs: setup
+    needs: [setup, build_wasm_tests_fixtures]
     strategy:
       fail-fast: false
       matrix:
@@ -684,6 +758,8 @@ jobs:
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.metadata.target }}
+      # For the wasip1-toolchain (Singlepass) variants of the Rust wasm_tests
+      # fixtures, which build locally on every platform.
       - name: Install Rust WASI targets
         if: matrix.stage.make == 'test-all'
         shell: bash
@@ -704,6 +780,16 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
         if: matrix.metadata.build != 'windows-x64'
+      - name: Download prebuilt Rust wasm_tests fixtures
+        if: matrix.stage.make == 'test-all'
+        uses: actions/download-artifact@v4
+        with:
+          name: wasm-tests-prebuilt
+          path: wasm-tests-prebuilt
+      - name: Use prebuilt Rust wasm_tests fixtures
+        if: matrix.stage.make == 'test-all'
+        shell: bash
+        run: echo "WASM_TESTS_PREBUILT_DIR=$GITHUB_WORKSPACE/wasm-tests-prebuilt" >> $GITHUB_ENV
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url
@@ -761,6 +847,7 @@ jobs:
       - test_build_docs_rs
       - build_linux_riscv64
       - build
+      - build_wasm_tests_fixtures
       - test
     if: ${{ always() }}
     steps:

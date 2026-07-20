@@ -5,7 +5,7 @@
 //! own arguments, environment setup, expected exit status, and output/file checks.
 //!
 //! Directives use `//#Directive: Args` in C/C++/Rust sources and
-//! `##Directive: Args` in shell sources.
+//! `##Directive: Args` in shell sources and `Cargo.toml` comments.
 //!
 //! Supported directives:
 //!
@@ -44,6 +44,11 @@
 //!
 //! `SkipEngine:{engine}:{reason}` marks the configuration as ignored for
 //! a given engine (LLVM, Cranelift, V8, Singlepass).
+//!
+//! `Toolchains:{list}` selects which toolchains build a single-file Rust
+//! fixture: `wasix` (cargo-wasix; runs on every engine except Singlepass) and
+//! `wasip1` (rustc with the wasm32-wasip1 target; runs on Singlepass only).
+//! Defaults to `wasix,wasip1` for single-file Rust fixtures.
 //!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
 //!
@@ -150,6 +155,37 @@ pub enum Engine {
     V8,
 }
 
+/// Which toolchain builds a Rust fixture. The WASIX toolchain emits
+/// exception-handling opcodes, so its output cannot run on Singlepass; the
+/// plain `wasm32-wasip1` rustup target can, and is available on every host
+/// platform.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
+enum Toolchain {
+    Wasix,
+    Wasip1,
+}
+
+impl Toolchain {
+    /// Engines that can run this toolchain's output. Singlepass lacks
+    /// exception-handling support, so it only runs the wasip1-built variant;
+    /// conversely the other engines only run the WASIX-built variant since
+    /// running both toolchains' output there would duplicate coverage.
+    fn supports_engine(self, engine: Engine) -> bool {
+        #[cfg(feature = "singlepass")]
+        let is_singlepass = engine == Engine::Singlepass;
+        #[cfg(not(feature = "singlepass"))]
+        let is_singlepass = {
+            let _ = engine;
+            false
+        };
+        match self {
+            Self::Wasix => !is_singlepass,
+            Self::Wasip1 => is_singlepass,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumIter, strum::EnumString)]
 #[strum(ascii_case_insensitive, serialize_all = "lowercase")]
 enum FileSystemKind {
@@ -185,6 +221,8 @@ struct Config {
     test_name: String,
     config_name: String,
     engine: Engine,
+    toolchain: Toolchain,
+    toolchains: Option<Vec<Toolchain>>,
     selected_file_system: FileSystemKind,
     file_systems: Option<Vec<FileSystemKind>>,
     is_abstract: bool,
@@ -225,6 +263,8 @@ impl Config {
             test_name,
             config_name: "default".to_owned(),
             engine: Engine::Cranelift,
+            toolchain: Toolchain::Wasix,
+            toolchains: None,
             file_systems: None,
             selected_file_system: FileSystemKind::Host,
             is_abstract: false,
@@ -255,6 +295,13 @@ impl Config {
     }
 
     fn full_test_name(&self) -> String {
+        format!("{}/{}", self.engine_independent_name(), self.engine)
+    }
+
+    /// Identifies this configuration's build inputs. Unlike `full_test_name`,
+    /// this excludes the engine: Rust fixture builds don't depend on it, so
+    /// prebuilt artifacts are shared across engines.
+    fn engine_independent_name(&self) -> String {
         let mut parts = vec!["wasm".to_owned(), self.test_name.clone()];
         if !self.source.is_default() {
             parts.push(self.source.config_name());
@@ -266,8 +313,14 @@ impl Config {
         if let Some(sysroot_version) = &self.sysroot_version {
             parts.push(sysroot_version.to_string());
         }
-        parts.push(self.engine.to_string());
+        if self.toolchain != Toolchain::Wasix {
+            parts.push(self.toolchain.to_string());
+        }
         parts.join("/")
+    }
+
+    fn prebuilt_wasm_path(&self, root: &Path) -> PathBuf {
+        root.join(self.engine_independent_name()).join("main.wasm")
     }
 
     fn set_sysroot(&mut self, sysroot_version: &'static str) -> Result<()> {
@@ -303,19 +356,8 @@ fn parse_configs(default_config: &Config) -> Result<Vec<Config>> {
     let mut config = default_config.clone();
     let mut build_env = Vec::new();
 
-    let directive_prefix = match src_filename
-        .extension()
-        .expect("extension expected")
-        .to_str()
-        .expect("must be valid string")
-    {
-        "c" | "cpp" | "rs" => "//#",
-        "sh" => "##",
-        suffix => bail!("unexpected extension '{suffix}' of a primary source: {src_filename:?}"),
-    };
-
     for (i, line) in source.lines().enumerate() {
-        if let Some(rest) = line.trim().strip_prefix(directive_prefix) {
+        if let Some(rest) = default_config.source.parse_directive_line(line) {
             process_directive(
                 rest,
                 &mut build_env,
@@ -463,22 +505,22 @@ fn process_directive(
                     }
                 }
                 "cranelift" => Some(Engine::Cranelift),
-                "v8" => {
-                    #[cfg(feature = "v8")]
-                    {
-                        Some(Engine::V8)
-                    }
-                    #[cfg(not(feature = "v8"))]
-                    {
-                        None
-                    }
-                }
                 "singlepass" => {
                     #[cfg(feature = "singlepass")]
                     {
                         Some(Engine::Singlepass)
                     }
                     #[cfg(not(feature = "singlepass"))]
+                    {
+                        None
+                    }
+                }
+                "v8" => {
+                    #[cfg(feature = "v8")]
+                    {
+                        Some(Engine::V8)
+                    }
+                    #[cfg(not(feature = "v8"))]
                     {
                         None
                     }
@@ -538,6 +580,28 @@ fn process_directive(
         }
         "DefaultMappedDirectories" => {
             config.default_mapped_directories = arg.parse::<bool>()?;
+        }
+        "Toolchains" => {
+            let toolchains = arg
+                .split(',')
+                .map(|toolchain| {
+                    toolchain
+                        .trim()
+                        .parse::<Toolchain>()
+                        .map_err(|_| anyhow!("unsupported toolchain: '{toolchain}'"))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            ensure!(
+                !toolchains.is_empty(),
+                "at least one toolchain must be selected"
+            );
+            if toolchains.contains(&Toolchain::Wasip1) {
+                ensure!(
+                    matches!(config.source, PrimarySource::RustSourceFile(_)),
+                    "the wasip1 toolchain is only supported for single-file Rust fixtures"
+                );
+            }
+            config.toolchains = Some(toolchains);
         }
         "FileSystems" => {
             config.file_systems = Some(if arg == "all" {
@@ -643,6 +707,13 @@ fn read_fixture_bytes(test_src_dir: &Path, arg: &str, directive: &str) -> Result
         .with_context(|| format!("failed to read {directive} {}", path.display()))
 }
 
+fn parse_cargo_toml_directive_line(line: &str) -> Option<&str> {
+    let rest = line.trim().strip_prefix("##")?.trim();
+    rest.split_once(':').map(|_| rest)
+}
+
+const CARGO_WASIX_ARTIFACT_DIR: &str = "target/wasm32-wasmer-wasi/debug";
+
 fn rustc_command(toolchain: Option<&str>) -> Command {
     if let Some(toolchain) = toolchain {
         // rustc +version multiplexing is unsupported on Windows, use the documented approach:
@@ -653,6 +724,90 @@ fn rustc_command(toolchain: Option<&str>) -> Command {
     } else {
         Command::new("rustc")
     }
+}
+
+fn rustc_wasip1_build_command(build_dir: &Path, source_filename: &str) -> Result<Command> {
+    let primary_source = build_dir.join(source_filename);
+    let source = std::fs::read_to_string(&primary_source)
+        .with_context(|| format!("Failed to read {}", primary_source.display()))?;
+    let mut cmd = rustc_command(source.contains("#![feature(").then_some("nightly"));
+    cmd.arg("--target=wasm32-wasip1")
+        .arg("-o")
+        .arg("main")
+        .arg(&primary_source)
+        .current_dir(build_dir);
+    Ok(cmd)
+}
+
+fn cargo_wasix_build_command(build_dir: &Path) -> Command {
+    let mut cmd = Command::new("cargo");
+    cmd.arg("wasix")
+        .arg("build")
+        .current_dir(build_dir)
+        // Ensure deterministic output location regardless of the caller environment.
+        .env("CARGO_TARGET_DIR", build_dir.join("target"));
+    cmd
+}
+
+fn write_ephemeral_cargo_toml(build_dir: &Path, source_filename: &str) -> Result<()> {
+    let manifest = format!(
+        r#"[package]
+name = "main"
+version = "0.0.0"
+# 2021 rather than 2024 so fixtures ported from the old direct-rustc build
+# (which used edition 2015) can keep their non-unsafe extern blocks.
+edition = "2021"
+
+[[bin]]
+name = "main"
+path = "{source_filename}"
+
+[workspace]
+"#
+    );
+    fs::write(build_dir.join("Cargo.toml"), manifest)
+        .with_context(|| format!("failed to write {}", build_dir.join("Cargo.toml").display()))
+}
+
+fn cargo_bin_name_from_manifest(manifest_path: &Path) -> Result<String> {
+    let contents = fs::read_to_string(manifest_path)
+        .with_context(|| format!("failed to read {}", manifest_path.display()))?;
+    let manifest: toml::Value = toml::from_str(&contents).context("failed to parse Cargo.toml")?;
+
+    if let Some(bins) = manifest.get("bin").and_then(|bins| bins.as_array()) {
+        ensure!(
+            bins.len() == 1,
+            "expected exactly one [[bin]] in {}",
+            manifest_path.display()
+        );
+        return Ok(bins[0]
+            .get("name")
+            .and_then(|name| name.as_str())
+            .context("[[bin]] is missing name")?
+            .to_owned());
+    }
+
+    manifest
+        .get("package")
+        .and_then(|package| package.get("name"))
+        .and_then(|name| name.as_str())
+        .context("missing package.name")
+        .map(str::to_owned)
+}
+
+fn copy_cargo_wasix_artifact(build_dir: &Path, bin_name: &str) -> Result<PathBuf> {
+    let wasm = build_dir
+        .join(CARGO_WASIX_ARTIFACT_DIR)
+        .join(format!("{bin_name}.wasm"));
+    let main_path = build_dir.join("main");
+    fs::copy(&wasm, &main_path).with_context(|| {
+        format!(
+            "failed to copy {} to {}",
+            wasm.display(),
+            main_path.display()
+        )
+    })?;
+    Ok(main_path)
 }
 
 fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
@@ -671,6 +826,25 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
             build_test_path.display(),
         )
     })?;
+
+    // WASIX-toolchain Rust fixtures can be prebuilt elsewhere (see
+    // `build_fixture_only`), which lets platforms without a WASIX Rust
+    // toolchain run the tests. The wasip1 toolchain is available everywhere,
+    // so those variants always build locally.
+    if config.source.is_rust() && config.toolchain == Toolchain::Wasix {
+        if let Some(prebuilt_root) = env_var_path("WASM_TESTS_PREBUILT_DIR") {
+            let prebuilt = config.prebuilt_wasm_path(&prebuilt_root);
+            let main_path = build_test_path.join("main");
+            fs::copy(&prebuilt, &main_path).with_context(|| {
+                format!(
+                    "failed to copy prebuilt Rust fixture {} — \
+                     ensure the fixture prebuild ran with a matching configuration",
+                    prebuilt.display()
+                )
+            })?;
+            return Ok(main_path);
+        }
+    }
 
     let mut cmd = match &config.source {
         PrimarySource::BashScript(filename) => {
@@ -692,7 +866,9 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
                     std::env::var("CXX").unwrap_or_else(|_| "wasix++".to_string())
                 }
                 PrimarySource::BashScript(_) => unreachable!("handled above"),
-                PrimarySource::RustSourceFile(_) => unreachable!("handled below"),
+                PrimarySource::RustSourceFile(_) | PrimarySource::CargoProject => {
+                    unreachable!("handled below")
+                }
             };
             let mut cmd = Command::new(&compiler);
             cmd.arg(&primary_source)
@@ -702,18 +878,14 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
                 .env("WASIXCC_DISCARD_UNSUPPORTED_FLAGS", "yes");
             cmd
         }
-        PrimarySource::RustSourceFile(filename) => {
-            let primary_source = build_test_path.join(filename);
-            let source = std::fs::read_to_string(&primary_source)
-                .with_context(|| format!("Failed to read {}", primary_source.display()))?;
-            let mut cmd = rustc_command(source.contains("#![feature(").then_some("nightly"));
-            cmd.arg("--target=wasm32-wasip1")
-                .arg("-o")
-                .arg("main")
-                .arg(&primary_source)
-                .current_dir(&build_test_path);
-            cmd
-        }
+        PrimarySource::RustSourceFile(filename) => match config.toolchain {
+            Toolchain::Wasix => {
+                write_ephemeral_cargo_toml(&build_test_path, filename)?;
+                cargo_wasix_build_command(&build_test_path)
+            }
+            Toolchain::Wasip1 => rustc_wasip1_build_command(&build_test_path, filename)?,
+        },
+        PrimarySource::CargoProject => cargo_wasix_build_command(&build_test_path),
     };
 
     for (k, v) in &config.build_env {
@@ -728,7 +900,24 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         anyhow::bail!("Build failed for {}", build_test_path.display());
     }
 
-    Ok(build_test_path.join("main"))
+    let main_path = match (&config.source, config.toolchain) {
+        (PrimarySource::RustSourceFile(_), Toolchain::Wasix) => {
+            copy_cargo_wasix_artifact(&build_test_path, "main")?
+        }
+        (PrimarySource::CargoProject, _) => {
+            let bin_name = cargo_bin_name_from_manifest(&build_test_path.join("Cargo.toml"))?;
+            copy_cargo_wasix_artifact(&build_test_path, &bin_name)?
+        }
+        (PrimarySource::RustSourceFile(_), Toolchain::Wasip1)
+        | (
+            PrimarySource::BashScript(_)
+            | PrimarySource::CSourceFile(_)
+            | PrimarySource::CppSourceFile(_),
+            _,
+        ) => build_test_path.join("main"),
+    };
+
+    Ok(main_path)
 }
 
 struct CopyHostTreeActions<CreateDirectory, CopyFile, CopyLink> {
@@ -980,9 +1169,53 @@ fn configure_mapped_directories(
     Ok(())
 }
 
+fn env_var_path(name: &str) -> Option<PathBuf> {
+    std::env::var_os(name)
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+}
+
+/// Build the Rust fixture for this configuration and export the resulting
+/// wasm to `output_root` without running the test. CI uses this to prebuild
+/// fixtures on a host that has the WASIX Rust toolchain; hosts without one
+/// consume the artifacts via `WASM_TESTS_PREBUILT_DIR`.
+fn build_fixture_only(config: &Config, output_root: &Path) -> Result<libtest_mimic::Completion> {
+    if !config.source.is_rust() {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "build-only: not a Rust fixture",
+        ));
+    }
+    if config.toolchain != Toolchain::Wasix {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "build-only: wasip1 fixtures build on every host",
+        ));
+    }
+    // Artifacts are engine-independent, so build each configuration once
+    // through its Cranelift trial. This requires the build-only run to happen
+    // on a host that collects Cranelift trials (i.e. not macOS).
+    if config.engine != Engine::Cranelift {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "build-only: built by the cranelift variant",
+        ));
+    }
+    if let Some(reason) = minimal_libc_skip_reason(config)? {
+        return Ok(libtest_mimic::Completion::ignored_with(reason));
+    }
+
+    let wasm = run_build_script(config)?;
+    let dest = config.prebuilt_wasm_path(output_root);
+    create_dir_all(dest.parent().expect("prebuilt path must have a parent"))?;
+    fs::copy(&wasm, &dest)
+        .with_context(|| format!("failed to export {} to {}", wasm.display(), dest.display()))?;
+    Ok(libtest_mimic::Completion::Completed)
+}
+
 fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     if let Some(reason) = &config.ignored {
         return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
+    }
+    if let Some(output_root) = env_var_path("WASM_TESTS_BUILD_ONLY_DIR") {
+        return build_fixture_only(&config, &output_root);
     }
     if !cfg!(unix) && config.unix_only {
         return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
@@ -1106,13 +1339,14 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     Ok(libtest_mimic::Completion::Completed)
 }
 
-const PRIMARY_SOURCE_FILES: &[&str] = &["main.c", "main.cpp", "build.sh"];
+const PRIMARY_SOURCE_FILES: &[&str] = &["main.c", "main.cpp", "build.sh", "Cargo.toml"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum PrimarySource {
     CSourceFile(String),
     CppSourceFile(String),
     RustSourceFile(String),
+    CargoProject,
     BashScript(String),
 }
 
@@ -1141,6 +1375,7 @@ impl PrimarySource {
                         .to_string()
                 }
             }
+            Self::CargoProject => "default".to_owned(),
         }
     }
 
@@ -1150,6 +1385,7 @@ impl PrimarySource {
             | Self::CppSourceFile(filename)
             | Self::RustSourceFile(filename) => filename.clone(),
             Self::BashScript(filename) => filename.clone(),
+            Self::CargoProject => "Cargo.toml".to_owned(),
         }
     }
 
@@ -1160,6 +1396,21 @@ impl PrimarySource {
             }
             Self::RustSourceFile(_) => false,
             Self::BashScript(filename) => filename == "build.sh",
+            Self::CargoProject => true,
+        }
+    }
+
+    fn is_rust(&self) -> bool {
+        matches!(self, Self::RustSourceFile(_) | Self::CargoProject)
+    }
+
+    fn parse_directive_line<'a>(&self, line: &'a str) -> Option<&'a str> {
+        match self {
+            Self::CargoProject => parse_cargo_toml_directive_line(line),
+            Self::BashScript(_) => line.trim().strip_prefix("##"),
+            Self::CSourceFile(_) | Self::CppSourceFile(_) | Self::RustSourceFile(_) => {
+                line.trim().strip_prefix("//#")
+            }
         }
     }
 }
@@ -1180,6 +1431,10 @@ fn identify_primary_sources(test_src_dir: &Path) -> Result<Vec<PrimarySource>> {
         .collect_vec();
     if !shell_sources.is_empty() {
         return Ok(shell_sources);
+    }
+
+    if test_src_dir.join("Cargo.toml").is_file() {
+        return Ok(vec![PrimarySource::CargoProject]);
     }
 
     for file in ["main.c", "main.cpp"] {
@@ -1216,7 +1471,7 @@ fn identify_primary_sources(test_src_dir: &Path) -> Result<Vec<PrimarySource>> {
     bail!(
         "{} must contain {}",
         test_src_dir.display(),
-        "main.c, main.cpp, build.sh, or *.rs"
+        "build.sh, Cargo.toml, main.c, main.cpp, or *.rs"
     );
 }
 
@@ -1271,6 +1526,14 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
         let default_file_systems = vec![FileSystemKind::Host];
         for primary_source in primary_sources {
+            // Single-file Rust fixtures historically built with wasm32-wasip1;
+            // keep that variant alive since it is the only way to run them on
+            // Singlepass (the WASIX toolchain emits EH opcodes it lacks).
+            let default_toolchains = match &primary_source {
+                PrimarySource::RustSourceFile(_) => vec![Toolchain::Wasix, Toolchain::Wasip1],
+                _ => vec![Toolchain::Wasix],
+            };
+
             let configs = parse_configs(&Config::new(
                 primary_source,
                 entry.path().to_path_buf(),
@@ -1284,54 +1547,48 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                     .as_ref()
                     .unwrap_or(&default_file_systems)
                 {
-                    for engine in &supported_engines {
-                        // In general, the WASIX tests expect support for more advanced WebAssembly extensions (like exception handling),
-                        // but we can still run selectively some tests with Singlepass.
-                        #[cfg(feature = "singlepass")]
-                        {
-                            let test_name = entry
-                                .path()
-                                .file_name()
-                                .expect("must be valid filename")
-                                .to_string_lossy()
-                                .to_string();
-                            if *engine == Engine::Singlepass
-                                && !["wasi_fyi", "wasi_wast"].contains(&test_name.as_str())
-                            {
+                    for toolchain in config.toolchains.as_ref().unwrap_or(&default_toolchains) {
+                        for engine in &supported_engines {
+                            if !toolchain.supports_engine(*engine) {
                                 continue;
                             }
-                        }
 
-                        // WASIXCC toolchain does not cover Windows yet.
-                        if cfg!(target_os = "windows")
-                            && !matches!(config.source, PrimarySource::RustSourceFile(..))
-                        {
-                            continue;
-                        }
-
-                        for sysroot in TESTED_LIBC_VERSIONS {
-                            // For performance reasons, run the wasix-libc compatibility tests
-                            // only with the Cranelift compiler.
-                            if sysroot.is_some()
-                                && (*engine != Engine::Cranelift || cfg!(target_os = "windows"))
+                            // WASIXCC toolchain does not cover Windows yet.
+                            if cfg!(target_os = "windows")
+                                && !matches!(
+                                    config.source,
+                                    PrimarySource::RustSourceFile(..) | PrimarySource::CargoProject
+                                )
                             {
                                 continue;
                             }
 
-                            let mut config = config.clone();
-                            config.engine = *engine;
-                            config.selected_file_system = *file_system;
-                            if let Some(sysroot_version) = sysroot {
-                                config.set_sysroot(sysroot_version)?;
-                            }
+                            for sysroot in TESTED_LIBC_VERSIONS {
+                                // For performance reasons, run the wasix-libc compatibility tests
+                                // only with the Cranelift compiler.
+                                if sysroot.is_some()
+                                    && (*engine != Engine::Cranelift || cfg!(target_os = "windows"))
+                                {
+                                    continue;
+                                }
 
-                            tests.push(libtest_mimic::Trial::ignorable_test(
-                                config.full_test_name(),
-                                move || {
-                                    run_integration_test(config)
-                                        .map_err(|e| libtest_mimic::Failed::from(format!("{e:?}")))
-                                },
-                            ));
+                                let mut config = config.clone();
+                                config.engine = *engine;
+                                config.toolchain = *toolchain;
+                                config.selected_file_system = *file_system;
+                                if let Some(sysroot_version) = sysroot {
+                                    config.set_sysroot(sysroot_version)?;
+                                }
+
+                                tests.push(libtest_mimic::Trial::ignorable_test(
+                                    config.full_test_name(),
+                                    move || {
+                                        run_integration_test(config).map_err(|e| {
+                                            libtest_mimic::Failed::from(format!("{e:?}"))
+                                        })
+                                    },
+                                ));
+                            }
                         }
                     }
                 }
@@ -1349,6 +1606,11 @@ fn run_dynamic_runtime_hook_smoke(
     if cfg!(target_os = "windows") {
         return Ok(libtest_mimic::Completion::ignored_with(
             "WASIXCC toolchain does not cover Windows yet",
+        ));
+    }
+    if env_var_path("WASM_TESTS_BUILD_ONLY_DIR").is_some() {
+        return Ok(libtest_mimic::Completion::ignored_with(
+            "build-only: not a Rust fixture",
         ));
     }
 

@@ -3,5 +3,5 @@
 use std::process;
 
 fn main() {
-  process::exit(120);
+    process::exit(120);
 }
