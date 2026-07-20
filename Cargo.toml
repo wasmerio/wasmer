@@ -391,6 +391,7 @@ llvm = ["compiler", "wasmer-compiler-llvm", "wasmer/llvm"]
 experimental-artifact = [
   "wasmer-compiler-singlepass/experimental-artifact",
   "wasmer-compiler-llvm/experimental-artifact",
+  "wasmer-compiler-cranelift?/experimental-artifact",
 ]
 middlewares = ["wasmer-middlewares"]
 wasmer-artifact-load = ["wasmer-compiler/wasmer-artifact-load"]

@@ -106,6 +106,7 @@ llvm = [
 experimental-artifact = [
   "wasmer-compiler-singlepass/experimental-artifact",
   "wasmer-compiler-llvm/experimental-artifact",
+  "wasmer-compiler-cranelift?/experimental-artifact",
 ]
 disable-all-logging = [
   "wasmer-wasix/disable-all-logging",

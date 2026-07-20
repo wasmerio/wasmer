@@ -151,6 +151,7 @@ llvm = ["compiler", "wasmer-compiler-llvm"]
 experimental-artifact = [
   "wasmer-compiler-singlepass/experimental-artifact",
   "wasmer-compiler-llvm/experimental-artifact",
+  "wasmer-compiler-cranelift?/experimental-artifact",
 ]
 
 # --- Enable the v8 backend and use it as default backend.

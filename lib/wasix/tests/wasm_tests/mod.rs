@@ -142,6 +142,13 @@ struct MappedDirectory {
 #[strum(ascii_case_insensitive, serialize_all = "lowercase")]
 pub enum Engine {
     Cranelift,
+    #[cfg(all(
+        feature = "experimental-artifact",
+        target_os = "linux",
+        target_arch = "x86_64"
+    ))]
+    #[strum(serialize = "cranelift_exp_artifact")]
+    CraneliftExperimentalArtifact,
     #[cfg(feature = "llvm")]
     LLVM,
     #[cfg(all(
@@ -181,6 +188,12 @@ impl Engine {
     pub fn name(self) -> &'static str {
         match self {
             Self::Cranelift => "cranelift",
+            #[cfg(all(
+                feature = "experimental-artifact",
+                target_os = "linux",
+                target_arch = "x86_64"
+            ))]
+            Self::CraneliftExperimentalArtifact => "cranelift",
             #[cfg(feature = "llvm")]
             Self::LLVM => "llvm",
             #[cfg(all(
@@ -1292,6 +1305,12 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
         #[allow(unused_mut)]
         let mut supported_engines = vec![Engine::Cranelift];
+        #[cfg(all(
+            feature = "experimental-artifact",
+            target_os = "linux",
+            target_arch = "x86_64"
+        ))]
+        supported_engines.push(Engine::CraneliftExperimentalArtifact);
         #[cfg(feature = "llvm")]
         supported_engines.push(Engine::LLVM);
         #[cfg(all(

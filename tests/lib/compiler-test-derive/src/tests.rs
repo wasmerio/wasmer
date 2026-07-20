@@ -148,6 +148,29 @@ gen_tests! {
                     foo(config)
                 }
             }
+
+            #[cfg(all(
+                feature = "cranelift",
+                feature = "experimental-artifact",
+                target_os = "linux",
+                target_arch = "x86_64"
+            ))]
+            mod cranelift_exp_artifact {
+                use super:: * ;
+                #[test_log::test]
+                #[cold]
+                #[cfg(all(
+                    feature = "cranelift",
+                    feature = "experimental-artifact",
+                    target_os = "linux",
+                    target_arch = "x86_64"
+                ))]
+                fn cranelift_exp_artifact() {
+                    let mut config = crate::Config::new(crate::Compiler::Cranelift);
+                    config.set_elf_artifact(true);
+                    foo(config)
+                }
+            }
         }
     };
 }
