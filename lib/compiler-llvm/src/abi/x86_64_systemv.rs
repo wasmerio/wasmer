@@ -7,7 +7,7 @@ use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
-    types::{AnyType, BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
+    types::{AnyType, BasicMetadataTypeEnum, BasicType, BasicTypeEnum, FunctionType, StructType},
     values::{BasicValueEnum, CallSiteValue, FloatValue, IntValue, VectorValue},
 };
 use itertools::Itertools;
@@ -73,14 +73,63 @@ impl Abi for X86_64SystemV {
         sig: &FuncSig,
         include_m0_param: bool,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
-        let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
+        let type_for_pair = |t0: Type, t1: Type| {
+            if t0 == Type::F32 && t1 == Type::F32 {
+                intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
+            } else {
+                intrinsics.i64_ty.as_basic_type_enum()
+            }
+        };
 
+        let return_abi = classify_x86_64(sig.results());
+        let return_llvm_type: Option<BasicTypeEnum<'ctx>> = match &return_abi {
+            ReturnAbi::Void | ReturnAbi::Sret(_) => None,
+            ReturnAbi::Single([single_value]) => Some(type_to_llvm(intrinsics, *single_value)?),
+            ReturnAbi::Pair(types) => {
+                let basic_types = types
+                    .iter()
+                    .map(|&ty| type_to_llvm(intrinsics, ty))
+                    .collect::<Result<Vec<_>, _>>()?;
+                Some(
+                    context
+                        .struct_type(&basic_types, false)
+                        .as_basic_type_enum(),
+                )
+            }
+            ReturnAbi::PackedPair([t0, t1]) => Some(type_for_pair(*t0, *t1)),
+            ReturnAbi::PackedFirst([t0, t1, t2]) => Some(
+                context
+                    .struct_type(
+                        &[type_for_pair(*t0, *t1), type_to_llvm(intrinsics, *t2)?],
+                        false,
+                    )
+                    .as_basic_type_enum(),
+            ),
+            ReturnAbi::PackedLast([t0, t1, t2]) => Some(
+                context
+                    .struct_type(
+                        &[type_to_llvm(intrinsics, *t0)?, type_for_pair(*t1, *t2)],
+                        false,
+                    )
+                    .as_basic_type_enum(),
+            ),
+            ReturnAbi::PackedQuads([t0, t1, t2, t3]) => Some(
+                context
+                    .struct_type(&[type_for_pair(*t0, *t1), type_for_pair(*t2, *t3)], false)
+                    .as_basic_type_enum(),
+            ),
+        };
+
+        let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
         let mut param_types = vec![Ok(intrinsics.ptr_ty.as_basic_type_enum())];
         if include_m0_param {
             param_types.push(Ok(intrinsics.ptr_ty.as_basic_type_enum()));
         }
-
-        let param_types = param_types.into_iter().chain(user_param_types);
+        let param_llvm_types = param_types
+            .into_iter()
+            .chain(user_param_types)
+            .map(|v| v.map(Into::into))
+            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?;
 
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         let vmctx_attributes = |i: u32| {
@@ -113,102 +162,42 @@ impl Abi for X86_64SystemV {
             ]
         };
 
-        let type_for_pair = |t0: Type, t1: Type| {
-            if t0 == Type::F32 && t1 == Type::F32 {
-                intrinsics.f32_ty.vec_type(2).as_basic_type_enum()
-            } else {
-                intrinsics.i64_ty.as_basic_type_enum().as_basic_type_enum()
-            }
-        };
+        if let ReturnAbi::Sret(types) = &return_abi {
+            let basic_types = types
+                .iter()
+                .map(|&ty| type_to_llvm(intrinsics, ty))
+                .collect::<Result<Vec<_>, _>>()?;
+            let sret = context.struct_type(&basic_types, false);
+            let sret_ptr = context.ptr_type(AddressSpace::default());
+            let sret_param_llvm_types =
+                std::iter::once(BasicMetadataTypeEnum::from(sret_ptr.as_basic_type_enum()))
+                    .chain(param_llvm_types.iter().copied())
+                    .collect_vec();
 
-        let param_llvm_types = param_types
-            .map(|v| v.map(Into::into))
-            .collect::<Result<Vec<BasicMetadataTypeEnum>, _>>()?;
-        let return_abi = classify_x86_64(sig.results());
-        Ok(match return_abi {
-            ReturnAbi::Void => (
+            let mut attributes = vec![(
+                context.create_type_attribute(
+                    Attribute::get_named_enum_kind_id("sret"),
+                    sret.as_any_type_enum(),
+                ),
+                AttributeLoc::Param(0),
+            )];
+            attributes.append(&mut vmctx_attributes(1));
+
+            Ok((
                 intrinsics
                     .void_ty
+                    .fn_type(sret_param_llvm_types.as_slice(), false),
+                attributes,
+            ))
+        } else {
+            let function_type = match return_llvm_type {
+                Some(return_type) => return_type.fn_type(param_llvm_types.as_slice(), false),
+                None => intrinsics
+                    .void_ty
                     .fn_type(param_llvm_types.as_slice(), false),
-                vmctx_attributes(0),
-            ),
-            ReturnAbi::Single([single_value]) => (
-                type_to_llvm(intrinsics, single_value)?.fn_type(param_llvm_types.as_slice(), false),
-                vmctx_attributes(0),
-            ),
-            ReturnAbi::Pair(types) => {
-                let basic_types: Vec<_> = types
-                    .iter()
-                    .map(|&ty| type_to_llvm(intrinsics, ty))
-                    .collect::<Result<_, _>>()?;
-
-                (
-                    context
-                        .struct_type(&basic_types, false)
-                        .fn_type(param_llvm_types.as_slice(), false),
-                    vmctx_attributes(0),
-                )
-            }
-            ReturnAbi::PackedPair([t0, t1]) => (
-                type_for_pair(t0, t1).fn_type(param_llvm_types.as_slice(), false),
-                vmctx_attributes(0),
-            ),
-
-            ReturnAbi::PackedFirst([t0, t1, t2]) => (
-                context
-                    .struct_type(
-                        &[type_for_pair(t0, t1), type_to_llvm(intrinsics, t2)?],
-                        false,
-                    )
-                    .fn_type(param_llvm_types.as_slice(), false),
-                vmctx_attributes(0),
-            ),
-            ReturnAbi::PackedLast([t0, t1, t2]) => (
-                context
-                    .struct_type(
-                        &[type_to_llvm(intrinsics, t0)?, type_for_pair(t1, t2)],
-                        false,
-                    )
-                    .fn_type(param_llvm_types.as_slice(), false),
-                vmctx_attributes(0),
-            ),
-            ReturnAbi::PackedQuads([t0, t1, t2, t3]) => (
-                context
-                    .struct_type(&[type_for_pair(t0, t1), type_for_pair(t2, t3)], false)
-                    .fn_type(param_llvm_types.as_slice(), false),
-                vmctx_attributes(0),
-            ),
-            ReturnAbi::Sret(types) => {
-                let basic_types: Vec<_> = types
-                    .iter()
-                    .map(|&ty| type_to_llvm(intrinsics, ty))
-                    .collect::<Result<_, _>>()?;
-
-                let sret = context.struct_type(&basic_types, false);
-                let sret_ptr = context.ptr_type(AddressSpace::default());
-
-                let sret_param_llvm_types =
-                    std::iter::once(BasicMetadataTypeEnum::from(sret_ptr.as_basic_type_enum()))
-                        .chain(param_llvm_types.iter().copied())
-                        .collect_vec();
-
-                let mut attributes = vec![(
-                    context.create_type_attribute(
-                        Attribute::get_named_enum_kind_id("sret"),
-                        sret.as_any_type_enum(),
-                    ),
-                    AttributeLoc::Param(0),
-                )];
-                attributes.append(&mut vmctx_attributes(1));
-
-                (
-                    intrinsics
-                        .void_ty
-                        .fn_type(sret_param_llvm_types.as_slice(), false),
-                    attributes,
-                )
-            }
-        })
+            };
+            Ok((function_type, vmctx_attributes(0)))
+        }
     }
 
     // Given a CallSite, extract the returned values and return them in a Vec.
