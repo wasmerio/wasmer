@@ -18,17 +18,12 @@ use inkwell::{
     },
 };
 use itertools::Itertools;
-use wasmer_compiler::abi::{PairSlot, ReturnAbi, ReturnSlot};
+use wasmer_compiler::abi::{
+    PairSlot, ReturnAbi, ReturnSlot, classify_return_type_aarch64, classify_return_type_riscv,
+    classify_return_type_x86_64,
+};
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
-
-mod aarch64;
-mod riscv;
-mod x86_64;
-
-use aarch64::Aarch64SystemV;
-use riscv::RiscvSystemV;
-use x86_64::X86_64SystemV;
 
 /// Target-specific return-value classification.
 pub(crate) trait Architecture {
@@ -43,22 +38,22 @@ pub(crate) trait Architecture {
 
 /// Architectures supported by the LLVM backend.
 pub(crate) enum TargetArchitecture {
-    X86_64(X86_64SystemV),
-    Aarch64(Aarch64SystemV),
-    Riscv(RiscvSystemV),
+    X86_64,
+    Aarch64,
+    Riscv { is_riscv64: bool },
 }
 
 impl Architecture for TargetArchitecture {
     fn classify_return_type(&self, types: &[Type]) -> ReturnAbi {
         match self {
-            Self::X86_64(arch) => arch.classify_return_type(types),
-            Self::Aarch64(arch) => arch.classify_return_type(types),
-            Self::Riscv(arch) => arch.classify_return_type(types),
+            Self::X86_64 => classify_return_type_x86_64(types),
+            Self::Aarch64 => classify_return_type_aarch64(types),
+            Self::Riscv { is_riscv64 } => classify_return_type_riscv(types, *is_riscv64),
         }
     }
 
     fn sign_extend_i32_params(&self) -> bool {
-        matches!(self, Self::Riscv(arch) if arch.is_riscv64)
+        matches!(self, Self::Riscv{is_riscv64} if *is_riscv64)
     }
 }
 
@@ -72,13 +67,13 @@ pub(crate) fn get_abi(target_machine: &TargetMachine) -> LLVMAbi<TargetArchitect
     let target_name = target_machine.get_triple();
     let target_name = target_name.as_str().to_string_lossy();
     let architecture = if target_name.starts_with("aarch64") {
-        TargetArchitecture::Aarch64(Aarch64SystemV)
+        TargetArchitecture::Aarch64
     } else if target_name.starts_with("riscv") {
-        TargetArchitecture::Riscv(RiscvSystemV {
+        TargetArchitecture::Riscv {
             is_riscv64: target_name.starts_with("riscv64"),
-        })
+        }
     } else {
-        TargetArchitecture::X86_64(X86_64SystemV)
+        TargetArchitecture::X86_64
     };
     LLVMAbi { architecture }
 }
