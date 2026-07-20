@@ -13,7 +13,7 @@ impl Architecture for Aarch64SystemV {
     /// homogeneous floating-point aggregate (the `Unpacked` case below).
     fn classify_return_type(&self, types: &[Type]) -> ReturnAbi {
         if (2..=4).contains(&types.len())
-            && (types.iter().all(|ty| [Type::F32, Type::F64].contains(ty)))
+            && (types.iter().all(|ty| ty == &Type::F32) || types.iter().all(|ty| ty == &Type::F64))
         {
             return ReturnAbi::Unpacked(types.to_vec());
         }
