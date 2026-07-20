@@ -226,8 +226,8 @@
 <a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">loop </span>{
 <a href=#227 id=227 data-nosnippet>227</a>            <span class="comment">// Wait for an event to trigger
 <a href=#228 id=228 data-nosnippet>228</a>            </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = poll.poll(<span class="kw-2">&amp;mut </span>events, <span class="prelude-val">None</span>) {
-<a href=#229 id=229 data-nosnippet>229</a>                <span class="comment">// This can happen when a debugger is attached
-<a href=#230 id=230 data-nosnippet>230</a>                </span><span class="attr">#[cfg(debug_assertions)]
+<a href=#229 id=229 data-nosnippet>229</a>                <span class="comment">// This can happen when a debugger is attached, or more generally
+<a href=#230 id=230 data-nosnippet>230</a>                // whenever a signal interrupts the underlying wait syscall.
 <a href=#231 id=231 data-nosnippet>231</a>                </span><span class="kw">if </span>e.kind() == std::io::ErrorKind::Interrupted {
 <a href=#232 id=232 data-nosnippet>232</a>                    <span class="kw">continue</span>;
 <a href=#233 id=233 data-nosnippet>233</a>                }
