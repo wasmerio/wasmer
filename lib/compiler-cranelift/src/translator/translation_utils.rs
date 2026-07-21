@@ -4,10 +4,11 @@ use crate::func_environ::FuncEnvironment;
 use crate::translator::EXN_REF_TYPE;
 use cranelift_codegen::{
     binemit::Reloc,
-    ir::{self, AbiParam},
+    ir::{self},
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
+use target_lexicon::Architecture;
 use wasmer_compiler::{
     types::relocation::RelocationKind,
     wasmparser::{self, RefType},
@@ -18,24 +19,9 @@ use wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 pub fn signature_to_cranelift_ir(
     signature: &FunctionType,
     target_config: TargetFrontendConfig,
+    architecture: Architecture,
 ) -> ir::Signature {
-    let mut sig = ir::Signature::new(target_config.default_call_conv);
-    sig.params.extend(signature.params().iter().map(|&ty| {
-        let cret_arg: ir::Type = type_to_irtype(ty, target_config)
-            .expect("only numeric types are supported in function signatures");
-        AbiParam::new(cret_arg)
-    }));
-    sig.returns.extend(signature.results().iter().map(|&ty| {
-        let cret_arg: ir::Type = type_to_irtype(ty, target_config)
-            .expect("only numeric types are supported in function signatures");
-        AbiParam::new(cret_arg)
-    }));
-    // The Vmctx signature
-    sig.params.insert(
-        0,
-        AbiParam::special(target_config.pointer_type(), ir::ArgumentPurpose::VMContext),
-    );
-    sig
+    crate::abi::signature_to_ir(signature, target_config, architecture)
 }
 
 /// Helper function translating wasmparser types to Cranelift types when possible.

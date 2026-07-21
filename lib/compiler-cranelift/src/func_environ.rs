@@ -3,6 +3,7 @@
 
 use crate::{
     HashMap,
+    abi::{self},
     heap::{Heap, HeapData, HeapStyle},
     table::{TableData, TableSize},
     translator::{EXN_REF_TYPE, LandingPad, TAG_TYPE},
@@ -22,6 +23,8 @@ use cranelift_codegen::{
 use cranelift_frontend::FunctionBuilder;
 use smallvec::SmallVec;
 use std::convert::TryFrom;
+use target_lexicon::Architecture;
+use wasmer_compiler::abi::ReturnAbi;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
     FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo,
@@ -85,6 +88,12 @@ pub enum GlobalVariable {
 pub struct FuncEnvironment<'module_environment> {
     /// Target-specified configuration.
     target_config: TargetFrontendConfig,
+
+    /// Target architecture used for native ABI classification.
+    architecture: Architecture,
+
+    /// Results of the function currently being translated.
+    return_types: Vec<WasmerType>,
 
     /// The module-level environment which this function-level environment belongs to.
     module: &'module_environment ModuleInfo,
@@ -191,6 +200,7 @@ pub struct FuncEnvironment<'module_environment> {
 impl<'module_environment> FuncEnvironment<'module_environment> {
     pub fn new(
         target_config: TargetFrontendConfig,
+        architecture: Architecture,
         module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
         signature_hashes: &'module_environment PrimaryMap<SignatureIndex, SignatureHash>,
@@ -199,6 +209,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     ) -> Self {
         Self {
             target_config,
+            architecture,
+            return_types: Vec::new(),
             module,
             signatures,
             signature_hashes,
@@ -1354,9 +1366,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
 }
 
 impl FuncEnvironment<'_> {
-    pub(crate) fn is_wasm_parameter(&self, _signature: &ir::Signature, index: usize) -> bool {
-        // The first parameter is the vmctx. The rest are the wasm parameters.
-        index >= 1
+    pub(crate) fn is_wasm_parameter(&self, signature: &ir::Signature, index: usize) -> bool {
+        signature.params[index].purpose == ArgumentPurpose::Normal
     }
 
     pub(crate) fn translate_unreachable(
@@ -1690,6 +1701,39 @@ impl FuncEnvironment<'_> {
         }))
     }
 
+    fn prepare_wasm_call(
+        &self,
+        builder: &mut FunctionBuilder,
+        result_types: &[WasmerType],
+    ) -> (ReturnAbi, Option<(ir::Value, abi::ReturnAreaLayout)>) {
+        let return_abi = abi::classify_returns(self.architecture, result_types);
+        let sret = match &return_abi {
+            ReturnAbi::Sret(types) => Some(abi::allocate_return_area(
+                builder,
+                types,
+                self.target_config,
+            )),
+            _ => None,
+        };
+        (return_abi, sret)
+    }
+
+    fn finish_wasm_call(
+        &self,
+        builder: &mut FunctionBuilder,
+        return_abi: &ReturnAbi,
+        carriers: &[ir::Value],
+        sret: Option<(ir::Value, abi::ReturnAreaLayout)>,
+    ) -> SmallVec<[ir::Value; 4]> {
+        match return_abi {
+            ReturnAbi::Sret(types) => {
+                let (ptr, layout) = sret.expect("sret call has a return area");
+                abi::load_sret(builder, ptr, &layout, types, self.target_config)
+            }
+            _ => abi::unpack_register_returns(builder, return_abi, carriers, self.target_config),
+        }
+    }
+
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn translate_call_indirect(
         &mut self,
@@ -1756,7 +1800,12 @@ impl FuncEnvironment<'_> {
             }
         }
 
+        let (return_abi, sret) =
+            self.prepare_wasm_call(builder, self.module.signatures[sig_index].results());
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
+        if let Some((ptr, _)) = &sret {
+            real_call_args.push(*ptr);
+        }
 
         // First append the callee vmctx address.
         let vmctx = builder.ins().load(
@@ -1779,7 +1828,7 @@ impl FuncEnvironment<'_> {
             landing_pad,
             false,
         );
-        Ok(results)
+        Ok(self.finish_wasm_call(builder, &return_abi, &results, sret))
     }
 
     pub(crate) fn translate_call(
@@ -1790,7 +1839,13 @@ impl FuncEnvironment<'_> {
         call_args: &[ir::Value],
         landing_pad: Option<LandingPad>,
     ) -> WasmResult<SmallVec<[ir::Value; 4]>> {
+        let sig_index = self.module.functions[callee_index];
+        let (return_abi, sret) =
+            self.prepare_wasm_call(builder, self.module.signatures[sig_index].results());
         let mut real_call_args = Vec::with_capacity(call_args.len() + 2);
+        if let Some((ptr, _)) = &sret {
+            real_call_args.push(*ptr);
+        }
 
         // Handle direct calls to locally-defined functions.
         if !self.module.is_imported_function(callee_index) {
@@ -1814,7 +1869,7 @@ impl FuncEnvironment<'_> {
                 landing_pad,
                 false,
             );
-            return Ok(results);
+            return Ok(self.finish_wasm_call(builder, &return_abi, &results, sret));
         }
 
         // Handle direct calls to imported functions. We use an indirect call
@@ -1853,7 +1908,7 @@ impl FuncEnvironment<'_> {
             landing_pad,
             false,
         );
-        Ok(results)
+        Ok(self.finish_wasm_call(builder, &return_abi, &results, sret))
     }
 
     pub(crate) fn tag_param_arity(&self, tag_index: TagIndex) -> usize {
@@ -2304,8 +2359,32 @@ impl FuncEnvironment<'_> {
         let func_index = self.module.func_index(function_index);
         let sig_idx = self.module.functions[func_index];
         let signature = &self.module.signatures[sig_idx];
+        self.return_types = signature.results().to_vec();
         for param in signature.params() {
             self.type_stack.push(*param);
+        }
+    }
+
+    pub(crate) fn return_types(&self) -> &[WasmerType] {
+        &self.return_types
+    }
+
+    pub(crate) fn emit_wasm_return(&mut self, builder: &mut FunctionBuilder, values: &[ir::Value]) {
+        let return_abi = abi::classify_returns(self.architecture, &self.return_types);
+        match &return_abi {
+            ReturnAbi::Sret(types) => {
+                let ptr = builder
+                    .func
+                    .special_param(ArgumentPurpose::StructReturn)
+                    .expect("sret function has a StructReturn parameter");
+                let layout = abi::return_area_layout(types);
+                abi::store_sret(builder, ptr, &layout, values);
+                builder.ins().return_(&[]);
+            }
+            _ => {
+                let packed = abi::pack_register_returns(builder, &return_abi, values);
+                builder.ins().return_(&packed);
+            }
         }
     }
 
@@ -2315,9 +2394,5 @@ impl FuncEnvironment<'_> {
 
     pub(crate) fn heaps(&self) -> &PrimaryMap<Heap, HeapData> {
         &self.heaps
-    }
-
-    pub(crate) fn is_wasm_return(&self, signature: &ir::Signature, index: usize) -> bool {
-        signature.returns[index].purpose == ir::ArgumentPurpose::Normal
     }
 }

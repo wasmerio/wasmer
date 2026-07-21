@@ -4,7 +4,7 @@
 //! A trampoline generator for calling dynamic host functions from Wasm.
 
 use crate::{
-    CraneliftCallbacks,
+    CraneliftCallbacks, abi,
     translator::{compiled_function_unwind_info, signature_to_cranelift_ir},
 };
 use cranelift_codegen::{
@@ -30,7 +30,7 @@ pub fn make_trampoline_dynamic_function(
 ) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
-    let signature = signature_to_cranelift_ir(func_type, frontend_config);
+    let signature = signature_to_cranelift_ir(func_type, frontend_config, arch);
     let mut stub_sig = ir::Signature::new(frontend_config.default_call_conv);
     // Add the caller `vmctx` parameter.
     stub_sig.params.push(ir::AbiParam::special(
@@ -44,7 +44,7 @@ pub fn make_trampoline_dynamic_function(
     // Compute the size of the values vector. The vmctx and caller vmctx are passed separately.
     let value_size = mem::size_of::<u128>();
     let values_vec_len =
-        (value_size * cmp::max(signature.params.len() - 1, signature.returns.len())) as u32;
+        (value_size * cmp::max(func_type.params().len(), func_type.results().len())) as u32;
 
     let mut context = Context::new();
     context.func = Function::with_name_signature(UserFuncName::user(0, 0), signature.clone());
@@ -65,19 +65,29 @@ pub fn make_trampoline_dynamic_function(
 
         let values_vec_ptr_val = builder.ins().stack_addr(pointer_type, ss, 0);
         let mflags = ir::MemFlagsData::trusted();
-        // We only get the non-vmctx arguments
-        for i in 1..signature.params.len() {
+        // Copy only normal WebAssembly arguments; special ABI arguments are separate.
+        let mut wasm_param = 0usize;
+        let mut vmctx_ptr_val = None;
+        let mut sret_ptr = None;
+        for (i, param) in signature.params.iter().enumerate() {
             let val = builder.func.dfg.block_params(block0)[i];
-            builder.ins().store(
-                mflags,
-                val,
-                values_vec_ptr_val,
-                ((i - 1) * value_size) as i32,
-            );
+            match param.purpose {
+                ir::ArgumentPurpose::Normal => {
+                    builder.ins().store(
+                        mflags,
+                        val,
+                        values_vec_ptr_val,
+                        (wasm_param * value_size) as i32,
+                    );
+                    wasm_param += 1;
+                }
+                ir::ArgumentPurpose::VMContext => vmctx_ptr_val = Some(val),
+                ir::ArgumentPurpose::StructReturn => sret_ptr = Some(val),
+                _ => unreachable!("unexpected WebAssembly ABI parameter"),
+            }
         }
 
-        let block_params = builder.func.dfg.block_params(block0);
-        let vmctx_ptr_val = block_params[0];
+        let vmctx_ptr_val = vmctx_ptr_val.expect("WebAssembly signature has vmctx");
         let callee_args = vec![vmctx_ptr_val, values_vec_ptr_val];
 
         let new_sig = builder.import_signature(stub_sig);
@@ -96,16 +106,32 @@ pub fn make_trampoline_dynamic_function(
 
         let mflags = ir::MemFlagsData::trusted();
         let mut results = Vec::new();
-        for (i, r) in signature.returns.iter().enumerate() {
+        for (i, &ty) in func_type.results().iter().enumerate() {
             let load = builder.ins().load(
-                r.value_type,
+                crate::translator::type_to_irtype(ty, frontend_config).unwrap(),
                 mflags,
                 values_vec_ptr_val,
                 (i * value_size) as i32,
             );
             results.push(load);
         }
-        builder.ins().return_(&results);
+        let return_abi = abi::classify_returns(arch, func_type.results());
+        match &return_abi {
+            wasmer_compiler::abi::ReturnAbi::Sret(types) => {
+                let layout = abi::return_area_layout(types);
+                abi::store_sret(
+                    &mut builder,
+                    sret_ptr.expect("sret signature has return pointer"),
+                    &layout,
+                    &results,
+                );
+                builder.ins().return_(&[]);
+            }
+            _ => {
+                let packed = abi::pack_register_returns(&mut builder, &return_abi, &results);
+                builder.ins().return_(&packed);
+            }
+        }
         builder.finalize()
     }
 

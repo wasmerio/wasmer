@@ -132,7 +132,9 @@ impl CraneliftCompiler {
         let signatures = module
             .signatures
             .iter()
-            .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
+            .map(|(_sig_index, func_type)| {
+                signature_to_cranelift_ir(func_type, frontend_config, target.triple().architecture)
+            })
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
         let signature_hashes = &module.signature_hashes;
 
@@ -188,6 +190,7 @@ impl CraneliftCompiler {
             let mut context = Context::new();
             let mut func_env = FuncEnvironment::new(
                 isa.frontend_config(),
+                target.triple().architecture,
                 module,
                 &signatures,
                 signature_hashes,

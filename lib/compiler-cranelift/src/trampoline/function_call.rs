@@ -9,7 +9,7 @@
 //! my_func.call([1, 2])
 //! ```
 use crate::{
-    CraneliftCallbacks,
+    CraneliftCallbacks, abi,
     translator::{compiled_function_unwind_info, signature_to_cranelift_ir},
 };
 use cranelift_codegen::{
@@ -34,7 +34,7 @@ pub fn make_trampoline_function_call(
 ) -> Result<FunctionBody, CompileError> {
     let pointer_type = isa.pointer_type();
     let frontend_config = isa.frontend_config();
-    let signature = signature_to_cranelift_ir(func_type, frontend_config);
+    let signature = signature_to_cranelift_ir(func_type, frontend_config, arch);
     let mut wrapper_sig = ir::Signature::new(frontend_config.default_call_conv);
 
     // Add the callee `vmctx` parameter.
@@ -66,26 +66,35 @@ pub fn make_trampoline_function_call(
             (params[0], params[1], params[2])
         };
 
-        // Load the argument values out of `values_vec`.
+        // Load the argument values out of `values_vec` and add special ABI arguments.
+        let return_abi = abi::classify_returns(arch, func_type.results());
+        let sret = match &return_abi {
+            wasmer_compiler::abi::ReturnAbi::Sret(types) => Some(abi::allocate_return_area(
+                &mut builder,
+                types,
+                frontend_config,
+            )),
+            _ => None,
+        };
         let mflags = ir::MemFlagsData::trusted();
+        let mut wasm_param = 0usize;
         let callee_args = signature
             .params
             .iter()
-            .enumerate()
-            .map(|(i, r)| {
-                match i {
-                    0 => vmctx_ptr_val,
-                    _ =>
-                    // i - 1 because vmctx is not passed through `values_vec`.
-                    {
-                        builder.ins().load(
-                            r.value_type,
-                            mflags,
-                            values_vec_ptr_val,
-                            ((i - 1) * value_size) as i32,
-                        )
-                    }
+            .map(|r| match r.purpose {
+                ir::ArgumentPurpose::StructReturn => sret.as_ref().unwrap().0,
+                ir::ArgumentPurpose::VMContext => vmctx_ptr_val,
+                ir::ArgumentPurpose::Normal => {
+                    let value = builder.ins().load(
+                        r.value_type,
+                        mflags,
+                        values_vec_ptr_val,
+                        (wasm_param * value_size) as i32,
+                    );
+                    wasm_param += 1;
+                    value
                 }
+                _ => unreachable!("unexpected WebAssembly ABI parameter"),
             })
             .collect::<Vec<_>>();
 
@@ -95,7 +104,15 @@ pub fn make_trampoline_function_call(
             .ins()
             .call_indirect(new_sig, callee_value, &callee_args);
 
-        let results = builder.func.dfg.inst_results(call).to_vec();
+        let carriers = builder.func.dfg.inst_results(call).to_vec();
+        let results = match (&return_abi, sret) {
+            (wasmer_compiler::abi::ReturnAbi::Sret(types), Some((ptr, layout))) => {
+                abi::load_sret(&mut builder, ptr, &layout, types, frontend_config)
+            }
+            _ => {
+                abi::unpack_register_returns(&mut builder, &return_abi, &carriers, frontend_config)
+            }
+        };
 
         // Store the return values into `values_vec`.
         let mflags = ir::MemFlagsData::trusted();

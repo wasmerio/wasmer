@@ -148,7 +148,6 @@ cranelift+riscv64 spec::skip_stack_guard_page
 
 # #5943 - multi-value tests
 singlepass        multi_value_imports
-cranelift         multi_value_imports
 llvm+windows      multi_value_imports
 llvm+loongarch64  multi_value_imports
 llvm+riscv64      multi_value_imports
