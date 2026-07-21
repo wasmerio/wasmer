@@ -298,6 +298,44 @@ impl Artifact {
         Self::from_parts_with_module_file(&mut inner_engine, artifact, engine.target(), Some(path))
     }
 
+    /// Deserialize an ELF artifact held in memory, if the bytes contain one.
+    fn deserialize_elf(
+        engine: &Engine,
+        bytes: &[u8],
+    ) -> Result<Option<Self>, DeserializeError> {
+        if !bytes.starts_with(&object::elf::ELFMAG) {
+            return Ok(None);
+        }
+
+        let image = object::File::parse(bytes).map_err(|e| {
+            DeserializeError::CorruptedBinary(format!("cannot parse image: {e}"))
+        })?;
+        let module_info = image
+            .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
+            .ok_or_else(|| {
+                DeserializeError::CorruptedBinary("missing ModuleInfo section".to_string())
+            })?
+            .data()
+            .map_err(|e| {
+                DeserializeError::CorruptedBinary(format!(
+                    "cannot load ModuleInfo section data: {e}"
+                ))
+            })?;
+        let mut serializable = unsafe { SerializableModule::deserialize(module_info)? };
+        let SerializableCompilation::Elf(elf) = &mut serializable.compilation else {
+            return Err(DeserializeError::Incompatible(
+                "ELF image does not contain an ELF artifact".to_string(),
+            ));
+        };
+        // The copy embedded in the image has an empty ELF placeholder to avoid
+        // embedding the image in itself. Restore it for allocation and reserialization.
+        *elf = bytes.to_vec();
+
+        let artifact = ArtifactBuildVariant::Plain(ArtifactBuild::from_serializable(serializable));
+        let mut inner_engine = engine.inner_mut();
+        Self::from_parts(&mut inner_engine, artifact, engine.target()).map(Some)
+    }
+
     /// Deserialize a serialized artifact.
     ///
     /// # Safety
@@ -312,6 +350,10 @@ impl Artifact {
     ) -> Result<Self, DeserializeError> {
         unsafe {
             if !ArtifactBuild::is_deserializable(bytes.as_ref()) {
+                if let Some(artifact) = Self::deserialize_elf(engine, bytes.as_ref())? {
+                    return Ok(artifact);
+                }
+
                 let static_artifact = Self::deserialize_object(engine, bytes);
                 match static_artifact {
                     Ok(v) => {
@@ -359,6 +401,10 @@ impl Artifact {
     ) -> Result<Self, DeserializeError> {
         unsafe {
             if !ArtifactBuild::is_deserializable(bytes.as_ref()) {
+                if let Some(artifact) = Self::deserialize_elf(engine, bytes.as_ref())? {
+                    return Ok(artifact);
+                }
+
                 let static_artifact = Self::deserialize_object(engine, bytes);
                 match static_artifact {
                     Ok(v) => {
