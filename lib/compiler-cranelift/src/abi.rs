@@ -7,7 +7,7 @@ use cranelift_codegen::{
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
-use smallvec::SmallVec;
+use smallvec::{SmallVec, smallvec};
 use target_lexicon::Architecture;
 use wasmer_compiler::abi::{
     PairSlot, ReturnAbi, ReturnSlot, classify_return_type_aarch64, classify_return_type_riscv,
@@ -257,27 +257,27 @@ pub(crate) fn pack_register_returns(
 ) -> SmallVec<[ir::Value; 4]> {
     match abi {
         ReturnAbi::Void => SmallVec::new(),
-        ReturnAbi::Single(ty) => smallvec::smallvec![if *ty == Type::V128 {
+        ReturnAbi::Single(ty) => smallvec![if *ty == Type::V128 {
             bitcast(builder, ir::types::I8X16, values[0])
         } else {
             values[0]
         }],
-        ReturnAbi::Pair(a, b) => smallvec::smallvec![
+        ReturnAbi::Pair(a, b) => smallvec![
             pack_slot(builder, values[0], *a),
             pack_slot(builder, values[1], *b)
         ],
         ReturnAbi::PackedPair(pair) => {
-            smallvec::smallvec![pack_pair(builder, values[0], values[1], *pair)]
+            smallvec![pack_pair(builder, values[0], values[1], *pair)]
         }
-        ReturnAbi::PackedFirst(pair, slot) => smallvec::smallvec![
+        ReturnAbi::PackedFirst(pair, slot) => smallvec![
             pack_pair(builder, values[0], values[1], *pair),
             pack_slot(builder, values[2], *slot)
         ],
-        ReturnAbi::PackedLast(slot, pair) => smallvec::smallvec![
+        ReturnAbi::PackedLast(slot, pair) => smallvec![
             pack_slot(builder, values[0], *slot),
             pack_pair(builder, values[1], values[2], *pair)
         ],
-        ReturnAbi::PackedQuads(a, b) => smallvec::smallvec![
+        ReturnAbi::PackedQuads(a, b) => smallvec![
             pack_pair(builder, values[0], values[1], *a),
             pack_pair(builder, values[2], values[3], *b)
         ],
@@ -316,27 +316,27 @@ pub(crate) fn unpack_register_returns(
     };
     match abi {
         ReturnAbi::Void => SmallVec::new(),
-        ReturnAbi::Single(_) => smallvec::smallvec![values[0]],
-        ReturnAbi::Pair(a, b) => smallvec::smallvec![
+        ReturnAbi::Single(_) => smallvec![values[0]],
+        ReturnAbi::Pair(a, b) => smallvec![
             unpack_slot(builder, values[0], *a),
             unpack_slot(builder, values[1], *b)
         ],
         ReturnAbi::PackedPair(pair) => {
             let (a, b) = unpack_pair_with_config(builder, values[0], *pair);
-            smallvec::smallvec![a, b]
+            smallvec![a, b]
         }
         ReturnAbi::PackedFirst(pair, slot) => {
             let (a, b) = unpack_pair_with_config(builder, values[0], *pair);
-            smallvec::smallvec![a, b, unpack_slot(builder, values[1], *slot)]
+            smallvec![a, b, unpack_slot(builder, values[1], *slot)]
         }
         ReturnAbi::PackedLast(slot, pair) => {
             let (a, b) = unpack_pair_with_config(builder, values[1], *pair);
-            smallvec::smallvec![unpack_slot(builder, values[0], *slot), a, b]
+            smallvec![unpack_slot(builder, values[0], *slot), a, b]
         }
         ReturnAbi::PackedQuads(a, b) => {
             let (a0, a1) = unpack_pair_with_config(builder, values[0], *a);
             let (b0, b1) = unpack_pair_with_config(builder, values[1], *b);
-            smallvec::smallvec![a0, a1, b0, b1]
+            smallvec![a0, a1, b0, b1]
         }
         ReturnAbi::Unpacked(_) => values.iter().copied().collect(),
         ReturnAbi::Sret(_) => panic!("sret values must be loaded, not unpacked"),
