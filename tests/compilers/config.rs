@@ -21,7 +21,6 @@ pub struct Config {
     pub middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     pub canonicalize_nans: bool,
     pub allow_unaligned_memory_accesses: bool,
-    pub elf_artifact: bool,
 }
 
 impl Config {
@@ -32,12 +31,7 @@ impl Config {
             canonicalize_nans: false,
             allow_unaligned_memory_accesses: false,
             middlewares: vec![],
-            elf_artifact: false,
         }
-    }
-
-    pub fn set_elf_artifact(&mut self, elf_artifact: bool) {
-        self.elf_artifact = elf_artifact;
     }
 
     pub fn set_middlewares(&mut self, middlewares: Vec<Arc<dyn ModuleMiddleware>>) {
@@ -121,14 +115,6 @@ impl Config {
                 let mut compiler = wasmer_compiler_llvm::LLVM::new();
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler.enable_verifier();
-                #[cfg(all(
-                    feature = "experimental-artifact",
-                    target_os = "linux",
-                    target_arch = "x86_64"
-                ))]
-                if self.elf_artifact {
-                    compiler.elf_artifact_format(true);
-                }
                 if let Some(mut debug_dir) = debug_dir {
                     use wasmer_compiler_llvm::LLVMCallbacks;
                     debug_dir.push("llvm");

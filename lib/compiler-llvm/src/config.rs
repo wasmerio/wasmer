@@ -121,8 +121,6 @@ pub struct LLVM {
     /// Number of threads to use when compiling a module.
     pub(crate) num_threads: NonZero<usize>,
     pub(crate) verbose_asm: bool,
-    /// Enable an experimental ELF-based version of the Artifact format.
-    pub(crate) elf_artifact_format: bool,
 }
 
 #[derive(Clone, Copy, Eq, PartialEq, Hash, Debug, Sequence)]
@@ -143,8 +141,8 @@ impl LLVM {
             enable_verifier: false,
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
-            is_pic: false,
-            elf_artifact_format: false,
+            // We will link a shared library and so PIC must be enabled.
+            is_pic: cfg!(feature = "experimental-artifact"),
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,
@@ -186,24 +184,6 @@ impl LLVM {
     /// place them in read-only data.
     pub fn readonly_funcref_table(&mut self, enable_readonly_funcref_table: bool) -> &mut Self {
         self.enable_readonly_funcref_table = enable_readonly_funcref_table;
-        self
-    }
-
-    /// Enables an experimental ELF-based version of the Artifact format.
-    ///
-    /// This format is currently supported only on x86-64 Linux.
-    #[cfg(all(
-        feature = "experimental-artifact",
-        target_os = "linux",
-        target_arch = "x86_64"
-    ))]
-    pub fn elf_artifact_format(&mut self, elf_artifact_format: bool) -> &mut Self {
-        self.elf_artifact_format = elf_artifact_format;
-        if elf_artifact_format {
-            // We will link a shared library and so PIC must be enabled.
-            self.is_pic = true;
-        }
-
         self
     }
 

@@ -192,7 +192,7 @@ impl Compiler for LLVMCompiler {
                 inkwell::OptimizationLevel::Default => "optd",
                 inkwell::OptimizationLevel::Aggressive => "opta",
             },
-            if self.config.elf_artifact_format {
+            if cfg!(feature = "experimental-artifact") {
                 "-elf"
             } else {
                 ""
@@ -403,7 +403,7 @@ impl Compiler for LLVMCompiler {
                 .collect::<Result<Vec<_>, CompileError>>()?
         };
 
-        if self.config.elf_artifact_format {
+        if cfg!(feature = "experimental-artifact") {
             let object_files = functions
                 .into_iter()
                 .map(|compiled_function| match compiled_function {

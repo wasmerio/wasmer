@@ -24,9 +24,6 @@ windows         spec::try_table
 windows         wasmer::exception_handling
 
 # Misc
-# Experimental LLVM artifacts cannot currently be loaded from serialized bytes.
-llvm_exp_artifact artifact::artifact_serialization_roundtrip
-llvm_exp_artifact serialize::test_deserialize
 singlepass wide_arithmetic
 v8 wide_arithmetic
 singlepass spec::linking
