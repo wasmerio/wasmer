@@ -112,7 +112,7 @@ fn load_dwarf_context(
 /// Maps an ELF dynamic-relocation symbol name to the `LibCall` it refers to.
 ///
 /// Shared with `wasmer_compiler_llvm::object_file`, which resolves the same
-/// symbol names when linking a `--experimental-artifact` compilation into an object
+/// symbol names when linking an experimental artifact compilation into an object
 /// file in the first place.
 pub static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "ceilf" => LibCall::CeilF32,
