@@ -19,8 +19,8 @@ use inkwell::{
 };
 use itertools::Itertools;
 use wasmer_compiler::abi::{
-    PairSlot, ReturnAbi, ReturnSlot, classify_return_type_aarch64, classify_return_type_riscv,
-    classify_return_type_x86_64,
+    PairSlot, ReturnAbi, ReturnSlot, classify_return_type_aarch64,
+    classify_return_type_loongarch64, classify_return_type_riscv, classify_return_type_x86_64,
 };
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
@@ -40,6 +40,7 @@ pub(crate) trait Architecture {
 pub(crate) enum TargetArchitecture {
     X86_64,
     Aarch64,
+    LoongArch64,
     Riscv { is_riscv64: bool },
 }
 
@@ -48,6 +49,7 @@ impl Architecture for TargetArchitecture {
         match self {
             Self::X86_64 => classify_return_type_x86_64(types),
             Self::Aarch64 => classify_return_type_aarch64(types),
+            Self::LoongArch64 => classify_return_type_loongarch64(types),
             Self::Riscv { is_riscv64 } => classify_return_type_riscv(types, *is_riscv64),
         }
     }
@@ -68,6 +70,8 @@ pub(crate) fn get_abi(target_machine: &TargetMachine) -> LLVMAbi<TargetArchitect
     let target_name = target_name.as_str().to_string_lossy();
     let architecture = if target_name.starts_with("aarch64") {
         TargetArchitecture::Aarch64
+    } else if target_name.starts_with("loongarch64") {
+        TargetArchitecture::LoongArch64
     } else if target_name.starts_with("riscv") {
         TargetArchitecture::Riscv {
             is_riscv64: target_name.starts_with("riscv64"),

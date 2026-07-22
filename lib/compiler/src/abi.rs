@@ -127,6 +127,21 @@ pub fn classify_return_type_aarch64(types: &[Type]) -> ReturnAbi {
     }
 }
 
+/// Classifies LoongArch64 return values according to the LP64D psABI.
+///
+/// Aggregates with at most two scalar fields are returned field-by-field,
+/// larger aggregates are returned indirectly.
+pub fn classify_return_type_loongarch64(types: &[Type]) -> ReturnAbi {
+    match types {
+        [] => ReturnAbi::Void,
+        [value] => ReturnAbi::Single(*value),
+        [first, second] if first.byte_size(64) <= 64 && second.byte_size(64) <= 64 => {
+            ReturnAbi::Pair(ReturnSlot::Natural(*first), ReturnSlot::Natural(*second))
+        }
+        _ => ReturnAbi::Sret(types.to_vec()),
+    }
+}
+
 /// Classifies RISC-V return values according to the hard-float psABI.
 pub fn classify_return_type_riscv(types: &[Type], is_riscv64: bool) -> ReturnAbi {
     let xlen = if is_riscv64 { 64 } else { 32 };
