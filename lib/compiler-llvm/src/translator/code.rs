@@ -83,7 +83,6 @@ pub struct FuncTranslator {
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
     wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
-    experimental_artifact: bool,
 }
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
@@ -121,7 +120,6 @@ impl FuncTranslator {
             cpu_features,
             non_volatile_memory_ops,
             wasm_apply_data_relocs_fn_index,
-            experimental_artifact: cfg!(feature = "experimental-artifact"),
         })
     }
 
@@ -151,7 +149,7 @@ impl FuncTranslator {
             .get(MemoryIndex::from_u32(0))
             .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
-        let (function_name, module_name) = if self.experimental_artifact {
+        let (function_name, module_name) = if cfg!(feature = "experimental-artifact") {
             (function.linkage_name(), String::new())
         } else {
             let function_name =
@@ -192,7 +190,7 @@ impl FuncTranslator {
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
-        let debug_info = if self.experimental_artifact {
+        let debug_info = if cfg!(feature = "experimental-artifact") {
             let debug_metadata_version = self
                 .ctx
                 .i32_type()
@@ -276,7 +274,7 @@ impl FuncTranslator {
         };
 
         func.set_personality_function(intrinsics.personality);
-        if !self.experimental_artifact {
+        if !cfg!(feature = "experimental-artifact") {
             func.as_global_value().set_section(Some(&section));
         }
 
@@ -573,7 +571,7 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        if self.experimental_artifact {
+        if cfg!(feature = "experimental-artifact") {
             let object_path = build_directory
                 .to_path_buf()
                 .join(function.object_filename());

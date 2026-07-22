@@ -42,7 +42,6 @@ pub struct FuncTrampoline {
     abi: Box<dyn Abi>,
     binary_fmt: BinaryFormat,
     func_section: String,
-    experimental_artifact: bool,
 }
 
 const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 and 16 chars
@@ -77,7 +76,6 @@ impl FuncTrampoline {
                 }
             },
             binary_fmt,
-            experimental_artifact: cfg!(feature = "experimental-artifact"),
         })
     }
 
@@ -121,7 +119,7 @@ impl FuncTrampoline {
             trampoline_ty,
             Some(Linkage::External),
         );
-        if !self.experimental_artifact {
+        if !cfg!(feature = "experimental-artifact") {
             trampoline_func
                 .as_global_value()
                 .set_section(Some(&self.func_section));
@@ -196,7 +194,7 @@ impl FuncTrampoline {
             callbacks.asm_memory_buffer(function, &module_hash, &asm_buffer);
         }
 
-        if self.experimental_artifact {
+        if cfg!(feature = "experimental-artifact") {
             let object_path = build_directory.to_path_buf().join(function.linkage_name());
             std::fs::write(&object_path, memory_buffer.as_slice()).map_err(|e| {
                 CompileError::Codegen(format!("Cannot save LLVM object file for trampoline: {e}"))
@@ -302,7 +300,7 @@ impl FuncTrampoline {
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
         }
-        if !self.experimental_artifact {
+        if !cfg!(feature = "experimental-artifact") {
             trampoline_func
                 .as_global_value()
                 .set_section(Some(&self.func_section));
@@ -372,7 +370,7 @@ impl FuncTrampoline {
             callbacks.asm_memory_buffer(function, module_hash, &asm_buffer)
         }
 
-        if self.experimental_artifact {
+        if cfg!(feature = "experimental-artifact") {
             let object_path = build_directory.to_path_buf().join(function.linkage_name());
             std::fs::write(&object_path, memory_buffer.as_slice()).map_err(|e| {
                 CompileError::Codegen(format!(
