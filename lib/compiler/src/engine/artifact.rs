@@ -299,17 +299,13 @@ impl Artifact {
     }
 
     /// Deserialize an ELF artifact held in memory, if the bytes contain one.
-    fn deserialize_elf(
-        engine: &Engine,
-        bytes: &[u8],
-    ) -> Result<Option<Self>, DeserializeError> {
+    fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
         if !bytes.starts_with(&object::elf::ELFMAG) {
             return Ok(None);
         }
 
-        let image = object::File::parse(bytes).map_err(|e| {
-            DeserializeError::CorruptedBinary(format!("cannot parse image: {e}"))
-        })?;
+        let image = object::File::parse(bytes)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
         let module_info = image
             .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
             .ok_or_else(|| {
@@ -488,9 +484,9 @@ impl Artifact {
                     "file-backed loading only supports ELF artifacts".to_string(),
                 ));
             }
-            Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file)?
+            Self::allocate_exp_artifact_from_path(engine_inner, module_info, module_file)?
         } else if let Some(elf_file_data) = elf_file_data {
-            Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
+            Self::allocate_exp_artifact(engine_inner, module_info, elf_file_data)?
         } else {
             let (
                 finished_functions,
@@ -777,7 +773,7 @@ impl Artifact {
     }
 
     /// Build an [`AllocatedArtifact`] from a compiled native ELF image.
-    fn allocate_elf_artifact(
+    fn allocate_exp_artifact(
         engine_inner: &mut EngineInner,
         module_info: &ModuleInfo,
         elf_file_data: &[u8],
@@ -785,7 +781,7 @@ impl Artifact {
         let image = object::File::parse(elf_file_data)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
         let base = engine_inner.map_elf_binary(&image, elf_file_data)?;
-        Self::allocate_elf_artifact_from_image(
+        Self::allocate_exp_artifact_from_image(
             engine_inner,
             module_info,
             &image,
@@ -794,8 +790,7 @@ impl Artifact {
         )
     }
 
-    #[cfg(unix)]
-    fn allocate_elf_artifact_from_path(
+    fn allocate_exp_artifact_from_path(
         engine_inner: &mut EngineInner,
         module_info: &ModuleInfo,
         path: &Path,
@@ -812,7 +807,7 @@ impl Artifact {
             ));
         }
         let base = engine_inner.map_elf_binary_file(&image, fd)?;
-        Self::allocate_elf_artifact_from_image(
+        Self::allocate_exp_artifact_from_image(
             engine_inner,
             module_info,
             &image,
@@ -821,18 +816,7 @@ impl Artifact {
         )
     }
 
-    #[cfg(not(unix))]
-    fn allocate_elf_artifact_from_path(
-        _engine_inner: &mut EngineInner,
-        _module_info: &ModuleInfo,
-        _path: &Path,
-    ) -> Result<AllocatedArtifact, DeserializeError> {
-        Err(DeserializeError::Incompatible(
-            "file-backed ELF artifacts are only supported on Unix".to_string(),
-        ))
-    }
-
-    fn allocate_elf_artifact_from_image<'a, R: object::ReadRef<'a>>(
+    fn allocate_exp_artifact_from_image<'a, R: object::ReadRef<'a>>(
         engine_inner: &mut EngineInner,
         module_info: &ModuleInfo,
         image: &object::File<'a, R>,
