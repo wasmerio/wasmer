@@ -347,13 +347,21 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
+        let mut released_stack_slots = 0;
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
                 self.check_location_on_stack(loc, self.stack_offset.get())?;
                 self.stack_offset -= 8;
-                self.machine
-                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
+                released_stack_slots += 1;
             }
+        }
+
+        // It's important to emit a stack release instruction just once as we might be releasing
+        // potentially a big number of slots.
+        if released_stack_slots > 0 {
+            self.machine.truncate_stack(
+                (released_stack_slots * self.machine.round_stack_adjust(8)) as u32,
+            )?;
         }
 
         Ok(())
@@ -363,6 +371,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         stack_depth: usize,
     ) -> Result<(), CompileError> {
+        let mut released_stack_slots = 0;
         let mut stack_offset = self.stack_offset.get();
         let locs = &self.value_stack[stack_depth..];
 
@@ -370,9 +379,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             if let Location::Memory(..) = *loc {
                 self.check_location_on_stack(loc, stack_offset)?;
                 stack_offset -= 8;
-                self.machine
-                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
+                released_stack_slots += 1;
             }
+        }
+
+        // It's important to emit a stack release instruction just once as we might be releasing
+        // potentially a big number of slots.
+        if released_stack_slots > 0 {
+            self.machine.truncate_stack(
+                (released_stack_slots * self.machine.round_stack_adjust(8)) as u32,
+            )?;
         }
 
         Ok(())
