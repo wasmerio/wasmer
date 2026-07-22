@@ -55,6 +55,16 @@ impl Type {
     pub fn is_ref(self) -> bool {
         matches!(self, Self::ExternRef | Self::FuncRef | Self::ExceptionRef)
     }
+
+    /// Return byte size of the type.
+    pub fn byte_size(&self, pointer_size: usize) -> usize {
+        match self {
+            Self::I32 | Self::F32 | Self::ExceptionRef => 32,
+            Self::I64 | Self::F64 => 64,
+            Self::ExternRef | Self::FuncRef => pointer_size,
+            Self::V128 => 128,
+        }
+    }
 }
 
 impl fmt::Display for Type {

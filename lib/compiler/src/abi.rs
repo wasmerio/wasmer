@@ -62,15 +62,7 @@ fn pair_slot(t0: Type, t1: Type) -> PairSlot {
 
 /// Classifies x86_64 return values.
 pub fn classify_return_type_x86_64(types: &[Type]) -> ReturnAbi {
-    let widths: Vec<_> = types
-        .iter()
-        .map(|ty| match ty {
-            Type::I32 | Type::F32 | Type::ExceptionRef => 32,
-            Type::I64 | Type::F64 => 64,
-            Type::ExternRef | Type::FuncRef => 64,
-            Type::V128 => 128,
-        })
-        .collect_vec();
+    let widths = types.iter().map(|ty| ty.byte_size(64)).collect_vec();
 
     match (types, widths.as_slice()) {
         ([], []) => ReturnAbi::Void,
@@ -97,6 +89,7 @@ pub fn classify_return_type_x86_64(types: &[Type]) -> ReturnAbi {
 /// A float value only gets its own vector register as part of a
 /// homogeneous floating-point aggregate (the `Unpacked` case below).
 pub fn classify_return_type_aarch64(types: &[Type]) -> ReturnAbi {
+    let widths = types.iter().map(|ty| ty.byte_size(64)).collect_vec();
     if (2..=4).contains(&types.len())
         && (types.iter().all(|ty| ty == &Type::F32) || types.iter().all(|ty| ty == &Type::F64))
     {
@@ -112,15 +105,6 @@ pub fn classify_return_type_aarch64(types: &[Type]) -> ReturnAbi {
     {
         return ReturnAbi::Pair(ReturnSlot::Raw(*first), ReturnSlot::Raw(*second));
     }
-
-    let widths: Vec<_> = types
-        .iter()
-        .map(|ty| match ty {
-            Type::I32 | Type::F32 | Type::ExceptionRef => 32,
-            Type::I64 | Type::F64 | Type::ExternRef | Type::FuncRef => 64,
-            Type::V128 => 128,
-        })
-        .collect_vec();
 
     match (types, widths.as_slice()) {
         ([], []) => ReturnAbi::Void,
@@ -146,15 +130,7 @@ pub fn classify_return_type_aarch64(types: &[Type]) -> ReturnAbi {
 /// Classifies RISC-V return values according to the hard-float psABI.
 pub fn classify_return_type_riscv(types: &[Type], is_riscv64: bool) -> ReturnAbi {
     let xlen = if is_riscv64 { 64 } else { 32 };
-    let widths: Vec<_> = types
-        .iter()
-        .map(|ty| match ty {
-            Type::I32 | Type::F32 | Type::ExceptionRef => 32,
-            Type::I64 | Type::F64 => 64,
-            Type::ExternRef | Type::FuncRef => xlen,
-            Type::V128 => 128,
-        })
-        .collect_vec();
+    let widths = types.iter().map(|ty| ty.byte_size(xlen)).collect_vec();
 
     // The hardware floating-point calling convention flattens only aggregates
     // with one or two fields. ABI_FLEN is 64 for the Linux *D ABIs used here,
