@@ -9,10 +9,10 @@ use std::{
 };
 
 use wasmer_api::{
-    Extern, ExternType, Function, Function as WasmerFunction, FunctionEnv, FunctionEnvMut,
-    FunctionType, Global, GlobalType, Imports, Instance, Memory, Memory32, MemoryType, Module,
-    Mutability, Pages, RuntimeError, StoreMut, Table, Type, TypedFunction, Value, WasmPtr,
-    namespace,
+    Extern, ExternRef, ExternType, Function, Function as WasmerFunction, FunctionEnv,
+    FunctionEnvMut, FunctionType, Global, GlobalType, Imports, Instance, Memory, Memory32,
+    MemoryType, Module, Mutability, Pages, RuntimeError, StoreMut, Table, TableType, Type,
+    TypedFunction, Value, WasmPtr, namespace,
 };
 
 /// Import module name used for host-provided WebAssembly C API bindings.
@@ -443,6 +443,10 @@ enum WasmObject {
     Global(Global),
     GlobalType(GlobalType),
     Table(Table),
+    TableType(TableType),
+    /// A boxed reference value (`externref`/`funcref`) exposed to the guest as a
+    /// `wasm_ref_t*` handle.
+    Ref(Value),
     Trap(String),
 }
 
@@ -892,16 +896,6 @@ fn read_handle_vec(env: &mut FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32) -> Optio
     read_guest_i32_vec(env, data_ptr, size)
 }
 
-fn type_to_wasm_valkind(ty: Type) -> Option<u8> {
-    Some(match ty {
-        Type::I32 => WASM_I32,
-        Type::I64 => WASM_I64,
-        Type::F32 => WASM_F32,
-        Type::F64 => WASM_F64,
-        Type::FuncRef | Type::ExternRef | Type::V128 | Type::ExceptionRef => return None,
-    })
-}
-
 fn type_to_wasm_kind(ty: Type) -> Option<u8> {
     Some(match ty {
         Type::I32 => WASM_I32,
@@ -953,9 +947,44 @@ fn read_wasm_val(env: &mut FunctionEnvMut<WasmCapiEnv>, val_ptr: i32, ty: Type) 
             let raw = read_u64(env, val_ptr + WASM_VAL_PAYLOAD_OFFSET)?;
             Some(Value::F64(f64::from_bits(raw)))
         }
-        // Reference values require object-handle marshalling that this import
-        // bridge does not implement yet.
-        Type::FuncRef | Type::ExternRef | Type::V128 | Type::ExceptionRef => None,
+        // The guest stores a `wasm_ref_t*` as an i32 handle in the payload.
+        Type::FuncRef | Type::ExternRef => {
+            let handle = read_i32(env, val_ptr + WASM_VAL_PAYLOAD_OFFSET)?;
+            Some(ref_value_from_handle(env, handle, ty))
+        }
+        Type::V128 | Type::ExceptionRef => None,
+    }
+}
+
+/// Resolve a guest `wasm_ref_t*` handle into a reference [`Value`] of the
+/// expected reference kind. A null handle (`0`) is the null reference.
+fn ref_value_from_handle(env: &FunctionEnvMut<WasmCapiEnv>, handle: i32, ty: Type) -> Value {
+    let null = match ty {
+        Type::FuncRef => Value::FuncRef(None),
+        _ => Value::ExternRef(None),
+    };
+    if handle <= INVALID_HANDLE {
+        return null;
+    }
+    match env.data().state.get(handle) {
+        Some(WasmObject::Ref(value)) => value.clone(),
+        // A funcref may also be handed over as a `wasm_func_t*` handle.
+        Some(WasmObject::Func(f)) | Some(WasmObject::Extern(WasmExtern::Func(f))) => {
+            Value::FuncRef(Some(f.clone()))
+        }
+        _ => null,
+    }
+}
+
+/// Materialize a reference [`Value`] into a guest `wasm_ref_t*` handle, or `0`
+/// for the null reference.
+fn ref_value_to_handle(env: &mut FunctionEnvMut<WasmCapiEnv>, value: &Value) -> i32 {
+    match value {
+        Value::ExternRef(None) | Value::FuncRef(None) => INVALID_HANDLE,
+        Value::ExternRef(Some(_)) | Value::FuncRef(Some(_)) => {
+            insert(env, WasmObject::Ref(value.clone()))
+        }
+        _ => INVALID_HANDLE,
     }
 }
 
@@ -964,9 +993,12 @@ fn write_wasm_val(env: &mut FunctionEnvMut<WasmCapiEnv>, val_ptr: i32, value: &V
         return false;
     };
     let val_ptr = val_ptr.get();
-    let Some(kind) = type_to_wasm_valkind(value.ty()) else {
+    let Some(kind) = type_to_wasm_kind(value.ty()) else {
         return false;
     };
+    // For references, mint the guest handle before writing (mutates state).
+    let ref_handle = matches!(value, Value::FuncRef(_) | Value::ExternRef(_))
+        .then(|| ref_value_to_handle(env, value));
     if !write_guest_bytes(env, val_ptr, &[kind]) {
         return false;
     }
@@ -989,9 +1021,13 @@ fn write_wasm_val(env: &mut FunctionEnvMut<WasmCapiEnv>, val_ptr: i32, value: &V
             WASM_VAL_PAYLOAD_OFFSET,
             &v.to_bits().to_le_bytes(),
         ),
-        // Reference values are intentionally rejected above until the bridge
-        // can preserve them as handles instead of silently turning them null.
-        Value::FuncRef(_) | Value::ExternRef(_) | Value::V128(_) | Value::ExceptionRef(_) => false,
+        Value::FuncRef(_) | Value::ExternRef(_) => write_guest_bytes_offset(
+            env,
+            val_ptr,
+            WASM_VAL_PAYLOAD_OFFSET,
+            &ref_handle.unwrap_or(INVALID_HANDLE).to_le_bytes(),
+        ),
+        Value::V128(_) | Value::ExceptionRef(_) => false,
     }
 }
 
@@ -1387,16 +1423,15 @@ fn wasm_memory_data(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) ->
 
     let existing = env.data().state.memory_shadows.get(&memory_handle).copied();
     let shadow = match existing {
-        Some(existing) if existing.len >= size => {
-            let shadow = MemoryShadow {
-                guest_ptr: existing.guest_ptr,
-                len: size,
-            };
-            if !copy_wasmer_memory_to_guest(&mut env, &memory, shadow.guest_ptr, size) {
-                return INVALID_HANDLE;
-            }
-            shadow
-        }
+        // Size unchanged: the shadow is kept coherent by the sync/refresh
+        // brackets around every wasm call and guest callback, and re-copying
+        // here would DESTROY guest writes that have not been synced yet (the
+        // guest may query the data pointer between writing to the shadow and
+        // the call that flushes it).
+        Some(existing) if existing.len >= size => MemoryShadow {
+            guest_ptr: existing.guest_ptr,
+            len: size,
+        },
         _ => {
             let Some(mut allocation) = GuestAllocation::new(&mut env, size) else {
                 return INVALID_HANDLE;
@@ -1577,7 +1612,11 @@ fn wasm_instance_new(
         imports.define(import.module(), import.name(), ext);
     }
 
-    match Instance::new(&mut env, &module, &imports) {
+    // Instantiation runs data-segment initialization and the start function,
+    // which mutate memories a guest shadow may already mirror.
+    let result = Instance::new(&mut env, &module, &imports);
+    refresh_memory_shadows_from_wasmer(&mut env);
+    match result {
         Ok(instance) => insert(&mut env, WasmObject::Instance(instance)),
         Err(err) => {
             if let Some(trap_out_ptr) = non_null_guest_ptr(trap_out_ptr) {
@@ -1864,14 +1903,22 @@ fn call_guest_wasm_callback(
             );
         }
     };
-    match func.call(
+    // Mirror of the wasm_func_call bracketing, in the opposite direction: the
+    // guest callback reads the target module's memory through its shadow (so
+    // it must see mutations made since the last refresh), and its writes into
+    // the shadow (e.g. wasm-bindgen retptr stores) must land back in the real
+    // memory before the target module resumes.
+    refresh_memory_shadows_from_wasmer(env);
+    let call_result = func.call(
         env,
         &[
             Value::I32(callback_env),
             Value::I32(args_vec_ptr),
             Value::I32(results_vec_ptr),
         ],
-    ) {
+    );
+    sync_memory_shadows_to_wasmer(env);
+    match call_result {
         Ok(values) => match values.first() {
             Some(Value::I32(value)) => *value,
             Some(Value::I64(value)) => *value as i32,
@@ -1954,25 +2001,253 @@ fn wasm_table_size(env: FunctionEnvMut<WasmCapiEnv>, table_handle: i32) -> i32 {
     }
 }
 
+/// Look up a table handle (either a bare table or an extern-wrapped one).
+fn table_from_handle(env: &FunctionEnvMut<WasmCapiEnv>, handle: i32) -> Option<Table> {
+    match env.data().state.get(handle) {
+        Some(WasmObject::Table(table)) => Some(table.clone()),
+        Some(WasmObject::Extern(WasmExtern::Table(table))) => Some(table.clone()),
+        _ => None,
+    }
+}
+
+/// The null reference of a table's element kind.
+fn null_ref_for(element_ty: Type) -> Value {
+    match element_ty {
+        Type::FuncRef => Value::FuncRef(None),
+        _ => Value::ExternRef(None),
+    }
+}
+
 fn wasm_table_grow(
     mut env: FunctionEnvMut<WasmCapiEnv>,
     table_handle: i32,
     delta: i32,
-    _init: i32,
+    init: i32,
 ) -> i32 {
     let Ok(delta) = u32::try_from(delta) else {
         return BOOL_FALSE;
     };
-    let table = match env.data().state.get(table_handle) {
-        Some(WasmObject::Table(table)) => table.clone(),
-        Some(WasmObject::Extern(WasmExtern::Table(table))) => table.clone(),
-        _ => return BOOL_FALSE,
+    let Some(table) = table_from_handle(&env, table_handle) else {
+        return BOOL_FALSE;
     };
-    if table.grow(&mut env, delta, Value::FuncRef(None)).is_ok() {
+    let element_ty = table.ty(&env).ty;
+    let init_val = if init <= INVALID_HANDLE {
+        null_ref_for(element_ty)
+    } else {
+        ref_value_from_handle(&env, init, element_ty)
+    };
+    if table.grow(&mut env, delta, init_val).is_ok() {
         BOOL_TRUE
     } else {
         BOOL_FALSE
     }
+}
+
+fn wasm_table_get(mut env: FunctionEnvMut<WasmCapiEnv>, table_handle: i32, index: i32) -> i32 {
+    let Ok(index) = u32::try_from(index) else {
+        return INVALID_HANDLE;
+    };
+    let Some(table) = table_from_handle(&env, table_handle) else {
+        return INVALID_HANDLE;
+    };
+    match table.get(&mut env, index) {
+        Some(value) => ref_value_to_handle(&mut env, &value),
+        None => INVALID_HANDLE,
+    }
+}
+
+fn wasm_table_set(
+    mut env: FunctionEnvMut<WasmCapiEnv>,
+    table_handle: i32,
+    index: i32,
+    ref_handle: i32,
+) -> i32 {
+    let Ok(index) = u32::try_from(index) else {
+        return BOOL_FALSE;
+    };
+    let Some(table) = table_from_handle(&env, table_handle) else {
+        return BOOL_FALSE;
+    };
+    let element_ty = table.ty(&env).ty;
+    let value = ref_value_from_handle(&env, ref_handle, element_ty);
+    if table.set(&mut env, index, value).is_ok() {
+        BOOL_TRUE
+    } else {
+        BOOL_FALSE
+    }
+}
+
+fn wasm_tabletype_new(
+    mut env: FunctionEnvMut<WasmCapiEnv>,
+    valtype_handle: i32,
+    limits_ptr: i32,
+) -> i32 {
+    let ty = match env.data().state.get(valtype_handle) {
+        Some(WasmObject::ValType(ty)) => *ty,
+        _ => return INVALID_HANDLE,
+    };
+    let Some((min, max)) = read_limits(&mut env, limits_ptr) else {
+        return INVALID_HANDLE;
+    };
+    insert(
+        &mut env,
+        WasmObject::TableType(TableType::new(ty, min, max)),
+    )
+}
+
+fn wasm_tabletype_element(mut env: FunctionEnvMut<WasmCapiEnv>, tabletype_handle: i32) -> i32 {
+    let ty = match env.data().state.get(tabletype_handle) {
+        Some(WasmObject::TableType(ty)) => ty.ty,
+        _ => return INVALID_HANDLE,
+    };
+    insert(&mut env, WasmObject::ValType(ty))
+}
+
+fn wasm_table_type(mut env: FunctionEnvMut<WasmCapiEnv>, table_handle: i32) -> i32 {
+    let Some(table) = table_from_handle(&env, table_handle) else {
+        return INVALID_HANDLE;
+    };
+    let ty = table.ty(&env);
+    insert(&mut env, WasmObject::TableType(ty))
+}
+
+fn wasm_table_new(
+    mut env: FunctionEnvMut<WasmCapiEnv>,
+    _store: i32,
+    tabletype_handle: i32,
+    init_handle: i32,
+) -> i32 {
+    let ty = match env.data().state.get(tabletype_handle) {
+        Some(WasmObject::TableType(ty)) => *ty,
+        _ => return INVALID_HANDLE,
+    };
+    let init_val = if init_handle <= INVALID_HANDLE {
+        null_ref_for(ty.ty)
+    } else {
+        ref_value_from_handle(&env, init_handle, ty.ty)
+    };
+    match Table::new(&mut env, ty, init_val) {
+        Ok(table) => insert(&mut env, WasmObject::Table(table)),
+        Err(_) => INVALID_HANDLE,
+    }
+}
+
+fn wasm_func_as_ref(mut env: FunctionEnvMut<WasmCapiEnv>, func_handle: i32) -> i32 {
+    let func = match env.data().state.get(func_handle) {
+        Some(WasmObject::Func(func)) => func.clone(),
+        Some(WasmObject::Extern(WasmExtern::Func(func))) => func.clone(),
+        _ => return INVALID_HANDLE,
+    };
+    insert(&mut env, WasmObject::Ref(Value::FuncRef(Some(func))))
+}
+
+fn wasm_ref_as_func(mut env: FunctionEnvMut<WasmCapiEnv>, ref_handle: i32) -> i32 {
+    let func = match env.data().state.get(ref_handle) {
+        Some(WasmObject::Ref(Value::FuncRef(Some(func)))) => func.clone(),
+        _ => return INVALID_HANDLE,
+    };
+    insert(&mut env, WasmObject::Func(func))
+}
+
+/// Host-info payload carried by a `wasm_foreign_new` externref. Values are
+/// guest `void*` / function pointers, i.e. i32s in the wasm32 guest.
+struct GuestForeign {
+    host_info: std::cell::Cell<i32>,
+    finalizer: std::cell::Cell<i32>,
+}
+
+// SAFETY: guest stores are single-threaded; these cells are never shared across
+// threads.
+unsafe impl Send for GuestForeign {}
+unsafe impl Sync for GuestForeign {}
+
+fn wasm_foreign_new(mut env: FunctionEnvMut<WasmCapiEnv>, _store: i32) -> i32 {
+    let extern_ref = {
+        let (_, mut store) = env.data_and_store_mut();
+        ExternRef::new(
+            &mut store,
+            GuestForeign {
+                host_info: std::cell::Cell::new(0),
+                finalizer: std::cell::Cell::new(0),
+            },
+        )
+    };
+    insert(
+        &mut env,
+        WasmObject::Ref(Value::ExternRef(Some(extern_ref))),
+    )
+}
+
+fn wasm_ref_copy(mut env: FunctionEnvMut<WasmCapiEnv>, ref_handle: i32) -> i32 {
+    match env.data().state.get(ref_handle) {
+        Some(WasmObject::Ref(value)) => {
+            let value = value.clone();
+            insert(&mut env, WasmObject::Ref(value))
+        }
+        _ => INVALID_HANDLE,
+    }
+}
+
+/// Whether two reference values point at the same underlying object.
+fn ref_values_same(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::ExternRef(Some(x)), Value::ExternRef(Some(y))) => x.ptr_eq(y),
+        (Value::ExternRef(None), Value::ExternRef(None)) => true,
+        (Value::FuncRef(Some(x)), Value::FuncRef(Some(y))) => x == y,
+        (Value::FuncRef(None), Value::FuncRef(None)) => true,
+        _ => false,
+    }
+}
+
+fn wasm_ref_same(env: FunctionEnvMut<WasmCapiEnv>, ref1: i32, ref2: i32) -> i32 {
+    if ref1 == ref2 {
+        return BOOL_TRUE;
+    }
+    let state = &env.data().state;
+    let (Some(WasmObject::Ref(a)), Some(WasmObject::Ref(b))) = (state.get(ref1), state.get(ref2))
+    else {
+        return BOOL_FALSE;
+    };
+    if ref_values_same(a, b) {
+        BOOL_TRUE
+    } else {
+        BOOL_FALSE
+    }
+}
+
+/// Access the [`GuestForeign`] payload of a foreign externref handle.
+fn with_guest_foreign<R>(
+    env: &FunctionEnvMut<WasmCapiEnv>,
+    ref_handle: i32,
+    f: impl FnOnce(&GuestForeign) -> R,
+) -> Option<R> {
+    match env.data().state.get(ref_handle) {
+        Some(WasmObject::Ref(Value::ExternRef(Some(e)))) => e.downcast::<GuestForeign>(env).map(f),
+        _ => None,
+    }
+}
+
+fn wasm_ref_get_host_info(env: FunctionEnvMut<WasmCapiEnv>, ref_handle: i32) -> i32 {
+    with_guest_foreign(&env, ref_handle, |g| g.host_info.get()).unwrap_or(0)
+}
+
+fn wasm_ref_set_host_info(env: FunctionEnvMut<WasmCapiEnv>, ref_handle: i32, info: i32) {
+    with_guest_foreign(&env, ref_handle, |g| {
+        g.finalizer.set(0);
+        g.host_info.set(info);
+    });
+}
+
+fn wasm_ref_set_host_info_with_finalizer(
+    env: FunctionEnvMut<WasmCapiEnv>,
+    ref_handle: i32,
+    info: i32,
+    finalizer: i32,
+) {
+    with_guest_foreign(&env, ref_handle, |g| {
+        g.host_info.set(info);
+        g.finalizer.set(finalizer);
+    });
 }
 
 fn wasm_trap_new(mut env: FunctionEnvMut<WasmCapiEnv>, _store: i32, message_ptr: i32) -> i32 {
@@ -2047,6 +2322,12 @@ fn wasm_val_vec_new_uninitialized(mut env: FunctionEnvMut<WasmCapiEnv>, out_ptr:
 
 fn noop_delete(_env: FunctionEnvMut<WasmCapiEnv>, _handle: i32) {}
 
+/// `wasm_foreign_t` and `wasm_ref_t` share a handle representation, so the cast
+/// helpers (`wasm_foreign_as_ref`, `wasm_ref_as_foreign`) are the identity.
+fn handle_identity(_env: FunctionEnvMut<WasmCapiEnv>, handle: i32) -> i32 {
+    handle
+}
+
 fn vec_delete(mut env: FunctionEnvMut<WasmCapiEnv>, vec_ptr: i32) {
     if let Some(vec_ptr) = non_null_guest_ptr(vec_ptr) {
         write_guest_vec_header(&mut env, vec_ptr.get(), 0, 0);
@@ -2109,11 +2390,30 @@ fn register_wasm_c_api_imports(
         "wasm_global_get" => WasmerFunction::new_typed_with_env(store, fe, wasm_global_get),
         "wasm_global_set" => WasmerFunction::new_typed_with_env(store, fe, wasm_global_set),
         "wasm_global_as_extern" => WasmerFunction::new_typed_with_env(store, fe, wasm_global_as_extern),
+        "wasm_table_new" => WasmerFunction::new_typed_with_env(store, fe, wasm_table_new),
         "wasm_table_delete" => WasmerFunction::new_typed_with_env(store, fe, delete_handle),
         "wasm_table_copy" => WasmerFunction::new_typed_with_env(store, fe, wasm_table_copy),
+        "wasm_table_type" => WasmerFunction::new_typed_with_env(store, fe, wasm_table_type),
         "wasm_table_size" => WasmerFunction::new_typed_with_env(store, fe, wasm_table_size),
         "wasm_table_grow" => WasmerFunction::new_typed_with_env(store, fe, wasm_table_grow),
+        "wasm_table_get" => WasmerFunction::new_typed_with_env(store, fe, wasm_table_get),
+        "wasm_table_set" => WasmerFunction::new_typed_with_env(store, fe, wasm_table_set),
         "wasm_table_as_extern" => WasmerFunction::new_typed_with_env(store, fe, wasm_table_as_extern),
+        "wasm_tabletype_new" => WasmerFunction::new_typed_with_env(store, fe, wasm_tabletype_new),
+        "wasm_tabletype_delete" => WasmerFunction::new_typed_with_env(store, fe, delete_handle),
+        "wasm_tabletype_element" => WasmerFunction::new_typed_with_env(store, fe, wasm_tabletype_element),
+        "wasm_func_as_ref" => WasmerFunction::new_typed_with_env(store, fe, wasm_func_as_ref),
+        "wasm_ref_as_func" => WasmerFunction::new_typed_with_env(store, fe, wasm_ref_as_func),
+        "wasm_foreign_new" => WasmerFunction::new_typed_with_env(store, fe, wasm_foreign_new),
+        "wasm_foreign_delete" => WasmerFunction::new_typed_with_env(store, fe, delete_handle),
+        "wasm_foreign_as_ref" => WasmerFunction::new_typed_with_env(store, fe, handle_identity),
+        "wasm_ref_as_foreign" => WasmerFunction::new_typed_with_env(store, fe, handle_identity),
+        "wasm_ref_delete" => WasmerFunction::new_typed_with_env(store, fe, delete_handle),
+        "wasm_ref_copy" => WasmerFunction::new_typed_with_env(store, fe, wasm_ref_copy),
+        "wasm_ref_same" => WasmerFunction::new_typed_with_env(store, fe, wasm_ref_same),
+        "wasm_ref_get_host_info" => WasmerFunction::new_typed_with_env(store, fe, wasm_ref_get_host_info),
+        "wasm_ref_set_host_info" => WasmerFunction::new_typed_with_env(store, fe, wasm_ref_set_host_info),
+        "wasm_ref_set_host_info_with_finalizer" => WasmerFunction::new_typed_with_env(store, fe, wasm_ref_set_host_info_with_finalizer),
         "wasm_instance_new" => WasmerFunction::new_typed_with_env(store, fe, wasm_instance_new),
         "wasm_instance_delete" => WasmerFunction::new_typed_with_env(store, fe, delete_handle),
         "wasm_instance_exports" => WasmerFunction::new_typed_with_env(store, fe, wasm_instance_exports),
@@ -2142,16 +2442,19 @@ fn register_wasm_c_api_imports(
 #[cfg(test)]
 mod tests {
     use super::{
-        INVALID_HANDLE, INVALID_SIZE, MemoryShadow, Type, WASM_EXTERNREF, WASM_F64, WASM_FUNCREF,
-        WASM_I32, WasmCAPIVersion, WasmCapiEnv, WasmCapiState, WasmObject,
-        copy_guest_memory_to_wasmer, copy_wasmer_memory_to_guest, guest_byte_ptr,
-        guest_memory_offset, guest_ptr_with_offset, module_wasm_c_api_version_used,
-        non_null_guest_ptr, refresh_memory_shadows_from_wasmer, sync_memory_shadows_to_wasmer,
-        type_to_wasm_kind, type_to_wasm_valkind, wasm_kind_to_type, wasm_memory_data,
-        wasm_memory_data_size, wasm_memory_size, wasm_table_size, write_wasm_val,
+        BOOL_FALSE, BOOL_TRUE, INVALID_HANDLE, INVALID_SIZE, MemoryShadow, Type, WASM_EXTERNREF,
+        WASM_F64, WASM_FUNCREF, WASM_I32, WASM_VAL_PAYLOAD_OFFSET, WasmCAPIVersion, WasmCapiEnv,
+        WasmCapiState, WasmObject, copy_guest_memory_to_wasmer, copy_wasmer_memory_to_guest,
+        guest_byte_ptr, guest_memory_offset, guest_ptr_with_offset, module_wasm_c_api_version_used,
+        non_null_guest_ptr, read_wasm_val, ref_values_same, refresh_memory_shadows_from_wasmer,
+        sync_memory_shadows_to_wasmer, type_to_wasm_kind, wasm_foreign_new, wasm_func_as_ref,
+        wasm_kind_to_type, wasm_memory_data, wasm_memory_data_size, wasm_memory_size,
+        wasm_ref_as_func, wasm_ref_copy, wasm_ref_get_host_info, wasm_ref_same,
+        wasm_ref_set_host_info, wasm_table_get, wasm_table_grow, wasm_table_set, wasm_table_size,
+        write_wasm_val,
     };
     use wasmer_api::{
-        FunctionEnv, Memory, MemoryType, Module, Pages, Store, Table, TableType, Value,
+        Function, FunctionEnv, Memory, MemoryType, Module, Pages, Store, Table, TableType, Value,
     };
     use wat::parse_str;
 
@@ -2524,9 +2827,6 @@ mod tests {
         assert_eq!(type_to_wasm_kind(Type::FuncRef), Some(WASM_FUNCREF));
         assert_eq!(type_to_wasm_kind(Type::V128), None);
         assert_eq!(type_to_wasm_kind(Type::ExceptionRef), None);
-        assert_eq!(type_to_wasm_valkind(Type::I32), Some(WASM_I32));
-        assert_eq!(type_to_wasm_valkind(Type::FuncRef), None);
-        assert_eq!(type_to_wasm_valkind(Type::ExternRef), None);
 
         assert_eq!(wasm_kind_to_type(i32::from(WASM_I32)), Some(Type::I32));
         assert_eq!(
@@ -2537,19 +2837,233 @@ mod tests {
     }
 
     #[test]
-    fn unsupported_ref_values_are_not_marshalled() {
+    fn null_ref_values_marshal_to_a_null_handle() {
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(1)), false))
+            .expect("memory can be created");
+        let func_env = FunctionEnv::new(
+            &mut store,
+            WasmCapiEnv {
+                memory: Some(memory.clone()),
+                ..WasmCapiEnv::default()
+            },
+        );
+
+        // A null reference marshals as the value kind plus a null (0) handle.
+        for (value, kind) in [
+            (Value::FuncRef(None), WASM_FUNCREF),
+            (Value::ExternRef(None), WASM_EXTERNREF),
+        ] {
+            let val_ptr = 16;
+            assert!(write_wasm_val(
+                &mut func_env.clone().into_mut(&mut store),
+                val_ptr,
+                &value
+            ));
+            let mut kind_byte = [0u8; 1];
+            memory
+                .view(&store)
+                .read(val_ptr as u64, &mut kind_byte)
+                .expect("kind read succeeds");
+            assert_eq!(kind_byte[0], kind);
+            let mut handle = [0u8; 4];
+            memory
+                .view(&store)
+                .read((val_ptr + WASM_VAL_PAYLOAD_OFFSET) as u64, &mut handle)
+                .expect("handle read succeeds");
+            assert_eq!(i32::from_le_bytes(handle), INVALID_HANDLE);
+        }
+    }
+
+    #[test]
+    fn ref_values_same_matches_identity_and_kind() {
+        assert!(ref_values_same(
+            &Value::ExternRef(None),
+            &Value::ExternRef(None)
+        ));
+        assert!(ref_values_same(
+            &Value::FuncRef(None),
+            &Value::FuncRef(None)
+        ));
+        // A null externref and a null funcref are not the same reference.
+        assert!(!ref_values_same(
+            &Value::ExternRef(None),
+            &Value::FuncRef(None)
+        ));
+    }
+
+    // Externref/table reference ops are only implemented on the `sys` backend.
+    #[cfg(feature = "sys")]
+    #[test]
+    fn foreign_ref_host_info_and_copy_share_the_payload() {
         let mut store = Store::default();
         let func_env = FunctionEnv::new(&mut store, WasmCapiEnv::default());
 
-        assert!(!write_wasm_val(
+        let ref_handle = wasm_foreign_new(func_env.clone().into_mut(&mut store), 0);
+        assert!(ref_handle > INVALID_HANDLE);
+        // Host info defaults to 0.
+        assert_eq!(
+            wasm_ref_get_host_info(func_env.clone().into_mut(&mut store), ref_handle),
+            0
+        );
+        // set/get roundtrips.
+        wasm_ref_set_host_info(func_env.clone().into_mut(&mut store), ref_handle, 42);
+        assert_eq!(
+            wasm_ref_get_host_info(func_env.clone().into_mut(&mut store), ref_handle),
+            42
+        );
+
+        // A copy is a distinct handle that refers to the same extern object, so
+        // it is `same` and observes the same (shared) host info.
+        let copy = wasm_ref_copy(func_env.clone().into_mut(&mut store), ref_handle);
+        assert!(copy > INVALID_HANDLE && copy != ref_handle);
+        assert_eq!(
+            wasm_ref_same(func_env.clone().into_mut(&mut store), ref_handle, copy),
+            BOOL_TRUE
+        );
+        assert_eq!(
+            wasm_ref_get_host_info(func_env.clone().into_mut(&mut store), copy),
+            42
+        );
+
+        // Two independently minted foreign refs are not the same.
+        let other = wasm_foreign_new(func_env.clone().into_mut(&mut store), 0);
+        assert_eq!(
+            wasm_ref_same(func_env.clone().into_mut(&mut store), ref_handle, other),
+            BOOL_FALSE
+        );
+    }
+
+    #[cfg(feature = "sys")]
+    #[test]
+    fn externref_table_get_set_grow_via_handles() {
+        let mut store = Store::default();
+        let table = Table::new(
+            &mut store,
+            TableType::new(Type::ExternRef, 2, Some(10)),
+            Value::ExternRef(None),
+        )
+        .expect("externref table can be created");
+        let func_env = FunctionEnv::new(&mut store, WasmCapiEnv::default());
+        let table_handle = {
+            let mut env = func_env.clone().into_mut(&mut store);
+            env.data_mut().state.insert(WasmObject::Table(table))
+        };
+
+        // Empty slot reads back as the null handle.
+        assert_eq!(
+            wasm_table_get(func_env.clone().into_mut(&mut store), table_handle, 0),
+            INVALID_HANDLE
+        );
+
+        let ref_handle = wasm_foreign_new(func_env.clone().into_mut(&mut store), 0);
+        assert_eq!(
+            wasm_table_set(
+                func_env.clone().into_mut(&mut store),
+                table_handle,
+                0,
+                ref_handle
+            ),
+            BOOL_TRUE
+        );
+
+        // Reading the slot yields a fresh handle to the same extern object.
+        let got = wasm_table_get(func_env.clone().into_mut(&mut store), table_handle, 0);
+        assert!(got > INVALID_HANDLE);
+        assert_eq!(
+            wasm_ref_same(func_env.clone().into_mut(&mut store), got, ref_handle),
+            BOOL_TRUE
+        );
+
+        // Out-of-bounds set fails without aborting.
+        assert_eq!(
+            wasm_table_set(
+                func_env.clone().into_mut(&mut store),
+                table_handle,
+                5,
+                ref_handle
+            ),
+            BOOL_FALSE
+        );
+
+        // Grow with a null init, then confirm the new size.
+        assert_eq!(
+            wasm_table_grow(
+                func_env.clone().into_mut(&mut store),
+                table_handle,
+                3,
+                INVALID_HANDLE
+            ),
+            BOOL_TRUE
+        );
+        assert_eq!(
+            wasm_table_size(func_env.clone().into_mut(&mut store), table_handle),
+            5
+        );
+    }
+
+    #[cfg(feature = "sys")]
+    #[test]
+    fn func_as_ref_and_back_roundtrips() {
+        let mut store = Store::default();
+        let func = Function::new_typed(&mut store, |x: i32| x);
+        let func_env = FunctionEnv::new(&mut store, WasmCapiEnv::default());
+        let func_handle = {
+            let mut env = func_env.clone().into_mut(&mut store);
+            env.data_mut().state.insert(WasmObject::Func(func))
+        };
+
+        let ref_handle = wasm_func_as_ref(func_env.clone().into_mut(&mut store), func_handle);
+        assert!(ref_handle > INVALID_HANDLE);
+
+        let back = wasm_ref_as_func(func_env.clone().into_mut(&mut store), ref_handle);
+        assert!(back > INVALID_HANDLE);
+        // The recovered handle is a function.
+        let env = func_env.into_mut(&mut store);
+        assert!(matches!(
+            env.data().state.get(back),
+            Some(WasmObject::Func(_))
+        ));
+    }
+
+    #[cfg(feature = "sys")]
+    #[test]
+    fn externref_marshals_through_guest_memory() {
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(1)), false))
+            .expect("memory can be created");
+        let func_env = FunctionEnv::new(
+            &mut store,
+            WasmCapiEnv {
+                memory: Some(memory.clone()),
+                ..WasmCapiEnv::default()
+            },
+        );
+
+        // Grab the actual externref value minted by wasm_foreign_new.
+        let ref_handle = wasm_foreign_new(func_env.clone().into_mut(&mut store), 0);
+        let value = {
+            let env = func_env.clone().into_mut(&mut store);
+            match env.data().state.get(ref_handle) {
+                Some(WasmObject::Ref(value)) => value.clone(),
+                _ => panic!("expected a Ref object"),
+            }
+        };
+
+        // Write it to guest memory, then read it back: the roundtripped value
+        // must point at the same extern object.
+        let val_ptr = 32;
+        assert!(write_wasm_val(
             &mut func_env.clone().into_mut(&mut store),
-            1,
-            &Value::FuncRef(None)
+            val_ptr,
+            &value
         ));
-        assert!(!write_wasm_val(
-            &mut func_env.into_mut(&mut store),
-            1,
-            &Value::ExternRef(None)
-        ));
+        let roundtripped = read_wasm_val(
+            &mut func_env.clone().into_mut(&mut store),
+            val_ptr,
+            Type::ExternRef,
+        )
+        .expect("externref reads back");
+        assert!(ref_values_same(&value, &roundtripped));
     }
 }
