@@ -65,7 +65,9 @@ pub(crate) struct LLVMAbi<A: Architecture = TargetArchitecture> {
 }
 
 /// Selects ABI lowering for an LLVM target machine.
-pub(crate) fn get_abi(target_machine: &TargetMachine) -> LLVMAbi<TargetArchitecture> {
+pub(crate) fn get_abi(
+    target_machine: &TargetMachine,
+) -> Result<LLVMAbi<TargetArchitecture>, CompileError> {
     let target_name = target_machine.get_triple();
     let target_name = target_name.as_str().to_string_lossy();
     let architecture = if target_name.starts_with("aarch64") {
@@ -76,10 +78,12 @@ pub(crate) fn get_abi(target_machine: &TargetMachine) -> LLVMAbi<TargetArchitect
         TargetArchitecture::Riscv {
             is_riscv64: target_name.starts_with("riscv64"),
         }
-    } else {
+    } else if target_name.starts_with("x86_64") {
         TargetArchitecture::X86_64
+    } else {
+        return Err(CompileError::UnsupportedTarget(target_name.to_string()));
     };
-    LLVMAbi { architecture }
+    Ok(LLVMAbi { architecture })
 }
 
 /// We need to produce different LLVM IR for different platforms. (Contrary to

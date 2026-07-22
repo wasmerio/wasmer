@@ -97,7 +97,7 @@ impl FuncTranslator {
         let abi_source_tm = target_machines
             .get(&OptimizationStyle::ForSpeed)
             .expect("target_machines must contain OptimizationStyle::ForSpeed");
-        let abi = get_abi(abi_source_tm);
+        let abi = get_abi(abi_source_tm)?;
         Ok(Self {
             ctx: Context::create(),
             target_triple,

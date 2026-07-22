@@ -60,7 +60,7 @@ impl FuncTrampoline {
         target_triple: Triple,
         binary_fmt: BinaryFormat,
     ) -> Result<Self, CompileError> {
-        let abi = get_abi(&target_machine);
+        let abi = get_abi(&target_machine)?;
         Ok(Self {
             ctx: Context::create(),
             target_machine,
