@@ -13,7 +13,6 @@
 //! ```
 
 use crate::ArtifactBuildFromArchive;
-use crate::engine::artifact::TrapReader;
 use crate::engine::mapped_binary::{DebugInfo, DebugInfoSource};
 use crate::types::address_map::{
     ArchivedFunctionAddressMap, ArchivedInstructionAddressMap, FunctionAddressMap,
@@ -72,8 +71,6 @@ struct ModuleInfoFrameInfo {
     image_base: usize,
     /// Lazily-loaded DWARF debug info, available for ELF-backed artifacts.
     debug_info: DebugInfo,
-    /// Lazily-read trap tables, available for ELF-backed artifacts.
-    trap_reader: Option<TrapReader>,
 }
 
 impl ModuleInfoFrameInfo {
@@ -165,7 +162,7 @@ impl GlobalFrameInfo {
         // to DWARF line info via `addr2line`, keyed off offsets into the
         // original ELF image.
         let get_line = |context: &addr2line::Context<crate::engine::mapped_binary::DwarfReader>,
-                        pc: u64| {
+                         pc: u64| {
             if let Ok(Some(location)) = context.find_location(pc)
                 && let Some(line) = location.line
                 && let Some(line) = line.checked_sub(1)
@@ -214,21 +211,12 @@ impl GlobalFrameInfo {
     pub fn lookup_trap_info(&self, pc: usize) -> Option<TrapInformation> {
         let module = self.module_info(pc)?;
         let func = module.function_info(pc)?;
-        let rel_pos = u32::try_from(pc - func.start).ok()?;
-
-        if let Some(debug_info) = module.function_debug_info(func.local_index) {
-            let traps = debug_info.traps();
-            let idx = traps
-                .binary_search_by_key(&rel_pos, |info| info.code_offset)
-                .ok()?;
-            return Some(traps[idx]);
-        }
-
-        // Fallback to the ELF-based section look-up mechanism where we lazily open the file.
-        module
-            .trap_reader
-            .as_ref()?
-            .lookup(func.local_index, rel_pos)
+        let debug_info = module.function_debug_info(func.local_index)?;
+        let traps = debug_info.traps();
+        let idx = traps
+            .binary_search_by_key(&((pc - func.start) as u32), |info| info.code_offset)
+            .ok()?;
+        Some(traps[idx])
     }
 
     /// Gets a module given a pc
@@ -454,7 +442,6 @@ pub(crate) fn register_with_source(
     image_base: usize,
     elf_data: Option<DebugInfoSource>,
 ) -> Option<GlobalFrameInfoRegistration> {
-    let trap_reader = elf_data.clone().map(TrapReader::new);
     let mut min = usize::MAX;
     let mut max = 0;
     let mut functions = BTreeMap::new();
@@ -501,7 +488,6 @@ pub(crate) fn register_with_source(
             frame_infos,
             image_base,
             debug_info: DebugInfo::new(elf_data),
-            trap_reader,
         },
     );
     assert!(prev.is_none());

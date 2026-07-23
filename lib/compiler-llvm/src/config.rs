@@ -143,8 +143,8 @@ impl LLVM {
             enable_verifier: false,
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
-            is_pic: false,
-            elf_artifact_format: false,
+            // We will link a shared library and so PIC must be enabled.
+            is_pic: cfg!(feature = "experimental-artifact"),
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,

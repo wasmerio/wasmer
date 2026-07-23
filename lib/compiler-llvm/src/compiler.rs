@@ -192,7 +192,7 @@ impl Compiler for LLVMCompiler {
                 inkwell::OptimizationLevel::Default => "optd",
                 inkwell::OptimizationLevel::Aggressive => "opta",
             },
-            if self.config.elf_artifact_format {
+            if cfg!(feature = "experimental-artifact") {
                 "-elf"
             } else {
                 ""
@@ -407,7 +407,7 @@ impl Compiler for LLVMCompiler {
                 .collect::<Result<Vec<_>, CompileError>>()?
         };
 
-        if self.config.elf_artifact_format {
+        if cfg!(feature = "experimental-artifact") {
             let object_files = functions
                 .into_iter()
                 .map(|compiled_function| match compiled_function {
@@ -460,7 +460,7 @@ impl Compiler for LLVMCompiler {
             module_file.read_to_end(&mut elf_content).map_err(|e| {
                 CompileError::Codegen(format!("cannot persist linked shared object: {e}"))
             })?;
-            Ok((Compilation::Elf(elf_content), function_max_stack_usage))
+            Ok(Compilation::Elf(elf_content))
         } else {
             let functions = functions
                 .into_iter()
@@ -627,17 +627,14 @@ impl Compiler for LLVMCompiler {
                 })
                 .collect();
 
-            Ok((
-                Compilation::Rkyv(RkyvCompilation {
-                    functions,
-                    custom_sections: module_custom_sections,
-                    function_call_trampolines,
-                    dynamic_function_trampolines,
-                    unwind_info,
-                    got,
-                }),
-                function_max_stack_usage,
-            ))
+            Ok(Compilation::Rkyv(RkyvCompilation {
+                functions,
+                custom_sections: module_custom_sections,
+                function_call_trampolines,
+                dynamic_function_trampolines,
+                unwind_info,
+                got,
+            }))
         }
     }
 

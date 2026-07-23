@@ -111,9 +111,9 @@ impl ArtifactBuild {
                 .into_boxed_slice(),
             cpu_features: cpu_features.as_u64(),
         };
-        let compile_info_blob = serializable.serialize().map_err(|e| {
-            CompileError::Codegen(format!("cannot serialize SerializeModule: {e}"))
-        })?;
+        let compile_info_blob = serializable
+            .serialize()
+            .map_err(|e| CompileError::Codegen(format!("cannot serialize SerializeModule: {e}")))?;
 
         // Compile the Module
         let (compilation, function_max_stack_usage) = compiler.compile_module(
@@ -651,8 +651,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        if let ArchivedSerializableCompilation::Elf(data) =
-            self.cell.borrow_dependent().compilation
+        if let ArchivedSerializableCompilation::Elf(data) = self.cell.borrow_dependent().compilation
         {
             return Ok(data.to_vec());
         }
