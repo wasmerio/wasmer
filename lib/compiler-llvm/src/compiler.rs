@@ -220,10 +220,7 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError> {
-        let function_max_stack_usage = function_body_inputs
-            .iter()
-            .map(|_| None)
-            .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>();
+        let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;

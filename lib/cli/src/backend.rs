@@ -475,6 +475,7 @@ impl RuntimeOptions {
                     config.enable_non_volatile_memops();
                 }
                 config.enable_readonly_funcref_table();
+
                 if let Some(num_threads) = self.compiler_threads {
                     config.num_threads(num_threads);
                 }

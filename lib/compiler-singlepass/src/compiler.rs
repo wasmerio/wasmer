@@ -104,6 +104,7 @@ impl SinglepassCompiler {
                 })
             })
             .transpose()?;
+        let build_directory_path = build_directory.as_ref().map(|d| d.path());
 
         let module = &compile_info.module;
         let total_function_call_trampolines = module.signatures.len() as u64;
@@ -156,8 +157,7 @@ impl SinglepassCompiler {
                     &module.signatures[module.functions[i]],
                     target,
                     calling_convention,
-                    cfg!(feature = "experimental-artifact")
-                        .then(|| build_directory.as_ref().unwrap().path()),
+                    build_directory_path,
                 )
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
@@ -204,12 +204,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(
-                            input,
-                            arch,
-                            target,
-                            build_directory.as_ref().map(|directory| directory.path()),
-                        )
+                        generator.finalize(input, arch, target, build_directory_path)
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new(Some(target.clone()));
@@ -230,12 +225,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(
-                            input,
-                            arch,
-                            target,
-                            build_directory.as_ref().map(|directory| directory.path()),
-                        )
+                        generator.finalize(input, arch, target, build_directory_path)
                     }
                     Architecture::Riscv64(_) => {
                         let machine = MachineRiscv::new(
@@ -259,12 +249,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(
-                            input,
-                            arch,
-                            target,
-                            build_directory.as_ref().map(|directory| directory.path()),
-                        )
+                        generator.finalize(input, arch, target, build_directory_path)
                     }
                     _ => unimplemented!(),
                 }?;
@@ -297,8 +282,12 @@ impl SinglepassCompiler {
                         func_type,
                         target,
                         calling_convention,
-                        cfg!(feature = "experimental-artifact")
-                            .then(|| (build_directory.as_ref().unwrap().path(), &kind)),
+                        cfg!(feature = "experimental-artifact").then(|| {
+                            (
+                                build_directory_path.expect("experimental-artifact enabled"),
+                                &kind,
+                            )
+                        }),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
                         && let CompileOutput::InMemory(body) = &body
@@ -337,8 +326,12 @@ impl SinglepassCompiler {
                         &func_type,
                         target,
                         calling_convention,
-                        cfg!(feature = "experimental-artifact")
-                            .then(|| (build_directory.as_ref().unwrap().path(), &kind)),
+                        cfg!(feature = "experimental-artifact").then(|| {
+                            (
+                                build_directory_path.expect("experimental-artifact enabled"),
+                                &kind,
+                            )
+                        }),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
                         && let CompileOutput::InMemory(body) = &body

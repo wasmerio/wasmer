@@ -34,6 +34,7 @@ use cranelift_codegen::gimli::{
     write::{Address, EhFrame, FrameDescriptionEntry, FrameTable, Writer},
 };
 
+use itertools::Itertools;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
@@ -428,7 +429,7 @@ impl CraneliftCompiler {
         let function_call_trampoline_outputs = module
             .signatures
             .iter()
-            .collect::<Vec<_>>()
+            .collect_vec()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, (sig_index, sig)| {
                 let kind = wasmer_compiler::misc::CompiledKind::FunctionCallTrampoline(
@@ -461,7 +462,7 @@ impl CraneliftCompiler {
                     Ok(CompileOutput::InMemory(trampoline))
                 }
             })
-            .collect::<Result<Vec<CompileOutput<FunctionBody>>, CompileError>>()?;
+            .collect::<Result<Vec<_>, CompileError>>()?;
 
         use wasmer_types::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
@@ -469,7 +470,7 @@ impl CraneliftCompiler {
         let dynamic_function_trampoline_outputs = module
             .imported_function_types()
             .enumerate()
-            .collect::<Vec<_>>()
+            .collect_vec()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, (index, func_type)| {
                 let kind = wasmer_compiler::misc::CompiledKind::DynamicFunctionTrampoline(
@@ -505,9 +506,6 @@ impl CraneliftCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        // For the ELF artifact format each function and trampoline has been
-        // emitted into its own relocatable object file: link them all into the
-        // final module image.
         if let Some(build_directory) = &build_directory {
             let object_files = compile_output_paths(results);
             let trampoline_objects = compile_output_paths(function_call_trampoline_outputs);
@@ -747,10 +745,7 @@ impl Compiler for CraneliftCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError> {
-        let function_max_stack_usage = function_body_inputs
-            .iter()
-            .map(|_| None)
-            .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>();
+        let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let compilation = self.compile_module_internal(
             target,
             compile_info,
