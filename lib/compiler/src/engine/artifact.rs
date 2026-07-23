@@ -483,7 +483,7 @@ impl Artifact {
             }
             ArtifactBuildVariant::Archived(a) => a.get_elf_file(),
         };
-        let allocated = if let Some(module_file) = module_file.as_ref() {
+        let mut allocated = if let Some(module_file) = module_file.as_ref() {
             if elf_file_data.is_none() {
                 return Err(DeserializeError::Incompatible(
                     "file-backed loading only supports ELF artifacts".to_string(),
@@ -745,6 +745,29 @@ impl Artifact {
                 elf_image: None,
             }
         };
+
+        // ELF allocation recovers function addresses from the linked image, but
+        // maximum stack usage is compile metadata rather than an ELF property.
+        // Preserve it from the metadata embedded in the artifact, just as the
+        // in-memory Rkyv path does above.
+        if allocated.elf_image.is_some() {
+            allocated.function_max_stack_usage = match &artifact {
+                ArtifactBuildVariant::Plain(p) => p
+                    .get_function_max_stack_usage()
+                    .expect("function stack usage metadata expected")
+                    .values()
+                    .cloned()
+                    .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+                    .into_boxed_slice(),
+                ArtifactBuildVariant::Archived(a) => a
+                    .get_function_max_stack_usage()
+                    .expect("function stack usage metadata expected")
+                    .values()
+                    .cloned()
+                    .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+                    .into_boxed_slice(),
+            };
+        }
 
         let mut artifact = Self {
             id: Default::default(),
