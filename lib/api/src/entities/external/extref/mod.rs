@@ -53,7 +53,7 @@ impl ExternRef {
     }
 
     /// Whether two [`ExternRef`]s refer to the same underlying extern object.
-    pub fn ptr_eq(&self, other: &ExternRef) -> bool {
+    pub fn ptr_eq(&self, other: &Self) -> bool {
         self.0.ptr_eq(&other.0)
     }
 }
