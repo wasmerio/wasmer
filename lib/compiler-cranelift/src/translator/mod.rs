@@ -7,6 +7,7 @@ mod translation_utils;
 mod unwind;
 
 pub use self::func_translator::FuncTranslator;
+pub(crate) use self::translation_utils::materialize_global_value;
 pub use self::translation_utils::{
     irlibcall_to_libcall, irreloc_to_relocationkind, signature_to_cranelift_ir,
 };

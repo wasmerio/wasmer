@@ -5,7 +5,7 @@ use crate::{
     HashMap,
     heap::{Heap, HeapData, HeapStyle},
     table::{TableData, TableSize},
-    translator::{EXN_REF_TYPE, LandingPad, TAG_TYPE},
+    translator::{EXN_REF_TYPE, LandingPad, TAG_TYPE, materialize_global_value},
 };
 use cranelift_codegen::{
     cursor::FuncCursor,
@@ -1317,7 +1317,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         // We use an indirect call so that we don't have to patch the code at runtime.
         let pointer_type = self.pointer_type();
         let vmctx = self.vmctx(pos.func);
-        let base = pos.ins().global_value(pointer_type, vmctx);
+        let base = materialize_global_value(pos, pointer_type, vmctx);
 
         let mut mem_flags = ir::MemFlagsData::trusted();
         mem_flags.set_readonly();
@@ -1498,7 +1498,7 @@ impl FuncEnvironment<'_> {
     ) -> WasmResult<ir::Value> {
         let bool_is_null =
             pos.ins()
-                .icmp_imm(cranelift_codegen::ir::condcodes::IntCC::Equal, value, 0);
+                .icmp_imm_s(cranelift_codegen::ir::condcodes::IntCC::Equal, value, 0);
         Ok(pos.ins().uextend(ir::types::I32, bool_is_null))
     }
 
@@ -1822,7 +1822,7 @@ impl FuncEnvironment<'_> {
         let pointer_type = self.pointer_type();
         let sig_ref = builder.func.dfg.ext_funcs[callee].signature;
         let vmctx = self.vmctx(builder.func);
-        let base = builder.ins().global_value(pointer_type, vmctx);
+        let base = materialize_global_value(&mut builder.cursor(), pointer_type, vmctx);
 
         let mem_flags = ir::MemFlagsData::trusted();
 

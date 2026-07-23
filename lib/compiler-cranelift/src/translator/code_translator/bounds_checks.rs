@@ -23,6 +23,7 @@ use super::Reachability;
 use crate::{
     func_environ::FuncEnvironment,
     heap::{HeapData, HeapStyle},
+    translator::materialize_global_value,
 };
 use Reachability::*;
 use cranelift_codegen::{
@@ -326,7 +327,7 @@ fn get_dynamic_heap_bound(
         }
         // Load the heap bound from its global variable.
         (_, HeapStyle::Dynamic { bound_gv }) => {
-            builder.ins().global_value(env.pointer_type(), *bound_gv)
+            materialize_global_value(&mut builder.cursor(), env.pointer_type(), *bound_gv)
         }
         (_, HeapStyle::Static { .. }) => unreachable!("not a dynamic heap"),
     }
@@ -411,7 +412,7 @@ fn compute_addr(
 ) -> ir::Value {
     debug_assert_eq!(pos.func.dfg.value_type(index), addr_ty);
 
-    let heap_base = pos.ins().global_value(addr_ty, heap.base);
+    let heap_base = materialize_global_value(pos, addr_ty, heap.base);
 
     let base_and_index = pos.ins().iadd(heap_base, index);
 
