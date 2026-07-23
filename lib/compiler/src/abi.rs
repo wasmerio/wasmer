@@ -89,7 +89,7 @@ pub fn classify_return_type_x86_64(types: &[Type]) -> ReturnAbi {
 /// A float value only gets its own vector register as part of a
 /// homogeneous floating-point aggregate (the `Unpacked` case below).
 pub fn classify_return_type_aarch64(types: &[Type]) -> ReturnAbi {
-    let widths = types.iter().map(|ty| ty.byte_size(64)).collect_vec();
+    let widths = types.iter().map(|ty| ty.bit_size(64)).collect_vec();
     if (2..=4).contains(&types.len())
         && (types.iter().all(|ty| ty == &Type::F32) || types.iter().all(|ty| ty == &Type::F64))
     {
