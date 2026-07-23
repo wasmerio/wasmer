@@ -177,15 +177,6 @@ pub struct RuntimeOptions {
     #[clap(long = "disable-non-volatile-memops")]
     disable_non_volatile_memops: bool,
 
-    /// Enable an experimental ELF-based version of the Artifact format.
-    #[cfg(all(
-        feature = "experimental-artifact",
-        target_os = "linux",
-        target_arch = "x86_64"
-    ))]
-    #[clap(long = "experimental-artifact")]
-    experimental_artifact: bool,
-
     /// Allow unaligned memory accesses.
     ///
     /// This feature is experimental and currently supports only Cranelift scalar types
