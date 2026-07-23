@@ -2,7 +2,7 @@
 <a href=#2 id=2 data-nosnippet>2</a><span class="kw">use </span>crate::{
 <a href=#3 id=3 data-nosnippet>3</a>    serialize::MetadataHeader,
 <a href=#4 id=4 data-nosnippet>4</a>    types::{
-<a href=#5 id=5 data-nosnippet>5</a>        function::Compilation,
+<a href=#5 id=5 data-nosnippet>5</a>        function::RkyvCompilation,
 <a href=#6 id=6 data-nosnippet>6</a>        relocation::{RelocationKind <span class="kw">as </span>Reloc, RelocationTarget},
 <a href=#7 id=7 data-nosnippet>7</a>        section::{CustomSectionProtection, SectionIndex},
 <a href=#8 id=8 data-nosnippet>8</a>        symbols::{ModuleMetadata, Symbol, SymbolRegistry},
@@ -122,13 +122,13 @@
 <a href=#122 id=122 data-nosnippet>122</a>/// # Usage
 <a href=#123 id=123 data-nosnippet>123</a>///
 <a href=#124 id=124 data-nosnippet>124</a>/// ```rust
-<a href=#125 id=125 data-nosnippet>125</a>/// # use wasmer_compiler::types::{ symbols::SymbolRegistry, function::{Compilation} };
+<a href=#125 id=125 data-nosnippet>125</a>/// # use wasmer_compiler::types::{symbols::SymbolRegistry, function::RkyvCompilation};
 <a href=#126 id=126 data-nosnippet>126</a>/// # use wasmer_types::target::Triple;
 <a href=#127 id=127 data-nosnippet>127</a>/// # use wasmer_compiler::object::{ObjectError, ObjectMetadataBuilder, get_object_for_target, emit_compilation};
 <a href=#128 id=128 data-nosnippet>128</a>///
 <a href=#129 id=129 data-nosnippet>129</a>/// # fn emit_compilation_into_object(
 <a href=#130 id=130 data-nosnippet>130</a>/// #     triple: &amp;Triple,
-<a href=#131 id=131 data-nosnippet>131</a>/// #     compilation: Compilation,
+<a href=#131 id=131 data-nosnippet>131</a>/// #     compilation: RkyvCompilation,
 <a href=#132 id=132 data-nosnippet>132</a>/// #     builder: ObjectMetadataBuilder,
 <a href=#133 id=133 data-nosnippet>133</a>/// #     symbol_registry: impl SymbolRegistry,
 <a href=#134 id=134 data-nosnippet>134</a>/// # ) -&gt; Result&lt;(), ObjectError&gt; {
@@ -139,7 +139,7 @@
 <a href=#139 id=139 data-nosnippet>139</a>/// ```
 <a href=#140 id=140 data-nosnippet>140</a></span><span class="kw">pub fn </span>emit_compilation(
 <a href=#141 id=141 data-nosnippet>141</a>    obj: <span class="kw-2">&amp;mut </span>Object,
-<a href=#142 id=142 data-nosnippet>142</a>    compilation: Compilation,
+<a href=#142 id=142 data-nosnippet>142</a>    compilation: RkyvCompilation,
 <a href=#143 id=143 data-nosnippet>143</a>    symbol_registry: <span class="kw-2">&amp;</span><span class="kw">impl </span>SymbolRegistry,
 <a href=#144 id=144 data-nosnippet>144</a>    triple: <span class="kw-2">&amp;</span>Triple,
 <a href=#145 id=145 data-nosnippet>145</a>    relocs_builder: <span class="kw-2">&amp;</span>ObjectMetadataBuilder,

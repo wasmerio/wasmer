@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["is_riscv_softfloat","load_object_file","lookup_libcall","map_object_err","map_tryfromint_err"],"static":["LIBCALLS_ELF","LIBCALLS_MACHO","SOFTFLOAT_LIBCALLS_ELF"],"struct":["CompiledFunction"]};
+window.SIDEBAR_ITEMS = {"enum":["CompiledFunction"],"fn":["is_riscv_softfloat","load_object_file","lookup_libcall","map_object_err","map_tryfromint_err"],"static":["LIBCALLS_MACHO","SOFTFLOAT_LIBCALLS_ELF"],"struct":["RkyvCompiledFunction"]};

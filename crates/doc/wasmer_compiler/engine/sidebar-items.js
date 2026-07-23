@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["artifact","builder","code_memory","error","inner","link","resolver","trap","tunables","unwind"]};
+window.SIDEBAR_ITEMS = {"mod":["artifact","builder","code_memory","error","inner","link","mapped_binary","resolver","trap","tunables","unwind"]};

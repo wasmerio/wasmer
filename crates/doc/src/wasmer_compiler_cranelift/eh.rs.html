@@ -163,16 +163,16 @@
 <a href=#163 id=163 data-nosnippet>163</a>    <span class="kw">let </span>call_site_table_len = call_site_table.len() <span class="kw">as </span>u64;
 <a href=#164 id=164 data-nosnippet>164</a>    <span class="kw">let </span><span class="kw-2">mut </span>writer = Cursor::new(Vec::new());
 <a href=#165 id=165 data-nosnippet>165</a>    writer
-<a href=#166 id=166 data-nosnippet>166</a>        .write_all(<span class="kw-2">&amp;</span>gimli::DW_EH_PE_omit.<span class="number">0</span>.to_le_bytes())
+<a href=#166 id=166 data-nosnippet>166</a>        .write_all(<span class="kw-2">&amp;</span>cranelift_codegen::gimli::DW_EH_PE_omit.<span class="number">0</span>.to_le_bytes())
 <a href=#167 id=167 data-nosnippet>167</a>        .unwrap(); <span class="comment">// lpstart encoding omitted (relative to function start)
 <a href=#168 id=168 data-nosnippet>168</a>
 <a href=#169 id=169 data-nosnippet>169</a>    </span><span class="kw">if </span>type_entries.is_empty() {
 <a href=#170 id=170 data-nosnippet>170</a>        writer
-<a href=#171 id=171 data-nosnippet>171</a>            .write_all(<span class="kw-2">&amp;</span>gimli::DW_EH_PE_omit.<span class="number">0</span>.to_le_bytes())
+<a href=#171 id=171 data-nosnippet>171</a>            .write_all(<span class="kw-2">&amp;</span>cranelift_codegen::gimli::DW_EH_PE_omit.<span class="number">0</span>.to_le_bytes())
 <a href=#172 id=172 data-nosnippet>172</a>            .unwrap();
 <a href=#173 id=173 data-nosnippet>173</a>    } <span class="kw">else </span>{
 <a href=#174 id=174 data-nosnippet>174</a>        writer
-<a href=#175 id=175 data-nosnippet>175</a>            .write_all(<span class="kw-2">&amp;</span>gimli::DW_EH_PE_absptr.<span class="number">0</span>.to_le_bytes())
+<a href=#175 id=175 data-nosnippet>175</a>            .write_all(<span class="kw-2">&amp;</span>cranelift_codegen::gimli::DW_EH_PE_absptr.<span class="number">0</span>.to_le_bytes())
 <a href=#176 id=176 data-nosnippet>176</a>            .unwrap();
 <a href=#177 id=177 data-nosnippet>177</a>    }
 <a href=#178 id=178 data-nosnippet>178</a>
@@ -186,7 +186,7 @@
 <a href=#186 id=186 data-nosnippet>186</a>    }
 <a href=#187 id=187 data-nosnippet>187</a>
 <a href=#188 id=188 data-nosnippet>188</a>    writer
-<a href=#189 id=189 data-nosnippet>189</a>        .write_all(<span class="kw-2">&amp;</span>gimli::DW_EH_PE_udata4.<span class="number">0</span>.to_le_bytes())
+<a href=#189 id=189 data-nosnippet>189</a>        .write_all(<span class="kw-2">&amp;</span>cranelift_codegen::gimli::DW_EH_PE_udata4.<span class="number">0</span>.to_le_bytes())
 <a href=#190 id=190 data-nosnippet>190</a>        .unwrap();
 <a href=#191 id=191 data-nosnippet>191</a>    leb128::write::unsigned(<span class="kw-2">&amp;mut </span>writer, call_site_table_len).unwrap();
 <a href=#192 id=192 data-nosnippet>192</a>    writer.write_all(<span class="kw-2">&amp;</span>call_site_table).unwrap();

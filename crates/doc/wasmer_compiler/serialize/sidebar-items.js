@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ArchivedSerializableCompilation","ArchivedSerializableModule","MetadataHeader","SerializableCompilation","SerializableCompilationResolver","SerializableModule","SerializableModuleResolver"]};
+window.SIDEBAR_ITEMS = {"enum":["ArchivedSerializableCompilation","SerializableCompilation","SerializableCompilationResolver"],"struct":["ArchivedRkyvSerializableCompilation","ArchivedSerializableModule","MetadataHeader","RkyvSerializableCompilation","RkyvSerializableCompilationResolver","SerializableModule","SerializableModuleResolver"]};
