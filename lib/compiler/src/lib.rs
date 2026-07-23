@@ -63,6 +63,7 @@ cfg_std_or_core! {
     mod engine;
     mod traits;
 
+    pub mod abi;
     pub mod misc;
     pub mod object;
     pub mod progress;

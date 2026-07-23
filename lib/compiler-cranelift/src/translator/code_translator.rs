@@ -619,9 +619,8 @@ pub fn translate_operator(
                 frame.num_return_values()
             };
             {
-                let return_args = state.peekn_mut(return_count);
-                bitcast_wasm_returns(environ, return_args, builder);
-                builder.ins().return_(return_args);
+                let return_args = state.peekn(return_count).to_vec();
+                environ.emit_wasm_return(builder, &return_args);
             }
             state.popn(return_count);
             state.reachable = false;
@@ -725,12 +724,6 @@ pub fn translate_operator(
                 args,
                 state.handlers.landing_pad(),
             )?;
-            let sig_ref = builder.func.dfg.ext_funcs[fref].signature;
-            debug_assert_eq!(
-                results.len(),
-                builder.func.dfg.signatures[sig_ref].returns.len(),
-                "translate_call results should match the call signature"
-            );
             state.popn(num_args);
             state.pushn(results.as_slice());
         }
@@ -760,11 +753,6 @@ pub fn translate_operator(
                 args,
                 state.handlers.landing_pad(),
             )?;
-            debug_assert_eq!(
-                results.len(),
-                builder.func.dfg.signatures[sigref].returns.len(),
-                "translate_call_indirect results should match the call signature"
-            );
             state.popn(num_args);
             state.pushn(results.as_slice());
         }
@@ -3861,26 +3849,6 @@ pub fn bitcast_arguments<'a>(
             arg_type != *param_type
         })
         .collect()
-}
-
-/// A helper for bitcasting a sequence of return values for the function currently being built. If
-/// a value is a vector type that does not match its expected type, this will modify the value in
-/// place to point to the result of a `bitcast`. This conversion is necessary to translate Wasm
-/// code that uses `V128` as function parameters (or implicitly in block parameters) and still use
-/// specific CLIF types (e.g. `I32X4`) in the function body.
-pub fn bitcast_wasm_returns(
-    environ: &mut FuncEnvironment<'_>,
-    arguments: &mut [Value],
-    builder: &mut FunctionBuilder,
-) {
-    let changes = bitcast_arguments(builder, arguments, &builder.func.signature.returns, |i| {
-        environ.is_wasm_return(&builder.func.signature, i)
-    });
-    for (t, arg) in changes {
-        let mut flags = MemFlagsData::new();
-        flags.set_endianness(ir::Endianness::Little);
-        *arg = builder.ins().bitcast(t, flags, *arg);
-    }
 }
 
 /// Like `bitcast_wasm_returns`, but for the parameters being passed to a specified callee.

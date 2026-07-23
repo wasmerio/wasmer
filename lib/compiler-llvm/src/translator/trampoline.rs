@@ -2,7 +2,7 @@
 #![allow(unused)]
 
 use crate::{
-    abi::{Abi, get_abi},
+    abi::{LLVMAbi, get_abi},
     config::LLVM,
     error::{err, err_nt},
     object_file::{RkyvCompiledFunction, load_object_file},
@@ -39,7 +39,7 @@ pub struct FuncTrampoline {
     ctx: Context,
     target_machine: TargetMachine,
     target_triple: Triple,
-    abi: Box<dyn Abi>,
+    abi: LLVMAbi,
     binary_fmt: BinaryFormat,
     func_section: String,
 }
@@ -60,7 +60,7 @@ impl FuncTrampoline {
         target_triple: Triple,
         binary_fmt: BinaryFormat,
     ) -> Result<Self, CompileError> {
-        let abi = get_abi(&target_machine);
+        let abi = get_abi(&target_machine)?;
         Ok(Self {
             ctx: Context::create(),
             target_machine,
@@ -751,6 +751,7 @@ impl FuncTrampoline {
                         intrinsics,
                         &builder,
                         results.as_slice(),
+                        func_sig,
                         &trampoline_func.get_type(),
                     )?))
                 );

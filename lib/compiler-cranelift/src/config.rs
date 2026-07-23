@@ -244,12 +244,6 @@ impl Cranelift {
             .enable("use_colocated_libcalls")
             .expect("should be a valid flag");
 
-        // Allow Cranelift to implicitly spill multi-value returns via a hidden
-        // StructReturn argument when register results are exhausted.
-        flags
-            .enable("enable_multi_ret_implicit_sret")
-            .expect("should be a valid flag");
-
         // Invert cranelift's default-on verification to instead default off.
         flags
             .set("enable_verifier", &self.enable_verifier.to_string())
