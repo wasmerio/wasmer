@@ -13,10 +13,6 @@
         "wasmer/experimental-host-interrupt",
         "wasmer-bin-fuzz/llvm",
         "wasmer-bin-fuzz/cranelift",
-        "wasmer-bin-fuzz/singlepass",
-        "llvm",
-        "cranelift",
-        "singlepass",
-        "experimental-artifact"
+        "wasmer-bin-fuzz/singlepass"
     ],
 }
