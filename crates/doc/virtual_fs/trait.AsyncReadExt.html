@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Reads bytes from a source."><title>AsyncReadExt in virtual_fs - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">AsyncReadExt</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../virtual_fs/index.html">virtual_<wbr>fs</a><span class="version">0.702.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Async<wbr>Read<wbr>Ext</a></h2><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.chain" title="chain">chain</a></li><li><a href="#method.read" title="read">read</a></li><li><a href="#method.read_buf" title="read_buf">read_buf</a></li><li><a href="#method.read_exact" title="read_exact">read_exact</a></li><li><a href="#method.read_f32" title="read_f32">read_f32</a></li><li><a href="#method.read_f64" title="read_f64">read_f64</a></li><li><a href="#method.read_f32_le" title="read_f32_le">read_f32_le</a></li><li><a href="#method.read_f64_le" title="read_f64_le">read_f64_le</a></li><li><a href="#method.read_i8" title="read_i8">read_i8</a></li><li><a href="#method.read_i16" title="read_i16">read_i16</a></li><li><a href="#method.read_i32" title="read_i32">read_i32</a></li><li><a href="#method.read_i64" title="read_i64">read_i64</a></li><li><a href="#method.read_i16_le" title="read_i16_le">read_i16_le</a></li><li><a href="#method.read_i32_le" title="read_i32_le">read_i32_le</a></li><li><a href="#method.read_i64_le" title="read_i64_le">read_i64_le</a></li><li><a href="#method.read_i128" title="read_i128">read_i128</a></li><li><a href="#method.read_i128_le" title="read_i128_le">read_i128_le</a></li><li><a href="#method.read_to_end" title="read_to_end">read_to_end</a></li><li><a href="#method.read_to_string" title="read_to_string">read_to_string</a></li><li><a href="#method.read_u8" title="read_u8">read_u8</a></li><li><a href="#method.read_u16" title="read_u16">read_u16</a></li><li><a href="#method.read_u32" title="read_u32">read_u32</a></li><li><a href="#method.read_u64" title="read_u64">read_u64</a></li><li><a href="#method.read_u16_le" title="read_u16_le">read_u16_le</a></li><li><a href="#method.read_u32_le" title="read_u32_le">read_u32_le</a></li><li><a href="#method.read_u64_le" title="read_u64_le">read_u64_le</a></li><li><a href="#method.read_u128" title="read_u128">read_u128</a></li><li><a href="#method.read_u128_le" title="read_u128_le">read_u128_le</a></li><li><a href="#method.take" title="take">take</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate virtual_<wbr>fs</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">virtual_fs</a></div><h1>Trait <span class="trait">Async<wbr>Read<wbr>Ext</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><pre class="rust item-decl"><code>pub trait AsyncReadExt: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a> {
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Reads bytes from a source."><title>AsyncReadExt in virtual_fs - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="virtual_fs" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../static.files/storage-e2aeef58.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">AsyncReadExt</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../virtual_fs/index.html">virtual_<wbr>fs</a><span class="version">0.702.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Async<wbr>Read<wbr>Ext</a></h2><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.chain" title="chain">chain</a></li><li><a href="#method.read" title="read">read</a></li><li><a href="#method.read_buf" title="read_buf">read_buf</a></li><li><a href="#method.read_exact" title="read_exact">read_exact</a></li><li><a href="#method.read_f32" title="read_f32">read_f32</a></li><li><a href="#method.read_f64" title="read_f64">read_f64</a></li><li><a href="#method.read_f32_le" title="read_f32_le">read_f32_le</a></li><li><a href="#method.read_f64_le" title="read_f64_le">read_f64_le</a></li><li><a href="#method.read_i8" title="read_i8">read_i8</a></li><li><a href="#method.read_i16" title="read_i16">read_i16</a></li><li><a href="#method.read_i32" title="read_i32">read_i32</a></li><li><a href="#method.read_i64" title="read_i64">read_i64</a></li><li><a href="#method.read_i16_le" title="read_i16_le">read_i16_le</a></li><li><a href="#method.read_i32_le" title="read_i32_le">read_i32_le</a></li><li><a href="#method.read_i64_le" title="read_i64_le">read_i64_le</a></li><li><a href="#method.read_i128" title="read_i128">read_i128</a></li><li><a href="#method.read_i128_le" title="read_i128_le">read_i128_le</a></li><li><a href="#method.read_to_end" title="read_to_end">read_to_end</a></li><li><a href="#method.read_to_string" title="read_to_string">read_to_string</a></li><li><a href="#method.read_u8" title="read_u8">read_u8</a></li><li><a href="#method.read_u16" title="read_u16">read_u16</a></li><li><a href="#method.read_u32" title="read_u32">read_u32</a></li><li><a href="#method.read_u64" title="read_u64">read_u64</a></li><li><a href="#method.read_u16_le" title="read_u16_le">read_u16_le</a></li><li><a href="#method.read_u32_le" title="read_u32_le">read_u32_le</a></li><li><a href="#method.read_u64_le" title="read_u64_le">read_u64_le</a></li><li><a href="#method.read_u128" title="read_u128">read_u128</a></li><li><a href="#method.read_u128_le" title="read_u128_le">read_u128_le</a></li><li><a href="#method.take" title="take">take</a></li></ul><h3><a href="#dyn-compatibility">Dyn Compatibility</a></h3><h3><a href="#implementors">Implementors</a></h3></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="index.html">In crate virtual_<wbr>fs</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="index.html">virtual_fs</a></div><h1>Trait <span class="trait">Async<wbr>Read<wbr>Ext</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"></span></div><pre class="rust item-decl"><code>pub trait AsyncReadExt: <a class="trait" href="trait.AsyncRead.html" title="trait virtual_fs::AsyncRead">AsyncRead</a> {
 <details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 29 methods</span></summary>    // Provided methods
     fn <a href="#method.chain" class="fn">chain</a>&lt;R&gt;(self, next: R) -&gt; Chain&lt;Self, R&gt;
        <span class="where">where Self: <a class="trait" href="https://doc.rust-lang.org/1.94.1/core/marker/trait.Sized.html" title="trait core::marker::Sized">Sized</a>,
@@ -144,8 +144,8 @@ is initialized before calling <code>read</code>.</p>
 variant will be returned. If an error is returned then it must be
 guaranteed that no bytes were read.</p>
 <h5 id="cancel-safety"><a class="doc-anchor" href="#cancel-safety">§</a>Cancel safety</h5>
-<p>This method is cancel safe. If you use it as the event in a
-<a href="crate::select"><code>tokio::select!</code></a> statement and some other branch
+<p>This method is cancel safe. If you use it as a branch in
+<a href="crate::select"><code>tokio::select!</code></a> and another branch
 completes first, then it is guaranteed that no data was read.</p>
 <h5 id="examples-1"><a class="doc-anchor" href="#examples-1">§</a>Examples</h5>
 <p>[<code>File</code>][crate::fs::File]s implement <code>Read</code>:</p>
@@ -189,8 +189,8 @@ reader will <em>always</em> no longer be able to produce bytes.</li>
 variant will be returned. If an error is returned then it must be
 guaranteed that no bytes were read.</p>
 <h5 id="cancel-safety-1"><a class="doc-anchor" href="#cancel-safety-1">§</a>Cancel safety</h5>
-<p>This method is cancel safe. If you use it as the event in a
-<a href="crate::select"><code>tokio::select!</code></a> statement and some other branch
+<p>This method is cancel safe. If you use it as a branch in
+<a href="crate::select"><code>tokio::select!</code></a> and another branch
 completes first, then it is guaranteed that no data was read.</p>
 <h5 id="examples-2"><a class="doc-anchor" href="#examples-2">§</a>Examples</h5>
 <p><a href="crate::fs::File"><code>File</code></a> implements <code>Read</code> and <a href="bytes::BytesMut"><code>BytesMut</code></a> implements <a href="bytes::BufMut"><code>BufMut</code></a>:</p>
@@ -236,9 +236,9 @@ case.</p>
 it has read, but it will never read more than would be necessary to
 completely fill the buffer.</p>
 <h5 id="cancel-safety-2"><a class="doc-anchor" href="#cancel-safety-2">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may already have been
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may already have been
 read into <code>buf</code>.</p>
 <h5 id="examples-3"><a class="doc-anchor" href="#examples-3">§</a>Examples</h5>
 <p>[<code>File</code>][crate::fs::File]s implement <code>Read</code>:</p>
@@ -265,8 +265,8 @@ syscalls.</p>
 <h5 id="errors-3"><a class="doc-anchor" href="#errors-3">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-3"><a class="doc-anchor" href="#cancel-safety-3">§</a>Cancel safety</h5>
-<p>This method is cancel safe. If this method is used as an event in a
-<a href="crate::select"><code>tokio::select!</code></a> statement and some other branch
+<p>This method is cancel safe. If this method is used as a branch in
+<a href="crate::select"><code>tokio::select!</code></a> and another branch
 completes first, it is guaranteed that no data were read.</p>
 <h5 id="examples-4"><a class="doc-anchor" href="#examples-4">§</a>Examples</h5>
 <p>Read unsigned 8 bit integers from an <code>AsyncRead</code>:</p>
@@ -290,8 +290,8 @@ syscalls.</p>
 <h5 id="errors-4"><a class="doc-anchor" href="#errors-4">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-4"><a class="doc-anchor" href="#cancel-safety-4">§</a>Cancel safety</h5>
-<p>This method is cancel safe. If this method is used as an event in a
-<a href="crate::select"><code>tokio::select!</code></a> statement and some other branch
+<p>This method is cancel safe. If this method is used as a branch in
+<a href="crate::select"><code>tokio::select!</code></a> and another branch
 completes first, it is guaranteed that no data were read.</p>
 <h5 id="examples-5"><a class="doc-anchor" href="#examples-5">§</a>Examples</h5>
 <p>Read unsigned 8 bit integers from an <code>AsyncRead</code>:</p>
@@ -316,9 +316,9 @@ syscalls.</p>
 <h5 id="errors-5"><a class="doc-anchor" href="#errors-5">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-5"><a class="doc-anchor" href="#cancel-safety-5">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-6"><a class="doc-anchor" href="#examples-6">§</a>Examples</h5>
 <p>Read unsigned 16 bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -341,9 +341,9 @@ syscalls.</p>
 <h5 id="errors-6"><a class="doc-anchor" href="#errors-6">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-6"><a class="doc-anchor" href="#cancel-safety-6">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-7"><a class="doc-anchor" href="#examples-7">§</a>Examples</h5>
 <p>Read signed 16 bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -366,9 +366,9 @@ syscalls.</p>
 <h5 id="errors-7"><a class="doc-anchor" href="#errors-7">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-7"><a class="doc-anchor" href="#cancel-safety-7">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-8"><a class="doc-anchor" href="#examples-8">§</a>Examples</h5>
 <p>Read unsigned 32-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -390,9 +390,9 @@ syscalls.</p>
 <h5 id="errors-8"><a class="doc-anchor" href="#errors-8">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-8"><a class="doc-anchor" href="#cancel-safety-8">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-9"><a class="doc-anchor" href="#examples-9">§</a>Examples</h5>
 <p>Read signed 32-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -414,9 +414,9 @@ syscalls.</p>
 <h5 id="errors-9"><a class="doc-anchor" href="#errors-9">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-9"><a class="doc-anchor" href="#cancel-safety-9">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-10"><a class="doc-anchor" href="#examples-10">§</a>Examples</h5>
 <p>Read unsigned 64-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -440,9 +440,9 @@ syscalls.</p>
 <h5 id="errors-10"><a class="doc-anchor" href="#errors-10">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-10"><a class="doc-anchor" href="#cancel-safety-10">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-11"><a class="doc-anchor" href="#examples-11">§</a>Examples</h5>
 <p>Read signed 64-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -464,9 +464,9 @@ syscalls.</p>
 <h5 id="errors-11"><a class="doc-anchor" href="#errors-11">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-11"><a class="doc-anchor" href="#cancel-safety-11">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-12"><a class="doc-anchor" href="#examples-12">§</a>Examples</h5>
 <p>Read unsigned 128-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -491,9 +491,9 @@ syscalls.</p>
 <h5 id="errors-12"><a class="doc-anchor" href="#errors-12">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-12"><a class="doc-anchor" href="#cancel-safety-12">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-13"><a class="doc-anchor" href="#examples-13">§</a>Examples</h5>
 <p>Read signed 128-bit big-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -518,9 +518,9 @@ syscalls.</p>
 <h5 id="errors-13"><a class="doc-anchor" href="#errors-13">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-13"><a class="doc-anchor" href="#cancel-safety-13">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-14"><a class="doc-anchor" href="#examples-14">§</a>Examples</h5>
 <p>Read 32-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -542,9 +542,9 @@ syscalls.</p>
 <h5 id="errors-14"><a class="doc-anchor" href="#errors-14">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-14"><a class="doc-anchor" href="#cancel-safety-14">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-15"><a class="doc-anchor" href="#examples-15">§</a>Examples</h5>
 <p>Read 64-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -568,9 +568,9 @@ syscalls.</p>
 <h5 id="errors-15"><a class="doc-anchor" href="#errors-15">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-15"><a class="doc-anchor" href="#cancel-safety-15">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-16"><a class="doc-anchor" href="#examples-16">§</a>Examples</h5>
 <p>Read unsigned 16 bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -593,9 +593,9 @@ syscalls.</p>
 <h5 id="errors-16"><a class="doc-anchor" href="#errors-16">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-16"><a class="doc-anchor" href="#cancel-safety-16">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-17"><a class="doc-anchor" href="#examples-17">§</a>Examples</h5>
 <p>Read signed 16 bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -618,9 +618,9 @@ syscalls.</p>
 <h5 id="errors-17"><a class="doc-anchor" href="#errors-17">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-17"><a class="doc-anchor" href="#cancel-safety-17">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-18"><a class="doc-anchor" href="#examples-18">§</a>Examples</h5>
 <p>Read unsigned 32-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -642,9 +642,9 @@ syscalls.</p>
 <h5 id="errors-18"><a class="doc-anchor" href="#errors-18">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-18"><a class="doc-anchor" href="#cancel-safety-18">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-19"><a class="doc-anchor" href="#examples-19">§</a>Examples</h5>
 <p>Read signed 32-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -666,9 +666,9 @@ syscalls.</p>
 <h5 id="errors-19"><a class="doc-anchor" href="#errors-19">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-19"><a class="doc-anchor" href="#cancel-safety-19">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-20"><a class="doc-anchor" href="#examples-20">§</a>Examples</h5>
 <p>Read unsigned 64-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -692,9 +692,9 @@ syscalls.</p>
 <h5 id="errors-20"><a class="doc-anchor" href="#errors-20">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-20"><a class="doc-anchor" href="#cancel-safety-20">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-21"><a class="doc-anchor" href="#examples-21">§</a>Examples</h5>
 <p>Read signed 64-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -716,9 +716,9 @@ syscalls.</p>
 <h5 id="errors-21"><a class="doc-anchor" href="#errors-21">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-21"><a class="doc-anchor" href="#cancel-safety-21">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-22"><a class="doc-anchor" href="#examples-22">§</a>Examples</h5>
 <p>Read unsigned 128-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -743,9 +743,9 @@ syscalls.</p>
 <h5 id="errors-22"><a class="doc-anchor" href="#errors-22">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-22"><a class="doc-anchor" href="#cancel-safety-22">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-23"><a class="doc-anchor" href="#examples-23">§</a>Examples</h5>
 <p>Read signed 128-bit little-endian integers from a <code>AsyncRead</code>:</p>
 
@@ -770,9 +770,9 @@ syscalls.</p>
 <h5 id="errors-23"><a class="doc-anchor" href="#errors-23">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-23"><a class="doc-anchor" href="#cancel-safety-23">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-24"><a class="doc-anchor" href="#examples-24">§</a>Examples</h5>
 <p>Read 32-bit floating point type from a <code>AsyncRead</code>:</p>
 
@@ -794,9 +794,9 @@ syscalls.</p>
 <h5 id="errors-24"><a class="doc-anchor" href="#errors-24">§</a>Errors</h5>
 <p>This method returns the same errors as <a href="trait.AsyncReadExt.html#method.read_exact" title="method virtual_fs::AsyncReadExt::read_exact"><code>AsyncReadExt::read_exact</code></a>.</p>
 <h5 id="cancel-safety-24"><a class="doc-anchor" href="#cancel-safety-24">§</a>Cancel safety</h5>
-<p>This method is not cancellation safe. If the method is used as the
-event in a <a href="crate::select"><code>tokio::select!</code></a> statement and some
-other branch completes first, then some data may be lost.</p>
+<p>This method is not cancel safe. If the method is used as a
+branch in <a href="crate::select"><code>tokio::select!</code></a> and another
+branch completes first, then some data may be lost.</p>
 <h5 id="examples-25"><a class="doc-anchor" href="#examples-25">§</a>Examples</h5>
 <p>Read 64-bit floating point type from a <code>AsyncRead</code>:</p>
 

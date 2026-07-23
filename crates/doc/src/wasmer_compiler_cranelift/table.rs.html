@@ -2,7 +2,7 @@
 <a href=#2 id=2 data-nosnippet>2</a><span class="kw">use </span>cranelift_codegen::ir::{<span class="self">self</span>, InstBuilder, condcodes::IntCC, immediates::Imm64};
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>cranelift_frontend::FunctionBuilder;
 <a href=#4 id=4 data-nosnippet>4</a>
-<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span><span class="kw">crate</span>::translator::{MemoryAliasRegion, set_memflags_alias_region};
+<a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span><span class="kw">crate</span>::translator::{MemoryAliasRegion, materialize_global_value, set_memflags_alias_region};
 <a href=#6 id=6 data-nosnippet>6</a>
 <a href=#7 id=7 data-nosnippet>7</a><span class="doccomment">/// Size of a WebAssembly table, in elements.
 <a href=#8 id=8 data-nosnippet>8</a></span><span class="attr">#[derive(Clone, Debug)]
@@ -25,7 +25,7 @@
 <a href=#25 id=25 data-nosnippet>25</a>    </span><span class="kw">pub fn </span>bound(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw-2">mut </span>pos: FuncCursor, index_ty: ir::Type) -&gt; ir::Value {
 <a href=#26 id=26 data-nosnippet>26</a>        <span class="kw">match </span><span class="kw-2">*</span><span class="self">self </span>{
 <a href=#27 id=27 data-nosnippet>27</a>            <span class="self">Self</span>::Static { bound } =&gt; pos.ins().iconst(index_ty, Imm64::new(i64::from(bound))),
-<a href=#28 id=28 data-nosnippet>28</a>            <span class="self">Self</span>::Dynamic { bound_gv } =&gt; pos.ins().global_value(index_ty, bound_gv),
+<a href=#28 id=28 data-nosnippet>28</a>            <span class="self">Self</span>::Dynamic { bound_gv } =&gt; materialize_global_value(<span class="kw-2">&amp;mut </span>pos, index_ty, bound_gv),
 <a href=#29 id=29 data-nosnippet>29</a>        }
 <a href=#30 id=30 data-nosnippet>30</a>    }
 <a href=#31 id=31 data-nosnippet>31</a>}
@@ -79,9 +79,9 @@
 <a href=#79 id=79 data-nosnippet>79</a>        }
 <a href=#80 id=80 data-nosnippet>80</a>
 <a href=#81 id=81 data-nosnippet>81</a>        <span class="comment">// Add the table base address base
-<a href=#82 id=82 data-nosnippet>82</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>base = pos.ins().global_value(addr_ty, <span class="self">self</span>.base_gv);
+<a href=#82 id=82 data-nosnippet>82</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>base = materialize_global_value(<span class="kw-2">&amp;mut </span>pos.cursor(), addr_ty, <span class="self">self</span>.base_gv);
 <a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">if </span><span class="self">self</span>.<span class="macro">base_offset !</span>= <span class="number">0 </span>{
-<a href=#84 id=84 data-nosnippet>84</a>            base = pos.ins().iadd_imm(base, i64::from(<span class="self">self</span>.base_offset));
+<a href=#84 id=84 data-nosnippet>84</a>            base = pos.ins().iadd_imm_s(base, i64::from(<span class="self">self</span>.base_offset));
 <a href=#85 id=85 data-nosnippet>85</a>        }
 <a href=#86 id=86 data-nosnippet>86</a>
 <a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">let </span>element_size = <span class="self">self</span>.element_size;
@@ -89,9 +89,9 @@
 <a href=#89 id=89 data-nosnippet>89</a>            index
 <a href=#90 id=90 data-nosnippet>90</a>        } <span class="kw">else if </span>element_size.is_power_of_two() {
 <a href=#91 id=91 data-nosnippet>91</a>            pos.ins()
-<a href=#92 id=92 data-nosnippet>92</a>                .ishl_imm(index, i64::from(element_size.trailing_zeros()))
+<a href=#92 id=92 data-nosnippet>92</a>                .ishl_imm_u(index, i64::from(element_size.trailing_zeros()))
 <a href=#93 id=93 data-nosnippet>93</a>        } <span class="kw">else </span>{
-<a href=#94 id=94 data-nosnippet>94</a>            pos.ins().imul_imm(index, element_size <span class="kw">as </span>i64)
+<a href=#94 id=94 data-nosnippet>94</a>            pos.ins().imul_imm_u(index, element_size <span class="kw">as </span>i64)
 <a href=#95 id=95 data-nosnippet>95</a>        };
 <a href=#96 id=96 data-nosnippet>96</a>
 <a href=#97 id=97 data-nosnippet>97</a>        <span class="kw">let </span>element_addr = pos.ins().iadd(base, offset);

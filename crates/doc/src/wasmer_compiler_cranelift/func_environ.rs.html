@@ -5,7 +5,7 @@
 <a href=#5 id=5 data-nosnippet>5</a>    HashMap,
 <a href=#6 id=6 data-nosnippet>6</a>    heap::{Heap, HeapData, HeapStyle},
 <a href=#7 id=7 data-nosnippet>7</a>    table::{TableData, TableSize},
-<a href=#8 id=8 data-nosnippet>8</a>    translator::{EXN_REF_TYPE, LandingPad, TAG_TYPE},
+<a href=#8 id=8 data-nosnippet>8</a>    translator::{EXN_REF_TYPE, LandingPad, TAG_TYPE, materialize_global_value},
 <a href=#9 id=9 data-nosnippet>9</a>};
 <a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>cranelift_codegen::{
 <a href=#11 id=11 data-nosnippet>11</a>    cursor::FuncCursor,
@@ -1317,7 +1317,7 @@
 <a href=#1317 id=1317 data-nosnippet>1317</a>        <span class="comment">// We use an indirect call so that we don't have to patch the code at runtime.
 <a href=#1318 id=1318 data-nosnippet>1318</a>        </span><span class="kw">let </span>pointer_type = <span class="self">self</span>.pointer_type();
 <a href=#1319 id=1319 data-nosnippet>1319</a>        <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(pos.func);
-<a href=#1320 id=1320 data-nosnippet>1320</a>        <span class="kw">let </span>base = pos.ins().global_value(pointer_type, vmctx);
+<a href=#1320 id=1320 data-nosnippet>1320</a>        <span class="kw">let </span>base = materialize_global_value(pos, pointer_type, vmctx);
 <a href=#1321 id=1321 data-nosnippet>1321</a>
 <a href=#1322 id=1322 data-nosnippet>1322</a>        <span class="kw">let </span><span class="kw-2">mut </span>mem_flags = ir::MemFlagsData::trusted();
 <a href=#1323 id=1323 data-nosnippet>1323</a>        mem_flags.set_readonly();
@@ -1498,7 +1498,7 @@
 <a href=#1498 id=1498 data-nosnippet>1498</a>    ) -&gt; WasmResult&lt;ir::Value&gt; {
 <a href=#1499 id=1499 data-nosnippet>1499</a>        <span class="kw">let </span>bool_is_null =
 <a href=#1500 id=1500 data-nosnippet>1500</a>            pos.ins()
-<a href=#1501 id=1501 data-nosnippet>1501</a>                .icmp_imm(cranelift_codegen::ir::condcodes::IntCC::Equal, value, <span class="number">0</span>);
+<a href=#1501 id=1501 data-nosnippet>1501</a>                .icmp_imm_s(cranelift_codegen::ir::condcodes::IntCC::Equal, value, <span class="number">0</span>);
 <a href=#1502 id=1502 data-nosnippet>1502</a>        <span class="prelude-val">Ok</span>(pos.ins().uextend(ir::types::I32, bool_is_null))
 <a href=#1503 id=1503 data-nosnippet>1503</a>    }
 <a href=#1504 id=1504 data-nosnippet>1504</a>
@@ -1822,7 +1822,7 @@
 <a href=#1822 id=1822 data-nosnippet>1822</a>        </span><span class="kw">let </span>pointer_type = <span class="self">self</span>.pointer_type();
 <a href=#1823 id=1823 data-nosnippet>1823</a>        <span class="kw">let </span>sig_ref = builder.func.dfg.ext_funcs[callee].signature;
 <a href=#1824 id=1824 data-nosnippet>1824</a>        <span class="kw">let </span>vmctx = <span class="self">self</span>.vmctx(builder.func);
-<a href=#1825 id=1825 data-nosnippet>1825</a>        <span class="kw">let </span>base = builder.ins().global_value(pointer_type, vmctx);
+<a href=#1825 id=1825 data-nosnippet>1825</a>        <span class="kw">let </span>base = materialize_global_value(<span class="kw-2">&amp;mut </span>builder.cursor(), pointer_type, vmctx);
 <a href=#1826 id=1826 data-nosnippet>1826</a>
 <a href=#1827 id=1827 data-nosnippet>1827</a>        <span class="kw">let </span>mem_flags = ir::MemFlagsData::trusted();
 <a href=#1828 id=1828 data-nosnippet>1828</a>
