@@ -42,6 +42,19 @@ pub enum Type {
 }
 
 impl Type {
+    /// Returns the size of this type in bits.
+    ///
+    /// `pointer_width` is the size of a native pointer in bits and determines
+    /// the size of `ExternRef` and `FuncRef`.
+    pub const fn bit_size(self, pointer_width: usize) -> usize {
+        match self {
+            Self::I32 | Self::F32 | Self::ExceptionRef => 32,
+            Self::I64 | Self::F64 => 64,
+            Self::ExternRef | Self::FuncRef => pointer_width,
+            Self::V128 => 128,
+        }
+    }
+
     /// Returns true if `Type` matches any of the numeric types. (e.g. `I32`,
     /// `I64`, `F32`, `F64`, `V128`).
     pub fn is_num(self) -> bool {

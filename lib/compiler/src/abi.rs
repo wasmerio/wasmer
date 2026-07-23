@@ -62,7 +62,7 @@ fn pair_slot(t0: Type, t1: Type) -> PairSlot {
 
 /// Classifies x86_64 return values.
 pub fn classify_return_type_x86_64(types: &[Type]) -> ReturnAbi {
-    let widths = types.iter().map(|ty| ty.byte_size(64)).collect_vec();
+    let widths = types.iter().map(|ty| ty.bit_size(64)).collect_vec();
 
     match (types, widths.as_slice()) {
         ([], []) => ReturnAbi::Void,
@@ -137,7 +137,7 @@ pub fn classify_return_type_loongarch64(types: &[Type]) -> ReturnAbi {
 /// Classifies RISC-V return values according to the hard-float psABI.
 pub fn classify_return_type_riscv(types: &[Type], is_riscv64: bool) -> ReturnAbi {
     let xlen = if is_riscv64 { 64 } else { 32 };
-    let widths = types.iter().map(|ty| ty.byte_size(xlen)).collect_vec();
+    let widths = types.iter().map(|ty| ty.bit_size(xlen)).collect_vec();
 
     // The hardware floating-point calling convention flattens only aggregates
     // with one or two fields. ABI_FLEN is 64 for the Linux *D ABIs used here,
