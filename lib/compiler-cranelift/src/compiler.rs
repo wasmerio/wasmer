@@ -29,7 +29,7 @@ use cranelift_codegen::{
 };
 
 #[cfg(feature = "unwind")]
-use gimli::{
+use cranelift_codegen::gimli::{
     constants::DW_EH_PE_absptr,
     write::{Address, EhFrame, FrameDescriptionEntry, FrameTable, Writer},
 };
@@ -39,6 +39,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
+use wasmer_compiler::types::function::Compilation;
 
 use wasmer_compiler::progress::ProgressContext;
 #[cfg(feature = "unwind")]
@@ -48,7 +49,7 @@ use wasmer_compiler::{
     ModuleMiddlewareChain, ModuleTranslationState,
     types::{
         function::{
-            Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
+            CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, RkyvCompilation, UnwindInfo,
         },
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationKind, RelocationTarget},
@@ -531,15 +532,20 @@ impl CraneliftCompiler {
         // function call trampolines (only for local functions, by signature)
         let function_call_trampolines = module
             .signatures
-            .values()
+            .iter()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FunctionBuilderContext::new, |cx, sig| {
+            .map_init(FunctionBuilderContext::new, |cx, (sig_index, sig)| {
+                let kind = wasmer_compiler::misc::CompiledKind::FunctionCallTrampoline(
+                    *sig_index,
+                    (*sig).clone(),
+                );
                 let trampoline = make_trampoline_function_call(
                     &self.config().callbacks,
                     &*isa,
                     target.triple().architecture,
                     cx,
+                    &kind,
                     sig,
                     &module_hash,
                 )?;
@@ -557,15 +563,21 @@ impl CraneliftCompiler {
         // dynamic function trampolines (only for imported functions)
         let dynamic_function_trampolines = module
             .imported_function_types()
+            .enumerate()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FunctionBuilderContext::new, |cx, func_type| {
+            .map_init(FunctionBuilderContext::new, |cx, (index, func_type)| {
+                let kind = wasmer_compiler::misc::CompiledKind::DynamicFunctionTrampoline(
+                    FunctionIndex::from_u32(*index as u32),
+                    func_type.clone(),
+                );
                 let trampoline = make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     &*isa,
                     target.triple().architecture,
                     &offsets,
                     cx,
+                    &kind,
                     func_type,
                     &module_hash,
                 )?;
@@ -601,14 +613,14 @@ impl CraneliftCompiler {
             got.index = Some(got_idx);
         }
 
-        Ok(Compilation {
+        Ok(Compilation::Rkyv(RkyvCompilation {
             functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
             unwind_info,
             got,
-        })
+        }))
     }
 }
 
@@ -636,6 +648,7 @@ impl Compiler for CraneliftCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        _compile_info_blob: &[u8],
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,

@@ -19,12 +19,14 @@ use wasmer_compiler::{misc::CompiledKind, types::function::FunctionBody};
 use wasmer_types::{CompileError, FunctionType, VMOffsets};
 
 /// Create a trampoline for invoking a WebAssembly function.
+#[allow(clippy::too_many_arguments)]
 pub fn make_trampoline_dynamic_function(
     callbacks: &Option<CraneliftCallbacks>,
     isa: &dyn TargetIsa,
     arch: Architecture,
     offsets: &VMOffsets,
     fn_builder_ctx: &mut FunctionBuilderContext,
+    kind: &CompiledKind,
     func_type: &FunctionType,
     module_hash: &Option<String>,
 ) -> Result<FunctionBody, CompileError> {
@@ -137,7 +139,7 @@ pub fn make_trampoline_dynamic_function(
 
     if let Some(callbacks) = callbacks.as_ref() {
         callbacks.preopt_ir(
-            &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+            kind,
             module_hash,
             context.func.display().to_string().as_bytes(),
         );
@@ -151,17 +153,8 @@ pub fn make_trampoline_dynamic_function(
     code_buf.extend_from_slice(compiled.code_buffer());
 
     if let Some(callbacks) = callbacks.as_ref() {
-        callbacks.obj_memory_buffer(
-            &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-            module_hash,
-            &code_buf,
-        );
-        callbacks.asm_memory_buffer(
-            &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-            module_hash,
-            arch,
-            &code_buf,
-        )?;
+        callbacks.obj_memory_buffer(kind, module_hash, &code_buf);
+        callbacks.asm_memory_buffer(kind, module_hash, arch, &code_buf)?;
     }
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();

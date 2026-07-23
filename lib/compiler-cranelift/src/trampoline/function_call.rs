@@ -29,6 +29,7 @@ pub fn make_trampoline_function_call(
     isa: &dyn TargetIsa,
     arch: Architecture,
     fn_builder_ctx: &mut FunctionBuilderContext,
+    kind: &CompiledKind,
     func_type: &FunctionType,
     module_hash: &Option<String>,
 ) -> Result<FunctionBody, CompileError> {
@@ -128,7 +129,7 @@ pub fn make_trampoline_function_call(
 
     if let Some(callbacks) = callbacks.as_ref() {
         callbacks.preopt_ir(
-            &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+            kind,
             module_hash,
             context.func.display().to_string().as_bytes(),
         );
@@ -142,17 +143,8 @@ pub fn make_trampoline_function_call(
     code_buf.extend_from_slice(compiled.code_buffer());
 
     if let Some(callbacks) = callbacks.as_ref() {
-        callbacks.obj_memory_buffer(
-            &CompiledKind::FunctionCallTrampoline(func_type.clone()),
-            module_hash,
-            &code_buf,
-        );
-        callbacks.asm_memory_buffer(
-            &CompiledKind::FunctionCallTrampoline(func_type.clone()),
-            module_hash,
-            arch,
-            &code_buf,
-        )?;
+        callbacks.obj_memory_buffer(kind, module_hash, &code_buf);
+        callbacks.asm_memory_buffer(kind, module_hash, arch, &code_buf)?;
     }
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();

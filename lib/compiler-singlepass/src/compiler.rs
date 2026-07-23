@@ -24,11 +24,12 @@ use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::progress::ProgressContext;
+use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
     types::{
-        function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
+        function::{CompiledFunction, FunctionBody, RkyvCompilation, UnwindInfo},
         module::CompileModuleInfo,
         section::SectionIndex,
     },
@@ -255,40 +256,41 @@ impl SinglepassCompiler {
         let module_hash = module.hash_string();
         let function_call_trampolines = module
             .signatures
-            .values()
+            .iter()
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|func_type| -> Result<FunctionBody, CompileError> {
-                let body = gen_std_trampoline(func_type, target, calling_convention)?;
-                if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
-                        &module_hash,
-                        &body.body,
-                    );
-                    callbacks.asm_memory_buffer(
-                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
-                        &module_hash,
-                        arch,
-                        &body.body,
-                        HashMap::new(),
-                    )?;
-                }
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
+            .map(
+                |(sig_index, func_type)| -> Result<FunctionBody, CompileError> {
+                    let body = gen_std_trampoline(func_type, target, calling_convention)?;
+                    if let Some(callbacks) = self.config.callbacks.as_ref() {
+                        let kind =
+                            CompiledKind::FunctionCallTrampoline(sig_index, func_type.clone());
+                        callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
+                        callbacks.asm_memory_buffer(
+                            &kind,
+                            &module_hash,
+                            arch,
+                            &body.body,
+                            HashMap::new(),
+                        )?;
+                    }
+                    if let Some(progress) = progress.as_ref() {
+                        progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                    }
 
-                Ok(body)
-            })
+                    Ok(body)
+                },
+            )
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
 
         let dynamic_function_trampolines = module
             .imported_function_types()
+            .enumerate()
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|func_type| -> Result<FunctionBody, CompileError> {
+            .map(|(index, func_type)| -> Result<FunctionBody, CompileError> {
                 let body = gen_std_dynamic_import_trampoline(
                     &vmoffsets,
                     &func_type,
@@ -296,13 +298,13 @@ impl SinglepassCompiler {
                     calling_convention,
                 )?;
                 if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-                        &module_hash,
-                        &body.body,
+                    let kind = CompiledKind::DynamicFunctionTrampoline(
+                        FunctionIndex::from_u32(index as u32),
+                        func_type.clone(),
                     );
+                    callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
                     callbacks.asm_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &kind,
                         &module_hash,
                         arch,
                         &body.body,
@@ -339,14 +341,14 @@ impl SinglepassCompiler {
 
         let got = wasmer_compiler::types::function::GOT::empty();
 
-        Ok(Compilation {
+        Ok(Compilation::Rkyv(RkyvCompilation {
             functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
             unwind_info,
             got,
-        })
+        }))
     }
 }
 
@@ -370,6 +372,7 @@ impl Compiler for SinglepassCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        _compile_info_blob: &[u8],
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -432,7 +435,7 @@ mod tests {
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&linux32, &info, &translation, inputs, None);
+        let result = compiler.compile_module(&linux32, &info, &[], &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
             error => panic!("Unexpected error: {error:?}"),
@@ -441,7 +444,7 @@ mod tests {
         // Compile for win32
         let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win32, &info, &translation, inputs, None);
+        let result = compiler.compile_module(&win32, &info, &[], &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {error:?}"),
