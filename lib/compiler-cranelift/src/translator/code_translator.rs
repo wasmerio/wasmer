@@ -80,7 +80,9 @@ pub(crate) const TAG_TYPE: ir::Type = I32;
 pub(crate) const EXN_REF_TYPE: ir::Type = I32;
 
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
-use super::translation_utils::{block_with_params, f32_translation, f64_translation};
+use super::translation_utils::{
+    block_with_params, f32_translation, f64_translation, materialize_global_value,
+};
 use crate::func_environ::{FuncEnvironment, GlobalVariable};
 use crate::{HashMap, hash_map};
 use core::convert::TryFrom;
@@ -210,7 +212,8 @@ pub fn translate_operator(
             let val = match state.get_global(builder.func, *global_index, environ)? {
                 GlobalVariable::Const(val) => val,
                 GlobalVariable::Memory { gv, offset, ty } => {
-                    let addr = builder.ins().global_value(environ.pointer_type(), gv);
+                    let addr =
+                        materialize_global_value(&mut builder.cursor(), environ.pointer_type(), gv);
                     let mut flags = ir::MemFlagsData::trusted();
                     // Put globals in the "table" abstract heap category as well.
                     set_memflags_alias_region(builder.func, &mut flags, MemoryAliasRegion::Table);
@@ -227,7 +230,8 @@ pub fn translate_operator(
             match state.get_global(builder.func, *global_index, environ)? {
                 GlobalVariable::Const(_) => panic!("global #{} is a constant", *global_index),
                 GlobalVariable::Memory { gv, offset, ty } => {
-                    let addr = builder.ins().global_value(environ.pointer_type(), gv);
+                    let addr =
+                        materialize_global_value(&mut builder.cursor(), environ.pointer_type(), gv);
                     let mut flags = ir::MemFlagsData::trusted();
                     // Put globals in the "table" abstract heap category as well.
                     set_memflags_alias_region(builder.func, &mut flags, MemoryAliasRegion::Table);
@@ -1387,7 +1391,7 @@ pub fn translate_operator(
         }
         Operator::I32Eqz | Operator::I64Eqz => {
             let arg = state.pop1();
-            let val = builder.ins().icmp_imm(IntCC::Equal, arg, 0);
+            let val = builder.ins().icmp_imm_u(IntCC::Equal, arg, 0);
             state.push1(builder.ins().uextend(I32, val));
         }
         Operator::I32Eq | Operator::I64Eq => translate_icmp(IntCC::Equal, builder, state),
@@ -2015,7 +2019,7 @@ pub fn translate_operator(
             let bitwidth = i64::from(type_of(op).lane_bits());
             // The spec expects to shift with `b mod lanewidth`; so, e.g., for 16 bit lane-width
             // we do `b AND 15`; this means fewer instructions than `iconst + urem`.
-            let b_mod_bitwidth = builder.ins().band_imm(b, bitwidth - 1);
+            let b_mod_bitwidth = builder.ins().band_imm_u(b, bitwidth - 1);
             state.push1(builder.ins().ishl(bitcast_a, b_mod_bitwidth))
         }
         Operator::I8x16ShrU | Operator::I16x8ShrU | Operator::I32x4ShrU | Operator::I64x2ShrU => {
@@ -2024,7 +2028,7 @@ pub fn translate_operator(
             let bitwidth = i64::from(type_of(op).lane_bits());
             // The spec expects to shift with `b mod lanewidth`; so, e.g., for 16 bit lane-width
             // we do `b AND 15`; this means fewer instructions than `iconst + urem`.
-            let b_mod_bitwidth = builder.ins().band_imm(b, bitwidth - 1);
+            let b_mod_bitwidth = builder.ins().band_imm_u(b, bitwidth - 1);
             state.push1(builder.ins().ushr(bitcast_a, b_mod_bitwidth))
         }
         Operator::I8x16ShrS | Operator::I16x8ShrS | Operator::I32x4ShrS | Operator::I64x2ShrS => {
@@ -2033,7 +2037,7 @@ pub fn translate_operator(
             let bitwidth = i64::from(type_of(op).lane_bits());
             // The spec expects to shift with `b mod lanewidth`; so, e.g., for 16 bit lane-width
             // we do `b AND 15`; this means fewer instructions than `iconst + urem`.
-            let b_mod_bitwidth = builder.ins().band_imm(b, bitwidth - 1);
+            let b_mod_bitwidth = builder.ins().band_imm_u(b, bitwidth - 1);
             state.push1(builder.ins().sshr(bitcast_a, b_mod_bitwidth))
         }
         Operator::V128Bitselect => {
@@ -2990,13 +2994,13 @@ fn align_atomic_addr(
         } else {
             builder
                 .ins()
-                .iadd_imm(addr, i64::from(memarg.offset as i32))
+                .iadd_imm_s(addr, i64::from(memarg.offset as i32))
         };
         debug_assert!(loaded_bytes.is_power_of_two());
         let misalignment = builder
             .ins()
-            .band_imm(effective_addr, i64::from(loaded_bytes - 1));
-        let f = builder.ins().icmp_imm(IntCC::NotEqual, misalignment, 0);
+            .band_imm_u(effective_addr, i64::from(loaded_bytes - 1));
+        let f = builder.ins().icmp_imm_u(IntCC::NotEqual, misalignment, 0);
         builder.ins().trapnz(f, crate::TRAP_HEAP_MISALIGNED);
     }
 }
@@ -3059,7 +3063,7 @@ fn translate_load(
         let block_merge = builder.create_block();
         builder.append_block_param(block_merge, result_ty);
 
-        let alignment_check = builder.ins().band_imm(base, (mem_op_size - 1) as i64);
+        let alignment_check = builder.ins().band_imm_u(base, (mem_op_size - 1) as i64);
         builder
             .ins()
             .brif(alignment_check, block_unaligned, &[], block_aligned, &[]);
@@ -3090,7 +3094,7 @@ fn translate_load(
             let byte = builder
                 .ins()
                 .uload8(result_uint_type, flags, base, i as i32);
-            let shifted = builder.ins().ishl_imm(byte, (i * 8) as i64);
+            let shifted = builder.ins().ishl_imm_u(byte, (i * 8) as i64);
             slow_val = builder.ins().bor(slow_val, shifted);
         }
         if matches!(
@@ -3144,7 +3148,7 @@ fn translate_store(
         let block_unaligned = builder.create_block();
         let block_merge = builder.create_block();
 
-        let alignment_check = builder.ins().band_imm(base, (mem_op_size - 1) as i64);
+        let alignment_check = builder.ins().band_imm_u(base, (mem_op_size - 1) as i64);
         builder
             .ins()
             .brif(alignment_check, block_unaligned, &[], block_aligned, &[]);
@@ -3174,7 +3178,7 @@ fn translate_store(
             )
         };
         for i in 0..mem_op_size {
-            let shifted = builder.ins().ushr_imm(val, (i * 8) as i64);
+            let shifted = builder.ins().ushr_imm_u(val, (i * 8) as i64);
             builder.ins().istore8(flags, shifted, base, i as i32);
         }
         builder.ins().jump(block_merge, &[]);
@@ -3218,10 +3222,10 @@ fn fold_atomic_mem_addr(
         let linear_mem_addr = builder.ins().uextend(I64, linear_mem_addr);
         let a = builder
             .ins()
-            .iadd_imm(linear_mem_addr, memarg.offset as i64);
+            .iadd_imm_u(linear_mem_addr, memarg.offset as i64);
         let r = builder
             .ins()
-            .icmp_imm(IntCC::UnsignedGreaterThanOrEqual, a, 0x1_0000_0000i64);
+            .icmp_imm_u(IntCC::UnsignedGreaterThanOrEqual, a, 0x1_0000_0000i64);
         builder.ins().trapnz(r, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
         builder.ins().ireduce(I32, a)
     } else {
@@ -3230,10 +3234,10 @@ fn fold_atomic_mem_addr(
     assert!(access_ty_bytes == 4 || access_ty_bytes == 8);
     let final_lma_misalignment = builder
         .ins()
-        .band_imm(final_lma, i64::from(access_ty_bytes - 1));
+        .band_imm_u(final_lma, i64::from(access_ty_bytes - 1));
     let f = builder
         .ins()
-        .icmp_imm(IntCC::Equal, final_lma_misalignment, i64::from(0));
+        .icmp_imm_u(IntCC::Equal, final_lma_misalignment, i64::from(0));
     builder.ins().trapz(f, crate::TRAP_HEAP_MISALIGNED);
     final_lma
 }
