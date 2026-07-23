@@ -1295,13 +1295,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                                 .expect("must be valid filename")
                                 .to_string_lossy()
                                 .to_string();
-                            let is_singlepass = matches!(engine, Engine::Singlepass);
-                            #[cfg(all(
-                                feature = "experimental-artifact",
-                                target_os = "linux",
-                                target_arch = "x86_64"
-                            ))]
-                            if is_singlepass
+                            if *engine == Engine::Singlepass
                                 && !["wasi_fyi", "wasi_wast"].contains(&test_name.as_str())
                             {
                                 continue;
