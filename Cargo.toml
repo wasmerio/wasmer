@@ -12,17 +12,17 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=7.2.0", path = "lib/api", default-features = false }
-wasmer-cache = { version = "=7.2.0", path = "lib/cache", optional = true }
-wasmer-compiler = { version = "=7.2.0", path = "lib/compiler", features = [
+wasmer = { version = "=7.2.1", path = "lib/api", default-features = false }
+wasmer-cache = { version = "=7.2.1", path = "lib/cache", optional = true }
+wasmer-compiler = { version = "=7.2.1", path = "lib/compiler", features = [
   "compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=7.2.0", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=7.2.0", path = "lib/compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=7.2.0", path = "lib/compiler-singlepass", optional = true }
-wasmer-middlewares = { version = "=7.2.0", path = "lib/middlewares", optional = true }
-wasmer-types = { version = "=7.2.0", path = "lib/types" }
-wasmer-wast = { version = "=7.2.0", path = "tests/lib/wast", optional = true }
+wasmer-compiler-cranelift = { version = "=7.2.1", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=7.2.1", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=7.2.1", path = "lib/compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=7.2.1", path = "lib/middlewares", optional = true }
+wasmer-types = { version = "=7.2.1", path = "lib/types" }
+wasmer-wast = { version = "=7.2.1", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 
 # Third party dependencies
@@ -35,7 +35,7 @@ tokio = { workspace = true, features = [
 ], optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-wild = { version = "=7.2.0", path = "lib/wild/libwild" }
+wasmer-wild = { version = "=7.2.1", path = "lib/wild/libwild" }
 
 [workspace]
 members = [
@@ -85,11 +85,11 @@ homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.94"
-version = "7.2.0"
+version = "7.2.1"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.702.0", path = "lib/package" }
+wasmer-package = { version = "0.702.1", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
@@ -343,7 +343,7 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=7.2.0", path = "lib/api", features = [
+wasmer = { version = "=7.2.1", path = "lib/api", features = [
   "compiler",
   "singlepass",
   "sys",
