@@ -25,6 +25,8 @@ pub enum CompiledKind {
     FunctionCallTrampoline(SignatureIndex, FunctionType),
     /// A dynamic function trampoline for a given imported function.
     DynamicFunctionTrampoline(FunctionIndex, FunctionType),
+    /// An import function trampoline.
+    ImportFunctionTrampoline(FunctionIndex, FunctionType),
     /// An entire Wasm module.
     Module,
 }
@@ -104,6 +106,11 @@ pub fn function_kind_to_filename(kind: &CompiledKind, suffix: &str) -> String {
             types_to_signature(func_type.params()),
             types_to_signature(func_type.results())
         ),
+        CompiledKind::ImportFunctionTrampoline(_, func_type) => format!(
+            "trampoline_import_{}_{}{suffix}",
+            types_to_signature(func_type.params()),
+            types_to_signature(func_type.results())
+        ),
         CompiledKind::Module => "Module".to_string(),
     }
 }
@@ -130,6 +137,7 @@ impl CompiledFunctionExt for CompiledKind {
             Self::Local(index, _) => format!("f{}", index.as_u32()),
             Self::FunctionCallTrampoline(index, _) => format!("t{}", index.as_u32()),
             Self::DynamicFunctionTrampoline(index, _) => format!("dt{}", index.as_u32()),
+            Self::ImportFunctionTrampoline(index, _) => format!("i{}", index.as_u32()),
             Self::Module => "Module".to_string(),
         }
     }

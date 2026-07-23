@@ -219,7 +219,8 @@ impl Compiler for LLVMCompiler {
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<Compilation, CompileError> {
+    ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError> {
+        let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
@@ -456,7 +457,7 @@ impl Compiler for LLVMCompiler {
             module_file.read_to_end(&mut elf_content).map_err(|e| {
                 CompileError::Codegen(format!("cannot persist linked shared object: {e}"))
             })?;
-            Ok(Compilation::Elf(elf_content))
+            Ok((Compilation::Elf(elf_content), function_max_stack_usage))
         } else {
             let functions = functions
                 .into_iter()
@@ -623,14 +624,17 @@ impl Compiler for LLVMCompiler {
                 })
                 .collect();
 
-            Ok(Compilation::Rkyv(RkyvCompilation {
-                functions,
-                custom_sections: module_custom_sections,
-                function_call_trampolines,
-                dynamic_function_trampolines,
-                unwind_info,
-                got,
-            }))
+            Ok((
+                Compilation::Rkyv(RkyvCompilation {
+                    functions,
+                    custom_sections: module_custom_sections,
+                    function_call_trampolines,
+                    dynamic_function_trampolines,
+                    unwind_info,
+                    got,
+                }),
+                function_max_stack_usage,
+            ))
         }
     }
 

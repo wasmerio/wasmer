@@ -4,6 +4,7 @@
 use std::{
     fs::File,
     io::BufReader,
+    mem::size_of,
     path::{Path, PathBuf},
     sync::{
         Arc,
@@ -16,6 +17,7 @@ use crate::ModuleEnvironment;
 use crate::{
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
+    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{link::link_module, resolver::resolve_tags, trap::register_frame_info_source},
     lib::std::vec::IntoIter,
     resolve_imports,
@@ -33,8 +35,7 @@ use std::os::fd::AsRawFd;
 use wasmer_types::CompilationProgressCallback;
 
 use enumset::EnumSet;
-use object::{Object as _, ObjectSection as _, ReadCache};
-use rkyv::option::ArchivedOption;
+use object::{Object as _, ObjectSection as _, ReadCache, ReadRef};
 use shared_buffer::OwnedBuffer;
 
 use crate::engine::mapped_binary::DebugInfoSource;
@@ -51,8 +52,8 @@ use wasmer_types::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
     DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
     FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
-    SerializeError, SignatureIndex, TableIndex,
-    entity::{BoxedSlice, PrimaryMap},
+    SerializeError, SignatureIndex, TableIndex, TrapCode, TrapInformation,
+    entity::{BoxedSlice, EntityRef, PrimaryMap},
     target::{CpuFeature, Target},
 };
 
@@ -299,17 +300,13 @@ impl Artifact {
     }
 
     /// Deserialize an ELF artifact held in memory, if the bytes contain one.
-    fn deserialize_elf(
-        engine: &Engine,
-        bytes: &[u8],
-    ) -> Result<Option<Self>, DeserializeError> {
+    fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
         if !bytes.starts_with(&object::elf::ELFMAG) {
             return Ok(None);
         }
 
-        let image = object::File::parse(bytes).map_err(|e| {
-            DeserializeError::CorruptedBinary(format!("cannot parse image: {e}"))
-        })?;
+        let image = object::File::parse(bytes)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
         let module_info = image
             .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
             .ok_or_else(|| {
@@ -482,7 +479,7 @@ impl Artifact {
             }
             ArtifactBuildVariant::Archived(a) => a.get_elf_file(),
         };
-        let allocated = if let Some(module_file) = module_file.as_ref() {
+        let mut allocated = if let Some(module_file) = module_file.as_ref() {
             if elf_file_data.is_none() {
                 return Err(DeserializeError::Incompatible(
                     "file-backed loading only supports ELF artifacts".to_string(),
@@ -583,10 +580,7 @@ impl Artifact {
                     .get_function_max_stack_usage()
                     .expect("RKYV path expected")
                     .values()
-                    .map(|v| match v {
-                        ArchivedOption::None => None,
-                        ArchivedOption::Some(v) => Some(v.to_native() as usize),
-                    })
+                    .cloned()
                     .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
             };
 
@@ -747,6 +741,29 @@ impl Artifact {
                 elf_image: None,
             }
         };
+
+        // ELF allocation recovers function addresses from the linked image, but
+        // maximum stack usage is compile metadata rather than an ELF property.
+        // Preserve it from the metadata embedded in the artifact, just as the
+        // in-memory Rkyv path does above.
+        if allocated.elf_image.is_some() {
+            allocated.function_max_stack_usage = match &artifact {
+                ArtifactBuildVariant::Plain(p) => p
+                    .get_function_max_stack_usage()
+                    .expect("function stack usage metadata expected")
+                    .values()
+                    .cloned()
+                    .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+                    .into_boxed_slice(),
+                ArtifactBuildVariant::Archived(a) => a
+                    .get_function_max_stack_usage()
+                    .expect("function stack usage metadata expected")
+                    .values()
+                    .cloned()
+                    .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+                    .into_boxed_slice(),
+            };
+        }
 
         let mut artifact = Self {
             id: Default::default(),
@@ -1485,6 +1502,7 @@ impl Artifact {
             features: features.clone(),
             memory_styles,
             table_styles,
+            function_max_stack_usage: PrimaryMap::new(),
         };
         Ok((
             compile_info,
@@ -1596,12 +1614,7 @@ impl Artifact {
         - SignatureIndex -> VMSignatureHash // signatures
          */
 
-        let mut metadata_builder =
-            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
-
-        let (_compile_info, symbol_registry) = metadata.split();
-
-        let compilation = compiler.compile_module(
+        let (compilation, function_max_stack_usage) = compiler.compile_module(
             target,
             &metadata.compile_info,
             &[],
@@ -1609,11 +1622,16 @@ impl Artifact {
             function_body_inputs,
             None,
         )?;
+        metadata.compile_info.function_max_stack_usage = function_max_stack_usage;
         let Compilation::Rkyv(compilation) = compilation else {
             return Err(CompileError::Codegen(
                 "ELF compilation unsupported yet".to_string(),
             ));
         };
+
+        let mut metadata_builder =
+            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
+        let (_compile_info, symbol_registry) = metadata.split();
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
         let object_name = ModuleMetadataSymbolRegistry {
@@ -1831,5 +1849,90 @@ impl Artifact {
                 }),
             })
         }
+    }
+}
+
+/// On-demand reader of per-function trap information from an ELF artifact.
+///
+/// Trap lookups only happen when a trap fires, so the ELF trap sections are
+/// parsed lazily instead of duplicating all trap tables in memory.
+pub(crate) struct TrapReader {
+    source: DebugInfoSource,
+}
+
+impl TrapReader {
+    pub(crate) fn new(source: DebugInfoSource) -> Self {
+        Self { source }
+    }
+
+    /// Looks up the trap information for `local_index` at `rel_pos`, the offset
+    /// relative to the start of the function.
+    pub(crate) fn lookup(
+        &self,
+        local_index: LocalFunctionIndex,
+        rel_pos: u32,
+    ) -> Option<TrapInformation> {
+        match &self.source {
+            DebugInfoSource::Bytes(data) => {
+                let image = object::File::parse(&data[..]).ok()?;
+                Self::lookup_in_image(&image, local_index, rel_pos)
+            }
+            DebugInfoSource::File(file) => {
+                let cache = ReadCache::new(BufReader::new(file.try_clone().ok()?));
+                let image = object::File::parse(&cache).ok()?;
+                Self::lookup_in_image(&image, local_index, rel_pos)
+            }
+        }
+    }
+
+    fn lookup_in_image<'data, R: ReadRef<'data>>(
+        image: &object::File<'data, R>,
+        local_index: LocalFunctionIndex,
+        rel_pos: u32,
+    ) -> Option<TrapInformation> {
+        let traps_section = image.section_by_name_bytes(WASMER_TRAPS_SECTION_NAME)?;
+        let trap_offsets = image
+            .section_by_name_bytes(WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME)?
+            .data()
+            .ok()?;
+        let slot = local_index.index().checked_mul(size_of::<usize>())?;
+        let offset_bytes = trap_offsets.get(slot..slot + size_of::<usize>())?;
+
+        // These slots contain relocated virtual addresses, not section-relative
+        // offsets. ELF currently emitted by Wasmer is native and little-endian.
+        let trap_address = usize::from_le_bytes(offset_bytes.try_into().ok()?);
+        let trap_offset = trap_address.checked_sub(traps_section.address() as usize)?;
+        let traps = Self::parse_function_traps(traps_section.data().ok()?, trap_offset)?;
+        traps
+            .binary_search_by_key(&rel_pos, |info| info.code_offset)
+            .ok()
+            .map(|index| traps[index])
+    }
+
+    fn parse_function_traps(
+        traps_section: &[u8],
+        trap_offset: usize,
+    ) -> Option<Vec<TrapInformation>> {
+        const WORD_SIZE: usize = size_of::<u32>();
+        const RECORD_SIZE: usize = 2 * WORD_SIZE;
+
+        let data = traps_section.get(trap_offset..)?;
+        let count = u32::from_le_bytes(data.get(..WORD_SIZE)?.try_into().ok()?) as usize;
+        let records_len = count.checked_mul(RECORD_SIZE)?;
+        let records = data.get(WORD_SIZE..WORD_SIZE.checked_add(records_len)?)?;
+
+        records
+            .chunks_exact(RECORD_SIZE)
+            .map(|record| {
+                let code_offset = u32::from_le_bytes(record[..WORD_SIZE].try_into().ok()?);
+                let code = u32::from_le_bytes(record[WORD_SIZE..].try_into().ok()?);
+                // SAFETY: the trap sections is emitted by us
+                let trap_code = unsafe { std::mem::transmute::<u32, TrapCode>(code) };
+                Some(TrapInformation {
+                    code_offset,
+                    trap_code,
+                })
+            })
+            .collect()
     }
 }

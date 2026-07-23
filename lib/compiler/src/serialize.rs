@@ -40,8 +40,6 @@ pub struct RkyvSerializableCompilation {
     pub libcall_trampolines: SectionIndex,
     // Length of each libcall trampoline.
     pub libcall_trampoline_len: u32,
-    // The maximum stack size used for each function (available only for the Singlepass compiler).
-    pub function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
 }
 
 impl RkyvSerializableCompilation {

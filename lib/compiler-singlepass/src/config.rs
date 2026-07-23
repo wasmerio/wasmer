@@ -34,6 +34,11 @@ impl SinglepassCallbacks {
         Ok(Self { debug_dir })
     }
 
+    /// Returns the debug directory used to dump compilation artifacts.
+    pub fn debug_dir(&self) -> &PathBuf {
+        &self.debug_dir
+    }
+
     fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
         if let Some(hash) = module_hash {

@@ -95,6 +95,7 @@ impl ArtifactBuild {
             features,
             memory_styles,
             table_styles,
+            function_max_stack_usage: PrimaryMap::new(),
         };
         let cpu_features = compiler.get_cpu_features_used(target.cpu_features());
         let mut serializable = SerializableModule {
@@ -110,12 +111,12 @@ impl ArtifactBuild {
                 .into_boxed_slice(),
             cpu_features: cpu_features.as_u64(),
         };
-        let compile_info_blob = serializable.serialize().map_err(|e| {
-            CompileError::Codegen(format!("cannot serialize SerializeModule: {e}"))
-        })?;
+        let compile_info_blob = serializable
+            .serialize()
+            .map_err(|e| CompileError::Codegen(format!("cannot serialize SerializeModule: {e}")))?;
 
         // Compile the Module
-        let compilation = compiler.compile_module(
+        let (compilation, function_max_stack_usage) = compiler.compile_module(
             target,
             &serializable.compile_info,
             &compile_info_blob,
@@ -127,6 +128,8 @@ impl ArtifactBuild {
             progress_callback,
         )?;
 
+        serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
+
         let compilation = match compilation {
             Compilation::Rkyv(compilation) => {
                 // Synthesize a custom section to hold the libcall trampolines.
@@ -136,13 +139,10 @@ impl ArtifactBuild {
                 let mut function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
                 let mut function_relocations =
                     PrimaryMap::with_capacity(compilation.functions.len());
-                let mut function_max_stack_usage =
-                    PrimaryMap::with_capacity(compilation.functions.len());
                 for (_, func) in compilation.functions.into_iter() {
                     function_bodies.push(func.body);
                     function_relocations.push(func.relocations);
                     function_frame_info.push(func.frame_info);
-                    function_max_stack_usage.push(func.maximum_stack_usage);
                 }
                 let mut custom_sections = compilation.custom_sections.clone();
                 let mut custom_section_relocations = compilation
@@ -159,7 +159,6 @@ impl ArtifactBuild {
                     function_bodies,
                     function_relocations,
                     function_frame_info,
-                    function_max_stack_usage,
                     function_call_trampolines: compilation.function_call_trampolines,
                     dynamic_function_trampolines: compilation.dynamic_function_trampolines,
                     custom_sections,
@@ -297,11 +296,7 @@ impl ArtifactBuild {
     pub fn get_function_max_stack_usage(
         &self,
     ) -> Option<&PrimaryMap<LocalFunctionIndex, Option<usize>>> {
-        if let SerializableCompilation::Rkyv(compilation) = &self.serializable.compilation {
-            Some(&compilation.function_max_stack_usage)
-        } else {
-            None
-        }
+        Some(&self.serializable.compile_info.function_max_stack_usage)
     }
 }
 
@@ -597,14 +592,8 @@ impl ArtifactBuildFromArchive {
     /// Available only for the Singlepass compiler
     pub fn get_function_max_stack_usage(
         &self,
-    ) -> Option<&ArchivedPrimaryMap<LocalFunctionIndex, Option<usize>>> {
-        if let ArchivedSerializableCompilation::Rkyv(compilation) =
-            self.cell.borrow_dependent().compilation
-        {
-            Some(&compilation.function_max_stack_usage)
-        } else {
-            None
-        }
+    ) -> Option<&PrimaryMap<LocalFunctionIndex, Option<usize>>> {
+        Some(&self.compile_info.function_max_stack_usage)
     }
 
     /// Get compiled ELF file data.
@@ -658,8 +647,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        if let ArchivedSerializableCompilation::Elf(data) =
-            self.cell.borrow_dependent().compilation
+        if let ArchivedSerializableCompilation::Elf(data) = self.cell.borrow_dependent().compilation
         {
             return Ok(data.to_vec());
         }
