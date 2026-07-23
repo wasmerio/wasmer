@@ -1,6 +1,6 @@
 use super::engine::wasm_engine_t;
 use std::cell::UnsafeCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use wasmer_api::{AsStoreMut, AsStoreRef, Store, StoreMut, StoreRef as BaseStoreRef};
 
 #[derive(Clone)]
@@ -15,6 +15,38 @@ impl StoreRef {
 
     pub unsafe fn store_mut(&mut self) -> StoreMut<'_> {
         unsafe { (*self.inner.get()).as_store_mut() }
+    }
+
+    /// Create a non-owning handle to this store.
+    ///
+    /// Host-function callbacks must not capture a strong [`StoreRef`]: the
+    /// function lives inside the store's arena, so a strong clone would form a
+    /// store → function → store cycle and leak the whole store. Callbacks
+    /// capture a [`WeakStoreRef`] instead and upgrade it per call.
+    pub fn downgrade(&self) -> WeakStoreRef {
+        WeakStoreRef {
+            inner: Rc::downgrade(&self.inner),
+        }
+    }
+}
+
+/// A non-owning handle to a store, held by host-function callbacks.
+#[derive(Clone)]
+pub struct WeakStoreRef {
+    inner: Weak<UnsafeCell<Store>>,
+}
+
+// SAFETY: wasm-c-api stores are single-threaded (a documented invariant of the
+// C API). Host callbacks are `Send + Sync`-bound by `Function::new_with_env`,
+// so this handle must be too; it is never actually shared across threads.
+unsafe impl Send for WeakStoreRef {}
+unsafe impl Sync for WeakStoreRef {}
+
+impl WeakStoreRef {
+    /// Upgrade to a strong [`StoreRef`], or `None` if the store has been
+    /// dropped (which cannot happen while one of its callbacks is running).
+    pub fn upgrade(&self) -> Option<StoreRef> {
+        self.inner.upgrade().map(|inner| StoreRef { inner })
     }
 }
 

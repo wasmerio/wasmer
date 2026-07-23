@@ -82,7 +82,6 @@ async-trait.workspace = true
 urlencoding.workspace = true
 serde_derive.workspace = true
 serde_json.workspace = true
-weezl.workspace = true
 hex.workspace = true
 linked_hash_set.workspace = true
 heapless.workspace = true
