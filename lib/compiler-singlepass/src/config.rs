@@ -133,7 +133,6 @@ impl Singlepass {
         self.num_threads = num_threads;
         self
     }
-
 }
 
 impl CompilerConfig for Singlepass {
