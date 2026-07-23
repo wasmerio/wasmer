@@ -1,6 +1,6 @@
 use crate::{
-    DirEntry, FileType, FsError, MAX_SYMLINK_TRAVERSAL_DEPTH, Metadata, OpenOptions,
-    OpenOptionsConfig, ReadDir, Result, SymlinkPolicy, VirtualFile, path,
+    DirEntry, FileType, FsError, Metadata, OpenOptions, OpenOptionsConfig, ReadDir, Result,
+    VirtualFile,
 };
 use bytes::{Buf, Bytes};
 use futures::future::BoxFuture;
@@ -15,6 +15,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tokio::fs as tfs;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 use tokio::runtime::Handle;
+
+const MAX_SYMLINK_TRAVERSAL_DEPTH: usize = 128;
 
 #[derive(Debug, Clone)]
 pub struct FileSystem {
@@ -97,9 +99,57 @@ fn host_root_relative_target(root: &Path, target: PathBuf) -> PathBuf {
     target
 }
 
+/// Resolves `target` (as seen from `base`) while ensuring every intermediate
+/// step of the resolution stays within `root`. Returns `None` as soon as the
+/// path would leave `root`.
+fn resolve_path_within(root: &Path, base: &Path, target: &Path) -> Option<PathBuf> {
+    let root = normalize_path(root);
+    let base = normalize_path(base);
+    if !base.starts_with(&root) {
+        return None;
+    }
+
+    let (mut resolved, target) = if target.is_absolute() {
+        let stripped = if root == Path::new("/") {
+            target.strip_prefix(Path::new("/")).ok()?
+        } else {
+            target.strip_prefix(&root).ok()?
+        };
+        (root.clone(), stripped)
+    } else {
+        (base, target)
+    };
+
+    for component in target.components() {
+        match component {
+            Component::Prefix(..) | Component::RootDir => return None,
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if resolved == root {
+                    if root.parent().is_none() {
+                        continue;
+                    }
+                    return None;
+                }
+                if !resolved.pop() || !resolved.starts_with(&root) {
+                    return None;
+                }
+            }
+            Component::Normal(part) => {
+                resolved.push(part);
+                if !resolved.starts_with(&root) {
+                    return None;
+                }
+            }
+        }
+    }
+
+    Some(resolved)
+}
+
 fn symlink_target_path(root: &Path, symlink_path: &Path, target: &Path) -> Option<PathBuf> {
     let base = symlink_path.parent().unwrap_or(root);
-    path::resolve_path_within(root, base, target, normalize_path).or_else(|| {
+    resolve_path_within(root, base, target).or_else(|| {
         if target.is_absolute()
             && !target
                 .components()
@@ -114,7 +164,7 @@ fn symlink_target_path(root: &Path, symlink_path: &Path, target: &Path) -> Optio
     })
 }
 
-fn symlink_chain_target_within(root: &Path, target: PathBuf) -> Option<PathBuf> {
+fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
     let normalized_root = normalize_path(root);
     let mut current = target;
     let mut visited = std::collections::HashSet::new();
@@ -122,19 +172,19 @@ fn symlink_chain_target_within(root: &Path, target: PathBuf) -> Option<PathBuf> 
 
     loop {
         if !current.starts_with(&normalized_root) {
-            return None;
+            return false;
         }
 
         if !visited.insert(current.clone()) {
-            return None;
+            return false;
         }
         if symlink_count >= MAX_SYMLINK_TRAVERSAL_DEPTH {
-            return None;
+            return false;
         }
 
         let relative = match current.strip_prefix(&normalized_root) {
             Ok(relative) => relative,
-            Err(_) => return None,
+            Err(_) => return false,
         };
         let mut inspected = normalized_root.clone();
         let mut components = relative.components();
@@ -145,7 +195,7 @@ fn symlink_chain_target_within(root: &Path, target: PathBuf) -> Option<PathBuf> 
 
             let metadata = match fs::symlink_metadata(&inspected) {
                 Ok(metadata) => metadata,
-                Err(_) => return None,
+                Err(_) => return false,
             };
 
             if !metadata.file_type().is_symlink() {
@@ -154,16 +204,17 @@ fn symlink_chain_target_within(root: &Path, target: PathBuf) -> Option<PathBuf> 
 
             let raw_target = match fs::read_link(&inspected) {
                 Ok(target) => target,
-                Err(_) => return None,
+                Err(_) => return false,
             };
-            let mut next = symlink_target_path(&normalized_root, &inspected, &raw_target)?;
+            let mut next = match symlink_target_path(&normalized_root, &inspected, &raw_target) {
+                Some(next) => next,
+                None => return false,
+            };
             if !components.as_path().as_os_str().is_empty() {
-                next = path::resolve_path_within(
-                    &normalized_root,
-                    &next,
-                    components.as_path(),
-                    normalize_path,
-                )?;
+                next = match resolve_path_within(&normalized_root, &next, components.as_path()) {
+                    Some(next) => next,
+                    None => return false,
+                };
             }
 
             symlink_count += 1;
@@ -173,12 +224,19 @@ fn symlink_chain_target_within(root: &Path, target: PathBuf) -> Option<PathBuf> 
         }
 
         if !followed_symlink {
-            return Some(current);
+            return true;
         }
     }
 }
 
-pub fn symlink_policy_at(root: &Path, path: &Path) -> Result<SymlinkPolicy> {
+/// Reports whether following the symlink at `path` would leave `root` (in
+/// which case the symlink must be hidden from guests). Broken links and loops
+/// count as escaping since they cannot be proven to stay inside `root`.
+///
+/// Errors with `InvalidInput` when `path` is not a symlink and `EntryNotFound`
+/// when it does not exist; `read_link` reports both, so a single call
+/// validates the input and fetches the target.
+fn symlink_escapes_root(root: &Path, path: &Path) -> Result<bool> {
     let root = normalize_path(root);
     let path = normalize_path(path);
 
@@ -186,25 +244,13 @@ pub fn symlink_policy_at(root: &Path, path: &Path) -> Result<SymlinkPolicy> {
         return Err(FsError::InvalidInput);
     }
 
-    let metadata = fs::symlink_metadata(&path)?;
-
-    if !metadata.file_type().is_symlink() {
-        return Ok(SymlinkPolicy::Visible);
-    }
-
-    let target = match fs::read_link(&path) {
-        Ok(target) => match symlink_target_path(&root, &path, &target) {
-            Some(target) => target,
-            None => return Ok(SymlinkPolicy::Hidden),
-        },
-        Err(_) => return Ok(SymlinkPolicy::Hidden),
+    let raw_target = fs::read_link(&path)?;
+    let target = match symlink_target_path(&root, &path, &raw_target) {
+        Some(target) => target,
+        None => return Ok(true),
     };
 
-    if let Some(target) = symlink_chain_target_within(&root, target) {
-        Ok(SymlinkPolicy::ResolvedPath(target))
-    } else {
-        Ok(SymlinkPolicy::Hidden)
-    }
+    Ok(!symlink_chain_stays_within(&root, target))
 }
 
 impl FileSystem {
@@ -214,16 +260,12 @@ impl FileSystem {
         Ok(FileSystem { handle, root })
     }
 
-    pub fn root_path(&self) -> &Path {
-        &self.root
-    }
-
     fn symlink_entry_visible(&self, path: &Path, metadata: &fs::Metadata) -> bool {
+        // Unlike `ensure_no_hidden_symlink`, which propagates errors to the
+        // caller, this listing filter must not abort a whole `read_dir`, so
+        // it fails closed and simply omits the entry on error.
         !metadata.file_type().is_symlink()
-            || matches!(
-                symlink_policy_at(&self.root, path),
-                Ok(SymlinkPolicy::Visible | SymlinkPolicy::ResolvedPath(_))
-            )
+            || matches!(symlink_escapes_root(&self.root, path), Ok(false))
     }
 
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
@@ -241,7 +283,43 @@ impl FileSystem {
         let path = self.root.join(path);
 
         debug_assert!(path.starts_with(&self.root));
+        self.ensure_no_hidden_symlink(&path)?;
         Ok(path)
+    }
+
+    /// Symlinks that escape the filesystem root are hidden from directory
+    /// listings, and any path that names one — as the final component or
+    /// anywhere along the way — fails with `PermissionDenied` (the sandbox
+    /// errno WASI mandates for escaping symlinks). This keeps directory
+    /// listings, metadata and open consistent.
+    ///
+    /// Note this is a check-then-use: a link swapped in between this walk
+    /// and the actual operation is still followed by the host OS. Closing
+    /// that race requires `openat2(RESOLVE_BENEATH)`-style resolution.
+    fn ensure_no_hidden_symlink(&self, path: &Path) -> Result<()> {
+        let relative = path
+            .strip_prefix(&self.root)
+            .map_err(|_| FsError::InvalidInput)?;
+
+        let mut current = self.root.clone();
+        for component in relative.components() {
+            current.push(component.as_os_str());
+
+            let Ok(metadata) = fs::symlink_metadata(&current) else {
+                // Missing components either surface through the actual
+                // operation or are about to be created by it.
+                return Ok(());
+            };
+            if !metadata.file_type().is_symlink() {
+                continue;
+            }
+
+            if symlink_escapes_root(&self.root, &current)? {
+                return Err(FsError::PermissionDenied);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -396,11 +474,6 @@ impl crate::FileSystem for FileSystem {
         fs::symlink_metadata(path)
             .and_then(TryInto::try_into)
             .map_err(Into::into)
-    }
-
-    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
-        let path = self.prepare_path(path)?;
-        symlink_policy_at(&self.root, &path)
     }
 }
 
@@ -1275,6 +1348,71 @@ mod tests {
         let (_temp, fs) = host_symlink_visibility_fixture();
 
         assert_host_symlink_visibility(&fs);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn hidden_symlinks_behave_as_missing_entries() {
+        let (_temp, fs) = host_symlink_visibility_fixture();
+
+        // Visible symlinks keep working.
+        assert!(fs.readlink(Path::new("/inside-link")).is_ok());
+        assert!(
+            fs.symlink_metadata(Path::new("/inside-link"))
+                .unwrap()
+                .ft
+                .is_symlink()
+        );
+        assert!(
+            fs.metadata(Path::new("/inside-absolute"))
+                .unwrap()
+                .is_file()
+        );
+
+        for hidden in [
+            "/outside-relative",
+            "/outside-absolute",
+            "/leave-reenter-relative",
+            "/leave-reenter-absolute",
+            "/pivot",
+            "/chained-escape",
+            "/broken-link",
+            "/loop-a",
+        ] {
+            let hidden = Path::new(hidden);
+            assert_eq!(fs.readlink(hidden).unwrap_err(), FsError::PermissionDenied);
+            assert_eq!(
+                fs.symlink_metadata(hidden).unwrap_err(),
+                FsError::PermissionDenied
+            );
+            assert_eq!(fs.metadata(hidden).unwrap_err(), FsError::PermissionDenied);
+            assert_eq!(
+                fs.new_open_options()
+                    .read(true)
+                    .open(hidden)
+                    .map(|_| ())
+                    .unwrap_err(),
+                FsError::PermissionDenied
+            );
+            assert_eq!(
+                fs.remove_file(hidden).unwrap_err(),
+                FsError::PermissionDenied
+            );
+        }
+
+        // Paths traversing a hidden symlink are unreachable as well.
+        assert_eq!(
+            fs.metadata(Path::new("/pivot/outside.txt")).unwrap_err(),
+            FsError::PermissionDenied
+        );
+        assert_eq!(
+            fs.new_open_options()
+                .read(true)
+                .open(Path::new("/pivot/outside.txt"))
+                .map(|_| ())
+                .unwrap_err(),
+            FsError::PermissionDenied
+        );
     }
 
     #[cfg(unix)]

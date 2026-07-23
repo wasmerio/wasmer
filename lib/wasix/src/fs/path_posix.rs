@@ -182,10 +182,6 @@ impl PosixPathBuf {
         }
     }
 
-    pub(crate) fn as_posix_path(&self) -> PosixPath<'_> {
-        PosixPath::new(&self.path)
-    }
-
     pub(crate) fn as_str(&self) -> &str {
         &self.path
     }

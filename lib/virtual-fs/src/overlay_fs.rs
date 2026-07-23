@@ -14,7 +14,7 @@ use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use crate::{
     FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
-    ReadDir, SymlinkPolicy, VirtualFile, ops,
+    ReadDir, VirtualFile, ops,
 };
 
 fn unlink_overlay_path<P>(primary: &Arc<P>, path: &Path) -> Result<(), FsError>
@@ -572,31 +572,6 @@ where
         // Otherwise scan the secondaries
         for fs in self.secondaries.filesystems() {
             match fs.symlink_metadata(path) {
-                Err(e) if should_continue(e) => continue,
-                other => return other,
-            }
-        }
-
-        Err(FsError::EntryNotFound)
-    }
-
-    fn symlink_policy(&self, path: &Path) -> crate::Result<SymlinkPolicy> {
-        if ops::is_white_out(path).is_some() {
-            return Err(FsError::EntryNotFound);
-        }
-
-        match self.primary.symlink_policy(path) {
-            Ok(policy) => return Ok(policy),
-            Err(e) if should_continue(e) => {}
-            Err(e) => return Err(e),
-        }
-
-        if ops::has_white_out(&self.primary, path) {
-            return Err(FsError::EntryNotFound);
-        }
-
-        for fs in self.secondaries.filesystems() {
-            match fs.symlink_policy(path) {
                 Err(e) if should_continue(e) => continue,
                 other => return other,
             }

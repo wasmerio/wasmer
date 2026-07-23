@@ -28,7 +28,7 @@ pub fn fd_readdir<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let env = ctx.data();
-    let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
+    let (memory, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     // TODO: figure out how this is supposed to work;
     // is it supposed to pack the buffer full every time until it can't? or do one at a time?
 
@@ -83,54 +83,33 @@ pub fn fd_readdir<M: MemorySize>(
                         .collect::<Result<Vec<_>, _>>()
                         .map_err(fs_error_into_wasi_err)
                 );
-                let mut entry_names = std::collections::HashSet::new();
                 let fs_entries = fs_info
                     .into_iter()
                     .map(|entry| {
                         let filename = entry.file_name().to_string_lossy().to_string();
-                        entry_names.insert(filename.clone());
                         trace!("getting file: {:?}", filename);
                         let filetype = virtual_file_type_to_wasi_file_type(
                             entry.file_type().map_err(fs_error_into_wasi_err)?,
                         );
-                        if state.fs.readdir_entry_visible(
-                            inodes,
-                            fd,
-                            Some(&path),
-                            &filename,
-                            filetype,
-                        ) {
-                            entry_names.insert(filename.clone());
-                            Ok(Some((
-                                filename, filetype, 0, // TODO: inode
-                            )))
-                        } else {
-                            Ok(None)
-                        }
+                        Ok((
+                            filename, filetype, 0, // TODO: inode
+                        ))
                     })
-                    .collect::<Result<Vec<Option<(String, Filetype, u64)>>, Errno>>();
-                let mut entry_vec: Vec<(String, Filetype, u64)> =
-                    wasi_try_ok!(fs_entries).into_iter().flatten().collect();
+                    .collect::<Result<Vec<(String, Filetype, u64)>, Errno>>();
+                let mut entry_vec: Vec<(String, Filetype, u64)> = wasi_try_ok!(fs_entries);
+                let entry_names: std::collections::HashSet<_> =
+                    entry_vec.iter().map(|(name, _, _)| name.clone()).collect();
                 entry_vec.extend(
                     cached_entries
                         .iter()
                         .filter(|(name, _)| !entry_names.contains(name))
-                        .filter_map(|(name, inode)| {
+                        .map(|(name, inode)| {
                             let stat = inode.stat.read().unwrap();
-                            state
-                                .fs
-                                .readdir_entry_visible(
-                                    inodes,
-                                    fd,
-                                    Some(&path),
-                                    name,
-                                    stat.st_filetype,
-                                )
-                                .then_some((
-                                    format_entry_name(name, is_root),
-                                    stat.st_filetype,
-                                    stat.st_ino,
-                                ))
+                            (
+                                format_entry_name(name, is_root),
+                                stat.st_filetype,
+                                stat.st_ino,
+                            )
                         }),
                 );
                 // adding . and .. special folders
@@ -144,18 +123,13 @@ pub fn fd_readdir<M: MemorySize>(
                 trace!("reading root");
                 let mut entry_vec: Vec<(String, Filetype, u64)> = cached_entries
                     .into_iter()
-                    .filter_map(|(name, inode)| {
+                    .map(|(name, inode)| {
                         let stat = inode.stat.read().unwrap();
-                        state
-                            .fs
-                            .readdir_entry_visible(inodes, fd, None, &name, stat.st_filetype)
-                            .then(|| {
-                                (
-                                    format_entry_name(&name, true),
-                                    stat.st_filetype,
-                                    stat.st_ino,
-                                )
-                            })
+                        (
+                            format_entry_name(&name, true),
+                            stat.st_filetype,
+                            stat.st_ino,
+                        )
                     })
                     .collect();
                 entry_vec.sort_by(|a, b| a.0.cmp(&b.0));

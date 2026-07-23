@@ -79,11 +79,6 @@ where
     }
 
     #[tracing::instrument(level = "trace", skip(self), err)]
-    fn symlink_policy(&self, path: &std::path::Path) -> crate::Result<crate::SymlinkPolicy> {
-        self.0.symlink_policy(path)
-    }
-
-    #[tracing::instrument(level = "trace", skip(self), err)]
     fn remove_file(&self, path: &std::path::Path) -> crate::Result<()> {
         self.0.remove_file(path)
     }

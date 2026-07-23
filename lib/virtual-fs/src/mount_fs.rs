@@ -1,6 +1,6 @@
-//! A mount-topology filesystem that routes operations by path,
-//! its not as simple as TmpFs. not currently used but was used by
-//! the previously implementation of Deploy - now using TmpFs
+//! A mount-topology filesystem that routes operations by path to the
+//! filesystems mounted under it. Used to assemble the guest's root
+//! filesystem out of package volumes and host directories.
 
 use crate::*;
 
@@ -126,6 +126,15 @@ impl MountFileSystem {
         self.mount_with_source(path, Path::new("/"), fs)
     }
 
+    /// Mounts `fs` at `path`, exposing only the subtree under `source_path`.
+    ///
+    /// Note that the mount does not confine symlinks to the source subtree:
+    /// a symlink may name a target outside `source_path`, and it resolves in
+    /// whatever namespace the caller assembles (readlink targets under
+    /// `source_path` are translated into the mount's namespace, everything
+    /// else is reported verbatim). Hiding symlinks that escape a sandbox is
+    /// the backing filesystem's responsibility — for host directories, root
+    /// the `host_fs::FileSystem` at the directory being exposed.
     pub fn mount_with_source(
         &self,
         path: impl AsRef<Path>,
@@ -327,189 +336,20 @@ impl MountFileSystem {
         }
     }
 
-    fn normalize_mount_path(path: &Path) -> PathBuf {
-        let mut normalized = PathBuf::from("/");
-
-        for component in path.components() {
-            match component {
-                std::path::Component::RootDir | std::path::Component::CurDir => {}
-                std::path::Component::ParentDir => {
-                    normalized.pop();
-                    if normalized.as_os_str().is_empty() {
-                        normalized.push("/");
-                    }
-                }
-                std::path::Component::Normal(part) => normalized.push(part),
-                std::path::Component::Prefix(_) => {}
-            }
+    /// Symlink targets reported by a mounted filesystem are expressed in that
+    /// filesystem's own namespace. Absolute targets that fall under the
+    /// mount's source path are translated into the mount's namespace;
+    /// anything else is reported verbatim and resolves in the guest's
+    /// namespace.
+    fn rebase_symlink_target(target: PathBuf, source_path: &Path, mount_path: &Path) -> PathBuf {
+        if !target.is_absolute() {
+            return target;
         }
 
-        normalized
-    }
-
-    fn symlink_target_path(
-        source_root: &Path,
-        symlink_path: &Path,
-        target: &Path,
-    ) -> Option<PathBuf> {
-        let base = symlink_path.parent().unwrap_or(source_root);
-        path::resolve_path_within(source_root, base, target, Self::normalize_mount_path)
-    }
-
-    fn symlink_chain_stays_within_source(
-        fs: &(dyn FileSystem + Send + Sync),
-        source_root: &Path,
-        target: PathBuf,
-    ) -> bool {
-        let source_root = Self::normalize_mount_path(source_root);
-        let mut current = Self::normalize_mount_path(&target);
-        let mut visited = BTreeSet::new();
-        let mut symlink_count = 0;
-
-        loop {
-            if !current.starts_with(&source_root) {
-                return false;
-            }
-
-            if !visited.insert(current.clone()) {
-                return true;
-            }
-            if symlink_count >= MAX_SYMLINK_TRAVERSAL_DEPTH {
-                return false;
-            }
-
-            let relative = match current.strip_prefix(&source_root) {
-                Ok(relative) => relative,
-                Err(_) => return false,
-            };
-            let mut inspected = source_root.clone();
-            let mut components = relative.components();
-            let mut followed_symlink = false;
-
-            while let Some(component) = components.next() {
-                inspected.push(component.as_os_str());
-
-                let metadata = match fs.symlink_metadata(&inspected) {
-                    Ok(metadata) => metadata,
-                    Err(FsError::EntryNotFound) => return true,
-                    Err(_) => return false,
-                };
-
-                if !metadata.ft.is_symlink() {
-                    continue;
-                }
-
-                let raw_target = match fs.readlink(&inspected) {
-                    Ok(target) => target,
-                    Err(_) => return false,
-                };
-                let mut next =
-                    match Self::symlink_target_path(&source_root, &inspected, &raw_target) {
-                        Some(next) => next,
-                        None => return false,
-                    };
-                if !components.as_path().as_os_str().is_empty() {
-                    next = match path::resolve_path_within(
-                        &source_root,
-                        &next,
-                        components.as_path(),
-                        Self::normalize_mount_path,
-                    ) {
-                        Some(next) => next,
-                        None => return false,
-                    };
-                }
-
-                symlink_count += 1;
-                current = next;
-                followed_symlink = true;
-                break;
-            }
-
-            if !followed_symlink {
-                return true;
-            }
-        }
-    }
-
-    fn filter_symlink_entries_to_source(
-        entries: &mut ReadDir,
-        fs: &(dyn FileSystem + Send + Sync),
-        source_root: &Path,
-        mount_path: &Path,
-    ) {
-        entries.data.retain(|entry| {
-            let Ok(metadata) = entry.metadata() else {
-                return true;
-            };
-
-            if !metadata.ft.is_symlink() {
-                return true;
-            }
-
-            !matches!(
-                Self::symlink_policy_from_mount(fs, source_root, mount_path, &entry.path),
-                Ok(SymlinkPolicy::Hidden) | Err(_)
-            )
-        });
-    }
-
-    fn rebase_symlink_policy_path(source_root: &Path, mount_path: &Path, target: &Path) -> PathBuf {
-        let source_root = Self::normalize_mount_path(source_root);
-        let target = Self::normalize_mount_path(target);
-
-        match target.strip_prefix(&source_root) {
+        match target.strip_prefix(source_path) {
             Ok(stripped) => mount_path.join(stripped),
             Err(_) => target,
         }
-    }
-
-    fn rebase_symlink_policy(
-        policy: SymlinkPolicy,
-        source_root: &Path,
-        mount_path: &Path,
-    ) -> SymlinkPolicy {
-        match policy {
-            SymlinkPolicy::ResolvedPath(path) => SymlinkPolicy::ResolvedPath(
-                Self::rebase_symlink_policy_path(source_root, mount_path, &path),
-            ),
-            policy => policy,
-        }
-    }
-
-    fn symlink_policy_from_mount(
-        fs: &(dyn FileSystem + Send + Sync),
-        source_root: &Path,
-        mount_path: &Path,
-        delegated_path: &Path,
-    ) -> Result<SymlinkPolicy> {
-        let policy = fs.symlink_policy(delegated_path)?;
-        if matches!(policy, SymlinkPolicy::Hidden) {
-            return Ok(policy);
-        }
-
-        if matches!(policy, SymlinkPolicy::ResolvedPath(_)) {
-            let metadata = fs.symlink_metadata(delegated_path)?;
-            if metadata.ft.is_symlink() {
-                let raw_target = match fs.readlink(delegated_path) {
-                    Ok(target) => target,
-                    Err(_) => return Ok(SymlinkPolicy::Hidden),
-                };
-                let target =
-                    match Self::symlink_target_path(source_root, delegated_path, &raw_target) {
-                        Some(target) => target,
-                        None => return Ok(SymlinkPolicy::Hidden),
-                    };
-                if !Self::symlink_chain_stays_within_source(fs, source_root, target.clone()) {
-                    return Ok(SymlinkPolicy::Hidden);
-                }
-                return Ok(SymlinkPolicy::ResolvedPath(
-                    Self::rebase_symlink_policy_path(source_root, mount_path, &target),
-                ));
-            }
-        }
-
-        Ok(Self::rebase_symlink_policy(policy, source_root, mount_path))
     }
 
     fn read_dir_from_exact_node(&self, node: &ExactNode) -> Result<ReadDir> {
@@ -517,31 +357,21 @@ impl MountFileSystem {
 
         let backing = if let Some(fs) = &node.fs {
             Some((
-                fs.clone(),
                 fs.read_dir(&node.source_path),
-                node.source_path.clone(),
                 Cow::Borrowed(node.source_path.as_path()),
             ))
         } else {
             self.resolve_mount(&node.path).map(|resolved| {
                 (
-                    resolved.fs.clone(),
                     resolved.fs.read_dir(&resolved.delegated_path),
-                    resolved.source_path,
                     Cow::Owned(resolved.delegated_path),
                 )
             })
         };
 
-        if let Some((fs, base_entries, source_root, source_path)) = backing {
+        if let Some((base_entries, source_path)) = backing {
             match base_entries {
                 Ok(mut base_entries) => {
-                    Self::filter_symlink_entries_to_source(
-                        &mut base_entries,
-                        fs.as_ref(),
-                        &source_root,
-                        &node.path,
-                    );
                     Self::rebase_entries(&mut base_entries, &source_path, &node.path);
                     entries.extend(base_entries.data.into_iter().filter(|entry| {
                         entry
@@ -676,7 +506,14 @@ impl FileSystem for MountFileSystem {
             }
 
             match self.resolve_mount(path) {
-                Some(resolved) => resolved.fs.readlink(&resolved.delegated_path),
+                Some(resolved) => {
+                    let target = resolved.fs.readlink(&resolved.delegated_path)?;
+                    Ok(Self::rebase_symlink_target(
+                        target,
+                        &resolved.source_path,
+                        &resolved.mount_path,
+                    ))
+                }
                 None => Err(FsError::EntryNotFound),
             }
         }
@@ -692,12 +529,6 @@ impl FileSystem for MountFileSystem {
         match self.resolve_mount(path.clone()) {
             Some(resolved) => {
                 let mut entries = resolved.fs.read_dir(&resolved.delegated_path)?;
-                Self::filter_symlink_entries_to_source(
-                    &mut entries,
-                    resolved.fs.as_ref(),
-                    &resolved.source_path,
-                    &resolved.mount_path,
-                );
                 Self::rebase_entries(
                     &mut entries,
                     &resolved.delegated_path,
@@ -905,40 +736,6 @@ impl FileSystem for MountFileSystem {
 
         match self.resolve_mount(path) {
             Some(resolved) => resolved.fs.symlink_metadata(&resolved.delegated_path),
-            None => Err(FsError::EntryNotFound),
-        }
-    }
-
-    fn symlink_policy(&self, path: &Path) -> Result<SymlinkPolicy> {
-        let path = self.prepare_path(path)?;
-
-        if let Some(node) = self.exact_node(&path) {
-            return if let Some(fs) = node.fs {
-                match Self::symlink_policy_from_mount(
-                    fs.as_ref(),
-                    &node.source_path,
-                    &node.path,
-                    &node.source_path,
-                ) {
-                    Err(error) if Self::should_fallback_to_synthetic_dir(&error) => {
-                        Ok(SymlinkPolicy::Visible)
-                    }
-                    result => result,
-                }
-            } else if node.has_children() {
-                Ok(SymlinkPolicy::Visible)
-            } else {
-                Err(FsError::EntryNotFound)
-            };
-        }
-
-        match self.resolve_mount(path) {
-            Some(resolved) => Self::symlink_policy_from_mount(
-                resolved.fs.as_ref(),
-                &resolved.source_path,
-                &resolved.mount_path,
-                &resolved.delegated_path,
-            ),
             None => Err(FsError::EntryNotFound),
         }
     }
@@ -1872,6 +1669,54 @@ mod tests {
         assert!(names.contains(&"relative-link".to_string()));
     }
 
+    #[tokio::test]
+    async fn test_readlink_rebases_absolute_targets_into_mount_namespace() {
+        let source = TmpFileSystem::new();
+        source.create_dir(Path::new("/pkg")).unwrap();
+        source.create_dir(Path::new("/shared")).unwrap();
+        source
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(Path::new("/pkg/target.txt"))
+            .unwrap();
+        source
+            .create_symlink(
+                Path::new("/pkg/target.txt"),
+                Path::new("/pkg/absolute-link"),
+            )
+            .unwrap();
+        source
+            .create_symlink(Path::new("target.txt"), Path::new("/pkg/relative-link"))
+            .unwrap();
+        source
+            .create_symlink(Path::new("/shared/lib.py"), Path::new("/pkg/outside-link"))
+            .unwrap();
+
+        let fs = MountFileSystem::new();
+        fs.mount_with_source(Path::new("/runtime"), Path::new("/pkg"), Arc::new(source))
+            .unwrap();
+
+        // Absolute targets under the mount's source path are translated into
+        // the mount's namespace.
+        assert_eq!(
+            fs.readlink(Path::new("/runtime/absolute-link")).unwrap(),
+            Path::new("/runtime/target.txt")
+        );
+        // Relative targets resolve against the link's parent and need no
+        // translation.
+        assert_eq!(
+            fs.readlink(Path::new("/runtime/relative-link")).unwrap(),
+            Path::new("target.txt")
+        );
+        // Absolute targets outside the source path are reported verbatim and
+        // resolve in the guest's namespace.
+        assert_eq!(
+            fs.readlink(Path::new("/runtime/outside-link")).unwrap(),
+            Path::new("/shared/lib.py")
+        );
+    }
+
     #[cfg(unix)]
     fn host_source_with_escaping_symlinks() -> (tempfile::TempDir, crate::host_fs::FileSystem) {
         let temp = tempfile::TempDir::new().unwrap();
@@ -1902,19 +1747,21 @@ mod tests {
         std::os::unix::fs::symlink("..", pkg.join("pivot")).unwrap();
         std::os::unix::fs::symlink("pivot/secret.txt", pkg.join("escape-chained")).unwrap();
 
+        // The host filesystem is rooted at the `pkg` directory, so every
+        // escaping symlink above points outside the filesystem's root and
+        // must be hidden by host_fs itself — mount_fs simply passes the
+        // already-filtered entries through, wrappers included.
         let source =
-            crate::host_fs::FileSystem::new(tokio::runtime::Handle::current(), temp.path())
-                .unwrap();
+            crate::host_fs::FileSystem::new(tokio::runtime::Handle::current(), pkg).unwrap();
         (temp, source)
     }
 
     #[cfg(unix)]
-    fn assert_mount_with_source_path_hides_symlinks_escaping_subtree(
+    fn assert_mount_hides_symlinks_escaping_host_root(
         source: Arc<dyn FileSystemTrait + Send + Sync>,
     ) {
         let fs = MountFileSystem::new();
-        fs.mount_with_source(Path::new("/runtime"), Path::new("/sandbox/pkg"), source)
-            .unwrap();
+        fs.mount(Path::new("/runtime"), source).unwrap();
 
         let names = read_dir_names(&fs, "/runtime");
         assert!(names.contains(&"inside.txt".to_string()));
@@ -1932,48 +1779,46 @@ mod tests {
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn test_mount_with_source_path_hides_symlinks_escaping_subtree() {
+    async fn test_mount_hides_host_symlinks_escaping_host_root() {
         let (_temp, source) = host_source_with_escaping_symlinks();
 
-        assert_mount_with_source_path_hides_symlinks_escaping_subtree(Arc::new(source));
+        assert_mount_hides_symlinks_escaping_host_root(Arc::new(source));
     }
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn test_mount_with_source_path_hides_escaping_symlinks_from_arc_host_source() {
+    async fn test_mount_hides_escaping_host_symlinks_from_arc_host_source() {
         let (_temp, source) = host_source_with_escaping_symlinks();
         let source = ArcFileSystem::new(Arc::new(source));
 
-        assert_mount_with_source_path_hides_symlinks_escaping_subtree(Arc::new(source));
+        assert_mount_hides_symlinks_escaping_host_root(Arc::new(source));
     }
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn test_mount_with_source_path_hides_escaping_symlinks_from_overlay_host_source() {
+    async fn test_mount_hides_escaping_host_symlinks_from_overlay_host_source() {
         let (_temp, source) = host_source_with_escaping_symlinks();
         let source = OverlayFileSystem::new(mem_fs::FileSystem::default(), [source]);
 
-        assert_mount_with_source_path_hides_symlinks_escaping_subtree(Arc::new(source));
+        assert_mount_hides_symlinks_escaping_host_root(Arc::new(source));
     }
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn test_mount_with_source_path_hides_escaping_symlinks_from_nested_mount_host_source() {
+    async fn test_mount_hides_escaping_host_symlinks_from_nested_mount_host_source() {
         let (_temp, source) = host_source_with_escaping_symlinks();
         let source = Arc::new(source);
         let nested = MountFileSystem::new();
         nested.mount(Path::new("/"), source).unwrap();
 
-        assert_mount_with_source_path_hides_symlinks_escaping_subtree(Arc::new(nested));
+        assert_mount_hides_symlinks_escaping_host_root(Arc::new(nested));
     }
 
     #[cfg(unix)]
     #[tokio::test]
-    async fn test_mount_with_source_path_preserves_virtual_symlinks_from_mixed_overlay_source() {
+    async fn test_mount_preserves_virtual_symlinks_from_mixed_overlay_source() {
         let (_temp, host) = host_source_with_escaping_symlinks();
         let primary = TmpFileSystem::new();
-        primary.create_dir(Path::new("/sandbox")).unwrap();
-        primary.create_dir(Path::new("/sandbox/pkg")).unwrap();
         primary.create_dir(Path::new("/shared")).unwrap();
         primary
             .new_open_options()
@@ -1982,20 +1827,12 @@ mod tests {
             .open(Path::new("/shared/lib.py"))
             .unwrap();
         primary
-            .create_symlink(
-                Path::new("/shared/lib.py"),
-                Path::new("/sandbox/pkg/virtual-link"),
-            )
+            .create_symlink(Path::new("/shared/lib.py"), Path::new("/virtual-link"))
             .unwrap();
         let source = OverlayFileSystem::new(primary, [host]);
 
         let fs = MountFileSystem::new();
-        fs.mount_with_source(
-            Path::new("/runtime"),
-            Path::new("/sandbox/pkg"),
-            Arc::new(source),
-        )
-        .unwrap();
+        fs.mount(Path::new("/runtime"), Arc::new(source)).unwrap();
 
         let names = read_dir_names(&fs, "/runtime");
         assert!(names.contains(&"virtual-link".to_string()));
