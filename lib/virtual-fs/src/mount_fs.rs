@@ -342,7 +342,10 @@ impl MountFileSystem {
     /// anything else is reported verbatim and resolves in the guest's
     /// namespace.
     fn rebase_symlink_target(target: PathBuf, source_path: &Path, mount_path: &Path) -> PathBuf {
-        if !target.is_absolute() {
+        // Guest paths are unix-style even on Windows, where `is_absolute`
+        // would demand a drive prefix — `has_root` matches "/..." on every
+        // platform.
+        if !target.has_root() {
             return target;
         }
 
