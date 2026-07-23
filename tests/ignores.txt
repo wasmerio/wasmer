@@ -24,13 +24,6 @@ windows         spec::try_table
 windows         wasmer::exception_handling
 
 # Misc
-# The old format tests the serialization rountrip only.
-llvm_exp_artifact artifact::artifact_serialization_roundtrip
-llvm_exp_artifact serialize::test_deserialize
-singlepass_exp_artifact artifact::artifact_serialization_roundtrip
-singlepass_exp_artifact serialize::test_deserialize
-cranelift_exp_artifact artifact::artifact_serialization_roundtrip
-cranelift_exp_artifact serialize::test_deserialize
 singlepass wide_arithmetic
 v8 wide_arithmetic
 singlepass spec::linking

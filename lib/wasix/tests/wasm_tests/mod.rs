@@ -142,33 +142,10 @@ struct MappedDirectory {
 #[strum(ascii_case_insensitive, serialize_all = "lowercase")]
 pub enum Engine {
     Cranelift,
-    #[cfg(all(
-        feature = "experimental-artifact",
-        target_os = "linux",
-        target_arch = "x86_64"
-    ))]
-    #[strum(serialize = "cranelift_exp_artifact")]
-    CraneliftExperimentalArtifact,
     #[cfg(feature = "llvm")]
     LLVM,
-    #[cfg(all(
-        feature = "llvm",
-        feature = "experimental-artifact",
-        target_os = "linux",
-        target_arch = "x86_64"
-    ))]
-    #[strum(serialize = "llvm_exp_artifact")]
-    LLVMExperimentalArtifact,
     #[cfg(feature = "singlepass")]
     Singlepass,
-    #[cfg(all(
-        feature = "singlepass",
-        feature = "experimental-artifact",
-        target_os = "linux",
-        target_arch = "x86_64"
-    ))]
-    #[strum(serialize = "singlepass_exp_artifact")]
-    SinglepassExperimentalArtifact,
     #[cfg(feature = "v8")]
     V8,
 }
@@ -188,30 +165,10 @@ impl Engine {
     pub fn name(self) -> &'static str {
         match self {
             Self::Cranelift => "cranelift",
-            #[cfg(all(
-                feature = "experimental-artifact",
-                target_os = "linux",
-                target_arch = "x86_64"
-            ))]
-            Self::CraneliftExperimentalArtifact => "cranelift",
             #[cfg(feature = "llvm")]
             Self::LLVM => "llvm",
-            #[cfg(all(
-                feature = "llvm",
-                feature = "experimental-artifact",
-                target_os = "linux",
-                target_arch = "x86_64"
-            ))]
-            Self::LLVMExperimentalArtifact => "llvm",
             #[cfg(feature = "singlepass")]
             Self::Singlepass => "singlepass",
-            #[cfg(all(
-                feature = "singlepass",
-                feature = "experimental-artifact",
-                target_os = "linux",
-                target_arch = "x86_64"
-            ))]
-            Self::SinglepassExperimentalArtifact => "singlepass",
             #[cfg(feature = "v8")]
             Self::V8 => "v8",
         }
@@ -1305,30 +1262,10 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
         #[allow(unused_mut)]
         let mut supported_engines = vec![Engine::Cranelift];
-        #[cfg(all(
-            feature = "experimental-artifact",
-            target_os = "linux",
-            target_arch = "x86_64"
-        ))]
-        supported_engines.push(Engine::CraneliftExperimentalArtifact);
         #[cfg(feature = "llvm")]
         supported_engines.push(Engine::LLVM);
-        #[cfg(all(
-            feature = "llvm",
-            feature = "experimental-artifact",
-            target_os = "linux",
-            target_arch = "x86_64"
-        ))]
-        supported_engines.push(Engine::LLVMExperimentalArtifact);
         #[cfg(feature = "singlepass")]
         supported_engines.push(Engine::Singlepass);
-        #[cfg(all(
-            feature = "singlepass",
-            feature = "experimental-artifact",
-            target_os = "linux",
-            target_arch = "x86_64"
-        ))]
-        supported_engines.push(Engine::SinglepassExperimentalArtifact);
         #[cfg(feature = "v8")]
         supported_engines.push(Engine::V8);
 
@@ -1364,8 +1301,6 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                                 target_os = "linux",
                                 target_arch = "x86_64"
                             ))]
-                            let is_singlepass = is_singlepass
-                                || matches!(engine, Engine::SinglepassExperimentalArtifact);
                             if is_singlepass
                                 && !["wasi_fyi", "wasi_wast"].contains(&test_name.as_str())
                             {

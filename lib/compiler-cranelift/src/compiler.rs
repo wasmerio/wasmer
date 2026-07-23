@@ -134,9 +134,7 @@ impl CraneliftCompiler {
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
 
-        let build_directory = self
-            .config
-            .elf_artifact_format
+        let build_directory = cfg!(feature = "experimental-artifact")
             .then(|| {
                 tempdir().map_err(|e| {
                     CompileError::Codegen(format!("cannot create temporary build directory: {e}"))
@@ -315,7 +313,7 @@ impl CraneliftCompiler {
                     result.buffer.call_sites(),
                     result.buffer.data().len(),
                     pointer_bytes,
-                    self.config.elf_artifact_format,
+                    cfg!(feature = "experimental-artifact"),
                 )
             } else {
                 None
@@ -329,7 +327,7 @@ impl CraneliftCompiler {
                         // For the ELF artifact format each function's
                         // `.eh_frame` relocates against its own text symbol,
                         // so the FDE's initial location must not be shifted.
-                        let addend = if self.config.elf_artifact_format {
+                        let addend = if cfg!(feature = "experimental-artifact") {
                             0
                         } else {
                             // We use the addend as a way to specify the

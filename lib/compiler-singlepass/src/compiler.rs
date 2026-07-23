@@ -97,9 +97,7 @@ impl SinglepassCompiler {
             },
         };
 
-        let build_directory = self
-            .config
-            .elf_artifact_format
+        let build_directory = cfg!(feature = "experimental-artifact")
             .then(|| {
                 tempdir().map_err(|e| {
                     CompileError::Codegen(format!("cannot create temporary build directory: {e}"))
@@ -158,8 +156,7 @@ impl SinglepassCompiler {
                     &module.signatures[module.functions[i]],
                     target,
                     calling_convention,
-                    self.config
-                        .elf_artifact_format
+                    cfg!(feature = "experimental-artifact")
                         .then(|| build_directory.as_ref().unwrap().path()),
                 )
             })
@@ -300,8 +297,7 @@ impl SinglepassCompiler {
                         func_type,
                         target,
                         calling_convention,
-                        self.config
-                            .elf_artifact_format
+                        cfg!(feature = "experimental-artifact")
                             .then(|| (build_directory.as_ref().unwrap().path(), &kind)),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
@@ -341,8 +337,7 @@ impl SinglepassCompiler {
                         &func_type,
                         target,
                         calling_convention,
-                        self.config
-                            .elf_artifact_format
+                        cfg!(feature = "experimental-artifact")
                             .then(|| (build_directory.as_ref().unwrap().path(), &kind)),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
@@ -365,7 +360,7 @@ impl SinglepassCompiler {
             )
             .collect::<Result<Vec<_>, _>>()?;
 
-        if self.config.elf_artifact_format {
+        if cfg!(feature = "experimental-artifact") {
             let object_files = compile_output_paths(functions);
             let import_trampoline_objects = compile_output_paths(import_trampolines);
             let trampoline_objects = compile_output_paths(function_call_trampolines);

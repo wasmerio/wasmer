@@ -34,7 +34,6 @@ use wasmer_types::CompilationProgressCallback;
 
 use enumset::EnumSet;
 use object::{Object as _, ObjectSection as _, ReadCache};
-use rkyv::option::ArchivedOption;
 use shared_buffer::OwnedBuffer;
 
 use crate::engine::mapped_binary::DebugInfoSource;
@@ -583,10 +582,7 @@ impl Artifact {
                     .get_function_max_stack_usage()
                     .expect("RKYV path expected")
                     .values()
-                    .map(|v| match v {
-                        ArchivedOption::None => None,
-                        ArchivedOption::Some(v) => Some(v.to_native() as usize),
-                    })
+                    .cloned()
                     .collect::<PrimaryMap<LocalFunctionIndex, _>>(),
             };
 
@@ -1485,6 +1481,7 @@ impl Artifact {
             features: features.clone(),
             memory_styles,
             table_styles,
+            function_max_stack_usage: PrimaryMap::new(),
         };
         Ok((
             compile_info,
@@ -1596,12 +1593,7 @@ impl Artifact {
         - SignatureIndex -> VMSignatureHash // signatures
          */
 
-        let mut metadata_builder =
-            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
-
-        let (_compile_info, symbol_registry) = metadata.split();
-
-        let compilation = compiler.compile_module(
+        let (compilation, function_max_stack_usage) = compiler.compile_module(
             target,
             &metadata.compile_info,
             &[],
@@ -1609,11 +1601,16 @@ impl Artifact {
             function_body_inputs,
             None,
         )?;
+        metadata.compile_info.function_max_stack_usage = function_max_stack_usage;
         let Compilation::Rkyv(compilation) = compilation else {
             return Err(CompileError::Codegen(
                 "ELF compilation unsupported yet".to_string(),
             ));
         };
+
+        let mut metadata_builder =
+            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
+        let (_compile_info, symbol_registry) = metadata.split();
         let mut obj = get_object_for_target(target_triple).map_err(to_compile_error)?;
 
         let object_name = ModuleMetadataSymbolRegistry {

@@ -126,10 +126,7 @@ impl Ignores {
                             arch = Some(alias.to_string());
                         }
                         // Engines
-                        "engine"
-                        | "llvm_exp_artifact"
-                        | "singlepass_exp_artifact"
-                        | "cranelift_exp_artifact" => {
+                        "engine" => {
                             engine = Some(alias.to_string());
                         }
                         // Compilers
