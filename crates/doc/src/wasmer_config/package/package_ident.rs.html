@@ -58,84 +58,83 @@
 <a href=#58 id=58 data-nosnippet>58</a>        } <span class="kw">else </span>{
 <a href=#59 id=59 data-nosnippet>59</a>            <span class="kw">match </span>NamedPackageIdent::from_str(s) {
 <a href=#60 id=60 data-nosnippet>60</a>                <span class="prelude-val">Ok</span>(named) =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::Named(named)),
-<a href=#61 id=61 data-nosnippet>61</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(PackageParseError::new(
-<a href=#62 id=62 data-nosnippet>62</a>                    s,
-<a href=#63 id=63 data-nosnippet>63</a>                    <span class="string">"invalid package ident: expected a hash or a valid named package identifier"</span>,
-<a href=#64 id=64 data-nosnippet>64</a>                )),
-<a href=#65 id=65 data-nosnippet>65</a>            }
-<a href=#66 id=66 data-nosnippet>66</a>        }
-<a href=#67 id=67 data-nosnippet>67</a>    }
-<a href=#68 id=68 data-nosnippet>68</a>}
-<a href=#69 id=69 data-nosnippet>69</a>
-<a href=#70 id=70 data-nosnippet>70</a><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>PackageIdent {
-<a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#73 id=73 data-nosnippet>73</a>            <span class="self">Self</span>::Named(n) =&gt; n.fmt(f),
-<a href=#74 id=74 data-nosnippet>74</a>            <span class="self">Self</span>::Hash(h) =&gt; h.fmt(f),
-<a href=#75 id=75 data-nosnippet>75</a>        }
-<a href=#76 id=76 data-nosnippet>76</a>    }
-<a href=#77 id=77 data-nosnippet>77</a>}
-<a href=#78 id=78 data-nosnippet>78</a>
-<a href=#79 id=79 data-nosnippet>79</a><span class="kw">impl </span>serde::Serialize <span class="kw">for </span>PackageIdent {
-<a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
-<a href=#81 id=81 data-nosnippet>81</a>    <span class="kw">where
-<a href=#82 id=82 data-nosnippet>82</a>        </span>S: serde::ser::Serializer,
-<a href=#83 id=83 data-nosnippet>83</a>    {
-<a href=#84 id=84 data-nosnippet>84</a>        <span class="self">self</span>.to_string().serialize(serializer)
-<a href=#85 id=85 data-nosnippet>85</a>    }
-<a href=#86 id=86 data-nosnippet>86</a>}
-<a href=#87 id=87 data-nosnippet>87</a>
-<a href=#88 id=88 data-nosnippet>88</a><span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; serde::Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>PackageIdent {
-<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;PackageIdent, D::Error&gt;
-<a href=#90 id=90 data-nosnippet>90</a>    <span class="kw">where
-<a href=#91 id=91 data-nosnippet>91</a>        </span>D: serde::de::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
-<a href=#92 id=92 data-nosnippet>92</a>    {
-<a href=#93 id=93 data-nosnippet>93</a>        <span class="kw">let </span>s = String::deserialize(deserializer)<span class="question-mark">?</span>;
-<a href=#94 id=94 data-nosnippet>94</a>        <span class="self">Self</span>::from_str(<span class="kw-2">&amp;</span>s).map_err(serde::de::Error::custom)
-<a href=#95 id=95 data-nosnippet>95</a>    }
-<a href=#96 id=96 data-nosnippet>96</a>}
-<a href=#97 id=97 data-nosnippet>97</a>
-<a href=#98 id=98 data-nosnippet>98</a><span class="kw">impl </span>schemars::JsonSchema <span class="kw">for </span>PackageIdent {
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">fn </span>schema_name() -&gt; Cow&lt;<span class="lifetime">'static</span>, str&gt; {
-<a href=#100 id=100 data-nosnippet>100</a>        Cow::Borrowed(<span class="string">"PackageIdent"</span>)
-<a href=#101 id=101 data-nosnippet>101</a>    }
-<a href=#102 id=102 data-nosnippet>102</a>
-<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">fn </span>json_schema(generator: <span class="kw-2">&amp;mut </span>schemars::SchemaGenerator) -&gt; schemars::Schema {
-<a href=#104 id=104 data-nosnippet>104</a>        String::json_schema(generator)
-<a href=#105 id=105 data-nosnippet>105</a>    }
-<a href=#106 id=106 data-nosnippet>106</a>
-<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">fn </span>inline_schema() -&gt; bool {
-<a href=#108 id=108 data-nosnippet>108</a>        <span class="bool-val">false
-<a href=#109 id=109 data-nosnippet>109</a>    </span>}
-<a href=#110 id=110 data-nosnippet>110</a>
-<a href=#111 id=111 data-nosnippet>111</a>    <span class="kw">fn </span>schema_id() -&gt; std::borrow::Cow&lt;<span class="lifetime">'static</span>, str&gt; {
-<a href=#112 id=112 data-nosnippet>112</a>        <span class="self">Self</span>::schema_name()
-<a href=#113 id=113 data-nosnippet>113</a>    }
-<a href=#114 id=114 data-nosnippet>114</a>}
-<a href=#115 id=115 data-nosnippet>115</a>
-<a href=#116 id=116 data-nosnippet>116</a><span class="attr">#[cfg(test)]
-<a href=#117 id=117 data-nosnippet>117</a></span><span class="kw">mod </span>tests {
-<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
-<a href=#119 id=119 data-nosnippet>119</a>
-<a href=#120 id=120 data-nosnippet>120</a>    <span class="attr">#[test]
-<a href=#121 id=121 data-nosnippet>121</a>    </span><span class="kw">fn </span>test_package_ident_matches_id() {
-<a href=#122 id=122 data-nosnippet>122</a>        <span class="macro">assert!</span>(
-<a href=#123 id=123 data-nosnippet>123</a>            PackageIdent::from_str(<span class="string">"ns/pkg"</span>)
-<a href=#124 id=124 data-nosnippet>124</a>                .unwrap()
-<a href=#125 id=125 data-nosnippet>125</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"1.0.0"</span>.parse().unwrap()))
-<a href=#126 id=126 data-nosnippet>126</a>        );
-<a href=#127 id=127 data-nosnippet>127</a>
-<a href=#128 id=128 data-nosnippet>128</a>        <span class="macro">assert!</span>(
-<a href=#129 id=129 data-nosnippet>129</a>            PackageIdent::from_str(<span class="string">"ns/pkg@2"</span>)
-<a href=#130 id=130 data-nosnippet>130</a>                .unwrap()
-<a href=#131 id=131 data-nosnippet>131</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"2.3.7"</span>.parse().unwrap()))
-<a href=#132 id=132 data-nosnippet>132</a>        );
-<a href=#133 id=133 data-nosnippet>133</a>
-<a href=#134 id=134 data-nosnippet>134</a>        <span class="macro">assert!</span>(
-<a href=#135 id=135 data-nosnippet>135</a>            !PackageIdent::from_str(<span class="string">"ns/pkg@3"</span>)
-<a href=#136 id=136 data-nosnippet>136</a>                .unwrap()
-<a href=#137 id=137 data-nosnippet>137</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"2.3.7"</span>.parse().unwrap()))
-<a href=#138 id=138 data-nosnippet>138</a>        );
-<a href=#139 id=139 data-nosnippet>139</a>    }
-<a href=#140 id=140 data-nosnippet>140</a>}
+<a href=#61 id=61 data-nosnippet>61</a>                <span class="comment">// Surface the specific named-ident parse error rather than a generic message:
+<a href=#62 id=62 data-nosnippet>62</a>                // the value was not a hash, so the named-ident failure is the actionable reason.
+<a href=#63 id=63 data-nosnippet>63</a>                </span><span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
+<a href=#64 id=64 data-nosnippet>64</a>            }
+<a href=#65 id=65 data-nosnippet>65</a>        }
+<a href=#66 id=66 data-nosnippet>66</a>    }
+<a href=#67 id=67 data-nosnippet>67</a>}
+<a href=#68 id=68 data-nosnippet>68</a>
+<a href=#69 id=69 data-nosnippet>69</a><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>PackageIdent {
+<a href=#70 id=70 data-nosnippet>70</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href=#71 id=71 data-nosnippet>71</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#72 id=72 data-nosnippet>72</a>            <span class="self">Self</span>::Named(n) =&gt; n.fmt(f),
+<a href=#73 id=73 data-nosnippet>73</a>            <span class="self">Self</span>::Hash(h) =&gt; h.fmt(f),
+<a href=#74 id=74 data-nosnippet>74</a>        }
+<a href=#75 id=75 data-nosnippet>75</a>    }
+<a href=#76 id=76 data-nosnippet>76</a>}
+<a href=#77 id=77 data-nosnippet>77</a>
+<a href=#78 id=78 data-nosnippet>78</a><span class="kw">impl </span>serde::Serialize <span class="kw">for </span>PackageIdent {
+<a href=#79 id=79 data-nosnippet>79</a>    <span class="kw">fn </span>serialize&lt;S&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, serializer: S) -&gt; <span class="prelude-ty">Result</span>&lt;S::Ok, S::Error&gt;
+<a href=#80 id=80 data-nosnippet>80</a>    <span class="kw">where
+<a href=#81 id=81 data-nosnippet>81</a>        </span>S: serde::ser::Serializer,
+<a href=#82 id=82 data-nosnippet>82</a>    {
+<a href=#83 id=83 data-nosnippet>83</a>        <span class="self">self</span>.to_string().serialize(serializer)
+<a href=#84 id=84 data-nosnippet>84</a>    }
+<a href=#85 id=85 data-nosnippet>85</a>}
+<a href=#86 id=86 data-nosnippet>86</a>
+<a href=#87 id=87 data-nosnippet>87</a><span class="kw">impl</span>&lt;<span class="lifetime">'de</span>&gt; serde::Deserialize&lt;<span class="lifetime">'de</span>&gt; <span class="kw">for </span>PackageIdent {
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="kw">fn </span>deserialize&lt;D&gt;(deserializer: D) -&gt; <span class="prelude-ty">Result</span>&lt;PackageIdent, D::Error&gt;
+<a href=#89 id=89 data-nosnippet>89</a>    <span class="kw">where
+<a href=#90 id=90 data-nosnippet>90</a>        </span>D: serde::de::Deserializer&lt;<span class="lifetime">'de</span>&gt;,
+<a href=#91 id=91 data-nosnippet>91</a>    {
+<a href=#92 id=92 data-nosnippet>92</a>        <span class="kw">let </span>s = String::deserialize(deserializer)<span class="question-mark">?</span>;
+<a href=#93 id=93 data-nosnippet>93</a>        <span class="self">Self</span>::from_str(<span class="kw-2">&amp;</span>s).map_err(serde::de::Error::custom)
+<a href=#94 id=94 data-nosnippet>94</a>    }
+<a href=#95 id=95 data-nosnippet>95</a>}
+<a href=#96 id=96 data-nosnippet>96</a>
+<a href=#97 id=97 data-nosnippet>97</a><span class="kw">impl </span>schemars::JsonSchema <span class="kw">for </span>PackageIdent {
+<a href=#98 id=98 data-nosnippet>98</a>    <span class="kw">fn </span>schema_name() -&gt; Cow&lt;<span class="lifetime">'static</span>, str&gt; {
+<a href=#99 id=99 data-nosnippet>99</a>        Cow::Borrowed(<span class="string">"PackageIdent"</span>)
+<a href=#100 id=100 data-nosnippet>100</a>    }
+<a href=#101 id=101 data-nosnippet>101</a>
+<a href=#102 id=102 data-nosnippet>102</a>    <span class="kw">fn </span>json_schema(generator: <span class="kw-2">&amp;mut </span>schemars::SchemaGenerator) -&gt; schemars::Schema {
+<a href=#103 id=103 data-nosnippet>103</a>        String::json_schema(generator)
+<a href=#104 id=104 data-nosnippet>104</a>    }
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">fn </span>inline_schema() -&gt; bool {
+<a href=#107 id=107 data-nosnippet>107</a>        <span class="bool-val">false
+<a href=#108 id=108 data-nosnippet>108</a>    </span>}
+<a href=#109 id=109 data-nosnippet>109</a>
+<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">fn </span>schema_id() -&gt; std::borrow::Cow&lt;<span class="lifetime">'static</span>, str&gt; {
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="self">Self</span>::schema_name()
+<a href=#112 id=112 data-nosnippet>112</a>    }
+<a href=#113 id=113 data-nosnippet>113</a>}
+<a href=#114 id=114 data-nosnippet>114</a>
+<a href=#115 id=115 data-nosnippet>115</a><span class="attr">#[cfg(test)]
+<a href=#116 id=116 data-nosnippet>116</a></span><span class="kw">mod </span>tests {
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#118 id=118 data-nosnippet>118</a>
+<a href=#119 id=119 data-nosnippet>119</a>    <span class="attr">#[test]
+<a href=#120 id=120 data-nosnippet>120</a>    </span><span class="kw">fn </span>test_package_ident_matches_id() {
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="macro">assert!</span>(
+<a href=#122 id=122 data-nosnippet>122</a>            PackageIdent::from_str(<span class="string">"ns/pkg"</span>)
+<a href=#123 id=123 data-nosnippet>123</a>                .unwrap()
+<a href=#124 id=124 data-nosnippet>124</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"1.0.0"</span>.parse().unwrap()))
+<a href=#125 id=125 data-nosnippet>125</a>        );
+<a href=#126 id=126 data-nosnippet>126</a>
+<a href=#127 id=127 data-nosnippet>127</a>        <span class="macro">assert!</span>(
+<a href=#128 id=128 data-nosnippet>128</a>            PackageIdent::from_str(<span class="string">"ns/pkg@2"</span>)
+<a href=#129 id=129 data-nosnippet>129</a>                .unwrap()
+<a href=#130 id=130 data-nosnippet>130</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"2.3.7"</span>.parse().unwrap()))
+<a href=#131 id=131 data-nosnippet>131</a>        );
+<a href=#132 id=132 data-nosnippet>132</a>
+<a href=#133 id=133 data-nosnippet>133</a>        <span class="macro">assert!</span>(
+<a href=#134 id=134 data-nosnippet>134</a>            !PackageIdent::from_str(<span class="string">"ns/pkg@3"</span>)
+<a href=#135 id=135 data-nosnippet>135</a>                .unwrap()
+<a href=#136 id=136 data-nosnippet>136</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"2.3.7"</span>.parse().unwrap()))
+<a href=#137 id=137 data-nosnippet>137</a>        );
+<a href=#138 id=138 data-nosnippet>138</a>    }
+<a href=#139 id=139 data-nosnippet>139</a>}
 </code></pre></div></section></main></body></html>
