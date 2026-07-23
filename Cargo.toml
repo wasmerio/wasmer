@@ -203,7 +203,7 @@ libtest-mimic = "0.8.2"
 libunwind = "1.3.3"
 linked_hash_set = "0.1.6"
 log = "0.4.22"
-lz4_flex = "0.13.0"
+lz4_flex = "0.14.0"
 lzma-rs = "0.3.0"
 mac_address = "1.1.5"
 mach2 = "0.6.0"
@@ -224,7 +224,7 @@ paste = "1.0.15"
 path-clean = "1.0.1"
 pathdiff = "0.2.1"
 petgraph = "0.8.3"
-phf = "0.13.1"
+phf = "0.14.0"
 pin-project = "1.0.12"
 pin-project-lite = "0.2.10"
 pin-utils = "0.1.0"
@@ -271,7 +271,7 @@ smallvec = "1.6"
 smoltcp = { version = "0.13.0", default-features = false }
 socket2 = { version = "0.6.1", features = ["all"] }
 strum = { version = "0.28", features = ["derive"] }
-syn = { version = "2", default-features = false }
+syn = { version = "3", default-features = false }
 tar = "0.4.40"
 target-lexicon = { version = "0.13.3", default-features = false }
 tempfile = "3.6.0"
@@ -295,7 +295,7 @@ tracing-test = { version = "0.2" }
 tracing-wasm = "0.2"
 trybuild = "1.0.11"
 typetag = "0.2.21"
-uniffi = "0.31.0"
+uniffi = "0.32.0"
 unix_mode = "0.1.3"
 ureq = "3.3.0"
 url = "2.5"
@@ -313,17 +313,17 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.252.0", default-features = false, features = [
+wasm-encoder = { version = "0.254.0", default-features = false, features = [
   "std",
 ] }
-wasm-smith = "0.252.0"
-wasmparser = { version = "0.252.0", default-features = false, features = [
+wasm-smith = "0.254.0"
+wasmparser = { version = "0.254.0", default-features = false, features = [
   "validate",
   "features",
   "simd",
 ] }
-wasmprinter = "0.252.0"
-wast = "252.0.0"
+wasmprinter = "0.254.0"
+wast = "254.0.0"
 wat = "1.252.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
