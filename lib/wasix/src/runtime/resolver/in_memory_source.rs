@@ -87,7 +87,8 @@ impl InMemorySource {
                     .entry(ident.full_name.clone())
                     .or_default();
                 summaries.push(NamedPackageSummary { ident, summary });
-                summaries.sort_by(|left, right| left.ident.version.cmp(&right.ident.version));
+                summaries
+                    .sort_by(|left, right| left.ident.version.cmp_precedence(&right.ident.version));
                 summaries.dedup_by(|left, right| left.ident.version == right.ident.version);
             }
             PackageId::Hash(hash) => {
