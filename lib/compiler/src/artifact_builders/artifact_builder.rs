@@ -139,13 +139,10 @@ impl ArtifactBuild {
                 let mut function_bodies = PrimaryMap::with_capacity(compilation.functions.len());
                 let mut function_relocations =
                     PrimaryMap::with_capacity(compilation.functions.len());
-                let mut function_max_stack_usage =
-                    PrimaryMap::with_capacity(compilation.functions.len());
                 for (_, func) in compilation.functions.into_iter() {
                     function_bodies.push(func.body);
                     function_relocations.push(func.relocations);
                     function_frame_info.push(func.frame_info);
-                    function_max_stack_usage.push(func.maximum_stack_usage);
                 }
                 let mut custom_sections = compilation.custom_sections.clone();
                 let mut custom_section_relocations = compilation
@@ -162,7 +159,6 @@ impl ArtifactBuild {
                     function_bodies,
                     function_relocations,
                     function_frame_info,
-                    function_max_stack_usage,
                     function_call_trampolines: compilation.function_call_trampolines,
                     dynamic_function_trampolines: compilation.dynamic_function_trampolines,
                     custom_sections,

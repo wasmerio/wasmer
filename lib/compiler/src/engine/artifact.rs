@@ -300,17 +300,13 @@ impl Artifact {
     }
 
     /// Deserialize an ELF artifact held in memory, if the bytes contain one.
-    fn deserialize_elf(
-        engine: &Engine,
-        bytes: &[u8],
-    ) -> Result<Option<Self>, DeserializeError> {
+    fn deserialize_elf(engine: &Engine, bytes: &[u8]) -> Result<Option<Self>, DeserializeError> {
         if !bytes.starts_with(&object::elf::ELFMAG) {
             return Ok(None);
         }
 
-        let image = object::File::parse(bytes).map_err(|e| {
-            DeserializeError::CorruptedBinary(format!("cannot parse image: {e}"))
-        })?;
+        let image = object::File::parse(bytes)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
         let module_info = image
             .section_by_name_bytes(crate::WASMER_MODULE_INFO_SECTION_NAME)
             .ok_or_else(|| {
@@ -1930,6 +1926,7 @@ impl TrapReader {
             .map(|record| {
                 let code_offset = u32::from_le_bytes(record[..WORD_SIZE].try_into().ok()?);
                 let code = u32::from_le_bytes(record[WORD_SIZE..].try_into().ok()?);
+                // SAFETY: the trap sections is emitted by us
                 let trap_code = unsafe { std::mem::transmute::<u32, TrapCode>(code) };
                 Some(TrapInformation {
                     code_offset,

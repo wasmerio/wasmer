@@ -369,7 +369,10 @@ impl SinglepassCompiler {
             let compilation = elf::link_module(
                 target,
                 compile_info_blob,
-                build_directory.as_ref().unwrap().path(),
+                build_directory
+                    .as_ref()
+                    .expect("ensured by experimental-artifact")
+                    .path(),
                 &object_files,
                 &import_trampoline_objects,
                 &trampoline_objects,

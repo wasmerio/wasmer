@@ -460,7 +460,9 @@ impl DwarfState {
                             flags: RelocationFlags::Generic {
                                 kind: RelocationKind::Absolute,
                                 encoding: RelocationEncoding::Generic,
-                                size: u8::checked_mul(reloc.size, 8).unwrap_or(64),
+                                size: u8::checked_mul(reloc.size, 8).ok_or_else(|| {
+                                    CompileError::Codegen("unexpected relocation size".to_string())
+                                })?,
                             },
                         },
                     )
