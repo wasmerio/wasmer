@@ -20,9 +20,10 @@ use crate::translator::type_to_irtype;
 /// Classify return values for a target architecture.
 pub(crate) fn classify_returns(arch: Architecture, types: &[Type]) -> ReturnAbi {
     match arch {
+        Architecture::X86_64 => classify_return_type_x86_64(types),
         Architecture::Aarch64(_) => classify_return_type_aarch64(types),
         Architecture::Riscv64(_) => classify_return_type_riscv(types, true),
-        _ => classify_return_type_x86_64(types),
+        _ => unreachable!("unexpected architecture: {arch}"),
     }
 }
 
