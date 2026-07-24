@@ -14,6 +14,7 @@ use crate::runtime::resolver::{
     Dependency, DependencyGraph, ItemLocation, PackageInfo, PackageSummary, QueryError, Resolution,
     ResolvedPackage, Source,
     outputs::{Edge, Node},
+    utils::cmp_version_precedence,
 };
 
 use super::ResolvedFileSystemMapping;
@@ -296,7 +297,7 @@ fn select_latest_named_dependency(
             let left_version = left.pkg.id.as_named().map(|id| &id.version);
             let right_version = right.pkg.id.as_named().map(|id| &id.version);
 
-            left_version.cmp(&right_version)
+            cmp_version_precedence(left_version, right_version)
         })
         .ok_or_else(|| QueryError::NoMatches {
             query: dep.pkg.clone(),
@@ -368,7 +369,7 @@ async fn select_unified_named_dependency(
         let left_version = left.pkg.id.as_named().map(|id| &id.version);
         let right_version = right.pkg.id.as_named().map(|id| &id.version);
 
-        left_version.cmp(&right_version)
+        cmp_version_precedence(left_version, right_version)
     }))
 }
 
@@ -559,7 +560,7 @@ fn sort_named_candidates_desc(candidates: &mut [PackageSummary]) {
         let left_version = left.pkg.id.as_named().map(|id| &id.version);
         let right_version = right.pkg.id.as_named().map(|id| &id.version);
 
-        right_version.cmp(&left_version)
+        cmp_version_precedence(right_version, left_version)
     });
 }
 
