@@ -59,7 +59,7 @@
 <a href=#59 id=59 data-nosnippet>59</a>            .map_err(|error| QueryError::new_other(error, query))<span class="question-mark">?
 <a href=#60 id=60 data-nosnippet>60</a>            </span>.into_iter()
 <a href=#61 id=61 data-nosnippet>61</a>            .filter(|(version, <span class="kw">_</span>)| constraint.matches(version))
-<a href=#62 id=62 data-nosnippet>62</a>            .sorted_by(|(left, <span class="kw">_</span>), (right, <span class="kw">_</span>)| left.cmp(right))
+<a href=#62 id=62 data-nosnippet>62</a>            .sorted_by(|(left, <span class="kw">_</span>), (right, <span class="kw">_</span>)| left.cmp_precedence(right))
 <a href=#63 id=63 data-nosnippet>63</a>            .collect();
 <a href=#64 id=64 data-nosnippet>64</a>
 <a href=#65 id=65 data-nosnippet>65</a>        <span class="kw">if </span>matches.is_empty() {

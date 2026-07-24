@@ -87,187 +87,188 @@
 <a href=#87 id=87 data-nosnippet>87</a>                    .entry(ident.full_name.clone())
 <a href=#88 id=88 data-nosnippet>88</a>                    .or_default();
 <a href=#89 id=89 data-nosnippet>89</a>                summaries.push(NamedPackageSummary { ident, summary });
-<a href=#90 id=90 data-nosnippet>90</a>                summaries.sort_by(|left, right| left.ident.version.cmp(<span class="kw-2">&amp;</span>right.ident.version));
-<a href=#91 id=91 data-nosnippet>91</a>                summaries.dedup_by(|left, right| left.ident.version == right.ident.version);
-<a href=#92 id=92 data-nosnippet>92</a>            }
-<a href=#93 id=93 data-nosnippet>93</a>            PackageId::Hash(hash) =&gt; {
-<a href=#94 id=94 data-nosnippet>94</a>                <span class="self">self</span>.hash_packages.insert(hash, summary);
-<a href=#95 id=95 data-nosnippet>95</a>            }
-<a href=#96 id=96 data-nosnippet>96</a>        }
-<a href=#97 id=97 data-nosnippet>97</a>    }
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">pub fn </span>add_webc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">let </span>summary = PackageSummary::from_webc_file(path)<span class="question-mark">?</span>;
-<a href=#101 id=101 data-nosnippet>101</a>        <span class="self">self</span>.add(summary);
-<a href=#102 id=102 data-nosnippet>102</a>
-<a href=#103 id=103 data-nosnippet>103</a>        <span class="prelude-val">Ok</span>(())
-<a href=#104 id=104 data-nosnippet>104</a>    }
-<a href=#105 id=105 data-nosnippet>105</a>
-<a href=#106 id=106 data-nosnippet>106</a>    <span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>PackageId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PackageSummary&gt; {
-<a href=#107 id=107 data-nosnippet>107</a>        <span class="kw">match </span>id {
-<a href=#108 id=108 data-nosnippet>108</a>            PackageId::Named(ident) =&gt; {
-<a href=#109 id=109 data-nosnippet>109</a>                <span class="self">self</span>.named_packages
-<a href=#110 id=110 data-nosnippet>110</a>                    .get(<span class="kw-2">&amp;</span>ident.full_name)
-<a href=#111 id=111 data-nosnippet>111</a>                    .and_then(|summaries| {
-<a href=#112 id=112 data-nosnippet>112</a>                        summaries
-<a href=#113 id=113 data-nosnippet>113</a>                            .iter()
-<a href=#114 id=114 data-nosnippet>114</a>                            .find(|s| s.ident.version == ident.version)
-<a href=#115 id=115 data-nosnippet>115</a>                            .map(|s| <span class="kw-2">&amp;</span>s.summary)
-<a href=#116 id=116 data-nosnippet>116</a>                    })
-<a href=#117 id=117 data-nosnippet>117</a>            }
-<a href=#118 id=118 data-nosnippet>118</a>            PackageId::Hash(hash) =&gt; <span class="self">self</span>.hash_packages.get(hash),
-<a href=#119 id=119 data-nosnippet>119</a>        }
-<a href=#120 id=120 data-nosnippet>120</a>    }
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>    <span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#123 id=123 data-nosnippet>123</a>        <span class="self">self</span>.named_packages.is_empty() &amp;&amp; <span class="self">self</span>.hash_packages.is_empty()
-<a href=#124 id=124 data-nosnippet>124</a>    }
-<a href=#125 id=125 data-nosnippet>125</a>
-<a href=#126 id=126 data-nosnippet>126</a>    <span class="doccomment">/// Returns the number of packages in the source.
-<a href=#127 id=127 data-nosnippet>127</a>    </span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-<a href=#128 id=128 data-nosnippet>128</a>        <span class="comment">// Only need to count the hash packages,
-<a href=#129 id=129 data-nosnippet>129</a>        // as the named packages are also always added as hashed.
-<a href=#130 id=130 data-nosnippet>130</a>        </span><span class="self">self</span>.hash_packages.len()
-<a href=#131 id=131 data-nosnippet>131</a>    }
-<a href=#132 id=132 data-nosnippet>132</a>}
-<a href=#133 id=133 data-nosnippet>133</a>
-<a href=#134 id=134 data-nosnippet>134</a><span class="attr">#[async_trait::async_trait]
-<a href=#135 id=135 data-nosnippet>135</a></span><span class="kw">impl </span>Source <span class="kw">for </span>InMemorySource {
-<a href=#136 id=136 data-nosnippet>136</a>    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(%package))]
-<a href=#137 id=137 data-nosnippet>137</a>    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSource) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
-<a href=#138 id=138 data-nosnippet>138</a>        <span class="kw">match </span>package {
-<a href=#139 id=139 data-nosnippet>139</a>            PackageSource::Ident(PackageIdent::Named(named)) =&gt; {
-<a href=#140 id=140 data-nosnippet>140</a>                <span class="kw">match </span><span class="self">self</span>.named_packages.get(<span class="kw-2">&amp;</span>named.full_name()) {
-<a href=#141 id=141 data-nosnippet>141</a>                    <span class="prelude-val">Some</span>(summaries) =&gt; {
-<a href=#142 id=142 data-nosnippet>142</a>                        <span class="kw">let </span>matches: Vec&lt;<span class="kw">_</span>&gt; = summaries
-<a href=#143 id=143 data-nosnippet>143</a>                            .iter()
-<a href=#144 id=144 data-nosnippet>144</a>                            .filter(|summary| {
-<a href=#145 id=145 data-nosnippet>145</a>                                named.version_or_default().matches(<span class="kw-2">&amp;</span>summary.ident.version)
-<a href=#146 id=146 data-nosnippet>146</a>                            })
-<a href=#147 id=147 data-nosnippet>147</a>                            .map(|n| n.summary.clone())
-<a href=#148 id=148 data-nosnippet>148</a>                            .collect();
-<a href=#149 id=149 data-nosnippet>149</a>
-<a href=#150 id=150 data-nosnippet>150</a>                        <span class="macro">tracing::trace!</span>(
-<a href=#151 id=151 data-nosnippet>151</a>                            matches = <span class="question-mark">?</span>matches
-<a href=#152 id=152 data-nosnippet>152</a>                                .iter()
-<a href=#153 id=153 data-nosnippet>153</a>                                .map(|summary| summary.pkg.id.to_string())
-<a href=#154 id=154 data-nosnippet>154</a>                                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-<a href=#155 id=155 data-nosnippet>155</a>                            <span class="string">"package resolution matches"</span>,
-<a href=#156 id=156 data-nosnippet>156</a>                        );
-<a href=#157 id=157 data-nosnippet>157</a>
-<a href=#158 id=158 data-nosnippet>158</a>                        <span class="kw">if </span>matches.is_empty() {
-<a href=#159 id=159 data-nosnippet>159</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::NoMatches {
-<a href=#160 id=160 data-nosnippet>160</a>                                query: package.clone(),
-<a href=#161 id=161 data-nosnippet>161</a>                                archived_versions: Vec::new(),
-<a href=#162 id=162 data-nosnippet>162</a>                            });
-<a href=#163 id=163 data-nosnippet>163</a>                        }
-<a href=#164 id=164 data-nosnippet>164</a>
-<a href=#165 id=165 data-nosnippet>165</a>                        <span class="prelude-val">Ok</span>(matches)
-<a href=#166 id=166 data-nosnippet>166</a>                    }
-<a href=#167 id=167 data-nosnippet>167</a>                    <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(QueryError::NotFound {
-<a href=#168 id=168 data-nosnippet>168</a>                        query: package.clone(),
-<a href=#169 id=169 data-nosnippet>169</a>                    }),
-<a href=#170 id=170 data-nosnippet>170</a>                }
-<a href=#171 id=171 data-nosnippet>171</a>            }
-<a href=#172 id=172 data-nosnippet>172</a>            PackageSource::Ident(PackageIdent::Hash(hash)) =&gt; <span class="self">self
-<a href=#173 id=173 data-nosnippet>173</a>                </span>.hash_packages
-<a href=#174 id=174 data-nosnippet>174</a>                .get(hash)
-<a href=#175 id=175 data-nosnippet>175</a>                .map(|x| <span class="macro">vec!</span>[x.clone()])
-<a href=#176 id=176 data-nosnippet>176</a>                .ok_or_else(|| QueryError::NoMatches {
-<a href=#177 id=177 data-nosnippet>177</a>                    query: package.clone(),
-<a href=#178 id=178 data-nosnippet>178</a>                    archived_versions: Vec::new(),
-<a href=#179 id=179 data-nosnippet>179</a>                }),
-<a href=#180 id=180 data-nosnippet>180</a>            PackageSource::Url(<span class="kw">_</span>) | PackageSource::Path(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(QueryError::Unsupported {
-<a href=#181 id=181 data-nosnippet>181</a>                query: package.clone(),
-<a href=#182 id=182 data-nosnippet>182</a>            }),
-<a href=#183 id=183 data-nosnippet>183</a>        }
-<a href=#184 id=184 data-nosnippet>184</a>    }
-<a href=#185 id=185 data-nosnippet>185</a>}
-<a href=#186 id=186 data-nosnippet>186</a>
-<a href=#187 id=187 data-nosnippet>187</a><span class="attr">#[cfg(test)]
-<a href=#188 id=188 data-nosnippet>188</a></span><span class="kw">mod </span>tests {
-<a href=#189 id=189 data-nosnippet>189</a>    <span class="kw">use </span>tempfile::TempDir;
-<a href=#190 id=190 data-nosnippet>190</a>
-<a href=#191 id=191 data-nosnippet>191</a>    <span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{
-<a href=#192 id=192 data-nosnippet>192</a>        Dependency, WebcHash,
-<a href=#193 id=193 data-nosnippet>193</a>        inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
-<a href=#194 id=194 data-nosnippet>194</a>    };
-<a href=#195 id=195 data-nosnippet>195</a>
-<a href=#196 id=196 data-nosnippet>196</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
-<a href=#197 id=197 data-nosnippet>197</a>
-<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
-<a href=#199 id=199 data-nosnippet>199</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
-<a href=#200 id=200 data-nosnippet>200</a>        <span class="string">"/../../wasmer-test-files/examples/python-0.1.0.wasmer"
-<a href=#201 id=201 data-nosnippet>201</a>    </span>));
-<a href=#202 id=202 data-nosnippet>202</a>    <span class="kw">const </span>COREUTILS_16: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
-<a href=#203 id=203 data-nosnippet>203</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
-<a href=#204 id=204 data-nosnippet>204</a>        <span class="string">"/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
-<a href=#205 id=205 data-nosnippet>205</a>    </span>));
-<a href=#206 id=206 data-nosnippet>206</a>    <span class="kw">const </span>COREUTILS_11: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
-<a href=#207 id=207 data-nosnippet>207</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
-<a href=#208 id=208 data-nosnippet>208</a>        <span class="string">"/../../wasmer-test-files/integration/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc"
-<a href=#209 id=209 data-nosnippet>209</a>    </span>));
-<a href=#210 id=210 data-nosnippet>210</a>    <span class="kw">const </span>BASH: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
-<a href=#211 id=211 data-nosnippet>211</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
-<a href=#212 id=212 data-nosnippet>212</a>        <span class="string">"/../../wasmer-test-files/integration/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc"
-<a href=#213 id=213 data-nosnippet>213</a>    </span>));
-<a href=#214 id=214 data-nosnippet>214</a>
-<a href=#215 id=215 data-nosnippet>215</a>    <span class="attr">#[test]
-<a href=#216 id=216 data-nosnippet>216</a>    </span><span class="kw">fn </span>load_a_directory_tree() {
-<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#218 id=218 data-nosnippet>218</a>        std::fs::write(temp.path().join(<span class="string">"python-0.1.0.webc"</span>), PYTHON).unwrap();
-<a href=#219 id=219 data-nosnippet>219</a>        std::fs::write(temp.path().join(<span class="string">"coreutils-1.0.16.webc"</span>), COREUTILS_16).unwrap();
-<a href=#220 id=220 data-nosnippet>220</a>        std::fs::write(temp.path().join(<span class="string">"coreutils-1.0.11.webc"</span>), COREUTILS_11).unwrap();
-<a href=#221 id=221 data-nosnippet>221</a>        <span class="kw">let </span>nested = temp.path().join(<span class="string">"nested"</span>);
-<a href=#222 id=222 data-nosnippet>222</a>        std::fs::create_dir(<span class="kw-2">&amp;</span>nested).unwrap();
-<a href=#223 id=223 data-nosnippet>223</a>        <span class="kw">let </span>bash = nested.join(<span class="string">"bash-1.0.12.webc"</span>);
-<a href=#224 id=224 data-nosnippet>224</a>        std::fs::write(<span class="kw-2">&amp;</span>bash, BASH).unwrap();
-<a href=#225 id=225 data-nosnippet>225</a>
-<a href=#226 id=226 data-nosnippet>226</a>        <span class="kw">let </span>source = InMemorySource::from_directory_tree(temp.path()).unwrap();
-<a href=#227 id=227 data-nosnippet>227</a>
-<a href=#228 id=228 data-nosnippet>228</a>        <span class="macro">assert_eq!</span>(
-<a href=#229 id=229 data-nosnippet>229</a>            source
-<a href=#230 id=230 data-nosnippet>230</a>                .named_packages
-<a href=#231 id=231 data-nosnippet>231</a>                .keys()
-<a href=#232 id=232 data-nosnippet>232</a>                .map(|k| k.as_str())
-<a href=#233 id=233 data-nosnippet>233</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
-<a href=#234 id=234 data-nosnippet>234</a>            [<span class="string">"python"</span>, <span class="string">"sharrattj/bash"</span>, <span class="string">"sharrattj/coreutils"</span>]
-<a href=#235 id=235 data-nosnippet>235</a>        );
-<a href=#236 id=236 data-nosnippet>236</a>        <span class="macro">assert_eq!</span>(source.named_packages[<span class="string">"sharrattj/coreutils"</span>].len(), <span class="number">2</span>);
-<a href=#237 id=237 data-nosnippet>237</a>        <span class="macro">assert_eq!</span>(
-<a href=#238 id=238 data-nosnippet>238</a>            source.named_packages[<span class="string">"sharrattj/bash"</span>][<span class="number">0</span>].summary,
-<a href=#239 id=239 data-nosnippet>239</a>            PackageSummary {
-<a href=#240 id=240 data-nosnippet>240</a>                pkg: PackageInfo {
-<a href=#241 id=241 data-nosnippet>241</a>                    id: PackageId::Named(
-<a href=#242 id=242 data-nosnippet>242</a>                        NamedPackageId::try_new(<span class="string">"sharrattj/bash"</span>, <span class="string">"1.0.16"</span>).unwrap()
-<a href=#243 id=243 data-nosnippet>243</a>                    ),
-<a href=#244 id=244 data-nosnippet>244</a>                    dependencies: <span class="macro">vec!</span>[Dependency {
-<a href=#245 id=245 data-nosnippet>245</a>                        alias: <span class="string">"coreutils"</span>.to_string(),
-<a href=#246 id=246 data-nosnippet>246</a>                        pkg: <span class="string">"sharrattj/coreutils@^1.0.16"</span>.parse().unwrap()
-<a href=#247 id=247 data-nosnippet>247</a>                    }],
-<a href=#248 id=248 data-nosnippet>248</a>                    commands: <span class="macro">vec!</span>[<span class="kw">crate</span>::runtime::resolver::Command {
-<a href=#249 id=249 data-nosnippet>249</a>                        name: <span class="string">"bash"</span>.to_string(),
-<a href=#250 id=250 data-nosnippet>250</a>                    }],
-<a href=#251 id=251 data-nosnippet>251</a>                    entrypoint: <span class="prelude-val">Some</span>(<span class="string">"bash"</span>.to_string()),
-<a href=#252 id=252 data-nosnippet>252</a>                    filesystem: <span class="macro">vec!</span>[FileSystemMapping {
-<a href=#253 id=253 data-nosnippet>253</a>                        volume_name: <span class="string">"atom"</span>.to_string(),
-<a href=#254 id=254 data-nosnippet>254</a>                        mount_path: <span class="string">"/"</span>.to_string(),
-<a href=#255 id=255 data-nosnippet>255</a>                        original_path: <span class="prelude-val">Some</span>(<span class="string">"/"</span>.to_string()),
-<a href=#256 id=256 data-nosnippet>256</a>                        dependency_name: <span class="prelude-val">None</span>,
-<a href=#257 id=257 data-nosnippet>257</a>                    }],
-<a href=#258 id=258 data-nosnippet>258</a>                },
-<a href=#259 id=259 data-nosnippet>259</a>                dist: DistributionInfo {
-<a href=#260 id=260 data-nosnippet>260</a>                    webc: <span class="kw">crate</span>::runtime::resolver::utils::url_from_file_path(
-<a href=#261 id=261 data-nosnippet>261</a>                        bash.canonicalize().unwrap()
-<a href=#262 id=262 data-nosnippet>262</a>                    )
-<a href=#263 id=263 data-nosnippet>263</a>                    .unwrap(),
-<a href=#264 id=264 data-nosnippet>264</a>                    webc_sha256: WebcHash::from_bytes([
-<a href=#265 id=265 data-nosnippet>265</a>                        <span class="number">161</span>, <span class="number">101</span>, <span class="number">23</span>, <span class="number">194</span>, <span class="number">244</span>, <span class="number">92</span>, <span class="number">186</span>, <span class="number">213</span>, <span class="number">143</span>, <span class="number">33</span>, <span class="number">200</span>, <span class="number">128</span>, <span class="number">238</span>, <span class="number">23</span>, <span class="number">185</span>, <span class="number">174</span>,
-<a href=#266 id=266 data-nosnippet>266</a>                        <span class="number">180</span>, <span class="number">195</span>, <span class="number">144</span>, <span class="number">145</span>, <span class="number">78</span>, <span class="number">17</span>, <span class="number">227</span>, <span class="number">159</span>, <span class="number">118</span>, <span class="number">64</span>, <span class="number">83</span>, <span class="number">153</span>, <span class="number">0</span>, <span class="number">205</span>, <span class="number">253</span>, <span class="number">215</span>,
-<a href=#267 id=267 data-nosnippet>267</a>                    ]),
-<a href=#268 id=268 data-nosnippet>268</a>                },
-<a href=#269 id=269 data-nosnippet>269</a>            }
-<a href=#270 id=270 data-nosnippet>270</a>        );
-<a href=#271 id=271 data-nosnippet>271</a>    }
-<a href=#272 id=272 data-nosnippet>272</a>}
+<a href=#90 id=90 data-nosnippet>90</a>                summaries
+<a href=#91 id=91 data-nosnippet>91</a>                    .sort_by(|left, right| left.ident.version.cmp_precedence(<span class="kw-2">&amp;</span>right.ident.version));
+<a href=#92 id=92 data-nosnippet>92</a>                summaries.dedup_by(|left, right| left.ident.version == right.ident.version);
+<a href=#93 id=93 data-nosnippet>93</a>            }
+<a href=#94 id=94 data-nosnippet>94</a>            PackageId::Hash(hash) =&gt; {
+<a href=#95 id=95 data-nosnippet>95</a>                <span class="self">self</span>.hash_packages.insert(hash, summary);
+<a href=#96 id=96 data-nosnippet>96</a>            }
+<a href=#97 id=97 data-nosnippet>97</a>        }
+<a href=#98 id=98 data-nosnippet>98</a>    }
+<a href=#99 id=99 data-nosnippet>99</a>
+<a href=#100 id=100 data-nosnippet>100</a>    <span class="kw">pub fn </span>add_webc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">let </span>summary = PackageSummary::from_webc_file(path)<span class="question-mark">?</span>;
+<a href=#102 id=102 data-nosnippet>102</a>        <span class="self">self</span>.add(summary);
+<a href=#103 id=103 data-nosnippet>103</a>
+<a href=#104 id=104 data-nosnippet>104</a>        <span class="prelude-val">Ok</span>(())
+<a href=#105 id=105 data-nosnippet>105</a>    }
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>PackageId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>PackageSummary&gt; {
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="kw">match </span>id {
+<a href=#109 id=109 data-nosnippet>109</a>            PackageId::Named(ident) =&gt; {
+<a href=#110 id=110 data-nosnippet>110</a>                <span class="self">self</span>.named_packages
+<a href=#111 id=111 data-nosnippet>111</a>                    .get(<span class="kw-2">&amp;</span>ident.full_name)
+<a href=#112 id=112 data-nosnippet>112</a>                    .and_then(|summaries| {
+<a href=#113 id=113 data-nosnippet>113</a>                        summaries
+<a href=#114 id=114 data-nosnippet>114</a>                            .iter()
+<a href=#115 id=115 data-nosnippet>115</a>                            .find(|s| s.ident.version == ident.version)
+<a href=#116 id=116 data-nosnippet>116</a>                            .map(|s| <span class="kw-2">&amp;</span>s.summary)
+<a href=#117 id=117 data-nosnippet>117</a>                    })
+<a href=#118 id=118 data-nosnippet>118</a>            }
+<a href=#119 id=119 data-nosnippet>119</a>            PackageId::Hash(hash) =&gt; <span class="self">self</span>.hash_packages.get(hash),
+<a href=#120 id=120 data-nosnippet>120</a>        }
+<a href=#121 id=121 data-nosnippet>121</a>    }
+<a href=#122 id=122 data-nosnippet>122</a>
+<a href=#123 id=123 data-nosnippet>123</a>    <span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="self">self</span>.named_packages.is_empty() &amp;&amp; <span class="self">self</span>.hash_packages.is_empty()
+<a href=#125 id=125 data-nosnippet>125</a>    }
+<a href=#126 id=126 data-nosnippet>126</a>
+<a href=#127 id=127 data-nosnippet>127</a>    <span class="doccomment">/// Returns the number of packages in the source.
+<a href=#128 id=128 data-nosnippet>128</a>    </span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href=#129 id=129 data-nosnippet>129</a>        <span class="comment">// Only need to count the hash packages,
+<a href=#130 id=130 data-nosnippet>130</a>        // as the named packages are also always added as hashed.
+<a href=#131 id=131 data-nosnippet>131</a>        </span><span class="self">self</span>.hash_packages.len()
+<a href=#132 id=132 data-nosnippet>132</a>    }
+<a href=#133 id=133 data-nosnippet>133</a>}
+<a href=#134 id=134 data-nosnippet>134</a>
+<a href=#135 id=135 data-nosnippet>135</a><span class="attr">#[async_trait::async_trait]
+<a href=#136 id=136 data-nosnippet>136</a></span><span class="kw">impl </span>Source <span class="kw">for </span>InMemorySource {
+<a href=#137 id=137 data-nosnippet>137</a>    <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(%package))]
+<a href=#138 id=138 data-nosnippet>138</a>    </span><span class="kw">async fn </span>query(<span class="kw-2">&amp;</span><span class="self">self</span>, package: <span class="kw-2">&amp;</span>PackageSource) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;PackageSummary&gt;, QueryError&gt; {
+<a href=#139 id=139 data-nosnippet>139</a>        <span class="kw">match </span>package {
+<a href=#140 id=140 data-nosnippet>140</a>            PackageSource::Ident(PackageIdent::Named(named)) =&gt; {
+<a href=#141 id=141 data-nosnippet>141</a>                <span class="kw">match </span><span class="self">self</span>.named_packages.get(<span class="kw-2">&amp;</span>named.full_name()) {
+<a href=#142 id=142 data-nosnippet>142</a>                    <span class="prelude-val">Some</span>(summaries) =&gt; {
+<a href=#143 id=143 data-nosnippet>143</a>                        <span class="kw">let </span>matches: Vec&lt;<span class="kw">_</span>&gt; = summaries
+<a href=#144 id=144 data-nosnippet>144</a>                            .iter()
+<a href=#145 id=145 data-nosnippet>145</a>                            .filter(|summary| {
+<a href=#146 id=146 data-nosnippet>146</a>                                named.version_or_default().matches(<span class="kw-2">&amp;</span>summary.ident.version)
+<a href=#147 id=147 data-nosnippet>147</a>                            })
+<a href=#148 id=148 data-nosnippet>148</a>                            .map(|n| n.summary.clone())
+<a href=#149 id=149 data-nosnippet>149</a>                            .collect();
+<a href=#150 id=150 data-nosnippet>150</a>
+<a href=#151 id=151 data-nosnippet>151</a>                        <span class="macro">tracing::trace!</span>(
+<a href=#152 id=152 data-nosnippet>152</a>                            matches = <span class="question-mark">?</span>matches
+<a href=#153 id=153 data-nosnippet>153</a>                                .iter()
+<a href=#154 id=154 data-nosnippet>154</a>                                .map(|summary| summary.pkg.id.to_string())
+<a href=#155 id=155 data-nosnippet>155</a>                                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#156 id=156 data-nosnippet>156</a>                            <span class="string">"package resolution matches"</span>,
+<a href=#157 id=157 data-nosnippet>157</a>                        );
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a>                        <span class="kw">if </span>matches.is_empty() {
+<a href=#160 id=160 data-nosnippet>160</a>                            <span class="kw">return </span><span class="prelude-val">Err</span>(QueryError::NoMatches {
+<a href=#161 id=161 data-nosnippet>161</a>                                query: package.clone(),
+<a href=#162 id=162 data-nosnippet>162</a>                                archived_versions: Vec::new(),
+<a href=#163 id=163 data-nosnippet>163</a>                            });
+<a href=#164 id=164 data-nosnippet>164</a>                        }
+<a href=#165 id=165 data-nosnippet>165</a>
+<a href=#166 id=166 data-nosnippet>166</a>                        <span class="prelude-val">Ok</span>(matches)
+<a href=#167 id=167 data-nosnippet>167</a>                    }
+<a href=#168 id=168 data-nosnippet>168</a>                    <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(QueryError::NotFound {
+<a href=#169 id=169 data-nosnippet>169</a>                        query: package.clone(),
+<a href=#170 id=170 data-nosnippet>170</a>                    }),
+<a href=#171 id=171 data-nosnippet>171</a>                }
+<a href=#172 id=172 data-nosnippet>172</a>            }
+<a href=#173 id=173 data-nosnippet>173</a>            PackageSource::Ident(PackageIdent::Hash(hash)) =&gt; <span class="self">self
+<a href=#174 id=174 data-nosnippet>174</a>                </span>.hash_packages
+<a href=#175 id=175 data-nosnippet>175</a>                .get(hash)
+<a href=#176 id=176 data-nosnippet>176</a>                .map(|x| <span class="macro">vec!</span>[x.clone()])
+<a href=#177 id=177 data-nosnippet>177</a>                .ok_or_else(|| QueryError::NoMatches {
+<a href=#178 id=178 data-nosnippet>178</a>                    query: package.clone(),
+<a href=#179 id=179 data-nosnippet>179</a>                    archived_versions: Vec::new(),
+<a href=#180 id=180 data-nosnippet>180</a>                }),
+<a href=#181 id=181 data-nosnippet>181</a>            PackageSource::Url(<span class="kw">_</span>) | PackageSource::Path(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(QueryError::Unsupported {
+<a href=#182 id=182 data-nosnippet>182</a>                query: package.clone(),
+<a href=#183 id=183 data-nosnippet>183</a>            }),
+<a href=#184 id=184 data-nosnippet>184</a>        }
+<a href=#185 id=185 data-nosnippet>185</a>    }
+<a href=#186 id=186 data-nosnippet>186</a>}
+<a href=#187 id=187 data-nosnippet>187</a>
+<a href=#188 id=188 data-nosnippet>188</a><span class="attr">#[cfg(test)]
+<a href=#189 id=189 data-nosnippet>189</a></span><span class="kw">mod </span>tests {
+<a href=#190 id=190 data-nosnippet>190</a>    <span class="kw">use </span>tempfile::TempDir;
+<a href=#191 id=191 data-nosnippet>191</a>
+<a href=#192 id=192 data-nosnippet>192</a>    <span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{
+<a href=#193 id=193 data-nosnippet>193</a>        Dependency, WebcHash,
+<a href=#194 id=194 data-nosnippet>194</a>        inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
+<a href=#195 id=195 data-nosnippet>195</a>    };
+<a href=#196 id=196 data-nosnippet>196</a>
+<a href=#197 id=197 data-nosnippet>197</a>    <span class="kw">use </span>super::<span class="kw-2">*</span>;
+<a href=#198 id=198 data-nosnippet>198</a>
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#200 id=200 data-nosnippet>200</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#201 id=201 data-nosnippet>201</a>        <span class="string">"/../../wasmer-test-files/examples/python-0.1.0.wasmer"
+<a href=#202 id=202 data-nosnippet>202</a>    </span>));
+<a href=#203 id=203 data-nosnippet>203</a>    <span class="kw">const </span>COREUTILS_16: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#204 id=204 data-nosnippet>204</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#205 id=205 data-nosnippet>205</a>        <span class="string">"/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+<a href=#206 id=206 data-nosnippet>206</a>    </span>));
+<a href=#207 id=207 data-nosnippet>207</a>    <span class="kw">const </span>COREUTILS_11: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#208 id=208 data-nosnippet>208</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#209 id=209 data-nosnippet>209</a>        <span class="string">"/../../wasmer-test-files/integration/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc"
+<a href=#210 id=210 data-nosnippet>210</a>    </span>));
+<a href=#211 id=211 data-nosnippet>211</a>    <span class="kw">const </span>BASH: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
+<a href=#212 id=212 data-nosnippet>212</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
+<a href=#213 id=213 data-nosnippet>213</a>        <span class="string">"/../../wasmer-test-files/integration/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc"
+<a href=#214 id=214 data-nosnippet>214</a>    </span>));
+<a href=#215 id=215 data-nosnippet>215</a>
+<a href=#216 id=216 data-nosnippet>216</a>    <span class="attr">#[test]
+<a href=#217 id=217 data-nosnippet>217</a>    </span><span class="kw">fn </span>load_a_directory_tree() {
+<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#219 id=219 data-nosnippet>219</a>        std::fs::write(temp.path().join(<span class="string">"python-0.1.0.webc"</span>), PYTHON).unwrap();
+<a href=#220 id=220 data-nosnippet>220</a>        std::fs::write(temp.path().join(<span class="string">"coreutils-1.0.16.webc"</span>), COREUTILS_16).unwrap();
+<a href=#221 id=221 data-nosnippet>221</a>        std::fs::write(temp.path().join(<span class="string">"coreutils-1.0.11.webc"</span>), COREUTILS_11).unwrap();
+<a href=#222 id=222 data-nosnippet>222</a>        <span class="kw">let </span>nested = temp.path().join(<span class="string">"nested"</span>);
+<a href=#223 id=223 data-nosnippet>223</a>        std::fs::create_dir(<span class="kw-2">&amp;</span>nested).unwrap();
+<a href=#224 id=224 data-nosnippet>224</a>        <span class="kw">let </span>bash = nested.join(<span class="string">"bash-1.0.12.webc"</span>);
+<a href=#225 id=225 data-nosnippet>225</a>        std::fs::write(<span class="kw-2">&amp;</span>bash, BASH).unwrap();
+<a href=#226 id=226 data-nosnippet>226</a>
+<a href=#227 id=227 data-nosnippet>227</a>        <span class="kw">let </span>source = InMemorySource::from_directory_tree(temp.path()).unwrap();
+<a href=#228 id=228 data-nosnippet>228</a>
+<a href=#229 id=229 data-nosnippet>229</a>        <span class="macro">assert_eq!</span>(
+<a href=#230 id=230 data-nosnippet>230</a>            source
+<a href=#231 id=231 data-nosnippet>231</a>                .named_packages
+<a href=#232 id=232 data-nosnippet>232</a>                .keys()
+<a href=#233 id=233 data-nosnippet>233</a>                .map(|k| k.as_str())
+<a href=#234 id=234 data-nosnippet>234</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;(),
+<a href=#235 id=235 data-nosnippet>235</a>            [<span class="string">"python"</span>, <span class="string">"sharrattj/bash"</span>, <span class="string">"sharrattj/coreutils"</span>]
+<a href=#236 id=236 data-nosnippet>236</a>        );
+<a href=#237 id=237 data-nosnippet>237</a>        <span class="macro">assert_eq!</span>(source.named_packages[<span class="string">"sharrattj/coreutils"</span>].len(), <span class="number">2</span>);
+<a href=#238 id=238 data-nosnippet>238</a>        <span class="macro">assert_eq!</span>(
+<a href=#239 id=239 data-nosnippet>239</a>            source.named_packages[<span class="string">"sharrattj/bash"</span>][<span class="number">0</span>].summary,
+<a href=#240 id=240 data-nosnippet>240</a>            PackageSummary {
+<a href=#241 id=241 data-nosnippet>241</a>                pkg: PackageInfo {
+<a href=#242 id=242 data-nosnippet>242</a>                    id: PackageId::Named(
+<a href=#243 id=243 data-nosnippet>243</a>                        NamedPackageId::try_new(<span class="string">"sharrattj/bash"</span>, <span class="string">"1.0.16"</span>).unwrap()
+<a href=#244 id=244 data-nosnippet>244</a>                    ),
+<a href=#245 id=245 data-nosnippet>245</a>                    dependencies: <span class="macro">vec!</span>[Dependency {
+<a href=#246 id=246 data-nosnippet>246</a>                        alias: <span class="string">"coreutils"</span>.to_string(),
+<a href=#247 id=247 data-nosnippet>247</a>                        pkg: <span class="string">"sharrattj/coreutils@^1.0.16"</span>.parse().unwrap()
+<a href=#248 id=248 data-nosnippet>248</a>                    }],
+<a href=#249 id=249 data-nosnippet>249</a>                    commands: <span class="macro">vec!</span>[<span class="kw">crate</span>::runtime::resolver::Command {
+<a href=#250 id=250 data-nosnippet>250</a>                        name: <span class="string">"bash"</span>.to_string(),
+<a href=#251 id=251 data-nosnippet>251</a>                    }],
+<a href=#252 id=252 data-nosnippet>252</a>                    entrypoint: <span class="prelude-val">Some</span>(<span class="string">"bash"</span>.to_string()),
+<a href=#253 id=253 data-nosnippet>253</a>                    filesystem: <span class="macro">vec!</span>[FileSystemMapping {
+<a href=#254 id=254 data-nosnippet>254</a>                        volume_name: <span class="string">"atom"</span>.to_string(),
+<a href=#255 id=255 data-nosnippet>255</a>                        mount_path: <span class="string">"/"</span>.to_string(),
+<a href=#256 id=256 data-nosnippet>256</a>                        original_path: <span class="prelude-val">Some</span>(<span class="string">"/"</span>.to_string()),
+<a href=#257 id=257 data-nosnippet>257</a>                        dependency_name: <span class="prelude-val">None</span>,
+<a href=#258 id=258 data-nosnippet>258</a>                    }],
+<a href=#259 id=259 data-nosnippet>259</a>                },
+<a href=#260 id=260 data-nosnippet>260</a>                dist: DistributionInfo {
+<a href=#261 id=261 data-nosnippet>261</a>                    webc: <span class="kw">crate</span>::runtime::resolver::utils::url_from_file_path(
+<a href=#262 id=262 data-nosnippet>262</a>                        bash.canonicalize().unwrap()
+<a href=#263 id=263 data-nosnippet>263</a>                    )
+<a href=#264 id=264 data-nosnippet>264</a>                    .unwrap(),
+<a href=#265 id=265 data-nosnippet>265</a>                    webc_sha256: WebcHash::from_bytes([
+<a href=#266 id=266 data-nosnippet>266</a>                        <span class="number">161</span>, <span class="number">101</span>, <span class="number">23</span>, <span class="number">194</span>, <span class="number">244</span>, <span class="number">92</span>, <span class="number">186</span>, <span class="number">213</span>, <span class="number">143</span>, <span class="number">33</span>, <span class="number">200</span>, <span class="number">128</span>, <span class="number">238</span>, <span class="number">23</span>, <span class="number">185</span>, <span class="number">174</span>,
+<a href=#267 id=267 data-nosnippet>267</a>                        <span class="number">180</span>, <span class="number">195</span>, <span class="number">144</span>, <span class="number">145</span>, <span class="number">78</span>, <span class="number">17</span>, <span class="number">227</span>, <span class="number">159</span>, <span class="number">118</span>, <span class="number">64</span>, <span class="number">83</span>, <span class="number">153</span>, <span class="number">0</span>, <span class="number">205</span>, <span class="number">253</span>, <span class="number">215</span>,
+<a href=#268 id=268 data-nosnippet>268</a>                    ]),
+<a href=#269 id=269 data-nosnippet>269</a>                },
+<a href=#270 id=270 data-nosnippet>270</a>            }
+<a href=#271 id=271 data-nosnippet>271</a>        );
+<a href=#272 id=272 data-nosnippet>272</a>    }
+<a href=#273 id=273 data-nosnippet>273</a>}
 </code></pre></div></section></main></body></html>

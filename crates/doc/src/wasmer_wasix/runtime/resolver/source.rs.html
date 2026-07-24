@@ -5,7 +5,7 @@
 <a href=#5 id=5 data-nosnippet>5</a>
 <a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>wasmer_config::package::{PackageIdent, PackageSource};
 <a href=#7 id=7 data-nosnippet>7</a>
-<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::PackageSummary;
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span><span class="kw">crate</span>::runtime::resolver::{PackageSummary, utils::cmp_version_precedence};
 <a href=#9 id=9 data-nosnippet>9</a>
 <a href=#10 id=10 data-nosnippet>10</a><span class="doccomment">/// Something that packages can be downloaded from.
 <a href=#11 id=11 data-nosnippet>11</a></span><span class="attr">#[async_trait::async_trait]
@@ -34,7 +34,7 @@
 <a href=#34 id=34 data-nosnippet>34</a>                    <span class="kw">let </span>left_version = left.pkg.id.as_named().map(|x| <span class="kw-2">&amp;</span>x.version);
 <a href=#35 id=35 data-nosnippet>35</a>                    <span class="kw">let </span>right_version = right.pkg.id.as_named().map(|x| <span class="kw-2">&amp;</span>x.version);
 <a href=#36 id=36 data-nosnippet>36</a>
-<a href=#37 id=37 data-nosnippet>37</a>                    left_version.cmp(<span class="kw-2">&amp;</span>right_version)
+<a href=#37 id=37 data-nosnippet>37</a>                    cmp_version_precedence(left_version, right_version)
 <a href=#38 id=38 data-nosnippet>38</a>                })
 <a href=#39 id=39 data-nosnippet>39</a>                .ok_or(QueryError::NoMatches {
 <a href=#40 id=40 data-nosnippet>40</a>                    query: pkg.clone(),

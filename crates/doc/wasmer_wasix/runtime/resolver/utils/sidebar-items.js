@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["file_path_from_url","http_error","url_from_file_path","webc_headers"]};
+window.SIDEBAR_ITEMS = {"fn":["cmp_version_precedence","file_path_from_url","http_error","url_from_file_path","webc_headers"]};
