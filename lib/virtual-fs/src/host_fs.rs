@@ -16,6 +16,8 @@ use tokio::fs as tfs;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 use tokio::runtime::Handle;
 
+const MAX_SYMLINK_TRAVERSAL_DEPTH: usize = 128;
+
 #[derive(Debug, Clone)]
 pub struct FileSystem {
     handle: Handle,
@@ -97,11 +99,173 @@ fn host_root_relative_target(root: &Path, target: PathBuf) -> PathBuf {
     target
 }
 
+/// Resolves `target` (as seen from `base`) while ensuring every intermediate
+/// step of the resolution stays within `root`. Returns `None` as soon as the
+/// path would leave `root`.
+fn resolve_path_within(root: &Path, base: &Path, target: &Path) -> Option<PathBuf> {
+    let root = normalize_path(root);
+    let base = normalize_path(base);
+    if !base.starts_with(&root) {
+        return None;
+    }
+
+    let (mut resolved, target) = if target.is_absolute() {
+        let stripped = if root == Path::new("/") {
+            target.strip_prefix(Path::new("/")).ok()?
+        } else {
+            target.strip_prefix(&root).ok()?
+        };
+        (root.clone(), stripped)
+    } else {
+        (base, target)
+    };
+
+    for component in target.components() {
+        match component {
+            Component::Prefix(..) | Component::RootDir => return None,
+            Component::CurDir => {}
+            Component::ParentDir => {
+                if resolved == root {
+                    if root.parent().is_none() {
+                        continue;
+                    }
+                    return None;
+                }
+                if !resolved.pop() || !resolved.starts_with(&root) {
+                    return None;
+                }
+            }
+            Component::Normal(part) => {
+                resolved.push(part);
+                if !resolved.starts_with(&root) {
+                    return None;
+                }
+            }
+        }
+    }
+
+    Some(resolved)
+}
+
+fn symlink_target_path(root: &Path, symlink_path: &Path, target: &Path) -> Option<PathBuf> {
+    let base = symlink_path.parent().unwrap_or(root);
+    resolve_path_within(root, base, target).or_else(|| {
+        if target.is_absolute()
+            && !target
+                .components()
+                .any(|component| matches!(component, Component::ParentDir | Component::Prefix(..)))
+        {
+            canonicalize(target)
+                .ok()
+                .filter(|target| target.starts_with(root))
+        } else {
+            None
+        }
+    })
+}
+
+fn symlink_chain_stays_within(root: &Path, target: PathBuf) -> bool {
+    let normalized_root = normalize_path(root);
+    let mut current = target;
+    let mut visited = std::collections::HashSet::new();
+    let mut symlink_count = 0;
+
+    loop {
+        if !current.starts_with(&normalized_root) {
+            return false;
+        }
+
+        if !visited.insert(current.clone()) {
+            return false;
+        }
+        if symlink_count >= MAX_SYMLINK_TRAVERSAL_DEPTH {
+            return false;
+        }
+
+        let relative = match current.strip_prefix(&normalized_root) {
+            Ok(relative) => relative,
+            Err(_) => return false,
+        };
+        let mut inspected = normalized_root.clone();
+        let mut components = relative.components();
+        let mut followed_symlink = false;
+
+        while let Some(component) = components.next() {
+            inspected.push(component.as_os_str());
+
+            let metadata = match fs::symlink_metadata(&inspected) {
+                Ok(metadata) => metadata,
+                Err(_) => return false,
+            };
+
+            if !metadata.file_type().is_symlink() {
+                continue;
+            }
+
+            let raw_target = match fs::read_link(&inspected) {
+                Ok(target) => target,
+                Err(_) => return false,
+            };
+            let mut next = match symlink_target_path(&normalized_root, &inspected, &raw_target) {
+                Some(next) => next,
+                None => return false,
+            };
+            if !components.as_path().as_os_str().is_empty() {
+                next = match resolve_path_within(&normalized_root, &next, components.as_path()) {
+                    Some(next) => next,
+                    None => return false,
+                };
+            }
+
+            symlink_count += 1;
+            current = next;
+            followed_symlink = true;
+            break;
+        }
+
+        if !followed_symlink {
+            return true;
+        }
+    }
+}
+
+/// Reports whether following the symlink at `path` would leave `root` (in
+/// which case the symlink must be hidden from guests). Broken links and loops
+/// count as escaping since they cannot be proven to stay inside `root`.
+///
+/// Errors with `InvalidInput` when `path` is not a symlink and `EntryNotFound`
+/// when it does not exist; `read_link` reports both, so a single call
+/// validates the input and fetches the target.
+fn symlink_escapes_root(root: &Path, path: &Path) -> Result<bool> {
+    let root = normalize_path(root);
+    let path = normalize_path(path);
+
+    if !path.starts_with(&root) {
+        return Err(FsError::InvalidInput);
+    }
+
+    let raw_target = fs::read_link(&path)?;
+    let target = match symlink_target_path(&root, &path, &raw_target) {
+        Some(target) => target,
+        None => return Ok(true),
+    };
+
+    Ok(!symlink_chain_stays_within(&root, target))
+}
+
 impl FileSystem {
     pub fn new(handle: Handle, root: impl Into<PathBuf>) -> Result<Self> {
         let root = canonicalize(&root.into())?;
 
         Ok(FileSystem { handle, root })
+    }
+
+    fn symlink_entry_visible(&self, path: &Path, metadata: &fs::Metadata) -> bool {
+        // Unlike `ensure_no_hidden_symlink`, which propagates errors to the
+        // caller, this listing filter must not abort a whole `read_dir`, so
+        // it fails closed and simply omits the entry on error.
+        !metadata.file_type().is_symlink()
+            || matches!(symlink_escapes_root(&self.root, path), Ok(false))
     }
 
     fn prepare_path(&self, path: &Path) -> Result<PathBuf> {
@@ -119,7 +283,43 @@ impl FileSystem {
         let path = self.root.join(path);
 
         debug_assert!(path.starts_with(&self.root));
+        self.ensure_no_hidden_symlink(&path)?;
         Ok(path)
+    }
+
+    /// Symlinks that escape the filesystem root are hidden from directory
+    /// listings, and any path that names one — as the final component or
+    /// anywhere along the way — fails with `PermissionDenied` (the sandbox
+    /// errno WASI mandates for escaping symlinks). This keeps directory
+    /// listings, metadata and open consistent.
+    ///
+    /// Note this is a check-then-use: a link swapped in between this walk
+    /// and the actual operation is still followed by the host OS. Closing
+    /// that race requires `openat2(RESOLVE_BENEATH)`-style resolution.
+    fn ensure_no_hidden_symlink(&self, path: &Path) -> Result<()> {
+        let relative = path
+            .strip_prefix(&self.root)
+            .map_err(|_| FsError::InvalidInput)?;
+
+        let mut current = self.root.clone();
+        for component in relative.components() {
+            current.push(component.as_os_str());
+
+            let Ok(metadata) = fs::symlink_metadata(&current) else {
+                // Missing components either surface through the actual
+                // operation or are about to be created by it.
+                return Ok(());
+            };
+            if !metadata.file_type().is_symlink() {
+                continue;
+            }
+
+            if symlink_escapes_root(&self.root, &current)? {
+                return Err(FsError::PermissionDenied);
+            }
+        }
+
+        Ok(())
     }
 }
 
@@ -135,9 +335,14 @@ impl crate::FileSystem for FileSystem {
         let path = self.prepare_path(path)?;
 
         let read_dir = fs::read_dir(path)?;
-        let mut data = read_dir
+        let data = read_dir
             .map(|entry| {
                 let entry = entry?;
+                let metadata = fs::symlink_metadata(entry.path())?;
+
+                if !self.symlink_entry_visible(&entry.path(), &metadata) {
+                    return Ok(None);
+                }
 
                 let path = entry
                     .path()
@@ -146,15 +351,14 @@ impl crate::FileSystem for FileSystem {
                     .to_owned();
                 let path = Path::new("/").join(path);
 
-                let metadata = fs::symlink_metadata(entry.path())?;
-
-                Ok(DirEntry {
+                Ok(Some(DirEntry {
                     path,
                     metadata: Ok(metadata.try_into()?),
-                })
+                }))
             })
-            .collect::<std::result::Result<Vec<DirEntry>, io::Error>>()
+            .collect::<std::result::Result<Vec<Option<DirEntry>>, io::Error>>()
             .map_err::<FsError, _>(Into::into)?;
+        let mut data = data.into_iter().flatten().collect::<Vec<_>>();
         data.sort_by(|a, b| a.path.file_name().cmp(&b.path.file_name()));
         Ok(ReadDir::new(data))
     }
@@ -945,9 +1149,10 @@ mod tests {
     use tokio::runtime::Handle;
 
     use super::FileSystem;
-    use crate::FileSystem as FileSystemTrait;
     use crate::FsError;
+    use crate::{ArcFileSystem, FileSystem as FileSystemTrait, OverlayFileSystem};
     use std::path::Path;
+    use std::sync::Arc;
 
     #[tokio::test]
     async fn test_new_filesystem() {
@@ -1078,11 +1283,154 @@ mod tests {
         );
     }
 
-    fn read_dir_names(fs: &FileSystem, path: impl AsRef<Path>) -> Vec<String> {
+    fn read_dir_names<F: FileSystemTrait + ?Sized>(fs: &F, path: impl AsRef<Path>) -> Vec<String> {
         fs.read_dir(path.as_ref())
             .unwrap()
             .filter_map(|entry| Some(entry.ok()?.file_name().to_str()?.to_string()))
             .collect::<Vec<_>>()
+    }
+
+    #[cfg(unix)]
+    fn host_symlink_visibility_fixture() -> (TempDir, FileSystem) {
+        let temp = TempDir::new().unwrap();
+        let root = temp.path().join("root");
+        let outside = temp.path().join("outside");
+        std::fs::create_dir_all(&root).unwrap();
+        std::fs::create_dir_all(&outside).unwrap();
+        std::fs::write(root.join("inside.txt"), b"inside").unwrap();
+        std::fs::write(outside.join("outside.txt"), b"outside").unwrap();
+        std::os::unix::fs::symlink("inside.txt", root.join("inside-link")).unwrap();
+        std::os::unix::fs::symlink(root.join("inside.txt"), root.join("inside-absolute")).unwrap();
+        std::os::unix::fs::symlink("../outside/outside.txt", root.join("outside-relative"))
+            .unwrap();
+        std::os::unix::fs::symlink(outside.join("outside.txt"), root.join("outside-absolute"))
+            .unwrap();
+        std::os::unix::fs::symlink(
+            "../outside/../root/inside.txt",
+            root.join("leave-reenter-relative"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink(
+            root.join("../outside/../root/inside.txt"),
+            root.join("leave-reenter-absolute"),
+        )
+        .unwrap();
+        std::os::unix::fs::symlink("../outside", root.join("pivot")).unwrap();
+        std::os::unix::fs::symlink("pivot/outside.txt", root.join("chained-escape")).unwrap();
+        std::os::unix::fs::symlink("missing.txt", root.join("broken-link")).unwrap();
+        std::os::unix::fs::symlink("loop-b", root.join("loop-a")).unwrap();
+        std::os::unix::fs::symlink("loop-a", root.join("loop-b")).unwrap();
+
+        let fs = FileSystem::new(Handle::current(), root).unwrap();
+        (temp, fs)
+    }
+
+    #[cfg(unix)]
+    fn assert_host_symlink_visibility<F: FileSystemTrait + ?Sized>(fs: &F) {
+        let names = read_dir_names(fs, "/");
+        assert!(names.contains(&"inside.txt".to_string()));
+        assert!(names.contains(&"inside-link".to_string()));
+        assert!(names.contains(&"inside-absolute".to_string()));
+        assert!(!names.contains(&"broken-link".to_string()));
+        assert!(!names.contains(&"loop-a".to_string()));
+        assert!(!names.contains(&"loop-b".to_string()));
+        assert!(!names.contains(&"outside-relative".to_string()));
+        assert!(!names.contains(&"outside-absolute".to_string()));
+        assert!(!names.contains(&"leave-reenter-relative".to_string()));
+        assert!(!names.contains(&"leave-reenter-absolute".to_string()));
+        assert!(!names.contains(&"pivot".to_string()));
+        assert!(!names.contains(&"chained-escape".to_string()));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn read_dir_hides_host_symlinks_that_escape_root() {
+        let (_temp, fs) = host_symlink_visibility_fixture();
+
+        assert_host_symlink_visibility(&fs);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn hidden_symlinks_behave_as_missing_entries() {
+        let (_temp, fs) = host_symlink_visibility_fixture();
+
+        // Visible symlinks keep working.
+        assert!(fs.readlink(Path::new("/inside-link")).is_ok());
+        assert!(
+            fs.symlink_metadata(Path::new("/inside-link"))
+                .unwrap()
+                .ft
+                .is_symlink()
+        );
+        assert!(
+            fs.metadata(Path::new("/inside-absolute"))
+                .unwrap()
+                .is_file()
+        );
+
+        for hidden in [
+            "/outside-relative",
+            "/outside-absolute",
+            "/leave-reenter-relative",
+            "/leave-reenter-absolute",
+            "/pivot",
+            "/chained-escape",
+            "/broken-link",
+            "/loop-a",
+        ] {
+            let hidden = Path::new(hidden);
+            assert_eq!(fs.readlink(hidden).unwrap_err(), FsError::PermissionDenied);
+            assert_eq!(
+                fs.symlink_metadata(hidden).unwrap_err(),
+                FsError::PermissionDenied
+            );
+            assert_eq!(fs.metadata(hidden).unwrap_err(), FsError::PermissionDenied);
+            assert_eq!(
+                fs.new_open_options()
+                    .read(true)
+                    .open(hidden)
+                    .map(|_| ())
+                    .unwrap_err(),
+                FsError::PermissionDenied
+            );
+            assert_eq!(
+                fs.remove_file(hidden).unwrap_err(),
+                FsError::PermissionDenied
+            );
+        }
+
+        // Paths traversing a hidden symlink are unreachable as well.
+        assert_eq!(
+            fs.metadata(Path::new("/pivot/outside.txt")).unwrap_err(),
+            FsError::PermissionDenied
+        );
+        assert_eq!(
+            fs.new_open_options()
+                .read(true)
+                .open(Path::new("/pivot/outside.txt"))
+                .map(|_| ())
+                .unwrap_err(),
+            FsError::PermissionDenied
+        );
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn arc_file_system_preserves_host_symlink_visibility_policy() {
+        let (_temp, fs) = host_symlink_visibility_fixture();
+        let fs = ArcFileSystem::new(Arc::new(fs));
+
+        assert_host_symlink_visibility(&fs);
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn overlay_file_system_preserves_host_symlink_visibility_policy() {
+        let (_temp, fs) = host_symlink_visibility_fixture();
+        let fs = OverlayFileSystem::new(crate::mem_fs::FileSystem::default(), [fs]);
+
+        assert_host_symlink_visibility(&fs);
     }
 
     #[tokio::test]

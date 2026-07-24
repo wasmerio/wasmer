@@ -1439,8 +1439,7 @@ impl WasiFs {
                                 let metadata = self
                                     .root_fs
                                     .symlink_metadata(&entry_path_buf)
-                                    .ok()
-                                    .ok_or(Errno::Noent)?;
+                                    .map_err(fs_error_into_wasi_err)?;
                                 let file_type = metadata.file_type();
                                 if file_type.is_dir() {
                                     // load DIR
@@ -1476,8 +1475,7 @@ impl WasiFs {
                                     let link_value = self
                                         .root_fs
                                         .readlink(&entry_path_buf)
-                                        .ok()
-                                        .ok_or(Errno::Noent)?;
+                                        .map_err(fs_error_into_wasi_err)?;
                                     debug!("attempting to decompose path {:?}", link_value);
                                     ComponentResolution::BackingSymlink {
                                         file: entry_path_buf,
@@ -1685,46 +1683,13 @@ impl WasiFs {
                 .parent()
                 .into_path_buf(),
             SymlinkKind::Backing => {
-                let symlink_path_buf =
-                    PosixPath::new("/").join(&PosixPath::from_path(path_to_symlink));
-                let symlink_path = symlink_path_buf.as_posix_path();
-                let mount_entry = self
-                    .root_fs
-                    .root()
-                    .mount_entries()
-                    .into_iter()
-                    .filter(|entry| {
-                        symlink_path
-                            .strip_prefix(&PosixPath::from_path(&entry.path))
-                            .is_some()
-                    })
-                    .max_by_key(|entry| PosixPath::from_path(&entry.path).as_str().len())
-                    .ok_or(Errno::Perm)?;
-                let mount_path = mount_entry.path;
+                if relative_posix.is_absolute() {
+                    return Ok((VIRTUAL_ROOT_FD, relative_path.to_owned()));
+                }
 
-                let symlink_relative = symlink_path
-                    .strip_prefix(&PosixPath::from_path(&mount_path))
-                    .ok_or(Errno::Perm)?;
-                let symlink_parent = symlink_relative.parent().into_path_buf();
-                let contained_target = if relative_posix.is_absolute() {
-                    let stripped = relative_posix
-                        .strip_prefix(&PosixPath::from_path(&mount_entry.source_path))
-                        .ok_or(Errno::Perm)?;
-                    PosixPathBuf::from(stripped.as_str().to_owned())
-                } else {
-                    PosixPathBuf::resolve_relative(
-                        &PosixPath::from_path(&symlink_parent),
-                        &relative_posix,
-                        false,
-                    )?
-                };
-
-                return Ok((
-                    VIRTUAL_ROOT_FD,
-                    PosixPath::from_path(&mount_path)
-                        .join(&contained_target.as_posix_path())
-                        .into_path_buf(),
-                ));
+                PosixPath::from_path(path_to_symlink)
+                    .parent()
+                    .into_path_buf()
             }
         };
 
@@ -3102,13 +3067,15 @@ mod tests {
         let literal_link = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/host/dir2", false)
             .unwrap();
+        // The mount rebases the absolute host target into the guest's
+        // namespace, so the link value is already mount-relative.
         assert!(matches!(
             literal_link.read().deref(),
             Kind::Symlink {
                 symlink_kind: SymlinkKind::Backing,
                 relative_path,
                 ..
-            } if relative_path == Path::new("/dir1")
+            } if relative_path == Path::new("/host/dir1")
         ));
 
         let followed_dir = wasi_fs
