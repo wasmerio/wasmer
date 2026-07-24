@@ -15,6 +15,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use anyhow::Context as _;
 use futures::future::BoxFuture;
 use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
@@ -38,7 +39,21 @@ use crate::{
     },
 };
 
-pub type MakeImportCallback = dyn Fn(&wasmer::Module, &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>
+/// Opaque per-instantiation state returned by [`Runtime::additional_imports`].
+///
+/// Callers must hand the value back, unmodified, to
+/// [`Runtime::configure_new_instance`] for the instance created with those
+/// imports.
+// This carries state created alongside the imports (e.g. a FunctionEnv
+// backing the imported host functions) to the post-instantiation setup
+// phase, so implementations never have to guess which pending instantiation
+// a configure_new_instance call belongs to.
+pub type InstantiationState = Option<Box<dyn std::any::Any + Send>>;
+
+pub type MakeImportCallback = dyn Fn(
+        &wasmer::Module,
+        &mut wasmer::StoreMut,
+    ) -> anyhow::Result<(wasmer::Imports, InstantiationState)>
     + Send
     + Sync
     + 'static;
@@ -47,6 +62,7 @@ pub type ConfigureInstanceCallback = dyn Fn(
         &mut wasmer::StoreMut,
         &wasmer::Instance,
         Option<&wasmer::Memory>,
+        InstantiationState,
     ) -> anyhow::Result<()>
     + Send
     + Sync
@@ -67,6 +83,78 @@ pub struct InstanceCallback(pub Arc<ConfigureInstanceCallback>);
 impl fmt::Debug for InstanceCallback {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("InstanceCallback(..)")
+    }
+}
+
+/// An import-creation callback paired with the instance-setup callback that
+/// receives the [`InstantiationState`] it produced.
+// Pairing the two callbacks at registration lets PluggableRuntime and
+// OverriddenRuntime route each import callback's state to its own setup
+// callback when several hooks are registered.
+#[derive(Clone, Debug)]
+pub struct InstantiationHook {
+    pub imports: ImportCallback,
+    pub setup: InstanceCallback,
+}
+
+impl InstantiationHook {
+    pub fn new(
+        imports: impl Fn(
+            &wasmer::Module,
+            &mut wasmer::StoreMut,
+        ) -> anyhow::Result<(wasmer::Imports, InstantiationState)>
+        + Send
+        + Sync
+        + 'static,
+        setup: impl Fn(
+            &wasmer::Module,
+            &mut wasmer::StoreMut,
+            &wasmer::Instance,
+            Option<&wasmer::Memory>,
+            InstantiationState,
+        ) -> anyhow::Result<()>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        Self {
+            imports: ImportCallback(Arc::new(imports)),
+            setup: InstanceCallback(Arc::new(setup)),
+        }
+    }
+
+    /// A hook that only creates imports and needs no post-instantiation setup.
+    pub fn imports_only(
+        imports: impl Fn(&wasmer::Module, &mut wasmer::StoreMut) -> anyhow::Result<wasmer::Imports>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        Self::new(
+            move |module, store| Ok((imports(module, store)?, None)),
+            |_module, _store, _instance, _imported_memory, _state| Ok(()),
+        )
+    }
+
+    /// A hook that only performs post-instantiation setup and needs no state
+    /// from the import phase.
+    pub fn setup_only(
+        setup: impl Fn(
+            &wasmer::Module,
+            &mut wasmer::StoreMut,
+            &wasmer::Instance,
+            Option<&wasmer::Memory>,
+        ) -> anyhow::Result<()>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        Self::new(
+            |_module, _store| Ok((wasmer::Imports::new(), None)),
+            move |module, store, instance, imported_memory, _state| {
+                setup(module, store, instance, imported_memory)
+            },
+        )
     }
 }
 
@@ -201,21 +289,31 @@ where
     /// This callback may be invoked multiple times (e.g. process bootstrap,
     /// thread spawn), so implementations should create imports that are valid
     /// for the given store each time.
+    ///
+    /// The returned [`InstantiationState`] is per-instantiation state that the
+    /// caller must pass to [`Runtime::configure_new_instance`] once the
+    /// instance built from these imports exists. If instantiation fails, the
+    /// state is simply dropped.
     fn additional_imports(
         &self,
         _module: &wasmer::Module,
         _store: &mut wasmer::StoreMut,
-    ) -> anyhow::Result<wasmer::Imports> {
-        Ok(wasmer::Imports::new())
+    ) -> anyhow::Result<(wasmer::Imports, InstantiationState)> {
+        Ok((wasmer::Imports::new(), None))
     }
 
     /// Configure an instantiated instance before initialization/startup.
+    ///
+    /// `state` must be the [`InstantiationState`] returned by the
+    /// [`Runtime::additional_imports`] call whose imports this instance was
+    /// created with.
     fn configure_new_instance(
         &self,
         _module: &wasmer::Module,
         _store: &mut wasmer::StoreMut,
         _instance: &wasmer::Instance,
         _imported_memory: Option<&wasmer::Memory>,
+        _state: InstantiationState,
     ) -> anyhow::Result<()> {
         Ok(())
     }
@@ -464,8 +562,7 @@ pub struct PluggableRuntime {
     pub read_only_journals: Vec<Arc<DynReadableJournal>>,
     #[cfg(feature = "journal")]
     pub writable_journals: Vec<Arc<DynJournal>>,
-    pub additional_imports: Vec<ImportCallback>,
-    pub instance_callbacks: Vec<InstanceCallback>,
+    pub instantiation_hooks: Vec<InstantiationHook>,
 }
 
 impl PluggableRuntime {
@@ -504,8 +601,7 @@ impl PluggableRuntime {
             read_only_journals: Vec::new(),
             #[cfg(feature = "journal")]
             writable_journals: Vec::new(),
-            additional_imports: Vec::new(),
-            instance_callbacks: Vec::new(),
+            instantiation_hooks: Vec::new(),
         }
     }
 
@@ -575,8 +671,8 @@ impl PluggableRuntime {
         + Sync
         + 'static,
     ) -> &mut Self {
-        self.additional_imports
-            .push(ImportCallback(Arc::new(imports)));
+        self.instantiation_hooks
+            .push(InstantiationHook::imports_only(imports));
         self
     }
 
@@ -592,10 +688,84 @@ impl PluggableRuntime {
         + Sync
         + 'static,
     ) -> &mut Self {
-        self.instance_callbacks
-            .push(InstanceCallback(Arc::new(callback)));
+        self.instantiation_hooks
+            .push(InstantiationHook::setup_only(callback));
         self
     }
+
+    /// Registers an import callback paired with the instance-setup callback
+    /// that receives the [`InstantiationState`] it produced.
+    pub fn with_instantiation_hook(
+        &mut self,
+        imports: impl Fn(
+            &wasmer::Module,
+            &mut wasmer::StoreMut,
+        ) -> anyhow::Result<(wasmer::Imports, InstantiationState)>
+        + Send
+        + Sync
+        + 'static,
+        setup: impl Fn(
+            &wasmer::Module,
+            &mut wasmer::StoreMut,
+            &wasmer::Instance,
+            Option<&wasmer::Memory>,
+            InstantiationState,
+        ) -> anyhow::Result<()>
+        + Send
+        + Sync
+        + 'static,
+    ) -> &mut Self {
+        self.instantiation_hooks
+            .push(InstantiationHook::new(imports, setup));
+        self
+    }
+}
+
+/// Runs the import phase of `hooks`, returning the merged imports and the
+/// per-hook states, aligned by index with `hooks`.
+fn run_import_hooks(
+    hooks: &[InstantiationHook],
+    module: &wasmer::Module,
+    store: &mut wasmer::StoreMut,
+) -> anyhow::Result<(wasmer::Imports, Vec<InstantiationState>)> {
+    let mut imports = wasmer::Imports::new();
+    let mut states = Vec::with_capacity(hooks.len());
+    for hook in hooks {
+        let (hook_imports, state) = (*(hook.imports.0))(module, store)?;
+        imports.extend(&hook_imports);
+        states.push(state);
+    }
+    Ok((imports, states))
+}
+
+/// Composite state used by [`OverriddenRuntime`] to carry the inner
+/// runtime's state alongside its own hooks' states.
+struct OverriddenInstantiationState {
+    inner: InstantiationState,
+    own: Vec<InstantiationState>,
+}
+
+/// Runs the setup phase of `hooks`, handing each hook the state it produced
+/// during the import phase.
+fn run_setup_hooks(
+    hooks: &[InstantiationHook],
+    states: Vec<InstantiationState>,
+    module: &wasmer::Module,
+    store: &mut wasmer::StoreMut,
+    instance: &wasmer::Instance,
+    imported_memory: Option<&wasmer::Memory>,
+) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        states.len() == hooks.len(),
+        "instance setup state does not match the registered instantiation hooks \
+         (got {} states for {} hooks)",
+        states.len(),
+        hooks.len(),
+    );
+    for (hook, state) in hooks.iter().zip(states) {
+        (*(hook.setup.0))(module, store, instance, imported_memory, state)?;
+    }
+    Ok(())
 }
 
 impl Runtime for PluggableRuntime {
@@ -639,12 +809,12 @@ impl Runtime for PluggableRuntime {
         &self,
         module: &wasmer::Module,
         store: &mut wasmer::StoreMut,
-    ) -> anyhow::Result<wasmer::Imports> {
-        let mut imports = wasmer::Imports::new();
-        for cb in &self.additional_imports {
-            imports.extend(&(*(cb.0))(module, store)?);
+    ) -> anyhow::Result<(wasmer::Imports, InstantiationState)> {
+        if self.instantiation_hooks.is_empty() {
+            return Ok((wasmer::Imports::new(), None));
         }
-        Ok(imports)
+        let (imports, states) = run_import_hooks(&self.instantiation_hooks, module, store)?;
+        Ok((imports, Some(Box::new(states))))
     }
 
     fn configure_new_instance(
@@ -653,11 +823,23 @@ impl Runtime for PluggableRuntime {
         store: &mut wasmer::StoreMut,
         instance: &wasmer::Instance,
         imported_memory: Option<&wasmer::Memory>,
+        state: InstantiationState,
     ) -> anyhow::Result<()> {
-        for cb in &self.instance_callbacks {
-            (*(cb.0))(module, store, instance, imported_memory)?;
+        if self.instantiation_hooks.is_empty() {
+            return Ok(());
         }
-        Ok(())
+        let states = *state
+            .context("missing instance setup state from additional_imports")?
+            .downcast::<Vec<InstantiationState>>()
+            .map_err(|_| anyhow::anyhow!("instance setup state does not belong to this runtime"))?;
+        run_setup_hooks(
+            &self.instantiation_hooks,
+            states,
+            module,
+            store,
+            instance,
+            imported_memory,
+        )
     }
 
     #[cfg(feature = "journal")]
@@ -689,8 +871,7 @@ pub struct OverriddenRuntime {
     engine: Option<Engine>,
     module_cache: Option<Arc<dyn ModuleCache + Send + Sync>>,
     tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
-    additional_imports: Vec<ImportCallback>,
-    instance_callbacks: Vec<InstanceCallback>,
+    instantiation_hooks: Vec<InstantiationHook>,
     #[cfg(feature = "journal")]
     pub read_only_journals: Option<Vec<Arc<DynReadableJournal>>>,
     #[cfg(feature = "journal")]
@@ -709,8 +890,7 @@ impl OverriddenRuntime {
             engine: None,
             module_cache: None,
             tty: None,
-            additional_imports: Vec::new(),
-            instance_callbacks: Vec::new(),
+            instantiation_hooks: Vec::new(),
             #[cfg(feature = "journal")]
             read_only_journals: None,
             #[cfg(feature = "journal")]
@@ -768,8 +948,8 @@ impl OverriddenRuntime {
         + Sync
         + 'static,
     ) -> Self {
-        self.additional_imports
-            .push(ImportCallback(Arc::new(imports)));
+        self.instantiation_hooks
+            .push(InstantiationHook::imports_only(imports));
         self
     }
 
@@ -785,8 +965,35 @@ impl OverriddenRuntime {
         + Sync
         + 'static,
     ) -> Self {
-        self.instance_callbacks
-            .push(InstanceCallback(Arc::new(callback)));
+        self.instantiation_hooks
+            .push(InstantiationHook::setup_only(callback));
+        self
+    }
+
+    /// Registers an import callback paired with the instance-setup callback
+    /// that receives the [`InstantiationState`] it produced.
+    pub fn with_instantiation_hook(
+        mut self,
+        imports: impl Fn(
+            &wasmer::Module,
+            &mut wasmer::StoreMut,
+        ) -> anyhow::Result<(wasmer::Imports, InstantiationState)>
+        + Send
+        + Sync
+        + 'static,
+        setup: impl Fn(
+            &wasmer::Module,
+            &mut wasmer::StoreMut,
+            &wasmer::Instance,
+            Option<&wasmer::Memory>,
+            InstantiationState,
+        ) -> anyhow::Result<()>
+        + Send
+        + Sync
+        + 'static,
+    ) -> Self {
+        self.instantiation_hooks
+            .push(InstantiationHook::new(imports, setup));
         self
     }
 
@@ -864,12 +1071,20 @@ impl Runtime for OverriddenRuntime {
         &self,
         module: &wasmer::Module,
         store: &mut wasmer::StoreMut,
-    ) -> anyhow::Result<wasmer::Imports> {
-        let mut imports = self.inner.additional_imports(module, store)?;
-        for cb in &self.additional_imports {
-            imports.extend(&(*(cb.0))(module, store)?);
+    ) -> anyhow::Result<(wasmer::Imports, InstantiationState)> {
+        let (mut imports, inner_state) = self.inner.additional_imports(module, store)?;
+        if self.instantiation_hooks.is_empty() && inner_state.is_none() {
+            return Ok((imports, None));
         }
-        Ok(imports)
+        let (own_imports, own_states) = run_import_hooks(&self.instantiation_hooks, module, store)?;
+        imports.extend(&own_imports);
+        Ok((
+            imports,
+            Some(Box::new(OverriddenInstantiationState {
+                inner: inner_state,
+                own: own_states,
+            })),
+        ))
     }
 
     fn configure_new_instance(
@@ -878,13 +1093,35 @@ impl Runtime for OverriddenRuntime {
         store: &mut wasmer::StoreMut,
         instance: &wasmer::Instance,
         imported_memory: Option<&wasmer::Memory>,
+        state: InstantiationState,
     ) -> anyhow::Result<()> {
+        let state = match state {
+            Some(state) => *state
+                .downcast::<OverriddenInstantiationState>()
+                .map_err(|_| {
+                    anyhow::anyhow!("instance setup state does not belong to this runtime")
+                })?,
+            None => {
+                anyhow::ensure!(
+                    self.instantiation_hooks.is_empty(),
+                    "missing instance setup state from additional_imports"
+                );
+                OverriddenInstantiationState {
+                    inner: None,
+                    own: Vec::new(),
+                }
+            }
+        };
         self.inner
-            .configure_new_instance(module, store, instance, imported_memory)?;
-        for cb in &self.instance_callbacks {
-            (*(cb.0))(module, store, instance, imported_memory)?;
-        }
-        Ok(())
+            .configure_new_instance(module, store, instance, imported_memory, state.inner)?;
+        run_setup_hooks(
+            &self.instantiation_hooks,
+            state.own,
+            module,
+            store,
+            instance,
+            imported_memory,
+        )
     }
 
     fn http_client(&self) -> Option<&DynHttpClient> {
