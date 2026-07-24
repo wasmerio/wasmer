@@ -75,6 +75,17 @@ impl SharedMemory {
         }
     }
 
+    /// The backing VM shared-memory handle.
+    ///
+    /// Clones of the handle share the same underlying allocation, so an
+    /// embedder can keep a clone and operate on the memory (e.g. grow it via
+    /// [`LinearMemory::grow`]) from any thread without holding a store.
+    ///
+    /// [`LinearMemory::grow`]: wasmer_vm::LinearMemory::grow
+    pub fn vm_shared_memory(&self) -> &VMSharedMemory {
+        &self.memory
+    }
+
     #[inline]
     fn shared_ops(&self) -> Result<&(dyn SharedMemoryOps + Send + Sync), AtomicsError> {
         self.ops
