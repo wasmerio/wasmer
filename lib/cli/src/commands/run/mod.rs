@@ -134,14 +134,25 @@ impl Run {
 
         let hooks = wasmer_napi::NapiCtx::default().runtime_hooks();
         Ok(Arc::new(
-            OverriddenRuntime::new(runtime)
-                .with_additional_imports({
+            OverriddenRuntime::new(runtime).with_instantiation_hook(
+                {
                     let hooks = hooks.clone();
-                    move |module, store| hooks.additional_imports(module, store)
-                })
-                .with_instance_setup(move |module, store, instance, imported_memory| {
-                    hooks.configure_instance(module, store, instance, imported_memory)
-                }),
+                    move |module, store| {
+                        let (imports, state) = hooks.additional_imports(module, store)?;
+                        Ok((
+                            imports,
+                            Some(Box::new(state) as Box<dyn std::any::Any + Send>),
+                        ))
+                    }
+                },
+                move |module, store, instance, imported_memory, state| {
+                    let state = *state
+                        .context("missing N-API instance setup state")?
+                        .downcast::<wasmer_napi::NapiInstantiationState>()
+                        .map_err(|_| anyhow!("unexpected instance setup state"))?;
+                    hooks.configure_instance(module, store, instance, imported_memory, state)
+                },
+            ),
         ))
     }
 
@@ -713,14 +724,25 @@ fn maybe_wrap_runtime_with_wasm_c_api(
                 .context("failed to resolve Wasm C API module")
         });
     Ok(Arc::new(
-        OverriddenRuntime::new(runtime)
-            .with_additional_imports({
+        OverriddenRuntime::new(runtime).with_instantiation_hook(
+            {
                 let hooks = hooks.clone();
-                move |module, store| hooks.additional_imports(module, store)
-            })
-            .with_instance_setup(move |module, store, instance, imported_memory| {
-                hooks.configure_instance(module, store, instance, imported_memory)
-            }),
+                move |module, store| {
+                    let (imports, state) = hooks.additional_imports(module, store)?;
+                    Ok((
+                        imports,
+                        Some(Box::new(state) as Box<dyn std::any::Any + Send>),
+                    ))
+                }
+            },
+            move |module, store, instance, imported_memory, state| {
+                let state = *state
+                    .context("missing Wasm C API instance setup state")?
+                    .downcast::<wasmer_c_api_imports::WasmCapiInstantiationState>()
+                    .map_err(|_| anyhow!("unexpected instance setup state"))?;
+                hooks.configure_instance(module, store, instance, imported_memory, state)
+            },
+        ),
     ))
 }
 
@@ -908,7 +930,7 @@ mod tests {
             .expect("runtime wrapper is installed");
         let mut import_store = runtime.new_store();
         let mut import_store_mut = import_store.as_store_mut();
-        let imports = runtime
+        let (imports, _state) = runtime
             .additional_imports(&module, &mut import_store_mut)
             .expect("wasm c api imports are created");
         assert!(imports.exists("wasm_c_api_v0", "wasm_engine_new"));
