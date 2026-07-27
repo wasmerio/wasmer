@@ -131,12 +131,12 @@ pub fn classify_return_type_aarch64(types: &[Type]) -> ReturnAbi {
 ///
 /// Note LoongArch64 uses the same aggregate rules as the RISC-V LP64D ABI.
 pub fn classify_return_type_loongarch64(types: &[Type]) -> ReturnAbi {
-    classify_return_type_riscv(types)
+    classify_return_type_riscv64(types)
 }
 
 /// Classifies RISC-V return values according to the hard-float psABI.
-pub fn classify_return_type_riscv(types: &[Type]) -> ReturnAbi {
-    let widths = types.iter().map(|ty| ty.bit_size(8)).collect_vec();
+pub fn classify_return_type_riscv64(types: &[Type]) -> ReturnAbi {
+    let widths = types.iter().map(|ty| ty.bit_size(64)).collect_vec();
 
     // The hardware floating-point calling convention flattens only aggregates
     // with one or two fields.
