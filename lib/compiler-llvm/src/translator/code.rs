@@ -79,7 +79,6 @@ pub struct FuncTranslator {
     abi: LLVMAbi,
     binary_fmt: BinaryFormat,
     func_section: String,
-    pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
     wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
@@ -92,7 +91,6 @@ impl FuncTranslator {
         target_triple: Triple,
         target_machines: HashMap<OptimizationStyle, TargetMachine>,
         binary_fmt: BinaryFormat,
-        pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
         non_volatile_memory_ops: bool,
         wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
@@ -116,7 +114,6 @@ impl FuncTranslator {
                 }
             },
             binary_fmt,
-            pointer_width,
             cpu_features,
             non_volatile_memory_ops,
             wasm_apply_data_relocs_fn_index,
@@ -173,7 +170,8 @@ impl FuncTranslator {
             .get(wasm_module.functions[func_index])
             .unwrap();
 
-        let offsets = VMOffsets::new(self.pointer_width, wasm_module);
+        // TODO: pointer width
+        let offsets = VMOffsets::new(8, wasm_module);
         let intrinsics = Intrinsics::declare(
             &module,
             &self.ctx,
@@ -397,14 +395,7 @@ impl FuncTranslator {
             state,
             function: func,
             locals: params_locals,
-            ctx: CtxType::new(
-                wasm_module,
-                &func,
-                &cache_builder,
-                &self.abi,
-                self.pointer_width,
-                m0_param,
-            ),
+            ctx: CtxType::new(wasm_module, &func, &cache_builder, &self.abi, m0_param),
             unreachable_depth: 0,
             memory_styles,
             _table_styles,
@@ -2529,10 +2520,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let is_f64x2 = ty.eq(&self.intrinsics.f64x2_ty.as_basic_type_enum());
         debug_assert!(is_f32 || is_f64 || is_f32x4 || is_f64x2);
 
-        if matches!(
-            self.target_triple.architecture,
-            Architecture::Riscv32(..) | Architecture::Riscv64(..)
-        ) {
+        if matches!(self.target_triple.architecture, Architecture::Riscv64(..)) {
             if is_f32 || is_f64 {
                 let input = value.into_float_value();
                 let is_nan = err!(self.builder.build_float_compare(
@@ -12698,10 +12686,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
         // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
         // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
-        if matches!(
-            self.target_triple.architecture,
-            Architecture::Riscv32(..) | Architecture::Riscv64(..)
-        ) {
+        if matches!(self.target_triple.architecture, Architecture::Riscv64(..)) {
             let param_types = function.get_type().get_param_types();
             for (i, ty) in param_types.into_iter().enumerate() {
                 if ty == self.context.i32_type().into() {

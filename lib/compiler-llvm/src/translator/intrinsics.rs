@@ -1472,7 +1472,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         func_value: &FunctionValue<'ctx>,
         cache_builder: &'a Builder<'ctx>,
         abi: &'a LLVMAbi,
-        pointer_width: u8,
         m0: Option<PointerValue<'ctx>>,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
@@ -1489,7 +1488,8 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             cached_functions: HashMap::new(),
             cached_memory_op: HashMap::new(),
 
-            offsets: VMOffsets::new(pointer_width, wasm_module),
+            // TODO: pointer width
+            offsets: VMOffsets::new(8, wasm_module),
         }
     }
 
