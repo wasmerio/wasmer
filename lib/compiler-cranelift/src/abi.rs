@@ -145,7 +145,7 @@ fn pack_pair(
             let high = bitcast(builder, ir::types::I32, second);
             let low = builder.ins().uextend(ir::types::I64, low);
             let high = builder.ins().uextend(ir::types::I64, high);
-            let high = builder.ins().ishl_imm(high, 32);
+            let high = builder.ins().ishl_imm_u(high, 32);
             builder.ins().bor(low, high)
         }
         PairSlot::F32Vector(_, _) => {
@@ -153,7 +153,7 @@ fn pack_pair(
             let high = bitcast(builder, ir::types::I32, second);
             let low = builder.ins().uextend(ir::types::I64, low);
             let high = builder.ins().uextend(ir::types::I64, high);
-            let high = builder.ins().ishl_imm(high, 32);
+            let high = builder.ins().ishl_imm_u(high, 32);
             let bits = builder.ins().bor(low, high);
             bitcast(builder, ir::types::F32X2, bits)
         }
@@ -297,7 +297,7 @@ pub(crate) fn unpack_register_returns(
     let unpack_pair_with_config = |builder: &mut FunctionBuilder, value, pair| match pair {
         PairSlot::Raw(first, second) => {
             let low = builder.ins().ireduce(ir::types::I32, value);
-            let high = builder.ins().ushr_imm(value, 32);
+            let high = builder.ins().ushr_imm_u(value, 32);
             let high = builder.ins().ireduce(ir::types::I32, high);
             (
                 bitcast(builder, natural_type(first, config), low),
@@ -307,7 +307,7 @@ pub(crate) fn unpack_register_returns(
         PairSlot::F32Vector(_, _) => {
             let bits = bitcast(builder, ir::types::I64, value);
             let low = builder.ins().ireduce(ir::types::I32, bits);
-            let high = builder.ins().ushr_imm(bits, 32);
+            let high = builder.ins().ushr_imm_u(bits, 32);
             let high = builder.ins().ireduce(ir::types::I32, high);
             (
                 bitcast(builder, ir::types::F32, low),

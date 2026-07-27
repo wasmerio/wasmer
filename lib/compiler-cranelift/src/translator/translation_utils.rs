@@ -5,7 +5,7 @@ use crate::translator::EXN_REF_TYPE;
 use cranelift_codegen::{
     binemit::Reloc,
     cursor::FuncCursor,
-    ir::{self, AbiParam, InstBuilder},
+    ir::{self, InstBuilder},
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;

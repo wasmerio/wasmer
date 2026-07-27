@@ -5,7 +5,7 @@
 
 use crate::{
     CraneliftCallbacks, abi,
-    translator::{compiled_function_unwind_info, signature_to_cranelift_ir},
+    translator::{compiled_function_unwind_info, signature_to_cranelift_ir, type_to_irtype},
 };
 use cranelift_codegen::{
     Context,
@@ -110,7 +110,7 @@ pub fn make_trampoline_dynamic_function(
         let mut results = Vec::new();
         for (i, &ty) in func_type.results().iter().enumerate() {
             let load = builder.ins().load(
-                crate::translator::type_to_irtype(ty, frontend_config).unwrap(),
+                type_to_irtype(ty, frontend_config).unwrap(),
                 mflags,
                 values_vec_ptr_val,
                 (i * value_size) as i32,
