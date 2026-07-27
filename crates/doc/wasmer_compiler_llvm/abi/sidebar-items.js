@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_abi"],"mod":["aarch64_systemv","riscv_systemv","x86_64_systemv"],"trait":["Abi"]};
+window.SIDEBAR_ITEMS = {"enum":["TargetArchitecture"],"fn":["get_abi"],"struct":["LLVMAbi"],"trait":["Architecture"]};

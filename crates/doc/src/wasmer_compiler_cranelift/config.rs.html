@@ -244,108 +244,109 @@
 <a href=#244 id=244 data-nosnippet>244</a>            .enable(<span class="string">"use_colocated_libcalls"</span>)
 <a href=#245 id=245 data-nosnippet>245</a>            .expect(<span class="string">"should be a valid flag"</span>);
 <a href=#246 id=246 data-nosnippet>246</a>
-<a href=#247 id=247 data-nosnippet>247</a>        <span class="comment">// Allow Cranelift to implicitly spill multi-value returns via a hidden
-<a href=#248 id=248 data-nosnippet>248</a>        // StructReturn argument when register results are exhausted.
-<a href=#249 id=249 data-nosnippet>249</a>        </span>flags
-<a href=#250 id=250 data-nosnippet>250</a>            .enable(<span class="string">"enable_multi_ret_implicit_sret"</span>)
-<a href=#251 id=251 data-nosnippet>251</a>            .expect(<span class="string">"should be a valid flag"</span>);
-<a href=#252 id=252 data-nosnippet>252</a>
-<a href=#253 id=253 data-nosnippet>253</a>        <span class="comment">// Invert cranelift's default-on verification to instead default off.
-<a href=#254 id=254 data-nosnippet>254</a>        </span>flags
-<a href=#255 id=255 data-nosnippet>255</a>            .set(<span class="string">"enable_verifier"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.enable_verifier.to_string())
-<a href=#256 id=256 data-nosnippet>256</a>            .expect(<span class="string">"should be valid flag"</span>);
-<a href=#257 id=257 data-nosnippet>257</a>
-<a href=#258 id=258 data-nosnippet>258</a>        flags
-<a href=#259 id=259 data-nosnippet>259</a>            .set(
-<a href=#260 id=260 data-nosnippet>260</a>                <span class="string">"opt_level"</span>,
-<a href=#261 id=261 data-nosnippet>261</a>                <span class="kw">match </span><span class="self">self</span>.opt_level {
-<a href=#262 id=262 data-nosnippet>262</a>                    CraneliftOptLevel::None =&gt; <span class="string">"none"</span>,
-<a href=#263 id=263 data-nosnippet>263</a>                    CraneliftOptLevel::Speed =&gt; <span class="string">"speed"</span>,
-<a href=#264 id=264 data-nosnippet>264</a>                    CraneliftOptLevel::SpeedAndSize =&gt; <span class="string">"speed_and_size"</span>,
-<a href=#265 id=265 data-nosnippet>265</a>                },
-<a href=#266 id=266 data-nosnippet>266</a>            )
-<a href=#267 id=267 data-nosnippet>267</a>            .expect(<span class="string">"should be valid flag"</span>);
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>        flags
-<a href=#270 id=270 data-nosnippet>270</a>            .set(
-<a href=#271 id=271 data-nosnippet>271</a>                <span class="string">"enable_nan_canonicalization"</span>,
-<a href=#272 id=272 data-nosnippet>272</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.enable_nan_canonicalization.to_string(),
-<a href=#273 id=273 data-nosnippet>273</a>            )
-<a href=#274 id=274 data-nosnippet>274</a>            .expect(<span class="string">"should be valid flag"</span>);
-<a href=#275 id=275 data-nosnippet>275</a>
-<a href=#276 id=276 data-nosnippet>276</a>        <span class="kw">if </span><span class="macro">matches!</span>(target.triple().vendor, Vendor::Apple) {
-<a href=#277 id=277 data-nosnippet>277</a>            flags
-<a href=#278 id=278 data-nosnippet>278</a>                .enable(<span class="string">"enable_compact_unwind_abi"</span>)
-<a href=#279 id=279 data-nosnippet>279</a>                .expect(<span class="string">"should be valid flag"</span>);
-<a href=#280 id=280 data-nosnippet>280</a>        }
-<a href=#281 id=281 data-nosnippet>281</a>
-<a href=#282 id=282 data-nosnippet>282</a>        settings::Flags::new(flags)
-<a href=#283 id=283 data-nosnippet>283</a>    }
-<a href=#284 id=284 data-nosnippet>284</a>
-<a href=#285 id=285 data-nosnippet>285</a>    <span class="doccomment">/// Callbacks that will triggered in the different compilation
-<a href=#286 id=286 data-nosnippet>286</a>    /// phases in Cranelift.
-<a href=#287 id=287 data-nosnippet>287</a>    </span><span class="kw">pub fn </span>callbacks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, callbacks: <span class="prelude-ty">Option</span>&lt;CraneliftCallbacks&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-<a href=#288 id=288 data-nosnippet>288</a>        <span class="self">self</span>.callbacks = callbacks;
-<a href=#289 id=289 data-nosnippet>289</a>        <span class="self">self
-<a href=#290 id=290 data-nosnippet>290</a>    </span>}
-<a href=#291 id=291 data-nosnippet>291</a>}
-<a href=#292 id=292 data-nosnippet>292</a>
-<a href=#293 id=293 data-nosnippet>293</a><span class="kw">impl </span>CompilerConfig <span class="kw">for </span>Cranelift {
-<a href=#294 id=294 data-nosnippet>294</a>    <span class="kw">fn </span>enable_pic(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#295 id=295 data-nosnippet>295</a>        <span class="self">self</span>.enable_pic = <span class="bool-val">true</span>;
-<a href=#296 id=296 data-nosnippet>296</a>    }
-<a href=#297 id=297 data-nosnippet>297</a>
-<a href=#298 id=298 data-nosnippet>298</a>    <span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#299 id=299 data-nosnippet>299</a>        <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
-<a href=#300 id=300 data-nosnippet>300</a>    }
-<a href=#301 id=301 data-nosnippet>301</a>
-<a href=#302 id=302 data-nosnippet>302</a>    <span class="kw">fn </span>enable_perfmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#303 id=303 data-nosnippet>303</a>        <span class="self">self</span>.enable_perfmap = <span class="bool-val">true</span>;
-<a href=#304 id=304 data-nosnippet>304</a>    }
-<a href=#305 id=305 data-nosnippet>305</a>
-<a href=#306 id=306 data-nosnippet>306</a>    <span class="kw">fn </span>enable_experimental_unaligned_memory_accesses(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#307 id=307 data-nosnippet>307</a>        <span class="self">self</span>.allow_experimental_unaligned_memory_accesses = <span class="bool-val">true</span>;
-<a href=#308 id=308 data-nosnippet>308</a>    }
-<a href=#309 id=309 data-nosnippet>309</a>
-<a href=#310 id=310 data-nosnippet>310</a>    <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {
-<a href=#311 id=311 data-nosnippet>311</a>        <span class="self">self</span>.enable_nan_canonicalization = enable;
-<a href=#312 id=312 data-nosnippet>312</a>    }
-<a href=#313 id=313 data-nosnippet>313</a>
-<a href=#314 id=314 data-nosnippet>314</a>    <span class="doccomment">/// Transform it into the compiler
-<a href=#315 id=315 data-nosnippet>315</a>    </span><span class="kw">fn </span>compiler(<span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Compiler&gt; {
-<a href=#316 id=316 data-nosnippet>316</a>        Box::new(CraneliftCompiler::new(<span class="kw-2">*</span><span class="self">self</span>))
-<a href=#317 id=317 data-nosnippet>317</a>    }
-<a href=#318 id=318 data-nosnippet>318</a>
-<a href=#319 id=319 data-nosnippet>319</a>    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.
-<a href=#320 id=320 data-nosnippet>320</a>    </span><span class="kw">fn </span>push_middleware(<span class="kw-2">&amp;mut </span><span class="self">self</span>, middleware: Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;) {
-<a href=#321 id=321 data-nosnippet>321</a>        <span class="self">self</span>.middlewares.push(middleware);
-<a href=#322 id=322 data-nosnippet>322</a>    }
-<a href=#323 id=323 data-nosnippet>323</a>
-<a href=#324 id=324 data-nosnippet>324</a>    <span class="kw">fn </span>supported_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; wasmer_types::Features {
-<a href=#325 id=325 data-nosnippet>325</a>        <span class="kw">let </span><span class="kw-2">mut </span>feats = Features::default();
-<a href=#326 id=326 data-nosnippet>326</a>
-<a href=#327 id=327 data-nosnippet>327</a>        <span class="kw">if </span><span class="macro">matches!</span>(
-<a href=#328 id=328 data-nosnippet>328</a>            target.triple().operating_system,
-<a href=#329 id=329 data-nosnippet>329</a>            OperatingSystem::Linux | OperatingSystem::Darwin(<span class="kw">_</span>)
-<a href=#330 id=330 data-nosnippet>330</a>        ) {
-<a href=#331 id=331 data-nosnippet>331</a>            feats.exceptions(<span class="bool-val">true</span>);
-<a href=#332 id=332 data-nosnippet>332</a>        }
-<a href=#333 id=333 data-nosnippet>333</a>        feats.exceptions(<span class="bool-val">true</span>);
-<a href=#334 id=334 data-nosnippet>334</a>        feats.relaxed_simd(<span class="bool-val">true</span>);
-<a href=#335 id=335 data-nosnippet>335</a>        feats.wide_arithmetic(<span class="bool-val">true</span>);
-<a href=#336 id=336 data-nosnippet>336</a>        feats
-<a href=#337 id=337 data-nosnippet>337</a>    }
-<a href=#338 id=338 data-nosnippet>338</a>}
-<a href=#339 id=339 data-nosnippet>339</a>
-<a href=#340 id=340 data-nosnippet>340</a><span class="kw">impl </span>Default <span class="kw">for </span>Cranelift {
-<a href=#341 id=341 data-nosnippet>341</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#342 id=342 data-nosnippet>342</a>        <span class="self">Self</span>::new()
-<a href=#343 id=343 data-nosnippet>343</a>    }
-<a href=#344 id=344 data-nosnippet>344</a>}
-<a href=#345 id=345 data-nosnippet>345</a>
-<a href=#346 id=346 data-nosnippet>346</a><span class="kw">impl </span>From&lt;Cranelift&gt; <span class="kw">for </span>Engine {
-<a href=#347 id=347 data-nosnippet>347</a>    <span class="kw">fn </span>from(config: Cranelift) -&gt; <span class="self">Self </span>{
-<a href=#348 id=348 data-nosnippet>348</a>        EngineBuilder::new(config).engine()
-<a href=#349 id=349 data-nosnippet>349</a>    }
-<a href=#350 id=350 data-nosnippet>350</a>}
+<a href=#247 id=247 data-nosnippet>247</a>        <span class="kw">if </span><span class="macro">matches!</span>(target.triple().operating_system, OperatingSystem::Windows) {
+<a href=#248 id=248 data-nosnippet>248</a>            <span class="comment">// For macOS and Linux we rely on the precise `ReturnAbi` calling conventions.
+<a href=#249 id=249 data-nosnippet>249</a>            </span>flags
+<a href=#250 id=250 data-nosnippet>250</a>                .enable(<span class="string">"enable_multi_ret_implicit_sret"</span>)
+<a href=#251 id=251 data-nosnippet>251</a>                .expect(<span class="string">"should be a valid flag"</span>);
+<a href=#252 id=252 data-nosnippet>252</a>        }
+<a href=#253 id=253 data-nosnippet>253</a>
+<a href=#254 id=254 data-nosnippet>254</a>        <span class="comment">// Invert cranelift's default-on verification to instead default off.
+<a href=#255 id=255 data-nosnippet>255</a>        </span>flags
+<a href=#256 id=256 data-nosnippet>256</a>            .set(<span class="string">"enable_verifier"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.enable_verifier.to_string())
+<a href=#257 id=257 data-nosnippet>257</a>            .expect(<span class="string">"should be valid flag"</span>);
+<a href=#258 id=258 data-nosnippet>258</a>
+<a href=#259 id=259 data-nosnippet>259</a>        flags
+<a href=#260 id=260 data-nosnippet>260</a>            .set(
+<a href=#261 id=261 data-nosnippet>261</a>                <span class="string">"opt_level"</span>,
+<a href=#262 id=262 data-nosnippet>262</a>                <span class="kw">match </span><span class="self">self</span>.opt_level {
+<a href=#263 id=263 data-nosnippet>263</a>                    CraneliftOptLevel::None =&gt; <span class="string">"none"</span>,
+<a href=#264 id=264 data-nosnippet>264</a>                    CraneliftOptLevel::Speed =&gt; <span class="string">"speed"</span>,
+<a href=#265 id=265 data-nosnippet>265</a>                    CraneliftOptLevel::SpeedAndSize =&gt; <span class="string">"speed_and_size"</span>,
+<a href=#266 id=266 data-nosnippet>266</a>                },
+<a href=#267 id=267 data-nosnippet>267</a>            )
+<a href=#268 id=268 data-nosnippet>268</a>            .expect(<span class="string">"should be valid flag"</span>);
+<a href=#269 id=269 data-nosnippet>269</a>
+<a href=#270 id=270 data-nosnippet>270</a>        flags
+<a href=#271 id=271 data-nosnippet>271</a>            .set(
+<a href=#272 id=272 data-nosnippet>272</a>                <span class="string">"enable_nan_canonicalization"</span>,
+<a href=#273 id=273 data-nosnippet>273</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.enable_nan_canonicalization.to_string(),
+<a href=#274 id=274 data-nosnippet>274</a>            )
+<a href=#275 id=275 data-nosnippet>275</a>            .expect(<span class="string">"should be valid flag"</span>);
+<a href=#276 id=276 data-nosnippet>276</a>
+<a href=#277 id=277 data-nosnippet>277</a>        <span class="kw">if </span><span class="macro">matches!</span>(target.triple().vendor, Vendor::Apple) {
+<a href=#278 id=278 data-nosnippet>278</a>            flags
+<a href=#279 id=279 data-nosnippet>279</a>                .enable(<span class="string">"enable_compact_unwind_abi"</span>)
+<a href=#280 id=280 data-nosnippet>280</a>                .expect(<span class="string">"should be valid flag"</span>);
+<a href=#281 id=281 data-nosnippet>281</a>        }
+<a href=#282 id=282 data-nosnippet>282</a>
+<a href=#283 id=283 data-nosnippet>283</a>        settings::Flags::new(flags)
+<a href=#284 id=284 data-nosnippet>284</a>    }
+<a href=#285 id=285 data-nosnippet>285</a>
+<a href=#286 id=286 data-nosnippet>286</a>    <span class="doccomment">/// Callbacks that will triggered in the different compilation
+<a href=#287 id=287 data-nosnippet>287</a>    /// phases in Cranelift.
+<a href=#288 id=288 data-nosnippet>288</a>    </span><span class="kw">pub fn </span>callbacks(<span class="kw-2">&amp;mut </span><span class="self">self</span>, callbacks: <span class="prelude-ty">Option</span>&lt;CraneliftCallbacks&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+<a href=#289 id=289 data-nosnippet>289</a>        <span class="self">self</span>.callbacks = callbacks;
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="self">self
+<a href=#291 id=291 data-nosnippet>291</a>    </span>}
+<a href=#292 id=292 data-nosnippet>292</a>}
+<a href=#293 id=293 data-nosnippet>293</a>
+<a href=#294 id=294 data-nosnippet>294</a><span class="kw">impl </span>CompilerConfig <span class="kw">for </span>Cranelift {
+<a href=#295 id=295 data-nosnippet>295</a>    <span class="kw">fn </span>enable_pic(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#296 id=296 data-nosnippet>296</a>        <span class="self">self</span>.enable_pic = <span class="bool-val">true</span>;
+<a href=#297 id=297 data-nosnippet>297</a>    }
+<a href=#298 id=298 data-nosnippet>298</a>
+<a href=#299 id=299 data-nosnippet>299</a>    <span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#300 id=300 data-nosnippet>300</a>        <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
+<a href=#301 id=301 data-nosnippet>301</a>    }
+<a href=#302 id=302 data-nosnippet>302</a>
+<a href=#303 id=303 data-nosnippet>303</a>    <span class="kw">fn </span>enable_perfmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#304 id=304 data-nosnippet>304</a>        <span class="self">self</span>.enable_perfmap = <span class="bool-val">true</span>;
+<a href=#305 id=305 data-nosnippet>305</a>    }
+<a href=#306 id=306 data-nosnippet>306</a>
+<a href=#307 id=307 data-nosnippet>307</a>    <span class="kw">fn </span>enable_experimental_unaligned_memory_accesses(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#308 id=308 data-nosnippet>308</a>        <span class="self">self</span>.allow_experimental_unaligned_memory_accesses = <span class="bool-val">true</span>;
+<a href=#309 id=309 data-nosnippet>309</a>    }
+<a href=#310 id=310 data-nosnippet>310</a>
+<a href=#311 id=311 data-nosnippet>311</a>    <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {
+<a href=#312 id=312 data-nosnippet>312</a>        <span class="self">self</span>.enable_nan_canonicalization = enable;
+<a href=#313 id=313 data-nosnippet>313</a>    }
+<a href=#314 id=314 data-nosnippet>314</a>
+<a href=#315 id=315 data-nosnippet>315</a>    <span class="doccomment">/// Transform it into the compiler
+<a href=#316 id=316 data-nosnippet>316</a>    </span><span class="kw">fn </span>compiler(<span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Compiler&gt; {
+<a href=#317 id=317 data-nosnippet>317</a>        Box::new(CraneliftCompiler::new(<span class="kw-2">*</span><span class="self">self</span>))
+<a href=#318 id=318 data-nosnippet>318</a>    }
+<a href=#319 id=319 data-nosnippet>319</a>
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.
+<a href=#321 id=321 data-nosnippet>321</a>    </span><span class="kw">fn </span>push_middleware(<span class="kw-2">&amp;mut </span><span class="self">self</span>, middleware: Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;) {
+<a href=#322 id=322 data-nosnippet>322</a>        <span class="self">self</span>.middlewares.push(middleware);
+<a href=#323 id=323 data-nosnippet>323</a>    }
+<a href=#324 id=324 data-nosnippet>324</a>
+<a href=#325 id=325 data-nosnippet>325</a>    <span class="kw">fn </span>supported_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; wasmer_types::Features {
+<a href=#326 id=326 data-nosnippet>326</a>        <span class="kw">let </span><span class="kw-2">mut </span>feats = Features::default();
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a>        <span class="kw">if </span><span class="macro">matches!</span>(
+<a href=#329 id=329 data-nosnippet>329</a>            target.triple().operating_system,
+<a href=#330 id=330 data-nosnippet>330</a>            OperatingSystem::Linux | OperatingSystem::Darwin(<span class="kw">_</span>)
+<a href=#331 id=331 data-nosnippet>331</a>        ) {
+<a href=#332 id=332 data-nosnippet>332</a>            feats.exceptions(<span class="bool-val">true</span>);
+<a href=#333 id=333 data-nosnippet>333</a>        }
+<a href=#334 id=334 data-nosnippet>334</a>        feats.exceptions(<span class="bool-val">true</span>);
+<a href=#335 id=335 data-nosnippet>335</a>        feats.relaxed_simd(<span class="bool-val">true</span>);
+<a href=#336 id=336 data-nosnippet>336</a>        feats.wide_arithmetic(<span class="bool-val">true</span>);
+<a href=#337 id=337 data-nosnippet>337</a>        feats
+<a href=#338 id=338 data-nosnippet>338</a>    }
+<a href=#339 id=339 data-nosnippet>339</a>}
+<a href=#340 id=340 data-nosnippet>340</a>
+<a href=#341 id=341 data-nosnippet>341</a><span class="kw">impl </span>Default <span class="kw">for </span>Cranelift {
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#343 id=343 data-nosnippet>343</a>        <span class="self">Self</span>::new()
+<a href=#344 id=344 data-nosnippet>344</a>    }
+<a href=#345 id=345 data-nosnippet>345</a>}
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a><span class="kw">impl </span>From&lt;Cranelift&gt; <span class="kw">for </span>Engine {
+<a href=#348 id=348 data-nosnippet>348</a>    <span class="kw">fn </span>from(config: Cranelift) -&gt; <span class="self">Self </span>{
+<a href=#349 id=349 data-nosnippet>349</a>        EngineBuilder::new(config).engine()
+<a href=#350 id=350 data-nosnippet>350</a>    }
+<a href=#351 id=351 data-nosnippet>351</a>}
 </code></pre></div></section></main></body></html>

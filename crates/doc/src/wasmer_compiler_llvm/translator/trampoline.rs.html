@@ -2,7 +2,7 @@
 <a href=#2 id=2 data-nosnippet>2</a></span><span class="attr">#![allow(unused)]
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a></span><span class="kw">use </span>crate::{
-<a href=#5 id=5 data-nosnippet>5</a>    abi::{Abi, get_abi},
+<a href=#5 id=5 data-nosnippet>5</a>    abi::{LLVMAbi, get_abi},
 <a href=#6 id=6 data-nosnippet>6</a>    config::LLVM,
 <a href=#7 id=7 data-nosnippet>7</a>    error::{err, err_nt},
 <a href=#8 id=8 data-nosnippet>8</a>    object_file::{RkyvCompiledFunction, load_object_file},
@@ -39,7 +39,7 @@
 <a href=#39 id=39 data-nosnippet>39</a>    ctx: Context,
 <a href=#40 id=40 data-nosnippet>40</a>    target_machine: TargetMachine,
 <a href=#41 id=41 data-nosnippet>41</a>    target_triple: Triple,
-<a href=#42 id=42 data-nosnippet>42</a>    abi: Box&lt;<span class="kw">dyn </span>Abi&gt;,
+<a href=#42 id=42 data-nosnippet>42</a>    abi: LLVMAbi,
 <a href=#43 id=43 data-nosnippet>43</a>    binary_fmt: BinaryFormat,
 <a href=#44 id=44 data-nosnippet>44</a>    func_section: String,
 <a href=#45 id=45 data-nosnippet>45</a>}
@@ -60,7 +60,7 @@
 <a href=#60 id=60 data-nosnippet>60</a>        target_triple: Triple,
 <a href=#61 id=61 data-nosnippet>61</a>        binary_fmt: BinaryFormat,
 <a href=#62 id=62 data-nosnippet>62</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, CompileError&gt; {
-<a href=#63 id=63 data-nosnippet>63</a>        <span class="kw">let </span>abi = get_abi(<span class="kw-2">&amp;</span>target_machine);
+<a href=#63 id=63 data-nosnippet>63</a>        <span class="kw">let </span>abi = get_abi(<span class="kw-2">&amp;</span>target_machine)<span class="question-mark">?</span>;
 <a href=#64 id=64 data-nosnippet>64</a>        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
 <a href=#65 id=65 data-nosnippet>65</a>            ctx: Context::create(),
 <a href=#66 id=66 data-nosnippet>66</a>            target_machine,
@@ -751,13 +751,14 @@
 <a href=#751 id=751 data-nosnippet>751</a>                        intrinsics,
 <a href=#752 id=752 data-nosnippet>752</a>                        <span class="kw-2">&amp;</span>builder,
 <a href=#753 id=753 data-nosnippet>753</a>                        results.as_slice(),
-<a href=#754 id=754 data-nosnippet>754</a>                        <span class="kw-2">&amp;</span>trampoline_func.get_type(),
-<a href=#755 id=755 data-nosnippet>755</a>                    )<span class="question-mark">?</span>))
-<a href=#756 id=756 data-nosnippet>756</a>                );
-<a href=#757 id=757 data-nosnippet>757</a>            }
-<a href=#758 id=758 data-nosnippet>758</a>        }
-<a href=#759 id=759 data-nosnippet>759</a>
-<a href=#760 id=760 data-nosnippet>760</a>        <span class="prelude-val">Ok</span>(())
-<a href=#761 id=761 data-nosnippet>761</a>    }
-<a href=#762 id=762 data-nosnippet>762</a>}
+<a href=#754 id=754 data-nosnippet>754</a>                        func_sig,
+<a href=#755 id=755 data-nosnippet>755</a>                        <span class="kw-2">&amp;</span>trampoline_func.get_type(),
+<a href=#756 id=756 data-nosnippet>756</a>                    )<span class="question-mark">?</span>))
+<a href=#757 id=757 data-nosnippet>757</a>                );
+<a href=#758 id=758 data-nosnippet>758</a>            }
+<a href=#759 id=759 data-nosnippet>759</a>        }
+<a href=#760 id=760 data-nosnippet>760</a>
+<a href=#761 id=761 data-nosnippet>761</a>        <span class="prelude-val">Ok</span>(())
+<a href=#762 id=762 data-nosnippet>762</a>    }
+<a href=#763 id=763 data-nosnippet>763</a>}
 </code></pre></div></section></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["allocate_return_area","bitcast","classify_returns","load_sret","natural_type","pack_pair","pack_register_returns","pack_slot","pair_type","return_area_layout","signature_to_ir","slot_type","store_sret","type_size","unpack_register_returns","unpack_slot"],"struct":["ReturnAreaLayout"]};

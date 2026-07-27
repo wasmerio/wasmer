@@ -4,8 +4,8 @@
 <a href=#4 id=4 data-nosnippet>4</a></span><span class="doccomment">//! A trampoline generator for calling dynamic host functions from Wasm.
 <a href=#5 id=5 data-nosnippet>5</a>
 <a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">use </span>crate::{
-<a href=#7 id=7 data-nosnippet>7</a>    CraneliftCallbacks,
-<a href=#8 id=8 data-nosnippet>8</a>    translator::{compiled_function_unwind_info, signature_to_cranelift_ir},
+<a href=#7 id=7 data-nosnippet>7</a>    CraneliftCallbacks, abi,
+<a href=#8 id=8 data-nosnippet>8</a>    translator::{compiled_function_unwind_info, signature_to_cranelift_ir, type_to_irtype},
 <a href=#9 id=9 data-nosnippet>9</a>};
 <a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>cranelift_codegen::{
 <a href=#11 id=11 data-nosnippet>11</a>    Context,
@@ -32,7 +32,7 @@
 <a href=#32 id=32 data-nosnippet>32</a>) -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
 <a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">let </span>pointer_type = isa.pointer_type();
 <a href=#34 id=34 data-nosnippet>34</a>    <span class="kw">let </span>frontend_config = isa.frontend_config();
-<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">let </span>signature = signature_to_cranelift_ir(func_type, frontend_config);
+<a href=#35 id=35 data-nosnippet>35</a>    <span class="kw">let </span>signature = signature_to_cranelift_ir(func_type, frontend_config, arch);
 <a href=#36 id=36 data-nosnippet>36</a>    <span class="kw">let </span><span class="kw-2">mut </span>stub_sig = ir::Signature::new(frontend_config.default_call_conv);
 <a href=#37 id=37 data-nosnippet>37</a>    <span class="comment">// Add the caller `vmctx` parameter.
 <a href=#38 id=38 data-nosnippet>38</a>    </span>stub_sig.params.push(ir::AbiParam::special(
@@ -46,7 +46,7 @@
 <a href=#46 id=46 data-nosnippet>46</a>    <span class="comment">// Compute the size of the values vector. The vmctx and caller vmctx are passed separately.
 <a href=#47 id=47 data-nosnippet>47</a>    </span><span class="kw">let </span>value_size = mem::size_of::&lt;u128&gt;();
 <a href=#48 id=48 data-nosnippet>48</a>    <span class="kw">let </span>values_vec_len =
-<a href=#49 id=49 data-nosnippet>49</a>        (value_size * cmp::max(signature.params.len() - <span class="number">1</span>, signature.returns.len())) <span class="kw">as </span>u32;
+<a href=#49 id=49 data-nosnippet>49</a>        (value_size * cmp::max(func_type.params().len(), func_type.results().len())) <span class="kw">as </span>u32;
 <a href=#50 id=50 data-nosnippet>50</a>
 <a href=#51 id=51 data-nosnippet>51</a>    <span class="kw">let </span><span class="kw-2">mut </span>context = Context::new();
 <a href=#52 id=52 data-nosnippet>52</a>    context.func = Function::with_name_signature(UserFuncName::user(<span class="number">0</span>, <span class="number">0</span>), signature.clone());
@@ -67,75 +67,101 @@
 <a href=#67 id=67 data-nosnippet>67</a>
 <a href=#68 id=68 data-nosnippet>68</a>        <span class="kw">let </span>values_vec_ptr_val = builder.ins().stack_addr(pointer_type, ss, <span class="number">0</span>);
 <a href=#69 id=69 data-nosnippet>69</a>        <span class="kw">let </span>mflags = ir::MemFlagsData::trusted();
-<a href=#70 id=70 data-nosnippet>70</a>        <span class="comment">// We only get the non-vmctx arguments
-<a href=#71 id=71 data-nosnippet>71</a>        </span><span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..signature.params.len() {
-<a href=#72 id=72 data-nosnippet>72</a>            <span class="kw">let </span>val = builder.func.dfg.block_params(block0)[i];
-<a href=#73 id=73 data-nosnippet>73</a>            builder.ins().store(
-<a href=#74 id=74 data-nosnippet>74</a>                mflags,
-<a href=#75 id=75 data-nosnippet>75</a>                val,
-<a href=#76 id=76 data-nosnippet>76</a>                values_vec_ptr_val,
-<a href=#77 id=77 data-nosnippet>77</a>                ((i - <span class="number">1</span>) * value_size) <span class="kw">as </span>i32,
-<a href=#78 id=78 data-nosnippet>78</a>            );
-<a href=#79 id=79 data-nosnippet>79</a>        }
-<a href=#80 id=80 data-nosnippet>80</a>
-<a href=#81 id=81 data-nosnippet>81</a>        <span class="kw">let </span>block_params = builder.func.dfg.block_params(block0);
-<a href=#82 id=82 data-nosnippet>82</a>        <span class="kw">let </span>vmctx_ptr_val = block_params[<span class="number">0</span>];
-<a href=#83 id=83 data-nosnippet>83</a>        <span class="kw">let </span>callee_args = <span class="macro">vec!</span>[vmctx_ptr_val, values_vec_ptr_val];
-<a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a>        <span class="kw">let </span>new_sig = builder.import_signature(stub_sig);
-<a href=#86 id=86 data-nosnippet>86</a>
-<a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">let </span>mem_flags = ir::MemFlagsData::trusted();
-<a href=#88 id=88 data-nosnippet>88</a>        <span class="kw">let </span>callee_value = builder.ins().load(
-<a href=#89 id=89 data-nosnippet>89</a>            pointer_type,
-<a href=#90 id=90 data-nosnippet>90</a>            mem_flags,
-<a href=#91 id=91 data-nosnippet>91</a>            vmctx_ptr_val,
-<a href=#92 id=92 data-nosnippet>92</a>            offsets.vmdynamicfunction_import_context_address() <span class="kw">as </span>i32,
-<a href=#93 id=93 data-nosnippet>93</a>        );
+<a href=#70 id=70 data-nosnippet>70</a>        <span class="comment">// Copy only normal WebAssembly arguments; special ABI arguments are separate.
+<a href=#71 id=71 data-nosnippet>71</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>wasm_param = <span class="number">0usize</span>;
+<a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">let </span><span class="kw-2">mut </span>vmctx_ptr_val = <span class="prelude-val">None</span>;
+<a href=#73 id=73 data-nosnippet>73</a>        <span class="kw">let </span><span class="kw-2">mut </span>sret_ptr = <span class="prelude-val">None</span>;
+<a href=#74 id=74 data-nosnippet>74</a>        <span class="kw">for </span>(i, param) <span class="kw">in </span>signature.params.iter().enumerate() {
+<a href=#75 id=75 data-nosnippet>75</a>            <span class="kw">let </span>val = builder.func.dfg.block_params(block0)[i];
+<a href=#76 id=76 data-nosnippet>76</a>            <span class="kw">match </span>param.purpose {
+<a href=#77 id=77 data-nosnippet>77</a>                ir::ArgumentPurpose::Normal =&gt; {
+<a href=#78 id=78 data-nosnippet>78</a>                    builder.ins().store(
+<a href=#79 id=79 data-nosnippet>79</a>                        mflags,
+<a href=#80 id=80 data-nosnippet>80</a>                        val,
+<a href=#81 id=81 data-nosnippet>81</a>                        values_vec_ptr_val,
+<a href=#82 id=82 data-nosnippet>82</a>                        (wasm_param * value_size) <span class="kw">as </span>i32,
+<a href=#83 id=83 data-nosnippet>83</a>                    );
+<a href=#84 id=84 data-nosnippet>84</a>                    wasm_param += <span class="number">1</span>;
+<a href=#85 id=85 data-nosnippet>85</a>                }
+<a href=#86 id=86 data-nosnippet>86</a>                ir::ArgumentPurpose::VMContext =&gt; vmctx_ptr_val = <span class="prelude-val">Some</span>(val),
+<a href=#87 id=87 data-nosnippet>87</a>                ir::ArgumentPurpose::StructReturn =&gt; sret_ptr = <span class="prelude-val">Some</span>(val),
+<a href=#88 id=88 data-nosnippet>88</a>                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"unexpected WebAssembly ABI parameter"</span>),
+<a href=#89 id=89 data-nosnippet>89</a>            }
+<a href=#90 id=90 data-nosnippet>90</a>        }
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a>        <span class="kw">let </span>vmctx_ptr_val = vmctx_ptr_val.expect(<span class="string">"WebAssembly signature has vmctx"</span>);
+<a href=#93 id=93 data-nosnippet>93</a>        <span class="kw">let </span>callee_args = <span class="macro">vec!</span>[vmctx_ptr_val, values_vec_ptr_val];
 <a href=#94 id=94 data-nosnippet>94</a>
-<a href=#95 id=95 data-nosnippet>95</a>        builder
-<a href=#96 id=96 data-nosnippet>96</a>            .ins()
-<a href=#97 id=97 data-nosnippet>97</a>            .call_indirect(new_sig, callee_value, <span class="kw-2">&amp;</span>callee_args);
-<a href=#98 id=98 data-nosnippet>98</a>
-<a href=#99 id=99 data-nosnippet>99</a>        <span class="kw">let </span>mflags = ir::MemFlagsData::trusted();
-<a href=#100 id=100 data-nosnippet>100</a>        <span class="kw">let </span><span class="kw-2">mut </span>results = Vec::new();
-<a href=#101 id=101 data-nosnippet>101</a>        <span class="kw">for </span>(i, r) <span class="kw">in </span>signature.returns.iter().enumerate() {
-<a href=#102 id=102 data-nosnippet>102</a>            <span class="kw">let </span>load = builder.ins().load(
-<a href=#103 id=103 data-nosnippet>103</a>                r.value_type,
-<a href=#104 id=104 data-nosnippet>104</a>                mflags,
-<a href=#105 id=105 data-nosnippet>105</a>                values_vec_ptr_val,
-<a href=#106 id=106 data-nosnippet>106</a>                (i * value_size) <span class="kw">as </span>i32,
-<a href=#107 id=107 data-nosnippet>107</a>            );
-<a href=#108 id=108 data-nosnippet>108</a>            results.push(load);
-<a href=#109 id=109 data-nosnippet>109</a>        }
-<a href=#110 id=110 data-nosnippet>110</a>        builder.ins().return_(<span class="kw-2">&amp;</span>results);
-<a href=#111 id=111 data-nosnippet>111</a>        builder.finalize(frontend_config)
-<a href=#112 id=112 data-nosnippet>112</a>    }
-<a href=#113 id=113 data-nosnippet>113</a>
-<a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = callbacks.as_ref() {
-<a href=#115 id=115 data-nosnippet>115</a>        callbacks.preopt_ir(
-<a href=#116 id=116 data-nosnippet>116</a>            kind,
-<a href=#117 id=117 data-nosnippet>117</a>            module_hash,
-<a href=#118 id=118 data-nosnippet>118</a>            context.func.display().to_string().as_bytes(),
-<a href=#119 id=119 data-nosnippet>119</a>        );
-<a href=#120 id=120 data-nosnippet>120</a>    }
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>    <span class="kw">let </span><span class="kw-2">mut </span>code_buf = Vec::new();
-<a href=#123 id=123 data-nosnippet>123</a>    <span class="kw">let </span><span class="kw-2">mut </span>ctrl_plane = Default::default();
-<a href=#124 id=124 data-nosnippet>124</a>    <span class="kw">let </span>compiled = context
-<a href=#125 id=125 data-nosnippet>125</a>        .compile(isa, <span class="kw-2">&amp;mut </span>ctrl_plane)
-<a href=#126 id=126 data-nosnippet>126</a>        .map_err(|error| CompileError::Codegen(error.inner.to_string()))<span class="question-mark">?</span>;
-<a href=#127 id=127 data-nosnippet>127</a>    code_buf.extend_from_slice(compiled.code_buffer());
-<a href=#128 id=128 data-nosnippet>128</a>
-<a href=#129 id=129 data-nosnippet>129</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = callbacks.as_ref() {
-<a href=#130 id=130 data-nosnippet>130</a>        callbacks.obj_memory_buffer(kind, module_hash, <span class="kw-2">&amp;</span>code_buf);
-<a href=#131 id=131 data-nosnippet>131</a>        callbacks.asm_memory_buffer(kind, module_hash, arch, <span class="kw-2">&amp;</span>code_buf)<span class="question-mark">?</span>;
-<a href=#132 id=132 data-nosnippet>132</a>    }
-<a href=#133 id=133 data-nosnippet>133</a>
-<a href=#134 id=134 data-nosnippet>134</a>    <span class="kw">let </span>unwind_info = compiled_function_unwind_info(isa, <span class="kw-2">&amp;</span>context)<span class="question-mark">?</span>.maybe_into_to_windows_unwind();
-<a href=#135 id=135 data-nosnippet>135</a>
-<a href=#136 id=136 data-nosnippet>136</a>    <span class="prelude-val">Ok</span>(FunctionBody {
-<a href=#137 id=137 data-nosnippet>137</a>        body: code_buf,
-<a href=#138 id=138 data-nosnippet>138</a>        unwind_info,
-<a href=#139 id=139 data-nosnippet>139</a>    })
-<a href=#140 id=140 data-nosnippet>140</a>}
+<a href=#95 id=95 data-nosnippet>95</a>        <span class="kw">let </span>new_sig = builder.import_signature(stub_sig);
+<a href=#96 id=96 data-nosnippet>96</a>
+<a href=#97 id=97 data-nosnippet>97</a>        <span class="kw">let </span>mem_flags = ir::MemFlagsData::trusted();
+<a href=#98 id=98 data-nosnippet>98</a>        <span class="kw">let </span>callee_value = builder.ins().load(
+<a href=#99 id=99 data-nosnippet>99</a>            pointer_type,
+<a href=#100 id=100 data-nosnippet>100</a>            mem_flags,
+<a href=#101 id=101 data-nosnippet>101</a>            vmctx_ptr_val,
+<a href=#102 id=102 data-nosnippet>102</a>            offsets.vmdynamicfunction_import_context_address() <span class="kw">as </span>i32,
+<a href=#103 id=103 data-nosnippet>103</a>        );
+<a href=#104 id=104 data-nosnippet>104</a>
+<a href=#105 id=105 data-nosnippet>105</a>        builder
+<a href=#106 id=106 data-nosnippet>106</a>            .ins()
+<a href=#107 id=107 data-nosnippet>107</a>            .call_indirect(new_sig, callee_value, <span class="kw-2">&amp;</span>callee_args);
+<a href=#108 id=108 data-nosnippet>108</a>
+<a href=#109 id=109 data-nosnippet>109</a>        <span class="kw">let </span>mflags = ir::MemFlagsData::trusted();
+<a href=#110 id=110 data-nosnippet>110</a>        <span class="kw">let </span><span class="kw-2">mut </span>results = Vec::new();
+<a href=#111 id=111 data-nosnippet>111</a>        <span class="kw">for </span>(i, <span class="kw-2">&amp;</span>ty) <span class="kw">in </span>func_type.results().iter().enumerate() {
+<a href=#112 id=112 data-nosnippet>112</a>            <span class="kw">let </span>load = builder.ins().load(
+<a href=#113 id=113 data-nosnippet>113</a>                type_to_irtype(ty, frontend_config).unwrap(),
+<a href=#114 id=114 data-nosnippet>114</a>                mflags,
+<a href=#115 id=115 data-nosnippet>115</a>                values_vec_ptr_val,
+<a href=#116 id=116 data-nosnippet>116</a>                (i * value_size) <span class="kw">as </span>i32,
+<a href=#117 id=117 data-nosnippet>117</a>            );
+<a href=#118 id=118 data-nosnippet>118</a>            results.push(load);
+<a href=#119 id=119 data-nosnippet>119</a>        }
+<a href=#120 id=120 data-nosnippet>120</a>        <span class="kw">let </span>return_abi = abi::classify_returns(arch, func_type.results());
+<a href=#121 id=121 data-nosnippet>121</a>        <span class="kw">match </span><span class="kw-2">&amp;</span>return_abi {
+<a href=#122 id=122 data-nosnippet>122</a>            wasmer_compiler::abi::ReturnAbi::Sret(types) =&gt; {
+<a href=#123 id=123 data-nosnippet>123</a>                <span class="kw">let </span>layout = abi::return_area_layout(types);
+<a href=#124 id=124 data-nosnippet>124</a>                abi::store_sret(
+<a href=#125 id=125 data-nosnippet>125</a>                    <span class="kw-2">&amp;mut </span>builder,
+<a href=#126 id=126 data-nosnippet>126</a>                    sret_ptr.expect(<span class="string">"sret signature has return pointer"</span>),
+<a href=#127 id=127 data-nosnippet>127</a>                    <span class="kw-2">&amp;</span>layout,
+<a href=#128 id=128 data-nosnippet>128</a>                    <span class="kw-2">&amp;</span>results,
+<a href=#129 id=129 data-nosnippet>129</a>                );
+<a href=#130 id=130 data-nosnippet>130</a>                builder.ins().return_(<span class="kw-2">&amp;</span>[]);
+<a href=#131 id=131 data-nosnippet>131</a>            }
+<a href=#132 id=132 data-nosnippet>132</a>            <span class="kw">_ </span>=&gt; {
+<a href=#133 id=133 data-nosnippet>133</a>                <span class="kw">let </span>packed = abi::pack_register_returns(<span class="kw-2">&amp;mut </span>builder, <span class="kw-2">&amp;</span>return_abi, <span class="kw-2">&amp;</span>results);
+<a href=#134 id=134 data-nosnippet>134</a>                builder.ins().return_(<span class="kw-2">&amp;</span>packed);
+<a href=#135 id=135 data-nosnippet>135</a>            }
+<a href=#136 id=136 data-nosnippet>136</a>        }
+<a href=#137 id=137 data-nosnippet>137</a>        builder.finalize(frontend_config)
+<a href=#138 id=138 data-nosnippet>138</a>    }
+<a href=#139 id=139 data-nosnippet>139</a>
+<a href=#140 id=140 data-nosnippet>140</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = callbacks.as_ref() {
+<a href=#141 id=141 data-nosnippet>141</a>        callbacks.preopt_ir(
+<a href=#142 id=142 data-nosnippet>142</a>            kind,
+<a href=#143 id=143 data-nosnippet>143</a>            module_hash,
+<a href=#144 id=144 data-nosnippet>144</a>            context.func.display().to_string().as_bytes(),
+<a href=#145 id=145 data-nosnippet>145</a>        );
+<a href=#146 id=146 data-nosnippet>146</a>    }
+<a href=#147 id=147 data-nosnippet>147</a>
+<a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">let </span><span class="kw-2">mut </span>code_buf = Vec::new();
+<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">let </span><span class="kw-2">mut </span>ctrl_plane = Default::default();
+<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">let </span>compiled = context
+<a href=#151 id=151 data-nosnippet>151</a>        .compile(isa, <span class="kw-2">&amp;mut </span>ctrl_plane)
+<a href=#152 id=152 data-nosnippet>152</a>        .map_err(|error| CompileError::Codegen(error.inner.to_string()))<span class="question-mark">?</span>;
+<a href=#153 id=153 data-nosnippet>153</a>    code_buf.extend_from_slice(compiled.code_buffer());
+<a href=#154 id=154 data-nosnippet>154</a>
+<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = callbacks.as_ref() {
+<a href=#156 id=156 data-nosnippet>156</a>        callbacks.obj_memory_buffer(kind, module_hash, <span class="kw-2">&amp;</span>code_buf);
+<a href=#157 id=157 data-nosnippet>157</a>        callbacks.asm_memory_buffer(kind, module_hash, arch, <span class="kw-2">&amp;</span>code_buf)<span class="question-mark">?</span>;
+<a href=#158 id=158 data-nosnippet>158</a>    }
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a>    <span class="kw">let </span>unwind_info = compiled_function_unwind_info(isa, <span class="kw-2">&amp;</span>context)<span class="question-mark">?</span>.maybe_into_to_windows_unwind();
+<a href=#161 id=161 data-nosnippet>161</a>
+<a href=#162 id=162 data-nosnippet>162</a>    <span class="prelude-val">Ok</span>(FunctionBody {
+<a href=#163 id=163 data-nosnippet>163</a>        body: code_buf,
+<a href=#164 id=164 data-nosnippet>164</a>        unwind_info,
+<a href=#165 id=165 data-nosnippet>165</a>    })
+<a href=#166 id=166 data-nosnippet>166</a>}
 </code></pre></div></section></main></body></html>

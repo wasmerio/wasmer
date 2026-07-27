@@ -4,7 +4,7 @@
 <a href=#4 id=4 data-nosnippet>4</a>//!
 <a href=#5 id=5 data-nosnippet>5</a>//! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 <a href=#6 id=6 data-nosnippet>6</a>
-<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">use </span><span class="kw">crate</span>::abi::Abi;
+<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">use </span><span class="kw">crate</span>::abi::LLVMAbi;
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span><span class="kw">crate</span>::error::err;
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>inkwell::values::BasicMetadataValueEnum;
 <a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>inkwell::{
@@ -1455,7 +1455,7 @@
 <a href=#1455 id=1455 data-nosnippet>1455</a>
 <a href=#1456 id=1456 data-nosnippet>1456</a>    wasm_module: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>WasmerCompilerModule,
 <a href=#1457 id=1457 data-nosnippet>1457</a>    cache_builder: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
-<a href=#1458 id=1458 data-nosnippet>1458</a>    abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Abi,
+<a href=#1458 id=1458 data-nosnippet>1458</a>    abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>LLVMAbi,
 <a href=#1459 id=1459 data-nosnippet>1459</a>
 <a href=#1460 id=1460 data-nosnippet>1460</a>    cached_memories: HashMap&lt;MemoryIndex, MemoryCache&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
 <a href=#1461 id=1461 data-nosnippet>1461</a>    cached_tables: HashMap&lt;TableIndex, TableCache&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
@@ -1471,7 +1471,7 @@
 <a href=#1471 id=1471 data-nosnippet>1471</a>        wasm_module: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>WasmerCompilerModule,
 <a href=#1472 id=1472 data-nosnippet>1472</a>        func_value: <span class="kw-2">&amp;</span>FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 <a href=#1473 id=1473 data-nosnippet>1473</a>        cache_builder: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
-<a href=#1474 id=1474 data-nosnippet>1474</a>        abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Abi,
+<a href=#1474 id=1474 data-nosnippet>1474</a>        abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>LLVMAbi,
 <a href=#1475 id=1475 data-nosnippet>1475</a>        pointer_width: u8,
 <a href=#1476 id=1476 data-nosnippet>1476</a>        m0: <span class="prelude-ty">Option</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
 <a href=#1477 id=1477 data-nosnippet>1477</a>    ) -&gt; CtxType&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'a</span>&gt; {
