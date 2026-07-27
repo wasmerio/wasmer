@@ -79,6 +79,7 @@ pub struct FuncTranslator {
     abi: LLVMAbi,
     binary_fmt: BinaryFormat,
     func_section: String,
+    pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
     wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
@@ -91,6 +92,7 @@ impl FuncTranslator {
         target_triple: Triple,
         target_machines: HashMap<OptimizationStyle, TargetMachine>,
         binary_fmt: BinaryFormat,
+        pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
         non_volatile_memory_ops: bool,
         wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
@@ -114,6 +116,7 @@ impl FuncTranslator {
                 }
             },
             binary_fmt,
+            pointer_width,
             cpu_features,
             non_volatile_memory_ops,
             wasm_apply_data_relocs_fn_index,
@@ -170,8 +173,7 @@ impl FuncTranslator {
             .get(wasm_module.functions[func_index])
             .unwrap();
 
-        // TODO: pointer width
-        let offsets = VMOffsets::new(8, wasm_module);
+        let offsets = VMOffsets::new(self.pointer_width, wasm_module);
         let intrinsics = Intrinsics::declare(
             &module,
             &self.ctx,
@@ -395,7 +397,14 @@ impl FuncTranslator {
             state,
             function: func,
             locals: params_locals,
-            ctx: CtxType::new(wasm_module, &func, &cache_builder, &self.abi, m0_param),
+            ctx: CtxType::new(
+                wasm_module,
+                &func,
+                &cache_builder,
+                &self.abi,
+                self.pointer_width,
+                m0_param,
+            ),
             unreachable_depth: 0,
             memory_styles,
             _table_styles,

@@ -288,10 +288,12 @@ impl Compiler for LLVMCompiler {
                         )
                     })
                     .collect();
+                let pointer_width = target.triple().pointer_width().unwrap().bytes();
                 FuncTranslator::new(
                     target.triple().clone(),
                     target_machines,
                     binary_format,
+                    pointer_width,
                     *target.cpu_features(),
                     self.config.enable_non_volatile_memops,
                     module
