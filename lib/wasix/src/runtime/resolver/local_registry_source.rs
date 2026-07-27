@@ -59,7 +59,7 @@ impl LocalRegistrySource {
             .map_err(|error| QueryError::new_other(error, query))?
             .into_iter()
             .filter(|(version, _)| constraint.matches(version))
-            .sorted_by(|(left, _), (right, _)| left.cmp(right))
+            .sorted_by(|(left, _), (right, _)| left.cmp_precedence(right))
             .collect();
 
         if matches.is_empty() {

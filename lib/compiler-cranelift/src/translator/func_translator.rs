@@ -124,7 +124,7 @@ impl FuncTranslator {
             self.allow_unaligned_memory_accesses,
         )?;
 
-        builder.finalize();
+        builder.finalize(environ.target_config());
         Ok(())
     }
 }
