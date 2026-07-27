@@ -116,12 +116,14 @@ build_compilers :=
 
 # If the user didn't disable the Cranelift compiler…
 ifneq ($(ENABLE_CRANELIFT), 0)
+	ifneq ($(IS_WINDOWS), 1)
         # … then maybe the user forced to enable the Cranelift compiler.
         ifeq ($(ENABLE_CRANELIFT), 1)
                 compilers += cranelift
         # … otherwise, we try to check whether Cranelift works on this host.
         else
                 compilers += cranelift
+        endif
         endif
 endif
 
@@ -180,7 +182,7 @@ ifneq ($(ENABLE_SINGLEPASS), 0)
 	ifeq ($(ENABLE_SINGLEPASS), 1)
 		compilers += singlepass
 	# … otherwise, we try to check whether Singlepass works on this host.
-	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD) $(IS_WINDOWS)))
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX) $(IS_FREEBSD)))
 		ifeq ($(IS_AMD64), 1)
 			compilers += singlepass
 		endif
@@ -325,7 +327,15 @@ endif
 
 # virtual-net integration tests in src/tests.rs are gated on the crate's `tokio` feature.
 virtual_net_test_features := --features tokio
+ifeq ($(IS_WINDOWS), 1)
+build_compiler_features = --no-default-features --features v8$(if $(build_wasmer_extra_features_csv),$(comma)$(build_wasmer_extra_features_csv))
+headless_compiler_feature :=
+headless_minimal_compiler_feature :=
+else
 build_compiler_features = --features $(subst $(space),$(comma),$(build_compilers))$(if $(build_wasmer_extra_features_csv),$(comma)$(build_wasmer_extra_features_csv)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+headless_compiler_feature := ,wasmer-api/cranelift
+headless_minimal_compiler_feature := ,singlepass
+endif
 capi_compilers_engines_exclude :=
 
 # Define the compiler Cargo features for the C API. It always excludes
@@ -467,7 +477,7 @@ bench:
 # rpath = false
 build-wasmer-headless-minimal: RUSTFLAGS += -C panic=abort
 build-wasmer-headless-minimal:
-	RUSTFLAGS="${RUSTFLAGS}" cargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features sys,headless-minimal,singlepass --bin wasmer-headless
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features sys,headless-minimal$(headless_minimal_compiler_feature) --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
 	strip target/$(HOST_TARGET)/release/wasmer-headless
 else ifeq ($(IS_WINDOWS), 1)
@@ -564,10 +574,10 @@ build-capi-v8:
 build-capi-headless:
 ifeq ($(CARGO_TARGET_FLAG),)
 	CARGO_TARGET_DIR=target/headless CARGO_PROFILE_RELEASE_LTO=true RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner,wasmer-api/cranelift --locked
+		--no-default-features --features compiler-headless,wasi,webc_runner$(headless_compiler_feature) --locked
 else
 	CARGO_TARGET_DIR=target/headless CARGO_PROFILE_RELEASE_LTO=true RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner,wasmer-api/cranelift --locked
+		--no-default-features --features compiler-headless,wasi,webc_runner$(headless_compiler_feature) --locked
 endif
 
 build-capi-headless-ios:
