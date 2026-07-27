@@ -134,7 +134,7 @@ pub fn make_trampoline_dynamic_function(
                 builder.ins().return_(&packed);
             }
         }
-        builder.finalize()
+        builder.finalize(frontend_config)
     }
 
     if let Some(callbacks) = callbacks.as_ref() {
