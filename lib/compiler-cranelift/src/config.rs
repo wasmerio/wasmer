@@ -244,6 +244,13 @@ impl Cranelift {
             .enable("use_colocated_libcalls")
             .expect("should be a valid flag");
 
+        if matches!(target.triple().operating_system, OperatingSystem::Windows) {
+            // For macOS and Linux we rely on the precise `ReturnAbi` calling conventions.
+            flags
+                .enable("enable_multi_ret_implicit_sret")
+                .expect("should be a valid flag");
+        }
+
         // Invert cranelift's default-on verification to instead default off.
         flags
             .set("enable_verifier", &self.enable_verifier.to_string())
