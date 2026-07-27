@@ -34,7 +34,7 @@ use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
 use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
-    abi::{Abi, get_abi},
+    abi::{LLVMAbi, get_abi},
     config::LLVM,
     error::{err, err_nt},
     object_file::load_object_file,
@@ -76,7 +76,7 @@ pub struct FuncTranslator {
     ctx: Context,
     target_triple: Triple,
     target_machines: HashMap<OptimizationStyle, TargetMachine>,
-    abi: Box<dyn Abi>,
+    abi: LLVMAbi,
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
@@ -100,7 +100,7 @@ impl FuncTranslator {
         let abi_source_tm = target_machines
             .get(&OptimizationStyle::ForSpeed)
             .expect("target_machines must contain OptimizationStyle::ForSpeed");
-        let abi = get_abi(abi_source_tm);
+        let abi = get_abi(abi_source_tm)?;
         Ok(Self {
             ctx: Context::create(),
             target_triple,
@@ -401,7 +401,7 @@ impl FuncTranslator {
                 wasm_module,
                 &func,
                 &cache_builder,
-                &*self.abi,
+                &self.abi,
                 self.pointer_width,
                 m0_param,
             ),
@@ -413,7 +413,7 @@ impl FuncTranslator {
             signature_hashes,
             wasm_module,
             symbol_registry,
-            abi: &*self.abi,
+            abi: &self.abi,
             config,
             target_triple: self.target_triple.clone(),
             tags_cache: HashMap::new(),
@@ -1957,6 +1957,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.intrinsics,
                         &self.builder,
                         &results,
+                        wasm_fn_type,
                         &func_type,
                     )?))
             );
@@ -2383,7 +2384,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     wasm_module: &'a ModuleInfo,
     #[allow(dead_code)]
     symbol_registry: &'a dyn SymbolRegistry,
-    abi: &'a dyn Abi,
+    abi: &'a LLVMAbi,
     config: &'a LLVM,
     target_triple: Triple,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
