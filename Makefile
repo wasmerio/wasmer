@@ -120,7 +120,7 @@ ifneq ($(ENABLE_CRANELIFT), 0)
         ifeq ($(ENABLE_CRANELIFT), 1)
                 compilers += cranelift
         # … otherwise, we try to check whether Cranelift works on this host.
-        else ifneq ($(IS_WINDOWS), 1)
+        else
                 compilers += cranelift
         endif
 endif
