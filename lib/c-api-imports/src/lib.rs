@@ -10,6 +10,9 @@ use wasmer_api::{
     TypedFunction, Value, WasmPtr, namespace,
 };
 
+#[cfg(feature = "wasix")]
+mod wasix;
+
 /// Import module name used for host-provided WebAssembly C API bindings.
 pub const WASM_C_API_MODULE_NAME: &str = "wasm_c_api_v0";
 const WASM_C_API_MODULE_PREFIX: &str = "wasm_c_api_v";
@@ -269,6 +272,17 @@ pub struct WasmCapiInstantiationState {
 #[derive(Clone, Default)]
 pub struct WasmCapiRuntimeHooks {
     resolve_module_sync: Option<ResolveModuleSync>,
+}
+
+impl std::fmt::Debug for WasmCapiRuntimeHooks {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WasmCapiRuntimeHooks")
+            .field(
+                "resolve_module_sync",
+                &self.resolve_module_sync.as_ref().map(|_| ".."),
+            )
+            .finish()
+    }
 }
 
 impl WasmCapiRuntimeHooks {
@@ -2435,8 +2449,6 @@ mod tests {
     use wat::parse_str;
 
     #[cfg(feature = "wasi")]
-    use anyhow::Context as _;
-    #[cfg(feature = "wasi")]
     use std::sync::{
         Arc,
         atomic::{AtomicUsize, Ordering},
@@ -2584,25 +2596,7 @@ mod tests {
                 Ok(Module::new(&resolve_engine, bytes)?)
             }
         });
-        runtime.with_instantiation_hook(
-            {
-                let hooks = hooks.clone();
-                move |module, store| {
-                    let (imports, state) = hooks.additional_imports(module, store)?;
-                    Ok((
-                        imports,
-                        Some(Box::new(state) as Box<dyn std::any::Any + Send>),
-                    ))
-                }
-            },
-            move |module, store, instance, imported_memory, state| {
-                let state = *state
-                    .context("missing instance setup state")?
-                    .downcast::<WasmCapiInstantiationState>()
-                    .map_err(|_| anyhow::anyhow!("unexpected instance setup state"))?;
-                hooks.configure_instance(module, store, instance, imported_memory, state)
-            },
-        );
+        runtime.with_instantiation_hook(hooks);
 
         let result = WasiRunner::new().run_wasm(
             RuntimeOrEngine::Runtime(Arc::new(runtime)),
