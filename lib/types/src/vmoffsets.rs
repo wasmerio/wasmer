@@ -12,7 +12,6 @@ use crate::{
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
-use std::mem::size_of;
 
 /// An index type for builtin functions.
 #[derive(Copy, Clone, Debug)]
