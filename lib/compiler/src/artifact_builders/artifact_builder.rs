@@ -116,7 +116,7 @@ impl ArtifactBuild {
             .map_err(|e| CompileError::Codegen(format!("cannot serialize SerializeModule: {e}")))?;
 
         // Compile the Module
-        let (compilation, function_max_stack_usage) = compiler.compile_module(
+        let compilation = compiler.compile_module(
             target,
             &serializable.compile_info,
             &compile_info_blob,
@@ -128,10 +128,12 @@ impl ArtifactBuild {
             progress_callback,
         )?;
 
-        serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
-
         let compilation = match compilation {
-            Compilation::Rkyv(compilation) => {
+            Compilation::Rkyv {
+                compilation,
+                function_max_stack_usage,
+            } => {
+                serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
                 // Synthesize a custom section to hold the libcall trampolines.
 
                 let mut function_frame_info =
@@ -169,7 +171,13 @@ impl ArtifactBuild {
                     got: compilation.got,
                 })
             }
-            Compilation::Elf(data) => SerializableCompilation::Elf(data),
+            Compilation::Elf {
+                data,
+                function_max_stack_usage,
+            } => {
+                serializable.compile_info.function_max_stack_usage = function_max_stack_usage;
+                SerializableCompilation::Elf(data)
+            }
         };
 
         serializable.compilation = compilation;

@@ -1614,7 +1614,7 @@ impl Artifact {
         - SignatureIndex -> VMSignatureHash // signatures
          */
 
-        let (compilation, function_max_stack_usage) = compiler.compile_module(
+        let compilation = compiler.compile_module(
             target,
             &metadata.compile_info,
             &[],
@@ -1622,12 +1622,16 @@ impl Artifact {
             function_body_inputs,
             None,
         )?;
-        metadata.compile_info.function_max_stack_usage = function_max_stack_usage;
-        let Compilation::Rkyv(compilation) = compilation else {
+        let Compilation::Rkyv {
+            compilation,
+            function_max_stack_usage,
+        } = compilation
+        else {
             return Err(CompileError::Codegen(
                 "ELF compilation unsupported yet".to_string(),
             ));
         };
+        metadata.compile_info.function_max_stack_usage = function_max_stack_usage;
 
         let mut metadata_builder =
             ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;

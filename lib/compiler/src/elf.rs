@@ -23,7 +23,9 @@ use std::{
     path::{Path, PathBuf},
 };
 use tempfile::NamedTempFile;
-use wasmer_types::{CompileError, LibCall, LocalFunctionIndex, TrapInformation, target::Target};
+use wasmer_types::{
+    CompileError, LibCall, LocalFunctionIndex, TrapInformation, entity::PrimaryMap, target::Target,
+};
 use wasmer_types::{FunctionIndex, FunctionType};
 
 /// The result of compiling a single unit (function or trampoline): either an
@@ -364,6 +366,7 @@ pub fn link_module(
     dynamic_trampoline_objects: &[PathBuf],
     debug_dir: Option<PathBuf>,
     module_hash: Option<String>,
+    function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
 ) -> Result<Compilation, CompileError> {
     let module_file = NamedTempFile::new_in(build_directory)
         .map_err(|e| CompileError::Codegen(format!("cannot create temporary module file: {e}")))?;
@@ -385,5 +388,8 @@ pub fn link_module(
     module_file
         .read_to_end(&mut elf)
         .map_err(|e| CompileError::Codegen(format!("cannot read linked module artifact: {e}")))?;
-    Ok(Compilation::Elf(elf))
+    Ok(Compilation::Elf {
+        data: elf,
+        function_max_stack_usage,
+    })
 }

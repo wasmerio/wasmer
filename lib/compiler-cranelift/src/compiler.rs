@@ -114,6 +114,7 @@ impl CraneliftCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let isa = self
             .config()
             .isa(target)
@@ -524,6 +525,7 @@ impl CraneliftCompiler {
                     .as_ref()
                     .map(|callbacks| callbacks.debug_dir().clone()),
                 module.hash().map(|hash| hash.to_string()),
+                function_max_stack_usage,
             );
         }
 
@@ -705,14 +707,17 @@ impl CraneliftCompiler {
             got.index = Some(got_idx);
         }
 
-        Ok(Compilation::Rkyv(RkyvCompilation {
-            functions: functions.into_iter().collect(),
-            custom_sections,
-            function_call_trampolines,
-            dynamic_function_trampolines,
-            unwind_info,
-            got,
-        }))
+        Ok(Compilation::Rkyv {
+            compilation: RkyvCompilation {
+                functions: functions.into_iter().collect(),
+                custom_sections,
+                function_call_trampolines,
+                dynamic_function_trampolines,
+                unwind_info,
+                got,
+            },
+            function_max_stack_usage,
+        })
     }
 }
 
@@ -744,17 +749,15 @@ impl Compiler for CraneliftCompiler {
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError> {
-        let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
-        let compilation = self.compile_module_internal(
+    ) -> Result<Compilation, CompileError> {
+        self.compile_module_internal(
             target,
             compile_info,
             compile_info_blob,
             module_translation_state,
             function_body_inputs,
             progress_callback,
-        )?;
-        Ok((compilation, function_max_stack_usage))
+        )
     }
 }
 

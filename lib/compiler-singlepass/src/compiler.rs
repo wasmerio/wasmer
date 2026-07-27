@@ -70,7 +70,7 @@ impl SinglepassCompiler {
         compile_info_blob: &[u8],
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError> {
+    ) -> Result<Compilation, CompileError> {
         let arch = target.triple().architecture;
         match arch {
             Architecture::X86_64 => {}
@@ -359,7 +359,7 @@ impl SinglepassCompiler {
             let trampoline_objects = compile_output_paths(function_call_trampolines);
             let dynamic_trampoline_objects = compile_output_paths(dynamic_function_trampolines);
 
-            let compilation = elf::link_module(
+            return elf::link_module(
                 target,
                 compile_info_blob,
                 build_directory
@@ -375,8 +375,8 @@ impl SinglepassCompiler {
                     .as_ref()
                     .map(|callbacks| callbacks.debug_dir().clone()),
                 module.hash().map(|hash| hash.to_string()),
-            )?;
-            return Ok((compilation, function_max_stack_usage));
+                function_max_stack_usage,
+            );
         }
 
         #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
@@ -414,17 +414,17 @@ impl SinglepassCompiler {
 
         let got = wasmer_compiler::types::function::GOT::empty();
 
-        Ok((
-            Compilation::Rkyv(RkyvCompilation {
+        Ok(Compilation::Rkyv {
+            compilation: RkyvCompilation {
                 functions: functions.into_iter().collect(),
                 custom_sections,
                 function_call_trampolines,
                 dynamic_function_trampolines,
                 unwind_info,
                 got,
-            }),
+            },
             function_max_stack_usage,
-        ))
+        })
     }
 }
 
@@ -452,7 +452,7 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
-    ) -> Result<(Compilation, PrimaryMap<LocalFunctionIndex, Option<usize>>), CompileError> {
+    ) -> Result<Compilation, CompileError> {
         let num_threads = self.config.num_threads.get();
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(num_threads)

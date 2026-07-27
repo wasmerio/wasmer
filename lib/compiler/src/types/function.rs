@@ -240,6 +240,12 @@ pub struct RkyvCompilation {
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
 pub enum Compilation {
-    Rkyv(RkyvCompilation),
-    Elf(Vec<u8>),
+    Rkyv {
+        compilation: RkyvCompilation,
+        function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
+    },
+    Elf {
+        data: Vec<u8>,
+        function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
+    },
 }
