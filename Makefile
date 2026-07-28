@@ -319,7 +319,7 @@ endif
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 # Features used by the workspace test suite.
-test_all_features := middlewares,experimental-async,experimental-host-interrupt
+test_all_features := cache,middlewares,wast,experimental-async,experimental-host-interrupt
 ifeq ($(IS_LINUX)$(IS_AMD64),11)
 	test_all_features := $(test_all_features),experimental-artifact
 endif
@@ -606,7 +606,7 @@ test-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(test_compiler_features) --release --locked
 # test examples
 test-examples:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --no-default-features $(test_compiler_features) --features wasi --examples --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --no-default-features $(test_compiler_features) --features wasi,middlewares --examples --locked
 test-capi-integration-tests:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --package wasmer-c-api-test-runner --locked && \
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --package wasmer-capi-examples-runner --locked
