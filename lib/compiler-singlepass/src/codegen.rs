@@ -5771,16 +5771,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let dst = self.value_stack.pop().unwrap();
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
-                let (memory_atomic_wait32, memory_index) =
-                    if self.module.local_memory_index(memory_index).is_some() {
+                let (memory_atomic_wait32, index_arg) =
+                    if let Some(local_index) = self.module.local_memory_index(memory_index) {
                         (
                             VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
-                            memory_index,
+                            local_index.as_u32(),
                         )
                     } else {
                         (
                             VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
-                            memory_index,
+                            memory_index.as_u32(),
                         )
                     };
 
@@ -5800,10 +5800,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, memory_index, dst, src, timeout]
                     [
-                        (
-                            Location::Imm32(memory_index.index() as u32),
-                            CanonicalizeType::None,
-                        ),
+                        (Location::Imm32(index_arg), CanonicalizeType::None),
                         dst,
                         val,
                         timeout,
@@ -5823,16 +5820,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let dst = self.value_stack.pop().unwrap();
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
-                let (memory_atomic_wait64, memory_index) =
-                    if self.module.local_memory_index(memory_index).is_some() {
+                let (memory_atomic_wait64, index_arg) =
+                    if let Some(local_index) = self.module.local_memory_index(memory_index) {
                         (
                             VMBuiltinFunctionIndex::get_memory_atomic_wait64_index(),
-                            memory_index,
+                            local_index.as_u32(),
                         )
                     } else {
                         (
                             VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index(),
-                            memory_index,
+                            memory_index.as_u32(),
                         )
                     };
 
@@ -5852,10 +5849,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, memory_index, dst, src, timeout]
                     [
-                        (
-                            Location::Imm32(memory_index.index() as u32),
-                            CanonicalizeType::None,
-                        ),
+                        (Location::Imm32(index_arg), CanonicalizeType::None),
                         dst,
                         val,
                         timeout,
@@ -5874,16 +5868,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let dst = self.value_stack.pop().unwrap();
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
-                let (memory_atomic_notify, memory_index) =
-                    if self.module.local_memory_index(memory_index).is_some() {
+                let (memory_atomic_notify, index_arg) =
+                    if let Some(local_index) = self.module.local_memory_index(memory_index) {
                         (
                             VMBuiltinFunctionIndex::get_memory_atomic_notify_index(),
-                            memory_index,
+                            local_index.as_u32(),
                         )
                     } else {
                         (
                             VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index(),
-                            memory_index,
+                            memory_index.as_u32(),
                         )
                     };
 
@@ -5903,10 +5897,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, memory_index, dst, cnt]
                     [
-                        (
-                            Location::Imm32(memory_index.index() as u32),
-                            CanonicalizeType::None,
-                        ),
+                        (Location::Imm32(index_arg), CanonicalizeType::None),
                         dst,
                         cnt,
                     ]

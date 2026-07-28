@@ -11219,6 +11219,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             )?,
             Operator::MemoryAtomicWait32 { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
                 let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics)?;
                 let ret = err!(
@@ -11229,7 +11233,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             vmctx.as_basic_value_enum().into(),
                             self.intrinsics
                                 .i32_ty
-                                .const_int(memarg.memory as u64, false)
+                                .const_int(index_arg as u64, false)
                                 .into(),
                             dst.into(),
                             val.into(),
@@ -11242,6 +11246,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::MemoryAtomicWait64 { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
                 let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics)?;
                 let ret = err!(
@@ -11252,7 +11260,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             vmctx.as_basic_value_enum().into(),
                             self.intrinsics
                                 .i32_ty
-                                .const_int(memarg.memory as u64, false)
+                                .const_int(index_arg as u64, false)
                                 .into(),
                             dst.into(),
                             val.into(),
@@ -11265,6 +11273,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::MemoryAtomicNotify { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, count) = self.state.pop2()?;
                 let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics)?;
                 let cnt = err!(
@@ -11275,7 +11287,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             vmctx.as_basic_value_enum().into(),
                             self.intrinsics
                                 .i32_ty
-                                .const_int(memarg.memory as u64, false)
+                                .const_int(index_arg as u64, false)
                                 .into(),
                             dst.into(),
                             count.into(),

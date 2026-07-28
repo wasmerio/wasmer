@@ -133,7 +133,6 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_func_ref" => LibCall::FuncRef,
     "_wasmer_vm_elem_drop" => LibCall::ElemDrop,
     "_wasmer_vm_memory32_copy" => LibCall::Memory32Copy,
-    "_wasmer_vm_imported_memory32_copy" => LibCall::ImportedMemory32Copy,
     "_wasmer_vm_memory32_fill" => LibCall::Memory32Fill,
     "_wasmer_vm_imported_memory32_fill" => LibCall::ImportedMemory32Fill,
     "_wasmer_vm_memory32_init" => LibCall::Memory32Init,

@@ -968,7 +968,6 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::FuncRef => wasmer_vm_func_ref as *const () as usize,
         LibCall::ElemDrop => wasmer_vm_elem_drop as *const () as usize,
         LibCall::Memory32Copy => wasmer_vm_memory32_copy as *const () as usize,
-        LibCall::ImportedMemory32Copy => wasmer_vm_memory32_copy as *const () as usize,
         LibCall::Memory32Fill => wasmer_vm_memory32_fill as *const () as usize,
         LibCall::ImportedMemory32Fill => wasmer_vm_imported_memory32_fill as *const () as usize,
         LibCall::Memory32Init => wasmer_vm_memory32_init as *const () as usize,

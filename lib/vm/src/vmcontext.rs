@@ -701,8 +701,6 @@ impl VMBuiltinFunctionsArray {
             wasmer_vm_elem_drop as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as *const () as usize] =
             wasmer_vm_memory32_copy as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory_copy_index().index() as *const ()
-            as usize] = wasmer_vm_memory32_copy as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as *const () as usize] =
             wasmer_vm_memory32_fill as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as *const ()
