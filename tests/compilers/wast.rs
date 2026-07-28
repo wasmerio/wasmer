@@ -65,11 +65,12 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "out of bounds memory access",
         "Validation error: multiple memories",
     );
-    // V8-specific
-    wast.allow_trap_message(
-        "uninitialized element",
-        "null function or function signature mismatch",
-    );
+    // V8-specific. V8 15 splits the old combined "null function or function
+    // signature mismatch" trap into "null function" (null/uninitialized element)
+    // and "function signature mismatch" (call_indirect type mismatch); allow
+    // both so this matches across V8 versions.
+    wast.allow_trap_message("uninitialized element", "null function");
+    wast.allow_trap_message("uninitialized element", "function signature mismatch");
     wast.allow_trap_message("out of bounds table access", "table index is out of bounds");
     wast.allow_trap_message("out of bounds memory access", "memory access out of bounds");
     wast.allow_trap_message("out of bounds memory access", "is out of bounds");
@@ -77,10 +78,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         "out of bounds table access",
         "element segment out of bounds",
     );
-    wast.allow_trap_message(
-        "indirect call type mismatch",
-        "null function or function signature mismatch",
-    );
+    wast.allow_trap_message("indirect call type mismatch", "null function");
+    wast.allow_trap_message("indirect call type mismatch", "function signature mismatch");
     wast.allow_trap_message("undefined element", "table index is out of bounds");
     wast.allow_trap_message(
         "unaligned atomic",
@@ -96,10 +95,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     wast.allow_trap_message("integer overflow", "float unrepresentable in integer range");
     wast.allow_trap_message("call stack exhausted", "Maximum call stack size exceeded");
     wast.allow_trap_message("cast failure", "illegal cast");
-    wast.allow_trap_message(
-        "uninitialized element 2",
-        "null function or function signature mismatch",
-    );
+    wast.allow_trap_message("uninitialized element 2", "null function");
+    wast.allow_trap_message("uninitialized element 2", "function signature mismatch");
 
     if cfg!(feature = "coverage") {
         wast.disable_assert_and_exhaustion();

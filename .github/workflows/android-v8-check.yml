@@ -1,0 +1,97 @@
+name: Android V8 cross-compile
+# Informational check that wasmer's v8 backend cross-compiles to
+# aarch64-linux-android. Same caveats as ios-v8-check.yml: the v8
+# feature isn't exercised by the main build.yml matrix, and this
+# workflow sits on top of a third-party prebuilt V8 archive plus
+# the NDK clang toolchain, both of which drift independently of
+# wasmer itself. `continue-on-error: true` keeps failures visible
+# without blocking merges.
+#
+# Only aarch64 is covered — Google Play requires 64-bit ARM since
+# 2021, the upstream wee8-custom-builds / synchwire/v8-custom-builds
+# only ship aarch64 android archives, and wasmer's build.rs URL
+# map only knows about aarch64-android. armv7 and x86_64 android
+# are out of scope.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+jobs:
+  android-v8:
+    name: cargo build --target aarch64-linux-android --features v8
+    runs-on: ubuntu-22.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      # The repo pins a toolchain via rust-toolchain.toml (channel = "1.91").
+      # Using dtolnay/rust-toolchain@stable would install stable but cargo
+      # would still invoke the pinned 1.91, which wouldn't have the Android
+      # target installed. Install the pinned version explicitly and add the
+      # Android target to *that* toolchain.
+      - uses: ./.github/actions/load_toolchain
+        id: load_toolchain
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
+          targets: aarch64-linux-android
+      # Point cc-rs, the linker, and PATH at the Android NDK's clang
+      # rather than the default cross-gcc the system ships. wasmer's v8
+      # build.rs compiles a small C++ shim that uses C++20 features
+      # (class-type non-type template parameters via V8 13.6 headers),
+      # which the older GCC in the cross-rs image can't parse but
+      # modern NDK clang handles fine. The NDK also ships llvm-objcopy
+      # that wasmer's build.rs shells out to for the wee8 symbol-rename
+      # step, so prepending the NDK bin dir to PATH covers both needs.
+      #
+      # API level 24 is Android 7.0 — the common minimum for Rust
+      # Android cross-compiles and above V8's 5.0 requirement.
+      - name: Set up Android NDK clang for aarch64-linux-android
+        run: |
+          NDK_BIN="$ANDROID_NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          test -d "$NDK_BIN"
+          echo "$NDK_BIN" >> "$GITHUB_PATH"
+          {
+            echo "CC_aarch64_linux_android=$NDK_BIN/aarch64-linux-android24-clang"
+            echo "CXX_aarch64_linux_android=$NDK_BIN/aarch64-linux-android24-clang++"
+            echo "AR_aarch64_linux_android=$NDK_BIN/llvm-ar"
+            echo "CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER=$NDK_BIN/aarch64-linux-android24-clang"
+          } >> "$GITHUB_ENV"
+      - name: Show toolchain versions
+        run: |
+          rustup show active-toolchain
+          rustc --version
+          cargo --version
+          "$CXX_aarch64_linux_android" --version
+          "$AR_aarch64_linux_android" --version
+          llvm-objcopy --version
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: android-v8-cargo-${{ hashFiles('Cargo.lock') }}
+      - name: Build wasmer crate for Android with v8
+        run: |
+          cargo build \
+            --target aarch64-linux-android \
+            --package wasmer \
+            --no-default-features \
+            --features v8 \
+            --release
+      - name: Confirm resulting rlib is aarch64 Android
+        run: |
+          RLIB=$(find target/aarch64-linux-android/release/deps -maxdepth 1 -name 'libwasmer-*.rlib' | head -1)
+          echo "checking $RLIB"
+          test -n "$RLIB"
+          TMP=$(mktemp -d)
+          ( cd "$TMP" && "$AR_aarch64_linux_android" x "$GITHUB_WORKSPACE/$RLIB" )
+          OBJ=$(find "$TMP" -name '*.o' | head -1)
+          file "$OBJ"
+          file "$OBJ" | grep -q 'ARM aarch64'

@@ -204,11 +204,11 @@ jobs:
           components: clippy
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
-      - name: Install `ninja`, clang`, `binutils` and `mold` on Ubuntu
+      - name: Install `ninja`, clang`, `binutils`, `mold` and `llvm` on Ubuntu
         if: startsWith(matrix.metadata.build, 'linux-')
         shell: bash
         run: |
-          sudo apt-get update -y && sudo apt-get install ninja-build clang mold binutils -y
+          sudo apt-get update -y && sudo apt-get install ninja-build clang mold binutils llvm -y
       - name: Install `ninja` and (brew's) `llvm` on macOS
         if: startsWith(matrix.metadata.build, 'macos-')
         shell: bash

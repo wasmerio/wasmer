@@ -482,7 +482,7 @@ fn call_signature_mismatch(config: crate::Config) -> Result<()> {
     if matches!(config.compiler, Compiler::V8) {
         assert_eq!(
             format!("{err}"),
-            "RuntimeError: wasm-c-api trap: Uncaught RuntimeError: null function or function signature mismatch"
+            "RuntimeError: wasm-c-api trap: Uncaught RuntimeError: function signature mismatch"
         );
     } else {
         assert_eq!(
