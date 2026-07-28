@@ -164,6 +164,12 @@ exclude_tests += --exclude wasmer-integration-tests-ios
 exclude_tests += --exclude wasmer-swift
 exclude_tests += --exclude wasmer-napi
 
+ifeq ($(IS_WINDOWS), 1)
+	# Cranelift and Singlepass are not supported on Windows.
+	exclude_tests += --exclude wasmer-compiler-cranelift
+	exclude_tests += --exclude wasmer-compiler-singlepass
+endif
+
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
 else
