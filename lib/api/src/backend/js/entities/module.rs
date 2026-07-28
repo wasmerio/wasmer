@@ -40,6 +40,8 @@ pub struct ModuleTypeHints {
 pub struct Module {
     module: JsHandle<WebAssembly::Module>,
     name: Option<String>,
+    #[cfg(feature = "wasm-types-polyfill")]
+    info: ModuleInfo,
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
@@ -91,23 +93,24 @@ impl Module {
 
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
-        let (type_hints, name) = {
-            let info = crate::polyfill::translate_module(&binary[..]).unwrap();
+        let (type_hints, name, module_info) = {
+            let translated = crate::polyfill::translate_module(&binary[..]).unwrap();
 
             (
                 Some(ModuleTypeHints {
-                    imports: info
+                    imports: translated
                         .info
                         .imports()
                         .map(|import| import.ty().clone())
                         .collect::<Vec<_>>(),
-                    exports: info
+                    exports: translated
                         .info
                         .exports()
                         .map(|export| export.ty().clone())
                         .collect::<Vec<_>>(),
                 }),
-                info.info.name,
+                translated.info.name.clone(),
+                translated.info,
             )
         };
         #[cfg(not(feature = "wasm-types-polyfill"))]
@@ -117,6 +120,8 @@ impl Module {
             module: JsHandle::new(module),
             type_hints,
             name,
+            #[cfg(feature = "wasm-types-polyfill")]
+            info: module_info,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: Some(binary),
         }
@@ -458,7 +463,14 @@ impl Module {
     }
 
     pub(crate) fn info(&self) -> &ModuleInfo {
-        unimplemented!()
+        #[cfg(feature = "wasm-types-polyfill")]
+        {
+            &self.info
+        }
+        #[cfg(not(feature = "wasm-types-polyfill"))]
+        {
+            unimplemented!("module info requires the wasm-types-polyfill feature")
+        }
     }
 }
 
@@ -469,6 +481,8 @@ impl From<WebAssembly::Module> for Module {
             module: JsHandle::new(module),
             name: None,
             type_hints: None,
+            #[cfg(feature = "wasm-types-polyfill")]
+            info: ModuleInfo::default(),
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: None,
         }
