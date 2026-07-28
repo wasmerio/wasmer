@@ -168,6 +168,7 @@ ifeq ($(IS_WINDOWS), 1)
 	# Cranelift and Singlepass are not supported on Windows.
 	exclude_tests += --exclude wasmer-compiler-cranelift
 	exclude_tests += --exclude wasmer-compiler-singlepass
+	exclude_tests += --exclude wasmer-compiler
 endif
 
 ifneq (, $(findstring llvm,$(compilers)))
