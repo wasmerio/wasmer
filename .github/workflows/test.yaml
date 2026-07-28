@@ -530,7 +530,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Check `wasmer` crate with all the `sys` features enabled
         shell: bash
-        if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' }}
+        if: ${{ matrix.build-what.key == 'api-feats' && !startsWith(matrix.metadata.build, 'windows') }}
         run: ${{ matrix.build-what.build-cmd }}
       - name: Lint C-API
         shell: bash

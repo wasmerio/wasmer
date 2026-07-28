@@ -593,9 +593,9 @@ build-capi-headless-ios:
 test-wast:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
 test-all:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked && \
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release --no-default-features $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked && \
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-net/Cargo.toml --release $(virtual_net_test_features) --locked && \
-	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked
+	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release --no-default-features $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked
 check-compilers-only-std:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std --locked && \
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std --locked
