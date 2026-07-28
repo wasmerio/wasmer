@@ -566,30 +566,14 @@ impl Compiler for LLVMCompiler {
             let mut got = wasmer_compiler::types::function::GOT::empty();
 
             if !got_targets.is_empty() {
-                let pointer_width = target.triple().pointer_width().map_err(|_| {
-                    CompileError::Codegen("Could not get pointer width".to_string())
-                })?;
-
-                let got_entry_size = match pointer_width {
-                    target_lexicon::PointerWidth::U64 => 8,
-                    target_lexicon::PointerWidth::U32 => 4,
-                    target_lexicon::PointerWidth::U16 => todo!(),
-                };
-
-                let got_entry_reloc_kind = match pointer_width {
-                    target_lexicon::PointerWidth::U64 => RelocationKind::Abs8,
-                    target_lexicon::PointerWidth::U32 => RelocationKind::Abs4,
-                    target_lexicon::PointerWidth::U16 => todo!(),
-                };
-
-                let got_data: Vec<u8> = vec![0; got_targets.len() * got_entry_size];
+                let got_data: Vec<u8> = vec![0; got_targets.len() * 8];
                 let mut got_relocs = vec![];
 
                 for (i, target) in got_targets.into_iter().enumerate() {
                     got_relocs.push(wasmer_compiler::types::relocation::Relocation {
-                        kind: got_entry_reloc_kind,
+                        kind: RelocationKind::Abs8,
                         reloc_target: target,
-                        offset: (i * got_entry_size) as u32,
+                        offset: (i * 8) as u32,
                         addend: 0,
                     });
                 }
