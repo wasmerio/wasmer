@@ -70,9 +70,14 @@ pub unsafe extern "C" fn wasm_global_get(
         return;
     };
     let wasm_global = global.extern_.global();
-    let mut store_mut = unsafe { global.extern_.store.store_mut() };
-    let value = wasm_global.get(&mut store_mut);
-    *out = c_try!(value.try_into(); otherwise ());
+    let value = {
+        let mut store_mut = unsafe { global.extern_.store.store_mut() };
+        wasm_global.get(&mut store_mut)
+    };
+    let store = global.extern_.store.clone();
+    let new_val = c_try!(wasm_val_t::from_value(&value, &store); otherwise ());
+    // `out` is an owned out-parameter; write without dropping stale contents.
+    unsafe { std::ptr::write(out, new_val) };
 }
 
 /// Note: This function returns nothing by design but it can raise an

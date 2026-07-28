@@ -6,6 +6,7 @@ use target_lexicon::{
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
+use std::path::PathBuf;
 
 use wasmer_types::{CompileError, SourceLoc, entity::PrimaryMap};
 
@@ -16,6 +17,7 @@ use wasmer_compiler::types::{
     section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
 };
 
+use wasmer_compiler::LIBCALLS_ELF;
 use wasmer_vm::libcalls::LibCall;
 
 fn map_tryfromint_err(error: TryFromIntError) -> CompileError {
@@ -27,7 +29,7 @@ fn map_object_err(error: object::read::Error) -> CompileError {
 }
 
 #[derive(Debug)]
-pub struct CompiledFunction {
+pub struct RkyvCompiledFunction {
     pub compiled_function: wasmer_compiler::types::function::CompiledFunction,
     pub custom_sections: CustomSections,
     pub eh_frame_section_indices: Vec<SectionIndex>,
@@ -36,67 +38,13 @@ pub struct CompiledFunction {
     pub data_dw_ref_personality_section_indices: Vec<SectionIndex>,
 }
 
-impl wasmer_compiler::CompiledFunction for CompiledFunction {}
+#[derive(Debug)]
+pub enum CompiledFunction {
+    Rkyv(Box<RkyvCompiledFunction>),
+    Elf(PathBuf),
+}
 
-static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
-    "ceilf" => LibCall::CeilF32,
-    "ceil" => LibCall::CeilF64,
-    "floorf" => LibCall::FloorF32,
-    "floor" => LibCall::FloorF64,
-    "nearbyintf" => LibCall::NearestF32,
-    "nearbyint" => LibCall::NearestF64,
-    "sqrtf" => LibCall::SqrtF32,
-    "sqrt" => LibCall::SqrtF64,
-    "truncf" => LibCall::TruncF32,
-    "trunc" => LibCall::TruncF64,
-    "__chkstk" => LibCall::Probestack,
-    "wasmer_vm_f32_ceil" => LibCall::CeilF32,
-    "wasmer_vm_f64_ceil" => LibCall::CeilF64,
-    "wasmer_vm_f32_floor" => LibCall::FloorF32,
-    "wasmer_vm_f64_floor" => LibCall::FloorF64,
-    "wasmer_vm_f32_nearest" => LibCall::NearestF32,
-    "wasmer_vm_f64_nearest" => LibCall::NearestF64,
-    "wasmer_vm_f32_sqrt" => LibCall::SqrtF32,
-    "wasmer_vm_f64_sqrt" => LibCall::SqrtF64,
-    "wasmer_vm_f32_trunc" => LibCall::TruncF32,
-    "wasmer_vm_f64_trunc" => LibCall::TruncF64,
-    "wasmer_vm_memory32_size" => LibCall::Memory32Size,
-    "wasmer_vm_imported_memory32_size" => LibCall::ImportedMemory32Size,
-    "wasmer_vm_table_copy" => LibCall::TableCopy,
-    "wasmer_vm_table_init" => LibCall::TableInit,
-    "wasmer_vm_table_fill" => LibCall::TableFill,
-    "wasmer_vm_table_size" => LibCall::TableSize,
-    "wasmer_vm_imported_table_size" => LibCall::ImportedTableSize,
-    "wasmer_vm_table_get" => LibCall::TableGet,
-    "wasmer_vm_imported_table_get" => LibCall::ImportedTableGet,
-    "wasmer_vm_table_set" => LibCall::TableSet,
-    "wasmer_vm_imported_table_set" => LibCall::ImportedTableSet,
-    "wasmer_vm_table_grow" => LibCall::TableGrow,
-    "wasmer_vm_imported_table_grow" => LibCall::ImportedTableGrow,
-    "wasmer_vm_func_ref" => LibCall::FuncRef,
-    "wasmer_vm_elem_drop" => LibCall::ElemDrop,
-    "wasmer_vm_memory32_copy" => LibCall::Memory32Copy,
-    "wasmer_vm_imported_memory32_copy" => LibCall::ImportedMemory32Copy,
-    "wasmer_vm_memory32_fill" => LibCall::Memory32Fill,
-    "wasmer_vm_imported_memory32_fill" => LibCall::ImportedMemory32Fill,
-    "wasmer_vm_memory32_init" => LibCall::Memory32Init,
-    "wasmer_vm_data_drop" => LibCall::DataDrop,
-    "wasmer_vm_raise_trap" => LibCall::RaiseTrap,
-    "wasmer_vm_memory32_atomic_wait32" => LibCall::Memory32AtomicWait32,
-    "wasmer_vm_imported_memory32_atomic_wait32" => LibCall::ImportedMemory32AtomicWait32,
-    "wasmer_vm_memory32_atomic_wait64" => LibCall::Memory32AtomicWait64,
-    "wasmer_vm_imported_memory32_atomic_wait64" => LibCall::ImportedMemory32AtomicWait64,
-    "wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
-    "wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
-    "wasmer_vm_throw" => LibCall::Throw,
-    "wasmer_vm_alloc_exception" => LibCall::AllocException,
-    "wasmer_vm_read_exnref" => LibCall::ReadExnRef,
-    "wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
-    "wasmer_eh_personality" => LibCall::EHPersonality,
-    "wasmer_eh_personality2" => LibCall::EHPersonality2,
-    "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
-    "wasmer_vm_dbg_str" => LibCall::DebugStr,
-};
+impl wasmer_compiler::CompiledFunction for CompiledFunction {}
 
 // Soft-float routines that LLVM may emit for RISC-V ELF targets.  The map is
 // unconditional because `load_object_file` runs on the host while the ELF it
@@ -255,7 +203,7 @@ pub fn load_object_file<F>(
     mut symbol_name_to_relocation_target: F,
     binary_fmt: BinaryFormat,
     triple: &Triple,
-) -> Result<CompiledFunction, CompileError>
+) -> Result<RkyvCompiledFunction, CompileError>
 where
     F: FnMut(&str) -> Result<Option<RelocationTarget>, CompileError>,
 {
@@ -997,7 +945,7 @@ where
         body_len: function_body.body.len(),
     };
 
-    Ok(CompiledFunction {
+    Ok(RkyvCompiledFunction {
         compiled_function: wasmer_compiler::types::function::CompiledFunction {
             body: function_body,
             relocations: relocations

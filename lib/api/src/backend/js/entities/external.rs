@@ -37,4 +37,8 @@ impl ExternRef {
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
+
+    pub fn ptr_eq(&self, _other: &Self) -> bool {
+        unimplemented!("ExternRef is not yet supported in Javascript");
+    }
 }

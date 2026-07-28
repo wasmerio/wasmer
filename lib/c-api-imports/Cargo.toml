@@ -13,7 +13,12 @@ version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-wasmer-api = { version = "=7.2.0", path = "../api", default-features = false, package = "wasmer" }
+wasmer-api = { version = "=7.2.1", path = "../api", default-features = false, package = "wasmer" }
+# Only needed to implement `wasmer_wasix::runtime::InstantiationHook` for the
+# hooks, so WASIX embedders can register them directly.
+wasmer-wasix = { version = "=0.702.1", path = "../wasix", optional = true, features = [
+  "sys",
+], default-features = false }
 
 [dev-dependencies]
 tokio = { workspace = true, features = [
@@ -21,8 +26,8 @@ tokio = { workspace = true, features = [
   "rt-multi-thread",
   "macros",
 ], default-features = false }
-wasmer-types = { version = "=7.2.0", path = "../types" }
-wasmer-wasix = { path = "../wasix", version = "=0.702.0", features = [
+wasmer-types = { version = "=7.2.1", path = "../types" }
+wasmer-wasix = { path = "../wasix", version = "=0.702.1", features = [
   "host-fs",
   "host-vnet",
   "sys",
@@ -41,7 +46,10 @@ compiler = ["sys", "wasmer-api/compiler"]
 v8 = ["wasmer-api/v8"]
 sys-default = ["sys", "wasmer-api/sys-default"]
 v8-default = ["v8", "wasmer-api/v8-default"]
-wasi = []
+# Implements the WASIX runtime's `InstantiationHook` for `WasmCapiRuntimeHooks`.
+wasix = ["dep:wasmer-wasix"]
+# Runs the WASIX guest integration tests.
+wasi = ["wasix"]
 
 wasmer-artifact-load = ["wasmer-api/wasmer-artifact-load"]
 wasmer-artifact-create = ["wasmer-api/wasmer-artifact-create"]

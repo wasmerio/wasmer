@@ -6,6 +6,12 @@
 
 ## **Unreleased**
 
+## 7.2.1 - 23/07/2026
+
+## Added
+
+  - [#6791](https://github.com/wasmerio/wasmer/pull/6791) feat(c-api): implement externref/funcref reference surface
+
 ## 7.2.0 - 30/06/2026
 
 ## Added

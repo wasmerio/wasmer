@@ -1,3 +1,4 @@
+use super::store::StoreRef;
 use super::types::{wasm_ref_t, wasm_valkind_enum};
 use std::convert::{TryFrom, TryInto};
 use wasmer_api::Value;
@@ -115,9 +116,27 @@ wasm_declare_vec!(val);
 
 impl Clone for wasm_val_t {
     fn clone(&self) -> Self {
-        wasm_val_t {
-            kind: self.kind,
-            of: self.of,
+        // Reference values own their boxed `wasm_ref_t`, so a shallow copy of
+        // the pointer would double-free on drop. Deep-copy the box instead.
+        // Kept in sync with `Drop`, which only frees EXTERNREF/FUNCREF (EXNREF
+        // is never boxed, so it stays a plain, non-owning copy).
+        match self.kind.try_into() {
+            Ok(wasm_valkind_enum::WASM_EXTERNREF) | Ok(wasm_valkind_enum::WASM_FUNCREF) => {
+                let wref = unsafe { self.of.wref };
+                let cloned = if wref.is_null() {
+                    std::ptr::null_mut()
+                } else {
+                    Box::into_raw(Box::new(unsafe { &*wref }.clone()))
+                };
+                wasm_val_t {
+                    kind: self.kind,
+                    of: wasm_val_inner { wref: cloned },
+                }
+            }
+            _ => wasm_val_t {
+                kind: self.kind,
+                of: self.of,
+            },
         }
     }
 }
@@ -137,26 +156,9 @@ pub unsafe extern "C" fn wasm_val_copy(
     out: &mut wasm_val_t,
     val: &wasm_val_t,
 ) {
-    out.kind = val.kind;
-    out.of = c_try!(val.kind.try_into().map(|kind| unsafe {
-        match kind {
-            wasm_valkind_enum::WASM_I32 => wasm_val_inner {
-                int32_t: val.of.int32_t,
-            },
-            wasm_valkind_enum::WASM_I64 => wasm_val_inner {
-                int64_t: val.of.int64_t,
-            },
-            wasm_valkind_enum::WASM_F32 => wasm_val_inner {
-                float32_t: val.of.float32_t,
-            },
-            wasm_valkind_enum::WASM_F64 => wasm_val_inner {
-                float64_t: val.of.float64_t,
-            },
-            wasm_valkind_enum::WASM_EXTERNREF => wasm_val_inner { wref: val.of.wref },
-            wasm_valkind_enum::WASM_FUNCREF => wasm_val_inner { wref: val.of.wref },
-            wasm_valkind_enum::WASM_EXNREF => wasm_val_inner { wref: val.of.wref },
-        }
-    }); otherwise ());
+    // `out` is an owned (uninitialized) out-parameter, so write into it without
+    // running `Drop` on its prior (stale) contents. `Clone` deep-copies refs.
+    unsafe { std::ptr::write(out, val.clone()) };
 }
 
 impl Drop for wasm_val_t {
@@ -217,10 +219,61 @@ impl TryFrom<&wasm_val_t> for Value {
             wasm_valkind_enum::WASM_F32 => Value::F32(unsafe { item.of.float32_t }),
             wasm_valkind_enum::WASM_F64 => Value::F64(unsafe { item.of.float64_t }),
             wasm_valkind_enum::WASM_EXTERNREF => {
-                return Err("EXTERNREF not supported at this time");
+                let wref = unsafe { item.of.wref };
+                if wref.is_null() {
+                    Value::ExternRef(None)
+                } else {
+                    // The boxed `wasm_ref_t` carries the authoritative value.
+                    unsafe { &*wref }.inner.clone()
+                }
             }
-            wasm_valkind_enum::WASM_FUNCREF => return Err("FUNCREF not supported at this time"),
+            wasm_valkind_enum::WASM_FUNCREF => {
+                let wref = unsafe { item.of.wref };
+                if wref.is_null() {
+                    Value::FuncRef(None)
+                } else {
+                    unsafe { &*wref }.inner.clone()
+                }
+            }
             wasm_valkind_enum::WASM_EXNREF => return Err("EXNREF not supported at this time"),
+        })
+    }
+}
+
+impl wasm_val_t {
+    /// Convert a [`Value`] into a [`wasm_val_t`], boxing reference values into a
+    /// [`wasm_ref_t`] rooted in `store`. Null references become a null pointer.
+    pub(crate) fn from_value(value: &Value, store: &StoreRef) -> Result<wasm_val_t, &'static str> {
+        Ok(match value {
+            Value::ExternRef(None) => wasm_val_t {
+                kind: wasm_valkind_enum::WASM_EXTERNREF as _,
+                of: wasm_val_inner {
+                    wref: std::ptr::null_mut(),
+                },
+            },
+            Value::FuncRef(None) => wasm_val_t {
+                kind: wasm_valkind_enum::WASM_FUNCREF as _,
+                of: wasm_val_inner {
+                    wref: std::ptr::null_mut(),
+                },
+            },
+            Value::ExternRef(Some(_)) | Value::FuncRef(Some(_)) => {
+                let kind = if matches!(value, Value::ExternRef(_)) {
+                    wasm_valkind_enum::WASM_EXTERNREF
+                } else {
+                    wasm_valkind_enum::WASM_FUNCREF
+                };
+                // `wasm_ref_t::new` returns `Some` for the `Some(_)` variants.
+                let boxed = wasm_ref_t::new(store.clone(), value.clone())
+                    .ok_or("failed to box reference value")?;
+                wasm_val_t {
+                    kind: kind as _,
+                    of: wasm_val_inner {
+                        wref: Box::into_raw(boxed),
+                    },
+                }
+            }
+            other => wasm_val_t::try_from(other)?,
         })
     }
 }
@@ -255,7 +308,11 @@ impl TryFrom<&Value> for wasm_val_t {
                 kind: wasm_valkind_enum::WASM_F64 as _,
             },
             Value::V128(_) => return Err("128bit SIMD types not yet supported in Wasm C API"),
-            _ => todo!("Handle these values in TryFrom<Value> for wasm_val_t"),
+            // Reference values need a store to box into a `wasm_ref_t`; callers
+            // must use `wasm_val_t::from_value` instead.
+            Value::ExternRef(_) | Value::FuncRef(_) | Value::ExceptionRef(_) => {
+                return Err("reference values require a store; use wasm_val_t::from_value");
+            }
         })
     }
 }

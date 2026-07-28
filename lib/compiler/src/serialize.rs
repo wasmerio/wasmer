@@ -25,7 +25,7 @@ pub use wasmer_types::MetadataHeader;
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[allow(missing_docs)]
 #[rkyv(derive(Debug))]
-pub struct SerializableCompilation {
+pub struct RkyvSerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
     pub function_frame_info: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
@@ -44,7 +44,7 @@ pub struct SerializableCompilation {
     pub function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
 }
 
-impl SerializableCompilation {
+impl RkyvSerializableCompilation {
     /// Serialize a Compilation into bytes
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes)
@@ -53,6 +53,15 @@ impl SerializableCompilation {
             .map(|v| v.into_vec())
             .map_err(|e| SerializeError::Generic(e.to_string()))
     }
+}
+
+#[derive(Archive, RkyvDeserialize, RkyvSerialize)]
+#[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[allow(missing_docs)]
+#[rkyv(derive(Debug))]
+pub enum SerializableCompilation {
+    Rkyv(RkyvSerializableCompilation),
+    Elf(Vec<u8>),
 }
 
 /// Serializable struct that is able to serialize from and to a `ArtifactInfo`.
