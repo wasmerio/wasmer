@@ -217,6 +217,9 @@ pub fn wasm_annotations_to_features(feature_strings: &[String]) -> Features {
             "tail-call" => {
                 features.tail_call(true);
             }
+            "multi-memory" => {
+                features.multi_memory(true);
+            }
             // Ignore unrecognized features
             _ => {}
         }
