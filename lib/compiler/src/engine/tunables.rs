@@ -2,7 +2,7 @@ use crate::engine::error::LinkError;
 use std::ptr::NonNull;
 use wasmer_types::{
     FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    MemoryType, ModuleInfo, Pages, TableIndex, TableType, TagKind,
+    MemoryType, ModuleInfo, Pages, TableIndex, TableType, TagKind, WASM_MAX_PAGES,
     entity::{EntityRef, PrimaryMap},
     target::{PointerWidth, Target},
 };
@@ -217,9 +217,12 @@ impl BaseTunables {
                 //   Allocating 4 GiB of address space let us avoid the
                 //   need for explicit bounds checks.
                 // Static Memory Guard size:
-                //   Allocating 2 GiB of address space lets us translate wasm
-                //   offsets into x86 offsets as aggressively as we can.
-                PointerWidth::U64 => (0x1_0000.into(), 0x8000_0000),
+                //   Allocating 4 GiB of address space lets us translate WASM
+                //   offsets into x86_64 offsets as aggressively as we can.
+                //
+                // Note that although `i32::MAX` is 2 GiB, negative base values for operations
+                // such as `i64.load` are zero-extended during expansion, making the full 4 GiB accessible.
+                PointerWidth::U64 => (WASM_MAX_PAGES.into(), 0x1_0000_0000),
             };
 
         // Allocate a small guard to optimize common cases but without
