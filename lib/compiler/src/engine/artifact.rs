@@ -1639,7 +1639,7 @@ impl Artifact {
             &mut obj,
             object_name.as_bytes(),
             metadata_builder.placeholder_data(),
-            default_align,
+            std::cmp::max(MetadataHeader::ALIGN as u64, default_align),
         )
         .map_err(to_compile_error)?;
         metadata_builder.set_section_offset(offset);
