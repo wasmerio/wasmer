@@ -41,3 +41,18 @@
 
 (assert_return (invoke "copy") (i32.const 0x88776655))
 (assert_return (invoke "load-source") (i32.const 0x88776655))
+
+;; Ensure non-zero memidx is honored for loads (issue #5633).
+(module
+  (memory $mem0 1)
+  (memory $mem1 1)
+
+  (data (memory $mem0) (i32.const 0) "\2a") ;; 42
+  (data (memory $mem1) (i32.const 0) "\29") ;; 41
+
+  (func (export "load8-mem1") (result i32)
+    (i32.load8_u $mem1 (i32.const 0))
+  )
+)
+
+(assert_return (invoke "load8-mem1") (i32.const 41))
