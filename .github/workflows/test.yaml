@@ -385,6 +385,14 @@ jobs:
           - skip_macos: true
             metadata:
               build: macos-arm
+          - build-what:
+              key: capi
+            metadata:
+              build: windows-x64
+          - build-what:
+              key: capi
+            metadata:
+              build: windows-gnu
     container: ${{ matrix.metadata.container }}
     steps:
       - name: Set up git on musl
@@ -620,6 +628,10 @@ jobs:
           - skip_musl: true
             metadata:
               build: linux-musl
+          - stage:
+              make: check-compilers-only-std
+            metadata:
+              build: windows-x64
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
