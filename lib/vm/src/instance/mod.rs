@@ -271,7 +271,6 @@ impl Instance {
         }
     }
 
-    #[allow(dead_code)]
     /// Get a locally defined or imported memory.
     fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
         if let Some(local_index) = self.module.local_memory_index(index) {
