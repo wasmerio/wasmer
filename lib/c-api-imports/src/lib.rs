@@ -374,6 +374,14 @@ struct WasmCapiEnv {
     func_env: Option<FunctionEnv<WasmCapiEnv>>,
 }
 
+// The JavaScript backend executes each WASIX segment on one worker at a time
+// and explicitly transfers its WebAssembly module and shared memory before the
+// segment runs. wasm-bindgen correctly marks raw JS handles as !Send, but the
+// worker scheduler provides the stronger single-owner invariant required by
+// `FunctionEnv`.
+#[cfg(target_arch = "wasm32")]
+unsafe impl Send for WasmCapiEnv {}
+
 // ABI discriminants and layout constants copied from the WebAssembly C API
 // headers (`wasm.h`).
 const WASM_I32: u8 = 0;
