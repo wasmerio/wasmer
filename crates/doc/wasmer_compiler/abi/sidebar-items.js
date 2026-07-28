@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["PairSlot","ReturnAbi","ReturnSlot"],"fn":["classify_return_type_aarch64","classify_return_type_loongarch64","classify_return_type_riscv","classify_return_type_x86_64","pair_slot"]};
+window.SIDEBAR_ITEMS = {"enum":["PairSlot","ReturnAbi","ReturnSlot"],"fn":["classify_return_type_aarch64","classify_return_type_loongarch64","classify_return_type_riscv64","classify_return_type_x86_64","pair_slot"]};
