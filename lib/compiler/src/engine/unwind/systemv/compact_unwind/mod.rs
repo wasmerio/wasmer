@@ -411,7 +411,7 @@ impl CompactUnwindManager {
                         "Personality function does not appear in GOT table!".into(),
                     ));
                 };
-            let delta = (personality_pointer - self.dso_base) as u32;
+            let delta = personality_pointer.wrapping_sub(self.dso_base) as u32;
 
             self.write(delta)?;
         }
