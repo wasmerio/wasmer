@@ -548,7 +548,7 @@ mod test_features {
                 multi_value: true,
                 tail_call: false,
                 module_linking: false,
-                multi_memory: false,
+                multi_memory: true,
                 memory64: false,
                 exceptions: false,
                 relaxed_simd: false,
