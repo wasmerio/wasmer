@@ -47,12 +47,6 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     if is_tail_call {
         features.tail_call(true);
     }
-    if matches!(
-        config.compiler,
-        crate::Compiler::Cranelift | crate::Compiler::LLVM | crate::Compiler::V8
-    ) {
-        features.multi_memory(true);
-    }
     config.set_features(features);
     config.set_nan_canonicalization(try_nan_canonicalization);
     if is_unaligned_memory {
@@ -67,10 +61,6 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     wast.allow_trap_message("uninitialized element 2", "uninitialized element");
     // `liking.wast` has different wording but the same meaning
     wast.allow_trap_message("out of bounds memory access", "memory out of bounds");
-    wast.allow_trap_message(
-        "out of bounds memory access",
-        "Validation error: multiple memories",
-    );
     // V8-specific
     wast.allow_trap_message(
         "uninitialized element",
@@ -109,10 +99,6 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
 
     if cfg!(feature = "coverage") {
         wast.disable_assert_and_exhaustion();
-    }
-
-    if config.compiler == crate::Compiler::Singlepass {
-        wast.allow_instantiation_failures(&["Validation error: multiple memories"]);
     }
 
     wast.allow_instantiation_failures(&[

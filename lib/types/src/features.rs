@@ -57,7 +57,8 @@ impl Features {
             multi_value: true,
             tail_call: false,
             module_linking: false,
-            multi_memory: false,
+            // Multi-memory should be on by default
+            multi_memory: true,
             memory64: false,
             exceptions: false,
             relaxed_simd: false,
@@ -266,7 +267,7 @@ impl Features {
     /// This feature adds the ability to use multiple memories within a
     /// single Wasm module.
     ///
-    /// This is `false` by default.
+    /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/WebAssembly/multi-memory
     pub fn multi_memory(&mut self, enable: bool) -> &mut Self {
