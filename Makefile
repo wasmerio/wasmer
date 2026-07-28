@@ -14,7 +14,6 @@ SHELL=/usr/bin/env bash
 # | Cranelift  | Linux    | amd64        | glibc |
 # | LLVM       | Darwin   | aarch64      | musl  |
 # | Singlepass | Windows  | riscv64gc    |       |
-# |            |          | riscv32gc    |       |
 # |            |          | loongarch64  |       |
 # |------------|----------|--------------|-------|
 #

@@ -41,6 +41,7 @@ use std::collections::{
     hash_map::Entry::{Occupied, Vacant},
 };
 
+mod abi;
 mod address_map;
 mod compiler;
 mod config;

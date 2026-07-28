@@ -12,7 +12,6 @@ use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
 use crate::func_environ::FuncEnvironment;
 use crate::translator::EXN_REF_TYPE;
-use crate::translator::code_translator::bitcast_wasm_returns;
 use core::convert::TryFrom;
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
@@ -111,8 +110,17 @@ impl FuncTranslator {
         // Set up the translation state with a single pushed control block representing the whole
         // function and its return values.
         let exit_block = builder.create_block();
-        builder.append_block_params_for_function_returns(exit_block);
-        self.state.initialize(&builder.func.signature, exit_block);
+        for &ty in environ.return_types() {
+            builder.append_block_param(
+                exit_block,
+                crate::translator::type_to_irtype(ty, environ.target_config())?,
+            );
+        }
+        self.state.initialize(
+            &builder.func.signature,
+            exit_block,
+            environ.return_types().len(),
+        );
 
         parse_local_decls(reader, &mut builder, num_params, environ)?;
         parse_function_body(
@@ -269,10 +277,7 @@ fn parse_function_body(
     if state.reachable {
         //debug_assert!(builder.is_pristine());
         if !builder.is_unreachable() {
-            {
-                bitcast_wasm_returns(environ, &mut state.stack, builder);
-                builder.ins().return_(&state.stack)
-            };
+            environ.emit_wasm_return(builder, &state.stack);
         }
     }
 

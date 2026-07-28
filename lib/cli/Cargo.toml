@@ -111,8 +111,8 @@ disable-all-logging = [
 headless = ["dep:wasmer-vm", "wasmer/sys"]
 headless-minimal = ["headless", "disable-all-logging"]
 telemetry = []
-napi-v8 = ["dep:wasmer-napi"]
-wasm-c-api = ["dep:wasmer-c-api-imports"]
+napi-v8 = ["dep:wasmer-napi", "wasmer-napi/wasix"]
+wasm-c-api = ["dep:wasmer-c-api-imports", "wasmer-c-api-imports/wasix"]
 
 # Optional
 enable-serde = [
