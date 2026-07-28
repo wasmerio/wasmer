@@ -164,13 +164,6 @@ exclude_tests += --exclude wasmer-integration-tests-ios
 exclude_tests += --exclude wasmer-swift
 exclude_tests += --exclude wasmer-napi
 
-ifeq ($(IS_WINDOWS), 1)
-	# Cranelift and Singlepass are not supported on Windows.
-	exclude_tests += --exclude wasmer-compiler-cranelift
-	exclude_tests += --exclude wasmer-compiler-singlepass
-	exclude_tests += --exclude wasmer-compiler
-endif
-
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
 else
@@ -326,7 +319,7 @@ endif
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 # Features used by the workspace test suite.
-test_all_features := cache,middlewares,wast,experimental-async,experimental-host-interrupt
+test_all_features := experimental-async,experimental-host-interrupt
 ifeq ($(IS_LINUX)$(IS_AMD64),11)
 	test_all_features := $(test_all_features),experimental-artifact
 endif
@@ -600,9 +593,12 @@ build-capi-headless-ios:
 test-wast:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
 test-all:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release --no-default-features $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked && \
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked && \
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-net/Cargo.toml --release $(virtual_net_test_features) --locked && \
-	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release --no-default-features $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked
+	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked
+test-all-windows:
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --package wasmer --release --no-default-features --features v8-default --locked && \
+	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --package wasmer --release --no-default-features --features v8-default --locked
 check-compilers-only-std:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std --locked && \
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std --locked
