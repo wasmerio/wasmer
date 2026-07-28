@@ -14,20 +14,27 @@ pub(super) fn instantiate_with_runtime_hooks(
 ) -> Result<Instance, LinkError> {
     let runtime = env.as_ref(store).runtime.clone();
 
-    {
+    let instantiation_state = {
         let mut store_mut = store.as_store_mut();
-        let additional_imports = runtime
+        let (additional_imports, instantiation_state) = runtime
             .additional_imports(module, &mut store_mut)
             .map_err(LinkError::RuntimeHookError)?;
         merge_missing_imports(imports, &additional_imports);
-    }
+        instantiation_state
+    };
 
     let instance = Instance::new(store, module, imports)?;
 
     {
         let mut store_mut = store.as_store_mut();
         runtime
-            .configure_new_instance(module, &mut store_mut, &instance, Some(imported_memory))
+            .configure_new_instance(
+                module,
+                &mut store_mut,
+                &instance,
+                Some(imported_memory),
+                instantiation_state,
+            )
             .map_err(LinkError::RuntimeHookError)?;
     }
 
