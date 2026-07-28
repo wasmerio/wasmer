@@ -606,7 +606,7 @@ test-wasmer-cli:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/cli/Cargo.toml $(test_compiler_features) --release --locked
 # test examples
 test-examples:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) $(test_compiler_features) --features wasi --examples --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --no-default-features $(test_compiler_features) --features wasi --examples --locked
 test-capi-integration-tests:
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --package wasmer-c-api-test-runner --locked && \
 	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release --package wasmer-capi-examples-runner --locked
