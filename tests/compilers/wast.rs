@@ -47,6 +47,12 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     if is_tail_call {
         features.tail_call(true);
     }
+    if matches!(
+        config.compiler,
+        crate::Compiler::Cranelift | crate::Compiler::LLVM | crate::Compiler::V8
+    ) {
+        features.multi_memory(true);
+    }
     config.set_features(features);
     config.set_nan_canonicalization(try_nan_canonicalization);
     if is_unaligned_memory {
@@ -105,9 +111,12 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
         wast.disable_assert_and_exhaustion();
     }
 
+    if config.compiler == crate::Compiler::Singlepass {
+        wast.allow_instantiation_failures(&["Validation error: multiple memories"]);
+    }
+
     wast.allow_instantiation_failures(&[
         "Validation error: memory size must be at most",
-        "Validation error: multiple memories",
         "Validation error: function references",
         "Validation error: tables with expression initializers require the function-references proposal",
         "Validation error: heap types not supported without the gc feature",

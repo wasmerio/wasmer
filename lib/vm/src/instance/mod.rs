@@ -778,38 +778,24 @@ impl Instance {
         // dropping a non-passive element is a no-op (not a trap).
     }
 
-    /// Do a `memory.copy` for a locally defined memory.
+    /// Perform a `memory.copy` between two memories.
     ///
     /// # Errors
     ///
-    /// Returns a `Trap` error when the source or destination ranges are out of
+    /// Returns a `Trap` error when the source or destination range is out of
     /// bounds.
-    pub(crate) fn local_memory_copy(
+    pub(crate) fn memory_copy(
         &self,
-        memory_index: LocalMemoryIndex,
+        dst_memory_index: MemoryIndex,
+        src_memory_index: MemoryIndex,
         dst: u32,
         src: u32,
         len: u32,
     ) -> Result<(), Trap> {
-        // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
-
-        let memory = self.memory(memory_index);
-        // The following memory copy is not synchronized and is not atomic:
-        unsafe { memory_copy(&memory, dst, src, len) }
-    }
-
-    /// Perform a `memory.copy` on an imported memory.
-    pub(crate) fn imported_memory_copy(
-        &self,
-        memory_index: MemoryIndex,
-        dst: u32,
-        src: u32,
-        len: u32,
-    ) -> Result<(), Trap> {
-        let import = self.imported_memory(memory_index);
-        let memory = unsafe { import.definition.as_ref() };
-        // The following memory copy is not synchronized and is not atomic:
-        unsafe { memory_copy(memory, dst, src, len) }
+        let dst_memory = self.get_memory(dst_memory_index);
+        let src_memory = self.get_memory(src_memory_index);
+        // The following memory copy is not synchronized and is not atomic.
+        unsafe { memory_copy(&dst_memory, &src_memory, dst, src, len) }
     }
 
     /// Perform the `memory.fill` operation on a locally defined memory.

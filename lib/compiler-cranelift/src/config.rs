@@ -334,6 +334,7 @@ impl CompilerConfig for Cranelift {
         feats.exceptions(true);
         feats.relaxed_simd(true);
         feats.wide_arithmetic(true);
+        feats.multi_memory(true);
         feats
     }
 }

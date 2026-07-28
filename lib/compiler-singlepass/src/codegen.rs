@@ -2806,31 +2806,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
-            Operator::MemoryCopy { src_mem, .. } => {
-                // ignore until we support multiple memories
+            Operator::MemoryCopy { dst_mem, src_mem } => {
                 let len = self.value_stack.pop().unwrap();
                 let src_pos = self.value_stack.pop().unwrap();
                 let dst_pos = self.value_stack.pop().unwrap();
-
-                let memory_index = MemoryIndex::new(src_mem as usize);
-                let (memory_copy_index, memory_index) =
-                    if self.module.local_memory_index(memory_index).is_some() {
-                        (
-                            VMBuiltinFunctionIndex::get_memory_copy_index(),
-                            memory_index,
-                        )
-                    } else {
-                        (
-                            VMBuiltinFunctionIndex::get_imported_memory_copy_index(),
-                            memory_index,
-                        )
-                    };
 
                 self.machine.move_location(
                     Size::S64,
                     Location::Memory(
                         self.machine.get_vmctx_reg(),
-                        self.vmoffsets.vmctx_builtin_function(memory_copy_index) as i32,
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_memory_copy_index())
+                            as i32,
                     ),
                     Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
@@ -2840,21 +2827,25 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         this.machine
                             .emit_call_register(this.machine.get_gpr_for_call())
                     },
-                    // [vmctx, memory_index, dst, src, len]
+                    // [vmctx, dst_memory_index, src_memory_index, dst, src, len]
                     [
-                        (
-                            Location::Imm32(memory_index.index() as u32),
-                            CanonicalizeType::None,
-                        ),
+                        (Location::Imm32(dst_mem), CanonicalizeType::None),
+                        (Location::Imm32(src_mem), CanonicalizeType::None),
                         dst_pos,
                         src_pos,
                         len,
                     ]
                     .iter()
                     .cloned(),
-                    [WpType::I32, WpType::I32, WpType::I32, WpType::I32]
-                        .iter()
-                        .cloned(),
+                    [
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
+                        WpType::I32,
+                    ]
+                    .iter()
+                    .cloned(),
                     iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;

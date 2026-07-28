@@ -1718,7 +1718,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr = if let Some(m0) = self.m0_param {
+        let base_ptr = if let (0, Some(m0)) = (memory_index.as_u32(), self.m0_param) {
             m0
         } else {
             match self
@@ -10623,32 +10623,50 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::from_u32(mem);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(mem, |index| index.as_u32());
                 let delta = self.state.pop1()?;
                 let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics)?;
-                let grow = err!(self.builder.build_indirect_call(
-                    self.intrinsics.memory_grow_ty,
-                    grow_fn_ptr,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        delta.into(),
-                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
-                    ],
-                    "",
-                ));
+                let grow = err!(
+                    self.builder.build_indirect_call(
+                        self.intrinsics.memory_grow_ty,
+                        grow_fn_ptr,
+                        &[
+                            vmctx.as_basic_value_enum().into(),
+                            delta.into(),
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(index_arg.into(), false)
+                                .into(),
+                        ],
+                        "",
+                    )
+                );
                 self.state.push1(grow.try_as_basic_value().unwrap_basic());
             }
             Operator::MemorySize { mem } => {
                 let memory_index = MemoryIndex::from_u32(mem);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(mem, |index| index.as_u32());
                 let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics)?;
-                let size = err!(self.builder.build_indirect_call(
-                    self.intrinsics.memory_size_ty,
-                    size_fn_ptr,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
-                    ],
-                    "",
-                ));
+                let size = err!(
+                    self.builder.build_indirect_call(
+                        self.intrinsics.memory_size_ty,
+                        size_fn_ptr,
+                        &[
+                            vmctx.as_basic_value_enum().into(),
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(index_arg.into(), false)
+                                .into(),
+                        ],
+                        "",
+                    )
+                );
                 //size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
                 self.state.push1(size.try_as_basic_value().unwrap_basic());
             }
@@ -10678,23 +10696,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 )?;
             }
             Operator::MemoryCopy { dst_mem, src_mem } => {
-                // ignored until we support multiple memories
-                let _dst = dst_mem;
-                let (memory_copy, src) = if let Some(local_memory_index) = self
-                    .wasm_module
-                    .local_memory_index(MemoryIndex::from_u32(src_mem))
-                {
-                    (self.intrinsics.memory_copy, local_memory_index.as_u32())
-                } else {
-                    (self.intrinsics.imported_memory_copy, src_mem)
-                };
-
                 let (dest_pos, src_pos, len) = self.state.pop3()?;
-                let src_index = self.intrinsics.i32_ty.const_int(src.into(), false);
+                let dst_index = self.intrinsics.i32_ty.const_int(dst_mem.into(), false);
+                let src_index = self.intrinsics.i32_ty.const_int(src_mem.into(), false);
                 self.build_call_with_param_attributes(
-                    memory_copy,
+                    self.intrinsics.memory_copy,
                     &[
                         vmctx.as_basic_value_enum().into(),
+                        dst_index.into(),
                         src_index.into(),
                         dest_pos.into(),
                         src_pos.into(),

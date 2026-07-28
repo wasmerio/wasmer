@@ -415,6 +415,7 @@ impl CompilerConfig for LLVM {
         feats.relaxed_simd(true);
         feats.wide_arithmetic(true);
         feats.tail_call(true);
+        feats.multi_memory(true);
         feats
     }
 }

@@ -9,6 +9,11 @@ v8 issues::progress_can_abort
 v8 imports::dynamic_function
 v8 serialize::test_deserialize
 
+# Multi-memory
+singlepass spec::memory_multi # Singlepass doesn't support multiple memories
+singlepass spec::memory_copy0 # Singlepass doesn't support multiple memories
+singlepass spec::memory_copy1 # Singlepass doesn't support multiple memories
+
 # SIMD
 singlepass spec::simd # Singlepass doesn't support yet SIMD (no one asked for this feature)
 singlepass relaxed # Singlepass doesn't support relaxed SIMD yet

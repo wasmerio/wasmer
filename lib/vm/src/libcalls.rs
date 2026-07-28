@@ -561,7 +561,7 @@ pub unsafe extern "C" fn wasmer_vm_elem_drop(vmctx: *mut VMContext, elem_index: 
     }
 }
 
-/// Implementation of `memory.copy` for locally defined memories.
+/// Implementation of `memory.copy`.
 ///
 /// # Safety
 ///
@@ -569,41 +569,18 @@ pub unsafe extern "C" fn wasmer_vm_elem_drop(vmctx: *mut VMContext, elem_index: 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_vm_memory32_copy(
     vmctx: *mut VMContext,
-    memory_index: u32,
+    dst_memory_index: u32,
+    src_memory_index: u32,
     dst: u32,
     src: u32,
     len: u32,
 ) {
     unsafe {
         let result = {
-            let memory_index = LocalMemoryIndex::from_u32(memory_index);
+            let dst_memory_index = MemoryIndex::from_u32(dst_memory_index);
+            let src_memory_index = MemoryIndex::from_u32(src_memory_index);
             let instance = (*vmctx).instance();
-            instance.local_memory_copy(memory_index, dst, src, len)
-        };
-        if let Err(trap) = result {
-            raise_lib_trap(trap);
-        }
-    }
-}
-
-/// Implementation of `memory.copy` for imported memories.
-///
-/// # Safety
-///
-/// `vmctx` must be dereferenceable.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasmer_vm_imported_memory32_copy(
-    vmctx: *mut VMContext,
-    memory_index: u32,
-    dst: u32,
-    src: u32,
-    len: u32,
-) {
-    unsafe {
-        let result = {
-            let memory_index = MemoryIndex::from_u32(memory_index);
-            let instance = (*vmctx).instance();
-            instance.imported_memory_copy(memory_index, dst, src, len)
+            instance.memory_copy(dst_memory_index, src_memory_index, dst, src, len)
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
@@ -991,7 +968,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::FuncRef => wasmer_vm_func_ref as *const () as usize,
         LibCall::ElemDrop => wasmer_vm_elem_drop as *const () as usize,
         LibCall::Memory32Copy => wasmer_vm_memory32_copy as *const () as usize,
-        LibCall::ImportedMemory32Copy => wasmer_vm_imported_memory32_copy as *const () as usize,
+        LibCall::ImportedMemory32Copy => wasmer_vm_memory32_copy as *const () as usize,
         LibCall::Memory32Fill => wasmer_vm_memory32_fill as *const () as usize,
         LibCall::ImportedMemory32Fill => wasmer_vm_imported_memory32_fill as *const () as usize,
         LibCall::Memory32Init => wasmer_vm_memory32_init as *const () as usize,
