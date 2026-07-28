@@ -131,20 +131,18 @@ pub fn classify_return_type_aarch64(types: &[Type]) -> ReturnAbi {
 ///
 /// Note LoongArch64 uses the same aggregate rules as the RISC-V LP64D ABI.
 pub fn classify_return_type_loongarch64(types: &[Type]) -> ReturnAbi {
-    classify_return_type_riscv(types, true)
+    classify_return_type_riscv64(types)
 }
 
 /// Classifies RISC-V return values according to the hard-float psABI.
-pub fn classify_return_type_riscv(types: &[Type], is_riscv64: bool) -> ReturnAbi {
-    let xlen = if is_riscv64 { 64 } else { 32 };
-    let widths = types.iter().map(|ty| ty.bit_size(xlen)).collect_vec();
+pub fn classify_return_type_riscv64(types: &[Type]) -> ReturnAbi {
+    let widths = types.iter().map(|ty| ty.bit_size(64)).collect_vec();
 
     // The hardware floating-point calling convention flattens only aggregates
-    // with one or two fields. ABI_FLEN is 64 for the Linux *D ABIs used here,
-    // so an F64 is eligible even on RV32.
+    // with one or two fields.
     if let [first, second] = types {
         let is_float = |ty| matches!(ty, Type::F32 | Type::F64);
-        let eligible = |ty, width| is_float(ty) || width <= xlen;
+        let eligible = |ty, width| is_float(ty) || width <= 64;
         if (is_float(*first) || is_float(*second))
             && eligible(*first, widths[0])
             && eligible(*second, widths[1])
@@ -158,26 +156,20 @@ pub fn classify_return_type_riscv(types: &[Type], is_riscv64: bool) -> ReturnAbi
         ([value], [_]) => ReturnAbi::Single(*value),
 
         // RV64 integer-convention aggregates of at most two XLEN-sized chunks.
-        ([first, second], [32, 64] | [64, 32] | [64, 64]) if is_riscv64 => {
+        ([first, second], [32, 64] | [64, 32] | [64, 64]) => {
             ReturnAbi::Pair(ReturnSlot::Raw(*first), ReturnSlot::Raw(*second))
         }
-        ([first, second], [32, 32]) if is_riscv64 => {
-            ReturnAbi::PackedPair(PairSlot::Raw(*first, *second))
-        }
-        ([first, second, third], [32, 32, 32 | 64]) if is_riscv64 => {
+        ([first, second], [32, 32]) => ReturnAbi::PackedPair(PairSlot::Raw(*first, *second)),
+        ([first, second, third], [32, 32, 32 | 64]) => {
             ReturnAbi::PackedFirst(PairSlot::Raw(*first, *second), ReturnSlot::Raw(*third))
         }
-        ([first, second, third], [64, 32, 32]) if is_riscv64 => {
+        ([first, second, third], [64, 32, 32]) => {
             ReturnAbi::PackedLast(ReturnSlot::Raw(*first), PairSlot::Raw(*second, *third))
         }
-        ([first, second, third, fourth], [32, 32, 32, 32]) if is_riscv64 => ReturnAbi::PackedQuads(
+        ([first, second, third, fourth], [32, 32, 32, 32]) => ReturnAbi::PackedQuads(
             PairSlot::Raw(*first, *second),
             PairSlot::Raw(*third, *fourth),
         ),
-        // Two 32-bit fields fill the two integer return registers on RV32.
-        ([first, second], [32, 32]) if !is_riscv64 => {
-            ReturnAbi::PackedPair(PairSlot::Raw(*first, *second))
-        }
         _ => ReturnAbi::Sret(types.to_vec()),
     }
 }

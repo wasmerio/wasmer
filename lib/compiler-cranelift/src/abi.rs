@@ -10,7 +10,7 @@ use cranelift_frontend::FunctionBuilder;
 use smallvec::{SmallVec, smallvec};
 use target_lexicon::Architecture;
 use wasmer_compiler::abi::{
-    PairSlot, ReturnAbi, ReturnSlot, classify_return_type_aarch64, classify_return_type_riscv,
+    PairSlot, ReturnAbi, ReturnSlot, classify_return_type_aarch64, classify_return_type_riscv64,
     classify_return_type_x86_64,
 };
 use wasmer_types::{FunctionType, Type};
@@ -22,7 +22,7 @@ pub(crate) fn classify_returns(arch: Architecture, types: &[Type]) -> ReturnAbi 
     match arch {
         Architecture::X86_64 => classify_return_type_x86_64(types),
         Architecture::Aarch64(_) => classify_return_type_aarch64(types),
-        Architecture::Riscv64(_) => classify_return_type_riscv(types, true),
+        Architecture::Riscv64(_) => classify_return_type_riscv64(types),
         _ => unreachable!("unexpected architecture: {arch}"),
     }
 }

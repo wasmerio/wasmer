@@ -2529,10 +2529,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let is_f64x2 = ty.eq(&self.intrinsics.f64x2_ty.as_basic_type_enum());
         debug_assert!(is_f32 || is_f64 || is_f32x4 || is_f64x2);
 
-        if matches!(
-            self.target_triple.architecture,
-            Architecture::Riscv32(..) | Architecture::Riscv64(..)
-        ) {
+        if matches!(self.target_triple.architecture, Architecture::Riscv64(..)) {
             if is_f32 || is_f64 {
                 let input = value.into_float_value();
                 let is_nan = err!(self.builder.build_float_compare(
@@ -12698,10 +12695,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
         // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
         // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
-        if matches!(
-            self.target_triple.architecture,
-            Architecture::Riscv32(..) | Architecture::Riscv64(..)
-        ) {
+        if matches!(self.target_triple.architecture, Architecture::Riscv64(..)) {
             let param_types = function.get_type().get_param_types();
             for (i, ty) in param_types.into_iter().enumerate() {
                 if ty == self.context.i32_type().into() {
