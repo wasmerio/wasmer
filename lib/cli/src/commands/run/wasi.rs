@@ -682,7 +682,18 @@ impl Wasi {
             .unwrap_or_else(|| PathBuf::from("."));
         Ok(Self {
             deny_multiple_wasi_versions: true,
-            env_vars: std::env::vars().collect(),
+            // `std::env::vars` panics on entries that are not valid UTF-8, and
+            // environment variables are arbitrary byte strings on unix. This
+            // field is a `String` map, so invalid bytes are replaced rather
+            // than preserved, but the process no longer aborts.
+            env_vars: std::env::vars_os()
+                .map(|(name, value)| {
+                    (
+                        name.to_string_lossy().into_owned(),
+                        value.to_string_lossy().into_owned(),
+                    )
+                })
+                .collect(),
             volumes: vec![MappedDirectory {
                 host: dir.clone(),
                 guest: dir
