@@ -169,6 +169,7 @@ ifeq ($(IS_WINDOWS), 1)
 	# only useful through cargo-fuzz.
 	exclude_tests += --exclude wasmer-compiler-cranelift
 	exclude_tests += --exclude wasmer-compiler-llvm
+	exclude_tests += --exclude wasmer-compiler-singlepass
 	exclude_tests += --exclude wasmer-bin-fuzz
 endif
 

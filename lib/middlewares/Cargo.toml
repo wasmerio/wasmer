@@ -21,10 +21,17 @@ wasmer = { path = "../api", version = "=7.2.1", default-features = false, featur
 wasmer-types = { path = "../types", version = "=7.2.1" }
 wasmer-vm = { path = "../vm", version = "=7.2.1" }
 
-[dev-dependencies]
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 wasmer = { path = "../api", version = "=7.2.1", default-features = false, features = [
   "compiler",
   "singlepass",
+  "wasmparser",
+] }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+wasmer = { path = "../api", version = "=7.2.1", default-features = false, features = [
+  "compiler",
+  "v8",
   "wasmparser",
 ] }
 

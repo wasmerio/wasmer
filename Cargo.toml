@@ -343,11 +343,6 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=7.2.1", path = "lib/api", default-features = false, features = [
-  "compiler",
-  "singlepass",
-  "sys",
-] }
 anyhow.workspace = true
 clap.workspace = true
 clap_builder.workspace = true
@@ -367,6 +362,20 @@ tracing-subscriber = { workspace = true, default-features = false, features = [
 ] }
 reqwest = { workspace = true, features = ["blocking", "rustls"] }
 itertools.workspace = true
+
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
+wasmer = { version = "=7.2.1", path = "lib/api", default-features = false, features = [
+  "compiler",
+  "singlepass",
+  "sys",
+] }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+wasmer = { version = "=7.2.1", path = "lib/api", default-features = false, features = [
+  "compiler",
+  "sys",
+  "v8",
+] }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
