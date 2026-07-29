@@ -229,7 +229,9 @@ impl BackendFunction {
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_async(store, ty, func),
+            ),
         }
     }
 
@@ -264,7 +266,11 @@ impl BackendFunction {
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_with_env_async(
+                    store, env, ty, func,
+                ),
+            ),
         }
     }
 
@@ -288,7 +294,9 @@ impl BackendFunction {
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_typed_async(store, func),
+            ),
         }
     }
 
@@ -315,7 +323,11 @@ impl BackendFunction {
             #[cfg(feature = "v8")]
             crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+            crate::BackendStore::Js(_) => Self::Js(
+                crate::backend::js::entities::function::Function::new_typed_with_env_async(
+                    store, env, func,
+                ),
+            ),
         }
     }
 
@@ -456,7 +468,7 @@ impl BackendFunction {
             #[cfg(feature = "v8")]
             Self::V8(_) => unsupported_async_future(),
             #[cfg(feature = "js")]
-            Self::Js(_) => unsupported_async_future(),
+            Self::Js(f) => f.call_async(store, params),
         }
     }
 
