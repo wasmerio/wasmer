@@ -164,6 +164,14 @@ exclude_tests += --exclude wasmer-integration-tests-ios
 exclude_tests += --exclude wasmer-swift
 exclude_tests += --exclude wasmer-napi
 
+ifeq ($(IS_WINDOWS), 1)
+	# These workspace members either use unsupported compiler backends or are
+	# only useful through cargo-fuzz.
+	exclude_tests += --exclude wasmer-compiler-cranelift
+	exclude_tests += --exclude wasmer-compiler-llvm
+	exclude_tests += --exclude wasmer-bin-fuzz
+endif
+
 ifneq (, $(findstring llvm,$(compilers)))
 	ENABLE_LLVM := 1
 else

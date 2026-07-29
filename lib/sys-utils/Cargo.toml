@@ -27,13 +27,22 @@ libc.workspace = true
 
 [dev-dependencies]
 wasmer-wasix.workspace = true
+tracing-subscriber = { workspace = true, features = ["fmt"] }
+tracing.workspace = true
+
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 wasmer = { path = "../api", version = "=7.2.1", default-features = false, features = [
   "sys",
   "compiler",
   "cranelift",
 ] }
-tracing-subscriber = { workspace = true, features = ["fmt"] }
-tracing.workspace = true
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+wasmer = { path = "../api", version = "=7.2.1", default-features = false, features = [
+  "sys",
+  "compiler",
+  "v8",
+] }
 
 [package.metadata.docs.rs]
 features = ["wasmer/cranelift"]

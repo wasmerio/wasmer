@@ -26,11 +26,19 @@ clap_derive.workspace = true
 clap_lex.workspace = true
 tempfile.workspace = true
 rand.workspace = true
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=7.2.1" }
+
+[target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 wasmer = { path = "../api", version = "=7.2.1", default-features = false, features = [
   "sys",
   "cranelift",
 ] }
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=7.2.1" }
+
+[target.'cfg(target_os = "windows")'.dev-dependencies]
+wasmer = { path = "../api", version = "=7.2.1", default-features = false, features = [
+  "sys",
+  "v8",
+] }
 
 [features]
 default = ["filesystem"]

@@ -343,7 +343,7 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=7.2.1", path = "lib/api", features = [
+wasmer = { version = "=7.2.1", path = "lib/api", default-features = false, features = [
   "compiler",
   "singlepass",
   "sys",
