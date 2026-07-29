@@ -10,14 +10,15 @@ use crate::{
         ModuleInput, TaintReason,
         module_cache::HashedModuleData,
         task_manager::{
-            TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
+            LocalTaskSpawner, TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties,
+            TaskWasmRunProperties, WasmTaskFuture,
         },
     },
     state::context_switching::ContextSwitchingEnvironment,
     syscalls::rewind_ext,
 };
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
-use std::{borrow::Cow, future::Future, sync::Arc};
+use std::{borrow::Cow, sync::Arc};
 use tracing::*;
 use virtual_mio::block_on;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
@@ -139,7 +140,7 @@ pub fn spawn_exec_module(
         // Create a thread that will run this process
         let tasks_outer = tasks.clone();
 
-        let task = TaskWasm::new_async(run_exec, env, module, true, true);
+        let task = TaskWasm::new(run_exec, env, module, true, true);
 
         tasks_outer
             .task_wasm(task.with_pre_run(Box::new(|ctx, store| {
@@ -181,6 +182,7 @@ unsafe fn run_recycle(
 pub async fn run_exec(props: TaskWasmRunProperties) {
     let ctx = props.ctx;
     let mut store = props.store;
+    let local_tasks = props.local_tasks;
 
     // Create the WasiFunctionEnv
     let thread = WasiThreadRunGuard::new(ctx.data(&store).thread.clone());
@@ -230,7 +232,7 @@ pub async fn run_exec(props: TaskWasmRunProperties) {
     // TODO: rewrite to use crate::run_wasi_func
 
     // Call the module
-    call_module(ctx, store, thread, rewind_state, recycle).await;
+    call_module(ctx, store, thread, rewind_state, recycle, local_tasks).await;
 }
 
 fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
@@ -251,6 +253,7 @@ async fn call_module(
     handle: WasiThreadRunGuard,
     rewind_state: Option<(RewindState, RewindResultType)>,
     recycle: Option<Box<TaskWasmRecycle>>,
+    local_tasks: LocalTaskSpawner,
 ) {
     let env = ctx.data(&store);
     let pid = env.pid();
@@ -300,17 +303,18 @@ async fn call_module(
         return;
     };
 
-    #[cfg(feature = "js")]
-    let (mut store, mut call_ret) =
-        ContextSwitchingEnvironment::run_main_context_async(&ctx, store, start.clone(), vec![])
-            .await;
-    #[cfg(not(feature = "js"))]
-    let (mut store, mut call_ret) =
-        ContextSwitchingEnvironment::run_main_context(&ctx, store, start.clone(), vec![]);
+    let (mut store, mut call_ret) = ContextSwitchingEnvironment::run_main_context(
+        &ctx,
+        store,
+        start.clone(),
+        vec![],
+        local_tasks.clone(),
+    )
+    .await;
 
     let mut store = loop {
         // Technically, it's an error for a vfork to return from main, but anyway...
-        store = match resume_vfork(&ctx, store, &start, &call_ret) {
+        store = match resume_vfork(&ctx, store, &start, &call_ret, local_tasks.clone()).await {
             // A vfork was resumed, there may be another, so loop back
             (store, Ok(Some(ret))) => {
                 call_ret = ret;
@@ -340,16 +344,15 @@ async fn call_module(
                 // Create the callback that will be invoked when the thread respawns after a deep sleep
                 let rewind = deep.rewind;
                 let respawn = {
-                    move |ctx, store, rewind_result| {
-                        // Call the thread
-                        let future = call_module(
+                    move |ctx, store, rewind_result, local_tasks| -> WasmTaskFuture {
+                        Box::pin(call_module(
                             ctx,
                             store,
                             handle,
                             Some((rewind, RewindResultType::RewindWithResult(rewind_result))),
                             recycle,
-                        );
-                        drive_call_module(future);
+                            local_tasks,
+                        ))
                     }
                 };
 
@@ -411,11 +414,12 @@ async fn call_module(
 }
 
 #[allow(clippy::type_complexity)]
-fn resume_vfork(
+async fn resume_vfork(
     ctx: &WasiFunctionEnv,
     mut store: Store,
     start: &Function,
     call_ret: &Result<Box<[Value]>, RuntimeError>,
+    local_tasks: LocalTaskSpawner,
 ) -> (
     Store,
     Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno>,
@@ -523,7 +527,9 @@ fn resume_vfork(
                     store,
                     start.clone(),
                     vec![],
-                );
+                    local_tasks,
+                )
+                .await;
                 (store, Ok(Some(result)))
             }
             err => {
@@ -534,12 +540,4 @@ fn resume_vfork(
     } else {
         (store, Ok(None))
     }
-}
-
-fn drive_call_module(future: impl Future<Output = ()> + 'static) {
-    #[cfg(feature = "js")]
-    wasm_bindgen_futures::spawn_local(future);
-
-    #[cfg(not(feature = "js"))]
-    futures::executor::block_on(future);
 }

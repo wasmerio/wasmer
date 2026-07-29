@@ -6,7 +6,7 @@ use crate::{
     os::task::thread::WasiMemoryLayout,
     runtime::{
         TaintReason,
-        task_manager::{TaskWasm, TaskWasmRunProperties},
+        task_manager::{LocalTaskSpawner, TaskWasm, TaskWasmRunProperties, WasmTaskFuture},
     },
     state::context_switching::ContextSwitchingEnvironment,
     syscalls::*,
@@ -136,22 +136,23 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     thread_env.thread = thread_handle.as_thread();
     thread_env.layout = layout;
 
-    // TODO: Currently asynchronous threading does not work with multi
-    //       threading in JS but it does work for the main thread. This will
-    //       require more work to find out why.
-    thread_env.enable_deep_sleep = if cfg!(feature = "js") {
-        false
-    } else {
-        unsafe { env.capable_of_deep_sleep() }
-    };
+    thread_env.enable_deep_sleep = unsafe { env.capable_of_deep_sleep() };
 
     // This next function gets a context for the local thread and then
     // calls into the process
-    let mut execute_module = {
+    let execute_module = {
         let thread_handle = thread_handle;
-        move |ctx: WasiFunctionEnv, mut store: Store| {
+        move |ctx: WasiFunctionEnv, store: Store, local_tasks: LocalTaskSpawner| async move {
             // Call the thread
-            call_module::<M>(ctx, store, start_ptr_offset, thread_handle, rewind_state)
+            call_module::<M>(
+                ctx,
+                store,
+                start_ptr_offset,
+                thread_handle,
+                rewind_state,
+                local_tasks,
+            )
+            .await
         }
     };
 
@@ -180,12 +181,12 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
 
     // Now spawn a thread
     trace!("threading: spawning background thread");
-    let run = move |props: TaskWasmRunProperties| {
-        execute_module(props.ctx, props.store);
+    let run = move |props: TaskWasmRunProperties| async move {
+        execute_module(props.ctx, props.store, props.local_tasks).await;
     };
 
-    let mut task_wasm = TaskWasm::new(Box::new(run), thread_env, thread_module, false, false)
-        .with_memory(spawn_type);
+    let mut task_wasm =
+        TaskWasm::new(run, thread_env, thread_module, false, false).with_memory(spawn_type);
 
     tasks.task_wasm(task_wasm).map_err(Into::<Errno>::into)?;
 
@@ -194,10 +195,11 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
 }
 
 // This function calls into the module
-fn call_module_internal<M: MemorySize>(
+async fn call_module_internal<M: MemorySize>(
     ctx: &WasiFunctionEnv,
     mut store: Store,
     start_ptr_offset: M::Offset,
+    local_tasks: LocalTaskSpawner,
 ) -> (Store, Result<Option<ExitCode>, DeepSleepWork>) {
     // Note: we ensure both unwraps can happen before getting to this point
     let spawn = ctx
@@ -220,7 +222,9 @@ fn call_module_internal<M: MemorySize>(
         store,
         spawn,
         vec![Value::I32(tid_i32), Value::I32(start_pointer_i32)],
-    );
+        local_tasks,
+    )
+    .await;
     let thread_result = thread_result.map(|_| ());
 
     trace!("callback finished (ret={:?})", thread_result);
@@ -294,12 +298,13 @@ fn handle_thread_result(
 }
 
 /// Calls the module
-fn call_module<M: MemorySize>(
+async fn call_module<M: MemorySize>(
     mut ctx: WasiFunctionEnv,
     mut store: Store,
     start_ptr_offset: M::Offset,
     thread_handle: Arc<WasiThreadHandle>,
     rewind_state: Option<(RewindState, RewindResultType)>,
+    local_tasks: LocalTaskSpawner,
 ) {
     let env = ctx.data(&store);
     let tasks = env.tasks().clone();
@@ -320,7 +325,8 @@ fn call_module<M: MemorySize>(
     }
 
     // Now invoke the module
-    let (mut store, ret) = call_module_internal::<M>(&ctx, store, start_ptr_offset);
+    let (mut store, ret) =
+        call_module_internal::<M>(&ctx, store, start_ptr_offset, local_tasks).await;
 
     // If it went to deep sleep then we need to handle that
     if let Err(deep) = ret {
@@ -328,15 +334,15 @@ fn call_module<M: MemorySize>(
         let rewind = deep.rewind;
         let respawn = {
             let tasks = tasks.clone();
-            move |ctx, store, trigger_res| {
-                // Call the thread
-                call_module::<M>(
+            move |ctx, store, trigger_res, local_tasks| -> WasmTaskFuture {
+                Box::pin(call_module::<M>(
                     ctx,
                     store,
                     start_ptr_offset,
                     thread_handle,
                     Some((rewind, RewindResultType::RewindWithResult(trigger_res))),
-                );
+                    local_tasks,
+                ))
             }
         };
 
