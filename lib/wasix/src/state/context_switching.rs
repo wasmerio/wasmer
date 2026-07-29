@@ -10,7 +10,9 @@ use futures::{
 };
 use std::{
     collections::BTreeMap,
+    future::Future,
     mem::forget,
+    pin::Pin,
     sync::{
         Arc, RwLock, Weak,
         atomic::{AtomicU64, Ordering},
@@ -18,7 +20,7 @@ use std::{
 };
 use thiserror::Error;
 use tracing::trace;
-use wasmer::{RuntimeError, Store};
+use wasmer::{RuntimeError, Store, StoreAsync};
 use wasmer_wasix_types::wasi::ExitCode;
 
 /// The context-switching environment represents all state for WASIX context-switching
@@ -52,6 +54,16 @@ pub enum ContextSwitchError {
 }
 
 const MAIN_CONTEXT_ID: u64 = 0;
+
+type ContextCallResult = Result<Box<[wasmer::Value]>, RuntimeError>;
+
+enum PreparedMainContext {
+    Complete(Store, ContextCallResult),
+    Async {
+        store: StoreAsync,
+        call: Pin<Box<dyn Future<Output = ContextCallResult>>>,
+    },
+}
 
 /// Contexts will trap with this error as a RuntimeError::user when they are canceled
 ///
@@ -108,10 +120,51 @@ impl ContextSwitchingEnvironment {
     /// This call blocks until the entrypoint returns or traps
     pub(crate) fn run_main_context(
         ctx: &WasiFunctionEnv,
-        mut store: Store,
+        store: Store,
         entrypoint: wasmer::Function,
         params: Vec<wasmer::Value>,
     ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
+        let mut local_executor = ThreadLocalExecutor::new();
+        match Self::prepare_main_context(ctx, store, entrypoint, params, local_executor.spawner()) {
+            PreparedMainContext::Complete(store, result) => (store, result),
+            PreparedMainContext::Async { store, call } => {
+                let result = local_executor.run_until(call);
+                drop(local_executor);
+                Self::finish_main_context(ctx, store, result)
+            }
+        }
+    }
+
+    /// Run the main context while yielding to the JavaScript promise queue.
+    ///
+    /// JSPI requires the outer WebAssembly export to be awaited by JavaScript;
+    /// a blocking Rust executor cannot make progress while that promise is
+    /// suspended.
+    #[cfg(feature = "js")]
+    pub(crate) async fn run_main_context_async(
+        ctx: &WasiFunctionEnv,
+        store: Store,
+        entrypoint: wasmer::Function,
+        params: Vec<wasmer::Value>,
+    ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
+        let local_executor = ThreadLocalExecutor::new();
+        match Self::prepare_main_context(ctx, store, entrypoint, params, local_executor.spawner()) {
+            PreparedMainContext::Complete(store, result) => (store, result),
+            PreparedMainContext::Async { store, call } => {
+                let result = call.await;
+                drop(local_executor);
+                Self::finish_main_context(ctx, store, result)
+            }
+        }
+    }
+
+    fn prepare_main_context(
+        ctx: &WasiFunctionEnv,
+        mut store: Store,
+        entrypoint: wasmer::Function,
+        params: Vec<wasmer::Value>,
+        spawner: ThreadLocalSpawner,
+    ) -> PreparedMainContext {
         if !ctx
             .data(&store)
             .capabilities
@@ -119,10 +172,9 @@ impl ContextSwitchingEnvironment {
             .enable_asynchronous_threading
         {
             let result = entrypoint.call(&mut store, &params);
-            return (store, result);
+            return PreparedMainContext::Complete(store, result);
         }
 
-        // If we are already in a context-switching environment, something went wrong
         if ctx
             .data_mut(&mut store)
             .context_switching_environment
@@ -133,35 +185,34 @@ impl ContextSwitchingEnvironment {
             );
         }
 
-        // Do a normal call and dont install the context switching env, if the engine does not support async
-        let engine_supports_async = store.engine().supports_async();
-        if !engine_supports_async {
+        if !store.engine().supports_async() {
             let result = entrypoint.call(&mut store, &params);
-            return (store, result);
+            return PreparedMainContext::Complete(store, result);
         }
 
-        // Create a new executor
-        let mut local_executor = ThreadLocalExecutor::new();
-
-        let this = Self::new(local_executor.spawner());
-
-        // Add the context-switching environment to the WasiEnv
+        let this = Self::new(spawner);
         let previous = ctx
             .data_mut(&mut store)
             .context_switching_environment
             .replace(this);
-        assert!(previous.is_none()); // Should never be hit because of the check at the top
+        assert!(previous.is_none());
 
-        // Turn the store into an async store and run the entrypoint
         let store_async = store.into_async();
-        let result = local_executor.run_until(entrypoint.call_async(&store_async, params));
+        let call = Box::pin(entrypoint.call_async(&store_async, params));
+        PreparedMainContext::Async {
+            store: store_async,
+            call,
+        }
+    }
 
-        // Process if this was terminated by a context entrypoint returning
+    fn finish_main_context(
+        ctx: &WasiFunctionEnv,
+        store_async: StoreAsync,
+        result: ContextCallResult,
+    ) -> (Store, ContextCallResult) {
         let result = match &result {
             Err(e) => match e.downcast_ref::<ContextEntrypointReturned>() {
                 Some(ContextEntrypointReturned(id)) => {
-                    // Context entrypoint returned, which is not allowed
-                    // Exit with code 129
                     tracing::error!("The entrypoint of context {id} returned which is not allowed");
                     Err(RuntimeError::user(
                         WasiError::Exit(ExitCode::from(129)).into(),
@@ -173,13 +224,8 @@ impl ContextSwitchingEnvironment {
         };
         tracing::trace!("Main context finished execution and returned {result:?}");
 
-        // Drop the executor to ensure all references to the StoreAsync are gone and convert back to a normal store
-        drop(local_executor);
         let mut store = store_async.into_store().ok().unwrap();
-
-        // Remove the context-switching environment from the WasiEnv
         let env = ctx.data_mut(&mut store);
-
         env.context_switching_environment
             .take()
             .or_else(|| {
@@ -187,9 +233,6 @@ impl ContextSwitchingEnvironment {
                     .as_mut()
                     .and_then(|vfork| vfork.env.context_switching_environment.take())
                     .inspect(|_| {
-                        // Grace for vforks, so they don't bring everything down with them.
-                        // This is still an error.
-                        // The message below is oversimplified there is more nuance to this.
                         tracing::error!("Exiting a vforked process in any other way than calling `_exit()` is undefined behavior but the current program just did that.");
                     })
             })

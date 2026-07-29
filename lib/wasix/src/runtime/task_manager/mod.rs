@@ -67,8 +67,42 @@ pub type TaskWasmPreRun = dyn (for<'a> FnOnce(
     ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>)
     + Send;
 
-/// Callback that will be invoked
-pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
+/// Synchronous callback that will be invoked on the worker owning the instance.
+pub type TaskWasmRunSync = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
+
+#[cfg(not(feature = "js"))]
+pub type TaskWasmRun = TaskWasmRunSync;
+
+/// Callback used when JavaScript must await a JSPI-promising WebAssembly call.
+#[cfg(feature = "js")]
+pub type TaskWasmRunAsync = dyn FnOnce(TaskWasmRunProperties) -> Pin<Box<dyn Future<Output = ()> + 'static>>
+    + Send
+    + 'static;
+
+#[cfg(feature = "js")]
+/// A WebAssembly task callback which may either complete synchronously or
+/// yield through JSPI.
+pub enum TaskWasmRun {
+    Sync(Box<TaskWasmRunSync>),
+    Async(Box<TaskWasmRunAsync>),
+}
+
+#[cfg(feature = "js")]
+impl TaskWasmRun {
+    pub async fn run(self, properties: TaskWasmRunProperties) {
+        match self {
+            Self::Sync(run) => run(properties),
+            Self::Async(run) => run(properties).await,
+        }
+    }
+}
+
+#[cfg(not(feature = "js"))]
+/// The callback representation consumed by the native task manager.
+pub type TaskWasmRunCallback = Box<TaskWasmRun>;
+#[cfg(feature = "js")]
+/// The callback representation consumed by the JavaScript task manager.
+pub type TaskWasmRunCallback = TaskWasmRun;
 
 /// Callback that will be invoked
 pub type TaskExecModule = dyn FnOnce(Module) + Send + 'static;
@@ -85,7 +119,7 @@ pub struct TaskWasmRecycleProperties {
 pub type TaskWasmRecycle = dyn FnOnce(TaskWasmRecycleProperties) + Send + 'static;
 
 pub struct TaskWasmCallbacks {
-    pub run: Box<TaskWasmRun>,
+    pub run: TaskWasmRunCallback,
     pub recycle: Option<Box<TaskWasmRecycle>>,
     pub pre_run: Option<Box<TaskWasmPreRun>>,
     pub trigger: Option<Box<WasmResumeTrigger>>,
@@ -104,7 +138,45 @@ pub struct TaskWasm {
 
 impl TaskWasm {
     pub fn new(
-        run: Box<TaskWasmRun>,
+        run: Box<TaskWasmRunSync>,
+        env: WasiEnv,
+        module: Module,
+        update_layout: bool,
+        call_initialize: bool,
+    ) -> Self {
+        #[cfg(not(feature = "js"))]
+        let run = run;
+        #[cfg(feature = "js")]
+        let run = TaskWasmRun::Sync(run);
+
+        Self::from_run(run, env, module, update_layout, call_initialize)
+    }
+
+    /// Creates a task whose callback may yield.
+    ///
+    /// Native workers drive the callback to completion on their worker thread.
+    /// JavaScript workers await it so JSPI can yield to the promise queue.
+    pub fn new_async<F, Fut>(
+        run: F,
+        env: WasiEnv,
+        module: Module,
+        update_layout: bool,
+        call_initialize: bool,
+    ) -> Self
+    where
+        F: FnOnce(TaskWasmRunProperties) -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + 'static,
+    {
+        #[cfg(not(feature = "js"))]
+        let run = Box::new(move |properties| futures::executor::block_on(run(properties)));
+        #[cfg(feature = "js")]
+        let run = TaskWasmRun::Async(Box::new(move |properties| Box::pin(run(properties))));
+
+        Self::from_run(run, env, module, update_layout, call_initialize)
+    }
+
+    fn from_run(
+        run: TaskWasmRunCallback,
         env: WasiEnv,
         module: Module,
         update_layout: bool,
