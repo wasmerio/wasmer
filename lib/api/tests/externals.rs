@@ -256,11 +256,12 @@ fn memory_new() -> Result<(), String> {
 
 #[test]
 #[cfg(feature = "v8")]
-fn memory_ty_preserves_shared_flag_in_v8() -> Result<(), String> {
+fn memory_ty_round_trips_in_v8() -> Result<(), String> {
     let engine: Engine = wasmer::v8::V8::new().into();
     let mut store = Store::new(engine);
 
     for memory_type in [
+        MemoryType::new(Pages(1), None, false),
         MemoryType::new(Pages(1), Some(Pages(2)), false),
         MemoryType::new(Pages(1), Some(Pages(2)), true),
     ] {
