@@ -1,7 +1,6 @@
-use futures::{
-    executor::{LocalPool, LocalSpawner},
-    task::LocalSpawnExt,
-};
+use futures::executor::LocalPool;
+#[cfg(not(feature = "js"))]
+use futures::{executor::LocalSpawner, task::LocalSpawnExt};
 use std::thread::ThreadId;
 use thiserror::Error;
 
@@ -15,6 +14,7 @@ use thiserror::Error;
 #[derive(Clone, Debug)]
 pub(crate) struct ThreadLocalSpawner {
     /// A reference to the local executor's spawner
+    #[cfg(not(feature = "js"))]
     spawner: LocalSpawner,
     /// The thread this spawner is associated with
     ///
@@ -61,12 +61,20 @@ impl ThreadLocalSpawner {
         }
 
         // As we now know that we are on the correct thread, we can use the spawner safely
-        self.spawner
-            .spawn_local(future)
-            .map_err(|e| match e.is_shutdown() {
-                true => ThreadLocalSpawnerError::LocalPoolShutDown,
-                false => ThreadLocalSpawnerError::SpawnError,
-            })
+        #[cfg(feature = "js")]
+        {
+            wasm_bindgen_futures::spawn_local(future);
+            Ok(())
+        }
+        #[cfg(not(feature = "js"))]
+        {
+            self.spawner
+                .spawn_local(future)
+                .map_err(|e| match e.is_shutdown() {
+                    true => ThreadLocalSpawnerError::LocalPoolShutDown,
+                    false => ThreadLocalSpawnerError::SpawnError,
+                })
+        }
     }
 }
 
@@ -84,6 +92,7 @@ impl ThreadLocalExecutor {
 
     pub(crate) fn spawner(&self) -> ThreadLocalSpawner {
         ThreadLocalSpawner {
+            #[cfg(not(feature = "js"))]
             spawner: self.pool.spawner(),
             // SAFETY: This will always be the thread where the spawner was created on, as the ThreadLocalExecutor is not Send
             thread: std::thread::current().id(),

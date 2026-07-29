@@ -17,7 +17,7 @@ use crate::{
     syscalls::rewind_ext,
 };
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
-use std::{borrow::Cow, sync::Arc};
+use std::{borrow::Cow, future::Future, sync::Arc};
 use tracing::*;
 use virtual_mio::block_on;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
@@ -139,17 +139,15 @@ pub fn spawn_exec_module(
         // Create a thread that will run this process
         let tasks_outer = tasks.clone();
 
+        let task = TaskWasm::new_async(run_exec, env, module, true, true);
+
         tasks_outer
-            .task_wasm(
-                TaskWasm::new(Box::new(run_exec), env, module, true, true).with_pre_run(Box::new(
-                    |ctx, store| {
-                        let wasi_state = ctx.data(store).state.clone();
-                        Box::pin(async move {
-                            wasi_state.fs.close_cloexec_fds().await;
-                        })
-                    },
-                )),
-            )
+            .task_wasm(task.with_pre_run(Box::new(|ctx, store| {
+                let wasi_state = ctx.data(store).state.clone();
+                Box::pin(async move {
+                    wasi_state.fs.close_cloexec_fds().await;
+                })
+            })))
             .map_err(|err| {
                 error!("wasi[{}]::failed to launch module - {}", pid, err);
                 SpawnError::Other(Box::new(err))
@@ -180,7 +178,7 @@ unsafe fn run_recycle(
     }
 }
 
-pub fn run_exec(props: TaskWasmRunProperties) {
+pub async fn run_exec(props: TaskWasmRunProperties) {
     let ctx = props.ctx;
     let mut store = props.store;
 
@@ -232,7 +230,7 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     // TODO: rewrite to use crate::run_wasi_func
 
     // Call the module
-    call_module(ctx, store, thread, rewind_state, recycle);
+    call_module(ctx, store, thread, rewind_state, recycle).await;
 }
 
 fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
@@ -247,7 +245,7 @@ fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
 }
 
 /// Calls the module
-fn call_module(
+async fn call_module(
     ctx: WasiFunctionEnv,
     mut store: Store,
     handle: WasiThreadRunGuard,
@@ -302,6 +300,11 @@ fn call_module(
         return;
     };
 
+    #[cfg(feature = "js")]
+    let (mut store, mut call_ret) =
+        ContextSwitchingEnvironment::run_main_context_async(&ctx, store, start.clone(), vec![])
+            .await;
+    #[cfg(not(feature = "js"))]
     let (mut store, mut call_ret) =
         ContextSwitchingEnvironment::run_main_context(&ctx, store, start.clone(), vec![]);
 
@@ -339,13 +342,14 @@ fn call_module(
                 let respawn = {
                     move |ctx, store, rewind_result| {
                         // Call the thread
-                        call_module(
+                        let future = call_module(
                             ctx,
                             store,
                             handle,
                             Some((rewind, RewindResultType::RewindWithResult(rewind_result))),
                             recycle,
                         );
+                        drive_call_module(future);
                     }
                 };
 
@@ -530,4 +534,12 @@ fn resume_vfork(
     } else {
         (store, Ok(None))
     }
+}
+
+fn drive_call_module(future: impl Future<Output = ()> + 'static) {
+    #[cfg(feature = "js")]
+    wasm_bindgen_futures::spawn_local(future);
+
+    #[cfg(not(feature = "js"))]
+    futures::executor::block_on(future);
 }
