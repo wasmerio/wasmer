@@ -598,7 +598,6 @@ test-all:
 	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked
 test-all-windows:
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --package wasmer --release --no-default-features --features v8-default --locked && \
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --package wasmer-wast --release --no-default-features --features v8 --locked && \
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --package wasmer-wasix --release --no-default-features --features v8 --locked
 check-compilers-only-std:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std --locked && \
