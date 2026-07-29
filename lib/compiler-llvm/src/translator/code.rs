@@ -11335,17 +11335,16 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     fn translate_table_operator(&mut self, op: Operator) -> Result<(), CompileError> {
         match op {
             Operator::TableGet { table } => {
-                let table_index = self.intrinsics.i32_ty.const_int(table.into(), false);
                 let elem = self.state.pop1()?;
-                let table_get = if self
+                let (table_get, table_index) = if let Some(local_table_index) = self
                     .wasm_module
                     .local_table_index(TableIndex::from_u32(table))
-                    .is_some()
                 {
-                    self.intrinsics.table_get
+                    (self.intrinsics.table_get, local_table_index.as_u32())
                 } else {
-                    self.intrinsics.imported_table_get
+                    (self.intrinsics.imported_table_get, table)
                 };
+                let table_index = self.intrinsics.i32_ty.const_int(table_index as u64, false);
                 let value = self
                     .build_call_with_param_attributes(
                         table_get,
@@ -11371,21 +11370,20 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(value);
             }
             Operator::TableSet { table } => {
-                let table_index = self.intrinsics.i32_ty.const_int(table.into(), false);
                 let (elem, value) = self.state.pop2()?;
                 let value = err!(
                     self.builder
                         .build_bit_cast(value, self.intrinsics.ptr_ty, "")
                 );
-                let table_set = if self
+                let (table_set, table_index) = if let Some(local_table_index) = self
                     .wasm_module
                     .local_table_index(TableIndex::from_u32(table))
-                    .is_some()
                 {
-                    self.intrinsics.table_set
+                    (self.intrinsics.table_set, local_table_index.as_u32())
                 } else {
-                    self.intrinsics.imported_table_set
+                    (self.intrinsics.imported_table_set, table)
                 };
+                let table_index = self.intrinsics.i32_ty.const_int(table_index as u64, false);
                 self.build_call_with_param_attributes(
                     table_set,
                     &[
