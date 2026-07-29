@@ -1,11 +1,17 @@
 pub(crate) mod env;
 pub(crate) mod typed;
 use std::marker::PhantomData;
+#[cfg(feature = "experimental-async")]
+use std::{future::Future, pin::Pin, rc::Rc, sync::Arc};
 
 pub(crate) use typed::*;
 
 use js_sys::{Array, Function as JsFunction};
+#[cfg(feature = "experimental-async")]
+use js_sys::{Promise, Reflect};
 use wasm_bindgen::{JsCast, prelude::*};
+#[cfg(feature = "experimental-async")]
+use wasm_bindgen_futures::{JsFuture, future_to_promise};
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
@@ -18,6 +24,12 @@ use crate::{
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
     },
     vm::{VMExtern, VMExternFunction},
+};
+#[cfg(feature = "experimental-async")]
+use crate::{
+    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync, StoreContext,
+    entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
+    js::{function::env::AsyncFunctionEnvMut as JsAsyncFunctionEnvMut, jspi},
 };
 
 use std::panic::{self, AssertUnwindSafe};
@@ -48,6 +60,210 @@ impl Function {
         VMExtern::Js(crate::js::vm::external::VMExtern::Function(
             self.handle.clone(),
         ))
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_async<FT, F, Fut>(
+        store: &mut impl AsStoreMut,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    {
+        let env = FunctionEnv::new(store, ());
+        Self::new_with_env_async(store, &env, ty, move |_env, values| func(values))
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_with_env_async<FT, F, Fut, T>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+        T: 'static,
+    {
+        assert!(
+            jspi::is_supported(),
+            "the JavaScript host does not support WebAssembly JSPI"
+        );
+
+        let function_type = ty.into();
+        let func_ty = function_type.clone();
+        let store_id = store.objects_mut().id();
+        let raw_env = env.as_js().clone();
+        let func = Rc::new(func);
+        let wrapped_func = Closure::wrap(Box::new(move |args: &Array| -> Promise {
+            let Some(async_store) = jspi::active_store(store_id) else {
+                return Promise::reject(&JsValue::from_str(
+                    "an async host function was called outside Function::call_async",
+                ));
+            };
+            let callback_store = async_store.store();
+            let js_env = JsAsyncFunctionEnvMut {
+                store: async_store,
+                func_env: raw_env.clone(),
+            };
+            let env_mut =
+                AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(js_env));
+            let values = function_type
+                .params()
+                .iter()
+                .enumerate()
+                .map(|(index, ty)| js_value_to_wasmer(ty, &args.get(index as u32)))
+                .collect::<Vec<_>>();
+            let result_types = function_type.results().to_vec();
+            let func = Rc::clone(&func);
+
+            future_to_promise(async move {
+                let write_lock = callback_store.write_lock().await;
+                let store_context = StoreContext::install_async(write_lock.inner);
+                let future = func(env_mut, &values);
+                drop(store_context);
+
+                let results = future.await.map_err(JsValue::from)?;
+                match result_types.len() {
+                    0 => Ok(JsValue::UNDEFINED),
+                    1 => Ok(wasmer_value_to_js(&results[0])),
+                    _ => Ok(wasmer_array_to_js_array(&results).into()),
+                }
+            })
+        }) as Box<dyn FnMut(&Array) -> Promise>)
+        .into_js_value();
+
+        let variadic =
+            JsFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
+        let function = variadic
+            .bind1(&JsValue::UNDEFINED, &wrapped_func)
+            .unchecked_into::<JsFunction>();
+        let function = match jspi::suspending(&function) {
+            Ok(function) => function,
+            Err(error) => wasm_bindgen::throw_val(error),
+        };
+        let vm_function = VMFunction::new(function, func_ty);
+        Self::from_vm_extern(
+            &mut store.as_store_mut(),
+            VMExternFunction::Js(vm_function),
+        )
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_typed_async<F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        func: F,
+    ) -> Self
+    where
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
+    {
+        let env = FunctionEnv::new(store, ());
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
+        let func = Arc::new(func);
+        Self::new_with_env_async(
+            store,
+            &env,
+            signature,
+            move |mut env_mut, values| -> Pin<
+                Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>,
+            > {
+                let js_env = match env_mut.0 {
+                    BackendAsyncFunctionEnvMut::Js(ref mut js_env) => js_env,
+                    _ => panic!("Not a js backend"),
+                };
+                let mut store_wrapper = unsafe { StoreContext::get_current(js_env.store_id()) };
+                let mut store_mut = store_wrapper.as_mut();
+                let args = match typed_args_from_values::<Args>(
+                    &mut store_mut,
+                    args_sig.as_ref(),
+                    values,
+                ) {
+                    Ok(args) => args,
+                    Err(error) => return Box::pin(async { Err(error) }),
+                };
+                drop(store_wrapper);
+                let func = Arc::clone(&func);
+                let results_sig = Arc::clone(&results_sig);
+                let future = func
+                    .as_ref()
+                    .call_async(AsyncFunctionEnv::new(), args);
+                Box::pin(async move {
+                    let typed_result = future.await?;
+                    let mut store_mut = env_mut.write().await;
+                    typed_results_to_values::<Rets>(
+                        &mut store_mut.as_store_mut(),
+                        results_sig.as_ref(),
+                        typed_result,
+                    )
+                })
+            },
+        )
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_typed_with_env_async<T, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        T: 'static,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + 'static,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
+    {
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
+        let func = Arc::new(func);
+        Self::new_with_env_async(
+            store,
+            env,
+            signature,
+            move |mut env_mut, values| -> Pin<
+                Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>,
+            > {
+                let js_env = match env_mut.0 {
+                    BackendAsyncFunctionEnvMut::Js(ref mut js_env) => js_env,
+                    _ => panic!("Not a js backend"),
+                };
+                let mut store_wrapper = unsafe { StoreContext::get_current(js_env.store_id()) };
+                let mut store_mut = store_wrapper.as_mut();
+                let args = match typed_args_from_values::<Args>(
+                    &mut store_mut,
+                    args_sig.as_ref(),
+                    values,
+                ) {
+                    Ok(args) => args,
+                    Err(error) => return Box::pin(async { Err(error) }),
+                };
+                drop(store_wrapper);
+                let env_mut_clone = env_mut.as_mut();
+                let func = Arc::clone(&func);
+                let results_sig = Arc::clone(&results_sig);
+                let future = func
+                    .as_ref()
+                    .call_async(AsyncFunctionEnv::with_env(env_mut), args);
+                Box::pin(async move {
+                    let typed_result = future.await?;
+                    let mut store_mut = env_mut_clone.write().await;
+                    typed_results_to_values::<Rets>(
+                        &mut store_mut.as_store_mut(),
+                        results_sig.as_ref(),
+                        typed_result,
+                    )
+                })
+            },
+        )
     }
 
     #[allow(clippy::cast_ptr_alignment)]
@@ -262,6 +478,55 @@ impl Function {
         }
     }
 
+    #[cfg(feature = "experimental-async")]
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn call_async(
+        &self,
+        store: &impl AsStoreAsync,
+        params: Vec<Value>,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'static>> {
+        let function = self.clone();
+        let store = store.store();
+        Box::pin(async move {
+            let _active_store = jspi::install_store(store.store());
+            let function_type = function.handle.ty.clone();
+            let write_lock = store.write_lock().await;
+            let arguments = Array::new_with_length(params.len() as u32);
+            for (index, param) in params.iter().enumerate() {
+                arguments.set(index as u32, param.as_jsvalue(&write_lock));
+            }
+
+            let store_context = StoreContext::install_async(write_lock.inner);
+            let promising = jspi::promising(&function.handle.function)
+                .map_err(RuntimeError::from)?;
+            let promise = Reflect::apply(&promising, &JsValue::NULL, &arguments)
+                .map_err(RuntimeError::from)?
+                .dyn_into::<Promise>()
+                .map_err(RuntimeError::from)?;
+            drop(store_context);
+
+            let result = JsFuture::from(promise).await.map_err(RuntimeError::from)?;
+            match function_type.results().len() {
+                0 => Ok(Box::<[Value]>::default()),
+                1 => Ok(vec![js_value_to_wasmer(
+                    &function_type.results()[0],
+                    &result,
+                )]
+                .into_boxed_slice()),
+                _ => {
+                    let result: Array = result.into();
+                    Ok(function_type
+                        .results()
+                        .iter()
+                        .enumerate()
+                        .map(|(index, ty)| js_value_to_wasmer(ty, &result.get(index as u32)))
+                        .collect::<Vec<_>>()
+                        .into_boxed_slice())
+                }
+            }
+        })
+    }
+
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
         Self {
             handle: internal.unwrap_js(),
@@ -290,6 +555,50 @@ impl Function {
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
+}
+
+#[cfg(feature = "experimental-async")]
+fn typed_args_from_values<Args>(
+    store: &mut StoreMut,
+    function_type: &FunctionType,
+    values: &[Value],
+) -> Result<Args, RuntimeError>
+where
+    Args: WasmTypeList,
+{
+    if values.len() != function_type.params().len() {
+        return Err(RuntimeError::new(
+            "typed host function received wrong number of parameters",
+        ));
+    }
+    let mut raw_array = Args::empty_array();
+    for (slot, value) in raw_array.as_mut().iter_mut().zip(values) {
+        *slot = value.as_raw(store);
+    }
+    unsafe { Ok(Args::from_array(store, raw_array)) }
+}
+
+#[cfg(feature = "experimental-async")]
+fn typed_results_to_values<Rets>(
+    store: &mut StoreMut,
+    function_type: &FunctionType,
+    results: Rets,
+) -> Result<Vec<Value>, RuntimeError>
+where
+    Rets: WasmTypeList,
+{
+    let mut raw_array = unsafe { results.into_array(store) };
+    let mut values = Vec::with_capacity(function_type.results().len());
+    for (raw, ty) in raw_array
+        .as_mut()
+        .iter()
+        .zip(function_type.results())
+    {
+        unsafe {
+            values.push(Value::from_raw(store, *ty, *raw));
+        }
+    }
+    Ok(values)
 }
 
 impl std::fmt::Debug for Function {

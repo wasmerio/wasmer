@@ -101,6 +101,7 @@ target-lexicon.workspace = true
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wat.workspace = true
 anyhow.workspace = true
+futures.workspace = true
 wasm-bindgen-test.workspace = true
 macro-wasmer-engine-test = { version = "7.2.1", path = "./macro-wasmer-engine-test" }
 

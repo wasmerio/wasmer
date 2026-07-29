@@ -12,7 +12,11 @@ use crate::{
     TypedFunction, Value, WasmTypeList,
     js::utils::convert::{AsJs, js_value_to_wasmer},
 };
+#[cfg(feature = "experimental-async")]
+use crate::{AsStoreAsync, StoreAsync};
 use js_sys::Array;
+#[cfg(feature = "experimental-async")]
+use std::future::Future;
 use std::iter::FromIterator;
 use wasm_bindgen::JsValue;
 use wasmer_types::RawValue;
@@ -25,6 +29,35 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
         {
+            /// Call the typed func asynchronously through JSPI.
+            #[allow(clippy::too_many_arguments)]
+            #[cfg(feature = "experimental-async")]
+            pub(crate) fn call_async_js(
+                func: crate::Function,
+                store: StoreAsync,
+                $( $x: $x, )*
+            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'static
+            where
+                $( $x: FromToNativeWasmType + 'static, )*
+            {
+                async move {
+                    let mut write = store.write_lock().await;
+                    let func_ty = func.ty(&mut write);
+                    let mut params_raw = [ $( $x.to_native().into_raw(&mut write) ),* ];
+                    let mut params_values = Vec::with_capacity(params_raw.len());
+                    for (raw, ty) in params_raw.iter().zip(func_ty.params()) {
+                        unsafe {
+                            params_values.push(Value::from_raw(&mut write, *ty, *raw));
+                        }
+                    }
+                    drop(write);
+
+                    let results = func.call_async(&store, params_values).await?;
+                    let mut write = store.write_lock().await;
+                    convert_results::<Rets>(&mut write, func_ty, &results)
+                }
+            }
+
             /// Call the typed func and return results.
             #[allow(clippy::too_many_arguments)]
             pub fn call_js(&self, mut store: &mut impl AsStoreMut, $( $x: $x, )* ) -> Result<Rets, RuntimeError> where
@@ -133,3 +166,27 @@ impl_native_traits!(
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
 );
+
+#[cfg(feature = "experimental-async")]
+fn convert_results<Rets: WasmTypeList>(
+    store: &mut impl AsStoreMut,
+    func_ty: wasmer_types::FunctionType,
+    results: &[Value],
+) -> Result<Rets, RuntimeError> {
+    if results.len() != func_ty.results().len() {
+        return Err(RuntimeError::new("result arity mismatch"));
+    }
+
+    let mut rets_list_array = Rets::empty_array();
+    for ((slot, ty), value) in rets_list_array
+        .as_mut()
+        .iter_mut()
+        .zip(func_ty.results())
+        .zip(results)
+    {
+        debug_assert_eq!(value.ty(), *ty);
+        *slot = value.as_raw(store);
+    }
+
+    Ok(unsafe { Rets::from_array(store, rets_list_array) })
+}
