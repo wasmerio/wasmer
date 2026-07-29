@@ -1,8 +1,6 @@
 use crate::{
     WasiError, WasiFunctionEnv,
-    utils::thread_local_executor::{
-        ThreadLocalExecutor, ThreadLocalSpawner, ThreadLocalSpawnerError,
-    },
+    runtime::task_manager::{LocalTaskSpawnError, LocalTaskSpawner},
 };
 use futures::{
     TryFutureExt,
@@ -10,9 +8,7 @@ use futures::{
 };
 use std::{
     collections::BTreeMap,
-    future::Future,
     mem::forget,
-    pin::Pin,
     sync::{
         Arc, RwLock, Weak,
         atomic::{AtomicU64, Ordering},
@@ -20,7 +16,7 @@ use std::{
 };
 use thiserror::Error;
 use tracing::trace;
-use wasmer::{RuntimeError, Store, StoreAsync};
+use wasmer::{RuntimeError, Store};
 use wasmer_wasix_types::wasi::ExitCode;
 
 /// The context-switching environment represents all state for WASIX context-switching
@@ -41,9 +37,8 @@ struct ContextSwitchingEnvironmentInner {
     current_context_id: AtomicU64,
     /// The next available context ID
     next_available_context_id: AtomicU64,
-    /// This spawner can be used to spawn tasks onto the thread-local executor
-    /// associated with this context-switching environment
-    spawner: ThreadLocalSpawner,
+    /// Spawns contexts on the worker-local executor supplied by the task manager.
+    spawner: LocalTaskSpawner,
 }
 
 /// Errors that can occur during a context switch
@@ -54,16 +49,6 @@ pub enum ContextSwitchError {
 }
 
 const MAIN_CONTEXT_ID: u64 = 0;
-
-type ContextCallResult = Result<Box<[wasmer::Value]>, RuntimeError>;
-
-enum PreparedMainContext {
-    Complete(Store, ContextCallResult),
-    Async {
-        store: StoreAsync,
-        call: Pin<Box<dyn Future<Output = ContextCallResult>>>,
-    },
-}
 
 /// Contexts will trap with this error as a RuntimeError::user when they are canceled
 ///
@@ -104,7 +89,7 @@ impl Drop for ContextCanceled {
 pub struct ContextEntrypointReturned(u64);
 
 impl ContextSwitchingEnvironment {
-    fn new(spawner: ThreadLocalSpawner) -> Self {
+    fn new(spawner: LocalTaskSpawner) -> Self {
         Self {
             inner: Arc::new(ContextSwitchingEnvironmentInner {
                 unblockers: RwLock::new(BTreeMap::new()),
@@ -117,54 +102,14 @@ impl ContextSwitchingEnvironment {
 
     /// Run the main context function in a context-switching environment
     ///
-    /// This call blocks until the entrypoint returns or traps
-    pub(crate) fn run_main_context(
-        ctx: &WasiFunctionEnv,
-        store: Store,
-        entrypoint: wasmer::Function,
-        params: Vec<wasmer::Value>,
-    ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
-        let mut local_executor = ThreadLocalExecutor::new();
-        match Self::prepare_main_context(ctx, store, entrypoint, params, local_executor.spawner()) {
-            PreparedMainContext::Complete(store, result) => (store, result),
-            PreparedMainContext::Async { store, call } => {
-                let result = local_executor.run_until(call);
-                drop(local_executor);
-                Self::finish_main_context(ctx, store, result)
-            }
-        }
-    }
-
-    /// Run the main context while yielding to the JavaScript promise queue.
-    ///
-    /// JSPI requires the outer WebAssembly export to be awaited by JavaScript;
-    /// a blocking Rust executor cannot make progress while that promise is
-    /// suspended.
-    #[cfg(feature = "js")]
-    pub(crate) async fn run_main_context_async(
-        ctx: &WasiFunctionEnv,
-        store: Store,
-        entrypoint: wasmer::Function,
-        params: Vec<wasmer::Value>,
-    ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
-        let local_executor = ThreadLocalExecutor::new();
-        match Self::prepare_main_context(ctx, store, entrypoint, params, local_executor.spawner()) {
-            PreparedMainContext::Complete(store, result) => (store, result),
-            PreparedMainContext::Async { store, call } => {
-                let result = call.await;
-                drop(local_executor);
-                Self::finish_main_context(ctx, store, result)
-            }
-        }
-    }
-
-    fn prepare_main_context(
+    /// This call yields until the entrypoint returns or traps.
+    pub(crate) async fn run_main_context(
         ctx: &WasiFunctionEnv,
         mut store: Store,
         entrypoint: wasmer::Function,
         params: Vec<wasmer::Value>,
-        spawner: ThreadLocalSpawner,
-    ) -> PreparedMainContext {
+        local_tasks: LocalTaskSpawner,
+    ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
         if !ctx
             .data(&store)
             .capabilities
@@ -172,7 +117,7 @@ impl ContextSwitchingEnvironment {
             .enable_asynchronous_threading
         {
             let result = entrypoint.call(&mut store, &params);
-            return PreparedMainContext::Complete(store, result);
+            return (store, result);
         }
 
         if ctx
@@ -187,10 +132,10 @@ impl ContextSwitchingEnvironment {
 
         if !store.engine().supports_async() {
             let result = entrypoint.call(&mut store, &params);
-            return PreparedMainContext::Complete(store, result);
+            return (store, result);
         }
 
-        let this = Self::new(spawner);
+        let this = Self::new(local_tasks);
         let previous = ctx
             .data_mut(&mut store)
             .context_switching_environment
@@ -198,18 +143,8 @@ impl ContextSwitchingEnvironment {
         assert!(previous.is_none());
 
         let store_async = store.into_async();
-        let call = Box::pin(entrypoint.call_async(&store_async, params));
-        PreparedMainContext::Async {
-            store: store_async,
-            call,
-        }
-    }
+        let result = entrypoint.call_async(&store_async, params).await;
 
-    fn finish_main_context(
-        ctx: &WasiFunctionEnv,
-        store_async: StoreAsync,
-        result: ContextCallResult,
-    ) -> (Store, ContextCallResult) {
         let result = match &result {
             Err(e) => match e.downcast_ref::<ContextEntrypointReturned>() {
                 Some(ContextEntrypointReturned(id)) => {
@@ -362,7 +297,7 @@ impl ContextSwitchingEnvironment {
         })
     }
 
-    /// Create a new context and spawn it onto the thread-local executor
+    /// Create a new context and spawn it onto the worker-local executor.
     ///
     /// The entrypoint function is called when the context is unblocked for the first time
     ///
@@ -410,8 +345,8 @@ impl ContextSwitchingEnvironment {
                     // We know what we are doing, so we can prevent the panic on drop
                     canceled.defuse();
                     // Context was cancelled before it was started, so we can just let it return.
-                    // This will resolve the original future passed to `spawn_local` with
-                    // `Ok(())` which should make the executor drop it properly
+                    // This resolves the spawned context future, allowing the
+                    // worker-local executor to drop it.
                     return;
                 }
             };
@@ -461,8 +396,8 @@ impl ContextSwitchingEnvironment {
                     // We know what we are doing, so we can prevent the panic on drop
                     canceled.defuse();
                     // Context was cancelled, so we can just let it return.
-                    // This will resolve the original future passed to `spawn_local` with
-                    // `Ok(())` which should make the executor drop it properly
+                    // This resolves the spawned context future, allowing the
+                    // worker-local executor to drop it.
                     return;
                 }
                 Err(error) => error, // Propagate the runtime error to main
@@ -507,32 +442,23 @@ impl ContextSwitchingEnvironment {
                 .expect("Failed to send error to main context, this should not happen");
         };
 
-        // Queue the future onto the thread-local executor
-        tracing::trace!("Spawning context {new_context_id} onto the thread-local executor");
-        let spawn_result = self.inner.spawner.spawn_local(context_future);
+        // Queue the future onto the worker-local executor.
+        tracing::trace!("Spawning context {new_context_id} onto the worker-local executor");
+        let spawn_result = self.inner.spawner.spawn(context_future);
 
         match spawn_result {
             Ok(()) => new_context_id,
-            Err(ThreadLocalSpawnerError::LocalPoolShutDown) => {
-                // This case could happen if the executor is being shut down while it is still polling a future (this one).
-                // Which shouldn't be able with a single-threaded executor, as the shutdown would have to
-                // be initiated from within a future running on that executor.
-                // I the current WASIX context switching implementation should not be able to produce this case,
-                // but maybe it will be possible in future implementations. If someone manages to produce this case,
-                // they should open an issue so we can discuss how to handle this case properly.
-                // If this case is reachable we could return the same error as when no context-switching environment is present,
-                panic!(
-                    "Failed to spawn context {new_context_id} because the local executor has been shut down. Please open an issue and let me know how you produced this error.",
-                );
-            }
-            Err(ThreadLocalSpawnerError::NotOnTheCorrectThread { expected, found }) => {
+            Err(LocalTaskSpawnError::WrongThread { expected, found }) => {
                 // This should never happen and is a bug in WASIX, so we panic here
                 panic!(
-                    "Failed to create context because the thread local spawner lives on {expected:?} but you are on {found:?}"
+                    "Failed to create context because the worker-local spawner lives on {expected:?} but you are on {found:?}"
                 )
             }
-            Err(ThreadLocalSpawnerError::SpawnError) => {
-                panic!("Failed to spawn context {new_context_id}, this should not happen");
+            Err(LocalTaskSpawnError::ShutDown) => {
+                panic!("Failed to create context because the local task executor has shut down")
+            }
+            Err(LocalTaskSpawnError::Spawn) => {
+                panic!("Failed to create context because the local task executor rejected the task")
             }
         }
     }
