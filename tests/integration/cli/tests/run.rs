@@ -174,12 +174,11 @@ fn run_wasi_works() {
     assert.stdout("27\n");
 }
 
-/// Regression test for <https://github.com/wasmerio/wasmer/issues/6835>:
-/// `--forward-host-env` aborted before the guest started whenever the host
-/// environment held a variable that was not valid UTF-8.
+/// See <https://github.com/wasmerio/wasmer/issues/6835>. Needs a WASI module:
+/// `fixtures::fib()` imports nothing, so it never reaches the WASI runner.
 #[cfg(unix)]
 #[test]
-fn run_wasi_forwards_non_utf8_host_env() {
+fn issue_6835_run_wasi_forwards_non_utf8_host_env() {
     use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
 
     let assert = wasmer_command()

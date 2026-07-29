@@ -178,17 +178,10 @@ impl CommonWasiOptions {
 // type ContainerFs =
 //     OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
 
-/// Turn host environment variables into the raw byte pairs
-/// [`WasiEnvBuilder::add_envs`] expects.
+/// Turn host environment variables into raw byte pairs.
 ///
-/// Environment variables are arbitrary byte strings on unix, so
-/// [`std::env::vars`] cannot be used here: it panics as soon as any entry is
-/// not valid UTF-8. WASI environment variables are byte strings as well, so the
-/// bytes are handed to the guest unchanged.
-///
-/// Note that [`WasiEnvBuilder::add_env`] still stores the *name* as a `String`
-/// and replaces invalid bytes in it; only the value is guaranteed to survive
-/// untouched.
+/// [`std::env::vars`] panics on entries that are not valid UTF-8, while both
+/// unix and WASI environment variables are byte strings.
 fn os_env_vars(
     vars: impl IntoIterator<Item = (OsString, OsString)>,
 ) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
@@ -442,12 +435,10 @@ mod tests {
 
     use super::*;
 
-    /// Regression test for <https://github.com/wasmerio/wasmer/issues/6835>:
-    /// forwarding the host environment used to panic when any entry was not
-    /// valid UTF-8.
+    /// See <https://github.com/wasmerio/wasmer/issues/6835>.
     #[cfg(unix)]
     #[test]
-    fn non_utf8_host_env_vars_are_forwarded_as_raw_bytes() {
+    fn issue_6835_non_utf8_host_env_vars_are_forwarded_as_raw_bytes() {
         use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
 
         let vars = [
