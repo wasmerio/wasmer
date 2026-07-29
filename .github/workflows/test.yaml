@@ -629,22 +629,9 @@ jobs:
             metadata:
               build: linux-musl
           - stage:
-              make: test-all
-            metadata:
-              build: windows-x64
-          - stage:
               make: check-compilers-only-std
             metadata:
               build: windows-x64
-        include:
-          - stage:
-              description: "All tests (V8)"
-              make: test-all-windows
-            metadata:
-              build: windows-x64
-              os: windows-2022
-              target: x86_64-pc-windows-msvc
-              exe: ".exe"
     container:
       image: ${{ matrix.metadata.container }}
       volumes:
