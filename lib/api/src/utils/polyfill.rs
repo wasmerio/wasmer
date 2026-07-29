@@ -7,17 +7,19 @@
 use core::convert::TryFrom;
 use std::vec::Vec;
 use wasmer_types::entity::EntityRef;
+use wasmer_types::entity::packed_option::ReservedValue;
 use wasmer_types::{
     ExportIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalType, ImportIndex, MemoryIndex,
-    MemoryType, ModuleInfo, Pages, SignatureHash, SignatureIndex, TableIndex, TableType, TagIndex,
-    TagType, Type,
+    InitExpr, InitExprOp, MemoryType, ModuleInfo, Pages, SignatureHash, SignatureIndex,
+    TableIndex, TableInitializer, TableType, TagIndex, TagType, Type,
 };
 
 use wasmparser::{
-    self, BinaryReaderError, Export, ExportSectionReader, ExternalKind, FunctionSectionReader,
-    GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, Imports,
-    MemorySectionReader, MemoryType as WPMemoryType, NameSectionReader, Parser, Payload,
-    TableSectionReader, TagType as WPTagType, TypeRef, TypeSectionReader,
+    self, BinaryReaderError, ElementItems, ElementKind, ElementSectionReader, Export,
+    ExportSectionReader, ExternalKind, FunctionSectionReader, GlobalSectionReader,
+    GlobalType as WPGlobalType, ImportSectionReader, Imports, MemorySectionReader,
+    MemoryType as WPMemoryType, NameSectionReader, Operator, Parser, Payload, TableSectionReader,
+    TagType as WPTagType, TypeRef, TypeSectionReader,
 };
 
 pub type WasmResult<T> = Result<T, String>;
@@ -343,6 +345,10 @@ pub fn translate_module(data: &[u8]) -> WasmResult<ModuleInfoPolyfill> {
                 parse_start_section(func, &mut module_info)?;
             }
 
+            Payload::ElementSection(elements) => {
+                parse_element_section(elements, &mut module_info)?;
+            }
+
             Payload::TagSection(tags) => {
                 parse_tag_section(tags, &mut module_info)?;
             }
@@ -371,6 +377,103 @@ pub fn translate_module(data: &[u8]) -> WasmResult<ModuleInfoPolyfill> {
         .map_err(|err| err.to_string())?;
     validate_exported_types(&module_info)?;
     Ok(module_info)
+}
+
+fn parse_element_section(
+    elements: ElementSectionReader<'_>,
+    module: &mut ModuleInfoPolyfill,
+) -> WasmResult<()> {
+    for element in elements {
+        let element = element.map_err(transform_err)?;
+        let ElementKind::Active {
+            table_index,
+            offset_expr,
+        } = element.kind
+        else {
+            continue;
+        };
+
+        let mut functions = Vec::new();
+        match element.items {
+            ElementItems::Functions(items) => {
+                for item in items {
+                    functions.push(FunctionIndex::from_u32(item.map_err(transform_err)?));
+                }
+            }
+            ElementItems::Expressions(_, items) => {
+                for item in items {
+                    let expression = item.map_err(transform_err)?;
+                    let operator = expression
+                        .get_operators_reader()
+                        .read()
+                        .map_err(transform_err)?;
+                    match operator {
+                        Operator::RefFunc { function_index } => {
+                            functions.push(FunctionIndex::from_u32(function_index));
+                        }
+                        Operator::RefNull { .. } => {
+                            functions.push(FunctionIndex::reserved_value());
+                        }
+                        other => {
+                            return Err(format!(
+                                "unsupported element expression in type polyfill: {other:?}"
+                            ));
+                        }
+                    }
+                }
+            }
+        }
+
+        module.info.table_initializers.push(TableInitializer {
+            table_index: TableIndex::from_u32(table_index.unwrap_or(0)),
+            offset_expr: parse_init_expr(&offset_expr, &module.info)?,
+            elements: functions.into_boxed_slice(),
+        });
+    }
+    Ok(())
+}
+
+fn parse_init_expr(
+    expression: &wasmparser::ConstExpr<'_>,
+    module: &ModuleInfo,
+) -> WasmResult<InitExpr> {
+    let mut reader = expression.get_operators_reader();
+    let mut operations = Vec::new();
+    loop {
+        match reader.read().map_err(transform_err)? {
+            Operator::End => break,
+            Operator::I32Const { value } => operations.push(InitExprOp::I32Const(value)),
+            Operator::I64Const { value } => operations.push(InitExprOp::I64Const(value)),
+            Operator::GlobalGet { global_index } => {
+                let index = GlobalIndex::from_u32(global_index);
+                match module
+                    .global_type(index)
+                    .ok_or_else(|| format!("unknown global {global_index} in element offset"))?
+                    .ty
+                {
+                    Type::I32 => operations.push(InitExprOp::GlobalGetI32(index)),
+                    Type::I64 => operations.push(InitExprOp::GlobalGetI64(index)),
+                    other => {
+                        return Err(format!(
+                            "unsupported {other:?} global in element offset"
+                        ));
+                    }
+                }
+            }
+            Operator::I32Add => operations.push(InitExprOp::I32Add),
+            Operator::I32Sub => operations.push(InitExprOp::I32Sub),
+            Operator::I32Mul => operations.push(InitExprOp::I32Mul),
+            Operator::I64Add => operations.push(InitExprOp::I64Add),
+            Operator::I64Sub => operations.push(InitExprOp::I64Sub),
+            Operator::I64Mul => operations.push(InitExprOp::I64Mul),
+            other => {
+                return Err(format!(
+                    "unsupported operator in element offset: {other:?}"
+                ));
+            }
+        }
+    }
+    Ok(InitExpr::new(operations.into_boxed_slice()))
 }
 
 fn validate_exported_types(module_info: &ModuleInfoPolyfill) -> WasmResult<()> {

@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
@@ -10,8 +10,8 @@ use wasm_bindgen::{JsValue, prelude::*};
 use wasm_bindgen_futures::JsFuture;
 use wasmer_types::{
     CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
-    GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
-    SerializeError, TableType, Type,
+    GlobalIndex, GlobalType, ImportIndex, ImportType, ImportsIterator, InitExpr, InitExprOp,
+    MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableIndex, TableType, Type,
 };
 
 use crate::{
@@ -50,6 +50,39 @@ pub struct Module {
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
     raw_bytes: Option<Bytes>,
+}
+
+#[cfg(feature = "wasm-types-polyfill")]
+fn evaluate_i32_init_expr(
+    expression: &InitExpr,
+    globals: &HashMap<GlobalIndex, i64>,
+) -> Option<u32> {
+    let mut stack = Vec::<i64>::new();
+    for operation in expression.ops() {
+        match operation {
+            InitExprOp::GlobalGetI32(index) | InitExprOp::GlobalGetI64(index) => {
+                stack.push(*globals.get(index)?);
+            }
+            InitExprOp::I32Const(value) => stack.push(i64::from(*value)),
+            InitExprOp::I64Const(value) => stack.push(*value),
+            InitExprOp::I32Add | InitExprOp::I64Add => {
+                let rhs = stack.pop()?;
+                let lhs = stack.pop()?;
+                stack.push(lhs.checked_add(rhs)?);
+            }
+            InitExprOp::I32Sub | InitExprOp::I64Sub => {
+                let rhs = stack.pop()?;
+                let lhs = stack.pop()?;
+                stack.push(lhs.checked_sub(rhs)?);
+            }
+            InitExprOp::I32Mul | InitExprOp::I64Mul => {
+                let rhs = stack.pop()?;
+                let lhs = stack.pop()?;
+                stack.push(lhs.checked_mul(rhs)?);
+            }
+        }
+    }
+    u32::try_from(stack.pop()?).ok().filter(|_| stack.is_empty())
 }
 
 // XXX
@@ -246,8 +279,66 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        WebAssembly::Instance::new(&self.module, &imports_object)
-            .map_err(|e: JsValue| -> RuntimeError { e.into() })
+        let instance = WebAssembly::Instance::new(&self.module, &imports_object)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
+        #[cfg(feature = "wasm-types-polyfill")]
+        self.annotate_imported_table_functions(store, imports);
+        Ok(instance)
+    }
+
+    #[cfg(feature = "wasm-types-polyfill")]
+    fn annotate_imported_table_functions(
+        &self,
+        store: &mut impl AsStoreMut,
+        imports: &Imports,
+    ) {
+        let mut tables = HashMap::<TableIndex, crate::Table>::new();
+        let mut globals = HashMap::<GlobalIndex, i64>::new();
+
+        for (key, import_index) in &self.info.imports {
+            let Some(extern_) = imports.get_export(&key.module, &key.field) else {
+                continue;
+            };
+            match (import_index, extern_) {
+                (ImportIndex::Table(index), Extern::Table(table)) => {
+                    tables.insert(*index, table);
+                }
+                (ImportIndex::Global(index), Extern::Global(global)) => {
+                    let value = match global.get(store) {
+                        crate::Value::I32(value) => i64::from(value),
+                        crate::Value::I64(value) => value,
+                        _ => continue,
+                    };
+                    globals.insert(*index, value);
+                }
+                _ => {}
+            }
+        }
+        for initializer in &self.info.table_initializers {
+            let Some(table) = tables.get(&initializer.table_index) else {
+                continue;
+            };
+            let Some(start) = evaluate_i32_init_expr(&initializer.offset_expr, &globals) else {
+                continue;
+            };
+            for (offset, function_index) in initializer.elements.iter().enumerate() {
+                let Some(signature_index) = self.info.functions.get(*function_index) else {
+                    continue;
+                };
+                let Some(function_type) = self.info.signatures.get(*signature_index) else {
+                    continue;
+                };
+                let Ok(function) = table
+                    .as_js()
+                    .handle
+                    .table
+                    .get(start.saturating_add(offset as u32))
+                else {
+                    continue;
+                };
+                crate::js::vm::VMFunction::annotate_type(&function, function_type);
+            }
+        }
     }
 
     pub fn name(&self) -> Option<&str> {

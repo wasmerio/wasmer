@@ -1,8 +1,45 @@
 use std::any::Any;
 
 use crate::js::utils::js_handle::JsHandle;
-use js_sys::Function as JsFunction;
-use wasmer_types::{FunctionType, RawValue};
+use js_sys::{Array, Function as JsFunction, Reflect, Symbol};
+use wasm_bindgen::{JsCast, JsValue};
+use wasmer_types::{FunctionType, RawValue, Type};
+
+fn type_key() -> Symbol {
+    Symbol::for_("wasmer.function-type")
+}
+
+fn encode_types(types: &[Type]) -> Array {
+    Array::from_iter(types.iter().map(|ty| {
+        JsValue::from_f64(match ty {
+            Type::I32 => 0.0,
+            Type::I64 => 1.0,
+            Type::F32 => 2.0,
+            Type::F64 => 3.0,
+            Type::V128 => 4.0,
+            Type::ExternRef => 5.0,
+            Type::FuncRef => 6.0,
+            Type::ExceptionRef => 7.0,
+        })
+    }))
+}
+
+fn decode_types(types: &Array) -> Option<Vec<Type>> {
+    types
+        .iter()
+        .map(|value| match value.as_f64()? as u8 {
+            0 => Some(Type::I32),
+            1 => Some(Type::I64),
+            2 => Some(Type::F32),
+            3 => Some(Type::F64),
+            4 => Some(Type::V128),
+            5 => Some(Type::ExternRef),
+            6 => Some(Type::FuncRef),
+            7 => Some(Type::ExceptionRef),
+            _ => None,
+        })
+        .collect()
+}
 
 /// The VM Function type
 #[derive(Clone, Eq)]
@@ -16,10 +53,32 @@ unsafe impl Sync for VMFunction {}
 
 impl VMFunction {
     pub(crate) fn new(function: JsFunction, ty: FunctionType) -> Self {
+        Self::annotate_type(&function, &ty);
         Self {
             function: JsHandle::new(function),
             ty,
         }
+    }
+
+    pub(crate) fn annotate_type(function: &JsFunction, ty: &FunctionType) {
+        let encoded = Array::of2(
+            &encode_types(ty.params()).into(),
+            &encode_types(ty.results()).into(),
+        );
+        let _ = Reflect::set(&function, type_key().as_ref(), &encoded);
+    }
+
+    pub(crate) fn type_from_js(function: &JsFunction) -> Option<FunctionType> {
+        let encoded = Reflect::get(function, type_key().as_ref())
+            .ok()?
+            .dyn_into::<Array>()
+            .ok()?;
+        let params = encoded.get(0).dyn_into::<Array>().ok()?;
+        let results = encoded.get(1).dyn_into::<Array>().ok()?;
+        Some(FunctionType::new(
+            decode_types(&params)?,
+            decode_types(&results)?,
+        ))
     }
 }
 
