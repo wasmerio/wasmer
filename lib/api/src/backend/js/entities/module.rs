@@ -3,7 +3,11 @@ use std::path::Path;
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use tracing::{debug, warn};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsCast;
 use wasm_bindgen::{JsValue, prelude::*};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::JsFuture;
 use wasmer_types::{
     CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
     GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
@@ -62,6 +66,38 @@ impl From<Module> for JsValue {
 }
 
 impl Module {
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) async fn new_async(
+        _engine: &impl AsEngineRef,
+        binary: &[u8],
+    ) -> Result<Self, CompileError> {
+        // Copy the bytes into JavaScript-owned memory before awaiting. A view
+        // into Wasm linear memory could be invalidated if that memory grows.
+        let js_bytes = Uint8Array::from(binary);
+        let module = JsFuture::from(WebAssembly::compile(&js_bytes))
+            .await
+            .map_err(|error| {
+                CompileError::Validate(
+                    error
+                        .as_string()
+                        .or_else(|| {
+                            Reflect::get(&error, &JsValue::from_str("message"))
+                                .ok()
+                                .and_then(|message| message.as_string())
+                        })
+                        .unwrap_or_else(|| "Unknown validation error".to_owned()),
+                )
+            })?
+            .dyn_into::<WebAssembly::Module>()
+            .map_err(|_| {
+                CompileError::Validate(
+                    "WebAssembly.compile returned an unexpected value".to_owned(),
+                )
+            })?;
+
+        Ok(unsafe { Self::from_js_module(module, binary) })
+    }
+
     pub(crate) fn from_binary(
         _engine: &impl AsEngineRef,
         binary: &[u8],

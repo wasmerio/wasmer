@@ -9,6 +9,27 @@ use std::ffi::OsStr;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
 
+async fn assert_module_new_async() -> Result<(), String> {
+    let store = Store::default();
+    let module = Module::new_async(&store, "(module (func (export \"run\")))")
+        .await
+        .map_err(|error| format!("{error:?}"))?;
+    assert!(module.exports().any(|export| export.name() == "run"));
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn module_new_async() -> Result<(), String> {
+    futures::executor::block_on(assert_module_new_async())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+async fn module_new_async() -> Result<(), JsValue> {
+    assert_module_new_async().await.map_err(JsValue::from_str)
+}
+
 #[engine_test]
 fn module_get_name() -> Result<(), String> {
     let store = Store::default();
