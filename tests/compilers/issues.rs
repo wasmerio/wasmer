@@ -668,9 +668,9 @@ fn local_and_imported_tables(mut config: crate::Config) -> Result<()> {
     assert_eq!(&*get_local.call(&mut store, &[])?, &[Value::I32(1)]);
     assert_eq!(&*size_local.call(&mut store, &[])?, &[Value::I32(3)]);
     assert!(set_local.call(&mut store, &[])?.is_empty());
-     assert_eq!(&*call_local.call(&mut store, &[])?, &[Value::I32(42)]);
+    assert_eq!(&*call_local.call(&mut store, &[])?, &[Value::I32(42)]);
     assert_eq!(&*grow_local.call(&mut store, &[])?, &[Value::I32(3)]);
-     assert_eq!(&*size_local.call(&mut store, &[])?, &[Value::I32(4)]);
+    assert_eq!(&*size_local.call(&mut store, &[])?, &[Value::I32(4)]);
 
     Ok(())
 }
