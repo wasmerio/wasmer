@@ -20,6 +20,7 @@ atoms:
           - reference-types
           - multi-value
           - threads
+          - multi-memory
 commands:
   cowsay:
     runner: "https://webc.org/runner/wasi"

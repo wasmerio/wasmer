@@ -319,7 +319,8 @@ mod test_vmglobal_import {
 /// The memory is not copied atomically and is not synchronized: it's the
 /// caller's responsibility to synchronize.
 pub(crate) unsafe fn memory_copy(
-    mem: &VMMemoryDefinition,
+    dst_mem: &VMMemoryDefinition,
+    src_mem: &VMMemoryDefinition,
     dst: u32,
     src: u32,
     len: u32,
@@ -328,10 +329,10 @@ pub(crate) unsafe fn memory_copy(
         // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
         if src
             .checked_add(len)
-            .is_none_or(|n| usize::try_from(n).unwrap() > mem.current_length)
+            .is_none_or(|n| usize::try_from(n).unwrap() > src_mem.current_length)
             || dst
                 .checked_add(len)
-                .is_none_or(|m| usize::try_from(m).unwrap() > mem.current_length)
+                .is_none_or(|m| usize::try_from(m).unwrap() > dst_mem.current_length)
         {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
@@ -341,8 +342,8 @@ pub(crate) unsafe fn memory_copy(
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
-        let dst = mem.base.add(dst);
-        let src = mem.base.add(src);
+        let dst = dst_mem.base.add(dst);
+        let src = src_mem.base.add(src);
         ptr::copy(src, dst, len as usize);
 
         Ok(())
@@ -700,8 +701,6 @@ impl VMBuiltinFunctionsArray {
             wasmer_vm_elem_drop as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as *const () as usize] =
             wasmer_vm_memory32_copy as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory_copy_index().index() as *const ()
-            as usize] = wasmer_vm_imported_memory32_copy as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as *const () as usize] =
             wasmer_vm_memory32_fill as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as *const ()

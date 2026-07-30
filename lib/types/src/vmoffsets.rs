@@ -47,138 +47,134 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_elem_drop_index() -> Self {
         Self(6)
     }
-    /// Returns an index for wasm's `memory.copy` for locally defined memories.
+    /// Returns an index for wasm's `memory.copy`.
     pub const fn get_memory_copy_index() -> Self {
         Self(7)
     }
-    /// Returns an index for wasm's `memory.copy` for imported memories.
-    pub const fn get_imported_memory_copy_index() -> Self {
-        Self(8)
-    }
     /// Returns an index for wasm's `memory.fill` for locally defined memories.
     pub const fn get_memory_fill_index() -> Self {
-        Self(9)
+        Self(8)
     }
     /// Returns an index for wasm's `memory.fill` for imported memories.
     pub const fn get_imported_memory_fill_index() -> Self {
-        Self(10)
+        Self(9)
     }
     /// Returns an index for wasm's `memory.init` instruction.
     pub const fn get_memory_init_index() -> Self {
-        Self(11)
+        Self(10)
     }
     /// Returns an index for wasm's `data.drop` instruction.
     pub const fn get_data_drop_index() -> Self {
-        Self(12)
+        Self(11)
     }
     /// Returns an index for wasm's `raise_trap` instruction.
     pub const fn get_raise_trap_index() -> Self {
-        Self(13)
+        Self(12)
     }
     /// Returns an index for wasm's `table.size` instruction for local tables.
     pub const fn get_table_size_index() -> Self {
-        Self(14)
+        Self(13)
     }
     /// Returns an index for wasm's `table.size` instruction for imported tables.
     pub const fn get_imported_table_size_index() -> Self {
-        Self(15)
+        Self(14)
     }
     /// Returns an index for wasm's `table.grow` instruction for local tables.
     pub const fn get_table_grow_index() -> Self {
-        Self(16)
+        Self(15)
     }
     /// Returns an index for wasm's `table.grow` instruction for imported tables.
     pub const fn get_imported_table_grow_index() -> Self {
-        Self(17)
+        Self(16)
     }
     /// Returns an index for wasm's `table.get` instruction for local tables.
     pub const fn get_table_get_index() -> Self {
-        Self(18)
+        Self(17)
     }
     /// Returns an index for wasm's `table.get` instruction for imported tables.
     pub const fn get_imported_table_get_index() -> Self {
-        Self(19)
+        Self(18)
     }
     /// Returns an index for wasm's `table.set` instruction for local tables.
     pub const fn get_table_set_index() -> Self {
-        Self(20)
+        Self(19)
     }
     /// Returns an index for wasm's `table.set` instruction for imported tables.
     pub const fn get_imported_table_set_index() -> Self {
-        Self(21)
+        Self(20)
     }
     /// Returns an index for wasm's `func.ref` instruction.
     pub const fn get_func_ref_index() -> Self {
-        Self(22)
+        Self(21)
     }
     /// Returns an index for wasm's `table.fill` instruction for local tables.
     pub const fn get_table_fill_index() -> Self {
-        Self(23)
+        Self(22)
     }
     /// Returns an index for wasm's local `memory.atomic.wait32` builtin function.
     pub const fn get_memory_atomic_wait32_index() -> Self {
-        Self(24)
+        Self(23)
     }
     /// Returns an index for wasm's imported `memory.atomic.wait32` builtin function.
     pub const fn get_imported_memory_atomic_wait32_index() -> Self {
-        Self(25)
+        Self(24)
     }
     /// Returns an index for wasm's local `memory.atomic.wait64` builtin function.
     pub const fn get_memory_atomic_wait64_index() -> Self {
-        Self(26)
+        Self(25)
     }
     /// Returns an index for wasm's imported `memory.atomic.wait64` builtin function.
     pub const fn get_imported_memory_atomic_wait64_index() -> Self {
-        Self(27)
+        Self(26)
     }
     /// Returns an index for wasm's local `memory.atomic.notify` builtin function.
     pub const fn get_memory_atomic_notify_index() -> Self {
-        Self(28)
+        Self(27)
     }
 
     /// Returns an index for wasm's imported `memory.atomic.notify` builtin function.
     pub const fn get_imported_memory_atomic_notify_index() -> Self {
-        Self(29)
+        Self(28)
     }
 
     /// Returns an index for wasm's imported `debug_usize` builtin function.
     pub const fn get_imported_debug_usize_index() -> Self {
-        Self(30)
+        Self(29)
     }
 
     /// Returns an index for wasm's imported `debug_str` builtin function.
     pub const fn get_imported_debug_str_index() -> Self {
-        Self(31)
+        Self(30)
     }
 
     /// Returns an index for wasm's imported `wasmer_eh_personality2` builtin function.
     pub const fn get_imported_personality2_index() -> Self {
-        Self(32)
+        Self(31)
     }
 
     /// Returns an index for wasm's imported `alloc_exception` builtin function.
     pub const fn get_imported_alloc_exception_index() -> Self {
-        Self(33)
+        Self(32)
     }
 
     /// Returns an index for wasm's imported `throw` builtin function.
     pub const fn get_imported_throw_index() -> Self {
-        Self(34)
+        Self(33)
     }
 
     /// Returns an index for wasm's imported `read_exnref` builtin function.
     pub const fn get_imported_read_exnref_index() -> Self {
-        Self(35)
+        Self(34)
     }
 
     /// Returns an index for wasm's imported `exception_into_exnref` builtin function.
     pub const fn get_imported_exception_into_exnref_index() -> Self {
-        Self(36)
+        Self(35)
     }
 
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        37
+        36
     }
 
     /// Return the index as an u32 number.
