@@ -685,44 +685,44 @@ impl VMBuiltinFunctionsArray {
 
         let mut ptrs = [0; Self::len()];
 
-        ptrs[VMBuiltinFunctionIndex::get_memory32_grow_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_memory32_grow_index().index() as usize] =
             wasmer_vm_memory32_grow as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_grow_index().index() as *const ()
-            as usize] = wasmer_vm_imported_memory32_grow as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory32_size_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_grow_index().index() as usize] =
+            wasmer_vm_imported_memory32_grow as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory32_size_index().index() as usize] =
             wasmer_vm_memory32_size as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_size_index().index() as *const ()
-            as usize] = wasmer_vm_imported_memory32_size as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_copy_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory32_size_index().index() as usize] =
+            wasmer_vm_imported_memory32_size as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_copy_index().index() as usize] =
             wasmer_vm_table_copy as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_init_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_table_init_index().index() as usize] =
             wasmer_vm_table_init as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() as usize] =
             wasmer_vm_elem_drop as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as usize] =
             wasmer_vm_memory32_copy as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as usize] =
             wasmer_vm_memory32_fill as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as *const ()
-            as usize] = wasmer_vm_imported_memory32_fill as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_memory_init_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as usize] =
+            wasmer_vm_imported_memory32_fill as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_init_index().index() as usize] =
             wasmer_vm_memory32_init as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as usize] =
             wasmer_vm_data_drop as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as usize] =
             wasmer_vm_raise_trap as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_size_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_table_size_index().index() as usize] =
             wasmer_vm_table_size as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_table_size_index().index() as *const ()
-            as usize] = wasmer_vm_imported_table_size as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_grow_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_size_index().index() as usize] =
+            wasmer_vm_imported_table_size as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_grow_index().index() as usize] =
             wasmer_vm_table_grow as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_table_grow_index().index() as *const ()
-            as usize] = wasmer_vm_imported_table_grow as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_table_get_index().index() as *const () as usize] =
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_grow_index().index() as usize] =
+            wasmer_vm_imported_table_grow as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_get_index().index() as usize] =
             wasmer_vm_table_get as *const () as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_table_get_index().index() as *const ()
-            as usize] = wasmer_vm_imported_table_get as *const () as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_get_index().index() as usize] =
+            wasmer_vm_imported_table_get as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_table_set_index().index() as usize] =
             wasmer_vm_table_set as *const () as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_table_set_index().index() as usize] =
