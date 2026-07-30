@@ -25,6 +25,7 @@ hashbrown = { workspace = true, optional = true }
 gimli = { workspace = true, optional = true }
 enumset.workspace = true
 more-asserts.workspace = true
+object.workspace = true
 dynasm.workspace = true
 dynasmrt.workspace = true
 byteorder.workspace = true
@@ -56,6 +57,7 @@ unwind = ["gimli"]
 sse = []
 avx = []
 enable-serde = ["serde", "serde_derive"]
+experimental-artifact = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
