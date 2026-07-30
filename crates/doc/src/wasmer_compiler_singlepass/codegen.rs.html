@@ -5476,651 +5476,667 @@
 <a href=#5476 id=5476 data-nosnippet>5476</a>            }
 <a href=#5477 id=5477 data-nosnippet>5477</a>            Operator::TableSet { table: index } =&gt; {
 <a href=#5478 id=5478 data-nosnippet>5478</a>                <span class="kw">let </span>table_index = TableIndex::new(index <span class="kw">as _</span>);
-<a href=#5479 id=5479 data-nosnippet>5479</a>                <span class="kw">let </span>value = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5480 id=5480 data-nosnippet>5480</a>                <span class="kw">let </span>index = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5481 id=5481 data-nosnippet>5481</a>
-<a href=#5482 id=5482 data-nosnippet>5482</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5483 id=5483 data-nosnippet>5483</a>                    Size::S64,
-<a href=#5484 id=5484 data-nosnippet>5484</a>                    Location::Memory(
-<a href=#5485 id=5485 data-nosnippet>5485</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5486 id=5486 data-nosnippet>5486</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(
-<a href=#5487 id=5487 data-nosnippet>5487</a>                            <span class="kw">if </span><span class="self">self</span>.module.local_table_index(table_index).is_some() {
-<a href=#5488 id=5488 data-nosnippet>5488</a>                                VMBuiltinFunctionIndex::get_table_set_index()
-<a href=#5489 id=5489 data-nosnippet>5489</a>                            } <span class="kw">else </span>{
-<a href=#5490 id=5490 data-nosnippet>5490</a>                                VMBuiltinFunctionIndex::get_imported_table_set_index()
-<a href=#5491 id=5491 data-nosnippet>5491</a>                            },
-<a href=#5492 id=5492 data-nosnippet>5492</a>                        ) <span class="kw">as </span>i32,
-<a href=#5493 id=5493 data-nosnippet>5493</a>                    ),
-<a href=#5494 id=5494 data-nosnippet>5494</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5495 id=5495 data-nosnippet>5495</a>                )<span class="question-mark">?</span>;
-<a href=#5496 id=5496 data-nosnippet>5496</a>
-<a href=#5497 id=5497 data-nosnippet>5497</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5498 id=5498 data-nosnippet>5498</a>                    |this| {
-<a href=#5499 id=5499 data-nosnippet>5499</a>                        this.machine
-<a href=#5500 id=5500 data-nosnippet>5500</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5501 id=5501 data-nosnippet>5501</a>                    },
-<a href=#5502 id=5502 data-nosnippet>5502</a>                    <span class="comment">// [vmctx, table_index, elem_index, reftype]
-<a href=#5503 id=5503 data-nosnippet>5503</a>                    </span>[
-<a href=#5504 id=5504 data-nosnippet>5504</a>                        (
-<a href=#5505 id=5505 data-nosnippet>5505</a>                            Location::Imm32(table_index.index() <span class="kw">as </span>u32),
-<a href=#5506 id=5506 data-nosnippet>5506</a>                            CanonicalizeType::None,
-<a href=#5507 id=5507 data-nosnippet>5507</a>                        ),
-<a href=#5508 id=5508 data-nosnippet>5508</a>                        index,
-<a href=#5509 id=5509 data-nosnippet>5509</a>                        value,
-<a href=#5510 id=5510 data-nosnippet>5510</a>                    ]
-<a href=#5511 id=5511 data-nosnippet>5511</a>                    .iter()
-<a href=#5512 id=5512 data-nosnippet>5512</a>                    .cloned(),
-<a href=#5513 id=5513 data-nosnippet>5513</a>                    [WpType::I32, WpType::I32, WpType::I64].iter().cloned(),
-<a href=#5514 id=5514 data-nosnippet>5514</a>                    iter::empty(),
-<a href=#5515 id=5515 data-nosnippet>5515</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5516 id=5516 data-nosnippet>5516</a>                )<span class="question-mark">?</span>;
-<a href=#5517 id=5517 data-nosnippet>5517</a>            }
-<a href=#5518 id=5518 data-nosnippet>5518</a>            Operator::TableGet { table: index } =&gt; {
-<a href=#5519 id=5519 data-nosnippet>5519</a>                <span class="kw">let </span>table_index = TableIndex::new(index <span class="kw">as _</span>);
-<a href=#5520 id=5520 data-nosnippet>5520</a>                <span class="kw">let </span>index = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5521 id=5521 data-nosnippet>5521</a>
-<a href=#5522 id=5522 data-nosnippet>5522</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5523 id=5523 data-nosnippet>5523</a>                    Size::S64,
-<a href=#5524 id=5524 data-nosnippet>5524</a>                    Location::Memory(
-<a href=#5525 id=5525 data-nosnippet>5525</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5526 id=5526 data-nosnippet>5526</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(
-<a href=#5527 id=5527 data-nosnippet>5527</a>                            <span class="kw">if </span><span class="self">self</span>.module.local_table_index(table_index).is_some() {
-<a href=#5528 id=5528 data-nosnippet>5528</a>                                VMBuiltinFunctionIndex::get_table_get_index()
-<a href=#5529 id=5529 data-nosnippet>5529</a>                            } <span class="kw">else </span>{
-<a href=#5530 id=5530 data-nosnippet>5530</a>                                VMBuiltinFunctionIndex::get_imported_table_get_index()
-<a href=#5531 id=5531 data-nosnippet>5531</a>                            },
-<a href=#5532 id=5532 data-nosnippet>5532</a>                        ) <span class="kw">as </span>i32,
-<a href=#5533 id=5533 data-nosnippet>5533</a>                    ),
-<a href=#5534 id=5534 data-nosnippet>5534</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5535 id=5535 data-nosnippet>5535</a>                )<span class="question-mark">?</span>;
-<a href=#5536 id=5536 data-nosnippet>5536</a>
-<a href=#5537 id=5537 data-nosnippet>5537</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5538 id=5538 data-nosnippet>5538</a>                    |this| {
-<a href=#5539 id=5539 data-nosnippet>5539</a>                        this.machine
-<a href=#5540 id=5540 data-nosnippet>5540</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5541 id=5541 data-nosnippet>5541</a>                    },
-<a href=#5542 id=5542 data-nosnippet>5542</a>                    <span class="comment">// [vmctx, table_index, elem_index] -&gt; reftype
-<a href=#5543 id=5543 data-nosnippet>5543</a>                    </span>[
-<a href=#5544 id=5544 data-nosnippet>5544</a>                        (
-<a href=#5545 id=5545 data-nosnippet>5545</a>                            Location::Imm32(table_index.index() <span class="kw">as </span>u32),
-<a href=#5546 id=5546 data-nosnippet>5546</a>                            CanonicalizeType::None,
-<a href=#5547 id=5547 data-nosnippet>5547</a>                        ),
-<a href=#5548 id=5548 data-nosnippet>5548</a>                        index,
-<a href=#5549 id=5549 data-nosnippet>5549</a>                    ]
-<a href=#5550 id=5550 data-nosnippet>5550</a>                    .iter()
-<a href=#5551 id=5551 data-nosnippet>5551</a>                    .cloned(),
-<a href=#5552 id=5552 data-nosnippet>5552</a>                    [WpType::I32, WpType::I32].iter().cloned(),
-<a href=#5553 id=5553 data-nosnippet>5553</a>                    iter::once(WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::FUNC).unwrap())),
-<a href=#5554 id=5554 data-nosnippet>5554</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5555 id=5555 data-nosnippet>5555</a>                )<span class="question-mark">?</span>;
-<a href=#5556 id=5556 data-nosnippet>5556</a>            }
-<a href=#5557 id=5557 data-nosnippet>5557</a>            Operator::TableSize { table: index } =&gt; {
-<a href=#5558 id=5558 data-nosnippet>5558</a>                <span class="kw">let </span>table_index = TableIndex::new(index <span class="kw">as _</span>);
-<a href=#5559 id=5559 data-nosnippet>5559</a>
-<a href=#5560 id=5560 data-nosnippet>5560</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5561 id=5561 data-nosnippet>5561</a>                    Size::S64,
-<a href=#5562 id=5562 data-nosnippet>5562</a>                    Location::Memory(
-<a href=#5563 id=5563 data-nosnippet>5563</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5564 id=5564 data-nosnippet>5564</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(
-<a href=#5565 id=5565 data-nosnippet>5565</a>                            <span class="kw">if </span><span class="self">self</span>.module.local_table_index(table_index).is_some() {
-<a href=#5566 id=5566 data-nosnippet>5566</a>                                VMBuiltinFunctionIndex::get_table_size_index()
-<a href=#5567 id=5567 data-nosnippet>5567</a>                            } <span class="kw">else </span>{
-<a href=#5568 id=5568 data-nosnippet>5568</a>                                VMBuiltinFunctionIndex::get_imported_table_size_index()
-<a href=#5569 id=5569 data-nosnippet>5569</a>                            },
-<a href=#5570 id=5570 data-nosnippet>5570</a>                        ) <span class="kw">as </span>i32,
-<a href=#5571 id=5571 data-nosnippet>5571</a>                    ),
-<a href=#5572 id=5572 data-nosnippet>5572</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5573 id=5573 data-nosnippet>5573</a>                )<span class="question-mark">?</span>;
-<a href=#5574 id=5574 data-nosnippet>5574</a>
-<a href=#5575 id=5575 data-nosnippet>5575</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5576 id=5576 data-nosnippet>5576</a>                    |this| {
-<a href=#5577 id=5577 data-nosnippet>5577</a>                        this.machine
-<a href=#5578 id=5578 data-nosnippet>5578</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5579 id=5579 data-nosnippet>5579</a>                    },
-<a href=#5580 id=5580 data-nosnippet>5580</a>                    <span class="comment">// [vmctx, table_index] -&gt; i32
-<a href=#5581 id=5581 data-nosnippet>5581</a>                    </span>iter::once((
-<a href=#5582 id=5582 data-nosnippet>5582</a>                        Location::Imm32(table_index.index() <span class="kw">as </span>u32),
-<a href=#5583 id=5583 data-nosnippet>5583</a>                        CanonicalizeType::None,
-<a href=#5584 id=5584 data-nosnippet>5584</a>                    )),
-<a href=#5585 id=5585 data-nosnippet>5585</a>                    iter::once(WpType::I32),
-<a href=#5586 id=5586 data-nosnippet>5586</a>                    iter::once(WpType::I32),
-<a href=#5587 id=5587 data-nosnippet>5587</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5588 id=5588 data-nosnippet>5588</a>                )<span class="question-mark">?</span>;
-<a href=#5589 id=5589 data-nosnippet>5589</a>            }
-<a href=#5590 id=5590 data-nosnippet>5590</a>            Operator::TableGrow { table: index } =&gt; {
-<a href=#5591 id=5591 data-nosnippet>5591</a>                <span class="kw">let </span>table_index = TableIndex::new(index <span class="kw">as _</span>);
-<a href=#5592 id=5592 data-nosnippet>5592</a>                <span class="kw">let </span>delta = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5593 id=5593 data-nosnippet>5593</a>                <span class="kw">let </span>init_value = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5594 id=5594 data-nosnippet>5594</a>
-<a href=#5595 id=5595 data-nosnippet>5595</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5596 id=5596 data-nosnippet>5596</a>                    Size::S64,
-<a href=#5597 id=5597 data-nosnippet>5597</a>                    Location::Memory(
-<a href=#5598 id=5598 data-nosnippet>5598</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5599 id=5599 data-nosnippet>5599</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(
-<a href=#5600 id=5600 data-nosnippet>5600</a>                            <span class="kw">if </span><span class="self">self</span>.module.local_table_index(table_index).is_some() {
-<a href=#5601 id=5601 data-nosnippet>5601</a>                                VMBuiltinFunctionIndex::get_table_grow_index()
-<a href=#5602 id=5602 data-nosnippet>5602</a>                            } <span class="kw">else </span>{
-<a href=#5603 id=5603 data-nosnippet>5603</a>                                VMBuiltinFunctionIndex::get_imported_table_grow_index()
-<a href=#5604 id=5604 data-nosnippet>5604</a>                            },
-<a href=#5605 id=5605 data-nosnippet>5605</a>                        ) <span class="kw">as </span>i32,
-<a href=#5606 id=5606 data-nosnippet>5606</a>                    ),
-<a href=#5607 id=5607 data-nosnippet>5607</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5608 id=5608 data-nosnippet>5608</a>                )<span class="question-mark">?</span>;
-<a href=#5609 id=5609 data-nosnippet>5609</a>
-<a href=#5610 id=5610 data-nosnippet>5610</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5611 id=5611 data-nosnippet>5611</a>                    |this| {
-<a href=#5612 id=5612 data-nosnippet>5612</a>                        this.machine
-<a href=#5613 id=5613 data-nosnippet>5613</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5614 id=5614 data-nosnippet>5614</a>                    },
-<a href=#5615 id=5615 data-nosnippet>5615</a>                    <span class="comment">// [vmctx, init_value, delta, table_index] -&gt; u32
-<a href=#5616 id=5616 data-nosnippet>5616</a>                    </span>[
-<a href=#5617 id=5617 data-nosnippet>5617</a>                        init_value,
-<a href=#5618 id=5618 data-nosnippet>5618</a>                        delta,
-<a href=#5619 id=5619 data-nosnippet>5619</a>                        (
-<a href=#5620 id=5620 data-nosnippet>5620</a>                            Location::Imm32(table_index.index() <span class="kw">as </span>u32),
-<a href=#5621 id=5621 data-nosnippet>5621</a>                            CanonicalizeType::None,
-<a href=#5622 id=5622 data-nosnippet>5622</a>                        ),
-<a href=#5623 id=5623 data-nosnippet>5623</a>                    ]
-<a href=#5624 id=5624 data-nosnippet>5624</a>                    .iter()
-<a href=#5625 id=5625 data-nosnippet>5625</a>                    .cloned(),
-<a href=#5626 id=5626 data-nosnippet>5626</a>                    [WpType::I64, WpType::I32, WpType::I32].iter().cloned(),
-<a href=#5627 id=5627 data-nosnippet>5627</a>                    iter::once(WpType::I32),
-<a href=#5628 id=5628 data-nosnippet>5628</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5629 id=5629 data-nosnippet>5629</a>                )<span class="question-mark">?</span>;
-<a href=#5630 id=5630 data-nosnippet>5630</a>            }
-<a href=#5631 id=5631 data-nosnippet>5631</a>            Operator::TableCopy {
-<a href=#5632 id=5632 data-nosnippet>5632</a>                dst_table,
-<a href=#5633 id=5633 data-nosnippet>5633</a>                src_table,
-<a href=#5634 id=5634 data-nosnippet>5634</a>            } =&gt; {
-<a href=#5635 id=5635 data-nosnippet>5635</a>                <span class="kw">let </span>len = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5636 id=5636 data-nosnippet>5636</a>                <span class="kw">let </span>src = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5637 id=5637 data-nosnippet>5637</a>                <span class="kw">let </span>dest = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5638 id=5638 data-nosnippet>5638</a>
-<a href=#5639 id=5639 data-nosnippet>5639</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5640 id=5640 data-nosnippet>5640</a>                    Size::S64,
-<a href=#5641 id=5641 data-nosnippet>5641</a>                    Location::Memory(
-<a href=#5642 id=5642 data-nosnippet>5642</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5643 id=5643 data-nosnippet>5643</a>                        <span class="self">self</span>.vmoffsets
-<a href=#5644 id=5644 data-nosnippet>5644</a>                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_copy_index())
-<a href=#5645 id=5645 data-nosnippet>5645</a>                            <span class="kw">as </span>i32,
-<a href=#5646 id=5646 data-nosnippet>5646</a>                    ),
-<a href=#5647 id=5647 data-nosnippet>5647</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5648 id=5648 data-nosnippet>5648</a>                )<span class="question-mark">?</span>;
-<a href=#5649 id=5649 data-nosnippet>5649</a>
-<a href=#5650 id=5650 data-nosnippet>5650</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5651 id=5651 data-nosnippet>5651</a>                    |this| {
-<a href=#5652 id=5652 data-nosnippet>5652</a>                        this.machine
-<a href=#5653 id=5653 data-nosnippet>5653</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5654 id=5654 data-nosnippet>5654</a>                    },
-<a href=#5655 id=5655 data-nosnippet>5655</a>                    <span class="comment">// [vmctx, dst_table_index, src_table_index, dst, src, len]
-<a href=#5656 id=5656 data-nosnippet>5656</a>                    </span>[
-<a href=#5657 id=5657 data-nosnippet>5657</a>                        (Location::Imm32(dst_table), CanonicalizeType::None),
-<a href=#5658 id=5658 data-nosnippet>5658</a>                        (Location::Imm32(src_table), CanonicalizeType::None),
-<a href=#5659 id=5659 data-nosnippet>5659</a>                        dest,
-<a href=#5660 id=5660 data-nosnippet>5660</a>                        src,
-<a href=#5661 id=5661 data-nosnippet>5661</a>                        len,
-<a href=#5662 id=5662 data-nosnippet>5662</a>                    ]
-<a href=#5663 id=5663 data-nosnippet>5663</a>                    .iter()
-<a href=#5664 id=5664 data-nosnippet>5664</a>                    .cloned(),
-<a href=#5665 id=5665 data-nosnippet>5665</a>                    [
-<a href=#5666 id=5666 data-nosnippet>5666</a>                        WpType::I32,
-<a href=#5667 id=5667 data-nosnippet>5667</a>                        WpType::I32,
-<a href=#5668 id=5668 data-nosnippet>5668</a>                        WpType::I32,
-<a href=#5669 id=5669 data-nosnippet>5669</a>                        WpType::I32,
-<a href=#5670 id=5670 data-nosnippet>5670</a>                        WpType::I32,
-<a href=#5671 id=5671 data-nosnippet>5671</a>                    ]
-<a href=#5672 id=5672 data-nosnippet>5672</a>                    .iter()
-<a href=#5673 id=5673 data-nosnippet>5673</a>                    .cloned(),
-<a href=#5674 id=5674 data-nosnippet>5674</a>                    iter::empty(),
-<a href=#5675 id=5675 data-nosnippet>5675</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5676 id=5676 data-nosnippet>5676</a>                )<span class="question-mark">?</span>;
-<a href=#5677 id=5677 data-nosnippet>5677</a>            }
-<a href=#5678 id=5678 data-nosnippet>5678</a>
-<a href=#5679 id=5679 data-nosnippet>5679</a>            Operator::TableFill { table } =&gt; {
-<a href=#5680 id=5680 data-nosnippet>5680</a>                <span class="kw">let </span>len = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5681 id=5681 data-nosnippet>5681</a>                <span class="kw">let </span>val = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5682 id=5682 data-nosnippet>5682</a>                <span class="kw">let </span>dest = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5683 id=5683 data-nosnippet>5683</a>
-<a href=#5684 id=5684 data-nosnippet>5684</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5685 id=5685 data-nosnippet>5685</a>                    Size::S64,
-<a href=#5686 id=5686 data-nosnippet>5686</a>                    Location::Memory(
-<a href=#5687 id=5687 data-nosnippet>5687</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5688 id=5688 data-nosnippet>5688</a>                        <span class="self">self</span>.vmoffsets
-<a href=#5689 id=5689 data-nosnippet>5689</a>                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_fill_index())
-<a href=#5690 id=5690 data-nosnippet>5690</a>                            <span class="kw">as </span>i32,
-<a href=#5691 id=5691 data-nosnippet>5691</a>                    ),
-<a href=#5692 id=5692 data-nosnippet>5692</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5693 id=5693 data-nosnippet>5693</a>                )<span class="question-mark">?</span>;
+<a href=#5479 id=5479 data-nosnippet>5479</a>                <span class="kw">let </span>table_index_arg = <span class="self">self
+<a href=#5480 id=5480 data-nosnippet>5480</a>                    </span>.module
+<a href=#5481 id=5481 data-nosnippet>5481</a>                    .local_table_index(table_index)
+<a href=#5482 id=5482 data-nosnippet>5482</a>                    .map_or(table_index.index(), |index| index.index());
+<a href=#5483 id=5483 data-nosnippet>5483</a>                <span class="kw">let </span>value = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5484 id=5484 data-nosnippet>5484</a>                <span class="kw">let </span>index = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5485 id=5485 data-nosnippet>5485</a>
+<a href=#5486 id=5486 data-nosnippet>5486</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5487 id=5487 data-nosnippet>5487</a>                    Size::S64,
+<a href=#5488 id=5488 data-nosnippet>5488</a>                    Location::Memory(
+<a href=#5489 id=5489 data-nosnippet>5489</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5490 id=5490 data-nosnippet>5490</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(
+<a href=#5491 id=5491 data-nosnippet>5491</a>                            <span class="kw">if </span><span class="self">self</span>.module.local_table_index(table_index).is_some() {
+<a href=#5492 id=5492 data-nosnippet>5492</a>                                VMBuiltinFunctionIndex::get_table_set_index()
+<a href=#5493 id=5493 data-nosnippet>5493</a>                            } <span class="kw">else </span>{
+<a href=#5494 id=5494 data-nosnippet>5494</a>                                VMBuiltinFunctionIndex::get_imported_table_set_index()
+<a href=#5495 id=5495 data-nosnippet>5495</a>                            },
+<a href=#5496 id=5496 data-nosnippet>5496</a>                        ) <span class="kw">as </span>i32,
+<a href=#5497 id=5497 data-nosnippet>5497</a>                    ),
+<a href=#5498 id=5498 data-nosnippet>5498</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5499 id=5499 data-nosnippet>5499</a>                )<span class="question-mark">?</span>;
+<a href=#5500 id=5500 data-nosnippet>5500</a>
+<a href=#5501 id=5501 data-nosnippet>5501</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5502 id=5502 data-nosnippet>5502</a>                    |this| {
+<a href=#5503 id=5503 data-nosnippet>5503</a>                        this.machine
+<a href=#5504 id=5504 data-nosnippet>5504</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5505 id=5505 data-nosnippet>5505</a>                    },
+<a href=#5506 id=5506 data-nosnippet>5506</a>                    <span class="comment">// [vmctx, table_index, elem_index, reftype]
+<a href=#5507 id=5507 data-nosnippet>5507</a>                    </span>[
+<a href=#5508 id=5508 data-nosnippet>5508</a>                        (
+<a href=#5509 id=5509 data-nosnippet>5509</a>                            Location::Imm32(table_index_arg <span class="kw">as </span>u32),
+<a href=#5510 id=5510 data-nosnippet>5510</a>                            CanonicalizeType::None,
+<a href=#5511 id=5511 data-nosnippet>5511</a>                        ),
+<a href=#5512 id=5512 data-nosnippet>5512</a>                        index,
+<a href=#5513 id=5513 data-nosnippet>5513</a>                        value,
+<a href=#5514 id=5514 data-nosnippet>5514</a>                    ]
+<a href=#5515 id=5515 data-nosnippet>5515</a>                    .iter()
+<a href=#5516 id=5516 data-nosnippet>5516</a>                    .cloned(),
+<a href=#5517 id=5517 data-nosnippet>5517</a>                    [WpType::I32, WpType::I32, WpType::I64].iter().cloned(),
+<a href=#5518 id=5518 data-nosnippet>5518</a>                    iter::empty(),
+<a href=#5519 id=5519 data-nosnippet>5519</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5520 id=5520 data-nosnippet>5520</a>                )<span class="question-mark">?</span>;
+<a href=#5521 id=5521 data-nosnippet>5521</a>            }
+<a href=#5522 id=5522 data-nosnippet>5522</a>            Operator::TableGet { table: index } =&gt; {
+<a href=#5523 id=5523 data-nosnippet>5523</a>                <span class="kw">let </span>table_index = TableIndex::new(index <span class="kw">as _</span>);
+<a href=#5524 id=5524 data-nosnippet>5524</a>                <span class="kw">let </span>table_index_arg = <span class="self">self
+<a href=#5525 id=5525 data-nosnippet>5525</a>                    </span>.module
+<a href=#5526 id=5526 data-nosnippet>5526</a>                    .local_table_index(table_index)
+<a href=#5527 id=5527 data-nosnippet>5527</a>                    .map_or(table_index.index(), |index| index.index());
+<a href=#5528 id=5528 data-nosnippet>5528</a>                <span class="kw">let </span>index = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5529 id=5529 data-nosnippet>5529</a>
+<a href=#5530 id=5530 data-nosnippet>5530</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5531 id=5531 data-nosnippet>5531</a>                    Size::S64,
+<a href=#5532 id=5532 data-nosnippet>5532</a>                    Location::Memory(
+<a href=#5533 id=5533 data-nosnippet>5533</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5534 id=5534 data-nosnippet>5534</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(
+<a href=#5535 id=5535 data-nosnippet>5535</a>                            <span class="kw">if </span><span class="self">self</span>.module.local_table_index(table_index).is_some() {
+<a href=#5536 id=5536 data-nosnippet>5536</a>                                VMBuiltinFunctionIndex::get_table_get_index()
+<a href=#5537 id=5537 data-nosnippet>5537</a>                            } <span class="kw">else </span>{
+<a href=#5538 id=5538 data-nosnippet>5538</a>                                VMBuiltinFunctionIndex::get_imported_table_get_index()
+<a href=#5539 id=5539 data-nosnippet>5539</a>                            },
+<a href=#5540 id=5540 data-nosnippet>5540</a>                        ) <span class="kw">as </span>i32,
+<a href=#5541 id=5541 data-nosnippet>5541</a>                    ),
+<a href=#5542 id=5542 data-nosnippet>5542</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5543 id=5543 data-nosnippet>5543</a>                )<span class="question-mark">?</span>;
+<a href=#5544 id=5544 data-nosnippet>5544</a>
+<a href=#5545 id=5545 data-nosnippet>5545</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5546 id=5546 data-nosnippet>5546</a>                    |this| {
+<a href=#5547 id=5547 data-nosnippet>5547</a>                        this.machine
+<a href=#5548 id=5548 data-nosnippet>5548</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5549 id=5549 data-nosnippet>5549</a>                    },
+<a href=#5550 id=5550 data-nosnippet>5550</a>                    <span class="comment">// [vmctx, table_index, elem_index] -&gt; reftype
+<a href=#5551 id=5551 data-nosnippet>5551</a>                    </span>[
+<a href=#5552 id=5552 data-nosnippet>5552</a>                        (
+<a href=#5553 id=5553 data-nosnippet>5553</a>                            Location::Imm32(table_index_arg <span class="kw">as </span>u32),
+<a href=#5554 id=5554 data-nosnippet>5554</a>                            CanonicalizeType::None,
+<a href=#5555 id=5555 data-nosnippet>5555</a>                        ),
+<a href=#5556 id=5556 data-nosnippet>5556</a>                        index,
+<a href=#5557 id=5557 data-nosnippet>5557</a>                    ]
+<a href=#5558 id=5558 data-nosnippet>5558</a>                    .iter()
+<a href=#5559 id=5559 data-nosnippet>5559</a>                    .cloned(),
+<a href=#5560 id=5560 data-nosnippet>5560</a>                    [WpType::I32, WpType::I32].iter().cloned(),
+<a href=#5561 id=5561 data-nosnippet>5561</a>                    iter::once(WpType::Ref(WpRefType::new(<span class="bool-val">true</span>, WpHeapType::FUNC).unwrap())),
+<a href=#5562 id=5562 data-nosnippet>5562</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5563 id=5563 data-nosnippet>5563</a>                )<span class="question-mark">?</span>;
+<a href=#5564 id=5564 data-nosnippet>5564</a>            }
+<a href=#5565 id=5565 data-nosnippet>5565</a>            Operator::TableSize { table: index } =&gt; {
+<a href=#5566 id=5566 data-nosnippet>5566</a>                <span class="kw">let </span>table_index = TableIndex::new(index <span class="kw">as _</span>);
+<a href=#5567 id=5567 data-nosnippet>5567</a>                <span class="kw">let </span>table_index_arg = <span class="self">self
+<a href=#5568 id=5568 data-nosnippet>5568</a>                    </span>.module
+<a href=#5569 id=5569 data-nosnippet>5569</a>                    .local_table_index(table_index)
+<a href=#5570 id=5570 data-nosnippet>5570</a>                    .map_or(table_index.index(), |index| index.index());
+<a href=#5571 id=5571 data-nosnippet>5571</a>
+<a href=#5572 id=5572 data-nosnippet>5572</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5573 id=5573 data-nosnippet>5573</a>                    Size::S64,
+<a href=#5574 id=5574 data-nosnippet>5574</a>                    Location::Memory(
+<a href=#5575 id=5575 data-nosnippet>5575</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5576 id=5576 data-nosnippet>5576</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(
+<a href=#5577 id=5577 data-nosnippet>5577</a>                            <span class="kw">if </span><span class="self">self</span>.module.local_table_index(table_index).is_some() {
+<a href=#5578 id=5578 data-nosnippet>5578</a>                                VMBuiltinFunctionIndex::get_table_size_index()
+<a href=#5579 id=5579 data-nosnippet>5579</a>                            } <span class="kw">else </span>{
+<a href=#5580 id=5580 data-nosnippet>5580</a>                                VMBuiltinFunctionIndex::get_imported_table_size_index()
+<a href=#5581 id=5581 data-nosnippet>5581</a>                            },
+<a href=#5582 id=5582 data-nosnippet>5582</a>                        ) <span class="kw">as </span>i32,
+<a href=#5583 id=5583 data-nosnippet>5583</a>                    ),
+<a href=#5584 id=5584 data-nosnippet>5584</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5585 id=5585 data-nosnippet>5585</a>                )<span class="question-mark">?</span>;
+<a href=#5586 id=5586 data-nosnippet>5586</a>
+<a href=#5587 id=5587 data-nosnippet>5587</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5588 id=5588 data-nosnippet>5588</a>                    |this| {
+<a href=#5589 id=5589 data-nosnippet>5589</a>                        this.machine
+<a href=#5590 id=5590 data-nosnippet>5590</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5591 id=5591 data-nosnippet>5591</a>                    },
+<a href=#5592 id=5592 data-nosnippet>5592</a>                    <span class="comment">// [vmctx, table_index] -&gt; i32
+<a href=#5593 id=5593 data-nosnippet>5593</a>                    </span>iter::once((
+<a href=#5594 id=5594 data-nosnippet>5594</a>                        Location::Imm32(table_index_arg <span class="kw">as </span>u32),
+<a href=#5595 id=5595 data-nosnippet>5595</a>                        CanonicalizeType::None,
+<a href=#5596 id=5596 data-nosnippet>5596</a>                    )),
+<a href=#5597 id=5597 data-nosnippet>5597</a>                    iter::once(WpType::I32),
+<a href=#5598 id=5598 data-nosnippet>5598</a>                    iter::once(WpType::I32),
+<a href=#5599 id=5599 data-nosnippet>5599</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5600 id=5600 data-nosnippet>5600</a>                )<span class="question-mark">?</span>;
+<a href=#5601 id=5601 data-nosnippet>5601</a>            }
+<a href=#5602 id=5602 data-nosnippet>5602</a>            Operator::TableGrow { table: index } =&gt; {
+<a href=#5603 id=5603 data-nosnippet>5603</a>                <span class="kw">let </span>table_index = TableIndex::new(index <span class="kw">as _</span>);
+<a href=#5604 id=5604 data-nosnippet>5604</a>                <span class="kw">let </span>table_index_arg = <span class="self">self
+<a href=#5605 id=5605 data-nosnippet>5605</a>                    </span>.module
+<a href=#5606 id=5606 data-nosnippet>5606</a>                    .local_table_index(table_index)
+<a href=#5607 id=5607 data-nosnippet>5607</a>                    .map_or(table_index.index(), |index| index.index());
+<a href=#5608 id=5608 data-nosnippet>5608</a>                <span class="kw">let </span>delta = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5609 id=5609 data-nosnippet>5609</a>                <span class="kw">let </span>init_value = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5610 id=5610 data-nosnippet>5610</a>
+<a href=#5611 id=5611 data-nosnippet>5611</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5612 id=5612 data-nosnippet>5612</a>                    Size::S64,
+<a href=#5613 id=5613 data-nosnippet>5613</a>                    Location::Memory(
+<a href=#5614 id=5614 data-nosnippet>5614</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5615 id=5615 data-nosnippet>5615</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(
+<a href=#5616 id=5616 data-nosnippet>5616</a>                            <span class="kw">if </span><span class="self">self</span>.module.local_table_index(table_index).is_some() {
+<a href=#5617 id=5617 data-nosnippet>5617</a>                                VMBuiltinFunctionIndex::get_table_grow_index()
+<a href=#5618 id=5618 data-nosnippet>5618</a>                            } <span class="kw">else </span>{
+<a href=#5619 id=5619 data-nosnippet>5619</a>                                VMBuiltinFunctionIndex::get_imported_table_grow_index()
+<a href=#5620 id=5620 data-nosnippet>5620</a>                            },
+<a href=#5621 id=5621 data-nosnippet>5621</a>                        ) <span class="kw">as </span>i32,
+<a href=#5622 id=5622 data-nosnippet>5622</a>                    ),
+<a href=#5623 id=5623 data-nosnippet>5623</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5624 id=5624 data-nosnippet>5624</a>                )<span class="question-mark">?</span>;
+<a href=#5625 id=5625 data-nosnippet>5625</a>
+<a href=#5626 id=5626 data-nosnippet>5626</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5627 id=5627 data-nosnippet>5627</a>                    |this| {
+<a href=#5628 id=5628 data-nosnippet>5628</a>                        this.machine
+<a href=#5629 id=5629 data-nosnippet>5629</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5630 id=5630 data-nosnippet>5630</a>                    },
+<a href=#5631 id=5631 data-nosnippet>5631</a>                    <span class="comment">// [vmctx, init_value, delta, table_index] -&gt; u32
+<a href=#5632 id=5632 data-nosnippet>5632</a>                    </span>[
+<a href=#5633 id=5633 data-nosnippet>5633</a>                        init_value,
+<a href=#5634 id=5634 data-nosnippet>5634</a>                        delta,
+<a href=#5635 id=5635 data-nosnippet>5635</a>                        (
+<a href=#5636 id=5636 data-nosnippet>5636</a>                            Location::Imm32(table_index_arg <span class="kw">as </span>u32),
+<a href=#5637 id=5637 data-nosnippet>5637</a>                            CanonicalizeType::None,
+<a href=#5638 id=5638 data-nosnippet>5638</a>                        ),
+<a href=#5639 id=5639 data-nosnippet>5639</a>                    ]
+<a href=#5640 id=5640 data-nosnippet>5640</a>                    .iter()
+<a href=#5641 id=5641 data-nosnippet>5641</a>                    .cloned(),
+<a href=#5642 id=5642 data-nosnippet>5642</a>                    [WpType::I64, WpType::I32, WpType::I32].iter().cloned(),
+<a href=#5643 id=5643 data-nosnippet>5643</a>                    iter::once(WpType::I32),
+<a href=#5644 id=5644 data-nosnippet>5644</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5645 id=5645 data-nosnippet>5645</a>                )<span class="question-mark">?</span>;
+<a href=#5646 id=5646 data-nosnippet>5646</a>            }
+<a href=#5647 id=5647 data-nosnippet>5647</a>            Operator::TableCopy {
+<a href=#5648 id=5648 data-nosnippet>5648</a>                dst_table,
+<a href=#5649 id=5649 data-nosnippet>5649</a>                src_table,
+<a href=#5650 id=5650 data-nosnippet>5650</a>            } =&gt; {
+<a href=#5651 id=5651 data-nosnippet>5651</a>                <span class="kw">let </span>len = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5652 id=5652 data-nosnippet>5652</a>                <span class="kw">let </span>src = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5653 id=5653 data-nosnippet>5653</a>                <span class="kw">let </span>dest = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5654 id=5654 data-nosnippet>5654</a>
+<a href=#5655 id=5655 data-nosnippet>5655</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5656 id=5656 data-nosnippet>5656</a>                    Size::S64,
+<a href=#5657 id=5657 data-nosnippet>5657</a>                    Location::Memory(
+<a href=#5658 id=5658 data-nosnippet>5658</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5659 id=5659 data-nosnippet>5659</a>                        <span class="self">self</span>.vmoffsets
+<a href=#5660 id=5660 data-nosnippet>5660</a>                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_copy_index())
+<a href=#5661 id=5661 data-nosnippet>5661</a>                            <span class="kw">as </span>i32,
+<a href=#5662 id=5662 data-nosnippet>5662</a>                    ),
+<a href=#5663 id=5663 data-nosnippet>5663</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5664 id=5664 data-nosnippet>5664</a>                )<span class="question-mark">?</span>;
+<a href=#5665 id=5665 data-nosnippet>5665</a>
+<a href=#5666 id=5666 data-nosnippet>5666</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5667 id=5667 data-nosnippet>5667</a>                    |this| {
+<a href=#5668 id=5668 data-nosnippet>5668</a>                        this.machine
+<a href=#5669 id=5669 data-nosnippet>5669</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5670 id=5670 data-nosnippet>5670</a>                    },
+<a href=#5671 id=5671 data-nosnippet>5671</a>                    <span class="comment">// [vmctx, dst_table_index, src_table_index, dst, src, len]
+<a href=#5672 id=5672 data-nosnippet>5672</a>                    </span>[
+<a href=#5673 id=5673 data-nosnippet>5673</a>                        (Location::Imm32(dst_table), CanonicalizeType::None),
+<a href=#5674 id=5674 data-nosnippet>5674</a>                        (Location::Imm32(src_table), CanonicalizeType::None),
+<a href=#5675 id=5675 data-nosnippet>5675</a>                        dest,
+<a href=#5676 id=5676 data-nosnippet>5676</a>                        src,
+<a href=#5677 id=5677 data-nosnippet>5677</a>                        len,
+<a href=#5678 id=5678 data-nosnippet>5678</a>                    ]
+<a href=#5679 id=5679 data-nosnippet>5679</a>                    .iter()
+<a href=#5680 id=5680 data-nosnippet>5680</a>                    .cloned(),
+<a href=#5681 id=5681 data-nosnippet>5681</a>                    [
+<a href=#5682 id=5682 data-nosnippet>5682</a>                        WpType::I32,
+<a href=#5683 id=5683 data-nosnippet>5683</a>                        WpType::I32,
+<a href=#5684 id=5684 data-nosnippet>5684</a>                        WpType::I32,
+<a href=#5685 id=5685 data-nosnippet>5685</a>                        WpType::I32,
+<a href=#5686 id=5686 data-nosnippet>5686</a>                        WpType::I32,
+<a href=#5687 id=5687 data-nosnippet>5687</a>                    ]
+<a href=#5688 id=5688 data-nosnippet>5688</a>                    .iter()
+<a href=#5689 id=5689 data-nosnippet>5689</a>                    .cloned(),
+<a href=#5690 id=5690 data-nosnippet>5690</a>                    iter::empty(),
+<a href=#5691 id=5691 data-nosnippet>5691</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5692 id=5692 data-nosnippet>5692</a>                )<span class="question-mark">?</span>;
+<a href=#5693 id=5693 data-nosnippet>5693</a>            }
 <a href=#5694 id=5694 data-nosnippet>5694</a>
-<a href=#5695 id=5695 data-nosnippet>5695</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5696 id=5696 data-nosnippet>5696</a>                    |this| {
-<a href=#5697 id=5697 data-nosnippet>5697</a>                        this.machine
-<a href=#5698 id=5698 data-nosnippet>5698</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5699 id=5699 data-nosnippet>5699</a>                    },
-<a href=#5700 id=5700 data-nosnippet>5700</a>                    <span class="comment">// [vmctx, table_index, start_idx, item, len]
-<a href=#5701 id=5701 data-nosnippet>5701</a>                    </span>[
-<a href=#5702 id=5702 data-nosnippet>5702</a>                        (Location::Imm32(table), CanonicalizeType::None),
-<a href=#5703 id=5703 data-nosnippet>5703</a>                        dest,
-<a href=#5704 id=5704 data-nosnippet>5704</a>                        val,
-<a href=#5705 id=5705 data-nosnippet>5705</a>                        len,
-<a href=#5706 id=5706 data-nosnippet>5706</a>                    ]
-<a href=#5707 id=5707 data-nosnippet>5707</a>                    .iter()
-<a href=#5708 id=5708 data-nosnippet>5708</a>                    .cloned(),
-<a href=#5709 id=5709 data-nosnippet>5709</a>                    [WpType::I32, WpType::I32, WpType::I64, WpType::I32]
-<a href=#5710 id=5710 data-nosnippet>5710</a>                        .iter()
-<a href=#5711 id=5711 data-nosnippet>5711</a>                        .cloned(),
-<a href=#5712 id=5712 data-nosnippet>5712</a>                    iter::empty(),
-<a href=#5713 id=5713 data-nosnippet>5713</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5714 id=5714 data-nosnippet>5714</a>                )<span class="question-mark">?</span>;
-<a href=#5715 id=5715 data-nosnippet>5715</a>            }
-<a href=#5716 id=5716 data-nosnippet>5716</a>            Operator::TableInit { elem_index, table } =&gt; {
-<a href=#5717 id=5717 data-nosnippet>5717</a>                <span class="kw">let </span>len = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5718 id=5718 data-nosnippet>5718</a>                <span class="kw">let </span>src = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5719 id=5719 data-nosnippet>5719</a>                <span class="kw">let </span>dest = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5720 id=5720 data-nosnippet>5720</a>
-<a href=#5721 id=5721 data-nosnippet>5721</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5722 id=5722 data-nosnippet>5722</a>                    Size::S64,
-<a href=#5723 id=5723 data-nosnippet>5723</a>                    Location::Memory(
-<a href=#5724 id=5724 data-nosnippet>5724</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5725 id=5725 data-nosnippet>5725</a>                        <span class="self">self</span>.vmoffsets
-<a href=#5726 id=5726 data-nosnippet>5726</a>                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_init_index())
-<a href=#5727 id=5727 data-nosnippet>5727</a>                            <span class="kw">as </span>i32,
-<a href=#5728 id=5728 data-nosnippet>5728</a>                    ),
-<a href=#5729 id=5729 data-nosnippet>5729</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5695 id=5695 data-nosnippet>5695</a>            Operator::TableFill { table } =&gt; {
+<a href=#5696 id=5696 data-nosnippet>5696</a>                <span class="kw">let </span>len = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5697 id=5697 data-nosnippet>5697</a>                <span class="kw">let </span>val = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5698 id=5698 data-nosnippet>5698</a>                <span class="kw">let </span>dest = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5699 id=5699 data-nosnippet>5699</a>
+<a href=#5700 id=5700 data-nosnippet>5700</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5701 id=5701 data-nosnippet>5701</a>                    Size::S64,
+<a href=#5702 id=5702 data-nosnippet>5702</a>                    Location::Memory(
+<a href=#5703 id=5703 data-nosnippet>5703</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5704 id=5704 data-nosnippet>5704</a>                        <span class="self">self</span>.vmoffsets
+<a href=#5705 id=5705 data-nosnippet>5705</a>                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_fill_index())
+<a href=#5706 id=5706 data-nosnippet>5706</a>                            <span class="kw">as </span>i32,
+<a href=#5707 id=5707 data-nosnippet>5707</a>                    ),
+<a href=#5708 id=5708 data-nosnippet>5708</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5709 id=5709 data-nosnippet>5709</a>                )<span class="question-mark">?</span>;
+<a href=#5710 id=5710 data-nosnippet>5710</a>
+<a href=#5711 id=5711 data-nosnippet>5711</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5712 id=5712 data-nosnippet>5712</a>                    |this| {
+<a href=#5713 id=5713 data-nosnippet>5713</a>                        this.machine
+<a href=#5714 id=5714 data-nosnippet>5714</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5715 id=5715 data-nosnippet>5715</a>                    },
+<a href=#5716 id=5716 data-nosnippet>5716</a>                    <span class="comment">// [vmctx, table_index, start_idx, item, len]
+<a href=#5717 id=5717 data-nosnippet>5717</a>                    </span>[
+<a href=#5718 id=5718 data-nosnippet>5718</a>                        (Location::Imm32(table), CanonicalizeType::None),
+<a href=#5719 id=5719 data-nosnippet>5719</a>                        dest,
+<a href=#5720 id=5720 data-nosnippet>5720</a>                        val,
+<a href=#5721 id=5721 data-nosnippet>5721</a>                        len,
+<a href=#5722 id=5722 data-nosnippet>5722</a>                    ]
+<a href=#5723 id=5723 data-nosnippet>5723</a>                    .iter()
+<a href=#5724 id=5724 data-nosnippet>5724</a>                    .cloned(),
+<a href=#5725 id=5725 data-nosnippet>5725</a>                    [WpType::I32, WpType::I32, WpType::I64, WpType::I32]
+<a href=#5726 id=5726 data-nosnippet>5726</a>                        .iter()
+<a href=#5727 id=5727 data-nosnippet>5727</a>                        .cloned(),
+<a href=#5728 id=5728 data-nosnippet>5728</a>                    iter::empty(),
+<a href=#5729 id=5729 data-nosnippet>5729</a>                    NativeCallType::IncludeVMCtxArgument,
 <a href=#5730 id=5730 data-nosnippet>5730</a>                )<span class="question-mark">?</span>;
-<a href=#5731 id=5731 data-nosnippet>5731</a>
-<a href=#5732 id=5732 data-nosnippet>5732</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5733 id=5733 data-nosnippet>5733</a>                    |this| {
-<a href=#5734 id=5734 data-nosnippet>5734</a>                        this.machine
-<a href=#5735 id=5735 data-nosnippet>5735</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5736 id=5736 data-nosnippet>5736</a>                    },
-<a href=#5737 id=5737 data-nosnippet>5737</a>                    <span class="comment">// [vmctx, table_index, elem_index, dst, src, len]
-<a href=#5738 id=5738 data-nosnippet>5738</a>                    </span>[
-<a href=#5739 id=5739 data-nosnippet>5739</a>                        (Location::Imm32(table), CanonicalizeType::None),
-<a href=#5740 id=5740 data-nosnippet>5740</a>                        (Location::Imm32(elem_index), CanonicalizeType::None),
-<a href=#5741 id=5741 data-nosnippet>5741</a>                        dest,
-<a href=#5742 id=5742 data-nosnippet>5742</a>                        src,
-<a href=#5743 id=5743 data-nosnippet>5743</a>                        len,
-<a href=#5744 id=5744 data-nosnippet>5744</a>                    ]
-<a href=#5745 id=5745 data-nosnippet>5745</a>                    .iter()
-<a href=#5746 id=5746 data-nosnippet>5746</a>                    .cloned(),
-<a href=#5747 id=5747 data-nosnippet>5747</a>                    [
-<a href=#5748 id=5748 data-nosnippet>5748</a>                        WpType::I32,
-<a href=#5749 id=5749 data-nosnippet>5749</a>                        WpType::I32,
-<a href=#5750 id=5750 data-nosnippet>5750</a>                        WpType::I32,
-<a href=#5751 id=5751 data-nosnippet>5751</a>                        WpType::I32,
-<a href=#5752 id=5752 data-nosnippet>5752</a>                        WpType::I32,
-<a href=#5753 id=5753 data-nosnippet>5753</a>                    ]
-<a href=#5754 id=5754 data-nosnippet>5754</a>                    .iter()
-<a href=#5755 id=5755 data-nosnippet>5755</a>                    .cloned(),
-<a href=#5756 id=5756 data-nosnippet>5756</a>                    iter::empty(),
-<a href=#5757 id=5757 data-nosnippet>5757</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5758 id=5758 data-nosnippet>5758</a>                )<span class="question-mark">?</span>;
-<a href=#5759 id=5759 data-nosnippet>5759</a>            }
-<a href=#5760 id=5760 data-nosnippet>5760</a>            Operator::ElemDrop { elem_index } =&gt; {
-<a href=#5761 id=5761 data-nosnippet>5761</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5762 id=5762 data-nosnippet>5762</a>                    Size::S64,
-<a href=#5763 id=5763 data-nosnippet>5763</a>                    Location::Memory(
-<a href=#5764 id=5764 data-nosnippet>5764</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5765 id=5765 data-nosnippet>5765</a>                        <span class="self">self</span>.vmoffsets
-<a href=#5766 id=5766 data-nosnippet>5766</a>                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_elem_drop_index())
-<a href=#5767 id=5767 data-nosnippet>5767</a>                            <span class="kw">as </span>i32,
-<a href=#5768 id=5768 data-nosnippet>5768</a>                    ),
-<a href=#5769 id=5769 data-nosnippet>5769</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5770 id=5770 data-nosnippet>5770</a>                )<span class="question-mark">?</span>;
-<a href=#5771 id=5771 data-nosnippet>5771</a>
-<a href=#5772 id=5772 data-nosnippet>5772</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5773 id=5773 data-nosnippet>5773</a>                    |this| {
-<a href=#5774 id=5774 data-nosnippet>5774</a>                        this.machine
-<a href=#5775 id=5775 data-nosnippet>5775</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5776 id=5776 data-nosnippet>5776</a>                    },
-<a href=#5777 id=5777 data-nosnippet>5777</a>                    <span class="comment">// [vmctx, elem_index]
-<a href=#5778 id=5778 data-nosnippet>5778</a>                    </span>iter::once((Location::Imm32(elem_index), CanonicalizeType::None)),
-<a href=#5779 id=5779 data-nosnippet>5779</a>                    [WpType::I32].iter().cloned(),
-<a href=#5780 id=5780 data-nosnippet>5780</a>                    iter::empty(),
-<a href=#5781 id=5781 data-nosnippet>5781</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5782 id=5782 data-nosnippet>5782</a>                )<span class="question-mark">?</span>;
-<a href=#5783 id=5783 data-nosnippet>5783</a>            }
-<a href=#5784 id=5784 data-nosnippet>5784</a>            Operator::MemoryAtomicWait32 { <span class="kw-2">ref </span>memarg } =&gt; {
-<a href=#5785 id=5785 data-nosnippet>5785</a>                <span class="kw">let </span>timeout = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5786 id=5786 data-nosnippet>5786</a>                <span class="kw">let </span>val = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5787 id=5787 data-nosnippet>5787</a>                <span class="kw">let </span>dst = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5788 id=5788 data-nosnippet>5788</a>
-<a href=#5789 id=5789 data-nosnippet>5789</a>                <span class="kw">let </span>memory_index = MemoryIndex::new(memarg.memory <span class="kw">as </span>usize);
-<a href=#5790 id=5790 data-nosnippet>5790</a>                <span class="kw">let </span>(memory_atomic_wait32, index_arg) =
-<a href=#5791 id=5791 data-nosnippet>5791</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(local_index) = <span class="self">self</span>.module.local_memory_index(memory_index) {
-<a href=#5792 id=5792 data-nosnippet>5792</a>                        (
-<a href=#5793 id=5793 data-nosnippet>5793</a>                            VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
-<a href=#5794 id=5794 data-nosnippet>5794</a>                            local_index.as_u32(),
-<a href=#5795 id=5795 data-nosnippet>5795</a>                        )
-<a href=#5796 id=5796 data-nosnippet>5796</a>                    } <span class="kw">else </span>{
-<a href=#5797 id=5797 data-nosnippet>5797</a>                        (
-<a href=#5798 id=5798 data-nosnippet>5798</a>                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
-<a href=#5799 id=5799 data-nosnippet>5799</a>                            memory_index.as_u32(),
-<a href=#5800 id=5800 data-nosnippet>5800</a>                        )
-<a href=#5801 id=5801 data-nosnippet>5801</a>                    };
-<a href=#5802 id=5802 data-nosnippet>5802</a>
-<a href=#5803 id=5803 data-nosnippet>5803</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5804 id=5804 data-nosnippet>5804</a>                    Size::S64,
-<a href=#5805 id=5805 data-nosnippet>5805</a>                    Location::Memory(
-<a href=#5806 id=5806 data-nosnippet>5806</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5807 id=5807 data-nosnippet>5807</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(memory_atomic_wait32) <span class="kw">as </span>i32,
-<a href=#5808 id=5808 data-nosnippet>5808</a>                    ),
-<a href=#5809 id=5809 data-nosnippet>5809</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5810 id=5810 data-nosnippet>5810</a>                )<span class="question-mark">?</span>;
-<a href=#5811 id=5811 data-nosnippet>5811</a>
-<a href=#5812 id=5812 data-nosnippet>5812</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5813 id=5813 data-nosnippet>5813</a>                    |this| {
-<a href=#5814 id=5814 data-nosnippet>5814</a>                        this.machine
-<a href=#5815 id=5815 data-nosnippet>5815</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5816 id=5816 data-nosnippet>5816</a>                    },
-<a href=#5817 id=5817 data-nosnippet>5817</a>                    <span class="comment">// [vmctx, memory_index, dst, src, timeout]
-<a href=#5818 id=5818 data-nosnippet>5818</a>                    </span>[
-<a href=#5819 id=5819 data-nosnippet>5819</a>                        (Location::Imm32(index_arg), CanonicalizeType::None),
-<a href=#5820 id=5820 data-nosnippet>5820</a>                        dst,
-<a href=#5821 id=5821 data-nosnippet>5821</a>                        val,
-<a href=#5822 id=5822 data-nosnippet>5822</a>                        timeout,
-<a href=#5823 id=5823 data-nosnippet>5823</a>                    ]
-<a href=#5824 id=5824 data-nosnippet>5824</a>                    .iter()
-<a href=#5825 id=5825 data-nosnippet>5825</a>                    .cloned(),
-<a href=#5826 id=5826 data-nosnippet>5826</a>                    [WpType::I32, WpType::I32, WpType::I32, WpType::I64]
-<a href=#5827 id=5827 data-nosnippet>5827</a>                        .iter()
-<a href=#5828 id=5828 data-nosnippet>5828</a>                        .cloned(),
-<a href=#5829 id=5829 data-nosnippet>5829</a>                    iter::once(WpType::I32),
-<a href=#5830 id=5830 data-nosnippet>5830</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5831 id=5831 data-nosnippet>5831</a>                )<span class="question-mark">?</span>;
-<a href=#5832 id=5832 data-nosnippet>5832</a>            }
-<a href=#5833 id=5833 data-nosnippet>5833</a>            Operator::MemoryAtomicWait64 { <span class="kw-2">ref </span>memarg } =&gt; {
-<a href=#5834 id=5834 data-nosnippet>5834</a>                <span class="kw">let </span>timeout = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5835 id=5835 data-nosnippet>5835</a>                <span class="kw">let </span>val = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5836 id=5836 data-nosnippet>5836</a>                <span class="kw">let </span>dst = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5837 id=5837 data-nosnippet>5837</a>
-<a href=#5838 id=5838 data-nosnippet>5838</a>                <span class="kw">let </span>memory_index = MemoryIndex::new(memarg.memory <span class="kw">as </span>usize);
-<a href=#5839 id=5839 data-nosnippet>5839</a>                <span class="kw">let </span>(memory_atomic_wait64, index_arg) =
-<a href=#5840 id=5840 data-nosnippet>5840</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(local_index) = <span class="self">self</span>.module.local_memory_index(memory_index) {
-<a href=#5841 id=5841 data-nosnippet>5841</a>                        (
-<a href=#5842 id=5842 data-nosnippet>5842</a>                            VMBuiltinFunctionIndex::get_memory_atomic_wait64_index(),
-<a href=#5843 id=5843 data-nosnippet>5843</a>                            local_index.as_u32(),
-<a href=#5844 id=5844 data-nosnippet>5844</a>                        )
-<a href=#5845 id=5845 data-nosnippet>5845</a>                    } <span class="kw">else </span>{
-<a href=#5846 id=5846 data-nosnippet>5846</a>                        (
-<a href=#5847 id=5847 data-nosnippet>5847</a>                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index(),
-<a href=#5848 id=5848 data-nosnippet>5848</a>                            memory_index.as_u32(),
-<a href=#5849 id=5849 data-nosnippet>5849</a>                        )
-<a href=#5850 id=5850 data-nosnippet>5850</a>                    };
-<a href=#5851 id=5851 data-nosnippet>5851</a>
-<a href=#5852 id=5852 data-nosnippet>5852</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5853 id=5853 data-nosnippet>5853</a>                    Size::S64,
-<a href=#5854 id=5854 data-nosnippet>5854</a>                    Location::Memory(
-<a href=#5855 id=5855 data-nosnippet>5855</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5856 id=5856 data-nosnippet>5856</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(memory_atomic_wait64) <span class="kw">as </span>i32,
-<a href=#5857 id=5857 data-nosnippet>5857</a>                    ),
-<a href=#5858 id=5858 data-nosnippet>5858</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5859 id=5859 data-nosnippet>5859</a>                )<span class="question-mark">?</span>;
-<a href=#5860 id=5860 data-nosnippet>5860</a>
-<a href=#5861 id=5861 data-nosnippet>5861</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5862 id=5862 data-nosnippet>5862</a>                    |this| {
-<a href=#5863 id=5863 data-nosnippet>5863</a>                        this.machine
-<a href=#5864 id=5864 data-nosnippet>5864</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5865 id=5865 data-nosnippet>5865</a>                    },
-<a href=#5866 id=5866 data-nosnippet>5866</a>                    <span class="comment">// [vmctx, memory_index, dst, src, timeout]
-<a href=#5867 id=5867 data-nosnippet>5867</a>                    </span>[
-<a href=#5868 id=5868 data-nosnippet>5868</a>                        (Location::Imm32(index_arg), CanonicalizeType::None),
-<a href=#5869 id=5869 data-nosnippet>5869</a>                        dst,
-<a href=#5870 id=5870 data-nosnippet>5870</a>                        val,
-<a href=#5871 id=5871 data-nosnippet>5871</a>                        timeout,
-<a href=#5872 id=5872 data-nosnippet>5872</a>                    ]
-<a href=#5873 id=5873 data-nosnippet>5873</a>                    .iter()
-<a href=#5874 id=5874 data-nosnippet>5874</a>                    .cloned(),
-<a href=#5875 id=5875 data-nosnippet>5875</a>                    [WpType::I32, WpType::I32, WpType::I64, WpType::I64]
-<a href=#5876 id=5876 data-nosnippet>5876</a>                        .iter()
-<a href=#5877 id=5877 data-nosnippet>5877</a>                        .cloned(),
-<a href=#5878 id=5878 data-nosnippet>5878</a>                    iter::once(WpType::I32),
-<a href=#5879 id=5879 data-nosnippet>5879</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5880 id=5880 data-nosnippet>5880</a>                )<span class="question-mark">?</span>;
-<a href=#5881 id=5881 data-nosnippet>5881</a>            }
-<a href=#5882 id=5882 data-nosnippet>5882</a>            Operator::MemoryAtomicNotify { <span class="kw-2">ref </span>memarg } =&gt; {
-<a href=#5883 id=5883 data-nosnippet>5883</a>                <span class="kw">let </span>cnt = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5884 id=5884 data-nosnippet>5884</a>                <span class="kw">let </span>dst = <span class="self">self</span>.value_stack.pop().unwrap();
-<a href=#5885 id=5885 data-nosnippet>5885</a>
-<a href=#5886 id=5886 data-nosnippet>5886</a>                <span class="kw">let </span>memory_index = MemoryIndex::new(memarg.memory <span class="kw">as </span>usize);
-<a href=#5887 id=5887 data-nosnippet>5887</a>                <span class="kw">let </span>(memory_atomic_notify, index_arg) =
-<a href=#5888 id=5888 data-nosnippet>5888</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(local_index) = <span class="self">self</span>.module.local_memory_index(memory_index) {
-<a href=#5889 id=5889 data-nosnippet>5889</a>                        (
-<a href=#5890 id=5890 data-nosnippet>5890</a>                            VMBuiltinFunctionIndex::get_memory_atomic_notify_index(),
-<a href=#5891 id=5891 data-nosnippet>5891</a>                            local_index.as_u32(),
-<a href=#5892 id=5892 data-nosnippet>5892</a>                        )
-<a href=#5893 id=5893 data-nosnippet>5893</a>                    } <span class="kw">else </span>{
-<a href=#5894 id=5894 data-nosnippet>5894</a>                        (
-<a href=#5895 id=5895 data-nosnippet>5895</a>                            VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index(),
-<a href=#5896 id=5896 data-nosnippet>5896</a>                            memory_index.as_u32(),
-<a href=#5897 id=5897 data-nosnippet>5897</a>                        )
-<a href=#5898 id=5898 data-nosnippet>5898</a>                    };
-<a href=#5899 id=5899 data-nosnippet>5899</a>
-<a href=#5900 id=5900 data-nosnippet>5900</a>                <span class="self">self</span>.machine.move_location(
-<a href=#5901 id=5901 data-nosnippet>5901</a>                    Size::S64,
-<a href=#5902 id=5902 data-nosnippet>5902</a>                    Location::Memory(
-<a href=#5903 id=5903 data-nosnippet>5903</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
-<a href=#5904 id=5904 data-nosnippet>5904</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(memory_atomic_notify) <span class="kw">as </span>i32,
-<a href=#5905 id=5905 data-nosnippet>5905</a>                    ),
-<a href=#5906 id=5906 data-nosnippet>5906</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
-<a href=#5907 id=5907 data-nosnippet>5907</a>                )<span class="question-mark">?</span>;
-<a href=#5908 id=5908 data-nosnippet>5908</a>
-<a href=#5909 id=5909 data-nosnippet>5909</a>                <span class="self">self</span>.emit_call_native(
-<a href=#5910 id=5910 data-nosnippet>5910</a>                    |this| {
-<a href=#5911 id=5911 data-nosnippet>5911</a>                        this.machine
-<a href=#5912 id=5912 data-nosnippet>5912</a>                            .emit_call_register(this.machine.get_gpr_for_call())
-<a href=#5913 id=5913 data-nosnippet>5913</a>                    },
-<a href=#5914 id=5914 data-nosnippet>5914</a>                    <span class="comment">// [vmctx, memory_index, dst, cnt]
-<a href=#5915 id=5915 data-nosnippet>5915</a>                    </span>[
-<a href=#5916 id=5916 data-nosnippet>5916</a>                        (Location::Imm32(index_arg), CanonicalizeType::None),
-<a href=#5917 id=5917 data-nosnippet>5917</a>                        dst,
-<a href=#5918 id=5918 data-nosnippet>5918</a>                        cnt,
-<a href=#5919 id=5919 data-nosnippet>5919</a>                    ]
-<a href=#5920 id=5920 data-nosnippet>5920</a>                    .iter()
-<a href=#5921 id=5921 data-nosnippet>5921</a>                    .cloned(),
-<a href=#5922 id=5922 data-nosnippet>5922</a>                    [WpType::I32, WpType::I32, WpType::I32].iter().cloned(),
-<a href=#5923 id=5923 data-nosnippet>5923</a>                    iter::once(WpType::I32),
-<a href=#5924 id=5924 data-nosnippet>5924</a>                    NativeCallType::IncludeVMCtxArgument,
-<a href=#5925 id=5925 data-nosnippet>5925</a>                )<span class="question-mark">?</span>;
-<a href=#5926 id=5926 data-nosnippet>5926</a>            }
-<a href=#5927 id=5927 data-nosnippet>5927</a>            <span class="kw">_ </span>=&gt; {
-<a href=#5928 id=5928 data-nosnippet>5928</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#5929 id=5929 data-nosnippet>5929</a>                    <span class="string">"not yet implemented: {op:?}"
-<a href=#5930 id=5930 data-nosnippet>5930</a>                </span>)));
-<a href=#5931 id=5931 data-nosnippet>5931</a>            }
-<a href=#5932 id=5932 data-nosnippet>5932</a>        }
-<a href=#5933 id=5933 data-nosnippet>5933</a>
-<a href=#5934 id=5934 data-nosnippet>5934</a>        <span class="prelude-val">Ok</span>(())
-<a href=#5935 id=5935 data-nosnippet>5935</a>    }
-<a href=#5936 id=5936 data-nosnippet>5936</a>
-<a href=#5937 id=5937 data-nosnippet>5937</a>    <span class="kw">fn </span>add_assembly_comment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, comment: AssemblyComment) {
-<a href=#5938 id=5938 data-nosnippet>5938</a>        <span class="comment">// Collect assembly comments only if we're going to emit them.
-<a href=#5939 id=5939 data-nosnippet>5939</a>        </span><span class="kw">if </span><span class="self">self</span>.config.callbacks.is_some() {
-<a href=#5940 id=5940 data-nosnippet>5940</a>            <span class="self">self</span>.assembly_comments
-<a href=#5941 id=5941 data-nosnippet>5941</a>                .insert(<span class="self">self</span>.machine.get_offset().<span class="number">0</span>, comment);
-<a href=#5942 id=5942 data-nosnippet>5942</a>        }
-<a href=#5943 id=5943 data-nosnippet>5943</a>    }
-<a href=#5944 id=5944 data-nosnippet>5944</a>
-<a href=#5945 id=5945 data-nosnippet>5945</a>    <span class="kw">pub fn </span>finalize(
-<a href=#5946 id=5946 data-nosnippet>5946</a>        <span class="kw-2">mut </span><span class="self">self</span>,
-<a href=#5947 id=5947 data-nosnippet>5947</a>        data: <span class="kw-2">&amp;</span>FunctionBodyData,
-<a href=#5948 id=5948 data-nosnippet>5948</a>        arch: Architecture,
-<a href=#5949 id=5949 data-nosnippet>5949</a>        target: <span class="kw-2">&amp;</span>Target,
-<a href=#5950 id=5950 data-nosnippet>5950</a>        build_directory: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Path&gt;,
-<a href=#5951 id=5951 data-nosnippet>5951</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;CompileOutput&lt;(CompiledFunction, <span class="prelude-ty">Option</span>&lt;UnwindFrame&gt;)&gt;, CompileError&gt; {
-<a href=#5952 id=5952 data-nosnippet>5952</a>        <span class="self">self</span>.stack_offset -= RED_ZONE_SIZE;
-<a href=#5953 id=5953 data-nosnippet>5953</a>
-<a href=#5954 id=5954 data-nosnippet>5954</a>        <span class="self">self</span>.add_assembly_comment(AssemblyComment::TrapHandlersTable);
-<a href=#5955 id=5955 data-nosnippet>5955</a>        <span class="comment">// Generate actual code for special labels.
-<a href=#5956 id=5956 data-nosnippet>5956</a>        </span><span class="self">self</span>.machine
-<a href=#5957 id=5957 data-nosnippet>5957</a>            .emit_label(<span class="self">self</span>.special_labels.integer_division_by_zero)<span class="question-mark">?</span>;
-<a href=#5958 id=5958 data-nosnippet>5958</a>        <span class="self">self</span>.machine
-<a href=#5959 id=5959 data-nosnippet>5959</a>            .emit_illegal_op(TrapCode::IntegerDivisionByZero)<span class="question-mark">?</span>;
+<a href=#5731 id=5731 data-nosnippet>5731</a>            }
+<a href=#5732 id=5732 data-nosnippet>5732</a>            Operator::TableInit { elem_index, table } =&gt; {
+<a href=#5733 id=5733 data-nosnippet>5733</a>                <span class="kw">let </span>len = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5734 id=5734 data-nosnippet>5734</a>                <span class="kw">let </span>src = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5735 id=5735 data-nosnippet>5735</a>                <span class="kw">let </span>dest = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5736 id=5736 data-nosnippet>5736</a>
+<a href=#5737 id=5737 data-nosnippet>5737</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5738 id=5738 data-nosnippet>5738</a>                    Size::S64,
+<a href=#5739 id=5739 data-nosnippet>5739</a>                    Location::Memory(
+<a href=#5740 id=5740 data-nosnippet>5740</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5741 id=5741 data-nosnippet>5741</a>                        <span class="self">self</span>.vmoffsets
+<a href=#5742 id=5742 data-nosnippet>5742</a>                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_init_index())
+<a href=#5743 id=5743 data-nosnippet>5743</a>                            <span class="kw">as </span>i32,
+<a href=#5744 id=5744 data-nosnippet>5744</a>                    ),
+<a href=#5745 id=5745 data-nosnippet>5745</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5746 id=5746 data-nosnippet>5746</a>                )<span class="question-mark">?</span>;
+<a href=#5747 id=5747 data-nosnippet>5747</a>
+<a href=#5748 id=5748 data-nosnippet>5748</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5749 id=5749 data-nosnippet>5749</a>                    |this| {
+<a href=#5750 id=5750 data-nosnippet>5750</a>                        this.machine
+<a href=#5751 id=5751 data-nosnippet>5751</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5752 id=5752 data-nosnippet>5752</a>                    },
+<a href=#5753 id=5753 data-nosnippet>5753</a>                    <span class="comment">// [vmctx, table_index, elem_index, dst, src, len]
+<a href=#5754 id=5754 data-nosnippet>5754</a>                    </span>[
+<a href=#5755 id=5755 data-nosnippet>5755</a>                        (Location::Imm32(table), CanonicalizeType::None),
+<a href=#5756 id=5756 data-nosnippet>5756</a>                        (Location::Imm32(elem_index), CanonicalizeType::None),
+<a href=#5757 id=5757 data-nosnippet>5757</a>                        dest,
+<a href=#5758 id=5758 data-nosnippet>5758</a>                        src,
+<a href=#5759 id=5759 data-nosnippet>5759</a>                        len,
+<a href=#5760 id=5760 data-nosnippet>5760</a>                    ]
+<a href=#5761 id=5761 data-nosnippet>5761</a>                    .iter()
+<a href=#5762 id=5762 data-nosnippet>5762</a>                    .cloned(),
+<a href=#5763 id=5763 data-nosnippet>5763</a>                    [
+<a href=#5764 id=5764 data-nosnippet>5764</a>                        WpType::I32,
+<a href=#5765 id=5765 data-nosnippet>5765</a>                        WpType::I32,
+<a href=#5766 id=5766 data-nosnippet>5766</a>                        WpType::I32,
+<a href=#5767 id=5767 data-nosnippet>5767</a>                        WpType::I32,
+<a href=#5768 id=5768 data-nosnippet>5768</a>                        WpType::I32,
+<a href=#5769 id=5769 data-nosnippet>5769</a>                    ]
+<a href=#5770 id=5770 data-nosnippet>5770</a>                    .iter()
+<a href=#5771 id=5771 data-nosnippet>5771</a>                    .cloned(),
+<a href=#5772 id=5772 data-nosnippet>5772</a>                    iter::empty(),
+<a href=#5773 id=5773 data-nosnippet>5773</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5774 id=5774 data-nosnippet>5774</a>                )<span class="question-mark">?</span>;
+<a href=#5775 id=5775 data-nosnippet>5775</a>            }
+<a href=#5776 id=5776 data-nosnippet>5776</a>            Operator::ElemDrop { elem_index } =&gt; {
+<a href=#5777 id=5777 data-nosnippet>5777</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5778 id=5778 data-nosnippet>5778</a>                    Size::S64,
+<a href=#5779 id=5779 data-nosnippet>5779</a>                    Location::Memory(
+<a href=#5780 id=5780 data-nosnippet>5780</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5781 id=5781 data-nosnippet>5781</a>                        <span class="self">self</span>.vmoffsets
+<a href=#5782 id=5782 data-nosnippet>5782</a>                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_elem_drop_index())
+<a href=#5783 id=5783 data-nosnippet>5783</a>                            <span class="kw">as </span>i32,
+<a href=#5784 id=5784 data-nosnippet>5784</a>                    ),
+<a href=#5785 id=5785 data-nosnippet>5785</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5786 id=5786 data-nosnippet>5786</a>                )<span class="question-mark">?</span>;
+<a href=#5787 id=5787 data-nosnippet>5787</a>
+<a href=#5788 id=5788 data-nosnippet>5788</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5789 id=5789 data-nosnippet>5789</a>                    |this| {
+<a href=#5790 id=5790 data-nosnippet>5790</a>                        this.machine
+<a href=#5791 id=5791 data-nosnippet>5791</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5792 id=5792 data-nosnippet>5792</a>                    },
+<a href=#5793 id=5793 data-nosnippet>5793</a>                    <span class="comment">// [vmctx, elem_index]
+<a href=#5794 id=5794 data-nosnippet>5794</a>                    </span>iter::once((Location::Imm32(elem_index), CanonicalizeType::None)),
+<a href=#5795 id=5795 data-nosnippet>5795</a>                    [WpType::I32].iter().cloned(),
+<a href=#5796 id=5796 data-nosnippet>5796</a>                    iter::empty(),
+<a href=#5797 id=5797 data-nosnippet>5797</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5798 id=5798 data-nosnippet>5798</a>                )<span class="question-mark">?</span>;
+<a href=#5799 id=5799 data-nosnippet>5799</a>            }
+<a href=#5800 id=5800 data-nosnippet>5800</a>            Operator::MemoryAtomicWait32 { <span class="kw-2">ref </span>memarg } =&gt; {
+<a href=#5801 id=5801 data-nosnippet>5801</a>                <span class="kw">let </span>timeout = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5802 id=5802 data-nosnippet>5802</a>                <span class="kw">let </span>val = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5803 id=5803 data-nosnippet>5803</a>                <span class="kw">let </span>dst = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5804 id=5804 data-nosnippet>5804</a>
+<a href=#5805 id=5805 data-nosnippet>5805</a>                <span class="kw">let </span>memory_index = MemoryIndex::new(memarg.memory <span class="kw">as </span>usize);
+<a href=#5806 id=5806 data-nosnippet>5806</a>                <span class="kw">let </span>(memory_atomic_wait32, index_arg) =
+<a href=#5807 id=5807 data-nosnippet>5807</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(local_index) = <span class="self">self</span>.module.local_memory_index(memory_index) {
+<a href=#5808 id=5808 data-nosnippet>5808</a>                        (
+<a href=#5809 id=5809 data-nosnippet>5809</a>                            VMBuiltinFunctionIndex::get_memory_atomic_wait32_index(),
+<a href=#5810 id=5810 data-nosnippet>5810</a>                            local_index.as_u32(),
+<a href=#5811 id=5811 data-nosnippet>5811</a>                        )
+<a href=#5812 id=5812 data-nosnippet>5812</a>                    } <span class="kw">else </span>{
+<a href=#5813 id=5813 data-nosnippet>5813</a>                        (
+<a href=#5814 id=5814 data-nosnippet>5814</a>                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait32_index(),
+<a href=#5815 id=5815 data-nosnippet>5815</a>                            memory_index.as_u32(),
+<a href=#5816 id=5816 data-nosnippet>5816</a>                        )
+<a href=#5817 id=5817 data-nosnippet>5817</a>                    };
+<a href=#5818 id=5818 data-nosnippet>5818</a>
+<a href=#5819 id=5819 data-nosnippet>5819</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5820 id=5820 data-nosnippet>5820</a>                    Size::S64,
+<a href=#5821 id=5821 data-nosnippet>5821</a>                    Location::Memory(
+<a href=#5822 id=5822 data-nosnippet>5822</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5823 id=5823 data-nosnippet>5823</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(memory_atomic_wait32) <span class="kw">as </span>i32,
+<a href=#5824 id=5824 data-nosnippet>5824</a>                    ),
+<a href=#5825 id=5825 data-nosnippet>5825</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5826 id=5826 data-nosnippet>5826</a>                )<span class="question-mark">?</span>;
+<a href=#5827 id=5827 data-nosnippet>5827</a>
+<a href=#5828 id=5828 data-nosnippet>5828</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5829 id=5829 data-nosnippet>5829</a>                    |this| {
+<a href=#5830 id=5830 data-nosnippet>5830</a>                        this.machine
+<a href=#5831 id=5831 data-nosnippet>5831</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5832 id=5832 data-nosnippet>5832</a>                    },
+<a href=#5833 id=5833 data-nosnippet>5833</a>                    <span class="comment">// [vmctx, memory_index, dst, src, timeout]
+<a href=#5834 id=5834 data-nosnippet>5834</a>                    </span>[
+<a href=#5835 id=5835 data-nosnippet>5835</a>                        (Location::Imm32(index_arg), CanonicalizeType::None),
+<a href=#5836 id=5836 data-nosnippet>5836</a>                        dst,
+<a href=#5837 id=5837 data-nosnippet>5837</a>                        val,
+<a href=#5838 id=5838 data-nosnippet>5838</a>                        timeout,
+<a href=#5839 id=5839 data-nosnippet>5839</a>                    ]
+<a href=#5840 id=5840 data-nosnippet>5840</a>                    .iter()
+<a href=#5841 id=5841 data-nosnippet>5841</a>                    .cloned(),
+<a href=#5842 id=5842 data-nosnippet>5842</a>                    [WpType::I32, WpType::I32, WpType::I32, WpType::I64]
+<a href=#5843 id=5843 data-nosnippet>5843</a>                        .iter()
+<a href=#5844 id=5844 data-nosnippet>5844</a>                        .cloned(),
+<a href=#5845 id=5845 data-nosnippet>5845</a>                    iter::once(WpType::I32),
+<a href=#5846 id=5846 data-nosnippet>5846</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5847 id=5847 data-nosnippet>5847</a>                )<span class="question-mark">?</span>;
+<a href=#5848 id=5848 data-nosnippet>5848</a>            }
+<a href=#5849 id=5849 data-nosnippet>5849</a>            Operator::MemoryAtomicWait64 { <span class="kw-2">ref </span>memarg } =&gt; {
+<a href=#5850 id=5850 data-nosnippet>5850</a>                <span class="kw">let </span>timeout = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5851 id=5851 data-nosnippet>5851</a>                <span class="kw">let </span>val = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5852 id=5852 data-nosnippet>5852</a>                <span class="kw">let </span>dst = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5853 id=5853 data-nosnippet>5853</a>
+<a href=#5854 id=5854 data-nosnippet>5854</a>                <span class="kw">let </span>memory_index = MemoryIndex::new(memarg.memory <span class="kw">as </span>usize);
+<a href=#5855 id=5855 data-nosnippet>5855</a>                <span class="kw">let </span>(memory_atomic_wait64, index_arg) =
+<a href=#5856 id=5856 data-nosnippet>5856</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(local_index) = <span class="self">self</span>.module.local_memory_index(memory_index) {
+<a href=#5857 id=5857 data-nosnippet>5857</a>                        (
+<a href=#5858 id=5858 data-nosnippet>5858</a>                            VMBuiltinFunctionIndex::get_memory_atomic_wait64_index(),
+<a href=#5859 id=5859 data-nosnippet>5859</a>                            local_index.as_u32(),
+<a href=#5860 id=5860 data-nosnippet>5860</a>                        )
+<a href=#5861 id=5861 data-nosnippet>5861</a>                    } <span class="kw">else </span>{
+<a href=#5862 id=5862 data-nosnippet>5862</a>                        (
+<a href=#5863 id=5863 data-nosnippet>5863</a>                            VMBuiltinFunctionIndex::get_imported_memory_atomic_wait64_index(),
+<a href=#5864 id=5864 data-nosnippet>5864</a>                            memory_index.as_u32(),
+<a href=#5865 id=5865 data-nosnippet>5865</a>                        )
+<a href=#5866 id=5866 data-nosnippet>5866</a>                    };
+<a href=#5867 id=5867 data-nosnippet>5867</a>
+<a href=#5868 id=5868 data-nosnippet>5868</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5869 id=5869 data-nosnippet>5869</a>                    Size::S64,
+<a href=#5870 id=5870 data-nosnippet>5870</a>                    Location::Memory(
+<a href=#5871 id=5871 data-nosnippet>5871</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5872 id=5872 data-nosnippet>5872</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(memory_atomic_wait64) <span class="kw">as </span>i32,
+<a href=#5873 id=5873 data-nosnippet>5873</a>                    ),
+<a href=#5874 id=5874 data-nosnippet>5874</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5875 id=5875 data-nosnippet>5875</a>                )<span class="question-mark">?</span>;
+<a href=#5876 id=5876 data-nosnippet>5876</a>
+<a href=#5877 id=5877 data-nosnippet>5877</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5878 id=5878 data-nosnippet>5878</a>                    |this| {
+<a href=#5879 id=5879 data-nosnippet>5879</a>                        this.machine
+<a href=#5880 id=5880 data-nosnippet>5880</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5881 id=5881 data-nosnippet>5881</a>                    },
+<a href=#5882 id=5882 data-nosnippet>5882</a>                    <span class="comment">// [vmctx, memory_index, dst, src, timeout]
+<a href=#5883 id=5883 data-nosnippet>5883</a>                    </span>[
+<a href=#5884 id=5884 data-nosnippet>5884</a>                        (Location::Imm32(index_arg), CanonicalizeType::None),
+<a href=#5885 id=5885 data-nosnippet>5885</a>                        dst,
+<a href=#5886 id=5886 data-nosnippet>5886</a>                        val,
+<a href=#5887 id=5887 data-nosnippet>5887</a>                        timeout,
+<a href=#5888 id=5888 data-nosnippet>5888</a>                    ]
+<a href=#5889 id=5889 data-nosnippet>5889</a>                    .iter()
+<a href=#5890 id=5890 data-nosnippet>5890</a>                    .cloned(),
+<a href=#5891 id=5891 data-nosnippet>5891</a>                    [WpType::I32, WpType::I32, WpType::I64, WpType::I64]
+<a href=#5892 id=5892 data-nosnippet>5892</a>                        .iter()
+<a href=#5893 id=5893 data-nosnippet>5893</a>                        .cloned(),
+<a href=#5894 id=5894 data-nosnippet>5894</a>                    iter::once(WpType::I32),
+<a href=#5895 id=5895 data-nosnippet>5895</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5896 id=5896 data-nosnippet>5896</a>                )<span class="question-mark">?</span>;
+<a href=#5897 id=5897 data-nosnippet>5897</a>            }
+<a href=#5898 id=5898 data-nosnippet>5898</a>            Operator::MemoryAtomicNotify { <span class="kw-2">ref </span>memarg } =&gt; {
+<a href=#5899 id=5899 data-nosnippet>5899</a>                <span class="kw">let </span>cnt = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5900 id=5900 data-nosnippet>5900</a>                <span class="kw">let </span>dst = <span class="self">self</span>.value_stack.pop().unwrap();
+<a href=#5901 id=5901 data-nosnippet>5901</a>
+<a href=#5902 id=5902 data-nosnippet>5902</a>                <span class="kw">let </span>memory_index = MemoryIndex::new(memarg.memory <span class="kw">as </span>usize);
+<a href=#5903 id=5903 data-nosnippet>5903</a>                <span class="kw">let </span>(memory_atomic_notify, index_arg) =
+<a href=#5904 id=5904 data-nosnippet>5904</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(local_index) = <span class="self">self</span>.module.local_memory_index(memory_index) {
+<a href=#5905 id=5905 data-nosnippet>5905</a>                        (
+<a href=#5906 id=5906 data-nosnippet>5906</a>                            VMBuiltinFunctionIndex::get_memory_atomic_notify_index(),
+<a href=#5907 id=5907 data-nosnippet>5907</a>                            local_index.as_u32(),
+<a href=#5908 id=5908 data-nosnippet>5908</a>                        )
+<a href=#5909 id=5909 data-nosnippet>5909</a>                    } <span class="kw">else </span>{
+<a href=#5910 id=5910 data-nosnippet>5910</a>                        (
+<a href=#5911 id=5911 data-nosnippet>5911</a>                            VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index(),
+<a href=#5912 id=5912 data-nosnippet>5912</a>                            memory_index.as_u32(),
+<a href=#5913 id=5913 data-nosnippet>5913</a>                        )
+<a href=#5914 id=5914 data-nosnippet>5914</a>                    };
+<a href=#5915 id=5915 data-nosnippet>5915</a>
+<a href=#5916 id=5916 data-nosnippet>5916</a>                <span class="self">self</span>.machine.move_location(
+<a href=#5917 id=5917 data-nosnippet>5917</a>                    Size::S64,
+<a href=#5918 id=5918 data-nosnippet>5918</a>                    Location::Memory(
+<a href=#5919 id=5919 data-nosnippet>5919</a>                        <span class="self">self</span>.machine.get_vmctx_reg(),
+<a href=#5920 id=5920 data-nosnippet>5920</a>                        <span class="self">self</span>.vmoffsets.vmctx_builtin_function(memory_atomic_notify) <span class="kw">as </span>i32,
+<a href=#5921 id=5921 data-nosnippet>5921</a>                    ),
+<a href=#5922 id=5922 data-nosnippet>5922</a>                    Location::GPR(<span class="self">self</span>.machine.get_gpr_for_call()),
+<a href=#5923 id=5923 data-nosnippet>5923</a>                )<span class="question-mark">?</span>;
+<a href=#5924 id=5924 data-nosnippet>5924</a>
+<a href=#5925 id=5925 data-nosnippet>5925</a>                <span class="self">self</span>.emit_call_native(
+<a href=#5926 id=5926 data-nosnippet>5926</a>                    |this| {
+<a href=#5927 id=5927 data-nosnippet>5927</a>                        this.machine
+<a href=#5928 id=5928 data-nosnippet>5928</a>                            .emit_call_register(this.machine.get_gpr_for_call())
+<a href=#5929 id=5929 data-nosnippet>5929</a>                    },
+<a href=#5930 id=5930 data-nosnippet>5930</a>                    <span class="comment">// [vmctx, memory_index, dst, cnt]
+<a href=#5931 id=5931 data-nosnippet>5931</a>                    </span>[
+<a href=#5932 id=5932 data-nosnippet>5932</a>                        (Location::Imm32(index_arg), CanonicalizeType::None),
+<a href=#5933 id=5933 data-nosnippet>5933</a>                        dst,
+<a href=#5934 id=5934 data-nosnippet>5934</a>                        cnt,
+<a href=#5935 id=5935 data-nosnippet>5935</a>                    ]
+<a href=#5936 id=5936 data-nosnippet>5936</a>                    .iter()
+<a href=#5937 id=5937 data-nosnippet>5937</a>                    .cloned(),
+<a href=#5938 id=5938 data-nosnippet>5938</a>                    [WpType::I32, WpType::I32, WpType::I32].iter().cloned(),
+<a href=#5939 id=5939 data-nosnippet>5939</a>                    iter::once(WpType::I32),
+<a href=#5940 id=5940 data-nosnippet>5940</a>                    NativeCallType::IncludeVMCtxArgument,
+<a href=#5941 id=5941 data-nosnippet>5941</a>                )<span class="question-mark">?</span>;
+<a href=#5942 id=5942 data-nosnippet>5942</a>            }
+<a href=#5943 id=5943 data-nosnippet>5943</a>            <span class="kw">_ </span>=&gt; {
+<a href=#5944 id=5944 data-nosnippet>5944</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#5945 id=5945 data-nosnippet>5945</a>                    <span class="string">"not yet implemented: {op:?}"
+<a href=#5946 id=5946 data-nosnippet>5946</a>                </span>)));
+<a href=#5947 id=5947 data-nosnippet>5947</a>            }
+<a href=#5948 id=5948 data-nosnippet>5948</a>        }
+<a href=#5949 id=5949 data-nosnippet>5949</a>
+<a href=#5950 id=5950 data-nosnippet>5950</a>        <span class="prelude-val">Ok</span>(())
+<a href=#5951 id=5951 data-nosnippet>5951</a>    }
+<a href=#5952 id=5952 data-nosnippet>5952</a>
+<a href=#5953 id=5953 data-nosnippet>5953</a>    <span class="kw">fn </span>add_assembly_comment(<span class="kw-2">&amp;mut </span><span class="self">self</span>, comment: AssemblyComment) {
+<a href=#5954 id=5954 data-nosnippet>5954</a>        <span class="comment">// Collect assembly comments only if we're going to emit them.
+<a href=#5955 id=5955 data-nosnippet>5955</a>        </span><span class="kw">if </span><span class="self">self</span>.config.callbacks.is_some() {
+<a href=#5956 id=5956 data-nosnippet>5956</a>            <span class="self">self</span>.assembly_comments
+<a href=#5957 id=5957 data-nosnippet>5957</a>                .insert(<span class="self">self</span>.machine.get_offset().<span class="number">0</span>, comment);
+<a href=#5958 id=5958 data-nosnippet>5958</a>        }
+<a href=#5959 id=5959 data-nosnippet>5959</a>    }
 <a href=#5960 id=5960 data-nosnippet>5960</a>
-<a href=#5961 id=5961 data-nosnippet>5961</a>        <span class="self">self</span>.machine
-<a href=#5962 id=5962 data-nosnippet>5962</a>            .emit_label(<span class="self">self</span>.special_labels.integer_overflow)<span class="question-mark">?</span>;
-<a href=#5963 id=5963 data-nosnippet>5963</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::IntegerOverflow)<span class="question-mark">?</span>;
-<a href=#5964 id=5964 data-nosnippet>5964</a>
-<a href=#5965 id=5965 data-nosnippet>5965</a>        <span class="self">self</span>.machine
-<a href=#5966 id=5966 data-nosnippet>5966</a>            .emit_label(<span class="self">self</span>.special_labels.heap_access_oob)<span class="question-mark">?</span>;
-<a href=#5967 id=5967 data-nosnippet>5967</a>        <span class="self">self</span>.machine
-<a href=#5968 id=5968 data-nosnippet>5968</a>            .emit_illegal_op(TrapCode::HeapAccessOutOfBounds)<span class="question-mark">?</span>;
+<a href=#5961 id=5961 data-nosnippet>5961</a>    <span class="kw">pub fn </span>finalize(
+<a href=#5962 id=5962 data-nosnippet>5962</a>        <span class="kw-2">mut </span><span class="self">self</span>,
+<a href=#5963 id=5963 data-nosnippet>5963</a>        data: <span class="kw-2">&amp;</span>FunctionBodyData,
+<a href=#5964 id=5964 data-nosnippet>5964</a>        arch: Architecture,
+<a href=#5965 id=5965 data-nosnippet>5965</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#5966 id=5966 data-nosnippet>5966</a>        build_directory: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Path&gt;,
+<a href=#5967 id=5967 data-nosnippet>5967</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;CompileOutput&lt;(CompiledFunction, <span class="prelude-ty">Option</span>&lt;UnwindFrame&gt;)&gt;, CompileError&gt; {
+<a href=#5968 id=5968 data-nosnippet>5968</a>        <span class="self">self</span>.stack_offset -= RED_ZONE_SIZE;
 <a href=#5969 id=5969 data-nosnippet>5969</a>
-<a href=#5970 id=5970 data-nosnippet>5970</a>        <span class="self">self</span>.machine
-<a href=#5971 id=5971 data-nosnippet>5971</a>            .emit_label(<span class="self">self</span>.special_labels.table_access_oob)<span class="question-mark">?</span>;
-<a href=#5972 id=5972 data-nosnippet>5972</a>        <span class="self">self</span>.machine
-<a href=#5973 id=5973 data-nosnippet>5973</a>            .emit_illegal_op(TrapCode::TableAccessOutOfBounds)<span class="question-mark">?</span>;
-<a href=#5974 id=5974 data-nosnippet>5974</a>
-<a href=#5975 id=5975 data-nosnippet>5975</a>        <span class="self">self</span>.machine
-<a href=#5976 id=5976 data-nosnippet>5976</a>            .emit_label(<span class="self">self</span>.special_labels.indirect_call_null)<span class="question-mark">?</span>;
-<a href=#5977 id=5977 data-nosnippet>5977</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::IndirectCallToNull)<span class="question-mark">?</span>;
-<a href=#5978 id=5978 data-nosnippet>5978</a>
-<a href=#5979 id=5979 data-nosnippet>5979</a>        <span class="self">self</span>.machine.emit_label(<span class="self">self</span>.special_labels.bad_signature)<span class="question-mark">?</span>;
-<a href=#5980 id=5980 data-nosnippet>5980</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::BadSignature)<span class="question-mark">?</span>;
-<a href=#5981 id=5981 data-nosnippet>5981</a>
-<a href=#5982 id=5982 data-nosnippet>5982</a>        <span class="self">self</span>.machine
-<a href=#5983 id=5983 data-nosnippet>5983</a>            .emit_label(<span class="self">self</span>.special_labels.unaligned_atomic)<span class="question-mark">?</span>;
-<a href=#5984 id=5984 data-nosnippet>5984</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::UnalignedAtomic)<span class="question-mark">?</span>;
+<a href=#5970 id=5970 data-nosnippet>5970</a>        <span class="self">self</span>.add_assembly_comment(AssemblyComment::TrapHandlersTable);
+<a href=#5971 id=5971 data-nosnippet>5971</a>        <span class="comment">// Generate actual code for special labels.
+<a href=#5972 id=5972 data-nosnippet>5972</a>        </span><span class="self">self</span>.machine
+<a href=#5973 id=5973 data-nosnippet>5973</a>            .emit_label(<span class="self">self</span>.special_labels.integer_division_by_zero)<span class="question-mark">?</span>;
+<a href=#5974 id=5974 data-nosnippet>5974</a>        <span class="self">self</span>.machine
+<a href=#5975 id=5975 data-nosnippet>5975</a>            .emit_illegal_op(TrapCode::IntegerDivisionByZero)<span class="question-mark">?</span>;
+<a href=#5976 id=5976 data-nosnippet>5976</a>
+<a href=#5977 id=5977 data-nosnippet>5977</a>        <span class="self">self</span>.machine
+<a href=#5978 id=5978 data-nosnippet>5978</a>            .emit_label(<span class="self">self</span>.special_labels.integer_overflow)<span class="question-mark">?</span>;
+<a href=#5979 id=5979 data-nosnippet>5979</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::IntegerOverflow)<span class="question-mark">?</span>;
+<a href=#5980 id=5980 data-nosnippet>5980</a>
+<a href=#5981 id=5981 data-nosnippet>5981</a>        <span class="self">self</span>.machine
+<a href=#5982 id=5982 data-nosnippet>5982</a>            .emit_label(<span class="self">self</span>.special_labels.heap_access_oob)<span class="question-mark">?</span>;
+<a href=#5983 id=5983 data-nosnippet>5983</a>        <span class="self">self</span>.machine
+<a href=#5984 id=5984 data-nosnippet>5984</a>            .emit_illegal_op(TrapCode::HeapAccessOutOfBounds)<span class="question-mark">?</span>;
 <a href=#5985 id=5985 data-nosnippet>5985</a>
-<a href=#5986 id=5986 data-nosnippet>5986</a>        <span class="comment">// Notify the assembler backend to generate necessary code at end of function.
-<a href=#5987 id=5987 data-nosnippet>5987</a>        </span><span class="self">self</span>.machine.finalize_function()<span class="question-mark">?</span>;
-<a href=#5988 id=5988 data-nosnippet>5988</a>
-<a href=#5989 id=5989 data-nosnippet>5989</a>        <span class="kw">let </span>body_len = <span class="self">self</span>.machine.assembler_get_offset().<span class="number">0</span>;
+<a href=#5986 id=5986 data-nosnippet>5986</a>        <span class="self">self</span>.machine
+<a href=#5987 id=5987 data-nosnippet>5987</a>            .emit_label(<span class="self">self</span>.special_labels.table_access_oob)<span class="question-mark">?</span>;
+<a href=#5988 id=5988 data-nosnippet>5988</a>        <span class="self">self</span>.machine
+<a href=#5989 id=5989 data-nosnippet>5989</a>            .emit_illegal_op(TrapCode::TableAccessOutOfBounds)<span class="question-mark">?</span>;
 <a href=#5990 id=5990 data-nosnippet>5990</a>
-<a href=#5991 id=5991 data-nosnippet>5991</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
-<a href=#5992 id=5992 data-nosnippet>5992</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>unwind_info = <span class="prelude-val">None</span>;
-<a href=#5993 id=5993 data-nosnippet>5993</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
-<a href=#5994 id=5994 data-nosnippet>5994</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>fde = <span class="prelude-val">None</span>;
-<a href=#5995 id=5995 data-nosnippet>5995</a>        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#5996 id=5996 data-nosnippet>5996</a>        </span><span class="kw">match </span><span class="self">self</span>.calling_convention {
-<a href=#5997 id=5997 data-nosnippet>5997</a>            CallingConvention::SystemV | CallingConvention::AppleAarch64 =&gt; {
-<a href=#5998 id=5998 data-nosnippet>5998</a>                <span class="kw">let </span>unwind = <span class="self">self</span>.machine.gen_dwarf_unwind_info(body_len);
-<a href=#5999 id=5999 data-nosnippet>5999</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(unwind) = unwind {
-<a href=#6000 id=6000 data-nosnippet>6000</a>                    fde = <span class="prelude-val">Some</span>(unwind.to_fde(Address::Symbol {
-<a href=#6001 id=6001 data-nosnippet>6001</a>                        symbol: WriterRelocate::FUNCTION_SYMBOL,
-<a href=#6002 id=6002 data-nosnippet>6002</a>                        <span class="comment">// In-memory compilation uses this addend to identify the
-<a href=#6003 id=6003 data-nosnippet>6003</a>                        // function relocation target.
-<a href=#6004 id=6004 data-nosnippet>6004</a>                        </span>addend: <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
-<a href=#6005 id=6005 data-nosnippet>6005</a>                            <span class="number">0
-<a href=#6006 id=6006 data-nosnippet>6006</a>                        </span>} <span class="kw">else </span>{
-<a href=#6007 id=6007 data-nosnippet>6007</a>                            <span class="self">self</span>.local_func_index.index() <span class="kw">as _
-<a href=#6008 id=6008 data-nosnippet>6008</a>                        </span>},
-<a href=#6009 id=6009 data-nosnippet>6009</a>                    }));
-<a href=#6010 id=6010 data-nosnippet>6010</a>                    unwind_info = <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::Dwarf);
-<a href=#6011 id=6011 data-nosnippet>6011</a>                }
-<a href=#6012 id=6012 data-nosnippet>6012</a>            }
-<a href=#6013 id=6013 data-nosnippet>6013</a>            CallingConvention::WindowsFastcall =&gt; {
-<a href=#6014 id=6014 data-nosnippet>6014</a>                <span class="kw">let </span>unwind = <span class="self">self</span>.machine.gen_windows_unwind_info(body_len);
+<a href=#5991 id=5991 data-nosnippet>5991</a>        <span class="self">self</span>.machine
+<a href=#5992 id=5992 data-nosnippet>5992</a>            .emit_label(<span class="self">self</span>.special_labels.indirect_call_null)<span class="question-mark">?</span>;
+<a href=#5993 id=5993 data-nosnippet>5993</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::IndirectCallToNull)<span class="question-mark">?</span>;
+<a href=#5994 id=5994 data-nosnippet>5994</a>
+<a href=#5995 id=5995 data-nosnippet>5995</a>        <span class="self">self</span>.machine.emit_label(<span class="self">self</span>.special_labels.bad_signature)<span class="question-mark">?</span>;
+<a href=#5996 id=5996 data-nosnippet>5996</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::BadSignature)<span class="question-mark">?</span>;
+<a href=#5997 id=5997 data-nosnippet>5997</a>
+<a href=#5998 id=5998 data-nosnippet>5998</a>        <span class="self">self</span>.machine
+<a href=#5999 id=5999 data-nosnippet>5999</a>            .emit_label(<span class="self">self</span>.special_labels.unaligned_atomic)<span class="question-mark">?</span>;
+<a href=#6000 id=6000 data-nosnippet>6000</a>        <span class="self">self</span>.machine.emit_illegal_op(TrapCode::UnalignedAtomic)<span class="question-mark">?</span>;
+<a href=#6001 id=6001 data-nosnippet>6001</a>
+<a href=#6002 id=6002 data-nosnippet>6002</a>        <span class="comment">// Notify the assembler backend to generate necessary code at end of function.
+<a href=#6003 id=6003 data-nosnippet>6003</a>        </span><span class="self">self</span>.machine.finalize_function()<span class="question-mark">?</span>;
+<a href=#6004 id=6004 data-nosnippet>6004</a>
+<a href=#6005 id=6005 data-nosnippet>6005</a>        <span class="kw">let </span>body_len = <span class="self">self</span>.machine.assembler_get_offset().<span class="number">0</span>;
+<a href=#6006 id=6006 data-nosnippet>6006</a>
+<a href=#6007 id=6007 data-nosnippet>6007</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
+<a href=#6008 id=6008 data-nosnippet>6008</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>unwind_info = <span class="prelude-val">None</span>;
+<a href=#6009 id=6009 data-nosnippet>6009</a>        <span class="attr">#[cfg_attr(not(feature = <span class="string">"unwind"</span>), allow(unused_mut))]
+<a href=#6010 id=6010 data-nosnippet>6010</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>fde = <span class="prelude-val">None</span>;
+<a href=#6011 id=6011 data-nosnippet>6011</a>        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#6012 id=6012 data-nosnippet>6012</a>        </span><span class="kw">match </span><span class="self">self</span>.calling_convention {
+<a href=#6013 id=6013 data-nosnippet>6013</a>            CallingConvention::SystemV | CallingConvention::AppleAarch64 =&gt; {
+<a href=#6014 id=6014 data-nosnippet>6014</a>                <span class="kw">let </span>unwind = <span class="self">self</span>.machine.gen_dwarf_unwind_info(body_len);
 <a href=#6015 id=6015 data-nosnippet>6015</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(unwind) = unwind {
-<a href=#6016 id=6016 data-nosnippet>6016</a>                    unwind_info = <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::WindowsX64(unwind));
-<a href=#6017 id=6017 data-nosnippet>6017</a>                }
-<a href=#6018 id=6018 data-nosnippet>6018</a>            }
-<a href=#6019 id=6019 data-nosnippet>6019</a>            <span class="kw">_ </span>=&gt; (),
-<a href=#6020 id=6020 data-nosnippet>6020</a>        };
-<a href=#6021 id=6021 data-nosnippet>6021</a>
-<a href=#6022 id=6022 data-nosnippet>6022</a>        <span class="kw">let </span>address_map =
-<a href=#6023 id=6023 data-nosnippet>6023</a>            get_function_address_map(<span class="self">self</span>.machine.instructions_address_map(), data, body_len);
-<a href=#6024 id=6024 data-nosnippet>6024</a>        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#6025 id=6025 data-nosnippet>6025</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(dwarf_state) = <span class="self">self</span>.dwarf_state.as_mut() {
-<a href=#6026 id=6026 data-nosnippet>6026</a>            <span class="kw">for </span>instruction <span class="kw">in </span><span class="kw-2">&amp;</span>address_map.instructions {
-<a href=#6027 id=6027 data-nosnippet>6027</a>                dwarf_state.add_row(instruction.code_offset <span class="kw">as </span>u64, instruction.srcloc);
+<a href=#6016 id=6016 data-nosnippet>6016</a>                    fde = <span class="prelude-val">Some</span>(unwind.to_fde(Address::Symbol {
+<a href=#6017 id=6017 data-nosnippet>6017</a>                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+<a href=#6018 id=6018 data-nosnippet>6018</a>                        <span class="comment">// In-memory compilation uses this addend to identify the
+<a href=#6019 id=6019 data-nosnippet>6019</a>                        // function relocation target.
+<a href=#6020 id=6020 data-nosnippet>6020</a>                        </span>addend: <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#6021 id=6021 data-nosnippet>6021</a>                            <span class="number">0
+<a href=#6022 id=6022 data-nosnippet>6022</a>                        </span>} <span class="kw">else </span>{
+<a href=#6023 id=6023 data-nosnippet>6023</a>                            <span class="self">self</span>.local_func_index.index() <span class="kw">as _
+<a href=#6024 id=6024 data-nosnippet>6024</a>                        </span>},
+<a href=#6025 id=6025 data-nosnippet>6025</a>                    }));
+<a href=#6026 id=6026 data-nosnippet>6026</a>                    unwind_info = <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::Dwarf);
+<a href=#6027 id=6027 data-nosnippet>6027</a>                }
 <a href=#6028 id=6028 data-nosnippet>6028</a>            }
-<a href=#6029 id=6029 data-nosnippet>6029</a>        }
-<a href=#6030 id=6030 data-nosnippet>6030</a>        <span class="kw">let </span>traps = <span class="self">self</span>.machine.collect_trap_information();
-<a href=#6031 id=6031 data-nosnippet>6031</a>        <span class="kw">let </span>FinalizedAssembly {
-<a href=#6032 id=6032 data-nosnippet>6032</a>            <span class="kw-2">mut </span>body,
-<a href=#6033 id=6033 data-nosnippet>6033</a>            assembly_comments,
-<a href=#6034 id=6034 data-nosnippet>6034</a>        } = <span class="self">self</span>.machine.assembler_finalize(<span class="self">self</span>.assembly_comments)<span class="question-mark">?</span>;
-<a href=#6035 id=6035 data-nosnippet>6035</a>        body.shrink_to_fit();
-<a href=#6036 id=6036 data-nosnippet>6036</a>
-<a href=#6037 id=6037 data-nosnippet>6037</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
-<a href=#6038 id=6038 data-nosnippet>6038</a>            callbacks.obj_memory_buffer(
-<a href=#6039 id=6039 data-nosnippet>6039</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
-<a href=#6040 id=6040 data-nosnippet>6040</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
-<a href=#6041 id=6041 data-nosnippet>6041</a>                <span class="kw-2">&amp;</span>body,
-<a href=#6042 id=6042 data-nosnippet>6042</a>            );
-<a href=#6043 id=6043 data-nosnippet>6043</a>            callbacks.asm_memory_buffer(
-<a href=#6044 id=6044 data-nosnippet>6044</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
-<a href=#6045 id=6045 data-nosnippet>6045</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
-<a href=#6046 id=6046 data-nosnippet>6046</a>                arch,
-<a href=#6047 id=6047 data-nosnippet>6047</a>                <span class="kw-2">&amp;</span>body,
-<a href=#6048 id=6048 data-nosnippet>6048</a>                assembly_comments,
-<a href=#6049 id=6049 data-nosnippet>6049</a>            )<span class="question-mark">?</span>;
-<a href=#6050 id=6050 data-nosnippet>6050</a>        }
-<a href=#6051 id=6051 data-nosnippet>6051</a>
-<a href=#6052 id=6052 data-nosnippet>6052</a>        <span class="kw">let </span>function = CompiledFunction {
-<a href=#6053 id=6053 data-nosnippet>6053</a>            body: FunctionBody { body, unwind_info },
-<a href=#6054 id=6054 data-nosnippet>6054</a>            relocations: <span class="self">self</span>.relocations.clone(),
-<a href=#6055 id=6055 data-nosnippet>6055</a>            frame_info: CompiledFunctionFrameInfo { traps, address_map },
-<a href=#6056 id=6056 data-nosnippet>6056</a>            maximum_stack_usage: <span class="prelude-val">Some</span>(<span class="self">self</span>.stack_offset.maximum_offset),
-<a href=#6057 id=6057 data-nosnippet>6057</a>        };
-<a href=#6058 id=6058 data-nosnippet>6058</a>        <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
-<a href=#6059 id=6059 data-nosnippet>6059</a>            <span class="kw">let </span>maximum_stack_usage = function.maximum_stack_usage;
-<a href=#6060 id=6060 data-nosnippet>6060</a>            <span class="prelude-val">Ok</span>(CompileOutput::Object(
-<a href=#6061 id=6061 data-nosnippet>6061</a>                elf::emit_local_function(
-<a href=#6062 id=6062 data-nosnippet>6062</a>                    target,
-<a href=#6063 id=6063 data-nosnippet>6063</a>                    build_directory.expect(<span class="string">"ELF artifact compilation requires a build directory"</span>),
-<a href=#6064 id=6064 data-nosnippet>6064</a>                    <span class="self">self</span>.local_func_index,
-<a href=#6065 id=6065 data-nosnippet>6065</a>                    function,
-<a href=#6066 id=6066 data-nosnippet>6066</a>                    fde,
-<a href=#6067 id=6067 data-nosnippet>6067</a>                    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#6068 id=6068 data-nosnippet>6068</a>                    </span><span class="self">self</span>.dwarf_state,
-<a href=#6069 id=6069 data-nosnippet>6069</a>                )<span class="question-mark">?</span>,
-<a href=#6070 id=6070 data-nosnippet>6070</a>                maximum_stack_usage,
-<a href=#6071 id=6071 data-nosnippet>6071</a>            ))
-<a href=#6072 id=6072 data-nosnippet>6072</a>        } <span class="kw">else </span>{
-<a href=#6073 id=6073 data-nosnippet>6073</a>            <span class="prelude-val">Ok</span>(CompileOutput::InMemory((function, fde)))
-<a href=#6074 id=6074 data-nosnippet>6074</a>        }
-<a href=#6075 id=6075 data-nosnippet>6075</a>    }
-<a href=#6076 id=6076 data-nosnippet>6076</a>    <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
-<a href=#6077 id=6077 data-nosnippet>6077</a>    // at call place.
-<a href=#6078 id=6078 data-nosnippet>6078</a>    </span><span class="attr">#[allow(clippy::type_complexity)]
-<a href=#6079 id=6079 data-nosnippet>6079</a>    </span><span class="kw">fn </span>sort_call_movs(movs: <span class="kw-2">&amp;mut </span>[(Location&lt;M::GPR, M::SIMD&gt;, M::GPR, Size)]) {
-<a href=#6080 id=6080 data-nosnippet>6080</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..movs.len() {
-<a href=#6081 id=6081 data-nosnippet>6081</a>            <span class="kw">for </span>j <span class="kw">in </span>(i + <span class="number">1</span>)..movs.len() {
-<a href=#6082 id=6082 data-nosnippet>6082</a>                <span class="kw">if let </span>Location::GPR(src_gpr) = movs[j].<span class="number">0
-<a href=#6083 id=6083 data-nosnippet>6083</a>                    </span>&amp;&amp; src_gpr == movs[i].<span class="number">1
-<a href=#6084 id=6084 data-nosnippet>6084</a>                </span>{
-<a href=#6085 id=6085 data-nosnippet>6085</a>                    movs.swap(i, j);
-<a href=#6086 id=6086 data-nosnippet>6086</a>                }
-<a href=#6087 id=6087 data-nosnippet>6087</a>            }
-<a href=#6088 id=6088 data-nosnippet>6088</a>        }
-<a href=#6089 id=6089 data-nosnippet>6089</a>    }
-<a href=#6090 id=6090 data-nosnippet>6090</a>
-<a href=#6091 id=6091 data-nosnippet>6091</a>    <span class="comment">// Cycle detector. Uncomment this to debug possibly incorrect call-mov sequences.
-<a href=#6092 id=6092 data-nosnippet>6092</a>    /*
-<a href=#6093 id=6093 data-nosnippet>6093</a>    {
-<a href=#6094 id=6094 data-nosnippet>6094</a>        use std::collections::{HashMap, HashSet, VecDeque};
-<a href=#6095 id=6095 data-nosnippet>6095</a>        let mut mov_map: HashMap&lt;GPR, HashSet&lt;GPR&gt;&gt; = HashMap::new();
-<a href=#6096 id=6096 data-nosnippet>6096</a>        for mov in movs.iter() {
-<a href=#6097 id=6097 data-nosnippet>6097</a>            if let Location::GPR(src_gpr) = mov.0 {
-<a href=#6098 id=6098 data-nosnippet>6098</a>                if src_gpr != mov.1 {
-<a href=#6099 id=6099 data-nosnippet>6099</a>                    mov_map.entry(src_gpr).or_insert_with(|| HashSet::new()).insert(mov.1);
-<a href=#6100 id=6100 data-nosnippet>6100</a>                }
-<a href=#6101 id=6101 data-nosnippet>6101</a>            }
-<a href=#6102 id=6102 data-nosnippet>6102</a>        }
-<a href=#6103 id=6103 data-nosnippet>6103</a>
-<a href=#6104 id=6104 data-nosnippet>6104</a>        for (start, _) in mov_map.iter() {
-<a href=#6105 id=6105 data-nosnippet>6105</a>            let mut q: VecDeque&lt;GPR&gt; = VecDeque::new();
-<a href=#6106 id=6106 data-nosnippet>6106</a>            let mut black: HashSet&lt;GPR&gt; = HashSet::new();
-<a href=#6107 id=6107 data-nosnippet>6107</a>
-<a href=#6108 id=6108 data-nosnippet>6108</a>            q.push_back(*start);
-<a href=#6109 id=6109 data-nosnippet>6109</a>            black.insert(*start);
-<a href=#6110 id=6110 data-nosnippet>6110</a>
-<a href=#6111 id=6111 data-nosnippet>6111</a>            while q.len() &gt; 0 {
-<a href=#6112 id=6112 data-nosnippet>6112</a>                let reg = q.pop_front().unwrap();
-<a href=#6113 id=6113 data-nosnippet>6113</a>                let empty_set = HashSet::new();
-<a href=#6114 id=6114 data-nosnippet>6114</a>                for x in mov_map.get(&amp;reg).unwrap_or(&amp;empty_set).iter() {
-<a href=#6115 id=6115 data-nosnippet>6115</a>                    if black.contains(x) {
-<a href=#6116 id=6116 data-nosnippet>6116</a>                        panic!("cycle detected");
-<a href=#6117 id=6117 data-nosnippet>6117</a>                    }
-<a href=#6118 id=6118 data-nosnippet>6118</a>                    q.push_back(*x);
-<a href=#6119 id=6119 data-nosnippet>6119</a>                    black.insert(*x);
-<a href=#6120 id=6120 data-nosnippet>6120</a>                }
-<a href=#6121 id=6121 data-nosnippet>6121</a>            }
-<a href=#6122 id=6122 data-nosnippet>6122</a>        }
-<a href=#6123 id=6123 data-nosnippet>6123</a>    }
-<a href=#6124 id=6124 data-nosnippet>6124</a>    */
-<a href=#6125 id=6125 data-nosnippet>6125</a></span>}
+<a href=#6029 id=6029 data-nosnippet>6029</a>            CallingConvention::WindowsFastcall =&gt; {
+<a href=#6030 id=6030 data-nosnippet>6030</a>                <span class="kw">let </span>unwind = <span class="self">self</span>.machine.gen_windows_unwind_info(body_len);
+<a href=#6031 id=6031 data-nosnippet>6031</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(unwind) = unwind {
+<a href=#6032 id=6032 data-nosnippet>6032</a>                    unwind_info = <span class="prelude-val">Some</span>(CompiledFunctionUnwindInfo::WindowsX64(unwind));
+<a href=#6033 id=6033 data-nosnippet>6033</a>                }
+<a href=#6034 id=6034 data-nosnippet>6034</a>            }
+<a href=#6035 id=6035 data-nosnippet>6035</a>            <span class="kw">_ </span>=&gt; (),
+<a href=#6036 id=6036 data-nosnippet>6036</a>        };
+<a href=#6037 id=6037 data-nosnippet>6037</a>
+<a href=#6038 id=6038 data-nosnippet>6038</a>        <span class="kw">let </span>address_map =
+<a href=#6039 id=6039 data-nosnippet>6039</a>            get_function_address_map(<span class="self">self</span>.machine.instructions_address_map(), data, body_len);
+<a href=#6040 id=6040 data-nosnippet>6040</a>        <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#6041 id=6041 data-nosnippet>6041</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(dwarf_state) = <span class="self">self</span>.dwarf_state.as_mut() {
+<a href=#6042 id=6042 data-nosnippet>6042</a>            <span class="kw">for </span>instruction <span class="kw">in </span><span class="kw-2">&amp;</span>address_map.instructions {
+<a href=#6043 id=6043 data-nosnippet>6043</a>                dwarf_state.add_row(instruction.code_offset <span class="kw">as </span>u64, instruction.srcloc);
+<a href=#6044 id=6044 data-nosnippet>6044</a>            }
+<a href=#6045 id=6045 data-nosnippet>6045</a>        }
+<a href=#6046 id=6046 data-nosnippet>6046</a>        <span class="kw">let </span>traps = <span class="self">self</span>.machine.collect_trap_information();
+<a href=#6047 id=6047 data-nosnippet>6047</a>        <span class="kw">let </span>FinalizedAssembly {
+<a href=#6048 id=6048 data-nosnippet>6048</a>            <span class="kw-2">mut </span>body,
+<a href=#6049 id=6049 data-nosnippet>6049</a>            assembly_comments,
+<a href=#6050 id=6050 data-nosnippet>6050</a>        } = <span class="self">self</span>.machine.assembler_finalize(<span class="self">self</span>.assembly_comments)<span class="question-mark">?</span>;
+<a href=#6051 id=6051 data-nosnippet>6051</a>        body.shrink_to_fit();
+<a href=#6052 id=6052 data-nosnippet>6052</a>
+<a href=#6053 id=6053 data-nosnippet>6053</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(callbacks) = <span class="self">self</span>.config.callbacks.as_ref() {
+<a href=#6054 id=6054 data-nosnippet>6054</a>            callbacks.obj_memory_buffer(
+<a href=#6055 id=6055 data-nosnippet>6055</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
+<a href=#6056 id=6056 data-nosnippet>6056</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
+<a href=#6057 id=6057 data-nosnippet>6057</a>                <span class="kw-2">&amp;</span>body,
+<a href=#6058 id=6058 data-nosnippet>6058</a>            );
+<a href=#6059 id=6059 data-nosnippet>6059</a>            callbacks.asm_memory_buffer(
+<a href=#6060 id=6060 data-nosnippet>6060</a>                <span class="kw-2">&amp;</span>CompiledKind::Local(<span class="self">self</span>.local_func_index, <span class="self">self</span>.function_name.clone()),
+<a href=#6061 id=6061 data-nosnippet>6061</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.module.hash_string(),
+<a href=#6062 id=6062 data-nosnippet>6062</a>                arch,
+<a href=#6063 id=6063 data-nosnippet>6063</a>                <span class="kw-2">&amp;</span>body,
+<a href=#6064 id=6064 data-nosnippet>6064</a>                assembly_comments,
+<a href=#6065 id=6065 data-nosnippet>6065</a>            )<span class="question-mark">?</span>;
+<a href=#6066 id=6066 data-nosnippet>6066</a>        }
+<a href=#6067 id=6067 data-nosnippet>6067</a>
+<a href=#6068 id=6068 data-nosnippet>6068</a>        <span class="kw">let </span>function = CompiledFunction {
+<a href=#6069 id=6069 data-nosnippet>6069</a>            body: FunctionBody { body, unwind_info },
+<a href=#6070 id=6070 data-nosnippet>6070</a>            relocations: <span class="self">self</span>.relocations.clone(),
+<a href=#6071 id=6071 data-nosnippet>6071</a>            frame_info: CompiledFunctionFrameInfo { traps, address_map },
+<a href=#6072 id=6072 data-nosnippet>6072</a>            maximum_stack_usage: <span class="prelude-val">Some</span>(<span class="self">self</span>.stack_offset.maximum_offset),
+<a href=#6073 id=6073 data-nosnippet>6073</a>        };
+<a href=#6074 id=6074 data-nosnippet>6074</a>        <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#6075 id=6075 data-nosnippet>6075</a>            <span class="kw">let </span>maximum_stack_usage = function.maximum_stack_usage;
+<a href=#6076 id=6076 data-nosnippet>6076</a>            <span class="prelude-val">Ok</span>(CompileOutput::Object(
+<a href=#6077 id=6077 data-nosnippet>6077</a>                elf::emit_local_function(
+<a href=#6078 id=6078 data-nosnippet>6078</a>                    target,
+<a href=#6079 id=6079 data-nosnippet>6079</a>                    build_directory.expect(<span class="string">"ELF artifact compilation requires a build directory"</span>),
+<a href=#6080 id=6080 data-nosnippet>6080</a>                    <span class="self">self</span>.local_func_index,
+<a href=#6081 id=6081 data-nosnippet>6081</a>                    function,
+<a href=#6082 id=6082 data-nosnippet>6082</a>                    fde,
+<a href=#6083 id=6083 data-nosnippet>6083</a>                    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#6084 id=6084 data-nosnippet>6084</a>                    </span><span class="self">self</span>.dwarf_state,
+<a href=#6085 id=6085 data-nosnippet>6085</a>                )<span class="question-mark">?</span>,
+<a href=#6086 id=6086 data-nosnippet>6086</a>                maximum_stack_usage,
+<a href=#6087 id=6087 data-nosnippet>6087</a>            ))
+<a href=#6088 id=6088 data-nosnippet>6088</a>        } <span class="kw">else </span>{
+<a href=#6089 id=6089 data-nosnippet>6089</a>            <span class="prelude-val">Ok</span>(CompileOutput::InMemory((function, fde)))
+<a href=#6090 id=6090 data-nosnippet>6090</a>        }
+<a href=#6091 id=6091 data-nosnippet>6091</a>    }
+<a href=#6092 id=6092 data-nosnippet>6092</a>    <span class="comment">// FIXME: This implementation seems to be not enough to resolve all kinds of register dependencies
+<a href=#6093 id=6093 data-nosnippet>6093</a>    // at call place.
+<a href=#6094 id=6094 data-nosnippet>6094</a>    </span><span class="attr">#[allow(clippy::type_complexity)]
+<a href=#6095 id=6095 data-nosnippet>6095</a>    </span><span class="kw">fn </span>sort_call_movs(movs: <span class="kw-2">&amp;mut </span>[(Location&lt;M::GPR, M::SIMD&gt;, M::GPR, Size)]) {
+<a href=#6096 id=6096 data-nosnippet>6096</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..movs.len() {
+<a href=#6097 id=6097 data-nosnippet>6097</a>            <span class="kw">for </span>j <span class="kw">in </span>(i + <span class="number">1</span>)..movs.len() {
+<a href=#6098 id=6098 data-nosnippet>6098</a>                <span class="kw">if let </span>Location::GPR(src_gpr) = movs[j].<span class="number">0
+<a href=#6099 id=6099 data-nosnippet>6099</a>                    </span>&amp;&amp; src_gpr == movs[i].<span class="number">1
+<a href=#6100 id=6100 data-nosnippet>6100</a>                </span>{
+<a href=#6101 id=6101 data-nosnippet>6101</a>                    movs.swap(i, j);
+<a href=#6102 id=6102 data-nosnippet>6102</a>                }
+<a href=#6103 id=6103 data-nosnippet>6103</a>            }
+<a href=#6104 id=6104 data-nosnippet>6104</a>        }
+<a href=#6105 id=6105 data-nosnippet>6105</a>    }
+<a href=#6106 id=6106 data-nosnippet>6106</a>
+<a href=#6107 id=6107 data-nosnippet>6107</a>    <span class="comment">// Cycle detector. Uncomment this to debug possibly incorrect call-mov sequences.
+<a href=#6108 id=6108 data-nosnippet>6108</a>    /*
+<a href=#6109 id=6109 data-nosnippet>6109</a>    {
+<a href=#6110 id=6110 data-nosnippet>6110</a>        use std::collections::{HashMap, HashSet, VecDeque};
+<a href=#6111 id=6111 data-nosnippet>6111</a>        let mut mov_map: HashMap&lt;GPR, HashSet&lt;GPR&gt;&gt; = HashMap::new();
+<a href=#6112 id=6112 data-nosnippet>6112</a>        for mov in movs.iter() {
+<a href=#6113 id=6113 data-nosnippet>6113</a>            if let Location::GPR(src_gpr) = mov.0 {
+<a href=#6114 id=6114 data-nosnippet>6114</a>                if src_gpr != mov.1 {
+<a href=#6115 id=6115 data-nosnippet>6115</a>                    mov_map.entry(src_gpr).or_insert_with(|| HashSet::new()).insert(mov.1);
+<a href=#6116 id=6116 data-nosnippet>6116</a>                }
+<a href=#6117 id=6117 data-nosnippet>6117</a>            }
+<a href=#6118 id=6118 data-nosnippet>6118</a>        }
+<a href=#6119 id=6119 data-nosnippet>6119</a>
+<a href=#6120 id=6120 data-nosnippet>6120</a>        for (start, _) in mov_map.iter() {
+<a href=#6121 id=6121 data-nosnippet>6121</a>            let mut q: VecDeque&lt;GPR&gt; = VecDeque::new();
+<a href=#6122 id=6122 data-nosnippet>6122</a>            let mut black: HashSet&lt;GPR&gt; = HashSet::new();
+<a href=#6123 id=6123 data-nosnippet>6123</a>
+<a href=#6124 id=6124 data-nosnippet>6124</a>            q.push_back(*start);
+<a href=#6125 id=6125 data-nosnippet>6125</a>            black.insert(*start);
+<a href=#6126 id=6126 data-nosnippet>6126</a>
+<a href=#6127 id=6127 data-nosnippet>6127</a>            while q.len() &gt; 0 {
+<a href=#6128 id=6128 data-nosnippet>6128</a>                let reg = q.pop_front().unwrap();
+<a href=#6129 id=6129 data-nosnippet>6129</a>                let empty_set = HashSet::new();
+<a href=#6130 id=6130 data-nosnippet>6130</a>                for x in mov_map.get(&amp;reg).unwrap_or(&amp;empty_set).iter() {
+<a href=#6131 id=6131 data-nosnippet>6131</a>                    if black.contains(x) {
+<a href=#6132 id=6132 data-nosnippet>6132</a>                        panic!("cycle detected");
+<a href=#6133 id=6133 data-nosnippet>6133</a>                    }
+<a href=#6134 id=6134 data-nosnippet>6134</a>                    q.push_back(*x);
+<a href=#6135 id=6135 data-nosnippet>6135</a>                    black.insert(*x);
+<a href=#6136 id=6136 data-nosnippet>6136</a>                }
+<a href=#6137 id=6137 data-nosnippet>6137</a>            }
+<a href=#6138 id=6138 data-nosnippet>6138</a>        }
+<a href=#6139 id=6139 data-nosnippet>6139</a>    }
+<a href=#6140 id=6140 data-nosnippet>6140</a>    */
+<a href=#6141 id=6141 data-nosnippet>6141</a></span>}
 </code></pre></div></section></main></body></html>
