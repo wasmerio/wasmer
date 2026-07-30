@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["parse_registry","tokens_by_authority"],"struct":["RunProperties","Wasi"]};
+window.SIDEBAR_ITEMS = {"fn":["parse_registry","tokens_by_authority","utf8_env_part"],"struct":["RunProperties","Wasi"]};
