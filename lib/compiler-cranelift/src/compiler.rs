@@ -137,6 +137,7 @@ impl CraneliftCompiler {
         let module = &compile_info.module;
         let source_map = Arc::new(if cfg!(feature = "experimental-artifact") {
             WasmSourceMap::new(module, module_translation_state, &function_body_inputs)
+                .map_err(CompileError::Codegen)?
         } else {
             WasmSourceMap::default()
         });

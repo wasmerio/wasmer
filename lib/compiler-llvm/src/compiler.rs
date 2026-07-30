@@ -271,6 +271,7 @@ impl Compiler for LLVMCompiler {
 
         let source_map = Arc::new(if cfg!(feature = "experimental-artifact") {
             WasmSourceMap::new(module, module_translation, &function_body_inputs)
+                .map_err(CompileError::Codegen)?
         } else {
             WasmSourceMap::default()
         });

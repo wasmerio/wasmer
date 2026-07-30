@@ -5964,7 +5964,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         arch: Architecture,
         target: &Target,
         build_directory: Option<&Path>,
-        source_map: &WasmSourceMap,
+        _source_map: &WasmSourceMap,
     ) -> Result<CompileOutput<(CompiledFunction, Option<UnwindFrame>)>, CompileError> {
         self.stack_offset -= RED_ZONE_SIZE;
 
@@ -6044,7 +6044,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 dwarf_state.add_source_map_row(
                     instruction.code_offset as u64,
                     instruction.srcloc,
-                    source_map,
+                    _source_map,
                 );
             }
         }
