@@ -14,7 +14,7 @@
 static volatile sig_atomic_t usr2_calls = 0;
 static volatile sig_atomic_t usr2_seen_inside = -1;
 
-static void usr1_handler(int sig, siginfo_t *info, void *ucontext) {
+static void usr1_handler(int sig, siginfo_t* info, void* ucontext) {
   (void)sig;
   (void)info;
   (void)ucontext;
@@ -25,7 +25,7 @@ static void usr1_handler(int sig, siginfo_t *info, void *ucontext) {
   usr2_seen_inside = usr2_calls;
 }
 
-static void usr2_handler(int sig, siginfo_t *info, void *ucontext) {
+static void usr2_handler(int sig, siginfo_t* info, void* ucontext) {
   (void)sig;
   (void)info;
   (void)ucontext;

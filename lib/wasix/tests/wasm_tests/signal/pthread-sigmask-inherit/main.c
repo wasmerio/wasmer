@@ -13,7 +13,7 @@
 static volatile int child_saw_blocked = 0;
 static volatile int child_query_ok = 0;
 
-static void *child(void *arg) {
+static void* child(void* arg) {
   (void)arg;
 
   sigset_t mask;

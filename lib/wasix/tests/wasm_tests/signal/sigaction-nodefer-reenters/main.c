@@ -23,7 +23,7 @@ static volatile sig_atomic_t calls = 0;
 static volatile sig_atomic_t depth = 0;
 static volatile sig_atomic_t max_depth = 0;
 
-static void handler(int sig, siginfo_t *info, void *ucontext) {
+static void handler(int sig, siginfo_t* info, void* ucontext) {
   (void)info;
   (void)ucontext;
 

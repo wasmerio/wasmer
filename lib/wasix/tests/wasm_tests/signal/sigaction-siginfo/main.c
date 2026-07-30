@@ -23,7 +23,7 @@ static void plain_handler(int sig) {
   plain_calls++;
 }
 
-static void info_handler(int sig, siginfo_t *info, void *ucontext) {
+static void info_handler(int sig, siginfo_t* info, void* ucontext) {
   (void)ucontext;
   info_calls++;
   info_signo = sig;

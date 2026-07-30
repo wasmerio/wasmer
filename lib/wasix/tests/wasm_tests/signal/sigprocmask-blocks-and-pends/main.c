@@ -13,7 +13,7 @@
 
 static volatile sig_atomic_t calls = 0;
 
-static void handler(int sig, siginfo_t *info, void *ucontext) {
+static void handler(int sig, siginfo_t* info, void* ucontext) {
   (void)sig;
   (void)info;
   (void)ucontext;
