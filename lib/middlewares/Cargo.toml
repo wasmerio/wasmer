@@ -24,8 +24,8 @@ wasmer-vm = { path = "../vm", version = "=7.2.1" }
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]
 wasmer = { path = "../api", version = "=7.2.1", default-features = false, features = [
   "compiler",
-  "singlepass",
-  "wasmparser",
+  "cranelift",
+  "wat",
 ] }
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
