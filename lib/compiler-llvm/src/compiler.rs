@@ -220,6 +220,7 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
@@ -456,7 +457,10 @@ impl Compiler for LLVMCompiler {
             module_file.read_to_end(&mut elf_content).map_err(|e| {
                 CompileError::Codegen(format!("cannot persist linked shared object: {e}"))
             })?;
-            Ok(Compilation::Elf(elf_content))
+            Ok(Compilation::Elf {
+                data: elf_content,
+                function_max_stack_usage,
+            })
         } else {
             let functions = functions
                 .into_iter()
@@ -566,30 +570,14 @@ impl Compiler for LLVMCompiler {
             let mut got = wasmer_compiler::types::function::GOT::empty();
 
             if !got_targets.is_empty() {
-                let pointer_width = target.triple().pointer_width().map_err(|_| {
-                    CompileError::Codegen("Could not get pointer width".to_string())
-                })?;
-
-                let got_entry_size = match pointer_width {
-                    target_lexicon::PointerWidth::U64 => 8,
-                    target_lexicon::PointerWidth::U32 => 4,
-                    target_lexicon::PointerWidth::U16 => todo!(),
-                };
-
-                let got_entry_reloc_kind = match pointer_width {
-                    target_lexicon::PointerWidth::U64 => RelocationKind::Abs8,
-                    target_lexicon::PointerWidth::U32 => RelocationKind::Abs4,
-                    target_lexicon::PointerWidth::U16 => todo!(),
-                };
-
-                let got_data: Vec<u8> = vec![0; got_targets.len() * got_entry_size];
+                let got_data: Vec<u8> = vec![0; got_targets.len() * 8];
                 let mut got_relocs = vec![];
 
                 for (i, target) in got_targets.into_iter().enumerate() {
                     got_relocs.push(wasmer_compiler::types::relocation::Relocation {
-                        kind: got_entry_reloc_kind,
+                        kind: RelocationKind::Abs8,
                         reloc_target: target,
-                        offset: (i * got_entry_size) as u32,
+                        offset: (i * 8) as u32,
                         addend: 0,
                     });
                 }
@@ -623,14 +611,17 @@ impl Compiler for LLVMCompiler {
                 })
                 .collect();
 
-            Ok(Compilation::Rkyv(RkyvCompilation {
-                functions,
-                custom_sections: module_custom_sections,
-                function_call_trampolines,
-                dynamic_function_trampolines,
-                unwind_info,
-                got,
-            }))
+            Ok(Compilation::Rkyv {
+                compilation: RkyvCompilation {
+                    functions,
+                    custom_sections: module_custom_sections,
+                    function_call_trampolines,
+                    dynamic_function_trampolines,
+                    unwind_info,
+                    got,
+                },
+                function_max_stack_usage,
+            })
         }
     }
 
