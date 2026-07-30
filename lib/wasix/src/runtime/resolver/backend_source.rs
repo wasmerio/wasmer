@@ -1,14 +1,12 @@
-use std::{
-    path::{MAIN_SEPARATOR_STR, PathBuf},
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{io::Write, path::PathBuf, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error};
+use bytes::Bytes;
 use http::{HeaderMap, Method};
 use semver::{Version, VersionReq};
 use url::Url;
 use wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageIdent, PackageSource};
+use web_time::SystemTime;
 use webc::metadata::Manifest;
 
 use crate::{
@@ -24,7 +22,7 @@ use crate::{
 pub struct BackendSource {
     registry_endpoint: Url,
     client: Arc<dyn HttpClient + Send + Sync>,
-    cache: Option<FileSystemCache>,
+    cache: Option<QueryCacheConfig>,
     token: Option<String>,
     preferred_webc_version: webc::Version,
 }
@@ -45,8 +43,13 @@ impl BackendSource {
 
     /// Cache query results locally.
     pub fn with_local_cache(self, cache_dir: impl Into<PathBuf>, timeout: Duration) -> Self {
+        self.with_query_cache(Arc::new(FileSystemQueryCache::new(cache_dir)), timeout)
+    }
+
+    /// Cache registry query results in target-provided persistent storage.
+    pub fn with_query_cache(self, cache: Arc<dyn QueryCache>, timeout: Duration) -> Self {
         BackendSource {
-            cache: Some(FileSystemCache::new(cache_dir, timeout)),
+            cache: Some(QueryCacheConfig { cache, timeout }),
             ..self
         }
     }
@@ -262,7 +265,7 @@ impl Source for BackendSource {
         };
 
         if let Some(cache) = &self.cache {
-            match cache.lookup_cached_query(&package_name) {
+            match lookup_cached_query(cache, &package_name).await {
                 Ok(Some(cached)) => {
                     if let Ok(cached) = matching_package_summaries(
                         package,
@@ -291,7 +294,7 @@ impl Source for BackendSource {
             .map_err(|error| QueryError::new_other(error, package))?;
 
         if let Some(cache) = &self.cache
-            && let Err(e) = cache.update(&package_name, &response)
+            && let Err(e) = update_cached_query(cache, &package_name, &response).await
         {
             tracing::warn!(
                 package_name,
@@ -444,100 +447,76 @@ fn decode_summary(
     })
 }
 
-/// A local cache for package queries.
+/// Persistent storage for serialized registry query responses.
+#[async_trait::async_trait]
+pub trait QueryCache: Send + Sync + std::fmt::Debug {
+    /// Load the serialized cache entry for a package name.
+    async fn load(&self, package_name: &str) -> Result<Option<Bytes>, Error>;
+
+    /// Persist a serialized cache entry for a package name.
+    async fn save(&self, package_name: &str, bytes: Bytes) -> Result<(), Error>;
+
+    /// Remove the cache entry for a package name, if present.
+    async fn remove(&self, package_name: &str) -> Result<(), Error>;
+}
+
 #[derive(Debug, Clone)]
-struct FileSystemCache {
-    cache_dir: PathBuf,
+struct QueryCacheConfig {
+    cache: Arc<dyn QueryCache>,
     timeout: Duration,
 }
 
-impl FileSystemCache {
-    fn new(cache_dir: impl Into<PathBuf>, timeout: Duration) -> Self {
-        FileSystemCache {
+/// A local filesystem cache for registry queries.
+#[derive(Debug, Clone)]
+struct FileSystemQueryCache {
+    cache_dir: PathBuf,
+}
+
+impl FileSystemQueryCache {
+    fn new(cache_dir: impl Into<PathBuf>) -> Self {
+        Self {
             cache_dir: cache_dir.into(),
-            timeout,
         }
     }
 
     fn path(&self, package_name: &str) -> PathBuf {
         self.cache_dir
-            .join(package_name.replace(MAIN_SEPARATOR_STR, "#"))
+            .join(package_name.replace('/', "#").replace('\\', "#"))
     }
+}
 
-    fn lookup_cached_query(&self, package_name: &str) -> Result<Option<WebQuery>, Error> {
+#[async_trait::async_trait]
+impl QueryCache for FileSystemQueryCache {
+    async fn load(&self, package_name: &str) -> Result<Option<Bytes>, Error> {
         let filename = self.path(package_name);
 
         let _span =
             tracing::debug_span!("lookup_cached_query", filename=%filename.display()).entered();
 
         tracing::trace!("Reading cached entry from disk");
-        let json = match std::fs::read(&filename) {
-            Ok(json) => json,
+        match std::fs::read(&filename) {
+            Ok(json) => Ok(Some(Bytes::from(json))),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 tracing::debug!("Cache miss");
-                return Ok(None);
+                Ok(None)
             }
             Err(e) => {
-                return Err(
-                    Error::new(e).context(format!("Unable to read \"{}\"", filename.display()))
-                );
+                Err(Error::new(e).context(format!("Unable to read \"{}\"", filename.display())))
             }
-        };
-
-        let entry: CacheEntry = match serde_json::from_slice(&json) {
-            Ok(entry) => entry,
-            Err(e) => {
-                // If the entry is invalid, we should delete it to avoid work
-                // in the future
-                let _ = std::fs::remove_file(&filename);
-
-                return Err(Error::new(e).context("Unable to parse the cached query"));
-            }
-        };
-
-        if !entry.is_still_valid(self.timeout) {
-            tracing::debug!(timestamp = entry.unix_timestamp, "Cached entry is stale");
-            let _ = std::fs::remove_file(&filename);
-            return Ok(None);
         }
-
-        if entry.package_name != package_name {
-            let _ = std::fs::remove_file(&filename);
-            anyhow::bail!(
-                "The cached response at \"{}\" corresponds to the \"{}\" package, but expected \"{}\"",
-                filename.display(),
-                entry.package_name,
-                package_name,
-            );
-        }
-
-        Ok(Some(entry.response))
     }
 
-    fn update(&self, package_name: &str, response: &WebQuery) -> Result<(), Error> {
-        let entry = CacheEntry {
-            unix_timestamp: SystemTime::UNIX_EPOCH
-                .elapsed()
-                .unwrap_or_default()
-                .as_secs(),
-            package_name: package_name.to_string(),
-            response: response.clone(),
-        };
-
+    async fn save(&self, package_name: &str, bytes: Bytes) -> Result<(), Error> {
         let _ = std::fs::create_dir_all(&self.cache_dir);
 
-        // First, save our cache entry to disk
         let mut temp = tempfile::NamedTempFile::new_in(&self.cache_dir)
             .context("Unable to create a temporary file")?;
-        serde_json::to_writer_pretty(&mut temp, &entry)
-            .context("Unable to serialize the cache entry")?;
+        temp.write_all(&bytes)
+            .context("Unable to write the cached query")?;
         temp.as_file()
             .sync_all()
             .context("Flushing the temp file failed")?;
 
-        // Now we've saved our cache entry we need to move it to the right
-        // location. We do this in two steps so concurrent queries don't see
-        // the cache entry until it has been completely written.
         let filename = self.path(package_name);
         tracing::debug!(
             filename=%filename.display(),
@@ -557,6 +536,65 @@ impl FileSystemCache {
 
         Ok(())
     }
+
+    async fn remove(&self, package_name: &str) -> Result<(), Error> {
+        match std::fs::remove_file(self.path(package_name)) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error.into()),
+        }
+    }
+}
+
+async fn lookup_cached_query(
+    cache: &QueryCacheConfig,
+    package_name: &str,
+) -> Result<Option<WebQuery>, Error> {
+    let Some(json) = cache.cache.load(package_name).await? else {
+        return Ok(None);
+    };
+
+    let entry: CacheEntry = match serde_json::from_slice(&json) {
+        Ok(entry) => entry,
+        Err(error) => {
+            let _ = cache.cache.remove(package_name).await;
+            return Err(Error::new(error).context("Unable to parse the cached query"));
+        }
+    };
+
+    if !entry.is_still_valid(cache.timeout) {
+        tracing::debug!(timestamp = entry.unix_timestamp, "Cached entry is stale");
+        let _ = cache.cache.remove(package_name).await;
+        return Ok(None);
+    }
+
+    if entry.package_name != package_name {
+        let _ = cache.cache.remove(package_name).await;
+        anyhow::bail!(
+            "The cached response corresponds to the \"{}\" package, but expected \"{}\"",
+            entry.package_name,
+            package_name,
+        );
+    }
+
+    Ok(Some(entry.response))
+}
+
+async fn update_cached_query(
+    cache: &QueryCacheConfig,
+    package_name: &str,
+    response: &WebQuery,
+) -> Result<(), Error> {
+    let entry = CacheEntry {
+        unix_timestamp: SystemTime::UNIX_EPOCH
+            .elapsed()
+            .unwrap_or_default()
+            .as_secs(),
+        package_name: package_name.to_string(),
+        response: response.clone(),
+    };
+    let bytes = serde_json::to_vec_pretty(&entry).context("Unable to serialize cached query")?;
+    cache.cache.save(package_name, Bytes::from(bytes)).await
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -1211,12 +1249,13 @@ mod tests {
         let temp = tempfile::tempdir().unwrap();
         let source = BackendSource::new(registry_endpoint, client.clone())
             .with_local_cache(temp.path(), Duration::from_secs(0));
-        source
-            .cache
-            .as_ref()
-            .unwrap()
-            .update("wasmer/python", &cached_value)
-            .unwrap();
+        update_cached_query(
+            source.cache.as_ref().unwrap(),
+            "wasmer/python",
+            &cached_value,
+        )
+        .await
+        .unwrap();
 
         let summaries = source.query(&request).await.unwrap();
 
