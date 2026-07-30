@@ -7964,6 +7964,7 @@ dependencies = [
  "wcgi",
  "wcgi-host",
  "web-sys",
+ "web-time",
  "webc",
  "windows-sys 0.61.2",
  "xxhash-rust",
