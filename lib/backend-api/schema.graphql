@@ -2503,6 +2503,10 @@ enum DeployDeployAppPerishReasonChoices {
 	App Unclaimed
 	"""
 	APP_UNCLAIMED
+	"""
+	Plan Non Persistent
+	"""
+	PLAN_NON_PERSISTENT
 }
 
 """

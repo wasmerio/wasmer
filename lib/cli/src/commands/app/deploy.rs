@@ -1348,7 +1348,8 @@ fn perish_reason_link(
         DeployDeployAppPerishReasonChoices::UserPendingVerification => {
             Some("Verify now to keep it online: https://wasmer.io/verify".to_string())
         }
-        DeployDeployAppPerishReasonChoices::UserRequested => None,
+        DeployDeployAppPerishReasonChoices::UserRequested
+        | DeployDeployAppPerishReasonChoices::PlanNonPersistent => None,
     }
 }
 
