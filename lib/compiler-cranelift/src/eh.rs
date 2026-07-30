@@ -44,6 +44,7 @@ pub fn build_function_lsda<'a>(
     call_sites: impl Iterator<Item = FinalizedMachCallSite<'a>>,
     function_length: usize,
     pointer_bytes: u8,
+    pcrel_type_table: bool,
 ) -> Option<FunctionLsdaData> {
     let mut sites = Vec::new();
 
@@ -158,7 +159,11 @@ pub fn build_function_lsda<'a>(
 
     let action_table = encode_action_table(&callsite_actions);
     let call_site_table = encode_call_site_table(&sites, &action_table);
-    let (type_table_bytes, type_table_relocs) = type_entries.encode(pointer_bytes);
+    let (type_table_bytes, type_table_relocs) = if pcrel_type_table {
+        type_entries.encode_relocated()
+    } else {
+        type_entries.encode(pointer_bytes)
+    };
 
     let call_site_table_len = call_site_table.len() as u64;
     let mut writer = Cursor::new(Vec::new());
@@ -169,6 +174,17 @@ pub fn build_function_lsda<'a>(
     if type_entries.is_empty() {
         writer
             .write_all(&cranelift_codegen::gimli::DW_EH_PE_omit.0.to_le_bytes())
+            .unwrap();
+    } else if pcrel_type_table {
+        // PC-relative, 4-byte entries. This keeps the `.gcc_except_table`
+        // section relocations position-independent (e.g. `R_X86_64_PC32`).
+        writer
+            .write_all(
+                &(cranelift_codegen::gimli::DW_EH_PE_pcrel
+                    | cranelift_codegen::gimli::DW_EH_PE_sdata4)
+                    .0
+                    .to_le_bytes(),
+            )
             .unwrap();
     } else {
         writer
@@ -543,6 +559,31 @@ impl TypeTable {
                 }
                 ExceptionType::CatchAll => {
                     bytes.extend(std::iter::repeat_n(0, pointer_bytes as usize));
+                }
+            }
+        }
+
+        (bytes, relocations)
+    }
+
+    /// Encode the type table as PC-relative, 4-byte slots resolved through
+    /// relocations against the per-object tag section. Used by the ELF
+    /// artifact format, where each function's LSDA lives in its own object.
+    fn encode_relocated(&self) -> (Vec<u8>, Vec<TagRelocation>) {
+        const ENTRY_SIZE: usize = 4;
+        let mut bytes = Vec::with_capacity(self.entries.len() * ENTRY_SIZE);
+        let mut relocations = Vec::new();
+
+        // Note the exception types must be streamed in the reverse order!
+        for entry in self.entries.iter().rev() {
+            let offset = bytes.len() as u32;
+            match entry {
+                ExceptionType::Tag { tag } => {
+                    bytes.extend(std::iter::repeat_n(0, ENTRY_SIZE));
+                    relocations.push(TagRelocation { offset, tag: *tag });
+                }
+                ExceptionType::CatchAll => {
+                    bytes.extend(std::iter::repeat_n(0, ENTRY_SIZE));
                 }
             }
         }
