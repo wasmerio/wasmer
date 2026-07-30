@@ -418,11 +418,7 @@ pub unsafe extern "C" fn wasmer_vm_table_set(
 ) {
     unsafe {
         let instance = (*vmctx).instance_mut();
-        let table_index = TableIndex::from_u32(table_index);
-        let table_index = instance
-            .module_ref()
-            .local_table_index(table_index)
-            .unwrap();
+        let table_index = LocalTableIndex::from_u32(table_index);
 
         let elem = match instance.get_local_table(table_index).ty().ty {
             Type::ExternRef => TableElement::ExternRef(value.extern_ref),

@@ -5476,6 +5476,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::TableSet { table: index } => {
                 let table_index = TableIndex::new(index as _);
+                let table_index_arg = self
+                    .module
+                    .local_table_index(table_index)
+                    .map_or(table_index.index(), |index| index.index());
                 let value = self.value_stack.pop().unwrap();
                 let index = self.value_stack.pop().unwrap();
 
@@ -5502,7 +5506,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, table_index, elem_index, reftype]
                     [
                         (
-                            Location::Imm32(table_index.index() as u32),
+                            Location::Imm32(table_index_arg as u32),
                             CanonicalizeType::None,
                         ),
                         index,
@@ -5517,6 +5521,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::TableGet { table: index } => {
                 let table_index = TableIndex::new(index as _);
+                let table_index_arg = self
+                    .module
+                    .local_table_index(table_index)
+                    .map_or(table_index.index(), |index| index.index());
                 let index = self.value_stack.pop().unwrap();
 
                 self.machine.move_location(
@@ -5542,7 +5550,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, table_index, elem_index] -> reftype
                     [
                         (
-                            Location::Imm32(table_index.index() as u32),
+                            Location::Imm32(table_index_arg as u32),
                             CanonicalizeType::None,
                         ),
                         index,
@@ -5556,6 +5564,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::TableSize { table: index } => {
                 let table_index = TableIndex::new(index as _);
+                let table_index_arg = self
+                    .module
+                    .local_table_index(table_index)
+                    .map_or(table_index.index(), |index| index.index());
 
                 self.machine.move_location(
                     Size::S64,
@@ -5579,7 +5591,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     // [vmctx, table_index] -> i32
                     iter::once((
-                        Location::Imm32(table_index.index() as u32),
+                        Location::Imm32(table_index_arg as u32),
                         CanonicalizeType::None,
                     )),
                     iter::once(WpType::I32),
@@ -5589,6 +5601,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::TableGrow { table: index } => {
                 let table_index = TableIndex::new(index as _);
+                let table_index_arg = self
+                    .module
+                    .local_table_index(table_index)
+                    .map_or(table_index.index(), |index| index.index());
                 let delta = self.value_stack.pop().unwrap();
                 let init_value = self.value_stack.pop().unwrap();
 
@@ -5617,7 +5633,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         init_value,
                         delta,
                         (
-                            Location::Imm32(table_index.index() as u32),
+                            Location::Imm32(table_index_arg as u32),
                             CanonicalizeType::None,
                         ),
                     ]
