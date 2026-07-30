@@ -10,29 +10,33 @@
 <a href=#10 id=10 data-nosnippet>10</a></span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>std::sync::Arc;
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>wasmer_types::{
-<a href=#13 id=13 data-nosnippet>13</a>    Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle, entity::PrimaryMap,
-<a href=#14 id=14 data-nosnippet>14</a>};
-<a href=#15 id=15 data-nosnippet>15</a>
-<a href=#16 id=16 data-nosnippet>16</a><span class="doccomment">/// The required info for compiling a module.
-<a href=#17 id=17 data-nosnippet>17</a>///
-<a href=#18 id=18 data-nosnippet>18</a>/// This differs from [`ModuleInfo`] because it have extra info only
-<a href=#19 id=19 data-nosnippet>19</a>/// possible after translation (such as the features used for compiling,
-<a href=#20 id=20 data-nosnippet>20</a>/// or the `MemoryStyle` and `TableStyle`).
-<a href=#21 id=21 data-nosnippet>21</a></span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Deserialize, Serialize))]
-<a href=#22 id=22 data-nosnippet>22</a>#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
-<a href=#23 id=23 data-nosnippet>23</a>#[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
-<a href=#24 id=24 data-nosnippet>24</a>#[rkyv(derive(Debug))]
-<a href=#25 id=25 data-nosnippet>25</a></span><span class="kw">pub struct </span>CompileModuleInfo {
-<a href=#26 id=26 data-nosnippet>26</a>    <span class="doccomment">/// The features used for compiling the module
-<a href=#27 id=27 data-nosnippet>27</a>    </span><span class="kw">pub </span>features: Features,
-<a href=#28 id=28 data-nosnippet>28</a>    <span class="doccomment">/// The module information
-<a href=#29 id=29 data-nosnippet>29</a>    </span><span class="kw">pub </span>module: Arc&lt;ModuleInfo&gt;,
-<a href=#30 id=30 data-nosnippet>30</a>    <span class="doccomment">/// The memory styles used for compiling.
-<a href=#31 id=31 data-nosnippet>31</a>    ///
-<a href=#32 id=32 data-nosnippet>32</a>    /// The compiler will emit the most optimal code based
-<a href=#33 id=33 data-nosnippet>33</a>    /// on the memory style (static or dynamic) chosen.
-<a href=#34 id=34 data-nosnippet>34</a>    </span><span class="kw">pub </span>memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
-<a href=#35 id=35 data-nosnippet>35</a>    <span class="doccomment">/// The table plans used for compiling.
-<a href=#36 id=36 data-nosnippet>36</a>    </span><span class="kw">pub </span>table_styles: PrimaryMap&lt;TableIndex, TableStyle&gt;,
-<a href=#37 id=37 data-nosnippet>37</a>}
+<a href=#13 id=13 data-nosnippet>13</a>    Features, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle,
+<a href=#14 id=14 data-nosnippet>14</a>    entity::PrimaryMap,
+<a href=#15 id=15 data-nosnippet>15</a>};
+<a href=#16 id=16 data-nosnippet>16</a>
+<a href=#17 id=17 data-nosnippet>17</a><span class="doccomment">/// The required info for compiling a module.
+<a href=#18 id=18 data-nosnippet>18</a>///
+<a href=#19 id=19 data-nosnippet>19</a>/// This differs from [`ModuleInfo`] because it have extra info only
+<a href=#20 id=20 data-nosnippet>20</a>/// possible after translation (such as the features used for compiling,
+<a href=#21 id=21 data-nosnippet>21</a>/// or the `MemoryStyle` and `TableStyle`).
+<a href=#22 id=22 data-nosnippet>22</a></span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Deserialize, Serialize))]
+<a href=#23 id=23 data-nosnippet>23</a>#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
+<a href=#24 id=24 data-nosnippet>24</a>#[derive(Debug, Clone, PartialEq, Eq, RkyvSerialize, RkyvDeserialize, Archive)]
+<a href=#25 id=25 data-nosnippet>25</a>#[rkyv(derive(Debug))]
+<a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">pub struct </span>CompileModuleInfo {
+<a href=#27 id=27 data-nosnippet>27</a>    <span class="doccomment">/// The features used for compiling the module
+<a href=#28 id=28 data-nosnippet>28</a>    </span><span class="kw">pub </span>features: Features,
+<a href=#29 id=29 data-nosnippet>29</a>    <span class="doccomment">/// The module information
+<a href=#30 id=30 data-nosnippet>30</a>    </span><span class="kw">pub </span>module: Arc&lt;ModuleInfo&gt;,
+<a href=#31 id=31 data-nosnippet>31</a>    <span class="doccomment">/// The memory styles used for compiling.
+<a href=#32 id=32 data-nosnippet>32</a>    ///
+<a href=#33 id=33 data-nosnippet>33</a>    /// The compiler will emit the most optimal code based
+<a href=#34 id=34 data-nosnippet>34</a>    /// on the memory style (static or dynamic) chosen.
+<a href=#35 id=35 data-nosnippet>35</a>    </span><span class="kw">pub </span>memory_styles: PrimaryMap&lt;MemoryIndex, MemoryStyle&gt;,
+<a href=#36 id=36 data-nosnippet>36</a>    <span class="doccomment">/// The table plans used for compiling.
+<a href=#37 id=37 data-nosnippet>37</a>    </span><span class="kw">pub </span>table_styles: PrimaryMap&lt;TableIndex, TableStyle&gt;,
+<a href=#38 id=38 data-nosnippet>38</a>    <span class="doccomment">/// The maximum stack allocation directly connected to each function itself
+<a href=#39 id=39 data-nosnippet>39</a>    /// if tracked (does not include any potential function calls).
+<a href=#40 id=40 data-nosnippet>40</a>    </span><span class="kw">pub </span>function_max_stack_usage: PrimaryMap&lt;LocalFunctionIndex, <span class="prelude-ty">Option</span>&lt;usize&gt;&gt;,
+<a href=#41 id=41 data-nosnippet>41</a>}
 </code></pre></div></section></main></body></html>

@@ -240,7 +240,13 @@
 <a href=#240 id=240 data-nosnippet>240</a></span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Deserialize, Serialize))]
 <a href=#241 id=241 data-nosnippet>241</a>#[derive(Debug, PartialEq, Eq)]
 <a href=#242 id=242 data-nosnippet>242</a></span><span class="kw">pub enum </span>Compilation {
-<a href=#243 id=243 data-nosnippet>243</a>    Rkyv(RkyvCompilation),
-<a href=#244 id=244 data-nosnippet>244</a>    Elf(Vec&lt;u8&gt;),
-<a href=#245 id=245 data-nosnippet>245</a>}
+<a href=#243 id=243 data-nosnippet>243</a>    Rkyv {
+<a href=#244 id=244 data-nosnippet>244</a>        compilation: RkyvCompilation,
+<a href=#245 id=245 data-nosnippet>245</a>        function_max_stack_usage: PrimaryMap&lt;LocalFunctionIndex, <span class="prelude-ty">Option</span>&lt;usize&gt;&gt;,
+<a href=#246 id=246 data-nosnippet>246</a>    },
+<a href=#247 id=247 data-nosnippet>247</a>    Elf {
+<a href=#248 id=248 data-nosnippet>248</a>        data: Vec&lt;u8&gt;,
+<a href=#249 id=249 data-nosnippet>249</a>        function_max_stack_usage: PrimaryMap&lt;LocalFunctionIndex, <span class="prelude-ty">Option</span>&lt;usize&gt;&gt;,
+<a href=#250 id=250 data-nosnippet>250</a>    },
+<a href=#251 id=251 data-nosnippet>251</a>}
 </code></pre></div></section></main></body></html>
