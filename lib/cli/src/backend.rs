@@ -58,9 +58,9 @@ pub struct WasmFeatures {
     #[clap(long = "enable-module-linking")]
     pub module_linking: bool,
 
-    /// Enable support for the multi memory proposal.
+    /// Deprecated, multi memory is enabled by default.
     #[clap(long = "enable-multi-memory")]
-    pub multi_memory: bool,
+    pub _multi_memory: bool,
 
     /// Enable support for the memory64 proposal.
     #[clap(long = "enable-memory64")]
@@ -372,9 +372,6 @@ impl RuntimeOptions {
         }
         if self.features.module_linking {
             features.module_linking(true);
-        }
-        if self.features.multi_memory {
-            features.multi_memory(true);
         }
         if self.features.memory64 {
             features.memory64(true);
