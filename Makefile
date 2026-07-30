@@ -318,7 +318,7 @@ compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-a
 test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 # Features used by the workspace test suite.
 test_all_features := experimental-async,experimental-host-interrupt
-ifeq ($(IS_LINUX)$(IS_AMD64),11)
+ifeq ($(IS_LINUX),1)
 	test_all_features := $(test_all_features),experimental-artifact
 endif
 

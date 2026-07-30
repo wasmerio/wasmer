@@ -156,11 +156,10 @@ impl Writer for WriterRelocate {
                 });
                 self.write_udata(0, 4)
             }
-            // GOT-indirect, PC-relative reference (`R_X86_64_GOTPCREL`). Used
-            // for the personality routine, which is an undefined symbol resolved
-            // at load time: routing it through the GOT yields a dynamic
-            // relocation the runtime loader can apply (a plain data relocation
-            // against an undefined symbol would be dropped by the linker).
+            // Indirect, PC-relative reference to the personality pointer. The
+            // ELF emitter places the pointer in relocatable read-only data and
+            // resolves this relocation against that local slot. This is the
+            // architecture-independent equivalent of a `DW.ref.*` symbol.
             Address::Symbol { symbol, addend }
                 if eh_pe
                     == (constants::DW_EH_PE_indirect
@@ -172,7 +171,7 @@ impl Writer for WriterRelocate {
                 let offset = self.len() as u64;
                 self.relocs.push(EhRelocation {
                     offset,
-                    kind: RelocationKind::GotRelative,
+                    kind: RelocationKind::Relative,
                     size: 4,
                     target,
                     addend,
