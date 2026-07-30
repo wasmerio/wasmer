@@ -301,7 +301,7 @@ dependencies = [
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
- "tungstenite",
+ "tungstenite 0.28.0",
 ]
 
 [[package]]
@@ -417,6 +417,12 @@ name = "base64"
 version = "0.22.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
+
+[[package]]
+name = "base64"
+version = "0.23.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b25655df2c3cdd83c5e5b293b88acd880332b2ddadd7c30ac43144fdc0033da9"
 
 [[package]]
 name = "basic-toml"
@@ -2417,7 +2423,7 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.19",
- "tungstenite",
+ "tungstenite 0.28.0",
 ]
 
 [[package]]
@@ -2534,7 +2540,7 @@ version = "7.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f49d1053f4708f0af3cf9fc5bffc7e68a914a3c45becb231c80068c9c3f78bea"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "byteorder",
  "flate2",
  "nom 8.0.0",
@@ -2745,17 +2751,17 @@ dependencies = [
 
 [[package]]
 name = "hyper-tungstenite"
-version = "0.19.0"
+version = "0.30.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc778da281a749ed28d2be73a9f2cd13030680a1574bc729debd1195e44f00e9"
+checksum = "aee7ba11c4933715ee2c2fea1d8932f19356d31648c0a1bb65223ef5d7962c4c"
 dependencies = [
  "http-body-util",
  "hyper",
  "hyper-util",
  "pin-project-lite",
  "tokio",
- "tokio-tungstenite",
- "tungstenite",
+ "tokio-tungstenite 0.30.0",
+ "tungstenite 0.30.0",
 ]
 
 [[package]]
@@ -2764,7 +2770,7 @@ version = "0.1.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96547c2556ec9d12fb1578c4eaf448b04993e7fb79cbaad930a656880a6bdfa0"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "bytes",
  "futures-channel",
  "futures-util",
@@ -4744,7 +4750,7 @@ version = "0.13.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "219c5811de6525e5416c7d5d53bb656d3afdbc6c5af816e0802bcfa42dbdc1c3"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "bytes",
  "futures-channel",
  "futures-core",
@@ -5294,9 +5300,9 @@ dependencies = [
 
 [[package]]
 name = "serial_test"
-version = "3.5.0"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "699f4197115b8a7e7ff19c9a315a4bd6fffec26cc4626ef45ecaea389e081c6d"
+checksum = "a6df5ed973ad8d834e09f824f9e9f449af6b9a3745f78dec7cc752770bd3bf11"
 dependencies = [
  "once_cell",
  "parking_lot",
@@ -5305,13 +5311,13 @@ dependencies = [
 
 [[package]]
 name = "serial_test_derive"
-version = "3.5.0"
+version = "4.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94e153fc76e1c6a068703d6d29c508a0b15c061c4b7e43da59cc097bc342673c"
+checksum = "a22144e767da4ddd8416dbf383700542ffd8a5dc493dfecedfe1fe3ad03c98ae"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.3",
 ]
 
 [[package]]
@@ -5323,6 +5329,17 @@ dependencies = [
  "cfg-if",
  "cpufeatures 0.2.17",
  "digest 0.10.7",
+]
+
+[[package]]
+name = "sha1"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aacc4cc499359472b4abe1bf11d0b12e688af9a805fa5e3016f9a386dc2d0214"
+dependencies = [
+ "cfg-if",
+ "cpufeatures 0.3.0",
+ "digest 0.11.3",
 ]
 
 [[package]]
@@ -6001,8 +6018,20 @@ dependencies = [
  "rustls-pki-types",
  "tokio",
  "tokio-rustls",
- "tungstenite",
+ "tungstenite 0.28.0",
  "webpki-roots 0.26.11",
+]
+
+[[package]]
+name = "tokio-tungstenite"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "17a073bfed563fa236697a068031408a93cd9522e08abf9933ead3e73411bd71"
+dependencies = [
+ "futures-util",
+ "log",
+ "tokio",
+ "tungstenite 0.30.0",
 ]
 
 [[package]]
@@ -6102,7 +6131,7 @@ checksum = "ac2a5518c70fa84342385732db33fb3f44bc4cc748936eb5833d2df34d6445ef"
 dependencies = [
  "async-trait",
  "axum",
- "base64",
+ "base64 0.22.1",
  "bytes",
  "h2",
  "http",
@@ -6350,9 +6379,25 @@ dependencies = [
  "rand 0.9.5",
  "rustls",
  "rustls-pki-types",
- "sha1",
+ "sha1 0.10.7",
  "thiserror 2.0.19",
  "utf-8",
+]
+
+[[package]]
+name = "tungstenite"
+version = "0.30.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e48ac77174b19c110a50ab2128b24215ac9cb40e0e12e093fb602d175c569d22"
+dependencies = [
+ "bytes",
+ "data-encoding",
+ "http",
+ "httparse",
+ "log",
+ "rand 0.10.2",
+ "sha1 0.11.0",
+ "thiserror 2.0.19",
 ]
 
 [[package]]
@@ -6621,7 +6666,7 @@ version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02d1a66277ed75f640d608235660df48c8e3c19f3b4edb6a263315626cc3c01d"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "flate2",
  "log",
  "once_cell",
@@ -6637,7 +6682,7 @@ version = "3.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dea7109cdcd5864d4eeb1b58a1648dc9bf520360d7af16ec26d0a9354bafcfc0"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "flate2",
  "log",
  "percent-encoding",
@@ -6654,7 +6699,7 @@ version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e994ba84b0bd1b1b0cf92878b7ef898a5c1760108fe7b6010327e274917a808c"
 dependencies = [
- "base64",
+ "base64 0.22.1",
  "http",
  "httparse",
  "log",
@@ -6792,7 +6837,7 @@ version = "0.702.1"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64",
+ "base64 0.23.0",
  "bincode 2.0.1",
  "bytecheck",
  "bytes",
@@ -6814,7 +6859,7 @@ dependencies = [
  "thiserror 2.0.19",
  "tokio",
  "tokio-serde",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.28.0",
  "tokio-util",
  "tracing",
  "tracing-test",
@@ -7235,7 +7280,7 @@ version = "0.702.1"
 dependencies = [
  "anyhow",
  "async-tungstenite",
- "base64",
+ "base64 0.23.0",
  "cynic",
  "futures",
  "getrandom 0.4.3",
@@ -7249,7 +7294,7 @@ dependencies = [
  "serde_path_to_error",
  "time",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.28.0",
  "tracing",
  "url",
  "uuid",
@@ -7362,7 +7407,7 @@ dependencies = [
  "anyhow",
  "assert_cmd 2.2.2",
  "async-trait",
- "base64",
+ "base64 0.23.0",
  "bytes",
  "bytesize",
  "cargo_metadata",
@@ -7422,7 +7467,7 @@ dependencies = [
  "thiserror 2.0.19",
  "time",
  "tokio",
- "tokio-tungstenite",
+ "tokio-tungstenite 0.28.0",
  "toml 1.1.3+spec-1.1.0",
  "tracing",
  "tracing-subscriber",
@@ -7645,7 +7690,7 @@ version = "0.702.1"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64",
+ "base64 0.23.0",
  "bincode 2.0.1",
  "bytecheck",
  "bytes",
@@ -7878,7 +7923,7 @@ dependencies = [
  "anyhow",
  "assert-panic",
  "async-trait",
- "base64",
+ "base64 0.23.0",
  "bincode 2.0.1",
  "blake3",
  "bus",
@@ -8218,7 +8263,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5cb48ee4bc7a902c0f1d9eb0c0656f0e78149f1190b7f78e1f28256e88279a84"
 dependencies = [
  "anyhow",
- "base64",
+ "base64 0.22.1",
  "bytes",
  "cfg-if",
  "ciborium",

@@ -108,7 +108,7 @@ async-trait = "0.1.68"
 async-tungstenite = "0.33.0"
 axum = { version = "=0.6.9", default-features = false }
 backtrace = "0.3"
-base64 = "0.22.1"
+base64 = "0.23.0"
 bincode = "=2.0.1"
 bindgen = { version = "0.72.1", default-features = false }
 bitflags = "2.11.0"
@@ -183,7 +183,7 @@ http = "1.4.0"
 http-body-util = "0.1.1"
 humantime = "2.1.0"
 hyper = "1.8.1"
-hyper-tungstenite = "0.19"
+hyper-tungstenite = "0.30"
 hyper-util = "0.1.5"
 ignore = "0.4"
 indicatif = "0.18.3"
@@ -264,7 +264,7 @@ serde_json = { version = "1" }
 serde_path_to_error = "0.1.14"
 serde_yaml = { version = "0.9.34" }
 yaml-edit = { version = "0.2", default-features = false }
-serial_test = { version = "3.2.0", default-features = false }
+serial_test = { version = "4.0.1", default-features = false }
 sha2 = "0.11.0"
 slab = "0.4"
 smallvec = "1.6"
