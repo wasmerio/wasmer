@@ -561,7 +561,7 @@
 <a href=#561 id=561 data-nosnippet>561</a>    }
 <a href=#562 id=562 data-nosnippet>562</a>}
 <a href=#563 id=563 data-nosnippet>563</a>
-<a href=#564 id=564 data-nosnippet>564</a><span class="doccomment">/// Implementation of `memory.copy` for locally defined memories.
+<a href=#564 id=564 data-nosnippet>564</a><span class="doccomment">/// Implementation of `memory.copy`.
 <a href=#565 id=565 data-nosnippet>565</a>///
 <a href=#566 id=566 data-nosnippet>566</a>/// # Safety
 <a href=#567 id=567 data-nosnippet>567</a>///
@@ -569,601 +569,577 @@
 <a href=#569 id=569 data-nosnippet>569</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
 <a href=#570 id=570 data-nosnippet>570</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_copy(
 <a href=#571 id=571 data-nosnippet>571</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#572 id=572 data-nosnippet>572</a>    memory_index: u32,
-<a href=#573 id=573 data-nosnippet>573</a>    dst: u32,
-<a href=#574 id=574 data-nosnippet>574</a>    src: u32,
-<a href=#575 id=575 data-nosnippet>575</a>    len: u32,
-<a href=#576 id=576 data-nosnippet>576</a>) {
-<a href=#577 id=577 data-nosnippet>577</a>    <span class="kw">unsafe </span>{
-<a href=#578 id=578 data-nosnippet>578</a>        <span class="kw">let </span>result = {
-<a href=#579 id=579 data-nosnippet>579</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
-<a href=#580 id=580 data-nosnippet>580</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
-<a href=#581 id=581 data-nosnippet>581</a>            instance.local_memory_copy(memory_index, dst, src, len)
-<a href=#582 id=582 data-nosnippet>582</a>        };
-<a href=#583 id=583 data-nosnippet>583</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#584 id=584 data-nosnippet>584</a>            raise_lib_trap(trap);
-<a href=#585 id=585 data-nosnippet>585</a>        }
-<a href=#586 id=586 data-nosnippet>586</a>    }
-<a href=#587 id=587 data-nosnippet>587</a>}
-<a href=#588 id=588 data-nosnippet>588</a>
-<a href=#589 id=589 data-nosnippet>589</a><span class="doccomment">/// Implementation of `memory.copy` for imported memories.
-<a href=#590 id=590 data-nosnippet>590</a>///
-<a href=#591 id=591 data-nosnippet>591</a>/// # Safety
+<a href=#572 id=572 data-nosnippet>572</a>    dst_memory_index: u32,
+<a href=#573 id=573 data-nosnippet>573</a>    src_memory_index: u32,
+<a href=#574 id=574 data-nosnippet>574</a>    dst: u32,
+<a href=#575 id=575 data-nosnippet>575</a>    src: u32,
+<a href=#576 id=576 data-nosnippet>576</a>    len: u32,
+<a href=#577 id=577 data-nosnippet>577</a>) {
+<a href=#578 id=578 data-nosnippet>578</a>    <span class="kw">unsafe </span>{
+<a href=#579 id=579 data-nosnippet>579</a>        <span class="kw">let </span>result = {
+<a href=#580 id=580 data-nosnippet>580</a>            <span class="kw">let </span>dst_memory_index = MemoryIndex::from_u32(dst_memory_index);
+<a href=#581 id=581 data-nosnippet>581</a>            <span class="kw">let </span>src_memory_index = MemoryIndex::from_u32(src_memory_index);
+<a href=#582 id=582 data-nosnippet>582</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+<a href=#583 id=583 data-nosnippet>583</a>            instance.memory_copy(dst_memory_index, src_memory_index, dst, src, len)
+<a href=#584 id=584 data-nosnippet>584</a>        };
+<a href=#585 id=585 data-nosnippet>585</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#586 id=586 data-nosnippet>586</a>            raise_lib_trap(trap);
+<a href=#587 id=587 data-nosnippet>587</a>        }
+<a href=#588 id=588 data-nosnippet>588</a>    }
+<a href=#589 id=589 data-nosnippet>589</a>}
+<a href=#590 id=590 data-nosnippet>590</a>
+<a href=#591 id=591 data-nosnippet>591</a><span class="doccomment">/// Implementation of `memory.fill` for locally defined memories.
 <a href=#592 id=592 data-nosnippet>592</a>///
-<a href=#593 id=593 data-nosnippet>593</a>/// `vmctx` must be dereferenceable.
-<a href=#594 id=594 data-nosnippet>594</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#595 id=595 data-nosnippet>595</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_copy(
-<a href=#596 id=596 data-nosnippet>596</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#597 id=597 data-nosnippet>597</a>    memory_index: u32,
-<a href=#598 id=598 data-nosnippet>598</a>    dst: u32,
-<a href=#599 id=599 data-nosnippet>599</a>    src: u32,
-<a href=#600 id=600 data-nosnippet>600</a>    len: u32,
-<a href=#601 id=601 data-nosnippet>601</a>) {
-<a href=#602 id=602 data-nosnippet>602</a>    <span class="kw">unsafe </span>{
-<a href=#603 id=603 data-nosnippet>603</a>        <span class="kw">let </span>result = {
-<a href=#604 id=604 data-nosnippet>604</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
-<a href=#605 id=605 data-nosnippet>605</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
-<a href=#606 id=606 data-nosnippet>606</a>            instance.imported_memory_copy(memory_index, dst, src, len)
-<a href=#607 id=607 data-nosnippet>607</a>        };
-<a href=#608 id=608 data-nosnippet>608</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#609 id=609 data-nosnippet>609</a>            raise_lib_trap(trap);
-<a href=#610 id=610 data-nosnippet>610</a>        }
-<a href=#611 id=611 data-nosnippet>611</a>    }
-<a href=#612 id=612 data-nosnippet>612</a>}
-<a href=#613 id=613 data-nosnippet>613</a>
-<a href=#614 id=614 data-nosnippet>614</a><span class="doccomment">/// Implementation of `memory.fill` for locally defined memories.
-<a href=#615 id=615 data-nosnippet>615</a>///
-<a href=#616 id=616 data-nosnippet>616</a>/// # Safety
+<a href=#593 id=593 data-nosnippet>593</a>/// # Safety
+<a href=#594 id=594 data-nosnippet>594</a>///
+<a href=#595 id=595 data-nosnippet>595</a>/// `vmctx` must be dereferenceable.
+<a href=#596 id=596 data-nosnippet>596</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#597 id=597 data-nosnippet>597</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_fill(
+<a href=#598 id=598 data-nosnippet>598</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#599 id=599 data-nosnippet>599</a>    memory_index: u32,
+<a href=#600 id=600 data-nosnippet>600</a>    dst: u32,
+<a href=#601 id=601 data-nosnippet>601</a>    val: u32,
+<a href=#602 id=602 data-nosnippet>602</a>    len: u32,
+<a href=#603 id=603 data-nosnippet>603</a>) {
+<a href=#604 id=604 data-nosnippet>604</a>    <span class="kw">unsafe </span>{
+<a href=#605 id=605 data-nosnippet>605</a>        <span class="kw">let </span>result = {
+<a href=#606 id=606 data-nosnippet>606</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
+<a href=#607 id=607 data-nosnippet>607</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+<a href=#608 id=608 data-nosnippet>608</a>            instance.local_memory_fill(memory_index, dst, val, len)
+<a href=#609 id=609 data-nosnippet>609</a>        };
+<a href=#610 id=610 data-nosnippet>610</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#611 id=611 data-nosnippet>611</a>            raise_lib_trap(trap);
+<a href=#612 id=612 data-nosnippet>612</a>        }
+<a href=#613 id=613 data-nosnippet>613</a>    }
+<a href=#614 id=614 data-nosnippet>614</a>}
+<a href=#615 id=615 data-nosnippet>615</a>
+<a href=#616 id=616 data-nosnippet>616</a><span class="doccomment">/// Implementation of `memory.fill` for imported memories.
 <a href=#617 id=617 data-nosnippet>617</a>///
-<a href=#618 id=618 data-nosnippet>618</a>/// `vmctx` must be dereferenceable.
-<a href=#619 id=619 data-nosnippet>619</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#620 id=620 data-nosnippet>620</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_fill(
-<a href=#621 id=621 data-nosnippet>621</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#622 id=622 data-nosnippet>622</a>    memory_index: u32,
-<a href=#623 id=623 data-nosnippet>623</a>    dst: u32,
-<a href=#624 id=624 data-nosnippet>624</a>    val: u32,
-<a href=#625 id=625 data-nosnippet>625</a>    len: u32,
-<a href=#626 id=626 data-nosnippet>626</a>) {
-<a href=#627 id=627 data-nosnippet>627</a>    <span class="kw">unsafe </span>{
-<a href=#628 id=628 data-nosnippet>628</a>        <span class="kw">let </span>result = {
-<a href=#629 id=629 data-nosnippet>629</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
-<a href=#630 id=630 data-nosnippet>630</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
-<a href=#631 id=631 data-nosnippet>631</a>            instance.local_memory_fill(memory_index, dst, val, len)
-<a href=#632 id=632 data-nosnippet>632</a>        };
-<a href=#633 id=633 data-nosnippet>633</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#634 id=634 data-nosnippet>634</a>            raise_lib_trap(trap);
-<a href=#635 id=635 data-nosnippet>635</a>        }
-<a href=#636 id=636 data-nosnippet>636</a>    }
-<a href=#637 id=637 data-nosnippet>637</a>}
-<a href=#638 id=638 data-nosnippet>638</a>
-<a href=#639 id=639 data-nosnippet>639</a><span class="doccomment">/// Implementation of `memory.fill` for imported memories.
-<a href=#640 id=640 data-nosnippet>640</a>///
-<a href=#641 id=641 data-nosnippet>641</a>/// # Safety
+<a href=#618 id=618 data-nosnippet>618</a>/// # Safety
+<a href=#619 id=619 data-nosnippet>619</a>///
+<a href=#620 id=620 data-nosnippet>620</a>/// `vmctx` must be dereferenceable.
+<a href=#621 id=621 data-nosnippet>621</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#622 id=622 data-nosnippet>622</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_fill(
+<a href=#623 id=623 data-nosnippet>623</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#624 id=624 data-nosnippet>624</a>    memory_index: u32,
+<a href=#625 id=625 data-nosnippet>625</a>    dst: u32,
+<a href=#626 id=626 data-nosnippet>626</a>    val: u32,
+<a href=#627 id=627 data-nosnippet>627</a>    len: u32,
+<a href=#628 id=628 data-nosnippet>628</a>) {
+<a href=#629 id=629 data-nosnippet>629</a>    <span class="kw">unsafe </span>{
+<a href=#630 id=630 data-nosnippet>630</a>        <span class="kw">let </span>result = {
+<a href=#631 id=631 data-nosnippet>631</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
+<a href=#632 id=632 data-nosnippet>632</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+<a href=#633 id=633 data-nosnippet>633</a>            instance.imported_memory_fill(memory_index, dst, val, len)
+<a href=#634 id=634 data-nosnippet>634</a>        };
+<a href=#635 id=635 data-nosnippet>635</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#636 id=636 data-nosnippet>636</a>            raise_lib_trap(trap);
+<a href=#637 id=637 data-nosnippet>637</a>        }
+<a href=#638 id=638 data-nosnippet>638</a>    }
+<a href=#639 id=639 data-nosnippet>639</a>}
+<a href=#640 id=640 data-nosnippet>640</a>
+<a href=#641 id=641 data-nosnippet>641</a><span class="doccomment">/// Implementation of `memory.init`.
 <a href=#642 id=642 data-nosnippet>642</a>///
-<a href=#643 id=643 data-nosnippet>643</a>/// `vmctx` must be dereferenceable.
-<a href=#644 id=644 data-nosnippet>644</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#645 id=645 data-nosnippet>645</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_fill(
-<a href=#646 id=646 data-nosnippet>646</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#647 id=647 data-nosnippet>647</a>    memory_index: u32,
-<a href=#648 id=648 data-nosnippet>648</a>    dst: u32,
-<a href=#649 id=649 data-nosnippet>649</a>    val: u32,
-<a href=#650 id=650 data-nosnippet>650</a>    len: u32,
-<a href=#651 id=651 data-nosnippet>651</a>) {
-<a href=#652 id=652 data-nosnippet>652</a>    <span class="kw">unsafe </span>{
-<a href=#653 id=653 data-nosnippet>653</a>        <span class="kw">let </span>result = {
-<a href=#654 id=654 data-nosnippet>654</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
-<a href=#655 id=655 data-nosnippet>655</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
-<a href=#656 id=656 data-nosnippet>656</a>            instance.imported_memory_fill(memory_index, dst, val, len)
-<a href=#657 id=657 data-nosnippet>657</a>        };
-<a href=#658 id=658 data-nosnippet>658</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#659 id=659 data-nosnippet>659</a>            raise_lib_trap(trap);
-<a href=#660 id=660 data-nosnippet>660</a>        }
-<a href=#661 id=661 data-nosnippet>661</a>    }
-<a href=#662 id=662 data-nosnippet>662</a>}
-<a href=#663 id=663 data-nosnippet>663</a>
-<a href=#664 id=664 data-nosnippet>664</a><span class="doccomment">/// Implementation of `memory.init`.
-<a href=#665 id=665 data-nosnippet>665</a>///
-<a href=#666 id=666 data-nosnippet>666</a>/// # Safety
-<a href=#667 id=667 data-nosnippet>667</a>///
-<a href=#668 id=668 data-nosnippet>668</a>/// `vmctx` must be dereferenceable.
-<a href=#669 id=669 data-nosnippet>669</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#670 id=670 data-nosnippet>670</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_init(
-<a href=#671 id=671 data-nosnippet>671</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#672 id=672 data-nosnippet>672</a>    memory_index: u32,
-<a href=#673 id=673 data-nosnippet>673</a>    data_index: u32,
-<a href=#674 id=674 data-nosnippet>674</a>    dst: u32,
-<a href=#675 id=675 data-nosnippet>675</a>    src: u32,
-<a href=#676 id=676 data-nosnippet>676</a>    len: u32,
-<a href=#677 id=677 data-nosnippet>677</a>) {
-<a href=#678 id=678 data-nosnippet>678</a>    <span class="kw">unsafe </span>{
-<a href=#679 id=679 data-nosnippet>679</a>        <span class="kw">let </span>result = {
-<a href=#680 id=680 data-nosnippet>680</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
-<a href=#681 id=681 data-nosnippet>681</a>            <span class="kw">let </span>data_index = DataIndex::from_u32(data_index);
-<a href=#682 id=682 data-nosnippet>682</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
-<a href=#683 id=683 data-nosnippet>683</a>            instance.memory_init(memory_index, data_index, dst, src, len)
-<a href=#684 id=684 data-nosnippet>684</a>        };
-<a href=#685 id=685 data-nosnippet>685</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#686 id=686 data-nosnippet>686</a>            raise_lib_trap(trap);
-<a href=#687 id=687 data-nosnippet>687</a>        }
-<a href=#688 id=688 data-nosnippet>688</a>    }
-<a href=#689 id=689 data-nosnippet>689</a>}
-<a href=#690 id=690 data-nosnippet>690</a>
-<a href=#691 id=691 data-nosnippet>691</a><span class="doccomment">/// Implementation of `data.drop`.
-<a href=#692 id=692 data-nosnippet>692</a>///
-<a href=#693 id=693 data-nosnippet>693</a>/// # Safety
-<a href=#694 id=694 data-nosnippet>694</a>///
-<a href=#695 id=695 data-nosnippet>695</a>/// `vmctx` must be dereferenceable.
-<a href=#696 id=696 data-nosnippet>696</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#697 id=697 data-nosnippet>697</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_data_drop(vmctx: <span class="kw-2">*mut </span>VMContext, data_index: u32) {
-<a href=#698 id=698 data-nosnippet>698</a>    <span class="kw">unsafe </span>{
-<a href=#699 id=699 data-nosnippet>699</a>        on_host_stack(|| {
-<a href=#700 id=700 data-nosnippet>700</a>            <span class="kw">let </span>data_index = DataIndex::from_u32(data_index);
-<a href=#701 id=701 data-nosnippet>701</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
-<a href=#702 id=702 data-nosnippet>702</a>            instance.data_drop(data_index)
-<a href=#703 id=703 data-nosnippet>703</a>        })
+<a href=#643 id=643 data-nosnippet>643</a>/// # Safety
+<a href=#644 id=644 data-nosnippet>644</a>///
+<a href=#645 id=645 data-nosnippet>645</a>/// `vmctx` must be dereferenceable.
+<a href=#646 id=646 data-nosnippet>646</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#647 id=647 data-nosnippet>647</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_init(
+<a href=#648 id=648 data-nosnippet>648</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#649 id=649 data-nosnippet>649</a>    memory_index: u32,
+<a href=#650 id=650 data-nosnippet>650</a>    data_index: u32,
+<a href=#651 id=651 data-nosnippet>651</a>    dst: u32,
+<a href=#652 id=652 data-nosnippet>652</a>    src: u32,
+<a href=#653 id=653 data-nosnippet>653</a>    len: u32,
+<a href=#654 id=654 data-nosnippet>654</a>) {
+<a href=#655 id=655 data-nosnippet>655</a>    <span class="kw">unsafe </span>{
+<a href=#656 id=656 data-nosnippet>656</a>        <span class="kw">let </span>result = {
+<a href=#657 id=657 data-nosnippet>657</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
+<a href=#658 id=658 data-nosnippet>658</a>            <span class="kw">let </span>data_index = DataIndex::from_u32(data_index);
+<a href=#659 id=659 data-nosnippet>659</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+<a href=#660 id=660 data-nosnippet>660</a>            instance.memory_init(memory_index, data_index, dst, src, len)
+<a href=#661 id=661 data-nosnippet>661</a>        };
+<a href=#662 id=662 data-nosnippet>662</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#663 id=663 data-nosnippet>663</a>            raise_lib_trap(trap);
+<a href=#664 id=664 data-nosnippet>664</a>        }
+<a href=#665 id=665 data-nosnippet>665</a>    }
+<a href=#666 id=666 data-nosnippet>666</a>}
+<a href=#667 id=667 data-nosnippet>667</a>
+<a href=#668 id=668 data-nosnippet>668</a><span class="doccomment">/// Implementation of `data.drop`.
+<a href=#669 id=669 data-nosnippet>669</a>///
+<a href=#670 id=670 data-nosnippet>670</a>/// # Safety
+<a href=#671 id=671 data-nosnippet>671</a>///
+<a href=#672 id=672 data-nosnippet>672</a>/// `vmctx` must be dereferenceable.
+<a href=#673 id=673 data-nosnippet>673</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#674 id=674 data-nosnippet>674</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_data_drop(vmctx: <span class="kw-2">*mut </span>VMContext, data_index: u32) {
+<a href=#675 id=675 data-nosnippet>675</a>    <span class="kw">unsafe </span>{
+<a href=#676 id=676 data-nosnippet>676</a>        on_host_stack(|| {
+<a href=#677 id=677 data-nosnippet>677</a>            <span class="kw">let </span>data_index = DataIndex::from_u32(data_index);
+<a href=#678 id=678 data-nosnippet>678</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+<a href=#679 id=679 data-nosnippet>679</a>            instance.data_drop(data_index)
+<a href=#680 id=680 data-nosnippet>680</a>        })
+<a href=#681 id=681 data-nosnippet>681</a>    }
+<a href=#682 id=682 data-nosnippet>682</a>}
+<a href=#683 id=683 data-nosnippet>683</a>
+<a href=#684 id=684 data-nosnippet>684</a><span class="doccomment">/// Implementation for raising a trap
+<a href=#685 id=685 data-nosnippet>685</a>///
+<a href=#686 id=686 data-nosnippet>686</a>/// # Safety
+<a href=#687 id=687 data-nosnippet>687</a>///
+<a href=#688 id=688 data-nosnippet>688</a>/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
+<a href=#689 id=689 data-nosnippet>689</a>/// `wasmer_call_trampoline` must have been previously called.
+<a href=#690 id=690 data-nosnippet>690</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#691 id=691 data-nosnippet>691</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_raise_trap(trap_code: TrapCode) -&gt; ! {
+<a href=#692 id=692 data-nosnippet>692</a>    <span class="kw">unsafe </span>{
+<a href=#693 id=693 data-nosnippet>693</a>        <span class="kw">let </span>trap = Trap::lib(trap_code);
+<a href=#694 id=694 data-nosnippet>694</a>        raise_lib_trap(trap)
+<a href=#695 id=695 data-nosnippet>695</a>    }
+<a href=#696 id=696 data-nosnippet>696</a>}
+<a href=#697 id=697 data-nosnippet>697</a>
+<a href=#698 id=698 data-nosnippet>698</a><span class="doccomment">/// (debug) Print an usize.
+<a href=#699 id=699 data-nosnippet>699</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#700 id=700 data-nosnippet>700</a></span><span class="kw">pub extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_dbg_usize(value: usize) {
+<a href=#701 id=701 data-nosnippet>701</a>    <span class="attr">#[allow(clippy::print_stdout)]
+<a href=#702 id=702 data-nosnippet>702</a>    </span>{
+<a href=#703 id=703 data-nosnippet>703</a>        <span class="macro">println!</span>(<span class="string">"wasmer_vm_dbg_usize: {value}"</span>);
 <a href=#704 id=704 data-nosnippet>704</a>    }
 <a href=#705 id=705 data-nosnippet>705</a>}
 <a href=#706 id=706 data-nosnippet>706</a>
-<a href=#707 id=707 data-nosnippet>707</a><span class="doccomment">/// Implementation for raising a trap
-<a href=#708 id=708 data-nosnippet>708</a>///
-<a href=#709 id=709 data-nosnippet>709</a>/// # Safety
-<a href=#710 id=710 data-nosnippet>710</a>///
-<a href=#711 id=711 data-nosnippet>711</a>/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
-<a href=#712 id=712 data-nosnippet>712</a>/// `wasmer_call_trampoline` must have been previously called.
-<a href=#713 id=713 data-nosnippet>713</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#714 id=714 data-nosnippet>714</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_raise_trap(trap_code: TrapCode) -&gt; ! {
-<a href=#715 id=715 data-nosnippet>715</a>    <span class="kw">unsafe </span>{
-<a href=#716 id=716 data-nosnippet>716</a>        <span class="kw">let </span>trap = Trap::lib(trap_code);
-<a href=#717 id=717 data-nosnippet>717</a>        raise_lib_trap(trap)
-<a href=#718 id=718 data-nosnippet>718</a>    }
-<a href=#719 id=719 data-nosnippet>719</a>}
-<a href=#720 id=720 data-nosnippet>720</a>
-<a href=#721 id=721 data-nosnippet>721</a><span class="doccomment">/// (debug) Print an usize.
-<a href=#722 id=722 data-nosnippet>722</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#723 id=723 data-nosnippet>723</a></span><span class="kw">pub extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_dbg_usize(value: usize) {
-<a href=#724 id=724 data-nosnippet>724</a>    <span class="attr">#[allow(clippy::print_stdout)]
-<a href=#725 id=725 data-nosnippet>725</a>    </span>{
-<a href=#726 id=726 data-nosnippet>726</a>        <span class="macro">println!</span>(<span class="string">"wasmer_vm_dbg_usize: {value}"</span>);
-<a href=#727 id=727 data-nosnippet>727</a>    }
-<a href=#728 id=728 data-nosnippet>728</a>}
-<a href=#729 id=729 data-nosnippet>729</a>
-<a href=#730 id=730 data-nosnippet>730</a><span class="doccomment">/// (debug) Print a string.
-<a href=#731 id=731 data-nosnippet>731</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#732 id=732 data-nosnippet>732</a></span><span class="kw">pub extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_dbg_str(ptr: usize, len: u32) {
-<a href=#733 id=733 data-nosnippet>733</a>    <span class="attr">#[allow(clippy::print_stdout)]
-<a href=#734 id=734 data-nosnippet>734</a>    </span><span class="kw">unsafe </span>{
-<a href=#735 id=735 data-nosnippet>735</a>        <span class="kw">let </span>str = std::str::from_utf8(std::slice::from_raw_parts(ptr <span class="kw">as _</span>, len <span class="kw">as _</span>))
-<a href=#736 id=736 data-nosnippet>736</a>            .unwrap_or(<span class="string">"wasmer_vm_dbg_str failed"</span>);
-<a href=#737 id=737 data-nosnippet>737</a>        <span class="macro">eprintln!</span>(<span class="string">"{str}"</span>);
-<a href=#738 id=738 data-nosnippet>738</a>    }
-<a href=#739 id=739 data-nosnippet>739</a>}
-<a href=#740 id=740 data-nosnippet>740</a>
-<a href=#741 id=741 data-nosnippet>741</a><span class="doccomment">/// Implementation for throwing an exception.
-<a href=#742 id=742 data-nosnippet>742</a>///
-<a href=#743 id=743 data-nosnippet>743</a>/// # Safety
-<a href=#744 id=744 data-nosnippet>744</a>///
-<a href=#745 id=745 data-nosnippet>745</a>/// Calls libunwind to perform unwinding magic.
-<a href=#746 id=746 data-nosnippet>746</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#747 id=747 data-nosnippet>747</a></span><span class="kw">pub unsafe extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_throw(vmctx: <span class="kw-2">*mut </span>VMContext, exnref: u32) -&gt; ! {
-<a href=#748 id=748 data-nosnippet>748</a>    <span class="kw">let </span>instance = <span class="kw">unsafe </span>{ (<span class="kw-2">*</span>vmctx).instance() };
-<a href=#749 id=749 data-nosnippet>749</a>    <span class="kw">unsafe </span>{ eh::throw(instance.context(), exnref) }
-<a href=#750 id=750 data-nosnippet>750</a>}
-<a href=#751 id=751 data-nosnippet>751</a>
-<a href=#752 id=752 data-nosnippet>752</a><span class="doccomment">/// Implementation for allocating an exception. Returns the exnref, i.e. a handle to the
-<a href=#753 id=753 data-nosnippet>753</a>/// exception within the store.
-<a href=#754 id=754 data-nosnippet>754</a>///
-<a href=#755 id=755 data-nosnippet>755</a>/// # Safety
-<a href=#756 id=756 data-nosnippet>756</a>///
-<a href=#757 id=757 data-nosnippet>757</a>/// The vmctx pointer must be dereferenceable.
-<a href=#758 id=758 data-nosnippet>758</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#759 id=759 data-nosnippet>759</a></span><span class="kw">pub unsafe extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_alloc_exception(vmctx: <span class="kw-2">*mut </span>VMContext, tag: u32) -&gt; u32 {
-<a href=#760 id=760 data-nosnippet>760</a>    <span class="kw">let </span>instance = <span class="kw">unsafe </span>{ (<span class="kw-2">*</span>vmctx).instance_mut() };
-<a href=#761 id=761 data-nosnippet>761</a>    <span class="kw">let </span>unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
-<a href=#762 id=762 data-nosnippet>762</a>    <span class="kw">let </span>exn = VMExceptionObj::new_zeroed(
-<a href=#763 id=763 data-nosnippet>763</a>        instance.context(),
-<a href=#764 id=764 data-nosnippet>764</a>        InternalStoreHandle::from_index(unique_tag <span class="kw">as </span>usize).unwrap(),
-<a href=#765 id=765 data-nosnippet>765</a>    );
-<a href=#766 id=766 data-nosnippet>766</a>    <span class="kw">let </span>exnref = InternalStoreHandle::new(instance.context_mut(), exn);
-<a href=#767 id=767 data-nosnippet>767</a>    exnref.index() <span class="kw">as </span>u32
-<a href=#768 id=768 data-nosnippet>768</a>}
-<a href=#769 id=769 data-nosnippet>769</a>
-<a href=#770 id=770 data-nosnippet>770</a><span class="doccomment">/// Given a VMContext and an exnref (handle to an exception within the store),
-<a href=#771 id=771 data-nosnippet>771</a>/// returns a pointer to the payload buffer of the underlying VMExceptionObj.
-<a href=#772 id=772 data-nosnippet>772</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#773 id=773 data-nosnippet>773</a></span><span class="kw">pub extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_read_exnref(
-<a href=#774 id=774 data-nosnippet>774</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#775 id=775 data-nosnippet>775</a>    exnref: u32,
-<a href=#776 id=776 data-nosnippet>776</a>) -&gt; <span class="kw-2">*mut </span>RawValue {
-<a href=#777 id=777 data-nosnippet>777</a>    <span class="kw">let </span>exn = eh::exn_obj_from_exnref(vmctx, exnref);
-<a href=#778 id=778 data-nosnippet>778</a>    <span class="kw">unsafe </span>{ (<span class="kw-2">*</span>exn).payload().as_ptr() <span class="kw">as </span><span class="kw-2">*mut </span>RawValue }
-<a href=#779 id=779 data-nosnippet>779</a>}
-<a href=#780 id=780 data-nosnippet>780</a>
-<a href=#781 id=781 data-nosnippet>781</a><span class="doccomment">/// Given a pointer to a caught exception, return the exnref contained within.
-<a href=#782 id=782 data-nosnippet>782</a>///
-<a href=#783 id=783 data-nosnippet>783</a>/// # Safety
-<a href=#784 id=784 data-nosnippet>784</a>///
-<a href=#785 id=785 data-nosnippet>785</a>/// `exception` must be a pointer the platform-specific exception type; this is
-<a href=#786 id=786 data-nosnippet>786</a>/// `UwExceptionWrapper` for gcc.
+<a href=#707 id=707 data-nosnippet>707</a><span class="doccomment">/// (debug) Print a string.
+<a href=#708 id=708 data-nosnippet>708</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#709 id=709 data-nosnippet>709</a></span><span class="kw">pub extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_dbg_str(ptr: usize, len: u32) {
+<a href=#710 id=710 data-nosnippet>710</a>    <span class="attr">#[allow(clippy::print_stdout)]
+<a href=#711 id=711 data-nosnippet>711</a>    </span><span class="kw">unsafe </span>{
+<a href=#712 id=712 data-nosnippet>712</a>        <span class="kw">let </span>str = std::str::from_utf8(std::slice::from_raw_parts(ptr <span class="kw">as _</span>, len <span class="kw">as _</span>))
+<a href=#713 id=713 data-nosnippet>713</a>            .unwrap_or(<span class="string">"wasmer_vm_dbg_str failed"</span>);
+<a href=#714 id=714 data-nosnippet>714</a>        <span class="macro">eprintln!</span>(<span class="string">"{str}"</span>);
+<a href=#715 id=715 data-nosnippet>715</a>    }
+<a href=#716 id=716 data-nosnippet>716</a>}
+<a href=#717 id=717 data-nosnippet>717</a>
+<a href=#718 id=718 data-nosnippet>718</a><span class="doccomment">/// Implementation for throwing an exception.
+<a href=#719 id=719 data-nosnippet>719</a>///
+<a href=#720 id=720 data-nosnippet>720</a>/// # Safety
+<a href=#721 id=721 data-nosnippet>721</a>///
+<a href=#722 id=722 data-nosnippet>722</a>/// Calls libunwind to perform unwinding magic.
+<a href=#723 id=723 data-nosnippet>723</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#724 id=724 data-nosnippet>724</a></span><span class="kw">pub unsafe extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_throw(vmctx: <span class="kw-2">*mut </span>VMContext, exnref: u32) -&gt; ! {
+<a href=#725 id=725 data-nosnippet>725</a>    <span class="kw">let </span>instance = <span class="kw">unsafe </span>{ (<span class="kw-2">*</span>vmctx).instance() };
+<a href=#726 id=726 data-nosnippet>726</a>    <span class="kw">unsafe </span>{ eh::throw(instance.context(), exnref) }
+<a href=#727 id=727 data-nosnippet>727</a>}
+<a href=#728 id=728 data-nosnippet>728</a>
+<a href=#729 id=729 data-nosnippet>729</a><span class="doccomment">/// Implementation for allocating an exception. Returns the exnref, i.e. a handle to the
+<a href=#730 id=730 data-nosnippet>730</a>/// exception within the store.
+<a href=#731 id=731 data-nosnippet>731</a>///
+<a href=#732 id=732 data-nosnippet>732</a>/// # Safety
+<a href=#733 id=733 data-nosnippet>733</a>///
+<a href=#734 id=734 data-nosnippet>734</a>/// The vmctx pointer must be dereferenceable.
+<a href=#735 id=735 data-nosnippet>735</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#736 id=736 data-nosnippet>736</a></span><span class="kw">pub unsafe extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_alloc_exception(vmctx: <span class="kw-2">*mut </span>VMContext, tag: u32) -&gt; u32 {
+<a href=#737 id=737 data-nosnippet>737</a>    <span class="kw">let </span>instance = <span class="kw">unsafe </span>{ (<span class="kw-2">*</span>vmctx).instance_mut() };
+<a href=#738 id=738 data-nosnippet>738</a>    <span class="kw">let </span>unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
+<a href=#739 id=739 data-nosnippet>739</a>    <span class="kw">let </span>exn = VMExceptionObj::new_zeroed(
+<a href=#740 id=740 data-nosnippet>740</a>        instance.context(),
+<a href=#741 id=741 data-nosnippet>741</a>        InternalStoreHandle::from_index(unique_tag <span class="kw">as </span>usize).unwrap(),
+<a href=#742 id=742 data-nosnippet>742</a>    );
+<a href=#743 id=743 data-nosnippet>743</a>    <span class="kw">let </span>exnref = InternalStoreHandle::new(instance.context_mut(), exn);
+<a href=#744 id=744 data-nosnippet>744</a>    exnref.index() <span class="kw">as </span>u32
+<a href=#745 id=745 data-nosnippet>745</a>}
+<a href=#746 id=746 data-nosnippet>746</a>
+<a href=#747 id=747 data-nosnippet>747</a><span class="doccomment">/// Given a VMContext and an exnref (handle to an exception within the store),
+<a href=#748 id=748 data-nosnippet>748</a>/// returns a pointer to the payload buffer of the underlying VMExceptionObj.
+<a href=#749 id=749 data-nosnippet>749</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#750 id=750 data-nosnippet>750</a></span><span class="kw">pub extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_read_exnref(
+<a href=#751 id=751 data-nosnippet>751</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#752 id=752 data-nosnippet>752</a>    exnref: u32,
+<a href=#753 id=753 data-nosnippet>753</a>) -&gt; <span class="kw-2">*mut </span>RawValue {
+<a href=#754 id=754 data-nosnippet>754</a>    <span class="kw">let </span>exn = eh::exn_obj_from_exnref(vmctx, exnref);
+<a href=#755 id=755 data-nosnippet>755</a>    <span class="kw">unsafe </span>{ (<span class="kw-2">*</span>exn).payload().as_ptr() <span class="kw">as </span><span class="kw-2">*mut </span>RawValue }
+<a href=#756 id=756 data-nosnippet>756</a>}
+<a href=#757 id=757 data-nosnippet>757</a>
+<a href=#758 id=758 data-nosnippet>758</a><span class="doccomment">/// Given a pointer to a caught exception, return the exnref contained within.
+<a href=#759 id=759 data-nosnippet>759</a>///
+<a href=#760 id=760 data-nosnippet>760</a>/// # Safety
+<a href=#761 id=761 data-nosnippet>761</a>///
+<a href=#762 id=762 data-nosnippet>762</a>/// `exception` must be a pointer the platform-specific exception type; this is
+<a href=#763 id=763 data-nosnippet>763</a>/// `UwExceptionWrapper` for gcc.
+<a href=#764 id=764 data-nosnippet>764</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#765 id=765 data-nosnippet>765</a></span><span class="kw">pub unsafe extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_exception_into_exnref(exception: <span class="kw-2">*mut </span>c_void) -&gt; u32 {
+<a href=#766 id=766 data-nosnippet>766</a>    <span class="kw">unsafe </span>{
+<a href=#767 id=767 data-nosnippet>767</a>        <span class="kw">let </span>exnref = eh::read_exnref(exception);
+<a href=#768 id=768 data-nosnippet>768</a>        eh::delete_exception(exception);
+<a href=#769 id=769 data-nosnippet>769</a>        exnref
+<a href=#770 id=770 data-nosnippet>770</a>    }
+<a href=#771 id=771 data-nosnippet>771</a>}
+<a href=#772 id=772 data-nosnippet>772</a>
+<a href=#773 id=773 data-nosnippet>773</a><span class="doccomment">/// Probestack check
+<a href=#774 id=774 data-nosnippet>774</a>///
+<a href=#775 id=775 data-nosnippet>775</a>/// # Safety
+<a href=#776 id=776 data-nosnippet>776</a>///
+<a href=#777 id=777 data-nosnippet>777</a>/// This function does not follow the standard function ABI, and is called as
+<a href=#778 id=778 data-nosnippet>778</a>/// part of the function prologue.
+<a href=#779 id=779 data-nosnippet>779</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#780 id=780 data-nosnippet>780</a></span><span class="kw">pub static </span>WASMER_VM_PROBESTACK: <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>() = PROBESTACK;
+<a href=#781 id=781 data-nosnippet>781</a>
+<a href=#782 id=782 data-nosnippet>782</a><span class="doccomment">/// Implementation of memory.wait32 for locally-defined 32-bit memories.
+<a href=#783 id=783 data-nosnippet>783</a>///
+<a href=#784 id=784 data-nosnippet>784</a>/// # Safety
+<a href=#785 id=785 data-nosnippet>785</a>///
+<a href=#786 id=786 data-nosnippet>786</a>/// `vmctx` must be dereferenceable.
 <a href=#787 id=787 data-nosnippet>787</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#788 id=788 data-nosnippet>788</a></span><span class="kw">pub unsafe extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_exception_into_exnref(exception: <span class="kw-2">*mut </span>c_void) -&gt; u32 {
-<a href=#789 id=789 data-nosnippet>789</a>    <span class="kw">unsafe </span>{
-<a href=#790 id=790 data-nosnippet>790</a>        <span class="kw">let </span>exnref = eh::read_exnref(exception);
-<a href=#791 id=791 data-nosnippet>791</a>        eh::delete_exception(exception);
-<a href=#792 id=792 data-nosnippet>792</a>        exnref
-<a href=#793 id=793 data-nosnippet>793</a>    }
-<a href=#794 id=794 data-nosnippet>794</a>}
-<a href=#795 id=795 data-nosnippet>795</a>
-<a href=#796 id=796 data-nosnippet>796</a><span class="doccomment">/// Probestack check
-<a href=#797 id=797 data-nosnippet>797</a>///
-<a href=#798 id=798 data-nosnippet>798</a>/// # Safety
-<a href=#799 id=799 data-nosnippet>799</a>///
-<a href=#800 id=800 data-nosnippet>800</a>/// This function does not follow the standard function ABI, and is called as
-<a href=#801 id=801 data-nosnippet>801</a>/// part of the function prologue.
-<a href=#802 id=802 data-nosnippet>802</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#803 id=803 data-nosnippet>803</a></span><span class="kw">pub static </span>WASMER_VM_PROBESTACK: <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>() = PROBESTACK;
-<a href=#804 id=804 data-nosnippet>804</a>
-<a href=#805 id=805 data-nosnippet>805</a><span class="doccomment">/// Implementation of memory.wait32 for locally-defined 32-bit memories.
-<a href=#806 id=806 data-nosnippet>806</a>///
-<a href=#807 id=807 data-nosnippet>807</a>/// # Safety
-<a href=#808 id=808 data-nosnippet>808</a>///
-<a href=#809 id=809 data-nosnippet>809</a>/// `vmctx` must be dereferenceable.
-<a href=#810 id=810 data-nosnippet>810</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#811 id=811 data-nosnippet>811</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait32(
-<a href=#812 id=812 data-nosnippet>812</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#813 id=813 data-nosnippet>813</a>    memory_index: u32,
-<a href=#814 id=814 data-nosnippet>814</a>    dst: u32,
-<a href=#815 id=815 data-nosnippet>815</a>    val: u32,
-<a href=#816 id=816 data-nosnippet>816</a>    timeout: i64,
-<a href=#817 id=817 data-nosnippet>817</a>) -&gt; u32 {
-<a href=#818 id=818 data-nosnippet>818</a>    <span class="kw">unsafe </span>{
-<a href=#819 id=819 data-nosnippet>819</a>        <span class="kw">let </span>result = {
-<a href=#820 id=820 data-nosnippet>820</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
-<a href=#821 id=821 data-nosnippet>821</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
-<a href=#822 id=822 data-nosnippet>822</a>
-<a href=#823 id=823 data-nosnippet>823</a>            instance.local_memory_wait32(memory_index, dst, val, timeout)
-<a href=#824 id=824 data-nosnippet>824</a>        };
-<a href=#825 id=825 data-nosnippet>825</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#826 id=826 data-nosnippet>826</a>            raise_lib_trap(trap);
-<a href=#827 id=827 data-nosnippet>827</a>        }
-<a href=#828 id=828 data-nosnippet>828</a>        result.unwrap()
-<a href=#829 id=829 data-nosnippet>829</a>    }
-<a href=#830 id=830 data-nosnippet>830</a>}
-<a href=#831 id=831 data-nosnippet>831</a>
-<a href=#832 id=832 data-nosnippet>832</a><span class="doccomment">/// Implementation of memory.wait32 for imported 32-bit memories.
-<a href=#833 id=833 data-nosnippet>833</a>///
-<a href=#834 id=834 data-nosnippet>834</a>/// # Safety
-<a href=#835 id=835 data-nosnippet>835</a>///
-<a href=#836 id=836 data-nosnippet>836</a>/// `vmctx` must be dereferenceable.
-<a href=#837 id=837 data-nosnippet>837</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#838 id=838 data-nosnippet>838</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait32(
-<a href=#839 id=839 data-nosnippet>839</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#840 id=840 data-nosnippet>840</a>    memory_index: u32,
-<a href=#841 id=841 data-nosnippet>841</a>    dst: u32,
-<a href=#842 id=842 data-nosnippet>842</a>    val: u32,
-<a href=#843 id=843 data-nosnippet>843</a>    timeout: i64,
-<a href=#844 id=844 data-nosnippet>844</a>) -&gt; u32 {
-<a href=#845 id=845 data-nosnippet>845</a>    <span class="kw">unsafe </span>{
-<a href=#846 id=846 data-nosnippet>846</a>        <span class="kw">let </span>result = {
-<a href=#847 id=847 data-nosnippet>847</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
-<a href=#848 id=848 data-nosnippet>848</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
-<a href=#849 id=849 data-nosnippet>849</a>
-<a href=#850 id=850 data-nosnippet>850</a>            instance.imported_memory_wait32(memory_index, dst, val, timeout)
-<a href=#851 id=851 data-nosnippet>851</a>        };
-<a href=#852 id=852 data-nosnippet>852</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#853 id=853 data-nosnippet>853</a>            raise_lib_trap(trap);
-<a href=#854 id=854 data-nosnippet>854</a>        }
-<a href=#855 id=855 data-nosnippet>855</a>        result.unwrap()
-<a href=#856 id=856 data-nosnippet>856</a>    }
-<a href=#857 id=857 data-nosnippet>857</a>}
-<a href=#858 id=858 data-nosnippet>858</a>
-<a href=#859 id=859 data-nosnippet>859</a><span class="doccomment">/// Implementation of memory.wait64 for locally-defined 32-bit memories.
-<a href=#860 id=860 data-nosnippet>860</a>///
-<a href=#861 id=861 data-nosnippet>861</a>/// # Safety
-<a href=#862 id=862 data-nosnippet>862</a>///
-<a href=#863 id=863 data-nosnippet>863</a>/// `vmctx` must be dereferenceable.
-<a href=#864 id=864 data-nosnippet>864</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#865 id=865 data-nosnippet>865</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait64(
-<a href=#866 id=866 data-nosnippet>866</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#867 id=867 data-nosnippet>867</a>    memory_index: u32,
-<a href=#868 id=868 data-nosnippet>868</a>    dst: u32,
-<a href=#869 id=869 data-nosnippet>869</a>    val: u64,
-<a href=#870 id=870 data-nosnippet>870</a>    timeout: i64,
-<a href=#871 id=871 data-nosnippet>871</a>) -&gt; u32 {
-<a href=#872 id=872 data-nosnippet>872</a>    <span class="kw">unsafe </span>{
-<a href=#873 id=873 data-nosnippet>873</a>        <span class="kw">let </span>result = {
-<a href=#874 id=874 data-nosnippet>874</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
-<a href=#875 id=875 data-nosnippet>875</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
-<a href=#876 id=876 data-nosnippet>876</a>
-<a href=#877 id=877 data-nosnippet>877</a>            instance.local_memory_wait64(memory_index, dst, val, timeout)
-<a href=#878 id=878 data-nosnippet>878</a>        };
-<a href=#879 id=879 data-nosnippet>879</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#880 id=880 data-nosnippet>880</a>            raise_lib_trap(trap);
-<a href=#881 id=881 data-nosnippet>881</a>        }
-<a href=#882 id=882 data-nosnippet>882</a>        result.unwrap()
-<a href=#883 id=883 data-nosnippet>883</a>    }
-<a href=#884 id=884 data-nosnippet>884</a>}
-<a href=#885 id=885 data-nosnippet>885</a>
-<a href=#886 id=886 data-nosnippet>886</a><span class="doccomment">/// Implementation of memory.wait64 for imported 32-bit memories.
-<a href=#887 id=887 data-nosnippet>887</a>///
-<a href=#888 id=888 data-nosnippet>888</a>/// # Safety
-<a href=#889 id=889 data-nosnippet>889</a>///
-<a href=#890 id=890 data-nosnippet>890</a>/// `vmctx` must be dereferenceable.
-<a href=#891 id=891 data-nosnippet>891</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#892 id=892 data-nosnippet>892</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait64(
-<a href=#893 id=893 data-nosnippet>893</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#894 id=894 data-nosnippet>894</a>    memory_index: u32,
-<a href=#895 id=895 data-nosnippet>895</a>    dst: u32,
-<a href=#896 id=896 data-nosnippet>896</a>    val: u64,
-<a href=#897 id=897 data-nosnippet>897</a>    timeout: i64,
-<a href=#898 id=898 data-nosnippet>898</a>) -&gt; u32 {
-<a href=#899 id=899 data-nosnippet>899</a>    <span class="kw">unsafe </span>{
-<a href=#900 id=900 data-nosnippet>900</a>        <span class="kw">let </span>result = {
-<a href=#901 id=901 data-nosnippet>901</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
-<a href=#902 id=902 data-nosnippet>902</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
-<a href=#903 id=903 data-nosnippet>903</a>
-<a href=#904 id=904 data-nosnippet>904</a>            instance.imported_memory_wait64(memory_index, dst, val, timeout)
-<a href=#905 id=905 data-nosnippet>905</a>        };
-<a href=#906 id=906 data-nosnippet>906</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#907 id=907 data-nosnippet>907</a>            raise_lib_trap(trap);
-<a href=#908 id=908 data-nosnippet>908</a>        }
-<a href=#909 id=909 data-nosnippet>909</a>        result.unwrap()
-<a href=#910 id=910 data-nosnippet>910</a>    }
-<a href=#911 id=911 data-nosnippet>911</a>}
-<a href=#912 id=912 data-nosnippet>912</a>
-<a href=#913 id=913 data-nosnippet>913</a><span class="doccomment">/// Implementation of memory.notify for locally-defined 32-bit memories.
-<a href=#914 id=914 data-nosnippet>914</a>///
-<a href=#915 id=915 data-nosnippet>915</a>/// # Safety
-<a href=#916 id=916 data-nosnippet>916</a>///
-<a href=#917 id=917 data-nosnippet>917</a>/// `vmctx` must be dereferenceable.
-<a href=#918 id=918 data-nosnippet>918</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#919 id=919 data-nosnippet>919</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_notify(
-<a href=#920 id=920 data-nosnippet>920</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#921 id=921 data-nosnippet>921</a>    memory_index: u32,
-<a href=#922 id=922 data-nosnippet>922</a>    dst: u32,
-<a href=#923 id=923 data-nosnippet>923</a>    cnt: u32,
-<a href=#924 id=924 data-nosnippet>924</a>) -&gt; u32 {
-<a href=#925 id=925 data-nosnippet>925</a>    <span class="kw">unsafe </span>{
-<a href=#926 id=926 data-nosnippet>926</a>        <span class="kw">let </span>result = {
-<a href=#927 id=927 data-nosnippet>927</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
-<a href=#928 id=928 data-nosnippet>928</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
-<a href=#929 id=929 data-nosnippet>929</a>
-<a href=#930 id=930 data-nosnippet>930</a>            instance.local_memory_notify(memory_index, dst, cnt)
-<a href=#931 id=931 data-nosnippet>931</a>        };
-<a href=#932 id=932 data-nosnippet>932</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#933 id=933 data-nosnippet>933</a>            raise_lib_trap(trap);
-<a href=#934 id=934 data-nosnippet>934</a>        }
-<a href=#935 id=935 data-nosnippet>935</a>        result.unwrap()
-<a href=#936 id=936 data-nosnippet>936</a>    }
-<a href=#937 id=937 data-nosnippet>937</a>}
-<a href=#938 id=938 data-nosnippet>938</a>
-<a href=#939 id=939 data-nosnippet>939</a><span class="doccomment">/// Implementation of memory.notify for imported 32-bit memories.
-<a href=#940 id=940 data-nosnippet>940</a>///
-<a href=#941 id=941 data-nosnippet>941</a>/// # Safety
-<a href=#942 id=942 data-nosnippet>942</a>///
-<a href=#943 id=943 data-nosnippet>943</a>/// `vmctx` must be dereferenceable.
-<a href=#944 id=944 data-nosnippet>944</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#945 id=945 data-nosnippet>945</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_notify(
-<a href=#946 id=946 data-nosnippet>946</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
-<a href=#947 id=947 data-nosnippet>947</a>    memory_index: u32,
-<a href=#948 id=948 data-nosnippet>948</a>    dst: u32,
-<a href=#949 id=949 data-nosnippet>949</a>    cnt: u32,
-<a href=#950 id=950 data-nosnippet>950</a>) -&gt; u32 {
-<a href=#951 id=951 data-nosnippet>951</a>    <span class="kw">unsafe </span>{
-<a href=#952 id=952 data-nosnippet>952</a>        <span class="kw">let </span>result = {
-<a href=#953 id=953 data-nosnippet>953</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
-<a href=#954 id=954 data-nosnippet>954</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
-<a href=#955 id=955 data-nosnippet>955</a>
-<a href=#956 id=956 data-nosnippet>956</a>            instance.imported_memory_notify(memory_index, dst, cnt)
-<a href=#957 id=957 data-nosnippet>957</a>        };
-<a href=#958 id=958 data-nosnippet>958</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
-<a href=#959 id=959 data-nosnippet>959</a>            raise_lib_trap(trap);
-<a href=#960 id=960 data-nosnippet>960</a>        }
-<a href=#961 id=961 data-nosnippet>961</a>        result.unwrap()
-<a href=#962 id=962 data-nosnippet>962</a>    }
-<a href=#963 id=963 data-nosnippet>963</a>}
-<a href=#964 id=964 data-nosnippet>964</a>
-<a href=#965 id=965 data-nosnippet>965</a><span class="doccomment">/// The function pointer to a libcall
-<a href=#966 id=966 data-nosnippet>966</a></span><span class="kw">pub fn </span>function_pointer(libcall: LibCall) -&gt; usize {
-<a href=#967 id=967 data-nosnippet>967</a>    <span class="kw">match </span>libcall {
-<a href=#968 id=968 data-nosnippet>968</a>        LibCall::CeilF32 =&gt; wasmer_vm_f32_ceil <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#969 id=969 data-nosnippet>969</a>        LibCall::CeilF64 =&gt; wasmer_vm_f64_ceil <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#970 id=970 data-nosnippet>970</a>        LibCall::FloorF32 =&gt; wasmer_vm_f32_floor <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#971 id=971 data-nosnippet>971</a>        LibCall::FloorF64 =&gt; wasmer_vm_f64_floor <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#972 id=972 data-nosnippet>972</a>        LibCall::NearestF32 =&gt; wasmer_vm_f32_nearest <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#973 id=973 data-nosnippet>973</a>        LibCall::NearestF64 =&gt; wasmer_vm_f64_nearest <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#974 id=974 data-nosnippet>974</a>        LibCall::SqrtF32 =&gt; wasmer_vm_f32_sqrt <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#975 id=975 data-nosnippet>975</a>        LibCall::SqrtF64 =&gt; wasmer_vm_f64_sqrt <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#976 id=976 data-nosnippet>976</a>        LibCall::TruncF32 =&gt; wasmer_vm_f32_trunc <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#977 id=977 data-nosnippet>977</a>        LibCall::TruncF64 =&gt; wasmer_vm_f64_trunc <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#978 id=978 data-nosnippet>978</a>        LibCall::Memory32Size =&gt; wasmer_vm_memory32_size <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#979 id=979 data-nosnippet>979</a>        LibCall::ImportedMemory32Size =&gt; wasmer_vm_imported_memory32_size <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#980 id=980 data-nosnippet>980</a>        LibCall::TableCopy =&gt; wasmer_vm_table_copy <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#981 id=981 data-nosnippet>981</a>        LibCall::TableInit =&gt; wasmer_vm_table_init <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#982 id=982 data-nosnippet>982</a>        LibCall::TableFill =&gt; wasmer_vm_table_fill <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#983 id=983 data-nosnippet>983</a>        LibCall::TableSize =&gt; wasmer_vm_table_size <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#984 id=984 data-nosnippet>984</a>        LibCall::ImportedTableSize =&gt; wasmer_vm_imported_table_size <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#985 id=985 data-nosnippet>985</a>        LibCall::TableGet =&gt; wasmer_vm_table_get <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#986 id=986 data-nosnippet>986</a>        LibCall::ImportedTableGet =&gt; wasmer_vm_imported_table_get <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#987 id=987 data-nosnippet>987</a>        LibCall::TableSet =&gt; wasmer_vm_table_set <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#988 id=988 data-nosnippet>988</a>        LibCall::ImportedTableSet =&gt; wasmer_vm_imported_table_set <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#989 id=989 data-nosnippet>989</a>        LibCall::TableGrow =&gt; wasmer_vm_table_grow <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#990 id=990 data-nosnippet>990</a>        LibCall::ImportedTableGrow =&gt; wasmer_vm_imported_table_grow <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#991 id=991 data-nosnippet>991</a>        LibCall::FuncRef =&gt; wasmer_vm_func_ref <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#992 id=992 data-nosnippet>992</a>        LibCall::ElemDrop =&gt; wasmer_vm_elem_drop <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#993 id=993 data-nosnippet>993</a>        LibCall::Memory32Copy =&gt; wasmer_vm_memory32_copy <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#994 id=994 data-nosnippet>994</a>        LibCall::ImportedMemory32Copy =&gt; wasmer_vm_imported_memory32_copy <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#995 id=995 data-nosnippet>995</a>        LibCall::Memory32Fill =&gt; wasmer_vm_memory32_fill <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#996 id=996 data-nosnippet>996</a>        LibCall::ImportedMemory32Fill =&gt; wasmer_vm_imported_memory32_fill <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#997 id=997 data-nosnippet>997</a>        LibCall::Memory32Init =&gt; wasmer_vm_memory32_init <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#998 id=998 data-nosnippet>998</a>        LibCall::DataDrop =&gt; wasmer_vm_data_drop <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#999 id=999 data-nosnippet>999</a>        LibCall::Probestack =&gt; WASMER_VM_PROBESTACK <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1000 id=1000 data-nosnippet>1000</a>        LibCall::RaiseTrap =&gt; wasmer_vm_raise_trap <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1001 id=1001 data-nosnippet>1001</a>        LibCall::Memory32AtomicWait32 =&gt; wasmer_vm_memory32_atomic_wait32 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1002 id=1002 data-nosnippet>1002</a>        LibCall::ImportedMemory32AtomicWait32 =&gt; {
-<a href=#1003 id=1003 data-nosnippet>1003</a>            wasmer_vm_imported_memory32_atomic_wait32 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize
-<a href=#1004 id=1004 data-nosnippet>1004</a>        }
-<a href=#1005 id=1005 data-nosnippet>1005</a>        LibCall::Memory32AtomicWait64 =&gt; wasmer_vm_memory32_atomic_wait64 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1006 id=1006 data-nosnippet>1006</a>        LibCall::ImportedMemory32AtomicWait64 =&gt; {
-<a href=#1007 id=1007 data-nosnippet>1007</a>            wasmer_vm_imported_memory32_atomic_wait64 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize
-<a href=#1008 id=1008 data-nosnippet>1008</a>        }
-<a href=#1009 id=1009 data-nosnippet>1009</a>        LibCall::Memory32AtomicNotify =&gt; wasmer_vm_memory32_atomic_notify <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1010 id=1010 data-nosnippet>1010</a>        LibCall::ImportedMemory32AtomicNotify =&gt; {
-<a href=#1011 id=1011 data-nosnippet>1011</a>            wasmer_vm_imported_memory32_atomic_notify <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize
-<a href=#1012 id=1012 data-nosnippet>1012</a>        }
-<a href=#1013 id=1013 data-nosnippet>1013</a>        LibCall::Throw =&gt; wasmer_vm_throw <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1014 id=1014 data-nosnippet>1014</a>        LibCall::EHPersonality =&gt; eh::wasmer_eh_personality <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1015 id=1015 data-nosnippet>1015</a>        LibCall::EHPersonality2 =&gt; eh::wasmer_eh_personality2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1016 id=1016 data-nosnippet>1016</a>        LibCall::AllocException =&gt; wasmer_vm_alloc_exception <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1017 id=1017 data-nosnippet>1017</a>        LibCall::ReadExnRef =&gt; wasmer_vm_read_exnref <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1018 id=1018 data-nosnippet>1018</a>        LibCall::LibunwindExceptionIntoExnRef =&gt; {
-<a href=#1019 id=1019 data-nosnippet>1019</a>            wasmer_vm_exception_into_exnref <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize
-<a href=#1020 id=1020 data-nosnippet>1020</a>        }
-<a href=#1021 id=1021 data-nosnippet>1021</a>        LibCall::DebugUsize =&gt; wasmer_vm_dbg_usize <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1022 id=1022 data-nosnippet>1022</a>        LibCall::DebugStr =&gt; wasmer_vm_dbg_str <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1023 id=1023 data-nosnippet>1023</a>        <span class="comment">// --- Soft-float libcalls ---
-<a href=#1024 id=1024 data-nosnippet>1024</a>        // compiler-rt / libgcc provides these on every std Rust target.
-<a href=#1025 id=1025 data-nosnippet>1025</a>        // On wasm32 the JIT engine is never active, so these variants are unreachable.
-<a href=#1026 id=1026 data-nosnippet>1026</a>        </span>_lc @ (LibCall::Addsf3
-<a href=#1027 id=1027 data-nosnippet>1027</a>        | LibCall::Adddf3
-<a href=#1028 id=1028 data-nosnippet>1028</a>        | LibCall::Subsf3
-<a href=#1029 id=1029 data-nosnippet>1029</a>        | LibCall::Subdf3
-<a href=#1030 id=1030 data-nosnippet>1030</a>        | LibCall::Mulsf3
-<a href=#1031 id=1031 data-nosnippet>1031</a>        | LibCall::Muldf3
-<a href=#1032 id=1032 data-nosnippet>1032</a>        | LibCall::Divsf3
-<a href=#1033 id=1033 data-nosnippet>1033</a>        | LibCall::Divdf3
-<a href=#1034 id=1034 data-nosnippet>1034</a>        | LibCall::Negsf2
-<a href=#1035 id=1035 data-nosnippet>1035</a>        | LibCall::Negdf2
-<a href=#1036 id=1036 data-nosnippet>1036</a>        | LibCall::Extendsfdf2
-<a href=#1037 id=1037 data-nosnippet>1037</a>        | LibCall::Truncdfsf2
-<a href=#1038 id=1038 data-nosnippet>1038</a>        | LibCall::Fixsfsi
-<a href=#1039 id=1039 data-nosnippet>1039</a>        | LibCall::Fixdfsi
-<a href=#1040 id=1040 data-nosnippet>1040</a>        | LibCall::Fixsfdi
-<a href=#1041 id=1041 data-nosnippet>1041</a>        | LibCall::Fixdfdi
-<a href=#1042 id=1042 data-nosnippet>1042</a>        | LibCall::Fixunssfsi
-<a href=#1043 id=1043 data-nosnippet>1043</a>        | LibCall::Fixunsdfsi
-<a href=#1044 id=1044 data-nosnippet>1044</a>        | LibCall::Fixunssfdi
-<a href=#1045 id=1045 data-nosnippet>1045</a>        | LibCall::Fixunsdfdi
-<a href=#1046 id=1046 data-nosnippet>1046</a>        | LibCall::Floatsisf
-<a href=#1047 id=1047 data-nosnippet>1047</a>        | LibCall::Floatsidf
-<a href=#1048 id=1048 data-nosnippet>1048</a>        | LibCall::Floatdisf
-<a href=#1049 id=1049 data-nosnippet>1049</a>        | LibCall::Floatdidf
-<a href=#1050 id=1050 data-nosnippet>1050</a>        | LibCall::Floatunsisf
-<a href=#1051 id=1051 data-nosnippet>1051</a>        | LibCall::Floatunsidf
-<a href=#1052 id=1052 data-nosnippet>1052</a>        | LibCall::Floatundisf
-<a href=#1053 id=1053 data-nosnippet>1053</a>        | LibCall::Floatundidf
-<a href=#1054 id=1054 data-nosnippet>1054</a>        | LibCall::Unordsf2
-<a href=#1055 id=1055 data-nosnippet>1055</a>        | LibCall::Unorddf2
-<a href=#1056 id=1056 data-nosnippet>1056</a>        | LibCall::Eqsf2
-<a href=#1057 id=1057 data-nosnippet>1057</a>        | LibCall::Eqdf2
-<a href=#1058 id=1058 data-nosnippet>1058</a>        | LibCall::Nesf2
-<a href=#1059 id=1059 data-nosnippet>1059</a>        | LibCall::Nedf2
-<a href=#1060 id=1060 data-nosnippet>1060</a>        | LibCall::Gesf2
-<a href=#1061 id=1061 data-nosnippet>1061</a>        | LibCall::Gedf2
-<a href=#1062 id=1062 data-nosnippet>1062</a>        | LibCall::Ltsf2
-<a href=#1063 id=1063 data-nosnippet>1063</a>        | LibCall::Ltdf2
-<a href=#1064 id=1064 data-nosnippet>1064</a>        | LibCall::Lesf2
-<a href=#1065 id=1065 data-nosnippet>1065</a>        | LibCall::Ledf2
-<a href=#1066 id=1066 data-nosnippet>1066</a>        | LibCall::Gtsf2
-<a href=#1067 id=1067 data-nosnippet>1067</a>        | LibCall::Gtdf2) =&gt; {
-<a href=#1068 id=1068 data-nosnippet>1068</a>            <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
-<a href=#1069 id=1069 data-nosnippet>1069</a>            </span><span class="macro">unreachable!</span>(<span class="string">"soft-float libcalls are not reachable on wasm32"</span>);
-<a href=#1070 id=1070 data-nosnippet>1070</a>            <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#1071 id=1071 data-nosnippet>1071</a>            </span><span class="kw">match </span>_lc {
-<a href=#1072 id=1072 data-nosnippet>1072</a>                LibCall::Addsf3 =&gt; __addsf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1073 id=1073 data-nosnippet>1073</a>                LibCall::Adddf3 =&gt; __adddf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1074 id=1074 data-nosnippet>1074</a>                LibCall::Subsf3 =&gt; __subsf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1075 id=1075 data-nosnippet>1075</a>                LibCall::Subdf3 =&gt; __subdf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1076 id=1076 data-nosnippet>1076</a>                LibCall::Mulsf3 =&gt; __mulsf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1077 id=1077 data-nosnippet>1077</a>                LibCall::Muldf3 =&gt; __muldf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1078 id=1078 data-nosnippet>1078</a>                LibCall::Divsf3 =&gt; __divsf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1079 id=1079 data-nosnippet>1079</a>                LibCall::Divdf3 =&gt; __divdf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1080 id=1080 data-nosnippet>1080</a>                LibCall::Negsf2 =&gt; __negsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1081 id=1081 data-nosnippet>1081</a>                LibCall::Negdf2 =&gt; __negdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1082 id=1082 data-nosnippet>1082</a>                LibCall::Extendsfdf2 =&gt; __extendsfdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1083 id=1083 data-nosnippet>1083</a>                LibCall::Truncdfsf2 =&gt; __truncdfsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1084 id=1084 data-nosnippet>1084</a>                LibCall::Fixsfsi =&gt; __fixsfsi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1085 id=1085 data-nosnippet>1085</a>                LibCall::Fixdfsi =&gt; __fixdfsi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1086 id=1086 data-nosnippet>1086</a>                LibCall::Fixsfdi =&gt; __fixsfdi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1087 id=1087 data-nosnippet>1087</a>                LibCall::Fixdfdi =&gt; __fixdfdi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1088 id=1088 data-nosnippet>1088</a>                LibCall::Fixunssfsi =&gt; __fixunssfsi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1089 id=1089 data-nosnippet>1089</a>                LibCall::Fixunsdfsi =&gt; __fixunsdfsi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1090 id=1090 data-nosnippet>1090</a>                LibCall::Fixunssfdi =&gt; __fixunssfdi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1091 id=1091 data-nosnippet>1091</a>                LibCall::Fixunsdfdi =&gt; __fixunsdfdi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1092 id=1092 data-nosnippet>1092</a>                LibCall::Floatsisf =&gt; __floatsisf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1093 id=1093 data-nosnippet>1093</a>                LibCall::Floatsidf =&gt; __floatsidf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1094 id=1094 data-nosnippet>1094</a>                LibCall::Floatdisf =&gt; __floatdisf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1095 id=1095 data-nosnippet>1095</a>                LibCall::Floatdidf =&gt; __floatdidf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1096 id=1096 data-nosnippet>1096</a>                LibCall::Floatunsisf =&gt; __floatunsisf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1097 id=1097 data-nosnippet>1097</a>                LibCall::Floatunsidf =&gt; __floatunsidf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1098 id=1098 data-nosnippet>1098</a>                LibCall::Floatundisf =&gt; __floatundisf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1099 id=1099 data-nosnippet>1099</a>                LibCall::Floatundidf =&gt; __floatundidf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1100 id=1100 data-nosnippet>1100</a>                LibCall::Unordsf2 =&gt; __unordsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1101 id=1101 data-nosnippet>1101</a>                LibCall::Unorddf2 =&gt; __unorddf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1102 id=1102 data-nosnippet>1102</a>                LibCall::Eqsf2 =&gt; __eqsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1103 id=1103 data-nosnippet>1103</a>                LibCall::Eqdf2 =&gt; __eqdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1104 id=1104 data-nosnippet>1104</a>                LibCall::Nesf2 =&gt; __nesf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1105 id=1105 data-nosnippet>1105</a>                LibCall::Nedf2 =&gt; __nedf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1106 id=1106 data-nosnippet>1106</a>                LibCall::Gesf2 =&gt; __gesf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1107 id=1107 data-nosnippet>1107</a>                LibCall::Gedf2 =&gt; __gedf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1108 id=1108 data-nosnippet>1108</a>                LibCall::Ltsf2 =&gt; __ltsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1109 id=1109 data-nosnippet>1109</a>                LibCall::Ltdf2 =&gt; __ltdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1110 id=1110 data-nosnippet>1110</a>                LibCall::Lesf2 =&gt; __lesf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1111 id=1111 data-nosnippet>1111</a>                LibCall::Ledf2 =&gt; __ledf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1112 id=1112 data-nosnippet>1112</a>                LibCall::Gtsf2 =&gt; __gtsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1113 id=1113 data-nosnippet>1113</a>                LibCall::Gtdf2 =&gt; __gtdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
-<a href=#1114 id=1114 data-nosnippet>1114</a>                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
-<a href=#1115 id=1115 data-nosnippet>1115</a>            }
-<a href=#1116 id=1116 data-nosnippet>1116</a>        }
-<a href=#1117 id=1117 data-nosnippet>1117</a>    }
-<a href=#1118 id=1118 data-nosnippet>1118</a>}
-<a href=#1119 id=1119 data-nosnippet>1119</a>
-<a href=#1120 id=1120 data-nosnippet>1120</a><span class="comment">// Soft-float arithmetic routines. Provided by compiler-rt / libgcc on all non-wasm targets.
-<a href=#1121 id=1121 data-nosnippet>1121</a></span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#1122 id=1122 data-nosnippet>1122</a></span><span class="kw">unsafe extern </span><span class="string">"C" </span>{
-<a href=#1123 id=1123 data-nosnippet>1123</a>    <span class="comment">// --- f32/f64 arithmetic ---
-<a href=#1124 id=1124 data-nosnippet>1124</a>    </span><span class="kw">fn </span>__addsf3(a: f32, b: f32) -&gt; f32;
-<a href=#1125 id=1125 data-nosnippet>1125</a>    <span class="kw">fn </span>__adddf3(a: f64, b: f64) -&gt; f64;
-<a href=#1126 id=1126 data-nosnippet>1126</a>    <span class="kw">fn </span>__subsf3(a: f32, b: f32) -&gt; f32;
-<a href=#1127 id=1127 data-nosnippet>1127</a>    <span class="kw">fn </span>__subdf3(a: f64, b: f64) -&gt; f64;
-<a href=#1128 id=1128 data-nosnippet>1128</a>    <span class="kw">fn </span>__mulsf3(a: f32, b: f32) -&gt; f32;
-<a href=#1129 id=1129 data-nosnippet>1129</a>    <span class="kw">fn </span>__muldf3(a: f64, b: f64) -&gt; f64;
-<a href=#1130 id=1130 data-nosnippet>1130</a>    <span class="kw">fn </span>__divsf3(a: f32, b: f32) -&gt; f32;
-<a href=#1131 id=1131 data-nosnippet>1131</a>    <span class="kw">fn </span>__divdf3(a: f64, b: f64) -&gt; f64;
-<a href=#1132 id=1132 data-nosnippet>1132</a>    <span class="kw">fn </span>__negsf2(a: f32) -&gt; f32;
-<a href=#1133 id=1133 data-nosnippet>1133</a>    <span class="kw">fn </span>__negdf2(a: f64) -&gt; f64;
-<a href=#1134 id=1134 data-nosnippet>1134</a>    <span class="comment">// --- f32/f64 conversions ---
-<a href=#1135 id=1135 data-nosnippet>1135</a>    </span><span class="kw">fn </span>__extendsfdf2(a: f32) -&gt; f64;
-<a href=#1136 id=1136 data-nosnippet>1136</a>    <span class="kw">fn </span>__truncdfsf2(a: f64) -&gt; f32;
-<a href=#1137 id=1137 data-nosnippet>1137</a>    <span class="kw">fn </span>__fixsfsi(a: f32) -&gt; i32;
-<a href=#1138 id=1138 data-nosnippet>1138</a>    <span class="kw">fn </span>__fixdfsi(a: f64) -&gt; i32;
-<a href=#1139 id=1139 data-nosnippet>1139</a>    <span class="kw">fn </span>__fixsfdi(a: f32) -&gt; i64;
-<a href=#1140 id=1140 data-nosnippet>1140</a>    <span class="kw">fn </span>__fixdfdi(a: f64) -&gt; i64;
-<a href=#1141 id=1141 data-nosnippet>1141</a>    <span class="kw">fn </span>__fixunssfsi(a: f32) -&gt; u32;
-<a href=#1142 id=1142 data-nosnippet>1142</a>    <span class="kw">fn </span>__fixunsdfsi(a: f64) -&gt; u32;
-<a href=#1143 id=1143 data-nosnippet>1143</a>    <span class="kw">fn </span>__fixunssfdi(a: f32) -&gt; u64;
-<a href=#1144 id=1144 data-nosnippet>1144</a>    <span class="kw">fn </span>__fixunsdfdi(a: f64) -&gt; u64;
-<a href=#1145 id=1145 data-nosnippet>1145</a>    <span class="kw">fn </span>__floatsisf(i: i32) -&gt; f32;
-<a href=#1146 id=1146 data-nosnippet>1146</a>    <span class="kw">fn </span>__floatsidf(i: i32) -&gt; f64;
-<a href=#1147 id=1147 data-nosnippet>1147</a>    <span class="kw">fn </span>__floatdisf(i: i64) -&gt; f32;
-<a href=#1148 id=1148 data-nosnippet>1148</a>    <span class="kw">fn </span>__floatdidf(i: i64) -&gt; f64;
-<a href=#1149 id=1149 data-nosnippet>1149</a>    <span class="kw">fn </span>__floatunsisf(i: u32) -&gt; f32;
-<a href=#1150 id=1150 data-nosnippet>1150</a>    <span class="kw">fn </span>__floatunsidf(i: u32) -&gt; f64;
-<a href=#1151 id=1151 data-nosnippet>1151</a>    <span class="kw">fn </span>__floatundisf(i: u64) -&gt; f32;
-<a href=#1152 id=1152 data-nosnippet>1152</a>    <span class="kw">fn </span>__floatundidf(i: u64) -&gt; f64;
-<a href=#1153 id=1153 data-nosnippet>1153</a>    <span class="comment">// --- f32/f64 comparisons (return 0 / nonzero / negative per GCC ABI) ---
-<a href=#1154 id=1154 data-nosnippet>1154</a>    </span><span class="kw">fn </span>__unordsf2(a: f32, b: f32) -&gt; i32;
-<a href=#1155 id=1155 data-nosnippet>1155</a>    <span class="kw">fn </span>__unorddf2(a: f64, b: f64) -&gt; i32;
-<a href=#1156 id=1156 data-nosnippet>1156</a>    <span class="kw">fn </span>__eqsf2(a: f32, b: f32) -&gt; i32;
-<a href=#1157 id=1157 data-nosnippet>1157</a>    <span class="kw">fn </span>__eqdf2(a: f64, b: f64) -&gt; i32;
-<a href=#1158 id=1158 data-nosnippet>1158</a>    <span class="kw">fn </span>__nesf2(a: f32, b: f32) -&gt; i32;
-<a href=#1159 id=1159 data-nosnippet>1159</a>    <span class="kw">fn </span>__nedf2(a: f64, b: f64) -&gt; i32;
-<a href=#1160 id=1160 data-nosnippet>1160</a>    <span class="kw">fn </span>__gesf2(a: f32, b: f32) -&gt; i32;
-<a href=#1161 id=1161 data-nosnippet>1161</a>    <span class="kw">fn </span>__gedf2(a: f64, b: f64) -&gt; i32;
-<a href=#1162 id=1162 data-nosnippet>1162</a>    <span class="kw">fn </span>__ltsf2(a: f32, b: f32) -&gt; i32;
-<a href=#1163 id=1163 data-nosnippet>1163</a>    <span class="kw">fn </span>__ltdf2(a: f64, b: f64) -&gt; i32;
-<a href=#1164 id=1164 data-nosnippet>1164</a>    <span class="kw">fn </span>__lesf2(a: f32, b: f32) -&gt; i32;
-<a href=#1165 id=1165 data-nosnippet>1165</a>    <span class="kw">fn </span>__ledf2(a: f64, b: f64) -&gt; i32;
-<a href=#1166 id=1166 data-nosnippet>1166</a>    <span class="kw">fn </span>__gtsf2(a: f32, b: f32) -&gt; i32;
-<a href=#1167 id=1167 data-nosnippet>1167</a>    <span class="kw">fn </span>__gtdf2(a: f64, b: f64) -&gt; i32;
-<a href=#1168 id=1168 data-nosnippet>1168</a>}
+<a href=#788 id=788 data-nosnippet>788</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait32(
+<a href=#789 id=789 data-nosnippet>789</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#790 id=790 data-nosnippet>790</a>    memory_index: u32,
+<a href=#791 id=791 data-nosnippet>791</a>    dst: u32,
+<a href=#792 id=792 data-nosnippet>792</a>    val: u32,
+<a href=#793 id=793 data-nosnippet>793</a>    timeout: i64,
+<a href=#794 id=794 data-nosnippet>794</a>) -&gt; u32 {
+<a href=#795 id=795 data-nosnippet>795</a>    <span class="kw">unsafe </span>{
+<a href=#796 id=796 data-nosnippet>796</a>        <span class="kw">let </span>result = {
+<a href=#797 id=797 data-nosnippet>797</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+<a href=#798 id=798 data-nosnippet>798</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
+<a href=#799 id=799 data-nosnippet>799</a>
+<a href=#800 id=800 data-nosnippet>800</a>            instance.local_memory_wait32(memory_index, dst, val, timeout)
+<a href=#801 id=801 data-nosnippet>801</a>        };
+<a href=#802 id=802 data-nosnippet>802</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#803 id=803 data-nosnippet>803</a>            raise_lib_trap(trap);
+<a href=#804 id=804 data-nosnippet>804</a>        }
+<a href=#805 id=805 data-nosnippet>805</a>        result.unwrap()
+<a href=#806 id=806 data-nosnippet>806</a>    }
+<a href=#807 id=807 data-nosnippet>807</a>}
+<a href=#808 id=808 data-nosnippet>808</a>
+<a href=#809 id=809 data-nosnippet>809</a><span class="doccomment">/// Implementation of memory.wait32 for imported 32-bit memories.
+<a href=#810 id=810 data-nosnippet>810</a>///
+<a href=#811 id=811 data-nosnippet>811</a>/// # Safety
+<a href=#812 id=812 data-nosnippet>812</a>///
+<a href=#813 id=813 data-nosnippet>813</a>/// `vmctx` must be dereferenceable.
+<a href=#814 id=814 data-nosnippet>814</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#815 id=815 data-nosnippet>815</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait32(
+<a href=#816 id=816 data-nosnippet>816</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#817 id=817 data-nosnippet>817</a>    memory_index: u32,
+<a href=#818 id=818 data-nosnippet>818</a>    dst: u32,
+<a href=#819 id=819 data-nosnippet>819</a>    val: u32,
+<a href=#820 id=820 data-nosnippet>820</a>    timeout: i64,
+<a href=#821 id=821 data-nosnippet>821</a>) -&gt; u32 {
+<a href=#822 id=822 data-nosnippet>822</a>    <span class="kw">unsafe </span>{
+<a href=#823 id=823 data-nosnippet>823</a>        <span class="kw">let </span>result = {
+<a href=#824 id=824 data-nosnippet>824</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+<a href=#825 id=825 data-nosnippet>825</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
+<a href=#826 id=826 data-nosnippet>826</a>
+<a href=#827 id=827 data-nosnippet>827</a>            instance.imported_memory_wait32(memory_index, dst, val, timeout)
+<a href=#828 id=828 data-nosnippet>828</a>        };
+<a href=#829 id=829 data-nosnippet>829</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#830 id=830 data-nosnippet>830</a>            raise_lib_trap(trap);
+<a href=#831 id=831 data-nosnippet>831</a>        }
+<a href=#832 id=832 data-nosnippet>832</a>        result.unwrap()
+<a href=#833 id=833 data-nosnippet>833</a>    }
+<a href=#834 id=834 data-nosnippet>834</a>}
+<a href=#835 id=835 data-nosnippet>835</a>
+<a href=#836 id=836 data-nosnippet>836</a><span class="doccomment">/// Implementation of memory.wait64 for locally-defined 32-bit memories.
+<a href=#837 id=837 data-nosnippet>837</a>///
+<a href=#838 id=838 data-nosnippet>838</a>/// # Safety
+<a href=#839 id=839 data-nosnippet>839</a>///
+<a href=#840 id=840 data-nosnippet>840</a>/// `vmctx` must be dereferenceable.
+<a href=#841 id=841 data-nosnippet>841</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#842 id=842 data-nosnippet>842</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_wait64(
+<a href=#843 id=843 data-nosnippet>843</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#844 id=844 data-nosnippet>844</a>    memory_index: u32,
+<a href=#845 id=845 data-nosnippet>845</a>    dst: u32,
+<a href=#846 id=846 data-nosnippet>846</a>    val: u64,
+<a href=#847 id=847 data-nosnippet>847</a>    timeout: i64,
+<a href=#848 id=848 data-nosnippet>848</a>) -&gt; u32 {
+<a href=#849 id=849 data-nosnippet>849</a>    <span class="kw">unsafe </span>{
+<a href=#850 id=850 data-nosnippet>850</a>        <span class="kw">let </span>result = {
+<a href=#851 id=851 data-nosnippet>851</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+<a href=#852 id=852 data-nosnippet>852</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
+<a href=#853 id=853 data-nosnippet>853</a>
+<a href=#854 id=854 data-nosnippet>854</a>            instance.local_memory_wait64(memory_index, dst, val, timeout)
+<a href=#855 id=855 data-nosnippet>855</a>        };
+<a href=#856 id=856 data-nosnippet>856</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#857 id=857 data-nosnippet>857</a>            raise_lib_trap(trap);
+<a href=#858 id=858 data-nosnippet>858</a>        }
+<a href=#859 id=859 data-nosnippet>859</a>        result.unwrap()
+<a href=#860 id=860 data-nosnippet>860</a>    }
+<a href=#861 id=861 data-nosnippet>861</a>}
+<a href=#862 id=862 data-nosnippet>862</a>
+<a href=#863 id=863 data-nosnippet>863</a><span class="doccomment">/// Implementation of memory.wait64 for imported 32-bit memories.
+<a href=#864 id=864 data-nosnippet>864</a>///
+<a href=#865 id=865 data-nosnippet>865</a>/// # Safety
+<a href=#866 id=866 data-nosnippet>866</a>///
+<a href=#867 id=867 data-nosnippet>867</a>/// `vmctx` must be dereferenceable.
+<a href=#868 id=868 data-nosnippet>868</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#869 id=869 data-nosnippet>869</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_wait64(
+<a href=#870 id=870 data-nosnippet>870</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#871 id=871 data-nosnippet>871</a>    memory_index: u32,
+<a href=#872 id=872 data-nosnippet>872</a>    dst: u32,
+<a href=#873 id=873 data-nosnippet>873</a>    val: u64,
+<a href=#874 id=874 data-nosnippet>874</a>    timeout: i64,
+<a href=#875 id=875 data-nosnippet>875</a>) -&gt; u32 {
+<a href=#876 id=876 data-nosnippet>876</a>    <span class="kw">unsafe </span>{
+<a href=#877 id=877 data-nosnippet>877</a>        <span class="kw">let </span>result = {
+<a href=#878 id=878 data-nosnippet>878</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+<a href=#879 id=879 data-nosnippet>879</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
+<a href=#880 id=880 data-nosnippet>880</a>
+<a href=#881 id=881 data-nosnippet>881</a>            instance.imported_memory_wait64(memory_index, dst, val, timeout)
+<a href=#882 id=882 data-nosnippet>882</a>        };
+<a href=#883 id=883 data-nosnippet>883</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#884 id=884 data-nosnippet>884</a>            raise_lib_trap(trap);
+<a href=#885 id=885 data-nosnippet>885</a>        }
+<a href=#886 id=886 data-nosnippet>886</a>        result.unwrap()
+<a href=#887 id=887 data-nosnippet>887</a>    }
+<a href=#888 id=888 data-nosnippet>888</a>}
+<a href=#889 id=889 data-nosnippet>889</a>
+<a href=#890 id=890 data-nosnippet>890</a><span class="doccomment">/// Implementation of memory.notify for locally-defined 32-bit memories.
+<a href=#891 id=891 data-nosnippet>891</a>///
+<a href=#892 id=892 data-nosnippet>892</a>/// # Safety
+<a href=#893 id=893 data-nosnippet>893</a>///
+<a href=#894 id=894 data-nosnippet>894</a>/// `vmctx` must be dereferenceable.
+<a href=#895 id=895 data-nosnippet>895</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#896 id=896 data-nosnippet>896</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_memory32_atomic_notify(
+<a href=#897 id=897 data-nosnippet>897</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#898 id=898 data-nosnippet>898</a>    memory_index: u32,
+<a href=#899 id=899 data-nosnippet>899</a>    dst: u32,
+<a href=#900 id=900 data-nosnippet>900</a>    cnt: u32,
+<a href=#901 id=901 data-nosnippet>901</a>) -&gt; u32 {
+<a href=#902 id=902 data-nosnippet>902</a>    <span class="kw">unsafe </span>{
+<a href=#903 id=903 data-nosnippet>903</a>        <span class="kw">let </span>result = {
+<a href=#904 id=904 data-nosnippet>904</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+<a href=#905 id=905 data-nosnippet>905</a>            <span class="kw">let </span>memory_index = LocalMemoryIndex::from_u32(memory_index);
+<a href=#906 id=906 data-nosnippet>906</a>
+<a href=#907 id=907 data-nosnippet>907</a>            instance.local_memory_notify(memory_index, dst, cnt)
+<a href=#908 id=908 data-nosnippet>908</a>        };
+<a href=#909 id=909 data-nosnippet>909</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#910 id=910 data-nosnippet>910</a>            raise_lib_trap(trap);
+<a href=#911 id=911 data-nosnippet>911</a>        }
+<a href=#912 id=912 data-nosnippet>912</a>        result.unwrap()
+<a href=#913 id=913 data-nosnippet>913</a>    }
+<a href=#914 id=914 data-nosnippet>914</a>}
+<a href=#915 id=915 data-nosnippet>915</a>
+<a href=#916 id=916 data-nosnippet>916</a><span class="doccomment">/// Implementation of memory.notify for imported 32-bit memories.
+<a href=#917 id=917 data-nosnippet>917</a>///
+<a href=#918 id=918 data-nosnippet>918</a>/// # Safety
+<a href=#919 id=919 data-nosnippet>919</a>///
+<a href=#920 id=920 data-nosnippet>920</a>/// `vmctx` must be dereferenceable.
+<a href=#921 id=921 data-nosnippet>921</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#922 id=922 data-nosnippet>922</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_vm_imported_memory32_atomic_notify(
+<a href=#923 id=923 data-nosnippet>923</a>    vmctx: <span class="kw-2">*mut </span>VMContext,
+<a href=#924 id=924 data-nosnippet>924</a>    memory_index: u32,
+<a href=#925 id=925 data-nosnippet>925</a>    dst: u32,
+<a href=#926 id=926 data-nosnippet>926</a>    cnt: u32,
+<a href=#927 id=927 data-nosnippet>927</a>) -&gt; u32 {
+<a href=#928 id=928 data-nosnippet>928</a>    <span class="kw">unsafe </span>{
+<a href=#929 id=929 data-nosnippet>929</a>        <span class="kw">let </span>result = {
+<a href=#930 id=930 data-nosnippet>930</a>            <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance_mut();
+<a href=#931 id=931 data-nosnippet>931</a>            <span class="kw">let </span>memory_index = MemoryIndex::from_u32(memory_index);
+<a href=#932 id=932 data-nosnippet>932</a>
+<a href=#933 id=933 data-nosnippet>933</a>            instance.imported_memory_notify(memory_index, dst, cnt)
+<a href=#934 id=934 data-nosnippet>934</a>        };
+<a href=#935 id=935 data-nosnippet>935</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(trap) = result {
+<a href=#936 id=936 data-nosnippet>936</a>            raise_lib_trap(trap);
+<a href=#937 id=937 data-nosnippet>937</a>        }
+<a href=#938 id=938 data-nosnippet>938</a>        result.unwrap()
+<a href=#939 id=939 data-nosnippet>939</a>    }
+<a href=#940 id=940 data-nosnippet>940</a>}
+<a href=#941 id=941 data-nosnippet>941</a>
+<a href=#942 id=942 data-nosnippet>942</a><span class="doccomment">/// The function pointer to a libcall
+<a href=#943 id=943 data-nosnippet>943</a></span><span class="kw">pub fn </span>function_pointer(libcall: LibCall) -&gt; usize {
+<a href=#944 id=944 data-nosnippet>944</a>    <span class="kw">match </span>libcall {
+<a href=#945 id=945 data-nosnippet>945</a>        LibCall::CeilF32 =&gt; wasmer_vm_f32_ceil <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#946 id=946 data-nosnippet>946</a>        LibCall::CeilF64 =&gt; wasmer_vm_f64_ceil <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#947 id=947 data-nosnippet>947</a>        LibCall::FloorF32 =&gt; wasmer_vm_f32_floor <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#948 id=948 data-nosnippet>948</a>        LibCall::FloorF64 =&gt; wasmer_vm_f64_floor <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#949 id=949 data-nosnippet>949</a>        LibCall::NearestF32 =&gt; wasmer_vm_f32_nearest <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#950 id=950 data-nosnippet>950</a>        LibCall::NearestF64 =&gt; wasmer_vm_f64_nearest <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#951 id=951 data-nosnippet>951</a>        LibCall::SqrtF32 =&gt; wasmer_vm_f32_sqrt <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#952 id=952 data-nosnippet>952</a>        LibCall::SqrtF64 =&gt; wasmer_vm_f64_sqrt <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#953 id=953 data-nosnippet>953</a>        LibCall::TruncF32 =&gt; wasmer_vm_f32_trunc <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#954 id=954 data-nosnippet>954</a>        LibCall::TruncF64 =&gt; wasmer_vm_f64_trunc <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#955 id=955 data-nosnippet>955</a>        LibCall::Memory32Size =&gt; wasmer_vm_memory32_size <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#956 id=956 data-nosnippet>956</a>        LibCall::ImportedMemory32Size =&gt; wasmer_vm_imported_memory32_size <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#957 id=957 data-nosnippet>957</a>        LibCall::TableCopy =&gt; wasmer_vm_table_copy <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#958 id=958 data-nosnippet>958</a>        LibCall::TableInit =&gt; wasmer_vm_table_init <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#959 id=959 data-nosnippet>959</a>        LibCall::TableFill =&gt; wasmer_vm_table_fill <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#960 id=960 data-nosnippet>960</a>        LibCall::TableSize =&gt; wasmer_vm_table_size <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#961 id=961 data-nosnippet>961</a>        LibCall::ImportedTableSize =&gt; wasmer_vm_imported_table_size <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#962 id=962 data-nosnippet>962</a>        LibCall::TableGet =&gt; wasmer_vm_table_get <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#963 id=963 data-nosnippet>963</a>        LibCall::ImportedTableGet =&gt; wasmer_vm_imported_table_get <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#964 id=964 data-nosnippet>964</a>        LibCall::TableSet =&gt; wasmer_vm_table_set <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#965 id=965 data-nosnippet>965</a>        LibCall::ImportedTableSet =&gt; wasmer_vm_imported_table_set <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#966 id=966 data-nosnippet>966</a>        LibCall::TableGrow =&gt; wasmer_vm_table_grow <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#967 id=967 data-nosnippet>967</a>        LibCall::ImportedTableGrow =&gt; wasmer_vm_imported_table_grow <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#968 id=968 data-nosnippet>968</a>        LibCall::FuncRef =&gt; wasmer_vm_func_ref <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#969 id=969 data-nosnippet>969</a>        LibCall::ElemDrop =&gt; wasmer_vm_elem_drop <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#970 id=970 data-nosnippet>970</a>        LibCall::Memory32Copy =&gt; wasmer_vm_memory32_copy <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#971 id=971 data-nosnippet>971</a>        LibCall::Memory32Fill =&gt; wasmer_vm_memory32_fill <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#972 id=972 data-nosnippet>972</a>        LibCall::ImportedMemory32Fill =&gt; wasmer_vm_imported_memory32_fill <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#973 id=973 data-nosnippet>973</a>        LibCall::Memory32Init =&gt; wasmer_vm_memory32_init <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#974 id=974 data-nosnippet>974</a>        LibCall::DataDrop =&gt; wasmer_vm_data_drop <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#975 id=975 data-nosnippet>975</a>        LibCall::Probestack =&gt; WASMER_VM_PROBESTACK <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#976 id=976 data-nosnippet>976</a>        LibCall::RaiseTrap =&gt; wasmer_vm_raise_trap <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#977 id=977 data-nosnippet>977</a>        LibCall::Memory32AtomicWait32 =&gt; wasmer_vm_memory32_atomic_wait32 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#978 id=978 data-nosnippet>978</a>        LibCall::ImportedMemory32AtomicWait32 =&gt; {
+<a href=#979 id=979 data-nosnippet>979</a>            wasmer_vm_imported_memory32_atomic_wait32 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize
+<a href=#980 id=980 data-nosnippet>980</a>        }
+<a href=#981 id=981 data-nosnippet>981</a>        LibCall::Memory32AtomicWait64 =&gt; wasmer_vm_memory32_atomic_wait64 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#982 id=982 data-nosnippet>982</a>        LibCall::ImportedMemory32AtomicWait64 =&gt; {
+<a href=#983 id=983 data-nosnippet>983</a>            wasmer_vm_imported_memory32_atomic_wait64 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize
+<a href=#984 id=984 data-nosnippet>984</a>        }
+<a href=#985 id=985 data-nosnippet>985</a>        LibCall::Memory32AtomicNotify =&gt; wasmer_vm_memory32_atomic_notify <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#986 id=986 data-nosnippet>986</a>        LibCall::ImportedMemory32AtomicNotify =&gt; {
+<a href=#987 id=987 data-nosnippet>987</a>            wasmer_vm_imported_memory32_atomic_notify <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize
+<a href=#988 id=988 data-nosnippet>988</a>        }
+<a href=#989 id=989 data-nosnippet>989</a>        LibCall::Throw =&gt; wasmer_vm_throw <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#990 id=990 data-nosnippet>990</a>        LibCall::EHPersonality =&gt; eh::wasmer_eh_personality <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#991 id=991 data-nosnippet>991</a>        LibCall::EHPersonality2 =&gt; eh::wasmer_eh_personality2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#992 id=992 data-nosnippet>992</a>        LibCall::AllocException =&gt; wasmer_vm_alloc_exception <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#993 id=993 data-nosnippet>993</a>        LibCall::ReadExnRef =&gt; wasmer_vm_read_exnref <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#994 id=994 data-nosnippet>994</a>        LibCall::LibunwindExceptionIntoExnRef =&gt; {
+<a href=#995 id=995 data-nosnippet>995</a>            wasmer_vm_exception_into_exnref <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize
+<a href=#996 id=996 data-nosnippet>996</a>        }
+<a href=#997 id=997 data-nosnippet>997</a>        LibCall::DebugUsize =&gt; wasmer_vm_dbg_usize <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#998 id=998 data-nosnippet>998</a>        LibCall::DebugStr =&gt; wasmer_vm_dbg_str <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#999 id=999 data-nosnippet>999</a>        <span class="comment">// --- Soft-float libcalls ---
+<a href=#1000 id=1000 data-nosnippet>1000</a>        // compiler-rt / libgcc provides these on every std Rust target.
+<a href=#1001 id=1001 data-nosnippet>1001</a>        // On wasm32 the JIT engine is never active, so these variants are unreachable.
+<a href=#1002 id=1002 data-nosnippet>1002</a>        </span>_lc @ (LibCall::Addsf3
+<a href=#1003 id=1003 data-nosnippet>1003</a>        | LibCall::Adddf3
+<a href=#1004 id=1004 data-nosnippet>1004</a>        | LibCall::Subsf3
+<a href=#1005 id=1005 data-nosnippet>1005</a>        | LibCall::Subdf3
+<a href=#1006 id=1006 data-nosnippet>1006</a>        | LibCall::Mulsf3
+<a href=#1007 id=1007 data-nosnippet>1007</a>        | LibCall::Muldf3
+<a href=#1008 id=1008 data-nosnippet>1008</a>        | LibCall::Divsf3
+<a href=#1009 id=1009 data-nosnippet>1009</a>        | LibCall::Divdf3
+<a href=#1010 id=1010 data-nosnippet>1010</a>        | LibCall::Negsf2
+<a href=#1011 id=1011 data-nosnippet>1011</a>        | LibCall::Negdf2
+<a href=#1012 id=1012 data-nosnippet>1012</a>        | LibCall::Extendsfdf2
+<a href=#1013 id=1013 data-nosnippet>1013</a>        | LibCall::Truncdfsf2
+<a href=#1014 id=1014 data-nosnippet>1014</a>        | LibCall::Fixsfsi
+<a href=#1015 id=1015 data-nosnippet>1015</a>        | LibCall::Fixdfsi
+<a href=#1016 id=1016 data-nosnippet>1016</a>        | LibCall::Fixsfdi
+<a href=#1017 id=1017 data-nosnippet>1017</a>        | LibCall::Fixdfdi
+<a href=#1018 id=1018 data-nosnippet>1018</a>        | LibCall::Fixunssfsi
+<a href=#1019 id=1019 data-nosnippet>1019</a>        | LibCall::Fixunsdfsi
+<a href=#1020 id=1020 data-nosnippet>1020</a>        | LibCall::Fixunssfdi
+<a href=#1021 id=1021 data-nosnippet>1021</a>        | LibCall::Fixunsdfdi
+<a href=#1022 id=1022 data-nosnippet>1022</a>        | LibCall::Floatsisf
+<a href=#1023 id=1023 data-nosnippet>1023</a>        | LibCall::Floatsidf
+<a href=#1024 id=1024 data-nosnippet>1024</a>        | LibCall::Floatdisf
+<a href=#1025 id=1025 data-nosnippet>1025</a>        | LibCall::Floatdidf
+<a href=#1026 id=1026 data-nosnippet>1026</a>        | LibCall::Floatunsisf
+<a href=#1027 id=1027 data-nosnippet>1027</a>        | LibCall::Floatunsidf
+<a href=#1028 id=1028 data-nosnippet>1028</a>        | LibCall::Floatundisf
+<a href=#1029 id=1029 data-nosnippet>1029</a>        | LibCall::Floatundidf
+<a href=#1030 id=1030 data-nosnippet>1030</a>        | LibCall::Unordsf2
+<a href=#1031 id=1031 data-nosnippet>1031</a>        | LibCall::Unorddf2
+<a href=#1032 id=1032 data-nosnippet>1032</a>        | LibCall::Eqsf2
+<a href=#1033 id=1033 data-nosnippet>1033</a>        | LibCall::Eqdf2
+<a href=#1034 id=1034 data-nosnippet>1034</a>        | LibCall::Nesf2
+<a href=#1035 id=1035 data-nosnippet>1035</a>        | LibCall::Nedf2
+<a href=#1036 id=1036 data-nosnippet>1036</a>        | LibCall::Gesf2
+<a href=#1037 id=1037 data-nosnippet>1037</a>        | LibCall::Gedf2
+<a href=#1038 id=1038 data-nosnippet>1038</a>        | LibCall::Ltsf2
+<a href=#1039 id=1039 data-nosnippet>1039</a>        | LibCall::Ltdf2
+<a href=#1040 id=1040 data-nosnippet>1040</a>        | LibCall::Lesf2
+<a href=#1041 id=1041 data-nosnippet>1041</a>        | LibCall::Ledf2
+<a href=#1042 id=1042 data-nosnippet>1042</a>        | LibCall::Gtsf2
+<a href=#1043 id=1043 data-nosnippet>1043</a>        | LibCall::Gtdf2) =&gt; {
+<a href=#1044 id=1044 data-nosnippet>1044</a>            <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
+<a href=#1045 id=1045 data-nosnippet>1045</a>            </span><span class="macro">unreachable!</span>(<span class="string">"soft-float libcalls are not reachable on wasm32"</span>);
+<a href=#1046 id=1046 data-nosnippet>1046</a>            <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#1047 id=1047 data-nosnippet>1047</a>            </span><span class="kw">match </span>_lc {
+<a href=#1048 id=1048 data-nosnippet>1048</a>                LibCall::Addsf3 =&gt; __addsf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1049 id=1049 data-nosnippet>1049</a>                LibCall::Adddf3 =&gt; __adddf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1050 id=1050 data-nosnippet>1050</a>                LibCall::Subsf3 =&gt; __subsf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1051 id=1051 data-nosnippet>1051</a>                LibCall::Subdf3 =&gt; __subdf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1052 id=1052 data-nosnippet>1052</a>                LibCall::Mulsf3 =&gt; __mulsf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1053 id=1053 data-nosnippet>1053</a>                LibCall::Muldf3 =&gt; __muldf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1054 id=1054 data-nosnippet>1054</a>                LibCall::Divsf3 =&gt; __divsf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1055 id=1055 data-nosnippet>1055</a>                LibCall::Divdf3 =&gt; __divdf3 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1056 id=1056 data-nosnippet>1056</a>                LibCall::Negsf2 =&gt; __negsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1057 id=1057 data-nosnippet>1057</a>                LibCall::Negdf2 =&gt; __negdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1058 id=1058 data-nosnippet>1058</a>                LibCall::Extendsfdf2 =&gt; __extendsfdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1059 id=1059 data-nosnippet>1059</a>                LibCall::Truncdfsf2 =&gt; __truncdfsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1060 id=1060 data-nosnippet>1060</a>                LibCall::Fixsfsi =&gt; __fixsfsi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1061 id=1061 data-nosnippet>1061</a>                LibCall::Fixdfsi =&gt; __fixdfsi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1062 id=1062 data-nosnippet>1062</a>                LibCall::Fixsfdi =&gt; __fixsfdi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1063 id=1063 data-nosnippet>1063</a>                LibCall::Fixdfdi =&gt; __fixdfdi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1064 id=1064 data-nosnippet>1064</a>                LibCall::Fixunssfsi =&gt; __fixunssfsi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1065 id=1065 data-nosnippet>1065</a>                LibCall::Fixunsdfsi =&gt; __fixunsdfsi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1066 id=1066 data-nosnippet>1066</a>                LibCall::Fixunssfdi =&gt; __fixunssfdi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1067 id=1067 data-nosnippet>1067</a>                LibCall::Fixunsdfdi =&gt; __fixunsdfdi <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1068 id=1068 data-nosnippet>1068</a>                LibCall::Floatsisf =&gt; __floatsisf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1069 id=1069 data-nosnippet>1069</a>                LibCall::Floatsidf =&gt; __floatsidf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1070 id=1070 data-nosnippet>1070</a>                LibCall::Floatdisf =&gt; __floatdisf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1071 id=1071 data-nosnippet>1071</a>                LibCall::Floatdidf =&gt; __floatdidf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1072 id=1072 data-nosnippet>1072</a>                LibCall::Floatunsisf =&gt; __floatunsisf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1073 id=1073 data-nosnippet>1073</a>                LibCall::Floatunsidf =&gt; __floatunsidf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1074 id=1074 data-nosnippet>1074</a>                LibCall::Floatundisf =&gt; __floatundisf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1075 id=1075 data-nosnippet>1075</a>                LibCall::Floatundidf =&gt; __floatundidf <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1076 id=1076 data-nosnippet>1076</a>                LibCall::Unordsf2 =&gt; __unordsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1077 id=1077 data-nosnippet>1077</a>                LibCall::Unorddf2 =&gt; __unorddf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1078 id=1078 data-nosnippet>1078</a>                LibCall::Eqsf2 =&gt; __eqsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1079 id=1079 data-nosnippet>1079</a>                LibCall::Eqdf2 =&gt; __eqdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1080 id=1080 data-nosnippet>1080</a>                LibCall::Nesf2 =&gt; __nesf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1081 id=1081 data-nosnippet>1081</a>                LibCall::Nedf2 =&gt; __nedf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1082 id=1082 data-nosnippet>1082</a>                LibCall::Gesf2 =&gt; __gesf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1083 id=1083 data-nosnippet>1083</a>                LibCall::Gedf2 =&gt; __gedf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1084 id=1084 data-nosnippet>1084</a>                LibCall::Ltsf2 =&gt; __ltsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1085 id=1085 data-nosnippet>1085</a>                LibCall::Ltdf2 =&gt; __ltdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1086 id=1086 data-nosnippet>1086</a>                LibCall::Lesf2 =&gt; __lesf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1087 id=1087 data-nosnippet>1087</a>                LibCall::Ledf2 =&gt; __ledf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1088 id=1088 data-nosnippet>1088</a>                LibCall::Gtsf2 =&gt; __gtsf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1089 id=1089 data-nosnippet>1089</a>                LibCall::Gtdf2 =&gt; __gtdf2 <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize,
+<a href=#1090 id=1090 data-nosnippet>1090</a>                <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(),
+<a href=#1091 id=1091 data-nosnippet>1091</a>            }
+<a href=#1092 id=1092 data-nosnippet>1092</a>        }
+<a href=#1093 id=1093 data-nosnippet>1093</a>    }
+<a href=#1094 id=1094 data-nosnippet>1094</a>}
+<a href=#1095 id=1095 data-nosnippet>1095</a>
+<a href=#1096 id=1096 data-nosnippet>1096</a><span class="comment">// Soft-float arithmetic routines. Provided by compiler-rt / libgcc on all non-wasm targets.
+<a href=#1097 id=1097 data-nosnippet>1097</a></span><span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#1098 id=1098 data-nosnippet>1098</a></span><span class="kw">unsafe extern </span><span class="string">"C" </span>{
+<a href=#1099 id=1099 data-nosnippet>1099</a>    <span class="comment">// --- f32/f64 arithmetic ---
+<a href=#1100 id=1100 data-nosnippet>1100</a>    </span><span class="kw">fn </span>__addsf3(a: f32, b: f32) -&gt; f32;
+<a href=#1101 id=1101 data-nosnippet>1101</a>    <span class="kw">fn </span>__adddf3(a: f64, b: f64) -&gt; f64;
+<a href=#1102 id=1102 data-nosnippet>1102</a>    <span class="kw">fn </span>__subsf3(a: f32, b: f32) -&gt; f32;
+<a href=#1103 id=1103 data-nosnippet>1103</a>    <span class="kw">fn </span>__subdf3(a: f64, b: f64) -&gt; f64;
+<a href=#1104 id=1104 data-nosnippet>1104</a>    <span class="kw">fn </span>__mulsf3(a: f32, b: f32) -&gt; f32;
+<a href=#1105 id=1105 data-nosnippet>1105</a>    <span class="kw">fn </span>__muldf3(a: f64, b: f64) -&gt; f64;
+<a href=#1106 id=1106 data-nosnippet>1106</a>    <span class="kw">fn </span>__divsf3(a: f32, b: f32) -&gt; f32;
+<a href=#1107 id=1107 data-nosnippet>1107</a>    <span class="kw">fn </span>__divdf3(a: f64, b: f64) -&gt; f64;
+<a href=#1108 id=1108 data-nosnippet>1108</a>    <span class="kw">fn </span>__negsf2(a: f32) -&gt; f32;
+<a href=#1109 id=1109 data-nosnippet>1109</a>    <span class="kw">fn </span>__negdf2(a: f64) -&gt; f64;
+<a href=#1110 id=1110 data-nosnippet>1110</a>    <span class="comment">// --- f32/f64 conversions ---
+<a href=#1111 id=1111 data-nosnippet>1111</a>    </span><span class="kw">fn </span>__extendsfdf2(a: f32) -&gt; f64;
+<a href=#1112 id=1112 data-nosnippet>1112</a>    <span class="kw">fn </span>__truncdfsf2(a: f64) -&gt; f32;
+<a href=#1113 id=1113 data-nosnippet>1113</a>    <span class="kw">fn </span>__fixsfsi(a: f32) -&gt; i32;
+<a href=#1114 id=1114 data-nosnippet>1114</a>    <span class="kw">fn </span>__fixdfsi(a: f64) -&gt; i32;
+<a href=#1115 id=1115 data-nosnippet>1115</a>    <span class="kw">fn </span>__fixsfdi(a: f32) -&gt; i64;
+<a href=#1116 id=1116 data-nosnippet>1116</a>    <span class="kw">fn </span>__fixdfdi(a: f64) -&gt; i64;
+<a href=#1117 id=1117 data-nosnippet>1117</a>    <span class="kw">fn </span>__fixunssfsi(a: f32) -&gt; u32;
+<a href=#1118 id=1118 data-nosnippet>1118</a>    <span class="kw">fn </span>__fixunsdfsi(a: f64) -&gt; u32;
+<a href=#1119 id=1119 data-nosnippet>1119</a>    <span class="kw">fn </span>__fixunssfdi(a: f32) -&gt; u64;
+<a href=#1120 id=1120 data-nosnippet>1120</a>    <span class="kw">fn </span>__fixunsdfdi(a: f64) -&gt; u64;
+<a href=#1121 id=1121 data-nosnippet>1121</a>    <span class="kw">fn </span>__floatsisf(i: i32) -&gt; f32;
+<a href=#1122 id=1122 data-nosnippet>1122</a>    <span class="kw">fn </span>__floatsidf(i: i32) -&gt; f64;
+<a href=#1123 id=1123 data-nosnippet>1123</a>    <span class="kw">fn </span>__floatdisf(i: i64) -&gt; f32;
+<a href=#1124 id=1124 data-nosnippet>1124</a>    <span class="kw">fn </span>__floatdidf(i: i64) -&gt; f64;
+<a href=#1125 id=1125 data-nosnippet>1125</a>    <span class="kw">fn </span>__floatunsisf(i: u32) -&gt; f32;
+<a href=#1126 id=1126 data-nosnippet>1126</a>    <span class="kw">fn </span>__floatunsidf(i: u32) -&gt; f64;
+<a href=#1127 id=1127 data-nosnippet>1127</a>    <span class="kw">fn </span>__floatundisf(i: u64) -&gt; f32;
+<a href=#1128 id=1128 data-nosnippet>1128</a>    <span class="kw">fn </span>__floatundidf(i: u64) -&gt; f64;
+<a href=#1129 id=1129 data-nosnippet>1129</a>    <span class="comment">// --- f32/f64 comparisons (return 0 / nonzero / negative per GCC ABI) ---
+<a href=#1130 id=1130 data-nosnippet>1130</a>    </span><span class="kw">fn </span>__unordsf2(a: f32, b: f32) -&gt; i32;
+<a href=#1131 id=1131 data-nosnippet>1131</a>    <span class="kw">fn </span>__unorddf2(a: f64, b: f64) -&gt; i32;
+<a href=#1132 id=1132 data-nosnippet>1132</a>    <span class="kw">fn </span>__eqsf2(a: f32, b: f32) -&gt; i32;
+<a href=#1133 id=1133 data-nosnippet>1133</a>    <span class="kw">fn </span>__eqdf2(a: f64, b: f64) -&gt; i32;
+<a href=#1134 id=1134 data-nosnippet>1134</a>    <span class="kw">fn </span>__nesf2(a: f32, b: f32) -&gt; i32;
+<a href=#1135 id=1135 data-nosnippet>1135</a>    <span class="kw">fn </span>__nedf2(a: f64, b: f64) -&gt; i32;
+<a href=#1136 id=1136 data-nosnippet>1136</a>    <span class="kw">fn </span>__gesf2(a: f32, b: f32) -&gt; i32;
+<a href=#1137 id=1137 data-nosnippet>1137</a>    <span class="kw">fn </span>__gedf2(a: f64, b: f64) -&gt; i32;
+<a href=#1138 id=1138 data-nosnippet>1138</a>    <span class="kw">fn </span>__ltsf2(a: f32, b: f32) -&gt; i32;
+<a href=#1139 id=1139 data-nosnippet>1139</a>    <span class="kw">fn </span>__ltdf2(a: f64, b: f64) -&gt; i32;
+<a href=#1140 id=1140 data-nosnippet>1140</a>    <span class="kw">fn </span>__lesf2(a: f32, b: f32) -&gt; i32;
+<a href=#1141 id=1141 data-nosnippet>1141</a>    <span class="kw">fn </span>__ledf2(a: f64, b: f64) -&gt; i32;
+<a href=#1142 id=1142 data-nosnippet>1142</a>    <span class="kw">fn </span>__gtsf2(a: f32, b: f32) -&gt; i32;
+<a href=#1143 id=1143 data-nosnippet>1143</a>    <span class="kw">fn </span>__gtdf2(a: f64, b: f64) -&gt; i32;
+<a href=#1144 id=1144 data-nosnippet>1144</a>}
 </code></pre></div></section></main></body></html>
