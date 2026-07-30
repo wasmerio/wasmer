@@ -358,14 +358,33 @@ impl MemoryMappedBinary {
         // Apply dynamic relocations for the libcalls
         if let Some(dynamic_relocations) = object_file.dynamic_relocations() {
             let dynamic_symbols = object_file.dynamic_symbol_table().unwrap();
+            let architecture = object_file.architecture();
 
             for (offset, relocation) in dynamic_relocations {
                 let rel_flags = relocation.flags();
                 if matches!(
-                    rel_flags,
-                    object::RelocationFlags::Elf {
-                        r_type: elf::R_X86_64_RELATIVE,
-                    }
+                    (architecture, rel_flags),
+                    (
+                        object::Architecture::X86_64,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_X86_64_RELATIVE,
+                        },
+                    ) | (
+                        object::Architecture::Aarch64,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_AARCH64_RELATIVE,
+                        },
+                    ) | (
+                        object::Architecture::Riscv64,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_RISCV_RELATIVE,
+                        },
+                    ) | (
+                        object::Architecture::LoongArch64,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_LARCH_RELATIVE,
+                        },
+                    )
                 ) {
                     unsafe {
                         ptr::write_unaligned(
@@ -393,18 +412,34 @@ impl MemoryMappedBinary {
                         function_pointer(libcall).wrapping_add(relocation.addend() as usize),
                     );
                 };
-                match (relocation.kind(), rel_flags) {
-                    (object::RelocationKind::Absolute, _) => apply_absolute_relocation(),
+                match (architecture, relocation.kind(), rel_flags) {
+                    (_, object::RelocationKind::Absolute, _) => apply_absolute_relocation(),
                     (
+                        object::Architecture::X86_64,
                         object::RelocationKind::Unknown,
                         object::RelocationFlags::Elf {
-                            r_type: elf::R_X86_64_GLOB_DAT,
+                            r_type: elf::R_X86_64_GLOB_DAT | elf::R_X86_64_JUMP_SLOT,
                         },
                     ) => apply_absolute_relocation(),
                     (
+                        object::Architecture::Aarch64,
                         object::RelocationKind::Unknown,
                         object::RelocationFlags::Elf {
-                            r_type: elf::R_X86_64_JUMP_SLOT,
+                            r_type: elf::R_AARCH64_GLOB_DAT | elf::R_AARCH64_JUMP_SLOT,
+                        },
+                    ) => apply_absolute_relocation(),
+                    (
+                        object::Architecture::Riscv64,
+                        object::RelocationKind::Unknown,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_RISCV_64 | elf::R_RISCV_JUMP_SLOT,
+                        },
+                    ) => apply_absolute_relocation(),
+                    (
+                        object::Architecture::LoongArch64,
+                        object::RelocationKind::Unknown,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_LARCH_64 | elf::R_LARCH_JUMP_SLOT,
                         },
                     ) => apply_absolute_relocation(),
                     kind => return Err(format!("unsupported dynamic relocation kind {kind:?}")),
