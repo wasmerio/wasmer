@@ -31,7 +31,7 @@ use wasmer_compiler::serialize::SerializableModule;
 use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
     types::{
         function::{FunctionBody, RkyvCompilation, UnwindInfo},
         module::CompileModuleInfo,
@@ -68,6 +68,7 @@ impl SinglepassCompiler {
         target: &Target,
         compile_info: &CompileModuleInfo,
         compile_info_blob: &[u8],
+        module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
@@ -107,6 +108,11 @@ impl SinglepassCompiler {
         let build_directory_path = build_directory.as_ref().map(|d| d.path());
 
         let module = &compile_info.module;
+        let source_map = Arc::new(if cfg!(feature = "experimental-artifact") {
+            WasmSourceMap::new(module, module_translation, &function_body_inputs)
+        } else {
+            WasmSourceMap::default()
+        });
         let total_function_call_trampolines = module.signatures.len() as u64;
         let total_dynamic_trampolines = module.num_imported_functions as u64;
         let total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
@@ -204,7 +210,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch, target, build_directory_path)
+                        generator.finalize(input, arch, target, build_directory_path, &source_map)
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new(Some(target.clone()));
@@ -225,7 +231,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch, target, build_directory_path)
+                        generator.finalize(input, arch, target, build_directory_path, &source_map)
                     }
                     Architecture::Riscv64(_) => {
                         let machine = MachineRiscv::new(
@@ -249,7 +255,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch, target, build_directory_path)
+                        generator.finalize(input, arch, target, build_directory_path, &source_map)
                     }
                     _ => unimplemented!(),
                 }?;
@@ -449,7 +455,7 @@ impl Compiler for SinglepassCompiler {
         target: &Target,
         compile_info: &CompileModuleInfo,
         compile_info_blob: &[u8],
-        _module_translation: &ModuleTranslationState,
+        module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
@@ -466,6 +472,7 @@ impl Compiler for SinglepassCompiler {
                 target,
                 compile_info,
                 compile_info_blob,
+                module_translation,
                 function_body_inputs,
                 progress_callback,
             )

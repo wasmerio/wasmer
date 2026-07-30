@@ -91,6 +91,10 @@ pub use crate::compiler::{
 pub mod dwarf;
 #[cfg(feature = "compiler")]
 pub mod elf;
+#[cfg(feature = "compiler")]
+mod source_map;
+#[cfg(feature = "compiler")]
+pub use source_map::{SourceLocation, WasmSourceMap};
 
 mod constants;
 pub use crate::constants::*;

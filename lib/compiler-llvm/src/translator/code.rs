@@ -1,5 +1,5 @@
 use std::num::NonZero;
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, sync::Arc};
 
 use super::{
     intrinsics::{
@@ -45,7 +45,7 @@ use wasmer_compiler::{
     GEF64_LEQ_I64_MAX, GEF64_LEQ_U32_MAX, GEF64_LEQ_U64_MAX, LEF32_GEQ_I32_MIN, LEF32_GEQ_I64_MIN,
     LEF32_GEQ_U32_MIN, LEF32_GEQ_U64_MIN, LEF64_GEQ_I32_MIN, LEF64_GEQ_I64_MIN, LEF64_GEQ_U32_MIN,
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
-    from_binaryreadererror_wasmerror,
+    WasmSourceMap, from_binaryreadererror_wasmerror,
     misc::{CompiledFunctionExt, CompiledKind},
     types::{
         relocation::RelocationTarget,
@@ -82,6 +82,7 @@ pub struct FuncTranslator {
     pointer_width: u8,
     cpu_features: EnumSet<CpuFeature>,
     non_volatile_memory_ops: bool,
+    source_map: Arc<WasmSourceMap>,
     wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
 }
 
@@ -95,6 +96,7 @@ impl FuncTranslator {
         pointer_width: u8,
         cpu_features: EnumSet<CpuFeature>,
         non_volatile_memory_ops: bool,
+        source_map: Arc<WasmSourceMap>,
         wasm_apply_data_relocs_fn_index: Option<FunctionIndex>,
     ) -> Result<Self, CompileError> {
         let abi_source_tm = target_machines
@@ -119,6 +121,7 @@ impl FuncTranslator {
             pointer_width,
             cpu_features,
             non_volatile_memory_ops,
+            source_map,
             wasm_apply_data_relocs_fn_index,
         })
     }
@@ -191,6 +194,7 @@ impl FuncTranslator {
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
         let debug_info = if cfg!(feature = "experimental-artifact") {
+            let source_location = self.source_map.first_in_function(function_body);
             let debug_metadata_version = self
                 .ctx
                 .i32_type()
@@ -206,11 +210,15 @@ impl FuncTranslator {
                 self.ctx.i32_type().const_int(4, false),
             );
 
+            let fallback_source_file = wasm_module.name();
+            let (source_file, source_directory) = source_location
+                .map(|location| (location.file.as_str(), location.directory.as_str()))
+                .unwrap_or((&fallback_source_file, "."));
             let (dibuilder, compile_unit) = module.create_debug_info_builder(
                 true,
                 DWARFSourceLanguage::C,
-                &wasm_module.name(),
-                ".",
+                source_file,
+                source_directory,
                 "wasmer",
                 true,
                 "",
@@ -230,7 +238,9 @@ impl FuncTranslator {
                 DIFlags::PUBLIC,
             );
             let function_name = wasm_module.get_function_name(func_index);
-            let start_line = (function_body.module_offset as u32).saturating_add(1);
+            let start_line = source_location
+                .map(|location| location.line)
+                .unwrap_or_else(|| (function_body.module_offset as u32).saturating_add(1));
             let subprogram = dibuilder.create_function(
                 compile_unit.as_debug_info_scope(),
                 &function_name,
@@ -435,14 +445,24 @@ impl FuncTranslator {
             let original_pos = reader.original_position() as u32;
             let op = reader.read_operator()?;
             if let Some((dibuilder, subprogram)) = debug_info.as_ref() {
-                let line = original_pos.saturating_add(1);
-                let loc = dibuilder.create_debug_location(
-                    &self.ctx,
-                    line,
-                    1,
-                    subprogram.as_debug_info_scope(),
-                    None,
-                );
+                let (line, column, scope) =
+                    if let Some(location) = self.source_map.get(original_pos as usize) {
+                        let file = dibuilder.create_file(&location.file, &location.directory);
+                        let block = dibuilder.create_lexical_block(
+                            subprogram.as_debug_info_scope(),
+                            file,
+                            location.line,
+                            location.column,
+                        );
+                        (location.line, location.column, block.as_debug_info_scope())
+                    } else {
+                        (
+                            original_pos.saturating_add(1),
+                            1,
+                            subprogram.as_debug_info_scope(),
+                        )
+                    };
+                let loc = dibuilder.create_debug_location(&self.ctx, line, column, scope, None);
                 fcg.builder.set_current_debug_location(loc);
             }
             fcg.translate_operator(op, pos)?;

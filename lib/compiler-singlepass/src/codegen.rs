@@ -30,7 +30,7 @@ use target_lexicon::Architecture;
 use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
 
 use wasmer_compiler::{
-    FunctionBodyData,
+    FunctionBodyData, WasmSourceMap,
     misc::CompiledKind,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
@@ -5964,6 +5964,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         arch: Architecture,
         target: &Target,
         build_directory: Option<&Path>,
+        source_map: &WasmSourceMap,
     ) -> Result<CompileOutput<(CompiledFunction, Option<UnwindFrame>)>, CompileError> {
         self.stack_offset -= RED_ZONE_SIZE;
 
@@ -6040,7 +6041,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         #[cfg(feature = "unwind")]
         if let Some(dwarf_state) = self.dwarf_state.as_mut() {
             for instruction in &address_map.instructions {
-                dwarf_state.add_row(instruction.code_offset as u64, instruction.srcloc);
+                dwarf_state.add_source_map_row(
+                    instruction.code_offset as u64,
+                    instruction.srcloc,
+                    source_map,
+                );
             }
         }
         let traps = self.machine.collect_trap_information();
