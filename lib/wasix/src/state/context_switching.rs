@@ -130,7 +130,10 @@ impl ContextSwitchingEnvironment {
             );
         }
 
-        if !store.engine().supports_async() {
+        // JSPI and Asyncify are alternative suspension mechanisms. Only use
+        // the asynchronous entrypoint when the backend supports it and the
+        // guest is not already instrumented to unwind its own stack.
+        if ctx.data(&store).will_use_asyncify() || !store.engine().supports_async() {
             let result = entrypoint.call(&mut store, &params);
             return (store, result);
         }
