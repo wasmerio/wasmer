@@ -206,7 +206,8 @@ async fn greenthread_switch(env: AsyncFunctionEnvMut<GreenEnv>, next_greenthread
 
 async fn run_greenthread_test(wat: &[u8], spawner: TestSpawner) -> Result<Vec<String>> {
     let mut store = Store::default();
-    let module = Module::new(&store.engine(), wat)?;
+    let wasm = wat::parse_bytes(wat)?;
+    let module = Module::new(&store.engine(), wasm)?;
 
     let env = FunctionEnv::new(&mut store, GreenEnv::new());
 
