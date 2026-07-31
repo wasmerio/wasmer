@@ -7,10 +7,13 @@ use crate::{
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
     import_object_for_all_wasi_versions,
-    os::task::{
-        control_plane::ControlPlaneError,
-        process::{WasiProcess, WasiProcessId},
-        thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
+    os::{
+        TtyBridge,
+        task::{
+            control_plane::ControlPlaneError,
+            process::{WasiProcess, WasiProcessId},
+            thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
+        },
     },
     state::PreparedInstanceGroupData,
     syscalls::platform_clock_time_get,
@@ -75,6 +78,7 @@ async fn write_readonly_buffer_to_fs(
 pub struct WasiEnvInit {
     pub(crate) state: WasiState,
     pub runtime: Arc<dyn Runtime + Send + Sync>,
+    pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     pub webc_dependencies: Vec<BinaryPackage>,
     pub mapped_commands: HashMap<String, PathBuf>,
     pub bin_factory: BinFactory,
@@ -131,6 +135,7 @@ impl WasiEnvInit {
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
+            tty: self.tty.clone(),
             webc_dependencies: self.webc_dependencies.clone(),
             mapped_commands: self.mapped_commands.clone(),
             bin_factory: self.bin_factory.clone(),
@@ -174,6 +179,8 @@ pub struct WasiEnv {
     pub owned_handles: Vec<WasiThreadHandle>,
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn Runtime + Send + Sync + 'static>,
+    /// Terminal state scoped to this process tree, overriding the runtime default.
+    pub tty: Option<Arc<dyn TtyBridge + Send + Sync + 'static>>,
 
     pub capabilities: Capabilities,
 
@@ -233,6 +240,7 @@ impl Clone for WasiEnv {
             inner: Default::default(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
+            tty: self.tty.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
@@ -275,6 +283,7 @@ impl WasiEnv {
             inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
+            tty: self.tty.clone(),
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
@@ -442,6 +451,7 @@ impl WasiEnv {
                 .threading
                 .enable_exponential_cpu_backoff,
             runtime: init.runtime,
+            tty: init.tty,
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
@@ -662,6 +672,11 @@ impl WasiEnv {
     /// Returns a copy of the current runtime implementation for this environment
     pub fn runtime(&self) -> &(dyn Runtime + Send + Sync) {
         self.runtime.deref()
+    }
+
+    /// Returns the process-tree terminal, falling back to the runtime default.
+    pub fn tty(&self) -> Option<&(dyn TtyBridge + Send + Sync)> {
+        self.tty.as_deref().or_else(|| self.runtime.tty())
     }
 
     /// Returns a copy of the current tasks implementation for this environment
