@@ -3249,7 +3249,7 @@ checksum = "0c6639b70a7ce854b79c70d7e83f16b5dc0137cc914f3d7d03803b513ecc67ac"
 [[package]]
 name = "libwild"
 version = "0.9.0"
-source = "git+https://github.com/wild-linker/wild.git?rev=8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522#8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522"
+source = "git+https://github.com/wild-linker/wild.git?rev=7e1f21f80bf092d446d0e1e5450313a9bb7acfed#7e1f21f80bf092d446d0e1e5450313a9bb7acfed"
 dependencies = [
  "anyhow",
  "atomic-take",
@@ -3297,8 +3297,8 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "uuid",
- "wasm-encoder 0.252.0",
- "wasmparser 0.252.0",
+ "wasm-encoder 0.255.0",
+ "wasmparser 0.255.0",
  "winnow 1.0.4",
  "zerocopy",
  "zlib-rs",
@@ -3322,7 +3322,7 @@ dependencies = [
 [[package]]
 name = "linker-layout"
 version = "0.9.0"
-source = "git+https://github.com/wild-linker/wild.git?rev=8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522#8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522"
+source = "git+https://github.com/wild-linker/wild.git?rev=7e1f21f80bf092d446d0e1e5450313a9bb7acfed#7e1f21f80bf092d446d0e1e5450313a9bb7acfed"
 dependencies = [
  "anyhow",
  "postcard",
@@ -3332,7 +3332,7 @@ dependencies = [
 [[package]]
 name = "linker-trace"
 version = "0.9.0"
-source = "git+https://github.com/wild-linker/wild.git?rev=8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522#8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522"
+source = "git+https://github.com/wild-linker/wild.git?rev=7e1f21f80bf092d446d0e1e5450313a9bb7acfed#7e1f21f80bf092d446d0e1e5450313a9bb7acfed"
 dependencies = [
  "anyhow",
  "postcard",
@@ -3342,7 +3342,7 @@ dependencies = [
 [[package]]
 name = "linker-utils"
 version = "0.9.0"
-source = "git+https://github.com/wild-linker/wild.git?rev=8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522#8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522"
+source = "git+https://github.com/wild-linker/wild.git?rev=7e1f21f80bf092d446d0e1e5450313a9bb7acfed#7e1f21f80bf092d446d0e1e5450313a9bb7acfed"
 dependencies = [
  "anyhow",
  "leb128",
@@ -7178,21 +7178,21 @@ dependencies = [
 
 [[package]]
 name = "wasm-encoder"
-version = "0.252.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8185ae345fa5687c054626ff9a50e7089797a343d9904d1dc9820eb4c4d3196f"
-dependencies = [
- "leb128fmt",
-]
-
-[[package]]
-name = "wasm-encoder"
 version = "0.254.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09480d646178e5fdd12bb06e812d0af9a3a191dbc9cd697fdc86687beade7393"
 dependencies = [
  "leb128fmt",
  "wasmparser 0.254.0",
+]
+
+[[package]]
+name = "wasm-encoder"
+version = "0.255.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9b524283fb5df62eec102ed0574838961bdd7ba5ac9c50d38e2756c51c971a42"
+dependencies = [
+ "leb128fmt",
 ]
 
 [[package]]
@@ -8084,17 +8084,6 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.252.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d3eb099dcadcde5be9eef55e3a337128efd4e44b4c93122487e4d2e4e1c6627c"
-dependencies = [
- "bitflags 2.13.1",
- "hashbrown 0.17.1",
- "indexmap",
-]
-
-[[package]]
-name = "wasmparser"
 version = "0.254.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d5769a29f799fbab136aaf65b4fe5384cd7d93fe6fc9ba0dcb6c8382a1f16e27"
@@ -8102,6 +8091,17 @@ dependencies = [
  "bitflags 2.13.1",
  "indexmap",
  "semver 1.0.28",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.255.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8e329ef4b5d46e73b91d3ac6924417cad55a8cbbf869c199283383427c3320b"
+dependencies = [
+ "bitflags 2.13.1",
+ "hashbrown 0.17.1",
+ "indexmap",
 ]
 
 [[package]]

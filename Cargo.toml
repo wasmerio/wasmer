@@ -331,7 +331,7 @@ windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
 zip = { version = "8.1.0", default-features = false }
-libwild = { git = "https://github.com/wild-linker/wild.git", rev = "8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522", default-features = false }
+libwild = { git = "https://github.com/wild-linker/wild.git", rev = "7e1f21f80bf092d446d0e1e5450313a9bb7acfed", default-features = false }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

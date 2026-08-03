@@ -557,31 +557,27 @@ impl FileSystem for InMemoryFileSystem {
         Ok((InMemoryInput(bytes), None))
     }
 
-    fn file_type(&self, path: &Path) -> std::io::Result<FileType> {
+    fn file_type(&self, path: &Path) -> error::Result<FileType> {
         self.files
             .lock()
             .unwrap()
             .contains_key(path)
             .then_some(FileType::File)
-            .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::NotFound, "no such in-memory file")
-            })
+            .ok_or_else(|| error!("no such in-memory file"))
     }
 
-    fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+    fn canonicalize(&self, path: &Path) -> error::Result<PathBuf> {
         Ok(path.to_path_buf())
     }
-    fn remove_file(&self, path: &Path) -> std::io::Result<()> {
+    fn remove_file(&self, path: &Path) -> error::Result<()> {
         self.files
             .lock()
             .unwrap()
             .remove(path)
             .map(|_| ())
-            .ok_or_else(|| {
-                std::io::Error::new(std::io::ErrorKind::NotFound, "no such in-memory file")
-            })
+            .ok_or_else(|| error!("no such in-memory file"))
     }
-    fn rename_file(&self, path: &Path, new_path: &Path) -> std::io::Result<()> {
+    fn rename_file(&self, path: &Path, new_path: &Path) -> error::Result<()> {
         let mut files = self.files.lock().unwrap();
         let bytes = files.remove(path).ok_or_else(|| {
             std::io::Error::new(std::io::ErrorKind::NotFound, "no such in-memory file")
