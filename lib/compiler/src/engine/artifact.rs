@@ -3,7 +3,7 @@
 
 use std::{
     fs::File,
-    io::{BufReader, Write},
+    io::BufReader,
     mem::size_of,
     path::{Path, PathBuf},
     sync::{
@@ -487,11 +487,7 @@ impl Artifact {
             }
             Self::allocate_elf_artifact_from_path(engine_inner, module_info, module_file)?
         } else if let Some(elf_file_data) = elf_file_data {
-            let mut module_file = tempfile::NamedTempFile::new()?;
-            module_file.write_all(elf_file_data)?;
-            module_file.flush()?;
-            let module_file_path = module_file.keep().map_err(|error| error.error)?.1;
-            Self::allocate_elf_artifact_from_path(engine_inner, module_info, &module_file_path)?
+            Self::allocate_elf_artifact(engine_inner, module_info, elf_file_data)?
         } else {
             let (
                 finished_functions,
@@ -795,6 +791,28 @@ impl Artifact {
         }
 
         Ok(artifact)
+    }
+
+    /// Build an [`AllocatedArtifact`] from a compiled native ELF image.
+    ///
+    /// Note that, unlike [`Self::allocate_elf_artifact_from_path`], no debugger
+    /// command file is registered here: the image only exists in memory, so
+    /// there is no path a debugger could load symbols from.
+    fn allocate_elf_artifact(
+        engine_inner: &mut EngineInner,
+        module_info: &ModuleInfo,
+        elf_file_data: &[u8],
+    ) -> Result<AllocatedArtifact, DeserializeError> {
+        let image = object::File::parse(elf_file_data)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
+        let base = engine_inner.map_elf_binary(&image, elf_file_data)?;
+        Self::allocate_elf_artifact_from_image(
+            engine_inner,
+            module_info,
+            &image,
+            base,
+            DebugInfoSource::Bytes(Arc::from(elf_file_data)),
+        )
     }
 
     #[cfg(unix)]
