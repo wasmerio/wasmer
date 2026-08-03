@@ -84,6 +84,9 @@ use thiserror::Error;
 pub use wasmer;
 pub use wasmer_wasix_types;
 
+#[cfg(feature = "memory64")]
+#[allow(unused_imports, reason = "used by namespace! expansions")]
+use wasmer::Memory64;
 use wasmer::{
     AsStoreMut, Exports, FunctionEnv, Imports, Memory32, MemoryAccessError, MemorySize,
     RuntimeError, imports, namespace,
@@ -657,6 +660,7 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     namespace
 }
 
+#[cfg(feature = "memory64")]
 fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>) -> Exports {
     let engine_supports_async = store.as_store_ref().engine().supports_async();
 
@@ -817,7 +821,6 @@ fn import_object_for_all_wasi_versions(
     let exports_wasi_unstable = wasi_unstable_exports(store, env);
     let exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
     let exports_wasix_32v1 = wasix_exports_32(store, env);
-    let exports_wasix_64v1 = wasix_exports_64(store, env);
 
     // Allowed due to JS feature flag complications.
     #[allow(unused_mut)]
@@ -826,8 +829,15 @@ fn import_object_for_all_wasi_versions(
         "wasi_unstable" => exports_wasi_unstable,
         "wasi_snapshot_preview1" => exports_wasi_snapshot_preview1,
         "wasix_32v1" => exports_wasix_32v1,
-        "wasix_64v1" => exports_wasix_64v1,
     };
+
+    #[cfg(feature = "memory64")]
+    {
+        let exports_wasix_64v1 = wasix_exports_64(store, env);
+        imports.extend(&imports! {
+            "wasix_64v1" => exports_wasix_64v1,
+        });
+    }
 
     imports
 }
@@ -864,6 +874,7 @@ fn generate_import_object_wasix32_v1(
     }
 }
 
+#[cfg(feature = "memory64")]
 fn generate_import_object_wasix64_v1(
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
@@ -872,6 +883,14 @@ fn generate_import_object_wasix64_v1(
     imports! {
         "wasix_64v1" => exports_wasix_64v1
     }
+}
+
+#[cfg(not(feature = "memory64"))]
+fn generate_import_object_wasix64_v1(
+    _store: &mut impl AsStoreMut,
+    _env: &FunctionEnv<WasiEnv>,
+) -> Imports {
+    Imports::new()
 }
 
 fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
