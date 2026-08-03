@@ -10,7 +10,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasmer-package = { workspace = true, features = ["webc-v3"] }
+wasmer-package = { workspace = true, features = ["execution", "webc-v3"] }
 virtual-mio = { path = "../virtual-io", version = "0.702.1", default-features = false }
 dashmap.workspace = true
 derive_more.workspace = true

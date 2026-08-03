@@ -11,7 +11,7 @@ use http::{HeaderMap, Method};
 use tempfile::NamedTempFile;
 use url::Url;
 use wasmer_package::{
-    package::WasmerPackageError,
+    WasmerPackageError,
     utils::{from_bytes, from_disk},
 };
 use webc::DetectError;

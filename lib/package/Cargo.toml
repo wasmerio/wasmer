@@ -14,26 +14,26 @@ rust-version.workspace = true
 
 [dependencies]
 webc.workspace = true
-wasmer-config = { version = "0.702.1", path = "../config" }
-wasmer-types = { version = "7.2.1", path = "../types", features = [
+wasmer-config = { version = "0.702.1", path = "../config", optional = true }
+wasmer-types = { version = "7.2.1", path = "../types", optional = true, features = [
   "detect-wasm-features",
 ] }
-toml.workspace = true
-bytes.workspace = true
-sha2.workspace = true
-shared-buffer.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-anyhow.workspace = true
+toml = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+shared-buffer = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+anyhow = { workspace = true, optional = true }
 thiserror.workspace = true
-cfg-if.workspace = true
-ciborium.workspace = true
-semver.workspace = true
-url.workspace = true
-flate2.workspace = true
-tar.workspace = true
-tempfile.workspace = true
-ignore.workspace = true
+cfg-if = { workspace = true, optional = true }
+ciborium = { workspace = true, optional = true }
+semver = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
+flate2 = { workspace = true, optional = true }
+tar = { workspace = true, optional = true }
+tempfile = { workspace = true, optional = true }
+ignore = { workspace = true, optional = true }
 
 [target.'cfg(all(target_family = "wasm", target_os = "wasi"))'.dependencies]
 libc.workspace = true
@@ -47,7 +47,26 @@ ureq.workspace = true
 hexdump.workspace = true
 
 [features]
-default = ["webc-v3"]
+default = ["execution", "authoring", "webc-v3"]
+execution = ["dep:bytes", "dep:wasmer-types"]
+authoring = [
+  "execution",
+  "dep:anyhow",
+  "dep:cfg-if",
+  "dep:ciborium",
+  "dep:flate2",
+  "dep:ignore",
+  "dep:semver",
+  "dep:serde",
+  "dep:serde_json",
+  "dep:sha2",
+  "dep:shared-buffer",
+  "dep:tar",
+  "dep:tempfile",
+  "dep:toml",
+  "dep:url",
+  "dep:wasmer-config",
+]
 webc-v1 = ["webc/v1"]
 webc-v2 = ["webc/v2"]
 webc-v3 = ["webc/v3"]

@@ -20,7 +20,7 @@ harness = false
 required-features = ["sys-thread"]
 
 [dependencies]
-wasmer-package = { workspace = true, default-features = false, features = ["webc-v3"] }
+wasmer-package = { workspace = true, default-features = false, features = ["execution", "webc-v3"] }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.702.1", features = [
   "enable-serde",
 ] }
@@ -212,6 +212,7 @@ ctrlc = ["tokio/signal"]
 # the minimal sys implementation
 sys-minimal = ["wasmer/sys", "sys-thread", "tokio/fs"]
 sys = [
+  "package-authoring",
   "webc/mmap",
   "time",
   "virtual-mio/sys",
@@ -236,6 +237,7 @@ sys = [
   "webc/v1",
   "webc/v2",
 ]
+package-authoring = ["wasmer-package/authoring"]
 sys-default = ["sys"]
 sys-poll = []
 extra-logging = []
