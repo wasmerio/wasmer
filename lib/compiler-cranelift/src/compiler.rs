@@ -740,6 +740,10 @@ impl Compiler for CraneliftCompiler {
         self.config.enable_perfmap
     }
 
+    fn get_debugger(&self) -> Option<wasmer_compiler::Debugger> {
+        self.config.debugger
+    }
+
     fn deterministic_id(&self) -> String {
         String::from("cranelift")
     }

@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::engine::builder::EngineBuilder;
 #[cfg(feature = "compiler")]
-use crate::{Compiler, CompilerConfig};
+use crate::{Compiler, CompilerConfig, Debugger};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::CompilationProgressCallback;
@@ -586,13 +586,66 @@ impl EngineInner {
         &mut self,
         object_file: &object::File<'a, R>,
         file: RawFd,
-        path: &Path,
     ) -> Result<*mut c_void, CompileError> {
-        let map = MemoryMappedBinary::try_from_file(object_file, file, path)
-            .map_err(CompileError::Resource)?;
+        let map =
+            MemoryMappedBinary::try_from_file(object_file, file).map_err(CompileError::Resource)?;
         let base = map.base();
         self.elf_mapped_binary.push(map);
         Ok(base)
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), unix, feature = "compiler"))]
+    pub(crate) fn debugger(&self) -> Option<Debugger> {
+        self.compiler
+            .as_ref()
+            .and_then(|compiler| compiler.get_debugger())
+    }
+
+    #[cfg(all(not(target_arch = "wasm32"), unix, feature = "compiler"))]
+    pub(crate) fn register_debugger(
+        &self,
+        path: &Path,
+        base: *mut c_void,
+        debugger: Debugger,
+    ) -> Result<(), CompileError> {
+        use std::io::Write as _;
+
+        let path = path
+            .canonicalize()
+            .unwrap_or_else(|_| path.to_path_buf())
+            .to_string_lossy()
+            .replace('\\', "\\\\")
+            .replace('"', "\\\"");
+        let (command, source_command) = match debugger {
+            Debugger::Gdb => (
+                format!("add-symbol-file \"{path}\" -o 0x{:x}", base as usize),
+                "source",
+            ),
+            Debugger::Lldb => (
+                format!(
+                    "target modules add \"{path}\"\ntarget modules load --file \"{path}\" --slide 0x{:x}",
+                    base as usize
+                ),
+                "command source",
+            ),
+        };
+        let filename = format!(
+            "/tmp/wasmer-{}.{}",
+            debugger.to_string().to_lowercase(),
+            std::process::id()
+        );
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&filename)
+            .map_err(|error| CompileError::Resource(format!("Cannot open {filename}: {error}")))?;
+        writeln!(file, "{command}")
+            .map_err(|error| CompileError::Resource(format!("Cannot write {filename}: {error}")))?;
+
+        eprintln!("**************************");
+        eprintln!("For debugging under {debugger}, use: {source_command} {filename}");
+        eprintln!("**************************");
+        Ok(())
     }
 
     /// Register DWARF-type exception handling information associated with the code.

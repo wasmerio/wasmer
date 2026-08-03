@@ -183,6 +183,10 @@ impl Compiler for LLVMCompiler {
         self.config.enable_perfmap
     }
 
+    fn get_debugger(&self) -> Option<wasmer_compiler::Debugger> {
+        self.config.debugger
+    }
+
     fn deterministic_id(&self) -> String {
         format!(
             "llvm-{}{}",

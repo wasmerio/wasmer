@@ -440,6 +440,10 @@ impl Compiler for SinglepassCompiler {
         "singlepass"
     }
 
+    fn get_debugger(&self) -> Option<wasmer_compiler::Debugger> {
+        self.config.debugger
+    }
+
     fn deterministic_id(&self) -> String {
         String::from("singlepass")
     }

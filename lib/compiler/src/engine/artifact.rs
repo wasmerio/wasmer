@@ -832,7 +832,11 @@ impl Artifact {
                 "file-backed Artifact is not ELF".to_string(),
             ));
         }
-        let base = engine_inner.map_elf_binary_file(&image, fd, path)?;
+        let base = engine_inner.map_elf_binary_file(&image, fd)?;
+        #[cfg(feature = "compiler")]
+        if let Some(debugger) = engine_inner.debugger() {
+            engine_inner.register_debugger(path, base, debugger)?;
+        }
         Self::allocate_elf_artifact_from_image(
             engine_inner,
             module_info,
