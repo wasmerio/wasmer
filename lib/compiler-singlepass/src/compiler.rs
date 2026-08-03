@@ -6,7 +6,7 @@ use crate::codegen::FuncGen;
 use crate::config::{self, Singlepass};
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-use crate::elf::{self, CompileOutput, compile_output_in_memory, compile_output_paths};
+use crate::elf::{self, CompileOutput, compile_output_in_memory, compile_output_objects};
 use crate::machine::Machine;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
@@ -23,7 +23,6 @@ use gimli::write::{EhFrame, FrameTable, Writer};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tempfile::tempdir;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::progress::ProgressContext;
@@ -97,15 +96,6 @@ impl SinglepassCompiler {
             },
         };
 
-        let build_directory = cfg!(feature = "experimental-artifact")
-            .then(|| {
-                tempdir().map_err(|e| {
-                    CompileError::Codegen(format!("cannot create temporary build directory: {e}"))
-                })
-            })
-            .transpose()?;
-        let build_directory_path = build_directory.as_ref().map(|d| d.path());
-
         let module = &compile_info.module;
         let total_function_call_trampolines = module.signatures.len() as u64;
         let total_dynamic_trampolines = module.num_imported_functions as u64;
@@ -157,7 +147,6 @@ impl SinglepassCompiler {
                     &module.signatures[module.functions[i]],
                     target,
                     calling_convention,
-                    build_directory_path,
                 )
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
@@ -204,7 +193,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch, target, build_directory_path)
+                        generator.finalize(input, arch, target)
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new(Some(target.clone()));
@@ -225,7 +214,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch, target, build_directory_path)
+                        generator.finalize(input, arch, target)
                     }
                     Architecture::Riscv64(_) => {
                         let machine = MachineRiscv::new(
@@ -249,7 +238,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch, target, build_directory_path)
+                        generator.finalize(input, arch, target)
                     }
                     _ => unimplemented!(),
                 }?;
@@ -282,12 +271,7 @@ impl SinglepassCompiler {
                         func_type,
                         target,
                         calling_convention,
-                        cfg!(feature = "experimental-artifact").then(|| {
-                            (
-                                build_directory_path.expect("experimental-artifact enabled"),
-                                &kind,
-                            )
-                        }),
+                        cfg!(feature = "experimental-artifact").then_some(&kind),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
                         && let CompileOutput::InMemory(body) = &body
@@ -326,12 +310,7 @@ impl SinglepassCompiler {
                         &func_type,
                         target,
                         calling_convention,
-                        cfg!(feature = "experimental-artifact").then(|| {
-                            (
-                                build_directory_path.expect("experimental-artifact enabled"),
-                                &kind,
-                            )
-                        }),
+                        cfg!(feature = "experimental-artifact").then_some(&kind),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
                         && let CompileOutput::InMemory(body) = &body
@@ -354,22 +333,18 @@ impl SinglepassCompiler {
             .collect::<Result<Vec<_>, _>>()?;
 
         if cfg!(feature = "experimental-artifact") {
-            let object_files = compile_output_paths(functions);
-            let import_trampoline_objects = compile_output_paths(import_trampolines);
-            let trampoline_objects = compile_output_paths(function_call_trampolines);
-            let dynamic_trampoline_objects = compile_output_paths(dynamic_function_trampolines);
+            let object_files = compile_output_objects(functions);
+            let import_trampoline_objects = compile_output_objects(import_trampolines);
+            let trampoline_objects = compile_output_objects(function_call_trampolines);
+            let dynamic_trampoline_objects = compile_output_objects(dynamic_function_trampolines);
 
             return elf::link_module(
                 target,
                 compile_info_blob,
-                build_directory
-                    .as_ref()
-                    .expect("ensured by experimental-artifact")
-                    .path(),
-                &object_files,
-                &import_trampoline_objects,
-                &trampoline_objects,
-                &dynamic_trampoline_objects,
+                object_files,
+                import_trampoline_objects,
+                trampoline_objects,
+                dynamic_trampoline_objects,
                 self.config
                     .callbacks
                     .as_ref()
