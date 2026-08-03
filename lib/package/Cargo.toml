@@ -45,3 +45,9 @@ tempfile.workspace = true
 regex.workspace = true
 ureq.workspace = true
 hexdump.workspace = true
+
+[features]
+default = ["webc-v3"]
+webc-v1 = ["webc/v1"]
+webc-v2 = ["webc/v2"]
+webc-v3 = ["webc/v3"]
