@@ -85,13 +85,13 @@ version = "7.3.0"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.703.0", path = "lib/package" }
+wasmer-package = { version = "0.703.0", path = "lib/package", default-features = false }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
 
 # Wasmer-owned crates
-webc = "=12.0.1"
+webc = { version = "=12.0.1", default-features = false }
 shared-buffer = "0.1.4"
 loupe = "0.2.0"
 
@@ -118,6 +118,7 @@ bytesize = "2.3.1"
 cargo_metadata = "0.23.1"
 cbindgen = { version = "0.29", default-features = false }
 cc = "1.2.47"
+cfg-if = "1.0"
 chrono = { version = "0.4.38", default-features = false }
 ciborium = "0.2.2"
 clap = { version = "4.5.53", default-features = false }

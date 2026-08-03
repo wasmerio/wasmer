@@ -7766,6 +7766,7 @@ version = "0.703.0"
 dependencies = [
  "anyhow",
  "bytes",
+ "cfg-if",
  "ciborium",
  "flate2",
  "hexdump",

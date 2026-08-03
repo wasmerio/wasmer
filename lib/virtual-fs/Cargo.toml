@@ -10,7 +10,7 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasmer-package.workspace = true
+wasmer-package = { workspace = true, features = ["webc-v3"] }
 virtual-mio = { path = "../virtual-io", version = "0.703.0", default-features = false }
 dashmap.workspace = true
 derive_more.workspace = true
@@ -35,7 +35,7 @@ tokio = { workspace = true, features = [
   "macros",
 ], default-features = false }
 tracing = { workspace = true, default-features = true }
-webc = { workspace = true, optional = true, features = ["v1"] }
+webc = { workspace = true, optional = true }
 serde = { workspace = true, default-features = false, features = [
   "derive",
 ], optional = true }
@@ -61,8 +61,8 @@ host-fs = [
   "tokio/io-std",
   "tokio/rt",
 ]
-webc-fs = ["webc", "anyhow"]
-static-fs = ["webc", "anyhow"]
+webc-fs = ["webc", "webc/v3", "anyhow"]
+static-fs = ["webc", "webc/v1", "anyhow"]
 # Deprecated feature (a compile-time warning reported if used).
 enable-serde = []
 js = ["dep:web-time", "getrandom/wasm_js"]
