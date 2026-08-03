@@ -20,7 +20,7 @@ harness = false
 required-features = ["sys-thread"]
 
 [dependencies]
-wasmer-package.workspace = true
+wasmer-package = { workspace = true, default-features = false, features = ["webc-v3"] }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.704.0", features = [
   "enable-serde",
 ] }
@@ -42,7 +42,7 @@ http.workspace = true
 dashmap.workspace = true
 fnv.workspace = true
 base64.workspace = true
-webc.workspace = true
+webc = { workspace = true, features = ["v3"] }
 serde_yaml.workspace = true
 rkyv.workspace = true
 shared-buffer.workspace = true
@@ -236,6 +236,11 @@ sys = [
   "wasmer/demangle",
   # We must ensure at least one compiler backend (or `headless`) is enabled for `wasmer/sys`.
   "wasmer/headless",
+  "memory64",
+  "wasmer-package/webc-v1",
+  "wasmer-package/webc-v2",
+  "webc/v1",
+  "webc/v2",
 ]
 sys-default = ["sys"]
 sys-poll = []
@@ -245,6 +250,9 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
 compiler = []
+
+# Enables the `wasix_64v1` ABI and its 64-bit syscall implementations.
+memory64 = []
 
 singlepass = ["wasmer/singlepass"]
 v8 = ["wasmer/v8"]
