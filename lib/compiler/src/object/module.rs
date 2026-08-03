@@ -71,7 +71,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object<'static>, ObjectE
     if let Architecture::Riscv64(_) = triple.architecture {
         object.flags = FileFlags::Elf {
             e_flags: elf::EF_RISCV_FLOAT_ABI_DOUBLE,
-            os_abi: 2,
+            os_abi: elf::OsAbi(2),
             abi_version: 0,
         };
     }
