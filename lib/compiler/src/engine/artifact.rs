@@ -797,24 +797,6 @@ impl Artifact {
         Ok(artifact)
     }
 
-    /// Build an [`AllocatedArtifact`] from a compiled native ELF image.
-    fn allocate_elf_artifact(
-        engine_inner: &mut EngineInner,
-        module_info: &ModuleInfo,
-        elf_file_data: &[u8],
-    ) -> Result<AllocatedArtifact, DeserializeError> {
-        let image = object::File::parse(elf_file_data)
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("cannot parse image: {e}")))?;
-        let base = engine_inner.map_elf_binary(&image, elf_file_data)?;
-        Self::allocate_elf_artifact_from_image(
-            engine_inner,
-            module_info,
-            &image,
-            base,
-            DebugInfoSource::Bytes(Arc::from(elf_file_data)),
-        )
-    }
-
     #[cfg(unix)]
     fn allocate_elf_artifact_from_path(
         engine_inner: &mut EngineInner,

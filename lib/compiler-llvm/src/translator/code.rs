@@ -89,6 +89,7 @@ pub struct FuncTranslator {
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
 
 impl FuncTranslator {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         target_triple: Triple,
         target_machines: HashMap<OptimizationStyle, TargetMachine>,

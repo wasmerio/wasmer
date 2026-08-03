@@ -251,16 +251,6 @@ unsafe impl Sync for MemoryMappedBinary {}
 
 #[cfg(unix)]
 impl MemoryMappedBinary {
-    /// Maps `object_file`'s load segments into a freshly allocated, private
-    /// virtual address range, copying segment bytes out of the in-memory
-    /// `data` buffer (rather than mapping a file directly).
-    pub(crate) fn try_from_bytes<'a, R: ReadRef<'a>>(
-        object_file: &object::File<'a, R>,
-        data: &[u8],
-    ) -> Result<Self, String> {
-        Self::try_from_source(object_file, Some(data), None)
-    }
-
     /// Maps an ELF image's load segments directly from an open file.
     pub(crate) fn try_from_file<'a, R: ReadRef<'a>>(
         object_file: &object::File<'a, R>,

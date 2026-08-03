@@ -564,22 +564,6 @@ impl EngineInner {
         Ok(())
     }
 
-    /// Memory-map a compiled ELF artifact image, keeping the mapping alive
-    /// for the lifetime of the engine. Returns the base address of the
-    /// mapping, which section/symbol offsets from the image are relative to.
-    #[cfg(not(target_arch = "wasm32"))]
-    pub(crate) fn map_elf_binary<'a, R: object::ReadRef<'a>>(
-        &mut self,
-        object_file: &object::File<'a, R>,
-        data: &[u8],
-    ) -> Result<*mut c_void, CompileError> {
-        let map = MemoryMappedBinary::try_from_bytes(object_file, data)
-            .map_err(CompileError::Resource)?;
-        let base = map.base();
-        self.elf_mapped_binary.push(map);
-        Ok(base)
-    }
-
     /// Memory-map a compiled ELF artifact directly from a file.
     #[cfg(all(not(target_arch = "wasm32"), unix))]
     pub(crate) fn map_elf_binary_file<'a, R: object::ReadRef<'a>>(
