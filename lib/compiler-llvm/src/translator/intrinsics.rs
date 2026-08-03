@@ -253,7 +253,6 @@ pub struct Intrinsics<'ctx> {
     pub func_ref: FunctionValue<'ctx>,
     pub elem_drop: FunctionValue<'ctx>,
     pub memory_copy: FunctionValue<'ctx>,
-    pub imported_memory_copy: FunctionValue<'ctx>,
     pub memory_fill: FunctionValue<'ctx>,
     pub imported_memory_fill: FunctionValue<'ctx>,
     pub memory_size_ty: FunctionType<'ctx>,
@@ -1096,19 +1095,6 @@ impl<'ctx> Intrinsics<'ctx> {
                     &[
                         ctx_ptr_ty_basic_md,
                         i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                        i32_ty_basic_md,
-                    ],
-                    false,
-                ),
-                None,
-            ),
-            imported_memory_copy: add_function_with_attrs(
-                "wasmer_vm_imported_memory32_copy",
-                void_ty.fn_type(
-                    &[
-                        ctx_ptr_ty_basic_md,
                         i32_ty_basic_md,
                         i32_ty_basic_md,
                         i32_ty_basic_md,

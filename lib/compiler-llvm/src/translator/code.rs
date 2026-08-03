@@ -1718,7 +1718,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr = if let Some(m0) = self.m0_param {
+        let base_ptr = if let (0, Some(m0)) = (memory_index.as_u32(), self.m0_param) {
             m0
         } else {
             match self
@@ -10623,32 +10623,50 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::from_u32(mem);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(mem, |index| index.as_u32());
                 let delta = self.state.pop1()?;
                 let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics)?;
-                let grow = err!(self.builder.build_indirect_call(
-                    self.intrinsics.memory_grow_ty,
-                    grow_fn_ptr,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        delta.into(),
-                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
-                    ],
-                    "",
-                ));
+                let grow = err!(
+                    self.builder.build_indirect_call(
+                        self.intrinsics.memory_grow_ty,
+                        grow_fn_ptr,
+                        &[
+                            vmctx.as_basic_value_enum().into(),
+                            delta.into(),
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(index_arg.into(), false)
+                                .into(),
+                        ],
+                        "",
+                    )
+                );
                 self.state.push1(grow.try_as_basic_value().unwrap_basic());
             }
             Operator::MemorySize { mem } => {
                 let memory_index = MemoryIndex::from_u32(mem);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(mem, |index| index.as_u32());
                 let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics)?;
-                let size = err!(self.builder.build_indirect_call(
-                    self.intrinsics.memory_size_ty,
-                    size_fn_ptr,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
-                    ],
-                    "",
-                ));
+                let size = err!(
+                    self.builder.build_indirect_call(
+                        self.intrinsics.memory_size_ty,
+                        size_fn_ptr,
+                        &[
+                            vmctx.as_basic_value_enum().into(),
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(index_arg.into(), false)
+                                .into(),
+                        ],
+                        "",
+                    )
+                );
                 //size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
                 self.state.push1(size.try_as_basic_value().unwrap_basic());
             }
@@ -10678,23 +10696,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 )?;
             }
             Operator::MemoryCopy { dst_mem, src_mem } => {
-                // ignored until we support multiple memories
-                let _dst = dst_mem;
-                let (memory_copy, src) = if let Some(local_memory_index) = self
-                    .wasm_module
-                    .local_memory_index(MemoryIndex::from_u32(src_mem))
-                {
-                    (self.intrinsics.memory_copy, local_memory_index.as_u32())
-                } else {
-                    (self.intrinsics.imported_memory_copy, src_mem)
-                };
-
                 let (dest_pos, src_pos, len) = self.state.pop3()?;
-                let src_index = self.intrinsics.i32_ty.const_int(src.into(), false);
+                let dst_index = self.intrinsics.i32_ty.const_int(dst_mem.into(), false);
+                let src_index = self.intrinsics.i32_ty.const_int(src_mem.into(), false);
                 self.build_call_with_param_attributes(
-                    memory_copy,
+                    self.intrinsics.memory_copy,
                     &[
                         vmctx.as_basic_value_enum().into(),
+                        dst_index.into(),
                         src_index.into(),
                         dest_pos.into(),
                         src_pos.into(),
@@ -11210,6 +11219,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             )?,
             Operator::MemoryAtomicWait32 { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
                 let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics)?;
                 let ret = err!(
@@ -11220,7 +11233,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             vmctx.as_basic_value_enum().into(),
                             self.intrinsics
                                 .i32_ty
-                                .const_int(memarg.memory as u64, false)
+                                .const_int(index_arg as u64, false)
                                 .into(),
                             dst.into(),
                             val.into(),
@@ -11233,6 +11246,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::MemoryAtomicWait64 { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
                 let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics)?;
                 let ret = err!(
@@ -11243,7 +11260,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             vmctx.as_basic_value_enum().into(),
                             self.intrinsics
                                 .i32_ty
-                                .const_int(memarg.memory as u64, false)
+                                .const_int(index_arg as u64, false)
                                 .into(),
                             dst.into(),
                             val.into(),
@@ -11256,6 +11273,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::MemoryAtomicNotify { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, count) = self.state.pop2()?;
                 let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics)?;
                 let cnt = err!(
@@ -11266,7 +11287,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             vmctx.as_basic_value_enum().into(),
                             self.intrinsics
                                 .i32_ty
-                                .const_int(memarg.memory as u64, false)
+                                .const_int(index_arg as u64, false)
                                 .into(),
                             dst.into(),
                             count.into(),
@@ -11335,17 +11356,16 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     fn translate_table_operator(&mut self, op: Operator) -> Result<(), CompileError> {
         match op {
             Operator::TableGet { table } => {
-                let table_index = self.intrinsics.i32_ty.const_int(table.into(), false);
                 let elem = self.state.pop1()?;
-                let table_get = if self
+                let (table_get, table_index) = if let Some(local_table_index) = self
                     .wasm_module
                     .local_table_index(TableIndex::from_u32(table))
-                    .is_some()
                 {
-                    self.intrinsics.table_get
+                    (self.intrinsics.table_get, local_table_index.as_u32())
                 } else {
-                    self.intrinsics.imported_table_get
+                    (self.intrinsics.imported_table_get, table)
                 };
+                let table_index = self.intrinsics.i32_ty.const_int(table_index as u64, false);
                 let value = self
                     .build_call_with_param_attributes(
                         table_get,
@@ -11371,21 +11391,20 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(value);
             }
             Operator::TableSet { table } => {
-                let table_index = self.intrinsics.i32_ty.const_int(table.into(), false);
                 let (elem, value) = self.state.pop2()?;
                 let value = err!(
                     self.builder
                         .build_bit_cast(value, self.intrinsics.ptr_ty, "")
                 );
-                let table_set = if self
+                let (table_set, table_index) = if let Some(local_table_index) = self
                     .wasm_module
                     .local_table_index(TableIndex::from_u32(table))
-                    .is_some()
                 {
-                    self.intrinsics.table_set
+                    (self.intrinsics.table_set, local_table_index.as_u32())
                 } else {
-                    self.intrinsics.imported_table_set
+                    (self.intrinsics.imported_table_set, table)
                 };
+                let table_index = self.intrinsics.i32_ty.const_int(table_index as u64, false);
                 self.build_call_with_param_attributes(
                     table_set,
                     &[
