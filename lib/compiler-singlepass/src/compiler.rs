@@ -64,6 +64,7 @@ impl SinglepassCompiler {
 
     fn compile_module_internal(
         &self,
+        pool: &rayon::ThreadPool,
         target: &Target,
         compile_info: &CompileModuleInfo,
         compile_info_blob: &[u8],
@@ -339,6 +340,7 @@ impl SinglepassCompiler {
             let dynamic_trampoline_objects = compile_output_objects(dynamic_function_trampolines);
 
             return elf::link_module(
+                pool,
                 target,
                 compile_info_blob,
                 object_files,
@@ -438,6 +440,7 @@ impl Compiler for SinglepassCompiler {
 
         pool.install(|| {
             self.compile_module_internal(
+                &pool,
                 target,
                 compile_info,
                 compile_info_blob,

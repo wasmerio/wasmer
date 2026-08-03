@@ -396,6 +396,11 @@ impl CraneliftCompiler {
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut custom_sections = PrimaryMap::new();
 
+        let num_threads = self.config.num_threads.get();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build()
+            .unwrap();
         let results = {
             use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
@@ -403,11 +408,6 @@ impl CraneliftCompiler {
                 build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
             let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
             tracing::debug!(buckets = buckets.len(), largest_bucket, "buckets built");
-            let num_threads = self.config.num_threads.get();
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .build()
-                .unwrap();
 
             translate_function_buckets(
                 &pool,
@@ -497,6 +497,7 @@ impl CraneliftCompiler {
             let dynamic_trampoline_objects =
                 compile_output_objects(dynamic_function_trampoline_outputs);
             return wasmer_compiler::elf::link_module(
+                &pool,
                 target,
                 compile_info_blob,
                 object_files,

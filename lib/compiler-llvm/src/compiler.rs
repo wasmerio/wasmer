@@ -419,6 +419,7 @@ impl Compiler for LLVMCompiler {
                 .collect::<Vec<Vec<u8>>>();
 
             let elf_content = emit_metadata_and_link(
+                &pool,
                 target,
                 compile_info_blob,
                 CompiledObjects {

@@ -331,6 +331,7 @@ pub fn emit_import_trampoline(
 /// object) into the final shared-object module image.
 #[allow(clippy::too_many_arguments)]
 pub fn link_module(
+    pool: &rayon::ThreadPool,
     target: &Target,
     compile_info_blob: &[u8],
     object_files: Vec<Vec<u8>>,
@@ -342,6 +343,7 @@ pub fn link_module(
     function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
 ) -> Result<Compilation, CompileError> {
     let elf = emit_metadata_and_link(
+        pool,
         target,
         compile_info_blob,
         CompiledObjects {

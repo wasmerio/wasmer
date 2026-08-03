@@ -614,85 +614,91 @@ const WASMER_META_FILENAME: &str = "__wasmer_meta.o";
 
 /// Emits Wasmer metadata sections and links backend-generated object buffers into a shared object.
 pub fn emit_metadata_and_link(
+    pool: &rayon::ThreadPool,
     target: &Target,
     compile_info_blob: &[u8],
     compiled_objects: CompiledObjects,
     mut debug_dir: Option<PathBuf>,
     module_hash: Option<String>,
 ) -> Result<Vec<u8>, CompileError> {
-    let meta_object = emit_wasmer_meta_object(target, compile_info_blob, &compiled_objects)
-        .map_err(CompileError::Codegen)?;
-    let CompiledObjects {
-        object_files,
-        import_trampoline_object_files,
-        trampoline_object_files,
-        dynamic_trampoline_object_files,
-    } = compiled_objects;
-    let fs = InMemoryFileSystem::default();
-    let mut link_args = vec![
-        "ld".to_string(),
-        // Allow resolution of the public symbols directly without PLT entries!
-        "-Bsymbolic".to_string(),
-        "-shared".to_string(),
-        "-z".to_string(),
-        "now".to_string(),
-        "-z".to_string(),
-        "relro".to_string(),
-        "-o".to_string(),
-        WASMER_IMAGE_FILENAME.to_string(),
-    ];
+    pool.install(|| {
+        let meta_object = emit_wasmer_meta_object(target, compile_info_blob, &compiled_objects)
+            .map_err(CompileError::Codegen)?;
+        let CompiledObjects {
+            object_files,
+            import_trampoline_object_files,
+            trampoline_object_files,
+            dynamic_trampoline_object_files,
+        } = compiled_objects;
+        let fs = InMemoryFileSystem::default();
+        let mut link_args = vec![
+            "ld".to_string(),
+            // Allow resolution of the public symbols directly without PLT entries!
+            "-Bsymbolic".to_string(),
+            "-shared".to_string(),
+            "-z".to_string(),
+            "now".to_string(),
+            "-z".to_string(),
+            "relro".to_string(),
+            "-o".to_string(),
+            WASMER_IMAGE_FILENAME.to_string(),
+        ];
 
-    {
-        let mut files = fs
+        {
+            let mut files = fs
+                .files
+                .lock()
+                .map_err(|e| CompileError::Codegen(format!("cannot lock in-memory FS: {e}")))?;
+            for (index, object) in object_files
+                .into_iter()
+                .chain(import_trampoline_object_files)
+                .chain(trampoline_object_files)
+                .chain(dynamic_trampoline_object_files)
+                .enumerate()
+            {
+                let path = PathBuf::from(format!("object-{index}.o"));
+                files.insert(path.clone(), Arc::new(object));
+                link_args.push(path.display().to_string());
+            }
+            files.insert(PathBuf::from(WASMER_META_FILENAME), Arc::new(meta_object));
+        }
+        // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
+        // records. Linkers concatenate input sections in object order, and a
+        // leading terminator makes frame registration see an empty table.
+        link_args.push(WASMER_META_FILENAME.to_string());
+
+        let mut wild_args = Args::new(|| link_args.iter().map(String::as_str)).map_err(|e| {
+            CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}"))
+        })?;
+        wild_args
+            .parse(|| link_args.iter().map(String::as_str))
+            .map_err(|e| {
+                CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}"))
+            })?;
+        Linker::with_file_system(fs.clone())
+            .run(&wild_args)
+            .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+
+        let image = fs
             .files
             .lock()
-            .map_err(|e| CompileError::Codegen(format!("cannot lock in-memory FS: {e}")))?;
-        for (index, object) in object_files
-            .into_iter()
-            .chain(import_trampoline_object_files)
-            .chain(trampoline_object_files)
-            .chain(dynamic_trampoline_object_files)
-            .enumerate()
-        {
-            let path = PathBuf::from(format!("object-{index}.o"));
-            files.insert(path.clone(), Arc::new(object));
-            link_args.push(path.display().to_string());
+            .map_err(|e| CompileError::Codegen(format!("cannot lock in-memory FS: {e}")))?
+            .remove(Path::new(WASMER_IMAGE_FILENAME))
+            .ok_or_else(|| CompileError::Codegen("Wild linker did not produce an output".into()))?;
+        let image = Arc::try_unwrap(image).map_err(|_| {
+            CompileError::Codegen("Wild linker retained a reference to the output buffer".into())
+        })?;
+
+        // If compiler-debug-dir is set, copy the final linked .so image
+        // into the module_hash subfolder.
+        if let Some(debug_dir) = debug_dir.as_mut() {
+            if let Some(ref hash) = module_hash {
+                debug_dir.push(hash);
+            }
+            std::fs::create_dir_all(&debug_dir).ok();
+            debug_dir.push(WASMER_IMAGE_FILENAME);
+            let _ = std::fs::write(debug_dir, &image);
         }
-        files.insert(PathBuf::from(WASMER_META_FILENAME), Arc::new(meta_object));
-    }
-    // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
-    // records. Linkers concatenate input sections in object order, and a
-    // leading terminator makes frame registration see an empty table.
-    link_args.push(WASMER_META_FILENAME.to_string());
-
-    let mut wild_args = Args::new(|| link_args.iter().map(String::as_str))
-        .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
-    wild_args
-        .parse(|| link_args.iter().map(String::as_str))
-        .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
-    Linker::with_file_system(fs.clone())
-        .run(&wild_args)
-        .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
-
-    let image = fs
-        .files
-        .lock()
-        .map_err(|e| CompileError::Codegen(format!("cannot lock in-memory FS: {e}")))?
-        .remove(Path::new(WASMER_IMAGE_FILENAME))
-        .ok_or_else(|| CompileError::Codegen("Wild linker did not produce an output".into()))?;
-    let image = Arc::try_unwrap(image).map_err(|_| {
-        CompileError::Codegen("Wild linker retained a reference to the output buffer".into())
-    })?;
-
-    // If compiler-debug-dir is set, copy the final linked .so image
-    // into the module_hash subfolder.
-    if let Some(debug_dir) = debug_dir.as_mut() {
-        if let Some(ref hash) = module_hash {
-            debug_dir.push(hash);
-        }
-        std::fs::create_dir_all(&debug_dir).ok();
-        debug_dir.push(WASMER_IMAGE_FILENAME);
-        let _ = std::fs::write(debug_dir, &image);
-    }
-    Ok(image)
+        Ok(image)
+    })
 }
