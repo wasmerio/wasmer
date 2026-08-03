@@ -253,7 +253,12 @@ impl RuntimeError {
             writeln!(f)?;
             write!(f, "    at ")?;
             match frame.function_name() {
-                Some(name) => write!(f, "{}", symbolic_demangle::demangle(name))?,
+                Some(name) => {
+                    #[cfg(feature = "demangle")]
+                    write!(f, "{}", symbolic_demangle::demangle(name))?;
+                    #[cfg(not(feature = "demangle"))]
+                    write!(f, "{name}")?;
+                }
                 None => write!(f, "<unnamed>")?,
             }
             write!(
