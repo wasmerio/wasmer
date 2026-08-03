@@ -137,7 +137,7 @@ wasmer-compiler = { version = "=7.4.0", path = "../compiler", features = [
 wasmer-compiler-cranelift = { version = "=7.4.0", path = "../compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "=7.4.0", path = "../compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "=7.4.0", path = "../compiler-llvm", optional = true }
-wasmer-package = { workspace = true, features = ["webc-v1", "webc-v2", "webc-v3"] }
+wasmer-package = { workspace = true, features = ["authoring", "webc-v1", "webc-v2", "webc-v3"] }
 wasmer-vm = { version = "=7.4.0", path = "../vm", optional = true }
 wasmer-wasix = { path = "../wasix", version = "=0.704.0", features = [
   "logging",

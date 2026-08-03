@@ -16,7 +16,7 @@ rust-version.workspace = true
 [dependencies]
 # Wasmer dependencies.
 wasmer-config = { version = "0.704.0", path = "../config" }
-wasmer-package = { workspace = true, features = ["webc-v1", "webc-v2", "webc-v3"] }
+wasmer-package = { workspace = true, features = ["execution", "webc-v1", "webc-v2", "webc-v3"] }
 webc.workspace = true
 
 # crates.io dependencies.
