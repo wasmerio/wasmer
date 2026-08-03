@@ -305,15 +305,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "atomic-polyfill"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cf2bce30dfe09ef0bfaef228b9d414faaf7e563035494d7fe092dba54b300f4"
-dependencies = [
- "critical-section",
-]
-
-[[package]]
 name = "atomic-take"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -493,6 +484,9 @@ name = "bitflags"
 version = "2.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b588b76d00fde79687d7646a9b5bdf3cc0f655e0bbd080335a95d7e96f3587da"
+dependencies = [
+ "serde_core",
+]
 
 [[package]]
 name = "blake3"
@@ -1306,12 +1300,6 @@ dependencies = [
  "cast",
  "itertools 0.13.0",
 ]
-
-[[package]]
-name = "critical-section"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
 name = "crossbeam-channel"
@@ -2478,15 +2466,6 @@ checksum = "a6fce2283849822530a18d7d8eeb1719ac65a27cfb6649c0dc8dfd2d2cc5edfb"
 
 [[package]]
 name = "hash32"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0c35f58762feb77d74ebe43bdbc3210f09be9fe6742234d573bacc26ed92b67"
-dependencies = [
- "byteorder",
-]
-
-[[package]]
-name = "hash32"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
@@ -2543,25 +2522,11 @@ dependencies = [
 
 [[package]]
 name = "heapless"
-version = "0.7.17"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdc6457c0eb62c71aac4bc17216026d8410337c4126773b9c5daba343f17964f"
-dependencies = [
- "atomic-polyfill",
- "hash32 0.2.1",
- "rustc_version 0.4.1",
- "serde",
- "spin",
- "stable_deref_trait",
-]
-
-[[package]]
-name = "heapless"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "25ba4bd83f9415b58b4ed8dc5714c76e626a105be4646c02630ad730ad3b5aa4"
 dependencies = [
- "hash32 0.3.1",
+ "hash32",
  "stable_deref_trait",
 ]
 
@@ -3282,6 +3247,64 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0c6639b70a7ce854b79c70d7e83f16b5dc0137cc914f3d7d03803b513ecc67ac"
 
 [[package]]
+name = "libwild"
+version = "0.9.0"
+source = "git+https://github.com/wild-linker/wild.git?rev=8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522#8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522"
+dependencies = [
+ "anyhow",
+ "atomic-take",
+ "bitflags 2.13.1",
+ "blake3",
+ "bumpalo-herd",
+ "bytesize",
+ "cc",
+ "colored",
+ "colosseum",
+ "crossbeam-queue",
+ "crossbeam-utils",
+ "derive_more",
+ "flate2",
+ "foldhash 0.2.0",
+ "gimli 0.34.0",
+ "glob",
+ "hashbrown 0.17.1",
+ "hex",
+ "indexmap",
+ "itertools 0.15.0",
+ "jobserver",
+ "leb128",
+ "libc",
+ "linker-layout",
+ "linker-trace",
+ "linker-utils",
+ "memchr",
+ "memmap2 0.9.11",
+ "nix 0.31.3",
+ "object 0.40.0",
+ "perf-event",
+ "perfetto-recorder",
+ "rayon",
+ "serde",
+ "serde_yaml",
+ "sha2 0.11.0",
+ "sharded-offset-map",
+ "sharded-vec-writer",
+ "smallvec",
+ "strum",
+ "symbolic-common",
+ "symbolic-demangle",
+ "thread_local",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "wasm-encoder 0.252.0",
+ "wasmparser 0.252.0",
+ "winnow 1.0.4",
+ "zerocopy",
+ "zlib-rs",
+]
+
+[[package]]
 name = "linked-hash-map"
 version = "0.5.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3294,6 +3317,37 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "984fb35d06508d1e69fc91050cceba9c0b748f983e6739fa2c7a9237154c52c8"
 dependencies = [
  "linked-hash-map",
+]
+
+[[package]]
+name = "linker-layout"
+version = "0.9.0"
+source = "git+https://github.com/wild-linker/wild.git?rev=8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522#8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522"
+dependencies = [
+ "anyhow",
+ "postcard",
+ "serde",
+]
+
+[[package]]
+name = "linker-trace"
+version = "0.9.0"
+source = "git+https://github.com/wild-linker/wild.git?rev=8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522#8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522"
+dependencies = [
+ "anyhow",
+ "postcard",
+ "serde",
+]
+
+[[package]]
+name = "linker-utils"
+version = "0.9.0"
+source = "git+https://github.com/wild-linker/wild.git?rev=8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522#8bb4a7a76f3f339e0b9768fe0b2dc2fd1456d522"
+dependencies = [
+ "anyhow",
+ "leb128",
+ "object 0.40.0",
+ "paste",
 ]
 
 [[package]]
@@ -3822,7 +3876,18 @@ dependencies = [
  "hashbrown 0.17.1",
  "indexmap",
  "memchr",
- "ruzstd",
+ "ruzstd 0.8.3",
+]
+
+[[package]]
+name = "object"
+version = "0.40.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd229a0361b9d0d4396176e02d65897f487eebeab7caa6d443855ee152ca0b9c"
+dependencies = [
+ "flate2",
+ "memchr",
+ "ruzstd 0.9.0",
 ]
 
 [[package]]
@@ -4178,7 +4243,6 @@ dependencies = [
  "cobs",
  "embedded-io 0.4.0",
  "embedded-io 0.6.1",
- "heapless 0.7.17",
  "serde",
 ]
 
@@ -5031,6 +5095,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruzstd"
+version = "0.9.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a252f5e20f038fe7b4ea53e073e65398d652c864cc162fc77c56c2f13717b888"
+dependencies = [
+ "twox-hash",
+]
+
+[[package]]
 name = "ryu"
 version = "1.0.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5349,11 +5422,11 @@ dependencies = [
 
 [[package]]
 name = "sharded-offset-map"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a420d414434523aec9421abd8cc7e674795d6cd3eec9a4080c35ea16a82754c6"
+checksum = "d2b71ad2c1fdc235dc70668aff10a50040624596781d443a3389b1203d18e6b7"
 dependencies = [
- "sharded-vec-writer 0.3.0",
+ "sharded-vec-writer",
 ]
 
 [[package]]
@@ -5364,12 +5437,6 @@ checksum = "f40ca3c46823713e0d4209592e8d6e826aa57e928f09752619fc696c499637f6"
 dependencies = [
  "lazy_static",
 ]
-
-[[package]]
-name = "sharded-vec-writer"
-version = "0.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0e1e51ad52f9ead5d806e61860fd595da6c76f061a6324bd13aa4f437a29681"
 
 [[package]]
 name = "sharded-vec-writer"
@@ -5480,7 +5547,7 @@ dependencies = [
  "byteorder",
  "cfg-if",
  "defmt 0.3.100",
- "heapless 0.9.3",
+ "heapless",
  "managed",
 ]
 
@@ -5492,15 +5559,6 @@ checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
  "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "spin"
-version = "0.9.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3763264f6b73151db08c50ff20d7d8a0b8796e021cdea7ceedad07b80155fa0e"
-dependencies = [
- "lock_api",
 ]
 
 [[package]]
@@ -7120,6 +7178,15 @@ dependencies = [
 
 [[package]]
 name = "wasm-encoder"
+version = "0.252.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8185ae345fa5687c054626ff9a50e7089797a343d9904d1dc9820eb4c4d3196f"
+dependencies = [
+ "leb128fmt",
+]
+
+[[package]]
+name = "wasm-encoder"
 version = "0.254.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09480d646178e5fdd12bb06e812d0af9a3a191dbc9cd697fdc86687beade7393"
@@ -7470,6 +7537,7 @@ dependencies = [
  "itertools 0.15.0",
  "leb128",
  "libc",
+ "libwild",
  "loupe",
  "macho-unwind-info",
  "memmap2 0.9.11",
@@ -7490,7 +7558,6 @@ dependencies = [
  "thiserror 2.0.19",
  "wasmer-types",
  "wasmer-vm",
- "wasmer-wild",
  "wasmparser 0.254.0",
  "which",
  "windows-sys 0.61.2",
@@ -7665,35 +7732,6 @@ dependencies = [
  "wasmer",
  "wasmer-config",
  "wasmer-wasix-types",
-]
-
-[[package]]
-name = "wasmer-linker-layout"
-version = "7.2.1"
-dependencies = [
- "anyhow",
- "postcard",
- "serde",
-]
-
-[[package]]
-name = "wasmer-linker-trace"
-version = "7.2.1"
-dependencies = [
- "anyhow",
- "postcard",
- "serde",
-]
-
-[[package]]
-name = "wasmer-linker-utils"
-version = "7.2.1"
-dependencies = [
- "anyhow",
- "derive_more",
- "leb128",
- "object 0.39.1",
- "paste",
 ]
 
 [[package]]
@@ -7899,7 +7937,7 @@ dependencies = [
  "futures",
  "getrandom 0.3.4",
  "getrandom 0.4.3",
- "heapless 0.9.3",
+ "heapless",
  "hex",
  "http",
  "http-body-util",
@@ -8007,60 +8045,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-wild"
-version = "7.2.1"
-dependencies = [
- "anyhow",
- "atomic-take",
- "bitflags 2.13.1",
- "blake3",
- "bumpalo-herd",
- "bytesize",
- "cc",
- "colored",
- "colosseum",
- "crossbeam-queue",
- "crossbeam-utils",
- "derive_more",
- "flate2",
- "foldhash 0.2.0",
- "gimli 0.33.0",
- "glob",
- "hashbrown 0.17.1",
- "hex",
- "indexmap",
- "itertools 0.14.0",
- "jobserver",
- "leb128",
- "libc",
- "memchr",
- "memmap2 0.9.11",
- "object 0.39.1",
- "perf-event",
- "perfetto-recorder",
- "rayon",
- "serde",
- "serde_yaml",
- "sha2 0.11.0",
- "sharded-offset-map",
- "sharded-vec-writer 0.4.0",
- "smallvec",
- "symbolic-common",
- "symbolic-demangle",
- "thread_local",
- "tracing",
- "tracing-subscriber",
- "uuid",
- "wasmer-linker-layout",
- "wasmer-linker-trace",
- "wasmer-linker-utils",
- "wasmparser 0.248.0",
- "winnow 1.0.4",
- "zerocopy",
- "zstd",
-]
-
-[[package]]
 name = "wasmer-workspace"
 version = "7.2.1"
 dependencies = [
@@ -8096,20 +8080,17 @@ dependencies = [
  "wasmer-types",
  "wasmer-wasix",
  "wasmer-wast",
- "wasmer-wild",
 ]
 
 [[package]]
 name = "wasmparser"
-version = "0.248.0"
+version = "0.252.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa4439c5eee9df71ee0c6efb37f63b1fcb1fec38f85f5142c54e7ed05d33091a"
+checksum = "d3eb099dcadcde5be9eef55e3a337128efd4e44b4c93122487e4d2e4e1c6627c"
 dependencies = [
  "bitflags 2.13.1",
  "hashbrown 0.17.1",
  "indexmap",
- "semver 1.0.28",
- "serde",
 ]
 
 [[package]]
