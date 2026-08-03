@@ -29,7 +29,6 @@ thiserror.workspace = true
 ciborium.workspace = true
 semver.workspace = true
 url.workspace = true
-insta = { workspace = true, features = ["filters", "yaml"] }
 flate2.workspace = true
 tar.workspace = true
 tempfile.workspace = true
@@ -39,6 +38,7 @@ ignore.workspace = true
 libc.workspace = true
 
 [dev-dependencies]
+insta = { workspace = true, features = ["filters", "yaml"] }
 pretty_assertions.workspace = true
 tempfile.workspace = true
 regex.workspace = true
