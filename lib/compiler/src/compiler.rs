@@ -536,7 +536,7 @@ impl OutputFileData for InMemoryOutput {
     fn finish(mut self) -> error::Result {
         self.files
             .lock()
-            .unwrap()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
             .insert(self.path, Arc::new(std::mem::take(&mut self.bytes)));
         Ok(())
     }
@@ -550,7 +550,7 @@ impl FileSystem for InMemoryFileSystem {
         let bytes = self
             .files
             .lock()
-            .unwrap()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
             .get(path)
             .map(Arc::clone)
             .ok_or_else(|| error!("No such in-memory file: {}", path.display()))?;
@@ -560,7 +560,7 @@ impl FileSystem for InMemoryFileSystem {
     fn file_type(&self, path: &Path) -> error::Result<FileType> {
         self.files
             .lock()
-            .unwrap()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
             .contains_key(path)
             .then_some(FileType::File)
             .ok_or_else(|| error!("no such in-memory file"))
@@ -572,13 +572,16 @@ impl FileSystem for InMemoryFileSystem {
     fn remove_file(&self, path: &Path) -> error::Result<()> {
         self.files
             .lock()
-            .unwrap()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
             .remove(path)
             .map(|_| ())
             .ok_or_else(|| error!("no such in-memory file"))
     }
     fn rename_file(&self, path: &Path, new_path: &Path) -> error::Result<()> {
-        let mut files = self.files.lock().unwrap();
+        let mut files = self
+            .files
+            .lock()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?;
         let bytes = files
             .remove(path)
             .ok_or_else(|| error!("no such in-memory file"))?;
@@ -600,7 +603,7 @@ impl FileSystem for InMemoryFileSystem {
     fn write_auxiliary(&self, path: &Path, bytes: &[u8]) -> error::Result {
         self.files
             .lock()
-            .unwrap()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
             .insert(path.to_path_buf(), Arc::new(bytes.to_vec()));
         Ok(())
     }
@@ -640,7 +643,10 @@ pub fn emit_metadata_and_link(
     ];
 
     {
-        let mut files = fs.files.lock().unwrap();
+        let mut files = fs
+            .files
+            .lock()
+            .map_err(|e| CompileError::Codegen(format!("cannot lock in-memory FS: {e}")))?;
         for (index, object) in object_files
             .into_iter()
             .chain(import_trampoline_object_files)
@@ -671,7 +677,7 @@ pub fn emit_metadata_and_link(
     let image = fs
         .files
         .lock()
-        .unwrap()
+        .map_err(|e| CompileError::Codegen(format!("cannot lock in-memory FS: {e}")))?
         .remove(Path::new(WASMER_IMAGE_FILENAME))
         .ok_or_else(|| CompileError::Codegen("Wild linker did not produce an output".into()))?;
     let image = Arc::try_unwrap(image).map_err(|_| {
