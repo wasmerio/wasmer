@@ -579,9 +579,9 @@ impl FileSystem for InMemoryFileSystem {
     }
     fn rename_file(&self, path: &Path, new_path: &Path) -> error::Result<()> {
         let mut files = self.files.lock().unwrap();
-        let bytes = files.remove(path).ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::NotFound, "no such in-memory file")
-        })?;
+        let bytes = files
+            .remove(path)
+            .ok_or_else(|| error!("no such in-memory file"))?;
         files.insert(new_path.to_path_buf(), bytes);
         Ok(())
     }
@@ -628,6 +628,7 @@ pub fn emit_metadata_and_link(
     let fs = InMemoryFileSystem::default();
     let mut link_args = vec![
         "ld".to_string(),
+        // Allow resolution of the public symbols directly without PLT entries!
         "-Bsymbolic".to_string(),
         "-shared".to_string(),
         "-z".to_string(),
@@ -653,7 +654,9 @@ pub fn emit_metadata_and_link(
         }
         files.insert(PathBuf::from(WASMER_META_FILENAME), Arc::new(meta_object));
     }
-    // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE records.
+    // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
+    // records. Linkers concatenate input sections in object order, and a
+    // leading terminator makes frame registration see an empty table.
     link_args.push(WASMER_META_FILENAME.to_string());
 
     let mut wild_args = Args::new(|| link_args.iter().map(String::as_str))
@@ -674,6 +677,9 @@ pub fn emit_metadata_and_link(
     let image = Arc::try_unwrap(image).map_err(|_| {
         CompileError::Codegen("Wild linker retained a reference to the output buffer".into())
     })?;
+
+    // If compiler-debug-dir is set, copy the final linked .so image
+    // into the module_hash subfolder.
     if let Some(debug_dir) = debug_dir.as_mut() {
         if let Some(ref hash) = module_hash {
             debug_dir.push(hash);
