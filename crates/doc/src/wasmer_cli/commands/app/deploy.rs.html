@@ -1348,65 +1348,66 @@
 <a href=#1348 id=1348 data-nosnippet>1348</a>        DeployDeployAppPerishReasonChoices::UserPendingVerification =&gt; {
 <a href=#1349 id=1349 data-nosnippet>1349</a>            <span class="prelude-val">Some</span>(<span class="string">"Verify now to keep it online: https://wasmer.io/verify"</span>.to_string())
 <a href=#1350 id=1350 data-nosnippet>1350</a>        }
-<a href=#1351 id=1351 data-nosnippet>1351</a>        DeployDeployAppPerishReasonChoices::UserRequested =&gt; <span class="prelude-val">None</span>,
-<a href=#1352 id=1352 data-nosnippet>1352</a>    }
-<a href=#1353 id=1353 data-nosnippet>1353</a>}
-<a href=#1354 id=1354 data-nosnippet>1354</a>
-<a href=#1355 id=1355 data-nosnippet>1355</a><span class="kw">pub fn </span>app_config_from_api(version: <span class="kw-2">&amp;</span>DeployAppVersion) -&gt; <span class="prelude-ty">Result</span>&lt;AppConfigV1, anyhow::Error&gt; {
-<a href=#1356 id=1356 data-nosnippet>1356</a>    <span class="kw">let </span>app_id = version
-<a href=#1357 id=1357 data-nosnippet>1357</a>        .app
-<a href=#1358 id=1358 data-nosnippet>1358</a>        .as_ref()
-<a href=#1359 id=1359 data-nosnippet>1359</a>        .context(<span class="string">"app field on app version is empty"</span>)<span class="question-mark">?
-<a href=#1360 id=1360 data-nosnippet>1360</a>        </span>.id
-<a href=#1361 id=1361 data-nosnippet>1361</a>        .inner()
-<a href=#1362 id=1362 data-nosnippet>1362</a>        .to_string();
-<a href=#1363 id=1363 data-nosnippet>1363</a>
-<a href=#1364 id=1364 data-nosnippet>1364</a>    <span class="kw">let </span>cfg = <span class="kw-2">&amp;</span>version.user_yaml_config;
-<a href=#1365 id=1365 data-nosnippet>1365</a>    <span class="kw">let </span><span class="kw-2">mut </span>cfg = AppConfigV1::parse_yaml(cfg)
-<a href=#1366 id=1366 data-nosnippet>1366</a>        .context(<span class="string">"could not parse app config from backend app version"</span>)<span class="question-mark">?</span>;
-<a href=#1367 id=1367 data-nosnippet>1367</a>
-<a href=#1368 id=1368 data-nosnippet>1368</a>    cfg.app_id = <span class="prelude-val">Some</span>(app_id);
-<a href=#1369 id=1369 data-nosnippet>1369</a>    <span class="prelude-val">Ok</span>(cfg)
-<a href=#1370 id=1370 data-nosnippet>1370</a>}
-<a href=#1371 id=1371 data-nosnippet>1371</a>
-<a href=#1372 id=1372 data-nosnippet>1372</a><span class="attr">#[cfg(test)]
-<a href=#1373 id=1373 data-nosnippet>1373</a></span><span class="kw">mod </span>tests {
-<a href=#1374 id=1374 data-nosnippet>1374</a>    <span class="kw">use </span><span class="kw">super</span>::format_duration_words;
-<a href=#1375 id=1375 data-nosnippet>1375</a>    <span class="kw">use </span>time::Duration <span class="kw">as </span>TimeDuration;
-<a href=#1376 id=1376 data-nosnippet>1376</a>
-<a href=#1377 id=1377 data-nosnippet>1377</a>    <span class="attr">#[test]
-<a href=#1378 id=1378 data-nosnippet>1378</a>    </span><span class="kw">fn </span>format_duration_words_seconds() {
-<a href=#1379 id=1379 data-nosnippet>1379</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::ZERO), <span class="string">"0 seconds"</span>);
-<a href=#1380 id=1380 data-nosnippet>1380</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::seconds(<span class="number">1</span>)), <span class="string">"1 second"</span>);
-<a href=#1381 id=1381 data-nosnippet>1381</a>        <span class="macro">assert_eq!</span>(
-<a href=#1382 id=1382 data-nosnippet>1382</a>            format_duration_words(TimeDuration::seconds(<span class="number">59</span>)),
-<a href=#1383 id=1383 data-nosnippet>1383</a>            <span class="string">"59 seconds"
-<a href=#1384 id=1384 data-nosnippet>1384</a>        </span>);
-<a href=#1385 id=1385 data-nosnippet>1385</a>    }
-<a href=#1386 id=1386 data-nosnippet>1386</a>
-<a href=#1387 id=1387 data-nosnippet>1387</a>    <span class="attr">#[test]
-<a href=#1388 id=1388 data-nosnippet>1388</a>    </span><span class="kw">fn </span>format_duration_words_minutes() {
-<a href=#1389 id=1389 data-nosnippet>1389</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::seconds(<span class="number">60</span>)), <span class="string">"1 minute"</span>);
-<a href=#1390 id=1390 data-nosnippet>1390</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::seconds(<span class="number">61</span>)), <span class="string">"1 minute"</span>);
-<a href=#1391 id=1391 data-nosnippet>1391</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::minutes(<span class="number">2</span>)), <span class="string">"2 minutes"</span>);
-<a href=#1392 id=1392 data-nosnippet>1392</a>    }
-<a href=#1393 id=1393 data-nosnippet>1393</a>
-<a href=#1394 id=1394 data-nosnippet>1394</a>    <span class="attr">#[test]
-<a href=#1395 id=1395 data-nosnippet>1395</a>    </span><span class="kw">fn </span>format_duration_words_hours() {
-<a href=#1396 id=1396 data-nosnippet>1396</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::minutes(<span class="number">60</span>)), <span class="string">"1 hour"</span>);
-<a href=#1397 id=1397 data-nosnippet>1397</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::minutes(<span class="number">119</span>)), <span class="string">"1 hour"</span>);
-<a href=#1398 id=1398 data-nosnippet>1398</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::hours(<span class="number">5</span>)), <span class="string">"5 hours"</span>);
-<a href=#1399 id=1399 data-nosnippet>1399</a>    }
-<a href=#1400 id=1400 data-nosnippet>1400</a>
-<a href=#1401 id=1401 data-nosnippet>1401</a>    <span class="attr">#[test]
-<a href=#1402 id=1402 data-nosnippet>1402</a>    </span><span class="kw">fn </span>format_duration_words_days() {
-<a href=#1403 id=1403 data-nosnippet>1403</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::hours(<span class="number">24</span>)), <span class="string">"1 day"</span>);
-<a href=#1404 id=1404 data-nosnippet>1404</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::hours(<span class="number">47</span>)), <span class="string">"1 day"</span>);
-<a href=#1405 id=1405 data-nosnippet>1405</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::days(<span class="number">3</span>)), <span class="string">"3 days"</span>);
-<a href=#1406 id=1406 data-nosnippet>1406</a>        <span class="macro">assert_eq!</span>(
-<a href=#1407 id=1407 data-nosnippet>1407</a>            format_duration_words(TimeDuration::days(<span class="number">4</span>) - TimeDuration::SECOND),
-<a href=#1408 id=1408 data-nosnippet>1408</a>            <span class="string">"3 days"
-<a href=#1409 id=1409 data-nosnippet>1409</a>        </span>);
-<a href=#1410 id=1410 data-nosnippet>1410</a>    }
-<a href=#1411 id=1411 data-nosnippet>1411</a>}
+<a href=#1351 id=1351 data-nosnippet>1351</a>        DeployDeployAppPerishReasonChoices::UserRequested
+<a href=#1352 id=1352 data-nosnippet>1352</a>        | DeployDeployAppPerishReasonChoices::PlanNonPersistent =&gt; <span class="prelude-val">None</span>,
+<a href=#1353 id=1353 data-nosnippet>1353</a>    }
+<a href=#1354 id=1354 data-nosnippet>1354</a>}
+<a href=#1355 id=1355 data-nosnippet>1355</a>
+<a href=#1356 id=1356 data-nosnippet>1356</a><span class="kw">pub fn </span>app_config_from_api(version: <span class="kw-2">&amp;</span>DeployAppVersion) -&gt; <span class="prelude-ty">Result</span>&lt;AppConfigV1, anyhow::Error&gt; {
+<a href=#1357 id=1357 data-nosnippet>1357</a>    <span class="kw">let </span>app_id = version
+<a href=#1358 id=1358 data-nosnippet>1358</a>        .app
+<a href=#1359 id=1359 data-nosnippet>1359</a>        .as_ref()
+<a href=#1360 id=1360 data-nosnippet>1360</a>        .context(<span class="string">"app field on app version is empty"</span>)<span class="question-mark">?
+<a href=#1361 id=1361 data-nosnippet>1361</a>        </span>.id
+<a href=#1362 id=1362 data-nosnippet>1362</a>        .inner()
+<a href=#1363 id=1363 data-nosnippet>1363</a>        .to_string();
+<a href=#1364 id=1364 data-nosnippet>1364</a>
+<a href=#1365 id=1365 data-nosnippet>1365</a>    <span class="kw">let </span>cfg = <span class="kw-2">&amp;</span>version.user_yaml_config;
+<a href=#1366 id=1366 data-nosnippet>1366</a>    <span class="kw">let </span><span class="kw-2">mut </span>cfg = AppConfigV1::parse_yaml(cfg)
+<a href=#1367 id=1367 data-nosnippet>1367</a>        .context(<span class="string">"could not parse app config from backend app version"</span>)<span class="question-mark">?</span>;
+<a href=#1368 id=1368 data-nosnippet>1368</a>
+<a href=#1369 id=1369 data-nosnippet>1369</a>    cfg.app_id = <span class="prelude-val">Some</span>(app_id);
+<a href=#1370 id=1370 data-nosnippet>1370</a>    <span class="prelude-val">Ok</span>(cfg)
+<a href=#1371 id=1371 data-nosnippet>1371</a>}
+<a href=#1372 id=1372 data-nosnippet>1372</a>
+<a href=#1373 id=1373 data-nosnippet>1373</a><span class="attr">#[cfg(test)]
+<a href=#1374 id=1374 data-nosnippet>1374</a></span><span class="kw">mod </span>tests {
+<a href=#1375 id=1375 data-nosnippet>1375</a>    <span class="kw">use </span><span class="kw">super</span>::format_duration_words;
+<a href=#1376 id=1376 data-nosnippet>1376</a>    <span class="kw">use </span>time::Duration <span class="kw">as </span>TimeDuration;
+<a href=#1377 id=1377 data-nosnippet>1377</a>
+<a href=#1378 id=1378 data-nosnippet>1378</a>    <span class="attr">#[test]
+<a href=#1379 id=1379 data-nosnippet>1379</a>    </span><span class="kw">fn </span>format_duration_words_seconds() {
+<a href=#1380 id=1380 data-nosnippet>1380</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::ZERO), <span class="string">"0 seconds"</span>);
+<a href=#1381 id=1381 data-nosnippet>1381</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::seconds(<span class="number">1</span>)), <span class="string">"1 second"</span>);
+<a href=#1382 id=1382 data-nosnippet>1382</a>        <span class="macro">assert_eq!</span>(
+<a href=#1383 id=1383 data-nosnippet>1383</a>            format_duration_words(TimeDuration::seconds(<span class="number">59</span>)),
+<a href=#1384 id=1384 data-nosnippet>1384</a>            <span class="string">"59 seconds"
+<a href=#1385 id=1385 data-nosnippet>1385</a>        </span>);
+<a href=#1386 id=1386 data-nosnippet>1386</a>    }
+<a href=#1387 id=1387 data-nosnippet>1387</a>
+<a href=#1388 id=1388 data-nosnippet>1388</a>    <span class="attr">#[test]
+<a href=#1389 id=1389 data-nosnippet>1389</a>    </span><span class="kw">fn </span>format_duration_words_minutes() {
+<a href=#1390 id=1390 data-nosnippet>1390</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::seconds(<span class="number">60</span>)), <span class="string">"1 minute"</span>);
+<a href=#1391 id=1391 data-nosnippet>1391</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::seconds(<span class="number">61</span>)), <span class="string">"1 minute"</span>);
+<a href=#1392 id=1392 data-nosnippet>1392</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::minutes(<span class="number">2</span>)), <span class="string">"2 minutes"</span>);
+<a href=#1393 id=1393 data-nosnippet>1393</a>    }
+<a href=#1394 id=1394 data-nosnippet>1394</a>
+<a href=#1395 id=1395 data-nosnippet>1395</a>    <span class="attr">#[test]
+<a href=#1396 id=1396 data-nosnippet>1396</a>    </span><span class="kw">fn </span>format_duration_words_hours() {
+<a href=#1397 id=1397 data-nosnippet>1397</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::minutes(<span class="number">60</span>)), <span class="string">"1 hour"</span>);
+<a href=#1398 id=1398 data-nosnippet>1398</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::minutes(<span class="number">119</span>)), <span class="string">"1 hour"</span>);
+<a href=#1399 id=1399 data-nosnippet>1399</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::hours(<span class="number">5</span>)), <span class="string">"5 hours"</span>);
+<a href=#1400 id=1400 data-nosnippet>1400</a>    }
+<a href=#1401 id=1401 data-nosnippet>1401</a>
+<a href=#1402 id=1402 data-nosnippet>1402</a>    <span class="attr">#[test]
+<a href=#1403 id=1403 data-nosnippet>1403</a>    </span><span class="kw">fn </span>format_duration_words_days() {
+<a href=#1404 id=1404 data-nosnippet>1404</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::hours(<span class="number">24</span>)), <span class="string">"1 day"</span>);
+<a href=#1405 id=1405 data-nosnippet>1405</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::hours(<span class="number">47</span>)), <span class="string">"1 day"</span>);
+<a href=#1406 id=1406 data-nosnippet>1406</a>        <span class="macro">assert_eq!</span>(format_duration_words(TimeDuration::days(<span class="number">3</span>)), <span class="string">"3 days"</span>);
+<a href=#1407 id=1407 data-nosnippet>1407</a>        <span class="macro">assert_eq!</span>(
+<a href=#1408 id=1408 data-nosnippet>1408</a>            format_duration_words(TimeDuration::days(<span class="number">4</span>) - TimeDuration::SECOND),
+<a href=#1409 id=1409 data-nosnippet>1409</a>            <span class="string">"3 days"
+<a href=#1410 id=1410 data-nosnippet>1410</a>        </span>);
+<a href=#1411 id=1411 data-nosnippet>1411</a>    }
+<a href=#1412 id=1412 data-nosnippet>1412</a>}
 </code></pre></div></section></main></body></html>
