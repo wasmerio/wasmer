@@ -139,11 +139,59 @@ fn downcast_from_ptr(value: &JsValue) -> Option<Trap> {
             .ok()
             .and_then(|v| v.dyn_into::<js_sys::Function>().ok())
             .and_then(|destroy_into_raw| destroy_into_raw.call0(value).ok())
-            .and_then(|ret| ret.as_f64())?;
+            .and_then(|ret| ret.as_f64())
+            .and_then(wasm32_pointer_from_js_number)?;
 
         Some(<Trap as wasm_bindgen::convert::FromWasmAbi>::from_abi(
-            wasm_bindgen::__rt::WasmPtr::from_usize(ptr as u32 as usize),
+            wasm_bindgen::__rt::WasmPtr::from_usize(ptr as usize),
         ))
+    }
+}
+
+/// JavaScript exposes a WebAssembly `i32` result as a signed number, while
+/// newer glue may explicitly coerce pointer results to an unsigned number.
+/// Accept both representations and preserve the original wasm32 bit pattern.
+fn wasm32_pointer_from_js_number(value: f64) -> Option<u32> {
+    if !value.is_finite() || value.fract() != 0.0 {
+        return None;
+    }
+
+    if (0.0..=u32::MAX as f64).contains(&value) {
+        Some(value as u32)
+    } else if ((i32::MIN as f64)..0.0).contains(&value) {
+        Some(value as i32 as u32)
+    } else {
+        None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::wasm32_pointer_from_js_number;
+
+    #[test]
+    fn converts_signed_and_unsigned_wasm32_pointers() {
+        assert_eq!(wasm32_pointer_from_js_number(42.0), Some(42));
+        assert_eq!(
+            wasm32_pointer_from_js_number(i32::MIN as f64),
+            Some(0x8000_0000),
+        );
+        assert_eq!(
+            wasm32_pointer_from_js_number(-1.0),
+            Some(u32::MAX),
+        );
+        assert_eq!(
+            wasm32_pointer_from_js_number(u32::MAX as f64),
+            Some(u32::MAX),
+        );
+    }
+
+    #[test]
+    fn rejects_numbers_that_cannot_be_wasm32_pointers() {
+        assert_eq!(wasm32_pointer_from_js_number(f64::NAN), None);
+        assert_eq!(wasm32_pointer_from_js_number(1.5), None);
+        assert_eq!(wasm32_pointer_from_js_number(i32::MIN as f64 - 1.0), None);
+        assert_eq!(wasm32_pointer_from_js_number(u32::MAX as f64 + 1.0), None);
     }
 }
 
