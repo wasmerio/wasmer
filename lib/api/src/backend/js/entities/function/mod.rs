@@ -113,17 +113,20 @@ impl Function {
             };
             let env_mut =
                 AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(js_env));
-            let values = function_type
-                .params()
-                .iter()
-                .enumerate()
-                .map(|(index, ty)| js_value_to_wasmer(ty, &args.get(index as u32)))
-                .collect::<Vec<_>>();
+            let parameter_types = function_type.params().to_vec();
             let result_types = function_type.results().to_vec();
+            let args = args.clone();
             let func = Rc::clone(&func);
 
             future_to_promise(async move {
-                let write_lock = callback_store.write_lock().await;
+                let mut write_lock = callback_store.write_lock().await;
+                let values = parameter_types
+                    .iter()
+                    .enumerate()
+                    .map(|(index, ty)| {
+                        js_value_to_wasmer(&mut write_lock, ty, &args.get(index as u32))
+                    })
+                    .collect::<Vec<_>>();
                 let store_context = StoreContext::install_async(write_lock.inner);
                 let future = func(env_mut, &values);
                 drop(store_context);
@@ -288,13 +291,15 @@ impl Function {
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
-                    .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
+                    .map(|(i, param)| {
+                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                    })
                     .collect::<Vec<_>>();
+                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let _results = func(env, &wasm_arguments)?;
                 Ok(())
             })
@@ -302,13 +307,15 @@ impl Function {
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
-                    .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
+                    .map(|(i, param)| {
+                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                    })
                     .collect::<Vec<_>>();
+                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &wasm_arguments)?;
                 Ok(wasmer_value_to_js(&results[0]))
             })
@@ -316,13 +323,15 @@ impl Function {
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
-                    .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
+                    .map(|(i, param)| {
+                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                    })
                     .collect::<Vec<_>>();
+                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &wasm_arguments)?;
                 Ok(wasmer_array_to_js_array(&results))
             })
@@ -463,7 +472,7 @@ impl Function {
         match result_types.len() {
             0 => Ok(Box::new([])),
             1 => {
-                let value = js_value_to_wasmer(&result_types[0], &result);
+                let value = js_value_to_wasmer(store, &result_types[0], &result);
                 Ok(vec![value].into_boxed_slice())
             }
             _n => {
@@ -471,7 +480,9 @@ impl Function {
                 Ok(result_array
                     .iter()
                     .enumerate()
-                    .map(|(i, js_val)| js_value_to_wasmer(&result_types[i], &js_val))
+                    .map(|(i, js_val)| {
+                        js_value_to_wasmer(store, &result_types[i], &js_val)
+                    })
                     .collect::<Vec<_>>()
                     .into_boxed_slice())
             }
@@ -506,9 +517,11 @@ impl Function {
             drop(store_context);
 
             let result = JsFuture::from(promise).await.map_err(RuntimeError::from)?;
+            let mut write_lock = store.write_lock().await;
             match function_type.results().len() {
                 0 => Ok(Box::<[Value]>::default()),
                 1 => Ok(vec![js_value_to_wasmer(
+                    &mut write_lock,
                     &function_type.results()[0],
                     &result,
                 )]
@@ -519,7 +532,13 @@ impl Function {
                         .results()
                         .iter()
                         .enumerate()
-                        .map(|(index, ty)| js_value_to_wasmer(ty, &result.get(index as u32)))
+                        .map(|(index, ty)| {
+                            js_value_to_wasmer(
+                                &mut write_lock,
+                                ty,
+                                &result.get(index as u32),
+                            )
+                        })
                         .collect::<Vec<_>>()
                         .into_boxed_slice())
                 }
