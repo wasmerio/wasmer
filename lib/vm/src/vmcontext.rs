@@ -400,14 +400,19 @@ pub(crate) unsafe fn memory32_atomic_check32(
     val: u32,
 ) -> Result<u32, Trap> {
     unsafe {
-        if usize::try_from(dst).unwrap() > mem.current_length {
+        const TYPE_SIZE: usize = size_of::<AtomicU32>();
+        let dst = usize::try_from(dst).unwrap();
+        if dst
+            .checked_add(TYPE_SIZE)
+            .is_none_or(|end| end > mem.current_length)
+        {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
 
-        let dst = isize::try_from(dst).unwrap();
-        if dst & 0b11 != 0 {
+        if !dst.is_multiple_of(TYPE_SIZE) {
             return Err(Trap::lib(TrapCode::UnalignedAtomic));
         }
+        let dst = isize::try_from(dst).unwrap();
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
@@ -432,14 +437,19 @@ pub(crate) unsafe fn memory32_atomic_check64(
     val: u64,
 ) -> Result<u32, Trap> {
     unsafe {
-        if usize::try_from(dst).unwrap() > mem.current_length {
+        const TYPE_SIZE: usize = size_of::<AtomicU64>();
+        let dst = usize::try_from(dst).unwrap();
+        if dst
+            .checked_add(TYPE_SIZE)
+            .is_none_or(|end| end > mem.current_length)
+        {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
 
-        let dst = isize::try_from(dst).unwrap();
-        if dst & 0b111 != 0 {
+        if !dst.is_multiple_of(TYPE_SIZE) {
             return Err(Trap::lib(TrapCode::UnalignedAtomic));
         }
+        let dst = isize::try_from(dst).unwrap();
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
