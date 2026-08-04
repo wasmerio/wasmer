@@ -35,7 +35,11 @@ pub trait AsJs: Sized {
 
 #[inline]
 /// Convert a JsValue into a wasmer Value
-pub fn js_value_to_wasmer(ty: &Type, js_val: &JsValue) -> Value {
+pub fn js_value_to_wasmer(
+    store: &mut impl AsStoreMut,
+    ty: &Type,
+    js_val: &JsValue,
+) -> Value {
     match ty {
         Type::I32 => Value::I32(js_val.as_f64().unwrap() as _),
         Type::I64 => Value::I64(if js_val.is_bigint() {
@@ -49,7 +53,19 @@ pub fn js_value_to_wasmer(ty: &Type, js_val: &JsValue) -> Value {
             let big_num: u128 = js_sys::BigInt::from(js_val.clone()).try_into().unwrap();
             Value::V128(big_num)
         }
-        Type::ExternRef | Type::FuncRef | Type::ExceptionRef => unimplemented!(
+        Type::ExternRef => {
+            if js_val.is_null() {
+                Value::ExternRef(None)
+            } else {
+                Value::ExternRef(Some(crate::ExternRef(crate::BackendExternRef::Js(
+                    crate::backend::js::entities::external::ExternRef::from_js_value(
+                        store,
+                        js_val.clone(),
+                    ),
+                ))))
+            }
+        }
+        Type::FuncRef | Type::ExceptionRef => unimplemented!(
             "The type `{:?}` is not yet supported in the JS Function API",
             ty
         ),
@@ -65,6 +81,12 @@ pub fn wasmer_value_to_js(val: &Value) -> JsValue {
         Value::F32(f) => JsValue::from_f64(*f as _),
         Value::F64(f) => JsValue::from_f64(*f),
         Value::V128(f) => JsValue::from_f64(*f as _),
+        Value::ExternRef(Some(reference)) => match &reference.0 {
+            crate::BackendExternRef::Js(reference) => reference.as_js_value(),
+            #[allow(unreachable_patterns)]
+            _ => unreachable!("a JS function received an externref from another backend"),
+        },
+        Value::ExternRef(None) => JsValue::null(),
         val => unimplemented!(
             "The value `{:?}` is not yet supported in the JS Function API",
             val
@@ -84,9 +106,12 @@ impl AsJs for Value {
             Self::V128(v) => JsValue::from(*v),
             Self::FuncRef(Some(func)) => func.as_js().handle.function.clone().into(),
             Self::FuncRef(None) => JsValue::null(),
-            Self::ExternRef(_) => {
-                unimplemented!("ExternRefs are not yet supported in the JS Function API",)
-            }
+            Self::ExternRef(Some(reference)) => match &reference.0 {
+                crate::BackendExternRef::Js(reference) => reference.as_js_value(),
+                #[allow(unreachable_patterns)]
+                _ => unreachable!("a JS function received an externref from another backend"),
+            },
+            Self::ExternRef(None) => JsValue::null(),
             Self::ExceptionRef(_) => {
                 unimplemented!("ExceptionRefs are not yet supported in the JS Function API",)
             }
@@ -94,11 +119,11 @@ impl AsJs for Value {
     }
 
     fn from_jsvalue(
-        _store: &mut impl AsStoreMut,
+        store: &mut impl AsStoreMut,
         type_: &Self::DefinitionType,
         value: &JsValue,
     ) -> Result<Self, JsError> {
-        Ok(js_value_to_wasmer(type_, value))
+        Ok(js_value_to_wasmer(store, type_, value))
     }
 }
 
