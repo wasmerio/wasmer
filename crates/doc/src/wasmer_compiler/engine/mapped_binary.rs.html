@@ -188,10 +188,10 @@
 <a href=#188 id=188 data-nosnippet>188</a></span><span class="kw">impl </span>ImageSegment {
 <a href=#189 id=189 data-nosnippet>189</a>    <span class="kw">fn </span>protection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;i32, String&gt; {
 <a href=#190 id=190 data-nosnippet>190</a>        <span class="kw">let </span>(read, write, exec) = <span class="kw">match </span><span class="self">self</span>.flags {
-<a href=#191 id=191 data-nosnippet>191</a>            SegmentFlags::Elf { p_flags } =&gt; (
-<a href=#192 id=192 data-nosnippet>192</a>                p_flags &amp; <span class="macro">elf::PF_R !</span>= <span class="number">0</span>,
-<a href=#193 id=193 data-nosnippet>193</a>                p_flags &amp; <span class="macro">elf::PF_W !</span>= <span class="number">0</span>,
-<a href=#194 id=194 data-nosnippet>194</a>                p_flags &amp; <span class="macro">elf::PF_X !</span>= <span class="number">0</span>,
+<a href=#191 id=191 data-nosnippet>191</a>            SegmentFlags::Elf { p_flags, .. } =&gt; (
+<a href=#192 id=192 data-nosnippet>192</a>                p_flags.contains(elf::PF_R),
+<a href=#193 id=193 data-nosnippet>193</a>                p_flags.contains(elf::PF_W),
+<a href=#194 id=194 data-nosnippet>194</a>                p_flags.contains(elf::PF_X),
 <a href=#195 id=195 data-nosnippet>195</a>            ),
 <a href=#196 id=196 data-nosnippet>196</a>            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">format!</span>(<span class="string">"unsupported segment flags: {:?}"</span>, <span class="self">self</span>.flags)),
 <a href=#197 id=197 data-nosnippet>197</a>        };

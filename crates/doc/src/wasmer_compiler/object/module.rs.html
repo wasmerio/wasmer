@@ -71,7 +71,7 @@
 <a href=#71 id=71 data-nosnippet>71</a>    <span class="kw">if let </span>Architecture::Riscv64(<span class="kw">_</span>) = triple.architecture {
 <a href=#72 id=72 data-nosnippet>72</a>        object.flags = FileFlags::Elf {
 <a href=#73 id=73 data-nosnippet>73</a>            e_flags: elf::EF_RISCV_FLOAT_ABI_DOUBLE,
-<a href=#74 id=74 data-nosnippet>74</a>            os_abi: <span class="number">2</span>,
+<a href=#74 id=74 data-nosnippet>74</a>            os_abi: elf::OsAbi(<span class="number">2</span>),
 <a href=#75 id=75 data-nosnippet>75</a>            abi_version: <span class="number">0</span>,
 <a href=#76 id=76 data-nosnippet>76</a>        };
 <a href=#77 id=77 data-nosnippet>77</a>    }

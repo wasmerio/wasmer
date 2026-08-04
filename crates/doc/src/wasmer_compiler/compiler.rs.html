@@ -391,208 +391,211 @@
 <a href=#391 id=391 data-nosnippet>391</a>    );
 <a href=#392 id=392 data-nosnippet>392</a>    obj.append_section_data(section_id, compile_info_blob, <span class="number">8</span>);
 <a href=#393 id=393 data-nosnippet>393</a>    obj.section_mut(section_id).flags = SectionFlags::Elf {
-<a href=#394 id=394 data-nosnippet>394</a>        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-<a href=#395 id=395 data-nosnippet>395</a>    };
-<a href=#396 id=396 data-nosnippet>396</a>
-<a href=#397 id=397 data-nosnippet>397</a>    <span class="comment">// Emit zero sentinel for the .eh_frame section.
-<a href=#398 id=398 data-nosnippet>398</a>    </span><span class="kw">let </span>section_id = obj.add_section(
-<a href=#399 id=399 data-nosnippet>399</a>        obj.segment_name(StandardSegment::Debug).to_vec(),
-<a href=#400 id=400 data-nosnippet>400</a>        EH_FRAME_SECTION_NAME.to_vec(),
-<a href=#401 id=401 data-nosnippet>401</a>        SectionKind::Debug,
-<a href=#402 id=402 data-nosnippet>402</a>    );
-<a href=#403 id=403 data-nosnippet>403</a>    obj.append_section_data(section_id, <span class="kw-2">&amp;</span><span class="number">0u64</span>.to_ne_bytes(), <span class="number">4</span>);
-<a href=#404 id=404 data-nosnippet>404</a>
-<a href=#405 id=405 data-nosnippet>405</a>    <span class="comment">// Emit offsets of the functions
-<a href=#406 id=406 data-nosnippet>406</a>    </span><span class="kw">let </span>section_id = obj.add_section(
-<a href=#407 id=407 data-nosnippet>407</a>        obj.segment_name(StandardSegment::Data).to_vec(),
-<a href=#408 id=408 data-nosnippet>408</a>        WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
-<a href=#409 id=409 data-nosnippet>409</a>        SectionKind::Other,
-<a href=#410 id=410 data-nosnippet>410</a>    );
-<a href=#411 id=411 data-nosnippet>411</a>    obj.section_mut(section_id).flags = SectionFlags::Elf {
-<a href=#412 id=412 data-nosnippet>412</a>        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-<a href=#413 id=413 data-nosnippet>413</a>    };
-<a href=#414 id=414 data-nosnippet>414</a>    <span class="kw">let </span>pointer_size = target
-<a href=#415 id=415 data-nosnippet>415</a>        .triple()
-<a href=#416 id=416 data-nosnippet>416</a>        .pointer_width()
-<a href=#417 id=417 data-nosnippet>417</a>        .map_err(|<span class="kw">_</span>| <span class="string">"unknown pointer width"</span>.to_string())<span class="question-mark">?
-<a href=#418 id=418 data-nosnippet>418</a>        </span>.bytes() <span class="kw">as </span>u64;
-<a href=#419 id=419 data-nosnippet>419</a>    <span class="kw">let </span>pointer_bits = (pointer_size * <span class="number">8</span>) <span class="kw">as </span>u8;
-<a href=#420 id=420 data-nosnippet>420</a>    <span class="kw">let </span>zero_pointer = <span class="macro">vec!</span>[<span class="number">0</span>; pointer_size <span class="kw">as </span>usize];
-<a href=#421 id=421 data-nosnippet>421</a>
-<a href=#422 id=422 data-nosnippet>422</a>    <span class="kw">let </span>function_offset_names = (<span class="number">0</span>..compiled_objects.object_files.len())
-<a href=#423 id=423 data-nosnippet>423</a>        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).linkage_name())
-<a href=#424 id=424 data-nosnippet>424</a>        .chain(
-<a href=#425 id=425 data-nosnippet>425</a>            (<span class="number">0</span>..compiled_objects.trampoline_object_files.len()).map(|i| {
-<a href=#426 id=426 data-nosnippet>426</a>                CompiledKind::FunctionCallTrampoline(
-<a href=#427 id=427 data-nosnippet>427</a>                    SignatureIndex::new(i),
-<a href=#428 id=428 data-nosnippet>428</a>                    <span class="comment">// Unused by the linkage_name.
-<a href=#429 id=429 data-nosnippet>429</a>                    </span>FunctionType::new([], []),
-<a href=#430 id=430 data-nosnippet>430</a>                )
-<a href=#431 id=431 data-nosnippet>431</a>                .linkage_name()
-<a href=#432 id=432 data-nosnippet>432</a>            }),
-<a href=#433 id=433 data-nosnippet>433</a>        )
-<a href=#434 id=434 data-nosnippet>434</a>        .chain(
-<a href=#435 id=435 data-nosnippet>435</a>            (<span class="number">0</span>..compiled_objects.dynamic_trampoline_object_files.len()).map(|i| {
-<a href=#436 id=436 data-nosnippet>436</a>                CompiledKind::DynamicFunctionTrampoline(
-<a href=#437 id=437 data-nosnippet>437</a>                    FunctionIndex::new(i),
-<a href=#438 id=438 data-nosnippet>438</a>                    <span class="comment">// Unused by the linkage_name.
-<a href=#439 id=439 data-nosnippet>439</a>                    </span>FunctionType::new([], []),
-<a href=#440 id=440 data-nosnippet>440</a>                )
-<a href=#441 id=441 data-nosnippet>441</a>                .linkage_name()
-<a href=#442 id=442 data-nosnippet>442</a>            }),
-<a href=#443 id=443 data-nosnippet>443</a>        );
-<a href=#444 id=444 data-nosnippet>444</a>    <span class="kw">for </span>function_name <span class="kw">in </span>function_offset_names {
-<a href=#445 id=445 data-nosnippet>445</a>        <span class="kw">let </span>offset = obj.append_section_data(section_id, <span class="kw-2">&amp;</span>zero_pointer, pointer_size);
-<a href=#446 id=446 data-nosnippet>446</a>        <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
-<a href=#447 id=447 data-nosnippet>447</a>            name: function_name.to_owned().into(),
-<a href=#448 id=448 data-nosnippet>448</a>            value: <span class="number">0</span>,
-<a href=#449 id=449 data-nosnippet>449</a>            size: <span class="number">0</span>,
-<a href=#450 id=450 data-nosnippet>450</a>            kind: SymbolKind::Text,
-<a href=#451 id=451 data-nosnippet>451</a>            scope: SymbolScope::Unknown,
-<a href=#452 id=452 data-nosnippet>452</a>            weak: <span class="bool-val">false</span>,
-<a href=#453 id=453 data-nosnippet>453</a>            section: SymbolSection::Undefined,
-<a href=#454 id=454 data-nosnippet>454</a>            flags: SymbolFlags::None,
-<a href=#455 id=455 data-nosnippet>455</a>        });
-<a href=#456 id=456 data-nosnippet>456</a>        obj.add_relocation(
-<a href=#457 id=457 data-nosnippet>457</a>            section_id,
-<a href=#458 id=458 data-nosnippet>458</a>            Relocation {
-<a href=#459 id=459 data-nosnippet>459</a>                offset,
-<a href=#460 id=460 data-nosnippet>460</a>                flags: RelocationFlags::Generic {
-<a href=#461 id=461 data-nosnippet>461</a>                    kind: RelocationKind::Absolute,
-<a href=#462 id=462 data-nosnippet>462</a>                    encoding: RelocationEncoding::Generic,
-<a href=#463 id=463 data-nosnippet>463</a>                    size: pointer_bits,
-<a href=#464 id=464 data-nosnippet>464</a>                },
-<a href=#465 id=465 data-nosnippet>465</a>                symbol: symbol_id,
-<a href=#466 id=466 data-nosnippet>466</a>                addend: <span class="number">0</span>,
-<a href=#467 id=467 data-nosnippet>467</a>            },
-<a href=#468 id=468 data-nosnippet>468</a>        )
-<a href=#469 id=469 data-nosnippet>469</a>        .map_err(|e| {
-<a href=#470 id=470 data-nosnippet>470</a>            <span class="macro">format!</span>(<span class="string">"failed to add function offset relocation for {function_name}: {e}"</span>)
-<a href=#471 id=471 data-nosnippet>471</a>        })<span class="question-mark">?</span>;
-<a href=#472 id=472 data-nosnippet>472</a>    }
-<a href=#473 id=473 data-nosnippet>473</a>
-<a href=#474 id=474 data-nosnippet>474</a>    <span class="kw">let </span>trap_fn_offsets_section_id = obj.add_section(
-<a href=#475 id=475 data-nosnippet>475</a>        obj.segment_name(StandardSegment::Data).to_vec(),
-<a href=#476 id=476 data-nosnippet>476</a>        WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
-<a href=#477 id=477 data-nosnippet>477</a>        SectionKind::Other,
-<a href=#478 id=478 data-nosnippet>478</a>    );
-<a href=#479 id=479 data-nosnippet>479</a>    obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
-<a href=#480 id=480 data-nosnippet>480</a>        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
-<a href=#481 id=481 data-nosnippet>481</a>    };
-<a href=#482 id=482 data-nosnippet>482</a>    <span class="kw">for </span>traps_name <span class="kw">in </span>(<span class="number">0</span>..compiled_objects.object_files.len())
-<a href=#483 id=483 data-nosnippet>483</a>        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
-<a href=#484 id=484 data-nosnippet>484</a>    {
-<a href=#485 id=485 data-nosnippet>485</a>        <span class="kw">let </span>offset =
-<a href=#486 id=486 data-nosnippet>486</a>            obj.append_section_data(trap_fn_offsets_section_id, <span class="kw-2">&amp;</span>zero_pointer, pointer_size);
-<a href=#487 id=487 data-nosnippet>487</a>        <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
-<a href=#488 id=488 data-nosnippet>488</a>            name: traps_name.as_bytes().into(),
-<a href=#489 id=489 data-nosnippet>489</a>            value: <span class="number">0</span>,
-<a href=#490 id=490 data-nosnippet>490</a>            size: <span class="number">0</span>,
-<a href=#491 id=491 data-nosnippet>491</a>            kind: SymbolKind::Data,
-<a href=#492 id=492 data-nosnippet>492</a>            scope: SymbolScope::Linkage,
-<a href=#493 id=493 data-nosnippet>493</a>            weak: <span class="bool-val">true</span>,
-<a href=#494 id=494 data-nosnippet>494</a>            section: SymbolSection::Undefined,
-<a href=#495 id=495 data-nosnippet>495</a>            flags: SymbolFlags::None,
-<a href=#496 id=496 data-nosnippet>496</a>        });
-<a href=#497 id=497 data-nosnippet>497</a>        obj.add_relocation(
-<a href=#498 id=498 data-nosnippet>498</a>            trap_fn_offsets_section_id,
-<a href=#499 id=499 data-nosnippet>499</a>            Relocation {
-<a href=#500 id=500 data-nosnippet>500</a>                offset,
-<a href=#501 id=501 data-nosnippet>501</a>                flags: RelocationFlags::Generic {
-<a href=#502 id=502 data-nosnippet>502</a>                    kind: RelocationKind::Absolute,
-<a href=#503 id=503 data-nosnippet>503</a>                    encoding: RelocationEncoding::Generic,
-<a href=#504 id=504 data-nosnippet>504</a>                    size: pointer_bits,
-<a href=#505 id=505 data-nosnippet>505</a>                },
-<a href=#506 id=506 data-nosnippet>506</a>                symbol: symbol_id,
-<a href=#507 id=507 data-nosnippet>507</a>                addend: <span class="number">0</span>,
-<a href=#508 id=508 data-nosnippet>508</a>            },
-<a href=#509 id=509 data-nosnippet>509</a>        )
-<a href=#510 id=510 data-nosnippet>510</a>        .map_err(|e| {
-<a href=#511 id=511 data-nosnippet>511</a>            <span class="macro">format!</span>(<span class="string">"failed to add function trap offset relocation for {traps_name}: {e}"</span>)
-<a href=#512 id=512 data-nosnippet>512</a>        })<span class="question-mark">?</span>;
-<a href=#513 id=513 data-nosnippet>513</a>    }
-<a href=#514 id=514 data-nosnippet>514</a>
-<a href=#515 id=515 data-nosnippet>515</a>    <span class="comment">// Save the generated object file.
-<a href=#516 id=516 data-nosnippet>516</a>    </span>obj.write_stream(<span class="kw-2">&amp;mut </span>meta_object).map_err(|e| {
-<a href=#517 id=517 data-nosnippet>517</a>        <span class="macro">format!</span>(
-<a href=#518 id=518 data-nosnippet>518</a>            <span class="string">"failed to write Wasmer meta object file {}: {e}"</span>,
-<a href=#519 id=519 data-nosnippet>519</a>            meta_object_path.display(),
-<a href=#520 id=520 data-nosnippet>520</a>        )
-<a href=#521 id=521 data-nosnippet>521</a>    })<span class="question-mark">?</span>;
-<a href=#522 id=522 data-nosnippet>522</a>
-<a href=#523 id=523 data-nosnippet>523</a>    <span class="prelude-val">Ok</span>(meta_object_path)
-<a href=#524 id=524 data-nosnippet>524</a>}
+<a href=#394 id=394 data-nosnippet>394</a>        sh_type: elf::SHT_PROGBITS,
+<a href=#395 id=395 data-nosnippet>395</a>        sh_flags: elf::SHF_GNU_RETAIN,
+<a href=#396 id=396 data-nosnippet>396</a>    };
+<a href=#397 id=397 data-nosnippet>397</a>
+<a href=#398 id=398 data-nosnippet>398</a>    <span class="comment">// Emit zero sentinel for the .eh_frame section.
+<a href=#399 id=399 data-nosnippet>399</a>    </span><span class="kw">let </span>section_id = obj.add_section(
+<a href=#400 id=400 data-nosnippet>400</a>        obj.segment_name(StandardSegment::Debug).to_vec(),
+<a href=#401 id=401 data-nosnippet>401</a>        EH_FRAME_SECTION_NAME.to_vec(),
+<a href=#402 id=402 data-nosnippet>402</a>        SectionKind::Debug,
+<a href=#403 id=403 data-nosnippet>403</a>    );
+<a href=#404 id=404 data-nosnippet>404</a>    obj.append_section_data(section_id, <span class="kw-2">&amp;</span><span class="number">0u64</span>.to_ne_bytes(), <span class="number">4</span>);
+<a href=#405 id=405 data-nosnippet>405</a>
+<a href=#406 id=406 data-nosnippet>406</a>    <span class="comment">// Emit offsets of the functions
+<a href=#407 id=407 data-nosnippet>407</a>    </span><span class="kw">let </span>section_id = obj.add_section(
+<a href=#408 id=408 data-nosnippet>408</a>        obj.segment_name(StandardSegment::Data).to_vec(),
+<a href=#409 id=409 data-nosnippet>409</a>        WASMER_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
+<a href=#410 id=410 data-nosnippet>410</a>        SectionKind::Other,
+<a href=#411 id=411 data-nosnippet>411</a>    );
+<a href=#412 id=412 data-nosnippet>412</a>    obj.section_mut(section_id).flags = SectionFlags::Elf {
+<a href=#413 id=413 data-nosnippet>413</a>        sh_type: elf::SHT_PROGBITS,
+<a href=#414 id=414 data-nosnippet>414</a>        sh_flags: elf::SHF_GNU_RETAIN,
+<a href=#415 id=415 data-nosnippet>415</a>    };
+<a href=#416 id=416 data-nosnippet>416</a>    <span class="kw">let </span>pointer_size = target
+<a href=#417 id=417 data-nosnippet>417</a>        .triple()
+<a href=#418 id=418 data-nosnippet>418</a>        .pointer_width()
+<a href=#419 id=419 data-nosnippet>419</a>        .map_err(|<span class="kw">_</span>| <span class="string">"unknown pointer width"</span>.to_string())<span class="question-mark">?
+<a href=#420 id=420 data-nosnippet>420</a>        </span>.bytes() <span class="kw">as </span>u64;
+<a href=#421 id=421 data-nosnippet>421</a>    <span class="kw">let </span>pointer_bits = (pointer_size * <span class="number">8</span>) <span class="kw">as </span>u8;
+<a href=#422 id=422 data-nosnippet>422</a>    <span class="kw">let </span>zero_pointer = <span class="macro">vec!</span>[<span class="number">0</span>; pointer_size <span class="kw">as </span>usize];
+<a href=#423 id=423 data-nosnippet>423</a>
+<a href=#424 id=424 data-nosnippet>424</a>    <span class="kw">let </span>function_offset_names = (<span class="number">0</span>..compiled_objects.object_files.len())
+<a href=#425 id=425 data-nosnippet>425</a>        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).linkage_name())
+<a href=#426 id=426 data-nosnippet>426</a>        .chain(
+<a href=#427 id=427 data-nosnippet>427</a>            (<span class="number">0</span>..compiled_objects.trampoline_object_files.len()).map(|i| {
+<a href=#428 id=428 data-nosnippet>428</a>                CompiledKind::FunctionCallTrampoline(
+<a href=#429 id=429 data-nosnippet>429</a>                    SignatureIndex::new(i),
+<a href=#430 id=430 data-nosnippet>430</a>                    <span class="comment">// Unused by the linkage_name.
+<a href=#431 id=431 data-nosnippet>431</a>                    </span>FunctionType::new([], []),
+<a href=#432 id=432 data-nosnippet>432</a>                )
+<a href=#433 id=433 data-nosnippet>433</a>                .linkage_name()
+<a href=#434 id=434 data-nosnippet>434</a>            }),
+<a href=#435 id=435 data-nosnippet>435</a>        )
+<a href=#436 id=436 data-nosnippet>436</a>        .chain(
+<a href=#437 id=437 data-nosnippet>437</a>            (<span class="number">0</span>..compiled_objects.dynamic_trampoline_object_files.len()).map(|i| {
+<a href=#438 id=438 data-nosnippet>438</a>                CompiledKind::DynamicFunctionTrampoline(
+<a href=#439 id=439 data-nosnippet>439</a>                    FunctionIndex::new(i),
+<a href=#440 id=440 data-nosnippet>440</a>                    <span class="comment">// Unused by the linkage_name.
+<a href=#441 id=441 data-nosnippet>441</a>                    </span>FunctionType::new([], []),
+<a href=#442 id=442 data-nosnippet>442</a>                )
+<a href=#443 id=443 data-nosnippet>443</a>                .linkage_name()
+<a href=#444 id=444 data-nosnippet>444</a>            }),
+<a href=#445 id=445 data-nosnippet>445</a>        );
+<a href=#446 id=446 data-nosnippet>446</a>    <span class="kw">for </span>function_name <span class="kw">in </span>function_offset_names {
+<a href=#447 id=447 data-nosnippet>447</a>        <span class="kw">let </span>offset = obj.append_section_data(section_id, <span class="kw-2">&amp;</span>zero_pointer, pointer_size);
+<a href=#448 id=448 data-nosnippet>448</a>        <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+<a href=#449 id=449 data-nosnippet>449</a>            name: function_name.to_owned().into(),
+<a href=#450 id=450 data-nosnippet>450</a>            value: <span class="number">0</span>,
+<a href=#451 id=451 data-nosnippet>451</a>            size: <span class="number">0</span>,
+<a href=#452 id=452 data-nosnippet>452</a>            kind: SymbolKind::Text,
+<a href=#453 id=453 data-nosnippet>453</a>            scope: SymbolScope::Unknown,
+<a href=#454 id=454 data-nosnippet>454</a>            weak: <span class="bool-val">false</span>,
+<a href=#455 id=455 data-nosnippet>455</a>            section: SymbolSection::Undefined,
+<a href=#456 id=456 data-nosnippet>456</a>            flags: SymbolFlags::None,
+<a href=#457 id=457 data-nosnippet>457</a>        });
+<a href=#458 id=458 data-nosnippet>458</a>        obj.add_relocation(
+<a href=#459 id=459 data-nosnippet>459</a>            section_id,
+<a href=#460 id=460 data-nosnippet>460</a>            Relocation {
+<a href=#461 id=461 data-nosnippet>461</a>                offset,
+<a href=#462 id=462 data-nosnippet>462</a>                flags: RelocationFlags::Generic {
+<a href=#463 id=463 data-nosnippet>463</a>                    kind: RelocationKind::Absolute,
+<a href=#464 id=464 data-nosnippet>464</a>                    encoding: RelocationEncoding::Generic,
+<a href=#465 id=465 data-nosnippet>465</a>                    size: pointer_bits,
+<a href=#466 id=466 data-nosnippet>466</a>                },
+<a href=#467 id=467 data-nosnippet>467</a>                symbol: symbol_id,
+<a href=#468 id=468 data-nosnippet>468</a>                addend: <span class="number">0</span>,
+<a href=#469 id=469 data-nosnippet>469</a>            },
+<a href=#470 id=470 data-nosnippet>470</a>        )
+<a href=#471 id=471 data-nosnippet>471</a>        .map_err(|e| {
+<a href=#472 id=472 data-nosnippet>472</a>            <span class="macro">format!</span>(<span class="string">"failed to add function offset relocation for {function_name}: {e}"</span>)
+<a href=#473 id=473 data-nosnippet>473</a>        })<span class="question-mark">?</span>;
+<a href=#474 id=474 data-nosnippet>474</a>    }
+<a href=#475 id=475 data-nosnippet>475</a>
+<a href=#476 id=476 data-nosnippet>476</a>    <span class="kw">let </span>trap_fn_offsets_section_id = obj.add_section(
+<a href=#477 id=477 data-nosnippet>477</a>        obj.segment_name(StandardSegment::Data).to_vec(),
+<a href=#478 id=478 data-nosnippet>478</a>        WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME.to_vec(),
+<a href=#479 id=479 data-nosnippet>479</a>        SectionKind::Other,
+<a href=#480 id=480 data-nosnippet>480</a>    );
+<a href=#481 id=481 data-nosnippet>481</a>    obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
+<a href=#482 id=482 data-nosnippet>482</a>        sh_type: elf::SHT_PROGBITS,
+<a href=#483 id=483 data-nosnippet>483</a>        sh_flags: elf::SHF_GNU_RETAIN,
+<a href=#484 id=484 data-nosnippet>484</a>    };
+<a href=#485 id=485 data-nosnippet>485</a>    <span class="kw">for </span>traps_name <span class="kw">in </span>(<span class="number">0</span>..compiled_objects.object_files.len())
+<a href=#486 id=486 data-nosnippet>486</a>        .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
+<a href=#487 id=487 data-nosnippet>487</a>    {
+<a href=#488 id=488 data-nosnippet>488</a>        <span class="kw">let </span>offset =
+<a href=#489 id=489 data-nosnippet>489</a>            obj.append_section_data(trap_fn_offsets_section_id, <span class="kw-2">&amp;</span>zero_pointer, pointer_size);
+<a href=#490 id=490 data-nosnippet>490</a>        <span class="kw">let </span>symbol_id = obj.add_symbol(ObjSymbol {
+<a href=#491 id=491 data-nosnippet>491</a>            name: traps_name.as_bytes().into(),
+<a href=#492 id=492 data-nosnippet>492</a>            value: <span class="number">0</span>,
+<a href=#493 id=493 data-nosnippet>493</a>            size: <span class="number">0</span>,
+<a href=#494 id=494 data-nosnippet>494</a>            kind: SymbolKind::Data,
+<a href=#495 id=495 data-nosnippet>495</a>            scope: SymbolScope::Linkage,
+<a href=#496 id=496 data-nosnippet>496</a>            weak: <span class="bool-val">true</span>,
+<a href=#497 id=497 data-nosnippet>497</a>            section: SymbolSection::Undefined,
+<a href=#498 id=498 data-nosnippet>498</a>            flags: SymbolFlags::None,
+<a href=#499 id=499 data-nosnippet>499</a>        });
+<a href=#500 id=500 data-nosnippet>500</a>        obj.add_relocation(
+<a href=#501 id=501 data-nosnippet>501</a>            trap_fn_offsets_section_id,
+<a href=#502 id=502 data-nosnippet>502</a>            Relocation {
+<a href=#503 id=503 data-nosnippet>503</a>                offset,
+<a href=#504 id=504 data-nosnippet>504</a>                flags: RelocationFlags::Generic {
+<a href=#505 id=505 data-nosnippet>505</a>                    kind: RelocationKind::Absolute,
+<a href=#506 id=506 data-nosnippet>506</a>                    encoding: RelocationEncoding::Generic,
+<a href=#507 id=507 data-nosnippet>507</a>                    size: pointer_bits,
+<a href=#508 id=508 data-nosnippet>508</a>                },
+<a href=#509 id=509 data-nosnippet>509</a>                symbol: symbol_id,
+<a href=#510 id=510 data-nosnippet>510</a>                addend: <span class="number">0</span>,
+<a href=#511 id=511 data-nosnippet>511</a>            },
+<a href=#512 id=512 data-nosnippet>512</a>        )
+<a href=#513 id=513 data-nosnippet>513</a>        .map_err(|e| {
+<a href=#514 id=514 data-nosnippet>514</a>            <span class="macro">format!</span>(<span class="string">"failed to add function trap offset relocation for {traps_name}: {e}"</span>)
+<a href=#515 id=515 data-nosnippet>515</a>        })<span class="question-mark">?</span>;
+<a href=#516 id=516 data-nosnippet>516</a>    }
+<a href=#517 id=517 data-nosnippet>517</a>
+<a href=#518 id=518 data-nosnippet>518</a>    <span class="comment">// Save the generated object file.
+<a href=#519 id=519 data-nosnippet>519</a>    </span>obj.write_stream(<span class="kw-2">&amp;mut </span>meta_object).map_err(|e| {
+<a href=#520 id=520 data-nosnippet>520</a>        <span class="macro">format!</span>(
+<a href=#521 id=521 data-nosnippet>521</a>            <span class="string">"failed to write Wasmer meta object file {}: {e}"</span>,
+<a href=#522 id=522 data-nosnippet>522</a>            meta_object_path.display(),
+<a href=#523 id=523 data-nosnippet>523</a>        )
+<a href=#524 id=524 data-nosnippet>524</a>    })<span class="question-mark">?</span>;
 <a href=#525 id=525 data-nosnippet>525</a>
-<a href=#526 id=526 data-nosnippet>526</a><span class="doccomment">/// Emits Wasmer metadata sections and links backend-generated object files into a shared object.
-<a href=#527 id=527 data-nosnippet>527</a></span><span class="kw">pub fn </span>emit_metadata_and_link(
-<a href=#528 id=528 data-nosnippet>528</a>    target: <span class="kw-2">&amp;</span>Target,
-<a href=#529 id=529 data-nosnippet>529</a>    compile_info_blob: <span class="kw-2">&amp;</span>[u8],
-<a href=#530 id=530 data-nosnippet>530</a>    build_directory: <span class="kw-2">&amp;</span>Path,
-<a href=#531 id=531 data-nosnippet>531</a>    module_file: NamedTempFile,
-<a href=#532 id=532 data-nosnippet>532</a>    compiled_objects: <span class="kw-2">&amp;</span>CompiledObjects&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#533 id=533 data-nosnippet>533</a>    <span class="kw-2">mut </span>debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-<a href=#534 id=534 data-nosnippet>534</a>    module_hash: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#535 id=535 data-nosnippet>535</a>) -&gt; <span class="prelude-ty">Result</span>&lt;NamedTempFile, CompileError&gt; {
-<a href=#536 id=536 data-nosnippet>536</a>    <span class="kw">let </span>meta_object_path =
-<a href=#537 id=537 data-nosnippet>537</a>        emit_wasmer_meta_object(target, compile_info_blob, build_directory, compiled_objects)
-<a href=#538 id=538 data-nosnippet>538</a>            .map_err(CompileError::Codegen)<span class="question-mark">?</span>;
-<a href=#539 id=539 data-nosnippet>539</a>
-<a href=#540 id=540 data-nosnippet>540</a>    <span class="kw">let </span><span class="kw-2">mut </span>link_args = <span class="macro">vec!</span>[
-<a href=#541 id=541 data-nosnippet>541</a>        <span class="string">"ld"</span>.to_string(),
-<a href=#542 id=542 data-nosnippet>542</a>        <span class="comment">// Allow resolution of the public symbols directly without PLT entries!
-<a href=#543 id=543 data-nosnippet>543</a>        </span><span class="string">"-Bsymbolic"</span>.to_string(),
-<a href=#544 id=544 data-nosnippet>544</a>        <span class="string">"-shared"</span>.to_string(),
-<a href=#545 id=545 data-nosnippet>545</a>        <span class="string">"-z"</span>.to_string(),
-<a href=#546 id=546 data-nosnippet>546</a>        <span class="string">"now"</span>.to_string(),
-<a href=#547 id=547 data-nosnippet>547</a>        <span class="string">"-z"</span>.to_string(),
-<a href=#548 id=548 data-nosnippet>548</a>        <span class="string">"relro"</span>.to_string(),
-<a href=#549 id=549 data-nosnippet>549</a>        <span class="string">"-o"</span>.to_string(),
-<a href=#550 id=550 data-nosnippet>550</a>        module_file.path().display().to_string(),
-<a href=#551 id=551 data-nosnippet>551</a>    ];
-<a href=#552 id=552 data-nosnippet>552</a>
-<a href=#553 id=553 data-nosnippet>553</a>    link_args.extend(
-<a href=#554 id=554 data-nosnippet>554</a>        compiled_objects
-<a href=#555 id=555 data-nosnippet>555</a>            .object_files
-<a href=#556 id=556 data-nosnippet>556</a>            .iter()
-<a href=#557 id=557 data-nosnippet>557</a>            .chain(compiled_objects.import_trampoline_object_files.iter())
-<a href=#558 id=558 data-nosnippet>558</a>            .chain(compiled_objects.trampoline_object_files.iter())
-<a href=#559 id=559 data-nosnippet>559</a>            .chain(compiled_objects.dynamic_trampoline_object_files.iter())
-<a href=#560 id=560 data-nosnippet>560</a>            .map(|path| path.display().to_string()),
-<a href=#561 id=561 data-nosnippet>561</a>    );
-<a href=#562 id=562 data-nosnippet>562</a>    <span class="comment">// Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
-<a href=#563 id=563 data-nosnippet>563</a>    // records. Linkers concatenate input sections in object order, and a
-<a href=#564 id=564 data-nosnippet>564</a>    // leading terminator makes frame registration see an empty table.
-<a href=#565 id=565 data-nosnippet>565</a>    </span>link_args.push(meta_object_path.display().to_string());
-<a href=#566 id=566 data-nosnippet>566</a>
-<a href=#567 id=567 data-nosnippet>567</a>    <span class="kw">let </span><span class="kw-2">mut </span>wild_args = wasmer_wild::Args::new(|| link_args.iter().map(String::as_str))
-<a href=#568 id=568 data-nosnippet>568</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to initialize Wild linker: {e:?}"</span>)))<span class="question-mark">?</span>;
-<a href=#569 id=569 data-nosnippet>569</a>    wild_args
-<a href=#570 id=570 data-nosnippet>570</a>        .parse(|| link_args.iter().map(String::as_str))
-<a href=#571 id=571 data-nosnippet>571</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to parse Wild linker args: {e:?}"</span>)))<span class="question-mark">?</span>;
-<a href=#572 id=572 data-nosnippet>572</a>    <span class="kw">let </span>thread_pool = wasmer_wild::args::ThreadPool::new();
-<a href=#573 id=573 data-nosnippet>573</a>    <span class="kw">let </span>linker = wasmer_wild::Linker::new();
-<a href=#574 id=574 data-nosnippet>574</a>    linker
-<a href=#575 id=575 data-nosnippet>575</a>        .run(<span class="kw-2">&amp;</span>wild_args, <span class="kw-2">&amp;</span>thread_pool)
-<a href=#576 id=576 data-nosnippet>576</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"Wild linker failed: {e:?}"</span>)))<span class="question-mark">?</span>;
-<a href=#577 id=577 data-nosnippet>577</a>
-<a href=#578 id=578 data-nosnippet>578</a>    <span class="kw">let </span>path_buf = module_file.path().to_path_buf();
-<a href=#579 id=579 data-nosnippet>579</a>    <span class="kw">let </span>(<span class="kw">_</span>, path) = module_file.into_parts();
-<a href=#580 id=580 data-nosnippet>580</a>    <span class="kw">let </span>new_file = std::fs::File::open(<span class="kw-2">&amp;</span>path_buf).map_err(|e| {
-<a href=#581 id=581 data-nosnippet>581</a>        CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"cannot reopen final file after Wild linker: {e:?}"</span>))
-<a href=#582 id=582 data-nosnippet>582</a>    })<span class="question-mark">?</span>;
-<a href=#583 id=583 data-nosnippet>583</a>    <span class="kw">let </span>module_file = NamedTempFile::from_parts(new_file, path);
-<a href=#584 id=584 data-nosnippet>584</a>
-<a href=#585 id=585 data-nosnippet>585</a>    <span class="comment">// If compiler-debug-dir is set, copy the final linked .so image
-<a href=#586 id=586 data-nosnippet>586</a>    // into the module_hash subfolder.
-<a href=#587 id=587 data-nosnippet>587</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(debug_dir) = debug_dir.as_mut() {
-<a href=#588 id=588 data-nosnippet>588</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>hash) = module_hash {
-<a href=#589 id=589 data-nosnippet>589</a>            debug_dir.push(hash);
-<a href=#590 id=590 data-nosnippet>590</a>        }
-<a href=#591 id=591 data-nosnippet>591</a>        std::fs::create_dir_all(<span class="kw-2">&amp;</span>debug_dir).ok();
-<a href=#592 id=592 data-nosnippet>592</a>        debug_dir.push(<span class="string">"wasmer-image.so"</span>);
-<a href=#593 id=593 data-nosnippet>593</a>        <span class="kw">let _ </span>= std::fs::copy(module_file.path(), <span class="kw-2">&amp;</span>debug_dir);
-<a href=#594 id=594 data-nosnippet>594</a>    }
-<a href=#595 id=595 data-nosnippet>595</a>
-<a href=#596 id=596 data-nosnippet>596</a>    <span class="prelude-val">Ok</span>(module_file)
-<a href=#597 id=597 data-nosnippet>597</a>}
+<a href=#526 id=526 data-nosnippet>526</a>    <span class="prelude-val">Ok</span>(meta_object_path)
+<a href=#527 id=527 data-nosnippet>527</a>}
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a><span class="doccomment">/// Emits Wasmer metadata sections and links backend-generated object files into a shared object.
+<a href=#530 id=530 data-nosnippet>530</a></span><span class="kw">pub fn </span>emit_metadata_and_link(
+<a href=#531 id=531 data-nosnippet>531</a>    target: <span class="kw-2">&amp;</span>Target,
+<a href=#532 id=532 data-nosnippet>532</a>    compile_info_blob: <span class="kw-2">&amp;</span>[u8],
+<a href=#533 id=533 data-nosnippet>533</a>    build_directory: <span class="kw-2">&amp;</span>Path,
+<a href=#534 id=534 data-nosnippet>534</a>    module_file: NamedTempFile,
+<a href=#535 id=535 data-nosnippet>535</a>    compiled_objects: <span class="kw-2">&amp;</span>CompiledObjects&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#536 id=536 data-nosnippet>536</a>    <span class="kw-2">mut </span>debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+<a href=#537 id=537 data-nosnippet>537</a>    module_hash: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#538 id=538 data-nosnippet>538</a>) -&gt; <span class="prelude-ty">Result</span>&lt;NamedTempFile, CompileError&gt; {
+<a href=#539 id=539 data-nosnippet>539</a>    <span class="kw">let </span>meta_object_path =
+<a href=#540 id=540 data-nosnippet>540</a>        emit_wasmer_meta_object(target, compile_info_blob, build_directory, compiled_objects)
+<a href=#541 id=541 data-nosnippet>541</a>            .map_err(CompileError::Codegen)<span class="question-mark">?</span>;
+<a href=#542 id=542 data-nosnippet>542</a>
+<a href=#543 id=543 data-nosnippet>543</a>    <span class="kw">let </span><span class="kw-2">mut </span>link_args = <span class="macro">vec!</span>[
+<a href=#544 id=544 data-nosnippet>544</a>        <span class="string">"ld"</span>.to_string(),
+<a href=#545 id=545 data-nosnippet>545</a>        <span class="comment">// Allow resolution of the public symbols directly without PLT entries!
+<a href=#546 id=546 data-nosnippet>546</a>        </span><span class="string">"-Bsymbolic"</span>.to_string(),
+<a href=#547 id=547 data-nosnippet>547</a>        <span class="string">"-shared"</span>.to_string(),
+<a href=#548 id=548 data-nosnippet>548</a>        <span class="string">"-z"</span>.to_string(),
+<a href=#549 id=549 data-nosnippet>549</a>        <span class="string">"now"</span>.to_string(),
+<a href=#550 id=550 data-nosnippet>550</a>        <span class="string">"-z"</span>.to_string(),
+<a href=#551 id=551 data-nosnippet>551</a>        <span class="string">"relro"</span>.to_string(),
+<a href=#552 id=552 data-nosnippet>552</a>        <span class="string">"-o"</span>.to_string(),
+<a href=#553 id=553 data-nosnippet>553</a>        module_file.path().display().to_string(),
+<a href=#554 id=554 data-nosnippet>554</a>    ];
+<a href=#555 id=555 data-nosnippet>555</a>
+<a href=#556 id=556 data-nosnippet>556</a>    link_args.extend(
+<a href=#557 id=557 data-nosnippet>557</a>        compiled_objects
+<a href=#558 id=558 data-nosnippet>558</a>            .object_files
+<a href=#559 id=559 data-nosnippet>559</a>            .iter()
+<a href=#560 id=560 data-nosnippet>560</a>            .chain(compiled_objects.import_trampoline_object_files.iter())
+<a href=#561 id=561 data-nosnippet>561</a>            .chain(compiled_objects.trampoline_object_files.iter())
+<a href=#562 id=562 data-nosnippet>562</a>            .chain(compiled_objects.dynamic_trampoline_object_files.iter())
+<a href=#563 id=563 data-nosnippet>563</a>            .map(|path| path.display().to_string()),
+<a href=#564 id=564 data-nosnippet>564</a>    );
+<a href=#565 id=565 data-nosnippet>565</a>    <span class="comment">// Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
+<a href=#566 id=566 data-nosnippet>566</a>    // records. Linkers concatenate input sections in object order, and a
+<a href=#567 id=567 data-nosnippet>567</a>    // leading terminator makes frame registration see an empty table.
+<a href=#568 id=568 data-nosnippet>568</a>    </span>link_args.push(meta_object_path.display().to_string());
+<a href=#569 id=569 data-nosnippet>569</a>
+<a href=#570 id=570 data-nosnippet>570</a>    <span class="kw">let </span><span class="kw-2">mut </span>wild_args = wasmer_wild::Args::new(|| link_args.iter().map(String::as_str))
+<a href=#571 id=571 data-nosnippet>571</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to initialize Wild linker: {e:?}"</span>)))<span class="question-mark">?</span>;
+<a href=#572 id=572 data-nosnippet>572</a>    wild_args
+<a href=#573 id=573 data-nosnippet>573</a>        .parse(|| link_args.iter().map(String::as_str))
+<a href=#574 id=574 data-nosnippet>574</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to parse Wild linker args: {e:?}"</span>)))<span class="question-mark">?</span>;
+<a href=#575 id=575 data-nosnippet>575</a>    <span class="kw">let </span>thread_pool = wasmer_wild::args::ThreadPool::new();
+<a href=#576 id=576 data-nosnippet>576</a>    <span class="kw">let </span>linker = wasmer_wild::Linker::new();
+<a href=#577 id=577 data-nosnippet>577</a>    linker
+<a href=#578 id=578 data-nosnippet>578</a>        .run(<span class="kw-2">&amp;</span>wild_args, <span class="kw-2">&amp;</span>thread_pool)
+<a href=#579 id=579 data-nosnippet>579</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"Wild linker failed: {e:?}"</span>)))<span class="question-mark">?</span>;
+<a href=#580 id=580 data-nosnippet>580</a>
+<a href=#581 id=581 data-nosnippet>581</a>    <span class="kw">let </span>path_buf = module_file.path().to_path_buf();
+<a href=#582 id=582 data-nosnippet>582</a>    <span class="kw">let </span>(<span class="kw">_</span>, path) = module_file.into_parts();
+<a href=#583 id=583 data-nosnippet>583</a>    <span class="kw">let </span>new_file = std::fs::File::open(<span class="kw-2">&amp;</span>path_buf).map_err(|e| {
+<a href=#584 id=584 data-nosnippet>584</a>        CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"cannot reopen final file after Wild linker: {e:?}"</span>))
+<a href=#585 id=585 data-nosnippet>585</a>    })<span class="question-mark">?</span>;
+<a href=#586 id=586 data-nosnippet>586</a>    <span class="kw">let </span>module_file = NamedTempFile::from_parts(new_file, path);
+<a href=#587 id=587 data-nosnippet>587</a>
+<a href=#588 id=588 data-nosnippet>588</a>    <span class="comment">// If compiler-debug-dir is set, copy the final linked .so image
+<a href=#589 id=589 data-nosnippet>589</a>    // into the module_hash subfolder.
+<a href=#590 id=590 data-nosnippet>590</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(debug_dir) = debug_dir.as_mut() {
+<a href=#591 id=591 data-nosnippet>591</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>hash) = module_hash {
+<a href=#592 id=592 data-nosnippet>592</a>            debug_dir.push(hash);
+<a href=#593 id=593 data-nosnippet>593</a>        }
+<a href=#594 id=594 data-nosnippet>594</a>        std::fs::create_dir_all(<span class="kw-2">&amp;</span>debug_dir).ok();
+<a href=#595 id=595 data-nosnippet>595</a>        debug_dir.push(<span class="string">"wasmer-image.so"</span>);
+<a href=#596 id=596 data-nosnippet>596</a>        <span class="kw">let _ </span>= std::fs::copy(module_file.path(), <span class="kw-2">&amp;</span>debug_dir);
+<a href=#597 id=597 data-nosnippet>597</a>    }
+<a href=#598 id=598 data-nosnippet>598</a>
+<a href=#599 id=599 data-nosnippet>599</a>    <span class="prelude-val">Ok</span>(module_file)
+<a href=#600 id=600 data-nosnippet>600</a>}
 </code></pre></div></section></main></body></html>
