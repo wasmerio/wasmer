@@ -188,10 +188,10 @@ struct ImageSegment {
 impl ImageSegment {
     fn protection(&self) -> Result<i32, String> {
         let (read, write, exec) = match self.flags {
-            SegmentFlags::Elf { p_flags } => (
-                p_flags & elf::PF_R != 0,
-                p_flags & elf::PF_W != 0,
-                p_flags & elf::PF_X != 0,
+            SegmentFlags::Elf { p_flags, .. } => (
+                p_flags.contains(elf::PF_R),
+                p_flags.contains(elf::PF_W),
+                p_flags.contains(elf::PF_X),
             ),
             _ => return Err(format!("unsupported segment flags: {:?}", self.flags)),
         };

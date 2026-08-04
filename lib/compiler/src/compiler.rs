@@ -391,7 +391,8 @@ fn emit_wasmer_meta_object(
     );
     obj.append_section_data(section_id, compile_info_blob, 8);
     obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        sh_type: elf::SHT_PROGBITS,
+        sh_flags: elf::SHF_GNU_RETAIN,
     };
 
     // Emit zero sentinel for the .eh_frame section.
@@ -409,7 +410,8 @@ fn emit_wasmer_meta_object(
         SectionKind::Other,
     );
     obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        sh_type: elf::SHT_PROGBITS,
+        sh_flags: elf::SHF_GNU_RETAIN,
     };
     let pointer_size = target
         .triple()
@@ -477,7 +479,8 @@ fn emit_wasmer_meta_object(
         SectionKind::Other,
     );
     obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        sh_type: elf::SHT_PROGBITS,
+        sh_flags: elf::SHF_GNU_RETAIN,
     };
     for traps_name in (0..compiled_objects.object_files.len())
         .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())

@@ -349,13 +349,23 @@ fn shared_object_dir() -> PathBuf {
     assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("out")));
     shared_object_dir.pop();
 
+    // Cargo used to put the package name and hash in one directory
+    // (`wasmer-c-api-<hash>`). Newer versions use two directories
+    // (`wasmer-c-api/<hash>`), so skip the separate hash when present.
+    if !shared_object_dir
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .starts_with("wasmer-c-api")
+    {
+        shared_object_dir.pop();
+    }
+
     assert!(
         shared_object_dir
             .file_name()
-            .as_ref()
             .unwrap()
             .to_string_lossy()
-            .to_string()
             .starts_with("wasmer-c-api")
     );
     shared_object_dir.pop();
