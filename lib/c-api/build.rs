@@ -349,6 +349,22 @@ fn shared_object_dir() -> PathBuf {
     assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("out")));
     shared_object_dir.pop();
 
+    // Depending on the Cargo/toolchain version, the build script's
+    // fingerprint directory is laid out either as `build/<pkg>-<hash>/out`
+    // (older Cargo, package name and hash in one hyphenated directory) or
+    // `build/<pkg>/<hash>/out` (newer Cargo, package name and hash split
+    // into separate nested directories). If this component isn't the
+    // package directory itself, assume it's the hash-only directory from
+    // the newer layout and pop once more to reach it.
+    if !shared_object_dir
+        .file_name()
+        .unwrap()
+        .to_string_lossy()
+        .starts_with("wasmer-c-api")
+    {
+        shared_object_dir.pop();
+    }
+
     assert!(
         shared_object_dir
             .file_name()
@@ -356,7 +372,9 @@ fn shared_object_dir() -> PathBuf {
             .unwrap()
             .to_string_lossy()
             .to_string()
-            .starts_with("wasmer-c-api")
+            .starts_with("wasmer-c-api"),
+        "unexpected OUT_DIR layout, could not locate the wasmer-c-api build directory: {:?}",
+        env::var("OUT_DIR")
     );
     shared_object_dir.pop();
 
