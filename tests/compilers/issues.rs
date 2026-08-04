@@ -1463,6 +1463,20 @@ fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
 }
 
 #[compiler_test(issues)]
+fn table_huge(config: crate::Config) -> Result<()> {
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    let mut store = config.store();
+    let module = Module::new(&store, "(module (table 10000000 funcref))")?;
+    let result = Instance::new(&mut store, &module, &imports! {});
+
+    assert!(result.unwrap_err().to_string().contains("Table minimum"));
+    Ok(())
+}
+
+#[compiler_test(issues)]
 fn table_import_element_type_mismatch(mut config: crate::Config) -> Result<()> {
     let mut store = config.store();
     let module = Module::new(
