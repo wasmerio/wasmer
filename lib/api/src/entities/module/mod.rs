@@ -113,6 +113,20 @@ impl Module {
         BackendModule::new(engine, bytes).map(Self)
     }
 
+    /// Asynchronously creates a new WebAssembly module.
+    ///
+    /// This is equivalent to [`Module::new`] on backends whose compilation is
+    /// synchronous. The JavaScript backend uses the host's asynchronous
+    /// WebAssembly compilation API, which avoids blocking the browser's main
+    /// thread and supports modules that browsers reject for synchronous
+    /// compilation there.
+    pub async fn new_async(
+        engine: &impl AsEngineRef,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<Self, CompileError> {
+        BackendModule::new_async(engine, bytes).await.map(Self)
+    }
+
     /// Creates a new WebAssembly module from a file path.
     pub fn from_file(
         engine: &impl AsEngineRef,

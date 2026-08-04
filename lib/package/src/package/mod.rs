@@ -7,28 +7,29 @@ pub(crate) mod volume;
 
 pub use self::{
     manifest::ManifestError,
-    package::{
-        Package, WalkBuilderFactory, WasmerPackageError, include_everything_walker,
-        wasmer_ignore_walker,
-    },
+    package::{Package, WalkBuilderFactory, include_everything_walker, wasmer_ignore_walker},
     strictness::Strictness,
     volume::{WasmerPackageVolume, fs::*, in_memory::*},
 };
+pub use crate::WasmerPackageError;
 
 #[cfg(test)]
 mod tests {
+    #[cfg(feature = "webc-v2")]
     use sha2::Digest;
+    #[cfg(feature = "webc-v2")]
     use shared_buffer::OwnedBuffer;
     use tempfile::TempDir;
 
-    use webc::{
-        metadata::annotations::FileSystemMapping,
-        migration::{are_semantically_equivalent, v2_to_v3, v3_to_v2},
-    };
+    #[cfg(feature = "webc-v2")]
+    use webc::metadata::annotations::FileSystemMapping;
+    #[cfg(feature = "webc-v2")]
+    use webc::migration::{are_semantically_equivalent, v2_to_v3, v3_to_v2};
 
     use crate::{package::Package, utils::from_bytes};
 
     #[test]
+    #[cfg(feature = "webc-v2")]
     fn migration_roundtrip() {
         let temp = TempDir::new().unwrap();
         let wasmer_toml = r#"
@@ -218,6 +219,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "webc-v2")]
     fn fs_entry_is_not_required_for_migration() {
         let temp = TempDir::new().unwrap();
         let wasmer_toml = r#"

@@ -231,7 +231,9 @@ impl Engine {
     pub fn supports_async(&self) -> bool {
         match self.be {
             #[cfg(feature = "sys")]
-            BackendEngine::Sys(ref e) => true,
+            BackendEngine::Sys(_) => true,
+            #[cfg(feature = "js")]
+            BackendEngine::Js(_) => crate::backend::js::jspi::is_supported(),
             _ => false,
         }
     }

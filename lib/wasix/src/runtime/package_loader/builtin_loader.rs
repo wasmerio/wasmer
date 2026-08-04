@@ -11,7 +11,7 @@ use http::{HeaderMap, Method};
 use tempfile::NamedTempFile;
 use url::Url;
 use wasmer_package::{
-    package::WasmerPackageError,
+    WasmerPackageError,
     utils::{from_bytes, from_disk},
 };
 use webc::DetectError;
@@ -32,7 +32,8 @@ use crate::{
 pub struct BuiltinPackageLoader {
     client: Arc<dyn HttpClient + Send + Sync>,
     in_memory: Option<InMemoryCache>,
-    cache: Option<FileSystemCache>,
+    cache: Option<Arc<dyn PackageCache>>,
+    filesystem_cache: Option<Arc<FileSystemCache>>,
     /// A mapping from hostnames to tokens
     tokens: HashMap<String, String>,
 
@@ -57,6 +58,7 @@ impl BuiltinPackageLoader {
             in_memory: Some(InMemoryCache::default()),
             client: Arc::new(crate::http::default_http_client().unwrap()),
             cache: None,
+            filesystem_cache: None,
             hash_validation: HashIntegrityValidationMode::NoValidate,
             tokens: HashMap::new(),
         }
@@ -71,10 +73,21 @@ impl BuiltinPackageLoader {
     }
 
     pub fn with_cache_dir(self, cache_dir: impl Into<PathBuf>) -> Self {
+        let cache = Arc::new(FileSystemCache {
+            cache_dir: cache_dir.into(),
+        });
         BuiltinPackageLoader {
-            cache: Some(FileSystemCache {
-                cache_dir: cache_dir.into(),
-            }),
+            cache: Some(cache.clone()),
+            filesystem_cache: Some(cache),
+            ..self
+        }
+    }
+
+    /// Use a target-provided persistent package cache.
+    pub fn with_cache(self, cache: Arc<dyn PackageCache>) -> Self {
+        BuiltinPackageLoader {
+            cache: Some(cache),
+            filesystem_cache: None,
             ..self
         }
     }
@@ -88,7 +101,7 @@ impl BuiltinPackageLoader {
     }
 
     pub fn cache(&self) -> Option<&FileSystemCache> {
-        self.cache.as_ref()
+        self.filesystem_cache.as_deref()
     }
 
     pub fn validate_cache(
@@ -96,9 +109,9 @@ impl BuiltinPackageLoader {
         mode: CacheValidationMode,
     ) -> Result<Vec<ImageHashMismatchError>, anyhow::Error> {
         let cache = self
-            .cache
-            .as_ref()
-            .context("can not validate cache - no cache configured")?;
+            .filesystem_cache
+            .as_deref()
+            .context("can not validate cache - no filesystem cache configured")?;
 
         let items = cache.validate_hashes()?;
         let mut errors = Vec::new();
@@ -185,14 +198,24 @@ impl BuiltinPackageLoader {
             return Ok(Some(cached));
         }
 
-        if let Some(cache) = self.cache.as_ref()
-            && let Some(cached) = cache.lookup(hash).await?
-        {
-            if let Some(in_memory) = &self.in_memory {
-                tracing::debug!("Copying from the filesystem cache to the in-memory cache");
-                in_memory.save(&cached, *hash);
+        if let Some(cache) = self.cache.as_ref() {
+            match cache.lookup(hash).await {
+                Ok(Some(cached)) => {
+                    if let Some(in_memory) = &self.in_memory {
+                        tracing::debug!("Copying from the persistent cache to the in-memory cache");
+                        in_memory.save(&cached, *hash);
+                    }
+                    return Ok(Some(cached));
+                }
+                Ok(None) => {}
+                Err(error) => {
+                    tracing::warn!(
+                        error = &*error,
+                        pkg.hash = %hash,
+                        "Unable to read a cached package; treating it as a cache miss",
+                    );
+                }
             }
-            return Ok(Some(cached));
         }
 
         Ok(None)
@@ -438,10 +461,7 @@ impl PackageLoader for BuiltinPackageLoader {
         // in a smart way to keep memory usage down.
 
         if let Some(cache) = &self.cache {
-            match cache
-                .save_and_load_as_mmapped(bytes.clone(), &summary.dist)
-                .await
-            {
+            match cache.save(bytes.clone(), &summary.dist).await {
                 Ok(container) => {
                     tracing::debug!("Cached to disk");
                     if let Some(in_memory) = &self.in_memory {
@@ -519,6 +539,16 @@ pub struct FileSystemCache {
     cache_dir: PathBuf,
 }
 
+/// Persistent storage for immutable WEBC package contents.
+#[async_trait::async_trait]
+pub trait PackageCache: Send + Sync + std::fmt::Debug {
+    /// Load and decode a package by its expected content hash.
+    async fn lookup(&self, hash: &WebcHash) -> Result<Option<Container>, Error>;
+
+    /// Persist downloaded bytes and return a decoded container.
+    async fn save(&self, webc: Bytes, dist: &DistributionInfo) -> Result<Container, Error>;
+}
+
 impl FileSystemCache {
     const FILE_SUFFIX: &'static str = ".bin";
 
@@ -584,7 +614,7 @@ impl FileSystemCache {
         Ok(items)
     }
 
-    async fn lookup(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
+    async fn lookup_impl(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
         let path = self.path(hash);
 
         let container = crate::spawn_blocking({
@@ -606,7 +636,7 @@ impl FileSystemCache {
         }
     }
 
-    async fn save(&self, webc: Bytes, dist: &DistributionInfo) -> Result<PathBuf, Error> {
+    async fn save_impl(&self, webc: Bytes, dist: &DistributionInfo) -> Result<PathBuf, Error> {
         let path = self.path(&dist.webc_sha256);
         let dist = dist.clone();
         let temp_dir = self.temp_dir();
@@ -648,11 +678,11 @@ impl FileSystemCache {
         dist: &DistributionInfo,
     ) -> Result<Container, Error> {
         // First, save it to disk
-        self.save(webc, dist).await?;
+        self.save_impl(webc, dist).await?;
 
         // Now try to load it again. The resulting container should use
         // a memory-mapped file rather than an in-memory buffer.
-        match self.lookup(&dist.webc_sha256).await? {
+        match self.lookup_impl(&dist.webc_sha256).await? {
             Some(container) => Ok(container),
             None => {
                 // Something really weird has occurred and we can't see the
@@ -760,6 +790,17 @@ impl FileSystemCache {
         })
         .await?
         .context("tokio runtime failed")
+    }
+}
+
+#[async_trait::async_trait]
+impl PackageCache for FileSystemCache {
+    async fn lookup(&self, hash: &WebcHash) -> Result<Option<Container>, Error> {
+        self.lookup_impl(hash).await
+    }
+
+    async fn save(&self, webc: Bytes, dist: &DistributionInfo) -> Result<Container, Error> {
+        self.save_and_load_as_mmapped(webc, dist).await
     }
 }
 
@@ -875,7 +916,7 @@ mod tests {
         assert_eq!(manifest.entrypoint.as_deref(), Some("python"));
         // it should have been automatically saved to disk
         let path = loader
-            .cache
+            .filesystem_cache
             .as_ref()
             .unwrap()
             .path(&summary.dist.webc_sha256);
@@ -1155,7 +1196,7 @@ mod tests {
         }
 
         let path1 = cache
-            .save(
+            .save_impl(
                 Bytes::from_static(b"test1"),
                 &DistributionInfo {
                     webc: Url::parse("file:///test1.webc").unwrap(),
@@ -1165,7 +1206,7 @@ mod tests {
             .await
             .unwrap();
         let path2 = cache
-            .save(
+            .save_impl(
                 Bytes::from_static(b"test2"),
                 &DistributionInfo {
                     webc: Url::parse("file:///test2.webc").unwrap(),

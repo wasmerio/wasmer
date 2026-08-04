@@ -5,9 +5,11 @@ use std::{
 
 use anyhow::Context;
 use once_cell::sync::OnceCell;
+#[cfg(feature = "package-authoring")]
 use sha2::Digest;
 use virtual_fs::{FileSystem, MountFileSystem};
 use wasmer_config::package::{PackageHash, PackageId, PackageSource};
+#[cfg(feature = "package-authoring")]
 use wasmer_package::package::Package;
 use webc::Container;
 use webc::compat::SharedBytes;
@@ -176,6 +178,7 @@ pub struct BinaryPackage {
 }
 
 impl BinaryPackage {
+    #[cfg(feature = "package-authoring")]
     #[tracing::instrument(level = "debug", skip_all)]
     pub async fn from_dir(
         dir: &Path,

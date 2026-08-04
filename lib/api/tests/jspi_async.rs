@@ -1,4 +1,4 @@
-#![cfg(feature = "experimental-async")]
+#![cfg(all(feature = "experimental-async", not(target_arch = "wasm32")))]
 
 use std::{cell::RefCell, sync::OnceLock};
 

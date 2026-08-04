@@ -16,8 +16,15 @@ anyhow.workspace = true
 wasmer-api = { version = "=7.2.1", path = "../api", default-features = false, package = "wasmer" }
 # Only needed to implement `wasmer_wasix::runtime::InstantiationHook` for the
 # hooks, so WASIX embedders can register them directly.
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-wasix = { version = "=0.702.1", path = "../wasix", optional = true, features = [
   "sys",
+], default-features = false }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasmer-wasix = { version = "=0.702.1", path = "../wasix", optional = true, features = [
+  "js",
 ], default-features = false }
 
 [dev-dependencies]

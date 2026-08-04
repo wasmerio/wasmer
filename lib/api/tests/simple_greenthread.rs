@@ -1,16 +1,66 @@
 #![cfg(feature = "experimental-async")]
 
 use std::collections::BTreeMap;
+use std::future::Future;
 use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
+use futures::channel::oneshot;
+use futures::future::{AbortHandle, Abortable};
+#[cfg(not(target_arch = "wasm32"))]
 use futures::task::LocalSpawnExt;
-use futures::{FutureExt, channel::oneshot};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_test::wasm_bindgen_test;
 use wasmer::{
-    AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Memory,
-    Module, RuntimeError, Store, Type, Value, imports,
+    AsStoreAsync, AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType,
+    Instance, Memory, Module, RuntimeError, Store, Type, Value, imports,
 };
+
+const SWITCHING_WAT: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../tests/examples/simple-greenthread.wat"
+));
+const SWITCHING_LOGS: &[&str] = &[
+    "[gr1] main  -> test1",
+    "[gr2] test1 -> test2",
+    "[gr1] test1 <- test2",
+    "[gr2] test1 -> test2",
+    "[gr1] test1 <- test2",
+    "[main] main <- test1",
+];
+const REGRESSION_WAT: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../tests/examples/simple-greenthread2.wat"
+));
+const REGRESSION_LOGS: &[&str] = &[
+    "[main] switching to side",
+    "[side] switching to main",
+    "[main] switching to side",
+    "[side] switching to main",
+    "[main] returned",
+];
+
+#[derive(Clone)]
+struct TestSpawner {
+    #[cfg(not(target_arch = "wasm32"))]
+    inner: futures::executor::LocalSpawner,
+}
+
+impl TestSpawner {
+    fn spawn(&self, future: impl Future<Output = ()> + 'static) {
+        #[cfg(not(target_arch = "wasm32"))]
+        self.inner.spawn_local(future).unwrap();
+
+        #[cfg(target_arch = "wasm32")]
+        wasm_bindgen_futures::spawn_local(future);
+    }
+}
+
+struct SpawnedTask {
+    abort: AbortHandle,
+    done: oneshot::Receiver<()>,
+}
 
 struct GreenEnv {
     logs: Vec<String>,
@@ -19,7 +69,8 @@ struct GreenEnv {
     current_greenthread_id: Arc<RwLock<u32>>,
     next_free_id: AtomicU32,
     entrypoint: Option<Function>,
-    spawner: Option<futures::executor::LocalSpawner>,
+    spawner: Option<TestSpawner>,
+    spawned_tasks: Vec<SpawnedTask>,
 }
 
 // Required for carrying the spawner around. Safe because we don't do threads.
@@ -38,6 +89,7 @@ impl GreenEnv {
             next_free_id: AtomicU32::new(1),
             entrypoint: None,
             spawner: None,
+            spawned_tasks: Vec::new(),
         }
     }
 }
@@ -84,15 +136,25 @@ async fn greenthread_new(
         .insert(new_greenthread_id, new_greenthread);
 
     let spawner = data.spawner.as_ref().expect("spawner set").clone();
-    spawner
-        .spawn_local(async move {
-            receiver.await.unwrap();
-            let resumer = function
-                .call_async(&async_store, vec![Value::I32(entrypoint_data as i32)])
-                .await;
-            panic!("Greenthread function returned {:?}", resumer);
-        })
-        .unwrap();
+    let (abort, registration) = AbortHandle::new_pair();
+    let (done_tx, done) = oneshot::channel();
+    data.spawned_tasks.push(SpawnedTask { abort, done });
+    spawner.spawn(async move {
+        let result = Abortable::new(
+            async move {
+                receiver.await.unwrap();
+                function
+                    .call_async(&async_store, vec![Value::I32(entrypoint_data as i32)])
+                    .await
+            },
+            registration,
+        )
+        .await;
+        if let Ok(result) = result {
+            panic!("Greenthread function returned {result:?}");
+        }
+        let _ = done_tx.send(());
+    });
 
     Ok(new_greenthread_id)
 }
@@ -137,14 +199,15 @@ async fn greenthread_switch(env: AsyncFunctionEnvMut<GreenEnv>, next_greenthread
         (receiver, current_id_arc, current_greenthread_id)
     };
 
-    let _ = receiver.map(|_| ()).await;
+    let _ = receiver.await;
 
     *current_id_arc.write().unwrap() = current_greenthread_id;
 }
 
-fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
+async fn run_greenthread_test(wat: &[u8], spawner: TestSpawner) -> Result<Vec<String>> {
     let mut store = Store::default();
-    let module = Module::new(&store.engine(), wat)?;
+    let wasm = wat::parse_bytes(wat)?;
+    let module = Module::new(&store.engine(), wasm)?;
 
     let env = FunctionEnv::new(&mut store, GreenEnv::new());
 
@@ -203,73 +266,78 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
         .unwrap()
         .insert(0, main_greenthread);
 
-    let mut localpool = futures::executor::LocalPool::new();
-    let local_spawner = localpool.spawner();
-    env.as_mut(&mut store).spawner = Some(local_spawner);
+    env.as_mut(&mut store).spawner = Some(spawner);
 
     let store_async = store.into_async();
 
-    localpool
-        .run_until(main_fn.call_async(&store_async, vec![]))
-        .unwrap();
+    main_fn.call_async(&store_async, vec![]).await?;
 
-    // If there are no more clones of it, StoreAsync can also be
-    // turned back into a store. We need to drop the local pool
-    // first to drop the futures and their references to the store.
-    drop(localpool);
+    let spawned_tasks = {
+        let mut store = store_async.write_lock().await;
+        std::mem::take(&mut env.as_mut(&mut store).spawned_tasks)
+    };
+    for task in &spawned_tasks {
+        task.abort.abort();
+    }
+    for task in spawned_tasks {
+        let _ = task.done.await;
+    }
 
-    let store = store_async.into_store().ok().unwrap();
+    let store = store_async.read_lock().await;
     Ok(env.as_ref(&store).logs.clone())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn run_greenthread_test_native(wat: &[u8]) -> Result<Vec<String>> {
+    let mut local_pool = futures::executor::LocalPool::new();
+    let spawner = TestSpawner {
+        inner: local_pool.spawner(),
+    };
+    local_pool.run_until(run_greenthread_test(wat, spawner))
+}
+
+fn assert_logs(logs: &[String], expected: &[&str]) {
+    assert_eq!(logs.len(), expected.len());
+    for (index, expected) in expected.iter().enumerate() {
+        assert_eq!(
+            logs[index], *expected,
+            "Log entry mismatch at index {index}: {logs:?}"
+        );
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
-    let logs = run_greenthread_test(include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../tests/examples/simple-greenthread.wat"
-    )))?;
-
-    // Expected logs
-    let expected = [
-        "[gr1] main  -> test1",
-        "[gr2] test1 -> test2",
-        "[gr1] test1 <- test2",
-        "[gr2] test1 -> test2",
-        "[gr1] test1 <- test2",
-        "[main] main <- test1",
-    ];
-
-    assert_eq!(logs.len(), expected.len(),);
-    for (i, exp) in expected.iter().enumerate() {
-        assert_eq!(logs[i], *exp, "Log entry mismatch at index {i}: {:?}", logs);
-    }
+    let logs = run_greenthread_test_native(SWITCHING_WAT)?;
+    assert_logs(&logs, SWITCHING_LOGS);
 
     Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+async fn green_threads_switch_and_log_in_expected_order() {
+    let logs = run_greenthread_test(SWITCHING_WAT, TestSpawner {})
+        .await
+        .unwrap();
+    assert_logs(&logs, SWITCHING_LOGS);
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
 fn green_threads_switch_main_crashed() -> Result<()> {
-    let logs = run_greenthread_test(include_bytes!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../tests/examples/simple-greenthread2.wat"
-    )))?;
-
-    // Expected logs
-    let expected = [
-        "[main] switching to side",
-        "[side] switching to main",
-        "[main] switching to side",
-        "[side] switching to main",
-        "[main] returned",
-    ];
-
-    eprintln!("logs: {:?}", logs);
-    assert_eq!(logs.len(), expected.len());
-    for (i, exp) in expected.iter().enumerate() {
-        assert_eq!(logs[i], *exp, "Log entry mismatch at index {i}: {:?}", logs);
-    }
+    let logs = run_greenthread_test_native(REGRESSION_WAT)?;
+    assert_logs(&logs, REGRESSION_LOGS);
 
     Ok(())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+async fn green_threads_switch_main_crashed() {
+    let logs = run_greenthread_test(REGRESSION_WAT, TestSpawner {})
+        .await
+        .unwrap();
+    assert_logs(&logs, REGRESSION_LOGS);
 }

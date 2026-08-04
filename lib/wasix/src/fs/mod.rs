@@ -2182,7 +2182,11 @@ impl WasiFs {
             let new_fd_entry = Fd {
                 inner: FdInner {
                     offset: fd_entry.inner.offset.clone(),
-                    rights: fd_entry.inner.rights_inheriting,
+                    // dup2 aliases an existing descriptor; it does not open a
+                    // child beneath it. Preserve the descriptor's active
+                    // rights just like clone_fd does. In particular, stdio's
+                    // inheriting rights are intentionally empty.
+                    rights: fd_entry.inner.rights,
                     fd_flags: {
                         let mut f = fd_entry.inner.fd_flags;
                         f.set(Fdflagsext::CLOEXEC, false);
@@ -2903,6 +2907,23 @@ mod tests {
 
     use crate::WasiEnvBuilder;
     use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
+
+    #[tokio::test]
+    async fn dup2_preserves_active_stdio_rights() {
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(Engine::default())
+            .build_init()
+            .unwrap();
+        let fs = &init.state.fs;
+        let stdout = fs.get_fd(__WASI_STDOUT_FILENO).unwrap();
+        assert!(stdout.inner.rights.contains(Rights::FD_FILESTAT_GET));
+        assert!(stdout.inner.rights_inheriting.is_empty());
+
+        fs.dup2_at(__WASI_STDOUT_FILENO, 42).unwrap();
+        let duplicate = fs.get_fd(42).unwrap();
+        assert_eq!(duplicate.inner.rights, stdout.inner.rights);
+        assert!(duplicate.inner.rights.contains(Rights::FD_FILESTAT_GET));
+    }
 
     fn webc_symlink_fs() -> virtual_fs::WebcVolumeFileSystem {
         let timestamps = webc::v3::Timestamps::default();

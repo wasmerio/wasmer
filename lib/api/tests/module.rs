@@ -1,4 +1,6 @@
 use macro_wasmer_engine_test::engine_test;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsValue;
 #[cfg(feature = "js")]
 use wasm_bindgen_test::*;
 
@@ -8,6 +10,70 @@ use wasmer::*;
 use std::ffi::OsStr;
 #[cfg(unix)]
 use std::os::unix::ffi::OsStrExt;
+
+async fn assert_module_new_async() -> Result<(), String> {
+    let store = Store::default();
+    let module = Module::new_async(&store, "(module (func (export \"run\")))")
+        .await
+        .map_err(|error| format!("{error:?}"))?;
+    assert!(module.exports().any(|export| export.name() == "run"));
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn module_new_async() -> Result<(), String> {
+    futures::executor::block_on(assert_module_new_async())
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen_test]
+async fn module_new_async() -> Result<(), JsValue> {
+    assert_module_new_async()
+        .await
+        .map_err(|error| JsValue::from_str(&error))
+}
+
+#[cfg(all(target_arch = "wasm32", feature = "js"))]
+#[wasm_bindgen_test]
+fn imported_table_elements_preserve_function_types() {
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"
+        (module
+          (import "env" "table" (table 8 funcref))
+          (import "env" "table_base" (global $table_base i32))
+          (type $trampoline_type (func (param i32 i32 i32) (result i32)))
+          (func $trampoline (type $trampoline_type)
+            local.get 0)
+          (elem (global.get $table_base) func $trampoline))
+        "#,
+    )
+    .unwrap();
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 8, None),
+        Value::FuncRef(None),
+    )
+    .unwrap();
+    let table_base = Global::new(&mut store, Value::I32(3));
+    let imports = imports! {
+        "env" => {
+            "table" => table.clone(),
+            "table_base" => table_base,
+        }
+    };
+
+    Instance::new(&mut store, &module, &imports).unwrap();
+    let Value::FuncRef(Some(function)) = table.get(&mut store, 3).unwrap() else {
+        panic!("expected the initialized table element to be a function");
+    };
+    assert_eq!(
+        function.ty(&store),
+        FunctionType::new(vec![Type::I32, Type::I32, Type::I32], vec![Type::I32])
+    );
+}
 
 #[engine_test]
 fn module_get_name() -> Result<(), String> {
