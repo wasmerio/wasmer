@@ -10,7 +10,6 @@ use crate::VMExternRef;
 use crate::VMFuncRef;
 use crate::store::MaybeInstanceOwned;
 use crate::vmcontext::VMTableDefinition;
-use bytesize::ByteSize;
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
@@ -69,7 +68,8 @@ impl Default for TableElement {
     }
 }
 
-const TABLE_MAX_SIZE: usize = ByteSize::mib(128).as_u64() as usize;
+// Cap the maximum table size at ~8MiB (each table element takes 64-bits).
+const TABLE_MAX_ELEMENTS: u32 = 1_000_000;
 
 /// A table instance.
 #[derive(Debug)]
@@ -135,17 +135,10 @@ impl VMTable {
                     table.minimum, max
                 ));
             }
-            if table.minimum as usize > TABLE_MAX_SIZE {
+            if table.minimum > TABLE_MAX_ELEMENTS {
                 return Err(format!(
-                    "Table minimum ({}) is larger than maximum allowed size ({TABLE_MAX_SIZE})!",
+                    "Table minimum ({}) is larger than maximum allowed size ({TABLE_MAX_ELEMENTS})!",
                     table.minimum
-                ));
-            }
-            if let Some(max) = table.maximum
-                && max as usize > TABLE_MAX_SIZE
-            {
-                return Err(format!(
-                    "Table maximum ({max}) is larger than maximum allowed size ({TABLE_MAX_SIZE})!",
                 ));
             }
             let table_minimum = usize::try_from(table.minimum)
@@ -155,7 +148,7 @@ impl VMTable {
             match style {
                 TableStyle::CallerChecksSignature => Ok(Self {
                     vec,
-                    maximum: table.maximum,
+                    maximum: table.maximum.map(|maximum| maximum.min(TABLE_MAX_ELEMENTS)),
                     table: *table,
                     style: style.clone(),
                     vm_table_definition: if let Some(table_loc) = vm_table_location {
@@ -213,7 +206,7 @@ impl VMTable {
         }
         let size = self.size();
         let new_len = size.checked_add(delta)?;
-        if self.maximum.is_some_and(|max| new_len > max) {
+        if new_len > TABLE_MAX_ELEMENTS || self.maximum.is_some_and(|max| new_len > max) {
             return None;
         }
         if new_len == size {
@@ -393,7 +386,7 @@ impl VMTable {
 
 #[cfg(test)]
 mod tests {
-    use super::{TableElement, VMTable};
+    use super::{TABLE_MAX_ELEMENTS, TableElement, VMTable};
     use wasmer_types::{TableStyle, TableType, Type};
 
     #[test]
@@ -402,5 +395,12 @@ mod tests {
         ty.readonly = true;
         let mut table = VMTable::new(&ty, &TableStyle::CallerChecksSignature).unwrap();
         assert_eq!(table.grow(0, TableElement::FuncRef(None)), None);
+    }
+
+    #[test]
+    fn huge_maximum_is_capped() {
+        let ty = TableType::new(Type::FuncRef, 0, Some(TABLE_MAX_ELEMENTS + 1));
+        let table = VMTable::new(&ty, &TableStyle::CallerChecksSignature).unwrap();
+        assert_eq!(table.maximum, Some(TABLE_MAX_ELEMENTS));
     }
 }
