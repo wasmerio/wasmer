@@ -25,7 +25,8 @@ pub use self::{
     },
 };
 use crate::{
-    Runtime, SpawnError, WasiEnv,
+    Runtime, SpawnError, VIRTUAL_ROOT_FD, WasiEnv,
+    fs::Kind,
     os::{
         command::{Commands, VirtualCommand},
         task::TaskJoinHandle,
@@ -231,7 +232,7 @@ impl BinFactory {
                 env.state.fs.relative_path_to_absolute(name.to_string())
             };
             return self
-                .get_executable(&name, Some(env.fs_root()))
+                .get_executable_from_wasi_fs(&name, env)
                 .await
                 .map(|executable| (name, executable));
         }
@@ -247,12 +248,34 @@ impl BinFactory {
             } else {
                 env.state.fs.relative_path_to_absolute(path)
             };
-            if let Some(executable) = self.get_executable(&path, Some(env.fs_root())).await {
+            if let Some(executable) = self.get_executable_from_wasi_fs(&path, env).await {
                 return Some((path, executable));
             }
         }
 
         None
+    }
+
+    async fn get_executable_from_wasi_fs(&self, path: &str, env: &WasiEnv) -> Option<Executable> {
+        if let Some(binary) = self.local.read().unwrap().get(path).cloned().flatten() {
+            return Some(Executable::BinaryPackage(binary));
+        }
+
+        match load_executable_from_wasi_fs(env, Path::new(path), self.runtime()).await {
+            Ok(executable) => {
+                if let Executable::BinaryPackage(package) = &executable {
+                    self.local
+                        .write()
+                        .unwrap()
+                        .insert(path.to_string(), Some(package.clone()));
+                }
+                Some(executable)
+            }
+            Err(error) => {
+                tracing::debug!(path, error = &*error, "Unable to load executable");
+                None
+            }
+        }
     }
 }
 
@@ -385,6 +408,42 @@ async fn load_executable_from_filesystem(
     }
 }
 
+async fn load_executable_from_wasi_fs(
+    env: &WasiEnv,
+    path: &Path,
+    rt: &(dyn Runtime + Send + Sync),
+) -> Result<Executable, anyhow::Error> {
+    let inode = env
+        .state
+        .fs
+        .get_inode_at_path(
+            &env.state.inodes,
+            VIRTUAL_ROOT_FD,
+            path.to_string_lossy().as_ref(),
+            true,
+        )
+        .map_err(|error| anyhow::anyhow!("Unable to resolve executable: {error}"))?;
+
+    let (buffer, backing_path) = {
+        let kind = inode.read();
+        match &*kind {
+            Kind::File { handle, path, .. } => {
+                let buffer = handle
+                    .as_ref()
+                    .and_then(|handle| handle.read().unwrap().as_owned_buffer());
+                (buffer, path.clone())
+            }
+            _ => anyhow::bail!("Executable is not a regular file"),
+        }
+    };
+
+    if let Some(buffer) = buffer {
+        load_executable_from_buffer(buffer, rt).await
+    } else {
+        load_executable_from_filesystem(&env.state.fs.root_fs, &backing_path, rt).await
+    }
+}
+
 async fn load_executable_from_buffer(
     buffer: OwnedBuffer,
     rt: &(dyn Runtime + Send + Sync),
@@ -408,7 +467,13 @@ async fn load_executable_from_buffer(
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_shebang, script_command};
+    use std::path::Path;
+
+    use virtual_fs::{AsyncWriteExt, FileSystem};
+    use wasmer::Engine;
+
+    use super::{Executable, load_executable_from_wasi_fs, parse_shebang, script_command};
+    use crate::WasiEnvBuilder;
 
     #[test]
     fn parses_env_shebang() {
@@ -461,5 +526,33 @@ mod tests {
 
         assert_eq!(interpreter, "/bin/bash");
         assert_eq!(args, ["/bin/bash", "-e", "/workspace/script", "hello"]);
+    }
+
+    #[tokio::test]
+    async fn loads_shebang_through_relative_symlink() {
+        let mut builder = WasiEnvBuilder::new("test").engine(Engine::default());
+        builder.preopen_vfs_dirs(["/".to_string()]).unwrap();
+        let env = builder.build().unwrap();
+        let fs = &env.state.fs.root_fs;
+        fs.create_dir(Path::new("/bin")).unwrap();
+        fs.create_dir(Path::new("/pkg")).unwrap();
+
+        let mut target = fs
+            .new_open_options()
+            .create(true)
+            .write(true)
+            .open(Path::new("/pkg/next"))
+            .unwrap();
+        target
+            .write_all(b"#!/usr/bin/env node\nconsole.log('hello')\n")
+            .await
+            .unwrap();
+        fs.create_symlink(Path::new("../pkg/next"), Path::new("/bin/next"))
+            .unwrap();
+
+        let executable = load_executable_from_wasi_fs(&env, Path::new("/bin/next"), env.runtime())
+            .await
+            .unwrap();
+        assert!(matches!(executable, Executable::Script(_)));
     }
 }
