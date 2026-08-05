@@ -42,7 +42,8 @@ impl WasmSourceMap {
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Self, String> {
         let Some(code_base) = translation.code_section_offset() else {
-            return Err("code offset expected in Wasm file".to_string());
+            // We must support a Wasm modules without code section.
+            return Ok(Self::default());
         };
 
         type Reader = EndianRcSlice<LittleEndian>;

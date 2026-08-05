@@ -78,7 +78,9 @@ pub trait CompilerConfig {
     }
 
     /// Enable generation of a debugger command file for JIT compiled frames.
-    fn enable_debugger(&mut self, _debugger: Debugger);
+    fn enable_debugger(&mut self, _debugger: Debugger) {
+        // By default we do nothing, each backend will need to customize this.
+    }
 
     /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
     /// (but are not 100% SPEC compliant).

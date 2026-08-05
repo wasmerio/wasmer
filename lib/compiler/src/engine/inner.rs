@@ -614,8 +614,7 @@ impl EngineInner {
             .canonicalize()
             .unwrap_or_else(|_| path.to_path_buf())
             .to_string_lossy()
-            .replace('\\', "\\\\")
-            .replace('"', "\\\"");
+            .to_string();
         let (command, source_command) = match debugger {
             Debugger::Gdb => (
                 format!("add-symbol-file \"{path}\" -o 0x{:x}", base as usize),
