@@ -20,7 +20,7 @@ use crate::{
 // prevent browsers from creating the other shared memories used by the SDK.
 // 512 MiB is large enough for substantial WASIX workloads while leaving useful
 // address-space headroom for the runtime and concurrent processes.
-const JS_SHARED_MEMORY_MAXIMUM_PAGES: Pages = Pages(6_144);
+const JS_SHARED_MEMORY_MAXIMUM_PAGES: Pages = Pages(16_384);
 
 #[derive(Debug, Clone, Eq)]
 pub struct Memory {
