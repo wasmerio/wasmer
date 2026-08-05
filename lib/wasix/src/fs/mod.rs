@@ -2920,8 +2920,8 @@ mod tests {
     use crate::WasiEnvBuilder;
     use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
 
-    #[test]
-    fn fdstat_uses_swapped_stdio_terminal_state() {
+    #[tokio::test]
+    async fn fdstat_uses_swapped_stdio_terminal_state() {
         let inodes = WasiInodes::new();
         let fs_backing =
             WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
