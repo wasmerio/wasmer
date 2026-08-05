@@ -24,11 +24,11 @@
 <a href=#24 id=24 data-nosnippet>24</a>};
 <a href=#25 id=25 data-nosnippet>25</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 <a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">use </span>std::collections::HashMap;
-<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>wasmer_compiler::dwarf::init_dwarf_unit;
-<a href=#28 id=28 data-nosnippet>28</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">use </span>wasmer_compiler::dwarf::{EhRelocation, EhTarget, WriterRelocate};
-<a href=#30 id=30 data-nosnippet>30</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#31 id=31 data-nosnippet>31</a></span><span class="kw">use </span>wasmer_compiler::elf::emit_eh_frame_section;
+<a href=#27 id=27 data-nosnippet>27</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">use </span>wasmer_compiler::dwarf::{EhRelocation, EhTarget, WriterRelocate};
+<a href=#29 id=29 data-nosnippet>29</a><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#30 id=30 data-nosnippet>30</a></span><span class="kw">use </span>wasmer_compiler::elf::emit_eh_frame_section;
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>wasmer_compiler::{WasmSourceMap, dwarf::init_dwarf_unit};
 <a href=#32 id=32 data-nosnippet>32</a><span class="kw">use </span>wasmer_compiler::{
 <a href=#33 id=33 data-nosnippet>33</a>    elf::{add_relocations, emit_trap_section},
 <a href=#34 id=34 data-nosnippet>34</a>    misc::{CompiledFunctionExt, CompiledKind},
@@ -225,153 +225,158 @@
 <a href=#225 id=225 data-nosnippet>225</a>    function_name: <span class="kw-2">&amp;</span>str,
 <a href=#226 id=226 data-nosnippet>226</a>    module_name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
 <a href=#227 id=227 data-nosnippet>227</a>    function: <span class="kw-2">&amp;</span>CompiledFunction,
-<a href=#228 id=228 data-nosnippet>228</a>    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)] </span>fde: <span class="prelude-ty">Option</span>&lt;FrameDescriptionEntry&gt;,
-<a href=#229 id=229 data-nosnippet>229</a>    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)] </span>lsda: <span class="prelude-ty">Option</span>&lt;FunctionLsdaData&gt;,
-<a href=#230 id=230 data-nosnippet>230</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
-<a href=#231 id=231 data-nosnippet>231</a>    <span class="kw">let </span>kind = CompiledKind::Local(index, String::new());
-<a href=#232 id=232 data-nosnippet>232</a>    <span class="kw">let </span><span class="kw-2">mut </span>object = get_object_for_target(target.triple())
-<a href=#233 id=233 data-nosnippet>233</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"cannot create object: {e}"</span>)))<span class="question-mark">?</span>;
-<a href=#234 id=234 data-nosnippet>234</a>
-<a href=#235 id=235 data-nosnippet>235</a>    <span class="comment">// Emit the function body into the text section.
-<a href=#236 id=236 data-nosnippet>236</a>    </span><span class="kw">let </span>function_symbol = object.add_symbol(Symbol {
-<a href=#237 id=237 data-nosnippet>237</a>        name: kind.linkage_name().into_bytes(),
-<a href=#238 id=238 data-nosnippet>238</a>        value: <span class="number">0</span>,
-<a href=#239 id=239 data-nosnippet>239</a>        size: function.body.body.len() <span class="kw">as </span>u64,
-<a href=#240 id=240 data-nosnippet>240</a>        kind: SymbolKind::Text,
-<a href=#241 id=241 data-nosnippet>241</a>        scope: SymbolScope::Linkage,
-<a href=#242 id=242 data-nosnippet>242</a>        weak: <span class="bool-val">false</span>,
-<a href=#243 id=243 data-nosnippet>243</a>        section: SymbolSection::Undefined,
-<a href=#244 id=244 data-nosnippet>244</a>        flags: SymbolFlags::None,
-<a href=#245 id=245 data-nosnippet>245</a>    });
-<a href=#246 id=246 data-nosnippet>246</a>    <span class="kw">let </span>text = object.section_id(StandardSection::Text);
-<a href=#247 id=247 data-nosnippet>247</a>    object.add_symbol_data(function_symbol, text, <span class="kw-2">&amp;</span>function.body.body, <span class="number">16</span>);
-<a href=#248 id=248 data-nosnippet>248</a>    add_relocations(
-<a href=#249 id=249 data-nosnippet>249</a>        <span class="kw-2">&amp;mut </span>object,
-<a href=#250 id=250 data-nosnippet>250</a>        text,
-<a href=#251 id=251 data-nosnippet>251</a>        <span class="kw-2">&amp;</span>function.relocations,
-<a href=#252 id=252 data-nosnippet>252</a>        <span class="prelude-val">Some</span>((index, function_symbol)),
-<a href=#253 id=253 data-nosnippet>253</a>    )<span class="question-mark">?</span>;
-<a href=#254 id=254 data-nosnippet>254</a>
-<a href=#255 id=255 data-nosnippet>255</a>    <span class="comment">// Populate DWARF line info from the address map.
-<a href=#256 id=256 data-nosnippet>256</a>    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>dwarf_state) = init_dwarf_unit(function_name, module_name, <span class="string">"Wasmer (Cranelift)"</span>) {
-<a href=#257 id=257 data-nosnippet>257</a>        <span class="kw">for </span>instruction <span class="kw">in </span><span class="kw-2">&amp;</span>function.frame_info.address_map.instructions {
-<a href=#258 id=258 data-nosnippet>258</a>            dwarf_state.add_row(instruction.code_offset <span class="kw">as </span>u64, instruction.srcloc);
-<a href=#259 id=259 data-nosnippet>259</a>        }
-<a href=#260 id=260 data-nosnippet>260</a>        dwarf_state.write_sections(
-<a href=#261 id=261 data-nosnippet>261</a>            <span class="kw-2">&amp;mut </span>object,
-<a href=#262 id=262 data-nosnippet>262</a>            function_symbol,
-<a href=#263 id=263 data-nosnippet>263</a>            function.body.body.len() <span class="kw">as </span>u64,
-<a href=#264 id=264 data-nosnippet>264</a>            target.triple().endianness().ok(),
-<a href=#265 id=265 data-nosnippet>265</a>        )<span class="question-mark">?</span>;
-<a href=#266 id=266 data-nosnippet>266</a>    }
-<a href=#267 id=267 data-nosnippet>267</a>
-<a href=#268 id=268 data-nosnippet>268</a>    emit_trap_section(<span class="kw-2">&amp;mut </span>object, <span class="kw-2">&amp;</span>kind, <span class="kw-2">&amp;</span>function.frame_info.traps);
-<a href=#269 id=269 data-nosnippet>269</a>
-<a href=#270 id=270 data-nosnippet>270</a>    <span class="comment">// Emit the per-function `.eh_frame` unwind table (and, for functions that
-<a href=#271 id=271 data-nosnippet>271</a>    // catch exceptions, the matching `.gcc_except_table` LSDA).
-<a href=#272 id=272 data-nosnippet>272</a>    </span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-<a href=#273 id=273 data-nosnippet>273</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(fde) = fde
-<a href=#274 id=274 data-nosnippet>274</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>cie) = isa.create_systemv_cie()
-<a href=#275 id=275 data-nosnippet>275</a>    {
-<a href=#276 id=276 data-nosnippet>276</a>        <span class="kw">let </span>pointer_bytes = isa.frontend_config().pointer_bytes();
-<a href=#277 id=277 data-nosnippet>277</a>
-<a href=#278 id=278 data-nosnippet>278</a>        <span class="comment">// Emit the LSDA into `.gcc_except_table`, plus a per-object tag section
-<a href=#279 id=279 data-nosnippet>279</a>        // holding the exception tag constants referenced by its type table.
-<a href=#280 id=280 data-nosnippet>280</a>        </span><span class="kw">let </span>lsda_section_symbol = <span class="kw">if let </span><span class="prelude-val">Some</span>(lsda) = <span class="kw-2">&amp;</span>lsda {
-<a href=#281 id=281 data-nosnippet>281</a>            <span class="kw">let </span>tag_section_symbol = emit_eh_tag_section(<span class="kw-2">&amp;mut </span>object, lsda);
+<a href=#228 id=228 data-nosnippet>228</a>    source_map: <span class="kw-2">&amp;</span>WasmSourceMap,
+<a href=#229 id=229 data-nosnippet>229</a>    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)] </span>fde: <span class="prelude-ty">Option</span>&lt;FrameDescriptionEntry&gt;,
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)] </span>lsda: <span class="prelude-ty">Option</span>&lt;FunctionLsdaData&gt;,
+<a href=#231 id=231 data-nosnippet>231</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CompileError&gt; {
+<a href=#232 id=232 data-nosnippet>232</a>    <span class="kw">let </span>kind = CompiledKind::Local(index, String::new());
+<a href=#233 id=233 data-nosnippet>233</a>    <span class="kw">let </span><span class="kw-2">mut </span>object = get_object_for_target(target.triple())
+<a href=#234 id=234 data-nosnippet>234</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"cannot create object: {e}"</span>)))<span class="question-mark">?</span>;
+<a href=#235 id=235 data-nosnippet>235</a>
+<a href=#236 id=236 data-nosnippet>236</a>    <span class="comment">// Emit the function body into the text section.
+<a href=#237 id=237 data-nosnippet>237</a>    </span><span class="kw">let </span>function_symbol = object.add_symbol(Symbol {
+<a href=#238 id=238 data-nosnippet>238</a>        name: kind.linkage_name().into_bytes(),
+<a href=#239 id=239 data-nosnippet>239</a>        value: <span class="number">0</span>,
+<a href=#240 id=240 data-nosnippet>240</a>        size: function.body.body.len() <span class="kw">as </span>u64,
+<a href=#241 id=241 data-nosnippet>241</a>        kind: SymbolKind::Text,
+<a href=#242 id=242 data-nosnippet>242</a>        scope: SymbolScope::Linkage,
+<a href=#243 id=243 data-nosnippet>243</a>        weak: <span class="bool-val">false</span>,
+<a href=#244 id=244 data-nosnippet>244</a>        section: SymbolSection::Undefined,
+<a href=#245 id=245 data-nosnippet>245</a>        flags: SymbolFlags::None,
+<a href=#246 id=246 data-nosnippet>246</a>    });
+<a href=#247 id=247 data-nosnippet>247</a>    <span class="kw">let </span>text = object.section_id(StandardSection::Text);
+<a href=#248 id=248 data-nosnippet>248</a>    object.add_symbol_data(function_symbol, text, <span class="kw-2">&amp;</span>function.body.body, <span class="number">16</span>);
+<a href=#249 id=249 data-nosnippet>249</a>    add_relocations(
+<a href=#250 id=250 data-nosnippet>250</a>        <span class="kw-2">&amp;mut </span>object,
+<a href=#251 id=251 data-nosnippet>251</a>        text,
+<a href=#252 id=252 data-nosnippet>252</a>        <span class="kw-2">&amp;</span>function.relocations,
+<a href=#253 id=253 data-nosnippet>253</a>        <span class="prelude-val">Some</span>((index, function_symbol)),
+<a href=#254 id=254 data-nosnippet>254</a>    )<span class="question-mark">?</span>;
+<a href=#255 id=255 data-nosnippet>255</a>
+<a href=#256 id=256 data-nosnippet>256</a>    <span class="comment">// Populate DWARF line info from the address map.
+<a href=#257 id=257 data-nosnippet>257</a>    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>dwarf_state) = init_dwarf_unit(function_name, module_name, <span class="string">"Wasmer (Cranelift)"</span>) {
+<a href=#258 id=258 data-nosnippet>258</a>        <span class="kw">for </span>instruction <span class="kw">in </span><span class="kw-2">&amp;</span>function.frame_info.address_map.instructions {
+<a href=#259 id=259 data-nosnippet>259</a>            dwarf_state.add_source_map_row(
+<a href=#260 id=260 data-nosnippet>260</a>                instruction.code_offset <span class="kw">as </span>u64,
+<a href=#261 id=261 data-nosnippet>261</a>                instruction.srcloc,
+<a href=#262 id=262 data-nosnippet>262</a>                source_map,
+<a href=#263 id=263 data-nosnippet>263</a>            );
+<a href=#264 id=264 data-nosnippet>264</a>        }
+<a href=#265 id=265 data-nosnippet>265</a>        dwarf_state.write_sections(
+<a href=#266 id=266 data-nosnippet>266</a>            <span class="kw-2">&amp;mut </span>object,
+<a href=#267 id=267 data-nosnippet>267</a>            function_symbol,
+<a href=#268 id=268 data-nosnippet>268</a>            function.body.body.len() <span class="kw">as </span>u64,
+<a href=#269 id=269 data-nosnippet>269</a>            target.triple().endianness().ok(),
+<a href=#270 id=270 data-nosnippet>270</a>        )<span class="question-mark">?</span>;
+<a href=#271 id=271 data-nosnippet>271</a>    }
+<a href=#272 id=272 data-nosnippet>272</a>
+<a href=#273 id=273 data-nosnippet>273</a>    emit_trap_section(<span class="kw-2">&amp;mut </span>object, <span class="kw-2">&amp;</span>kind, <span class="kw-2">&amp;</span>function.frame_info.traps);
+<a href=#274 id=274 data-nosnippet>274</a>
+<a href=#275 id=275 data-nosnippet>275</a>    <span class="comment">// Emit the per-function `.eh_frame` unwind table (and, for functions that
+<a href=#276 id=276 data-nosnippet>276</a>    // catch exceptions, the matching `.gcc_except_table` LSDA).
+<a href=#277 id=277 data-nosnippet>277</a>    </span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href=#278 id=278 data-nosnippet>278</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(fde) = fde
+<a href=#279 id=279 data-nosnippet>279</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>cie) = isa.create_systemv_cie()
+<a href=#280 id=280 data-nosnippet>280</a>    {
+<a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">let </span>pointer_bytes = isa.frontend_config().pointer_bytes();
 <a href=#282 id=282 data-nosnippet>282</a>
-<a href=#283 id=283 data-nosnippet>283</a>            <span class="kw">let </span>gcc_section = object.add_section(
-<a href=#284 id=284 data-nosnippet>284</a>                object.segment_name(StandardSegment::Data).to_vec(),
-<a href=#285 id=285 data-nosnippet>285</a>                <span class="string">b".gcc_except_table"</span>.to_vec(),
-<a href=#286 id=286 data-nosnippet>286</a>                SectionKind::ReadOnlyData,
-<a href=#287 id=287 data-nosnippet>287</a>            );
-<a href=#288 id=288 data-nosnippet>288</a>            <span class="kw">let </span>lsda_offset =
-<a href=#289 id=289 data-nosnippet>289</a>                object.append_section_data(gcc_section, <span class="kw-2">&amp;</span>lsda.bytes, u64::from(pointer_bytes));
-<a href=#290 id=290 data-nosnippet>290</a>            <span class="comment">// The type-table slots use `DW_EH_PE_pcrel | sdata4` encoding,
-<a href=#291 id=291 data-nosnippet>291</a>            // so their relocations are PC-relative 32-bit (`R_X86_64_PC32`).
-<a href=#292 id=292 data-nosnippet>292</a>            // This keeps `.gcc_except_table` position-independent and read-only.
-<a href=#293 id=293 data-nosnippet>293</a>            </span><span class="kw">let </span>tag_relocation_flags = RelocationFlags::Generic {
-<a href=#294 id=294 data-nosnippet>294</a>                kind: object::RelocationKind::Relative,
-<a href=#295 id=295 data-nosnippet>295</a>                encoding: RelocationEncoding::Generic,
-<a href=#296 id=296 data-nosnippet>296</a>                size: <span class="number">32</span>,
-<a href=#297 id=297 data-nosnippet>297</a>            };
-<a href=#298 id=298 data-nosnippet>298</a>            <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;</span>lsda.relocations {
-<a href=#299 id=299 data-nosnippet>299</a>                <span class="kw">let </span>(tag_symbol, tag_offset) = tag_section_symbol
-<a href=#300 id=300 data-nosnippet>300</a>                    .as_ref()
-<a href=#301 id=301 data-nosnippet>301</a>                    .and_then(|(symbol, offsets)| {
-<a href=#302 id=302 data-nosnippet>302</a>                        offsets.get(<span class="kw-2">&amp;</span>reloc.tag).map(|offset| (<span class="kw-2">*</span>symbol, <span class="kw-2">*</span>offset))
-<a href=#303 id=303 data-nosnippet>303</a>                    })
-<a href=#304 id=304 data-nosnippet>304</a>                    .ok_or_else(|| {
-<a href=#305 id=305 data-nosnippet>305</a>                        CompileError::Codegen(<span class="macro">format!</span>(
-<a href=#306 id=306 data-nosnippet>306</a>                            <span class="string">"missing exception tag {} for LSDA relocation"</span>,
-<a href=#307 id=307 data-nosnippet>307</a>                            reloc.tag
-<a href=#308 id=308 data-nosnippet>308</a>                        ))
-<a href=#309 id=309 data-nosnippet>309</a>                    })<span class="question-mark">?</span>;
-<a href=#310 id=310 data-nosnippet>310</a>                object
-<a href=#311 id=311 data-nosnippet>311</a>                    .add_relocation(
-<a href=#312 id=312 data-nosnippet>312</a>                        gcc_section,
-<a href=#313 id=313 data-nosnippet>313</a>                        ObjectRelocation {
-<a href=#314 id=314 data-nosnippet>314</a>                            offset: lsda_offset + reloc.offset <span class="kw">as </span>u64,
-<a href=#315 id=315 data-nosnippet>315</a>                            flags: tag_relocation_flags,
-<a href=#316 id=316 data-nosnippet>316</a>                            symbol: tag_symbol,
-<a href=#317 id=317 data-nosnippet>317</a>                            addend: tag_offset <span class="kw">as </span>i64,
-<a href=#318 id=318 data-nosnippet>318</a>                        },
-<a href=#319 id=319 data-nosnippet>319</a>                    )
-<a href=#320 id=320 data-nosnippet>320</a>                    .map_err(|e| {
-<a href=#321 id=321 data-nosnippet>321</a>                        CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to add LSDA relocation: {e}"</span>))
-<a href=#322 id=322 data-nosnippet>322</a>                    })<span class="question-mark">?</span>;
-<a href=#323 id=323 data-nosnippet>323</a>            }
-<a href=#324 id=324 data-nosnippet>324</a>            <span class="prelude-val">Some</span>(object.section_symbol(gcc_section))
-<a href=#325 id=325 data-nosnippet>325</a>        } <span class="kw">else </span>{
-<a href=#326 id=326 data-nosnippet>326</a>            <span class="prelude-val">None
-<a href=#327 id=327 data-nosnippet>327</a>        </span>};
-<a href=#328 id=328 data-nosnippet>328</a>
-<a href=#329 id=329 data-nosnippet>329</a>        <span class="comment">// The ELF image may be mapped at any base address, so make the FDE's
-<a href=#330 id=330 data-nosnippet>330</a>        // function reference position-independent.
-<a href=#331 id=331 data-nosnippet>331</a>        </span>cie.fde_address_encoding = constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4;
-<a href=#332 id=332 data-nosnippet>332</a>        <span class="kw">let </span><span class="kw-2">mut </span>fde = fde;
-<a href=#333 id=333 data-nosnippet>333</a>        <span class="kw">if </span>lsda_section_symbol.is_some() {
-<a href=#334 id=334 data-nosnippet>334</a>            <span class="comment">// Reference the personality pointer indirectly and PC-relative.
-<a href=#335 id=335 data-nosnippet>335</a>            // The shared ELF emitter creates the local pointer slot and its
-<a href=#336 id=336 data-nosnippet>336</a>            // dynamic relocation. The LSDA lives in the same image and is
-<a href=#337 id=337 data-nosnippet>337</a>            // referenced directly, PC-relative.
-<a href=#338 id=338 data-nosnippet>338</a>            </span>cie.personality = <span class="prelude-val">Some</span>((
-<a href=#339 id=339 data-nosnippet>339</a>                constants::DW_EH_PE_indirect
-<a href=#340 id=340 data-nosnippet>340</a>                    | constants::DW_EH_PE_pcrel
-<a href=#341 id=341 data-nosnippet>341</a>                    | constants::DW_EH_PE_sdata4,
-<a href=#342 id=342 data-nosnippet>342</a>                Address::Symbol {
-<a href=#343 id=343 data-nosnippet>343</a>                    symbol: WriterRelocate::PERSONALITY_SYMBOL,
-<a href=#344 id=344 data-nosnippet>344</a>                    addend: <span class="number">0</span>,
-<a href=#345 id=345 data-nosnippet>345</a>                },
-<a href=#346 id=346 data-nosnippet>346</a>            ));
-<a href=#347 id=347 data-nosnippet>347</a>            cie.lsda_encoding = <span class="prelude-val">Some</span>(constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4);
-<a href=#348 id=348 data-nosnippet>348</a>            fde.lsda = <span class="prelude-val">Some</span>(Address::Symbol {
-<a href=#349 id=349 data-nosnippet>349</a>                symbol: WriterRelocate::LSDA_SYMBOL,
-<a href=#350 id=350 data-nosnippet>350</a>                addend: <span class="number">0</span>,
-<a href=#351 id=351 data-nosnippet>351</a>            });
-<a href=#352 id=352 data-nosnippet>352</a>        }
-<a href=#353 id=353 data-nosnippet>353</a>
-<a href=#354 id=354 data-nosnippet>354</a>        <span class="kw">let </span><span class="kw-2">mut </span>frametable = FrameTable::default();
-<a href=#355 id=355 data-nosnippet>355</a>        <span class="kw">let </span>cie_id = frametable.add_cie(cie);
-<a href=#356 id=356 data-nosnippet>356</a>        frametable.add_fde(cie_id, fde);
-<a href=#357 id=357 data-nosnippet>357</a>
-<a href=#358 id=358 data-nosnippet>358</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame = EhFrame(EhFrameWriter::new());
-<a href=#359 id=359 data-nosnippet>359</a>        frametable
-<a href=#360 id=360 data-nosnippet>360</a>            .write_eh_frame(<span class="kw-2">&amp;mut </span>eh_frame)
-<a href=#361 id=361 data-nosnippet>361</a>            .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to write .eh_frame: {e}"</span>)))<span class="question-mark">?</span>;
+<a href=#283 id=283 data-nosnippet>283</a>        <span class="comment">// Emit the LSDA into `.gcc_except_table`, plus a per-object tag section
+<a href=#284 id=284 data-nosnippet>284</a>        // holding the exception tag constants referenced by its type table.
+<a href=#285 id=285 data-nosnippet>285</a>        </span><span class="kw">let </span>lsda_section_symbol = <span class="kw">if let </span><span class="prelude-val">Some</span>(lsda) = <span class="kw-2">&amp;</span>lsda {
+<a href=#286 id=286 data-nosnippet>286</a>            <span class="kw">let </span>tag_section_symbol = emit_eh_tag_section(<span class="kw-2">&amp;mut </span>object, lsda);
+<a href=#287 id=287 data-nosnippet>287</a>
+<a href=#288 id=288 data-nosnippet>288</a>            <span class="kw">let </span>gcc_section = object.add_section(
+<a href=#289 id=289 data-nosnippet>289</a>                object.segment_name(StandardSegment::Data).to_vec(),
+<a href=#290 id=290 data-nosnippet>290</a>                <span class="string">b".gcc_except_table"</span>.to_vec(),
+<a href=#291 id=291 data-nosnippet>291</a>                SectionKind::ReadOnlyData,
+<a href=#292 id=292 data-nosnippet>292</a>            );
+<a href=#293 id=293 data-nosnippet>293</a>            <span class="kw">let </span>lsda_offset =
+<a href=#294 id=294 data-nosnippet>294</a>                object.append_section_data(gcc_section, <span class="kw-2">&amp;</span>lsda.bytes, u64::from(pointer_bytes));
+<a href=#295 id=295 data-nosnippet>295</a>            <span class="comment">// The type-table slots use `DW_EH_PE_pcrel | sdata4` encoding,
+<a href=#296 id=296 data-nosnippet>296</a>            // so their relocations are PC-relative 32-bit (`R_X86_64_PC32`).
+<a href=#297 id=297 data-nosnippet>297</a>            // This keeps `.gcc_except_table` position-independent and read-only.
+<a href=#298 id=298 data-nosnippet>298</a>            </span><span class="kw">let </span>tag_relocation_flags = RelocationFlags::Generic {
+<a href=#299 id=299 data-nosnippet>299</a>                kind: object::RelocationKind::Relative,
+<a href=#300 id=300 data-nosnippet>300</a>                encoding: RelocationEncoding::Generic,
+<a href=#301 id=301 data-nosnippet>301</a>                size: <span class="number">32</span>,
+<a href=#302 id=302 data-nosnippet>302</a>            };
+<a href=#303 id=303 data-nosnippet>303</a>            <span class="kw">for </span>reloc <span class="kw">in </span><span class="kw-2">&amp;</span>lsda.relocations {
+<a href=#304 id=304 data-nosnippet>304</a>                <span class="kw">let </span>(tag_symbol, tag_offset) = tag_section_symbol
+<a href=#305 id=305 data-nosnippet>305</a>                    .as_ref()
+<a href=#306 id=306 data-nosnippet>306</a>                    .and_then(|(symbol, offsets)| {
+<a href=#307 id=307 data-nosnippet>307</a>                        offsets.get(<span class="kw-2">&amp;</span>reloc.tag).map(|offset| (<span class="kw-2">*</span>symbol, <span class="kw-2">*</span>offset))
+<a href=#308 id=308 data-nosnippet>308</a>                    })
+<a href=#309 id=309 data-nosnippet>309</a>                    .ok_or_else(|| {
+<a href=#310 id=310 data-nosnippet>310</a>                        CompileError::Codegen(<span class="macro">format!</span>(
+<a href=#311 id=311 data-nosnippet>311</a>                            <span class="string">"missing exception tag {} for LSDA relocation"</span>,
+<a href=#312 id=312 data-nosnippet>312</a>                            reloc.tag
+<a href=#313 id=313 data-nosnippet>313</a>                        ))
+<a href=#314 id=314 data-nosnippet>314</a>                    })<span class="question-mark">?</span>;
+<a href=#315 id=315 data-nosnippet>315</a>                object
+<a href=#316 id=316 data-nosnippet>316</a>                    .add_relocation(
+<a href=#317 id=317 data-nosnippet>317</a>                        gcc_section,
+<a href=#318 id=318 data-nosnippet>318</a>                        ObjectRelocation {
+<a href=#319 id=319 data-nosnippet>319</a>                            offset: lsda_offset + reloc.offset <span class="kw">as </span>u64,
+<a href=#320 id=320 data-nosnippet>320</a>                            flags: tag_relocation_flags,
+<a href=#321 id=321 data-nosnippet>321</a>                            symbol: tag_symbol,
+<a href=#322 id=322 data-nosnippet>322</a>                            addend: tag_offset <span class="kw">as </span>i64,
+<a href=#323 id=323 data-nosnippet>323</a>                        },
+<a href=#324 id=324 data-nosnippet>324</a>                    )
+<a href=#325 id=325 data-nosnippet>325</a>                    .map_err(|e| {
+<a href=#326 id=326 data-nosnippet>326</a>                        CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to add LSDA relocation: {e}"</span>))
+<a href=#327 id=327 data-nosnippet>327</a>                    })<span class="question-mark">?</span>;
+<a href=#328 id=328 data-nosnippet>328</a>            }
+<a href=#329 id=329 data-nosnippet>329</a>            <span class="prelude-val">Some</span>(object.section_symbol(gcc_section))
+<a href=#330 id=330 data-nosnippet>330</a>        } <span class="kw">else </span>{
+<a href=#331 id=331 data-nosnippet>331</a>            <span class="prelude-val">None
+<a href=#332 id=332 data-nosnippet>332</a>        </span>};
+<a href=#333 id=333 data-nosnippet>333</a>
+<a href=#334 id=334 data-nosnippet>334</a>        <span class="comment">// The ELF image may be mapped at any base address, so make the FDE's
+<a href=#335 id=335 data-nosnippet>335</a>        // function reference position-independent.
+<a href=#336 id=336 data-nosnippet>336</a>        </span>cie.fde_address_encoding = constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4;
+<a href=#337 id=337 data-nosnippet>337</a>        <span class="kw">let </span><span class="kw-2">mut </span>fde = fde;
+<a href=#338 id=338 data-nosnippet>338</a>        <span class="kw">if </span>lsda_section_symbol.is_some() {
+<a href=#339 id=339 data-nosnippet>339</a>            <span class="comment">// Reference the personality pointer indirectly and PC-relative.
+<a href=#340 id=340 data-nosnippet>340</a>            // The shared ELF emitter creates the local pointer slot and its
+<a href=#341 id=341 data-nosnippet>341</a>            // dynamic relocation. The LSDA lives in the same image and is
+<a href=#342 id=342 data-nosnippet>342</a>            // referenced directly, PC-relative.
+<a href=#343 id=343 data-nosnippet>343</a>            </span>cie.personality = <span class="prelude-val">Some</span>((
+<a href=#344 id=344 data-nosnippet>344</a>                constants::DW_EH_PE_indirect
+<a href=#345 id=345 data-nosnippet>345</a>                    | constants::DW_EH_PE_pcrel
+<a href=#346 id=346 data-nosnippet>346</a>                    | constants::DW_EH_PE_sdata4,
+<a href=#347 id=347 data-nosnippet>347</a>                Address::Symbol {
+<a href=#348 id=348 data-nosnippet>348</a>                    symbol: WriterRelocate::PERSONALITY_SYMBOL,
+<a href=#349 id=349 data-nosnippet>349</a>                    addend: <span class="number">0</span>,
+<a href=#350 id=350 data-nosnippet>350</a>                },
+<a href=#351 id=351 data-nosnippet>351</a>            ));
+<a href=#352 id=352 data-nosnippet>352</a>            cie.lsda_encoding = <span class="prelude-val">Some</span>(constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4);
+<a href=#353 id=353 data-nosnippet>353</a>            fde.lsda = <span class="prelude-val">Some</span>(Address::Symbol {
+<a href=#354 id=354 data-nosnippet>354</a>                symbol: WriterRelocate::LSDA_SYMBOL,
+<a href=#355 id=355 data-nosnippet>355</a>                addend: <span class="number">0</span>,
+<a href=#356 id=356 data-nosnippet>356</a>            });
+<a href=#357 id=357 data-nosnippet>357</a>        }
+<a href=#358 id=358 data-nosnippet>358</a>
+<a href=#359 id=359 data-nosnippet>359</a>        <span class="kw">let </span><span class="kw-2">mut </span>frametable = FrameTable::default();
+<a href=#360 id=360 data-nosnippet>360</a>        <span class="kw">let </span>cie_id = frametable.add_cie(cie);
+<a href=#361 id=361 data-nosnippet>361</a>        frametable.add_fde(cie_id, fde);
 <a href=#362 id=362 data-nosnippet>362</a>
-<a href=#363 id=363 data-nosnippet>363</a>        <span class="kw">let </span>relocations = std::mem::take(<span class="kw-2">&amp;mut </span>eh_frame.<span class="number">0</span>.relocs);
-<a href=#364 id=364 data-nosnippet>364</a>        emit_eh_frame_section(
-<a href=#365 id=365 data-nosnippet>365</a>            <span class="kw-2">&amp;mut </span>object,
-<a href=#366 id=366 data-nosnippet>366</a>            <span class="kw-2">&amp;</span>eh_frame.<span class="number">0</span>.into_bytes(),
-<a href=#367 id=367 data-nosnippet>367</a>            <span class="kw-2">&amp;</span>relocations,
-<a href=#368 id=368 data-nosnippet>368</a>            function_symbol,
-<a href=#369 id=369 data-nosnippet>369</a>            lsda_section_symbol,
-<a href=#370 id=370 data-nosnippet>370</a>        )<span class="question-mark">?</span>;
-<a href=#371 id=371 data-nosnippet>371</a>    }
-<a href=#372 id=372 data-nosnippet>372</a>
-<a href=#373 id=373 data-nosnippet>373</a>    object
-<a href=#374 id=374 data-nosnippet>374</a>        .write()
-<a href=#375 id=375 data-nosnippet>375</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to serialize object: {e}"</span>)))
-<a href=#376 id=376 data-nosnippet>376</a>}
+<a href=#363 id=363 data-nosnippet>363</a>        <span class="kw">let </span><span class="kw-2">mut </span>eh_frame = EhFrame(EhFrameWriter::new());
+<a href=#364 id=364 data-nosnippet>364</a>        frametable
+<a href=#365 id=365 data-nosnippet>365</a>            .write_eh_frame(<span class="kw-2">&amp;mut </span>eh_frame)
+<a href=#366 id=366 data-nosnippet>366</a>            .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to write .eh_frame: {e}"</span>)))<span class="question-mark">?</span>;
+<a href=#367 id=367 data-nosnippet>367</a>
+<a href=#368 id=368 data-nosnippet>368</a>        <span class="kw">let </span>relocations = std::mem::take(<span class="kw-2">&amp;mut </span>eh_frame.<span class="number">0</span>.relocs);
+<a href=#369 id=369 data-nosnippet>369</a>        emit_eh_frame_section(
+<a href=#370 id=370 data-nosnippet>370</a>            <span class="kw-2">&amp;mut </span>object,
+<a href=#371 id=371 data-nosnippet>371</a>            <span class="kw-2">&amp;</span>eh_frame.<span class="number">0</span>.into_bytes(),
+<a href=#372 id=372 data-nosnippet>372</a>            <span class="kw-2">&amp;</span>relocations,
+<a href=#373 id=373 data-nosnippet>373</a>            function_symbol,
+<a href=#374 id=374 data-nosnippet>374</a>            lsda_section_symbol,
+<a href=#375 id=375 data-nosnippet>375</a>        )<span class="question-mark">?</span>;
+<a href=#376 id=376 data-nosnippet>376</a>    }
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>    object
+<a href=#379 id=379 data-nosnippet>379</a>        .write()
+<a href=#380 id=380 data-nosnippet>380</a>        .map_err(|e| CompileError::Codegen(<span class="macro">format!</span>(<span class="string">"failed to serialize object: {e}"</span>)))
+<a href=#381 id=381 data-nosnippet>381</a>}
 </code></pre></div></section></main></body></html>

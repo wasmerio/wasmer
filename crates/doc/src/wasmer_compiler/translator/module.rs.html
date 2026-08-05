@@ -180,53 +180,55 @@
 <a href=#180 id=180 data-nosnippet>180</a>                parse_element_section(elements, environ)<span class="question-mark">?</span>;
 <a href=#181 id=181 data-nosnippet>181</a>            }
 <a href=#182 id=182 data-nosnippet>182</a>
-<a href=#183 id=183 data-nosnippet>183</a>            Payload::CodeSectionStart { .. } =&gt; {}
-<a href=#184 id=184 data-nosnippet>184</a>            Payload::CodeSectionEntry(code) =&gt; {
-<a href=#185 id=185 data-nosnippet>185</a>                <span class="kw">let </span><span class="kw-2">mut </span>code = code.get_binary_reader();
-<a href=#186 id=186 data-nosnippet>186</a>                <span class="kw">let </span>size = code.bytes_remaining();
-<a href=#187 id=187 data-nosnippet>187</a>                <span class="kw">let </span>offset = code.original_position();
-<a href=#188 id=188 data-nosnippet>188</a>                environ.define_function_body(
-<a href=#189 id=189 data-nosnippet>189</a>                    <span class="kw-2">&amp;</span>module_translation_state,
-<a href=#190 id=190 data-nosnippet>190</a>                    code.read_bytes(size)
-<a href=#191 id=191 data-nosnippet>191</a>                        .map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>,
-<a href=#192 id=192 data-nosnippet>192</a>                    offset,
-<a href=#193 id=193 data-nosnippet>193</a>                )<span class="question-mark">?</span>;
-<a href=#194 id=194 data-nosnippet>194</a>            }
-<a href=#195 id=195 data-nosnippet>195</a>
-<a href=#196 id=196 data-nosnippet>196</a>            Payload::DataSection(data) =&gt; {
-<a href=#197 id=197 data-nosnippet>197</a>                parse_data_section(data, environ)<span class="question-mark">?</span>;
-<a href=#198 id=198 data-nosnippet>198</a>            }
-<a href=#199 id=199 data-nosnippet>199</a>
-<a href=#200 id=200 data-nosnippet>200</a>            Payload::DataCountSection { count, .. } =&gt; {
-<a href=#201 id=201 data-nosnippet>201</a>                environ.reserve_passive_data(count)<span class="question-mark">?</span>;
-<a href=#202 id=202 data-nosnippet>202</a>            }
-<a href=#203 id=203 data-nosnippet>203</a>
-<a href=#204 id=204 data-nosnippet>204</a>            Payload::TagSection(t) =&gt; parse_tag_section(t, environ)<span class="question-mark">?</span>,
+<a href=#183 id=183 data-nosnippet>183</a>            Payload::CodeSectionStart { range, .. } =&gt; {
+<a href=#184 id=184 data-nosnippet>184</a>                module_translation_state.code_section_offset = <span class="prelude-val">Some</span>(range.start);
+<a href=#185 id=185 data-nosnippet>185</a>            }
+<a href=#186 id=186 data-nosnippet>186</a>            Payload::CodeSectionEntry(code) =&gt; {
+<a href=#187 id=187 data-nosnippet>187</a>                <span class="kw">let </span><span class="kw-2">mut </span>code = code.get_binary_reader();
+<a href=#188 id=188 data-nosnippet>188</a>                <span class="kw">let </span>size = code.bytes_remaining();
+<a href=#189 id=189 data-nosnippet>189</a>                <span class="kw">let </span>offset = code.original_position();
+<a href=#190 id=190 data-nosnippet>190</a>                environ.define_function_body(
+<a href=#191 id=191 data-nosnippet>191</a>                    <span class="kw-2">&amp;</span>module_translation_state,
+<a href=#192 id=192 data-nosnippet>192</a>                    code.read_bytes(size)
+<a href=#193 id=193 data-nosnippet>193</a>                        .map_err(from_binaryreadererror_wasmerror)<span class="question-mark">?</span>,
+<a href=#194 id=194 data-nosnippet>194</a>                    offset,
+<a href=#195 id=195 data-nosnippet>195</a>                )<span class="question-mark">?</span>;
+<a href=#196 id=196 data-nosnippet>196</a>            }
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a>            Payload::DataSection(data) =&gt; {
+<a href=#199 id=199 data-nosnippet>199</a>                parse_data_section(data, environ)<span class="question-mark">?</span>;
+<a href=#200 id=200 data-nosnippet>200</a>            }
+<a href=#201 id=201 data-nosnippet>201</a>
+<a href=#202 id=202 data-nosnippet>202</a>            Payload::DataCountSection { count, .. } =&gt; {
+<a href=#203 id=203 data-nosnippet>203</a>                environ.reserve_passive_data(count)<span class="question-mark">?</span>;
+<a href=#204 id=204 data-nosnippet>204</a>            }
 <a href=#205 id=205 data-nosnippet>205</a>
-<a href=#206 id=206 data-nosnippet>206</a>            Payload::CustomSection(sectionreader) =&gt; {
-<a href=#207 id=207 data-nosnippet>207</a>                <span class="comment">// We still add the custom section data, but also read it as name section reader
-<a href=#208 id=208 data-nosnippet>208</a>                </span><span class="kw">let </span>name = sectionreader.name();
-<a href=#209 id=209 data-nosnippet>209</a>                environ.custom_section(name, sectionreader.data())<span class="question-mark">?</span>;
-<a href=#210 id=210 data-nosnippet>210</a>                <span class="kw">if </span>name == <span class="string">"name" </span>{
-<a href=#211 id=211 data-nosnippet>211</a>                    parse_name_section(
-<a href=#212 id=212 data-nosnippet>212</a>                        NameSectionReader::new(BinaryReader::new(
-<a href=#213 id=213 data-nosnippet>213</a>                            sectionreader.data(),
-<a href=#214 id=214 data-nosnippet>214</a>                            sectionreader.data_offset(),
-<a href=#215 id=215 data-nosnippet>215</a>                        )),
-<a href=#216 id=216 data-nosnippet>216</a>                        environ,
-<a href=#217 id=217 data-nosnippet>217</a>                    )<span class="question-mark">?</span>;
-<a href=#218 id=218 data-nosnippet>218</a>                }
-<a href=#219 id=219 data-nosnippet>219</a>            }
-<a href=#220 id=220 data-nosnippet>220</a>
-<a href=#221 id=221 data-nosnippet>221</a>            Payload::UnknownSection { .. } =&gt; <span class="macro">unreachable!</span>(),
-<a href=#222 id=222 data-nosnippet>222</a>            k =&gt; {
-<a href=#223 id=223 data-nosnippet>223</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(<span class="macro">format!</span>(
-<a href=#224 id=224 data-nosnippet>224</a>                    <span class="string">"Unsupported payload kind: {k:?}"
-<a href=#225 id=225 data-nosnippet>225</a>                </span>)));
-<a href=#226 id=226 data-nosnippet>226</a>            }
-<a href=#227 id=227 data-nosnippet>227</a>        }
-<a href=#228 id=228 data-nosnippet>228</a>    }
-<a href=#229 id=229 data-nosnippet>229</a>
-<a href=#230 id=230 data-nosnippet>230</a>    <span class="prelude-val">Ok</span>(module_translation_state)
-<a href=#231 id=231 data-nosnippet>231</a>}
+<a href=#206 id=206 data-nosnippet>206</a>            Payload::TagSection(t) =&gt; parse_tag_section(t, environ)<span class="question-mark">?</span>,
+<a href=#207 id=207 data-nosnippet>207</a>
+<a href=#208 id=208 data-nosnippet>208</a>            Payload::CustomSection(sectionreader) =&gt; {
+<a href=#209 id=209 data-nosnippet>209</a>                <span class="comment">// We still add the custom section data, but also read it as name section reader
+<a href=#210 id=210 data-nosnippet>210</a>                </span><span class="kw">let </span>name = sectionreader.name();
+<a href=#211 id=211 data-nosnippet>211</a>                environ.custom_section(name, sectionreader.data())<span class="question-mark">?</span>;
+<a href=#212 id=212 data-nosnippet>212</a>                <span class="kw">if </span>name == <span class="string">"name" </span>{
+<a href=#213 id=213 data-nosnippet>213</a>                    parse_name_section(
+<a href=#214 id=214 data-nosnippet>214</a>                        NameSectionReader::new(BinaryReader::new(
+<a href=#215 id=215 data-nosnippet>215</a>                            sectionreader.data(),
+<a href=#216 id=216 data-nosnippet>216</a>                            sectionreader.data_offset(),
+<a href=#217 id=217 data-nosnippet>217</a>                        )),
+<a href=#218 id=218 data-nosnippet>218</a>                        environ,
+<a href=#219 id=219 data-nosnippet>219</a>                    )<span class="question-mark">?</span>;
+<a href=#220 id=220 data-nosnippet>220</a>                }
+<a href=#221 id=221 data-nosnippet>221</a>            }
+<a href=#222 id=222 data-nosnippet>222</a>
+<a href=#223 id=223 data-nosnippet>223</a>            Payload::UnknownSection { .. } =&gt; <span class="macro">unreachable!</span>(),
+<a href=#224 id=224 data-nosnippet>224</a>            k =&gt; {
+<a href=#225 id=225 data-nosnippet>225</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(WasmError::Unsupported(<span class="macro">format!</span>(
+<a href=#226 id=226 data-nosnippet>226</a>                    <span class="string">"Unsupported payload kind: {k:?}"
+<a href=#227 id=227 data-nosnippet>227</a>                </span>)));
+<a href=#228 id=228 data-nosnippet>228</a>            }
+<a href=#229 id=229 data-nosnippet>229</a>        }
+<a href=#230 id=230 data-nosnippet>230</a>    }
+<a href=#231 id=231 data-nosnippet>231</a>
+<a href=#232 id=232 data-nosnippet>232</a>    <span class="prelude-val">Ok</span>(module_translation_state)
+<a href=#233 id=233 data-nosnippet>233</a>}
 </code></pre></div></section></main></body></html>
