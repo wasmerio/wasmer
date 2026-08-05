@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CompileOutput"],"fn":["compile_output_in_memory","compile_output_paths","emit_function_body","emit_import_trampoline","emit_local_function","link_module"]};
+window.SIDEBAR_ITEMS = {"enum":["CompileOutput"],"fn":["compile_output_in_memory","compile_output_objects","emit_function_body","emit_import_trampoline","emit_local_function","link_module"]};
