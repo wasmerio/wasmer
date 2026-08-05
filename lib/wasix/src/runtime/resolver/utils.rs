@@ -10,12 +10,30 @@ use url::Url;
 
 use crate::http::{HttpResponse, USER_AGENT};
 
-/// Compare optional package versions by SemVer *precedence*, i.e. ignoring build
-/// metadata as the spec requires (`1.0.0+a` and `1.0.0+b` rank equally). `None`
-/// orders below any `Some`, matching [`Option`]'s own ordering.
-pub(crate) fn cmp_version_precedence(left: Option<&Version>, right: Option<&Version>) -> Ordering {
+fn cmp_build_metadata(left: &semver::BuildMetadata, right: &semver::BuildMetadata) -> Ordering {
+    match (left.is_empty(), right.is_empty()) {
+        (true, true) => return Ordering::Equal,
+        (true, false) => return Ordering::Greater,
+        (false, true) => return Ordering::Less,
+        (false, false) => {}
+    }
+
+    left.cmp(right)
+}
+
+/// Compare two versions so that, among versions of equal SemVer precedence, a
+/// dotted build metadata ordering breaks ties. Numeric identifiers compare
+/// numerically, and a version without build metadata ranks above one with it.
+pub(crate) fn cmp_versions_with_build(left: &Version, right: &Version) -> Ordering {
+    left.cmp_precedence(right)
+        .then_with(|| cmp_build_metadata(&left.build, &right.build))
+}
+
+/// [`cmp_versions_with_build`] over optionals; `None` orders below any `Some`,
+/// matching [`Option`]'s own ordering.
+pub(crate) fn cmp_version_with_build(left: Option<&Version>, right: Option<&Version>) -> Ordering {
     match (left, right) {
-        (Some(left), Some(right)) => left.cmp_precedence(right),
+        (Some(left), Some(right)) => cmp_versions_with_build(left, right),
         (left, right) => left.is_some().cmp(&right.is_some()),
     }
 }
@@ -101,6 +119,45 @@ pub(crate) fn file_path_from_url(url: &Url) -> Result<PathBuf, Error> {
 mod tests {
     #[allow(unused_imports)]
     use super::*;
+
+    fn version(value: &str) -> Version {
+        Version::parse(value).unwrap()
+    }
+
+    #[test]
+    fn build_metadata_identifiers_follow_prerelease_style_ordering() {
+        assert_eq!(
+            cmp_versions_with_build(&version("1.0.0+abc.2"), &version("1.0.0+abc.11")),
+            Ordering::Less
+        );
+        assert_eq!(
+            cmp_versions_with_build(&version("1.0.0+abc.2"), &version("1.0.0+abc.beta")),
+            Ordering::Less
+        );
+        assert_eq!(
+            cmp_versions_with_build(&version("1.0.0+abc"), &version("1.0.0+abc.1")),
+            Ordering::Less
+        );
+    }
+
+    #[test]
+    fn bare_version_ranks_above_build_metadata() {
+        assert_eq!(
+            cmp_versions_with_build(&version("1.0.0"), &version("1.0.0+wasix.10")),
+            Ordering::Greater
+        );
+    }
+
+    #[test]
+    fn lifecycle_category_ordering_is_preserved() {
+        let ordered = ["1.0.0-alpha+build", "1.0.0-alpha", "1.0.0+build", "1.0.0"];
+        for pair in ordered.windows(2) {
+            assert_eq!(
+                cmp_versions_with_build(&version(pair[0]), &version(pair[1])),
+                Ordering::Less
+            );
+        }
+    }
 
     #[test]
     #[cfg(unix)]

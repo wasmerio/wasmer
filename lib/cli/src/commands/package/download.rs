@@ -133,11 +133,11 @@ impl PackageDownload {
                 // produce an authenticated client.
                 let client = self.env.client_unauthennticated()?;
 
-                let version = id.version_or_default().to_string();
+                let version = id.version_string();
                 let version = if version == "*" {
                     String::from("latest")
                 } else {
-                    version.to_string()
+                    version
                 };
                 let full_name = id.full_name();
 
@@ -154,6 +154,19 @@ impl PackageDownload {
                     full_name, client.graphql_endpoint(),
                 )
                     })?;
+
+                // A yanked version still downloads when pinned exactly, so warn and continue.
+                if package.yanked_at.is_some() {
+                    match package.yank_reason.as_deref() {
+                        Some(reason) => eprintln!(
+                            "warning: {}@{} has been yanked: {reason}",
+                            full_name, package.version
+                        ),
+                        None => {
+                            eprintln!("warning: {}@{} has been yanked", full_name, package.version)
+                        }
+                    }
+                }
 
                 let download_url = package
                     .distribution_v3

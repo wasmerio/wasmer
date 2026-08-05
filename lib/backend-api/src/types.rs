@@ -210,6 +210,9 @@ mod queries {
         pub pirita_manifest: Option<JSONString>,
         pub package: Package,
 
+        pub yanked_at: Option<DateTime>,
+        pub yank_reason: Option<String>,
+
         #[arguments(version: "V3")]
         #[cynic(rename = "distribution")]
         pub distribution_v3: PackageDistribution,
@@ -457,6 +460,15 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug)]
     #[cynic(graphql_type = "PackageVersion")]
     pub struct PackageVersionNumber {
+        pub id: cynic::Id,
+        pub version: String,
+        pub rebuilds: Vec<PackageVersionRebuildNumber>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct PackageVersionRebuildNumber {
+        pub id: cynic::Id,
         pub version: String,
     }
 
@@ -527,6 +539,33 @@ mod queries {
     pub struct TagPackageReleasePayload {
         pub success: bool,
         pub package_version: Option<PackageVersion>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct YankPackageVersionsVariables<'a> {
+        pub package_version_ids: Vec<cynic::Id>,
+        pub reason: Option<&'a str>,
+        pub undo: Option<bool>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "YankPackageVersionsVariables")]
+    pub struct YankPackageVersions {
+        #[arguments(input: { packageVersionIds: $package_version_ids, reason: $reason, undo: $undo })]
+        pub yank_package_versions: Option<YankPackageVersionsPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct YankPackageVersionsPayload {
+        pub package_versions: Vec<YankedPackageVersion>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone)]
+    #[cynic(graphql_type = "PackageVersion")]
+    pub struct YankedPackageVersion {
+        pub version: String,
+        pub yanked_at: Option<DateTime>,
+        pub yank_reason: Option<String>,
     }
 
     #[derive(cynic::InputObject, Debug)]

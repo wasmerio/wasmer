@@ -1441,6 +1441,19 @@ type ChangePackageVersionArchivedStatusPayload {
 	packageVersion: PackageVersion!
 }
 
+input YankPackageVersionsInput {
+	packageVersionIds: [ID!]!
+	reason: String
+	undo: Boolean
+	clientMutationId: String
+}
+
+type YankPackageVersionsPayload {
+	clientMutationId: String
+	package: Package!
+	packageVersions: [PackageVersion!]!
+}
+
 input ChangeUserEmailInput {
 	newEmail: String!
 	clientMutationId: String
@@ -4112,6 +4125,7 @@ type Mutation {
 	archivePackage(input: ArchivePackageInput!): ArchivePackagePayload
 	renamePackage(input: RenamePackageInput!): RenamePackagePayload
 	changePackageVersionArchivedStatus(input: ChangePackageVersionArchivedStatusInput!): ChangePackageVersionArchivedStatusPayload
+	yankPackageVersions(input: YankPackageVersionsInput!): YankPackageVersionsPayload
 	invitePackageCollaborator(input: InvitePackageCollaboratorInput!): InvitePackageCollaboratorPayload
 	acceptPackageCollaboratorInvite(input: AcceptPackageCollaboratorInviteInput!): AcceptPackageCollaboratorInvitePayload
 	removePackageCollaboratorInvite(input: RemovePackageCollaboratorInviteInput!): RemovePackageCollaboratorInvitePayload
@@ -5016,6 +5030,7 @@ type PackageVersion implements Node & PackageInstance & PackageReleaseInterface 
 	license: String
 	licenseFile: String
 	readme: String
+	rebuilds: [PackageVersion!]!
 	witMd: String
 	repository: String
 	homepage: String
@@ -5023,6 +5038,8 @@ type PackageVersion implements Node & PackageInstance & PackageReleaseInterface 
 	nativeExecutablesCompiled: Boolean!
 	signature: Signature
 	isArchived: Boolean!
+	yankedAt: DateTime
+	yankReason: String
 	file: String!
 	fileSize: BigInt!
 	totalDownloads: Int!
