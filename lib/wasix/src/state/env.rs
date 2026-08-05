@@ -574,22 +574,9 @@ impl WasiEnv {
             import_object.define("env", "memory", memory);
         }
         let runtime = func_env.data(&store).runtime.clone();
-        let (additional_imports, instantiation_state) = runtime
-            .additional_imports(&module, &mut store)
+        let instantiation_state = runtime
+            .prepare_imports(&module, &mut store, &mut import_object)
             .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
-
-        for ((namespace, name), value) in &additional_imports {
-            // Downstream runtime imports must not override WASIX imports.
-            if import_object.exists(&namespace, &name) {
-                tracing::warn!(
-                    "Skipping duplicate additional import {}.{}",
-                    namespace,
-                    name
-                );
-            } else {
-                import_object.define(&namespace, &name, value);
-            }
-        }
 
         let imported_memory = import_object
             .get_export("env", "memory")
