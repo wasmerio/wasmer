@@ -51,6 +51,8 @@ backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "dep:wasmer-vm"]
 v8 = ["backend", "wasmer/v8"]
+# Enable V8 and explicitly select it as the default backend.
+v8-default = ["v8", "wasmer/v8-default"]
 wast = ["wasmer-wast"]
 host-net = ["virtual-net/host-net"]
 wat = ["wasmer/wat"]
