@@ -34,9 +34,6 @@ tokio = { workspace = true, features = [
   "macros",
 ], optional = true }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-wild = { version = "=7.2.1", path = "lib/wild/libwild" }
-
 [workspace]
 members = [
   "fuzz",
@@ -334,6 +331,7 @@ windows-sys = { version = "0.61.2", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
 xz = "0.1.0"
 zip = { version = "8.1.0", default-features = false }
+libwild = { version = "0.10.0", default-features = false }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

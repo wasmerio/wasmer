@@ -39,9 +39,8 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
 use std::sync::Arc;
-use tempfile::tempdir;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
-use wasmer_compiler::elf::{CompileOutput, compile_output_in_memory, compile_output_paths};
+use wasmer_compiler::elf::{CompileOutput, compile_output_in_memory, compile_output_objects};
 use wasmer_compiler::types::function::Compilation;
 
 use wasmer_compiler::progress::ProgressContext;
@@ -136,13 +135,6 @@ impl CraneliftCompiler {
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
 
-        let build_directory = cfg!(feature = "experimental-artifact")
-            .then(|| {
-                tempdir().map_err(|e| {
-                    CompileError::Codegen(format!("cannot create temporary build directory: {e}"))
-                })
-            })
-            .transpose()?;
         let signatures = module
             .signatures
             .iter()
@@ -381,12 +373,11 @@ impl CraneliftCompiler {
                 compact_unwind_encoding,
             };
 
-            if let Some(build_directory) = build_directory.as_ref() {
-                let path = crate::elf::emit_local_function(
+            if cfg!(feature = "experimental-artifact") {
+                let object = crate::elf::emit_local_function(
                     #[cfg(feature = "unwind")]
                     &*isa,
                     target,
-                    build_directory.path(),
                     *i,
                     &compile_info.module.get_function_name(func_index),
                     compile_info.module.name.as_deref(),
@@ -396,7 +387,7 @@ impl CraneliftCompiler {
                     #[cfg(feature = "unwind")]
                     compiled.function_lsda,
                 )?;
-                Ok(CompileOutput::Object(path, None))
+                Ok(CompileOutput::Object(object, None))
             } else {
                 Ok(CompileOutput::InMemory(compiled))
             }
@@ -405,6 +396,11 @@ impl CraneliftCompiler {
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut custom_sections = PrimaryMap::new();
 
+        let num_threads = self.config.num_threads.get();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build()
+            .unwrap();
         let results = {
             use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
@@ -412,11 +408,6 @@ impl CraneliftCompiler {
                 build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
             let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
             tracing::debug!(buckets = buckets.len(), largest_bucket, "buckets built");
-            let num_threads = self.config.num_threads.get();
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .build()
-                .unwrap();
 
             translate_function_buckets(
                 &pool,
@@ -452,14 +443,9 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                if let Some(build_directory) = build_directory.as_ref() {
+                if cfg!(feature = "experimental-artifact") {
                     Ok(CompileOutput::Object(
-                        wasmer_compiler::elf::emit_function_body(
-                            target,
-                            build_directory.path(),
-                            &kind,
-                            &trampoline,
-                        )?,
+                        wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
                         None,
                     ))
                 } else {
@@ -494,14 +480,9 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                if let Some(build_directory) = build_directory.as_ref() {
+                if cfg!(feature = "experimental-artifact") {
                     Ok(CompileOutput::Object(
-                        wasmer_compiler::elf::emit_function_body(
-                            target,
-                            build_directory.path(),
-                            &kind,
-                            &trampoline,
-                        )?,
+                        wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
                         None,
                     ))
                 } else {
@@ -510,19 +491,19 @@ impl CraneliftCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        if let Some(build_directory) = &build_directory {
-            let object_files = compile_output_paths(results);
-            let trampoline_objects = compile_output_paths(function_call_trampoline_outputs);
+        if cfg!(feature = "experimental-artifact") {
+            let object_files = compile_output_objects(results);
+            let trampoline_objects = compile_output_objects(function_call_trampoline_outputs);
             let dynamic_trampoline_objects =
-                compile_output_paths(dynamic_function_trampoline_outputs);
+                compile_output_objects(dynamic_function_trampoline_outputs);
             return wasmer_compiler::elf::link_module(
+                &pool,
                 target,
                 compile_info_blob,
-                build_directory.path(),
-                &object_files,
-                &[],
-                &trampoline_objects,
-                &dynamic_trampoline_objects,
+                object_files,
+                Vec::new(),
+                trampoline_objects,
+                dynamic_trampoline_objects,
                 self.config
                     .callbacks
                     .as_ref()

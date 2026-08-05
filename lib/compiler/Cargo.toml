@@ -49,7 +49,7 @@ rangemap.workspace = true
 phf = { workspace = true, features = ["macros"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-wasmer-wild = { path = "../wild/libwild", version = "=7.2.1", default-features = false }
+libwild.workspace = true
 wasmer-vm = { path = "../vm", version = "=7.2.1" }
 region.workspace = true
 which.workspace = true

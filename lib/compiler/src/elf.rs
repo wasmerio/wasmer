@@ -17,12 +17,7 @@ use object::{
         Symbol, SymbolId, SymbolSection,
     },
 };
-use std::{
-    fs::OpenOptions,
-    io::Read,
-    path::{Path, PathBuf},
-};
-use tempfile::NamedTempFile;
+use std::path::PathBuf;
 use wasmer_types::{
     CompileError, LibCall, LocalFunctionIndex, TrapInformation, entity::PrimaryMap, target::Target,
 };
@@ -30,24 +25,23 @@ use wasmer_types::{FunctionIndex, FunctionType};
 
 /// The result of compiling a single unit (function or trampoline): either an
 /// in-memory body for the classic artifact format, or a relocatable object
-/// file on disk for the ELF artifact format (together with the maximum stack
-/// usage, when known).
+/// buffer for the ELF artifact format (together with the maximum stack usage,
+/// when known).
 pub enum CompileOutput<T> {
     /// The compiled body, kept in memory.
     InMemory(T),
-    /// Path to the emitted relocatable object file and the unit's maximum
-    /// stack usage, when known.
-    Object(PathBuf, Option<usize>),
+    /// Serialized relocatable object and the unit's maximum stack usage, when known.
+    Object(Vec<u8>, Option<usize>),
 }
 
 impl<T: crate::compiler::CompiledFunction> crate::compiler::CompiledFunction for CompileOutput<T> {}
 
-/// Extract the object-file paths from ELF-mode compile outputs.
-pub fn compile_output_paths<T>(outputs: Vec<CompileOutput<T>>) -> Vec<PathBuf> {
+/// Extract the object buffers from ELF-mode compile outputs.
+pub fn compile_output_objects<T>(outputs: Vec<CompileOutput<T>>) -> Vec<Vec<u8>> {
     outputs
         .into_iter()
         .map(|output| match output {
-            CompileOutput::Object(path, _) => path,
+            CompileOutput::Object(object, _) => object,
             CompileOutput::InMemory(_) => unreachable!(),
         })
         .collect()
@@ -62,27 +56,6 @@ pub fn compile_output_in_memory<T>(outputs: Vec<CompileOutput<T>>) -> Vec<T> {
             CompileOutput::Object(..) => unreachable!(),
         })
         .collect()
-}
-
-/// Write a finished object into `build_directory` under `filename`.
-pub fn save_object(
-    object: Object<'static>,
-    build_directory: &Path,
-    filename: String,
-) -> Result<PathBuf, CompileError> {
-    let path = build_directory.join(filename);
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&path)
-        .map_err(|e| {
-            CompileError::Codegen(format!("failed to create object {}: {e}", path.display()))
-        })?;
-    object.write_stream(&mut file).map_err(|e| {
-        CompileError::Codegen(format!("failed to write object {}: {e}", path.display()))
-    })?;
-    Ok(path)
 }
 
 /// Declare an undefined text symbol resolved when the objects are linked.
@@ -308,10 +281,9 @@ pub fn emit_eh_frame_section(
 /// Serialize a trampoline's body into its own relocatable object file.
 pub fn emit_function_body(
     target: &Target,
-    build_directory: &Path,
     kind: &CompiledKind,
     body: &FunctionBody,
-) -> Result<PathBuf, CompileError> {
+) -> Result<Vec<u8>, CompileError> {
     let mut object = get_object_for_target(target.triple())
         .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
     let symbol = object.add_symbol(Symbol {
@@ -326,16 +298,17 @@ pub fn emit_function_body(
     });
     let text = object.section_id(StandardSection::Text);
     object.add_symbol_data(symbol, text, &body.body, 4);
-    save_object(object, build_directory, kind.object_filename())
+    object
+        .write()
+        .map_err(|e| CompileError::Codegen(format!("failed to serialize object: {e}")))
 }
 
 /// Serialize an import trampoline's custom section into its own relocatable object file.
 pub fn emit_import_trampoline(
     target: &Target,
-    build_directory: &Path,
     kind: &CompiledKind,
     section: &CustomSection,
-) -> Result<PathBuf, CompileError> {
+) -> Result<Vec<u8>, CompileError> {
     let mut object = get_object_for_target(target.triple())
         .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
     let symbol = object.add_symbol(Symbol {
@@ -350,32 +323,30 @@ pub fn emit_import_trampoline(
     });
     let text = object.section_id(StandardSection::Text);
     object.add_symbol_data(symbol, text, section.bytes.as_slice(), 4);
-    save_object(object, build_directory, kind.object_filename())
+    object
+        .write()
+        .map_err(|e| CompileError::Codegen(format!("failed to serialize object: {e}")))
 }
-
 /// Link all the per-function and trampoline objects (plus the Wasmer metadata
 /// object) into the final shared-object module image.
 #[allow(clippy::too_many_arguments)]
 pub fn link_module(
+    pool: &rayon::ThreadPool,
     target: &Target,
     compile_info_blob: &[u8],
-    build_directory: &Path,
-    object_files: &[PathBuf],
-    import_trampoline_objects: &[PathBuf],
-    trampoline_objects: &[PathBuf],
-    dynamic_trampoline_objects: &[PathBuf],
+    object_files: Vec<Vec<u8>>,
+    import_trampoline_objects: Vec<Vec<u8>>,
+    trampoline_objects: Vec<Vec<u8>>,
+    dynamic_trampoline_objects: Vec<Vec<u8>>,
     debug_dir: Option<PathBuf>,
     module_hash: Option<String>,
     function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
 ) -> Result<Compilation, CompileError> {
-    let module_file = NamedTempFile::new_in(build_directory)
-        .map_err(|e| CompileError::Codegen(format!("cannot create temporary module file: {e}")))?;
-    let mut module_file = emit_metadata_and_link(
+    let elf = emit_metadata_and_link(
+        pool,
         target,
         compile_info_blob,
-        build_directory,
-        module_file,
-        &CompiledObjects {
+        CompiledObjects {
             object_files,
             import_trampoline_object_files: import_trampoline_objects,
             trampoline_object_files: trampoline_objects,
@@ -384,10 +355,6 @@ pub fn link_module(
         debug_dir,
         module_hash,
     )?;
-    let mut elf = Vec::new();
-    module_file
-        .read_to_end(&mut elf)
-        .map_err(|e| CompileError::Codegen(format!("cannot read linked module artifact: {e}")))?;
     Ok(Compilation::Elf {
         data: elf,
         function_max_stack_usage,

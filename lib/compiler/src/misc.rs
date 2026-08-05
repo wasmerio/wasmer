@@ -120,11 +120,6 @@ pub trait CompiledFunctionExt {
     /// Return a name of the function for linkage purpose.
     fn linkage_name(&self) -> String;
 
-    /// For serialization purpose, provide an object file name.
-    fn object_filename(&self) -> String {
-        format!("{}.o", self.linkage_name())
-    }
-
     /// Symbol name holding the trap information for this function.
     fn traps_name(&self) -> String {
         format!("{}.traps", self.linkage_name())
