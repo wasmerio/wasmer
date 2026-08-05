@@ -105,6 +105,22 @@ mod runner;
 
 const TESTED_LIBC_VERSIONS: &[Option<&str>] = &[None, Some("v2026-05-12.1")];
 
+/// Whether Rust fixtures are collected on this host.
+///
+/// Building them needs the WASIX Rust toolchain, which wasix-org/rust only
+/// publishes for a few hosts; musl hosts in particular have no toolchain at
+/// all. Windows is excluded on purpose even though a toolchain exists for it:
+/// wasixcc does not cover Windows either, so the suite as a whole does not run
+/// there.
+const COLLECT_RUST_FIXTURES: bool = cfg!(any(
+    all(
+        target_os = "linux",
+        target_env = "gnu",
+        any(target_arch = "x86_64", target_arch = "aarch64")
+    ),
+    all(target_os = "macos", target_arch = "aarch64"),
+));
+
 fn should_emit_colour() -> bool {
     std::io::stdout().is_terminal()
         || std::env::var("CARGO_TERM_COLOR").as_deref() == Ok("always")
@@ -295,13 +311,6 @@ impl Config {
     }
 
     fn full_test_name(&self) -> String {
-        format!("{}/{}", self.engine_independent_name(), self.engine)
-    }
-
-    /// Identifies this configuration's build inputs. Unlike `full_test_name`,
-    /// this excludes the engine: Rust fixture builds don't depend on it, so
-    /// prebuilt artifacts are shared across engines.
-    fn engine_independent_name(&self) -> String {
         let mut parts = vec!["wasm".to_owned(), self.test_name.clone()];
         if !self.source.is_default() {
             parts.push(self.source.config_name());
@@ -316,11 +325,8 @@ impl Config {
         if self.toolchain != Toolchain::Wasix {
             parts.push(self.toolchain.to_string());
         }
+        parts.push(self.engine.to_string());
         parts.join("/")
-    }
-
-    fn prebuilt_wasm_path(&self, root: &Path) -> PathBuf {
-        root.join(self.engine_independent_name()).join("main.wasm")
     }
 
     fn set_sysroot(&mut self, sysroot_version: &'static str) -> Result<()> {
@@ -827,25 +833,6 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         )
     })?;
 
-    // WASIX-toolchain Rust fixtures can be prebuilt elsewhere (see
-    // `build_fixture_only`), which lets platforms without a WASIX Rust
-    // toolchain run the tests. The wasip1 toolchain is available everywhere,
-    // so those variants always build locally.
-    if config.source.is_rust() && config.toolchain == Toolchain::Wasix {
-        if let Some(prebuilt_root) = env_var_path("WASM_TESTS_PREBUILT_DIR") {
-            let prebuilt = config.prebuilt_wasm_path(&prebuilt_root);
-            let main_path = build_test_path.join("main");
-            fs::copy(&prebuilt, &main_path).with_context(|| {
-                format!(
-                    "failed to copy prebuilt Rust fixture {} — \
-                     ensure the fixture prebuild ran with a matching configuration",
-                    prebuilt.display()
-                )
-            })?;
-            return Ok(main_path);
-        }
-    }
-
     let mut cmd = match &config.source {
         PrimarySource::BashScript(filename) => {
             let mut cmd = Command::new("bash");
@@ -1169,53 +1156,9 @@ fn configure_mapped_directories(
     Ok(())
 }
 
-fn env_var_path(name: &str) -> Option<PathBuf> {
-    std::env::var_os(name)
-        .filter(|value| !value.is_empty())
-        .map(PathBuf::from)
-}
-
-/// Build the Rust fixture for this configuration and export the resulting
-/// wasm to `output_root` without running the test. CI uses this to prebuild
-/// fixtures on a host that has the WASIX Rust toolchain; hosts without one
-/// consume the artifacts via `WASM_TESTS_PREBUILT_DIR`.
-fn build_fixture_only(config: &Config, output_root: &Path) -> Result<libtest_mimic::Completion> {
-    if !config.source.is_rust() {
-        return Ok(libtest_mimic::Completion::ignored_with(
-            "build-only: not a Rust fixture",
-        ));
-    }
-    if config.toolchain != Toolchain::Wasix {
-        return Ok(libtest_mimic::Completion::ignored_with(
-            "build-only: wasip1 fixtures build on every host",
-        ));
-    }
-    // Artifacts are engine-independent, so build each configuration once
-    // through its Cranelift trial. This requires the build-only run to happen
-    // on a host that collects Cranelift trials (i.e. not macOS).
-    if config.engine != Engine::Cranelift {
-        return Ok(libtest_mimic::Completion::ignored_with(
-            "build-only: built by the cranelift variant",
-        ));
-    }
-    if let Some(reason) = minimal_libc_skip_reason(config)? {
-        return Ok(libtest_mimic::Completion::ignored_with(reason));
-    }
-
-    let wasm = run_build_script(config)?;
-    let dest = config.prebuilt_wasm_path(output_root);
-    create_dir_all(dest.parent().expect("prebuilt path must have a parent"))?;
-    fs::copy(&wasm, &dest)
-        .with_context(|| format!("failed to export {} to {}", wasm.display(), dest.display()))?;
-    Ok(libtest_mimic::Completion::Completed)
-}
-
 fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     if let Some(reason) = &config.ignored {
         return Ok(libtest_mimic::Completion::ignored_with(reason.clone()));
-    }
-    if let Some(output_root) = env_var_path("WASM_TESTS_BUILD_ONLY_DIR") {
-        return build_fixture_only(&config, &output_root);
     }
     if !cfg!(unix) && config.unix_only {
         return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
@@ -1526,6 +1469,10 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
 
         let default_file_systems = vec![FileSystemKind::Host];
         for primary_source in primary_sources {
+            if primary_source.is_rust() && !COLLECT_RUST_FIXTURES {
+                continue;
+            }
+
             // Single-file Rust fixtures historically built with wasm32-wasip1;
             // keep that variant alive since it is the only way to run them on
             // Singlepass (the WASIX toolchain emits EH opcodes it lacks).
@@ -1606,11 +1553,6 @@ fn run_dynamic_runtime_hook_smoke(
     if cfg!(target_os = "windows") {
         return Ok(libtest_mimic::Completion::ignored_with(
             "WASIXCC toolchain does not cover Windows yet",
-        ));
-    }
-    if env_var_path("WASM_TESTS_BUILD_ONLY_DIR").is_some() {
-        return Ok(libtest_mimic::Completion::ignored_with(
-            "build-only: not a Rust fixture",
         ));
     }
 

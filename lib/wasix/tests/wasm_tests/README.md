@@ -75,18 +75,11 @@ toolchain emits exception-handling opcodes Singlepass does not support. The
 wasip1 variants need `rustup target add wasm32-wasip1` (plus the same target on
 nightly).
 
-The WASIX Rust toolchain is not published for every platform, so the
-wasix-toolchain fixtures can alternatively be prebuilt on a supported host and
-reused:
-
-- `WASM_TESTS_BUILD_ONLY_DIR=<dir>` builds the Rust fixtures into `<dir>`
-  without running any tests (CI runs this through
-  `make build-wasm-tests-fixtures` on linux-x64). The artifacts are
-  engine-independent and are built through the Cranelift trials, so this must
-  run on a host that collects them (i.e. not macOS).
-- `WASM_TESTS_PREBUILT_DIR=<dir>` makes the suite consume those prebuilt
-  artifacts instead of invoking `cargo wasix build`, removing the need for
-  `cargo-wasix` and the WASIX Rust toolchain on the test host.
+The WASIX Rust toolchain is not published for every platform, so Rust fixtures
+(both toolchain variants) are only collected on hosts that have one: gnu Linux
+on x86_64 and aarch64, and macOS on aarch64. They are skipped everywhere else —
+notably on musl, which has no toolchain, and on Windows, which `wasixcc` does
+not cover either, so no fixture kind runs there at all.
 
 On macOS, this suite collects and runs the LLVM variants only because Cranelift
 exception-handling support is still incomplete there:
