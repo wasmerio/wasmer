@@ -4,7 +4,6 @@ use target_lexicon::{Architecture, BinaryFormat, Riscv64Architecture, Triple};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
-use std::path::PathBuf;
 
 use wasmer_types::{CompileError, SourceLoc, entity::PrimaryMap};
 
@@ -39,7 +38,7 @@ pub struct RkyvCompiledFunction {
 #[derive(Debug)]
 pub enum CompiledFunction {
     Rkyv(Box<RkyvCompiledFunction>),
-    Elf(PathBuf),
+    Elf(Vec<u8>),
 }
 
 impl wasmer_compiler::CompiledFunction for CompiledFunction {}
@@ -133,7 +132,6 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_func_ref" => LibCall::FuncRef,
     "_wasmer_vm_elem_drop" => LibCall::ElemDrop,
     "_wasmer_vm_memory32_copy" => LibCall::Memory32Copy,
-    "_wasmer_vm_imported_memory32_copy" => LibCall::ImportedMemory32Copy,
     "_wasmer_vm_memory32_fill" => LibCall::Memory32Fill,
     "_wasmer_vm_imported_memory32_fill" => LibCall::ImportedMemory32Fill,
     "_wasmer_vm_memory32_init" => LibCall::Memory32Init,

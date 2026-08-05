@@ -760,7 +760,9 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             func.import_signature(Signature {
                 params: vec![
                     AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
-                    // Memory index.
+                    // Destination memory index.
+                    AbiParam::new(I32),
+                    // Source memory index.
                     AbiParam::new(I32),
                     // Destination address.
                     AbiParam::new(I32),
@@ -780,22 +782,11 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     fn get_memory_copy_func(
         &mut self,
         func: &mut Function,
-        memory_index: MemoryIndex,
-    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
-        let sig = self.get_memory_copy_sig(func);
-        if let Some(local_memory_index) = self.module.local_memory_index(memory_index) {
-            (
-                sig,
-                local_memory_index.index(),
-                VMBuiltinFunctionIndex::get_memory_copy_index(),
-            )
-        } else {
-            (
-                sig,
-                memory_index.index(),
-                VMBuiltinFunctionIndex::get_imported_memory_copy_index(),
-            )
-        }
+    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        (
+            self.get_memory_copy_sig(func),
+            VMBuiltinFunctionIndex::get_memory_copy_index(),
+        )
     }
 
     fn get_memory_fill_sig(&mut self, func: &mut Function) -> ir::SigRef {
@@ -2135,20 +2126,24 @@ impl FuncEnvironment<'_> {
         mut pos: FuncCursor,
         src_index: MemoryIndex,
         _src_heap: Heap,
-        _dst_index: MemoryIndex,
+        dst_index: MemoryIndex,
         _dst_heap: Heap,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
     ) -> WasmResult<()> {
-        let (func_sig, src_index, func_idx) = self.get_memory_copy_func(pos.func, src_index);
+        let (func_sig, func_idx) = self.get_memory_copy_func(pos.func);
 
-        let src_index_arg = pos.ins().iconst(I32, src_index as i64);
+        let dst_index_arg = pos.ins().iconst(I32, dst_index.index() as i64);
+        let src_index_arg = pos.ins().iconst(I32, src_index.index() as i64);
 
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
 
-        pos.ins()
-            .call_indirect(func_sig, func_addr, &[vmctx, src_index_arg, dst, src, len]);
+        pos.ins().call_indirect(
+            func_sig,
+            func_addr,
+            &[vmctx, dst_index_arg, src_index_arg, dst, src, len],
+        );
 
         Ok(())
     }

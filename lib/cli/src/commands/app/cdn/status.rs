@@ -106,7 +106,7 @@ impl From<wasmer_backend_api::types::AppCdnCacheMetrics> for CdnCacheMetricsStat
 impl CliRender for CdnCacheStatus {
     fn render_item_table(&self) -> String {
         let mut table = Table::new();
-        table.load_preset(comfy_table::presets::NOTHING);
+        table.load_style(comfy_table::presets::NOTHING);
         table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
         table.set_header(vec![
             Cell::new("App"),

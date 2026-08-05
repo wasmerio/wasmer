@@ -1,5 +1,6 @@
 use std::{
     collections::HashMap,
+    ffi::OsString,
     path::{Component, Path, PathBuf},
     sync::Arc,
 };
@@ -159,7 +160,7 @@ impl CommonWasiOptions {
         }
 
         if self.forward_host_env {
-            builder.add_envs(std::env::vars());
+            builder.add_envs(os_env_vars(std::env::vars_os()));
         }
 
         builder.add_envs(self.env.clone());
@@ -176,6 +177,17 @@ impl CommonWasiOptions {
 
 // type ContainerFs =
 //     OverlayFileSystem<TmpFileSystem, [RelativeOrAbsolutePathHack<Arc<dyn FileSystem>>; 1]>;
+
+/// Turn host environment variables into raw byte pairs.
+///
+/// [`std::env::vars`] panics on entries that are not valid UTF-8, while both
+/// unix and WASI environment variables are byte strings.
+fn os_env_vars(
+    vars: impl IntoIterator<Item = (OsString, OsString)>,
+) -> impl Iterator<Item = (Vec<u8>, Vec<u8>)> {
+    vars.into_iter()
+        .map(|(name, value)| (name.into_encoded_bytes(), value.into_encoded_bytes()))
+}
 
 fn normalized_mount_path(guest_path: &str) -> Result<PathBuf, Error> {
     let mut guest_path = PathBuf::from(guest_path);
@@ -422,6 +434,35 @@ mod tests {
     use virtual_fs::{DirEntry, FileType, FsError, Metadata, limiter::FsMemoryLimiter};
 
     use super::*;
+
+    /// See <https://github.com/wasmerio/wasmer/issues/6835>.
+    #[cfg(unix)]
+    #[test]
+    fn issue_6835_non_utf8_host_env_vars_are_forwarded_as_raw_bytes() {
+        use std::{ffi::OsStr, os::unix::ffi::OsStrExt};
+
+        let vars = [
+            (
+                OsStr::from_bytes(b"VALID").to_os_string(),
+                OsStr::from_bytes(b"ok").to_os_string(),
+            ),
+            (
+                OsStr::from_bytes(b"INVALID").to_os_string(),
+                OsStr::from_bytes(b"V\xffW").to_os_string(),
+            ),
+        ];
+
+        let mut builder = WasiEnvBuilder::new("test");
+        builder.add_envs(os_env_vars(vars));
+
+        assert_eq!(
+            builder.get_env(),
+            [
+                ("VALID".to_string(), b"ok".to_vec()),
+                ("INVALID".to_string(), b"V\xffW".to_vec()),
+            ]
+        );
+    }
 
     fn base_root(root_fs: &MountFileSystem) -> Arc<dyn FileSystem + Send + Sync> {
         root_fs.filesystem_at(Path::new("/")).unwrap()

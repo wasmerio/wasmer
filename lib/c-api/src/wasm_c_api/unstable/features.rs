@@ -302,7 +302,7 @@ pub extern "C" fn wasmer_features_module_linking(
 /// This feature adds the ability to use multiple memories within a
 /// single Wasm module.
 ///
-/// This is `false` by default.
+/// This is `true` by default.
 ///
 /// [proposal]: https://github.com/WebAssembly/multi-memory
 ///

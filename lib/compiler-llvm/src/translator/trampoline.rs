@@ -18,7 +18,7 @@ use inkwell::{
     types::FunctionType,
     values::{BasicMetadataValueEnum, FunctionValue},
 };
-use std::{cmp, convert::TryInto, path::Path};
+use std::{cmp, convert::TryInto};
 use target_lexicon::{BinaryFormat, Triple};
 use wasmer_compiler::{
     misc::{CompiledFunctionExt, CompiledKind},
@@ -176,7 +176,6 @@ impl FuncTrampoline {
         config: &LLVM,
         function: &CompiledKind,
         compile_info: &CompileModuleInfo,
-        build_directory: &Path,
     ) -> Result<CompiledFunctionBody, CompileError> {
         let module = self.trampoline_to_module(ty, config, function, compile_info)?;
         let target_machine = &self.target_machine;
@@ -195,12 +194,7 @@ impl FuncTrampoline {
         }
 
         if cfg!(feature = "experimental-artifact") {
-            let object_path = build_directory.to_path_buf().join(function.linkage_name());
-            std::fs::write(&object_path, memory_buffer.as_slice()).map_err(|e| {
-                CompileError::Codegen(format!("Cannot save LLVM object file for trampoline: {e}"))
-            })?;
-
-            Ok(CompiledFunctionBody::Elf(object_path))
+            Ok(CompiledFunctionBody::Elf(memory_buffer.as_slice().to_vec()))
         } else {
             // Use a dummy function index to detect relocations against the trampoline
             // function's address, which shouldn't exist and are not supported.
@@ -352,7 +346,6 @@ impl FuncTrampoline {
         compact_unwind_section_bytes: &mut Vec<u8>,
         compact_unwind_section_relocations: &mut Vec<Relocation>,
         module_hash: &Option<String>,
-        build_directory: &Path,
     ) -> Result<CompiledFunctionBody, CompileError> {
         let target_machine = &self.target_machine;
 
@@ -371,14 +364,7 @@ impl FuncTrampoline {
         }
 
         if cfg!(feature = "experimental-artifact") {
-            let object_path = build_directory.to_path_buf().join(function.linkage_name());
-            std::fs::write(&object_path, memory_buffer.as_slice()).map_err(|e| {
-                CompileError::Codegen(format!(
-                    "Cannot save LLVM object file for dynamic trampoline: {e}"
-                ))
-            })?;
-
-            Ok(CompiledFunctionBody::Elf(object_path))
+            Ok(CompiledFunctionBody::Elf(memory_buffer.as_slice().to_vec()))
         } else {
             let RkyvCompiledFunction {
                 compiled_function,

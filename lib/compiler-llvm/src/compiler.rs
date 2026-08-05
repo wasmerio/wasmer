@@ -5,14 +5,11 @@ use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::io::Read;
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
-    path::PathBuf,
     sync::Arc,
 };
-use tempfile::{NamedTempFile, tempdir};
 use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::types::function::CompiledFunctionBody;
@@ -220,6 +217,7 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
@@ -273,9 +271,6 @@ impl Compiler for LLVMCompiler {
         let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
         tracing::debug!(buckets = buckets.len(), largest_bucket, "buckets built");
 
-        let build_directory = tempdir().map_err(|err| {
-            CompileError::Codegen(format!("cannot create temporary build folder: {err}"))
-        })?;
         let functions = translate_function_buckets(
             &pool,
             || {
@@ -321,7 +316,6 @@ impl Compiler for LLVMCompiler {
                     table_styles,
                     &symbol_registry,
                     target.triple(),
-                    build_directory.path(),
                 )
             },
             progress.clone(),
@@ -346,13 +340,8 @@ impl Compiler for LLVMCompiler {
                             *sig_index,
                             (*sig).clone(),
                         );
-                        let trampoline = func_trampoline.trampoline(
-                            sig,
-                            self.config(),
-                            &kind,
-                            compile_info,
-                            build_directory.path(),
-                        );
+                        let trampoline =
+                            func_trampoline.trampoline(sig, self.config(), &kind, compile_info);
                         if let Some(progress) = progress.as_ref() {
                             progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                         }
@@ -393,7 +382,6 @@ impl Compiler for LLVMCompiler {
                         &mut compact_unwind_section_bytes,
                         &mut compact_unwind_section_relocations,
                         &module_hash,
-                        build_directory.path(),
                     )?;
                     if let Some(progress) = progress.as_ref() {
                         progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
@@ -412,7 +400,7 @@ impl Compiler for LLVMCompiler {
                         unreachable!()
                     }
                 })
-                .collect::<Vec<PathBuf>>();
+                .collect::<Vec<Vec<u8>>>();
             let trampolines_objects = function_call_trampolines
                 .into_iter()
                 .map(|f| match f {
@@ -421,29 +409,24 @@ impl Compiler for LLVMCompiler {
                         unreachable!()
                     }
                 })
-                .collect::<Vec<PathBuf>>();
+                .collect::<Vec<Vec<u8>>>();
             let dynamic_trampolines_objects = dynamic_function_trampolines
                 .into_iter()
                 .map(|f| match f {
                     CompiledFunctionBody::Elf(path) => path,
                     CompiledFunctionBody::Rkyv(_) => unreachable!(),
                 })
-                .collect::<Vec<PathBuf>>();
+                .collect::<Vec<Vec<u8>>>();
 
-            let module_file = NamedTempFile::new_in(build_directory.path()).map_err(|e| {
-                CompileError::Codegen(format!("cannot create temporary module file: {e}"))
-            })?;
-
-            let mut module_file = emit_metadata_and_link(
+            let elf_content = emit_metadata_and_link(
+                &pool,
                 target,
                 compile_info_blob,
-                build_directory.path(),
-                module_file,
-                &CompiledObjects {
-                    object_files: &object_files,
-                    import_trampoline_object_files: &[],
-                    trampoline_object_files: &trampolines_objects,
-                    dynamic_trampoline_object_files: &dynamic_trampolines_objects,
+                CompiledObjects {
+                    object_files,
+                    import_trampoline_object_files: Vec::new(),
+                    trampoline_object_files: trampolines_objects,
+                    dynamic_trampoline_object_files: dynamic_trampolines_objects,
                 },
                 self.config
                     .callbacks
@@ -451,12 +434,10 @@ impl Compiler for LLVMCompiler {
                     .map(|callbacks| callbacks.debug_dir().clone()),
                 module.hash().map(|hash| hash.to_string()),
             )?;
-
-            let mut elf_content = Vec::new();
-            module_file.read_to_end(&mut elf_content).map_err(|e| {
-                CompileError::Codegen(format!("cannot persist linked shared object: {e}"))
-            })?;
-            Ok(Compilation::Elf(elf_content))
+            Ok(Compilation::Elf {
+                data: elf_content,
+                function_max_stack_usage,
+            })
         } else {
             let functions = functions
                 .into_iter()
@@ -566,30 +547,14 @@ impl Compiler for LLVMCompiler {
             let mut got = wasmer_compiler::types::function::GOT::empty();
 
             if !got_targets.is_empty() {
-                let pointer_width = target.triple().pointer_width().map_err(|_| {
-                    CompileError::Codegen("Could not get pointer width".to_string())
-                })?;
-
-                let got_entry_size = match pointer_width {
-                    target_lexicon::PointerWidth::U64 => 8,
-                    target_lexicon::PointerWidth::U32 => 4,
-                    target_lexicon::PointerWidth::U16 => todo!(),
-                };
-
-                let got_entry_reloc_kind = match pointer_width {
-                    target_lexicon::PointerWidth::U64 => RelocationKind::Abs8,
-                    target_lexicon::PointerWidth::U32 => RelocationKind::Abs4,
-                    target_lexicon::PointerWidth::U16 => todo!(),
-                };
-
-                let got_data: Vec<u8> = vec![0; got_targets.len() * got_entry_size];
+                let got_data: Vec<u8> = vec![0; got_targets.len() * 8];
                 let mut got_relocs = vec![];
 
                 for (i, target) in got_targets.into_iter().enumerate() {
                     got_relocs.push(wasmer_compiler::types::relocation::Relocation {
-                        kind: got_entry_reloc_kind,
+                        kind: RelocationKind::Abs8,
                         reloc_target: target,
-                        offset: (i * got_entry_size) as u32,
+                        offset: (i * 8) as u32,
                         addend: 0,
                     });
                 }
@@ -623,14 +588,17 @@ impl Compiler for LLVMCompiler {
                 })
                 .collect();
 
-            Ok(Compilation::Rkyv(RkyvCompilation {
-                functions,
-                custom_sections: module_custom_sections,
-                function_call_trampolines,
-                dynamic_function_trampolines,
-                unwind_info,
-                got,
-            }))
+            Ok(Compilation::Rkyv {
+                compilation: RkyvCompilation {
+                    functions,
+                    custom_sections: module_custom_sections,
+                    function_call_trampolines,
+                    dynamic_function_trampolines,
+                    unwind_info,
+                    got,
+                },
+                function_max_stack_usage,
+            })
         }
     }
 

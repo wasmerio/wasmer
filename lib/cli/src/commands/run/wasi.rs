@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeSet, HashMap},
+    ffi::OsString,
     path::{Path, PathBuf},
     str::FromStr,
     sync::{Arc, mpsc::Sender},
@@ -267,6 +268,13 @@ pub struct RunProperties {
     pub path: PathBuf,
     pub invoke: Option<String>,
     pub args: Vec<String>,
+}
+
+/// Environment variables are arbitrary byte strings on unix, but `Wasi` stores
+/// them as `String`, so reject the ones that cannot be represented.
+fn utf8_env_part(part: OsString) -> Result<String> {
+    part.into_string()
+        .map_err(|part| anyhow::anyhow!("environment variable is not valid UTF-8: {part:?}"))
 }
 
 #[allow(dead_code)]
@@ -682,7 +690,9 @@ impl Wasi {
             .unwrap_or_else(|| PathBuf::from("."));
         Ok(Self {
             deny_multiple_wasi_versions: true,
-            env_vars: std::env::vars().collect(),
+            env_vars: std::env::vars_os()
+                .map(|(name, value)| Ok((utf8_env_part(name)?, utf8_env_part(value)?)))
+                .collect::<Result<_>>()?,
             volumes: vec![MappedDirectory {
                 host: dir.clone(),
                 guest: dir

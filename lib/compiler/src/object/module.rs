@@ -71,7 +71,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object<'static>, ObjectE
     if let Architecture::Riscv64(_) = triple.architecture {
         object.flags = FileFlags::Elf {
             e_flags: elf::EF_RISCV_FLOAT_ABI_DOUBLE,
-            os_abi: 2,
+            os_abi: elf::OsAbi(2),
             abi_version: 0,
         };
     }
@@ -658,7 +658,7 @@ impl ObjectMetadataBuilder {
 
         aself
             .placeholder_data
-            .extend_from_slice(&aself.serialize_value(aself.num_function_pointers));
+            .extend_from_slice(&aself.serialize_value(aself.num_function_pointers)?);
         aself.placeholder_data.extend_from_slice(&vec![
             0u8;
             (aself.pointer_bytes() * aself.num_function_pointers)
@@ -666,14 +666,14 @@ impl ObjectMetadataBuilder {
         ]);
         aself
             .placeholder_data
-            .extend_from_slice(&aself.serialize_value(aself.num_trampolines));
+            .extend_from_slice(&aself.serialize_value(aself.num_trampolines)?);
         aself.placeholder_data.extend_from_slice(&vec![
             0u8;
             (aself.pointer_bytes() * aself.num_trampolines)
                 as usize
         ]);
         aself.placeholder_data.extend_from_slice(
-            &aself.serialize_value(aself.num_dynamic_function_trampoline_pointers),
+            &aself.serialize_value(aself.num_dynamic_function_trampoline_pointers)?,
         );
         aself.placeholder_data.extend_from_slice(&vec![
             0u8;
@@ -789,14 +789,15 @@ impl ObjectMetadataBuilder {
             + self.pointer_bytes()
     }
 
-    fn serialize_value(&self, value: u64) -> Vec<u8> {
+    fn serialize_value(&self, value: u64) -> Result<Vec<u8>, ObjectError> {
         match (self.endianness, self.pointer_width) {
-            (Endianness::Little, PointerWidth::U16) => (value as u16).to_le_bytes().to_vec(),
-            (Endianness::Big, PointerWidth::U16) => (value as u16).to_be_bytes().to_vec(),
-            (Endianness::Little, PointerWidth::U32) => (value as u32).to_le_bytes().to_vec(),
-            (Endianness::Big, PointerWidth::U32) => (value as u32).to_be_bytes().to_vec(),
-            (Endianness::Little, PointerWidth::U64) => value.to_le_bytes().to_vec(),
-            (Endianness::Big, PointerWidth::U64) => value.to_be_bytes().to_vec(),
+            (Endianness::Little, PointerWidth::U64) => Ok(value.to_le_bytes().to_vec()),
+            (Endianness::Big, PointerWidth::U64) => Ok(value.to_be_bytes().to_vec()),
+            (_, PointerWidth::U16 | PointerWidth::U32) => {
+                Err(ObjectError::UnsupportedArchitecture(
+                    "only 64-bit targets are supported".to_string(),
+                ))
+            }
         }
     }
 }

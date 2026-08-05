@@ -50,6 +50,7 @@ mod debug;
 mod dwarf;
 #[cfg(feature = "unwind")]
 mod eh;
+mod elf;
 mod func_environ;
 mod heap;
 mod table;

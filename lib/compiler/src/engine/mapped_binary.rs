@@ -152,7 +152,6 @@ pub static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_func_ref" => LibCall::FuncRef,
     "wasmer_vm_elem_drop" => LibCall::ElemDrop,
     "wasmer_vm_memory32_copy" => LibCall::Memory32Copy,
-    "wasmer_vm_imported_memory32_copy" => LibCall::ImportedMemory32Copy,
     "wasmer_vm_memory32_fill" => LibCall::Memory32Fill,
     "wasmer_vm_imported_memory32_fill" => LibCall::ImportedMemory32Fill,
     "wasmer_vm_memory32_init" => LibCall::Memory32Init,
@@ -189,10 +188,10 @@ struct ImageSegment {
 impl ImageSegment {
     fn protection(&self) -> Result<i32, String> {
         let (read, write, exec) = match self.flags {
-            SegmentFlags::Elf { p_flags } => (
-                p_flags & elf::PF_R != 0,
-                p_flags & elf::PF_W != 0,
-                p_flags & elf::PF_X != 0,
+            SegmentFlags::Elf { p_flags, .. } => (
+                p_flags.contains(elf::PF_R),
+                p_flags.contains(elf::PF_W),
+                p_flags.contains(elf::PF_X),
             ),
             _ => return Err(format!("unsupported segment flags: {:?}", self.flags)),
         };
