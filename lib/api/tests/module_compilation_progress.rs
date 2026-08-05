@@ -109,3 +109,14 @@ fn test_module_compilation_abort(engine: Engine) {
         }
     }
 }
+
+#[test]
+fn module_compilation_progress_accepts_shebang_prefixed_wasm() {
+    let engine = Engine::default();
+    let callback = wasmer_types::CompilationProgressCallback::new(|_| Ok(()));
+    let wasm = b"#!/path/to/wasix-run\n\0asm\x01\0\0\0";
+
+    engine
+        .new_module_with_progress(wasm, callback)
+        .expect("shebang-prefixed Wasm compiles");
+}

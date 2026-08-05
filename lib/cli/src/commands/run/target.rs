@@ -10,7 +10,7 @@ use indicatif::ProgressBar;
 use wasmer::Module;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
-use wasmer_types::ModuleHash;
+use wasmer_types::{ModuleHash, strip_wasm_shebang};
 use wasmer_wasix::{
     Runtime,
     bin_factory::BinaryPackage,
@@ -39,7 +39,7 @@ impl TargetOnDisk {
 
         let leading_bytes = &buffer[..bytes_read];
 
-        if wasmer::is_wasm(leading_bytes) {
+        if wasmer::is_wasm(strip_wasm_shebang(leading_bytes)) {
             return Ok(TargetOnDisk::WebAssemblyBinary);
         }
 
@@ -62,6 +62,23 @@ impl TargetOnDisk {
             Some("wasmu") => Ok(TargetOnDisk::WebAssemblyBinary),
             _ => bail!("Unable to determine how to execute \"{}\"", path.display()),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn identifies_extensionless_shebang_prefixed_wasm() {
+        let tempdir = tempfile::tempdir().unwrap();
+        let path = tempdir.path().join("self-executing-wasm");
+        std::fs::write(&path, b"#!/path/to/wasix-run\n\0asm\x01\0\0\0").unwrap();
+
+        assert!(matches!(
+            TargetOnDisk::from_file(&path),
+            Ok(TargetOnDisk::WebAssemblyBinary)
+        ));
     }
 }
 

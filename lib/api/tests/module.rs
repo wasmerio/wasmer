@@ -33,6 +33,16 @@ fn module_set_name() -> Result<(), String> {
 }
 
 #[engine_test]
+fn module_new_accepts_shebang_prefixed_wasm() -> Result<(), String> {
+    let store = Store::default();
+    let wasm = b"#!/path/to/wasix-run\n\0asm\x01\0\0\0";
+
+    Module::new(&store, wasm).map_err(|e| format!("{e:?}"))?;
+
+    Ok(())
+}
+
+#[engine_test]
 fn imports() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module

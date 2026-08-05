@@ -112,7 +112,7 @@ pub use crate::exception::CATCH_ALL_TAG_VALUE;
 pub use crate::stack::{FrameInfo, SourceLoc, TrapInformation};
 pub use crate::store_id::StoreId;
 pub use crate::trapcode::{OnCalledAction, TrapCode};
-pub use crate::utils::is_wasm;
+pub use crate::utils::{is_wasm, strip_wasm_shebang};
 pub use crate::vmoffsets::{VMBuiltinFunctionIndex, VMOffsets};
 
 /// Offset in bytes from the beginning of the function.

@@ -9,7 +9,7 @@ use thiserror::Error;
 use wasmer_types::WasmError;
 use wasmer_types::{
     CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
-    ImportType, ImportsIterator, ModuleInfo, SerializeError,
+    ImportType, ImportsIterator, ModuleInfo, SerializeError, strip_wasm_shebang,
 };
 
 use crate::{
@@ -35,6 +35,7 @@ gen_rt_ty! {
 impl BackendModule {
     #[inline]
     pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
+        let bytes = strip_wasm_shebang(bytes.as_ref());
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(format!(
@@ -50,6 +51,7 @@ impl BackendModule {
         bytes: impl AsRef<[u8]>,
         callback: CompilationProgressCallback,
     ) -> Result<Self, CompileError> {
+        let bytes = strip_wasm_shebang(bytes.as_ref());
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(format!(
