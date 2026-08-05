@@ -75,6 +75,33 @@ fn imported_table_elements_preserve_function_types() {
     );
 }
 
+#[cfg(all(target_arch = "wasm32", feature = "js"))]
+#[wasm_bindgen_test]
+fn exported_table_elements_preserve_function_types() {
+    let mut store = Store::default();
+    let module = Module::new(
+        &store,
+        r#"
+        (module
+          (type $callback_type (func (param i32 i32) (result i32)))
+          (func $callback (type $callback_type)
+            local.get 0)
+          (table (export "table") 1 funcref)
+          (elem (i32.const 0) func $callback))
+        "#,
+    )
+    .unwrap();
+    let instance = Instance::new(&mut store, &module, &imports! {}).unwrap();
+    let table = instance.exports.get_table("table").unwrap();
+    let Value::FuncRef(Some(function)) = table.get(&mut store, 0).unwrap() else {
+        panic!("expected the initialized table element to be a function");
+    };
+    assert_eq!(
+        function.ty(&store),
+        FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
+    );
+}
+
 #[engine_test]
 fn module_get_name() -> Result<(), String> {
     let store = Store::default();
