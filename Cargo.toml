@@ -385,6 +385,8 @@ backend = []
 
 # Enable the V8 backend (using it as default only if it is the only backend enabled)
 v8 = ["wasmer/v8"]
+# Enable V8 and explicitly select it as the default backend.
+v8-default = ["v8", "wasmer/v8-default"]
 
 engine = []
 cache = ["wasmer-cache"]

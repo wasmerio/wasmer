@@ -322,6 +322,7 @@ endif
 test_compilers := $(strip $(test_compilers))
 ifeq ($(IS_WINDOWS), 1)
 	test_compilers := $(filter-out llvm,$(test_compilers))
+	test_compilers += v8-default
 endif
 
 # Define the compiler Cargo features for all crates.

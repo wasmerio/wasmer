@@ -123,6 +123,10 @@ fn table_get() -> Result<(), String> {
 }
 
 #[engine_test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "extern refs are not supported by the default v8 backend"
+)]
 fn table_set() -> Result<(), String> {
     // Table set not yet tested
     #[cfg(feature = "sys")]
@@ -201,6 +205,10 @@ fn table_set() -> Result<(), String> {
 }
 
 #[engine_test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "function refs are not supported by the default v8 backend"
+)]
 fn table_grow() -> Result<(), String> {
     // Tables are not yet fully supported in Wasm
     #[cfg(feature = "sys")]

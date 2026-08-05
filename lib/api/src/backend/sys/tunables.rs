@@ -255,6 +255,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
     fn check_custom_tunables() -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(feature = "wat")]
         use crate::wat2wasm;

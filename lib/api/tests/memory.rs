@@ -70,6 +70,10 @@ fn test_shared_memory_atomics_notify_send() {
 
 #[cfg(feature = "sys")]
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "shared memory atomics are not supported by the default v8 backend"
+)]
 fn test_shared_memory_disable_atomics() {
     use wasmer::AtomicsError;
 
