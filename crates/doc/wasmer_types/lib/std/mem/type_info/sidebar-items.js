@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["TypeKind"],"struct":["Array","Bool","Char","Field","Float","Int","Reference","Str","Tuple","Type"]};
+window.SIDEBAR_ITEMS = {"enum":["Abi","Generic","TypeKind"],"struct":["Array","Bool","Char","Const","DynTrait","DynTraitPredicate","Enum","Field","Float","FnPtr","GenericType","Int","Lifetime","Pointer","Reference","Slice","Str","Struct","Trait","TraitImpl","Tuple","Type","Union","Variant"]};

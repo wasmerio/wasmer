@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-ffcac47a.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// FIXME: merge with ./lib.rs_upstream
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/lib.rs`."><title>lib.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/</div>lib.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// FIXME: merge with ./lib.rs_upstream
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="attr">#![allow(clippy::result_large_err)]
 <a href=#4 id=4 data-nosnippet>4</a>#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
@@ -889,50 +889,52 @@
 <a href=#889 id=889 data-nosnippet>889</a>/// [`tokio::task::block_in_place()`]. Otherwise, it calls the function
 <a href=#890 id=890 data-nosnippet>890</a>/// immediately.
 <a href=#891 id=891 data-nosnippet>891</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>block_in_place&lt;Ret&gt;(thunk: <span class="kw">impl </span>FnOnce() -&gt; Ret) -&gt; Ret {
-<a href=#892 id=892 data-nosnippet>892</a>    <span class="macro">cfg_if::cfg_if!</span> {
-<a href=#893 id=893 data-nosnippet>893</a>        <span class="kw">if </span><span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)] </span>{
+<a href=#892 id=892 data-nosnippet>892</a>    <span class="macro">cfg_select!</span> {
+<a href=#893 id=893 data-nosnippet>893</a>        feature = <span class="string">"sys-thread" </span>=&gt; {
 <a href=#894 id=894 data-nosnippet>894</a>            tokio::task::block_in_place(thunk)
-<a href=#895 id=895 data-nosnippet>895</a>        } <span class="kw">else </span>{
-<a href=#896 id=896 data-nosnippet>896</a>            thunk()
-<a href=#897 id=897 data-nosnippet>897</a>        }
-<a href=#898 id=898 data-nosnippet>898</a>    }
-<a href=#899 id=899 data-nosnippet>899</a>}
-<a href=#900 id=900 data-nosnippet>900</a>
-<a href=#901 id=901 data-nosnippet>901</a><span class="doccomment">/// Spawns a new blocking task that runs the provided closure.
-<a href=#902 id=902 data-nosnippet>902</a>///
-<a href=#903 id=903 data-nosnippet>903</a>/// The closure is executed on a separate thread, allowing it to perform blocking operations
-<a href=#904 id=904 data-nosnippet>904</a>/// without blocking the main thread. The closure is wrapped in a `Future` that resolves to the
-<a href=#905 id=905 data-nosnippet>905</a>/// result of the closure's execution.
-<a href=#906 id=906 data-nosnippet>906</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>spawn_blocking&lt;F, R&gt;(f: F) -&gt; <span class="prelude-ty">Result</span>&lt;R, tokio::task::JoinError&gt;
-<a href=#907 id=907 data-nosnippet>907</a><span class="kw">where
-<a href=#908 id=908 data-nosnippet>908</a>    </span>F: FnOnce() -&gt; R + Send + <span class="lifetime">'static</span>,
-<a href=#909 id=909 data-nosnippet>909</a>    R: Send + <span class="lifetime">'static</span>,
-<a href=#910 id=910 data-nosnippet>910</a>{
-<a href=#911 id=911 data-nosnippet>911</a>    <span class="macro">cfg_if::cfg_if!</span> {
-<a href=#912 id=912 data-nosnippet>912</a>        <span class="kw">if </span><span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)] </span>{
-<a href=#913 id=913 data-nosnippet>913</a>            <span class="prelude-val">Ok</span>(block_in_place(f))
-<a href=#914 id=914 data-nosnippet>914</a>        } <span class="kw">else </span>{
-<a href=#915 id=915 data-nosnippet>915</a>            tokio::task::spawn_blocking(f).<span class="kw">await
-<a href=#916 id=916 data-nosnippet>916</a>        </span>}
-<a href=#917 id=917 data-nosnippet>917</a>    }
-<a href=#918 id=918 data-nosnippet>918</a>}
-<a href=#919 id=919 data-nosnippet>919</a>
-<a href=#920 id=920 data-nosnippet>920</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>flatten_runtime_error(err: RuntimeError) -&gt; RuntimeError {
-<a href=#921 id=921 data-nosnippet>921</a>    <span class="kw">let </span>e_ref = err.downcast_ref::&lt;WasiRuntimeError&gt;();
-<a href=#922 id=922 data-nosnippet>922</a>    <span class="kw">match </span>e_ref {
-<a href=#923 id=923 data-nosnippet>923</a>        <span class="prelude-val">Some</span>(WasiRuntimeError::Wasi(<span class="kw">_</span>)) =&gt; {
-<a href=#924 id=924 data-nosnippet>924</a>            <span class="kw">let </span><span class="prelude-val">Ok</span>(WasiRuntimeError::Wasi(err)) = err.downcast::&lt;WasiRuntimeError&gt;() <span class="kw">else </span>{
-<a href=#925 id=925 data-nosnippet>925</a>                <span class="macro">unreachable!</span>()
-<a href=#926 id=926 data-nosnippet>926</a>            };
-<a href=#927 id=927 data-nosnippet>927</a>            RuntimeError::user(Box::new(err))
-<a href=#928 id=928 data-nosnippet>928</a>        }
-<a href=#929 id=929 data-nosnippet>929</a>        <span class="prelude-val">Some</span>(WasiRuntimeError::Runtime(<span class="kw">_</span>)) =&gt; {
-<a href=#930 id=930 data-nosnippet>930</a>            <span class="kw">let </span><span class="prelude-val">Ok</span>(WasiRuntimeError::Runtime(err)) = err.downcast::&lt;WasiRuntimeError&gt;() <span class="kw">else </span>{
-<a href=#931 id=931 data-nosnippet>931</a>                <span class="macro">unreachable!</span>()
-<a href=#932 id=932 data-nosnippet>932</a>            };
-<a href=#933 id=933 data-nosnippet>933</a>            flatten_runtime_error(err)
-<a href=#934 id=934 data-nosnippet>934</a>        }
-<a href=#935 id=935 data-nosnippet>935</a>        <span class="kw">_ </span>=&gt; err,
-<a href=#936 id=936 data-nosnippet>936</a>    }
-<a href=#937 id=937 data-nosnippet>937</a>}
+<a href=#895 id=895 data-nosnippet>895</a>        }
+<a href=#896 id=896 data-nosnippet>896</a>        <span class="kw">_ </span>=&gt; {
+<a href=#897 id=897 data-nosnippet>897</a>            thunk()
+<a href=#898 id=898 data-nosnippet>898</a>        }
+<a href=#899 id=899 data-nosnippet>899</a>    }
+<a href=#900 id=900 data-nosnippet>900</a>}
+<a href=#901 id=901 data-nosnippet>901</a>
+<a href=#902 id=902 data-nosnippet>902</a><span class="doccomment">/// Spawns a new blocking task that runs the provided closure.
+<a href=#903 id=903 data-nosnippet>903</a>///
+<a href=#904 id=904 data-nosnippet>904</a>/// The closure is executed on a separate thread, allowing it to perform blocking operations
+<a href=#905 id=905 data-nosnippet>905</a>/// without blocking the main thread. The closure is wrapped in a `Future` that resolves to the
+<a href=#906 id=906 data-nosnippet>906</a>/// result of the closure's execution.
+<a href=#907 id=907 data-nosnippet>907</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>spawn_blocking&lt;F, R&gt;(f: F) -&gt; <span class="prelude-ty">Result</span>&lt;R, tokio::task::JoinError&gt;
+<a href=#908 id=908 data-nosnippet>908</a><span class="kw">where
+<a href=#909 id=909 data-nosnippet>909</a>    </span>F: FnOnce() -&gt; R + Send + <span class="lifetime">'static</span>,
+<a href=#910 id=910 data-nosnippet>910</a>    R: Send + <span class="lifetime">'static</span>,
+<a href=#911 id=911 data-nosnippet>911</a>{
+<a href=#912 id=912 data-nosnippet>912</a>    <span class="macro">cfg_select!</span> {
+<a href=#913 id=913 data-nosnippet>913</a>        target_arch = <span class="string">"wasm32" </span>=&gt; {
+<a href=#914 id=914 data-nosnippet>914</a>            <span class="prelude-val">Ok</span>(block_in_place(f))
+<a href=#915 id=915 data-nosnippet>915</a>        }
+<a href=#916 id=916 data-nosnippet>916</a>        <span class="kw">_ </span>=&gt; {
+<a href=#917 id=917 data-nosnippet>917</a>            tokio::task::spawn_blocking(f).<span class="kw">await
+<a href=#918 id=918 data-nosnippet>918</a>        </span>}
+<a href=#919 id=919 data-nosnippet>919</a>    }
+<a href=#920 id=920 data-nosnippet>920</a>}
+<a href=#921 id=921 data-nosnippet>921</a>
+<a href=#922 id=922 data-nosnippet>922</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>flatten_runtime_error(err: RuntimeError) -&gt; RuntimeError {
+<a href=#923 id=923 data-nosnippet>923</a>    <span class="kw">let </span>e_ref = err.downcast_ref::&lt;WasiRuntimeError&gt;();
+<a href=#924 id=924 data-nosnippet>924</a>    <span class="kw">match </span>e_ref {
+<a href=#925 id=925 data-nosnippet>925</a>        <span class="prelude-val">Some</span>(WasiRuntimeError::Wasi(<span class="kw">_</span>)) =&gt; {
+<a href=#926 id=926 data-nosnippet>926</a>            <span class="kw">let </span><span class="prelude-val">Ok</span>(WasiRuntimeError::Wasi(err)) = err.downcast::&lt;WasiRuntimeError&gt;() <span class="kw">else </span>{
+<a href=#927 id=927 data-nosnippet>927</a>                <span class="macro">unreachable!</span>()
+<a href=#928 id=928 data-nosnippet>928</a>            };
+<a href=#929 id=929 data-nosnippet>929</a>            RuntimeError::user(Box::new(err))
+<a href=#930 id=930 data-nosnippet>930</a>        }
+<a href=#931 id=931 data-nosnippet>931</a>        <span class="prelude-val">Some</span>(WasiRuntimeError::Runtime(<span class="kw">_</span>)) =&gt; {
+<a href=#932 id=932 data-nosnippet>932</a>            <span class="kw">let </span><span class="prelude-val">Ok</span>(WasiRuntimeError::Runtime(err)) = err.downcast::&lt;WasiRuntimeError&gt;() <span class="kw">else </span>{
+<a href=#933 id=933 data-nosnippet>933</a>                <span class="macro">unreachable!</span>()
+<a href=#934 id=934 data-nosnippet>934</a>            };
+<a href=#935 id=935 data-nosnippet>935</a>            flatten_runtime_error(err)
+<a href=#936 id=936 data-nosnippet>936</a>        }
+<a href=#937 id=937 data-nosnippet>937</a>        <span class="kw">_ </span>=&gt; err,
+<a href=#938 id=938 data-nosnippet>938</a>    }
+<a href=#939 id=939 data-nosnippet>939</a>}
 </code></pre></div></section></main></body></html>

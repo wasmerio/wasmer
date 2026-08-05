@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! The commands available in the Wasmer binary.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! The commands available in the Wasmer binary.
 <a href=#2 id=2 data-nosnippet>2</a></span><span class="kw">mod </span>add;
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">mod </span>app;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">mod </span>auth;
@@ -509,84 +509,85 @@
 <a href=#509 id=509 data-nosnippet>509</a>}
 <a href=#510 id=510 data-nosnippet>510</a>
 <a href=#511 id=511 data-nosnippet>511</a><span class="kw">fn </span>is_binfmt_interpreter() -&gt; bool {
-<a href=#512 id=512 data-nosnippet>512</a>    <span class="macro">cfg_if::cfg_if!</span> {
-<a href=#513 id=513 data-nosnippet>513</a>        <span class="kw">if </span><span class="attr">#[cfg(target_os = <span class="string">"linux"</span>)] </span>{
+<a href=#512 id=512 data-nosnippet>512</a>    <span class="macro">cfg_select!</span> {
+<a href=#513 id=513 data-nosnippet>513</a>        target_os = <span class="string">"linux" </span>=&gt; {
 <a href=#514 id=514 data-nosnippet>514</a>            <span class="comment">// Note: we'll be invoked by the kernel as Binfmt::FILENAME
 <a href=#515 id=515 data-nosnippet>515</a>            </span><span class="kw">let </span>binary_path = <span class="kw">match </span>std::env::args_os().next() {
 <a href=#516 id=516 data-nosnippet>516</a>                <span class="prelude-val">Some</span>(path) =&gt; std::path::PathBuf::from(path),
 <a href=#517 id=517 data-nosnippet>517</a>                <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="bool-val">false</span>,
 <a href=#518 id=518 data-nosnippet>518</a>            };
 <a href=#519 id=519 data-nosnippet>519</a>            binary_path.file_name().and_then(|f| f.to_str()) == <span class="prelude-val">Some</span>(Binfmt::FILENAME)
-<a href=#520 id=520 data-nosnippet>520</a>        } <span class="kw">else </span>{
-<a href=#521 id=521 data-nosnippet>521</a>            <span class="bool-val">false
-<a href=#522 id=522 data-nosnippet>522</a>        </span>}
-<a href=#523 id=523 data-nosnippet>523</a>    }
-<a href=#524 id=524 data-nosnippet>524</a>}
-<a href=#525 id=525 data-nosnippet>525</a>
-<a href=#526 id=526 data-nosnippet>526</a><span class="kw">fn </span>print_version(verbose: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-<a href=#527 id=527 data-nosnippet>527</a>    <span class="kw">if </span>!verbose {
-<a href=#528 id=528 data-nosnippet>528</a>        <span class="macro">println!</span>(<span class="string">"wasmer {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>));
-<a href=#529 id=529 data-nosnippet>529</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#530 id=530 data-nosnippet>530</a>    }
-<a href=#531 id=531 data-nosnippet>531</a>
-<a href=#532 id=532 data-nosnippet>532</a>    <span class="macro">println!</span>(<span class="string">"wasmer {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>));
-<a href=#533 id=533 data-nosnippet>533</a>    <span class="macro">println!</span>(<span class="string">"binary: {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_NAME"</span>));
-<a href=#534 id=534 data-nosnippet>534</a>    <span class="kw">let </span>git_hash = <span class="macro">git_version!</span>(
-<a href=#535 id=535 data-nosnippet>535</a>        args = [
-<a href=#536 id=536 data-nosnippet>536</a>            <span class="string">"--abbrev=40"</span>,
-<a href=#537 id=537 data-nosnippet>537</a>            <span class="string">"--always"</span>,
-<a href=#538 id=538 data-nosnippet>538</a>            <span class="string">"--dirty=-modified"</span>,
-<a href=#539 id=539 data-nosnippet>539</a>            <span class="string">"--exclude=*"
-<a href=#540 id=540 data-nosnippet>540</a>        </span>],
-<a href=#541 id=541 data-nosnippet>541</a>        fallback = <span class="string">""</span>,
-<a href=#542 id=542 data-nosnippet>542</a>    )
-<a href=#543 id=543 data-nosnippet>543</a>    .to_string();
-<a href=#544 id=544 data-nosnippet>544</a>    <span class="kw">if </span>!git_hash.is_empty() {
-<a href=#545 id=545 data-nosnippet>545</a>        <span class="macro">println!</span>(<span class="string">"commit-hash: {git_hash}"</span>,);
-<a href=#546 id=546 data-nosnippet>546</a>    }
-<a href=#547 id=547 data-nosnippet>547</a>    <span class="kw">if </span>!<span class="macro">env!</span>(<span class="string">"WASMER_REPRODUCIBLE_BUILD"</span>)
-<a href=#548 id=548 data-nosnippet>548</a>        .parse::&lt;bool&gt;()
-<a href=#549 id=549 data-nosnippet>549</a>        .expect(<span class="string">"build-time variable expected"</span>)
-<a href=#550 id=550 data-nosnippet>550</a>    {
-<a href=#551 id=551 data-nosnippet>551</a>        <span class="macro">println!</span>(<span class="string">"commit-date: {}"</span>, <span class="macro">env!</span>(<span class="string">"WASMER_BUILD_DATE"</span>));
-<a href=#552 id=552 data-nosnippet>552</a>    }
-<a href=#553 id=553 data-nosnippet>553</a>    <span class="macro">println!</span>(<span class="string">"host: {}"</span>, target_lexicon::HOST);
-<a href=#554 id=554 data-nosnippet>554</a>
-<a href=#555 id=555 data-nosnippet>555</a>    <span class="kw">let </span>cpu_features = wasmer_types::target::CpuFeature::for_host()
-<a href=#556 id=556 data-nosnippet>556</a>        .iter()
-<a href=#557 id=557 data-nosnippet>557</a>        .map(|f| f.to_string())
-<a href=#558 id=558 data-nosnippet>558</a>        .join(<span class="string">" "</span>);
-<a href=#559 id=559 data-nosnippet>559</a>    <span class="macro">println!</span>(<span class="string">"CPU flags: {cpu_features}"</span>);
-<a href=#560 id=560 data-nosnippet>560</a>
-<a href=#561 id=561 data-nosnippet>561</a>    <span class="kw">let </span><span class="kw-2">mut </span>runtimes = Vec::new();
-<a href=#562 id=562 data-nosnippet>562</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"singlepass"</span>) {
-<a href=#563 id=563 data-nosnippet>563</a>        runtimes.push(<span class="string">"Singlepass"</span>);
-<a href=#564 id=564 data-nosnippet>564</a>    }
-<a href=#565 id=565 data-nosnippet>565</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"cranelift"</span>) {
-<a href=#566 id=566 data-nosnippet>566</a>        runtimes.push(<span class="string">"Cranelift"</span>);
-<a href=#567 id=567 data-nosnippet>567</a>    }
-<a href=#568 id=568 data-nosnippet>568</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"llvm"</span>) {
-<a href=#569 id=569 data-nosnippet>569</a>        runtimes.push(<span class="string">"LLVM"</span>);
-<a href=#570 id=570 data-nosnippet>570</a>    }
-<a href=#571 id=571 data-nosnippet>571</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"v8"</span>) {
-<a href=#572 id=572 data-nosnippet>572</a>        runtimes.push(<span class="string">"V8"</span>);
-<a href=#573 id=573 data-nosnippet>573</a>    }
-<a href=#574 id=574 data-nosnippet>574</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
-<a href=#575 id=575 data-nosnippet>575</a>
-<a href=#576 id=576 data-nosnippet>576</a>    <span class="attr">#[allow(clippy::useless_vec)]
-<a href=#577 id=577 data-nosnippet>577</a>    #[allow(unused_mut)]
-<a href=#578 id=578 data-nosnippet>578</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>features = <span class="macro">vec!</span>[<span class="string">"wasix"</span>.to_string()];
-<a href=#579 id=579 data-nosnippet>579</a>    <span class="attr">#[cfg(feature = <span class="string">"napi-v8"</span>)]
-<a href=#580 id=580 data-nosnippet>580</a>    </span>{
-<a href=#581 id=581 data-nosnippet>581</a>        <span class="kw">for </span>napi_version <span class="kw">in </span>enum_iterator::all::&lt;wasmer_napi::NapiVersion&gt;() {
-<a href=#582 id=582 data-nosnippet>582</a>            <span class="kw">if </span>!<span class="macro">matches!</span>(napi_version, wasmer_napi::NapiVersion::Unknown) {
-<a href=#583 id=583 data-nosnippet>583</a>                features.push(napi_version.to_string());
-<a href=#584 id=584 data-nosnippet>584</a>            }
-<a href=#585 id=585 data-nosnippet>585</a>        }
-<a href=#586 id=586 data-nosnippet>586</a>        features.push(wasmer_napi::NAPI_EXTENSION_WASMER_MODULE_NAME.to_string());
-<a href=#587 id=587 data-nosnippet>587</a>    }
-<a href=#588 id=588 data-nosnippet>588</a>    <span class="macro">println!</span>(<span class="string">"features: {}"</span>, features.join(<span class="string">", "</span>));
-<a href=#589 id=589 data-nosnippet>589</a>
-<a href=#590 id=590 data-nosnippet>590</a>    <span class="prelude-val">Ok</span>(())
-<a href=#591 id=591 data-nosnippet>591</a>}
+<a href=#520 id=520 data-nosnippet>520</a>        }
+<a href=#521 id=521 data-nosnippet>521</a>        <span class="kw">_ </span>=&gt; {
+<a href=#522 id=522 data-nosnippet>522</a>            <span class="bool-val">false
+<a href=#523 id=523 data-nosnippet>523</a>        </span>}
+<a href=#524 id=524 data-nosnippet>524</a>    }
+<a href=#525 id=525 data-nosnippet>525</a>}
+<a href=#526 id=526 data-nosnippet>526</a>
+<a href=#527 id=527 data-nosnippet>527</a><span class="kw">fn </span>print_version(verbose: bool) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+<a href=#528 id=528 data-nosnippet>528</a>    <span class="kw">if </span>!verbose {
+<a href=#529 id=529 data-nosnippet>529</a>        <span class="macro">println!</span>(<span class="string">"wasmer {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>));
+<a href=#530 id=530 data-nosnippet>530</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#531 id=531 data-nosnippet>531</a>    }
+<a href=#532 id=532 data-nosnippet>532</a>
+<a href=#533 id=533 data-nosnippet>533</a>    <span class="macro">println!</span>(<span class="string">"wasmer {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>));
+<a href=#534 id=534 data-nosnippet>534</a>    <span class="macro">println!</span>(<span class="string">"binary: {}"</span>, <span class="macro">env!</span>(<span class="string">"CARGO_PKG_NAME"</span>));
+<a href=#535 id=535 data-nosnippet>535</a>    <span class="kw">let </span>git_hash = <span class="macro">git_version!</span>(
+<a href=#536 id=536 data-nosnippet>536</a>        args = [
+<a href=#537 id=537 data-nosnippet>537</a>            <span class="string">"--abbrev=40"</span>,
+<a href=#538 id=538 data-nosnippet>538</a>            <span class="string">"--always"</span>,
+<a href=#539 id=539 data-nosnippet>539</a>            <span class="string">"--dirty=-modified"</span>,
+<a href=#540 id=540 data-nosnippet>540</a>            <span class="string">"--exclude=*"
+<a href=#541 id=541 data-nosnippet>541</a>        </span>],
+<a href=#542 id=542 data-nosnippet>542</a>        fallback = <span class="string">""</span>,
+<a href=#543 id=543 data-nosnippet>543</a>    )
+<a href=#544 id=544 data-nosnippet>544</a>    .to_string();
+<a href=#545 id=545 data-nosnippet>545</a>    <span class="kw">if </span>!git_hash.is_empty() {
+<a href=#546 id=546 data-nosnippet>546</a>        <span class="macro">println!</span>(<span class="string">"commit-hash: {git_hash}"</span>,);
+<a href=#547 id=547 data-nosnippet>547</a>    }
+<a href=#548 id=548 data-nosnippet>548</a>    <span class="kw">if </span>!<span class="macro">env!</span>(<span class="string">"WASMER_REPRODUCIBLE_BUILD"</span>)
+<a href=#549 id=549 data-nosnippet>549</a>        .parse::&lt;bool&gt;()
+<a href=#550 id=550 data-nosnippet>550</a>        .expect(<span class="string">"build-time variable expected"</span>)
+<a href=#551 id=551 data-nosnippet>551</a>    {
+<a href=#552 id=552 data-nosnippet>552</a>        <span class="macro">println!</span>(<span class="string">"commit-date: {}"</span>, <span class="macro">env!</span>(<span class="string">"WASMER_BUILD_DATE"</span>));
+<a href=#553 id=553 data-nosnippet>553</a>    }
+<a href=#554 id=554 data-nosnippet>554</a>    <span class="macro">println!</span>(<span class="string">"host: {}"</span>, target_lexicon::HOST);
+<a href=#555 id=555 data-nosnippet>555</a>
+<a href=#556 id=556 data-nosnippet>556</a>    <span class="kw">let </span>cpu_features = wasmer_types::target::CpuFeature::for_host()
+<a href=#557 id=557 data-nosnippet>557</a>        .iter()
+<a href=#558 id=558 data-nosnippet>558</a>        .map(|f| f.to_string())
+<a href=#559 id=559 data-nosnippet>559</a>        .join(<span class="string">" "</span>);
+<a href=#560 id=560 data-nosnippet>560</a>    <span class="macro">println!</span>(<span class="string">"CPU flags: {cpu_features}"</span>);
+<a href=#561 id=561 data-nosnippet>561</a>
+<a href=#562 id=562 data-nosnippet>562</a>    <span class="kw">let </span><span class="kw-2">mut </span>runtimes = Vec::new();
+<a href=#563 id=563 data-nosnippet>563</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"singlepass"</span>) {
+<a href=#564 id=564 data-nosnippet>564</a>        runtimes.push(<span class="string">"Singlepass"</span>);
+<a href=#565 id=565 data-nosnippet>565</a>    }
+<a href=#566 id=566 data-nosnippet>566</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"cranelift"</span>) {
+<a href=#567 id=567 data-nosnippet>567</a>        runtimes.push(<span class="string">"Cranelift"</span>);
+<a href=#568 id=568 data-nosnippet>568</a>    }
+<a href=#569 id=569 data-nosnippet>569</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"llvm"</span>) {
+<a href=#570 id=570 data-nosnippet>570</a>        runtimes.push(<span class="string">"LLVM"</span>);
+<a href=#571 id=571 data-nosnippet>571</a>    }
+<a href=#572 id=572 data-nosnippet>572</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"v8"</span>) {
+<a href=#573 id=573 data-nosnippet>573</a>        runtimes.push(<span class="string">"V8"</span>);
+<a href=#574 id=574 data-nosnippet>574</a>    }
+<a href=#575 id=575 data-nosnippet>575</a>    <span class="macro">println!</span>(<span class="string">"runtimes: {}"</span>, runtimes.join(<span class="string">", "</span>));
+<a href=#576 id=576 data-nosnippet>576</a>
+<a href=#577 id=577 data-nosnippet>577</a>    <span class="attr">#[allow(clippy::useless_vec)]
+<a href=#578 id=578 data-nosnippet>578</a>    #[allow(unused_mut)]
+<a href=#579 id=579 data-nosnippet>579</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>features = <span class="macro">vec!</span>[<span class="string">"wasix"</span>.to_string()];
+<a href=#580 id=580 data-nosnippet>580</a>    <span class="attr">#[cfg(feature = <span class="string">"napi-v8"</span>)]
+<a href=#581 id=581 data-nosnippet>581</a>    </span>{
+<a href=#582 id=582 data-nosnippet>582</a>        <span class="kw">for </span>napi_version <span class="kw">in </span>enum_iterator::all::&lt;wasmer_napi::NapiVersion&gt;() {
+<a href=#583 id=583 data-nosnippet>583</a>            <span class="kw">if </span>!<span class="macro">matches!</span>(napi_version, wasmer_napi::NapiVersion::Unknown) {
+<a href=#584 id=584 data-nosnippet>584</a>                features.push(napi_version.to_string());
+<a href=#585 id=585 data-nosnippet>585</a>            }
+<a href=#586 id=586 data-nosnippet>586</a>        }
+<a href=#587 id=587 data-nosnippet>587</a>        features.push(wasmer_napi::NAPI_EXTENSION_WASMER_MODULE_NAME.to_string());
+<a href=#588 id=588 data-nosnippet>588</a>    }
+<a href=#589 id=589 data-nosnippet>589</a>    <span class="macro">println!</span>(<span class="string">"features: {}"</span>, features.join(<span class="string">", "</span>));
+<a href=#590 id=590 data-nosnippet>590</a>
+<a href=#591 id=591 data-nosnippet>591</a>    <span class="prelude-val">Ok</span>(())
+<a href=#592 id=592 data-nosnippet>592</a>}
 </code></pre></div></section></main></body></html>

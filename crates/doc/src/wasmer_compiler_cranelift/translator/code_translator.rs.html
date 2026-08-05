@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/code_translator.rs`."><title>code_translator.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-77263533.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.94.1 (e408947bf 2026-03-25)" data-channel="1.94.1" data-search-js="search-9e2438ea.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-c38705f0.js" ><script src="../../../static.files/storage-e2aeef58.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7bab91a1.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-ffcac47a.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_cranelift/translator/</div>code_translator.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file contains code from external sources.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/compiler-cranelift/src/translator/code_translator.rs`."><title>code_translator.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_compiler_cranelift" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../../static.files/storage-41dd4d93.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_compiler_cranelift/translator/</div>code_translator.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="comment">// This file contains code from external sources.
 <a href=#2 id=2 data-nosnippet>2</a>// Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a></span><span class="doccomment">//! This module contains the bulk of the interesting code performing the translation between
@@ -672,7 +672,7 @@
 <a href=#672 id=672 data-nosnippet>672</a>
 <a href=#673 id=673 data-nosnippet>673</a>            <span class="kw">let </span>outer_clauses = outer_clauses
 <a href=#674 id=674 data-nosnippet>674</a>                .into_iter()
-<a href=#675 id=675 data-nosnippet>675</a>                .filter(|clause| clauses.iter().all(|c| c.<span class="macro">tag_value !</span>= clause.tag_value))
+<a href=#675 id=675 data-nosnippet>675</a>                .filter(|clause| clauses.iter().all(|c| c.tag_value != clause.tag_value))
 <a href=#676 id=676 data-nosnippet>676</a>                .collect_vec();
 <a href=#677 id=677 data-nosnippet>677</a>
 <a href=#678 id=678 data-nosnippet>678</a>            <span class="kw">if </span>!clauses.is_empty() {
@@ -3273,7 +3273,7 @@
 <a href=#3273 id=3273 data-nosnippet>3273</a>    </span>);
 <a href=#3274 id=3274 data-nosnippet>3274</a>
 <a href=#3275 id=3275 data-nosnippet>3275</a>    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_rmw(access_ty, flags, op, addr, arg2);
-<a href=#3276 id=3276 data-nosnippet>3276</a>    <span class="kw">if </span><span class="macro">access_ty !</span>= widened_ty {
+<a href=#3276 id=3276 data-nosnippet>3276</a>    <span class="kw">if </span>access_ty != widened_ty {
 <a href=#3277 id=3277 data-nosnippet>3277</a>        res = builder.ins().uextend(widened_ty, res);
 <a href=#3278 id=3278 data-nosnippet>3278</a>    }
 <a href=#3279 id=3279 data-nosnippet>3279</a>    state.push1(res);
@@ -3325,7 +3325,7 @@
 <a href=#3325 id=3325 data-nosnippet>3325</a>        )<span class="question-mark">?
 <a href=#3326 id=3326 data-nosnippet>3326</a>    </span>);
 <a href=#3327 id=3327 data-nosnippet>3327</a>    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_cas(flags, addr, expected, replacement);
-<a href=#3328 id=3328 data-nosnippet>3328</a>    <span class="kw">if </span><span class="macro">access_ty !</span>= widened_ty {
+<a href=#3328 id=3328 data-nosnippet>3328</a>    <span class="kw">if </span>access_ty != widened_ty {
 <a href=#3329 id=3329 data-nosnippet>3329</a>        res = builder.ins().uextend(widened_ty, res);
 <a href=#3330 id=3330 data-nosnippet>3330</a>    }
 <a href=#3331 id=3331 data-nosnippet>3331</a>    state.push1(res);
@@ -3365,7 +3365,7 @@
 <a href=#3365 id=3365 data-nosnippet>3365</a>        )<span class="question-mark">?
 <a href=#3366 id=3366 data-nosnippet>3366</a>    </span>);
 <a href=#3367 id=3367 data-nosnippet>3367</a>    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_load(access_ty, flags, addr);
-<a href=#3368 id=3368 data-nosnippet>3368</a>    <span class="kw">if </span><span class="macro">access_ty !</span>= widened_ty {
+<a href=#3368 id=3368 data-nosnippet>3368</a>    <span class="kw">if </span>access_ty != widened_ty {
 <a href=#3369 id=3369 data-nosnippet>3369</a>        res = builder.ins().uextend(widened_ty, res);
 <a href=#3370 id=3370 data-nosnippet>3370</a>    }
 <a href=#3371 id=3371 data-nosnippet>3371</a>    state.push1(res);
@@ -3850,7 +3850,7 @@
 <a href=#3850 id=3850 data-nosnippet>3850</a>            <span class="comment">// This is the same check that would be done by `optionally_bitcast_vector`, except we
 <a href=#3851 id=3851 data-nosnippet>3851</a>            // can't take a mutable borrow of the FunctionBuilder here, so we defer inserting the
 <a href=#3852 id=3852 data-nosnippet>3852</a>            // bitcast instruction to the caller.
-<a href=#3853 id=3853 data-nosnippet>3853</a>            </span><span class="macro">arg_type !</span>= <span class="kw-2">*</span>param_type
+<a href=#3853 id=3853 data-nosnippet>3853</a>            </span>arg_type != <span class="kw-2">*</span>param_type
 <a href=#3854 id=3854 data-nosnippet>3854</a>        })
 <a href=#3855 id=3855 data-nosnippet>3855</a>        .collect()
 <a href=#3856 id=3856 data-nosnippet>3856</a>}

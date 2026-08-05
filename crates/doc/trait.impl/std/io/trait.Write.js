@@ -1,5 +1,5 @@
 (function() {
-    const implementors = Object.fromEntries([["virtual_fs",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.94.1/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"virtual_fs/pipe/struct.Pipe.html\" title=\"struct virtual_fs::pipe::Pipe\">Pipe</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.94.1/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"virtual_fs/pipe/struct.PipeTx.html\" title=\"struct virtual_fs::pipe::PipeTx\">PipeTx</a>",0]]],["wasmer_wasix",[]]]);
+    const implementors = Object.fromEntries([["virtual_fs",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"virtual_fs/pipe/struct.Pipe.html\" title=\"struct virtual_fs::pipe::Pipe\">Pipe</a>",0],["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.95.0/std/io/trait.Write.html\" title=\"trait std::io::Write\">Write</a> for <a class=\"struct\" href=\"virtual_fs/pipe/struct.PipeTx.html\" title=\"struct virtual_fs::pipe::PipeTx\">PipeTx</a>",0]]],["wasmer_wasix",[]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
