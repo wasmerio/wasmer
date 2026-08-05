@@ -1287,7 +1287,7 @@ fn build_perish_banner(app: &DeployApp) -> Option<String> {
     }
 
     let mut table = Table::new();
-    table.load_preset(UTF8_FULL);
+    table.load_style(UTF8_FULL);
     table.set_content_arrangement(ContentArrangement::Dynamic);
     table.add_row(vec![banner]);
 

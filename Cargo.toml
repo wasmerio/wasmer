@@ -130,7 +130,7 @@ clap_lex = { version = "1" }
 clap_mangen = "0.3.0"
 cmake = "0.1.50"
 colored = "3.0.0"
-comfy-table = "7.2.1"
+comfy-table = "8.0.0"
 compiletest_rs = "0.11.2"
 console = "0.16.1"
 console-subscriber = "0.5.0"

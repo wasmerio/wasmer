@@ -12,7 +12,7 @@ impl CliRender for AppRegion {
             ..
         }: &AppRegion = self;
 
-        table.load_preset(comfy_table::presets::NOTHING);
+        table.load_style(comfy_table::presets::NOTHING);
         table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
         table.add_rows([
@@ -35,7 +35,7 @@ impl CliRender for AppRegion {
             return String::new();
         }
         let mut table = Table::new();
-        table.load_preset(comfy_table::presets::NOTHING);
+        table.load_style(comfy_table::presets::NOTHING);
         //table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
         table.set_header(vec![
