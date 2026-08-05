@@ -1,10 +1,24 @@
-use std::path::{Path, PathBuf};
+use std::{
+    cmp::Ordering,
+    path::{Path, PathBuf},
+};
 
 use anyhow::Error;
 use http::{HeaderMap, StatusCode};
+use semver::Version;
 use url::Url;
 
 use crate::http::{HttpResponse, USER_AGENT};
+
+/// Compare optional package versions by SemVer *precedence*, i.e. ignoring build
+/// metadata as the spec requires (`1.0.0+a` and `1.0.0+b` rank equally). `None`
+/// orders below any `Some`, matching [`Option`]'s own ordering.
+pub(crate) fn cmp_version_precedence(left: Option<&Version>, right: Option<&Version>) -> Ordering {
+    match (left, right) {
+        (Some(left), Some(right)) => left.cmp_precedence(right),
+        (left, right) => left.is_some().cmp(&right.is_some()),
+    }
+}
 
 /// Polyfill for [`Url::from_file_path()`] that works on `wasm32-unknown-unknown`.
 pub(crate) fn url_from_file_path(path: impl AsRef<Path>) -> Option<Url> {
@@ -59,8 +73,8 @@ pub(crate) fn file_path_from_url(url: &Url) -> Result<PathBuf, Error> {
     debug_assert_eq!(url.scheme(), "file");
 
     // Note: The Url::to_file_path() method is platform-specific
-    cfg_if::cfg_if! {
-        if #[cfg(any(unix, windows, target_os = "redox", target_os = "wasi"))] {
+    cfg_select! {
+        any(unix, windows, target_os = "redox", target_os = "wasi") => {
             use anyhow::Context;
 
             if let Ok(path) = url.to_file_path() {
@@ -77,7 +91,8 @@ pub(crate) fn file_path_from_url(url: &Url) -> Result<PathBuf, Error> {
                 .ok()
                 .and_then(|url| url.to_file_path().ok())
                 .context("Unable to extract the file path")
-        } else {
+        }
+        _ => {
             anyhow::bail!("Url::to_file_path() is not supported on this platform");
         }
     }

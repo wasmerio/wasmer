@@ -10,7 +10,8 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasmer_types::{
-    Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle, entity::PrimaryMap,
+    Features, LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle,
+    entity::PrimaryMap,
 };
 
 /// The required info for compiling a module.
@@ -34,4 +35,7 @@ pub struct CompileModuleInfo {
     pub memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
     /// The table plans used for compiling.
     pub table_styles: PrimaryMap<TableIndex, TableStyle>,
+    /// The maximum stack allocation directly connected to each function itself
+    /// if tracked (does not include any potential function calls).
+    pub function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
 }

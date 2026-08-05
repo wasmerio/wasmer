@@ -29,16 +29,19 @@ use cranelift_codegen::{
 };
 
 #[cfg(feature = "unwind")]
-use gimli::{
+use cranelift_codegen::gimli::{
     constants::DW_EH_PE_absptr,
     write::{Address, EhFrame, FrameDescriptionEntry, FrameTable, Writer},
 };
 
+use itertools::Itertools;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
 use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
+use wasmer_compiler::elf::{CompileOutput, compile_output_in_memory, compile_output_objects};
+use wasmer_compiler::types::function::Compilation;
 
 use wasmer_compiler::progress::ProgressContext;
 #[cfg(feature = "unwind")]
@@ -48,7 +51,7 @@ use wasmer_compiler::{
     ModuleMiddlewareChain, ModuleTranslationState,
     types::{
         function::{
-            Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
+            CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, RkyvCompilation, UnwindInfo,
         },
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationKind, RelocationTarget},
@@ -105,10 +108,12 @@ impl CraneliftCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        compile_info_blob: &[u8],
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let isa = self
             .config()
             .isa(target)
@@ -129,10 +134,13 @@ impl CraneliftCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
+
         let signatures = module
             .signatures
             .iter()
-            .map(|(_sig_index, func_type)| signature_to_cranelift_ir(func_type, frontend_config))
+            .map(|(_sig_index, func_type)| {
+                signature_to_cranelift_ir(func_type, frontend_config, target.triple().architecture)
+            })
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
         let signature_hashes = &module.signature_hashes;
 
@@ -183,11 +191,15 @@ impl CraneliftCompiler {
         let compile_function = |func_translator: &mut FuncTranslator,
                                 i: &LocalFunctionIndex,
                                 input: &FunctionBodyData|
-         -> Result<CraneliftCompiledFunction, CompileError> {
+         -> Result<
+            CompileOutput<CraneliftCompiledFunction>,
+            CompileError,
+        > {
             let func_index = module.func_index(*i);
             let mut context = Context::new();
             let mut func_env = FuncEnvironment::new(
                 isa.frontend_config(),
+                target.triple().architecture,
                 module,
                 &signatures,
                 signature_hashes,
@@ -298,6 +310,7 @@ impl CraneliftCompiler {
                     result.buffer.call_sites(),
                     result.buffer.data().len(),
                     pointer_bytes,
+                    cfg!(feature = "experimental-artifact"),
                 )
             } else {
                 None
@@ -308,13 +321,21 @@ impl CraneliftCompiler {
                 #[cfg(feature = "unwind")]
                 CraneliftUnwindInfo::Fde(fde) => {
                     if dwarf_frametable.is_some() {
+                        // For the ELF artifact format each function's
+                        // `.eh_frame` relocates against its own text symbol,
+                        // so the FDE's initial location must not be shifted.
+                        let addend = if cfg!(feature = "experimental-artifact") {
+                            0
+                        } else {
+                            // We use the addend as a way to specify the
+                            // function index
+                            i.index() as _
+                        };
                         let fde = fde.to_fde(Address::Symbol {
                             // The symbol is the kind of relocation.
                             // "0" is used for functions
                             symbol: WriterRelocate::FUNCTION_SYMBOL,
-                            // We use the addend as a way to specify the
-                            // function index
-                            addend: i.index() as _,
+                            addend,
                         });
                         // The unwind information is inserted into the dwarf section
                         (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
@@ -334,7 +355,7 @@ impl CraneliftCompiler {
             let range = reader.range();
             let address_map = get_function_address_map(&context, range, code_buf.len());
 
-            Ok(CraneliftCompiledFunction {
+            let compiled = CraneliftCompiledFunction {
                 function: CompiledFunction {
                     body: FunctionBody {
                         body: code_buf,
@@ -350,12 +371,36 @@ impl CraneliftCompiler {
                 function_lsda,
                 #[cfg(feature = "unwind")]
                 compact_unwind_encoding,
-            })
+            };
+
+            if cfg!(feature = "experimental-artifact") {
+                let object = crate::elf::emit_local_function(
+                    #[cfg(feature = "unwind")]
+                    &*isa,
+                    target,
+                    *i,
+                    &compile_info.module.get_function_name(func_index),
+                    compile_info.module.name.as_deref(),
+                    &compiled.function,
+                    #[cfg(feature = "unwind")]
+                    compiled.fde,
+                    #[cfg(feature = "unwind")]
+                    compiled.function_lsda,
+                )?;
+                Ok(CompileOutput::Object(object, None))
+            } else {
+                Ok(CompileOutput::InMemory(compiled))
+            }
         };
 
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut custom_sections = PrimaryMap::new();
 
+        let num_threads = self.config.num_threads.get();
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(num_threads)
+            .build()
+            .unwrap();
         let results = {
             use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
@@ -363,11 +408,6 @@ impl CraneliftCompiler {
                 build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
             let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
             tracing::debug!(buckets = buckets.len(), largest_bucket, "buckets built");
-            let num_threads = self.config.num_threads.get();
-            let pool = rayon::ThreadPoolBuilder::new()
-                .num_threads(num_threads)
-                .build()
-                .unwrap();
 
             translate_function_buckets(
                 &pool,
@@ -377,6 +417,103 @@ impl CraneliftCompiler {
                 &buckets,
             )?
         };
+
+        let module_hash = module.hash_string();
+
+        // function call trampolines (only for local functions, by signature)
+        let function_call_trampoline_outputs = module
+            .signatures
+            .iter()
+            .collect_vec()
+            .par_iter()
+            .map_init(FunctionBuilderContext::new, |cx, (sig_index, sig)| {
+                let kind = wasmer_compiler::misc::CompiledKind::FunctionCallTrampoline(
+                    *sig_index,
+                    (*sig).clone(),
+                );
+                let trampoline = make_trampoline_function_call(
+                    &self.config().callbacks,
+                    &*isa,
+                    target.triple().architecture,
+                    cx,
+                    &kind,
+                    sig,
+                    &module_hash,
+                )?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                }
+                if cfg!(feature = "experimental-artifact") {
+                    Ok(CompileOutput::Object(
+                        wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
+                        None,
+                    ))
+                } else {
+                    Ok(CompileOutput::InMemory(trampoline))
+                }
+            })
+            .collect::<Result<Vec<_>, CompileError>>()?;
+
+        use wasmer_types::VMOffsets;
+        let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
+        // dynamic function trampolines (only for imported functions)
+        let dynamic_function_trampoline_outputs = module
+            .imported_function_types()
+            .enumerate()
+            .collect_vec()
+            .par_iter()
+            .map_init(FunctionBuilderContext::new, |cx, (index, func_type)| {
+                let kind = wasmer_compiler::misc::CompiledKind::DynamicFunctionTrampoline(
+                    FunctionIndex::from_u32(*index as u32),
+                    func_type.clone(),
+                );
+                let trampoline = make_trampoline_dynamic_function(
+                    &self.config().callbacks,
+                    &*isa,
+                    target.triple().architecture,
+                    &offsets,
+                    cx,
+                    &kind,
+                    func_type,
+                    &module_hash,
+                )?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                }
+                if cfg!(feature = "experimental-artifact") {
+                    Ok(CompileOutput::Object(
+                        wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
+                        None,
+                    ))
+                } else {
+                    Ok(CompileOutput::InMemory(trampoline))
+                }
+            })
+            .collect::<Result<Vec<_>, CompileError>>()?;
+
+        if cfg!(feature = "experimental-artifact") {
+            let object_files = compile_output_objects(results);
+            let trampoline_objects = compile_output_objects(function_call_trampoline_outputs);
+            let dynamic_trampoline_objects =
+                compile_output_objects(dynamic_function_trampoline_outputs);
+            return wasmer_compiler::elf::link_module(
+                &pool,
+                target,
+                compile_info_blob,
+                object_files,
+                Vec::new(),
+                trampoline_objects,
+                dynamic_trampoline_objects,
+                self.config
+                    .callbacks
+                    .as_ref()
+                    .map(|callbacks| callbacks.debug_dir().clone()),
+                module.hash().map(|hash| hash.to_string()),
+                function_max_stack_usage,
+            );
+        }
+
+        let results = compile_output_in_memory(results);
 
         let mut functions = Vec::with_capacity(function_body_inputs.len());
         #[cfg(feature = "unwind")]
@@ -523,57 +660,13 @@ impl CraneliftCompiler {
             }
         }
 
-        let module_hash = module.hash_string();
-
-        // function call trampolines (only for local functions, by signature)
-        let function_call_trampolines = module
-            .signatures
-            .values()
-            .collect::<Vec<_>>()
-            .par_iter()
-            .map_init(FunctionBuilderContext::new, |cx, sig| {
-                let trampoline = make_trampoline_function_call(
-                    &self.config().callbacks,
-                    &*isa,
-                    target.triple().architecture,
-                    cx,
-                    sig,
-                    &module_hash,
-                )?;
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
-                Ok(trampoline)
-            })
-            .collect::<Result<Vec<FunctionBody>, CompileError>>()?
+        let function_call_trampolines = compile_output_in_memory(function_call_trampoline_outputs)
             .into_iter()
             .collect();
-
-        use wasmer_types::VMOffsets;
-        let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
-        // dynamic function trampolines (only for imported functions)
-        let dynamic_function_trampolines = module
-            .imported_function_types()
-            .collect::<Vec<_>>()
-            .par_iter()
-            .map_init(FunctionBuilderContext::new, |cx, func_type| {
-                let trampoline = make_trampoline_dynamic_function(
-                    &self.config().callbacks,
-                    &*isa,
-                    target.triple().architecture,
-                    &offsets,
-                    cx,
-                    func_type,
-                    &module_hash,
-                )?;
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
-                Ok(trampoline)
-            })
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .collect();
+        let dynamic_function_trampolines =
+            compile_output_in_memory(dynamic_function_trampoline_outputs)
+                .into_iter()
+                .collect();
 
         let mut got = wasmer_compiler::types::function::GOT::empty();
 
@@ -598,13 +691,16 @@ impl CraneliftCompiler {
             got.index = Some(got_idx);
         }
 
-        Ok(Compilation {
-            functions: functions.into_iter().collect(),
-            custom_sections,
-            function_call_trampolines,
-            dynamic_function_trampolines,
-            unwind_info,
-            got,
+        Ok(Compilation::Rkyv {
+            compilation: RkyvCompilation {
+                functions: functions.into_iter().collect(),
+                custom_sections,
+                function_call_trampolines,
+                dynamic_function_trampolines,
+                unwind_info,
+                got,
+            },
+            function_max_stack_usage,
         })
     }
 }
@@ -633,6 +729,7 @@ impl Compiler for CraneliftCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        compile_info_blob: &[u8],
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -640,6 +737,7 @@ impl Compiler for CraneliftCompiler {
         self.compile_module_internal(
             target,
             compile_info,
+            compile_info_blob,
             module_translation_state,
             function_body_inputs,
             progress_callback,

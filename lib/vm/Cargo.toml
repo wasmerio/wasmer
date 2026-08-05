@@ -14,12 +14,11 @@ version.workspace = true
 
 [dependencies]
 dashmap.workspace = true
-wasmer-types = { path = "../types", version = "=7.2.0" }
+wasmer-types = { path = "../types", version = "=7.2.1" }
 libc.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true
 more-asserts.workspace = true
-cfg-if.workspace = true
 backtrace.workspace = true
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 enum-iterator.workspace = true

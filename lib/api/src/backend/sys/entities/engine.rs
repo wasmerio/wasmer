@@ -12,15 +12,17 @@ use crate::{BackendEngine, BackendModule};
 #[allow(unreachable_code)]
 #[cfg(feature = "compiler")]
 pub fn get_default_compiler_config() -> Option<Box<dyn wasmer_compiler::CompilerConfig>> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "cranelift")] {
+    cfg_select! {
+        feature = "cranelift" => {
             Some(Box::<wasmer_compiler_cranelift::Cranelift>::default())
-        } else if #[cfg(feature = "llvm")] {
+        }
+        feature = "llvm" => {
             Some(Box::<wasmer_compiler_llvm::LLVM>::default())
-        } else if #[cfg(feature = "singlepass")] {
+        }
+        feature = "singlepass" => {
             Some(Box::<wasmer_compiler_singlepass::Singlepass>::default())
         }
-        else {
+        _ => {
             None
         }
     }

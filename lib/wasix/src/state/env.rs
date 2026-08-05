@@ -542,7 +542,7 @@ impl WasiEnv {
             import_object.define("env", "memory", memory);
         }
         let runtime = func_env.data(&store).runtime.clone();
-        let additional_imports = runtime
+        let (additional_imports, instantiation_state) = runtime
             .additional_imports(&module, &mut store)
             .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
 
@@ -583,8 +583,14 @@ impl WasiEnv {
         };
 
         runtime
-            .configure_new_instance(&module, &mut store, &instance, imported_memory.as_ref())
-            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
+            .configure_new_instance(
+                &module,
+                &mut store,
+                &instance,
+                imported_memory.as_ref(),
+                instantiation_state,
+            )
+            .map_err(|err| WasiThreadError::InstanceConfigurationFailed(Arc::new(err)))?;
 
         let handles = match imported_memory {
             Some(memory) => WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(

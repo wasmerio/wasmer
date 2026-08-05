@@ -42,10 +42,11 @@ impl FileSystemCache {
 /// A tokio reactor must be available
 #[tracing::instrument(level = "debug", skip_all, fields(? path))]
 async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError> {
-    let bytes = read_file(&path).await?;
-    let deserialized = tokio::task::spawn_blocking(move || deserialize(&bytes, &engine))
-        .await
-        .unwrap();
+    let artifact_path = path.clone();
+    let deserialized =
+        tokio::task::spawn_blocking(move || deserialize_file(&artifact_path, &engine))
+            .await
+            .unwrap();
     match deserialized {
         Ok(m) => {
             tracing::debug!("Cache hit!");
@@ -174,18 +175,7 @@ impl ModuleCache for FileSystemCache {
     }
 }
 
-async fn read_file(path: &Path) -> Result<Vec<u8>, CacheError> {
-    match tokio::fs::read(path).await {
-        Ok(bytes) => Ok(bytes),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(CacheError::NotFound),
-        Err(error) => Err(CacheError::FileRead {
-            path: path.to_path_buf(),
-            error,
-        }),
-    }
-}
-
-fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
+fn deserialize_file(path: &Path, engine: &Engine) -> Result<Module, CacheError> {
     // We used to compress our compiled modules using LZW encoding in the past.
     // This was removed because it has a negative impact on startup times for
     // "wasmer run", so all new compiled modules should be saved directly to
@@ -201,18 +191,18 @@ fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
     // - ModuleCache::save(): 2.4s, 72MB binary
     // - ModuleCache::load(): 822ms
 
-    match unsafe { Module::deserialize(engine, bytes) } {
-        // The happy case
+    match unsafe { Module::deserialize_from_file(engine, path) } {
+        // The happy case. ELF artifacts are memory mapped directly from the cache file.
         Ok(m) => Ok(m),
-        Err(wasmer::DeserializeError::Incompatible(_)) => {
-            let bytes = weezl::decode::Decoder::new(weezl::BitOrder::Msb, 8)
-                .decode(bytes)
-                .map_err(CacheError::other)?;
-
-            let m = unsafe { Module::deserialize(engine, bytes)? };
-
-            Ok(m)
+        Err(wasmer::DeserializeError::Io(error))
+            if error.kind() == std::io::ErrorKind::NotFound =>
+        {
+            Err(CacheError::NotFound)
         }
+        Err(wasmer::DeserializeError::Io(error)) => Err(CacheError::FileRead {
+            path: path.to_path_buf(),
+            error,
+        }),
         Err(e) => Err(CacheError::Deserialize(e)),
     }
 }
@@ -290,30 +280,6 @@ mod tests {
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
         std::fs::write(&expected_path, &serialized).unwrap();
-
-        let module = cache.load(key, &engine).await.unwrap();
-
-        let exports: Vec<_> = module
-            .exports()
-            .map(|export| export.name().to_string())
-            .collect();
-        assert_eq!(exports, ["add"]);
-    }
-
-    /// For backwards compatibility, make sure we can still work with LZW
-    /// compressed modules.
-    #[tokio::test]
-    async fn can_still_load_lzw_compressed_binaries() {
-        let temp = TempDir::new().unwrap();
-        let engine = Engine::default();
-        let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::from_bytes([0; _]);
-        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        let expected_path = cache.path(key, &engine.deterministic_id());
-        std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
-        let serialized = module.serialize().unwrap();
-        let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);
-        std::fs::write(&expected_path, encoder.encode(&serialized).unwrap()).unwrap();
 
         let module = cache.load(key, &engine).await.unwrap();
 

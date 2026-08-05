@@ -6,6 +6,7 @@ use crate::codegen::FuncGen;
 use crate::config::{self, Singlepass};
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
+use crate::elf::{self, CompileOutput, compile_output_in_memory, compile_output_objects};
 use crate::machine::Machine;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
@@ -13,8 +14,9 @@ use crate::machine::{
 use crate::machine_arm64::MachineARM64;
 use crate::machine_riscv::MachineRiscv;
 use crate::machine_x64::MachineX86_64;
+use crate::unwind::UnwindFrame;
 #[cfg(feature = "unwind")]
-use crate::unwind::{UnwindFrame, create_systemv_cie};
+use crate::unwind::create_systemv_cie;
 use enumset::EnumSet;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable, Writer};
@@ -24,11 +26,13 @@ use std::sync::Arc;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::progress::ProgressContext;
+use wasmer_compiler::serialize::SerializableModule;
+use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
     types::{
-        function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
+        function::{FunctionBody, RkyvCompilation, UnwindInfo},
         module::CompileModuleInfo,
         section::SectionIndex,
     },
@@ -60,8 +64,10 @@ impl SinglepassCompiler {
 
     fn compile_module_internal(
         &self,
+        pool: &rayon::ThreadPool,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        compile_info_blob: &[u8],
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
@@ -131,8 +137,7 @@ impl SinglepassCompiler {
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut custom_sections: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
+        let import_trampolines = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
             .into_par_iter()
@@ -145,11 +150,8 @@ impl SinglepassCompiler {
                     calling_convention,
                 )
             })
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .collect();
-        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
-        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
+            .collect::<Result<Vec<_>, CompileError>>()?;
+        let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .into_par_iter()
@@ -192,7 +194,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch)
+                        generator.finalize(input, arch, target)
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new(Some(target.clone()));
@@ -213,7 +215,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch)
+                        generator.finalize(input, arch, target)
                     }
                     Architecture::Riscv64(_) => {
                         let machine = MachineRiscv::new(
@@ -237,7 +239,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch)
+                        generator.finalize(input, arch, target)
                     }
                     _ => unimplemented!(),
                 }?;
@@ -248,75 +250,125 @@ impl SinglepassCompiler {
 
                 Ok(res)
             })
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .unzip();
+            .collect::<Result<Vec<_>, CompileError>>()?;
+        let function_max_stack_usage = functions
+            .iter()
+            .map(|output| match output {
+                CompileOutput::InMemory((function, _)) => function.maximum_stack_usage,
+                CompileOutput::Object(_, maximum_stack_usage) => *maximum_stack_usage,
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, Option<usize>>>();
 
         let module_hash = module.hash_string();
         let function_call_trampolines = module
             .signatures
-            .values()
+            .iter()
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|func_type| -> Result<FunctionBody, CompileError> {
-                let body = gen_std_trampoline(func_type, target, calling_convention)?;
-                if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
-                        &module_hash,
-                        &body.body,
-                    );
-                    callbacks.asm_memory_buffer(
-                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
-                        &module_hash,
-                        arch,
-                        &body.body,
-                        HashMap::new(),
+            .map(
+                |(sig_index, func_type)| -> Result<CompileOutput<FunctionBody>, CompileError> {
+                    let kind = CompiledKind::FunctionCallTrampoline(sig_index, func_type.clone());
+                    let body = gen_std_trampoline(
+                        func_type,
+                        target,
+                        calling_convention,
+                        cfg!(feature = "experimental-artifact").then_some(&kind),
                     )?;
-                }
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
+                    if let Some(callbacks) = self.config.callbacks.as_ref()
+                        && let CompileOutput::InMemory(body) = &body
+                    {
+                        callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
+                        callbacks.asm_memory_buffer(
+                            &kind,
+                            &module_hash,
+                            arch,
+                            &body.body,
+                            HashMap::new(),
+                        )?;
+                    }
+                    if let Some(progress) = progress.as_ref() {
+                        progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                    }
 
-                Ok(body)
-            })
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .collect::<PrimaryMap<_, _>>();
+                    Ok(body)
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
 
         let dynamic_function_trampolines = module
             .imported_function_types()
+            .enumerate()
             .collect::<Vec<_>>()
             .into_par_iter()
-            .map(|func_type| -> Result<FunctionBody, CompileError> {
-                let body = gen_std_dynamic_import_trampoline(
-                    &vmoffsets,
-                    &func_type,
-                    target,
-                    calling_convention,
-                )?;
-                if let Some(callbacks) = self.config.callbacks.as_ref() {
-                    callbacks.obj_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-                        &module_hash,
-                        &body.body,
+            .map(
+                |(index, func_type)| -> Result<CompileOutput<FunctionBody>, CompileError> {
+                    let kind = CompiledKind::DynamicFunctionTrampoline(
+                        FunctionIndex::from_u32(index as u32),
+                        func_type.clone(),
                     );
-                    callbacks.asm_memory_buffer(
-                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
-                        &module_hash,
-                        arch,
-                        &body.body,
-                        HashMap::new(),
+                    let body = gen_std_dynamic_import_trampoline(
+                        &vmoffsets,
+                        &func_type,
+                        target,
+                        calling_convention,
+                        cfg!(feature = "experimental-artifact").then_some(&kind),
                     )?;
-                }
-                if let Some(progress) = progress.as_ref() {
-                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
-                }
-                Ok(body)
-            })
-            .collect::<Result<Vec<_>, _>>()?
+                    if let Some(callbacks) = self.config.callbacks.as_ref()
+                        && let CompileOutput::InMemory(body) = &body
+                    {
+                        callbacks.obj_memory_buffer(&kind, &module_hash, &body.body);
+                        callbacks.asm_memory_buffer(
+                            &kind,
+                            &module_hash,
+                            arch,
+                            &body.body,
+                            HashMap::new(),
+                        )?;
+                    }
+                    if let Some(progress) = progress.as_ref() {
+                        progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
+                    }
+                    Ok(body)
+                },
+            )
+            .collect::<Result<Vec<_>, _>>()?;
+
+        if cfg!(feature = "experimental-artifact") {
+            let object_files = compile_output_objects(functions);
+            let import_trampoline_objects = compile_output_objects(import_trampolines);
+            let trampoline_objects = compile_output_objects(function_call_trampolines);
+            let dynamic_trampoline_objects = compile_output_objects(dynamic_function_trampolines);
+
+            return elf::link_module(
+                pool,
+                target,
+                compile_info_blob,
+                object_files,
+                import_trampoline_objects,
+                trampoline_objects,
+                dynamic_trampoline_objects,
+                self.config
+                    .callbacks
+                    .as_ref()
+                    .map(|callbacks| callbacks.debug_dir().clone()),
+                module.hash().map(|hash| hash.to_string()),
+                function_max_stack_usage,
+            );
+        }
+
+        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
+        let (functions, fdes): (Vec<_>, Vec<_>) =
+            compile_output_in_memory(functions).into_iter().unzip();
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
+        let mut custom_sections = compile_output_in_memory(import_trampolines)
             .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+            .collect::<PrimaryMap<SectionIndex, _>>();
+        let function_call_trampolines = compile_output_in_memory(function_call_trampolines)
+            .into_iter()
+            .collect::<PrimaryMap<_, _>>();
+        let dynamic_function_trampolines = compile_output_in_memory(dynamic_function_trampolines)
+            .into_iter()
+            .collect::<PrimaryMap<FunctionIndex, _>>();
 
         #[allow(unused_mut)]
         let mut unwind_info = UnwindInfo::default();
@@ -339,13 +391,16 @@ impl SinglepassCompiler {
 
         let got = wasmer_compiler::types::function::GOT::empty();
 
-        Ok(Compilation {
-            functions: functions.into_iter().collect(),
-            custom_sections,
-            function_call_trampolines,
-            dynamic_function_trampolines,
-            unwind_info,
-            got,
+        Ok(Compilation::Rkyv {
+            compilation: RkyvCompilation {
+                functions: functions.into_iter().collect(),
+                custom_sections,
+                function_call_trampolines,
+                dynamic_function_trampolines,
+                unwind_info,
+                got,
+            },
+            function_max_stack_usage,
         })
     }
 }
@@ -370,6 +425,7 @@ impl Compiler for SinglepassCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        compile_info_blob: &[u8],
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
@@ -384,8 +440,10 @@ impl Compiler for SinglepassCompiler {
 
         pool.install(|| {
             self.compile_module_internal(
+                &pool,
                 target,
                 compile_info,
+                compile_info_blob,
                 function_body_inputs,
                 progress_callback,
             )
@@ -419,6 +477,7 @@ mod tests {
             module: Arc::new(ModuleInfo::new()),
             memory_styles: PrimaryMap::<MemoryIndex, MemoryStyle>::new(),
             table_styles: PrimaryMap::<TableIndex, TableStyle>::new(),
+            function_max_stack_usage: PrimaryMap::new(),
         };
         let module_translation = ModuleTranslationState::new();
         let function_body_inputs = PrimaryMap::<LocalFunctionIndex, FunctionBodyData<'_>>::new();
@@ -432,7 +491,7 @@ mod tests {
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&linux32, &info, &translation, inputs, None);
+        let result = compiler.compile_module(&linux32, &info, &[], &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
             error => panic!("Unexpected error: {error:?}"),
@@ -441,7 +500,7 @@ mod tests {
         // Compile for win32
         let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win32, &info, &translation, inputs, None);
+        let result = compiler.compile_module(&win32, &info, &[], &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {error:?}"),

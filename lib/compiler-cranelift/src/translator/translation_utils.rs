@@ -4,38 +4,67 @@ use crate::func_environ::FuncEnvironment;
 use crate::translator::EXN_REF_TYPE;
 use cranelift_codegen::{
     binemit::Reloc,
-    ir::{self, AbiParam},
+    cursor::FuncCursor,
+    ir::{self, InstBuilder},
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
+use target_lexicon::Architecture;
 use wasmer_compiler::{
     types::relocation::RelocationKind,
     wasmparser::{self, RefType},
 };
 use wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 
+/// Materialize a global value as CLIF instructions.
+pub(crate) fn materialize_global_value(
+    pos: &mut FuncCursor<'_>,
+    pointer_type: ir::Type,
+    global_value: ir::GlobalValue,
+) -> ir::Value {
+    match pos.func.global_values[global_value] {
+        ir::GlobalValueData::VMContext => pos
+            .func
+            .special_param(ir::ArgumentPurpose::VMContext)
+            .expect("missing vmctx parameter"),
+        ir::GlobalValueData::IAddImm {
+            base,
+            offset,
+            global_type,
+        } => {
+            let base = materialize_global_value(pos, global_type, base);
+            pos.ins().iadd_imm_s(base, i64::from(offset))
+        }
+        ir::GlobalValueData::Load {
+            base,
+            offset,
+            global_type,
+            flags,
+        } => {
+            let base = materialize_global_value(pos, pointer_type, base);
+            let flags = pos.func.dfg.mem_flags[flags];
+            pos.ins().load(global_type, flags, base, offset)
+        }
+        ir::GlobalValueData::Symbol { tls, .. } => {
+            if tls {
+                pos.ins().tls_value(pointer_type, global_value)
+            } else {
+                pos.ins().symbol_value(pointer_type, global_value)
+            }
+        }
+        ir::GlobalValueData::DynScaleTargetConst { .. } => {
+            unreachable!("dynamic vector-scale global values are not created by Wasmer")
+        }
+    }
+}
+
 /// Helper function translate a Function signature into Cranelift Ir
 pub fn signature_to_cranelift_ir(
     signature: &FunctionType,
     target_config: TargetFrontendConfig,
+    architecture: Architecture,
 ) -> ir::Signature {
-    let mut sig = ir::Signature::new(target_config.default_call_conv);
-    sig.params.extend(signature.params().iter().map(|&ty| {
-        let cret_arg: ir::Type = type_to_irtype(ty, target_config)
-            .expect("only numeric types are supported in function signatures");
-        AbiParam::new(cret_arg)
-    }));
-    sig.returns.extend(signature.results().iter().map(|&ty| {
-        let cret_arg: ir::Type = type_to_irtype(ty, target_config)
-            .expect("only numeric types are supported in function signatures");
-        AbiParam::new(cret_arg)
-    }));
-    // The Vmctx signature
-    sig.params.insert(
-        0,
-        AbiParam::special(target_config.pointer_type(), ir::ArgumentPurpose::VMContext),
-    );
-    sig
+    crate::abi::signature_to_ir(signature, target_config, architecture)
 }
 
 /// Helper function translating wasmparser types to Cranelift types when possible.

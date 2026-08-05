@@ -8,14 +8,17 @@ use super::{
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
     state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
-use crate::{compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle};
+use crate::{
+    compiler::ModuleBasedSymbolRegistry, config::OptimizationStyle, object_file::CompiledFunction,
+};
 use enumset::EnumSet;
 use inkwell::{
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
-    module::{Linkage, Module},
+    debug_info::{AsDIScope, DIFlags, DIFlagsConstants, DWARFEmissionKind, DWARFSourceLanguage},
+    module::{FlagBehavior, Linkage, Module},
     passes::PassBuilderOptions,
     targets::{FileType, TargetData, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
@@ -31,10 +34,10 @@ use target_lexicon::{Architecture, BinaryFormat, OperatingSystem, Triple};
 use wasmer_compiler::WASM_LARGE_FUNCTION_THRESHOLD;
 
 use crate::{
-    abi::{Abi, get_abi},
+    abi::{LLVMAbi, get_abi},
     config::LLVM,
     error::{err, err_nt},
-    object_file::{CompiledFunction, load_object_file},
+    object_file::load_object_file,
 };
 use wasmer_compiler::{
     CANONICAL_NAN_F32, CANONICAL_NAN_F64, FunctionBinaryReader, FunctionBodyData,
@@ -43,7 +46,7 @@ use wasmer_compiler::{
     LEF32_GEQ_U32_MIN, LEF32_GEQ_U64_MIN, LEF64_GEQ_I32_MIN, LEF64_GEQ_I64_MIN, LEF64_GEQ_U32_MIN,
     LEF64_GEQ_U64_MIN, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
     from_binaryreadererror_wasmerror,
-    misc::CompiledKind,
+    misc::{CompiledFunctionExt, CompiledKind},
     types::{
         relocation::RelocationTarget,
         symbols::{Symbol, SymbolRegistry},
@@ -73,7 +76,7 @@ pub struct FuncTranslator {
     ctx: Context,
     target_triple: Triple,
     target_machines: HashMap<OptimizationStyle, TargetMachine>,
-    abi: Box<dyn Abi>,
+    abi: LLVMAbi,
     binary_fmt: BinaryFormat,
     func_section: String,
     pointer_width: u8,
@@ -97,7 +100,7 @@ impl FuncTranslator {
         let abi_source_tm = target_machines
             .get(&OptimizationStyle::ForSpeed)
             .expect("target_machines must contain OptimizationStyle::ForSpeed");
-        let abi = get_abi(abi_source_tm);
+        let abi = get_abi(abi_source_tm)?;
         Ok(Self {
             ctx: Context::create(),
             target_triple,
@@ -139,8 +142,6 @@ impl FuncTranslator {
         let func_index = wasm_module.func_index(*local_func_index);
         let function =
             CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
         // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
         // the allocated heap is never moved to a different location.
@@ -148,10 +149,18 @@ impl FuncTranslator {
             .get(MemoryIndex::from_u32(0))
             .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
-        let module_name = match wasm_module.name.as_ref() {
-            None => format!("<anonymous module> function {function_name}"),
-            Some(module_name) => format!("module {module_name} function {function_name}"),
+        let (function_name, module_name) = if cfg!(feature = "experimental-artifact") {
+            (function.linkage_name(), String::new())
+        } else {
+            let function_name =
+                symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
+            let module_name = match wasm_module.name.as_ref() {
+                None => format!("<anonymous module> function {function_name}"),
+                Some(module_name) => format!("module {module_name} function {function_name}"),
+            };
+            (function_name, module_name)
         };
+
         let module = self.ctx.create_module(module_name.as_str());
 
         let target_machine = &self.target_machines.values().next().unwrap();
@@ -181,6 +190,65 @@ impl FuncTranslator {
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
+        let debug_info = if cfg!(feature = "experimental-artifact") {
+            let debug_metadata_version = self
+                .ctx
+                .i32_type()
+                .const_int(inkwell::debug_info::debug_metadata_version().into(), false);
+            module.add_basic_value_flag(
+                "Debug Info Version",
+                FlagBehavior::Warning,
+                debug_metadata_version,
+            );
+            module.add_basic_value_flag(
+                "Dwarf Version",
+                FlagBehavior::Warning,
+                self.ctx.i32_type().const_int(4, false),
+            );
+
+            let (dibuilder, compile_unit) = module.create_debug_info_builder(
+                true,
+                DWARFSourceLanguage::C,
+                &wasm_module.name(),
+                ".",
+                "wasmer",
+                true,
+                "",
+                0,
+                "",
+                DWARFEmissionKind::Full,
+                0,
+                false,
+                false,
+                "",
+                "",
+            );
+            let subroutine_type = dibuilder.create_subroutine_type(
+                compile_unit.get_file(),
+                None,
+                &[],
+                DIFlags::PUBLIC,
+            );
+            let function_name = wasm_module.get_function_name(func_index);
+            let start_line = (function_body.module_offset as u32).saturating_add(1);
+            let subprogram = dibuilder.create_function(
+                compile_unit.as_debug_info_scope(),
+                &function_name,
+                None,
+                compile_unit.get_file(),
+                start_line,
+                subroutine_type,
+                false,
+                true,
+                start_line,
+                DIFlags::PUBLIC,
+                true,
+            );
+            func.set_subprogram(subprogram);
+            Some((dibuilder, subprogram))
+        } else {
+            None
+        };
         for (attr, attr_loc) in &func_attrs {
             func.add_attribute(*attr_loc, *attr);
         }
@@ -206,7 +274,9 @@ impl FuncTranslator {
         };
 
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(Some(&section));
+        if !cfg!(feature = "experimental-artifact") {
+            func.as_global_value().set_section(Some(&section));
+        }
 
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
@@ -331,7 +401,7 @@ impl FuncTranslator {
                 wasm_module,
                 &func,
                 &cache_builder,
-                &*self.abi,
+                &self.abi,
                 self.pointer_width,
                 m0_param,
             ),
@@ -343,7 +413,7 @@ impl FuncTranslator {
             signature_hashes,
             wasm_module,
             symbol_registry,
-            abi: &*self.abi,
+            abi: &self.abi,
             config,
             target_triple: self.target_triple.clone(),
             tags_cache: HashMap::new(),
@@ -362,11 +432,26 @@ impl FuncTranslator {
 
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
+            let original_pos = reader.original_position() as u32;
             let op = reader.read_operator()?;
+            if let Some((dibuilder, subprogram)) = debug_info.as_ref() {
+                let line = original_pos.saturating_add(1);
+                let loc = dibuilder.create_debug_location(
+                    &self.ctx,
+                    line,
+                    1,
+                    subprogram.as_debug_info_scope(),
+                    None,
+                );
+                fcg.builder.set_current_debug_location(loc);
+            }
             fcg.translate_operator(op, pos)?;
         }
 
         fcg.finalize(wasm_fn_type)?;
+        if let Some((dibuilder, _)) = debug_info {
+            dibuilder.finalize();
+        }
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.preopt_ir(&function, &wasm_module.hash_string(), &module);
@@ -485,32 +570,34 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        let mem_buf_slice = memory_buffer.as_slice();
-
-        load_object_file(
-            mem_buf_slice,
-            &self.func_section,
-            RelocationTarget::LocalFunc(*local_func_index),
-            |name: &str| {
-                Ok({
-                    let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
-                        name.strip_prefix("_").unwrap_or(name)
-                    } else {
-                        name
-                    }
-                    .to_string();
-                    if let Some(Symbol::LocalFunction(local_func_index)) =
-                        symbol_registry.name_to_symbol(&name)
-                    {
-                        Some(RelocationTarget::LocalFunc(local_func_index))
-                    } else {
-                        None
-                    }
-                })
-            },
-            self.binary_fmt,
-            &self.target_triple,
-        )
+        if cfg!(feature = "experimental-artifact") {
+            Ok(CompiledFunction::Elf(memory_buffer.as_slice().to_vec()))
+        } else {
+            Ok(CompiledFunction::Rkyv(Box::new(load_object_file(
+                memory_buffer.as_slice(),
+                &self.func_section,
+                RelocationTarget::LocalFunc(*local_func_index),
+                |name: &str| {
+                    Ok({
+                        let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
+                            name.strip_prefix("_").unwrap_or(name)
+                        } else {
+                            name
+                        }
+                        .to_string();
+                        if let Some(Symbol::LocalFunction(local_func_index)) =
+                            symbol_registry.name_to_symbol(&name)
+                        {
+                            Some(RelocationTarget::LocalFunc(local_func_index))
+                        } else {
+                            None
+                        }
+                    })
+                },
+                self.binary_fmt,
+                &self.target_triple,
+            )?)))
+        }
     }
 }
 
@@ -1625,7 +1712,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr = if let Some(m0) = self.m0_param {
+        let base_ptr = if let (0, Some(m0)) = (memory_index.as_u32(), self.m0_param) {
             m0
         } else {
             match self
@@ -1864,6 +1951,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.intrinsics,
                         &self.builder,
                         &results,
+                        wasm_fn_type,
                         &func_type,
                     )?))
             );
@@ -1892,7 +1980,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 .as_basic_value_enum(),
         );
 
-        tag_glbl.set_linkage(Linkage::External);
+        tag_glbl.set_linkage(Linkage::LinkOnceODR);
         tag_glbl.set_constant(true);
         // Why set this to a specific section? On macOS it would land on a specific read only data
         // section. GOT-based relocations will probably be generated with a non-zero addend, making
@@ -2288,8 +2376,9 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module_translation: &'a ModuleTranslationState,
     signature_hashes: &'a PrimaryMap<SignatureIndex, SignatureHash>,
     wasm_module: &'a ModuleInfo,
+    #[allow(dead_code)]
     symbol_registry: &'a dyn SymbolRegistry,
-    abi: &'a dyn Abi,
+    abi: &'a LLVMAbi,
     config: &'a LLVM,
     target_triple: Triple,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
@@ -2434,10 +2523,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let is_f64x2 = ty.eq(&self.intrinsics.f64x2_ty.as_basic_type_enum());
         debug_assert!(is_f32 || is_f64 || is_f32x4 || is_f64x2);
 
-        if matches!(
-            self.target_triple.architecture,
-            Architecture::Riscv32(..) | Architecture::Riscv64(..)
-        ) {
+        if matches!(self.target_triple.architecture, Architecture::Riscv64(..)) {
             if is_f32 || is_f64 {
                 let input = value.into_float_value();
                 let is_nan = err!(self.builder.build_float_compare(
@@ -3290,10 +3376,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     imported_include_m0_param,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    let function_name = self
-                        .symbol_registry
-                        .symbol_to_name(Symbol::LocalFunction(local_func_index));
-
                     self.ctx.local_func(
                         local_func_index,
                         func_index,
@@ -3301,7 +3383,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.module,
                         self.context,
                         func_type,
-                        &function_name,
+                        &CompiledKind::Local(local_func_index, String::new()).linkage_name(),
                     )?
                 } else {
                     self.ctx
@@ -10535,32 +10617,50 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::from_u32(mem);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(mem, |index| index.as_u32());
                 let delta = self.state.pop1()?;
                 let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics)?;
-                let grow = err!(self.builder.build_indirect_call(
-                    self.intrinsics.memory_grow_ty,
-                    grow_fn_ptr,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        delta.into(),
-                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
-                    ],
-                    "",
-                ));
+                let grow = err!(
+                    self.builder.build_indirect_call(
+                        self.intrinsics.memory_grow_ty,
+                        grow_fn_ptr,
+                        &[
+                            vmctx.as_basic_value_enum().into(),
+                            delta.into(),
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(index_arg.into(), false)
+                                .into(),
+                        ],
+                        "",
+                    )
+                );
                 self.state.push1(grow.try_as_basic_value().unwrap_basic());
             }
             Operator::MemorySize { mem } => {
                 let memory_index = MemoryIndex::from_u32(mem);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(mem, |index| index.as_u32());
                 let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics)?;
-                let size = err!(self.builder.build_indirect_call(
-                    self.intrinsics.memory_size_ty,
-                    size_fn_ptr,
-                    &[
-                        vmctx.as_basic_value_enum().into(),
-                        self.intrinsics.i32_ty.const_int(mem.into(), false).into(),
-                    ],
-                    "",
-                ));
+                let size = err!(
+                    self.builder.build_indirect_call(
+                        self.intrinsics.memory_size_ty,
+                        size_fn_ptr,
+                        &[
+                            vmctx.as_basic_value_enum().into(),
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(index_arg.into(), false)
+                                .into(),
+                        ],
+                        "",
+                    )
+                );
                 //size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
                 self.state.push1(size.try_as_basic_value().unwrap_basic());
             }
@@ -10590,23 +10690,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 )?;
             }
             Operator::MemoryCopy { dst_mem, src_mem } => {
-                // ignored until we support multiple memories
-                let _dst = dst_mem;
-                let (memory_copy, src) = if let Some(local_memory_index) = self
-                    .wasm_module
-                    .local_memory_index(MemoryIndex::from_u32(src_mem))
-                {
-                    (self.intrinsics.memory_copy, local_memory_index.as_u32())
-                } else {
-                    (self.intrinsics.imported_memory_copy, src_mem)
-                };
-
                 let (dest_pos, src_pos, len) = self.state.pop3()?;
-                let src_index = self.intrinsics.i32_ty.const_int(src.into(), false);
+                let dst_index = self.intrinsics.i32_ty.const_int(dst_mem.into(), false);
+                let src_index = self.intrinsics.i32_ty.const_int(src_mem.into(), false);
                 self.build_call_with_param_attributes(
-                    memory_copy,
+                    self.intrinsics.memory_copy,
                     &[
                         vmctx.as_basic_value_enum().into(),
+                        dst_index.into(),
                         src_index.into(),
                         dest_pos.into(),
                         src_pos.into(),
@@ -11122,6 +11213,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             )?,
             Operator::MemoryAtomicWait32 { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
                 let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics)?;
                 let ret = err!(
@@ -11132,7 +11227,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             vmctx.as_basic_value_enum().into(),
                             self.intrinsics
                                 .i32_ty
-                                .const_int(memarg.memory as u64, false)
+                                .const_int(index_arg as u64, false)
                                 .into(),
                             dst.into(),
                             val.into(),
@@ -11145,6 +11240,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::MemoryAtomicWait64 { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
                 let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics)?;
                 let ret = err!(
@@ -11155,7 +11254,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             vmctx.as_basic_value_enum().into(),
                             self.intrinsics
                                 .i32_ty
-                                .const_int(memarg.memory as u64, false)
+                                .const_int(index_arg as u64, false)
                                 .into(),
                             dst.into(),
                             val.into(),
@@ -11168,6 +11267,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::MemoryAtomicNotify { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
+                let index_arg = self
+                    .wasm_module
+                    .local_memory_index(memory_index)
+                    .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, count) = self.state.pop2()?;
                 let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics)?;
                 let cnt = err!(
@@ -11178,7 +11281,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             vmctx.as_basic_value_enum().into(),
                             self.intrinsics
                                 .i32_ty
-                                .const_int(memarg.memory as u64, false)
+                                .const_int(index_arg as u64, false)
                                 .into(),
                             dst.into(),
                             count.into(),
@@ -11247,17 +11350,16 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     fn translate_table_operator(&mut self, op: Operator) -> Result<(), CompileError> {
         match op {
             Operator::TableGet { table } => {
-                let table_index = self.intrinsics.i32_ty.const_int(table.into(), false);
                 let elem = self.state.pop1()?;
-                let table_get = if self
+                let (table_get, table_index) = if let Some(local_table_index) = self
                     .wasm_module
                     .local_table_index(TableIndex::from_u32(table))
-                    .is_some()
                 {
-                    self.intrinsics.table_get
+                    (self.intrinsics.table_get, local_table_index.as_u32())
                 } else {
-                    self.intrinsics.imported_table_get
+                    (self.intrinsics.imported_table_get, table)
                 };
+                let table_index = self.intrinsics.i32_ty.const_int(table_index as u64, false);
                 let value = self
                     .build_call_with_param_attributes(
                         table_get,
@@ -11283,21 +11385,20 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(value);
             }
             Operator::TableSet { table } => {
-                let table_index = self.intrinsics.i32_ty.const_int(table.into(), false);
                 let (elem, value) = self.state.pop2()?;
                 let value = err!(
                     self.builder
                         .build_bit_cast(value, self.intrinsics.ptr_ty, "")
                 );
-                let table_set = if self
+                let (table_set, table_index) = if let Some(local_table_index) = self
                     .wasm_module
                     .local_table_index(TableIndex::from_u32(table))
-                    .is_some()
                 {
-                    self.intrinsics.table_set
+                    (self.intrinsics.table_set, local_table_index.as_u32())
                 } else {
-                    self.intrinsics.imported_table_set
+                    (self.intrinsics.imported_table_set, table)
                 };
+                let table_index = self.intrinsics.i32_ty.const_int(table_index as u64, false);
                 self.build_call_with_param_attributes(
                     table_set,
                     &[
@@ -12607,10 +12708,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         // > The compiler and calling convention maintain an invariant that all 32-bit values are held in a sign-extended format in 64-bit registers.
         // > Even 32-bit unsigned integers extend bit 31 into bits 63 through 32. Consequently, conversion between unsigned and signed 32-bit integers
         // > is a no-op, as is conversion from a signed 32-bit integer to a signed 64-bit integer.
-        if matches!(
-            self.target_triple.architecture,
-            Architecture::Riscv32(..) | Architecture::Riscv64(..)
-        ) {
+        if matches!(self.target_triple.architecture, Architecture::Riscv64(..)) {
             let param_types = function.get_type().get_param_types();
             for (i, ty) in param_types.into_iter().enumerate() {
                 if ty == self.context.i32_type().into() {

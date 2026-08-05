@@ -103,6 +103,30 @@ pub const CAPI_BASE_TESTS: &[&str] = &[
     "wasm-c-api/example/hostref",
 ];
 
+// Tests that only work against the sys backend. The V8 backend's module
+// parser rejects modules exporting externref-typed items ("ExternRef is not
+// supported by this backend yet", lib/api/src/utils/polyfill.rs), and its
+// `ExternRef` bindings are unimplemented.
+#[cfg(test)]
+pub const CAPI_SYS_ONLY_TESTS: &[&str] = &["wasm-c-api/example/hostref"];
+
+#[cfg(test)]
+fn capi_tests_for_backend() -> Vec<&'static str> {
+    let backend = std::env::var("WASMER_CAPI_CONFIG").unwrap_or_default();
+    CAPI_BASE_TESTS
+        .iter()
+        .copied()
+        .filter(|test| {
+            if backend == "v8" && CAPI_SYS_ONLY_TESTS.contains(test) {
+                println!("skipping {test}: not supported by the {backend} backend");
+                false
+            } else {
+                true
+            }
+        })
+        .collect()
+}
+
 #[allow(unused_variables, dead_code)]
 pub const CAPI_BASE_TESTS_NOT_WORKING: &[&str] = &[
     "wasm-c-api/example/finalize",
@@ -132,8 +156,10 @@ fn test_ok() {
     let path = std::env::var("PATH").unwrap_or_default();
     let newpath = format!("{};{path}", wasmer_dll_dir.replace('/', "\\"));
 
+    let tests = capi_tests_for_backend();
+
     if target.contains("msvc") {
-        for test in CAPI_BASE_TESTS.iter() {
+        for test in tests.iter() {
             let mut build = cc::Build::new();
             let build = build
                 .cargo_metadata(false)
@@ -246,7 +272,7 @@ fn test_ok() {
             // -o wasm-c-api/example/callback
         }
     } else {
-        for test in CAPI_BASE_TESTS.iter() {
+        for test in tests.iter() {
             let compiler_cmd = match std::process::Command::new("cc").output() {
                 Ok(_) => "cc",
                 Err(_) => "gcc",
@@ -314,7 +340,7 @@ fn test_ok() {
         }
     }
 
-    for test in CAPI_BASE_TESTS.iter() {
+    for test in tests.iter() {
         let _ = std::fs::remove_file(format!("{manifest_dir}/{test}.obj"));
         let _ = std::fs::remove_file(format!("{manifest_dir}/../{test}.exe"));
         let _ = std::fs::remove_file(format!("{manifest_dir}/../{test}"));

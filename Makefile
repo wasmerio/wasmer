@@ -14,7 +14,6 @@ SHELL=/usr/bin/env bash
 # | Cranelift  | Linux    | amd64        | glibc |
 # | LLVM       | Darwin   | aarch64      | musl  |
 # | Singlepass | Windows  | riscv64gc    |       |
-# |            |          | riscv32gc    |       |
 # |            |          | loongarch64  |       |
 # |------------|----------|--------------|-------|
 #
@@ -317,6 +316,12 @@ endif
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
 test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
+# Features used by the workspace test suite.
+test_all_features := experimental-async,experimental-host-interrupt
+ifeq ($(IS_LINUX)$(IS_AMD64),11)
+	test_all_features := $(test_all_features),experimental-artifact
+endif
+
 # virtual-net integration tests in src/tests.rs are gated on the crate's `tokio` feature.
 virtual_net_test_features := --features tokio
 build_compiler_features = --features $(subst $(space),$(comma),$(build_compilers))$(if $(build_wasmer_extra_features_csv),$(comma)$(build_wasmer_extra_features_csv)),wasmer-artifact-create,static-artifact-create,wasmer-artifact-load,static-artifact-load
@@ -587,9 +592,9 @@ build-wasm-tests-fixtures:
 	WASM_TESTS_BUILD_ONLY_DIR="$(WASM_TESTS_BUILD_ONLY_DIR)" $(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) -p wasmer-wasix --test wasm_tests --locked
 	@echo "Rust wasm_tests fixtures exported to $(WASM_TESTS_BUILD_ONLY_DIR)"
 test-all:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features experimental-async,experimental-host-interrupt --locked && \
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked && \
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-net/Cargo.toml --release $(virtual_net_test_features) --locked && \
-	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features experimental-async,experimental-host-interrupt --locked
+	$(CARGO_BINARY) test --doc $(CARGO_TARGET_FLAG) --workspace --release $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked
 check-compilers-only-std:
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-cranelift/Cargo.toml --no-default-features --features=std --locked && \
 	$(CARGO_BINARY) check $(CARGO_TARGET_FLAG) --manifest-path lib/compiler-singlepass/Cargo.toml --no-default-features --features=std --locked
@@ -908,7 +913,7 @@ lint-packages:
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml --locked $(compiler_features) -- -D clippy::all
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml --locked $(compiler_features) -- -D clippy::all
 lint-clang-format:
-	find . \( -path './lib/napi' -o -path './target' \) -prune -o -type f \( -name '*.c' -o -name '*.cpp' \) -exec clang-format --dry-run --color -Werror {} +
+	find . \( -path './lib/napi' -o -path './lib/wild' -o -path './target' \) -prune -o -type f \( -name '*.c' -o -name '*.cpp' \) -exec clang-format --dry-run --color -Werror {} +
 lint-yamlfmt:
 	yamlfmt -lint .github
 lint-taplo:

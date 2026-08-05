@@ -1,5 +1,6 @@
 use crate::config::LLVM;
 use crate::config::OptimizationStyle;
+use crate::object_file::CompiledFunction;
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::ThreadPoolBuilder;
@@ -10,11 +11,14 @@ use std::{
     sync::Arc,
 };
 use wasmer_compiler::progress::ProgressContext;
-use wasmer_compiler::types::function::{Compilation, UnwindInfo};
+use wasmer_compiler::types::function::Compilation;
+use wasmer_compiler::types::function::CompiledFunctionBody;
+use wasmer_compiler::types::function::{RkyvCompilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
 use wasmer_compiler::{
-    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
+    CompiledObjects, Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
+    emit_metadata_and_link,
     types::{
         relocation::RelocationTarget,
         section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
@@ -178,12 +182,17 @@ impl Compiler for LLVMCompiler {
 
     fn deterministic_id(&self) -> String {
         format!(
-            "llvm-{}",
+            "llvm-{}{}",
             match self.config.opt_level {
                 inkwell::OptimizationLevel::None => "opt0",
                 inkwell::OptimizationLevel::Less => "optl",
                 inkwell::OptimizationLevel::Default => "optd",
                 inkwell::OptimizationLevel::Aggressive => "opta",
+            },
+            if cfg!(feature = "experimental-artifact") {
+                "-elf"
+            } else {
+                ""
             }
         )
     }
@@ -203,10 +212,12 @@ impl Compiler for LLVMCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
+        compile_info_blob: &[u8],
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
+        let function_max_stack_usage = function_body_inputs.iter().map(|_| None).collect();
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
@@ -259,6 +270,7 @@ impl Compiler for LLVMCompiler {
             build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
         let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
         tracing::debug!(buckets = buckets.len(), largest_bucket, "buckets built");
+
         let functions = translate_function_buckets(
             &pool,
             || {
@@ -310,86 +322,11 @@ impl Compiler for LLVMCompiler {
             &buckets,
         )?;
 
-        let functions = functions
-            .into_iter()
-            .map(|mut compiled_function| {
-                let first_section = module_custom_sections.len() as u32;
-                for (section_index, custom_section) in compiled_function.custom_sections.iter() {
-                    // TODO: remove this call to clone()
-                    let mut custom_section = custom_section.clone();
-                    for reloc in &mut custom_section.relocations {
-                        if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
-                            reloc.reloc_target = RelocationTarget::CustomSection(
-                                SectionIndex::from_u32(first_section + index.as_u32()),
-                            )
-                        }
-
-                        if reloc.kind.needs_got() {
-                            got_targets.insert(reloc.reloc_target);
-                        }
-                    }
-
-                    if compiled_function
-                        .eh_frame_section_indices
-                        .contains(&section_index)
-                    {
-                        let offset = eh_frame_section_bytes.len() as u32;
-                        for reloc in &mut custom_section.relocations {
-                            reloc.offset += offset;
-                        }
-                        eh_frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
-                        // Terminate the eh_frame info with a zero-length CIE.
-                        eh_frame_section_bytes.extend_from_slice(&[0, 0, 0, 0]);
-                        eh_frame_section_relocations.extend(custom_section.relocations);
-                        // TODO: we do this to keep the count right, remove it.
-                        module_custom_sections.push(CustomSection {
-                            protection: CustomSectionProtection::Read,
-                            alignment: None,
-                            bytes: SectionBody::new_with_vec(vec![]),
-                            relocations: vec![],
-                        });
-                    } else if compiled_function
-                        .compact_unwind_section_indices
-                        .contains(&section_index)
-                    {
-                        let offset = compact_unwind_section_bytes.len() as u32;
-                        for reloc in &mut custom_section.relocations {
-                            reloc.offset += offset;
-                        }
-                        compact_unwind_section_bytes
-                            .extend_from_slice(custom_section.bytes.as_slice());
-                        compact_unwind_section_relocations.extend(custom_section.relocations);
-                        // TODO: we do this to keep the count right, remove it.
-                        module_custom_sections.push(CustomSection {
-                            protection: CustomSectionProtection::Read,
-                            alignment: None,
-                            bytes: SectionBody::new_with_vec(vec![]),
-                            relocations: vec![],
-                        });
-                    } else {
-                        module_custom_sections.push(custom_section);
-                    }
-                }
-                for reloc in &mut compiled_function.compiled_function.relocations {
-                    if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
-                        reloc.reloc_target = RelocationTarget::CustomSection(
-                            SectionIndex::from_u32(first_section + index.as_u32()),
-                        )
-                    }
-
-                    if reloc.kind.needs_got() {
-                        got_targets.insert(reloc.reloc_target);
-                    }
-                }
-                compiled_function.compiled_function
-            })
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
-
         let progress = progress.clone();
         let function_call_trampolines = pool.install(|| {
             module
                 .signatures
-                .values()
+                .iter()
                 .collect::<Vec<_>>()
                 .par_iter()
                 .map_init(
@@ -398,18 +335,20 @@ impl Compiler for LLVMCompiler {
                         FuncTrampoline::new(target_machine, target.triple().clone(), binary_format)
                             .unwrap()
                     },
-                    |func_trampoline, sig| {
+                    |func_trampoline, (sig_index, sig)| {
+                        let kind = wasmer_compiler::misc::CompiledKind::FunctionCallTrampoline(
+                            *sig_index,
+                            (*sig).clone(),
+                        );
                         let trampoline =
-                            func_trampoline.trampoline(sig, self.config(), "", compile_info);
+                            func_trampoline.trampoline(sig, self.config(), &kind, compile_info);
                         if let Some(progress) = progress.as_ref() {
                             progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                         }
                         trampoline
                     },
                 )
-                .collect::<Vec<_>>()
-                .into_iter()
-                .collect::<Result<PrimaryMap<_, _>, CompileError>>()
+                .collect::<Result<Vec<_>, _>>()
         })?;
 
         // TODO: I removed the parallel processing of dynamic trampolines because we're passing
@@ -428,10 +367,14 @@ impl Compiler for LLVMCompiler {
                 .into_iter()
                 .enumerate()
                 .map(|(index, func_type)| {
+                    let kind = wasmer_compiler::misc::CompiledKind::DynamicFunctionTrampoline(
+                        FunctionIndex::from_u32(index as u32),
+                        func_type.clone(),
+                    );
                     let trampoline = func_trampoline.dynamic_trampoline(
                         &func_type,
                         self.config(),
-                        "",
+                        &kind,
                         index as u32,
                         &mut module_custom_sections,
                         &mut eh_frame_section_bytes,
@@ -445,85 +388,218 @@ impl Compiler for LLVMCompiler {
                     }
                     Ok(trampoline)
                 })
-                .collect::<Vec<_>>()
-                .into_iter()
-                .collect::<Result<PrimaryMap<_, _>, CompileError>>()?
+                .collect::<Result<Vec<_>, CompileError>>()?
         };
 
-        let mut unwind_info = UnwindInfo::default();
+        if cfg!(feature = "experimental-artifact") {
+            let object_files = functions
+                .into_iter()
+                .map(|compiled_function| match compiled_function {
+                    CompiledFunction::Elf(path) => path,
+                    CompiledFunction::Rkyv(_) => {
+                        unreachable!()
+                    }
+                })
+                .collect::<Vec<Vec<u8>>>();
+            let trampolines_objects = function_call_trampolines
+                .into_iter()
+                .map(|f| match f {
+                    CompiledFunctionBody::Elf(path) => path,
+                    CompiledFunctionBody::Rkyv(_) => {
+                        unreachable!()
+                    }
+                })
+                .collect::<Vec<Vec<u8>>>();
+            let dynamic_trampolines_objects = dynamic_function_trampolines
+                .into_iter()
+                .map(|f| match f {
+                    CompiledFunctionBody::Elf(path) => path,
+                    CompiledFunctionBody::Rkyv(_) => unreachable!(),
+                })
+                .collect::<Vec<Vec<u8>>>();
 
-        if !eh_frame_section_bytes.is_empty() {
-            let eh_frame_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
-            module_custom_sections.push(CustomSection {
-                protection: CustomSectionProtection::Read,
-                alignment: None,
-                bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
-                relocations: eh_frame_section_relocations,
-            });
-            unwind_info.eh_frame = Some(eh_frame_idx);
-        }
+            let elf_content = emit_metadata_and_link(
+                &pool,
+                target,
+                compile_info_blob,
+                CompiledObjects {
+                    object_files,
+                    import_trampoline_object_files: Vec::new(),
+                    trampoline_object_files: trampolines_objects,
+                    dynamic_trampoline_object_files: dynamic_trampolines_objects,
+                },
+                self.config
+                    .callbacks
+                    .as_ref()
+                    .map(|callbacks| callbacks.debug_dir().clone()),
+                module.hash().map(|hash| hash.to_string()),
+            )?;
+            Ok(Compilation::Elf {
+                data: elf_content,
+                function_max_stack_usage,
+            })
+        } else {
+            let functions = functions
+                .into_iter()
+                .map(|compiled_function| {
+                    let CompiledFunction::Rkyv(mut compiled_function) = compiled_function else {
+                        unreachable!()
+                    };
 
-        if !compact_unwind_section_bytes.is_empty() {
-            let cu_index = SectionIndex::from_u32(module_custom_sections.len() as u32);
-            module_custom_sections.push(CustomSection {
-                protection: CustomSectionProtection::Read,
-                alignment: None,
-                bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
-                relocations: compact_unwind_section_relocations,
-            });
-            unwind_info.compact_unwind = Some(cu_index);
-        }
+                    let first_section = module_custom_sections.len() as u32;
+                    for (section_index, custom_section) in compiled_function.custom_sections.iter()
+                    {
+                        // TODO: remove this call to clone()
+                        let mut custom_section = custom_section.clone();
+                        for reloc in &mut custom_section.relocations {
+                            if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
+                                reloc.reloc_target = RelocationTarget::CustomSection(
+                                    SectionIndex::from_u32(first_section + index.as_u32()),
+                                )
+                            }
 
-        let mut got = wasmer_compiler::types::function::GOT::empty();
+                            if reloc.kind.needs_got() {
+                                got_targets.insert(reloc.reloc_target);
+                            }
+                        }
 
-        if !got_targets.is_empty() {
-            let pointer_width = target
-                .triple()
-                .pointer_width()
-                .map_err(|_| CompileError::Codegen("Could not get pointer width".to_string()))?;
+                        if compiled_function
+                            .eh_frame_section_indices
+                            .contains(&section_index)
+                        {
+                            let offset = eh_frame_section_bytes.len() as u32;
+                            for reloc in &mut custom_section.relocations {
+                                reloc.offset += offset;
+                            }
+                            eh_frame_section_bytes
+                                .extend_from_slice(custom_section.bytes.as_slice());
+                            // Terminate the eh_frame info with a zero-length CIE.
+                            eh_frame_section_bytes.extend_from_slice(&[0, 0, 0, 0]);
+                            eh_frame_section_relocations.extend(custom_section.relocations);
+                            // TODO: we do this to keep the count right, remove it.
+                            module_custom_sections.push(CustomSection {
+                                protection: CustomSectionProtection::Read,
+                                alignment: None,
+                                bytes: SectionBody::new_with_vec(vec![]),
+                                relocations: vec![],
+                            });
+                        } else if compiled_function
+                            .compact_unwind_section_indices
+                            .contains(&section_index)
+                        {
+                            let offset = compact_unwind_section_bytes.len() as u32;
+                            for reloc in &mut custom_section.relocations {
+                                reloc.offset += offset;
+                            }
+                            compact_unwind_section_bytes
+                                .extend_from_slice(custom_section.bytes.as_slice());
+                            compact_unwind_section_relocations.extend(custom_section.relocations);
+                            // TODO: we do this to keep the count right, remove it.
+                            module_custom_sections.push(CustomSection {
+                                protection: CustomSectionProtection::Read,
+                                alignment: None,
+                                bytes: SectionBody::new_with_vec(vec![]),
+                                relocations: vec![],
+                            });
+                        } else {
+                            module_custom_sections.push(custom_section);
+                        }
+                    }
+                    for reloc in &mut compiled_function.compiled_function.relocations {
+                        if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
+                            reloc.reloc_target = RelocationTarget::CustomSection(
+                                SectionIndex::from_u32(first_section + index.as_u32()),
+                            )
+                        }
 
-            let got_entry_size = match pointer_width {
-                target_lexicon::PointerWidth::U64 => 8,
-                target_lexicon::PointerWidth::U32 => 4,
-                target_lexicon::PointerWidth::U16 => todo!(),
-            };
+                        if reloc.kind.needs_got() {
+                            got_targets.insert(reloc.reloc_target);
+                        }
+                    }
+                    compiled_function.compiled_function
+                })
+                .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-            let got_entry_reloc_kind = match pointer_width {
-                target_lexicon::PointerWidth::U64 => RelocationKind::Abs8,
-                target_lexicon::PointerWidth::U32 => RelocationKind::Abs4,
-                target_lexicon::PointerWidth::U16 => todo!(),
-            };
+            let mut unwind_info = UnwindInfo::default();
 
-            let got_data: Vec<u8> = vec![0; got_targets.len() * got_entry_size];
-            let mut got_relocs = vec![];
-
-            for (i, target) in got_targets.into_iter().enumerate() {
-                got_relocs.push(wasmer_compiler::types::relocation::Relocation {
-                    kind: got_entry_reloc_kind,
-                    reloc_target: target,
-                    offset: (i * got_entry_size) as u32,
-                    addend: 0,
+            if !eh_frame_section_bytes.is_empty() {
+                let eh_frame_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
+                module_custom_sections.push(CustomSection {
+                    protection: CustomSectionProtection::Read,
+                    alignment: None,
+                    bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
+                    relocations: eh_frame_section_relocations,
                 });
+                unwind_info.eh_frame = Some(eh_frame_idx);
             }
 
-            let got_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
-            module_custom_sections.push(CustomSection {
-                protection: CustomSectionProtection::Read,
-                alignment: None,
-                bytes: SectionBody::new_with_vec(got_data),
-                relocations: got_relocs,
-            });
-            got.index = Some(got_idx);
-        };
+            if !compact_unwind_section_bytes.is_empty() {
+                let cu_index = SectionIndex::from_u32(module_custom_sections.len() as u32);
+                module_custom_sections.push(CustomSection {
+                    protection: CustomSectionProtection::Read,
+                    alignment: None,
+                    bytes: SectionBody::new_with_vec(compact_unwind_section_bytes),
+                    relocations: compact_unwind_section_relocations,
+                });
+                unwind_info.compact_unwind = Some(cu_index);
+            }
 
-        Ok(Compilation {
-            functions,
-            custom_sections: module_custom_sections,
-            function_call_trampolines,
-            dynamic_function_trampolines,
-            unwind_info,
-            got,
-        })
+            let mut got = wasmer_compiler::types::function::GOT::empty();
+
+            if !got_targets.is_empty() {
+                let got_data: Vec<u8> = vec![0; got_targets.len() * 8];
+                let mut got_relocs = vec![];
+
+                for (i, target) in got_targets.into_iter().enumerate() {
+                    got_relocs.push(wasmer_compiler::types::relocation::Relocation {
+                        kind: RelocationKind::Abs8,
+                        reloc_target: target,
+                        offset: (i * 8) as u32,
+                        addend: 0,
+                    });
+                }
+
+                let got_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
+                module_custom_sections.push(CustomSection {
+                    protection: CustomSectionProtection::Read,
+                    alignment: None,
+                    bytes: SectionBody::new_with_vec(got_data),
+                    relocations: got_relocs,
+                });
+                got.index = Some(got_idx);
+            };
+
+            let function_call_trampolines = function_call_trampolines
+                .into_iter()
+                .map(|f| {
+                    let CompiledFunctionBody::Rkyv(function) = f else {
+                        unreachable!()
+                    };
+                    function
+                })
+                .collect();
+            let dynamic_function_trampolines = dynamic_function_trampolines
+                .into_iter()
+                .map(|f| {
+                    let CompiledFunctionBody::Rkyv(function) = f else {
+                        unreachable!()
+                    };
+                    function
+                })
+                .collect();
+
+            Ok(Compilation::Rkyv {
+                compilation: RkyvCompilation {
+                    functions,
+                    custom_sections: module_custom_sections,
+                    function_call_trampolines,
+                    dynamic_function_trampolines,
+                    unwind_info,
+                    got,
+                },
+                function_max_stack_usage,
+            })
+        }
     }
 
     fn with_opts(

@@ -38,6 +38,11 @@ impl LLVMCallbacks {
         Ok(Self { debug_dir })
     }
 
+    /// Returns the debug directory used to dump compilation artifacts.
+    pub fn debug_dir(&self) -> &PathBuf {
+        &self.debug_dir
+    }
+
     fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
         if let Some(hash) = module_hash {
@@ -136,7 +141,8 @@ impl LLVM {
             enable_verifier: false,
             enable_perfmap: false,
             opt_level: LLVMOptLevel::Aggressive,
-            is_pic: false,
+            // We will link a shared library and so PIC must be enabled.
+            is_pic: cfg!(feature = "experimental-artifact"),
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,
@@ -297,16 +303,14 @@ impl LLVM {
                 info: true,
                 machine_code: true,
             }),
-            Architecture::Riscv64(_) | Architecture::Riscv32(_) => {
-                InkwellTarget::initialize_riscv(&InitializationConfig {
-                    asm_parser: true,
-                    asm_printer: true,
-                    base: true,
-                    disassembler: true,
-                    info: true,
-                    machine_code: true,
-                })
-            }
+            Architecture::Riscv64(_) => InkwellTarget::initialize_riscv(&InitializationConfig {
+                asm_parser: true,
+                asm_printer: true,
+                base: true,
+                disassembler: true,
+                info: true,
+                machine_code: true,
+            }),
             Architecture::LoongArch64 => {
                 InkwellTarget::initialize_loongarch(&InitializationConfig {
                     asm_parser: true,
@@ -333,13 +337,11 @@ impl LLVM {
         let mut llvm_target_machine_options = TargetMachineOptions::new()
             .set_cpu(match triple.architecture {
                 Architecture::Riscv64(_) => "generic-rv64",
-                Architecture::Riscv32(_) => "generic-rv32",
                 Architecture::LoongArch64 => "generic-la64",
                 _ => "generic",
             })
             .set_features(match triple.architecture {
                 Architecture::Riscv64(_) => "+m,+a,+c,+d,+f",
-                Architecture::Riscv32(_) => "+m,+a,+c,+d,+f",
                 Architecture::LoongArch64 => "+f,+d",
                 _ => &llvm_cpu_features,
             })
@@ -350,9 +352,7 @@ impl LLVM {
             })
             .set_reloc_mode(self.reloc_mode(self.target_binary_format(target)))
             .set_code_model(match triple.architecture {
-                Architecture::LoongArch64 | Architecture::Riscv64(_) | Architecture::Riscv32(_) => {
-                    CodeModel::Medium
-                }
+                Architecture::LoongArch64 | Architecture::Riscv64(_) => CodeModel::Medium,
                 _ => self.code_model(self.target_binary_format(target)),
             });
         if let Architecture::Riscv64(_) = triple.architecture {

@@ -250,7 +250,7 @@ jobs:
           submodules: true
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2025-09-27"
+          toolchain: nightly
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli --locked # toml-cli is required to run `make test-build-docs-rs`
       - name: Install `ninja` on Ubuntu

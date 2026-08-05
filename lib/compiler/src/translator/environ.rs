@@ -442,9 +442,9 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn reserve_passive_data(&mut self, count: u32) -> WasmResult<()> {
-        let count = usize::try_from(count).unwrap();
-        self.module.passive_data.reserve(count);
+    pub(crate) fn reserve_passive_data(&mut self, _count: u32) -> WasmResult<()> {
+        // `passive_data` is a `BTreeMap`, which does not require reserving
+        // capacity before insertion.
         Ok(())
     }
 

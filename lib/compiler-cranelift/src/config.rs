@@ -35,6 +35,11 @@ impl CraneliftCallbacks {
         Ok(Self { debug_dir })
     }
 
+    /// Returns the debug directory where the debug files are written.
+    pub fn debug_dir(&self) -> &PathBuf {
+        &self.debug_dir
+    }
+
     fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
         let mut path = self.debug_dir.clone();
         if let Some(hash) = module_hash {
@@ -244,11 +249,12 @@ impl Cranelift {
             .enable("use_colocated_libcalls")
             .expect("should be a valid flag");
 
-        // Allow Cranelift to implicitly spill multi-value returns via a hidden
-        // StructReturn argument when register results are exhausted.
-        flags
-            .enable("enable_multi_ret_implicit_sret")
-            .expect("should be a valid flag");
+        if matches!(target.triple().operating_system, OperatingSystem::Windows) {
+            // For macOS and Linux we rely on the precise `ReturnAbi` calling conventions.
+            flags
+                .enable("enable_multi_ret_implicit_sret")
+                .expect("should be a valid flag");
+        }
 
         // Invert cranelift's default-on verification to instead default off.
         flags

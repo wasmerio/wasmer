@@ -17,6 +17,8 @@ mod inner;
 #[cfg(not(target_arch = "wasm32"))]
 mod link;
 #[cfg(not(target_arch = "wasm32"))]
+mod mapped_binary;
+#[cfg(not(target_arch = "wasm32"))]
 mod unwind;
 
 pub use self::error::{InstantiationError, LinkError};
@@ -35,3 +37,5 @@ pub use self::code_memory::CodeMemory;
 pub use self::inner::{Engine, EngineInner};
 #[cfg(not(target_arch = "wasm32"))]
 pub use self::link::link_module;
+#[cfg(not(target_arch = "wasm32"))]
+pub use self::mapped_binary::LIBCALLS_ELF;

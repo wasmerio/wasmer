@@ -55,6 +55,19 @@ impl Type {
     pub fn is_ref(self) -> bool {
         matches!(self, Self::ExternRef | Self::FuncRef | Self::ExceptionRef)
     }
+
+    /// Returns the size of this type in bits.
+    ///
+    /// `pointer_width` is the size of a native pointer in bits and determines
+    /// the size of `ExternRef` and `FuncRef`.
+    pub const fn bit_size(self, pointer_width: usize) -> usize {
+        match self {
+            Self::I32 | Self::F32 | Self::ExceptionRef => 32,
+            Self::I64 | Self::F64 => 64,
+            Self::ExternRef | Self::FuncRef => pointer_width,
+            Self::V128 => 128,
+        }
+    }
 }
 
 impl fmt::Display for Type {
@@ -255,7 +268,7 @@ impl ExternType {
 /// in a Wasm module or exposed to Wasm by the host.
 ///
 /// WebAssembly functions can have 0 or more parameters and results.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Default)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]

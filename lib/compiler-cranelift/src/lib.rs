@@ -36,6 +36,7 @@ use std::collections::{
     hash_map::Entry::{Occupied, Vacant},
 };
 
+mod abi;
 mod address_map;
 mod compiler;
 mod config;
@@ -44,6 +45,7 @@ mod debug;
 mod dwarf;
 #[cfg(feature = "unwind")]
 mod eh;
+mod elf;
 mod func_environ;
 mod heap;
 mod table;
