@@ -1329,9 +1329,10 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                             // For performance reasons, run the wasix-libc compatibility tests
                             // only with the Cranelift compiler.
                             if sysroot.is_some() {
-                                if cfg!(target_os = "windows") {
-                                    continue;
-                                } else if *engine != Engine::Cranelift {
+                                #[cfg(target_os = "windows")]
+                                continue;
+                                #[cfg(not(target_os = "windows"))]
+                                if *engine != Engine::Cranelift {
                                     continue;
                                 }
                             }
