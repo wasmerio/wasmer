@@ -40,7 +40,7 @@ use crate::{
 };
 
 /// Opaque per-instantiation state, created by
-/// [`InstantiationHook::additional_imports`] and handed back to
+/// [`InstantiationHook::prepare_imports`] and handed back to
 /// [`InstantiationHook::configure_new_instance`] for the instance built with
 /// those imports.
 ///
@@ -108,7 +108,7 @@ impl fmt::Debug for InstantiationState {
 /// instance the runtime creates (process bootstrap, thread spawn, dynamically
 /// linked side module).
 ///
-/// Both methods have a no-op default, so an implementation only needs to
+/// Every method has a compatible default, so an implementation only needs to
 /// provide the phases it cares about.
 // Keeping both phases on one trait is what lets each hook route its own
 // InstantiationState from its import phase to its own setup phase when
@@ -129,10 +129,29 @@ pub trait InstantiationHook: fmt::Debug + Send + Sync + 'static {
         Ok((wasmer::Imports::new(), InstantiationState::empty()))
     }
 
-    /// Configures an instantiated instance before initialization/startup.
+    /// Prepares the complete import object immediately before instantiation.
+    ///
+    /// The default implementation preserves the original
+    /// [`InstantiationHook::additional_imports`] contract by merging its
+    /// returned imports without replacing imports already supplied by WASIX.
+    /// Hooks that need to inspect or reuse an existing import, such as an
+    /// imported memory, can override this method and update `imports` in place.
+    /// Overrides must preserve existing entries.
+    fn prepare_imports(
+        &self,
+        module: &wasmer::Module,
+        store: &mut wasmer::StoreMut,
+        imports: &mut wasmer::Imports,
+    ) -> anyhow::Result<InstantiationState> {
+        let (additional_imports, state) = self.additional_imports(module, store)?;
+        merge_missing_imports(imports, &additional_imports);
+        Ok(state)
+    }
+
+    /// Configures an instance after successful instantiation and startup.
     ///
     /// `state` is the [`InstantiationState`] this hook returned from the
-    /// [`InstantiationHook::additional_imports`] call whose imports the
+    /// [`InstantiationHook::prepare_imports`] call whose imports the
     /// instance was created with.
     fn configure_new_instance(
         &self,
@@ -154,6 +173,15 @@ impl<H: InstantiationHook + ?Sized> InstantiationHook for Arc<H> {
         store: &mut wasmer::StoreMut,
     ) -> anyhow::Result<(wasmer::Imports, InstantiationState)> {
         (**self).additional_imports(module, store)
+    }
+
+    fn prepare_imports(
+        &self,
+        module: &wasmer::Module,
+        store: &mut wasmer::StoreMut,
+        imports: &mut wasmer::Imports,
+    ) -> anyhow::Result<InstantiationState> {
+        (**self).prepare_imports(module, store, imports)
     }
 
     fn configure_new_instance(
@@ -371,10 +399,27 @@ where
         Ok((wasmer::Imports::new(), InstantiationState::empty()))
     }
 
-    /// Configure an instantiated instance before initialization/startup.
+    /// Prepare the complete import object immediately before instantiation.
+    ///
+    /// Existing implementations can continue overriding
+    /// [`Runtime::additional_imports`]. Runtimes that need to inspect or reuse
+    /// imports created by WASIX can override this method instead. Overrides
+    /// must preserve existing entries.
+    fn prepare_imports(
+        &self,
+        module: &wasmer::Module,
+        store: &mut wasmer::StoreMut,
+        imports: &mut wasmer::Imports,
+    ) -> anyhow::Result<InstantiationState> {
+        let (additional_imports, state) = self.additional_imports(module, store)?;
+        merge_missing_imports(imports, &additional_imports);
+        Ok(state)
+    }
+
+    /// Configure an instance after successful instantiation and startup.
     ///
     /// `state` must be the [`InstantiationState`] returned by the
-    /// [`Runtime::additional_imports`] call whose imports this instance was
+    /// [`Runtime::prepare_imports`] call whose imports this instance was
     /// created with.
     fn configure_new_instance(
         &self,
@@ -769,21 +814,34 @@ impl PluggableRuntime {
     }
 }
 
-/// Runs the import phase of `hooks`, returning the merged imports and the
-/// per-hook states, aligned by index with `hooks`.
+fn merge_missing_imports(imports: &mut wasmer::Imports, additional_imports: &wasmer::Imports) {
+    for (namespace, name, value) in additional_imports.iter() {
+        if imports.exists(namespace, name) {
+            tracing::warn!(
+                "Skipping duplicate additional import {}.{}",
+                namespace,
+                name
+            );
+        } else {
+            imports.define(namespace, name, value.clone());
+        }
+    }
+}
+
+/// Runs the import phase of `hooks`, updating the complete import object and
+/// returning the per-hook states aligned by index with `hooks`.
 fn run_import_hooks(
     hooks: &[Arc<dyn InstantiationHook>],
     module: &wasmer::Module,
     store: &mut wasmer::StoreMut,
-) -> anyhow::Result<(wasmer::Imports, Vec<InstantiationState>)> {
-    let mut imports = wasmer::Imports::new();
+    imports: &mut wasmer::Imports,
+) -> anyhow::Result<Vec<InstantiationState>> {
     let mut states = Vec::with_capacity(hooks.len());
     for hook in hooks {
-        let (hook_imports, state) = hook.additional_imports(module, store)?;
-        imports.extend(&hook_imports);
+        let state = hook.prepare_imports(module, store, imports)?;
         states.push(state);
     }
-    Ok((imports, states))
+    Ok(states)
 }
 
 /// Composite state used by [`OverriddenRuntime`] to carry the inner
@@ -861,8 +919,22 @@ impl Runtime for PluggableRuntime {
         if self.instantiation_hooks.is_empty() {
             return Ok((wasmer::Imports::new(), InstantiationState::empty()));
         }
-        let (imports, states) = run_import_hooks(&self.instantiation_hooks, module, store)?;
+        let mut imports = wasmer::Imports::new();
+        let states = run_import_hooks(&self.instantiation_hooks, module, store, &mut imports)?;
         Ok((imports, InstantiationState::new(states)))
+    }
+
+    fn prepare_imports(
+        &self,
+        module: &wasmer::Module,
+        store: &mut wasmer::StoreMut,
+        imports: &mut wasmer::Imports,
+    ) -> anyhow::Result<InstantiationState> {
+        if self.instantiation_hooks.is_empty() {
+            return Ok(InstantiationState::empty());
+        }
+        let states = run_import_hooks(&self.instantiation_hooks, module, store, imports)?;
+        Ok(InstantiationState::new(states))
     }
 
     fn configure_new_instance(
@@ -878,7 +950,7 @@ impl Runtime for PluggableRuntime {
         }
         let states = state
             .take::<Vec<InstantiationState>>()
-            .context("invalid instance setup state from additional_imports")?;
+            .context("invalid instance setup state from import preparation")?;
         run_setup_hooks(
             &self.instantiation_hooks,
             states,
@@ -1101,8 +1173,7 @@ impl Runtime for OverriddenRuntime {
         if self.instantiation_hooks.is_empty() && inner_state.is_empty() {
             return Ok((imports, InstantiationState::empty()));
         }
-        let (own_imports, own_states) = run_import_hooks(&self.instantiation_hooks, module, store)?;
-        imports.extend(&own_imports);
+        let own_states = run_import_hooks(&self.instantiation_hooks, module, store, &mut imports)?;
         Ok((
             imports,
             InstantiationState::new(OverriddenInstantiationState {
@@ -1110,6 +1181,23 @@ impl Runtime for OverriddenRuntime {
                 own: own_states,
             }),
         ))
+    }
+
+    fn prepare_imports(
+        &self,
+        module: &wasmer::Module,
+        store: &mut wasmer::StoreMut,
+        imports: &mut wasmer::Imports,
+    ) -> anyhow::Result<InstantiationState> {
+        let inner_state = self.inner.prepare_imports(module, store, imports)?;
+        if self.instantiation_hooks.is_empty() && inner_state.is_empty() {
+            return Ok(InstantiationState::empty());
+        }
+        let own_states = run_import_hooks(&self.instantiation_hooks, module, store, imports)?;
+        Ok(InstantiationState::new(OverriddenInstantiationState {
+            inner: inner_state,
+            own: own_states,
+        }))
     }
 
     fn configure_new_instance(
@@ -1123,7 +1211,7 @@ impl Runtime for OverriddenRuntime {
         let state = if state.is_empty() {
             anyhow::ensure!(
                 self.instantiation_hooks.is_empty(),
-                "missing instance setup state from additional_imports"
+                "missing instance setup state from import preparation"
             );
             OverriddenInstantiationState {
                 inner: InstantiationState::empty(),
@@ -1132,7 +1220,7 @@ impl Runtime for OverriddenRuntime {
         } else {
             state
                 .take::<OverriddenInstantiationState>()
-                .context("invalid instance setup state from additional_imports")?
+                .context("invalid instance setup state from import preparation")?
         };
         self.inner
             .configure_new_instance(module, store, instance, imported_memory, state.inner)?;
@@ -1192,7 +1280,45 @@ impl Runtime for OverriddenRuntime {
 
 #[cfg(test)]
 mod tests {
-    use super::InstantiationState;
+    use super::{InstantiationHook, InstantiationState};
+    use wasmer::{AsStoreMut, Extern, Global, Imports, Module, Store, Value};
+
+    #[derive(Debug)]
+    struct LegacyImportsHook;
+
+    impl InstantiationHook for LegacyImportsHook {
+        fn additional_imports(
+            &self,
+            _module: &Module,
+            store: &mut wasmer::StoreMut,
+        ) -> anyhow::Result<(Imports, InstantiationState)> {
+            let mut imports = Imports::new();
+            imports.define("host", "existing", Global::new(store, Value::I32(2)));
+            imports.define("host", "added", Global::new(store, Value::I32(3)));
+            Ok((imports, InstantiationState::empty()))
+        }
+    }
+
+    #[test]
+    fn prepare_imports_preserves_the_legacy_additional_imports_contract() {
+        let mut store = Store::default();
+        let module = Module::new(&store, "(module)").unwrap();
+        let mut imports = Imports::new();
+        imports.define("host", "existing", Global::new(&mut store, Value::I32(1)));
+
+        LegacyImportsHook
+            .prepare_imports(&module, &mut store.as_store_mut(), &mut imports)
+            .unwrap();
+
+        let Some(Extern::Global(existing)) = imports.get_export("host", "existing") else {
+            panic!("existing import is not a global");
+        };
+        let Some(Extern::Global(added)) = imports.get_export("host", "added") else {
+            panic!("added import is not a global");
+        };
+        assert_eq!(existing.get(&mut store), Value::I32(1));
+        assert_eq!(added.get(&mut store), Value::I32(3));
+    }
 
     #[test]
     fn instantiation_state_round_trips_the_hook_data() {
