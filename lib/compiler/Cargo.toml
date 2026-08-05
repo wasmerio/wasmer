@@ -30,7 +30,6 @@ backtrace.workspace = true
 memmap2.workspace = true
 more-asserts.workspace = true
 
-cfg-if.workspace = true
 leb128.workspace = true
 enum-iterator.workspace = true
 

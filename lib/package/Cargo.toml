@@ -26,7 +26,6 @@ serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true
 thiserror.workspace = true
-cfg-if.workspace = true
 ciborium.workspace = true
 semver.workspace = true
 url.workspace = true

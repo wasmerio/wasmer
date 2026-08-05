@@ -177,7 +177,6 @@ http.workspace = true
 colored.workspace = true
 anyhow.workspace = true
 bytesize.workspace = true
-cfg-if.workspace = true
 tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true

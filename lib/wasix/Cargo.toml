@@ -52,7 +52,6 @@ wasm-encoder.workspace = true
 
 xxhash-rust = { workspace = true, features = ["xxh64"] }
 rusty_pool = { workspace = true, optional = true }
-cfg-if.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 getrandom.workspace = true

@@ -27,7 +27,6 @@ version.workspace = true
 [dependencies]
 # - Mandatory shared dependencies.
 indexmap.workspace = true
-cfg-if.workspace = true
 thiserror.workspace = true
 more-asserts.workspace = true
 bytes.workspace = true
