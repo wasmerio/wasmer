@@ -228,7 +228,7 @@ jobs:
         if: ${{ !startsWith(matrix.build, 'linux-musl-x64') }}
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2024-11-07"
+          toolchain: "nightly"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless

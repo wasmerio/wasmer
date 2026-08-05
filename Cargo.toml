@@ -105,7 +105,7 @@ async-trait = "0.1.68"
 async-tungstenite = "0.33.0"
 axum = { version = "=0.6.9", default-features = false }
 backtrace = "0.3"
-base64 = "0.22.1"
+base64 = "0.23.0"
 bincode = "=2.0.1"
 bindgen = { version = "0.72.1", default-features = false }
 bitflags = "2.11.0"
@@ -180,7 +180,7 @@ http = "1.4.0"
 http-body-util = "0.1.1"
 humantime = "2.1.0"
 hyper = "1.8.1"
-hyper-tungstenite = "0.19"
+hyper-tungstenite = "0.30"
 hyper-util = "0.1.5"
 ignore = "0.4"
 indicatif = "0.18.3"
@@ -212,7 +212,7 @@ mio = "1"
 more-asserts = "0.3.1"
 normpath = "1.5.0"
 num_enum = "0.7.3"
-object = { version = "0.39.1", features = ["read", "write"] }
+object = { version = "0.40.0", features = ["read", "write"] }
 once_cell = "1.17.1"
 opener = "0.8.3"
 parking = "2.2"
@@ -261,7 +261,7 @@ serde_json = { version = "1" }
 serde_path_to_error = "0.1.14"
 serde_yaml = { version = "0.9.34" }
 yaml-edit = { version = "0.2", default-features = false }
-serial_test = { version = "3.2.0", default-features = false }
+serial_test = { version = "4.0.1", default-features = false }
 sha2 = "0.11.0"
 slab = "0.4"
 smallvec = "1.6"
@@ -310,17 +310,17 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.254.0", default-features = false, features = [
+wasm-encoder = { version = "0.255.0", default-features = false, features = [
   "std",
 ] }
-wasm-smith = "0.254.0"
-wasmparser = { version = "0.254.0", default-features = false, features = [
+wasm-smith = "0.255.0"
+wasmparser = { version = "0.255.0", default-features = false, features = [
   "validate",
   "features",
   "simd",
 ] }
-wasmprinter = "0.254.0"
-wast = "254.0.0"
+wasmprinter = "0.255.0"
+wast = "255.0.0"
 wat = "1.252.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"

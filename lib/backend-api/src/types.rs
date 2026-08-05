@@ -1693,6 +1693,8 @@ mod queries {
         UserRequested,
         #[cynic(rename = "APP_UNCLAIMED")]
         AppUnclaimed,
+        #[cynic(rename = "PLAN_NON_PERSISTENT")]
+        PlanNonPersistent,
     }
 
     #[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
