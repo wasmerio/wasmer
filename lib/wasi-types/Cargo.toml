@@ -28,7 +28,6 @@ wai-parser.workspace = true
 serde = { workspace = true, features = ["derive"], optional = true }
 num_enum.workspace = true
 bitflags.workspace = true
-cfg-if.workspace = true
 anyhow.workspace = true
 byteorder.workspace = true
 time = { workspace = true, features = ["formatting"] }

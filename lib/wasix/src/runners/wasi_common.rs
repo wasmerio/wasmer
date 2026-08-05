@@ -405,14 +405,15 @@ pub struct MappedDirectory {
 
 impl From<MappedDirectory> for MountedDirectory {
     fn from(value: MappedDirectory) -> Self {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "host-fs")] {
+        cfg_select! {
+            feature = "host-fs" => {
                 let MappedDirectory { host, guest } = value;
                 let fs: Arc<dyn FileSystem + Send + Sync> =
                     Arc::new(virtual_fs::host_fs::FileSystem::new(Handle::current(), host).unwrap());
 
                 MountedDirectory { guest, fs }
-            } else {
+            }
+            _ => {
                 unreachable!("The `host-fs` feature needs to be enabled to map {value:?}")
             }
         }
