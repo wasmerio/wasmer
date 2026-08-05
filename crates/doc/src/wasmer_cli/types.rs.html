@@ -206,7 +206,7 @@
 <a href=#206 id=206 data-nosnippet>206</a>
 <a href=#207 id=207 data-nosnippet>207</a>    <span class="kw">fn </span>render_list_table(items: <span class="kw-2">&amp;</span>[<span class="self">Self</span>]) -&gt; String {
 <a href=#208 id=208 data-nosnippet>208</a>        <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new();
-<a href=#209 id=209 data-nosnippet>209</a>        table.load_preset(comfy_table::presets::NOTHING);
+<a href=#209 id=209 data-nosnippet>209</a>        table.load_style(comfy_table::presets::NOTHING);
 <a href=#210 id=210 data-nosnippet>210</a>        table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 <a href=#211 id=211 data-nosnippet>211</a>
 <a href=#212 id=212 data-nosnippet>212</a>        <span class="kw">for </span>item <span class="kw">in </span>items {
@@ -281,7 +281,7 @@
 <a href=#281 id=281 data-nosnippet>281</a>        <span class="kw">let </span><span class="kw-2">mut </span>output = String::new();
 <a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new();
 <a href=#283 id=283 data-nosnippet>283</a>        table
-<a href=#284 id=284 data-nosnippet>284</a>            .load_preset(comfy_table::presets::UTF8_FULL_CONDENSED)
+<a href=#284 id=284 data-nosnippet>284</a>            .load_style(comfy_table::presets::UTF8_FULL_CONDENSED)
 <a href=#285 id=285 data-nosnippet>285</a>            .set_header(<span class="macro">vec!</span>[
 <a href=#286 id=286 data-nosnippet>286</a>                <span class="string">"Type"</span>.to_string(),
 <a href=#287 id=287 data-nosnippet>287</a>                <span class="string">"Name"</span>.to_string(),
