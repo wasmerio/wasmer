@@ -9,9 +9,10 @@ use wasm_bindgen::{JsValue, prelude::*};
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen_futures::JsFuture;
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
-    GlobalIndex, GlobalType, ImportIndex, ImportType, ImportsIterator, InitExpr, InitExprOp,
-    MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableIndex, TableType, Type,
+    CompileError, DeserializeError, ExportIndex, ExportType, ExportsIterator, ExternType,
+    FunctionType, GlobalIndex, GlobalType, ImportIndex, ImportType, ImportsIterator, InitExpr,
+    InitExprOp, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableIndex, TableType,
+    Type,
 };
 
 use crate::{
@@ -82,7 +83,9 @@ fn evaluate_i32_init_expr(
             }
         }
     }
-    u32::try_from(stack.pop()?).ok().filter(|_| stack.is_empty())
+    u32::try_from(stack.pop()?)
+        .ok()
+        .filter(|_| stack.is_empty())
 }
 
 // XXX
@@ -282,17 +285,18 @@ impl Module {
         let instance = WebAssembly::Instance::new(&self.module, &imports_object)
             .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
         #[cfg(feature = "wasm-types-polyfill")]
-        self.annotate_imported_table_functions(store, imports);
+        self.annotate_table_functions(store, imports, &instance);
         Ok(instance)
     }
 
     #[cfg(feature = "wasm-types-polyfill")]
-    fn annotate_imported_table_functions(
+    fn annotate_table_functions(
         &self,
         store: &mut impl AsStoreMut,
         imports: &Imports,
+        instance: &WebAssembly::Instance,
     ) {
-        let mut tables = HashMap::<TableIndex, crate::Table>::new();
+        let mut tables = HashMap::<TableIndex, WebAssembly::Table>::new();
         let mut globals = HashMap::<GlobalIndex, i64>::new();
 
         for (key, import_index) in &self.info.imports {
@@ -301,7 +305,7 @@ impl Module {
             };
             match (import_index, extern_) {
                 (ImportIndex::Table(index), Extern::Table(table)) => {
-                    tables.insert(*index, table);
+                    tables.insert(*index, table.as_js().handle.table.clone());
                 }
                 (ImportIndex::Global(index), Extern::Global(global)) => {
                     let value = match global.get(store) {
@@ -313,6 +317,16 @@ impl Module {
                 }
                 _ => {}
             }
+        }
+        let instance_exports = instance.exports();
+        for (name, export_index) in &self.info.exports {
+            let ExportIndex::Table(index) = export_index else {
+                continue;
+            };
+            let Ok(value) = Reflect::get(&instance_exports, &name.into()) else {
+                continue;
+            };
+            tables.insert(*index, value.into());
         }
         for initializer in &self.info.table_initializers {
             let Some(table) = tables.get(&initializer.table_index) else {
@@ -328,12 +342,7 @@ impl Module {
                 let Some(function_type) = self.info.signatures.get(*signature_index) else {
                     continue;
                 };
-                let Ok(function) = table
-                    .as_js()
-                    .handle
-                    .table
-                    .get(start.saturating_add(offset as u32))
-                else {
+                let Ok(function) = table.get(start.saturating_add(offset as u32)) else {
                     continue;
                 };
                 crate::js::vm::VMFunction::annotate_type(&function, function_type);
