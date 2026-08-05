@@ -10,13 +10,13 @@ use object::{
     SymbolFlags, SymbolKind, SymbolScope,
     write::{StandardSection, Symbol, SymbolSection},
 };
-use std::path::{Path, PathBuf};
+
 #[cfg(feature = "unwind")]
 use wasmer_compiler::dwarf::{DwarfState, WriterRelocate};
 #[cfg(feature = "unwind")]
 use wasmer_compiler::elf::emit_eh_frame_section;
 use wasmer_compiler::{
-    elf::{add_relocations, emit_trap_section, save_object},
+    elf::{add_relocations, emit_trap_section},
     misc::{CompiledFunctionExt, CompiledKind},
     object::get_object_for_target,
     types::function::CompiledFunction,
@@ -24,18 +24,17 @@ use wasmer_compiler::{
 use wasmer_types::{CompileError, LocalFunctionIndex, target::Target};
 
 pub(crate) use wasmer_compiler::elf::{
-    CompileOutput, compile_output_in_memory, compile_output_paths, emit_function_body,
+    CompileOutput, compile_output_in_memory, compile_output_objects, emit_function_body,
     emit_import_trampoline, link_module,
 };
 
 pub(crate) fn emit_local_function(
     target: &Target,
-    build_directory: &Path,
     index: LocalFunctionIndex,
     function: CompiledFunction,
     fde: Option<UnwindFrame>,
     #[cfg(feature = "unwind")] mut dwarf_state: Option<DwarfState>,
-) -> Result<PathBuf, CompileError> {
+) -> Result<Vec<u8>, CompileError> {
     let kind = CompiledKind::Local(index, String::new());
     let mut object = get_object_for_target(target.triple())
         .map_err(|e| CompileError::Codegen(format!("cannot create object: {e}")))?;
@@ -101,5 +100,7 @@ pub(crate) fn emit_local_function(
     #[cfg(not(feature = "unwind"))]
     let _ = fde;
 
-    save_object(object, build_directory, kind.object_filename())
+    object
+        .write()
+        .map_err(|e| CompileError::Codegen(format!("failed to serialize object: {e}")))
 }

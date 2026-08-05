@@ -1,5 +1,5 @@
 use std::num::NonZero;
-use std::{collections::HashMap, path::Path, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use super::{
     intrinsics::{
@@ -549,7 +549,6 @@ impl FuncTranslator {
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &ModuleBasedSymbolRegistry,
         target: &Triple,
-        build_directory: &Path,
     ) -> Result<CompiledFunction, CompileError> {
         let func_index = wasm_module.func_index(*local_func_index);
         let opt_style = if Some(func_index) == self.wasm_apply_data_relocs_fn_index {
@@ -593,12 +592,7 @@ impl FuncTranslator {
         }
 
         if cfg!(feature = "experimental-artifact") {
-            let object_path = build_directory
-                .to_path_buf()
-                .join(function.object_filename());
-            std::fs::write(&object_path, memory_buffer.as_slice())
-                .map_err(|e| CompileError::Codegen(format!("Cannot save LLVM object file: {e}")))?;
-            Ok(CompiledFunction::Elf(object_path))
+            Ok(CompiledFunction::Elf(memory_buffer.as_slice().to_vec()))
         } else {
             Ok(CompiledFunction::Rkyv(Box::new(load_object_file(
                 memory_buffer.as_slice(),

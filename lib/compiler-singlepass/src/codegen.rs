@@ -22,7 +22,6 @@ use std::{
     collections::HashMap,
     iter,
     ops::{AddAssign, Neg, SubAssign},
-    path::Path,
 };
 use target_lexicon::Architecture;
 
@@ -5963,7 +5962,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         data: &FunctionBodyData,
         arch: Architecture,
         target: &Target,
-        build_directory: Option<&Path>,
         _source_map: &WasmSourceMap,
     ) -> Result<CompileOutput<(CompiledFunction, Option<UnwindFrame>)>, CompileError> {
         self.stack_offset -= RED_ZONE_SIZE;
@@ -6081,7 +6079,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Ok(CompileOutput::Object(
                 elf::emit_local_function(
                     target,
-                    build_directory.expect("ELF artifact compilation requires a build directory"),
                     self.local_func_index,
                     function,
                     fde,

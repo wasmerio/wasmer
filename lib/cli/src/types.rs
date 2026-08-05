@@ -206,7 +206,7 @@ impl CliRender for CronJobLog {
 
     fn render_list_table(items: &[Self]) -> String {
         let mut table = Table::new();
-        table.load_preset(comfy_table::presets::NOTHING);
+        table.load_style(comfy_table::presets::NOTHING);
         table.set_content_arrangement(comfy_table::ContentArrangement::Dynamic);
 
         for item in items {
@@ -281,7 +281,7 @@ impl CliRender for DnsDomainWithRecords {
         let mut output = String::new();
         let mut table = Table::new();
         table
-            .load_preset(comfy_table::presets::UTF8_FULL_CONDENSED)
+            .load_style(comfy_table::presets::UTF8_FULL_CONDENSED)
             .set_header(vec![
                 "Type".to_string(),
                 "Name".to_string(),

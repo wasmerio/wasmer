@@ -28,7 +28,6 @@ cranelift-frontend.workspace = true
 
 itertools.workspace = true
 object.workspace = true
-tempfile.workspace = true
 tracing.workspace = true
 hashbrown = { workspace = true, optional = true }
 rayon.workspace = true

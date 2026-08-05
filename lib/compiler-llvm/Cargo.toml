@@ -39,7 +39,6 @@ inkwell = { workspace = true, features = [
 ] }
 crossbeam-channel.workspace = true
 enum-iterator.workspace = true
-tempfile.workspace = true
 
 [build-dependencies]
 cc.workspace = true
