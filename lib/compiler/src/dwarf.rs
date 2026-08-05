@@ -19,6 +19,8 @@ use object::{
 };
 use wasmer_types::{CompileError, SourceLoc, target::Endianness};
 
+use crate::WasmSourceMap;
+
 /// The symbolic target of an `.eh_frame` relocation. The gimli `Address`
 /// `symbol` field is used as a discriminant value (see [`WriterRelocate`]).
 #[derive(Clone, Copy, Debug)]
@@ -389,6 +391,36 @@ impl DwarfState {
         row.file = self.file_id;
         row.line = (srcloc.bits() as u64).saturating_add(1);
         row.column = 0;
+        self.dwarf.unit.line_program.generate_row();
+    }
+
+    /// Emit a line program row using original source information when available.
+    pub fn add_source_map_row(
+        &mut self,
+        code_offset: u64,
+        srcloc: SourceLoc,
+        source_map: &WasmSourceMap,
+    ) {
+        let Some(location) = source_map.get(srcloc.bits() as usize) else {
+            self.add_row(code_offset, srcloc);
+            return;
+        };
+
+        let directory = self
+            .dwarf
+            .unit
+            .line_program
+            .add_directory(LineString::String(location.directory.as_bytes().to_vec()));
+        let file = self.dwarf.unit.line_program.add_file(
+            LineString::String(location.file.as_bytes().to_vec()),
+            directory,
+            None,
+        );
+        let row = self.dwarf.unit.line_program.row();
+        row.address_offset = code_offset;
+        row.file = file;
+        row.line = u64::from(location.line);
+        row.column = u64::from(location.column);
         self.dwarf.unit.line_program.generate_row();
     }
 

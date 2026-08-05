@@ -24,11 +24,11 @@ use object::{
 };
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
-use wasmer_compiler::dwarf::init_dwarf_unit;
 #[cfg(feature = "unwind")]
 use wasmer_compiler::dwarf::{EhRelocation, EhTarget, WriterRelocate};
 #[cfg(feature = "unwind")]
 use wasmer_compiler::elf::emit_eh_frame_section;
+use wasmer_compiler::{WasmSourceMap, dwarf::init_dwarf_unit};
 use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section},
     misc::{CompiledFunctionExt, CompiledKind},
@@ -225,6 +225,7 @@ pub(crate) fn emit_local_function(
     function_name: &str,
     module_name: Option<&str>,
     function: &CompiledFunction,
+    source_map: &WasmSourceMap,
     #[cfg(feature = "unwind")] fde: Option<FrameDescriptionEntry>,
     #[cfg(feature = "unwind")] lsda: Option<FunctionLsdaData>,
 ) -> Result<Vec<u8>, CompileError> {
@@ -255,7 +256,11 @@ pub(crate) fn emit_local_function(
     // Populate DWARF line info from the address map.
     if let Ok(mut dwarf_state) = init_dwarf_unit(function_name, module_name, "Wasmer (Cranelift)") {
         for instruction in &function.frame_info.address_map.instructions {
-            dwarf_state.add_row(instruction.code_offset as u64, instruction.srcloc);
+            dwarf_state.add_source_map_row(
+                instruction.code_offset as u64,
+                instruction.srcloc,
+                source_map,
+            );
         }
         dwarf_state.write_sections(
             &mut object,
