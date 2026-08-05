@@ -1,7 +1,5 @@
 use anyhow::{Context, Result, bail};
-use std::{
-    collections::HashMap, fmt::Display, mem::size_of, num::NonZeroI32, ptr, slice, sync::Arc,
-};
+use std::{collections::HashMap, fmt::Display, mem::size_of, num::NonZeroI32, slice, sync::Arc};
 
 use wasmer_api::{
     Extern, ExternRef, ExternType, Function, Function as WasmerFunction, FunctionEnv,
@@ -668,11 +666,20 @@ fn allocate_guest_memory(env: &mut FunctionEnvMut<WasmCapiEnv>, len: usize) -> O
         return Some(0);
     }
 
-    let malloc_fn = env.data().malloc_fn.clone()?;
-    let len = i32::try_from(len).ok()?;
+    let Some(malloc_fn) = env.data().malloc_fn.clone() else {
+        return None;
+    };
+    let Ok(len) = i32::try_from(len) else {
+        return None;
+    };
     let guest_ptr: i32 = {
         let (_, mut store_ref) = env.data_and_store_mut();
-        malloc_fn.call(&mut store_ref, len).ok()?
+        match malloc_fn.call(&mut store_ref, len) {
+            Ok(ptr) => ptr,
+            Err(error) => {
+                return None;
+            }
+        }
     };
     if guest_ptr <= INVALID_HANDLE {
         return None;
@@ -1328,20 +1335,17 @@ fn copy_wasmer_memory_to_guest(
     let Some(guest_offset) = checked_memory_offset(guest_ptr, len, guest_view.data_size()) else {
         return false;
     };
-    let source_base = source_view.data_ptr();
-    let guest_base = guest_view.data_ptr();
-    if ptr::eq(source_base, guest_base) {
+    if memory == &guest_memory {
         return false;
     }
-    unsafe {
-        // Both ranges are bounds-checked above and same-memory copies are rejected.
-        ptr::copy_nonoverlapping(
-            source_base.add(source_offset),
-            guest_base.add(guest_offset),
-            len,
-        );
-    }
-    true
+    source_view
+        .copy_range_to_memory(
+            source_offset as u64,
+            guest_offset as u64,
+            len as u64,
+            &guest_view,
+        )
+        .is_ok()
 }
 
 fn copy_guest_memory_to_wasmer(
@@ -1364,20 +1368,17 @@ fn copy_guest_memory_to_wasmer(
     let Some(target_offset) = checked_memory_offset(0, len, target_view.data_size()) else {
         return false;
     };
-    let guest_base = guest_view.data_ptr();
-    let target_base = target_view.data_ptr();
-    if ptr::eq(guest_base, target_base) {
+    if memory == &guest_memory {
         return false;
     }
-    unsafe {
-        // Both ranges are bounds-checked above and same-memory copies are rejected.
-        ptr::copy_nonoverlapping(
-            guest_base.add(guest_offset),
-            target_base.add(target_offset),
-            len,
-        );
-    }
-    true
+    guest_view
+        .copy_range_to_memory(
+            guest_offset as u64,
+            target_offset as u64,
+            len as u64,
+            &target_view,
+        )
+        .is_ok()
 }
 
 fn wasm_memory_data_size(env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> i32 {
