@@ -907,6 +907,8 @@ lint-packages:
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml --locked $(compiler_features) -- -D clippy::all
 lint-clang-format:
 	find . \( -path './lib/napi' -o -path './lib/wild' -o -path './target' \) -prune -o -type f \( -name '*.c' -o -name '*.cpp' \) -exec clang-format --dry-run --color -Werror {} +
+lint-wasix-wasm-tests-formatting:
+	find lib/wasix/tests/wasm_tests -type f -name '*.rs' -exec cargo fmt --check -- {} +
 lint-yamlfmt:
 	yamlfmt -lint .github
 lint-taplo:
@@ -922,7 +924,7 @@ lint-formatting:
 	cargo fmt --all -- --check
 	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
-lint: lint-yamlfmt lint-clang-format lint-formatting lint-packages lint-taplo
+lint: lint-yamlfmt lint-clang-format lint-wasix-wasm-tests-formatting lint-formatting lint-packages lint-taplo
 
 lint-all: lint-formatting lint-packages lint-v8 lint-capi-ci lint-package-crate
 
