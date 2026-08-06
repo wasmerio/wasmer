@@ -16,11 +16,10 @@ use crate::{
     vm::{VMExtern, VMExternMemory},
 };
 
-// Reserving the multi-gigabyte maximum declared by some WASIX programs can
-// prevent browsers from creating the other shared memories used by the SDK.
-// 512 MiB is large enough for substantial WASIX workloads while leaving useful
-// address-space headroom for the runtime and concurrent processes.
-const JS_SHARED_MEMORY_MAXIMUM_PAGES: Pages = Pages(16_384);
+// QuickJS currently represents ArrayBuffer lengths with a signed 32-bit value.
+// Keep shared WASIX memories just below 2 GiB so nested WebAssembly runtimes can
+// grow large workloads without exposing a buffer QuickJS cannot address.
+const JS_SHARED_MEMORY_MAXIMUM_PAGES: Pages = Pages(32_767);
 
 #[derive(Debug, Clone, Eq)]
 pub struct Memory {
