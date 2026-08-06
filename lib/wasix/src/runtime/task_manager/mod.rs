@@ -17,7 +17,10 @@ use wasmer::{AsStoreMut, Memory, MemoryType, Module, SharedMemory, Store, StoreM
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::os::task::thread::WasiThreadError;
-use crate::{StoreSnapshot, WasiEnv, WasiFunctionEnv, WasiThread, capture_store_snapshot};
+use crate::{
+    StoreSnapshot, WasiEnv, WasiFunctionEnv, WasiProcessId, WasiThread, WasiThreadId,
+    capture_store_snapshot,
+};
 use crate::{state::PreparedInstanceGroupData, syscalls::AsyncifyFuture};
 
 pub use virtual_mio::waker::*;
@@ -315,6 +318,21 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// the transfer of things like [`wasmer::Module`] across threads.
     fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError>;
 
+    /// Stop the executor task currently running a WASM thread, if the task
+    /// manager provides externally cancellable workers.
+    ///
+    /// WASIX marks the logical thread as terminated before invoking this hook.
+    /// Executors which cannot independently stop a running task may leave the
+    /// default implementation in place. WASIX will then fall back to waking
+    /// the process memory's atomic waiters.
+    fn terminate_wasm_thread(
+        &self,
+        _pid: WasiProcessId,
+        _tid: WasiThreadId,
+    ) -> Result<(), WasiThreadError> {
+        Err(WasiThreadError::Unsupported)
+    }
+
     /// Run a blocking operation on the thread pool.
     ///
     /// It is okay for this task to block execution and any async futures within
@@ -382,6 +400,14 @@ where
 
     fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
         (**self).task_wasm(task)
+    }
+
+    fn terminate_wasm_thread(
+        &self,
+        pid: WasiProcessId,
+        tid: WasiThreadId,
+    ) -> Result<(), WasiThreadError> {
+        (**self).terminate_wasm_thread(pid, tid)
     }
 
     fn task_dedicated(

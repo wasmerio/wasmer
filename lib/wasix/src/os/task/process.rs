@@ -599,8 +599,10 @@ impl WasiProcess {
 
         let inner = self.inner.0.lock().unwrap();
 
-        wake_atomic_waiters(&inner, signal);
         if let Some(thread) = inner.threads.get(&tid) {
+            if signal == Signal::Sigkill {
+                thread.set_status_finished(Ok(Errno::Intr.into()));
+            }
             thread.signal(signal);
         } else {
             trace!(
@@ -610,6 +612,12 @@ impl WasiProcess {
                 signal
             );
         }
+    }
+
+    /// Wake threads blocked on this process's atomic waiters.
+    pub(crate) fn wake_atomic_waiters(&self, signal: Signal) {
+        let inner = self.inner.0.lock().unwrap();
+        wake_atomic_waiters(&inner, signal);
     }
 
     /// Signals all the threads in this process

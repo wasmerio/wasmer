@@ -1328,8 +1328,11 @@ impl WasiEnv {
             }
         }
 
-        // If the process wants to exit, also close all files and terminate it
-        if let Some(process_exit_code) = process_exit_code {
+        // A thread exit must not terminate the process. Only the main thread
+        // owns process cleanup and the process-wide exit status.
+        if self.thread.is_main()
+            && let Some(process_exit_code) = process_exit_code
+        {
             let process = self.process.clone();
             let disable_fs_cleanup = self.disable_fs_cleanup;
             let pid = self.pid();

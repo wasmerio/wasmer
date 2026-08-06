@@ -255,12 +255,6 @@ fn handle_thread_result(
         }
         Ok(WasiError::Exit(code)) => {
             trace!(exit_code = ?code, "thread requested exit");
-            if !code.is_success() {
-                // TODO: Why do we need to taint the runtime on a non-zero exit code? Why not also for zero?
-                env.data(&store)
-                    .runtime
-                    .on_taint(TaintReason::NonZeroExitCode(code));
-            };
             Ok(Some(code))
         }
         Ok(WasiError::DeepSleep(deep)) => {

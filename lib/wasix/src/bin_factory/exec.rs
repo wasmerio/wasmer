@@ -405,12 +405,16 @@ async fn call_module(
         Errno::Success.into()
     };
 
+    // Publish this thread's result before process cleanup broadcasts signals
+    // to residual worker threads. Otherwise the main thread can consume its
+    // own cleanup signal and replace a successful exit with a fatal signal.
+    handle.thread.set_status_finished(ret.map(|a| a.into()));
+
     // Cleanup the environment
     ctx.data(&store).blocking_on_exit(Some(code));
     unsafe { run_recycle(recycle, ctx, store) };
 
     debug!("wasi[{pid}]::main() has exited with {code}");
-    handle.thread.set_status_finished(ret.map(|a| a.into()));
 }
 
 #[allow(clippy::type_complexity)]
