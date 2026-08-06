@@ -26,7 +26,6 @@ wasmer-wast = { version = "=7.2.1", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 
 # Third party dependencies
-cfg-if.workspace = true
 crossbeam-queue.workspace = true
 tokio = { workspace = true, features = [
   "rt",
@@ -81,7 +80,7 @@ edition = "2024"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.94"
+rust-version = "1.95"
 version = "7.2.1"
 
 [workspace.dependencies]
@@ -119,7 +118,6 @@ bytesize = "2.3.1"
 cargo_metadata = "0.23.1"
 cbindgen = { version = "0.29", default-features = false }
 cc = "1.2.47"
-cfg-if = "1.0"
 chrono = { version = "0.4.38", default-features = false }
 ciborium = "0.2.2"
 clap = { version = "4.5.53", default-features = false }

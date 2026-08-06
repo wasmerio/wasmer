@@ -343,10 +343,11 @@ where
 
     /// Create a new [`wasmer::Store`].
     fn new_store(&self) -> wasmer::Store {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "sys")] {
+        cfg_select! {
+            feature = "sys" => {
                 wasmer::Store::new(self.engine())
-            } else {
+            }
+            _ => {
                 wasmer::Store::default()
             }
         }
@@ -636,10 +637,11 @@ pub struct PluggableRuntime {
 impl PluggableRuntime {
     pub fn new(rt: Arc<dyn VirtualTaskManager>) -> Self {
         // TODO: the cfg flags below should instead be handled by separate implementations.
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "host-vnet")] {
+        cfg_select! {
+            feature = "host-vnet" => {
                 let networking = Arc::new(virtual_net::host::LocalNetworking::default());
-            } else {
+            }
+            _ => {
                 let networking = Arc::new(virtual_net::UnsupportedVirtualNetworking::default());
             }
         }

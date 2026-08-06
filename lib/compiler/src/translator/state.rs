@@ -17,6 +17,9 @@ pub(crate) type WasmTypes =
 /// embedder is represented with `ModuleEnvironment`.
 #[derive(Debug)]
 pub struct ModuleTranslationState {
+    /// Offset of the code-section payload in the original Wasm file.
+    pub(crate) code_section_offset: Option<usize>,
+
     /// A map containing a Wasm module's original, raw signatures.
     ///
     /// This is used for translating multi-value Wasm blocks inside functions,
@@ -28,8 +31,14 @@ impl ModuleTranslationState {
     /// Creates a new empty ModuleTranslationState.
     pub fn new() -> Self {
         Self {
+            code_section_offset: None,
             wasm_types: PrimaryMap::new(),
         }
+    }
+
+    /// Get the offset of the code-section payload in the original Wasm file.
+    pub fn code_section_offset(&self) -> Option<usize> {
+        self.code_section_offset
     }
 
     /// Get the parameter and result types for the given Wasm blocktype.

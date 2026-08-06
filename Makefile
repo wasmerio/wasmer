@@ -331,8 +331,10 @@ test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)
 # Features used by the workspace test suite.
 test_all_features := experimental-async,experimental-host-interrupt
 test_all_default_features :=
-ifeq ($(IS_LINUX)$(IS_AMD64),11)
+test_wast_features :=
+ifeq ($(IS_LINUX),1)
 	test_all_features := $(test_all_features),experimental-artifact
+	test_wast_features := --features experimental-artifact
 endif
 ifeq ($(IS_WINDOWS), 1)
 	# Wasmer's default features enable compiler backends that are unavailable on Windows.
@@ -610,7 +612,7 @@ build-capi-headless-ios:
 
 # intentionally not using nextest as it runs tests in separate processes
 test-wast:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --release $(compiler_features) $(test_wast_features) --locked
 test-all:
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --workspace --release $(test_all_default_features) $(exclude_tests) --exclude wasmer-c-api-test-runner --exclude wasmer-capi-examples-runner $(test_compiler_features) --features $(test_all_features) --locked && \
 	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --manifest-path lib/virtual-net/Cargo.toml --release $(virtual_net_test_features) --locked && \

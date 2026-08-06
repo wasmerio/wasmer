@@ -19,6 +19,8 @@ use wasmer_types::{Features, target::Target};
 
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
+#[cfg(all(feature = "compiler", feature = "experimental-artifact"))]
+use wasmer_compiler::Debugger;
 
 use wasmer::Engine;
 
@@ -192,6 +194,12 @@ pub struct RuntimeOptions {
 pub enum Profiler {
     /// Perfmap-based profilers.
     Perfmap,
+    /// GDB command file.
+    #[cfg(feature = "experimental-artifact")]
+    Gdb,
+    /// LLDB command file.
+    #[cfg(feature = "experimental-artifact")]
+    Lldb,
 }
 
 impl FromStr for Profiler {
@@ -200,6 +208,10 @@ impl FromStr for Profiler {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "perfmap" => Ok(Self::Perfmap),
+            #[cfg(feature = "experimental-artifact")]
+            "gdb" => Ok(Self::Gdb),
+            #[cfg(feature = "experimental-artifact")]
+            "lldb" => Ok(Self::Lldb),
             _ => Err(anyhow::anyhow!("Unrecognized profiler: {s}")),
         }
     }
@@ -422,6 +434,10 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
@@ -450,6 +466,10 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
@@ -491,6 +511,10 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
 
@@ -565,6 +589,10 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
@@ -599,6 +627,10 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
@@ -648,6 +680,10 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        #[cfg(feature = "experimental-artifact")]
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
 

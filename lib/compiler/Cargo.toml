@@ -21,6 +21,7 @@ serde = { workspace = true, optional = true }
 thiserror.workspace = true
 serde_bytes = { workspace = true, optional = true }
 smallvec.workspace = true
+strum = { workspace = true, optional = true }
 loupe = { workspace = true, optional = true, features = [
   "indexmap",
   "enable-indexmap",
@@ -30,7 +31,6 @@ backtrace.workspace = true
 memmap2.workspace = true
 more-asserts.workspace = true
 
-cfg-if.workspace = true
 leb128.workspace = true
 enum-iterator.workspace = true
 
@@ -70,7 +70,7 @@ default = ["std"]
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
 translator = ["wasmparser"]
-compiler = ["translator"]
+compiler = ["translator", "dep:strum"]
 wasmer-artifact-load = []
 wasmer-artifact-create = []
 static-artifact-load = []

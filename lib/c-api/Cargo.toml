@@ -44,7 +44,6 @@ virtual-fs = { version = "0.702.1", path = "../virtual-fs", optional = true, def
 ] }
 anyhow.workspace = true
 enumset.workspace = true
-cfg-if.workspace = true
 libc.workspace = true
 thiserror.workspace = true
 typetag = { workspace = true, optional = true }

@@ -48,7 +48,7 @@ use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::{section::SectionIndex, unwind::CompiledFunctionUnwindInfo};
 use wasmer_compiler::{
     Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
-    ModuleMiddlewareChain, ModuleTranslationState,
+    ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
     types::{
         function::{
             CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, RkyvCompilation, UnwindInfo,
@@ -134,6 +134,12 @@ impl CraneliftCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
+        let source_map = Arc::new(if cfg!(feature = "experimental-artifact") {
+            WasmSourceMap::new(module, module_translation_state, &function_body_inputs)
+                .map_err(CompileError::Codegen)?
+        } else {
+            WasmSourceMap::default()
+        });
 
         let signatures = module
             .signatures
@@ -382,6 +388,7 @@ impl CraneliftCompiler {
                     &compile_info.module.get_function_name(func_index),
                     compile_info.module.name.as_deref(),
                     &compiled.function,
+                    &source_map,
                     #[cfg(feature = "unwind")]
                     compiled.fde,
                     #[cfg(feature = "unwind")]
@@ -712,6 +719,10 @@ impl Compiler for CraneliftCompiler {
 
     fn get_perfmap_enabled(&self) -> bool {
         self.config.enable_perfmap
+    }
+
+    fn get_debugger(&self) -> Option<wasmer_compiler::Debugger> {
+        self.config.debugger
     }
 
     fn deterministic_id(&self) -> String {

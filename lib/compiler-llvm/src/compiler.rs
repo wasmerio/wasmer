@@ -18,7 +18,7 @@ use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
 use wasmer_compiler::{
     CompiledObjects, Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
-    emit_metadata_and_link,
+    WasmSourceMap, emit_metadata_and_link,
     types::{
         relocation::RelocationTarget,
         section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
@@ -180,6 +180,10 @@ impl Compiler for LLVMCompiler {
         self.config.enable_perfmap
     }
 
+    fn get_debugger(&self) -> Option<wasmer_compiler::Debugger> {
+        self.config.debugger
+    }
+
     fn deterministic_id(&self) -> String {
         format!(
             "llvm-{}{}",
@@ -266,6 +270,12 @@ impl Compiler for LLVMCompiler {
             .build()
             .map_err(|e| CompileError::Resource(e.to_string()))?;
 
+        let source_map = Arc::new(if cfg!(feature = "experimental-artifact") {
+            WasmSourceMap::new(module, module_translation, &function_body_inputs)
+                .map_err(CompileError::Codegen)?
+        } else {
+            WasmSourceMap::default()
+        });
         let buckets =
             build_function_buckets(&function_body_inputs, WASM_LARGE_FUNCTION_THRESHOLD / 3);
         let largest_bucket = buckets.first().map(|b| b.size).unwrap_or_default();
@@ -291,6 +301,7 @@ impl Compiler for LLVMCompiler {
                     pointer_width,
                     *target.cpu_features(),
                     self.config.enable_non_volatile_memops,
+                    source_map.clone(),
                     module
                         .exports
                         .get("__wasm_apply_data_relocs")

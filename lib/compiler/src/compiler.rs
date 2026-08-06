@@ -40,6 +40,17 @@ use wasmer_types::{FunctionType, SignatureIndex};
 #[cfg(feature = "translator")]
 use wasmparser::{Validator, WasmFeatures};
 
+/// A debugger command-file format for registering JIT-compiled modules.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
+pub enum Debugger {
+    /// GDB command file.
+    #[strum(serialize = "GDB")]
+    Gdb,
+    /// LLDB command file.
+    #[strum(serialize = "LLDB")]
+    Lldb,
+}
+
 /// The compiler configuration options.
 pub trait CompilerConfig {
     /// Enable Position Independent Code (PIC).
@@ -63,8 +74,12 @@ pub trait CompilerConfig {
 
     /// Enable generation of perfmaps to sample the JIT compiled frames.
     fn enable_perfmap(&mut self) {
-        // By default we do nothing, each backend will need to customize this
-        // in case they create an IR that they can verify.
+        // By default we do nothing, each backend will need to customize this.
+    }
+
+    /// Enable generation of a debugger command file for JIT compiled frames.
+    fn enable_debugger(&mut self, _debugger: Debugger) {
+        // By default we do nothing, each backend will need to customize this.
     }
 
     /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
@@ -204,6 +219,11 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// Get whether `perfmap` is enabled or not.
     fn get_perfmap_enabled(&self) -> bool {
         false
+    }
+
+    /// Get the enabled debugger command-file format, if any.
+    fn get_debugger(&self) -> Option<Debugger> {
+        None
     }
 }
 

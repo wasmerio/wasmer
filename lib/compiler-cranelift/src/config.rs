@@ -13,7 +13,7 @@ use std::{
 use std::{num::NonZero, path::PathBuf};
 use target_lexicon::{OperatingSystem, Vendor};
 use wasmer_compiler::{
-    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
     misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
 };
 use wasmer_types::{
@@ -114,6 +114,7 @@ pub struct Cranelift {
     pub(crate) allow_experimental_unaligned_memory_accesses: bool,
     enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
+    pub(crate) debugger: Option<Debugger>,
     enable_pic: bool,
     opt_level: CraneliftOptLevel,
     /// The number of threads to use for compilation.
@@ -136,6 +137,7 @@ impl Cranelift {
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
             middlewares: vec![],
             enable_perfmap: false,
+            debugger: None,
             callbacks: None,
         }
     }
@@ -307,6 +309,10 @@ impl CompilerConfig for Cranelift {
 
     fn enable_perfmap(&mut self) {
         self.enable_perfmap = true;
+    }
+
+    fn enable_debugger(&mut self, debugger: Debugger) {
+        self.debugger = Some(debugger);
     }
 
     fn enable_experimental_unaligned_memory_accesses(&mut self) {

@@ -270,12 +270,14 @@ mod tests {
           )"#,
         )?;
 
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "singlepass")] {
+        cfg_select! {
+            feature = "singlepass" => {
                 let compiler =  wasmer_compiler_singlepass::Singlepass::default();
-            } else if #[cfg(feature = "llvm")] {
+            }
+            feature = "llvm" => {
                 let compiler =  wasmer_compiler_llvm::LLVM::default();
-            } else {
+            }
+            _ => {
                 let compiler =  wasmer_compiler_cranelift::Cranelift::default();
             }
         }

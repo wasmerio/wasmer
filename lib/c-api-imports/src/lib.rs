@@ -1593,7 +1593,7 @@ fn wasm_instance_new(
 
     let import_handles = read_handle_vec(&mut env, imports_vec_ptr).unwrap_or_default();
     let mut imports = Imports::new();
-    for (import, handle) in module.imports().zip(import_handles.into_iter()) {
+    for (import, handle) in module.imports().zip(import_handles) {
         let Some(ext) = clone_extern_from_handle(&env, handle) else {
             return INVALID_HANDLE;
         };
