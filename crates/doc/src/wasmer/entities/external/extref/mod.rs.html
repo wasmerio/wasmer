@@ -59,8 +59,8 @@
 <a href=#59 id=59 data-nosnippet>59</a>}
 <a href=#60 id=60 data-nosnippet>60</a>
 <a href=#61 id=61 data-nosnippet>61</a><span class="comment">// `ExternRef` is only implemented on the `sys` backend; the `v8`/`js` backends
-<a href=#62 id=62 data-nosnippet>62</a>// `unimplemented!()` it, so this test is gated to `sys`.
-<a href=#63 id=63 data-nosnippet>63</a></span><span class="attr">#[cfg(all(test, feature = <span class="string">"sys"</span>))]
+<a href=#62 id=62 data-nosnippet>62</a>// `unimplemented!()` it, so this test is gated to `sys` without V8.
+<a href=#63 id=63 data-nosnippet>63</a></span><span class="attr">#[cfg(all(test, feature = <span class="string">"sys"</span>, not(feature = <span class="string">"v8"</span>)))]
 <a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">mod </span>tests {
 <a href=#65 id=65 data-nosnippet>65</a>    <span class="kw">use </span>crate::{ExternRef, Store};
 <a href=#66 id=66 data-nosnippet>66</a>

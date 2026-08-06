@@ -255,97 +255,97 @@
 <a href=#255 id=255 data-nosnippet>255</a>    }
 <a href=#256 id=256 data-nosnippet>256</a>
 <a href=#257 id=257 data-nosnippet>257</a>    <span class="attr">#[test]
-<a href=#258 id=258 data-nosnippet>258</a>    </span><span class="kw">fn </span>check_custom_tunables() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
-<a href=#259 id=259 data-nosnippet>259</a>        <span class="attr">#[cfg(feature = <span class="string">"wat"</span>)]
-<a href=#260 id=260 data-nosnippet>260</a>        </span><span class="kw">use </span><span class="kw">crate</span>::wat2wasm;
-<a href=#261 id=261 data-nosnippet>261</a>        <span class="kw">use </span>crate::{Engine, Instance, Memory, Module, Store, imports};
-<a href=#262 id=262 data-nosnippet>262</a>
-<a href=#263 id=263 data-nosnippet>263</a>        <span class="kw">let </span>wasm_bytes = wat2wasm(
-<a href=#264 id=264 data-nosnippet>264</a>            <span class="string">br#"(module
-<a href=#265 id=265 data-nosnippet>265</a>            (memory (;0;) 18)
-<a href=#266 id=266 data-nosnippet>266</a>            (global (;0;) (mut i32) i32.const 1048576)
-<a href=#267 id=267 data-nosnippet>267</a>            (export "memory" (memory 0))
-<a href=#268 id=268 data-nosnippet>268</a>            (data (;0;) (i32.const 1048576) "*\00\00\00")
-<a href=#269 id=269 data-nosnippet>269</a>          )"#</span>,
-<a href=#270 id=270 data-nosnippet>270</a>        )<span class="question-mark">?</span>;
-<a href=#271 id=271 data-nosnippet>271</a>
-<a href=#272 id=272 data-nosnippet>272</a>        <span class="macro">cfg_select!</span> {
-<a href=#273 id=273 data-nosnippet>273</a>            feature = <span class="string">"singlepass" </span>=&gt; {
-<a href=#274 id=274 data-nosnippet>274</a>                <span class="kw">let </span>compiler =  wasmer_compiler_singlepass::Singlepass::default();
-<a href=#275 id=275 data-nosnippet>275</a>            }
-<a href=#276 id=276 data-nosnippet>276</a>            feature = <span class="string">"llvm" </span>=&gt; {
-<a href=#277 id=277 data-nosnippet>277</a>                <span class="kw">let </span>compiler =  wasmer_compiler_llvm::LLVM::default();
-<a href=#278 id=278 data-nosnippet>278</a>            }
-<a href=#279 id=279 data-nosnippet>279</a>            <span class="kw">_ </span>=&gt; {
-<a href=#280 id=280 data-nosnippet>280</a>                <span class="kw">let </span>compiler =  wasmer_compiler_cranelift::Cranelift::default();
-<a href=#281 id=281 data-nosnippet>281</a>            }
-<a href=#282 id=282 data-nosnippet>282</a>        }
-<a href=#283 id=283 data-nosnippet>283</a>
-<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">let </span>tunables = TinyTunables {};
-<a href=#285 id=285 data-nosnippet>285</a>        <span class="attr">#[allow(deprecated)]
-<a href=#286 id=286 data-nosnippet>286</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>engine = Engine::new(compiler.into(), Default::default(), Default::default());
-<a href=#287 id=287 data-nosnippet>287</a>        engine.set_tunables(tunables);
-<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::new(engine);
-<a href=#289 id=289 data-nosnippet>289</a>        <span class="comment">//let mut store = Store::new(compiler);
-<a href=#290 id=290 data-nosnippet>290</a>        </span><span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, wasm_bytes)<span class="question-mark">?</span>;
-<a href=#291 id=291 data-nosnippet>291</a>        <span class="kw">let </span>import_object = <span class="macro">imports!</span> {};
-<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object)<span class="question-mark">?</span>;
-<a href=#293 id=293 data-nosnippet>293</a>
-<a href=#294 id=294 data-nosnippet>294</a>        <span class="kw">let </span><span class="kw-2">mut </span>memories: Vec&lt;Memory&gt; = instance
-<a href=#295 id=295 data-nosnippet>295</a>            .exports
-<a href=#296 id=296 data-nosnippet>296</a>            .iter()
-<a href=#297 id=297 data-nosnippet>297</a>            .memories()
-<a href=#298 id=298 data-nosnippet>298</a>            .map(|pair| pair.<span class="number">1</span>.clone())
-<a href=#299 id=299 data-nosnippet>299</a>            .collect();
-<a href=#300 id=300 data-nosnippet>300</a>        <span class="macro">assert_eq!</span>(memories.len(), <span class="number">1</span>);
-<a href=#301 id=301 data-nosnippet>301</a>        <span class="kw">let </span>first_memory = memories.pop().unwrap();
-<a href=#302 id=302 data-nosnippet>302</a>        <span class="macro">assert_eq!</span>(first_memory.ty(<span class="kw-2">&amp;</span>store).maximum.unwrap(), Pages(<span class="number">18</span>));
-<a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">let </span>view = first_memory.view(<span class="kw-2">&amp;</span>store);
-<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">let </span>x = <span class="kw">unsafe </span>{ view.data_unchecked_mut() }[<span class="number">0</span>];
-<a href=#305 id=305 data-nosnippet>305</a>        <span class="macro">assert_eq!</span>(x, <span class="number">0</span>);
-<a href=#306 id=306 data-nosnippet>306</a>
-<a href=#307 id=307 data-nosnippet>307</a>        <span class="prelude-val">Ok</span>(())
-<a href=#308 id=308 data-nosnippet>308</a>    }
-<a href=#309 id=309 data-nosnippet>309</a>
-<a href=#310 id=310 data-nosnippet>310</a>    <span class="attr">#[test]
-<a href=#311 id=311 data-nosnippet>311</a>    #[cfg(all(
-<a href=#312 id=312 data-nosnippet>312</a>        feature = <span class="string">"singlepass"</span>,
-<a href=#313 id=313 data-nosnippet>313</a>        not(any(
-<a href=#314 id=314 data-nosnippet>314</a>            target_os = <span class="string">"windows"</span>,
-<a href=#315 id=315 data-nosnippet>315</a>            all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>)
-<a href=#316 id=316 data-nosnippet>316</a>        ))
-<a href=#317 id=317 data-nosnippet>317</a>    ))]
-<a href=#318 id=318 data-nosnippet>318</a>    #[allow(clippy::print_stdout)]
-<a href=#319 id=319 data-nosnippet>319</a>    </span><span class="kw">fn </span>check_small_stack() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
-<a href=#320 id=320 data-nosnippet>320</a>        <span class="kw">use </span>crate::{Engine, Instance, Module, Store, imports, wat2wasm};
-<a href=#321 id=321 data-nosnippet>321</a>        <span class="kw">use </span>wasmer_compiler_singlepass::Singlepass;
-<a href=#322 id=322 data-nosnippet>322</a>        <span class="comment">// This test needs Singlepass compiler
-<a href=#323 id=323 data-nosnippet>323</a>        // because Cranelift will optimize the webassembly file
-<a href=#324 id=324 data-nosnippet>324</a>        // and remove all the unused local, even at optimization level "None"
-<a href=#325 id=325 data-nosnippet>325</a>        // But this test needs the huge amount of locals (1024 + a few)
-<a href=#326 id=326 data-nosnippet>326</a>        // so that the small stack is overflown (stack is only 8K, 1024 i64 local = 8K)
-<a href=#327 id=327 data-nosnippet>327</a>        // tWindows is disable as it seems Stack frame protection is not 100% efficient
-<a href=#328 id=328 data-nosnippet>328</a>        </span><span class="kw">let </span>wasm_bytes = wat2wasm(
-<a href=#329 id=329 data-nosnippet>329</a>            <span class="string">br#"(module
-<a href=#330 id=330 data-nosnippet>330</a>                (func (;0;) (result i64)
-<a href=#331 id=331 data-nosnippet>331</a>                  (local i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64)
-<a href=#332 id=332 data-nosnippet>332</a>                  i64.const 0
-<a href=#333 id=333 data-nosnippet>333</a>                  i64.const 5555
-<a href=#334 id=334 data-nosnippet>334</a>                  i64.add
-<a href=#335 id=335 data-nosnippet>335</a>                  local.set 8
-<a href=#336 id=336 data-nosnippet>336</a>                  i64.const 0
-<a href=#337 id=337 data-nosnippet>337</a>                  i64.const 5555
-<a href=#338 id=338 data-nosnippet>338</a>                  i64.add
-<a href=#339 id=339 data-nosnippet>339</a>                  local.set 9
-<a href=#340 id=340 data-nosnippet>340</a>                  i64.const 0
-<a href=#341 id=341 data-nosnippet>341</a>                  i64.const 5555
-<a href=#342 id=342 data-nosnippet>342</a>                  i64.add
-<a href=#343 id=343 data-nosnippet>343</a>                  local.set 10
-<a href=#344 id=344 data-nosnippet>344</a>                  local.get 10
-<a href=#345 id=345 data-nosnippet>345</a>                )
-<a href=#346 id=346 data-nosnippet>346</a>                (func $large_local (export "large_local") (result i64)
-<a href=#347 id=347 data-nosnippet>347</a>                  (local
-<a href=#348 id=348 data-nosnippet>348</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+<a href=#258 id=258 data-nosnippet>258</a>    #[cfg(any(feature = <span class="string">"cranelift"</span>, feature = <span class="string">"llvm"</span>, feature = <span class="string">"singlepass"</span>))]
+<a href=#259 id=259 data-nosnippet>259</a>    </span><span class="kw">fn </span>check_custom_tunables() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
+<a href=#260 id=260 data-nosnippet>260</a>        <span class="attr">#[cfg(feature = <span class="string">"wat"</span>)]
+<a href=#261 id=261 data-nosnippet>261</a>        </span><span class="kw">use </span><span class="kw">crate</span>::wat2wasm;
+<a href=#262 id=262 data-nosnippet>262</a>        <span class="kw">use </span>crate::{Engine, Instance, Memory, Module, Store, imports};
+<a href=#263 id=263 data-nosnippet>263</a>
+<a href=#264 id=264 data-nosnippet>264</a>        <span class="kw">let </span>wasm_bytes = wat2wasm(
+<a href=#265 id=265 data-nosnippet>265</a>            <span class="string">br#"(module
+<a href=#266 id=266 data-nosnippet>266</a>            (memory (;0;) 18)
+<a href=#267 id=267 data-nosnippet>267</a>            (global (;0;) (mut i32) i32.const 1048576)
+<a href=#268 id=268 data-nosnippet>268</a>            (export "memory" (memory 0))
+<a href=#269 id=269 data-nosnippet>269</a>            (data (;0;) (i32.const 1048576) "*\00\00\00")
+<a href=#270 id=270 data-nosnippet>270</a>          )"#</span>,
+<a href=#271 id=271 data-nosnippet>271</a>        )<span class="question-mark">?</span>;
+<a href=#272 id=272 data-nosnippet>272</a>
+<a href=#273 id=273 data-nosnippet>273</a>        <span class="macro">cfg_select!</span> {
+<a href=#274 id=274 data-nosnippet>274</a>            feature = <span class="string">"singlepass" </span>=&gt; {
+<a href=#275 id=275 data-nosnippet>275</a>                <span class="kw">let </span>compiler =  wasmer_compiler_singlepass::Singlepass::default();
+<a href=#276 id=276 data-nosnippet>276</a>            }
+<a href=#277 id=277 data-nosnippet>277</a>            feature = <span class="string">"llvm" </span>=&gt; {
+<a href=#278 id=278 data-nosnippet>278</a>                <span class="kw">let </span>compiler =  wasmer_compiler_llvm::LLVM::default();
+<a href=#279 id=279 data-nosnippet>279</a>            }
+<a href=#280 id=280 data-nosnippet>280</a>            <span class="kw">_ </span>=&gt; {
+<a href=#281 id=281 data-nosnippet>281</a>                <span class="kw">let </span>compiler =  wasmer_compiler_cranelift::Cranelift::default();
+<a href=#282 id=282 data-nosnippet>282</a>            }
+<a href=#283 id=283 data-nosnippet>283</a>        }
+<a href=#284 id=284 data-nosnippet>284</a>
+<a href=#285 id=285 data-nosnippet>285</a>        <span class="kw">let </span>tunables = TinyTunables {};
+<a href=#286 id=286 data-nosnippet>286</a>        <span class="attr">#[allow(deprecated)]
+<a href=#287 id=287 data-nosnippet>287</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>engine = Engine::new(compiler.into(), Default::default(), Default::default());
+<a href=#288 id=288 data-nosnippet>288</a>        engine.set_tunables(tunables);
+<a href=#289 id=289 data-nosnippet>289</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::new(engine);
+<a href=#290 id=290 data-nosnippet>290</a>        <span class="comment">//let mut store = Store::new(compiler);
+<a href=#291 id=291 data-nosnippet>291</a>        </span><span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, wasm_bytes)<span class="question-mark">?</span>;
+<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">let </span>import_object = <span class="macro">imports!</span> {};
+<a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object)<span class="question-mark">?</span>;
+<a href=#294 id=294 data-nosnippet>294</a>
+<a href=#295 id=295 data-nosnippet>295</a>        <span class="kw">let </span><span class="kw-2">mut </span>memories: Vec&lt;Memory&gt; = instance
+<a href=#296 id=296 data-nosnippet>296</a>            .exports
+<a href=#297 id=297 data-nosnippet>297</a>            .iter()
+<a href=#298 id=298 data-nosnippet>298</a>            .memories()
+<a href=#299 id=299 data-nosnippet>299</a>            .map(|pair| pair.<span class="number">1</span>.clone())
+<a href=#300 id=300 data-nosnippet>300</a>            .collect();
+<a href=#301 id=301 data-nosnippet>301</a>        <span class="macro">assert_eq!</span>(memories.len(), <span class="number">1</span>);
+<a href=#302 id=302 data-nosnippet>302</a>        <span class="kw">let </span>first_memory = memories.pop().unwrap();
+<a href=#303 id=303 data-nosnippet>303</a>        <span class="macro">assert_eq!</span>(first_memory.ty(<span class="kw-2">&amp;</span>store).maximum.unwrap(), Pages(<span class="number">18</span>));
+<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">let </span>view = first_memory.view(<span class="kw-2">&amp;</span>store);
+<a href=#305 id=305 data-nosnippet>305</a>        <span class="kw">let </span>x = <span class="kw">unsafe </span>{ view.data_unchecked_mut() }[<span class="number">0</span>];
+<a href=#306 id=306 data-nosnippet>306</a>        <span class="macro">assert_eq!</span>(x, <span class="number">0</span>);
+<a href=#307 id=307 data-nosnippet>307</a>
+<a href=#308 id=308 data-nosnippet>308</a>        <span class="prelude-val">Ok</span>(())
+<a href=#309 id=309 data-nosnippet>309</a>    }
+<a href=#310 id=310 data-nosnippet>310</a>
+<a href=#311 id=311 data-nosnippet>311</a>    <span class="attr">#[test]
+<a href=#312 id=312 data-nosnippet>312</a>    #[cfg(all(
+<a href=#313 id=313 data-nosnippet>313</a>        feature = <span class="string">"singlepass"</span>,
+<a href=#314 id=314 data-nosnippet>314</a>        not(any(
+<a href=#315 id=315 data-nosnippet>315</a>            target_os = <span class="string">"windows"</span>,
+<a href=#316 id=316 data-nosnippet>316</a>            all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>)
+<a href=#317 id=317 data-nosnippet>317</a>        ))
+<a href=#318 id=318 data-nosnippet>318</a>    ))]
+<a href=#319 id=319 data-nosnippet>319</a>    #[allow(clippy::print_stdout)]
+<a href=#320 id=320 data-nosnippet>320</a>    </span><span class="kw">fn </span>check_small_stack() -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error&gt;&gt; {
+<a href=#321 id=321 data-nosnippet>321</a>        <span class="kw">use </span>crate::{Engine, Instance, Module, Store, imports, wat2wasm};
+<a href=#322 id=322 data-nosnippet>322</a>        <span class="kw">use </span>wasmer_compiler_singlepass::Singlepass;
+<a href=#323 id=323 data-nosnippet>323</a>        <span class="comment">// This test needs Singlepass compiler
+<a href=#324 id=324 data-nosnippet>324</a>        // because Cranelift will optimize the webassembly file
+<a href=#325 id=325 data-nosnippet>325</a>        // and remove all the unused local, even at optimization level "None"
+<a href=#326 id=326 data-nosnippet>326</a>        // But this test needs the huge amount of locals (1024 + a few)
+<a href=#327 id=327 data-nosnippet>327</a>        // so that the small stack is overflown (stack is only 8K, 1024 i64 local = 8K)
+<a href=#328 id=328 data-nosnippet>328</a>        // tWindows is disable as it seems Stack frame protection is not 100% efficient
+<a href=#329 id=329 data-nosnippet>329</a>        </span><span class="kw">let </span>wasm_bytes = wat2wasm(
+<a href=#330 id=330 data-nosnippet>330</a>            <span class="string">br#"(module
+<a href=#331 id=331 data-nosnippet>331</a>                (func (;0;) (result i64)
+<a href=#332 id=332 data-nosnippet>332</a>                  (local i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64)
+<a href=#333 id=333 data-nosnippet>333</a>                  i64.const 0
+<a href=#334 id=334 data-nosnippet>334</a>                  i64.const 5555
+<a href=#335 id=335 data-nosnippet>335</a>                  i64.add
+<a href=#336 id=336 data-nosnippet>336</a>                  local.set 8
+<a href=#337 id=337 data-nosnippet>337</a>                  i64.const 0
+<a href=#338 id=338 data-nosnippet>338</a>                  i64.const 5555
+<a href=#339 id=339 data-nosnippet>339</a>                  i64.add
+<a href=#340 id=340 data-nosnippet>340</a>                  local.set 9
+<a href=#341 id=341 data-nosnippet>341</a>                  i64.const 0
+<a href=#342 id=342 data-nosnippet>342</a>                  i64.const 5555
+<a href=#343 id=343 data-nosnippet>343</a>                  i64.add
+<a href=#344 id=344 data-nosnippet>344</a>                  local.set 10
+<a href=#345 id=345 data-nosnippet>345</a>                  local.get 10
+<a href=#346 id=346 data-nosnippet>346</a>                )
+<a href=#347 id=347 data-nosnippet>347</a>                (func $large_local (export "large_local") (result i64)
+<a href=#348 id=348 data-nosnippet>348</a>                  (local
 <a href=#349 id=349 data-nosnippet>349</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
 <a href=#350 id=350 data-nosnippet>350</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
 <a href=#351 id=351 data-nosnippet>351</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
@@ -409,8 +409,8 @@
 <a href=#409 id=409 data-nosnippet>409</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
 <a href=#410 id=410 data-nosnippet>410</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
 <a href=#411 id=411 data-nosnippet>411</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
-<a href=#412 id=412 data-nosnippet>412</a>
-<a href=#413 id=413 data-nosnippet>413</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+<a href=#412 id=412 data-nosnippet>412</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+<a href=#413 id=413 data-nosnippet>413</a>
 <a href=#414 id=414 data-nosnippet>414</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
 <a href=#415 id=415 data-nosnippet>415</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
 <a href=#416 id=416 data-nosnippet>416</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
@@ -418,67 +418,68 @@
 <a href=#418 id=418 data-nosnippet>418</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
 <a href=#419 id=419 data-nosnippet>419</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
 <a href=#420 id=420 data-nosnippet>420</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
-<a href=#421 id=421 data-nosnippet>421</a>
-<a href=#422 id=422 data-nosnippet>422</a>                   i64
-<a href=#423 id=423 data-nosnippet>423</a>                  )
-<a href=#424 id=424 data-nosnippet>424</a>                  (local.set 0 (i64.const 1))
-<a href=#425 id=425 data-nosnippet>425</a>                  (local.set 1 (i64.const 1))
-<a href=#426 id=426 data-nosnippet>426</a>                  (local.set 2 (i64.const 1))
-<a href=#427 id=427 data-nosnippet>427</a>                  (local.set 3 (i64.const 1))
-<a href=#428 id=428 data-nosnippet>428</a>                  (local.set 1024 (i64.const 2))
-<a href=#429 id=429 data-nosnippet>429</a>                  (call 0)
-<a href=#430 id=430 data-nosnippet>430</a>                  local.set 1024
-<a href=#431 id=431 data-nosnippet>431</a>                  local.get 6
-<a href=#432 id=432 data-nosnippet>432</a>                  local.get 7
-<a href=#433 id=433 data-nosnippet>433</a>                  i64.add
-<a href=#434 id=434 data-nosnippet>434</a>                  local.get 8
-<a href=#435 id=435 data-nosnippet>435</a>                  i64.add
-<a href=#436 id=436 data-nosnippet>436</a>                  (call 0)
-<a href=#437 id=437 data-nosnippet>437</a>                  local.set 10
-<a href=#438 id=438 data-nosnippet>438</a>                  local.get 9
-<a href=#439 id=439 data-nosnippet>439</a>                  i64.add
-<a href=#440 id=440 data-nosnippet>440</a>                  local.get 10
-<a href=#441 id=441 data-nosnippet>441</a>                  i64.add
-<a href=#442 id=442 data-nosnippet>442</a>                  local.get 11
-<a href=#443 id=443 data-nosnippet>443</a>                  i64.add
-<a href=#444 id=444 data-nosnippet>444</a>                  local.get 12
-<a href=#445 id=445 data-nosnippet>445</a>                  i64.add
-<a href=#446 id=446 data-nosnippet>446</a>                  (call 0)
-<a href=#447 id=447 data-nosnippet>447</a>                  local.set 512
-<a href=#448 id=448 data-nosnippet>448</a>                  local.get 13
-<a href=#449 id=449 data-nosnippet>449</a>                  i64.add
-<a href=#450 id=450 data-nosnippet>450</a>                  local.get 14
-<a href=#451 id=451 data-nosnippet>451</a>                  i64.add
-<a href=#452 id=452 data-nosnippet>452</a>                  local.get 15
-<a href=#453 id=453 data-nosnippet>453</a>                  i64.add
-<a href=#454 id=454 data-nosnippet>454</a>                  local.get 1024
-<a href=#455 id=455 data-nosnippet>455</a>                  i64.add
-<a href=#456 id=456 data-nosnippet>456</a>                  local.get 0
-<a href=#457 id=457 data-nosnippet>457</a>                  i64.add
-<a href=#458 id=458 data-nosnippet>458</a>                )
-<a href=#459 id=459 data-nosnippet>459</a>              )
-<a href=#460 id=460 data-nosnippet>460</a>            "#</span>,
-<a href=#461 id=461 data-nosnippet>461</a>        )<span class="question-mark">?</span>;
-<a href=#462 id=462 data-nosnippet>462</a>        <span class="kw">let </span>compiler = Singlepass::default();
-<a href=#463 id=463 data-nosnippet>463</a>
-<a href=#464 id=464 data-nosnippet>464</a>        <span class="kw">let </span>tunables = TinyTunables {};
-<a href=#465 id=465 data-nosnippet>465</a>        <span class="attr">#[allow(deprecated)]
-<a href=#466 id=466 data-nosnippet>466</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>engine = Engine::new(compiler.into(), Default::default(), Default::default());
-<a href=#467 id=467 data-nosnippet>467</a>        engine.set_tunables(tunables);
-<a href=#468 id=468 data-nosnippet>468</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::new(engine);
-<a href=#469 id=469 data-nosnippet>469</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, wasm_bytes)<span class="question-mark">?</span>;
-<a href=#470 id=470 data-nosnippet>470</a>        <span class="kw">let </span>import_object = <span class="macro">imports!</span> {};
-<a href=#471 id=471 data-nosnippet>471</a>        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object)<span class="question-mark">?</span>;
-<a href=#472 id=472 data-nosnippet>472</a>
-<a href=#473 id=473 data-nosnippet>473</a>        <span class="kw">let </span>result = instance
-<a href=#474 id=474 data-nosnippet>474</a>            .exports
-<a href=#475 id=475 data-nosnippet>475</a>            .get_function(<span class="string">"large_local"</span>)<span class="question-mark">?
-<a href=#476 id=476 data-nosnippet>476</a>            </span>.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[]);
-<a href=#477 id=477 data-nosnippet>477</a>
-<a href=#478 id=478 data-nosnippet>478</a>        <span class="macro">println!</span>(<span class="string">"result = {result:?}"</span>);
-<a href=#479 id=479 data-nosnippet>479</a>        <span class="macro">assert!</span>(result.is_err());
-<a href=#480 id=480 data-nosnippet>480</a>
-<a href=#481 id=481 data-nosnippet>481</a>        <span class="prelude-val">Ok</span>(())
-<a href=#482 id=482 data-nosnippet>482</a>    }
-<a href=#483 id=483 data-nosnippet>483</a>}
+<a href=#421 id=421 data-nosnippet>421</a>                   i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64
+<a href=#422 id=422 data-nosnippet>422</a>
+<a href=#423 id=423 data-nosnippet>423</a>                   i64
+<a href=#424 id=424 data-nosnippet>424</a>                  )
+<a href=#425 id=425 data-nosnippet>425</a>                  (local.set 0 (i64.const 1))
+<a href=#426 id=426 data-nosnippet>426</a>                  (local.set 1 (i64.const 1))
+<a href=#427 id=427 data-nosnippet>427</a>                  (local.set 2 (i64.const 1))
+<a href=#428 id=428 data-nosnippet>428</a>                  (local.set 3 (i64.const 1))
+<a href=#429 id=429 data-nosnippet>429</a>                  (local.set 1024 (i64.const 2))
+<a href=#430 id=430 data-nosnippet>430</a>                  (call 0)
+<a href=#431 id=431 data-nosnippet>431</a>                  local.set 1024
+<a href=#432 id=432 data-nosnippet>432</a>                  local.get 6
+<a href=#433 id=433 data-nosnippet>433</a>                  local.get 7
+<a href=#434 id=434 data-nosnippet>434</a>                  i64.add
+<a href=#435 id=435 data-nosnippet>435</a>                  local.get 8
+<a href=#436 id=436 data-nosnippet>436</a>                  i64.add
+<a href=#437 id=437 data-nosnippet>437</a>                  (call 0)
+<a href=#438 id=438 data-nosnippet>438</a>                  local.set 10
+<a href=#439 id=439 data-nosnippet>439</a>                  local.get 9
+<a href=#440 id=440 data-nosnippet>440</a>                  i64.add
+<a href=#441 id=441 data-nosnippet>441</a>                  local.get 10
+<a href=#442 id=442 data-nosnippet>442</a>                  i64.add
+<a href=#443 id=443 data-nosnippet>443</a>                  local.get 11
+<a href=#444 id=444 data-nosnippet>444</a>                  i64.add
+<a href=#445 id=445 data-nosnippet>445</a>                  local.get 12
+<a href=#446 id=446 data-nosnippet>446</a>                  i64.add
+<a href=#447 id=447 data-nosnippet>447</a>                  (call 0)
+<a href=#448 id=448 data-nosnippet>448</a>                  local.set 512
+<a href=#449 id=449 data-nosnippet>449</a>                  local.get 13
+<a href=#450 id=450 data-nosnippet>450</a>                  i64.add
+<a href=#451 id=451 data-nosnippet>451</a>                  local.get 14
+<a href=#452 id=452 data-nosnippet>452</a>                  i64.add
+<a href=#453 id=453 data-nosnippet>453</a>                  local.get 15
+<a href=#454 id=454 data-nosnippet>454</a>                  i64.add
+<a href=#455 id=455 data-nosnippet>455</a>                  local.get 1024
+<a href=#456 id=456 data-nosnippet>456</a>                  i64.add
+<a href=#457 id=457 data-nosnippet>457</a>                  local.get 0
+<a href=#458 id=458 data-nosnippet>458</a>                  i64.add
+<a href=#459 id=459 data-nosnippet>459</a>                )
+<a href=#460 id=460 data-nosnippet>460</a>              )
+<a href=#461 id=461 data-nosnippet>461</a>            "#</span>,
+<a href=#462 id=462 data-nosnippet>462</a>        )<span class="question-mark">?</span>;
+<a href=#463 id=463 data-nosnippet>463</a>        <span class="kw">let </span>compiler = Singlepass::default();
+<a href=#464 id=464 data-nosnippet>464</a>
+<a href=#465 id=465 data-nosnippet>465</a>        <span class="kw">let </span>tunables = TinyTunables {};
+<a href=#466 id=466 data-nosnippet>466</a>        <span class="attr">#[allow(deprecated)]
+<a href=#467 id=467 data-nosnippet>467</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>engine = Engine::new(compiler.into(), Default::default(), Default::default());
+<a href=#468 id=468 data-nosnippet>468</a>        engine.set_tunables(tunables);
+<a href=#469 id=469 data-nosnippet>469</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = Store::new(engine);
+<a href=#470 id=470 data-nosnippet>470</a>        <span class="kw">let </span>module = Module::new(<span class="kw-2">&amp;</span>store, wasm_bytes)<span class="question-mark">?</span>;
+<a href=#471 id=471 data-nosnippet>471</a>        <span class="kw">let </span>import_object = <span class="macro">imports!</span> {};
+<a href=#472 id=472 data-nosnippet>472</a>        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object)<span class="question-mark">?</span>;
+<a href=#473 id=473 data-nosnippet>473</a>
+<a href=#474 id=474 data-nosnippet>474</a>        <span class="kw">let </span>result = instance
+<a href=#475 id=475 data-nosnippet>475</a>            .exports
+<a href=#476 id=476 data-nosnippet>476</a>            .get_function(<span class="string">"large_local"</span>)<span class="question-mark">?
+<a href=#477 id=477 data-nosnippet>477</a>            </span>.call(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>[]);
+<a href=#478 id=478 data-nosnippet>478</a>
+<a href=#479 id=479 data-nosnippet>479</a>        <span class="macro">println!</span>(<span class="string">"result = {result:?}"</span>);
+<a href=#480 id=480 data-nosnippet>480</a>        <span class="macro">assert!</span>(result.is_err());
+<a href=#481 id=481 data-nosnippet>481</a>
+<a href=#482 id=482 data-nosnippet>482</a>        <span class="prelude-val">Ok</span>(())
+<a href=#483 id=483 data-nosnippet>483</a>    }
+<a href=#484 id=484 data-nosnippet>484</a>}
 </code></pre></div></section></main></body></html>
