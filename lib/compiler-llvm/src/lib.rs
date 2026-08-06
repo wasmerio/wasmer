@@ -2,6 +2,11 @@
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
+#[cfg(target_os = "windows")]
+compile_error!(
+    "The LLVM compiler backend is not supported on Windows. Use the V8 backend instead."
+);
+
 mod abi;
 mod compiler;
 mod config;

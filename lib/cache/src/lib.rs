@@ -16,6 +16,7 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod cache;
+#[cfg(feature = "filesystem")]
 mod filesystem;
 mod hash;
 

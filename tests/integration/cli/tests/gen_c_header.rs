@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use wasmer_integration_tests_cli::{fixtures, wasmer_command};
 
 #[test]
+#[ignore = "gen-c-header is deprecated"]
 fn gen_c_header_works_pirita() -> anyhow::Result<()> {
     let temp_dir = tempfile::tempdir()?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
