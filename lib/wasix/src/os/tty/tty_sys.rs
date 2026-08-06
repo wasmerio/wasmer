@@ -96,7 +96,8 @@ mod sys {
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
         let mut termios = unsafe { termios.assume_init() };
 
-        termios.c_lflag |= ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL;
+        termios.c_lflag |= ISIG | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL;
+        set_line_buffering(&mut termios, true);
 
         unsafe { tcsetattr(0, TCSANOW, &termios) };
         Ok(())
@@ -185,7 +186,7 @@ mod sys {
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
         let mut termios = unsafe { termios.assume_init() };
 
-        termios.c_lflag &= !ICANON;
+        set_line_buffering(&mut termios, false);
 
         unsafe { tcsetattr(0, TCSANOW, &termios) };
         Ok(())
@@ -196,10 +197,23 @@ mod sys {
         io_result(unsafe { ::libc::tcgetattr(0, termios.as_mut_ptr()) })?;
         let mut termios = unsafe { termios.assume_init() };
 
-        termios.c_lflag |= ICANON;
+        set_line_buffering(&mut termios, true);
 
         unsafe { tcsetattr(0, TCSANOW, &termios) };
         Ok(())
+    }
+
+    fn set_line_buffering(termios: &mut termios, enabled: bool) {
+        if enabled {
+            termios.c_lflag |= ICANON;
+            termios.c_iflag |= ICRNL;
+            termios.c_iflag &= !IGNCR;
+        } else {
+            termios.c_lflag &= !ICANON;
+            // Preserve carriage returns so applications can distinguish Enter (CR)
+            // from line feed, which is commonly used for Shift+Enter.
+            termios.c_iflag &= !(ICRNL | IGNCR);
+        }
     }
 
     pub fn set_mode_no_line_feeds() -> Result<(), anyhow::Error> {
@@ -222,6 +236,110 @@ mod sys {
 
         unsafe { tcsetattr(0, TCSANOW, &termios) };
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        fn blank_termios() -> termios {
+            // SAFETY: libc::termios is a plain C data structure for which an all-zero
+            // value is valid; the tests only inspect and update its flag fields.
+            unsafe { mem::zeroed() }
+        }
+
+        #[test]
+        fn raw_input_preserves_carriage_returns() {
+            let mut state = blank_termios();
+            state.c_lflag = ICANON | ECHO;
+            state.c_iflag = ICRNL | IGNCR | IXON;
+
+            set_line_buffering(&mut state, false);
+
+            assert_eq!(state.c_lflag & ICANON, 0);
+            assert_eq!(state.c_iflag & (ICRNL | IGNCR), 0);
+            assert_ne!(state.c_lflag & ECHO, 0);
+            assert_ne!(state.c_iflag & IXON, 0);
+        }
+
+        #[test]
+        fn cooked_input_translates_carriage_returns_to_newlines() {
+            let mut state = blank_termios();
+            state.c_iflag = IGNCR | IXON;
+
+            set_line_buffering(&mut state, true);
+
+            assert_ne!(state.c_lflag & ICANON, 0);
+            assert_ne!(state.c_iflag & ICRNL, 0);
+            assert_eq!(state.c_iflag & IGNCR, 0);
+            assert_ne!(state.c_iflag & IXON, 0);
+        }
+
+        #[test]
+        fn raw_pty_input_distinguishes_enter_from_line_feed() {
+            let mut master = -1;
+            let mut slave = -1;
+            assert_eq!(
+                unsafe {
+                    libc::openpty(
+                        &mut master,
+                        &mut slave,
+                        std::ptr::null_mut(),
+                        std::ptr::null(),
+                        std::ptr::null(),
+                    )
+                },
+                0
+            );
+
+            struct Pty {
+                master: c_int,
+                slave: c_int,
+            }
+
+            impl Drop for Pty {
+                fn drop(&mut self) {
+                    unsafe {
+                        libc::close(self.master);
+                        libc::close(self.slave);
+                    }
+                }
+            }
+
+            let pty = Pty { master, slave };
+            let mut state = blank_termios();
+            assert_eq!(unsafe { libc::tcgetattr(pty.slave, &mut state) }, 0);
+            state.c_iflag |= ICRNL;
+            state.c_iflag &= !IGNCR;
+            set_line_buffering(&mut state, false);
+            assert_eq!(unsafe { libc::tcsetattr(pty.slave, TCSANOW, &state) }, 0);
+
+            let input = [b'\r'];
+            assert_eq!(
+                unsafe { libc::write(pty.master, input.as_ptr().cast(), input.len()) },
+                1
+            );
+
+            let mut output = [0_u8];
+            assert_eq!(
+                unsafe { libc::read(pty.slave, output.as_mut_ptr().cast(), output.len()) },
+                1
+            );
+            assert_eq!(output, [b'\r']);
+
+            assert_eq!(unsafe { libc::tcgetattr(pty.slave, &mut state) }, 0);
+            set_line_buffering(&mut state, true);
+            assert_eq!(unsafe { libc::tcsetattr(pty.slave, TCSANOW, &state) }, 0);
+            assert_eq!(
+                unsafe { libc::write(pty.master, input.as_ptr().cast(), input.len()) },
+                1
+            );
+            assert_eq!(
+                unsafe { libc::read(pty.slave, output.as_mut_ptr().cast(), output.len()) },
+                1
+            );
+            assert_eq!(output, [b'\n']);
+        }
     }
 }
 
