@@ -208,7 +208,16 @@ impl From<JsValue> for JsTrap {
     fn from(value: JsValue) -> Self {
         // Let's try some easy special cases first
         if let Some(error) = value.dyn_ref::<js_sys::Error>() {
-            return Self::Message(error.message().into());
+            let message = String::from(error.message());
+            let stack = Reflect::get(&value, &JsValue::from_str("stack"))
+                .ok()
+                .and_then(|value| value.as_string())
+                .unwrap_or_default();
+            return Self::Message(if stack.is_empty() || stack == message {
+                message
+            } else {
+                format!("{message}\n{stack}")
+            });
         }
 
         if let Some(s) = value.as_string() {

@@ -34,6 +34,28 @@ use crate::{
 
 use std::panic::{self, AssertUnwindSafe};
 
+#[derive(Debug)]
+struct HostFunctionPanic(String);
+
+impl std::fmt::Display for HostFunctionPanic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for HostFunctionPanic {}
+
+fn raise_host_function_panic(payload: Box<dyn std::any::Any + Send>) -> ! {
+    let message = if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_owned()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "host function panicked with a non-string payload".to_owned()
+    };
+    crate::backend::js::error::raise(Box::new(HostFunctionPanic(message)))
+}
+
 #[inline]
 fn wasmer_array_to_js_array(values: &[Value]) -> Array {
     Array::from_iter(values.iter().map(wasmer_value_to_js))
@@ -731,7 +753,7 @@ macro_rules! impl_host_function {
                         return c_struct;
                     },
                     Ok(Err(trap)) => crate::backend::js::error::raise(Box::new(trap)),
-                    Err(_panic) => unimplemented!(),
+                    Err(panic) => raise_host_function_panic(panic),
                 }
             }
 
@@ -791,7 +813,7 @@ macro_rules! impl_host_function {
                     #[cfg(feature = "core")]
                     #[allow(deprecated)]
                     Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),
-                    Err(_panic) => unimplemented!(),
+                    Err(panic) => raise_host_function_panic(panic),
                 }
             }
 
