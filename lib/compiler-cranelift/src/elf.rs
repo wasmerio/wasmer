@@ -24,11 +24,11 @@ use object::{
 };
 #[cfg(feature = "unwind")]
 use std::collections::HashMap;
-use wasmer_compiler::dwarf::init_dwarf_unit;
 #[cfg(feature = "unwind")]
 use wasmer_compiler::dwarf::{EhRelocation, EhTarget, WriterRelocate};
 #[cfg(feature = "unwind")]
 use wasmer_compiler::elf::emit_eh_frame_section;
+use wasmer_compiler::{WasmSourceMap, dwarf::init_dwarf_unit};
 use wasmer_compiler::{
     elf::{add_relocations, emit_trap_section},
     misc::{CompiledFunctionExt, CompiledKind},
@@ -139,11 +139,10 @@ impl Writer for EhFrameWriter {
                 });
                 self.write_udata(0, 4)
             }
-            // GOT-indirect, PC-relative reference (`R_X86_64_GOTPCREL`). Used
-            // for the personality routine, which is an undefined symbol resolved
-            // at load time: routing it through the GOT yields a dynamic
-            // relocation the runtime loader can apply (a plain data relocation
-            // against an undefined symbol would be dropped by the linker).
+            // Indirect, PC-relative reference to the personality pointer. The
+            // ELF emitter places the pointer in relocatable read-only data and
+            // resolves this relocation against that local slot. This is the
+            // architecture-independent equivalent of a `DW.ref.*` symbol.
             Address::Symbol { symbol, addend }
                 if eh_pe
                     == (constants::DW_EH_PE_indirect
@@ -155,7 +154,7 @@ impl Writer for EhFrameWriter {
                 let offset = self.len() as u64;
                 self.relocs.push(EhRelocation {
                     offset,
-                    kind: ObjectRelocationKind::GotRelative,
+                    kind: ObjectRelocationKind::Relative,
                     size: 4,
                     target,
                     addend,
@@ -226,6 +225,7 @@ pub(crate) fn emit_local_function(
     function_name: &str,
     module_name: Option<&str>,
     function: &CompiledFunction,
+    source_map: &WasmSourceMap,
     #[cfg(feature = "unwind")] fde: Option<FrameDescriptionEntry>,
     #[cfg(feature = "unwind")] lsda: Option<FunctionLsdaData>,
 ) -> Result<Vec<u8>, CompileError> {
@@ -256,7 +256,11 @@ pub(crate) fn emit_local_function(
     // Populate DWARF line info from the address map.
     if let Ok(mut dwarf_state) = init_dwarf_unit(function_name, module_name, "Wasmer (Cranelift)") {
         for instruction in &function.frame_info.address_map.instructions {
-            dwarf_state.add_row(instruction.code_offset as u64, instruction.srcloc);
+            dwarf_state.add_source_map_row(
+                instruction.code_offset as u64,
+                instruction.srcloc,
+                source_map,
+            );
         }
         dwarf_state.write_sections(
             &mut object,
@@ -332,12 +336,10 @@ pub(crate) fn emit_local_function(
         cie.fde_address_encoding = constants::DW_EH_PE_pcrel | constants::DW_EH_PE_sdata4;
         let mut fde = fde;
         if lsda_section_symbol.is_some() {
-            // The personality routine is an undefined symbol resolved at load
-            // time. Reference it GOT-indirect (PC-relative) so the linker emits
-            // a GOT slot with a dynamic relocation the runtime loader applies; a
-            // plain data relocation against an undefined symbol would be
-            // dropped. The LSDA lives in the same image and is referenced
-            // directly, PC-relative.
+            // Reference the personality pointer indirectly and PC-relative.
+            // The shared ELF emitter creates the local pointer slot and its
+            // dynamic relocation. The LSDA lives in the same image and is
+            // referenced directly, PC-relative.
             cie.personality = Some((
                 constants::DW_EH_PE_indirect
                     | constants::DW_EH_PE_pcrel

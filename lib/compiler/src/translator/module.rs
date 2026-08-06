@@ -180,7 +180,9 @@ pub fn translate_module<'data>(
                 parse_element_section(elements, environ)?;
             }
 
-            Payload::CodeSectionStart { .. } => {}
+            Payload::CodeSectionStart { range, .. } => {
+                module_translation_state.code_section_offset = Some(range.start);
+            }
             Payload::CodeSectionEntry(code) => {
                 let mut code = code.get_binary_reader();
                 let size = code.bytes_remaining();

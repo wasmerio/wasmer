@@ -82,15 +82,19 @@ cfg_std_or_core! {
 mod compiler;
 #[cfg(feature = "compiler")]
 pub use crate::compiler::{
-    CompiledFunction, CompiledObjects, Compiler, CompilerConfig, FuncTranslator, FunctionBucket,
-    WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets,
-    emit_metadata_and_link, translate_function_buckets,
+    CompiledFunction, CompiledObjects, Compiler, CompilerConfig, Debugger, FuncTranslator,
+    FunctionBucket, WASM_LARGE_FUNCTION_THRESHOLD, WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE,
+    build_function_buckets, emit_metadata_and_link, translate_function_buckets,
 };
 
 #[cfg(feature = "compiler")]
 pub mod dwarf;
 #[cfg(feature = "compiler")]
 pub mod elf;
+#[cfg(feature = "compiler")]
+mod source_map;
+#[cfg(feature = "compiler")]
+pub use source_map::{SourceLocation, WasmSourceMap};
 
 mod constants;
 pub use crate::constants::*;

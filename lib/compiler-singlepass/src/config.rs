@@ -12,7 +12,7 @@ use std::{
 };
 use target_lexicon::Architecture;
 use wasmer_compiler::{
-    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
     misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
 };
 use wasmer_types::{
@@ -82,6 +82,7 @@ impl SinglepassCallbacks {
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) allow_experimental_unaligned_memory_accesses: bool,
+    pub(crate) debugger: Option<Debugger>,
 
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
@@ -99,6 +100,7 @@ impl Singlepass {
         Self {
             enable_nan_canonicalization: true,
             allow_experimental_unaligned_memory_accesses: false,
+            debugger: None,
             middlewares: vec![],
             callbacks: None,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
@@ -139,6 +141,10 @@ impl CompilerConfig for Singlepass {
     fn enable_pic(&mut self) {
         // Do nothing, since singlepass already emits
         // PIC code.
+    }
+
+    fn enable_debugger(&mut self, debugger: Debugger) {
+        self.debugger = Some(debugger);
     }
 
     /// Transform it into the compiler

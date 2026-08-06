@@ -13,7 +13,9 @@ use std::sync::Arc;
 use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
 use wasmer_compiler::misc::{CompiledKind, function_kind_to_filename};
-use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_compiler::{
+    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
+};
 use wasmer_types::{
     Features,
     target::{Architecture, OperatingSystem, Target, Triple},
@@ -113,6 +115,7 @@ pub struct LLVM {
     pub(crate) enable_readonly_funcref_table: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
+    pub(crate) debugger: Option<Debugger>,
     pub(crate) opt_level: LLVMOptLevel,
     is_pic: bool,
     pub(crate) callbacks: Option<LLVMCallbacks>,
@@ -140,6 +143,7 @@ impl LLVM {
             enable_readonly_funcref_table: false,
             enable_verifier: false,
             enable_perfmap: false,
+            debugger: None,
             opt_level: LLVMOptLevel::Aggressive,
             // We will link a shared library and so PIC must be enabled.
             is_pic: cfg!(feature = "experimental-artifact"),
@@ -376,6 +380,10 @@ impl CompilerConfig for LLVM {
 
     fn enable_perfmap(&mut self) {
         self.enable_perfmap = true
+    }
+
+    fn enable_debugger(&mut self, debugger: Debugger) {
+        self.debugger = Some(debugger)
     }
 
     /// Whether to verify compiler IR.

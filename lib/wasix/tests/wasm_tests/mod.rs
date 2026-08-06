@@ -162,6 +162,7 @@ struct MappedDirectory {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
 #[strum(ascii_case_insensitive, serialize_all = "lowercase")]
 pub enum Engine {
+    #[cfg(not(target_os = "windows"))]
     Cranelift,
     #[cfg(feature = "llvm")]
     LLVM,
@@ -216,6 +217,7 @@ enum FileSystemKind {
 impl Engine {
     pub fn name(self) -> &'static str {
         match self {
+            #[cfg(not(target_os = "windows"))]
             Self::Cranelift => "cranelift",
             #[cfg(feature = "llvm")]
             Self::LLVM => "llvm",
@@ -278,6 +280,9 @@ impl Config {
             tests_build_root,
             test_name,
             config_name: "default".to_owned(),
+            #[cfg(target_os = "windows")]
+            engine: Engine::V8,
+            #[cfg(not(target_os = "windows"))]
             engine: Engine::Cranelift,
             toolchain: Toolchain::Wasix,
             toolchains: None,
@@ -510,13 +515,12 @@ fn process_directive(
                         None
                     }
                 }
-                "cranelift" => Some(Engine::Cranelift),
-                "singlepass" => {
-                    #[cfg(feature = "singlepass")]
+                "cranelift" => {
+                    #[cfg(not(target_os = "windows"))]
                     {
-                        Some(Engine::Singlepass)
+                        Some(Engine::Cranelift)
                     }
-                    #[cfg(not(feature = "singlepass"))]
+                    #[cfg(target_os = "windows")]
                     {
                         None
                     }
@@ -527,6 +531,16 @@ fn process_directive(
                         Some(Engine::V8)
                     }
                     #[cfg(not(feature = "v8"))]
+                    {
+                        None
+                    }
+                }
+                "singlepass" => {
+                    #[cfg(feature = "singlepass")]
+                    {
+                        Some(Engine::Singlepass)
+                    }
+                    #[cfg(not(feature = "singlepass"))]
                     {
                         None
                     }
@@ -1459,7 +1473,9 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         let primary_sources = identify_primary_sources(entry.path())?;
 
         #[allow(unused_mut)]
-        let mut supported_engines = vec![Engine::Cranelift];
+        let mut supported_engines = Vec::new();
+        #[cfg(not(target_os = "windows"))]
+        supported_engines.push(Engine::Cranelift);
         #[cfg(feature = "llvm")]
         supported_engines.push(Engine::LLVM);
         #[cfg(feature = "singlepass")]
@@ -1513,10 +1529,13 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
                             for sysroot in TESTED_LIBC_VERSIONS {
                                 // For performance reasons, run the wasix-libc compatibility tests
                                 // only with the Cranelift compiler.
-                                if sysroot.is_some()
-                                    && (*engine != Engine::Cranelift || cfg!(target_os = "windows"))
-                                {
+                                if sysroot.is_some() {
+                                    #[cfg(target_os = "windows")]
                                     continue;
+                                    #[cfg(not(target_os = "windows"))]
+                                    if *engine != Engine::Cranelift {
+                                        continue;
+                                    }
                                 }
 
                                 let mut config = config.clone();

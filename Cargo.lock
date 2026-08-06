@@ -7568,6 +7568,7 @@ dependencies = [
  "serde_bytes",
  "shared-buffer",
  "smallvec",
+ "strum",
  "target-lexicon 0.13.5",
  "tempfile",
  "thiserror 2.0.19",

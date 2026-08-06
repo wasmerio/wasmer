@@ -19,9 +19,6 @@ singlepass wasmer::simd
 singlepass      spec::throw
 singlepass      spec::try_table
 singlepass      wasmer::exception_handling
-windows         spec::throw
-windows         spec::try_table
-windows         wasmer::exception_handling
 
 # Misc
 singlepass wide_arithmetic
@@ -56,7 +53,6 @@ cranelift+aarch64+macos    traps::trap_display_pretty
 singlepass+aarch64+macos traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
 cranelift+aarch64+macos    traps::trap_display_multi_module
-windows+singlepass   traps::trap_display_multi_module
 singlepass traps::call_signature_mismatch   # Need to investigate, get foo (a[0]:0x33) instead of 0x30 for indirect call
 llvm       traps::call_signature_mismatch
 macos+aarch64    traps::call_signature_mismatch
@@ -70,7 +66,6 @@ llvm+aarch64      spec::skip_stack_guard_page
 llvm+riscv64      spec::skip_stack_guard_page
 llvm+loongarch64  spec::skip_stack_guard_page
 # Codegen("trampoline generation produced relocations")
-llvm+windows      issues::huge_number_of_arguments_fn
 
 # riscv support is still early, function call ABI needs some work
 llvm+riscv64      static_function::llvm
@@ -148,9 +143,6 @@ cranelift+riscv64 spec::skip_stack_guard_page
 
 # #5943 - multi-value tests
 singlepass        multi_value_imports
-cranelift+windows multi_value_imports
-llvm+windows      multi_value_imports
-llvm+windows      static_function_with_results
 
 # V8 ignores
 v8                  table64

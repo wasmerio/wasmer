@@ -243,14 +243,57 @@ pub fn emit_eh_frame_section(
     );
     let data_offset = object.append_section_data(section, eh_frame_bytes, 4);
 
-    // The personality symbol is added lazily, the first time a relocation
-    // references it.
-    let mut personality_symbol = None;
+    // Add the personality pointer lazily. CIEs reference this slot indirectly
+    // and PC-relative, while the slot itself has an absolute relocation to the
+    // runtime function. This mirrors the `DW.ref.*` convention used by native
+    // compilers and, unlike a GOT-relative data relocation, works across the
+    // 64-bit ELF architectures supported by Wasmer.
+    let mut personality_reference_symbol = None;
     for relocation in relocations {
         let symbol = match relocation.target {
             EhTarget::Function => function_symbol,
-            EhTarget::Personality => *personality_symbol
-                .get_or_insert_with(|| add_libcall_symbol(object, LibCall::EHPersonality)),
+            EhTarget::Personality => {
+                if let Some(symbol) = personality_reference_symbol {
+                    symbol
+                } else {
+                    let personality_symbol = add_libcall_symbol(object, LibCall::EHPersonality);
+                    let personality_section =
+                        object.section_id(StandardSection::ReadOnlyDataWithRel);
+                    let reference_symbol = object.add_symbol(Symbol {
+                        name: b"DW.ref.wasmer_eh_personality".to_vec(),
+                        value: 0,
+                        size: 8,
+                        kind: SymbolKind::Data,
+                        scope: SymbolScope::Compilation,
+                        weak: false,
+                        section: SymbolSection::Undefined,
+                        flags: SymbolFlags::None,
+                    });
+                    let reference_offset =
+                        object.add_symbol_data(reference_symbol, personality_section, &[0; 8], 8);
+                    object
+                        .add_relocation(
+                            personality_section,
+                            ObjectRelocation {
+                                offset: reference_offset,
+                                flags: RelocationFlags::Generic {
+                                    kind: ObjectRelocationKind::Absolute,
+                                    encoding: RelocationEncoding::Generic,
+                                    size: 64,
+                                },
+                                symbol: personality_symbol,
+                                addend: 0,
+                            },
+                        )
+                        .map_err(|e| {
+                            CompileError::Codegen(format!(
+                                "failed to add personality reference relocation: {e}"
+                            ))
+                        })?;
+                    personality_reference_symbol = Some(reference_symbol);
+                    reference_symbol
+                }
+            }
             EhTarget::Lsda => lsda_section_symbol.ok_or_else(|| {
                 CompileError::Codegen(
                     ".eh_frame references an LSDA but none was emitted".to_string(),
