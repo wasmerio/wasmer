@@ -2937,6 +2937,54 @@ mod tests {
         }
     }
 
+    #[cfg(all(unix, feature = "host-fs"))]
+    #[tokio::test]
+    async fn fdstat_reports_a_swapped_pty_as_a_terminal() {
+        use std::{
+            io::IsTerminal,
+            os::fd::{FromRawFd, RawFd},
+        };
+
+        let mut master: RawFd = -1;
+        let mut slave: RawFd = -1;
+        assert_eq!(
+            unsafe {
+                libc::openpty(
+                    &mut master,
+                    &mut slave,
+                    std::ptr::null_mut(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                )
+            },
+            0
+        );
+
+        let _master = unsafe { std::fs::File::from_raw_fd(master) };
+        let slave = unsafe { std::fs::File::from_raw_fd(slave) };
+        assert!(slave.is_terminal());
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
+        let pty = virtual_fs::host_fs::File::new(
+            tokio::runtime::Handle::current(),
+            slave,
+            PathBuf::from("/dev/pts/test"),
+            true,
+            true,
+            false,
+        );
+
+        wasi_fs
+            .swap_file(__WASI_STDIN_FILENO, Box::new(pty))
+            .unwrap();
+        assert_eq!(
+            wasi_fs.fdstat(__WASI_STDIN_FILENO).unwrap().fs_filetype,
+            Filetype::CharacterDevice
+        );
+    }
+
     fn webc_symlink_fs() -> virtual_fs::WebcVolumeFileSystem {
         let timestamps = webc::v3::Timestamps::default();
         let dir = webc::v3::write::Directory::new(
