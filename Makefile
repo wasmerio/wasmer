@@ -350,6 +350,10 @@ build_compiler_features = --features $(subst $(space),$(comma),$(build_compilers
 headless_compiler_feature := ,wasmer-api/cranelift
 headless_minimal_compiler_feature := ,singlepass
 endif
+ifneq (, $(findstring windows,$(CARGO_TARGET)))
+headless_compiler_feature :=
+headless_minimal_compiler_feature :=
+endif
 capi_compilers_engines_exclude :=
 
 # Define the compiler Cargo features for the C API. It always excludes
