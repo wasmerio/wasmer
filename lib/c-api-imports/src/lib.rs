@@ -1,5 +1,21 @@
 use anyhow::{Context, Result, bail};
-use std::{collections::HashMap, fmt::Display, mem::size_of, num::NonZeroI32, slice, sync::Arc};
+use std::{
+    collections::HashMap,
+    fmt::Display,
+    mem::size_of,
+    num::NonZeroI32,
+    slice,
+    sync::{Arc, Mutex},
+};
+
+#[cfg(target_arch = "wasm32")]
+use bytes::Bytes;
+#[cfg(target_arch = "wasm32")]
+use std::sync::atomic::{AtomicU32, Ordering};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::{JsCast, JsValue};
+#[cfg(target_arch = "wasm32")]
+use wasmer_api::js::AsJs;
 
 use wasmer_api::{
     Extern, ExternRef, ExternType, Function, Function as WasmerFunction, FunctionEnv,
@@ -7,6 +23,9 @@ use wasmer_api::{
     MemoryType, Module, Mutability, Pages, RuntimeError, StoreMut, Table, TableType, Type,
     TypedFunction, Value, WasmPtr, namespace,
 };
+
+#[cfg(not(target_arch = "wasm32"))]
+use wasmer_api::SharedMemory;
 
 #[cfg(feature = "wasix")]
 mod wasix;
@@ -86,11 +105,16 @@ struct WasmCapiSession {
     imported_memory_type: Option<MemoryType>,
     imported_table_type: Option<wasmer_api::TableType>,
     resolve_module_sync: Option<ResolveModuleSync>,
+    shared_objects: SharedObjectRegistry,
     func_env: Option<FunctionEnv<WasmCapiEnv>>,
 }
 
 impl WasmCapiSession {
-    fn new(module: &Module, resolve_module_sync: Option<ResolveModuleSync>) -> Self {
+    fn new(
+        module: &Module,
+        resolve_module_sync: Option<ResolveModuleSync>,
+        shared_objects: SharedObjectRegistry,
+    ) -> Self {
         let imported_memory_type = module.imports().find_map(|import| {
             if import.module() == "env"
                 && import.name() == "memory"
@@ -116,6 +140,7 @@ impl WasmCapiSession {
             imported_memory_type,
             imported_table_type,
             resolve_module_sync,
+            shared_objects,
             func_env: None,
         }
     }
@@ -143,6 +168,7 @@ impl WasmCapiSession {
             &mut *store,
             WasmCapiEnv {
                 resolve_module_sync: self.resolve_module_sync.clone(),
+                shared_objects: self.shared_objects.clone(),
                 ..WasmCapiEnv::default()
             },
         );
@@ -264,12 +290,14 @@ pub struct WasmCapiInstantiationState {
 /// Runtime hooks that provide `wasm_c_api_v0` imports for WASIX guests.
 // The import phase creates a per-instantiation session holding the function
 // env backing the imported host functions, and hands it to the caller as
-// opaque state. The hooks themselves are stateless, so concurrent
-// instantiations — same module or not, same store or not — cannot receive
-// each other's sessions.
+// opaque state. Ordinary C API handles remain session-local. Only handles
+// produced by wasm_module_share/wasm_memory_share live in the runtime-scoped
+// registry, which is what lets worker instances obtain the same module or
+// shared memory without leaking every C API object across instances.
 #[derive(Clone, Default)]
 pub struct WasmCapiRuntimeHooks {
     resolve_module_sync: Option<ResolveModuleSync>,
+    shared_objects: SharedObjectRegistry,
 }
 
 impl std::fmt::Debug for WasmCapiRuntimeHooks {
@@ -279,6 +307,7 @@ impl std::fmt::Debug for WasmCapiRuntimeHooks {
                 "resolve_module_sync",
                 &self.resolve_module_sync.as_ref().map(|_| ".."),
             )
+            .field("shared_objects", &"..")
             .finish()
     }
 }
@@ -316,7 +345,11 @@ impl WasmCapiRuntimeHooks {
         store: &mut StoreMut<'_>,
         imports: &mut Imports,
     ) -> Result<WasmCapiInstantiationState> {
-        let mut session = WasmCapiSession::new(module, self.resolve_module_sync.clone());
+        let mut session = WasmCapiSession::new(
+            module,
+            self.resolve_module_sync.clone(),
+            self.shared_objects.clone(),
+        );
         if !session.needs_imports() {
             return Ok(WasmCapiInstantiationState { session: None });
         }
@@ -370,6 +403,9 @@ struct WasmCapiEnv {
     table: Option<Table>,
     /// Host-side object and shadow-memory handles visible to the guest as i32s.
     state: WasmCapiState,
+    /// Runtime-scoped objects explicitly shared through the C API's share and
+    /// obtain operations.
+    shared_objects: SharedObjectRegistry,
     /// Self-reference needed when creating host functions that call guest callbacks.
     func_env: Option<FunctionEnv<WasmCapiEnv>>,
 }
@@ -442,6 +478,140 @@ enum WasmObject {
     /// `wasm_ref_t*` handle.
     Ref(Value),
     Trap(String),
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone)]
+enum SharedWasmObject {
+    Module { module: Module },
+    Memory { memory: SharedMemory },
+}
+
+#[cfg(target_arch = "wasm32")]
+#[derive(Clone)]
+enum SharedWasmObject {
+    Module { bytes: Bytes },
+    Memory { ty: MemoryType },
+}
+
+struct SharedObjectState {
+    next_handle: i32,
+    objects: HashMap<i32, SharedWasmObject>,
+}
+
+impl Default for SharedObjectState {
+    fn default() -> Self {
+        Self {
+            next_handle: 1,
+            objects: HashMap::new(),
+        }
+    }
+}
+
+#[derive(Clone)]
+struct SharedObjectRegistry {
+    state: Arc<Mutex<SharedObjectState>>,
+    #[cfg(target_arch = "wasm32")]
+    id: u32,
+}
+
+impl Default for SharedObjectRegistry {
+    fn default() -> Self {
+        #[cfg(target_arch = "wasm32")]
+        static NEXT_REGISTRY_ID: AtomicU32 = AtomicU32::new(1);
+
+        Self {
+            state: Arc::new(Mutex::new(SharedObjectState::default())),
+            #[cfg(target_arch = "wasm32")]
+            id: NEXT_REGISTRY_ID.fetch_add(1, Ordering::Relaxed),
+        }
+    }
+}
+
+impl SharedObjectRegistry {
+    fn insert(&self, object: SharedWasmObject) -> i32 {
+        let Ok(mut state) = self.state.lock() else {
+            return INVALID_HANDLE;
+        };
+        let handle = state.next_handle;
+        if handle <= INVALID_HANDLE {
+            return INVALID_HANDLE;
+        }
+
+        state.next_handle = handle.checked_add(1).unwrap_or(INVALID_HANDLE);
+        state.objects.insert(handle, object);
+        handle
+    }
+
+    fn get(&self, handle: i32) -> Option<SharedWasmObject> {
+        if handle <= INVALID_HANDLE {
+            return None;
+        }
+        self.state.lock().ok()?.objects.get(&handle).cloned()
+    }
+
+    fn release(&self, handle: i32) {
+        // Native callers share one registry directly, so deleting the handle
+        // can release its object immediately. Browser workers receive the JS
+        // object asynchronously and may obtain it after the source handle is
+        // deleted; retain the transfer record until this registry itself is
+        // dropped so source deletion cannot revoke an in-flight transfer.
+        #[cfg(not(target_arch = "wasm32"))]
+        if handle > INVALID_HANDLE
+            && let Ok(mut state) = self.state.lock()
+        {
+            state.objects.remove(&handle);
+        }
+        #[cfg(target_arch = "wasm32")]
+        if handle > INVALID_HANDLE {
+            let global = js_sys::global();
+            if let Ok(callback) =
+                js_sys::Reflect::get(&global, &JsValue::from_str("__wasmerCapiDelete"))
+                && let Some(callback) = callback.dyn_ref::<js_sys::Function>()
+            {
+                let _ = callback.call2(&global, &JsValue::from(self.id), &JsValue::from(handle));
+            }
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn discard(&self, handle: i32) {
+        if let Ok(mut state) = self.state.lock() {
+            state.objects.remove(&handle);
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn publish(&self, handle: i32, value: &JsValue) -> bool {
+        let global = js_sys::global();
+        let Ok(callback) = js_sys::Reflect::get(&global, &JsValue::from_str("__wasmerCapiShare"))
+        else {
+            return false;
+        };
+        let Some(callback) = callback.dyn_ref::<js_sys::Function>() else {
+            return false;
+        };
+        callback
+            .call3(
+                &global,
+                &JsValue::from(self.id),
+                &JsValue::from(handle),
+                value,
+            )
+            .is_ok()
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn obtain(&self, handle: i32) -> Option<JsValue> {
+        let global = js_sys::global();
+        let callback =
+            js_sys::Reflect::get(&global, &JsValue::from_str("__wasmerCapiObtain")).ok()?;
+        let callback = callback.dyn_ref::<js_sys::Function>()?;
+        let value = callback
+            .call2(&global, &JsValue::from(self.id), &JsValue::from(handle))
+            .ok()?;
+        (!value.is_undefined() && !value.is_null()).then_some(value)
+    }
 }
 
 /// A guest-visible shadow of a Wasmer memory data pointer.
@@ -684,7 +854,7 @@ fn allocate_guest_memory(env: &mut FunctionEnvMut<WasmCapiEnv>, len: usize) -> O
         let (_, mut store_ref) = env.data_and_store_mut();
         match malloc_fn.call(&mut store_ref, len) {
             Ok(ptr) => ptr,
-            Err(error) => {
+            Err(_) => {
                 return None;
             }
         }
@@ -754,7 +924,7 @@ impl<'env, 'store> GuestAllocation<'env, 'store> {
     }
 
     fn copy_from_wasmer_memory(&mut self, memory: &Memory, len: usize) -> bool {
-        copy_wasmer_memory_to_guest(self.env, memory, self.ptr, len)
+        copy_wasmer_memory_to_guest(self.env, memory, 0, self.ptr, len)
     }
 
     fn into_raw(mut self) -> i32 {
@@ -1105,6 +1275,63 @@ fn wasm_module_validate(mut env: FunctionEnvMut<WasmCapiEnv>, _store: i32, bytes
     Module::validate(&store, &bytes).is_ok() as i32
 }
 
+fn wasm_module_share(env: FunctionEnvMut<WasmCapiEnv>, module_handle: i32) -> i32 {
+    let module = match env.data().state.get(module_handle) {
+        Some(WasmObject::Module(module)) => module.clone(),
+        _ => return INVALID_HANDLE,
+    };
+    #[cfg(target_arch = "wasm32")]
+    let Ok(bytes) = module.serialize() else {
+        return INVALID_HANDLE;
+    };
+    #[cfg(target_arch = "wasm32")]
+    let transferable: js_sys::WebAssembly::Module = module.clone().into();
+    let registry = &env.data().shared_objects;
+    let handle = registry.insert(SharedWasmObject::Module {
+        #[cfg(not(target_arch = "wasm32"))]
+        module,
+        #[cfg(target_arch = "wasm32")]
+        bytes,
+    });
+    #[cfg(target_arch = "wasm32")]
+    if handle != INVALID_HANDLE && !registry.publish(handle, transferable.as_ref()) {
+        registry.discard(handle);
+        return INVALID_HANDLE;
+    }
+    handle
+}
+
+fn wasm_module_obtain(
+    mut env: FunctionEnvMut<WasmCapiEnv>,
+    _store: i32,
+    shared_handle: i32,
+) -> i32 {
+    #[cfg(target_arch = "wasm32")]
+    let module = {
+        let bytes = match env.data().shared_objects.get(shared_handle) {
+            Some(SharedWasmObject::Module { bytes }) => bytes,
+            _ => return INVALID_HANDLE,
+        };
+        match env.data().shared_objects.obtain(shared_handle) {
+            Some(value) => match value.dyn_into::<js_sys::WebAssembly::Module>() {
+                Ok(module) => Module::from((module, bytes)),
+                Err(_) => return INVALID_HANDLE,
+            },
+            None => return INVALID_HANDLE,
+        }
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let module = match env.data().shared_objects.get(shared_handle) {
+        Some(SharedWasmObject::Module { module }) => module,
+        _ => return INVALID_HANDLE,
+    };
+    insert(&mut env, WasmObject::Module(module))
+}
+
+fn wasm_shared_module_delete(env: FunctionEnvMut<WasmCapiEnv>, shared_handle: i32) {
+    env.data().shared_objects.release(shared_handle);
+}
+
 fn wasm_module_imports(mut env: FunctionEnvMut<WasmCapiEnv>, module_handle: i32, out_ptr: i32) {
     let module = match env.data().state.get(module_handle) {
         Some(WasmObject::Module(module)) => module.clone(),
@@ -1274,6 +1501,24 @@ fn wasm_memorytype_new(mut env: FunctionEnvMut<WasmCapiEnv>, limits_ptr: i32) ->
     )
 }
 
+fn wasm_shared_memorytype_new(mut env: FunctionEnvMut<WasmCapiEnv>, limits_ptr: i32) -> i32 {
+    let Some((min, max)) = read_limits(&mut env, limits_ptr) else {
+        return INVALID_HANDLE;
+    };
+    insert(
+        &mut env,
+        WasmObject::MemoryType(MemoryType::new(Pages(min), max.map(Pages), true)),
+    )
+}
+
+fn wasm_memorytype_is_shared(env: FunctionEnvMut<WasmCapiEnv>, type_handle: i32) -> i32 {
+    match env.data().state.get(type_handle) {
+        Some(WasmObject::MemoryType(ty)) if ty.shared => BOOL_TRUE,
+        Some(WasmObject::MemoryType(_)) => BOOL_FALSE,
+        _ => BOOL_FALSE,
+    }
+}
+
 fn wasm_memory_new(mut env: FunctionEnvMut<WasmCapiEnv>, _store: i32, type_handle: i32) -> i32 {
     let ty = match env.data().state.get(type_handle) {
         Some(WasmObject::MemoryType(ty)) => *ty,
@@ -1308,6 +1553,468 @@ fn wasm_memory_grow(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32, de
     }
 }
 
+fn wasm_memory_type(mut env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> i32 {
+    let Some(memory) = memory_from_handle(&env, memory_handle) else {
+        return INVALID_HANDLE;
+    };
+    let memory_type = memory.ty(&env);
+    insert(&mut env, WasmObject::MemoryType(memory_type))
+}
+
+fn wasm_memory_read(
+    mut env: FunctionEnvMut<WasmCapiEnv>,
+    memory_handle: i32,
+    offset: i64,
+    destination: i32,
+    length: i32,
+) -> i32 {
+    let (Ok(offset), Ok(length)) = (u64::try_from(offset), usize::try_from(length)) else {
+        return BOOL_FALSE;
+    };
+    let Some(memory) = memory_from_handle(&env, memory_handle) else {
+        return BOOL_FALSE;
+    };
+    copy_wasmer_memory_to_guest(&mut env, &memory, offset, destination, length) as i32
+}
+
+fn wasm_memory_write(
+    mut env: FunctionEnvMut<WasmCapiEnv>,
+    memory_handle: i32,
+    offset: i64,
+    source: i32,
+    length: i32,
+) -> i32 {
+    let (Ok(offset), Ok(length)) = (u64::try_from(offset), usize::try_from(length)) else {
+        return BOOL_FALSE;
+    };
+    let Some(memory) = memory_from_handle(&env, memory_handle) else {
+        return BOOL_FALSE;
+    };
+    copy_guest_memory_to_wasmer(&mut env, source, &memory, offset, length) as i32
+}
+
+#[cfg(target_arch = "wasm32")]
+fn js_memory_buffer(memory: &Memory, store: &impl wasmer_api::AsStoreRef) -> Option<JsValue> {
+    let memory = memory
+        .as_jsvalue(store)
+        .dyn_into::<js_sys::WebAssembly::Memory>()
+        .ok()?;
+    Some(memory.buffer())
+}
+
+#[cfg(target_arch = "wasm32")]
+fn js_atomic_operation(
+    memory: &Memory,
+    store: &impl wasmer_api::AsStoreRef,
+    offset: u64,
+    operation: i32,
+    width: i32,
+    value: u64,
+    replacement: u64,
+) -> Option<u64> {
+    use js_sys::{Atomics, BigInt64Array, Int8Array, Int16Array, Int32Array};
+
+    let buffer = js_memory_buffer(memory, store)?;
+    let index = u32::try_from(offset / u64::try_from(width).ok()?).ok()?;
+    let result = match width {
+        1 => {
+            let array = Int8Array::new(&buffer);
+            match operation {
+                0 => Atomics::add(&array, index, value as i32),
+                1 => Atomics::and(&array, index, value as i32),
+                2 => Atomics::or(&array, index, value as i32),
+                3 => Atomics::sub(&array, index, value as i32),
+                4 => Atomics::xor(&array, index, value as i32),
+                5 => Atomics::exchange(&array, index, value as i32),
+                6 => Atomics::compare_exchange(&array, index, value as i32, replacement as i32),
+                7 => Atomics::load(&array, index),
+                8 => Atomics::store(&array, index, value as i32),
+                _ => return None,
+            }
+            .ok()? as u32 as u64
+        }
+        2 => {
+            let array = Int16Array::new(&buffer);
+            match operation {
+                0 => Atomics::add(&array, index, value as i32),
+                1 => Atomics::and(&array, index, value as i32),
+                2 => Atomics::or(&array, index, value as i32),
+                3 => Atomics::sub(&array, index, value as i32),
+                4 => Atomics::xor(&array, index, value as i32),
+                5 => Atomics::exchange(&array, index, value as i32),
+                6 => Atomics::compare_exchange(&array, index, value as i32, replacement as i32),
+                7 => Atomics::load(&array, index),
+                8 => Atomics::store(&array, index, value as i32),
+                _ => return None,
+            }
+            .ok()? as u32 as u64
+        }
+        4 => {
+            let array = Int32Array::new(&buffer);
+            match operation {
+                0 => Atomics::add(&array, index, value as i32),
+                1 => Atomics::and(&array, index, value as i32),
+                2 => Atomics::or(&array, index, value as i32),
+                3 => Atomics::sub(&array, index, value as i32),
+                4 => Atomics::xor(&array, index, value as i32),
+                5 => Atomics::exchange(&array, index, value as i32),
+                6 => Atomics::compare_exchange(&array, index, value as i32, replacement as i32),
+                7 => Atomics::load(&array, index),
+                8 => Atomics::store(&array, index, value as i32),
+                _ => return None,
+            }
+            .ok()? as u32 as u64
+        }
+        8 => {
+            let array = BigInt64Array::new(&buffer);
+            match operation {
+                0 => Atomics::add_bigint(&array, index, value as i64),
+                1 => Atomics::and_bigint(&array, index, value as i64),
+                2 => Atomics::or_bigint(&array, index, value as i64),
+                3 => Atomics::sub_bigint(&array, index, value as i64),
+                4 => Atomics::xor_bigint(&array, index, value as i64),
+                5 => Atomics::exchange_bigint(&array, index, value as i64),
+                6 => Atomics::compare_exchange_bigint(
+                    &array,
+                    index,
+                    value as i64,
+                    replacement as i64,
+                ),
+                7 => Atomics::load_bigint(&array, i64::from(index)),
+                8 => Atomics::store_bigint(&array, index, value as i64),
+                _ => return None,
+            }
+            .ok()? as u64
+        }
+        _ => return None,
+    };
+    Some(result)
+}
+
+fn wasm_memory_atomic(
+    env: FunctionEnvMut<WasmCapiEnv>,
+    memory_handle: i32,
+    offset: i64,
+    operation: i32,
+    width: i32,
+    value: i64,
+    replacement: i64,
+    result_pointer: i32,
+) -> i32 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        let (Ok(offset), Some(memory)) = (
+            u64::try_from(offset),
+            memory_from_handle(&env, memory_handle),
+        ) else {
+            return BOOL_FALSE;
+        };
+        if !matches!(width, 1 | 2 | 4 | 8) || offset % width as u64 != 0 {
+            return BOOL_FALSE;
+        }
+        let Some(result) = js_atomic_operation(
+            &memory,
+            &env,
+            offset,
+            operation,
+            width,
+            value as u64,
+            replacement as u64,
+        ) else {
+            return BOOL_FALSE;
+        };
+        let Some(guest_memory) = env.data().memory.clone() else {
+            return BOOL_FALSE;
+        };
+        let Some(result_pointer) = guest_memory_offset(result_pointer) else {
+            return BOOL_FALSE;
+        };
+        if guest_memory
+            .view(&env)
+            .write(result_pointer, &result.to_le_bytes())
+            .is_err()
+        {
+            return BOOL_FALSE;
+        }
+        BOOL_TRUE
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use std::sync::atomic::{AtomicU8, AtomicU16, AtomicU32, AtomicU64, Ordering};
+
+        let (Ok(offset), Some(memory)) = (
+            u64::try_from(offset),
+            memory_from_handle(&env, memory_handle),
+        ) else {
+            return BOOL_FALSE;
+        };
+        if !matches!(width, 1 | 2 | 4 | 8) || offset % width as u64 != 0 {
+            return BOOL_FALSE;
+        }
+        let view = memory.view(&env);
+        if offset
+            .checked_add(width as u64)
+            .is_none_or(|end| end > view.data_size())
+        {
+            return BOOL_FALSE;
+        }
+        macro_rules! atomic_operation {
+            ($atomic:ty, $value:ty) => {{
+                let atomic = unsafe { &*(view.data_ptr().add(offset as usize) as *const $atomic) };
+                let value = value as $value;
+                let replacement = replacement as $value;
+                match operation {
+                    0 => atomic.fetch_add(value, Ordering::SeqCst) as u64,
+                    1 => atomic.fetch_and(value, Ordering::SeqCst) as u64,
+                    2 => atomic.fetch_or(value, Ordering::SeqCst) as u64,
+                    3 => atomic.fetch_sub(value, Ordering::SeqCst) as u64,
+                    4 => atomic.fetch_xor(value, Ordering::SeqCst) as u64,
+                    5 => atomic.swap(value, Ordering::SeqCst) as u64,
+                    6 => atomic
+                        .compare_exchange(value, replacement, Ordering::SeqCst, Ordering::SeqCst)
+                        .unwrap_or_else(|actual| actual) as u64,
+                    7 => atomic.load(Ordering::SeqCst) as u64,
+                    8 => {
+                        atomic.store(value, Ordering::SeqCst);
+                        value as u64
+                    }
+                    _ => return BOOL_FALSE,
+                }
+            }};
+        }
+        let result = match width {
+            1 => atomic_operation!(AtomicU8, u8),
+            2 => atomic_operation!(AtomicU16, u16),
+            4 => atomic_operation!(AtomicU32, u32),
+            8 => atomic_operation!(AtomicU64, u64),
+            _ => return BOOL_FALSE,
+        };
+        let Some(guest_memory) = env.data().memory.clone() else {
+            return BOOL_FALSE;
+        };
+        let Some(result_pointer) = guest_memory_offset(result_pointer) else {
+            return BOOL_FALSE;
+        };
+        if guest_memory
+            .view(&env)
+            .write(result_pointer, &result.to_le_bytes())
+            .is_err()
+        {
+            return BOOL_FALSE;
+        }
+        BOOL_TRUE
+    }
+}
+
+fn wasm_memory_atomic_wait(
+    env: FunctionEnvMut<WasmCapiEnv>,
+    memory_handle: i32,
+    offset: i64,
+    width: i32,
+    expected: i64,
+    timeout_nanos: i64,
+) -> i32 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        use js_sys::{Atomics, BigInt64Array, Int32Array};
+
+        let (Ok(offset), Some(memory)) = (
+            u64::try_from(offset),
+            memory_from_handle(&env, memory_handle),
+        ) else {
+            return -1;
+        };
+        let Some(buffer) = js_memory_buffer(&memory, &env) else {
+            return -1;
+        };
+        let timeout_millis = if timeout_nanos == i64::MAX {
+            f64::INFINITY
+        } else {
+            timeout_nanos.max(0) as f64 / 1_000_000.0
+        };
+        let result = match width {
+            4 if offset % 4 == 0 => Atomics::wait_with_timeout(
+                &Int32Array::new(&buffer),
+                (offset / 4) as u32,
+                expected as i32,
+                timeout_millis,
+            ),
+            8 if offset % 8 == 0 => Atomics::wait_with_timeout_bigint(
+                &BigInt64Array::new(&buffer),
+                (offset / 8) as u32,
+                expected,
+                timeout_millis,
+            ),
+            _ => return -1,
+        };
+        match result.ok().and_then(|value| value.as_string()).as_deref() {
+            Some("ok") => 0,
+            Some("not-equal") => 1,
+            Some("timed-out") => 2,
+            _ => -1,
+        }
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use std::{
+            sync::atomic::{AtomicI32, AtomicI64, Ordering},
+            time::Duration,
+        };
+
+        let (Ok(offset), Some(memory)) = (
+            u64::try_from(offset),
+            memory_from_handle(&env, memory_handle),
+        ) else {
+            return -1;
+        };
+        let view = memory.view(&env);
+        if offset
+            .checked_add(width as u64)
+            .is_none_or(|end| end > view.data_size())
+        {
+            return -1;
+        }
+        let equal = unsafe {
+            match width {
+                4 if offset % 4 == 0 => {
+                    (&*(view.data_ptr().add(offset as usize) as *const AtomicI32))
+                        .load(Ordering::SeqCst)
+                        == expected as i32
+                }
+                8 if offset % 8 == 0 => {
+                    (&*(view.data_ptr().add(offset as usize) as *const AtomicI64))
+                        .load(Ordering::SeqCst)
+                        == expected
+                }
+                _ => return -1,
+            }
+        };
+        if !equal {
+            return 1;
+        }
+        let timeout =
+            (timeout_nanos != i64::MAX).then(|| Duration::from_nanos(timeout_nanos.max(0) as u64));
+        let Some(shared) = memory.as_shared(&env) else {
+            return -1;
+        };
+        shared
+            .wait(wasmer_api::MemoryLocation::new_32(offset as u32), timeout)
+            .ok()
+            .and_then(|result| i32::try_from(result).ok())
+            .unwrap_or(-1)
+    }
+}
+
+fn wasm_memory_atomic_notify(
+    env: FunctionEnvMut<WasmCapiEnv>,
+    memory_handle: i32,
+    offset: i64,
+    count: i32,
+) -> i32 {
+    #[cfg(target_arch = "wasm32")]
+    {
+        use js_sys::{Atomics, Int32Array};
+
+        let (Ok(offset), Ok(count), Some(memory)) = (
+            u64::try_from(offset),
+            u32::try_from(count),
+            memory_from_handle(&env, memory_handle),
+        ) else {
+            return -1;
+        };
+        if offset % 4 != 0 {
+            return -1;
+        }
+        let Some(buffer) = js_memory_buffer(&memory, &env) else {
+            return -1;
+        };
+        Atomics::notify_with_count(&Int32Array::new(&buffer), (offset / 4) as u32, count)
+            .ok()
+            .and_then(|result| i32::try_from(result).ok())
+            .unwrap_or(-1)
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let (Ok(offset), Ok(count), Some(memory)) = (
+            u32::try_from(offset),
+            u32::try_from(count),
+            memory_from_handle(&env, memory_handle),
+        ) else {
+            return -1;
+        };
+        let Some(shared) = memory.as_shared(&env) else {
+            return -1;
+        };
+        shared
+            .notify(wasmer_api::MemoryLocation::new_32(offset), count)
+            .ok()
+            .and_then(|result| i32::try_from(result).ok())
+            .unwrap_or(-1)
+    }
+}
+
+fn wasm_memory_share(env: FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> i32 {
+    let Some(memory) = memory_from_handle(&env, memory_handle) else {
+        return INVALID_HANDLE;
+    };
+    #[cfg(target_arch = "wasm32")]
+    let transferable = memory.as_jsvalue(&env);
+    #[cfg(target_arch = "wasm32")]
+    let ty = memory.ty(&env);
+    #[cfg(target_arch = "wasm32")]
+    if !ty.shared {
+        return INVALID_HANDLE;
+    }
+    #[cfg(not(target_arch = "wasm32"))]
+    let Some(memory) = memory.as_shared(&env) else {
+        return INVALID_HANDLE;
+    };
+    let registry = &env.data().shared_objects;
+    let handle = registry.insert(SharedWasmObject::Memory {
+        #[cfg(not(target_arch = "wasm32"))]
+        memory,
+        #[cfg(target_arch = "wasm32")]
+        ty,
+    });
+    #[cfg(target_arch = "wasm32")]
+    if handle != INVALID_HANDLE && !registry.publish(handle, &transferable) {
+        registry.discard(handle);
+        return INVALID_HANDLE;
+    }
+    handle
+}
+
+fn wasm_memory_obtain(
+    mut env: FunctionEnvMut<WasmCapiEnv>,
+    _store: i32,
+    shared_handle: i32,
+) -> i32 {
+    #[cfg(target_arch = "wasm32")]
+    let memory = {
+        let ty = match env.data().shared_objects.get(shared_handle) {
+            Some(SharedWasmObject::Memory { ty }) => ty,
+            _ => return INVALID_HANDLE,
+        };
+        match env.data().shared_objects.obtain(shared_handle) {
+            Some(value) => match Memory::from_jsvalue(&mut env, &ty, &value) {
+                Ok(memory) => memory,
+                Err(_) => return INVALID_HANDLE,
+            },
+            None => return INVALID_HANDLE,
+        }
+    };
+    #[cfg(not(target_arch = "wasm32"))]
+    let memory = match env.data().shared_objects.get(shared_handle) {
+        Some(SharedWasmObject::Memory { memory }) => memory.attach(&mut env),
+        _ => return INVALID_HANDLE,
+    };
+    insert(&mut env, WasmObject::Memory(memory))
+}
+
+fn wasm_shared_memory_delete(env: FunctionEnvMut<WasmCapiEnv>, shared_handle: i32) {
+    env.data().shared_objects.release(shared_handle);
+}
+
 fn memory_from_handle(env: &FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> Option<Memory> {
     match env.data().state.get(memory_handle)? {
         WasmObject::Memory(memory) => Some(memory.clone()),
@@ -1317,15 +2024,17 @@ fn memory_from_handle(env: &FunctionEnvMut<WasmCapiEnv>, memory_handle: i32) -> 
 }
 
 fn memory_supports_shadow(env: &FunctionEnvMut<WasmCapiEnv>, memory: &Memory) -> bool {
-    // C-API-created memories are currently non-shared, but instance exports can
-    // still expose shared memories. Guest shadow buffers cannot represent
-    // concurrent writes coherently, so shadow APIs fail closed for those.
+    // Guest shadow buffers cannot represent concurrent writes coherently, so
+    // the standard data-pointer APIs fail closed for shared memories. The
+    // host-backed SharedArrayBuffer bridge uses the explicit read/write and
+    // atomic imports instead.
     !memory.ty(env).shared
 }
 
 fn copy_wasmer_memory_to_guest(
     env: &mut FunctionEnvMut<WasmCapiEnv>,
     memory: &Memory,
+    memory_offset: u64,
     guest_ptr: i32,
     len: usize,
 ) -> bool {
@@ -1337,9 +2046,12 @@ fn copy_wasmer_memory_to_guest(
     };
     let source_view = memory.view(&*env);
     let guest_view = guest_memory.view(&*env);
-    let Some(source_offset) = checked_memory_offset(0, len, source_view.data_size()) else {
+    let Some(source_end) = memory_offset.checked_add(len as u64) else {
         return false;
     };
+    if source_end > source_view.data_size() {
+        return false;
+    }
     let Some(guest_offset) = checked_memory_offset(guest_ptr, len, guest_view.data_size()) else {
         return false;
     };
@@ -1347,12 +2059,7 @@ fn copy_wasmer_memory_to_guest(
         return false;
     }
     source_view
-        .copy_range_to_memory(
-            source_offset as u64,
-            guest_offset as u64,
-            len as u64,
-            &guest_view,
-        )
+        .copy_range_to_memory(memory_offset, guest_offset as u64, len as u64, &guest_view)
         .is_ok()
 }
 
@@ -1360,6 +2067,7 @@ fn copy_guest_memory_to_wasmer(
     env: &mut FunctionEnvMut<WasmCapiEnv>,
     guest_ptr: i32,
     memory: &Memory,
+    memory_offset: u64,
     len: usize,
 ) -> bool {
     if len == 0 {
@@ -1373,19 +2081,17 @@ fn copy_guest_memory_to_wasmer(
     let Some(guest_offset) = checked_memory_offset(guest_ptr, len, guest_view.data_size()) else {
         return false;
     };
-    let Some(target_offset) = checked_memory_offset(0, len, target_view.data_size()) else {
+    let Some(target_end) = memory_offset.checked_add(len as u64) else {
         return false;
     };
+    if target_end > target_view.data_size() {
+        return false;
+    }
     if memory == &guest_memory {
         return false;
     }
     guest_view
-        .copy_range_to_memory(
-            guest_offset as u64,
-            target_offset as u64,
-            len as u64,
-            &target_view,
-        )
+        .copy_range_to_memory(guest_offset as u64, memory_offset, len as u64, &target_view)
         .is_ok()
 }
 
@@ -1470,7 +2176,7 @@ fn sync_memory_shadows_to_wasmer(env: &mut FunctionEnvMut<WasmCapiEnv>) {
         if !memory_supports_shadow(env, &memory) {
             continue;
         };
-        let _ = copy_guest_memory_to_wasmer(env, shadow.guest_ptr, &memory, shadow.len);
+        let _ = copy_guest_memory_to_wasmer(env, shadow.guest_ptr, &memory, 0, shadow.len);
     }
 }
 
@@ -1490,7 +2196,7 @@ fn refresh_memory_shadows_from_wasmer(env: &mut FunctionEnvMut<WasmCapiEnv>) {
         if !memory_supports_shadow(env, &memory) {
             continue;
         }
-        let _ = copy_wasmer_memory_to_guest(env, &memory, shadow.guest_ptr, shadow.len);
+        let _ = copy_wasmer_memory_to_guest(env, &memory, 0, shadow.guest_ptr, shadow.len);
     }
 }
 
@@ -2345,6 +3051,9 @@ fn register_wasm_c_api_imports(
         "wasm_store_delete" => WasmerFunction::new_typed_with_env(store, fe, delete_handle),
         "wasm_module_new" => WasmerFunction::new_typed_with_env(store, fe, wasm_module_new),
         "wasm_module_validate" => WasmerFunction::new_typed_with_env(store, fe, wasm_module_validate),
+        "wasm_module_share" => WasmerFunction::new_typed_with_env(store, fe, wasm_module_share),
+        "wasm_module_obtain" => WasmerFunction::new_typed_with_env(store, fe, wasm_module_obtain),
+        "wasm_shared_module_delete" => WasmerFunction::new_typed_with_env(store, fe, wasm_shared_module_delete),
         "wasm_module_delete" => WasmerFunction::new_typed_with_env(store, fe, delete_handle),
         "wasm_module_imports" => WasmerFunction::new_typed_with_env(store, fe, wasm_module_imports),
         "wasm_module_exports" => WasmerFunction::new_typed_with_env(store, fe, wasm_module_exports),
@@ -2367,8 +3076,19 @@ fn register_wasm_c_api_imports(
         "wasm_val_vec_new_uninitialized" => WasmerFunction::new_typed_with_env(store, fe, wasm_val_vec_new_uninitialized),
         "wasm_val_vec_delete" => WasmerFunction::new_typed_with_env(store, fe, vec_delete),
         "wasm_memorytype_new" => WasmerFunction::new_typed_with_env(store, fe, wasm_memorytype_new),
+        "wasm_shared_memorytype_new" => WasmerFunction::new_typed_with_env(store, fe, wasm_shared_memorytype_new),
+        "wasm_memorytype_is_shared" => WasmerFunction::new_typed_with_env(store, fe, wasm_memorytype_is_shared),
+        "wasm_memory_read" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_read),
+        "wasm_memory_write" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_write),
+        "wasm_memory_atomic" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_atomic),
+        "wasm_memory_atomic_wait" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_atomic_wait),
+        "wasm_memory_atomic_notify" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_atomic_notify),
         "wasm_memorytype_delete" => WasmerFunction::new_typed_with_env(store, fe, delete_handle),
         "wasm_memory_new" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_new),
+        "wasm_memory_type" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_type),
+        "wasm_memory_share" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_share),
+        "wasm_memory_obtain" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_obtain),
+        "wasm_shared_memory_delete" => WasmerFunction::new_typed_with_env(store, fe, wasm_shared_memory_delete),
         "wasm_memory_delete" => WasmerFunction::new_typed_with_env(store, fe, delete_handle),
         "wasm_memory_copy" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_copy),
         "wasm_memory_size" => WasmerFunction::new_typed_with_env(store, fe, wasm_memory_size),
@@ -2439,17 +3159,19 @@ fn register_wasm_c_api_imports(
 #[cfg(test)]
 mod tests {
     use super::{
-        BOOL_FALSE, BOOL_TRUE, INVALID_HANDLE, INVALID_SIZE, MemoryShadow, Type, WASM_EXTERNREF,
-        WASM_F64, WASM_FUNCREF, WASM_I32, WASM_VAL_PAYLOAD_OFFSET, WasmCAPIVersion, WasmCapiEnv,
-        WasmCapiInstantiationState, WasmCapiRuntimeHooks, WasmCapiState, WasmObject,
-        copy_guest_memory_to_wasmer, copy_wasmer_memory_to_guest, guest_byte_ptr,
-        guest_memory_offset, guest_ptr_with_offset, module_wasm_c_api_version_used,
+        BOOL_FALSE, BOOL_TRUE, INVALID_HANDLE, INVALID_SIZE, MemoryShadow, SharedObjectRegistry,
+        Type, WASM_EXTERNREF, WASM_F64, WASM_FUNCREF, WASM_I32, WASM_VAL_PAYLOAD_OFFSET,
+        WasmCAPIVersion, WasmCapiEnv, WasmCapiInstantiationState, WasmCapiRuntimeHooks,
+        WasmCapiState, WasmObject, copy_guest_memory_to_wasmer, copy_wasmer_memory_to_guest,
+        guest_byte_ptr, guest_memory_offset, guest_ptr_with_offset, module_wasm_c_api_version_used,
         non_null_guest_ptr, read_wasm_val, ref_values_same, refresh_memory_shadows_from_wasmer,
         sync_memory_shadows_to_wasmer, type_to_wasm_kind, wasm_foreign_new, wasm_func_as_ref,
-        wasm_kind_to_type, wasm_memory_data, wasm_memory_data_size, wasm_memory_size,
-        wasm_ref_as_func, wasm_ref_copy, wasm_ref_get_host_info, wasm_ref_same,
-        wasm_ref_set_host_info, wasm_table_get, wasm_table_grow, wasm_table_set, wasm_table_size,
-        write_wasm_val,
+        wasm_kind_to_type, wasm_memory_data, wasm_memory_data_size, wasm_memory_obtain,
+        wasm_memory_read, wasm_memory_share, wasm_memory_size, wasm_memory_type, wasm_memory_write,
+        wasm_module_obtain, wasm_module_share, wasm_ref_as_func, wasm_ref_copy,
+        wasm_ref_get_host_info, wasm_ref_same, wasm_ref_set_host_info, wasm_shared_memory_delete,
+        wasm_shared_module_delete, wasm_table_get, wasm_table_grow, wasm_table_set,
+        wasm_table_size, write_wasm_val,
     };
     use wasmer_api::{
         AsStoreMut, Function, FunctionEnv, Instance, Memory, MemoryType, Module, Pages, Store,
@@ -2812,6 +3534,210 @@ mod tests {
     }
 
     #[test]
+    fn shared_memory_obtain_preserves_coherent_storage() {
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(2)), true))
+            .expect("shared memory can be created");
+        let func_env = FunctionEnv::new(&mut store, WasmCapiEnv::default());
+        let memory_handle = func_env
+            .as_mut(&mut store)
+            .state
+            .insert(WasmObject::Memory(memory.clone()));
+
+        let memory_type_handle =
+            wasm_memory_type(func_env.clone().into_mut(&mut store), memory_handle);
+        assert!(matches!(
+            func_env.as_mut(&mut store).state.get(memory_type_handle),
+            Some(WasmObject::MemoryType(memory_type)) if memory_type.shared
+        ));
+
+        let shared_handle = wasm_memory_share(func_env.clone().into_mut(&mut store), memory_handle);
+        assert_ne!(shared_handle, INVALID_HANDLE);
+        let obtained_handle = wasm_memory_obtain(
+            func_env.clone().into_mut(&mut store),
+            INVALID_HANDLE,
+            shared_handle,
+        );
+        assert_ne!(obtained_handle, INVALID_HANDLE);
+
+        let obtained = match func_env.as_mut(&mut store).state.get(obtained_handle) {
+            Some(WasmObject::Memory(memory)) => memory.clone(),
+            _ => panic!("obtained handle should contain a memory"),
+        };
+        memory
+            .view(&store)
+            .write(37, &[1, 2, 3, 4])
+            .expect("source shared-memory write succeeds");
+        let mut bytes = [0; 4];
+        obtained
+            .view(&store)
+            .read(37, &mut bytes)
+            .expect("obtained shared-memory read succeeds");
+        assert_eq!(bytes, [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn shared_memory_crosses_independent_c_api_sessions() {
+        let mut source_store = Store::default();
+        let mut target_store = Store::new(source_store.engine().clone());
+        let registry = SharedObjectRegistry::default();
+        let source_env = FunctionEnv::new(
+            &mut source_store,
+            WasmCapiEnv {
+                shared_objects: registry.clone(),
+                ..WasmCapiEnv::default()
+            },
+        );
+        let target_env = FunctionEnv::new(
+            &mut target_store,
+            WasmCapiEnv {
+                shared_objects: registry,
+                ..WasmCapiEnv::default()
+            },
+        );
+        let memory = Memory::new(
+            &mut source_store,
+            MemoryType::new(Pages(1), Some(Pages(2)), true),
+        )
+        .expect("shared memory can be created");
+        let source_handle = source_env
+            .as_mut(&mut source_store)
+            .state
+            .insert(WasmObject::Memory(memory.clone()));
+
+        let shared_handle = wasm_memory_share(
+            source_env.clone().into_mut(&mut source_store),
+            source_handle,
+        );
+        let target_handle = wasm_memory_obtain(
+            target_env.clone().into_mut(&mut target_store),
+            INVALID_HANDLE,
+            shared_handle,
+        );
+        assert_ne!(target_handle, INVALID_HANDLE);
+        wasm_shared_memory_delete(
+            source_env.clone().into_mut(&mut source_store),
+            shared_handle,
+        );
+        assert_eq!(
+            wasm_memory_obtain(
+                target_env.clone().into_mut(&mut target_store),
+                INVALID_HANDLE,
+                shared_handle,
+            ),
+            INVALID_HANDLE,
+            "deleting the shared handle prevents a later obtain"
+        );
+
+        let obtained = match target_env
+            .as_mut(&mut target_store)
+            .state
+            .get(target_handle)
+        {
+            Some(WasmObject::Memory(memory)) => memory.clone(),
+            _ => panic!("target session should obtain the shared memory"),
+        };
+        memory
+            .view(&source_store)
+            .write(91, &[5, 6, 7, 8])
+            .expect("source write succeeds");
+        let mut bytes = [0; 4];
+        obtained
+            .view(&target_store)
+            .read(91, &mut bytes)
+            .expect("target read succeeds");
+        assert_eq!(bytes, [5, 6, 7, 8]);
+    }
+
+    #[test]
+    fn shared_module_obtain_preserves_compiled_module() {
+        let mut store = Store::default();
+        let module = compile_wat(&store, "(module (func (export \"run\")))");
+        let func_env = FunctionEnv::new(&mut store, WasmCapiEnv::default());
+        let module_handle = func_env
+            .as_mut(&mut store)
+            .state
+            .insert(WasmObject::Module(module));
+
+        let shared_handle = wasm_module_share(func_env.clone().into_mut(&mut store), module_handle);
+        assert_ne!(shared_handle, INVALID_HANDLE);
+        let obtained_handle = wasm_module_obtain(
+            func_env.clone().into_mut(&mut store),
+            INVALID_HANDLE,
+            shared_handle,
+        );
+        assert_ne!(obtained_handle, INVALID_HANDLE);
+
+        let obtained = match func_env.as_mut(&mut store).state.get(obtained_handle) {
+            Some(WasmObject::Module(module)) => module.clone(),
+            _ => panic!("obtained handle should contain a module"),
+        };
+        Instance::new(&mut store, &obtained, &wasmer_api::imports! {})
+            .expect("obtained module instantiates");
+    }
+
+    #[test]
+    fn shared_module_crosses_independent_c_api_sessions() {
+        let mut source_store = Store::default();
+        let mut target_store = Store::new(source_store.engine().clone());
+        let registry = SharedObjectRegistry::default();
+        let source_env = FunctionEnv::new(
+            &mut source_store,
+            WasmCapiEnv {
+                shared_objects: registry.clone(),
+                ..WasmCapiEnv::default()
+            },
+        );
+        let target_env = FunctionEnv::new(
+            &mut target_store,
+            WasmCapiEnv {
+                shared_objects: registry,
+                ..WasmCapiEnv::default()
+            },
+        );
+        let module = compile_wat(&source_store, "(module (func (export \"run\")))");
+        let source_handle = source_env
+            .as_mut(&mut source_store)
+            .state
+            .insert(WasmObject::Module(module));
+
+        let shared_handle = wasm_module_share(
+            source_env.clone().into_mut(&mut source_store),
+            source_handle,
+        );
+        let target_handle = wasm_module_obtain(
+            target_env.clone().into_mut(&mut target_store),
+            INVALID_HANDLE,
+            shared_handle,
+        );
+        assert_ne!(target_handle, INVALID_HANDLE);
+        wasm_shared_module_delete(
+            source_env.clone().into_mut(&mut source_store),
+            shared_handle,
+        );
+        assert_eq!(
+            wasm_module_obtain(
+                target_env.clone().into_mut(&mut target_store),
+                INVALID_HANDLE,
+                shared_handle,
+            ),
+            INVALID_HANDLE,
+            "deleting the shared handle prevents a later obtain"
+        );
+
+        let obtained = match target_env
+            .as_mut(&mut target_store)
+            .state
+            .get(target_handle)
+        {
+            Some(WasmObject::Module(module)) => module.clone(),
+            _ => panic!("target session should obtain the shared module"),
+        };
+        Instance::new(&mut target_store, &obtained, &wasmer_api::imports! {})
+            .expect("target session's module instantiates in its store");
+    }
+
+    #[test]
     fn memory_shadow_copy_rejects_same_memory() {
         let mut store = Store::default();
         let memory = Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(1)), false))
@@ -2825,8 +3751,63 @@ mod tests {
         );
         let mut env = func_env.into_mut(&mut store);
 
-        assert!(!copy_wasmer_memory_to_guest(&mut env, &memory, 16, 4));
-        assert!(!copy_guest_memory_to_wasmer(&mut env, 16, &memory, 4));
+        assert!(!copy_wasmer_memory_to_guest(&mut env, &memory, 0, 16, 4));
+        assert!(!copy_guest_memory_to_wasmer(&mut env, 16, &memory, 0, 4));
+    }
+
+    #[test]
+    fn memory_read_write_copy_ranges_without_shadow_allocations() {
+        let mut store = Store::default();
+        let guest_memory =
+            Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(1)), false))
+                .expect("guest memory can be created");
+        let nested_memory =
+            Memory::new(&mut store, MemoryType::new(Pages(1), Some(Pages(1)), false))
+                .expect("nested memory can be created");
+        nested_memory
+            .view(&store)
+            .write(8, &[1, 2, 3, 4])
+            .expect("nested bytes can be initialized");
+
+        let mut capi_env = WasmCapiEnv {
+            memory: Some(guest_memory.clone()),
+            ..WasmCapiEnv::default()
+        };
+        let nested_handle = capi_env
+            .state
+            .insert(WasmObject::Memory(nested_memory.clone()));
+        let func_env = FunctionEnv::new(&mut store, capi_env);
+
+        assert_eq!(
+            wasm_memory_read(
+                func_env.clone().into_mut(&mut store),
+                nested_handle,
+                8,
+                16,
+                4,
+            ),
+            BOOL_TRUE
+        );
+        let mut bytes = [0; 4];
+        guest_memory
+            .view(&store)
+            .read(16, &mut bytes)
+            .expect("guest bytes can be read");
+        assert_eq!(bytes, [1, 2, 3, 4]);
+
+        guest_memory
+            .view(&store)
+            .write(24, &[5, 6, 7, 8])
+            .expect("guest bytes can be initialized");
+        assert_eq!(
+            wasm_memory_write(func_env.into_mut(&mut store), nested_handle, 32, 24, 4,),
+            BOOL_TRUE
+        );
+        nested_memory
+            .view(&store)
+            .read(32, &mut bytes)
+            .expect("nested bytes can be read");
+        assert_eq!(bytes, [5, 6, 7, 8]);
     }
 
     #[test]

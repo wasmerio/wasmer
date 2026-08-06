@@ -2,13 +2,19 @@ use crate::error::update_last_error;
 
 use super::super::types::wasm_memorytype_t;
 use super::{super::store::wasm_store_t, wasm_extern_t};
-use wasmer_api::{Extern, Memory, Pages};
+use wasmer_api::{Extern, Memory, Pages, SharedMemory};
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
 #[derive(Clone)]
 pub struct wasm_memory_t {
     pub(crate) extern_: wasm_extern_t,
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Clone)]
+pub struct wasm_shared_memory_t {
+    memory: SharedMemory,
 }
 
 impl wasm_memory_t {
@@ -43,6 +49,36 @@ pub unsafe extern "C" fn wasm_memory_copy(memory: &wasm_memory_t) -> Box<wasm_me
     // do shallow copy
     Box::new(memory.clone())
 }
+
+/// Detaches a shared memory from its store so it can be obtained in another
+/// store or thread.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wasm_memory_share(
+    memory: Option<&wasm_memory_t>,
+) -> Option<Box<wasm_shared_memory_t>> {
+    let memory = memory?;
+    let store_ref = unsafe { memory.extern_.store.store() };
+    let shared = memory.extern_.memory().as_shared(&store_ref)?;
+    Some(Box::new(wasm_shared_memory_t { memory: shared }))
+}
+
+/// Attaches a detached shared memory to a store.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wasm_memory_obtain(
+    store: Option<&mut wasm_store_t>,
+    shared: Option<&wasm_shared_memory_t>,
+) -> Option<Box<wasm_memory_t>> {
+    let store = store?;
+    let shared = shared?;
+    let mut store_mut = unsafe { store.inner.store_mut() };
+    let memory = shared.memory.clone().attach(&mut store_mut);
+    Some(Box::new(wasm_memory_t {
+        extern_: wasm_extern_t::new(store.inner.clone(), memory.into()),
+    }))
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn wasm_shared_memory_delete(_memory: Option<Box<wasm_shared_memory_t>>) {}
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_memory_same(

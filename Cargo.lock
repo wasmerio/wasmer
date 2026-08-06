@@ -7416,7 +7416,10 @@ name = "wasmer-c-api-imports"
 version = "7.4.0"
 dependencies = [
  "anyhow",
+ "bytes",
+ "js-sys",
  "tokio",
+ "wasm-bindgen",
  "wasmer",
  "wasmer-types",
  "wasmer-wasix",

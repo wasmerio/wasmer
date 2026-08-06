@@ -248,6 +248,11 @@ WASM_DECLARE_TYPE(memorytype)
 
 WASM_API_EXTERN own wasm_memorytype_t* wasm_memorytype_new(const wasm_limits_t*);
 
+// Wasmer extensions for the WebAssembly threads proposal. The current C API
+// limits structure does not otherwise carry the shared-memory attribute.
+WASM_API_EXTERN own wasm_memorytype_t* wasm_shared_memorytype_new(const wasm_limits_t*);
+WASM_API_EXTERN bool wasm_memorytype_is_shared(const wasm_memorytype_t*);
+
 WASM_API_EXTERN const wasm_limits_t* wasm_memorytype_limits(const wasm_memorytype_t*);
 
 
@@ -470,6 +475,7 @@ WASM_API_EXTERN bool wasm_table_grow(wasm_table_t*, wasm_table_size_t delta, was
 // Memory Instances
 
 WASM_DECLARE_REF(memory)
+WASM_DECLARE_OWN(shared_memory)
 
 typedef uint32_t wasm_memory_pages_t;
 
@@ -484,6 +490,11 @@ WASM_API_EXTERN size_t wasm_memory_data_size(const wasm_memory_t*);
 
 WASM_API_EXTERN wasm_memory_pages_t wasm_memory_size(const wasm_memory_t*);
 WASM_API_EXTERN bool wasm_memory_grow(wasm_memory_t*, wasm_memory_pages_t delta);
+
+// Wasmer extensions for transferring shared memories between stores/threads.
+WASM_API_EXTERN own wasm_shared_memory_t* wasm_memory_share(const wasm_memory_t*);
+WASM_API_EXTERN own wasm_memory_t* wasm_memory_obtain(
+  wasm_store_t*, const wasm_shared_memory_t*);
 
 
 // Externals
