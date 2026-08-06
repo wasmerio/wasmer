@@ -37,8 +37,8 @@ use wasmer_compiler::{
         section::SectionIndex,
     },
     wasmparser::{
-        BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
-        ValType as WpType,
+        BlockType as WpTypeOrFuncType, HeapType as WpHeapType, MemArg, Operator,
+        RefType as WpRefType, ValType as WpType,
     },
 };
 
@@ -660,6 +660,30 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         })?;
         self.get_location_released(loc)?;
         Ok(loc)
+    }
+
+    fn apply_memarg_offset_to_i32_addr(
+        &mut self,
+        addr: LocationWithCanonicalization<M>,
+        memarg: &MemArg,
+    ) -> Result<LocationWithCanonicalization<M>, CompileError> {
+        if memarg.offset == 0 {
+            return Ok(addr);
+        }
+
+        let offset = memarg.offset as u32;
+        match addr.0 {
+            Location::Imm32(value) => Ok((
+                Location::Imm32(value.wrapping_add(offset)),
+                CanonicalizeType::None,
+            )),
+            Location::Imm64(_) => codegen_error!("memory.atomic address must be i32"),
+            _ => {
+                self.machine
+                    .location_add(Size::S32, Location::Imm32(offset), addr.0, false)?;
+                Ok(addr)
+            }
+        }
     }
 
     /// Prepare data for binary operator with 2 inputs and 1 output.
@@ -5800,6 +5824,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
+                let dst = self.apply_memarg_offset_to_i32_addr(dst, memarg)?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait32, index_arg) =
@@ -5849,6 +5874,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
+                let dst = self.apply_memarg_offset_to_i32_addr(dst, memarg)?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait64, index_arg) =
@@ -5897,6 +5923,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::MemoryAtomicNotify { ref memarg } => {
                 let cnt = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
+                let dst = self.apply_memarg_offset_to_i32_addr(dst, memarg)?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_notify, index_arg) =

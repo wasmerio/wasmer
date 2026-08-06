@@ -1715,6 +1715,19 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         Ok(())
     }
 
+    fn apply_memarg_offset_to_i32_addr(
+        &self,
+        addr: BasicValueEnum<'ctx>,
+        memarg: &MemArg,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let offset = self.intrinsics.i32_ty.const_int(memarg.offset, false);
+        Ok(err!(
+            self.builder
+                .build_int_add(addr.into_int_value(), offset, "atomic_memarg_offset")
+        )
+        .as_basic_value_enum())
+    }
+
     fn resolve_memory_ptr(
         &mut self,
         memory_index: MemoryIndex,
@@ -11240,6 +11253,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .local_memory_index(memory_index)
                     .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
+                let dst = self.apply_memarg_offset_to_i32_addr(dst, &memarg)?;
                 let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics)?;
                 let ret = err!(
                     self.builder.build_indirect_call(
@@ -11267,6 +11281,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .local_memory_index(memory_index)
                     .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
+                let dst = self.apply_memarg_offset_to_i32_addr(dst, &memarg)?;
                 let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics)?;
                 let ret = err!(
                     self.builder.build_indirect_call(
@@ -11294,6 +11309,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .local_memory_index(memory_index)
                     .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, count) = self.state.pop2()?;
+                let dst = self.apply_memarg_offset_to_i32_addr(dst, &memarg)?;
                 let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics)?;
                 let cnt = err!(
                     self.builder.build_indirect_call(
