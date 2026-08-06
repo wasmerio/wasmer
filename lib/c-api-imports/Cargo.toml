@@ -23,6 +23,9 @@ wasmer-wasix = { version = "=0.702.1", path = "../wasix", optional = true, featu
 ], default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+bytes.workspace = true
+js-sys.workspace = true
+wasm-bindgen.workspace = true
 wasmer-wasix = { version = "=0.702.1", path = "../wasix", optional = true, features = [
   "js",
 ], default-features = false }
