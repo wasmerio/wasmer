@@ -813,6 +813,7 @@ pub struct UnsupportedVirtualNetworking {}
 #[async_trait::async_trait]
 impl VirtualNetworking for UnsupportedVirtualNetworking {}
 
+#[non_exhaustive]
 #[derive(Error, Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NetworkError {
     /// The handle given was not usable

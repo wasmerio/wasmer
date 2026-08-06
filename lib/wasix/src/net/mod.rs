@@ -403,5 +403,6 @@ pub fn net_error_into_wasi_err(net_error: NetworkError) -> Errno {
         NetworkError::InsufficientMemory => Errno::Nomem,
         NetworkError::Unsupported => Errno::Notsup,
         NetworkError::UnknownError => Errno::Io,
+        _ => Errno::Io,
     }
 }
