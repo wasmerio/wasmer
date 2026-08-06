@@ -2933,9 +2933,9 @@ dependencies = [
 
 [[package]]
 name = "inkwell"
-version = "0.9.0"
+version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7decbc9dfa45a4a827a6ff7b822c113b1285678a937e84213417d4ca8a095782"
+checksum = "30932a1258d02e3c7344618abcdbb5dca03e0f8d2ad34496067d1f371cfceda6"
 dependencies = [
  "bitflags 2.13.1",
  "inkwell_internals",
@@ -2946,13 +2946,13 @@ dependencies = [
 
 [[package]]
 name = "inkwell_internals"
-version = "0.14.0"
+version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6cfe97ee860815a90ed17e09639513269e39420a7440f3f4c996f238c514cf8d"
+checksum = "04a85f1cf8de4f1df2ebd93b6afe957fa2acd0081c97dabfa41651eeeb44756e"
 dependencies = [
  "proc-macro2",
  "quote",
- "syn 2.0.119",
+ "syn 3.0.3",
 ]
 
 [[package]]
