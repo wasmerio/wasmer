@@ -153,7 +153,7 @@
 <a href=#153 id=153 data-nosnippet>153</a>            .get(MemoryIndex::from_u32(<span class="number">0</span>))
 <a href=#154 id=154 data-nosnippet>154</a>            .is_some_and(|memory| <span class="macro">matches!</span>(memory, MemoryStyle::Static { .. }));
 <a href=#155 id=155 data-nosnippet>155</a>
-<a href=#156 id=156 data-nosnippet>156</a>        <span class="kw">let </span>(function_name, module_name) = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#156 id=156 data-nosnippet>156</a>        <span class="kw">let </span>(function_name, module_name) = <span class="kw">if </span>config.experimental_artifact {
 <a href=#157 id=157 data-nosnippet>157</a>            (function.linkage_name(), String::new())
 <a href=#158 id=158 data-nosnippet>158</a>        } <span class="kw">else </span>{
 <a href=#159 id=159 data-nosnippet>159</a>            <span class="kw">let </span>function_name =
@@ -194,7 +194,7 @@
 <a href=#194 id=194 data-nosnippet>194</a>        )<span class="question-mark">?</span>;
 <a href=#195 id=195 data-nosnippet>195</a>
 <a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">let </span>func = module.add_function(<span class="kw-2">&amp;</span>function_name, func_type, <span class="prelude-val">Some</span>(Linkage::External));
-<a href=#197 id=197 data-nosnippet>197</a>        <span class="kw">let </span>debug_info = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#197 id=197 data-nosnippet>197</a>        <span class="kw">let </span>debug_info = <span class="kw">if </span>config.experimental_artifact {
 <a href=#198 id=198 data-nosnippet>198</a>            <span class="kw">let </span>source_location = <span class="self">self</span>.source_map.first_in_function(function_body);
 <a href=#199 id=199 data-nosnippet>199</a>            <span class="kw">let </span>debug_metadata_version = <span class="self">self
 <a href=#200 id=200 data-nosnippet>200</a>                </span>.ctx
@@ -285,7 +285,7 @@
 <a href=#285 id=285 data-nosnippet>285</a>        };
 <a href=#286 id=286 data-nosnippet>286</a>
 <a href=#287 id=287 data-nosnippet>287</a>        func.set_personality_function(intrinsics.personality);
-<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">if </span>!<span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">if </span>!config.experimental_artifact {
 <a href=#289 id=289 data-nosnippet>289</a>            func.as_global_value().set_section(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>section));
 <a href=#290 id=290 data-nosnippet>290</a>        }
 <a href=#291 id=291 data-nosnippet>291</a>
@@ -592,7 +592,7 @@
 <a href=#592 id=592 data-nosnippet>592</a>            callbacks.asm_memory_buffer(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>module_hash, <span class="kw-2">&amp;</span>asm_buffer)
 <a href=#593 id=593 data-nosnippet>593</a>        }
 <a href=#594 id=594 data-nosnippet>594</a>
-<a href=#595 id=595 data-nosnippet>595</a>        <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#595 id=595 data-nosnippet>595</a>        <span class="kw">if </span>config.experimental_artifact {
 <a href=#596 id=596 data-nosnippet>596</a>            <span class="prelude-val">Ok</span>(CompiledFunction::Elf(memory_buffer.as_slice().to_vec()))
 <a href=#597 id=597 data-nosnippet>597</a>        } <span class="kw">else </span>{
 <a href=#598 id=598 data-nosnippet>598</a>            <span class="prelude-val">Ok</span>(CompiledFunction::Rkyv(Box::new(load_object_file(

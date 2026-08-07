@@ -119,7 +119,7 @@
 <a href=#119 id=119 data-nosnippet>119</a>            trampoline_ty,
 <a href=#120 id=120 data-nosnippet>120</a>            <span class="prelude-val">Some</span>(Linkage::External),
 <a href=#121 id=121 data-nosnippet>121</a>        );
-<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">if </span>!<span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">if </span>!config.experimental_artifact {
 <a href=#123 id=123 data-nosnippet>123</a>            trampoline_func
 <a href=#124 id=124 data-nosnippet>124</a>                .as_global_value()
 <a href=#125 id=125 data-nosnippet>125</a>                .set_section(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.func_section));
@@ -193,7 +193,7 @@
 <a href=#193 id=193 data-nosnippet>193</a>            callbacks.asm_memory_buffer(function, <span class="kw-2">&amp;</span>module_hash, <span class="kw-2">&amp;</span>asm_buffer);
 <a href=#194 id=194 data-nosnippet>194</a>        }
 <a href=#195 id=195 data-nosnippet>195</a>
-<a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">if </span>config.experimental_artifact {
 <a href=#197 id=197 data-nosnippet>197</a>            <span class="prelude-val">Ok</span>(CompiledFunctionBody::Elf(memory_buffer.as_slice().to_vec()))
 <a href=#198 id=198 data-nosnippet>198</a>        } <span class="kw">else </span>{
 <a href=#199 id=199 data-nosnippet>199</a>            <span class="comment">// Use a dummy function index to detect relocations against the trampoline
@@ -294,7 +294,7 @@
 <a href=#294 id=294 data-nosnippet>294</a>        <span class="kw">for </span>(attr, attr_loc) <span class="kw">in </span>trampoline_attrs {
 <a href=#295 id=295 data-nosnippet>295</a>            trampoline_func.add_attribute(attr_loc, attr);
 <a href=#296 id=296 data-nosnippet>296</a>        }
-<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">if </span>!<span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">if </span>!config.experimental_artifact {
 <a href=#298 id=298 data-nosnippet>298</a>            trampoline_func
 <a href=#299 id=299 data-nosnippet>299</a>                .as_global_value()
 <a href=#300 id=300 data-nosnippet>300</a>                .set_section(<span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.func_section));
@@ -363,7 +363,7 @@
 <a href=#363 id=363 data-nosnippet>363</a>            callbacks.asm_memory_buffer(function, module_hash, <span class="kw-2">&amp;</span>asm_buffer)
 <a href=#364 id=364 data-nosnippet>364</a>        }
 <a href=#365 id=365 data-nosnippet>365</a>
-<a href=#366 id=366 data-nosnippet>366</a>        <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#366 id=366 data-nosnippet>366</a>        <span class="kw">if </span>config.experimental_artifact {
 <a href=#367 id=367 data-nosnippet>367</a>            <span class="prelude-val">Ok</span>(CompiledFunctionBody::Elf(memory_buffer.as_slice().to_vec()))
 <a href=#368 id=368 data-nosnippet>368</a>        } <span class="kw">else </span>{
 <a href=#369 id=369 data-nosnippet>369</a>            <span class="kw">let </span>RkyvCompiledFunction {

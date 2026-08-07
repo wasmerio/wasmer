@@ -134,7 +134,7 @@
 <a href=#134 id=134 data-nosnippet>134</a>        <span class="kw">let </span>memory_styles = <span class="kw-2">&amp;</span>compile_info.memory_styles;
 <a href=#135 id=135 data-nosnippet>135</a>        <span class="kw">let </span>table_styles = <span class="kw-2">&amp;</span>compile_info.table_styles;
 <a href=#136 id=136 data-nosnippet>136</a>        <span class="kw">let </span>module = <span class="kw-2">&amp;</span>compile_info.module;
-<a href=#137 id=137 data-nosnippet>137</a>        <span class="kw">let </span>source_map = Arc::new(<span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#137 id=137 data-nosnippet>137</a>        <span class="kw">let </span>source_map = Arc::new(<span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
 <a href=#138 id=138 data-nosnippet>138</a>            WasmSourceMap::new(module, module_translation_state, <span class="kw-2">&amp;</span>function_body_inputs)
 <a href=#139 id=139 data-nosnippet>139</a>                .map_err(CompileError::Codegen)<span class="question-mark">?
 <a href=#140 id=140 data-nosnippet>140</a>        </span>} <span class="kw">else </span>{
@@ -316,7 +316,7 @@
 <a href=#316 id=316 data-nosnippet>316</a>                    result.buffer.call_sites(),
 <a href=#317 id=317 data-nosnippet>317</a>                    result.buffer.data().len(),
 <a href=#318 id=318 data-nosnippet>318</a>                    pointer_bytes,
-<a href=#319 id=319 data-nosnippet>319</a>                    <span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>),
+<a href=#319 id=319 data-nosnippet>319</a>                    <span class="self">self</span>.config.experimental_artifact,
 <a href=#320 id=320 data-nosnippet>320</a>                )
 <a href=#321 id=321 data-nosnippet>321</a>            } <span class="kw">else </span>{
 <a href=#322 id=322 data-nosnippet>322</a>                <span class="prelude-val">None
@@ -330,7 +330,7 @@
 <a href=#330 id=330 data-nosnippet>330</a>                        <span class="comment">// For the ELF artifact format each function's
 <a href=#331 id=331 data-nosnippet>331</a>                        // `.eh_frame` relocates against its own text symbol,
 <a href=#332 id=332 data-nosnippet>332</a>                        // so the FDE's initial location must not be shifted.
-<a href=#333 id=333 data-nosnippet>333</a>                        </span><span class="kw">let </span>addend = <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#333 id=333 data-nosnippet>333</a>                        </span><span class="kw">let </span>addend = <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
 <a href=#334 id=334 data-nosnippet>334</a>                            <span class="number">0
 <a href=#335 id=335 data-nosnippet>335</a>                        </span>} <span class="kw">else </span>{
 <a href=#336 id=336 data-nosnippet>336</a>                            <span class="comment">// We use the addend as a way to specify the
@@ -379,7 +379,7 @@
 <a href=#379 id=379 data-nosnippet>379</a>                </span>compact_unwind_encoding,
 <a href=#380 id=380 data-nosnippet>380</a>            };
 <a href=#381 id=381 data-nosnippet>381</a>
-<a href=#382 id=382 data-nosnippet>382</a>            <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#382 id=382 data-nosnippet>382</a>            <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
 <a href=#383 id=383 data-nosnippet>383</a>                <span class="kw">let </span>object = <span class="kw">crate</span>::elf::emit_local_function(
 <a href=#384 id=384 data-nosnippet>384</a>                    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 <a href=#385 id=385 data-nosnippet>385</a>                    </span><span class="kw-2">&amp;*</span>isa,
@@ -450,7 +450,7 @@
 <a href=#450 id=450 data-nosnippet>450</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(progress) = progress.as_ref() {
 <a href=#451 id=451 data-nosnippet>451</a>                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)<span class="question-mark">?</span>;
 <a href=#452 id=452 data-nosnippet>452</a>                }
-<a href=#453 id=453 data-nosnippet>453</a>                <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#453 id=453 data-nosnippet>453</a>                <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
 <a href=#454 id=454 data-nosnippet>454</a>                    <span class="prelude-val">Ok</span>(CompileOutput::Object(
 <a href=#455 id=455 data-nosnippet>455</a>                        wasmer_compiler::elf::emit_function_body(target, <span class="kw-2">&amp;</span>kind, <span class="kw-2">&amp;</span>trampoline)<span class="question-mark">?</span>,
 <a href=#456 id=456 data-nosnippet>456</a>                        <span class="prelude-val">None</span>,
@@ -487,7 +487,7 @@
 <a href=#487 id=487 data-nosnippet>487</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(progress) = progress.as_ref() {
 <a href=#488 id=488 data-nosnippet>488</a>                    progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)<span class="question-mark">?</span>;
 <a href=#489 id=489 data-nosnippet>489</a>                }
-<a href=#490 id=490 data-nosnippet>490</a>                <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#490 id=490 data-nosnippet>490</a>                <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
 <a href=#491 id=491 data-nosnippet>491</a>                    <span class="prelude-val">Ok</span>(CompileOutput::Object(
 <a href=#492 id=492 data-nosnippet>492</a>                        wasmer_compiler::elf::emit_function_body(target, <span class="kw-2">&amp;</span>kind, <span class="kw-2">&amp;</span>trampoline)<span class="question-mark">?</span>,
 <a href=#493 id=493 data-nosnippet>493</a>                        <span class="prelude-val">None</span>,
@@ -498,7 +498,7 @@
 <a href=#498 id=498 data-nosnippet>498</a>            })
 <a href=#499 id=499 data-nosnippet>499</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
 <a href=#500 id=500 data-nosnippet>500</a>
-<a href=#501 id=501 data-nosnippet>501</a>        <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#501 id=501 data-nosnippet>501</a>        <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
 <a href=#502 id=502 data-nosnippet>502</a>            <span class="kw">let </span>object_files = compile_output_objects(results);
 <a href=#503 id=503 data-nosnippet>503</a>            <span class="kw">let </span>trampoline_objects = compile_output_objects(function_call_trampoline_outputs);
 <a href=#504 id=504 data-nosnippet>504</a>            <span class="kw">let </span>dynamic_trampoline_objects =
@@ -726,110 +726,114 @@
 <a href=#726 id=726 data-nosnippet>726</a>    }
 <a href=#727 id=727 data-nosnippet>727</a>
 <a href=#728 id=728 data-nosnippet>728</a>    <span class="kw">fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-<a href=#729 id=729 data-nosnippet>729</a>        String::from(<span class="string">"cranelift"</span>)
-<a href=#730 id=730 data-nosnippet>730</a>    }
-<a href=#731 id=731 data-nosnippet>731</a>
-<a href=#732 id=732 data-nosnippet>732</a>    <span class="doccomment">/// Get the middlewares for this compiler
-<a href=#733 id=733 data-nosnippet>733</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
-<a href=#734 id=734 data-nosnippet>734</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
-<a href=#735 id=735 data-nosnippet>735</a>    }
-<a href=#736 id=736 data-nosnippet>736</a>
-<a href=#737 id=737 data-nosnippet>737</a>    <span class="doccomment">/// Compile the module using Cranelift, producing a compilation result with
-<a href=#738 id=738 data-nosnippet>738</a>    /// associated relocations.
-<a href=#739 id=739 data-nosnippet>739</a>    </span><span class="kw">fn </span>compile_module(
-<a href=#740 id=740 data-nosnippet>740</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#741 id=741 data-nosnippet>741</a>        target: <span class="kw-2">&amp;</span>Target,
-<a href=#742 id=742 data-nosnippet>742</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
-<a href=#743 id=743 data-nosnippet>743</a>        compile_info_blob: <span class="kw-2">&amp;</span>[u8],
-<a href=#744 id=744 data-nosnippet>744</a>        module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
-<a href=#745 id=745 data-nosnippet>745</a>        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
-<a href=#746 id=746 data-nosnippet>746</a>        progress_callback: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CompilationProgressCallback&gt;,
-<a href=#747 id=747 data-nosnippet>747</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
-<a href=#748 id=748 data-nosnippet>748</a>        <span class="self">self</span>.compile_module_internal(
-<a href=#749 id=749 data-nosnippet>749</a>            target,
-<a href=#750 id=750 data-nosnippet>750</a>            compile_info,
-<a href=#751 id=751 data-nosnippet>751</a>            compile_info_blob,
-<a href=#752 id=752 data-nosnippet>752</a>            module_translation_state,
-<a href=#753 id=753 data-nosnippet>753</a>            function_body_inputs,
-<a href=#754 id=754 data-nosnippet>754</a>            progress_callback,
-<a href=#755 id=755 data-nosnippet>755</a>        )
-<a href=#756 id=756 data-nosnippet>756</a>    }
-<a href=#757 id=757 data-nosnippet>757</a>}
-<a href=#758 id=758 data-nosnippet>758</a>
-<a href=#759 id=759 data-nosnippet>759</a><span class="kw">fn </span>mach_reloc_to_reloc(
-<a href=#760 id=760 data-nosnippet>760</a>    module: <span class="kw-2">&amp;</span>ModuleInfo,
-<a href=#761 id=761 data-nosnippet>761</a>    func_index_map: <span class="kw-2">&amp;</span>cranelift_entity::PrimaryMap&lt;ir::UserExternalNameRef, ir::UserExternalName&gt;,
-<a href=#762 id=762 data-nosnippet>762</a>    reloc: <span class="kw-2">&amp;</span>FinalizedMachReloc,
-<a href=#763 id=763 data-nosnippet>763</a>) -&gt; Relocation {
-<a href=#764 id=764 data-nosnippet>764</a>    <span class="kw">let </span>FinalizedMachReloc {
-<a href=#765 id=765 data-nosnippet>765</a>        offset,
-<a href=#766 id=766 data-nosnippet>766</a>        kind,
-<a href=#767 id=767 data-nosnippet>767</a>        addend,
-<a href=#768 id=768 data-nosnippet>768</a>        target,
-<a href=#769 id=769 data-nosnippet>769</a>    } = <span class="kw-2">&amp;</span>reloc;
-<a href=#770 id=770 data-nosnippet>770</a>    <span class="kw">let </span>name = <span class="kw">match </span>target {
-<a href=#771 id=771 data-nosnippet>771</a>        FinalizedRelocTarget::ExternalName(external_name) =&gt; external_name,
-<a href=#772 id=772 data-nosnippet>772</a>        FinalizedRelocTarget::Func(<span class="kw">_</span>) =&gt; {
-<a href=#773 id=773 data-nosnippet>773</a>            <span class="macro">unimplemented!</span>(<span class="string">"relocations to offset in the same function are not yet supported"</span>)
-<a href=#774 id=774 data-nosnippet>774</a>        }
-<a href=#775 id=775 data-nosnippet>775</a>    };
-<a href=#776 id=776 data-nosnippet>776</a>    <span class="kw">let </span>reloc_target: RelocationTarget = <span class="kw">if let </span>ExternalName::User(extname_ref) = name {
-<a href=#777 id=777 data-nosnippet>777</a>        <span class="kw">let </span>func_index = func_index_map[<span class="kw-2">*</span>extname_ref].index;
-<a href=#778 id=778 data-nosnippet>778</a>        <span class="comment">//debug_assert_eq!(namespace, 0);
-<a href=#779 id=779 data-nosnippet>779</a>        </span>RelocationTarget::LocalFunc(
-<a href=#780 id=780 data-nosnippet>780</a>            module
-<a href=#781 id=781 data-nosnippet>781</a>                .local_func_index(FunctionIndex::from_u32(func_index))
-<a href=#782 id=782 data-nosnippet>782</a>                .expect(<span class="string">"The provided function should be local"</span>),
-<a href=#783 id=783 data-nosnippet>783</a>        )
-<a href=#784 id=784 data-nosnippet>784</a>    } <span class="kw">else if let </span>ExternalName::LibCall(libcall) = name {
-<a href=#785 id=785 data-nosnippet>785</a>        RelocationTarget::LibCall(irlibcall_to_libcall(<span class="kw-2">*</span>libcall))
-<a href=#786 id=786 data-nosnippet>786</a>    } <span class="kw">else </span>{
-<a href=#787 id=787 data-nosnippet>787</a>        <span class="macro">panic!</span>(<span class="string">"unrecognized external target"</span>)
-<a href=#788 id=788 data-nosnippet>788</a>    };
-<a href=#789 id=789 data-nosnippet>789</a>    Relocation {
-<a href=#790 id=790 data-nosnippet>790</a>        kind: irreloc_to_relocationkind(<span class="kw-2">*</span>kind),
-<a href=#791 id=791 data-nosnippet>791</a>        reloc_target,
-<a href=#792 id=792 data-nosnippet>792</a>        offset: <span class="kw-2">*</span>offset,
-<a href=#793 id=793 data-nosnippet>793</a>        addend: <span class="kw-2">*</span>addend,
-<a href=#794 id=794 data-nosnippet>794</a>    }
-<a href=#795 id=795 data-nosnippet>795</a>}
-<a href=#796 id=796 data-nosnippet>796</a>
-<a href=#797 id=797 data-nosnippet>797</a><span class="kw">fn </span>mach_trap_to_trap(trap: <span class="kw-2">&amp;</span>MachTrap) -&gt; TrapInformation {
-<a href=#798 id=798 data-nosnippet>798</a>    <span class="kw">let </span><span class="kw-2">&amp;</span>MachTrap { offset, code } = trap;
-<a href=#799 id=799 data-nosnippet>799</a>    TrapInformation {
-<a href=#800 id=800 data-nosnippet>800</a>        code_offset: offset,
-<a href=#801 id=801 data-nosnippet>801</a>        trap_code: translate_ir_trapcode(code),
-<a href=#802 id=802 data-nosnippet>802</a>    }
-<a href=#803 id=803 data-nosnippet>803</a>}
-<a href=#804 id=804 data-nosnippet>804</a>
-<a href=#805 id=805 data-nosnippet>805</a><span class="doccomment">/// Translates the Cranelift IR TrapCode into generic Trap Code
-<a href=#806 id=806 data-nosnippet>806</a></span><span class="kw">fn </span>translate_ir_trapcode(trap: ir::TrapCode) -&gt; TrapCode {
-<a href=#807 id=807 data-nosnippet>807</a>    <span class="kw">if </span>trap == ir::TrapCode::STACK_OVERFLOW {
-<a href=#808 id=808 data-nosnippet>808</a>        TrapCode::StackOverflow
-<a href=#809 id=809 data-nosnippet>809</a>    } <span class="kw">else if </span>trap == ir::TrapCode::HEAP_OUT_OF_BOUNDS {
-<a href=#810 id=810 data-nosnippet>810</a>        TrapCode::HeapAccessOutOfBounds
-<a href=#811 id=811 data-nosnippet>811</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_HEAP_MISALIGNED {
-<a href=#812 id=812 data-nosnippet>812</a>        TrapCode::UnalignedAtomic
-<a href=#813 id=813 data-nosnippet>813</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_TABLE_OUT_OF_BOUNDS {
-<a href=#814 id=814 data-nosnippet>814</a>        TrapCode::TableAccessOutOfBounds
-<a href=#815 id=815 data-nosnippet>815</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_INDIRECT_CALL_TO_NULL {
-<a href=#816 id=816 data-nosnippet>816</a>        TrapCode::IndirectCallToNull
-<a href=#817 id=817 data-nosnippet>817</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_BAD_SIGNATURE {
-<a href=#818 id=818 data-nosnippet>818</a>        TrapCode::BadSignature
-<a href=#819 id=819 data-nosnippet>819</a>    } <span class="kw">else if </span>trap == ir::TrapCode::INTEGER_OVERFLOW {
-<a href=#820 id=820 data-nosnippet>820</a>        TrapCode::IntegerOverflow
-<a href=#821 id=821 data-nosnippet>821</a>    } <span class="kw">else if </span>trap == ir::TrapCode::INTEGER_DIVISION_BY_ZERO {
-<a href=#822 id=822 data-nosnippet>822</a>        TrapCode::IntegerDivisionByZero
-<a href=#823 id=823 data-nosnippet>823</a>    } <span class="kw">else if </span>trap == ir::TrapCode::BAD_CONVERSION_TO_INTEGER {
-<a href=#824 id=824 data-nosnippet>824</a>        TrapCode::BadConversionToInteger
-<a href=#825 id=825 data-nosnippet>825</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_UNREACHABLE {
-<a href=#826 id=826 data-nosnippet>826</a>        TrapCode::UnreachableCodeReached
-<a href=#827 id=827 data-nosnippet>827</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_INTERRUPT {
-<a href=#828 id=828 data-nosnippet>828</a>        <span class="macro">unimplemented!</span>(<span class="string">"Interrupts not supported"</span>)
-<a href=#829 id=829 data-nosnippet>829</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_NULL_REFERENCE || trap == <span class="kw">crate</span>::TRAP_NULL_I31_REF {
-<a href=#830 id=830 data-nosnippet>830</a>        <span class="macro">unimplemented!</span>(<span class="string">"Null reference not supported"</span>)
-<a href=#831 id=831 data-nosnippet>831</a>    } <span class="kw">else </span>{
-<a href=#832 id=832 data-nosnippet>832</a>        <span class="macro">unimplemented!</span>(<span class="string">"Trap code {trap:?} not supported"</span>)
-<a href=#833 id=833 data-nosnippet>833</a>    }
-<a href=#834 id=834 data-nosnippet>834</a>}
+<a href=#729 id=729 data-nosnippet>729</a>        <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
+<a href=#730 id=730 data-nosnippet>730</a>            String::from(<span class="string">"cranelift-elf"</span>)
+<a href=#731 id=731 data-nosnippet>731</a>        } <span class="kw">else </span>{
+<a href=#732 id=732 data-nosnippet>732</a>            String::from(<span class="string">"cranelift"</span>)
+<a href=#733 id=733 data-nosnippet>733</a>        }
+<a href=#734 id=734 data-nosnippet>734</a>    }
+<a href=#735 id=735 data-nosnippet>735</a>
+<a href=#736 id=736 data-nosnippet>736</a>    <span class="doccomment">/// Get the middlewares for this compiler
+<a href=#737 id=737 data-nosnippet>737</a>    </span><span class="kw">fn </span>get_middlewares(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;] {
+<a href=#738 id=738 data-nosnippet>738</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.config.middlewares
+<a href=#739 id=739 data-nosnippet>739</a>    }
+<a href=#740 id=740 data-nosnippet>740</a>
+<a href=#741 id=741 data-nosnippet>741</a>    <span class="doccomment">/// Compile the module using Cranelift, producing a compilation result with
+<a href=#742 id=742 data-nosnippet>742</a>    /// associated relocations.
+<a href=#743 id=743 data-nosnippet>743</a>    </span><span class="kw">fn </span>compile_module(
+<a href=#744 id=744 data-nosnippet>744</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#745 id=745 data-nosnippet>745</a>        target: <span class="kw-2">&amp;</span>Target,
+<a href=#746 id=746 data-nosnippet>746</a>        compile_info: <span class="kw-2">&amp;</span>CompileModuleInfo,
+<a href=#747 id=747 data-nosnippet>747</a>        compile_info_blob: <span class="kw-2">&amp;</span>[u8],
+<a href=#748 id=748 data-nosnippet>748</a>        module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
+<a href=#749 id=749 data-nosnippet>749</a>        function_body_inputs: PrimaryMap&lt;LocalFunctionIndex, FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;&gt;,
+<a href=#750 id=750 data-nosnippet>750</a>        progress_callback: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>CompilationProgressCallback&gt;,
+<a href=#751 id=751 data-nosnippet>751</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Compilation, CompileError&gt; {
+<a href=#752 id=752 data-nosnippet>752</a>        <span class="self">self</span>.compile_module_internal(
+<a href=#753 id=753 data-nosnippet>753</a>            target,
+<a href=#754 id=754 data-nosnippet>754</a>            compile_info,
+<a href=#755 id=755 data-nosnippet>755</a>            compile_info_blob,
+<a href=#756 id=756 data-nosnippet>756</a>            module_translation_state,
+<a href=#757 id=757 data-nosnippet>757</a>            function_body_inputs,
+<a href=#758 id=758 data-nosnippet>758</a>            progress_callback,
+<a href=#759 id=759 data-nosnippet>759</a>        )
+<a href=#760 id=760 data-nosnippet>760</a>    }
+<a href=#761 id=761 data-nosnippet>761</a>}
+<a href=#762 id=762 data-nosnippet>762</a>
+<a href=#763 id=763 data-nosnippet>763</a><span class="kw">fn </span>mach_reloc_to_reloc(
+<a href=#764 id=764 data-nosnippet>764</a>    module: <span class="kw-2">&amp;</span>ModuleInfo,
+<a href=#765 id=765 data-nosnippet>765</a>    func_index_map: <span class="kw-2">&amp;</span>cranelift_entity::PrimaryMap&lt;ir::UserExternalNameRef, ir::UserExternalName&gt;,
+<a href=#766 id=766 data-nosnippet>766</a>    reloc: <span class="kw-2">&amp;</span>FinalizedMachReloc,
+<a href=#767 id=767 data-nosnippet>767</a>) -&gt; Relocation {
+<a href=#768 id=768 data-nosnippet>768</a>    <span class="kw">let </span>FinalizedMachReloc {
+<a href=#769 id=769 data-nosnippet>769</a>        offset,
+<a href=#770 id=770 data-nosnippet>770</a>        kind,
+<a href=#771 id=771 data-nosnippet>771</a>        addend,
+<a href=#772 id=772 data-nosnippet>772</a>        target,
+<a href=#773 id=773 data-nosnippet>773</a>    } = <span class="kw-2">&amp;</span>reloc;
+<a href=#774 id=774 data-nosnippet>774</a>    <span class="kw">let </span>name = <span class="kw">match </span>target {
+<a href=#775 id=775 data-nosnippet>775</a>        FinalizedRelocTarget::ExternalName(external_name) =&gt; external_name,
+<a href=#776 id=776 data-nosnippet>776</a>        FinalizedRelocTarget::Func(<span class="kw">_</span>) =&gt; {
+<a href=#777 id=777 data-nosnippet>777</a>            <span class="macro">unimplemented!</span>(<span class="string">"relocations to offset in the same function are not yet supported"</span>)
+<a href=#778 id=778 data-nosnippet>778</a>        }
+<a href=#779 id=779 data-nosnippet>779</a>    };
+<a href=#780 id=780 data-nosnippet>780</a>    <span class="kw">let </span>reloc_target: RelocationTarget = <span class="kw">if let </span>ExternalName::User(extname_ref) = name {
+<a href=#781 id=781 data-nosnippet>781</a>        <span class="kw">let </span>func_index = func_index_map[<span class="kw-2">*</span>extname_ref].index;
+<a href=#782 id=782 data-nosnippet>782</a>        <span class="comment">//debug_assert_eq!(namespace, 0);
+<a href=#783 id=783 data-nosnippet>783</a>        </span>RelocationTarget::LocalFunc(
+<a href=#784 id=784 data-nosnippet>784</a>            module
+<a href=#785 id=785 data-nosnippet>785</a>                .local_func_index(FunctionIndex::from_u32(func_index))
+<a href=#786 id=786 data-nosnippet>786</a>                .expect(<span class="string">"The provided function should be local"</span>),
+<a href=#787 id=787 data-nosnippet>787</a>        )
+<a href=#788 id=788 data-nosnippet>788</a>    } <span class="kw">else if let </span>ExternalName::LibCall(libcall) = name {
+<a href=#789 id=789 data-nosnippet>789</a>        RelocationTarget::LibCall(irlibcall_to_libcall(<span class="kw-2">*</span>libcall))
+<a href=#790 id=790 data-nosnippet>790</a>    } <span class="kw">else </span>{
+<a href=#791 id=791 data-nosnippet>791</a>        <span class="macro">panic!</span>(<span class="string">"unrecognized external target"</span>)
+<a href=#792 id=792 data-nosnippet>792</a>    };
+<a href=#793 id=793 data-nosnippet>793</a>    Relocation {
+<a href=#794 id=794 data-nosnippet>794</a>        kind: irreloc_to_relocationkind(<span class="kw-2">*</span>kind),
+<a href=#795 id=795 data-nosnippet>795</a>        reloc_target,
+<a href=#796 id=796 data-nosnippet>796</a>        offset: <span class="kw-2">*</span>offset,
+<a href=#797 id=797 data-nosnippet>797</a>        addend: <span class="kw-2">*</span>addend,
+<a href=#798 id=798 data-nosnippet>798</a>    }
+<a href=#799 id=799 data-nosnippet>799</a>}
+<a href=#800 id=800 data-nosnippet>800</a>
+<a href=#801 id=801 data-nosnippet>801</a><span class="kw">fn </span>mach_trap_to_trap(trap: <span class="kw-2">&amp;</span>MachTrap) -&gt; TrapInformation {
+<a href=#802 id=802 data-nosnippet>802</a>    <span class="kw">let </span><span class="kw-2">&amp;</span>MachTrap { offset, code } = trap;
+<a href=#803 id=803 data-nosnippet>803</a>    TrapInformation {
+<a href=#804 id=804 data-nosnippet>804</a>        code_offset: offset,
+<a href=#805 id=805 data-nosnippet>805</a>        trap_code: translate_ir_trapcode(code),
+<a href=#806 id=806 data-nosnippet>806</a>    }
+<a href=#807 id=807 data-nosnippet>807</a>}
+<a href=#808 id=808 data-nosnippet>808</a>
+<a href=#809 id=809 data-nosnippet>809</a><span class="doccomment">/// Translates the Cranelift IR TrapCode into generic Trap Code
+<a href=#810 id=810 data-nosnippet>810</a></span><span class="kw">fn </span>translate_ir_trapcode(trap: ir::TrapCode) -&gt; TrapCode {
+<a href=#811 id=811 data-nosnippet>811</a>    <span class="kw">if </span>trap == ir::TrapCode::STACK_OVERFLOW {
+<a href=#812 id=812 data-nosnippet>812</a>        TrapCode::StackOverflow
+<a href=#813 id=813 data-nosnippet>813</a>    } <span class="kw">else if </span>trap == ir::TrapCode::HEAP_OUT_OF_BOUNDS {
+<a href=#814 id=814 data-nosnippet>814</a>        TrapCode::HeapAccessOutOfBounds
+<a href=#815 id=815 data-nosnippet>815</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_HEAP_MISALIGNED {
+<a href=#816 id=816 data-nosnippet>816</a>        TrapCode::UnalignedAtomic
+<a href=#817 id=817 data-nosnippet>817</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_TABLE_OUT_OF_BOUNDS {
+<a href=#818 id=818 data-nosnippet>818</a>        TrapCode::TableAccessOutOfBounds
+<a href=#819 id=819 data-nosnippet>819</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_INDIRECT_CALL_TO_NULL {
+<a href=#820 id=820 data-nosnippet>820</a>        TrapCode::IndirectCallToNull
+<a href=#821 id=821 data-nosnippet>821</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_BAD_SIGNATURE {
+<a href=#822 id=822 data-nosnippet>822</a>        TrapCode::BadSignature
+<a href=#823 id=823 data-nosnippet>823</a>    } <span class="kw">else if </span>trap == ir::TrapCode::INTEGER_OVERFLOW {
+<a href=#824 id=824 data-nosnippet>824</a>        TrapCode::IntegerOverflow
+<a href=#825 id=825 data-nosnippet>825</a>    } <span class="kw">else if </span>trap == ir::TrapCode::INTEGER_DIVISION_BY_ZERO {
+<a href=#826 id=826 data-nosnippet>826</a>        TrapCode::IntegerDivisionByZero
+<a href=#827 id=827 data-nosnippet>827</a>    } <span class="kw">else if </span>trap == ir::TrapCode::BAD_CONVERSION_TO_INTEGER {
+<a href=#828 id=828 data-nosnippet>828</a>        TrapCode::BadConversionToInteger
+<a href=#829 id=829 data-nosnippet>829</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_UNREACHABLE {
+<a href=#830 id=830 data-nosnippet>830</a>        TrapCode::UnreachableCodeReached
+<a href=#831 id=831 data-nosnippet>831</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_INTERRUPT {
+<a href=#832 id=832 data-nosnippet>832</a>        <span class="macro">unimplemented!</span>(<span class="string">"Interrupts not supported"</span>)
+<a href=#833 id=833 data-nosnippet>833</a>    } <span class="kw">else if </span>trap == <span class="kw">crate</span>::TRAP_NULL_REFERENCE || trap == <span class="kw">crate</span>::TRAP_NULL_I31_REF {
+<a href=#834 id=834 data-nosnippet>834</a>        <span class="macro">unimplemented!</span>(<span class="string">"Null reference not supported"</span>)
+<a href=#835 id=835 data-nosnippet>835</a>    } <span class="kw">else </span>{
+<a href=#836 id=836 data-nosnippet>836</a>        <span class="macro">unimplemented!</span>(<span class="string">"Trap code {trap:?} not supported"</span>)
+<a href=#837 id=837 data-nosnippet>837</a>    }
+<a href=#838 id=838 data-nosnippet>838</a>}
 </code></pre></div></section></main></body></html>

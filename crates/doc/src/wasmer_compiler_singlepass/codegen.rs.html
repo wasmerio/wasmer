@@ -6075,7 +6075,7 @@
 <a href=#6075 id=6075 data-nosnippet>6075</a>                        symbol: WriterRelocate::FUNCTION_SYMBOL,
 <a href=#6076 id=6076 data-nosnippet>6076</a>                        <span class="comment">// In-memory compilation uses this addend to identify the
 <a href=#6077 id=6077 data-nosnippet>6077</a>                        // function relocation target.
-<a href=#6078 id=6078 data-nosnippet>6078</a>                        </span>addend: <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#6078 id=6078 data-nosnippet>6078</a>                        </span>addend: <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
 <a href=#6079 id=6079 data-nosnippet>6079</a>                            <span class="number">0
 <a href=#6080 id=6080 data-nosnippet>6080</a>                        </span>} <span class="kw">else </span>{
 <a href=#6081 id=6081 data-nosnippet>6081</a>                            <span class="self">self</span>.local_func_index.index() <span class="kw">as _
@@ -6133,7 +6133,7 @@
 <a href=#6133 id=6133 data-nosnippet>6133</a>            frame_info: CompiledFunctionFrameInfo { traps, address_map },
 <a href=#6134 id=6134 data-nosnippet>6134</a>            maximum_stack_usage: <span class="prelude-val">Some</span>(<span class="self">self</span>.stack_offset.maximum_offset),
 <a href=#6135 id=6135 data-nosnippet>6135</a>        };
-<a href=#6136 id=6136 data-nosnippet>6136</a>        <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
+<a href=#6136 id=6136 data-nosnippet>6136</a>        <span class="kw">if </span><span class="self">self</span>.config.experimental_artifact {
 <a href=#6137 id=6137 data-nosnippet>6137</a>            <span class="kw">let </span>maximum_stack_usage = function.maximum_stack_usage;
 <a href=#6138 id=6138 data-nosnippet>6138</a>            <span class="prelude-val">Ok</span>(CompileOutput::Object(
 <a href=#6139 id=6139 data-nosnippet>6139</a>                elf::emit_local_function(

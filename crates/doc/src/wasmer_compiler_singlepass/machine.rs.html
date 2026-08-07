@@ -2433,74 +2433,75 @@
 <a href=#2433 id=2433 data-nosnippet>2433</a>    sig: <span class="kw-2">&amp;</span>FunctionType,
 <a href=#2434 id=2434 data-nosnippet>2434</a>    target: <span class="kw-2">&amp;</span>Target,
 <a href=#2435 id=2435 data-nosnippet>2435</a>    calling_convention: CallingConvention,
-<a href=#2436 id=2436 data-nosnippet>2436</a>) -&gt; <span class="prelude-ty">Result</span>&lt;CompileOutput&lt;CustomSection&gt;, CompileError&gt; {
-<a href=#2437 id=2437 data-nosnippet>2437</a>    <span class="kw">let </span>section = <span class="kw">match </span>target.triple().architecture {
-<a href=#2438 id=2438 data-nosnippet>2438</a>        Architecture::X86_64 =&gt; {
-<a href=#2439 id=2439 data-nosnippet>2439</a>            <span class="kw">let </span>machine = MachineX86_64::new(<span class="prelude-val">Some</span>(target.clone()))<span class="question-mark">?</span>;
-<a href=#2440 id=2440 data-nosnippet>2440</a>            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
-<a href=#2441 id=2441 data-nosnippet>2441</a>        }
-<a href=#2442 id=2442 data-nosnippet>2442</a>        Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
-<a href=#2443 id=2443 data-nosnippet>2443</a>            <span class="kw">let </span>machine = MachineARM64::new(<span class="prelude-val">Some</span>(target.clone()));
-<a href=#2444 id=2444 data-nosnippet>2444</a>            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
-<a href=#2445 id=2445 data-nosnippet>2445</a>        }
-<a href=#2446 id=2446 data-nosnippet>2446</a>        Architecture::Riscv64(<span class="kw">_</span>) =&gt; {
-<a href=#2447 id=2447 data-nosnippet>2447</a>            <span class="kw">let </span>machine = MachineRiscv::new(<span class="prelude-val">Some</span>(target.clone()), <span class="bool-val">false</span>)<span class="question-mark">?</span>;
-<a href=#2448 id=2448 data-nosnippet>2448</a>            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
-<a href=#2449 id=2449 data-nosnippet>2449</a>        }
-<a href=#2450 id=2450 data-nosnippet>2450</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
-<a href=#2451 id=2451 data-nosnippet>2451</a>            <span class="string">"singlepass unimplemented arch for gen_import_call_trampoline"</span>.to_owned(),
-<a href=#2452 id=2452 data-nosnippet>2452</a>        )),
-<a href=#2453 id=2453 data-nosnippet>2453</a>    }<span class="question-mark">?</span>;
-<a href=#2454 id=2454 data-nosnippet>2454</a>    <span class="kw">if </span><span class="macro">cfg!</span>(feature = <span class="string">"experimental-artifact"</span>) {
-<a href=#2455 id=2455 data-nosnippet>2455</a>        <span class="prelude-val">Ok</span>(CompileOutput::Object(
-<a href=#2456 id=2456 data-nosnippet>2456</a>            elf::emit_import_trampoline(
-<a href=#2457 id=2457 data-nosnippet>2457</a>                target,
-<a href=#2458 id=2458 data-nosnippet>2458</a>                <span class="kw-2">&amp;</span>CompiledKind::ImportFunctionTrampoline(index, sig.to_owned()),
-<a href=#2459 id=2459 data-nosnippet>2459</a>                <span class="kw-2">&amp;</span>section,
-<a href=#2460 id=2460 data-nosnippet>2460</a>            )<span class="question-mark">?</span>,
-<a href=#2461 id=2461 data-nosnippet>2461</a>            <span class="prelude-val">None</span>,
-<a href=#2462 id=2462 data-nosnippet>2462</a>        ))
-<a href=#2463 id=2463 data-nosnippet>2463</a>    } <span class="kw">else </span>{
-<a href=#2464 id=2464 data-nosnippet>2464</a>        <span class="prelude-val">Ok</span>(CompileOutput::InMemory(section))
-<a href=#2465 id=2465 data-nosnippet>2465</a>    }
-<a href=#2466 id=2466 data-nosnippet>2466</a>}
-<a href=#2467 id=2467 data-nosnippet>2467</a>
-<a href=#2468 id=2468 data-nosnippet>2468</a><span class="comment">// Constants for the bounds of truncation operations. These are the least or
-<a href=#2469 id=2469 data-nosnippet>2469</a>// greatest exact floats in either f32 or f64 representation less-than (for
-<a href=#2470 id=2470 data-nosnippet>2470</a>// least) or greater-than (for greatest) the i32 or i64 or u32 or u64
-<a href=#2471 id=2471 data-nosnippet>2471</a>// min (for least) or max (for greatest), when rounding towards zero.
-<a href=#2472 id=2472 data-nosnippet>2472</a>
-<a href=#2473 id=2473 data-nosnippet>2473</a></span><span class="doccomment">/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.
-<a href=#2474 id=2474 data-nosnippet>2474</a></span><span class="kw">pub const </span>GEF32_LT_I32_MIN: f32 = -<span class="number">2147483904.0</span>;
-<a href=#2475 id=2475 data-nosnippet>2475</a><span class="doccomment">/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.
-<a href=#2476 id=2476 data-nosnippet>2476</a></span><span class="kw">pub const </span>LEF32_GT_I32_MAX: f32 = <span class="number">2147483648.0</span>;
-<a href=#2477 id=2477 data-nosnippet>2477</a><span class="doccomment">/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.
-<a href=#2478 id=2478 data-nosnippet>2478</a></span><span class="kw">pub const </span>GEF32_LT_I64_MIN: f32 = -<span class="number">9223373136366403584.0</span>;
-<a href=#2479 id=2479 data-nosnippet>2479</a><span class="doccomment">/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.
-<a href=#2480 id=2480 data-nosnippet>2480</a></span><span class="kw">pub const </span>LEF32_GT_I64_MAX: f32 = <span class="number">9223372036854775808.0</span>;
-<a href=#2481 id=2481 data-nosnippet>2481</a><span class="doccomment">/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.
-<a href=#2482 id=2482 data-nosnippet>2482</a></span><span class="kw">pub const </span>GEF32_LT_U32_MIN: f32 = -<span class="number">1.0</span>;
-<a href=#2483 id=2483 data-nosnippet>2483</a><span class="doccomment">/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.
-<a href=#2484 id=2484 data-nosnippet>2484</a></span><span class="kw">pub const </span>LEF32_GT_U32_MAX: f32 = <span class="number">4294967296.0</span>;
-<a href=#2485 id=2485 data-nosnippet>2485</a><span class="doccomment">/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.
-<a href=#2486 id=2486 data-nosnippet>2486</a></span><span class="kw">pub const </span>GEF32_LT_U64_MIN: f32 = -<span class="number">1.0</span>;
-<a href=#2487 id=2487 data-nosnippet>2487</a><span class="doccomment">/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.
-<a href=#2488 id=2488 data-nosnippet>2488</a></span><span class="kw">pub const </span>LEF32_GT_U64_MAX: f32 = <span class="number">18446744073709551616.0</span>;
-<a href=#2489 id=2489 data-nosnippet>2489</a>
-<a href=#2490 id=2490 data-nosnippet>2490</a><span class="doccomment">/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.
-<a href=#2491 id=2491 data-nosnippet>2491</a></span><span class="kw">pub const </span>GEF64_LT_I32_MIN: f64 = -<span class="number">2147483649.0</span>;
-<a href=#2492 id=2492 data-nosnippet>2492</a><span class="doccomment">/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.
-<a href=#2493 id=2493 data-nosnippet>2493</a></span><span class="kw">pub const </span>LEF64_GT_I32_MAX: f64 = <span class="number">2147483648.0</span>;
-<a href=#2494 id=2494 data-nosnippet>2494</a><span class="doccomment">/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.
-<a href=#2495 id=2495 data-nosnippet>2495</a></span><span class="kw">pub const </span>GEF64_LT_I64_MIN: f64 = -<span class="number">9223372036854777856.0</span>;
-<a href=#2496 id=2496 data-nosnippet>2496</a><span class="doccomment">/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.
-<a href=#2497 id=2497 data-nosnippet>2497</a></span><span class="kw">pub const </span>LEF64_GT_I64_MAX: f64 = <span class="number">9223372036854775808.0</span>;
-<a href=#2498 id=2498 data-nosnippet>2498</a><span class="doccomment">/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.
-<a href=#2499 id=2499 data-nosnippet>2499</a></span><span class="kw">pub const </span>GEF64_LT_U32_MIN: f64 = -<span class="number">1.0</span>;
-<a href=#2500 id=2500 data-nosnippet>2500</a><span class="doccomment">/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.
-<a href=#2501 id=2501 data-nosnippet>2501</a></span><span class="kw">pub const </span>LEF64_GT_U32_MAX: f64 = <span class="number">4294967296.0</span>;
-<a href=#2502 id=2502 data-nosnippet>2502</a><span class="doccomment">/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.
-<a href=#2503 id=2503 data-nosnippet>2503</a></span><span class="kw">pub const </span>GEF64_LT_U64_MIN: f64 = -<span class="number">1.0</span>;
-<a href=#2504 id=2504 data-nosnippet>2504</a><span class="doccomment">/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.
-<a href=#2505 id=2505 data-nosnippet>2505</a></span><span class="kw">pub const </span>LEF64_GT_U64_MAX: f64 = <span class="number">18446744073709551616.0</span>;
+<a href=#2436 id=2436 data-nosnippet>2436</a>    experimental_artifact: bool,
+<a href=#2437 id=2437 data-nosnippet>2437</a>) -&gt; <span class="prelude-ty">Result</span>&lt;CompileOutput&lt;CustomSection&gt;, CompileError&gt; {
+<a href=#2438 id=2438 data-nosnippet>2438</a>    <span class="kw">let </span>section = <span class="kw">match </span>target.triple().architecture {
+<a href=#2439 id=2439 data-nosnippet>2439</a>        Architecture::X86_64 =&gt; {
+<a href=#2440 id=2440 data-nosnippet>2440</a>            <span class="kw">let </span>machine = MachineX86_64::new(<span class="prelude-val">Some</span>(target.clone()))<span class="question-mark">?</span>;
+<a href=#2441 id=2441 data-nosnippet>2441</a>            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+<a href=#2442 id=2442 data-nosnippet>2442</a>        }
+<a href=#2443 id=2443 data-nosnippet>2443</a>        Architecture::Aarch64(<span class="kw">_</span>) =&gt; {
+<a href=#2444 id=2444 data-nosnippet>2444</a>            <span class="kw">let </span>machine = MachineARM64::new(<span class="prelude-val">Some</span>(target.clone()));
+<a href=#2445 id=2445 data-nosnippet>2445</a>            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+<a href=#2446 id=2446 data-nosnippet>2446</a>        }
+<a href=#2447 id=2447 data-nosnippet>2447</a>        Architecture::Riscv64(<span class="kw">_</span>) =&gt; {
+<a href=#2448 id=2448 data-nosnippet>2448</a>            <span class="kw">let </span>machine = MachineRiscv::new(<span class="prelude-val">Some</span>(target.clone()), <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+<a href=#2449 id=2449 data-nosnippet>2449</a>            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+<a href=#2450 id=2450 data-nosnippet>2450</a>        }
+<a href=#2451 id=2451 data-nosnippet>2451</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(CompileError::UnsupportedTarget(
+<a href=#2452 id=2452 data-nosnippet>2452</a>            <span class="string">"singlepass unimplemented arch for gen_import_call_trampoline"</span>.to_owned(),
+<a href=#2453 id=2453 data-nosnippet>2453</a>        )),
+<a href=#2454 id=2454 data-nosnippet>2454</a>    }<span class="question-mark">?</span>;
+<a href=#2455 id=2455 data-nosnippet>2455</a>    <span class="kw">if </span>experimental_artifact {
+<a href=#2456 id=2456 data-nosnippet>2456</a>        <span class="prelude-val">Ok</span>(CompileOutput::Object(
+<a href=#2457 id=2457 data-nosnippet>2457</a>            elf::emit_import_trampoline(
+<a href=#2458 id=2458 data-nosnippet>2458</a>                target,
+<a href=#2459 id=2459 data-nosnippet>2459</a>                <span class="kw-2">&amp;</span>CompiledKind::ImportFunctionTrampoline(index, sig.to_owned()),
+<a href=#2460 id=2460 data-nosnippet>2460</a>                <span class="kw-2">&amp;</span>section,
+<a href=#2461 id=2461 data-nosnippet>2461</a>            )<span class="question-mark">?</span>,
+<a href=#2462 id=2462 data-nosnippet>2462</a>            <span class="prelude-val">None</span>,
+<a href=#2463 id=2463 data-nosnippet>2463</a>        ))
+<a href=#2464 id=2464 data-nosnippet>2464</a>    } <span class="kw">else </span>{
+<a href=#2465 id=2465 data-nosnippet>2465</a>        <span class="prelude-val">Ok</span>(CompileOutput::InMemory(section))
+<a href=#2466 id=2466 data-nosnippet>2466</a>    }
+<a href=#2467 id=2467 data-nosnippet>2467</a>}
+<a href=#2468 id=2468 data-nosnippet>2468</a>
+<a href=#2469 id=2469 data-nosnippet>2469</a><span class="comment">// Constants for the bounds of truncation operations. These are the least or
+<a href=#2470 id=2470 data-nosnippet>2470</a>// greatest exact floats in either f32 or f64 representation less-than (for
+<a href=#2471 id=2471 data-nosnippet>2471</a>// least) or greater-than (for greatest) the i32 or i64 or u32 or u64
+<a href=#2472 id=2472 data-nosnippet>2472</a>// min (for least) or max (for greatest), when rounding towards zero.
+<a href=#2473 id=2473 data-nosnippet>2473</a>
+<a href=#2474 id=2474 data-nosnippet>2474</a></span><span class="doccomment">/// Greatest Exact Float (32 bits) less-than i32::MIN when rounding towards zero.
+<a href=#2475 id=2475 data-nosnippet>2475</a></span><span class="kw">pub const </span>GEF32_LT_I32_MIN: f32 = -<span class="number">2147483904.0</span>;
+<a href=#2476 id=2476 data-nosnippet>2476</a><span class="doccomment">/// Least Exact Float (32 bits) greater-than i32::MAX when rounding towards zero.
+<a href=#2477 id=2477 data-nosnippet>2477</a></span><span class="kw">pub const </span>LEF32_GT_I32_MAX: f32 = <span class="number">2147483648.0</span>;
+<a href=#2478 id=2478 data-nosnippet>2478</a><span class="doccomment">/// Greatest Exact Float (32 bits) less-than i64::MIN when rounding towards zero.
+<a href=#2479 id=2479 data-nosnippet>2479</a></span><span class="kw">pub const </span>GEF32_LT_I64_MIN: f32 = -<span class="number">9223373136366403584.0</span>;
+<a href=#2480 id=2480 data-nosnippet>2480</a><span class="doccomment">/// Least Exact Float (32 bits) greater-than i64::MAX when rounding towards zero.
+<a href=#2481 id=2481 data-nosnippet>2481</a></span><span class="kw">pub const </span>LEF32_GT_I64_MAX: f32 = <span class="number">9223372036854775808.0</span>;
+<a href=#2482 id=2482 data-nosnippet>2482</a><span class="doccomment">/// Greatest Exact Float (32 bits) less-than u32::MIN when rounding towards zero.
+<a href=#2483 id=2483 data-nosnippet>2483</a></span><span class="kw">pub const </span>GEF32_LT_U32_MIN: f32 = -<span class="number">1.0</span>;
+<a href=#2484 id=2484 data-nosnippet>2484</a><span class="doccomment">/// Least Exact Float (32 bits) greater-than u32::MAX when rounding towards zero.
+<a href=#2485 id=2485 data-nosnippet>2485</a></span><span class="kw">pub const </span>LEF32_GT_U32_MAX: f32 = <span class="number">4294967296.0</span>;
+<a href=#2486 id=2486 data-nosnippet>2486</a><span class="doccomment">/// Greatest Exact Float (32 bits) less-than u64::MIN when rounding towards zero.
+<a href=#2487 id=2487 data-nosnippet>2487</a></span><span class="kw">pub const </span>GEF32_LT_U64_MIN: f32 = -<span class="number">1.0</span>;
+<a href=#2488 id=2488 data-nosnippet>2488</a><span class="doccomment">/// Least Exact Float (32 bits) greater-than u64::MAX when rounding towards zero.
+<a href=#2489 id=2489 data-nosnippet>2489</a></span><span class="kw">pub const </span>LEF32_GT_U64_MAX: f32 = <span class="number">18446744073709551616.0</span>;
+<a href=#2490 id=2490 data-nosnippet>2490</a>
+<a href=#2491 id=2491 data-nosnippet>2491</a><span class="doccomment">/// Greatest Exact Float (64 bits) less-than i32::MIN when rounding towards zero.
+<a href=#2492 id=2492 data-nosnippet>2492</a></span><span class="kw">pub const </span>GEF64_LT_I32_MIN: f64 = -<span class="number">2147483649.0</span>;
+<a href=#2493 id=2493 data-nosnippet>2493</a><span class="doccomment">/// Least Exact Float (64 bits) greater-than i32::MAX when rounding towards zero.
+<a href=#2494 id=2494 data-nosnippet>2494</a></span><span class="kw">pub const </span>LEF64_GT_I32_MAX: f64 = <span class="number">2147483648.0</span>;
+<a href=#2495 id=2495 data-nosnippet>2495</a><span class="doccomment">/// Greatest Exact Float (64 bits) less-than i64::MIN when rounding towards zero.
+<a href=#2496 id=2496 data-nosnippet>2496</a></span><span class="kw">pub const </span>GEF64_LT_I64_MIN: f64 = -<span class="number">9223372036854777856.0</span>;
+<a href=#2497 id=2497 data-nosnippet>2497</a><span class="doccomment">/// Least Exact Float (64 bits) greater-than i64::MAX when rounding towards zero.
+<a href=#2498 id=2498 data-nosnippet>2498</a></span><span class="kw">pub const </span>LEF64_GT_I64_MAX: f64 = <span class="number">9223372036854775808.0</span>;
+<a href=#2499 id=2499 data-nosnippet>2499</a><span class="doccomment">/// Greatest Exact Float (64 bits) less-than u32::MIN when rounding towards zero.
+<a href=#2500 id=2500 data-nosnippet>2500</a></span><span class="kw">pub const </span>GEF64_LT_U32_MIN: f64 = -<span class="number">1.0</span>;
+<a href=#2501 id=2501 data-nosnippet>2501</a><span class="doccomment">/// Least Exact Float (64 bits) greater-than u32::MAX when rounding towards zero.
+<a href=#2502 id=2502 data-nosnippet>2502</a></span><span class="kw">pub const </span>LEF64_GT_U32_MAX: f64 = <span class="number">4294967296.0</span>;
+<a href=#2503 id=2503 data-nosnippet>2503</a><span class="doccomment">/// Greatest Exact Float (64 bits) less-than u64::MIN when rounding towards zero.
+<a href=#2504 id=2504 data-nosnippet>2504</a></span><span class="kw">pub const </span>GEF64_LT_U64_MIN: f64 = -<span class="number">1.0</span>;
+<a href=#2505 id=2505 data-nosnippet>2505</a><span class="doccomment">/// Least Exact Float (64 bits) greater-than u64::MAX when rounding towards zero.
+<a href=#2506 id=2506 data-nosnippet>2506</a></span><span class="kw">pub const </span>LEF64_GT_U64_MAX: f64 = <span class="number">18446744073709551616.0</span>;
 </code></pre></div></section></main></body></html>
