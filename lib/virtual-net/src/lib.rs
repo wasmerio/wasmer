@@ -373,6 +373,13 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     /// Tries to send out a datagram or stream of bytes on this socket
     fn try_send(&mut self, data: &[u8]) -> Result<usize>;
 
+    /// Tries to send out-of-band (urgent) data on this socket.
+    /// Only meaningful for stream sockets whose transport supports it.
+    fn try_send_oob(&mut self, data: &[u8]) -> Result<usize> {
+        let _ = data;
+        Err(NetworkError::Unsupported)
+    }
+
     // Tries to flush any data in the local buffers
     fn try_flush(&mut self) -> Result<()>;
 

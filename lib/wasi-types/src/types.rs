@@ -285,6 +285,7 @@ pub mod net {
     pub const __WASI_SOCK_RECV_INPUT_OOB: RiFlags = 1 << 4;
 
     pub const __WASI_SOCK_SEND_INPUT_DONT_WAIT: SiFlags = 1 << 0;
+    pub const __WASI_SOCK_SEND_INPUT_OOB: SiFlags = 1 << 1;
 
     pub const __WASI_SOCK_RECV_OUTPUT_DATA_TRUNCATED: RoFlags = 1 << 0;
 

@@ -1307,11 +1307,13 @@ impl InodeSocket {
         buf: &[u8],
         timeout: Option<Duration>,
         nonblocking: bool,
+        oob: bool,
     ) -> Result<usize, Errno> {
         struct SocketSender<'a, 'b> {
             inner: &'a InodeSocketInner,
             data: &'b [u8],
             nonblocking: bool,
+            oob: bool,
             handler_registered: bool,
         }
         impl Drop for SocketSender<'_, '_> {
@@ -1331,8 +1333,15 @@ impl InodeSocket {
                 loop {
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
+                        InodeSocketKind::Raw(_) if self.oob => Err(NetworkError::Unsupported),
                         InodeSocketKind::Raw(socket) => socket.try_send(self.data),
+                        InodeSocketKind::TcpStream { socket, .. } if self.oob => {
+                            socket.try_send_oob(self.data)
+                        }
                         InodeSocketKind::TcpStream { socket, .. } => socket.try_send(self.data),
+                        InodeSocketKind::UdpSocket { .. } if self.oob => {
+                            Err(NetworkError::Unsupported)
+                        }
                         InodeSocketKind::UdpSocket { socket, peer } => {
                             if let Some(peer) = peer {
                                 socket.try_send_to(self.data, *peer)
@@ -1342,6 +1351,9 @@ impl InodeSocket {
                         }
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn));
+                        }
+                        InodeSocketKind::RemoteSocket { .. } if self.oob => {
+                            return Poll::Ready(Err(Errno::Notsup));
                         }
                         InodeSocketKind::RemoteSocket { is_dead, .. } => {
                             return match is_dead {
@@ -1375,6 +1387,7 @@ impl InodeSocket {
             inner: &self.inner,
             data: buf,
             nonblocking,
+            oob,
             handler_registered: false,
         };
         if let Some(timeout) = timeout {
@@ -1394,12 +1407,14 @@ impl InodeSocket {
         addr: SocketAddr,
         timeout: Option<Duration>,
         nonblocking: bool,
+        oob: bool,
     ) -> Result<usize, Errno> {
         struct SocketSender<'a, 'b> {
             inner: &'a InodeSocketInner,
             data: &'b [u8],
             addr: SocketAddr,
             nonblocking: bool,
+            oob: bool,
             handler_registered: bool,
         }
         impl Drop for SocketSender<'_, '_> {
@@ -1419,13 +1434,23 @@ impl InodeSocket {
                 loop {
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
+                        InodeSocketKind::Icmp(_) if self.oob => Err(NetworkError::Unsupported),
                         InodeSocketKind::Icmp(socket) => socket.try_send_to(self.data, self.addr),
+                        InodeSocketKind::TcpStream { socket, .. } if self.oob => {
+                            socket.try_send_oob(self.data)
+                        }
                         InodeSocketKind::TcpStream { socket, .. } => socket.try_send(self.data),
+                        InodeSocketKind::UdpSocket { .. } if self.oob => {
+                            Err(NetworkError::Unsupported)
+                        }
                         InodeSocketKind::UdpSocket { socket, .. } => {
                             socket.try_send_to(self.data, self.addr)
                         }
                         InodeSocketKind::PreSocket { .. } => {
                             return Poll::Ready(Err(Errno::Notconn));
+                        }
+                        InodeSocketKind::RemoteSocket { .. } if self.oob => {
+                            return Poll::Ready(Err(Errno::Notsup));
                         }
                         InodeSocketKind::RemoteSocket { is_dead, .. } => {
                             return match is_dead {
@@ -1460,6 +1485,7 @@ impl InodeSocket {
             data: buf,
             addr,
             nonblocking,
+            oob,
             handler_registered: false,
         };
         if let Some(timeout) = timeout {
