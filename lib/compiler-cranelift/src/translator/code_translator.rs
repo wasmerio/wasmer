@@ -3206,7 +3206,7 @@ fn fold_atomic_mem_addr(
             .iadd_imm_u(linear_mem_addr, memarg.offset as i64);
         let r = builder
             .ins()
-            .icmp_imm_u(IntCC::UnsignedGreaterThanOrEqual, a, u32::MAX as i64);
+            .icmp_imm_u(IntCC::UnsignedGreaterThanOrEqual, a, 0x1_0000_0000);
         builder.ins().trapnz(r, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
         builder.ins().ireduce(I32, a)
     } else {

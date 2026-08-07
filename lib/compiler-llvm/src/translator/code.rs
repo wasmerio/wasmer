@@ -1735,7 +1735,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             let out_of_bounds = err!(self.builder.build_int_compare(
                 IntPredicate::UGE,
                 effective_addr,
-                self.intrinsics.i64_ty.const_int(u64::from(u32::MAX), false),
+                self.intrinsics.i64_ty.const_int(0x1_0000_0000, false),
                 "atomic_addr_out_of_bounds"
             ));
             let continue_block = self

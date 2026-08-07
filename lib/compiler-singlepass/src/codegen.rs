@@ -683,6 +683,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Location::Imm64(_) => codegen_error!("memory.atomic address must be i32"),
             _ => {
                 let effective_addr = self.machine.acquire_temp_gpr().unwrap();
+                let upper_bound = self.machine.acquire_temp_gpr().unwrap();
                 self.machine.move_location_extend(
                     Size::S32,
                     false,
@@ -695,15 +696,22 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::Imm64(memarg.offset),
                     Location::GPR(effective_addr),
                 )?;
+                // The use of the temporary register is necessary.
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Imm64(0x1_0000_0000),
+                    Location::GPR(upper_bound),
+                )?;
                 self.machine.jmp_on_condition(
                     UnsignedCondition::AboveEqual,
                     Size::S64,
                     Location::GPR(effective_addr),
-                    Location::Imm64(u64::from(u32::MAX)),
+                    Location::GPR(upper_bound),
                     self.special_labels.heap_access_oob,
                 )?;
                 self.machine
                     .move_location(Size::S32, Location::GPR(effective_addr), addr.0)?;
+                self.machine.release_gpr(upper_bound);
                 self.machine.release_gpr(effective_addr);
                 Ok(addr)
             }
