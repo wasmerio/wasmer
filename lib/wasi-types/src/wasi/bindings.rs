@@ -826,6 +826,9 @@ pub enum Eventtype {
     #[doc = " File descriptor `subscription_fd_readwrite::fd` has capacity"]
     #[doc = " available for writing. This event always triggers for regular files."]
     FdWrite,
+    #[doc = " File descriptor `subscription_fd_readwrite::fd` has an exceptional"]
+    #[doc = " condition pending (e.g. TCP out-of-band data)."]
+    FdExcept,
     #[doc = " Event type is unknown"]
     Unknown = 255,
 }
@@ -835,6 +838,7 @@ impl core::fmt::Debug for Eventtype {
             Eventtype::Clock => f.debug_tuple("Eventtype::Clock").finish(),
             Eventtype::FdRead => f.debug_tuple("Eventtype::FdRead").finish(),
             Eventtype::FdWrite => f.debug_tuple("Eventtype::FdWrite").finish(),
+            Eventtype::FdExcept => f.debug_tuple("Eventtype::FdExcept").finish(),
             Eventtype::Unknown => f.debug_tuple("Eventtype::Unknown").finish(),
         }
     }
@@ -3024,6 +3028,7 @@ unsafe impl wasmer::FromToNativeWasmType for Eventtype {
             0 => Self::Clock,
             1 => Self::FdRead,
             2 => Self::FdWrite,
+            3 => Self::FdExcept,
 
             q => {
                 tracing::debug!("could not serialize number {q} to enum Eventtype");
