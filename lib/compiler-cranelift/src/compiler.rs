@@ -13,7 +13,7 @@ use crate::eh::{
 use crate::translator::CraneliftUnwindInfo;
 use crate::{
     address_map::get_function_address_map,
-    config::Cranelift,
+    config::{Cranelift, CraneliftOptLevel},
     func_environ::{FuncEnvironment, get_function_name},
     trampoline::{
         FunctionBuilderContext, make_trampoline_dynamic_function, make_trampoline_function_call,
@@ -726,11 +726,26 @@ impl Compiler for CraneliftCompiler {
     }
 
     fn deterministic_id(&self) -> String {
+        let mut components = vec![self.name()];
+        components.push(match self.config.opt_level {
+            CraneliftOptLevel::None => "opt0",
+            CraneliftOptLevel::Speed => "opts",
+            CraneliftOptLevel::SpeedAndSize => "optsz",
+        });
         if self.config.experimental_artifact {
-            String::from("cranelift-elf")
-        } else {
-            String::from("cranelift")
+            components.push("exp_art");
         }
+        if self.config.enable_nan_canonicalization {
+            components.push("nan_canon");
+        }
+        if self.config.enable_pic {
+            components.push("pic");
+        }
+        if self.config.allow_experimental_unaligned_memory_accesses {
+            components.push("unaligned_mem");
+        }
+
+        components.join("-")
     }
 
     /// Get the middlewares for this compiler

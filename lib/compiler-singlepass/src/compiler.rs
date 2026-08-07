@@ -424,11 +424,18 @@ impl Compiler for SinglepassCompiler {
     }
 
     fn deterministic_id(&self) -> String {
+        let mut components = vec![self.name()];
         if self.config.experimental_artifact {
-            String::from("singlepass-elf")
-        } else {
-            String::from("singlepass")
+            components.push("exp_art");
         }
+        if self.config.enable_nan_canonicalization {
+            components.push("nan_canon");
+        }
+        if self.config.allow_experimental_unaligned_memory_accesses {
+            components.push("unaligned_mem");
+        }
+
+        components.join("-")
     }
 
     /// Get the middlewares for this compiler

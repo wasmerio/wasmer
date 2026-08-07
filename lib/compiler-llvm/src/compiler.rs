@@ -185,20 +185,30 @@ impl Compiler for LLVMCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        format!(
-            "llvm-{}{}",
-            match self.config.opt_level {
-                inkwell::OptimizationLevel::None => "opt0",
-                inkwell::OptimizationLevel::Less => "optl",
-                inkwell::OptimizationLevel::Default => "optd",
-                inkwell::OptimizationLevel::Aggressive => "opta",
-            },
-            if self.config.experimental_artifact {
-                "-elf"
-            } else {
-                ""
-            }
-        )
+        let mut components = vec![self.name()];
+        components.push(match self.config.opt_level {
+            inkwell::OptimizationLevel::None => "opt0",
+            inkwell::OptimizationLevel::Less => "optl",
+            inkwell::OptimizationLevel::Default => "optd",
+            inkwell::OptimizationLevel::Aggressive => "opta",
+        });
+        if self.config.experimental_artifact {
+            components.push("exp_art");
+        }
+        if self.config.enable_nan_canonicalization {
+            components.push("nan_canon");
+        }
+        if self.config.enable_non_volatile_memops {
+            components.push("non_vol_mem");
+        }
+        if self.config.is_pic {
+            components.push("pic");
+        }
+        if self.config.enable_readonly_funcref_table {
+            components.push("ro_ftable");
+        }
+
+        components.join("-")
     }
 
     /// Get the middlewares for this compiler
