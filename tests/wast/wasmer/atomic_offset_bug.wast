@@ -39,6 +39,12 @@
       (i64.const 333)
       (i64.const 0)))
 
+  (func (export "wait32_addr_overflow") (result i32)
+    (memory.atomic.wait32 offset=4
+      (i32.const -4)
+      (i32.const 111)
+      (i64.const 0)))
+
   (func (export "wait32_unaligned_via_offset") (result i32)
     (memory.atomic.wait32 offset=1
       (i32.const 0)
@@ -69,6 +75,7 @@
 
 (assert_trap (invoke "wait32_oob_via_offset") "out of bounds memory access")
 (assert_trap (invoke "wait64_oob_via_offset") "out of bounds memory access")
+(assert_trap (invoke "wait32_addr_overflow") "out of bounds memory access")
 (assert_trap (invoke "wait32_unaligned_via_offset") "unaligned atomic")
 (assert_trap (invoke "wait64_unaligned_via_offset") "unaligned atomic")
 (assert_return (invoke "notify_via_offset") (i32.const 0))

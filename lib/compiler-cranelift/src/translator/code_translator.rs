@@ -1414,7 +1414,7 @@ pub fn translate_operator(
             let timeout = state.pop1(); // 64 (fixed)
             let expected = state.pop1(); // 32 or 64 (per the `Ixx` in `IxxAtomicWait`)
             let addr = state.pop1(); // 32 (fixed)
-            let addr = fold_atomic_mem_addr(addr, memarg, implied_ty, builder);
+            let addr = fold_atomic_mem_addr(addr, memarg, builder);
             assert!(builder.func.dfg.value_type(expected) == implied_ty);
             // `fn translate_atomic_wait` can inspect the type of `expected` to figure out what
             // code it needs to generate, if it wants.
@@ -1444,7 +1444,7 @@ pub fn translate_operator(
             let heap = state.get_heap(builder.func, memarg.memory, environ)?;
             let count = state.pop1(); // 32 (fixed)
             let addr = state.pop1(); // 32 (fixed)
-            let addr = fold_atomic_mem_addr(addr, memarg, I32, builder);
+            let addr = fold_atomic_mem_addr(addr, memarg, builder);
             match environ.translate_atomic_notify(builder.cursor(), heap_index, heap, addr, count) {
                 Ok(res) => {
                     state.push1(res);
@@ -3196,11 +3196,9 @@ fn translate_icmp(cc: IntCC, builder: &mut FunctionBuilder, state: &mut FuncTran
 fn fold_atomic_mem_addr(
     linear_mem_addr: Value,
     memarg: &MemArg,
-    access_ty: Type,
     builder: &mut FunctionBuilder,
 ) -> Value {
-    let access_ty_bytes = access_ty.bytes();
-    let final_lma = if memarg.offset > 0 {
+    if memarg.offset > 0 {
         assert!(builder.func.dfg.value_type(linear_mem_addr) == I32);
         let linear_mem_addr = builder.ins().uextend(I64, linear_mem_addr);
         let a = builder
@@ -3213,16 +3211,8 @@ fn fold_atomic_mem_addr(
         builder.ins().ireduce(I32, a)
     } else {
         linear_mem_addr
-    };
-    assert!(access_ty_bytes == 4 || access_ty_bytes == 8);
-    let final_lma_misalignment = builder
-        .ins()
-        .band_imm_u(final_lma, i64::from(access_ty_bytes - 1));
-    let f = builder
-        .ins()
-        .icmp_imm_u(IntCC::Equal, final_lma_misalignment, i64::from(0));
-    builder.ins().trapz(f, crate::TRAP_HEAP_MISALIGNED);
-    final_lma
+    }
+    // Note the alignment is checked at the libcall side.
 }
 
 fn translate_atomic_rmw(

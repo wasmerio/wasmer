@@ -662,7 +662,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(loc)
     }
 
-    fn apply_memarg_offset_to_i32_addr(
+    fn fold_atomic_mem_addr(
         &mut self,
         addr: LocationWithCanonicalization<M>,
         memarg: &MemArg,
@@ -673,16 +673,38 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let offset = memarg.offset as u32;
         match addr.0 {
-            Location::Imm32(value) => Ok((
-                Location::Imm32(value.checked_add(offset).ok_or_else(|| {
-                    CompileError::Codegen("memory.atomic constant out of bounds".to_string())
-                })?),
-                CanonicalizeType::None,
-            )),
+            Location::Imm32(value) => Ok(if let Some(addr) = value.checked_add(offset) {
+                (Location::Imm32(addr), CanonicalizeType::None)
+            } else {
+                self.machine
+                    .jmp_unconditional(self.special_labels.heap_access_oob)?;
+                (Location::Imm32(0), CanonicalizeType::None)
+            }),
             Location::Imm64(_) => codegen_error!("memory.atomic address must be i32"),
             _ => {
+                let effective_addr = self.machine.acquire_temp_gpr().unwrap();
+                self.machine.move_location_extend(
+                    Size::S32,
+                    false,
+                    addr.0,
+                    Size::S64,
+                    Location::GPR(effective_addr),
+                )?;
+                self.machine.emit_binop_add64(
+                    Location::GPR(effective_addr),
+                    Location::Imm64(memarg.offset),
+                    Location::GPR(effective_addr),
+                )?;
+                self.machine.jmp_on_condition(
+                    UnsignedCondition::AboveEqual,
+                    Size::S64,
+                    Location::GPR(effective_addr),
+                    Location::Imm64(u64::from(u32::MAX)),
+                    self.special_labels.heap_access_oob,
+                )?;
                 self.machine
-                    .location_add(Size::S32, Location::Imm32(offset), addr.0, false)?;
+                    .move_location(Size::S32, Location::GPR(effective_addr), addr.0)?;
+                self.machine.release_gpr(effective_addr);
                 Ok(addr)
             }
         }
@@ -5826,7 +5848,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                let dst = self.apply_memarg_offset_to_i32_addr(dst, memarg)?;
+                let dst = self.fold_atomic_mem_addr(dst, memarg)?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait32, index_arg) =
@@ -5876,7 +5898,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                let dst = self.apply_memarg_offset_to_i32_addr(dst, memarg)?;
+                let dst = self.fold_atomic_mem_addr(dst, memarg)?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait64, index_arg) =
@@ -5925,7 +5947,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::MemoryAtomicNotify { ref memarg } => {
                 let cnt = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                let dst = self.apply_memarg_offset_to_i32_addr(dst, memarg)?;
+                let dst = self.fold_atomic_mem_addr(dst, memarg)?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_notify, index_arg) =
