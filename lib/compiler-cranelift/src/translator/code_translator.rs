@@ -765,8 +765,6 @@ pub fn translate_operator(
          * special functions.
          ************************************************************************************/
         Operator::MemoryGrow { mem } => {
-            // The WebAssembly MVP only supports one linear memory, but we expect the reserved
-            // argument to be a memory index.
             let heap_index = MemoryIndex::from_u32(*mem);
             let heap = state.get_heap(builder.func, *mem, environ)?;
             let val = state.pop1();
@@ -1406,9 +1404,6 @@ pub fn translate_operator(
             state.push1(environ.translate_ref_func(builder.cursor(), index)?);
         }
         Operator::MemoryAtomicWait32 { memarg } | Operator::MemoryAtomicWait64 { memarg } => {
-            // The WebAssembly MVP only supports one linear memory and
-            // wasmparser will ensure that the memory indices specified are
-            // zero.
             let implied_ty = match op {
                 Operator::MemoryAtomicWait64 { .. } => I64,
                 Operator::MemoryAtomicWait32 { .. } => I32,
@@ -3213,7 +3208,7 @@ fn fold_atomic_mem_addr(
             .iadd_imm_u(linear_mem_addr, memarg.offset as i64);
         let r = builder
             .ins()
-            .icmp_imm_u(IntCC::UnsignedGreaterThanOrEqual, a, 0x1_0000_0000i64);
+            .icmp_imm_u(IntCC::UnsignedGreaterThanOrEqual, a, u32::MAX as i64);
         builder.ins().trapnz(r, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
         builder.ins().ireduce(I32, a)
     } else {
