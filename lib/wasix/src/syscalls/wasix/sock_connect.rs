@@ -50,10 +50,13 @@ pub fn sock_connect<M: MemorySize>(
 
 fn nonblocking_connect_result(status: crate::net::socket::WasiSocketStatus) -> Result<(), Errno> {
     match status {
-        crate::net::socket::WasiSocketStatus::Opening => Err(Errno::Inprogress),
+        // This is called immediately after initiating a nonblocking connect.
+        // A failure observed here is asynchronous and must remain available
+        // via SO_ERROR, so report EINPROGRESS rather than consume it.
+        crate::net::socket::WasiSocketStatus::Opening
+        | crate::net::socket::WasiSocketStatus::Closed
+        | crate::net::socket::WasiSocketStatus::Failed => Err(Errno::Inprogress),
         crate::net::socket::WasiSocketStatus::Opened => Ok(()),
-        crate::net::socket::WasiSocketStatus::Closed
-        | crate::net::socket::WasiSocketStatus::Failed => Err(Errno::Notconn),
     }
 }
 
@@ -116,11 +119,11 @@ mod tests {
         assert_eq!(nonblocking_connect_result(WasiSocketStatus::Opened), Ok(()));
         assert_eq!(
             nonblocking_connect_result(WasiSocketStatus::Failed),
-            Err(Errno::Notconn)
+            Err(Errno::Inprogress)
         );
         assert_eq!(
             nonblocking_connect_result(WasiSocketStatus::Closed),
-            Err(Errno::Notconn)
+            Err(Errno::Inprogress)
         );
     }
 }
