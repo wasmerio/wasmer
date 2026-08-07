@@ -674,7 +674,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let offset = memarg.offset as u32;
         match addr.0 {
             Location::Imm32(value) => Ok((
-                Location::Imm32(value.wrapping_add(offset)),
+                Location::Imm32(value.checked_add(offset).ok_or_else(|| {
+                    CompileError::Codegen("memory.atomic constant out of bounds".to_string())
+                })?),
                 CanonicalizeType::None,
             )),
             Location::Imm64(_) => codegen_error!("memory.atomic address must be i32"),
