@@ -720,6 +720,11 @@ impl VirtualConnectedSocket for LocalTcpStream {
         ret
     }
 
+    fn try_send_oob(&mut self, data: &[u8]) -> Result<usize> {
+        self.with_sock_ref(|s| s.send_out_of_band(data))
+            .map_err(io_err_into_net_error)
+    }
+
     fn try_flush(&mut self) -> Result<()> {
         self.stream.flush().map_err(io_err_into_net_error)
     }
@@ -1052,6 +1057,43 @@ mod oob_tests {
         let (receiver, _) = listener.accept().unwrap();
         sender.set_nodelay(true).unwrap();
         (sender, receiver)
+    }
+
+    #[test]
+    fn send_oob_reaches_the_peer_as_urgent_data() {
+        let (sender, receiver) = connected_streams();
+        let peer = sender.peer_addr().unwrap();
+        sender.set_nonblocking(true).unwrap();
+        let mut sender =
+            LocalTcpStream::new(Selector::new(), mio::net::TcpStream::from_std(sender), peer);
+
+        assert_eq!(sender.try_send_oob(b"!").unwrap(), 1);
+
+        let mut saw_urgent = false;
+        for _ in 0..100 {
+            if libc_poll(receiver.as_raw_fd(), libc::POLLPRI)
+                .is_some_and(|events| (events & libc::POLLPRI) != 0)
+            {
+                saw_urgent = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert!(saw_urgent, "the receiver never observed POLLPRI");
+
+        let mut byte = 0u8;
+        assert_eq!(
+            unsafe {
+                libc::recv(
+                    receiver.as_raw_fd(),
+                    (&mut byte as *mut u8).cast(),
+                    1,
+                    libc::MSG_OOB,
+                )
+            },
+            1
+        );
+        assert_eq!(byte, b'!');
     }
 
     #[test]
