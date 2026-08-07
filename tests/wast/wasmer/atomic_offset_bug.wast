@@ -68,6 +68,16 @@
       (i32.const 0)
       (i32.const 1)))
 
+  (func (export "notify_oob_via_offset") (result i32)
+    (memory.atomic.notify offset=0x10000
+      (i32.const 0)
+      (i32.const 1)))
+
+  (func (export "notify_unaligned_via_offset") (result i32)
+    (memory.atomic.notify offset=1
+      (i32.const 0)
+      (i32.const 1)))
+
   (func (export "notify_via_index") (result i32)
     (memory.atomic.notify
       (i32.const 4)
@@ -86,4 +96,6 @@
 (assert_trap (invoke "wait32_unaligned_via_offset") "unaligned atomic")
 (assert_trap (invoke "wait64_unaligned_via_offset") "unaligned atomic")
 (assert_return (invoke "notify_via_offset") (i32.const 0))
+(assert_trap (invoke "notify_oob_via_offset") "out of bounds memory access")
+(assert_trap (invoke "notify_unaligned_via_offset") "unaligned atomic")
 (assert_return (invoke "notify_via_index") (i32.const 0))
