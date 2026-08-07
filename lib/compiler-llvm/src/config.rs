@@ -159,9 +159,7 @@ impl LLVM {
     pub fn experimental_artifact(&mut self, enable: bool) -> &mut Self {
         self.experimental_artifact = enable;
         // We will link a shared library and so PIC must be enabled.
-        if self.experimental_artifact {
-            self.is_pic = enable;
-        }
+        self.is_pic = enable;
         self
     }
 

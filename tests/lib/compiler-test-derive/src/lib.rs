@@ -69,6 +69,8 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
         } else {
             quote! { crate::Config::new(crate::Compiler::#config_compiler) }
         };
+        let experimental_artifact_cfg =
+            experimental_artifact.then(|| quote! { #[cfg(target_os = "linux")] });
         let mut new_sig = func.sig.clone();
         let attrs = func
             .attrs
@@ -81,6 +83,7 @@ fn compiler_test_impl(attrs: TokenStream, input: TokenStream) -> TokenStream {
             #[test_log::test]
             #attrs
             #[cfg(feature = #engine_feature_name)]
+            #experimental_artifact_cfg
             #new_sig {
                 #fn_name(#config)
             }
