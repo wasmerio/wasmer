@@ -11,6 +11,8 @@ pub enum InterestType {
     Writable,
     Closed,
     Error,
+    // e.g. TCP out-of-band data
+    Priority,
 }
 
 #[derive(Debug)]

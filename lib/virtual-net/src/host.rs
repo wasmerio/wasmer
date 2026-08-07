@@ -28,6 +28,7 @@ use tokio::runtime::Handle;
 use tracing::{debug, error, info, trace, warn};
 use virtual_mio::{
     HandlerGuardState, InterestGuard, InterestHandler, InterestType, Selector, state_as_waker_map,
+    state_as_waker_map_with_interests,
 };
 
 /// Use the platform's maximum listen backlog where available so that
@@ -745,6 +746,13 @@ impl VirtualConnectedSocket for LocalTcpStream {
         }
         .map_err(io_err_into_net_error)
     }
+
+    #[cfg(not(target_os = "windows"))]
+    fn try_recv_oob(&mut self, buf: &mut [MaybeUninit<u8>], peek: bool) -> Result<usize> {
+        let flags = libc::MSG_OOB | if peek { libc::MSG_PEEK } else { 0 };
+        self.with_sock_ref(|s| s.recv_with_flags(buf, flags))
+            .map_err(io_err_into_net_error)
+    }
 }
 
 impl VirtualSocket for LocalTcpStream {
@@ -826,7 +834,7 @@ impl VirtualSocket for LocalTcpStream {
             &self.selector,
             handler,
             &mut self.stream,
-            mio::Interest::READABLE.add(mio::Interest::WRITABLE),
+            virtual_mio::all_interests(),
         )
         .map_err(io_err_into_net_error)?;
 
@@ -875,32 +883,76 @@ impl VirtualIoSource for LocalTcpStream {
         }
 
         let (state, selector, stream, buffer) = self.split_borrow();
-        let map = state_as_waker_map(state, selector, stream).map_err(io_err_into_net_error)?;
-        map.pop(InterestType::Readable);
+        let map = state_as_waker_map_with_interests(
+            state,
+            selector,
+            stream,
+            virtual_mio::all_interests(),
+        )
+        .map_err(io_err_into_net_error)?;
+        #[cfg(not(target_os = "windows"))]
+        let selector_readable = map.pop(InterestType::Readable);
         map.add(InterestType::Readable, cx.waker());
+        map.add(InterestType::Closed, cx.waker());
 
-        buffer.reserve(buffer.len() + 10240);
-        let uninit: &mut [MaybeUninit<u8>] = buffer.spare_capacity_mut();
-        let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
-
-        match stream.read(uninit_unsafe) {
-            Ok(0) => Poll::Ready(Ok(0)),
-            Ok(amt) => {
-                unsafe {
-                    buffer.set_len(buffer.len() + amt);
-                }
-                Poll::Ready(Ok(amt))
+        #[cfg(not(target_os = "windows"))]
+        {
+            // Readiness checks must not consume stream data. In particular,
+            // pre-reading can cross TCP's urgent mark and discard OOB data.
+            if map.has_interest(InterestType::Closed) {
+                return Poll::Ready(Ok(0));
             }
-            Err(err) if err.kind() == io::ErrorKind::ConnectionAborted => Poll::Ready(Ok(0)),
-            Err(err) if err.kind() == io::ErrorKind::ConnectionReset => Poll::Ready(Ok(0)),
-            Err(err) if err.kind() == io::ErrorKind::WouldBlock => Poll::Pending,
-            Err(err) => Poll::Ready(Err(io_err_into_net_error(err))),
+
+            if selector_readable {
+                let available =
+                    socket_bytes_available(stream.as_raw_fd()).map_err(io_err_into_net_error)?;
+                if available > 0 {
+                    return Poll::Ready(Ok(available));
+                }
+            }
+
+            match libc_poll(stream.as_raw_fd(), libc::POLLIN | libc::POLLHUP) {
+                Some(events) if (events & libc::POLLHUP) != 0 => Poll::Ready(Ok(0)),
+                Some(events) if (events & libc::POLLIN) != 0 => {
+                    let available = socket_bytes_available(stream.as_raw_fd())
+                        .map_err(io_err_into_net_error)?;
+                    Poll::Ready(Ok(available))
+                }
+                _ => Poll::Pending,
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        {
+            buffer.reserve(buffer.len() + 10240);
+            let uninit: &mut [MaybeUninit<u8>] = buffer.spare_capacity_mut();
+            let uninit_unsafe: &mut [u8] = unsafe { std::mem::transmute(uninit) };
+
+            match stream.read(uninit_unsafe) {
+                Ok(0) => Poll::Ready(Ok(0)),
+                Ok(amt) => {
+                    unsafe {
+                        buffer.set_len(buffer.len() + amt);
+                    }
+                    Poll::Ready(Ok(amt))
+                }
+                Err(err) if err.kind() == io::ErrorKind::ConnectionAborted => Poll::Ready(Ok(0)),
+                Err(err) if err.kind() == io::ErrorKind::ConnectionReset => Poll::Ready(Ok(0)),
+                Err(err) if err.kind() == io::ErrorKind::WouldBlock => Poll::Pending,
+                Err(err) => Poll::Ready(Err(io_err_into_net_error(err))),
+            }
         }
     }
 
     fn poll_write_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
         let (state, selector, stream, _) = self.split_borrow();
-        let map = state_as_waker_map(state, selector, stream).map_err(io_err_into_net_error)?;
+        let map = state_as_waker_map_with_interests(
+            state,
+            selector,
+            stream,
+            virtual_mio::all_interests(),
+        )
+        .map_err(io_err_into_net_error)?;
         #[cfg(not(target_os = "windows"))]
         map.pop(InterestType::Writable);
         map.add(InterestType::Writable, cx.waker());
@@ -929,6 +981,32 @@ impl VirtualIoSource for LocalTcpStream {
 
         Poll::Pending
     }
+
+    fn poll_pri_ready(&mut self, cx: &mut std::task::Context<'_>) -> Poll<Result<usize>> {
+        #[cfg(not(target_os = "windows"))]
+        {
+            let (state, selector, stream, _) = self.split_borrow();
+            let map = state_as_waker_map_with_interests(
+                state,
+                selector,
+                stream,
+                virtual_mio::all_interests(),
+            )
+            .map_err(io_err_into_net_error)?;
+            map.pop(InterestType::Priority);
+            map.add(InterestType::Priority, cx.waker());
+
+            if libc_poll(stream.as_raw_fd(), libc::POLLPRI)
+                .is_some_and(|events| (events & libc::POLLPRI) != 0)
+            {
+                return Poll::Ready(Ok(1));
+            }
+        }
+
+        #[cfg(target_os = "windows")]
+        let _ = cx;
+        Poll::Pending
+    }
 }
 
 #[cfg(not(target_os = "windows"))]
@@ -943,6 +1021,117 @@ fn libc_poll(fd: RawFd, events: libc::c_short) -> Option<libc::c_short> {
     match ret == 1 {
         true => Some(fds[0].revents),
         false => None,
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn socket_bytes_available(fd: RawFd) -> io::Result<usize> {
+    let mut available: libc::c_int = 0;
+    let ret = unsafe { libc::ioctl(fd, libc::FIONREAD, &mut available) };
+    if ret == -1 {
+        Err(io::Error::last_os_error())
+    } else {
+        Ok(available.max(0) as usize)
+    }
+}
+
+#[cfg(all(test, any(target_os = "linux", target_os = "android")))]
+mod oob_tests {
+    use super::*;
+    use std::{
+        io::Write,
+        net::{TcpListener, TcpStream},
+        os::fd::AsRawFd,
+        thread,
+    };
+
+    fn connected_streams() -> (TcpStream, TcpStream) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let sender = TcpStream::connect(addr).unwrap();
+        let (receiver, _) = listener.accept().unwrap();
+        sender.set_nodelay(true).unwrap();
+        (sender, receiver)
+    }
+
+    #[test]
+    fn read_readiness_check_preserves_oob_and_peek_does_not_consume_it() {
+        let (mut sender, receiver) = connected_streams();
+        let peer = sender.local_addr().unwrap();
+        receiver.set_nonblocking(true).unwrap();
+        let mut receiver = LocalTcpStream::new(
+            Selector::new(),
+            mio::net::TcpStream::from_std(receiver),
+            peer,
+        );
+        sender.write_all(b"before").unwrap();
+        assert_eq!(
+            unsafe { libc::send(sender.as_raw_fd(), b"!".as_ptr().cast(), 1, libc::MSG_OOB) },
+            1
+        );
+
+        // Wait until the urgent mark has reached the receiver, rather than
+        // relying on the normal data and OOB byte arriving in one packet.
+        let mut saw_urgent = false;
+        for _ in 0..100 {
+            if libc_poll(receiver.stream.as_raw_fd(), libc::POLLPRI)
+                .is_some_and(|events| (events & libc::POLLPRI) != 0)
+            {
+                saw_urgent = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert!(saw_urgent, "the receiver never observed POLLPRI");
+
+        let waker = futures_util::task::noop_waker_ref();
+        let mut cx = std::task::Context::from_waker(waker);
+        assert_eq!(receiver.poll_read_ready(&mut cx), Poll::Ready(Ok(6)));
+
+        let mut oob = [MaybeUninit::uninit(); 1];
+        assert_eq!(receiver.try_recv_oob(&mut oob, true).unwrap(), 1);
+        assert_eq!(unsafe { oob[0].assume_init() }, b'!');
+        assert_eq!(receiver.try_recv_oob(&mut oob, false).unwrap(), 1);
+        assert_eq!(unsafe { oob[0].assume_init() }, b'!');
+    }
+
+    #[test]
+    fn priority_pending_before_registration_is_observed() {
+        let (mut sender, receiver) = connected_streams();
+        let peer = sender.local_addr().unwrap();
+        receiver.set_nonblocking(true).unwrap();
+        sender.write_all(b"before").unwrap();
+        assert_eq!(
+            unsafe { libc::send(sender.as_raw_fd(), b"!".as_ptr().cast(), 1, libc::MSG_OOB) },
+            1
+        );
+
+        let mut saw_urgent = false;
+        for _ in 0..100 {
+            if libc_poll(receiver.as_raw_fd(), libc::POLLPRI)
+                .is_some_and(|events| (events & libc::POLLPRI) != 0)
+            {
+                saw_urgent = true;
+                break;
+            }
+            thread::sleep(Duration::from_millis(10));
+        }
+        assert!(saw_urgent, "the receiver never observed POLLPRI");
+
+        // The selector was not registered while the urgent byte arrived, so
+        // the synchronous level check must observe it on the first poll.
+        let mut receiver = LocalTcpStream::new(
+            Selector::new(),
+            mio::net::TcpStream::from_std(receiver),
+            peer,
+        );
+        let waker = futures_util::task::noop_waker_ref();
+        let mut cx = std::task::Context::from_waker(waker);
+        assert_eq!(receiver.poll_pri_ready(&mut cx), Poll::Ready(Ok(1)));
+
+        let mut oob = [MaybeUninit::uninit(); 1];
+        assert_eq!(receiver.try_recv_oob(&mut oob, false).unwrap(), 1);
+        assert_eq!(unsafe { oob[0].assume_init() }, b'!');
     }
 }
 

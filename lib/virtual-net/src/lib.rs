@@ -85,6 +85,14 @@ pub trait VirtualIoSource: fmt::Debug + Send + Sync + 'static {
 
     /// Polls the source to see if data can be sent
     fn poll_write_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<usize>>;
+
+    /// Polls the source for an exceptional/priority condition (e.g. TCP
+    /// out-of-band data). Sources without a notion of exceptional conditions
+    /// are simply never ready.
+    fn poll_pri_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<usize>> {
+        let _ = cx;
+        Poll::Pending
+    }
 }
 
 /// An implementation of virtual networking
@@ -373,6 +381,13 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
 
     /// Tries to read a packet from the socket
     fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>], peek: bool) -> Result<usize>;
+
+    /// Tries to read pending out-of-band (urgent) data from the socket.
+    /// Only meaningful for stream sockets whose transport supports it.
+    fn try_recv_oob(&mut self, buf: &mut [MaybeUninit<u8>], peek: bool) -> Result<usize> {
+        let _ = (buf, peek);
+        Err(NetworkError::Unsupported)
+    }
 }
 
 #[async_trait::async_trait]

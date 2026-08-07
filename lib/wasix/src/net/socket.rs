@@ -1479,12 +1479,14 @@ impl InodeSocket {
         timeout: Option<Duration>,
         nonblocking: bool,
         peek: bool,
+        oob: bool,
     ) -> Result<usize, Errno> {
         struct SocketReceiver<'a, 'b> {
             inner: &'a InodeSocketInner,
             data: &'b mut [MaybeUninit<u8>],
             nonblocking: bool,
             peek: bool,
+            oob: bool,
             handler_registered: bool,
         }
         impl Drop for SocketReceiver<'_, '_> {
@@ -1505,9 +1507,20 @@ impl InodeSocket {
                     let peek = self.peek;
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
+                        InodeSocketKind::Raw(socket) if self.oob => {
+                            let _ = socket;
+                            Err(NetworkError::Unsupported)
+                        }
                         InodeSocketKind::Raw(socket) => socket.try_recv(self.data, peek),
+                        InodeSocketKind::TcpStream { socket, .. } if self.oob => {
+                            socket.try_recv_oob(self.data, peek)
+                        }
                         InodeSocketKind::TcpStream { socket, .. } => {
                             socket.try_recv(self.data, peek)
+                        }
+                        InodeSocketKind::UdpSocket { socket, .. } if self.oob => {
+                            let _ = socket;
+                            Err(NetworkError::Unsupported)
                         }
                         InodeSocketKind::UdpSocket { socket, peer } => match peer {
                             Some(peer) => {
@@ -1553,6 +1566,7 @@ impl InodeSocket {
             data: buf,
             nonblocking,
             peek,
+            oob,
             handler_registered: false,
         };
         if let Some(timeout) = timeout {
@@ -1572,12 +1586,14 @@ impl InodeSocket {
         timeout: Option<Duration>,
         nonblocking: bool,
         peek: bool,
+        oob: bool,
     ) -> Result<(usize, SocketAddr), Errno> {
         struct SocketReceiver<'a, 'b> {
             inner: &'a InodeSocketInner,
             data: &'b mut [MaybeUninit<u8>],
             nonblocking: bool,
             peek: bool,
+            oob: bool,
             handler_registered: bool,
         }
         impl Drop for SocketReceiver<'_, '_> {
@@ -1598,7 +1614,19 @@ impl InodeSocket {
                 let mut inner = self.inner.protected.write().unwrap();
                 loop {
                     let res = match &mut inner.kind {
+                        InodeSocketKind::Icmp(_) if self.oob => Err(NetworkError::Unsupported),
                         InodeSocketKind::Icmp(socket) => socket.try_recv_from(self.data, peek),
+                        InodeSocketKind::TcpStream { socket, .. } => {
+                            let received = if self.oob {
+                                socket.try_recv_oob(self.data, peek)
+                            } else {
+                                socket.try_recv(self.data, peek)
+                            };
+                            received.and_then(|amt| socket.addr_peer().map(|addr| (amt, addr)))
+                        }
+                        InodeSocketKind::UdpSocket { .. } if self.oob => {
+                            Err(NetworkError::Unsupported)
+                        }
                         InodeSocketKind::UdpSocket { socket, peer } => match peer {
                             Some(peer) => {
                                 try_recv_from_connected_udp(socket.as_mut(), self.data, peek, peer)
@@ -1642,6 +1670,7 @@ impl InodeSocket {
             data: buf,
             nonblocking,
             peek,
+            oob,
             handler_registered: false,
         };
         if let Some(timeout) = timeout {
@@ -1809,6 +1838,17 @@ impl InodeSocketProtected {
                 true => Poll::Ready(Ok(0)),
                 false => Poll::Pending,
             },
+        }
+        .map_err(net_error_into_io_err)
+    }
+
+    pub fn poll_pri_ready(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+        match &mut self.kind {
+            // Only connected TCP streams can carry an exceptional condition
+            // (TCP out-of-band data); all other socket kinds are never in an
+            // exceptional state.
+            InodeSocketKind::TcpStream { socket, .. } => socket.poll_pri_ready(cx),
+            _ => Poll::Pending,
         }
         .map_err(net_error_into_io_err)
     }
