@@ -2433,6 +2433,7 @@ pub fn gen_import_call_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
+    experimental_artifact: bool,
 ) -> Result<CompileOutput<CustomSection>, CompileError> {
     let section = match target.triple().architecture {
         Architecture::X86_64 => {
@@ -2451,7 +2452,7 @@ pub fn gen_import_call_trampoline(
             "singlepass unimplemented arch for gen_import_call_trampoline".to_owned(),
         )),
     }?;
-    if cfg!(feature = "experimental-artifact") {
+    if experimental_artifact {
         Ok(CompileOutput::Object(
             elf::emit_import_trampoline(
                 target,

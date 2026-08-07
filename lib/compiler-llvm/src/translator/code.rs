@@ -153,7 +153,7 @@ impl FuncTranslator {
             .get(MemoryIndex::from_u32(0))
             .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
 
-        let (function_name, module_name) = if cfg!(feature = "experimental-artifact") {
+        let (function_name, module_name) = if config.experimental_artifact {
             (function.linkage_name(), String::new())
         } else {
             let function_name =
@@ -194,7 +194,7 @@ impl FuncTranslator {
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
-        let debug_info = if cfg!(feature = "experimental-artifact") {
+        let debug_info = if config.experimental_artifact {
             let source_location = self.source_map.first_in_function(function_body);
             let debug_metadata_version = self
                 .ctx
@@ -285,7 +285,7 @@ impl FuncTranslator {
         };
 
         func.set_personality_function(intrinsics.personality);
-        if !cfg!(feature = "experimental-artifact") {
+        if !config.experimental_artifact {
             func.as_global_value().set_section(Some(&section));
         }
 
@@ -592,7 +592,7 @@ impl FuncTranslator {
             callbacks.asm_memory_buffer(&function, &module_hash, &asm_buffer)
         }
 
-        if cfg!(feature = "experimental-artifact") {
+        if config.experimental_artifact {
             Ok(CompiledFunction::Elf(memory_buffer.as_slice().to_vec()))
         } else {
             Ok(CompiledFunction::Rkyv(Box::new(load_object_file(

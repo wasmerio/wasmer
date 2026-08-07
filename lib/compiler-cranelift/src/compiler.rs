@@ -134,7 +134,7 @@ impl CraneliftCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
-        let source_map = Arc::new(if cfg!(feature = "experimental-artifact") {
+        let source_map = Arc::new(if self.config.experimental_artifact {
             WasmSourceMap::new(module, module_translation_state, &function_body_inputs)
                 .map_err(CompileError::Codegen)?
         } else {
@@ -316,7 +316,7 @@ impl CraneliftCompiler {
                     result.buffer.call_sites(),
                     result.buffer.data().len(),
                     pointer_bytes,
-                    cfg!(feature = "experimental-artifact"),
+                    self.config.experimental_artifact,
                 )
             } else {
                 None
@@ -330,7 +330,7 @@ impl CraneliftCompiler {
                         // For the ELF artifact format each function's
                         // `.eh_frame` relocates against its own text symbol,
                         // so the FDE's initial location must not be shifted.
-                        let addend = if cfg!(feature = "experimental-artifact") {
+                        let addend = if self.config.experimental_artifact {
                             0
                         } else {
                             // We use the addend as a way to specify the
@@ -379,7 +379,7 @@ impl CraneliftCompiler {
                 compact_unwind_encoding,
             };
 
-            if cfg!(feature = "experimental-artifact") {
+            if self.config.experimental_artifact {
                 let object = crate::elf::emit_local_function(
                     #[cfg(feature = "unwind")]
                     &*isa,
@@ -450,7 +450,7 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                if cfg!(feature = "experimental-artifact") {
+                if self.config.experimental_artifact {
                     Ok(CompileOutput::Object(
                         wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
                         None,
@@ -487,7 +487,7 @@ impl CraneliftCompiler {
                 if let Some(progress) = progress.as_ref() {
                     progress.notify_steps(WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE)?;
                 }
-                if cfg!(feature = "experimental-artifact") {
+                if self.config.experimental_artifact {
                     Ok(CompileOutput::Object(
                         wasmer_compiler::elf::emit_function_body(target, &kind, &trampoline)?,
                         None,
@@ -498,7 +498,7 @@ impl CraneliftCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        if cfg!(feature = "experimental-artifact") {
+        if self.config.experimental_artifact {
             let object_files = compile_output_objects(results);
             let trampoline_objects = compile_output_objects(function_call_trampoline_outputs);
             let dynamic_trampoline_objects =
@@ -726,7 +726,11 @@ impl Compiler for CraneliftCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        String::from("cranelift")
+        if self.config.experimental_artifact {
+            String::from("cranelift-elf")
+        } else {
+            String::from("cranelift")
+        }
     }
 
     /// Get the middlewares for this compiler

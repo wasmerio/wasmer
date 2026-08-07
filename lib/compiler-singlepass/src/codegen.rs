@@ -6075,7 +6075,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         symbol: WriterRelocate::FUNCTION_SYMBOL,
                         // In-memory compilation uses this addend to identify the
                         // function relocation target.
-                        addend: if cfg!(feature = "experimental-artifact") {
+                        addend: if self.config.experimental_artifact {
                             0
                         } else {
                             self.local_func_index.index() as _
@@ -6133,7 +6133,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             frame_info: CompiledFunctionFrameInfo { traps, address_map },
             maximum_stack_usage: Some(self.stack_offset.maximum_offset),
         };
-        if cfg!(feature = "experimental-artifact") {
+        if self.config.experimental_artifact {
             let maximum_stack_usage = function.maximum_stack_usage;
             Ok(CompileOutput::Object(
                 elf::emit_local_function(

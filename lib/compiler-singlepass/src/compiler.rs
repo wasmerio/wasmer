@@ -100,7 +100,7 @@ impl SinglepassCompiler {
         };
 
         let module = &compile_info.module;
-        let source_map = Arc::new(if cfg!(feature = "experimental-artifact") {
+        let source_map = Arc::new(if self.config.experimental_artifact {
             WasmSourceMap::new(module, module_translation, &function_body_inputs)
                 .map_err(CompileError::Codegen)?
         } else {
@@ -156,6 +156,7 @@ impl SinglepassCompiler {
                     &module.signatures[module.functions[i]],
                     target,
                     calling_convention,
+                    self.config.experimental_artifact,
                 )
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
@@ -280,7 +281,7 @@ impl SinglepassCompiler {
                         func_type,
                         target,
                         calling_convention,
-                        cfg!(feature = "experimental-artifact").then_some(&kind),
+                        self.config.experimental_artifact.then_some(&kind),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
                         && let CompileOutput::InMemory(body) = &body
@@ -319,7 +320,7 @@ impl SinglepassCompiler {
                         &func_type,
                         target,
                         calling_convention,
-                        cfg!(feature = "experimental-artifact").then_some(&kind),
+                        self.config.experimental_artifact.then_some(&kind),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
                         && let CompileOutput::InMemory(body) = &body
@@ -341,7 +342,7 @@ impl SinglepassCompiler {
             )
             .collect::<Result<Vec<_>, _>>()?;
 
-        if cfg!(feature = "experimental-artifact") {
+        if self.config.experimental_artifact {
             let object_files = compile_output_objects(functions);
             let import_trampoline_objects = compile_output_objects(import_trampolines);
             let trampoline_objects = compile_output_objects(function_call_trampolines);
@@ -423,7 +424,11 @@ impl Compiler for SinglepassCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        String::from("singlepass")
+        if self.config.experimental_artifact {
+            String::from("singlepass-elf")
+        } else {
+            String::from("singlepass")
+        }
     }
 
     /// Get the middlewares for this compiler
