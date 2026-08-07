@@ -179,6 +179,7 @@ fn is_fixed_to_resolved(specified: &PackageSource, resolved_id: &PackageId) -> b
             match &specified.tag {
                 Some(Tag::Named(tag)) => tag == &resolved.version.to_string(),
                 Some(Tag::VersionReq(req)) => version_req_is_exact(req, &resolved.version),
+                Some(Tag::ExactBuild(v)) => &resolved.version == v,
                 None => false,
             }
         }

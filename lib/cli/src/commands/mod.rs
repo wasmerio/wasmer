@@ -202,6 +202,7 @@ impl WasmerCmd {
                 Package::Unpack(cmd) => cmd.execute(),
                 Package::Search(cmd) => cmd.run(),
                 Package::Get(cmd) => cmd.run(),
+                Package::Yank(cmd) => cmd.run(),
             },
             Some(Cmd::Container(cmd)) => match cmd {
                 crate::commands::Container::Unpack(cmd) => cmd.execute(),

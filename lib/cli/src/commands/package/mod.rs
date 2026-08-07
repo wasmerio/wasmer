@@ -8,6 +8,7 @@ mod search;
 mod tag;
 mod tree;
 mod unpack;
+mod yank;
 
 pub use build::PackageBuild;
 pub use common::wait::PublishWait;
@@ -28,4 +29,5 @@ pub enum Package {
     Unpack(unpack::PackageUnpack),
     Search(search::PackageSearch),
     Get(get::PackageGet),
+    Yank(yank::PackageYank),
 }
