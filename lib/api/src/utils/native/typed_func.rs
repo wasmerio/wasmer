@@ -103,7 +103,10 @@ macro_rules! impl_native_traits {
                         #[cfg(feature = "v8")]
                         BackendStore::V8(_) => async_backend_error(),
                         #[cfg(feature = "js")]
-                        BackendStore::Js(_) => async_backend_error(),
+                        BackendStore::Js(_) => {
+                            drop(read_lock);
+                            Self::call_async_js(func, store, $([<p_ $x>]),*).await
+                        }
                     }
                 }
             }
@@ -163,6 +166,6 @@ impl_native_traits!(
 
 fn async_backend_error<Rets>() -> Result<Rets, RuntimeError> {
     Err(RuntimeError::new(
-        "async calls are only supported with the `sys` backend",
+        "async calls are not supported with the `v8` backend",
     ))
 }

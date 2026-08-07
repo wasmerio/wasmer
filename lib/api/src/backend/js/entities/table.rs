@@ -72,7 +72,8 @@ impl Table {
 
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
         if let Ok(func) = self.handle.table.get(index) {
-            let ty = FunctionType::new(vec![], vec![]);
+            let ty = VMFunction::type_from_js(&func)
+                .unwrap_or_else(|| FunctionType::new(vec![], vec![]));
             let vm_function = VMFunction::new(func, ty);
             let function = crate::Function::from_vm_extern(
                 store,

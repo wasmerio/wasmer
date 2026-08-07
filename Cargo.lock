@@ -7273,6 +7273,7 @@ dependencies = [
  "tracing",
  "ureq 3.3.0",
  "wasm-bindgen",
+ "wasm-bindgen-futures",
  "wasm-bindgen-test",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
