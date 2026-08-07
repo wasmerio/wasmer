@@ -51,8 +51,7 @@ int main(void) {
 
   pid_t pid;
   char* argv[] = {"wasmer", "--version", NULL};
-  int spawn_error =
-      posix_spawnp(&pid, "wasmer", &actions, NULL, argv, environ);
+  int spawn_error = posix_spawnp(&pid, "wasmer", &actions, NULL, argv, environ);
   posix_spawn_file_actions_destroy(&actions);
   if (spawn_error != 0) {
     return spawn_error;
