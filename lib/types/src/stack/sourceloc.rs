@@ -7,10 +7,10 @@
 //! relative to the WebAssembly module. This is used mainly for debugging
 //! and tracing errors.
 
-use crate::lib::std::fmt;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// A source location.
 ///
@@ -64,7 +64,7 @@ impl fmt::Display for SourceLoc {
 #[cfg(test)]
 mod tests {
     use super::SourceLoc;
-    use crate::lib::std::string::ToString;
+    use std::string::ToString;
 
     #[test]
     fn display() {

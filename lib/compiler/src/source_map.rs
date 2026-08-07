@@ -1,9 +1,5 @@
 use addr2line::gimli::{Dwarf, EndianRcSlice, LittleEndian, SectionId};
-#[cfg(feature = "core")]
-use alloc::{collections::BTreeMap, rc::Rc};
-use std::path::PathBuf;
-#[cfg(feature = "std")]
-use std::{collections::BTreeMap, rc::Rc};
+use std::{collections::BTreeMap, path::PathBuf, rc::Rc};
 use wasmer_types::{LocalFunctionIndex, ModuleInfo, entity::PrimaryMap};
 
 use crate::{

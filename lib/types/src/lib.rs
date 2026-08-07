@@ -6,7 +6,6 @@
 
 #![deny(missing_docs, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::new_without_default)]
 #![warn(
     clippy::float_arithmetic,
@@ -19,36 +18,6 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 
-#[cfg(all(feature = "std", feature = "core"))]
-compile_error!(
-    "The `std` and `core` features are both enabled, which is an error. Please enable only once."
-);
-
-#[cfg(all(not(feature = "std"), not(feature = "core")))]
-compile_error!("Both the `std` and `core` features are disabled. Please enable one of them.");
-
-#[cfg(feature = "core")]
-extern crate alloc;
-
-/// The `lib` module defines a `std` module that is identical whether
-/// the `core` or the `std` feature is enabled.
-pub mod lib {
-    /// Custom `std` module.
-    #[cfg(feature = "core")]
-    pub mod std {
-        pub use alloc::{borrow, boxed, format, iter, rc, slice, string, vec};
-        pub use core::{any, cell, cmp, convert, fmt, hash, marker, mem, ops, ptr, sync};
-    }
-
-    /// Custom `std` module.
-    #[cfg(feature = "std")]
-    pub mod std {
-        pub use std::{
-            any, borrow, boxed, cell, cmp, convert, fmt, format, hash, iter, marker, mem, ops, ptr,
-            rc, slice, string, sync, vec,
-        };
-    }
-}
 
 pub mod error;
 mod exception;
