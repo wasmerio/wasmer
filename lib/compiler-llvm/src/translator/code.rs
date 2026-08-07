@@ -1715,6 +1715,62 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         Ok(())
     }
 
+    fn fold_atomic_mem_addr(
+        &self,
+        addr: BasicValueEnum<'ctx>,
+        memarg: &MemArg,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let addr = addr.into_int_value();
+        let addr = if memarg.offset > 0 {
+            let extended_addr = err!(self.builder.build_int_z_extend(
+                addr,
+                self.intrinsics.i64_ty,
+                "atomic_addr_extended"
+            ));
+            let effective_addr = err!(self.builder.build_int_add(
+                extended_addr,
+                self.intrinsics.i64_ty.const_int(memarg.offset, false),
+                "atomic_effective_addr"
+            ));
+            let out_of_bounds = err!(self.builder.build_int_compare(
+                IntPredicate::UGE,
+                effective_addr,
+                self.intrinsics.i64_ty.const_int(0x1_0000_0000, false),
+                "atomic_addr_out_of_bounds"
+            ));
+            let continue_block = self
+                .context
+                .append_basic_block(self.function, "atomic_addr_in_bounds_block");
+            let trap_block = self
+                .context
+                .append_basic_block(self.function, "atomic_addr_out_of_bounds_block");
+            err!(
+                self.builder
+                    .build_conditional_branch(out_of_bounds, trap_block, continue_block)
+            );
+
+            self.builder.position_at_end(trap_block);
+            self.build_call_with_param_attributes(
+                self.intrinsics.throw_trap,
+                &[self.intrinsics.trap_memory_oob.into()],
+                "throw",
+            )?;
+            err!(self.builder.build_unreachable());
+
+            self.builder.position_at_end(continue_block);
+            err!(self.builder.build_int_truncate(
+                effective_addr,
+                self.intrinsics.i32_ty,
+                "atomic_effective_addr_i32"
+            ))
+        } else {
+            addr
+        };
+
+        // Note the alignment is checked at the libcall side.
+        Ok(addr.as_basic_value_enum())
+    }
+
     fn resolve_memory_ptr(
         &mut self,
         memory_index: MemoryIndex,
@@ -11240,6 +11296,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .local_memory_index(memory_index)
                     .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
+                let dst = self.fold_atomic_mem_addr(dst, &memarg)?;
                 let wait32_fn_ptr = self.ctx.memory_wait32(memory_index, self.intrinsics)?;
                 let ret = err!(
                     self.builder.build_indirect_call(
@@ -11267,6 +11324,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .local_memory_index(memory_index)
                     .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, val, timeout) = self.state.pop3()?;
+                let dst = self.fold_atomic_mem_addr(dst, &memarg)?;
                 let wait64_fn_ptr = self.ctx.memory_wait64(memory_index, self.intrinsics)?;
                 let ret = err!(
                     self.builder.build_indirect_call(
@@ -11294,6 +11352,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .local_memory_index(memory_index)
                     .map_or(memarg.memory, |index| index.as_u32());
                 let (dst, count) = self.state.pop2()?;
+                let dst = self.fold_atomic_mem_addr(dst, &memarg)?;
                 let notify_fn_ptr = self.ctx.memory_notify(memory_index, self.intrinsics)?;
                 let cnt = err!(
                     self.builder.build_indirect_call(
