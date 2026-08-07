@@ -53,6 +53,9 @@ pub enum Debugger {
 
 /// The compiler configuration options.
 pub trait CompilerConfig {
+    /// Enable the experimental artifact format.
+    fn experimental_artifact(&mut self, _enable: bool) {}
+
     /// Enable Position Independent Code (PIC).
     ///
     /// This is required for shared object generation (Native Engine),

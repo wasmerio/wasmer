@@ -119,7 +119,7 @@ impl FuncTrampoline {
             trampoline_ty,
             Some(Linkage::External),
         );
-        if !cfg!(feature = "experimental-artifact") {
+        if !config.experimental_artifact {
             trampoline_func
                 .as_global_value()
                 .set_section(Some(&self.func_section));
@@ -193,7 +193,7 @@ impl FuncTrampoline {
             callbacks.asm_memory_buffer(function, &module_hash, &asm_buffer);
         }
 
-        if cfg!(feature = "experimental-artifact") {
+        if config.experimental_artifact {
             Ok(CompiledFunctionBody::Elf(memory_buffer.as_slice().to_vec()))
         } else {
             // Use a dummy function index to detect relocations against the trampoline
@@ -294,7 +294,7 @@ impl FuncTrampoline {
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
         }
-        if !cfg!(feature = "experimental-artifact") {
+        if !config.experimental_artifact {
             trampoline_func
                 .as_global_value()
                 .set_section(Some(&self.func_section));
@@ -363,7 +363,7 @@ impl FuncTrampoline {
             callbacks.asm_memory_buffer(function, module_hash, &asm_buffer)
         }
 
-        if cfg!(feature = "experimental-artifact") {
+        if config.experimental_artifact {
             Ok(CompiledFunctionBody::Elf(memory_buffer.as_slice().to_vec()))
         } else {
             let RkyvCompiledFunction {

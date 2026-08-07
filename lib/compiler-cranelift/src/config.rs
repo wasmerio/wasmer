@@ -116,6 +116,7 @@ pub struct Cranelift {
     pub(crate) enable_perfmap: bool,
     pub(crate) debugger: Option<Debugger>,
     enable_pic: bool,
+    pub(crate) experimental_artifact: bool,
     opt_level: CraneliftOptLevel,
     /// The number of threads to use for compilation.
     pub num_threads: NonZero<usize>,
@@ -134,12 +135,19 @@ impl Cranelift {
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
+            experimental_artifact: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
             middlewares: vec![],
             enable_perfmap: false,
             debugger: None,
             callbacks: None,
         }
+    }
+
+    /// Enable the experimental artifact format.
+    pub fn experimental_artifact(&mut self, enable: bool) -> &mut Self {
+        self.experimental_artifact = enable;
+        self
     }
 
     /// Enable NaN canonicalization.
@@ -299,6 +307,10 @@ impl Cranelift {
 }
 
 impl CompilerConfig for Cranelift {
+    fn experimental_artifact(&mut self, enable: bool) {
+        self.experimental_artifact = enable;
+    }
+
     fn enable_pic(&mut self) {
         self.enable_pic = true;
     }

@@ -332,10 +332,6 @@ test_compiler_features := --features $(subst $(space),$(comma),$(test_compilers)
 test_all_features := experimental-async,experimental-host-interrupt
 test_all_default_features :=
 test_wast_features :=
-ifeq ($(IS_LINUX),1)
-	test_all_features := $(test_all_features),experimental-artifact
-	test_wast_features := --features experimental-artifact
-endif
 ifeq ($(IS_WINDOWS), 1)
 	# Wasmer's default features enable compiler backends that are unavailable on Windows.
 	test_all_default_features := --no-default-features

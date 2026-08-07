@@ -60,7 +60,6 @@ std = [
 ]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
 enable-serde = ["cranelift-codegen/enable-serde", "serde", "serde_derive"]
-experimental-artifact = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

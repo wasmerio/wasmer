@@ -193,7 +193,7 @@ impl Compiler for LLVMCompiler {
                 inkwell::OptimizationLevel::Default => "optd",
                 inkwell::OptimizationLevel::Aggressive => "opta",
             },
-            if cfg!(feature = "experimental-artifact") {
+            if self.config.experimental_artifact {
                 "-elf"
             } else {
                 ""
@@ -270,7 +270,7 @@ impl Compiler for LLVMCompiler {
             .build()
             .map_err(|e| CompileError::Resource(e.to_string()))?;
 
-        let source_map = Arc::new(if cfg!(feature = "experimental-artifact") {
+        let source_map = Arc::new(if self.config.experimental_artifact {
             WasmSourceMap::new(module, module_translation, &function_body_inputs)
                 .map_err(CompileError::Codegen)?
         } else {
@@ -402,7 +402,7 @@ impl Compiler for LLVMCompiler {
                 .collect::<Result<Vec<_>, CompileError>>()?
         };
 
-        if cfg!(feature = "experimental-artifact") {
+        if self.config.experimental_artifact {
             let object_files = functions
                 .into_iter()
                 .map(|compiled_function| match compiled_function {
