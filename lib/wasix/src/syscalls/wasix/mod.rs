@@ -188,6 +188,28 @@ pub use thread_spawn::*;
 pub use tty_get::*;
 pub use tty_set::*;
 
+fn propagate_virtual_task_completion(
+    tasks: &Arc<dyn VirtualTaskManager>,
+    mut task: crate::os::task::TaskJoinHandle,
+    child_finished: Arc<crate::os::task::OwnedTaskStatus>,
+) -> Result<(), crate::WasiThreadError> {
+    if let Some(result) = task.status().into_finished() {
+        child_finished.set_finished(result);
+        return Ok(());
+    }
+
+    let finished_on_error = child_finished.clone();
+    let result = tasks.task_shared(Box::new(move || {
+        Box::pin(async move {
+            child_finished.set_finished(task.wait_finished().await);
+        })
+    }));
+    if result.is_err() {
+        finished_on_error.set_finished(Ok(Errno::Child.into()));
+    }
+    result
+}
+
 use tracing::{Span, debug_span, field, instrument, trace_span};
 use wasmer::WasmRef;
 

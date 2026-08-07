@@ -7,7 +7,7 @@ use crate::{
     runtime::module_cache::HashedModuleData,
 };
 use shared_buffer::OwnedBuffer;
-use virtual_fs::{AsyncReadExt, FileSystem};
+use virtual_fs::{AsyncReadExt, AsyncWriteExt, FileSystem};
 use virtual_mio::block_on;
 use wasmer::FunctionEnvMut;
 use wasmer_package::utils::from_bytes;
@@ -24,6 +24,7 @@ const HELP: &str = r#"USAGE:
 
 OPTIONS:
     -h, --help       Print help information
+    -V, --version    Print version information
 
 SUBCOMMANDS:
     run            Run a WebAssembly file. Formats accepted: wasm, wat
@@ -49,6 +50,37 @@ impl CmdWasmer {
 
     pub fn new(runtime: Arc<dyn Runtime + Send + Sync + 'static>) -> Self {
         Self { runtime }
+    }
+
+    #[allow(clippy::await_holding_lock)]
+    async fn write_stdout(env: &WasiEnv, buf: &[u8]) -> Result<(), Errno> {
+        let fd = env.state.fs.get_fd(1)?;
+        let handle = {
+            let mut guard = fd.inode.write();
+            match &mut *guard {
+                crate::fs::Kind::File {
+                    handle: Some(handle),
+                    ..
+                } => handle.clone(),
+                crate::fs::Kind::PipeTx { tx } => {
+                    return std::io::Write::write_all(tx, buf).map_err(crate::utils::map_io_err);
+                }
+                crate::fs::Kind::DuplexPipe { pipe } => {
+                    return std::io::Write::write_all(pipe, buf).map_err(crate::utils::map_io_err);
+                }
+                crate::fs::Kind::Buffer { buffer } => {
+                    buffer.extend_from_slice(buf);
+                    return Ok(());
+                }
+                _ => return Err(Errno::Badf),
+            }
+        };
+
+        let mut file = handle.write().unwrap();
+        file.write_all(buf)
+            .await
+            .map_err(crate::utils::map_io_err)?;
+        file.flush().await.map_err(crate::utils::map_io_err)
     }
 }
 
@@ -207,6 +239,15 @@ impl VirtualCommand for CmdWasmer {
                     unsafe { stderr_write(parent_ctx, HELP.as_bytes()) }
                         .await
                         .ok();
+                    let handle =
+                        OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
+                    Ok(handle)
+                }
+                Some("--version" | "-V") => {
+                    let version = format!("wasmer {}\n", wasmer_types::VERSION);
+                    if let Some(env) = env.as_ref() {
+                        Self::write_stdout(env, version.as_bytes()).await.ok();
+                    }
                     let handle =
                         OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
                     Ok(handle)
