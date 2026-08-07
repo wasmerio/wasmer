@@ -217,6 +217,9 @@ impl FromStr for Profiler {
 
 impl RuntimeOptions {
     fn validate_profiler(&self) -> Result<()> {
+        if self.experimental_artifact && !cfg!(target_os = "linux") {
+            bail!("--experimental-artifact is only supported on Linux");
+        }
         if !self.experimental_artifact {
             match self.profiler {
                 Some(Profiler::Gdb) => {
