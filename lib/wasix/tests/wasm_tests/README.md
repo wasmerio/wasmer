@@ -67,19 +67,20 @@ Cargo and nextest filtering both work. Before running the suite, make sure
 `wasixcc` is installed and available in your shell environment.
 Rust fixtures also require `cargo-wasix` on `PATH` (`cargo install cargo-wasix`).
 
-Single-file Rust fixtures build with two toolchains by default (see the
+Single-file Rust fixtures build with two Rust toolchains by default (see the
 `Toolchains` directive): `wasix` (cargo-wasix), which runs on every engine
-except Singlepass, and `wasip1` (`rustc --target wasm32-wasip1`, nightly when
-the source uses `#![feature(...)]`), which runs on Singlepass only — the WASIX
-toolchain emits exception-handling opcodes Singlepass does not support. The
-wasip1 variants need `rustup target add wasm32-wasip1` (plus the same target on
-nightly).
+except Singlepass — the WASIX toolchain emits exception-handling opcodes
+Singlepass does not support — and `wasip1` (`rustc --target wasm32-wasip1`,
+nightly when the source uses `#![feature(...)]`), which runs on every engine.
+The wasip1 variants need `rustup target add wasm32-wasip1` (plus the same
+target on nightly).
 
-The WASIX Rust toolchain is not published for every platform, so Rust fixtures
-(both toolchain variants) are only collected on hosts that have one: gnu Linux
-on x86_64 and aarch64, and macOS on aarch64. They are skipped everywhere else —
-notably on musl, which has no toolchain, and on Windows, which `wasixcc` does
-not cover either, so no fixture kind runs there at all.
+We do not publish the WASIX Rust toolchain for every platform yet, so the
+`wasix` variants are only collected on hosts that have one: gnu Linux on x86_64
+and aarch64, and macOS on aarch64. They are skipped on musl, which has no
+toolchain, and on Windows, which `wasixcc` does not cover either. The `wasip1`
+variants build everywhere, so single-file Rust fixtures keep running on those
+hosts.
 
 On macOS, this suite collects and runs the LLVM variants only because Cranelift
 exception-handling support is still incomplete there:

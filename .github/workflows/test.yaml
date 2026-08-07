@@ -714,10 +714,10 @@ jobs:
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.metadata.target }}
-      # For the wasip1-toolchain (Singlepass) variants of the Rust wasm_tests
-      # fixtures.
+      # For the wasip1-toolchain variants of the Rust wasm_tests fixtures, which
+      # build on every platform we support.
       - name: Install Rust WASI targets
-        if: matrix.stage.make == 'test-all' && matrix.metadata.wasix_rust_toolchain
+        if: matrix.stage.make == 'test-all'
         shell: bash
         run: |
           rustup target add wasm32-wasip1
