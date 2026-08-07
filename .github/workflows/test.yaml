@@ -113,6 +113,18 @@ jobs:
             echo "Pinned sysroot ($WASIX_LIBC_SYSROOT_TAG) is older than latest release ($latest)"
             exit 1
           fi
+      - name: Verify pinned wasix rust toolchain is up to date
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          source .github/ci-constants.env
+          latest=$(gh release list --exclude-pre-releases --order desc -R wasix-org/rust --json tagName -q '.[0].tagName')
+          newest=$(printf '%s\n' "$latest" "$WASIX_RUST_TOOLCHAIN_TAG" | sort -V | tail -1)
+          if [ "$WASIX_RUST_TOOLCHAIN_TAG" != "$newest" ]; then
+            echo "Pinned rust toolchain ($WASIX_RUST_TOOLCHAIN_TAG) is older than latest release ($latest)"
+            exit 1
+          fi
   cargo_deny:
     name: cargo-deny
     runs-on: ubuntu-22.04
@@ -596,20 +608,26 @@ jobs:
           - description: "CLI integ. tests"
             make: test-integration-cli-ci
         metadata:
+          # `wasix_rust_toolchain` marks the hosts wasix-org/rust publishes a
+          # toolchain for, i.e. the ones that collect the Rust wasm_tests
+          # fixtures (see lib/wasix/tests/wasm_tests/README.md).
           - build: linux-x64
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             exe: ""
+            wasix_rust_toolchain: true
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.xz"
           - build: linux-arm64
             os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             exe: ""
+            wasix_rust_toolchain: true
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.xz"
           - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin
             exe: ""
+            wasix_rust_toolchain: true
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-aarch64.tar.xz"
           - build: windows-x64
             os: windows-2022
@@ -696,6 +714,8 @@ jobs:
         with:
           toolchain: ${{ steps.load_toolchain.outputs.rust_toolchain }}
           target: ${{ matrix.metadata.target }}
+      # For the wasip1-toolchain variants of the Rust wasm_tests fixtures, which
+      # build on every platform we support.
       - name: Install Rust WASI targets
         if: matrix.stage.make == 'test-all'
         shell: bash
@@ -716,6 +736,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
         if: matrix.metadata.build != 'windows-x64'
+      # For the wasix-toolchain variants of the Rust wasm_tests fixtures.
+      - name: Install cargo-wasix
+        if: matrix.stage.make == 'test-all' && matrix.metadata.wasix_rust_toolchain
+        uses: wasix-org/cargo-wasix@main
+        with:
+          toolchain-version: ${{ env.WASIX_RUST_TOOLCHAIN_TAG }}
       - name: Install LLVM
         shell: bash
         if: matrix.metadata.llvm_url
