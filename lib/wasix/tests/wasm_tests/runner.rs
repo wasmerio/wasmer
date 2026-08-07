@@ -281,18 +281,21 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
         #[cfg(not(target_os = "windows"))]
         Engine::Cranelift => {
             let mut config = wasmer::sys::Cranelift::default();
+            config.experimental_artifact(true);
             config.num_threads(std::num::NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
         #[cfg(feature = "llvm")]
         Engine::LLVM => {
             let mut config = wasmer::sys::LLVM::default();
+            config.experimental_artifact(true);
             config.num_threads(std::num::NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
         #[cfg(feature = "singlepass")]
         Engine::Singlepass => {
             let mut config = wasmer::sys::Singlepass::default();
+            config.experimental_artifact(true);
             config.num_threads(std::num::NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
