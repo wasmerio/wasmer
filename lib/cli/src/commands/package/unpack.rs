@@ -18,6 +18,14 @@ pub struct PackageUnpack {
     #[clap(long)]
     pub overwrite: bool,
 
+    /// Allow volume/atom names from the package to be written outside the
+    /// output directory (e.g. names containing "..").
+    ///
+    /// Only applies to the `package` format. Off by default, in which case an
+    /// escaping name is an error.
+    #[clap(long)]
+    pub allow_escape: bool,
+
     /// Run the unpack command without any output
     #[clap(long)]
     pub quiet: bool,
@@ -81,7 +89,7 @@ impl PackageUnpack {
 
         match self.format {
             Format::Package => {
-                wasmer_package::convert::webc_to_package_dir(&pkg, outdir)
+                wasmer_package::convert::webc_to_package_dir(&pkg, outdir, self.allow_escape)
                     .with_context(|| "could not extract package")?;
             }
             Format::Webc => {
@@ -122,6 +130,7 @@ mod tests {
         let cmd = PackageUnpack {
             out_dir: dir.path().to_owned(),
             overwrite: false,
+            allow_escape: false,
             package_path,
             quiet: true,
             format: Format::Webc,
