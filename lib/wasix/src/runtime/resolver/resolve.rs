@@ -797,10 +797,11 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 
     let mut entrypoint = dependency_graph.root_info().entrypoint.clone();
 
-    // A package that ships commands of its own must resolve to one of them, so
-    // only a command-less root may inherit an entrypoint from a dependency.
+    // Only a command-less root may inherit an entrypoint from a dependency.
     // Otherwise a dependency like wasmer/bash, which declares an entrypoint,
-    // would hijack the root package's own commands.
+    // would hijack a root package that ships commands of its own. A root with
+    // commands falls through to the "only command" fallback below instead, and
+    // is left without an entrypoint if that can't pick one unambiguously.
     let may_inherit_entrypoint = dependency_graph.root_info().commands.is_empty();
 
     for index in petgraph::algo::toposort(dependency_graph.graph(), None).expect("acyclic") {
@@ -2122,13 +2123,10 @@ mod tests {
             .await
             .unwrap();
 
-        // Ambiguous between "anybuild" and "shipit", but never "bash".
-        assert_ne!(
-            resolution.package.entrypoint.as_deref(),
-            Some("bash"),
-            "the entrypoint must not come from a dependency when the root has \
-             commands of its own",
-        );
+        // "anybuild" and "shipit" are equally good candidates and neither is
+        // declared as the entrypoint, so the caller has to error out rather
+        // than guess -- and it certainly must not reach for "bash".
+        assert_eq!(resolution.package.entrypoint, None);
     }
 
     /// Same as above, but with a single root command, so the "root package's
