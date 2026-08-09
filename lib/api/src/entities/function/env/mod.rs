@@ -92,6 +92,13 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
         self.0.as_store_async()
     }
+
+    /// Creates a shared async handle to this function environment when the
+    /// synchronous import is running as part of [`Function::call_async`].
+    #[cfg(all(feature = "experimental-async", feature = "js"))]
+    pub fn as_async_mut(&self) -> Option<AsyncFunctionEnvMut<T>> {
+        self.0.as_async_mut().map(AsyncFunctionEnvMut)
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
@@ -144,6 +151,19 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     /// function environment.
     pub async fn write(&self) -> AsyncFunctionEnvHandleMut<T> {
         AsyncFunctionEnvHandleMut(self.0.write().await)
+    }
+
+    /// Attempts to acquire the store immediately and returns a mutable handle
+    /// if no other stack currently owns it.
+    #[cfg(feature = "js")]
+    pub fn try_write(&self) -> Option<AsyncFunctionEnvHandleMut<T>> {
+        self.0.try_write().map(AsyncFunctionEnvHandleMut)
+    }
+
+    /// Uses the Store context already installed on the current JSPI stack.
+    #[cfg(feature = "js")]
+    pub fn with_current_mut<R>(&self, f: impl FnOnce(FunctionEnvMut<'_, T>) -> R) -> Option<R> {
+        self.0.with_current_mut(|env| f(FunctionEnvMut(env)))
     }
 
     /// Borrows a new immmutable reference
