@@ -221,64 +221,79 @@ mod tests {
         assert_sync::<super::MemoryOps>();
     }
 
-    #[cfg(feature = "sys")]
     mod store_free_ops {
         use crate::{Memory, Store};
-        use wasmer_types::{MemoryStyle, MemoryType, Pages};
+        use wasmer_types::{MemoryError, MemoryStyle, MemoryType, Pages};
 
-        fn shared_memory() -> (Store, crate::SharedMemory) {
+        /// `None` when the default backend of this build cannot create a shared
+        /// memory at all, which is not something these tests can assert about.
+        ///
+        /// Note this deliberately does *not* key off `cfg(feature = "sys")`: the
+        /// workspace test matrix builds `wasmer` with `sys` compiled in while
+        /// `Store::default()` resolves to another backend (feature unification
+        /// plus `v8-default`), so the feature says nothing about which backend
+        /// is actually in play.
+        fn shared_memory() -> Option<(Store, crate::SharedMemory)> {
             let mut store = Store::default();
             let ty = MemoryType {
                 minimum: Pages(1),
                 maximum: Some(Pages(4)),
                 shared: true,
             };
-            let memory = Memory::new(&mut store, ty).expect("shared memory");
-            let shared = memory.as_shared(&store).expect("shared handle");
-            (store, shared)
+            let memory = Memory::new(&mut store, ty).ok()?;
+            let shared = memory.as_shared(&store)?;
+            Some((store, shared))
         }
 
-        /// `grow` reports the size the memory had beforehand, and the growth is
-        /// visible through a separate clone of the handle: the whole point of
-        /// the API is that several threads can hold their own handle.
+        /// The three store-free accessors are all-or-nothing: a backend either
+        /// implements the set (sys) or reports it unavailable (v8/js). Assert
+        /// whichever contract this build implements, and that the three agree
+        /// with one another — a backend offering `data_ptr` but no `style`
+        /// would leave a caller unable to tell whether caching the base is safe.
         #[test]
-        fn grow_returns_previous_size_and_is_shared_across_clones() {
-            let (_store, shared) = shared_memory();
-            let clone = shared.clone();
+        fn store_free_ops_match_the_backend_contract() {
+            let Some((_store, shared)) = shared_memory() else {
+                return;
+            };
 
-            assert_eq!(shared.grow(Pages(1)).expect("grow"), Pages(1));
-            assert_eq!(clone.grow(Pages(2)).expect("grow via clone"), Pages(2));
+            match (shared.data_ptr(), shared.style()) {
+                (Some(before), Some(style)) => {
+                    assert!(!before.is_null());
 
-            // Past the declared maximum of 4 pages.
-            assert!(shared.grow(Pages(1)).is_err());
-        }
+                    // `grow` reports the size the memory had beforehand, and the
+                    // growth is visible through an independent clone: the whole
+                    // point of the `&self` receiver is that several threads can
+                    // hold their own handle.
+                    let clone = shared.clone();
+                    assert_eq!(shared.grow(Pages(1)).expect("grow"), Pages(1));
+                    assert_eq!(clone.grow(Pages(2)).expect("grow via clone"), Pages(2));
+                    // Past the declared maximum of 4 pages.
+                    assert!(shared.grow(Pages(1)).is_err());
 
-        /// A shared memory is reserved up front, so its base must not move when
-        /// it grows — that invariant is what lets an embedder cache `data_ptr`.
-        #[test]
-        fn data_ptr_is_available_and_stable_across_grow() {
-            let (_store, shared) = shared_memory();
-
-            let before = shared.data_ptr().expect("data_ptr on the sys backend");
-            assert!(!before.is_null());
-
-            shared.grow(Pages(1)).expect("grow");
-
-            let after = shared.data_ptr().expect("data_ptr after grow");
-            match shared.style().expect("style on the sys backend") {
-                MemoryStyle::Static { bound, .. } if bound >= Pages(4) => {
-                    assert_eq!(before, after, "a fully reserved mapping must not move");
+                    let after = shared.data_ptr().expect("data_ptr after grow");
+                    match style {
+                        // A fully reserved mapping cannot move, which is the
+                        // invariant that makes caching the base sound.
+                        MemoryStyle::Static { bound, .. } if bound >= Pages(4) => {
+                            assert_eq!(before, after, "a reserved mapping must not move")
+                        }
+                        // A dynamic mapping may move; only require a readable base.
+                        _ => assert!(!after.is_null()),
+                    }
                 }
-                // A dynamic mapping is allowed to move; only assert we can still
-                // read a base.
-                _ => assert!(!after.is_null()),
+                (None, None) => {
+                    // Must degrade with an error rather than panicking.
+                    assert!(matches!(
+                        shared.grow(Pages(1)),
+                        Err(MemoryError::UnsupportedOperation { .. })
+                    ));
+                }
+                (data_ptr, style) => panic!(
+                    "data_ptr and style must agree on support: data_ptr={} style={}",
+                    data_ptr.is_some(),
+                    style.is_some()
+                ),
             }
-        }
-
-        #[test]
-        fn style_is_reported() {
-            let (_store, shared) = shared_memory();
-            assert!(shared.style().is_some());
         }
     }
 }
