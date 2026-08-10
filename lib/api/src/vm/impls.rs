@@ -85,7 +85,7 @@ impl VMSharedMemory {
     /// Grows this memory by `delta` pages, returning the previous size.
     ///
     /// Only the `sys` backend can grow a shared memory without a store; the
-    /// others report [`MemoryError::UnsupportedOperation`].
+    /// others report [`crate::MemoryError::UnsupportedOperation`].
     pub(crate) fn grow(
         &self,
         delta: wasmer_types::Pages,

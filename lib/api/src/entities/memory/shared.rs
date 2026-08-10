@@ -220,4 +220,65 @@ mod tests {
         assert_send::<super::MemoryOps>();
         assert_sync::<super::MemoryOps>();
     }
+
+    #[cfg(feature = "sys")]
+    mod store_free_ops {
+        use crate::{Memory, Store};
+        use wasmer_types::{MemoryStyle, MemoryType, Pages};
+
+        fn shared_memory() -> (Store, crate::SharedMemory) {
+            let mut store = Store::default();
+            let ty = MemoryType {
+                minimum: Pages(1),
+                maximum: Some(Pages(4)),
+                shared: true,
+            };
+            let memory = Memory::new(&mut store, ty).expect("shared memory");
+            let shared = memory.as_shared(&store).expect("shared handle");
+            (store, shared)
+        }
+
+        /// `grow` reports the size the memory had beforehand, and the growth is
+        /// visible through a separate clone of the handle: the whole point of
+        /// the API is that several threads can hold their own handle.
+        #[test]
+        fn grow_returns_previous_size_and_is_shared_across_clones() {
+            let (_store, shared) = shared_memory();
+            let clone = shared.clone();
+
+            assert_eq!(shared.grow(Pages(1)).expect("grow"), Pages(1));
+            assert_eq!(clone.grow(Pages(2)).expect("grow via clone"), Pages(2));
+
+            // Past the declared maximum of 4 pages.
+            assert!(shared.grow(Pages(1)).is_err());
+        }
+
+        /// A shared memory is reserved up front, so its base must not move when
+        /// it grows — that invariant is what lets an embedder cache `data_ptr`.
+        #[test]
+        fn data_ptr_is_available_and_stable_across_grow() {
+            let (_store, shared) = shared_memory();
+
+            let before = shared.data_ptr().expect("data_ptr on the sys backend");
+            assert!(!before.is_null());
+
+            shared.grow(Pages(1)).expect("grow");
+
+            let after = shared.data_ptr().expect("data_ptr after grow");
+            match shared.style().expect("style on the sys backend") {
+                MemoryStyle::Static { bound, .. } if bound >= Pages(4) => {
+                    assert_eq!(before, after, "a fully reserved mapping must not move");
+                }
+                // A dynamic mapping is allowed to move; only assert we can still
+                // read a base.
+                _ => assert!(!after.is_null()),
+            }
+        }
+
+        #[test]
+        fn style_is_reported() {
+            let (_store, shared) = shared_memory();
+            assert!(shared.style().is_some());
+        }
+    }
 }
