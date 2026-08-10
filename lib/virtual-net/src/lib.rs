@@ -813,6 +813,7 @@ pub struct UnsupportedVirtualNetworking {}
 #[async_trait::async_trait]
 impl VirtualNetworking for UnsupportedVirtualNetworking {}
 
+#[non_exhaustive]
 #[derive(Error, Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum NetworkError {
     /// The handle given was not usable
@@ -888,6 +889,12 @@ pub enum NetworkError {
     /// The operation is not supported.
     #[error("unsupported")]
     Unsupported,
+    /// The network containing the remote host is not reachable.
+    #[error("network unreachable")]
+    NetworkUnreachable,
+    /// The remote host is not reachable.
+    #[error("host unreachable")]
+    HostUnreachable,
     /// Some other unhandled error. If you see this, it's probably a bug.
     #[error("unknown error found")]
     UnknownError,
@@ -917,6 +924,8 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
         ErrorKind::TimedOut => NetworkError::TimedOut,
         ErrorKind::UnexpectedEof => NetworkError::UnexpectedEof,
         ErrorKind::WouldBlock => NetworkError::WouldBlock,
+        ErrorKind::NetworkUnreachable => NetworkError::NetworkUnreachable,
+        ErrorKind::HostUnreachable => NetworkError::HostUnreachable,
         ErrorKind::WriteZero => NetworkError::WriteZero,
         ErrorKind::Unsupported => NetworkError::Unsupported,
 
@@ -938,6 +947,8 @@ pub fn io_err_into_net_error(net_error: std::io::Error) -> NetworkError {
                     libc::EINVAL => NetworkError::InvalidInput,
                     libc::EMSGSIZE => NetworkError::MessageSize,
                     libc::EPIPE => NetworkError::BrokenPipe,
+                    libc::ENETUNREACH => NetworkError::NetworkUnreachable,
+                    libc::EHOSTUNREACH => NetworkError::HostUnreachable,
                     err => {
                         tracing::trace!("unknown os error {}", err);
                         NetworkError::UnknownError
@@ -974,6 +985,8 @@ pub fn net_error_into_io_err(net_error: NetworkError) -> std::io::Error {
         NetworkError::TimedOut => ErrorKind::TimedOut.into(),
         NetworkError::UnexpectedEof => ErrorKind::UnexpectedEof.into(),
         NetworkError::WouldBlock => ErrorKind::WouldBlock.into(),
+        NetworkError::NetworkUnreachable => ErrorKind::NetworkUnreachable.into(),
+        NetworkError::HostUnreachable => ErrorKind::HostUnreachable.into(),
         NetworkError::WriteZero => ErrorKind::WriteZero.into(),
         NetworkError::Unsupported => ErrorKind::Unsupported.into(),
         NetworkError::UnknownError => ErrorKind::BrokenPipe.into(),
