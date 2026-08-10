@@ -82,6 +82,76 @@ impl VMSharedMemory {
         }
     }
 
+    /// Grows this memory by `delta` pages, returning the previous size.
+    ///
+    /// Only the `sys` backend can grow a shared memory without a store; the
+    /// others report [`MemoryError::UnsupportedOperation`].
+    pub(crate) fn grow(
+        &self,
+        delta: wasmer_types::Pages,
+    ) -> Result<wasmer_types::Pages, wasmer_types::MemoryError> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => {
+                use wasmer_vm::LinearMemory;
+                // `LinearMemory::grow` wants `&mut self`, but a shared memory
+                // is an `Arc<RwLock<..>>` internally, so every clone addresses
+                // the same allocation and growing through one is growing them
+                // all. Taking a clone here is what lets the public API keep a
+                // `&self` receiver, which is the honest signature for a handle
+                // several threads may hold at once.
+                let mut memory = s.clone();
+                memory.grow(delta)
+            }
+            #[cfg(feature = "v8")]
+            Self::V8(_) => Err(wasmer_types::MemoryError::UnsupportedOperation {
+                message: "growing a shared memory without a store is not supported by the v8 \
+                          backend"
+                    .into(),
+            }),
+            #[cfg(feature = "js")]
+            Self::Js(_) => Err(wasmer_types::MemoryError::UnsupportedOperation {
+                message: "growing a shared memory without a store is not supported by the js \
+                          backend"
+                    .into(),
+            }),
+        }
+    }
+
+    /// The host address of guest offset 0, or `None` on backends that cannot
+    /// report it without a store.
+    pub(crate) fn data_ptr(&self) -> Option<*mut u8> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => {
+                use wasmer_vm::LinearMemory;
+                // SAFETY: the definition pointer is valid for as long as the
+                // memory is, and this handle keeps it alive.
+                Some(unsafe { s.vmmemory().as_ref().base })
+            }
+            #[cfg(feature = "v8")]
+            Self::V8(_) => None,
+            #[cfg(feature = "js")]
+            Self::Js(_) => None,
+        }
+    }
+
+    /// How this memory's host mapping is laid out, or `None` on backends that
+    /// do not model a style.
+    pub(crate) fn style(&self) -> Option<wasmer_types::MemoryStyle> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => {
+                use wasmer_vm::LinearMemory;
+                Some(s.style())
+            }
+            #[cfg(feature = "v8")]
+            Self::V8(_) => None,
+            #[cfg(feature = "js")]
+            Self::Js(_) => None,
+        }
+    }
+
     pub(crate) fn into_vm_memory(self, store: &mut impl AsStoreMut) -> VMMemory {
         match self {
             #[cfg(feature = "sys")]

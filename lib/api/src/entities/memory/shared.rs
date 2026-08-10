@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use wasmer_types::{MemoryError, MemoryStyle, Pages};
+
 use crate::{
     AsStoreMut, Memory,
     error::AtomicsError,
@@ -73,6 +75,50 @@ impl SharedMemory {
         MemoryOps {
             ops: self.ops.clone(),
         }
+    }
+
+    /// Grows this memory by `delta` pages, returning the previous size.
+    ///
+    /// Unlike [`Memory::grow`] this needs no store, so an embedder holding a
+    /// clone of this handle can grow the memory from a thread that has no
+    /// access to one. Growth is shared: every clone of the handle addresses
+    /// the same allocation and observes the new size.
+    ///
+    /// Growing is serialized per memory and returns the size the memory had
+    /// beforehand, so concurrent callers each learn the range they claimed.
+    ///
+    /// Returns [`MemoryError::UnsupportedOperation`] on backends that cannot
+    /// grow a shared memory without a store (currently every backend except
+    /// `sys`).
+    pub fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
+        self.memory.grow(delta)
+    }
+
+    /// The host address of guest offset 0, without a store.
+    ///
+    /// This is the same pointer [`MemoryView::data_ptr`] returns, for
+    /// embedders that need it on a thread with no store. Returns `None` on
+    /// backends that cannot report it store-free.
+    ///
+    /// The pointer is only stable across [`SharedMemory::grow`] if the host
+    /// mapping was reserved up front — see [`SharedMemory::style`]. For a
+    /// [`MemoryStyle::Dynamic`] memory, growth may move the mapping and
+    /// invalidate any previously returned pointer.
+    ///
+    /// [`MemoryView::data_ptr`]: crate::MemoryView::data_ptr
+    pub fn data_ptr(&self) -> Option<*mut u8> {
+        self.memory.data_ptr()
+    }
+
+    /// How this memory's host mapping is laid out, or `None` on backends that
+    /// do not model a style.
+    ///
+    /// A [`MemoryStyle::Static`] memory whose `bound` covers its maximum has
+    /// its whole range reserved up front, so growing it can never move the
+    /// mapping and [`SharedMemory::data_ptr`] stays valid for the memory's
+    /// lifetime.
+    pub fn style(&self) -> Option<MemoryStyle> {
+        self.memory.style()
     }
 
     #[inline]
