@@ -76,7 +76,7 @@ impl CmdWasmer {
             }
         };
 
-        let mut file = handle.write().unwrap();
+        let mut file = crate::utils::write_owned(&handle).unwrap();
         file.write_all(buf)
             .await
             .map_err(crate::utils::map_io_err)?;
