@@ -252,6 +252,21 @@ impl WasiEnv {
     }
 
     /// Forking the WasiState is used when either fork or vfork is called
+    /// Releases any thread handles this environment holds on behalf of `pid`.
+    ///
+    /// `proc_spawn` parks a child's main-thread handle in `owned_handles` to keep the
+    /// child alive while it runs - dropping the handle is what marks a thread finished
+    /// (see `WasiThreadHandleProtected::drop`), so it cannot be released early. This is
+    /// the counterpart to `inner.children.retain(..)` and must only be called once the
+    /// child has actually exited, i.e. at reap time.
+    ///
+    /// Without this the child's `WasiProcessInner` - and its linear memory - stays
+    /// pinned for the parent's whole lifetime.
+    pub(crate) fn release_child_handles(&mut self, pid: WasiProcessId) {
+        self.owned_handles
+            .retain(|handle| handle.as_thread().pid() != pid);
+    }
+
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
         let process = self.control_plane.new_process(self.process.module_hash)?;
         let handle = process.new_thread(self.layout.clone(), ThreadStartType::MainThread)?;
@@ -1406,15 +1421,18 @@ mod tests {
             "terminated child still reachable via get_process"
         );
 
+        // Still pinned: the parent holds the child's main-thread handle until it reaps.
+        // Releasing it earlier would mark the thread finished while it may still run.
         assert!(
             child_inner.upgrade().is_some(),
-            "child WasiProcessInner was released - the owned_handles leak may be fixed"
+            "child released before being reaped - the handle is a liveness token"
         );
 
-        parent.owned_handles.clear();
+        // Reaping the child (what `proc_join` does on ExitNormal) releases it.
+        parent.release_child_handles(child_pid);
         assert!(
             child_inner.upgrade().is_none(),
-            "child still pinned after the parent released its handle"
+            "child WasiProcessInner still pinned after reaping - owned_handles leak"
         );
     }
 }

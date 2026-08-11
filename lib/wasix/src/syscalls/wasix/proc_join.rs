@@ -43,8 +43,16 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     // This lambda will look at what we wrote in the status variable
     // and use this to determine the return code sent back to the caller
     let ret_result = {
-        move |ctx: FunctionEnvMut<'_, WasiEnv>, status: JoinStatusResult| {
+        move |mut ctx: FunctionEnvMut<'_, WasiEnv>, status: JoinStatusResult| {
             let mut ret = Errno::Success;
+
+            // The child has been reaped, so release the main-thread handle that
+            // `proc_spawn` parked in `owned_handles`. This is the counterpart to the
+            // `children.retain(..)` below; without it the child's `WasiProcessInner`,
+            // and its linear memory, stays pinned for as long as this process lives.
+            if let JoinStatusResult::ExitNormal(pid, _) = &status {
+                ctx.data_mut().release_child_handles(*pid);
+            }
 
             let view = unsafe { ctx.data().memory_view(&ctx) };
             let status = match status {
