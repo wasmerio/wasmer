@@ -1363,3 +1363,58 @@ impl WasiEnv {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::WasiEnvBuilder;
+
+    fn test_env() -> WasiEnv {
+        let init = WasiEnvBuilder::new("test_prog")
+            .engine(wasmer::Engine::default())
+            .build_init()
+            .expect("failed to build WasiEnvInit");
+        WasiEnv::from_init(init, ModuleHash::random()).expect("failed to build WasiEnv")
+    }
+
+    #[test]
+    fn parent_owned_handles_pin_terminated_child() {
+        let runtime = tokio::runtime::Builder::new_multi_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let _guard = runtime.handle().clone().enter();
+
+        let mut parent = test_env();
+        let plane = parent.control_plane.clone();
+
+        let (child_env, child_handle) = parent.fork().expect("fork failed");
+        let child_pid = child_env.process.pid();
+        let child_inner = Arc::downgrade(&child_env.process.inner);
+        let child_data = Arc::downgrade(&child_env.process.0);
+
+        parent.owned_handles.push(child_handle);
+
+        drop(child_env);
+
+        assert!(
+            child_data.upgrade().is_none(),
+            "child WasiProcessData still alive"
+        );
+        assert!(
+            plane.get_process(child_pid).is_none(),
+            "terminated child still reachable via get_process"
+        );
+
+        assert!(
+            child_inner.upgrade().is_some(),
+            "child WasiProcessInner was released - the owned_handles leak may be fixed"
+        );
+
+        parent.owned_handles.clear();
+        assert!(
+            child_inner.upgrade().is_none(),
+            "child still pinned after the parent released its handle"
+        );
+    }
+}
