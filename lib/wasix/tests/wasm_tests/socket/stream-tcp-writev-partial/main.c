@@ -1,29 +1,23 @@
-//#ExpectedStdout: stream TCP writev returns partial success after peer close
+//#ExpectedStdout: stream TCP writev crosses the host boundary once
 /*
- * Regression test for stream-socket fd_write partial success.
+ * Regression test for stream-socket fd_write iovec ordering.
  *
- * WASIX implements stream writev(2) as a loop of per-iovec send() calls. When
- * a later send() fails after earlier iovecs succeeded, fd_write must return the
- * bytes already transferred (POSIX writev semantics) instead of failing the
- * whole syscall.
+ * VirtualConnectedSocket exposes one contiguous send operation. Implementing
+ * writev(2) as a loop of per-iovec send() calls added an artificial scheduling
+ * boundary between adjacent buffers: a peer could react to the first iovec
+ * before the second crossed the host boundary.
  *
  * Approach:
  *   1. Connect a loopback TCP client and server.
  *   2. Accept the connection and immediately close the server socket.
- *   3. Client writev() with two small iovecs. The first per-iovec send() still
- *      succeeds, the second returns EPIPE/EAGAIN, and the syscall must return
- *      only the first iovec length.
+ *   3. Client writev() with two small iovecs. The virtual socket accepts the
+ *      coalesced payload in one send, so both iovecs cross together.
  *
  * Why this is used instead of SO_SNDBUF/window filling:
  *   wasm_tests talk to host TCP. Virtual SO_SNDBUF/SO_RCVBUF tuning is ignored
- *   for host sockets, so "fill the send buffer then writev" still completes the
- *   second iovec via partial Ok(...) sends rather than Err(...). Closing the
- *   peer after accept reliably drives the second per-iovec send() down the
- *   error path while the first one has already succeeded, which is exactly the
- *   branch fixed in fd_write.
- *
- * This depends on WASIX's per-iovec stream writev implementation rather than on
- * atomic host-kernel writev behaviour.
+ *   for host sockets. Closing the peer after accept makes the old per-iovec
+ *   implementation reliably return after only the first iovec, while the
+ *   single-send implementation accepts the complete small payload.
  */
 
 #include <arpa/inet.h>
@@ -118,16 +112,16 @@ int main(void) {
       {.iov_base = "world", .iov_len = SECOND_IOV_LEN},
   };
   ssize_t written = writev(client, iov, 2);
-  if (written != (ssize_t)FIRST_IOV_LEN) {
+  if (written != (ssize_t)(FIRST_IOV_LEN + SECOND_IOV_LEN)) {
     fprintf(stderr,
-            "expected writev to return %d bytes after peer close, got %zd "
+            "expected writev to return %d bytes in one host send, got %zd "
             "errno=%d (%s)\n",
-            FIRST_IOV_LEN, written, errno, strerror(errno));
+            FIRST_IOV_LEN + SECOND_IOV_LEN, written, errno, strerror(errno));
     close(client);
     return 1;
   }
 
   close(client);
-  puts("stream TCP writev returns partial success after peer close");
+  puts("stream TCP writev crosses the host boundary once");
   return 0;
 }
