@@ -1394,7 +1394,7 @@ mod tests {
 
     #[test]
     fn parent_owned_handles_pin_terminated_child() {
-        let runtime = tokio::runtime::Builder::new_multi_thread()
+        let runtime = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap();
