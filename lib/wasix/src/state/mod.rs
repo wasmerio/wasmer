@@ -135,6 +135,15 @@ pub(crate) struct WasiState {
     pub args: Mutex<Vec<String>>,
     pub envs: Mutex<Vec<Vec<u8>>>,
     pub signals: Mutex<HashMap<Signal, Disposition>>,
+    /// Whether this *process* has registered a signal handler callback.
+    ///
+    /// `InstanceHandles::signal_set` only records whether the instance doing
+    /// the asking registered one, and every spawned thread gets its own
+    /// instance. Signals are delivered to all of a process's threads, so a
+    /// per-instance flag makes sibling threads believe the program handles no
+    /// signals and apply the runtime's default disposition -- terminating a
+    /// process that does in fact have a handler installed.
+    pub signal_handler_registered: std::sync::atomic::AtomicBool,
 
     // TODO: should not be here, since this requires active work to resolve.
     // State should only hold active runtime state that can be reproducibly re-created.
@@ -246,6 +255,8 @@ impl WasiState {
             args: Mutex::new(self.args.lock().unwrap().clone()),
             envs: Mutex::new(self.envs.lock().unwrap().clone()),
             signals: Mutex::new(self.signals.lock().unwrap().clone()),
+            // A forked process re-registers from its own instance.
+            signal_handler_registered: std::sync::atomic::AtomicBool::new(false),
             preopen: self.preopen.clone(),
         }
     }
