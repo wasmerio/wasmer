@@ -140,6 +140,8 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
     // Setup some properties in the child environment
     let pid = child_env.pid();
     let tid = child_env.tid();
+    let child_finished = child_env.process.finished.clone();
+    let tasks = child_env.tasks().clone();
     wasi_try_mem_ok!(ret.write(&memory, pid.raw()));
     Span::current()
         .record("pid", pid.raw())
@@ -157,7 +159,12 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
     let mut builder = Some(child_env);
 
     let process = match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut builder) {
-        Ok(a) => Ok(a),
+        Ok(task) => {
+            if let Err(err) = propagate_virtual_task_completion(&tasks, task, child_finished) {
+                return Ok(err.into());
+            }
+            Ok(())
+        }
         Err(err) => {
             if !err.is_not_found() {
                 error!("builtin failed - {}", err);
@@ -166,7 +173,7 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
             let env = builder.take().unwrap();
 
             // Spawn a new process with this current execution environment
-            block_on(bin_factory.spawn(name.clone(), env))
+            block_on(bin_factory.spawn(name.clone(), env)).map(|_| ())
         }
     };
 
