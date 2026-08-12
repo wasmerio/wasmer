@@ -308,6 +308,10 @@ fn assert_logs(logs: &[String], expected: &[&str]) {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
 fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
     let logs = run_greenthread_test_native(SWITCHING_WAT)?;
     assert_logs(&logs, SWITCHING_LOGS);
@@ -326,6 +330,10 @@ async fn green_threads_switch_and_log_in_expected_order() {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
 fn green_threads_switch_main_crashed() -> Result<()> {
     let logs = run_greenthread_test_native(REGRESSION_WAT)?;
     assert_logs(&logs, REGRESSION_LOGS);

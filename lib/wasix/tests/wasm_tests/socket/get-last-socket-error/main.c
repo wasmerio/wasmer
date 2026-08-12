@@ -1,5 +1,4 @@
 //#MinimalLibc: v2026-06-18.1
-//#ExpectedStdout: SO_ERROR: Connection refused, Success
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -11,6 +10,10 @@
 
 int main(void) {
   int fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
+  if (fd < 0) {
+    perror("socket");
+    return 1;
+  }
 
   struct sockaddr_in addr = {0};
   addr.sin_family = AF_INET;
@@ -19,23 +22,42 @@ int main(void) {
 
   errno = 0;
   int connect_res = connect(fd, (struct sockaddr*)&addr, sizeof(addr));
-  if (connect_res == 0 ||
-      (errno != EINPROGRESS && errno != EWOULDBLOCK && errno != ENOTCONN)) {
-    fprintf(stderr, "connect did not enter async failure path: %s\n",
-            strerror(errno));
+  /* Even if the host rejects the connection immediately, a nonblocking
+     connect reports EINPROGRESS and leaves the failure for SO_ERROR. */
+  if (connect_res != -1 || errno != EINPROGRESS) {
+    fprintf(stderr,
+            "connect returned %d with errno %d (%s), expected -1 with "
+            "EINPROGRESS\n",
+            connect_res, errno, strerror(errno));
+    close(fd);
     return 1;
   }
 
   struct pollfd pfd = {.fd = fd, .events = POLLOUT};
-  poll(&pfd, 1, 1000);
+  int poll_res = poll(&pfd, 1, 1000);
+  if (poll_res != 1) {
+    if (poll_res < 0) {
+      perror("poll");
+    } else {
+      fprintf(stderr, "poll timed out waiting for the connect result\n");
+    }
+    close(fd);
+    return 1;
+  }
 
   int err = 0;
   socklen_t errlen = sizeof(err);
   int res = getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &errlen);
 
-  if (res) {
+  if (res < 0) {
+    perror("getsockopt(SO_ERROR)");
     close(fd);
-    fprintf(stderr, "Cannot get socket error\n");
+    return 1;
+  }
+  if (err != ECONNREFUSED) {
+    fprintf(stderr, "SO_ERROR returned %d (%s), expected ECONNREFUSED\n", err,
+            strerror(err));
+    close(fd);
     return 1;
   }
 
@@ -43,14 +65,18 @@ int main(void) {
   socklen_t errlen2 = sizeof(err);
   res = getsockopt(fd, SOL_SOCKET, SO_ERROR, &err2, &errlen2);
 
-  if (res) {
+  if (res < 0) {
+    perror("getsockopt(SO_ERROR) after clearing");
     close(fd);
-    fprintf(stderr, "Cannot get socket error (2)\n");
+    return 1;
+  }
+  if (err2 != 0) {
+    fprintf(stderr, "second SO_ERROR returned %d (%s), expected success\n",
+            err2, strerror(err2));
+    close(fd);
     return 1;
   }
 
   close(fd);
-  printf("SO_ERROR: %s, %s\n", strerror(err), strerror(err2));
-
   return 0;
 }

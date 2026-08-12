@@ -32,11 +32,16 @@ impl Memory {
         let max_requested = ty.maximum.unwrap_or(Pages::max_value());
 
         let min = ty.minimum.0;
-        let max = max_requested.0;
+        let max = ty
+            .maximum
+            .map_or(wasm_limits_max_default, |maximum| maximum.0);
 
-        if max < min {
+        if max_requested.0 < min {
             return Err(MemoryError::InvalidMemory {
-                reason: format!("the maximum ({max} pages) is less than the minimum ({min} pages)",),
+                reason: format!(
+                    "the maximum ({} pages) is less than the minimum ({min} pages)",
+                    max_requested.0
+                ),
             });
         }
 
@@ -82,7 +87,13 @@ impl Memory {
         MemoryType {
             shared: unsafe { (*limits).shared },
             minimum: unsafe { wasmer_types::Pages((*limits).min) },
-            maximum: unsafe { Some(wasmer_types::Pages((*limits).max)) },
+            maximum: unsafe {
+                if (*limits).max == wasm_limits_max_default {
+                    None
+                } else {
+                    Some(wasmer_types::Pages((*limits).max))
+                }
+            },
         }
     }
 

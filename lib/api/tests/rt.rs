@@ -1,5 +1,5 @@
 #[test]
-#[cfg(all(feature = "v8", feature = "sys"))]
+#[cfg(all(feature = "v8", feature = "sys", feature = "cranelift"))]
 fn multiple_engines_can_run_together() {
     use wasmer::{sys::Cranelift, v8::V8, *};
 

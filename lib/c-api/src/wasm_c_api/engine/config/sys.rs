@@ -11,7 +11,6 @@ use crate::{
 #[cfg(feature = "middlewares")]
 pub use crate::wasm_c_api::unstable::middlewares::wasmer_middleware_t;
 
-use cfg_if::cfg_if;
 #[cfg(any(feature = "compiler", feature = "compiler-headless"))]
 use wasmer_api::Engine;
 #[cfg(any(feature = "compiler", feature = "compiler-headless"))]
@@ -103,89 +102,92 @@ pub fn wasm_sys_engine_new_with_config(config: wasm_config_t) -> Option<Box<wasm
         Ok(s) => s,
     };
 
-    cfg_if! {
-    if #[cfg(feature = "compiler")] {
-                #[allow(unused_mut)]
-                let mut compiler_config: Box<dyn CompilerConfig> = match &backend {
-                    wasmer_backend_t::CRANELIFT => {
-                        cfg_if! {
-                            if #[cfg(feature = "cranelift")] {
-                                Box::<wasmer_compiler_cranelift::Cranelift>::default()
-                            } else {
-                                update_last_error("Wasmer has not been compiled with the `cranelift` feature.");
-                                return None;
-                            }
+    cfg_select! {
+        feature = "compiler" => {
+            #[allow(unused_mut)]
+            let mut compiler_config: Box<dyn CompilerConfig> = match &backend {
+                wasmer_backend_t::CRANELIFT => {
+                    cfg_select! {
+                        feature = "cranelift" => {
+                            Box::<wasmer_compiler_cranelift::Cranelift>::default()
                         }
-                    },
-                    wasmer_backend_t::LLVM => {
-                        cfg_if! {
-                            if #[cfg(feature = "llvm")] {
-                                Box::<wasmer_compiler_llvm::LLVM>::default()
-                            } else {
-                                update_last_error("Wasmer has not been compiled with the `llvm` feature.");
-                                return None;
-                            }
+                        _ => {
+                            update_last_error("Wasmer has not been compiled with the `cranelift` feature.");
+                            return None;
                         }
-                    },
-                    wasmer_backend_t::SINGLEPASS => {
-                        cfg_if! {
-                            if #[cfg(feature = "singlepass")] {
-                                Box::<wasmer_compiler_singlepass::Singlepass>::default()
-                            } else {
-                                update_last_error("Wasmer has not been compiled with the `singlepass` feature.");
-                                return None;
-                            }
+                    }
+                },
+                wasmer_backend_t::LLVM => {
+                    cfg_select! {
+                        feature = "llvm" => {
+                            Box::<wasmer_compiler_llvm::LLVM>::default()
                         }
-                    },
-                    _ => panic!("not a `sys` backend!")
-                };
+                        _ => {
+                            update_last_error("Wasmer has not been compiled with the `llvm` feature.");
+                            return None;
+                        }
+                    }
+                },
+                wasmer_backend_t::SINGLEPASS => {
+                    cfg_select! {
+                        feature = "singlepass" => {
+                            Box::<wasmer_compiler_singlepass::Singlepass>::default()
+                        }
+                        _ => {
+                            update_last_error("Wasmer has not been compiled with the `singlepass` feature.");
+                            return None;
+                        }
+                    }
+                },
+                _ => panic!("not a `sys` backend!")
+            };
 
-                #[cfg(feature = "middlewares")]
-                for middleware in config.backend_config.middlewares {
-                    compiler_config.push_middleware(middleware.inner.clone());
-                }
-
-                if sys_config.nan_canonicalization {
-                    compiler_config.canonicalize_nans(true);
-                }
-
-                let inner: Engine =
-                             {
-                                let mut builder = EngineBuilder::new(compiler_config);
-
-                                if let Some(target) = config.backend_config.target {
-                                    builder = builder.set_target(Some(target.inner));
-                                }
-
-                                if let Some(features) = config.features {
-                                    builder = builder.set_features(Some(features.inner));
-                                }
-
-                                builder.engine().into()
-                            };
-                Some(Box::new(wasm_engine_t { inner }))
-            } else if #[cfg(feature = "compiler-headless")] {
-                let inner: Engine =
-                         {
-                                let mut builder = EngineBuilder::headless();
-
-                                if let Some(target) = config.backend_config.target {
-                                    builder = builder.set_target(Some(target.inner));
-                                }
-
-                                if let Some(features) = config.features {
-                                    builder = builder.set_features(Some(features.inner));
-                                }
-
-                                builder.engine().into()
-                        };
-
-                Some(Box::new(wasm_engine_t { inner }))
-            } else {
-                update_last_error("No backend enabled for the `sys` engine: enable one of `compiler` or `compiler-headless`!");
-                return None;
+            #[cfg(feature = "middlewares")]
+            for middleware in config.backend_config.middlewares {
+                compiler_config.push_middleware(middleware.inner.clone());
             }
+
+            if sys_config.nan_canonicalization {
+                compiler_config.canonicalize_nans(true);
+            }
+
+            let inner: Engine = {
+                let mut builder = EngineBuilder::new(compiler_config);
+
+                if let Some(target) = config.backend_config.target {
+                    builder = builder.set_target(Some(target.inner));
+                }
+
+                if let Some(features) = config.features {
+                    builder = builder.set_features(Some(features.inner));
+                }
+
+                builder.engine().into()
+            };
+            Some(Box::new(wasm_engine_t { inner }))
         }
+        feature = "compiler-headless" => {
+            let inner: Engine = {
+                let mut builder = EngineBuilder::headless();
+
+                if let Some(target) = config.backend_config.target {
+                    builder = builder.set_target(Some(target.inner));
+                }
+
+                if let Some(features) = config.features {
+                    builder = builder.set_features(Some(features.inner));
+                }
+
+                builder.engine().into()
+            };
+
+            Some(Box::new(wasm_engine_t { inner }))
+        }
+        _ => {
+            update_last_error("No backend enabled for the `sys` engine: enable one of `compiler` or `compiler-headless`!");
+            return None;
+        }
+    }
 }
 
 impl wasmer_backend_config_kind_t {

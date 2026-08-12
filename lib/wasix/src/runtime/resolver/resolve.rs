@@ -797,6 +797,13 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 
     let mut entrypoint = dependency_graph.root_info().entrypoint.clone();
 
+    // Only a command-less root may inherit an entrypoint from a dependency.
+    // Otherwise a dependency like wasmer/bash, which declares an entrypoint,
+    // would hijack a root package that ships commands of its own. A root with
+    // commands falls through to the "only command" fallback below instead, and
+    // is left without an entrypoint if that can't pick one unambiguously.
+    let may_inherit_entrypoint = dependency_graph.root_info().commands.is_empty();
+
     for index in petgraph::algo::toposort(dependency_graph.graph(), None).expect("acyclic") {
         let node = &dependency_graph[index];
         let id = &node.id;
@@ -804,6 +811,7 @@ fn resolve_package(dependency_graph: &DependencyGraph) -> Result<ResolvedPackage
 
         // update the entrypoint, if necessary
         if entrypoint.is_none()
+            && may_inherit_entrypoint
             && let Some(entry) = &pkg.entrypoint
         {
             tracing::trace!(
@@ -2088,6 +2096,65 @@ mod tests {
                 builder.get(&dep_id).package_id(),
                 builder.get(&root_id).package_id(),
             ]
+        );
+    }
+
+    /// A root with commands of its own and no explicit entrypoint must not fall
+    /// back to a dependency's entrypoint.
+    ///
+    /// See https://github.com/wasmerio/wasmer/issues/6870.
+    #[tokio::test]
+    async fn entrypoint_is_not_inherited_when_root_has_its_own_commands() {
+        let root_id = PackageId::new_named("anybuild", "1.0.0".parse().unwrap());
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("anybuild", "1.0.0")
+            .with_command("anybuild")
+            .with_command("shipit")
+            .with_dependency("bash", "=1.0.0");
+        builder
+            .register("bash", "1.0.0")
+            .with_command("bash")
+            .with_entrypoint("bash");
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        // "anybuild" and "shipit" are equally good candidates and neither is
+        // declared as the entrypoint, so the caller has to error out rather
+        // than guess -- and it certainly must not reach for "bash".
+        assert_eq!(resolution.package.entrypoint, None);
+    }
+
+    /// Same as above, but with a single root command, so the "root package's
+    /// only command" fallback has an unambiguous answer to give.
+    #[tokio::test]
+    async fn root_package_only_command_wins_over_dependency_entrypoint() {
+        let root_id = PackageId::new_named("anybuild", "1.0.0".parse().unwrap());
+        let mut builder = RegistryBuilder::new();
+        builder
+            .register("anybuild", "1.0.0")
+            .with_command("anybuild")
+            .with_dependency("bash", "=1.0.0");
+        builder
+            .register("bash", "1.0.0")
+            .with_command("bash")
+            .with_entrypoint("bash");
+        let registry = builder.finish();
+        let root = builder.get(&root_id);
+
+        let resolution = resolve(&root.package_id(), &root.pkg, &registry)
+            .await
+            .unwrap();
+
+        assert_eq!(
+            resolution.package.entrypoint.as_deref(),
+            Some("anybuild"),
+            "the root package's own only command should win over a dependency's \
+             entrypoint",
         );
     }
 

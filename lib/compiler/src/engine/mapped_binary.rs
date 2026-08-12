@@ -152,7 +152,6 @@ pub static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_func_ref" => LibCall::FuncRef,
     "wasmer_vm_elem_drop" => LibCall::ElemDrop,
     "wasmer_vm_memory32_copy" => LibCall::Memory32Copy,
-    "wasmer_vm_imported_memory32_copy" => LibCall::ImportedMemory32Copy,
     "wasmer_vm_memory32_fill" => LibCall::Memory32Fill,
     "wasmer_vm_imported_memory32_fill" => LibCall::ImportedMemory32Fill,
     "wasmer_vm_memory32_init" => LibCall::Memory32Init,
@@ -189,10 +188,10 @@ struct ImageSegment {
 impl ImageSegment {
     fn protection(&self) -> Result<i32, String> {
         let (read, write, exec) = match self.flags {
-            SegmentFlags::Elf { p_flags } => (
-                p_flags & elf::PF_R != 0,
-                p_flags & elf::PF_W != 0,
-                p_flags & elf::PF_X != 0,
+            SegmentFlags::Elf { p_flags, .. } => (
+                p_flags.contains(elf::PF_R),
+                p_flags.contains(elf::PF_W),
+                p_flags.contains(elf::PF_X),
             ),
             _ => return Err(format!("unsupported segment flags: {:?}", self.flags)),
         };
@@ -359,14 +358,33 @@ impl MemoryMappedBinary {
         // Apply dynamic relocations for the libcalls
         if let Some(dynamic_relocations) = object_file.dynamic_relocations() {
             let dynamic_symbols = object_file.dynamic_symbol_table().unwrap();
+            let architecture = object_file.architecture();
 
             for (offset, relocation) in dynamic_relocations {
                 let rel_flags = relocation.flags();
                 if matches!(
-                    rel_flags,
-                    object::RelocationFlags::Elf {
-                        r_type: elf::R_X86_64_RELATIVE,
-                    }
+                    (architecture, rel_flags),
+                    (
+                        object::Architecture::X86_64,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_X86_64_RELATIVE,
+                        },
+                    ) | (
+                        object::Architecture::Aarch64,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_AARCH64_RELATIVE,
+                        },
+                    ) | (
+                        object::Architecture::Riscv64,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_RISCV_RELATIVE,
+                        },
+                    ) | (
+                        object::Architecture::LoongArch64,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_LARCH_RELATIVE,
+                        },
+                    )
                 ) {
                     unsafe {
                         ptr::write_unaligned(
@@ -394,18 +412,34 @@ impl MemoryMappedBinary {
                         function_pointer(libcall).wrapping_add(relocation.addend() as usize),
                     );
                 };
-                match (relocation.kind(), rel_flags) {
-                    (object::RelocationKind::Absolute, _) => apply_absolute_relocation(),
+                match (architecture, relocation.kind(), rel_flags) {
+                    (_, object::RelocationKind::Absolute, _) => apply_absolute_relocation(),
                     (
+                        object::Architecture::X86_64,
                         object::RelocationKind::Unknown,
                         object::RelocationFlags::Elf {
-                            r_type: elf::R_X86_64_GLOB_DAT,
+                            r_type: elf::R_X86_64_GLOB_DAT | elf::R_X86_64_JUMP_SLOT,
                         },
                     ) => apply_absolute_relocation(),
                     (
+                        object::Architecture::Aarch64,
                         object::RelocationKind::Unknown,
                         object::RelocationFlags::Elf {
-                            r_type: elf::R_X86_64_JUMP_SLOT,
+                            r_type: elf::R_AARCH64_GLOB_DAT | elf::R_AARCH64_JUMP_SLOT,
+                        },
+                    ) => apply_absolute_relocation(),
+                    (
+                        object::Architecture::Riscv64,
+                        object::RelocationKind::Unknown,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_RISCV_64 | elf::R_RISCV_JUMP_SLOT,
+                        },
+                    ) => apply_absolute_relocation(),
+                    (
+                        object::Architecture::LoongArch64,
+                        object::RelocationKind::Unknown,
+                        object::RelocationFlags::Elf {
+                            r_type: elf::R_LARCH_64 | elf::R_LARCH_JUMP_SLOT,
                         },
                     ) => apply_absolute_relocation(),
                     kind => return Err(format!("unsupported dynamic relocation kind {kind:?}")),

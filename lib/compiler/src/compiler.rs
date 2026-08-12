@@ -2,8 +2,10 @@
 //! compilers will need to implement.
 
 use std::cmp::Reverse;
-use std::fs::OpenOptions;
+use std::collections::HashMap;
+use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use crate::EH_FRAME_SECTION_NAME;
 use crate::misc::{CompiledFunctionExt, CompiledKind};
@@ -20,12 +22,14 @@ use crate::{
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
 use itertools::Itertools;
+use libwild::{
+    Args, FileSystem, FileType, InputFileData, Linker, OutputFileData, OutputOptions, error,
+};
 use object::write::{Relocation, StandardSegment, Symbol as ObjSymbol, SymbolSection};
 use object::{
     RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
     SymbolKind, SymbolScope, elf,
 };
-use tempfile::NamedTempFile;
 use wasmer_types::{
     CompilationProgressCallback, Features, FunctionIndex, LocalFunctionIndex,
     entity::{EntityRef, PrimaryMap},
@@ -36,8 +40,22 @@ use wasmer_types::{FunctionType, SignatureIndex};
 #[cfg(feature = "translator")]
 use wasmparser::{Validator, WasmFeatures};
 
+/// A debugger command-file format for registering JIT-compiled modules.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
+pub enum Debugger {
+    /// GDB command file.
+    #[strum(serialize = "GDB")]
+    Gdb,
+    /// LLDB command file.
+    #[strum(serialize = "LLDB")]
+    Lldb,
+}
+
 /// The compiler configuration options.
 pub trait CompilerConfig {
+    /// Enable the experimental artifact format.
+    fn experimental_artifact(&mut self, _enable: bool) {}
+
     /// Enable Position Independent Code (PIC).
     ///
     /// This is required for shared object generation (Native Engine),
@@ -59,8 +77,12 @@ pub trait CompilerConfig {
 
     /// Enable generation of perfmaps to sample the JIT compiled frames.
     fn enable_perfmap(&mut self) {
-        // By default we do nothing, each backend will need to customize this
-        // in case they create an IR that they can verify.
+        // By default we do nothing, each backend will need to customize this.
+    }
+
+    /// Enable generation of a debugger command file for JIT compiled frames.
+    fn enable_debugger(&mut self, _debugger: Debugger) {
+        // By default we do nothing, each backend will need to customize this.
     }
 
     /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance
@@ -200,6 +222,11 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// Get whether `perfmap` is enabled or not.
     fn get_perfmap_enabled(&self) -> bool {
         false
+    }
+
+    /// Get the enabled debugger command-file format, if any.
+    fn get_debugger(&self) -> Option<Debugger> {
+        None
     }
 }
 
@@ -348,41 +375,27 @@ pub const WASM_LARGE_FUNCTION_THRESHOLD: u64 = 100_000;
 /// Estimated byte size of a trampoline (used for progress bar reporting).
 pub const WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE: u64 = 1_000;
 
-/// Holds the sets of compiled object files produced during compilation.
+/// Holds the sets of compiled object buffers produced during compilation.
 ///
 /// Counts of each category are derived from the slice lengths.
-pub struct CompiledObjects<'a> {
-    /// Object files for local (user-defined) functions.
-    pub object_files: &'a [PathBuf],
-    /// Object files for imported function call trampolines.
-    pub import_trampoline_object_files: &'a [PathBuf],
-    /// Object files for static trampolines.
-    pub trampoline_object_files: &'a [PathBuf],
-    /// Object files for dynamic trampolines.
-    pub dynamic_trampoline_object_files: &'a [PathBuf],
+pub struct CompiledObjects {
+    /// Objects for local (user-defined) functions.
+    pub object_files: Vec<Vec<u8>>,
+    /// Objects for imported function call trampolines.
+    pub import_trampoline_object_files: Vec<Vec<u8>>,
+    /// Objects for static trampolines.
+    pub trampoline_object_files: Vec<Vec<u8>>,
+    /// Objects for dynamic trampolines.
+    pub dynamic_trampoline_object_files: Vec<Vec<u8>>,
 }
 
 fn emit_wasmer_meta_object(
     target: &Target,
     compile_info_blob: &[u8],
-    build_directory: &Path,
-    compiled_objects: &CompiledObjects<'_>,
-) -> Result<PathBuf, String> {
-    let meta_object_path = build_directory.to_path_buf().join("__wasmer_meta.o");
-    let mut meta_object = OpenOptions::new()
-        .write(true)
-        .create(true)
-        .truncate(true)
-        .open(&meta_object_path)
-        .map_err(|e| {
-            format!(
-                "failed to create Wasmer meta object file {}: {e}",
-                meta_object_path.display()
-            )
-        })?;
-
+    compiled_objects: &CompiledObjects,
+) -> Result<Vec<u8>, String> {
     let mut obj = get_object_for_target(target.triple())
-        .map_err(|e| format!("failed to create Wasmer meta object file: {e}"))?;
+        .map_err(|e| format!("failed to create Wasmer meta object: {e}"))?;
 
     let section_id = obj.add_section(
         obj.segment_name(StandardSegment::Data).to_vec(),
@@ -391,7 +404,8 @@ fn emit_wasmer_meta_object(
     );
     obj.append_section_data(section_id, compile_info_blob, 8);
     obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        sh_type: elf::SHT_PROGBITS,
+        sh_flags: elf::SHF_GNU_RETAIN,
     };
 
     // Emit zero sentinel for the .eh_frame section.
@@ -409,7 +423,8 @@ fn emit_wasmer_meta_object(
         SectionKind::Other,
     );
     obj.section_mut(section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        sh_type: elf::SHT_PROGBITS,
+        sh_flags: elf::SHF_GNU_RETAIN,
     };
     let pointer_size = target
         .triple()
@@ -477,7 +492,8 @@ fn emit_wasmer_meta_object(
         SectionKind::Other,
     );
     obj.section_mut(trap_fn_offsets_section_id).flags = SectionFlags::Elf {
-        sh_flags: u64::from(elf::SHF_GNU_RETAIN),
+        sh_type: elf::SHT_PROGBITS,
+        sh_flags: elf::SHF_GNU_RETAIN,
     };
     for traps_name in (0..compiled_objects.object_files.len())
         .map(|i| CompiledKind::Local(LocalFunctionIndex::new(i), String::new()).traps_name())
@@ -512,86 +528,203 @@ fn emit_wasmer_meta_object(
         })?;
     }
 
-    // Save the generated object file.
-    obj.write_stream(&mut meta_object).map_err(|e| {
-        format!(
-            "failed to write Wasmer meta object file {}: {e}",
-            meta_object_path.display(),
-        )
-    })?;
-
-    Ok(meta_object_path)
+    obj.write()
+        .map_err(|e| format!("failed to serialize Wasmer meta object: {e}"))
 }
 
-/// Emits Wasmer metadata sections and links backend-generated object files into a shared object.
-pub fn emit_metadata_and_link(
-    target: &Target,
-    compile_info_blob: &[u8],
-    build_directory: &Path,
-    module_file: NamedTempFile,
-    compiled_objects: &CompiledObjects<'_>,
-    mut debug_dir: Option<PathBuf>,
-    module_hash: Option<String>,
-) -> Result<NamedTempFile, CompileError> {
-    let meta_object_path =
-        emit_wasmer_meta_object(target, compile_info_blob, build_directory, compiled_objects)
-            .map_err(CompileError::Codegen)?;
+#[derive(Clone, Default)]
+struct InMemoryFileSystem {
+    files: Arc<Mutex<HashMap<PathBuf, Arc<Vec<u8>>>>>,
+}
 
-    let mut link_args = vec![
-        "ld".to_string(),
-        // Allow resolution of the public symbols directly without PLT entries!
-        "-Bsymbolic".to_string(),
-        "-shared".to_string(),
-        "-z".to_string(),
-        "now".to_string(),
-        "-z".to_string(),
-        "relro".to_string(),
-        "-o".to_string(),
-        module_file.path().display().to_string(),
-    ];
+#[derive(Debug)]
+struct InMemoryInput(Arc<Vec<u8>>);
 
-    link_args.extend(
-        compiled_objects
-            .object_files
-            .iter()
-            .chain(compiled_objects.import_trampoline_object_files.iter())
-            .chain(compiled_objects.trampoline_object_files.iter())
-            .chain(compiled_objects.dynamic_trampoline_object_files.iter())
-            .map(|path| path.display().to_string()),
-    );
-    // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
-    // records. Linkers concatenate input sections in object order, and a
-    // leading terminator makes frame registration see an empty table.
-    link_args.push(meta_object_path.display().to_string());
+impl InputFileData for InMemoryInput {
+    fn bytes(&self) -> &[u8] {
+        &self.0
+    }
+}
 
-    let mut wild_args = wasmer_wild::Args::new(|| link_args.iter().map(String::as_str))
-        .map_err(|e| CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}")))?;
-    wild_args
-        .parse(|| link_args.iter().map(String::as_str))
-        .map_err(|e| CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}")))?;
-    let thread_pool = wasmer_wild::args::ThreadPool::new();
-    let linker = wasmer_wild::Linker::new();
-    linker
-        .run(&wild_args, &thread_pool)
-        .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+struct InMemoryOutput {
+    path: PathBuf,
+    bytes: Vec<u8>,
+    files: Arc<Mutex<HashMap<PathBuf, Arc<Vec<u8>>>>>,
+}
 
-    let path_buf = module_file.path().to_path_buf();
-    let (_, path) = module_file.into_parts();
-    let new_file = std::fs::File::open(&path_buf).map_err(|e| {
-        CompileError::Codegen(format!("cannot reopen final file after Wild linker: {e:?}"))
-    })?;
-    let module_file = NamedTempFile::from_parts(new_file, path);
+impl OutputFileData for InMemoryOutput {
+    fn bytes(&self) -> &[u8] {
+        &self.bytes
+    }
+    fn bytes_mut(&mut self) -> &mut [u8] {
+        &mut self.bytes
+    }
+    fn finish(mut self) -> error::Result {
+        self.files
+            .lock()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
+            .insert(self.path, Arc::new(std::mem::take(&mut self.bytes)));
+        Ok(())
+    }
+}
 
-    // If compiler-debug-dir is set, copy the final linked .so image
-    // into the module_hash subfolder.
-    if let Some(debug_dir) = debug_dir.as_mut() {
-        if let Some(ref hash) = module_hash {
-            debug_dir.push(hash);
-        }
-        std::fs::create_dir_all(&debug_dir).ok();
-        debug_dir.push("wasmer-image.so");
-        let _ = std::fs::copy(module_file.path(), &debug_dir);
+impl FileSystem for InMemoryFileSystem {
+    type Input = InMemoryInput;
+    type Output = InMemoryOutput;
+
+    fn open_input(&self, path: &Path, _: bool) -> error::Result<(Self::Input, Option<Arc<File>>)> {
+        let bytes = self
+            .files
+            .lock()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
+            .get(path)
+            .map(Arc::clone)
+            .ok_or_else(|| error!("No such in-memory file: {}", path.display()))?;
+        Ok((InMemoryInput(bytes), None))
     }
 
-    Ok(module_file)
+    fn file_type(&self, path: &Path) -> error::Result<FileType> {
+        self.files
+            .lock()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
+            .contains_key(path)
+            .then_some(FileType::File)
+            .ok_or_else(|| error!("no such in-memory file"))
+    }
+
+    fn canonicalize(&self, path: &Path) -> error::Result<PathBuf> {
+        Ok(path.to_path_buf())
+    }
+    fn remove_file(&self, path: &Path) -> error::Result<()> {
+        self.files
+            .lock()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
+            .remove(path)
+            .map(|_| ())
+            .ok_or_else(|| error!("no such in-memory file"))
+    }
+    fn rename_file(&self, path: &Path, new_path: &Path) -> error::Result<()> {
+        let mut files = self
+            .files
+            .lock()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?;
+        let bytes = files
+            .remove(path)
+            .ok_or_else(|| error!("no such in-memory file"))?;
+        files.insert(new_path.to_path_buf(), bytes);
+        Ok(())
+    }
+    fn create_output(
+        &self,
+        path: Arc<Path>,
+        options: OutputOptions,
+    ) -> error::Result<Self::Output> {
+        let size = usize::try_from(options.size).map_err(|_| error!("output is too large"))?;
+        Ok(InMemoryOutput {
+            path: path.to_path_buf(),
+            bytes: vec![0; size],
+            files: Arc::clone(&self.files),
+        })
+    }
+    fn write_auxiliary(&self, path: &Path, bytes: &[u8]) -> error::Result {
+        self.files
+            .lock()
+            .map_err(|e| format!("cannot lock in-memory FS: {e}"))?
+            .insert(path.to_path_buf(), Arc::new(bytes.to_vec()));
+        Ok(())
+    }
+}
+
+const WASMER_IMAGE_FILENAME: &str = "wasmer-image.so";
+const WASMER_META_FILENAME: &str = "__wasmer_meta.o";
+
+/// Emits Wasmer metadata sections and links backend-generated object buffers into a shared object.
+pub fn emit_metadata_and_link(
+    pool: &rayon::ThreadPool,
+    target: &Target,
+    compile_info_blob: &[u8],
+    compiled_objects: CompiledObjects,
+    mut debug_dir: Option<PathBuf>,
+    module_hash: Option<String>,
+) -> Result<Vec<u8>, CompileError> {
+    pool.install(|| {
+        let meta_object = emit_wasmer_meta_object(target, compile_info_blob, &compiled_objects)
+            .map_err(CompileError::Codegen)?;
+        let CompiledObjects {
+            object_files,
+            import_trampoline_object_files,
+            trampoline_object_files,
+            dynamic_trampoline_object_files,
+        } = compiled_objects;
+        let fs = InMemoryFileSystem::default();
+        let mut link_args = vec![
+            "ld".to_string(),
+            // Allow resolution of the public symbols directly without PLT entries!
+            "-Bsymbolic".to_string(),
+            "-shared".to_string(),
+            "-z".to_string(),
+            "now".to_string(),
+            "-z".to_string(),
+            "relro".to_string(),
+            "-o".to_string(),
+            WASMER_IMAGE_FILENAME.to_string(),
+        ];
+
+        {
+            let mut files = fs
+                .files
+                .lock()
+                .map_err(|e| CompileError::Codegen(format!("cannot lock in-memory FS: {e}")))?;
+            for (index, object) in object_files
+                .into_iter()
+                .chain(import_trampoline_object_files)
+                .chain(trampoline_object_files)
+                .chain(dynamic_trampoline_object_files)
+                .enumerate()
+            {
+                let path = PathBuf::from(format!("object-{index}.o"));
+                files.insert(path.clone(), Arc::new(object));
+                link_args.push(path.display().to_string());
+            }
+            files.insert(PathBuf::from(WASMER_META_FILENAME), Arc::new(meta_object));
+        }
+        // Keep the synthetic `.eh_frame` terminator after the real CIE/FDE
+        // records. Linkers concatenate input sections in object order, and a
+        // leading terminator makes frame registration see an empty table.
+        link_args.push(WASMER_META_FILENAME.to_string());
+
+        let mut wild_args = Args::new(|| link_args.iter().map(String::as_str)).map_err(|e| {
+            CompileError::Codegen(format!("failed to initialize Wild linker: {e:?}"))
+        })?;
+        wild_args
+            .parse(|| link_args.iter().map(String::as_str))
+            .map_err(|e| {
+                CompileError::Codegen(format!("failed to parse Wild linker args: {e:?}"))
+            })?;
+        Linker::with_file_system(fs.clone())
+            .run(&wild_args)
+            .map_err(|e| CompileError::Codegen(format!("Wild linker failed: {e:?}")))?;
+
+        let image = fs
+            .files
+            .lock()
+            .map_err(|e| CompileError::Codegen(format!("cannot lock in-memory FS: {e}")))?
+            .remove(Path::new(WASMER_IMAGE_FILENAME))
+            .ok_or_else(|| CompileError::Codegen("Wild linker did not produce an output".into()))?;
+        let image = Arc::try_unwrap(image).map_err(|_| {
+            CompileError::Codegen("Wild linker retained a reference to the output buffer".into())
+        })?;
+
+        // If compiler-debug-dir is set, copy the final linked .so image
+        // into the module_hash subfolder.
+        if let Some(debug_dir) = debug_dir.as_mut() {
+            if let Some(ref hash) = module_hash {
+                debug_dir.push(hash);
+            }
+            std::fs::create_dir_all(&debug_dir).ok();
+            debug_dir.push(WASMER_IMAGE_FILENAME);
+            let _ = std::fs::write(debug_dir, &image);
+        }
+        Ok(image)
+    })
 }

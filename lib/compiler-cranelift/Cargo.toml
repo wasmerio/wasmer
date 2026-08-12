@@ -27,6 +27,7 @@ cranelift-codegen = { workspace = true, features = ["x86", "arm64", "riscv64"] }
 cranelift-frontend.workspace = true
 
 itertools.workspace = true
+object.workspace = true
 tracing.workspace = true
 hashbrown = { workspace = true, optional = true }
 rayon.workspace = true

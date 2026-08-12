@@ -614,9 +614,8 @@ fn unpack_archive(
     mut archive: Archive<impl std::io::Read>,
     dest: &Path,
 ) -> Result<(), std::io::Error> {
-    cfg_if::cfg_if! {
-        if #[cfg(all(target_family = "wasm", target_os = "wasi"))]
-        {
+    cfg_select! {
+        all(target_family = "wasm", target_os = "wasi") => {
             // A naive version of unpack() that should be good enough for WASI
             // https://github.com/alexcrichton/tar-rs/blob/c77f47cb1b4b47fc4404a170d9d91cb42cc762ea/src/archive.rs#L216-L247
             for entry in archive.entries()? {
@@ -644,8 +643,8 @@ fn unpack_archive(
                 }
             }
             Ok(())
-
-        } else {
+        }
+        _ => {
             archive.unpack(dest)
         }
     }

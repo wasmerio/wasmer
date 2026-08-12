@@ -12,7 +12,7 @@ use std::{
 };
 use target_lexicon::Architecture;
 use wasmer_compiler::{
-    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
     misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
 };
 use wasmer_types::{
@@ -32,6 +32,11 @@ impl SinglepassCallbacks {
         // Create the debug dir in case it doesn't exist
         std::fs::create_dir_all(&debug_dir)?;
         Ok(Self { debug_dir })
+    }
+
+    /// Returns the debug directory used to dump compilation artifacts.
+    pub fn debug_dir(&self) -> &PathBuf {
+        &self.debug_dir
     }
 
     fn base_path(&self, module_hash: &Option<String>) -> PathBuf {
@@ -77,6 +82,8 @@ impl SinglepassCallbacks {
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) allow_experimental_unaligned_memory_accesses: bool,
+    pub(crate) debugger: Option<Debugger>,
+    pub(crate) experimental_artifact: bool,
 
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
@@ -94,10 +101,18 @@ impl Singlepass {
         Self {
             enable_nan_canonicalization: true,
             allow_experimental_unaligned_memory_accesses: false,
+            debugger: None,
+            experimental_artifact: false,
             middlewares: vec![],
             callbacks: None,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
+    }
+
+    /// Enable the experimental artifact format.
+    pub fn experimental_artifact(&mut self, enable: bool) -> &mut Self {
+        self.experimental_artifact = enable;
+        self
     }
 
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
@@ -131,9 +146,17 @@ impl Singlepass {
 }
 
 impl CompilerConfig for Singlepass {
+    fn experimental_artifact(&mut self, enable: bool) {
+        self.experimental_artifact = enable;
+    }
+
     fn enable_pic(&mut self) {
         // Do nothing, since singlepass already emits
         // PIC code.
+    }
+
+    fn enable_debugger(&mut self, debugger: Debugger) {
+        self.debugger = Some(debugger);
     }
 
     /// Transform it into the compiler
