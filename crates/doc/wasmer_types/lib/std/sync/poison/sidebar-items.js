@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["TryLockError"],"struct":["Condvar","MappedMutexGuard","MappedRwLockReadGuard","MappedRwLockWriteGuard","Mutex","MutexGuard","PoisonError","RwLock","RwLockReadGuard","RwLockWriteGuard"],"type":["LockResult","TryLockResult"]};

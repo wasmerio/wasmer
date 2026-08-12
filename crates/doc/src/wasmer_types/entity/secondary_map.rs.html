@@ -6,18 +6,18 @@
 <a href=#6 id=6 data-nosnippet>6</a></span><span class="kw">use </span><span class="kw">crate</span>::entity::EntityRef;
 <a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span><span class="kw">crate</span>::entity::iter::{Iter, IterMut};
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span><span class="kw">crate</span>::entity::keys::Keys;
-<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span><span class="kw">crate</span>::lib::std::cmp::min;
-<a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span><span class="kw">crate</span>::lib::std::marker::PhantomData;
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span><span class="kw">crate</span>::lib::std::ops::{Index, IndexMut};
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span><span class="kw">crate</span>::lib::std::slice;
-<a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span><span class="kw">crate</span>::lib::std::vec::Vec;
-<a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>rkyv::{Archive, Archived, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
-<a href=#15 id=15 data-nosnippet>15</a><span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
-<a href=#16 id=16 data-nosnippet>16</a></span><span class="kw">use </span>serde::{
-<a href=#17 id=17 data-nosnippet>17</a>    Deserialize, Serialize,
-<a href=#18 id=18 data-nosnippet>18</a>    de::{Deserializer, SeqAccess, Visitor},
-<a href=#19 id=19 data-nosnippet>19</a>    ser::{SerializeSeq, Serializer},
-<a href=#20 id=20 data-nosnippet>20</a>};
+<a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>rkyv::{Archive, Archived, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
+<a href=#10 id=10 data-nosnippet>10</a><span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
+<a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">use </span>serde::{
+<a href=#12 id=12 data-nosnippet>12</a>    Deserialize, Serialize,
+<a href=#13 id=13 data-nosnippet>13</a>    de::{Deserializer, SeqAccess, Visitor},
+<a href=#14 id=14 data-nosnippet>14</a>    ser::{SerializeSeq, Serializer},
+<a href=#15 id=15 data-nosnippet>15</a>};
+<a href=#16 id=16 data-nosnippet>16</a><span class="kw">use </span>std::cmp::min;
+<a href=#17 id=17 data-nosnippet>17</a><span class="kw">use </span>std::marker::PhantomData;
+<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>std::ops::{Index, IndexMut};
+<a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>std::slice;
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>std::vec::Vec;
 <a href=#21 id=21 data-nosnippet>21</a>
 <a href=#22 id=22 data-nosnippet>22</a><span class="doccomment">/// A mapping `K -&gt; V` for densely indexed entity references.
 <a href=#23 id=23 data-nosnippet>23</a>///
@@ -284,7 +284,7 @@
 <a href=#284 id=284 data-nosnippet>284</a>    <span class="kw">where
 <a href=#285 id=285 data-nosnippet>285</a>        </span>D: Deserializer&lt;<span class="lifetime">'de</span>&gt;,
 <a href=#286 id=286 data-nosnippet>286</a>    {
-<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">use </span><span class="kw">crate</span>::lib::std::fmt;
+<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">use </span>std::fmt;
 <a href=#288 id=288 data-nosnippet>288</a>
 <a href=#289 id=289 data-nosnippet>289</a>        <span class="kw">struct </span>SecondaryMapVisitor&lt;K, V&gt; {
 <a href=#290 id=290 data-nosnippet>290</a>            unused: PhantomData&lt;<span class="kw">fn</span>(K) -&gt; V&gt;,

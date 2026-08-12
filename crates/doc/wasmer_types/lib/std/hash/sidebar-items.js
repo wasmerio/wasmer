@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"derive":["Hash"],"struct":["BuildHasherDefault","DefaultHasher","RandomState","SipHasher"],"trait":["BuildHasher","Hash","Hasher"]};

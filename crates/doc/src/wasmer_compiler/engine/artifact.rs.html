@@ -19,18 +19,18 @@
 <a href=#19 id=19 data-nosnippet>19</a>    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
 <a href=#20 id=20 data-nosnippet>20</a>    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
 <a href=#21 id=21 data-nosnippet>21</a>    engine::{link::link_module, resolver::resolve_tags, trap::register_frame_info_source},
-<a href=#22 id=22 data-nosnippet>22</a>    lib::std::vec::IntoIter,
-<a href=#23 id=23 data-nosnippet>23</a>    resolve_imports,
-<a href=#24 id=24 data-nosnippet>24</a>    serialize::{MetadataHeader, SerializableCompilation, SerializableModule},
-<a href=#25 id=25 data-nosnippet>25</a>    types::relocation::{RelocationLike, RelocationTarget},
-<a href=#26 id=26 data-nosnippet>26</a>};
-<a href=#27 id=27 data-nosnippet>27</a><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
-<a href=#28 id=28 data-nosnippet>28</a></span><span class="kw">use </span>crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
-<a href=#29 id=29 data-nosnippet>29</a><span class="attr">#[cfg(any(feature = <span class="string">"static-artifact-create"</span>, feature = <span class="string">"static-artifact-load"</span>))]
-<a href=#30 id=30 data-nosnippet>30</a></span><span class="kw">use </span>crate::{serialize::RkyvSerializableCompilation, types::symbols::ModuleMetadata};
-<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use </span>itertools::Itertools;
-<a href=#32 id=32 data-nosnippet>32</a><span class="attr">#[cfg(unix)]
-<a href=#33 id=33 data-nosnippet>33</a></span><span class="kw">use </span>std::os::fd::AsRawFd;
+<a href=#22 id=22 data-nosnippet>22</a>    resolve_imports,
+<a href=#23 id=23 data-nosnippet>23</a>    serialize::{MetadataHeader, SerializableCompilation, SerializableModule},
+<a href=#24 id=24 data-nosnippet>24</a>    types::relocation::{RelocationLike, RelocationTarget},
+<a href=#25 id=25 data-nosnippet>25</a>};
+<a href=#26 id=26 data-nosnippet>26</a><span class="attr">#[cfg(feature = <span class="string">"static-artifact-create"</span>)]
+<a href=#27 id=27 data-nosnippet>27</a></span><span class="kw">use </span>crate::{Compiler, FunctionBodyData, ModuleTranslationState, types::module::CompileModuleInfo};
+<a href=#28 id=28 data-nosnippet>28</a><span class="attr">#[cfg(any(feature = <span class="string">"static-artifact-create"</span>, feature = <span class="string">"static-artifact-load"</span>))]
+<a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">use </span>crate::{serialize::RkyvSerializableCompilation, types::symbols::ModuleMetadata};
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use </span>itertools::Itertools;
+<a href=#31 id=31 data-nosnippet>31</a><span class="attr">#[cfg(unix)]
+<a href=#32 id=32 data-nosnippet>32</a></span><span class="kw">use </span>std::os::fd::AsRawFd;
+<a href=#33 id=33 data-nosnippet>33</a><span class="kw">use </span>std::vec::IntoIter;
 <a href=#34 id=34 data-nosnippet>34</a><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 <a href=#35 id=35 data-nosnippet>35</a></span><span class="kw">use </span>wasmer_types::CompilationProgressCallback;
 <a href=#36 id=36 data-nosnippet>36</a>

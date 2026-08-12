@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["RecvTimeoutError","TryRecvError"],"fn":["channel"],"struct":["Receiver","Sender"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["BinaryHeap","Drain","DrainSorted","IntoIter","IntoIterSorted","Iter","PeekMut"]};

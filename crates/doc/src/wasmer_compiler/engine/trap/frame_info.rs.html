@@ -23,7 +23,7 @@
 <a href=#23 id=23 data-nosnippet>23</a><span class="kw">use </span>rkyv::vec::ArchivedVec;
 <a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>std::collections::BTreeMap;
 <a href=#25 id=25 data-nosnippet>25</a><span class="kw">use </span>std::sync::{Arc, LazyLock, RwLock};
-<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>wasmer_types::lib::std::{cmp, ops::Deref};
+<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>std::{cmp, ops::Deref};
 <a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>wasmer_types::{
 <a href=#28 id=28 data-nosnippet>28</a>    FrameInfo, LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
 <a href=#29 id=29 data-nosnippet>29</a>    entity::{BoxedSlice, EntityRef, PrimaryMap},
@@ -165,7 +165,7 @@
 <a href=#165 id=165 data-nosnippet>165</a>        // to DWARF line info via `addr2line`, keyed off offsets into the
 <a href=#166 id=166 data-nosnippet>166</a>        // original ELF image.
 <a href=#167 id=167 data-nosnippet>167</a>        </span><span class="kw">let </span>get_line = |context: <span class="kw-2">&amp;</span>addr2line::Context&lt;<span class="kw">crate</span>::engine::mapped_binary::DwarfReader&gt;,
-<a href=#168 id=168 data-nosnippet>168</a>                         pc: u64| {
+<a href=#168 id=168 data-nosnippet>168</a>                        pc: u64| {
 <a href=#169 id=169 data-nosnippet>169</a>            <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(location)) = context.find_location(pc)
 <a href=#170 id=170 data-nosnippet>170</a>                &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(line) = location.line
 <a href=#171 id=171 data-nosnippet>171</a>                &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(line) = line.checked_sub(<span class="number">1</span>)
