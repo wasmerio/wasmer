@@ -1339,6 +1339,8 @@ impl Machine for MachineARM64 {
     type GPR = GPR;
     type SIMD = NEON;
 
+    const STACK_ALIGNMENT: usize = 16;
+
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
@@ -1555,10 +1557,6 @@ impl Machine for MachineARM64 {
 
     fn instructions_address_map(&self) -> Vec<InstructionAddressMap> {
         self.instructions_address_map.clone()
-    }
-
-    fn round_stack_adjust(&self, value: usize) -> usize {
-        value.next_multiple_of(16)
     }
 
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {

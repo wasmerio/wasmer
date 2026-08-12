@@ -104,6 +104,10 @@ pub(crate) struct FinalizedAssembly {
 pub trait Machine {
     type GPR: Copy + Eq + Debug + Reg;
     type SIMD: Copy + Eq + Debug + Reg;
+
+    /// A stack alignment in bytes that fullfills the ABI requirement.
+    const STACK_ALIGNMENT: usize;
+
     /// Get current assembler offset
     fn assembler_get_offset(&self) -> Offset;
     /// Get the GPR that hold vmctx
@@ -150,8 +154,6 @@ pub trait Machine {
     fn push_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<usize, CompileError>;
     /// Pop used simd regs to the stack
     fn pop_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<(), CompileError>;
-    /// Return a rounded stack adjustment value (must be multiple of 16bytes on ARM64 for example)
-    fn round_stack_adjust(&self, value: usize) -> usize;
     /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32);
     /// Marks each address in the code range emitted by `f` with the trap code `code`.

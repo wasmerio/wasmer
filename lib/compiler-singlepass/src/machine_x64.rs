@@ -1965,6 +1965,8 @@ impl Machine for MachineX86_64 {
     type GPR = GPR;
     type SIMD = XMM;
 
+    const STACK_ALIGNMENT: usize = 8;
+
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
@@ -2169,10 +2171,6 @@ impl Machine for MachineX86_64 {
 
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
         Location::Memory(GPR::RBP, -stack_offset)
-    }
-
-    fn round_stack_adjust(&self, value: usize) -> usize {
-        value
     }
 
     fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
