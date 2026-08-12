@@ -1912,6 +1912,8 @@ impl Machine for MachineRiscv {
     type GPR = GPR;
     type SIMD = FPR;
 
+    const STACK_ALIGNMENT: usize = 16;
+
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
@@ -2065,14 +2067,6 @@ impl Machine for MachineRiscv {
             Location::Imm64(stack_adjust as _),
             Location::GPR(GPR::Sp),
         )
-    }
-
-    fn round_stack_adjust(&self, value: usize) -> usize {
-        if value & 0xf != 0 {
-            ((value >> 4) + 1) << 4
-        } else {
-            value
-        }
     }
 
     fn set_srcloc(&mut self, offset: u32) {
