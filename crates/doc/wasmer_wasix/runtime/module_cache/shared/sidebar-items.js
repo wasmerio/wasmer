@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["SharedCache"]};
+window.SIDEBAR_ITEMS = {"struct":["SharedCache","SharedCacheKey"]};

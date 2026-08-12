@@ -110,14 +110,14 @@
 <a href=#110 id=110 data-nosnippet>110</a>/// consumed by `wasmer_engine::Engine::new`.
 <a href=#111 id=111 data-nosnippet>111</a></span><span class="attr">#[derive(Debug, Clone)]
 <a href=#112 id=112 data-nosnippet>112</a></span><span class="kw">pub struct </span>Cranelift {
-<a href=#113 id=113 data-nosnippet>113</a>    enable_nan_canonicalization: bool,
+<a href=#113 id=113 data-nosnippet>113</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) enable_nan_canonicalization: bool,
 <a href=#114 id=114 data-nosnippet>114</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) allow_experimental_unaligned_memory_accesses: bool,
 <a href=#115 id=115 data-nosnippet>115</a>    enable_verifier: bool,
 <a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) enable_perfmap: bool,
 <a href=#117 id=117 data-nosnippet>117</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) debugger: <span class="prelude-ty">Option</span>&lt;Debugger&gt;,
-<a href=#118 id=118 data-nosnippet>118</a>    enable_pic: bool,
+<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) enable_pic: bool,
 <a href=#119 id=119 data-nosnippet>119</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) experimental_artifact: bool,
-<a href=#120 id=120 data-nosnippet>120</a>    opt_level: CraneliftOptLevel,
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) opt_level: CraneliftOptLevel,
 <a href=#121 id=121 data-nosnippet>121</a>    <span class="doccomment">/// The number of threads to use for compilation.
 <a href=#122 id=122 data-nosnippet>122</a>    </span><span class="kw">pub </span>num_threads: NonZero&lt;usize&gt;,
 <a href=#123 id=123 data-nosnippet>123</a>    <span class="doccomment">/// The middleware chain.

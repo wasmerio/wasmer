@@ -6,7 +6,7 @@
     pub(crate) enable_perfmap: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.bool.html">bool</a>,
     pub(crate) debugger: <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;Debugger&gt;,
     pub(crate) opt_level: <a class="enum" href="enum.LLVMOptLevel.html" title="enum wasmer_compiler_llvm::LLVMOptLevel">LLVMOptLevel</a>,
-    is_pic: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.bool.html">bool</a>,
+    pub(crate) is_pic: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.bool.html">bool</a>,
     pub(crate) experimental_artifact: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.bool.html">bool</a>,
     pub(crate) callbacks: <a class="enum" href="https://doc.rust-lang.org/1.95.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="struct.LLVMCallbacks.html" title="struct wasmer_compiler_llvm::LLVMCallbacks">LLVMCallbacks</a>&gt;,
     pub(crate) middlewares: <a class="struct" href="https://doc.rust-lang.org/1.95.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.95.0/alloc/sync/struct.Arc.html" title="struct alloc::sync::Arc">Arc</a>&lt;dyn ModuleMiddleware&gt;&gt;,
