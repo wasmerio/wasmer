@@ -13,7 +13,7 @@ use crate::eh::{
 use crate::translator::CraneliftUnwindInfo;
 use crate::{
     address_map::get_function_address_map,
-    config::Cranelift,
+    config::{Cranelift, CraneliftOptLevel},
     func_environ::{FuncEnvironment, get_function_name},
     trampoline::{
         FunctionBuilderContext, make_trampoline_dynamic_function, make_trampoline_function_call,
@@ -726,11 +726,38 @@ impl Compiler for CraneliftCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        if self.config.experimental_artifact {
-            String::from("cranelift-elf")
-        } else {
-            String::from("cranelift")
+        use wasmer_compiler::DeterministicIdComponent as Component;
+
+        let mut components = vec![Component::Cranelift];
+        components.push(match self.config.opt_level {
+            CraneliftOptLevel::None => Component::OptNone,
+            CraneliftOptLevel::Speed => Component::OptSpeed,
+            CraneliftOptLevel::SpeedAndSize => Component::OptSpeedAndSize,
+        });
+        if self.config.enable_nan_canonicalization {
+            components.push(Component::NanCanonicalization);
         }
+        if self.config.enable_pic {
+            components.push(Component::Pic);
+        }
+        if self.config.allow_experimental_unaligned_memory_accesses {
+            components.push(Component::ExperimentalUnalignedMemoryAccesses);
+        }
+
+        components
+            .into_iter()
+            .map(|component| component.to_string())
+            .collect_vec()
+            .join("-")
+    }
+
+    fn artifact_format(&self) -> String {
+        if self.config.experimental_artifact {
+            wasmer_compiler::ArtifactFormat::Native
+        } else {
+            wasmer_compiler::ArtifactFormat::Rkyv
+        }
+        .to_string()
     }
 
     /// Get the middlewares for this compiler

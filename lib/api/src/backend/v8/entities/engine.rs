@@ -54,6 +54,10 @@ impl Engine {
         String::from("v8")
     }
 
+    pub(crate) fn artifact_format(&self) -> String {
+        String::from("v8")
+    }
+
     /// Returns the WebAssembly features supported by the V8 engine.
     pub fn supported_features() -> Features {
         // V8-specific features
