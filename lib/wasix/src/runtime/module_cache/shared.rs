@@ -7,12 +7,16 @@ use wasmer_types::ModuleHash;
 /// A [`ModuleCache`] based on a <code>[DashMap]<[ModuleHash], [Module]></code>.
 #[derive(Debug, Default, Clone)]
 pub struct SharedCache {
-    modules: DashMap<(ModuleHash, String), Module>,
+    modules: DashMap<(ModuleHash, String, String), Module>,
 }
 
 impl SharedCache {
     pub fn new() -> SharedCache {
         SharedCache::default()
+    }
+
+    fn cache_key(key: ModuleHash, engine: &Engine) -> (ModuleHash, String, String) {
+        (key, engine.deterministic_id(), engine.container_format())
     }
 }
 
@@ -20,7 +24,7 @@ impl SharedCache {
 impl ModuleCache for SharedCache {
     #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
-        let key = (key, engine.deterministic_id());
+        let key = Self::cache_key(key, engine);
 
         match self.modules.get(&key) {
             Some(m) => {
@@ -33,7 +37,7 @@ impl ModuleCache for SharedCache {
     }
 
     async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
-        let key = (key, engine.deterministic_id().to_string());
+        let key = Self::cache_key(key, engine);
         Ok(self.modules.contains_key(&key))
     }
 
@@ -44,7 +48,7 @@ impl ModuleCache for SharedCache {
         engine: &Engine,
         module: &Module,
     ) -> Result<(), CacheError> {
-        let key = (key, engine.deterministic_id().to_string());
+        let key = Self::cache_key(key, engine);
         self.modules.insert(key, module.clone());
 
         Ok(())
