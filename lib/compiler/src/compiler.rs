@@ -85,13 +85,13 @@ pub enum DeterministicIdComponent {
     ExperimentalUnalignedMemoryAccesses,
 }
 
-/// The container format used for artifact serialization.
+/// The artifact format used for purpose of serialization.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
-pub enum ArtifactFormatContainer {
+pub enum ArtifactFormat {
     /// rkyv serialization based.
     #[strum(serialize = "rkyv")]
     Rkyv,
-    /// Native container, such as ELF.
+    /// Native format, such as ELF.
     #[strum(serialize = "native")]
     Native,
 }
@@ -190,9 +190,9 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// optimizations map to different deterministic IDs.
     fn deterministic_id(&self) -> String;
 
-    /// Returns the used container for the artifact format: `rkyv` or `native`.
-    fn container_format(&self) -> String {
-        ArtifactFormatContainer::Rkyv.to_string()
+    /// Returns the used artifact format: `rkyv` or `native`.
+    fn artifact_format(&self) -> String {
+        ArtifactFormat::Rkyv.to_string()
     }
 
     /// Add suggested optimizations to this compiler.

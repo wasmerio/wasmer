@@ -4,10 +4,17 @@ use wasmer::{Engine, Module};
 use crate::runtime::module_cache::{CacheError, ModuleCache};
 use wasmer_types::ModuleHash;
 
-/// A [`ModuleCache`] based on a <code>[DashMap]<[ModuleHash], [Module]></code>.
+/// A [`ModuleCache`] based on a <code>[DashMap]</code> keyed by module hash, engine ID, and format.
 #[derive(Debug, Default, Clone)]
 pub struct SharedCache {
-    modules: DashMap<(ModuleHash, String, String), Module>,
+    modules: DashMap<SharedCacheKey, Module>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct SharedCacheKey {
+    module_hash: ModuleHash,
+    deterministic_id: String,
+    artifact_format: String,
 }
 
 impl SharedCache {
@@ -15,8 +22,12 @@ impl SharedCache {
         SharedCache::default()
     }
 
-    fn cache_key(key: ModuleHash, engine: &Engine) -> (ModuleHash, String, String) {
-        (key, engine.deterministic_id(), engine.container_format())
+    fn cache_key(key: ModuleHash, engine: &Engine) -> SharedCacheKey {
+        SharedCacheKey {
+            module_hash: key,
+            deterministic_id: engine.deterministic_id(),
+            artifact_format: engine.artifact_format(),
+        }
     }
 }
 

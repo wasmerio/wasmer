@@ -28,11 +28,11 @@ impl FileSystemCache {
         &self.cache_dir
     }
 
-    fn path(&self, key: ModuleHash, deterministic_id: &str, container_format: &str) -> PathBuf {
+    fn path(&self, key: ModuleHash, deterministic_id: &str, artifact_format: &str) -> PathBuf {
         let artifact_version = wasmer_types::MetadataHeader::CURRENT_VERSION;
         self.cache_dir
             .join(format!(
-                "{deterministic_id}-{container_format}-v{artifact_version}"
+                "{deterministic_id}-{artifact_format}-v{artifact_version}"
             ))
             .join(key.to_string())
             .with_extension("bin")
@@ -133,7 +133,7 @@ async fn tokio_save(path: PathBuf, module: Module) -> Result<(), CacheError> {
 impl ModuleCache for FileSystemCache {
     #[tracing::instrument(level = "debug", skip_all, fields(% key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
-        let path = self.path(key, &engine.deterministic_id(), &engine.container_format());
+        let path = self.path(key, &engine.deterministic_id(), &engine.artifact_format());
         let engine = engine.clone();
 
         // Use the bundled tokio runtime instead of the given async runtime
@@ -146,7 +146,7 @@ impl ModuleCache for FileSystemCache {
     }
 
     async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
-        let path = self.path(key, &engine.deterministic_id(), &engine.container_format());
+        let path = self.path(key, &engine.deterministic_id(), &engine.artifact_format());
 
         // Use the bundled tokio runtime instead of the given async runtime
         // This is necessary because this function can also be called with a futures_executor
@@ -164,7 +164,7 @@ impl ModuleCache for FileSystemCache {
         engine: &Engine,
         module: &Module,
     ) -> Result<(), CacheError> {
-        let path = self.path(key, &engine.deterministic_id(), &engine.container_format());
+        let path = self.path(key, &engine.deterministic_id(), &engine.artifact_format());
         let module = module.clone();
 
         // Use the bundled tokio runtime instead of the given async runtime
@@ -237,7 +237,7 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         let key = ModuleHash::from_bytes([0; _]);
-        let expected_path = cache.path(key, &engine.deterministic_id(), &engine.container_format());
+        let expected_path = cache.path(key, &engine.deterministic_id(), &engine.artifact_format());
 
         cache.save(key, &engine, &module).await.unwrap();
 
@@ -278,7 +278,7 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::from_bytes([0; _]);
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        let expected_path = cache.path(key, &engine.deterministic_id(), &engine.container_format());
+        let expected_path = cache.path(key, &engine.deterministic_id(), &engine.artifact_format());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
         std::fs::write(&expected_path, &serialized).unwrap();

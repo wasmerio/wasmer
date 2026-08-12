@@ -54,7 +54,7 @@ impl Engine {
         String::from("v8")
     }
 
-    pub(crate) fn container_format(&self) -> String {
+    pub(crate) fn artifact_format(&self) -> String {
         String::from("v8")
     }
 

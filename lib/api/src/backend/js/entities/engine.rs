@@ -10,7 +10,7 @@ impl Engine {
         String::from("js-generic")
     }
 
-    pub(crate) fn container_format(&self) -> String {
+    pub(crate) fn artifact_format(&self) -> String {
         String::from("js")
     }
 

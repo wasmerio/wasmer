@@ -40,7 +40,7 @@ pub use self::artifact_builders::*;
 mod compiler;
 #[cfg(feature = "compiler")]
 pub use crate::compiler::{
-    ArtifactFormatContainer, CompiledFunction, CompiledObjects, Compiler, CompilerConfig, Debugger,
+    ArtifactFormat, CompiledFunction, CompiledObjects, Compiler, CompilerConfig, Debugger,
     DeterministicIdComponent, FuncTranslator, FunctionBucket, WASM_LARGE_FUNCTION_THRESHOLD,
     WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE, build_function_buckets, emit_metadata_and_link,
     translate_function_buckets,

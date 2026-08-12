@@ -215,11 +215,11 @@ impl Compiler for LLVMCompiler {
             .join("-")
     }
 
-    fn container_format(&self) -> String {
+    fn artifact_format(&self) -> String {
         if self.config.experimental_artifact {
-            wasmer_compiler::ArtifactFormatContainer::Native
+            wasmer_compiler::ArtifactFormat::Native
         } else {
-            wasmer_compiler::ArtifactFormatContainer::Rkyv
+            wasmer_compiler::ArtifactFormat::Rkyv
         }
         .to_string()
     }

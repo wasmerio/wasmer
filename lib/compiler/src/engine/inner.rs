@@ -113,13 +113,13 @@ impl Engine {
         }
     }
 
-    /// Returns the container format used for artifacts produced by this engine.
-    pub fn container_format(&self) -> String {
+    /// Returns the format used for artifacts produced by this engine.
+    pub fn artifact_format(&self) -> String {
         #[cfg(feature = "compiler")]
         {
             let i = self.inner();
             if let Some(ref c) = i.compiler {
-                return c.container_format();
+                return c.artifact_format();
             }
         }
 

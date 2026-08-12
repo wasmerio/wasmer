@@ -26,11 +26,10 @@ impl BackendEngine {
         })
     }
 
-    /// Returns the container format used for artifacts produced by this engine.
-    #[inline]
-    pub fn container_format(&self) -> String {
+    /// Returns the format used for artifacts produced by this engine.
+    pub fn artifact_format(&self) -> String {
         match_rt!(on self  => s {
-            s.container_format()
+            s.artifact_format()
         })
     }
 
