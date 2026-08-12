@@ -15,9 +15,7 @@ use crate::types::function::Compilation;
 use crate::types::module::CompileModuleInfo;
 use crate::{
     FunctionBodyData, ModuleTranslationState, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
-    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME,
-    lib::std::{boxed::Box, sync::Arc},
-    translator::ModuleMiddleware,
+    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, translator::ModuleMiddleware,
 };
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
@@ -30,6 +28,7 @@ use object::{
     RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
     SymbolKind, SymbolScope, elf,
 };
+use std::{boxed::Box, sync::Arc};
 use wasmer_types::{
     CompilationProgressCallback, Features, FunctionIndex, LocalFunctionIndex,
     entity::{EntityRef, PrimaryMap},

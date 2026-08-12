@@ -6,15 +6,15 @@ use crate::entity::EntityRef;
 use crate::entity::boxed_slice::BoxedSlice;
 use crate::entity::iter::{IntoIter, Iter, IterMut};
 use crate::entity::keys::Keys;
-use crate::lib::std::boxed::Box;
-use crate::lib::std::iter::FromIterator;
-use crate::lib::std::marker::PhantomData;
-use crate::lib::std::ops::{Index, IndexMut};
-use crate::lib::std::slice;
-use crate::lib::std::vec::Vec;
 use rkyv::{Archive, Archived, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use std::boxed::Box;
+use std::iter::FromIterator;
+use std::marker::PhantomData;
+use std::ops::{Index, IndexMut};
+use std::slice;
+use std::vec::Vec;
 
 /// A primary mapping `K -> V` allocating dense entity references.
 ///
