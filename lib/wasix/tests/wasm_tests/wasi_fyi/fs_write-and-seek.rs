@@ -1,5 +1,5 @@
 //#AbstractConfigFile: wasi-fyi.config
-use std::fs::{metadata, OpenOptions};
+use std::fs::{OpenOptions, metadata};
 use std::io::{Seek, SeekFrom, Write};
 
 fn main() {
