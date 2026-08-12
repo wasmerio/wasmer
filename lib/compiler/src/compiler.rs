@@ -50,6 +50,52 @@ pub enum Debugger {
     Lldb,
 }
 
+/// A component representing a code-generation-sensitive aspect of a compiler
+/// configuration for artifact format creation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
+#[allow(missing_docs)]
+pub enum DeterministicIdComponent {
+    #[strum(serialize = "llvm")]
+    Llvm,
+    #[strum(serialize = "cranelift")]
+    Cranelift,
+    #[strum(serialize = "singlepass")]
+    Singlepass,
+    #[strum(serialize = "opt0")]
+    OptNone,
+    #[strum(serialize = "optl")]
+    OptLess,
+    #[strum(serialize = "optd")]
+    OptDefault,
+    #[strum(serialize = "opta")]
+    OptAggressive,
+    #[strum(serialize = "opts")]
+    OptSpeed,
+    #[strum(serialize = "optsz")]
+    OptSpeedAndSize,
+    #[strum(serialize = "nan_canon")]
+    NanCanonicalization,
+    #[strum(serialize = "non_vol_mem")]
+    NonVolatileMemops,
+    #[strum(serialize = "pic")]
+    Pic,
+    #[strum(serialize = "ro_ftable")]
+    ReadonlyFuncrefTable,
+    #[strum(serialize = "unaligned_mem")]
+    ExperimentalUnalignedMemoryAccesses,
+}
+
+/// The container format used for artifact serialization.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
+pub enum ArtifactFormatContainer {
+    /// rkyv serialization based.
+    #[strum(serialize = "rkyv")]
+    Rkyv,
+    /// Native container, such as ELF.
+    #[strum(serialize = "native")]
+    Native,
+}
+
 /// The compiler configuration options.
 pub trait CompilerConfig {
     /// Enable the experimental artifact format.
@@ -143,6 +189,11 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// Returns the deterministic id of this compiler. Same compilers with different
     /// optimizations map to different deterministic IDs.
     fn deterministic_id(&self) -> String;
+
+    /// Returns the used container for the artifact format: `rkyv` or `native`.
+    fn container_format(&self) -> String {
+        ArtifactFormatContainer::Rkyv.to_string()
+    }
 
     /// Add suggested optimizations to this compiler.
     ///

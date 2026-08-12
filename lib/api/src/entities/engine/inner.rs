@@ -26,6 +26,14 @@ impl BackendEngine {
         })
     }
 
+    /// Returns the container format used for artifacts produced by this engine.
+    #[inline]
+    pub fn container_format(&self) -> String {
+        match_rt!(on self  => s {
+            s.container_format()
+        })
+    }
+
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
     /// Deserializes a WebAssembly module which was previously serialized with
     /// `Module::serialize`,

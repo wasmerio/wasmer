@@ -10,6 +10,10 @@ impl Engine {
         String::from("js-generic")
     }
 
+    pub(crate) fn container_format(&self) -> String {
+        String::from("js")
+    }
+
     /// Returns the WebAssembly features supported by the JS engine.
     pub fn supported_features() -> Features {
         // JS-specific features

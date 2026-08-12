@@ -726,26 +726,38 @@ impl Compiler for CraneliftCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        let mut components = vec![self.name()];
+        use wasmer_compiler::DeterministicIdComponent as Component;
+
+        let mut components = vec![Component::Cranelift];
         components.push(match self.config.opt_level {
-            CraneliftOptLevel::None => "opt0",
-            CraneliftOptLevel::Speed => "opts",
-            CraneliftOptLevel::SpeedAndSize => "optsz",
+            CraneliftOptLevel::None => Component::OptNone,
+            CraneliftOptLevel::Speed => Component::OptSpeed,
+            CraneliftOptLevel::SpeedAndSize => Component::OptSpeedAndSize,
         });
-        if self.config.experimental_artifact {
-            components.push("exp_art");
-        }
         if self.config.enable_nan_canonicalization {
-            components.push("nan_canon");
+            components.push(Component::NanCanonicalization);
         }
         if self.config.enable_pic {
-            components.push("pic");
+            components.push(Component::Pic);
         }
         if self.config.allow_experimental_unaligned_memory_accesses {
-            components.push("unaligned_mem");
+            components.push(Component::ExperimentalUnalignedMemoryAccesses);
         }
 
-        components.join("-")
+        components
+            .into_iter()
+            .map(|component| component.to_string())
+            .collect_vec()
+            .join("-")
+    }
+
+    fn container_format(&self) -> String {
+        if self.config.experimental_artifact {
+            wasmer_compiler::ArtifactFormatContainer::Native
+        } else {
+            wasmer_compiler::ArtifactFormatContainer::Rkyv
+        }
+        .to_string()
     }
 
     /// Get the middlewares for this compiler

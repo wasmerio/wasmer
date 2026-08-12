@@ -113,6 +113,20 @@ impl Engine {
         }
     }
 
+    /// Returns the container format used for artifacts produced by this engine.
+    pub fn container_format(&self) -> String {
+        #[cfg(feature = "compiler")]
+        {
+            let i = self.inner();
+            if let Some(ref c) = i.compiler {
+                return c.container_format();
+            }
+        }
+
+        #[allow(unreachable_code)]
+        self.name.to_string()
+    }
+
     /// Create a headless `Engine`
     ///
     /// A headless engine is an engine without any compiler attached.

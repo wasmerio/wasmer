@@ -3,6 +3,7 @@ use crate::config::OptimizationStyle;
 use crate::object_file::CompiledFunction;
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
+use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{
@@ -185,30 +186,42 @@ impl Compiler for LLVMCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        let mut components = vec![self.name()];
+        use wasmer_compiler::DeterministicIdComponent as Component;
+
+        let mut components = vec![Component::Llvm];
         components.push(match self.config.opt_level {
-            inkwell::OptimizationLevel::None => "opt0",
-            inkwell::OptimizationLevel::Less => "optl",
-            inkwell::OptimizationLevel::Default => "optd",
-            inkwell::OptimizationLevel::Aggressive => "opta",
+            inkwell::OptimizationLevel::None => Component::OptNone,
+            inkwell::OptimizationLevel::Less => Component::OptLess,
+            inkwell::OptimizationLevel::Default => Component::OptDefault,
+            inkwell::OptimizationLevel::Aggressive => Component::OptAggressive,
         });
-        if self.config.experimental_artifact {
-            components.push("exp_art");
-        }
         if self.config.enable_nan_canonicalization {
-            components.push("nan_canon");
+            components.push(Component::NanCanonicalization);
         }
         if self.config.enable_non_volatile_memops {
-            components.push("non_vol_mem");
+            components.push(Component::NonVolatileMemops);
         }
         if self.config.is_pic {
-            components.push("pic");
+            components.push(Component::Pic);
         }
         if self.config.enable_readonly_funcref_table {
-            components.push("ro_ftable");
+            components.push(Component::ReadonlyFuncrefTable);
         }
 
-        components.join("-")
+        components
+            .into_iter()
+            .map(|component| component.to_string())
+            .collect_vec()
+            .join("-")
+    }
+
+    fn container_format(&self) -> String {
+        if self.config.experimental_artifact {
+            wasmer_compiler::ArtifactFormatContainer::Native
+        } else {
+            wasmer_compiler::ArtifactFormatContainer::Rkyv
+        }
+        .to_string()
     }
 
     /// Get the middlewares for this compiler

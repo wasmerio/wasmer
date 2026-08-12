@@ -20,6 +20,7 @@ use crate::unwind::create_systemv_cie;
 use enumset::EnumSet;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable, Writer};
+use itertools::Itertools;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -424,18 +425,30 @@ impl Compiler for SinglepassCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        let mut components = vec![self.name()];
-        if self.config.experimental_artifact {
-            components.push("exp_art");
-        }
+        use wasmer_compiler::DeterministicIdComponent as Component;
+
+        let mut components = vec![Component::Singlepass];
         if self.config.enable_nan_canonicalization {
-            components.push("nan_canon");
+            components.push(Component::NanCanonicalization);
         }
         if self.config.allow_experimental_unaligned_memory_accesses {
-            components.push("unaligned_mem");
+            components.push(Component::ExperimentalUnalignedMemoryAccesses);
         }
 
-        components.join("-")
+        components
+            .into_iter()
+            .map(|component| component.to_string())
+            .collect_vec()
+            .join("-")
+    }
+
+    fn container_format(&self) -> String {
+        if self.config.experimental_artifact {
+            wasmer_compiler::ArtifactFormatContainer::Native
+        } else {
+            wasmer_compiler::ArtifactFormatContainer::Rkyv
+        }
+        .to_string()
     }
 
     /// Get the middlewares for this compiler
