@@ -105,13 +105,20 @@ impl crate::BackendStore {
 #[derive(Clone)]
 pub struct Interrupter {
     store_id: StoreId,
+    liveness: std::sync::Weak<()>,
 }
 
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]
 impl Interrupter {
-    /// Builds a new interrupter.
-    pub fn new(store_id: StoreId) -> Self {
-        Self { store_id }
+    /// Builds a new interrupter. `liveness` comes from
+    /// [`StoreObjects::liveness_token`].
+    pub fn new(store_id: StoreId, liveness: std::sync::Weak<()>) -> Self {
+        Self { store_id, liveness }
+    }
+
+    /// Whether the store this interrupter targets still exists.
+    pub fn is_alive(&self) -> bool {
+        self.liveness.strong_count() > 0
     }
 
     /// Interrupts running WASM instances from the owning `Store`.

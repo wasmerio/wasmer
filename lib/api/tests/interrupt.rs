@@ -151,6 +151,23 @@ fn correct_store_is_interrupted_only() -> Result<()> {
 }
 
 #[test]
+fn interrupters_report_whether_their_store_is_alive() {
+    let store = Store::default();
+    let interrupter = store.interrupter();
+    assert!(interrupter.is_alive());
+
+    drop(store);
+    assert!(
+        !interrupter.is_alive(),
+        "an interrupter should not claim a dropped store is alive"
+    );
+
+    // Still harmless to use: embedders holding a pile of interrupters
+    // shouldn't have to check first.
+    interrupter.interrupt();
+}
+
+#[test]
 fn interrupted_store_cant_be_entered_again() -> Result<()> {
     // It's important to build an actual Store here so that initialization
     // logic is run and the signal handler is registered
