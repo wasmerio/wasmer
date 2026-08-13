@@ -282,8 +282,7 @@ impl CompactUnwindManager {
             .len()
             .div_ceil(Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE);
 
-        self.compact_unwind_entries
-            .sort_by(|l, r| l.function_addr.cmp(&r.function_addr));
+        self.compact_unwind_entries.sort_by_key(|l| l.function_addr);
 
         let unwind_info_section_len = Self::UNWIND_INFO_SECTION_HEADER_SIZE
             + (self.personalities.len() * Self::PERSONALITY_ENTRY_SIZE)
