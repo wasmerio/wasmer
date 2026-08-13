@@ -1,7 +1,7 @@
 [package]
 name = "wasmer-compiler"
 description = "Base compiler abstraction for Wasmer WebAssembly runtime"
-categories = ["wasm", "no-std"]
+categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler"]
 readme = "README.md"
 authors.workspace = true
@@ -16,7 +16,6 @@ version.workspace = true
 wasmer-types = { path = "../types", version = "=7.2.1", default-features = false }
 wasmparser = { workspace = true, default-features = false, optional = true }
 enumset.workspace = true
-hashbrown = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }
 thiserror.workspace = true
 serde_bytes = { workspace = true, optional = true }
@@ -75,8 +74,9 @@ wasmer-artifact-load = []
 wasmer-artifact-create = []
 static-artifact-load = []
 static-artifact-create = ["translator", "compiler"]
-std = ["wasmer-types/std"]
-core = ["hashbrown", "wasmer-types/core"]
+# Keep for backward compatibility.
+std = []
+core = []
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
 artifact-size = ["dep:loupe"]
 # Signal-free trap-handler backend; see wasmer-vm's baremetal feature for details.

@@ -81,6 +81,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: WASIXCC_SYSROOT_PREFIX=~/.wasixcc/sysroot-v2026-05-12.1 wasixccenv download-sysroot v2026-05-12.1
+      - name: Install cargo-wasix
+        uses: wasix-org/cargo-wasix@main
+        with:
+          toolchain-version: ${{ env.WASIX_RUST_TOOLCHAIN_TAG }}
       - name: Install wasm-tools
         run: |
           cargo install --locked wasm-tools
@@ -95,6 +99,8 @@ jobs:
           wasm-tools --version
           # Check wasixcc is installed
           wasixcc --version
+          # Check cargo-wasix is installed
+          cargo wasix --version
           # Check wasm-opt is available
           wasm-opt --version
           # Check that the repo exists

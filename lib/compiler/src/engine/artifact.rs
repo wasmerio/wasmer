@@ -19,7 +19,6 @@ use crate::{
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{link::link_module, resolver::resolve_tags, trap::register_frame_info_source},
-    lib::std::vec::IntoIter,
     resolve_imports,
     serialize::{MetadataHeader, SerializableCompilation, SerializableModule},
     types::relocation::{RelocationLike, RelocationTarget},
@@ -31,6 +30,7 @@ use crate::{serialize::RkyvSerializableCompilation, types::symbols::ModuleMetada
 use itertools::Itertools;
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
+use std::vec::IntoIter;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompilationProgressCallback;
 

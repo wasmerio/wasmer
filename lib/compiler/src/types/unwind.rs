@@ -5,10 +5,10 @@
 //! function called that one, and so forth.
 //!
 //! [Learn more](https://en.wikipedia.org/wiki/Call_stack).
-use crate::lib::std::vec::Vec;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use std::vec::Vec;
 
 /// Compiled function unwind information.
 ///

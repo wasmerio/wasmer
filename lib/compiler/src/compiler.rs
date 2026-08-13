@@ -15,9 +15,7 @@ use crate::types::function::Compilation;
 use crate::types::module::CompileModuleInfo;
 use crate::{
     FunctionBodyData, ModuleTranslationState, WASMER_FUNCTION_OFFSETS_SECTION_NAME,
-    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME,
-    lib::std::{boxed::Box, sync::Arc},
-    translator::ModuleMiddleware,
+    WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, translator::ModuleMiddleware,
 };
 use crossbeam_channel::unbounded;
 use enumset::EnumSet;
@@ -30,6 +28,7 @@ use object::{
     RelocationEncoding, RelocationFlags, RelocationKind, SectionFlags, SectionKind, SymbolFlags,
     SymbolKind, SymbolScope, elf,
 };
+use std::{boxed::Box, sync::Arc};
 use wasmer_types::{
     CompilationProgressCallback, Features, FunctionIndex, LocalFunctionIndex,
     entity::{EntityRef, PrimaryMap},
@@ -49,6 +48,52 @@ pub enum Debugger {
     /// LLDB command file.
     #[strum(serialize = "LLDB")]
     Lldb,
+}
+
+/// A component representing a code-generation-sensitive aspect of a compiler
+/// configuration for artifact format creation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
+#[allow(missing_docs)]
+pub enum DeterministicIdComponent {
+    #[strum(serialize = "llvm")]
+    Llvm,
+    #[strum(serialize = "cranelift")]
+    Cranelift,
+    #[strum(serialize = "singlepass")]
+    Singlepass,
+    #[strum(serialize = "opt0")]
+    OptNone,
+    #[strum(serialize = "optl")]
+    OptLess,
+    #[strum(serialize = "optd")]
+    OptDefault,
+    #[strum(serialize = "opta")]
+    OptAggressive,
+    #[strum(serialize = "opts")]
+    OptSpeed,
+    #[strum(serialize = "optsz")]
+    OptSpeedAndSize,
+    #[strum(serialize = "nan_canon")]
+    NanCanonicalization,
+    #[strum(serialize = "non_vol_mem")]
+    NonVolatileMemops,
+    #[strum(serialize = "pic")]
+    Pic,
+    #[strum(serialize = "ro_ftable")]
+    ReadonlyFuncrefTable,
+    #[strum(serialize = "unaligned_mem")]
+    ExperimentalUnalignedMemoryAccesses,
+}
+
+/// The artifact format used for purpose of serialization.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, strum::Display)]
+pub enum ArtifactFormat {
+    /// rkyv serialization based.
+    #[strum(serialize = "rkyv")]
+    Rkyv,
+    /// Native format, such as ELF.
+    #[strum(serialize = "native")]
+    Native,
 }
 
 /// The compiler configuration options.
@@ -144,6 +189,11 @@ pub trait Compiler: Send + std::fmt::Debug {
     /// Returns the deterministic id of this compiler. Same compilers with different
     /// optimizations map to different deterministic IDs.
     fn deterministic_id(&self) -> String;
+
+    /// Returns the used artifact format: `rkyv` or `native`.
+    fn artifact_format(&self) -> String {
+        ArtifactFormat::Rkyv.to_string()
+    }
 
     /// Add suggested optimizations to this compiler.
     ///

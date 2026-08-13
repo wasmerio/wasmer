@@ -1,7 +1,7 @@
 //! Shared WebAssembly return-value ABI classification.
 
-use crate::lib::std::vec::Vec;
 use itertools::Itertools;
+use std::vec::Vec;
 use wasmer_types::Type;
 
 /// How a single-register return slot is typed.

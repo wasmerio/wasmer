@@ -3,6 +3,7 @@ use crate::config::OptimizationStyle;
 use crate::object_file::CompiledFunction;
 use crate::translator::FuncTrampoline;
 use crate::translator::FuncTranslator;
+use itertools::Itertools;
 use rayon::ThreadPoolBuilder;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::{
@@ -185,20 +186,42 @@ impl Compiler for LLVMCompiler {
     }
 
     fn deterministic_id(&self) -> String {
-        format!(
-            "llvm-{}{}",
-            match self.config.opt_level {
-                inkwell::OptimizationLevel::None => "opt0",
-                inkwell::OptimizationLevel::Less => "optl",
-                inkwell::OptimizationLevel::Default => "optd",
-                inkwell::OptimizationLevel::Aggressive => "opta",
-            },
-            if self.config.experimental_artifact {
-                "-elf"
-            } else {
-                ""
-            }
-        )
+        use wasmer_compiler::DeterministicIdComponent as Component;
+
+        let mut components = vec![Component::Llvm];
+        components.push(match self.config.opt_level {
+            inkwell::OptimizationLevel::None => Component::OptNone,
+            inkwell::OptimizationLevel::Less => Component::OptLess,
+            inkwell::OptimizationLevel::Default => Component::OptDefault,
+            inkwell::OptimizationLevel::Aggressive => Component::OptAggressive,
+        });
+        if self.config.enable_nan_canonicalization {
+            components.push(Component::NanCanonicalization);
+        }
+        if self.config.enable_non_volatile_memops {
+            components.push(Component::NonVolatileMemops);
+        }
+        if self.config.is_pic {
+            components.push(Component::Pic);
+        }
+        if self.config.enable_readonly_funcref_table {
+            components.push(Component::ReadonlyFuncrefTable);
+        }
+
+        components
+            .into_iter()
+            .map(|component| component.to_string())
+            .collect_vec()
+            .join("-")
+    }
+
+    fn artifact_format(&self) -> String {
+        if self.config.experimental_artifact {
+            wasmer_compiler::ArtifactFormat::Native
+        } else {
+            wasmer_compiler::ArtifactFormat::Rkyv
+        }
+        .to_string()
     }
 
     /// Get the middlewares for this compiler

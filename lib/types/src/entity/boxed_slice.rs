@@ -6,10 +6,10 @@
 use crate::entity::EntityRef;
 use crate::entity::iter::{Iter, IterMut};
 use crate::entity::keys::Keys;
-use crate::lib::std::boxed::Box;
-use crate::lib::std::marker::PhantomData;
-use crate::lib::std::ops::{Index, IndexMut};
-use crate::lib::std::slice;
+use std::boxed::Box;
+use std::marker::PhantomData;
+use std::ops::{Index, IndexMut};
+use std::slice;
 
 /// A slice mapping `K -> V` allocating dense entity references.
 ///
@@ -166,7 +166,7 @@ where
 mod tests {
     use super::*;
     use crate::entity::PrimaryMap;
-    use crate::lib::std::vec::Vec;
+    use std::vec::Vec;
 
     // `EntityRef` impl for testing.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]

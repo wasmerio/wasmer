@@ -110,14 +110,14 @@ pub enum CraneliftOptLevel {
 /// consumed by `wasmer_engine::Engine::new`.
 #[derive(Debug, Clone)]
 pub struct Cranelift {
-    enable_nan_canonicalization: bool,
+    pub(crate) enable_nan_canonicalization: bool,
     pub(crate) allow_experimental_unaligned_memory_accesses: bool,
     enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     pub(crate) debugger: Option<Debugger>,
-    enable_pic: bool,
+    pub(crate) enable_pic: bool,
     pub(crate) experimental_artifact: bool,
-    opt_level: CraneliftOptLevel,
+    pub(crate) opt_level: CraneliftOptLevel,
     /// The number of threads to use for compilation.
     pub num_threads: NonZero<usize>,
     /// The middleware chain.

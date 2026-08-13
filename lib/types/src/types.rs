@@ -1,11 +1,11 @@
 use crate::indexes::{FunctionIndex, GlobalIndex};
-use crate::lib::std::borrow::ToOwned;
-use crate::lib::std::boxed::Box;
-use crate::lib::std::fmt;
-use crate::lib::std::format;
-use crate::lib::std::string::{String, ToString};
-use crate::lib::std::vec::Vec;
 use crate::units::Pages;
+use std::borrow::ToOwned;
+use std::boxed::Box;
+use std::fmt;
+use std::format;
+use std::string::{String, ToString};
+use std::vec::Vec;
 
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]

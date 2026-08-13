@@ -7548,7 +7548,6 @@ dependencies = [
  "enum-iterator",
  "enumset",
  "gimli 0.34.0",
- "hashbrown 0.17.1",
  "itertools 0.15.0",
  "leb128",
  "libc",
