@@ -8058,6 +8058,7 @@ version = "7.2.1"
 dependencies = [
  "anyhow",
  "build-deps",
+ "bytesize",
  "clap",
  "clap_builder",
  "clap_derive",
