@@ -233,7 +233,7 @@ rangemap = "1.7.1"
 rayon = "1.7.0"
 regalloc2 = "0.15.1"
 regex = "1.11"
-region = "3.0"
+region = "4.0"
 replace_with = "0.1.7"
 reqwest = { version = "0.13.0", default-features = false }
 rkyv = { version = "0.8.13", features = ["indexmap-2", "bytes-1"] }
@@ -308,17 +308,17 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.255.0", default-features = false, features = [
+wasm-encoder = { version = "0.256.0", default-features = false, features = [
   "std",
 ] }
-wasm-smith = "0.255.0"
-wasmparser = { version = "0.255.0", default-features = false, features = [
+wasm-smith = "0.256.0"
+wasmparser = { version = "0.256.0", default-features = false, features = [
   "validate",
   "features",
   "simd",
 ] }
-wasmprinter = "0.255.0"
-wast = "255.0.0"
+wasmprinter = "0.256.0"
+wast = "256.0.0"
 wat = "1.252.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
