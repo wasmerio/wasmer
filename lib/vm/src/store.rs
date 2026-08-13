@@ -47,6 +47,13 @@ impl_context_object! {
 #[derive(Debug, Default)]
 pub struct StoreObjects {
     id: StoreId,
+    /// Liveness token for the store. Interrupters hold a `Weak` to it, so an
+    /// embedder holding interrupters for many short-lived stores can tell
+    /// which ones are still worth keeping. Store ids are never reused, so
+    /// there is nothing else to tell a dropped store from one that simply
+    /// isn't executing right now.
+    #[cfg(feature = "experimental-host-interrupt")]
+    liveness: std::sync::Arc<()>,
     memories: Vec<VMMemory>,
     tables: Vec<VMTable>,
     globals: Vec<VMGlobal>,
@@ -75,6 +82,8 @@ impl StoreObjects {
     ) -> Self {
         Self {
             id,
+            #[cfg(feature = "experimental-host-interrupt")]
+            liveness: std::sync::Arc::new(()),
             memories,
             tables,
             globals,
@@ -90,6 +99,13 @@ impl StoreObjects {
     /// Returns the ID of this context.
     pub fn id(&self) -> StoreId {
         self.id
+    }
+
+    /// A handle that reports whether this store is still alive. See the
+    /// `liveness` field.
+    #[cfg(feature = "experimental-host-interrupt")]
+    pub fn liveness_token(&self) -> std::sync::Weak<()> {
+        std::sync::Arc::downgrade(&self.liveness)
     }
 
     /// Sets the ID of this store

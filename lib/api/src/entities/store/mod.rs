@@ -190,6 +190,11 @@ impl Store {
     /// to interrupt running imported functions. Embedders are expected to
     /// implement support for interruption of long-running or blocking
     /// imported functions separately.
+    ///
+    /// Interrupts are delivered through a process-wide signal, `SIGUSR1` by
+    /// default. Embedders that use that signal themselves can switch Wasmer
+    /// over to `SIGUSR2` with [`set_interrupt_signal`], before building the
+    /// first store.
     #[cfg(all(unix, feature = "experimental-host-interrupt"))]
     pub fn interrupter(&self) -> Interrupter {
         self.inner.objects.interrupter()
