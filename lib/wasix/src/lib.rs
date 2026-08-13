@@ -889,10 +889,11 @@ fn mem_error_to_wasi(err: MemoryAccessError) -> Errno {
 /// [`tokio::task::block_in_place()`]. Otherwise, it calls the function
 /// immediately.
 pub(crate) fn block_in_place<Ret>(thunk: impl FnOnce() -> Ret) -> Ret {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "sys-thread")] {
+    cfg_select! {
+        feature = "sys-thread" => {
             tokio::task::block_in_place(thunk)
-        } else {
+        }
+        _ => {
             thunk()
         }
     }
@@ -908,10 +909,11 @@ where
     F: FnOnce() -> R + Send + 'static,
     R: Send + 'static,
 {
-    cfg_if::cfg_if! {
-        if #[cfg(target_arch = "wasm32")] {
+    cfg_select! {
+        target_arch = "wasm32" => {
             Ok(block_in_place(f))
-        } else {
+        }
+        _ => {
             tokio::task::spawn_blocking(f).await
         }
     }

@@ -61,10 +61,6 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     wast.allow_trap_message("uninitialized element 2", "uninitialized element");
     // `liking.wast` has different wording but the same meaning
     wast.allow_trap_message("out of bounds memory access", "memory out of bounds");
-    wast.allow_trap_message(
-        "out of bounds memory access",
-        "Validation error: multiple memories",
-    );
     // V8-specific
     wast.allow_trap_message(
         "uninitialized element",
@@ -107,7 +103,6 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
 
     wast.allow_instantiation_failures(&[
         "Validation error: memory size must be at most",
-        "Validation error: multiple memories",
         "Validation error: function references",
         "Validation error: tables with expression initializers require the function-references proposal",
         "Validation error: heap types not supported without the gc feature",

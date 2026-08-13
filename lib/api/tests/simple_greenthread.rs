@@ -224,6 +224,10 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
 fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
     let logs = run_greenthread_test(include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
@@ -250,6 +254,10 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
 
 #[cfg(not(target_arch = "wasm32"))]
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
 fn green_threads_switch_main_crashed() -> Result<()> {
     let logs = run_greenthread_test(include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),

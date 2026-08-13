@@ -21,6 +21,7 @@ pub struct Config {
     pub middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     pub canonicalize_nans: bool,
     pub allow_unaligned_memory_accesses: bool,
+    pub experimental_artifact: bool,
 }
 
 impl Config {
@@ -30,8 +31,14 @@ impl Config {
             features: None,
             canonicalize_nans: false,
             allow_unaligned_memory_accesses: false,
+            experimental_artifact: false,
             middlewares: vec![],
         }
+    }
+
+    pub fn with_experimental_artifact(mut self) -> Self {
+        self.experimental_artifact = true;
+        self
     }
 
     pub fn set_middlewares(&mut self, middlewares: Vec<Arc<dyn ModuleMiddleware>>) {
@@ -96,6 +103,7 @@ impl Config {
                 use wasmer_compiler_cranelift::CraneliftCallbacks;
 
                 let mut compiler = wasmer_compiler_cranelift::Cranelift::new();
+                compiler.experimental_artifact(self.experimental_artifact);
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler
                     .allow_experimental_unaligned_memory_accesses(allow_unaligned_memory_accesses);
@@ -113,6 +121,7 @@ impl Config {
             #[cfg(feature = "llvm")]
             Compiler::LLVM => {
                 let mut compiler = wasmer_compiler_llvm::LLVM::new();
+                compiler.experimental_artifact(self.experimental_artifact);
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler.enable_verifier();
                 if let Some(mut debug_dir) = debug_dir {
@@ -129,6 +138,7 @@ impl Config {
             #[cfg(feature = "singlepass")]
             Compiler::Singlepass => {
                 let mut compiler = wasmer_compiler_singlepass::Singlepass::new();
+                compiler.experimental_artifact(self.experimental_artifact);
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler
                     .allow_experimental_unaligned_memory_accesses(allow_unaligned_memory_accesses);

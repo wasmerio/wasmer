@@ -90,11 +90,8 @@ pub enum LibCall {
     /// elem.drop
     ElemDrop,
 
-    /// memory.copy for local memories
+    /// memory.copy
     Memory32Copy,
-
-    /// memory.copy for imported memories
-    ImportedMemory32Copy,
 
     /// memory.fill for local memories
     Memory32Fill,
@@ -280,7 +277,6 @@ impl LibCall {
             Self::FuncRef => "wasmer_vm_func_ref",
             Self::ElemDrop => "wasmer_vm_elem_drop",
             Self::Memory32Copy => "wasmer_vm_memory32_copy",
-            Self::ImportedMemory32Copy => "wasmer_vm_imported_memory32_copy",
             Self::Memory32Fill => "wasmer_vm_memory32_fill",
             Self::ImportedMemory32Fill => "wasmer_vm_imported_memory32_fill",
             Self::Memory32Init => "wasmer_vm_memory32_init",

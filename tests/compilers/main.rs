@@ -10,6 +10,7 @@ mod config;
 mod deterministic;
 mod imports;
 mod issues;
+#[cfg(feature = "middlewares")]
 mod metering;
 mod middlewares;
 mod multi_value_imports;
@@ -17,7 +18,9 @@ mod progress;
 mod serialize;
 mod traps;
 mod typed_functions;
+#[cfg(feature = "wast")]
 mod wast;
 
 pub use crate::config::{Compiler, Config};
+#[cfg(feature = "wast")]
 pub use crate::wast::run_wast;

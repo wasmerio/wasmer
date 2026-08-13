@@ -128,7 +128,7 @@ impl Cache for FileSystemCache {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "filesystem"))]
 mod tests {
     use super::*;
 

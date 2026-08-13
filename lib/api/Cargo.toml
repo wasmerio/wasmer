@@ -27,7 +27,6 @@ version.workspace = true
 [dependencies]
 # - Mandatory shared dependencies.
 indexmap.workspace = true
-cfg-if.workspace = true
 thiserror.workspace = true
 more-asserts.workspace = true
 bytes.workspace = true
@@ -148,7 +147,6 @@ compiler = [
 singlepass = ["compiler", "wasmer-compiler-singlepass"]
 cranelift = ["compiler", "wasmer-compiler-cranelift"]
 llvm = ["compiler", "wasmer-compiler-llvm"]
-experimental-artifact = ["wasmer-compiler-llvm/experimental-artifact"]
 
 # --- Enable the v8 backend and use it as default backend.
 v8 = ["wasm-c-api", "std", "dep:tempfile", "dep:which", "dep:xz", "dep:ureq"]

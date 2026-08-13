@@ -73,10 +73,9 @@ jobs:
           - build: windows-x64
             os: windows-2022
             artifact_name: "wasmer-windows-amd64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-windows-amd64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_win"
             build_wasm: false
-            enable_llvm: true
+            enable_llvm: false
             enable_v8: true
             enable_napi_v8: true
             #- build: linux-musl-x64
@@ -182,6 +181,7 @@ jobs:
           LLVM_CONFIG_PATH=/usr/bin/llvm-config-22 make build-capi-headless
           make package-capi-headless
       - name: Build & Package C API
+        if: ${{ !startsWith(matrix.build, 'windows-') }}
         shell: bash
         run: |
           LLVM_CONFIG_PATH=/usr/bin/llvm-config-22 make build-capi
@@ -228,7 +228,7 @@ jobs:
         if: ${{ !startsWith(matrix.build, 'linux-musl-x64') }}
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2024-11-07"
+          toolchain: "nightly"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
@@ -302,15 +302,6 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
-      - name: Build & Package C API without LLVM
-        shell: bash
-        run: |
-          make build-capi
-          make package-capi
-        env:
-          RUSTFLAGS: -Cpanic=abort
-          CARGO_TARGET: x86_64-pc-windows-gnu
-          ENABLE_LLVM: 0
       - name: Build & Package C API headless without LLVM
         shell: bash
         run: |

@@ -52,7 +52,6 @@ wasm-encoder.workspace = true
 
 xxhash-rust = { workspace = true, features = ["xxh64"] }
 rusty_pool = { workspace = true, optional = true }
-cfg-if.workspace = true
 thiserror.workspace = true
 tracing.workspace = true
 getrandom.workspace = true
@@ -190,11 +189,18 @@ version-compare.workspace = true
 wasm-bindgen-test.workspace = true
 tracing-wasm.workspace = true
 
-[target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dev-dependencies]
 wasmer = { path = "../api", version = "=7.2.1", default-features = false, features = [
   "wat",
   "js-serializable-module",
   "cranelift",
+] }
+
+[target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dev-dependencies]
+wasmer = { path = "../api", version = "=7.2.1", default-features = false, features = [
+  "wat",
+  "js-serializable-module",
+  "v8",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies.getrandom03]

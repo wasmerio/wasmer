@@ -73,8 +73,8 @@ pub(crate) fn file_path_from_url(url: &Url) -> Result<PathBuf, Error> {
     debug_assert_eq!(url.scheme(), "file");
 
     // Note: The Url::to_file_path() method is platform-specific
-    cfg_if::cfg_if! {
-        if #[cfg(any(unix, windows, target_os = "redox", target_os = "wasi"))] {
+    cfg_select! {
+        any(unix, windows, target_os = "redox", target_os = "wasi") => {
             use anyhow::Context;
 
             if let Ok(path) = url.to_file_path() {
@@ -91,7 +91,8 @@ pub(crate) fn file_path_from_url(url: &Url) -> Result<PathBuf, Error> {
                 .ok()
                 .and_then(|url| url.to_file_path().ok())
                 .context("Unable to extract the file path")
-        } else {
+        }
+        _ => {
             anyhow::bail!("Url::to_file_path() is not supported on this platform");
         }
     }

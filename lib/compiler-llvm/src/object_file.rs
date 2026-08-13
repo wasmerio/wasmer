@@ -1,12 +1,9 @@
 use object::{Object, ObjectSection, ObjectSymbol};
-use target_lexicon::{
-    Architecture, BinaryFormat, Riscv32Architecture, Riscv64Architecture, Triple,
-};
+use target_lexicon::{Architecture, BinaryFormat, Riscv64Architecture, Triple};
 
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
-use std::path::PathBuf;
 
 use wasmer_types::{CompileError, SourceLoc, entity::PrimaryMap};
 
@@ -41,7 +38,7 @@ pub struct RkyvCompiledFunction {
 #[derive(Debug)]
 pub enum CompiledFunction {
     Rkyv(Box<RkyvCompiledFunction>),
-    Elf(PathBuf),
+    Elf(Vec<u8>),
 }
 
 impl wasmer_compiler::CompiledFunction for CompiledFunction {}
@@ -135,7 +132,6 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_func_ref" => LibCall::FuncRef,
     "_wasmer_vm_elem_drop" => LibCall::ElemDrop,
     "_wasmer_vm_memory32_copy" => LibCall::Memory32Copy,
-    "_wasmer_vm_imported_memory32_copy" => LibCall::ImportedMemory32Copy,
     "_wasmer_vm_memory32_fill" => LibCall::Memory32Fill,
     "_wasmer_vm_imported_memory32_fill" => LibCall::ImportedMemory32Fill,
     "_wasmer_vm_memory32_init" => LibCall::Memory32Init,
@@ -166,11 +162,10 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
 /// (i.e. does not include the F/D ISA extensions, either explicitly or via the `gc` profile).
 fn is_riscv_softfloat(arch: &Architecture) -> bool {
     match arch {
-        Architecture::Riscv64(Riscv64Architecture::Riscv64gc | Riscv64Architecture::Riscv64a23)
-        | Architecture::Riscv32(
-            Riscv32Architecture::Riscv32gc | Riscv32Architecture::Riscv32imafc,
-        ) => false,
-        Architecture::Riscv64(_) | Architecture::Riscv32(_) => true,
+        Architecture::Riscv64(Riscv64Architecture::Riscv64gc | Riscv64Architecture::Riscv64a23) => {
+            false
+        }
+        Architecture::Riscv64(_) => true,
         _ => false,
     }
 }
@@ -506,28 +501,21 @@ where
                     0,
                 ) => RelocationKind::Arm64Movw3,
                 (
-                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
-                    object::RelocationFlags::Elf {
-                        r_type: object::elf::R_RISCV_64,
-                    },
-                    64,
-                ) => RelocationKind::Abs8,
-                (
-                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
+                    object::Architecture::Riscv64,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_RISCV_CALL_PLT,
                     },
                     0,
                 ) => RelocationKind::RiscvCall,
                 (
-                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
+                    object::Architecture::Riscv64,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_RISCV_PCREL_HI20,
                     },
                     0,
                 ) => RelocationKind::RiscvPCRelHi20,
                 (
-                    object::Architecture::Riscv64 | object::Architecture::Riscv32,
+                    object::Architecture::Riscv64,
                     object::RelocationFlags::Elf {
                         r_type: object::elf::R_RISCV_PCREL_LO12_I,
                     },
@@ -631,6 +619,13 @@ where
                     },
                     32,
                 ) => RelocationKind::Abs4,
+                (
+                    object::Architecture::Riscv64,
+                    object::RelocationFlags::Elf {
+                        r_type: object::elf::R_RISCV_64,
+                    },
+                    64,
+                ) => RelocationKind::Abs8,
                 (
                     object::Architecture::Riscv64,
                     object::RelocationFlags::Elf {

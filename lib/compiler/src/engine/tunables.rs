@@ -3,7 +3,7 @@ use std::ptr::NonNull;
 use wasmer_types::{
     FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     MemoryType, ModuleInfo, Pages, TableIndex, TableType, TagKind, WASM_MAX_PAGES,
-    entity::{EntityRef, PrimaryMap},
+    entity::PrimaryMap,
     target::{PointerWidth, Target},
 };
 use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects, VMTag};
@@ -90,14 +90,12 @@ pub trait Tunables {
             let num_imports = module.num_imported_memories;
             let mut memories: PrimaryMap<LocalMemoryIndex, _> =
                 PrimaryMap::with_capacity(module.memories.len() - num_imports);
-            for (index, mdl) in memory_definition_locations
+            for ((mi, ty), mdl) in module
+                .memories
                 .iter()
-                .enumerate()
-                .take(module.memories.len())
                 .skip(num_imports)
+                .zip(memory_definition_locations)
             {
-                let mi = MemoryIndex::new(index);
-                let ty = &module.memories[mi];
                 let style = &memory_styles[mi];
                 memories.push(InternalStoreHandle::new(
                     context,
@@ -127,14 +125,12 @@ pub trait Tunables {
             let num_imports = module.num_imported_tables;
             let mut tables: PrimaryMap<LocalTableIndex, _> =
                 PrimaryMap::with_capacity(module.tables.len() - num_imports);
-            for (index, tdl) in table_definition_locations
+            for ((ti, ty), tdl) in module
+                .tables
                 .iter()
-                .enumerate()
-                .take(module.tables.len())
                 .skip(num_imports)
+                .zip(table_definition_locations)
             {
-                let ti = TableIndex::new(index);
-                let ty = &module.tables[ti];
                 let style = &table_styles[ti];
                 tables.push(InternalStoreHandle::new(
                     context,

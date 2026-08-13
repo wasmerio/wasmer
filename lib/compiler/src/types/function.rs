@@ -9,8 +9,6 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module (`CompiledFunction`).
 
-use std::path::PathBuf;
-
 use super::{
     address_map::FunctionAddressMap,
     relocation::Relocation,
@@ -63,7 +61,7 @@ pub struct FunctionBody {
 
 pub enum CompiledFunctionBody {
     Rkyv(FunctionBody),
-    Elf(PathBuf),
+    Elf(Vec<u8>),
 }
 
 /// Any struct that acts like a `FunctionBody`.
@@ -240,6 +238,12 @@ pub struct RkyvCompilation {
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[derive(Debug, PartialEq, Eq)]
 pub enum Compilation {
-    Rkyv(RkyvCompilation),
-    Elf(Vec<u8>),
+    Rkyv {
+        compilation: RkyvCompilation,
+        function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
+    },
+    Elf {
+        data: Vec<u8>,
+        function_max_stack_usage: PrimaryMap<LocalFunctionIndex, Option<usize>>,
+    },
 }

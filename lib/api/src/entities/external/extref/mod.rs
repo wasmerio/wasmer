@@ -59,8 +59,8 @@ impl ExternRef {
 }
 
 // `ExternRef` is only implemented on the `sys` backend; the `v8`/`js` backends
-// `unimplemented!()` it, so this test is gated to `sys`.
-#[cfg(all(test, feature = "sys"))]
+// `unimplemented!()` it, so this test is gated to `sys` without V8.
+#[cfg(all(test, feature = "sys", not(feature = "v8")))]
 mod tests {
     use crate::{ExternRef, Store};
 

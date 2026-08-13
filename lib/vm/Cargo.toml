@@ -19,7 +19,6 @@ libc.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true
 more-asserts.workspace = true
-cfg-if.workspace = true
 backtrace.workspace = true
 serde = { workspace = true, features = ["derive", "rc"], optional = true }
 enum-iterator.workspace = true
