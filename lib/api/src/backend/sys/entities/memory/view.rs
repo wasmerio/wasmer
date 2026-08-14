@@ -192,16 +192,35 @@ impl<'a> MemoryView<'a> {
     #[allow(unused)]
     /// Copies the memory to another new memory object
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
-        let mut offset = 0;
-        let mut chunk = [0u8; 40960];
-        while offset < amount {
-            let remaining = amount - offset;
-            let sublen = remaining.min(chunk.len() as u64) as usize;
-            self.read(offset, &mut chunk[..sublen])?;
+        self.copy_range_to_memory(0, 0, amount, new_memory)
+    }
 
-            new_memory.write(offset, &chunk[..sublen])?;
+    pub(crate) fn copy_range_to_memory(
+        &self,
+        source_offset: u64,
+        target_offset: u64,
+        amount: u64,
+        new_memory: &Self,
+    ) -> Result<(), MemoryAccessError> {
+        let source_offset = usize::try_from(source_offset).map_err(|_| MemoryAccessError::Overflow)?;
+        let target_offset = usize::try_from(target_offset).map_err(|_| MemoryAccessError::Overflow)?;
+        let amount = usize::try_from(amount).map_err(|_| MemoryAccessError::Overflow)?;
+        let source_end = source_offset
+            .checked_add(amount)
+            .ok_or(MemoryAccessError::Overflow)?;
+        let target_end = target_offset
+            .checked_add(amount)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if source_end > self.buffer.len || target_end > new_memory.buffer.len {
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
 
-            offset += sublen as u64;
+        unsafe {
+            std::ptr::copy(
+                self.buffer.base.add(source_offset),
+                new_memory.buffer.base.add(target_offset),
+                amount,
+            );
         }
         Ok(())
     }

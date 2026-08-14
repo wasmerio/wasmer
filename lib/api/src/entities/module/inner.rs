@@ -45,6 +45,28 @@ impl BackendModule {
     }
 
     #[inline]
+    pub async fn new_async(
+        engine: &impl AsEngineRef,
+        bytes: impl AsRef<[u8]>,
+    ) -> Result<Self, CompileError> {
+        #[cfg(all(feature = "js", target_arch = "wasm32"))]
+        if matches!(engine.as_engine_ref().inner.be, crate::BackendEngine::Js(_)) {
+            #[cfg(feature = "wat")]
+            let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+                CompileError::Wasm(WasmError::Generic(format!(
+                    "Error when converting wat: {e}",
+                )))
+            })?;
+
+            return crate::backend::js::entities::module::Module::new_async(engine, bytes.as_ref())
+                .await
+                .map(Self::Js);
+        }
+
+        Self::new(engine, bytes)
+    }
+
+    #[inline]
     pub fn new_with_progress(
         engine: &impl AsEngineRef,
         bytes: impl AsRef<[u8]>,

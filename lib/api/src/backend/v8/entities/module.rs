@@ -184,9 +184,12 @@ impl Module {
         let mut binary = binary.to_vec();
         let binary = binary.into_bytes();
         let module = ModuleHandle::new(engine, &binary)?;
-        let info = crate::utils::polyfill::translate_module(&binary[..])
-            .map_err(CompileError::Validate)?
-            .info;
+        let translated = crate::utils::polyfill::translate_module(&binary[..])
+            .map_err(CompileError::Validate)?;
+        translated
+            .validate_no_exported_externrefs()
+            .map_err(CompileError::Validate)?;
+        let info = translated.info;
         let imports = info.imports().collect();
         let exports = info.exports().collect();
         let custom_sections = get_custom_sections(&binary)?;

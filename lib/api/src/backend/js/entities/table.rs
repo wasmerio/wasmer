@@ -3,8 +3,8 @@ use crate::{
     js::vm::{VMFunction, VMTable},
     vm::{VMExtern, VMExternTable},
 };
-use js_sys::Function;
-use wasmer_types::{FunctionType, TableType};
+use wasm_bindgen::{JsCast, JsValue};
+use wasmer_types::{FunctionType, TableType, Type};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Table {
@@ -15,20 +15,27 @@ pub struct Table {
 // https://developer.mozilla.org/en-US/docs/Web/API/structuredClone
 // unsafe impl Send for Table {}
 
-fn set_table_item(table: &VMTable, item_index: u32, item: &Function) -> Result<(), RuntimeError> {
-    table.table.set(item_index, item).map_err(|e| e.into())
+fn set_table_item(table: &VMTable, item_index: u32, item: &JsValue) -> Result<(), RuntimeError> {
+    table
+        .table
+        .set_raw(item_index, item)
+        .map_err(|e| e.into())
 }
 
-fn get_function(store: &mut impl AsStoreMut, val: Value) -> Result<Option<Function>, RuntimeError> {
+fn get_table_item(store: &mut impl AsStoreMut, val: Value) -> Result<JsValue, RuntimeError> {
     if !val.is_from_store(store) {
         return Err(RuntimeError::new("cannot pass Value across contexts"));
     }
     match val {
-        Value::FuncRef(Some(ref func)) => {
-            Ok(Some(func.as_js().handle.function.clone().into_inner()))
-        }
-        Value::FuncRef(None) => Ok(None),
-        // Only funcrefs is supported by the spec atm
+        Value::FuncRef(Some(ref func)) => Ok(func.as_js().handle.function.clone().into_inner().into()),
+        Value::FuncRef(None) | Value::ExternRef(None) => Ok(JsValue::null()),
+        Value::ExternRef(Some(ref reference)) => match &reference.0 {
+            crate::BackendExternRef::Js(reference) => Ok(reference.as_js_value()),
+            #[allow(unreachable_patterns)]
+            _ => Err(RuntimeError::new(
+                "cannot pass an externref across backends",
+            )),
+        },
         _ => unimplemented!("The {val:?} is not yet supported"),
     }
 }
@@ -45,19 +52,20 @@ impl Table {
         if let Some(max) = ty.maximum {
             js_sys::Reflect::set(&descriptor, &"maximum".into(), &max.into())?;
         }
-        js_sys::Reflect::set(&descriptor, &"element".into(), &"anyfunc".into())?;
-
-        let js_table = js_sys::WebAssembly::Table::new(&descriptor)?;
-        // TODO: use `Table.new_with_value` method from wasm-bindgen
-        // https://github.com/wasm-bindgen/wasm-bindgen/pull/4698
-        let table = VMTable::new(js_table, ty);
-        let num_elements = table.table.length();
-        let func = get_function(&mut store, init)?;
-        if let Some(func) = func {
-            for i in 0..num_elements {
-                set_table_item(&table, i, &func)?;
+        let element = match ty.ty {
+            Type::FuncRef => "anyfunc",
+            Type::ExternRef => "externref",
+            other => {
+                return Err(RuntimeError::new(format!(
+                    "{other:?} is not a valid JavaScript table element type"
+                )));
             }
-        }
+        };
+        js_sys::Reflect::set(&descriptor, &"element".into(), &element.into())?;
+
+        let initial_value = get_table_item(&mut store, init)?;
+        let js_table = js_sys::WebAssembly::Table::new_with_value(&descriptor, initial_value)?;
+        let table = VMTable::new(js_table, ty);
 
         Ok(Self { handle: table })
     }
@@ -71,16 +79,32 @@ impl Table {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
-        if let Ok(func) = self.handle.table.get(index) {
-            let ty = FunctionType::new(vec![], vec![]);
-            let vm_function = VMFunction::new(func, ty);
-            let function = crate::Function::from_vm_extern(
-                store,
-                crate::vm::VMExternFunction::Js(vm_function),
-            );
-            Some(Value::FuncRef(Some(function)))
-        } else {
-            None
+        let value = self.handle.table.get_raw(index).ok()?;
+        if value.is_null() {
+            return Some(match self.handle.ty.ty {
+                Type::FuncRef => Value::FuncRef(None),
+                Type::ExternRef => Value::ExternRef(None),
+                _ => return None,
+            });
+        }
+        match self.handle.ty.ty {
+            Type::FuncRef => {
+                let func = value.dyn_into::<js_sys::Function>().ok()?;
+                let ty = VMFunction::type_from_js(&func)
+                    .unwrap_or_else(|| FunctionType::new(vec![], vec![]));
+                let vm_function = VMFunction::new(func, ty);
+                let function = crate::Function::from_vm_extern(
+                    store,
+                    crate::vm::VMExternFunction::Js(vm_function),
+                );
+                Some(Value::FuncRef(Some(function)))
+            }
+            Type::ExternRef => Some(Value::ExternRef(Some(crate::ExternRef(
+                crate::BackendExternRef::Js(
+                    crate::backend::js::entities::external::ExternRef::from_js_value(store, value),
+                ),
+            )))),
+            _ => None,
         }
     }
 
@@ -90,11 +114,8 @@ impl Table {
         index: u32,
         val: Value,
     ) -> Result<(), RuntimeError> {
-        let item = get_function(store, val)?;
-        if let Some(item) = item {
-            set_table_item(&self.handle, index, &item)?;
-        }
-        Ok(())
+        let item = get_table_item(store, val)?;
+        set_table_item(&self.handle, index, &item)
     }
 
     pub fn size(&self, _store: &impl AsStoreRef) -> u32 {
@@ -107,15 +128,11 @@ impl Table {
         delta: u32,
         init: Value,
     ) -> Result<u32, RuntimeError> {
-        // TODO: use `Table.grow_with_value` method from wasm-bindgen
-        // https://github.com/wasm-bindgen/wasm-bindgen/pull/4698
-        let grow_by = self.handle.table.grow(delta)?;
-        if let Some(func) = get_function(store, init)? {
-            for i in grow_by..(grow_by + delta) {
-                set_table_item(&self.handle, i, &func)?;
-            }
-        }
-        Ok(grow_by)
+        let initial_value = get_table_item(store, init)?;
+        self.handle
+            .table
+            .grow_with_value(delta, initial_value)
+            .map_err(Into::into)
     }
 
     pub fn copy(
