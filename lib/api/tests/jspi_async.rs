@@ -31,6 +31,10 @@ fn jspi_module() -> &'static [u8] {
 }
 
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
 fn async_state_updates_follow_jspi_example() -> Result<()> {
     let wasm = jspi_module();
     let mut store = Store::default();
@@ -116,6 +120,10 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
 fn typed_async_host_and_calls_work() -> Result<()> {
     let wasm = wat::parse_str(
         r#"
@@ -180,6 +188,10 @@ fn typed_async_host_and_calls_work() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
 fn cannot_yield_when_not_in_async_context() -> Result<()> {
     const WAT: &str = r#"
     (module
@@ -229,6 +241,10 @@ fn cannot_yield_when_not_in_async_context() -> Result<()> {
 }
 
 #[test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "async functions are not supported by the default v8 backend"
+)]
 fn nested_async_in_sync() -> Result<()> {
     const WAT: &str = r#"
     (module

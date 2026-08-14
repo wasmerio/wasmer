@@ -2770,12 +2770,14 @@ impl std::fmt::Debug for WasiFs {
 
 /// Returns the default filesystem backing
 pub fn default_fs_backing() -> Arc<dyn virtual_fs::FileSystem + Send + Sync> {
-    cfg_if::cfg_if! {
-        if #[cfg(feature = "host-fs")] {
+    cfg_select! {
+        feature = "host-fs" => {
             Arc::new(virtual_fs::host_fs::FileSystem::new(tokio::runtime::Handle::current(), "/").unwrap())
-        } else if #[cfg(not(feature = "host-fs"))] {
+        }
+        not(feature = "host-fs") => {
             Arc::<virtual_fs::mem_fs::FileSystem>::default()
-        } else {
+        }
+        _ => {
             Arc::<FallbackFileSystem>::default()
         }
     }

@@ -18,7 +18,7 @@ use wasmer::*;
 use wasmer_types::{Features, target::Target};
 
 #[cfg(feature = "compiler")]
-use wasmer_compiler::CompilerConfig;
+use wasmer_compiler::{CompilerConfig, Debugger};
 
 use wasmer::Engine;
 
@@ -138,6 +138,10 @@ pub struct RuntimeOptions {
     ]))]
     v8: bool,
 
+    /// Use the experimental artifact format.
+    #[clap(long = "experimental-artifact")]
+    experimental_artifact: bool,
+
     /// Enable compiler internal verification.
     ///
     /// Available for Cranelift, LLVM and Singlepass.
@@ -192,6 +196,10 @@ pub struct RuntimeOptions {
 pub enum Profiler {
     /// Perfmap-based profilers.
     Perfmap,
+    /// GDB command file.
+    Gdb,
+    /// LLDB command file.
+    Lldb,
 }
 
 impl FromStr for Profiler {
@@ -200,12 +208,32 @@ impl FromStr for Profiler {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "perfmap" => Ok(Self::Perfmap),
+            "gdb" => Ok(Self::Gdb),
+            "lldb" => Ok(Self::Lldb),
             _ => Err(anyhow::anyhow!("Unrecognized profiler: {s}")),
         }
     }
 }
 
 impl RuntimeOptions {
+    fn validate_profiler(&self) -> Result<()> {
+        if self.experimental_artifact && !cfg!(target_os = "linux") {
+            bail!("--experimental-artifact is only supported on Linux");
+        }
+        if !self.experimental_artifact {
+            match self.profiler {
+                Some(Profiler::Gdb) => {
+                    bail!("The gdb profiler requires --experimental-artifact")
+                }
+                Some(Profiler::Lldb) => {
+                    bail!("The lldb profiler requires --experimental-artifact")
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
     pub fn get_available_backends(&self) -> Result<Vec<BackendType>> {
         // If a specific backend is explicitly requested, use it
         #[cfg(feature = "cranelift")]
@@ -405,6 +433,7 @@ impl RuntimeOptions {
         &self,
         rt: &BackendType,
     ) -> Result<Box<dyn CompilerConfig>> {
+        self.validate_profiler()?;
         let compiler_config: Box<dyn CompilerConfig> = match rt {
             BackendType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
@@ -422,6 +451,8 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
@@ -450,6 +481,8 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
@@ -491,6 +524,8 @@ impl RuntimeOptions {
                 if let Some(p) = &self.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
 
@@ -504,7 +539,13 @@ impl RuntimeOptions {
         };
 
         #[allow(unreachable_code)]
-        Ok(compiler_config)
+        {
+            let mut compiler_config = compiler_config;
+            if self.experimental_artifact {
+                compiler_config.experimental_artifact(true);
+            }
+            Ok(compiler_config)
+        }
     }
 }
 
@@ -548,10 +589,14 @@ impl BackendType {
     /// We enable every feature the engine supports, since the same engine may later be used
     /// with a module that requires more features than the one used during engine detection.
     pub fn get_engine(&self, target: &Target, runtime_opts: &RuntimeOptions) -> Result<Engine> {
+        runtime_opts.validate_profiler()?;
         match self {
             #[cfg(feature = "singlepass")]
             Self::Singlepass => {
                 let mut config = wasmer_compiler_singlepass::Singlepass::new();
+                if runtime_opts.experimental_artifact {
+                    config.experimental_artifact(true);
+                }
                 if runtime_opts.enable_experimental_unaligned_memory_accesses {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
@@ -565,6 +610,8 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
@@ -586,6 +633,9 @@ impl BackendType {
             #[cfg(feature = "cranelift")]
             Self::Cranelift => {
                 let mut config = wasmer_compiler_cranelift::Cranelift::new();
+                if runtime_opts.experimental_artifact {
+                    config.experimental_artifact(true);
+                }
                 if runtime_opts.enable_experimental_unaligned_memory_accesses {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
@@ -599,6 +649,8 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
                 if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
@@ -623,6 +675,9 @@ impl BackendType {
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
+                if runtime_opts.experimental_artifact {
+                    config.experimental_artifact(true);
+                }
                 if !runtime_opts.disable_non_volatile_memops {
                     config.enable_non_volatile_memops();
                 }
@@ -648,6 +703,8 @@ impl BackendType {
                 if let Some(p) = &runtime_opts.profiler {
                     match p {
                         Profiler::Perfmap => config.enable_perfmap(),
+                        Profiler::Gdb => config.enable_debugger(Debugger::Gdb),
+                        Profiler::Lldb => config.enable_debugger(Debugger::Lldb),
                     }
                 }
 

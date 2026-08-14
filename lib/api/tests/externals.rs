@@ -123,6 +123,10 @@ fn table_get() -> Result<(), String> {
 }
 
 #[engine_test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "extern refs are not supported by the default v8 backend"
+)]
 fn table_set() -> Result<(), String> {
     // Table set not yet tested
     #[cfg(feature = "sys")]
@@ -201,6 +205,10 @@ fn table_set() -> Result<(), String> {
 }
 
 #[engine_test]
+#[cfg_attr(
+    feature = "v8-default",
+    ignore = "function refs are not supported by the default v8 backend"
+)]
 fn table_grow() -> Result<(), String> {
     // Tables are not yet fully supported in Wasm
     #[cfg(feature = "sys")]
@@ -256,11 +264,12 @@ fn memory_new() -> Result<(), String> {
 
 #[test]
 #[cfg(feature = "v8")]
-fn memory_ty_preserves_shared_flag_in_v8() -> Result<(), String> {
+fn memory_ty_round_trips_in_v8() -> Result<(), String> {
     let engine: Engine = wasmer::v8::V8::new().into();
     let mut store = Store::new(engine);
 
     for memory_type in [
+        MemoryType::new(Pages(1), None, false),
         MemoryType::new(Pages(1), Some(Pages(2)), false),
         MemoryType::new(Pages(1), Some(Pages(2)), true),
     ] {

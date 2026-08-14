@@ -6,7 +6,7 @@ use crate::codegen::FuncGen;
 use crate::config::{self, Singlepass};
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-use crate::elf::{self, CompileOutput, compile_output_in_memory, compile_output_paths};
+use crate::elf::{self, CompileOutput, compile_output_in_memory, compile_output_objects};
 use crate::machine::Machine;
 use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
@@ -20,10 +20,10 @@ use crate::unwind::create_systemv_cie;
 use enumset::EnumSet;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable, Writer};
+use itertools::Itertools;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tempfile::tempdir;
 use wasmer_compiler::WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE;
 use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::progress::ProgressContext;
@@ -31,7 +31,7 @@ use wasmer_compiler::serialize::SerializableModule;
 use wasmer_compiler::types::function::Compilation;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, WasmSourceMap,
     types::{
         function::{FunctionBody, RkyvCompilation, UnwindInfo},
         module::CompileModuleInfo,
@@ -63,11 +63,14 @@ impl SinglepassCompiler {
         &self.config
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn compile_module_internal(
         &self,
+        pool: &rayon::ThreadPool,
         target: &Target,
         compile_info: &CompileModuleInfo,
         compile_info_blob: &[u8],
+        module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
@@ -97,16 +100,13 @@ impl SinglepassCompiler {
             },
         };
 
-        let build_directory = cfg!(feature = "experimental-artifact")
-            .then(|| {
-                tempdir().map_err(|e| {
-                    CompileError::Codegen(format!("cannot create temporary build directory: {e}"))
-                })
-            })
-            .transpose()?;
-        let build_directory_path = build_directory.as_ref().map(|d| d.path());
-
         let module = &compile_info.module;
+        let source_map = Arc::new(if self.config.experimental_artifact {
+            WasmSourceMap::new(module, module_translation, &function_body_inputs)
+                .map_err(CompileError::Codegen)?
+        } else {
+            WasmSourceMap::default()
+        });
         let total_function_call_trampolines = module.signatures.len() as u64;
         let total_dynamic_trampolines = module.num_imported_functions as u64;
         let total_steps = WASM_TRAMPOLINE_ESTIMATED_BODY_SIZE
@@ -157,7 +157,7 @@ impl SinglepassCompiler {
                     &module.signatures[module.functions[i]],
                     target,
                     calling_convention,
-                    build_directory_path,
+                    self.config.experimental_artifact,
                 )
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
@@ -204,7 +204,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch, target, build_directory_path)
+                        generator.finalize(input, arch, target, &source_map)
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new(Some(target.clone()));
@@ -225,7 +225,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch, target, build_directory_path)
+                        generator.finalize(input, arch, target, &source_map)
                     }
                     Architecture::Riscv64(_) => {
                         let machine = MachineRiscv::new(
@@ -249,7 +249,7 @@ impl SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input, arch, target, build_directory_path)
+                        generator.finalize(input, arch, target, &source_map)
                     }
                     _ => unimplemented!(),
                 }?;
@@ -282,12 +282,7 @@ impl SinglepassCompiler {
                         func_type,
                         target,
                         calling_convention,
-                        cfg!(feature = "experimental-artifact").then(|| {
-                            (
-                                build_directory_path.expect("experimental-artifact enabled"),
-                                &kind,
-                            )
-                        }),
+                        self.config.experimental_artifact.then_some(&kind),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
                         && let CompileOutput::InMemory(body) = &body
@@ -326,12 +321,7 @@ impl SinglepassCompiler {
                         &func_type,
                         target,
                         calling_convention,
-                        cfg!(feature = "experimental-artifact").then(|| {
-                            (
-                                build_directory_path.expect("experimental-artifact enabled"),
-                                &kind,
-                            )
-                        }),
+                        self.config.experimental_artifact.then_some(&kind),
                     )?;
                     if let Some(callbacks) = self.config.callbacks.as_ref()
                         && let CompileOutput::InMemory(body) = &body
@@ -353,23 +343,20 @@ impl SinglepassCompiler {
             )
             .collect::<Result<Vec<_>, _>>()?;
 
-        if cfg!(feature = "experimental-artifact") {
-            let object_files = compile_output_paths(functions);
-            let import_trampoline_objects = compile_output_paths(import_trampolines);
-            let trampoline_objects = compile_output_paths(function_call_trampolines);
-            let dynamic_trampoline_objects = compile_output_paths(dynamic_function_trampolines);
+        if self.config.experimental_artifact {
+            let object_files = compile_output_objects(functions);
+            let import_trampoline_objects = compile_output_objects(import_trampolines);
+            let trampoline_objects = compile_output_objects(function_call_trampolines);
+            let dynamic_trampoline_objects = compile_output_objects(dynamic_function_trampolines);
 
             return elf::link_module(
+                pool,
                 target,
                 compile_info_blob,
-                build_directory
-                    .as_ref()
-                    .expect("ensured by experimental-artifact")
-                    .path(),
-                &object_files,
-                &import_trampoline_objects,
-                &trampoline_objects,
-                &dynamic_trampoline_objects,
+                object_files,
+                import_trampoline_objects,
+                trampoline_objects,
+                dynamic_trampoline_objects,
                 self.config
                     .callbacks
                     .as_ref()
@@ -433,8 +420,35 @@ impl Compiler for SinglepassCompiler {
         "singlepass"
     }
 
+    fn get_debugger(&self) -> Option<wasmer_compiler::Debugger> {
+        self.config.debugger
+    }
+
     fn deterministic_id(&self) -> String {
-        String::from("singlepass")
+        use wasmer_compiler::DeterministicIdComponent as Component;
+
+        let mut components = vec![Component::Singlepass];
+        if self.config.enable_nan_canonicalization {
+            components.push(Component::NanCanonicalization);
+        }
+        if self.config.allow_experimental_unaligned_memory_accesses {
+            components.push(Component::ExperimentalUnalignedMemoryAccesses);
+        }
+
+        components
+            .into_iter()
+            .map(|component| component.to_string())
+            .collect_vec()
+            .join("-")
+    }
+
+    fn artifact_format(&self) -> String {
+        if self.config.experimental_artifact {
+            wasmer_compiler::ArtifactFormat::Native
+        } else {
+            wasmer_compiler::ArtifactFormat::Rkyv
+        }
+        .to_string()
     }
 
     /// Get the middlewares for this compiler
@@ -449,7 +463,7 @@ impl Compiler for SinglepassCompiler {
         target: &Target,
         compile_info: &CompileModuleInfo,
         compile_info_blob: &[u8],
-        _module_translation: &ModuleTranslationState,
+        module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
@@ -463,9 +477,11 @@ impl Compiler for SinglepassCompiler {
 
         pool.install(|| {
             self.compile_module_internal(
+                &pool,
                 target,
                 compile_info,
                 compile_info_blob,
+                module_translation,
                 function_body_inputs,
                 progress_callback,
             )

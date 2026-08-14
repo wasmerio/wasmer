@@ -13,7 +13,7 @@ use std::{
 use std::{num::NonZero, path::PathBuf};
 use target_lexicon::{OperatingSystem, Vendor};
 use wasmer_compiler::{
-    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
     misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
 };
 use wasmer_types::{
@@ -110,12 +110,14 @@ pub enum CraneliftOptLevel {
 /// consumed by `wasmer_engine::Engine::new`.
 #[derive(Debug, Clone)]
 pub struct Cranelift {
-    enable_nan_canonicalization: bool,
+    pub(crate) enable_nan_canonicalization: bool,
     pub(crate) allow_experimental_unaligned_memory_accesses: bool,
     enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
-    enable_pic: bool,
-    opt_level: CraneliftOptLevel,
+    pub(crate) debugger: Option<Debugger>,
+    pub(crate) enable_pic: bool,
+    pub(crate) experimental_artifact: bool,
+    pub(crate) opt_level: CraneliftOptLevel,
     /// The number of threads to use for compilation.
     pub num_threads: NonZero<usize>,
     /// The middleware chain.
@@ -133,11 +135,19 @@ impl Cranelift {
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
+            experimental_artifact: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
             middlewares: vec![],
             enable_perfmap: false,
+            debugger: None,
             callbacks: None,
         }
+    }
+
+    /// Enable the experimental artifact format.
+    pub fn experimental_artifact(&mut self, enable: bool) -> &mut Self {
+        self.experimental_artifact = enable;
+        self
     }
 
     /// Enable NaN canonicalization.
@@ -297,6 +307,10 @@ impl Cranelift {
 }
 
 impl CompilerConfig for Cranelift {
+    fn experimental_artifact(&mut self, enable: bool) {
+        self.experimental_artifact = enable;
+    }
+
     fn enable_pic(&mut self) {
         self.enable_pic = true;
     }
@@ -307,6 +321,10 @@ impl CompilerConfig for Cranelift {
 
     fn enable_perfmap(&mut self) {
         self.enable_perfmap = true;
+    }
+
+    fn enable_debugger(&mut self, debugger: Debugger) {
+        self.debugger = Some(debugger);
     }
 
     fn enable_experimental_unaligned_memory_accesses(&mut self) {

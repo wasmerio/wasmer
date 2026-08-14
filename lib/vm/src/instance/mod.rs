@@ -17,7 +17,8 @@ use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
     VMMemoryImport, VMSharedTagIndex, VMSignatureHash, VMTableDefinition, VMTableImport,
-    VMTrampoline, memory_copy, memory_fill, memory32_atomic_check32, memory32_atomic_check64,
+    VMTrampoline, memory_copy, memory_fill, memory32_atomic_check_notify, memory32_atomic_check32,
+    memory32_atomic_check64,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
@@ -1057,6 +1058,8 @@ impl Instance {
         dst: u32,
         count: u32,
     ) -> Result<u32, Trap> {
+        let memory = self.memory(memory_index);
+        memory32_atomic_check_notify(&memory, dst)?;
         let memory = self.get_local_vmmemory_mut(memory_index);
         Ok(memory.do_notify(dst, count))
     }
@@ -1068,6 +1071,9 @@ impl Instance {
         dst: u32,
         count: u32,
     ) -> Result<u32, Trap> {
+        let import = self.imported_memory(memory_index);
+        let memory = unsafe { import.definition.as_ref() };
+        memory32_atomic_check_notify(memory, dst)?;
         let memory = self.get_vmmemory_mut(memory_index);
         Ok(memory.do_notify(dst, count))
     }

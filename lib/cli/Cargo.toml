@@ -51,6 +51,8 @@ backend = []
 coredump = ["wasm-coredump-builder"]
 sys = ["compiler", "dep:wasmer-vm"]
 v8 = ["backend", "wasmer/v8"]
+# Enable V8 and explicitly select it as the default backend.
+v8-default = ["v8", "wasmer/v8-default"]
 wast = ["wasmer-wast"]
 host-net = ["virtual-net/host-net"]
 wat = ["wasmer/wat"]
@@ -102,11 +104,6 @@ llvm = [
   "compiler",
   "wasmer/llvm",
   "wasmer-c-api-imports?/llvm",
-]
-experimental-artifact = [
-  "wasmer-compiler-singlepass?/experimental-artifact",
-  "wasmer-compiler-llvm?/experimental-artifact",
-  "wasmer-compiler-cranelift?/experimental-artifact",
 ]
 disable-all-logging = [
   "wasmer-wasix/disable-all-logging",
@@ -177,7 +174,6 @@ http.workspace = true
 colored.workspace = true
 anyhow.workspace = true
 bytesize.workspace = true
-cfg-if.workspace = true
 tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true

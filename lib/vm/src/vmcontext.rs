@@ -386,6 +386,27 @@ pub(crate) unsafe fn memory_fill(
     }
 }
 
+/// Check the bounds and alignment of a `memory.atomic.notify` address.
+///
+/// # Errors
+///
+/// Returns a `Trap` error if the memory range is out of bounds or not 32-bit aligned.
+pub(crate) fn memory32_atomic_check_notify(mem: &VMMemoryDefinition, dst: u32) -> Result<(), Trap> {
+    const TYPE_SIZE: usize = size_of::<u32>();
+    let dst = usize::try_from(dst).unwrap();
+    if dst
+        .checked_add(TYPE_SIZE)
+        .is_none_or(|end| end > mem.current_length)
+    {
+        return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+    }
+
+    if !dst.is_multiple_of(TYPE_SIZE) {
+        return Err(Trap::lib(TrapCode::UnalignedAtomic));
+    }
+    Ok(())
+}
+
 /// Perform the `memory32.atomic.check32` operation for the memory. Return 0 if same, 1 if different
 ///
 /// # Errors
@@ -400,14 +421,21 @@ pub(crate) unsafe fn memory32_atomic_check32(
     val: u32,
 ) -> Result<u32, Trap> {
     unsafe {
-        if usize::try_from(dst).unwrap() > mem.current_length {
+        const TYPE_SIZE: usize = size_of::<u32>();
+        let dst = usize::try_from(dst).unwrap();
+        if dst
+            .checked_add(TYPE_SIZE)
+            .is_none_or(|end| end > mem.current_length)
+        {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
 
-        let dst = isize::try_from(dst).unwrap();
-        if dst & 0b11 != 0 {
+        if !dst.is_multiple_of(TYPE_SIZE) {
             return Err(Trap::lib(TrapCode::UnalignedAtomic));
         }
+        let Ok(dst) = isize::try_from(dst) else {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        };
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
@@ -432,14 +460,21 @@ pub(crate) unsafe fn memory32_atomic_check64(
     val: u64,
 ) -> Result<u32, Trap> {
     unsafe {
-        if usize::try_from(dst).unwrap() > mem.current_length {
+        const TYPE_SIZE: usize = size_of::<u64>();
+        let dst = usize::try_from(dst).unwrap();
+        if dst
+            .checked_add(TYPE_SIZE)
+            .is_none_or(|end| end > mem.current_length)
+        {
             return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
 
-        let dst = isize::try_from(dst).unwrap();
-        if dst & 0b111 != 0 {
+        if !dst.is_multiple_of(TYPE_SIZE) {
             return Err(Trap::lib(TrapCode::UnalignedAtomic));
         }
+        let Ok(dst) = isize::try_from(dst) else {
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+        };
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.

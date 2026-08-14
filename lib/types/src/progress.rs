@@ -1,6 +1,6 @@
 //! Types used to report and handle compilation progress.
 
-use crate::lib::std::{borrow::Cow, fmt, string::String, sync::Arc};
+use std::{borrow::Cow, fmt, string::String, sync::Arc};
 use thiserror::Error;
 
 /// Indicates the current compilation progress.

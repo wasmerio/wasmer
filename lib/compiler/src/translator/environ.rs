@@ -1,13 +1,13 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 use super::state::ModuleTranslationState;
-use crate::lib::std::string::ToString;
-use crate::lib::std::{boxed::Box, string::String, sync::Arc, vec::Vec};
 use crate::translate_module;
 use crate::wasmparser::{Operator, ValType};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
+use std::string::ToString;
+use std::{boxed::Box, string::String, sync::Arc, vec::Vec};
 use wasmer_types::FunctionType;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{

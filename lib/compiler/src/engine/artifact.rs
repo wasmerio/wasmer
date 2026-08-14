@@ -19,7 +19,6 @@ use crate::{
     FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
     WASMER_TRAP_FUNCTION_OFFSETS_SECTION_NAME, WASMER_TRAPS_SECTION_NAME,
     engine::{link::link_module, resolver::resolve_tags, trap::register_frame_info_source},
-    lib::std::vec::IntoIter,
     resolve_imports,
     serialize::{MetadataHeader, SerializableCompilation, SerializableModule},
     types::relocation::{RelocationLike, RelocationTarget},
@@ -31,6 +30,7 @@ use crate::{serialize::RkyvSerializableCompilation, types::symbols::ModuleMetada
 use itertools::Itertools;
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
+use std::vec::IntoIter;
 #[cfg(feature = "compiler")]
 use wasmer_types::CompilationProgressCallback;
 
@@ -794,6 +794,10 @@ impl Artifact {
     }
 
     /// Build an [`AllocatedArtifact`] from a compiled native ELF image.
+    ///
+    /// Note that, unlike [`Self::allocate_elf_artifact_from_path`], no debugger
+    /// command file is registered here: the image only exists in memory, so
+    /// there is no path a debugger could load symbols from.
     fn allocate_elf_artifact(
         engine_inner: &mut EngineInner,
         module_info: &ModuleInfo,
@@ -829,6 +833,10 @@ impl Artifact {
             ));
         }
         let base = engine_inner.map_elf_binary_file(&image, fd)?;
+        #[cfg(feature = "compiler")]
+        if let Some(debugger) = engine_inner.debugger() {
+            engine_inner.register_debugger(path, base, debugger)?;
+        }
         Self::allocate_elf_artifact_from_image(
             engine_inner,
             module_info,

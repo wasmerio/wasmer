@@ -19,6 +19,8 @@ use object::{
 };
 use wasmer_types::{CompileError, SourceLoc, target::Endianness};
 
+use crate::WasmSourceMap;
+
 /// The symbolic target of an `.eh_frame` relocation. The gimli `Address`
 /// `symbol` field is used as a discriminant value (see [`WriterRelocate`]).
 #[derive(Clone, Copy, Debug)]
@@ -156,11 +158,10 @@ impl Writer for WriterRelocate {
                 });
                 self.write_udata(0, 4)
             }
-            // GOT-indirect, PC-relative reference (`R_X86_64_GOTPCREL`). Used
-            // for the personality routine, which is an undefined symbol resolved
-            // at load time: routing it through the GOT yields a dynamic
-            // relocation the runtime loader can apply (a plain data relocation
-            // against an undefined symbol would be dropped by the linker).
+            // Indirect, PC-relative reference to the personality pointer. The
+            // ELF emitter places the pointer in relocatable read-only data and
+            // resolves this relocation against that local slot. This is the
+            // architecture-independent equivalent of a `DW.ref.*` symbol.
             Address::Symbol { symbol, addend }
                 if eh_pe
                     == (constants::DW_EH_PE_indirect
@@ -172,7 +173,7 @@ impl Writer for WriterRelocate {
                 let offset = self.len() as u64;
                 self.relocs.push(EhRelocation {
                     offset,
-                    kind: RelocationKind::GotRelative,
+                    kind: RelocationKind::Relative,
                     size: 4,
                     target,
                     addend,
@@ -390,6 +391,36 @@ impl DwarfState {
         row.file = self.file_id;
         row.line = (srcloc.bits() as u64).saturating_add(1);
         row.column = 0;
+        self.dwarf.unit.line_program.generate_row();
+    }
+
+    /// Emit a line program row using original source information when available.
+    pub fn add_source_map_row(
+        &mut self,
+        code_offset: u64,
+        srcloc: SourceLoc,
+        source_map: &WasmSourceMap,
+    ) {
+        let Some(location) = source_map.get(srcloc.bits() as usize) else {
+            self.add_row(code_offset, srcloc);
+            return;
+        };
+
+        let directory = self
+            .dwarf
+            .unit
+            .line_program
+            .add_directory(LineString::String(location.directory.as_bytes().to_vec()));
+        let file = self.dwarf.unit.line_program.add_file(
+            LineString::String(location.file.as_bytes().to_vec()),
+            directory,
+            None,
+        );
+        let row = self.dwarf.unit.line_program.row();
+        row.address_offset = code_offset;
+        row.file = file;
+        row.line = u64::from(location.line);
+        row.column = u64::from(location.column);
         self.dwarf.unit.line_program.generate_row();
     }
 

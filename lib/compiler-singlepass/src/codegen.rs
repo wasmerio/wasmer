@@ -22,7 +22,6 @@ use std::{
     collections::HashMap,
     iter,
     ops::{AddAssign, Neg, SubAssign},
-    path::Path,
 };
 use target_lexicon::Architecture;
 
@@ -30,7 +29,7 @@ use target_lexicon::Architecture;
 use wasmer_compiler::dwarf::{DwarfState, init_dwarf_unit};
 
 use wasmer_compiler::{
-    FunctionBodyData,
+    FunctionBodyData, WasmSourceMap,
     misc::CompiledKind,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
@@ -38,8 +37,8 @@ use wasmer_compiler::{
         section::SectionIndex,
     },
     wasmparser::{
-        BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
-        ValType as WpType,
+        BlockType as WpTypeOrFuncType, HeapType as WpHeapType, MemArg, Operator,
+        RefType as WpRefType, ValType as WpType,
     },
 };
 
@@ -661,6 +660,62 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         })?;
         self.get_location_released(loc)?;
         Ok(loc)
+    }
+
+    fn fold_atomic_mem_addr(
+        &mut self,
+        addr: LocationWithCanonicalization<M>,
+        memarg: &MemArg,
+    ) -> Result<LocationWithCanonicalization<M>, CompileError> {
+        if memarg.offset == 0 {
+            return Ok(addr);
+        }
+
+        let offset = memarg.offset as u32;
+        match addr.0 {
+            Location::Imm32(value) => Ok(if let Some(addr) = value.checked_add(offset) {
+                (Location::Imm32(addr), CanonicalizeType::None)
+            } else {
+                self.machine
+                    .jmp_unconditional(self.special_labels.heap_access_oob)?;
+                (Location::Imm32(0), CanonicalizeType::None)
+            }),
+            Location::Imm64(_) => codegen_error!("memory.atomic address must be i32"),
+            _ => {
+                let effective_addr = self.machine.acquire_temp_gpr().unwrap();
+                let upper_bound = self.machine.acquire_temp_gpr().unwrap();
+                self.machine.move_location_extend(
+                    Size::S32,
+                    false,
+                    addr.0,
+                    Size::S64,
+                    Location::GPR(effective_addr),
+                )?;
+                self.machine.emit_binop_add64(
+                    Location::GPR(effective_addr),
+                    Location::Imm64(memarg.offset),
+                    Location::GPR(effective_addr),
+                )?;
+                // The use of the temporary register is necessary.
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Imm64(0x1_0000_0000),
+                    Location::GPR(upper_bound),
+                )?;
+                self.machine.jmp_on_condition(
+                    UnsignedCondition::AboveEqual,
+                    Size::S64,
+                    Location::GPR(effective_addr),
+                    Location::GPR(upper_bound),
+                    self.special_labels.heap_access_oob,
+                )?;
+                self.machine
+                    .move_location(Size::S32, Location::GPR(effective_addr), addr.0)?;
+                self.machine.release_gpr(upper_bound);
+                self.machine.release_gpr(effective_addr);
+                Ok(addr)
+            }
+        }
     }
 
     /// Prepare data for binary operator with 2 inputs and 1 output.
@@ -5801,6 +5856,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
+                let dst = self.fold_atomic_mem_addr(dst, memarg)?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait32, index_arg) =
@@ -5850,6 +5906,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
+                let dst = self.fold_atomic_mem_addr(dst, memarg)?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait64, index_arg) =
@@ -5898,6 +5955,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::MemoryAtomicNotify { ref memarg } => {
                 let cnt = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
+                let dst = self.fold_atomic_mem_addr(dst, memarg)?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_notify, index_arg) =
@@ -5963,7 +6021,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         data: &FunctionBodyData,
         arch: Architecture,
         target: &Target,
-        build_directory: Option<&Path>,
+        _source_map: &WasmSourceMap,
     ) -> Result<CompileOutput<(CompiledFunction, Option<UnwindFrame>)>, CompileError> {
         self.stack_offset -= RED_ZONE_SIZE;
 
@@ -6017,7 +6075,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         symbol: WriterRelocate::FUNCTION_SYMBOL,
                         // In-memory compilation uses this addend to identify the
                         // function relocation target.
-                        addend: if cfg!(feature = "experimental-artifact") {
+                        addend: if self.config.experimental_artifact {
                             0
                         } else {
                             self.local_func_index.index() as _
@@ -6040,7 +6098,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         #[cfg(feature = "unwind")]
         if let Some(dwarf_state) = self.dwarf_state.as_mut() {
             for instruction in &address_map.instructions {
-                dwarf_state.add_row(instruction.code_offset as u64, instruction.srcloc);
+                dwarf_state.add_source_map_row(
+                    instruction.code_offset as u64,
+                    instruction.srcloc,
+                    _source_map,
+                );
             }
         }
         let traps = self.machine.collect_trap_information();
@@ -6071,12 +6133,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             frame_info: CompiledFunctionFrameInfo { traps, address_map },
             maximum_stack_usage: Some(self.stack_offset.maximum_offset),
         };
-        if cfg!(feature = "experimental-artifact") {
+        if self.config.experimental_artifact {
             let maximum_stack_usage = function.maximum_stack_usage;
             Ok(CompileOutput::Object(
                 elf::emit_local_function(
                     target,
-                    build_directory.expect("ELF artifact compilation requires a build directory"),
                     self.local_func_index,
                     function,
                     fde,

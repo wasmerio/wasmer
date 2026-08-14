@@ -4,10 +4,10 @@
 //! A double-ended iterator over entity references and entities.
 
 use crate::entity::EntityRef;
-use crate::lib::std::iter::Enumerate;
-use crate::lib::std::marker::PhantomData;
-use crate::lib::std::slice;
-use crate::lib::std::vec;
+use std::iter::Enumerate;
+use std::marker::PhantomData;
+use std::slice;
+use std::vec;
 
 /// Iterate over all keys in order.
 pub struct Iter<'a, K: EntityRef, V>

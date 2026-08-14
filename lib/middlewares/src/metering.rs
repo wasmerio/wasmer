@@ -394,7 +394,9 @@ pub fn set_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance, poin
         .expect("Can't set `wasmer_metering_points_exhausted` in Instance");
 }
 
-#[cfg(test)]
+// These tests exercise compiler middleware support, which the V8 backend used
+// by the Windows test configuration does not provide.
+#[cfg(all(test, not(target_os = "windows")))]
 mod tests {
     use super::*;
 

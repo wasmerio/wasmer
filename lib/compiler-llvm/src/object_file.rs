@@ -4,7 +4,6 @@ use target_lexicon::{Architecture, BinaryFormat, Riscv64Architecture, Triple};
 use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
-use std::path::PathBuf;
 
 use wasmer_types::{CompileError, SourceLoc, entity::PrimaryMap};
 
@@ -39,7 +38,7 @@ pub struct RkyvCompiledFunction {
 #[derive(Debug)]
 pub enum CompiledFunction {
     Rkyv(Box<RkyvCompiledFunction>),
-    Elf(PathBuf),
+    Elf(Vec<u8>),
 }
 
 impl wasmer_compiler::CompiledFunction for CompiledFunction {}

@@ -1,6 +1,5 @@
 use std::borrow::Cow;
 use std::io::{self, Write};
-use std::num::NonZero;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{Arc, Mutex, OnceLock};
@@ -265,6 +264,7 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
 
     let target = Target::default();
     let backend = match engine {
+        #[cfg(not(target_os = "windows"))]
         Engine::Cranelift => wasmer::BackendKind::Cranelift,
         #[cfg(feature = "llvm")]
         Engine::LLVM => wasmer::BackendKind::LLVM,
@@ -277,22 +277,26 @@ fn create_engine_for_wasm(wasm_bytes: &[u8], engine: Engine) -> wasmer::Engine {
         .unwrap_or_else(|_| wasmer::Engine::default_features_for_backend(&backend, &target));
 
     // We're going to run many parallel tests and so we use just a single thread for compilation.
-    let engine = match engine {
+    let engine: EngineBuilder = match engine {
+        #[cfg(not(target_os = "windows"))]
         Engine::Cranelift => {
             let mut config = wasmer::sys::Cranelift::default();
-            config.num_threads(NonZero::new(1).unwrap());
+            config.experimental_artifact(cfg!(target_os = "linux"));
+            config.num_threads(std::num::NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
         #[cfg(feature = "llvm")]
         Engine::LLVM => {
             let mut config = wasmer::sys::LLVM::default();
-            config.num_threads(NonZero::new(1).unwrap());
+            config.experimental_artifact(cfg!(target_os = "linux"));
+            config.num_threads(std::num::NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
         #[cfg(feature = "singlepass")]
         Engine::Singlepass => {
             let mut config = wasmer::sys::Singlepass::default();
-            config.num_threads(NonZero::new(1).unwrap());
+            config.experimental_artifact(cfg!(target_os = "linux"));
+            config.num_threads(std::num::NonZero::new(1).unwrap());
             EngineBuilder::new(config)
         }
         #[cfg(feature = "v8")]

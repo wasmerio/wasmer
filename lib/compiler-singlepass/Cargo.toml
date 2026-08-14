@@ -30,7 +30,6 @@ dynasm.workspace = true
 dynasmrt.workspace = true
 byteorder.workspace = true
 smallvec.workspace = true
-tempfile.workspace = true
 itertools.workspace = true
 target-lexicon.workspace = true
 fixedbitset.workspace = true
@@ -57,7 +56,6 @@ unwind = ["gimli"]
 sse = []
 avx = []
 enable-serde = ["serde", "serde_derive"]
-experimental-artifact = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

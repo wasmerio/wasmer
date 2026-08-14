@@ -843,8 +843,8 @@ fn error_if_no_start_function_found() {
 
 #[test]
 #[cfg_attr(
-    feature = "v8",
-    ignore = "wasmer using a c_api backend only may not have the 'compile' command"
+    any(feature = "v8", target_os = "windows"),
+    ignore = "wasmer may not have the 'compile' command with this backend"
 )]
 fn run_a_pre_compiled_wasm_file() {
     let temp = TempDir::new().unwrap();

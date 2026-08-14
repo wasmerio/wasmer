@@ -13,7 +13,9 @@ use std::sync::Arc;
 use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
 use wasmer_compiler::misc::{CompiledKind, function_kind_to_filename};
-use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_compiler::{
+    Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
+};
 use wasmer_types::{
     Features,
     target::{Architecture, OperatingSystem, Target, Triple},
@@ -113,8 +115,10 @@ pub struct LLVM {
     pub(crate) enable_readonly_funcref_table: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
+    pub(crate) debugger: Option<Debugger>,
     pub(crate) opt_level: LLVMOptLevel,
-    is_pic: bool,
+    pub(crate) is_pic: bool,
+    pub(crate) experimental_artifact: bool,
     pub(crate) callbacks: Option<LLVMCallbacks>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
@@ -140,14 +144,23 @@ impl LLVM {
             enable_readonly_funcref_table: false,
             enable_verifier: false,
             enable_perfmap: false,
+            debugger: None,
             opt_level: LLVMOptLevel::Aggressive,
-            // We will link a shared library and so PIC must be enabled.
-            is_pic: cfg!(feature = "experimental-artifact"),
+            is_pic: false,
+            experimental_artifact: false,
             callbacks: None,
             middlewares: vec![],
             verbose_asm: false,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
         }
+    }
+
+    /// Enable the experimental artifact format.
+    pub fn experimental_artifact(&mut self, enable: bool) -> &mut Self {
+        self.experimental_artifact = enable;
+        // We will link a shared library and so PIC must be enabled.
+        self.is_pic = enable;
+        self
     }
 
     /// The optimization levels when optimizing the IR.
@@ -367,6 +380,10 @@ impl LLVM {
 }
 
 impl CompilerConfig for LLVM {
+    fn experimental_artifact(&mut self, enable: bool) {
+        LLVM::experimental_artifact(self, enable);
+    }
+
     /// Emit code suitable for dlopen.
     fn enable_pic(&mut self) {
         // TODO: although we can emit PIC, the object file parser does not yet
@@ -376,6 +393,10 @@ impl CompilerConfig for LLVM {
 
     fn enable_perfmap(&mut self) {
         self.enable_perfmap = true
+    }
+
+    fn enable_debugger(&mut self, debugger: Debugger) {
+        self.debugger = Some(debugger)
     }
 
     /// Whether to verify compiler IR.

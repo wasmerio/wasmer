@@ -12,7 +12,6 @@ use dynasmrt::{AssemblyOffset, DynamicLabel};
 use std::{
     collections::{BTreeMap, HashMap},
     fmt::Debug,
-    path::Path,
 };
 use wasmer_compiler::{
     misc::CompiledKind,
@@ -2366,7 +2365,7 @@ pub fn gen_std_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-    object: Option<(&Path, &CompiledKind)>,
+    object: Option<&CompiledKind>,
 ) -> Result<CompileOutput<FunctionBody>, CompileError> {
     let body = match target.triple().architecture {
         Architecture::X86_64 => {
@@ -2386,8 +2385,8 @@ pub fn gen_std_trampoline(
         )),
     }?;
     match object {
-        Some((build_directory, kind)) => Ok(CompileOutput::Object(
-            elf::emit_function_body(target, build_directory, kind, &body)?,
+        Some(kind) => Ok(CompileOutput::Object(
+            elf::emit_function_body(target, kind, &body)?,
             None,
         )),
         None => Ok(CompileOutput::InMemory(body)),
@@ -2400,7 +2399,7 @@ pub fn gen_std_dynamic_import_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-    object: Option<(&Path, &CompiledKind)>,
+    object: Option<&CompiledKind>,
 ) -> Result<CompileOutput<FunctionBody>, CompileError> {
     let body = match target.triple().architecture {
         Architecture::X86_64 => {
@@ -2420,8 +2419,8 @@ pub fn gen_std_dynamic_import_trampoline(
         )),
     }?;
     match object {
-        Some((build_directory, kind)) => Ok(CompileOutput::Object(
-            elf::emit_function_body(target, build_directory, kind, &body)?,
+        Some(kind) => Ok(CompileOutput::Object(
+            elf::emit_function_body(target, kind, &body)?,
             None,
         )),
         None => Ok(CompileOutput::InMemory(body)),
@@ -2434,7 +2433,7 @@ pub fn gen_import_call_trampoline(
     sig: &FunctionType,
     target: &Target,
     calling_convention: CallingConvention,
-    object_directory: Option<&Path>,
+    experimental_artifact: bool,
 ) -> Result<CompileOutput<CustomSection>, CompileError> {
     let section = match target.triple().architecture {
         Architecture::X86_64 => {
@@ -2453,17 +2452,17 @@ pub fn gen_import_call_trampoline(
             "singlepass unimplemented arch for gen_import_call_trampoline".to_owned(),
         )),
     }?;
-    match object_directory {
-        Some(build_directory) => Ok(CompileOutput::Object(
+    if experimental_artifact {
+        Ok(CompileOutput::Object(
             elf::emit_import_trampoline(
                 target,
-                build_directory,
                 &CompiledKind::ImportFunctionTrampoline(index, sig.to_owned()),
                 &section,
             )?,
             None,
-        )),
-        None => Ok(CompileOutput::InMemory(section)),
+        ))
+    } else {
+        Ok(CompileOutput::InMemory(section))
     }
 }
 

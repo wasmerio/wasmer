@@ -118,6 +118,8 @@ pub fn proc_spawn_internal(
         }
     };
     let child_process = child_env.process.clone();
+    let child_finished = child_process.finished.clone();
+    let tasks = child_env.tasks().clone();
     if let Some(args) = args {
         let mut child_state = env.state.fork();
         child_state.args = std::sync::Mutex::new(args);
@@ -238,8 +240,12 @@ pub fn proc_spawn_internal(
     let mut builder = Some(child_env);
 
     // First we try the built in commands
-    let mut process = match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut builder) {
-        Ok(a) => a,
+    match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut builder) {
+        Ok(task) => {
+            if let Err(err) = propagate_virtual_task_completion(&tasks, task, child_finished) {
+                return Ok(Err(err.into()));
+            }
+        }
         Err(err) => {
             if !err.is_not_found() {
                 error!("builtin failed - {}", err);
@@ -250,12 +256,12 @@ pub fn proc_spawn_internal(
             match __asyncify(&mut ctx, None, async move { Ok(child_work.await) })?
                 .map_err(|err| Errno::Unknown)
             {
-                Ok(Ok(a)) => a,
+                Ok(Ok(_)) => {}
                 Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(&err))),
                 Err(err) => return Ok(Err(err)),
             }
         }
-    };
+    }
 
     // Add the process to the environment state
     {
