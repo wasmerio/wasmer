@@ -186,6 +186,10 @@ fn parks_nest() -> Result<(), String> {
 /// A park that ends by unwinding must hand the borrow back, or the host
 /// function that caught the panic would keep using a store that has been
 /// declared lendable.
+///
+/// Native only: panics abort on `wasm32-unknown-unknown`, so there is no
+/// unwinding there to observe.
+#[cfg(not(target_arch = "wasm32"))]
 #[engine_test]
 fn a_park_that_unwinds_gives_the_borrow_back() -> Result<(), String> {
     use std::panic::{AssertUnwindSafe, catch_unwind};
