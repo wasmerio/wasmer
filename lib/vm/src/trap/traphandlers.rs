@@ -384,7 +384,14 @@ cfg_select! {
                     libc::SIGBUS => &PREV_SIGBUS,
                     libc::SIGFPE => &PREV_SIGFPE,
                     libc::SIGILL => &PREV_SIGILL,
-                    _ => panic!("unknown signal: {signum}"),
+                    // We only ever install this handler for the signals above,
+                    // so reaching this means someone else pointed a signal at
+                    // it. There is nothing sensible to do with it, and it
+                    // cannot be reported by panicking from a signal handler.
+                    _ => crate::signal_safe::die_in_signal_handler(
+                        "wasmer: the trap handler was invoked for a signal it was not installed \
+                         for; something else in the process redirected a signal to it.\n",
+                    ),
                 }
             };
             // We try to get the fault address associated to this signal

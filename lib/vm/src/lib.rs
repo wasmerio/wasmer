@@ -31,6 +31,9 @@ mod threadconditions;
 mod trap;
 mod vmcontext;
 
+#[cfg(unix)]
+pub(crate) mod signal_safe;
+
 #[cfg(feature = "experimental-host-interrupt")]
 pub mod interrupt_registry;
 pub mod libcalls;

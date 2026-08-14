@@ -290,58 +290,34 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
     Ok(())
 }
 
-/// Writes `message` to stderr and aborts the process.
-///
-/// This stands in for the panic these checks would otherwise be: unwinding out
-/// of a signal handler is undefined behaviour, and the machinery a panic needs
-/// — formatting, allocation, the panic hook — isn't async-signal-safe anyway.
-/// `write(2)` and `abort(3)` are; `eprintln!` takes a lock and `exit(3)` runs
-/// atexit handlers and flushes stdio, so neither may be called from here.
-///
-/// Aborting rather than exiting leaves a core dump behind, which is what you
-/// want for a state that was believed unreachable.
-fn die_in_signal_handler(message: &str) -> ! {
-    let mut remaining = message.as_bytes();
-    // Safety: `write` and `abort` are async-signal-safe.
-    unsafe {
-        while !remaining.is_empty() {
-            let written = libc::write(
-                libc::STDERR_FILENO,
-                remaining.as_ptr() as *const libc::c_void,
-                remaining.len(),
-            );
-            // Best effort: if stderr can't take the message, there is nothing
-            // useful left to do but abort, and retrying could loop forever.
-            if written <= 0 {
-                break;
-            }
-            remaining = &remaining[written as usize..];
-        }
-
-        libc::abort();
-    }
-}
-
 /// Called from within the signal handler to decide whether we should interrupt
 /// the currently running WASM code. This function *MAY* return junk results in
 /// case a signal comes in during an install or uninstall operation. However,
 /// in such cases, there is no WASM code running, and the result will be ignored
 /// by the signal handler anyway.
 ///
-/// Terminates the process through [`die_in_signal_handler`] if no interrupt was
-/// pending, which means the signal came from outside Wasmer. Only `interrupt`
-/// writes the target store, so install and uninstall can't produce that state
+/// Terminates the process through
+/// [`crate::signal_safe::die_in_signal_handler`] if no interrupt was pending,
+/// which means the signal came from outside Wasmer. Only `interrupt` writes
+/// the target store, so install and uninstall can't produce that state
 /// spuriously.
 pub(crate) fn on_interrupted() -> bool {
-    THREAD_INTERRUPT_STATE.with(|t| {
-        // Safety: See comments on THREAD_INTERRUPT_STATE.
-        let state = unsafe { t.get().as_ref().unwrap() };
+    // `with` panics once the thread-local has been destroyed. Getting here in
+    // that state would mean an interrupt was delivered to a thread that has
+    // already torn down its state, which cannot happen while the store is
+    // installed and running WASM -- so it is reported, not ignored. `try_with`
+    // is used only so the report is a write-and-abort rather than a panic
+    // unwinding out of a signal handler.
+    let Ok(interrupted) = THREAD_INTERRUPT_STATE.try_with(|t| {
+        // Safety: See comments on THREAD_INTERRUPT_STATE. The pointer comes
+        // from `UnsafeCell::get`, so it is never null.
+        let state = unsafe { &*t.get() };
 
         let current_active_store = state.current_active_store.load(Ordering::Acquire);
 
         let current_signal_target_store = state.current_signal_target_store.load(Ordering::Acquire);
         if current_signal_target_store == 0 {
-            die_in_signal_handler(concat!(
+            crate::signal_safe::die_in_signal_handler(concat!(
                 "wasmer: the interrupt signal was delivered without an interrupt being requested.\n",
                 "Something other than Wasmer sent this signal to the process. If your program uses\n",
                 "this signal for its own purposes, select a different one for Wasmer with\n",
@@ -358,14 +334,21 @@ pub(crate) fn on_interrupted() -> bool {
             )
             .is_err()
         {
-            die_in_signal_handler(
+            crate::signal_safe::die_in_signal_handler(
                 "wasmer: the interrupt target store changed while an interrupt was being \
                  delivered.\nThis is a bug in Wasmer's interrupt registry.\n",
             );
         }
 
         current_active_store == current_signal_target_store
-    })
+    }) else {
+        crate::signal_safe::die_in_signal_handler(
+            "wasmer: an interrupt was delivered to a thread whose interrupt state is already \
+             gone.\nThis is a bug in Wasmer's interrupt registry.\n",
+        );
+    };
+
+    interrupted
 }
 
 /// Returns true if the store with the given ID has already been interrupted.
