@@ -23,7 +23,7 @@ use crate::types::function::{ArchivedCompiledFunctionFrameInfo, CompiledFunction
 use rkyv::vec::ArchivedVec;
 use std::collections::BTreeMap;
 use std::sync::{Arc, LazyLock, RwLock};
-use wasmer_types::lib::std::{cmp, ops::Deref};
+use std::{cmp, ops::Deref};
 use wasmer_types::{
     FrameInfo, LocalFunctionIndex, ModuleInfo, SourceLoc, TrapInformation,
     entity::{BoxedSlice, EntityRef, PrimaryMap},
@@ -165,7 +165,7 @@ impl GlobalFrameInfo {
         // to DWARF line info via `addr2line`, keyed off offsets into the
         // original ELF image.
         let get_line = |context: &addr2line::Context<crate::engine::mapped_binary::DwarfReader>,
-                         pc: u64| {
+                        pc: u64| {
             if let Ok(Some(location)) = context.find_location(pc)
                 && let Some(line) = location.line
                 && let Some(line) = line.checked_sub(1)

@@ -1,4 +1,5 @@
-use crate::{DeserializeError, lib::std::mem};
+use crate::DeserializeError;
+use std::mem;
 
 /// Metadata header which holds an ABI version and the length of the remaining
 /// metadata.

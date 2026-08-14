@@ -4,7 +4,7 @@
 // mapdir: hamlet:test_fs/hamlet
 
 #[link(wasm_import_module = "wasi_unstable")]
-extern "C" {
+unsafe extern "C" {
     fn fd_close(fd: u32) -> u16;
     fn fd_fdstat_set_flags(fd: u32, flags: u16) -> u16;
 }

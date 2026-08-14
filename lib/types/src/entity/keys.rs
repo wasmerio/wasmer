@@ -7,7 +7,7 @@
 //! `core::ops::Range`, but for now, we implement it manually.
 
 use crate::entity::EntityRef;
-use crate::lib::std::marker::PhantomData;
+use std::marker::PhantomData;
 
 /// Iterate over all keys in order.
 pub struct Keys<K: EntityRef> {

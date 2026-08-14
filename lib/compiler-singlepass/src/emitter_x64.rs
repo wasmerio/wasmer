@@ -916,15 +916,6 @@ impl EmitterX64 for AssemblerX64 {
     }
 
     fn finalize_function(&mut self) -> Result<(), CompileError> {
-        dynasm!(
-            self
-            ; const_neg_one_32:
-            ; .i32 -1
-            ; const_zero_32:
-            ; .i32  0
-            ; const_pos_one_32:
-            ; .i32 1
-        );
         Ok(())
     }
 
@@ -1251,36 +1242,13 @@ impl EmitterX64 for AssemblerX64 {
         Ok(())
     }
 
-    /// Emit a CMP instruction that compares `left` against `right`.
-    ///
-    /// Note: callers sometimes pass operands in the opposite order compared
-    /// to other binary operators. This function performs the comparison as
-    /// provided (i.e. it emits `cmp left, right` semantics).
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) -> Result<(), CompileError> {
-        // Constant elimination for comparison between consts.
-        //
-        // Only needed for `emit_cmp`, since other binary operators actually write to `right` and `right` must
-        // be a writable location for them.
-        let consts = match (left, right) {
-            (Location::Imm32(x), Location::Imm32(y)) => Some((x as i32 as i64, y as i32 as i64)),
-            (Location::Imm32(x), Location::Imm64(y)) => Some((x as i32 as i64, y as i64)),
-            (Location::Imm64(x), Location::Imm32(y)) => Some((x as i64, y as i32 as i64)),
-            (Location::Imm64(x), Location::Imm64(y)) => Some((x as i64, y as i64)),
-            _ => None,
-        };
-        use std::cmp::Ordering;
-        match consts {
-            Some((x, y)) => match x.cmp(&y) {
-                Ordering::Less => dynasm!(self ; cmp DWORD [>const_neg_one_32], 0),
-                Ordering::Equal => dynasm!(self ; cmp DWORD [>const_zero_32], 0),
-                Ordering::Greater => dynasm!(self ; cmp DWORD [>const_pos_one_32], 0),
-            },
-            None => binop_all_nofp!(cmp, self, sz, left, right, {
-                codegen_error!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
-            }),
-        }
+        binop_all_nofp!(cmp, self, sz, left, right, {
+            codegen_error!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
+        });
         Ok(())
     }
+
     fn emit_add(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         // Fast path
         if let Location::Imm32(0) = src {

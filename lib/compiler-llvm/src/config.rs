@@ -117,7 +117,7 @@ pub struct LLVM {
     pub(crate) enable_perfmap: bool,
     pub(crate) debugger: Option<Debugger>,
     pub(crate) opt_level: LLVMOptLevel,
-    is_pic: bool,
+    pub(crate) is_pic: bool,
     pub(crate) experimental_artifact: bool,
     pub(crate) callbacks: Option<LLVMCallbacks>,
     /// The middleware chain.

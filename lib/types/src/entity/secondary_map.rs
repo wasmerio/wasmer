@@ -6,11 +6,6 @@
 use crate::entity::EntityRef;
 use crate::entity::iter::{Iter, IterMut};
 use crate::entity::keys::Keys;
-use crate::lib::std::cmp::min;
-use crate::lib::std::marker::PhantomData;
-use crate::lib::std::ops::{Index, IndexMut};
-use crate::lib::std::slice;
-use crate::lib::std::vec::Vec;
 use rkyv::{Archive, Archived, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{
@@ -18,6 +13,11 @@ use serde::{
     de::{Deserializer, SeqAccess, Visitor},
     ser::{SerializeSeq, Serializer},
 };
+use std::cmp::min;
+use std::marker::PhantomData;
+use std::ops::{Index, IndexMut};
+use std::slice;
+use std::vec::Vec;
 
 /// A mapping `K -> V` for densely indexed entity references.
 ///
@@ -284,7 +284,7 @@ where
     where
         D: Deserializer<'de>,
     {
-        use crate::lib::std::fmt;
+        use std::fmt;
 
         struct SecondaryMapVisitor<K, V> {
             unused: PhantomData<fn(K) -> V>,
