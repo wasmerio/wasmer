@@ -2,7 +2,8 @@
 
 ## Installing Rustup
 
-Wasmer supports building with the latest **3** stable releases of Rust.
+The repository pins Rust 1.95 (edition 2024) in `rust-toolchain.toml`;
+rustup selects it automatically.
 The easiest way to install Rust on your system is via [Rustup](https://rustup.rs/). To get Rustup on Linux and macOS, you can run the following:
 
 ```bash
@@ -112,6 +113,12 @@ make build-wasmer
 
 You may disable the LLVM compiler with `export ENABLE_LLVM=0`.
 
+> [!CAUTION]
+> The LLVM backend needs LLVM 22 exactly. LLVM at any other version
+> silently disables the backend — read the `Enabled Compilers:` banner.
+> The error `Didn't find usable system-wide LLVM` means LLVM 22 is missing.
+> If `llvm-config-22` is not on PATH, set `LLVM_SYS_221_PREFIX` manually.
+
 ### V8
 
 To enable the backend, you can set the according `ENABLE_<backend>=1`
@@ -135,6 +142,29 @@ make build-wasmer
 
 **Note**: you should see this in the console:  
 `Enabled Compilers: singlepass cranelift llvm`
+
+## Iterating during development
+
+Full release builds with LLVM take tens of minutes and `target/` grows to
+multiple GB. For fast iteration, run `make check`, or build one crate:
+
+```bash
+cargo build -p wasmer-cli --features cranelift
+```
+
+`make build-wasmer-debug` builds a debug binary with tokio-console support.
+
+Read the `Enabled Compilers:` banner that each make target prints. The
+Makefile silently omits backends it cannot detect. V8 is never
+autodetected.
+
+The wasix-libc sysroot and Rust toolchain pins for CI live in
+`.github/ci-constants.env`.
+
+> [!CAUTION]
+> Do not build with `cargo build --workspace --features <backend>`.
+> Workspace-level features do not reach subcrates. The result is a headless
+> binary that cannot compile Wasm. Use `-p wasmer-cli` or the Makefile.
 
 ## Running your Wasmer binary
 
