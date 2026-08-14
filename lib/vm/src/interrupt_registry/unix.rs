@@ -2,8 +2,8 @@ use std::{
     cell::UnsafeCell,
     ffi::CStr,
     sync::{
-        Arc, LazyLock,
-        atomic::{AtomicUsize, Ordering},
+        Arc, LazyLock, Mutex,
+        atomic::{AtomicI32, AtomicUsize, Ordering},
     },
 };
 
@@ -11,6 +11,102 @@ use dashmap::{DashMap, Entry};
 use wasmer_types::StoreId;
 
 use super::*;
+
+impl InterruptSignal {
+    fn as_raw(self) -> i32 {
+        match self {
+            Self::Sigusr1 => libc::SIGUSR1,
+            Self::Sigusr2 => libc::SIGUSR2,
+        }
+    }
+}
+
+struct InterruptSignalConfig {
+    selected: InterruptSignal,
+    /// Whether an embedder explicitly selected the signal. Needed to tell
+    /// "still at the default" apart from "explicitly set to the default",
+    /// since only the latter conflicts with a later, different selection.
+    explicitly_selected: bool,
+    /// Whether the signal handler was already installed, after which the
+    /// selection can no longer change.
+    handler_installed: bool,
+}
+
+/// Guards changes to the selected interrupt signal. Never locked from
+/// within the signal handler.
+static INTERRUPT_SIGNAL_CONFIG: Mutex<InterruptSignalConfig> = Mutex::new(InterruptSignalConfig {
+    selected: DEFAULT_INTERRUPT_SIGNAL,
+    explicitly_selected: false,
+    handler_installed: false,
+});
+
+/// The raw value of the selected signal, kept in sync with
+/// [`INTERRUPT_SIGNAL_CONFIG`]. This exists separately because mutexes can't
+/// be locked from within a signal handler, and the handler needs to know
+/// which signal is the interrupt signal.
+static INTERRUPT_SIGNAL_RAW: AtomicI32 = AtomicI32::new(libc::SIGUSR1);
+
+/// Selects the process-wide signal used to interrupt running WASM code.
+///
+/// This must be called before any Wasmer engine or store is created, since
+/// the signal handler is installed as part of that process and the signal
+/// can't be changed afterwards. Selecting the same signal more than once is
+/// allowed, even after the handler was installed.
+pub fn set_interrupt_signal(signal: InterruptSignal) -> Result<(), SetInterruptSignalError> {
+    let mut config = INTERRUPT_SIGNAL_CONFIG
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+
+    if config.selected == signal {
+        config.explicitly_selected = true;
+        return Ok(());
+    }
+
+    if config.handler_installed {
+        return Err(SetInterruptSignalError::HandlerAlreadyInstalled {
+            current: config.selected,
+            requested: signal,
+        });
+    }
+
+    if config.explicitly_selected {
+        return Err(SetInterruptSignalError::AlreadySet {
+            current: config.selected,
+            requested: signal,
+        });
+    }
+
+    config.selected = signal;
+    config.explicitly_selected = true;
+    INTERRUPT_SIGNAL_RAW.store(signal.as_raw(), Ordering::SeqCst);
+
+    Ok(())
+}
+
+/// Returns the signal currently selected for interrupting WASM code.
+pub fn interrupt_signal() -> InterruptSignal {
+    INTERRUPT_SIGNAL_CONFIG
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .selected
+}
+
+/// Locks in the selected interrupt signal and returns its raw value. Called
+/// when the trap handlers are installed; any later attempt to select a
+/// different signal fails.
+pub(crate) fn install_interrupt_signal() -> i32 {
+    let mut config = INTERRUPT_SIGNAL_CONFIG
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    config.handler_installed = true;
+    config.selected.as_raw()
+}
+
+/// Returns the raw value of the selected interrupt signal. Safe to call from
+/// within a signal handler.
+pub(crate) fn interrupt_signal_raw() -> i32 {
+    INTERRUPT_SIGNAL_RAW.load(Ordering::Relaxed)
+}
 
 /// All necessary data for interrupting a store running WASM code
 /// on a thread.
@@ -181,7 +277,10 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
 
     unsafe {
         #[allow(trivial_numeric_casts)]
-        let errno = libc::pthread_kill(store_state.pthread as libc::pthread_t, libc::SIGUSR1);
+        let errno = libc::pthread_kill(
+            store_state.pthread as libc::pthread_t,
+            interrupt_signal_raw(),
+        );
         if errno != 0 {
             let error_str = CStr::from_ptr(libc::strerror(errno)).to_str().unwrap();
             return Err(InterruptError::FailedToSendSignal(error_str));
@@ -196,18 +295,35 @@ pub fn interrupt(store_id: StoreId) -> Result<(), InterruptError> {
 /// case a signal comes in during an install or uninstall operation. However,
 /// in such cases, there is no WASM code running, and the result will be ignored
 /// by the signal handler anyway.
+///
+/// Terminates the process through
+/// [`crate::signal_safe::die_in_signal_handler`] if no interrupt was pending,
+/// which means the signal came from outside Wasmer. Only `interrupt` writes
+/// the target store, so install and uninstall can't produce that state
+/// spuriously.
 pub(crate) fn on_interrupted() -> bool {
-    THREAD_INTERRUPT_STATE.with(|t| {
-        // Safety: See comments on THREAD_INTERRUPT_STATE.
-        let state = unsafe { t.get().as_ref().unwrap() };
+    // `with` panics once the thread-local has been destroyed. Getting here in
+    // that state would mean an interrupt was delivered to a thread that has
+    // already torn down its state, which cannot happen while the store is
+    // installed and running WASM -- so it is reported, not ignored. `try_with`
+    // is used only so the report is a write-and-abort rather than a panic
+    // unwinding out of a signal handler.
+    let Ok(interrupted) = THREAD_INTERRUPT_STATE.try_with(|t| {
+        // Safety: See comments on THREAD_INTERRUPT_STATE. The pointer comes
+        // from `UnsafeCell::get`, so it is never null.
+        let state = unsafe { &*t.get() };
 
         let current_active_store = state.current_active_store.load(Ordering::Acquire);
 
         let current_signal_target_store = state.current_signal_target_store.load(Ordering::Acquire);
-        assert_ne!(
-            current_signal_target_store, 0,
-            "current_signal_target_store should be set before signalling the WASM thread"
-        );
+        if current_signal_target_store == 0 {
+            crate::signal_safe::die_in_signal_handler(concat!(
+                "wasmer: the interrupt signal was delivered without an interrupt being requested.\n",
+                "Something other than Wasmer sent this signal to the process. If your program uses\n",
+                "this signal for its own purposes, select a different one for Wasmer with\n",
+                "`wasmer::set_interrupt_signal` before creating any store.\n",
+            ));
+        }
         if state
             .current_signal_target_store
             .compare_exchange(
@@ -218,11 +334,21 @@ pub(crate) fn on_interrupted() -> bool {
             )
             .is_err()
         {
-            unreachable!("current_signal_target_store isn't changed unless it's zero");
+            crate::signal_safe::die_in_signal_handler(
+                "wasmer: the interrupt target store changed while an interrupt was being \
+                 delivered.\nThis is a bug in Wasmer's interrupt registry.\n",
+            );
         }
 
         current_active_store == current_signal_target_store
-    })
+    }) else {
+        crate::signal_safe::die_in_signal_handler(
+            "wasmer: an interrupt was delivered to a thread whose interrupt state is already \
+             gone.\nThis is a bug in Wasmer's interrupt registry.\n",
+        );
+    };
+
+    interrupted
 }
 
 /// Returns true if the store with the given ID has already been interrupted.

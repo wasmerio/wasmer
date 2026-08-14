@@ -260,7 +260,7 @@ cfg_select! {
         static mut PREV_SIGFPE: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
 
         #[cfg(feature = "experimental-host-interrupt")]
-        static mut PREV_SIGUSR1: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
+        static mut PREV_INTERRUPT_SIGNAL: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
 
         unsafe fn platform_init() { unsafe {
             let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32, nodefer: bool| {
@@ -298,12 +298,19 @@ cfg_select! {
             // Handle `unreachable` instructions which execute `ud2` right now
             register(&mut PREV_SIGILL, libc::SIGILL, true);
 
-            // SIGUSR1 is used to interrupt long-running WASM code.
+            // The interrupt signal (SIGUSR1 unless the embedder selected
+            // another one) is used to interrupt long-running WASM code.
             // It doesn't use NODEFER since, if a second interruption
             // request comes in while one is already being processed,
             // there's nothing meaningful we can do.
+            // Note that this locks in the selected signal, so embedders
+            // can no longer change it.
             #[cfg(feature = "experimental-host-interrupt")]
-            register(&mut PREV_SIGUSR1, libc::SIGUSR1, false);
+            register(
+                &mut PREV_INTERRUPT_SIGNAL,
+                interrupt_registry::install_interrupt_signal(),
+                false,
+            );
 
             // x86 uses SIGFPE to report division by zero
             if cfg!(target_arch = "x86") || cfg!(target_arch = "x86_64") {
@@ -359,14 +366,33 @@ cfg_select! {
             siginfo: *mut libc::siginfo_t,
             context: *mut libc::c_void,
         ) { unsafe {
-            let previous = match signum {
-                libc::SIGSEGV => &PREV_SIGSEGV,
-                libc::SIGBUS => &PREV_SIGBUS,
-                libc::SIGFPE => &PREV_SIGFPE,
-                libc::SIGILL => &PREV_SIGILL,
+            // The interrupt signal is chosen at runtime, so it can't be part
+            // of the `match` patterns below.
+            #[cfg(feature = "experimental-host-interrupt")]
+            let is_interrupt_signal = signum == interrupt_registry::interrupt_signal_raw();
+            #[cfg(not(feature = "experimental-host-interrupt"))]
+            let is_interrupt_signal = false;
+
+            #[cfg_attr(not(feature = "experimental-host-interrupt"), allow(unused_labels))]
+            let previous = 'previous: {
                 #[cfg(feature = "experimental-host-interrupt")]
-                libc::SIGUSR1 => &PREV_SIGUSR1,
-                _ => panic!("unknown signal: {signum}"),
+                if is_interrupt_signal {
+                    break 'previous &PREV_INTERRUPT_SIGNAL;
+                }
+                match signum {
+                    libc::SIGSEGV => &PREV_SIGSEGV,
+                    libc::SIGBUS => &PREV_SIGBUS,
+                    libc::SIGFPE => &PREV_SIGFPE,
+                    libc::SIGILL => &PREV_SIGILL,
+                    // We only ever install this handler for the signals above,
+                    // so reaching this means someone else pointed a signal at
+                    // it. There is nothing sensible to do with it, and it
+                    // cannot be reported by panicking from a signal handler.
+                    _ => crate::signal_safe::die_in_signal_handler(
+                        "wasmer: the trap handler was invoked for a signal it was not installed \
+                         for; something else in the process redirected a signal to it.\n",
+                    ),
+                }
             };
             // We try to get the fault address associated to this signal
             let maybe_fault_address = match signum {
@@ -375,22 +401,25 @@ cfg_select! {
                 }
                 _ => None,
             };
-            let trap_code = match signum {
-                // check if it was cased by a UD and if the Trap info is a payload to it
-                libc::SIGILL => {
-                    let addr = (*siginfo).si_addr() as usize;
-                    process_illegal_op(addr)
-                }
+            #[cfg_attr(not(feature = "experimental-host-interrupt"), allow(unused_labels))]
+            let trap_code = 'trap_code: {
                 #[cfg(feature = "experimental-host-interrupt")]
-                libc::SIGUSR1 => {
+                if is_interrupt_signal {
                     // If we're not running WASM code from the specific store for which
                     // an interrupt was requested, there's nothing to do.
                     if !interrupt_registry::on_interrupted() {
                         return;
                     }
-                    Some(TrapCode::HostInterrupt)
+                    break 'trap_code Some(TrapCode::HostInterrupt);
                 }
-                _ => None,
+                match signum {
+                    // check if it was cased by a UD and if the Trap info is a payload to it
+                    libc::SIGILL => {
+                        let addr = (*siginfo).si_addr() as usize;
+                        process_illegal_op(addr)
+                    }
+                    _ => None,
+                }
             };
             let ucontext = &mut *(context as *mut ucontext_t);
             let (pc, sp) = get_pc_sp(ucontext);
@@ -409,8 +438,7 @@ cfg_select! {
 
             // If we're not running WASM code at all, there's nothing to
             // do for an interrupt.
-            #[cfg(feature = "experimental-host-interrupt")]
-            if signum == libc::SIGUSR1 {
+            if is_interrupt_signal {
                 return;
             }
 

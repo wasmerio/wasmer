@@ -7272,6 +7272,7 @@ dependencies = [
  "indexmap",
  "itertools 0.15.0",
  "js-sys",
+ "libc",
  "loupe",
  "macro-wasmer-engine-test",
  "more-asserts",

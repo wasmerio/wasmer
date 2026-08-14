@@ -83,12 +83,18 @@ impl StoreObjects {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => Interrupter(InterrupterInner::Sys(
-                crate::backend::sys::store::Interrupter::new(s.id()),
+                crate::backend::sys::store::Interrupter::new(s.id(), s.liveness_token()),
             )),
             _ => panic!("Interrupters can only be built for stores from the sys backend"),
         }
     }
 }
+
+#[cfg(all(unix, feature = "experimental-host-interrupt"))]
+pub use wasmer_vm::interrupt_registry::{
+    DEFAULT_INTERRUPT_SIGNAL, InterruptSignal, SetInterruptSignalError, interrupt_signal,
+    set_interrupt_signal,
+};
 
 /// Allows embedders to interrupt a running WASM instance.
 #[cfg(all(unix, feature = "experimental-host-interrupt"))]
@@ -100,6 +106,16 @@ impl Interrupter {
     /// Interrupts running WASM instances from the owning [`Store`](crate::Store).
     pub fn interrupt(&self) {
         self.0.interrupt()
+    }
+
+    /// Whether the [`Store`](crate::Store) this interrupter was built for still
+    /// exists.
+    ///
+    /// Interrupting a dropped store is harmless but pointless, so an embedder
+    /// holding interrupters for many short-lived stores can use this to drop
+    /// the ones that can never fire again.
+    pub fn is_alive(&self) -> bool {
+        self.0.is_alive()
     }
 }
 
@@ -119,6 +135,14 @@ impl InterrupterInner {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(i) => i.interrupt(),
+        }
+    }
+
+    /// Whether the owning [`Store`](crate::Store) still exists.
+    pub fn is_alive(&self) -> bool {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(i) => i.is_alive(),
         }
     }
 }
