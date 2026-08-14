@@ -33,6 +33,7 @@ mod machine;
 mod machine_arm64;
 mod machine_riscv;
 mod machine_x64;
+mod output_budget;
 mod riscv_decl;
 mod unwind;
 #[cfg(feature = "unwind")]

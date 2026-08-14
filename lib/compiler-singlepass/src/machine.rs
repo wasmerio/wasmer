@@ -5,6 +5,7 @@ use crate::{
     machine_arm64::MachineARM64,
     machine_riscv::MachineRiscv,
     machine_x64::MachineX86_64,
+    output_budget::{OutputBudget, function_output_size},
     unwind::UnwindInstructions,
 };
 
@@ -2353,6 +2354,7 @@ pub fn gen_std_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
     object: Option<&CompiledKind>,
+    output_budget: Option<&OutputBudget>,
 ) -> Result<CompileOutput<FunctionBody>, CompileError> {
     let body = match target.triple().architecture {
         Architecture::X86_64 => {
@@ -2371,6 +2373,9 @@ pub fn gen_std_trampoline(
             "singlepass unimplemented arch for gen_std_trampoline".to_owned(),
         )),
     }?;
+    if let Some(output_budget) = output_budget {
+        output_budget.reserve(function_output_size(&body))?;
+    }
     match object {
         Some(kind) => Ok(CompileOutput::Object(
             elf::emit_function_body(target, kind, &body)?,
@@ -2387,6 +2392,7 @@ pub fn gen_std_dynamic_import_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
     object: Option<&CompiledKind>,
+    output_budget: Option<&OutputBudget>,
 ) -> Result<CompileOutput<FunctionBody>, CompileError> {
     let body = match target.triple().architecture {
         Architecture::X86_64 => {
@@ -2405,6 +2411,9 @@ pub fn gen_std_dynamic_import_trampoline(
             "singlepass unimplemented arch for gen_std_dynamic_import_trampoline".to_owned(),
         )),
     }?;
+    if let Some(output_budget) = output_budget {
+        output_budget.reserve(function_output_size(&body))?;
+    }
     match object {
         Some(kind) => Ok(CompileOutput::Object(
             elf::emit_function_body(target, kind, &body)?,
@@ -2421,6 +2430,7 @@ pub fn gen_import_call_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
     experimental_artifact: bool,
+    output_budget: Option<&OutputBudget>,
 ) -> Result<CompileOutput<CustomSection>, CompileError> {
     let section = match target.triple().architecture {
         Architecture::X86_64 => {
@@ -2439,6 +2449,9 @@ pub fn gen_import_call_trampoline(
             "singlepass unimplemented arch for gen_import_call_trampoline".to_owned(),
         )),
     }?;
+    if let Some(output_budget) = output_budget {
+        output_budget.reserve(section.bytes.len())?;
+    }
     if experimental_artifact {
         Ok(CompileOutput::Object(
             elf::emit_import_trampoline(
