@@ -236,9 +236,11 @@
 <a href=#236 id=236 data-nosnippet>236</a>    </span><span class="kw">pub fn </span>supports_async(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
 <a href=#237 id=237 data-nosnippet>237</a>        <span class="kw">match </span><span class="self">self</span>.be {
 <a href=#238 id=238 data-nosnippet>238</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#239 id=239 data-nosnippet>239</a>            </span>BackendEngine::Sys(<span class="kw-2">ref </span>e) =&gt; <span class="bool-val">true</span>,
-<a href=#240 id=240 data-nosnippet>240</a>            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
-<a href=#241 id=241 data-nosnippet>241</a>        }
-<a href=#242 id=242 data-nosnippet>242</a>    }
-<a href=#243 id=243 data-nosnippet>243</a>}
+<a href=#239 id=239 data-nosnippet>239</a>            </span>BackendEngine::Sys(<span class="kw">_</span>) =&gt; <span class="bool-val">true</span>,
+<a href=#240 id=240 data-nosnippet>240</a>            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+<a href=#241 id=241 data-nosnippet>241</a>            </span>BackendEngine::Js(<span class="kw">_</span>) =&gt; <span class="kw">crate</span>::backend::js::jspi::is_supported(),
+<a href=#242 id=242 data-nosnippet>242</a>            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+<a href=#243 id=243 data-nosnippet>243</a>        }
+<a href=#244 id=244 data-nosnippet>244</a>    }
+<a href=#245 id=245 data-nosnippet>245</a>}
 </code></pre></div></section></main></body></html>

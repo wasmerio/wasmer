@@ -152,5 +152,18 @@
 <a href=#152 id=152 data-nosnippet>152</a>    </span><span class="kw">pub fn </span>copy_to_memory(<span class="kw-2">&amp;</span><span class="self">self</span>, amount: u64, new_memory: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryAccessError&gt; {
 <a href=#153 id=153 data-nosnippet>153</a>        <span class="self">self</span>.<span class="number">0</span>.copy_to_memory(amount, <span class="kw-2">&amp;</span>new_memory.<span class="number">0</span>)
 <a href=#154 id=154 data-nosnippet>154</a>    }
-<a href=#155 id=155 data-nosnippet>155</a>}
+<a href=#155 id=155 data-nosnippet>155</a>
+<a href=#156 id=156 data-nosnippet>156</a>    <span class="doccomment">/// Copies a range directly to another memory view.
+<a href=#157 id=157 data-nosnippet>157</a>    </span><span class="attr">#[doc(hidden)]
+<a href=#158 id=158 data-nosnippet>158</a>    </span><span class="kw">pub fn </span>copy_range_to_memory(
+<a href=#159 id=159 data-nosnippet>159</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#160 id=160 data-nosnippet>160</a>        source_offset: u64,
+<a href=#161 id=161 data-nosnippet>161</a>        target_offset: u64,
+<a href=#162 id=162 data-nosnippet>162</a>        amount: u64,
+<a href=#163 id=163 data-nosnippet>163</a>        new_memory: <span class="kw-2">&amp;</span><span class="self">Self</span>,
+<a href=#164 id=164 data-nosnippet>164</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryAccessError&gt; {
+<a href=#165 id=165 data-nosnippet>165</a>        <span class="self">self</span>.<span class="number">0
+<a href=#166 id=166 data-nosnippet>166</a>            </span>.copy_range_to_memory(source_offset, target_offset, amount, <span class="kw-2">&amp;</span>new_memory.<span class="number">0</span>)
+<a href=#167 id=167 data-nosnippet>167</a>    }
+<a href=#168 id=168 data-nosnippet>168</a>}
 </code></pre></div></section></main></body></html>

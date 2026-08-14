@@ -192,18 +192,37 @@
 <a href=#192 id=192 data-nosnippet>192</a>    <span class="attr">#[allow(unused)]
 <a href=#193 id=193 data-nosnippet>193</a>    </span><span class="doccomment">/// Copies the memory to another new memory object
 <a href=#194 id=194 data-nosnippet>194</a>    </span><span class="kw">pub fn </span>copy_to_memory(<span class="kw-2">&amp;</span><span class="self">self</span>, amount: u64, new_memory: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryAccessError&gt; {
-<a href=#195 id=195 data-nosnippet>195</a>        <span class="kw">let </span><span class="kw-2">mut </span>offset = <span class="number">0</span>;
-<a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">let </span><span class="kw-2">mut </span>chunk = [<span class="number">0u8</span>; <span class="number">40960</span>];
-<a href=#197 id=197 data-nosnippet>197</a>        <span class="kw">while </span>offset &lt; amount {
-<a href=#198 id=198 data-nosnippet>198</a>            <span class="kw">let </span>remaining = amount - offset;
-<a href=#199 id=199 data-nosnippet>199</a>            <span class="kw">let </span>sublen = remaining.min(chunk.len() <span class="kw">as </span>u64) <span class="kw">as </span>usize;
-<a href=#200 id=200 data-nosnippet>200</a>            <span class="self">self</span>.read(offset, <span class="kw-2">&amp;mut </span>chunk[..sublen])<span class="question-mark">?</span>;
-<a href=#201 id=201 data-nosnippet>201</a>
-<a href=#202 id=202 data-nosnippet>202</a>            new_memory.write(offset, <span class="kw-2">&amp;</span>chunk[..sublen])<span class="question-mark">?</span>;
-<a href=#203 id=203 data-nosnippet>203</a>
-<a href=#204 id=204 data-nosnippet>204</a>            offset += sublen <span class="kw">as </span>u64;
-<a href=#205 id=205 data-nosnippet>205</a>        }
-<a href=#206 id=206 data-nosnippet>206</a>        <span class="prelude-val">Ok</span>(())
-<a href=#207 id=207 data-nosnippet>207</a>    }
-<a href=#208 id=208 data-nosnippet>208</a>}
+<a href=#195 id=195 data-nosnippet>195</a>        <span class="self">self</span>.copy_range_to_memory(<span class="number">0</span>, <span class="number">0</span>, amount, new_memory)
+<a href=#196 id=196 data-nosnippet>196</a>    }
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>copy_range_to_memory(
+<a href=#199 id=199 data-nosnippet>199</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#200 id=200 data-nosnippet>200</a>        source_offset: u64,
+<a href=#201 id=201 data-nosnippet>201</a>        target_offset: u64,
+<a href=#202 id=202 data-nosnippet>202</a>        amount: u64,
+<a href=#203 id=203 data-nosnippet>203</a>        new_memory: <span class="kw-2">&amp;</span><span class="self">Self</span>,
+<a href=#204 id=204 data-nosnippet>204</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryAccessError&gt; {
+<a href=#205 id=205 data-nosnippet>205</a>        <span class="kw">let </span>source_offset = usize::try_from(source_offset).map_err(|<span class="kw">_</span>| MemoryAccessError::Overflow)<span class="question-mark">?</span>;
+<a href=#206 id=206 data-nosnippet>206</a>        <span class="kw">let </span>target_offset = usize::try_from(target_offset).map_err(|<span class="kw">_</span>| MemoryAccessError::Overflow)<span class="question-mark">?</span>;
+<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw">let </span>amount = usize::try_from(amount).map_err(|<span class="kw">_</span>| MemoryAccessError::Overflow)<span class="question-mark">?</span>;
+<a href=#208 id=208 data-nosnippet>208</a>        <span class="kw">let </span>source_end = source_offset
+<a href=#209 id=209 data-nosnippet>209</a>            .checked_add(amount)
+<a href=#210 id=210 data-nosnippet>210</a>            .ok_or(MemoryAccessError::Overflow)<span class="question-mark">?</span>;
+<a href=#211 id=211 data-nosnippet>211</a>        <span class="kw">let </span>target_end = target_offset
+<a href=#212 id=212 data-nosnippet>212</a>            .checked_add(amount)
+<a href=#213 id=213 data-nosnippet>213</a>            .ok_or(MemoryAccessError::Overflow)<span class="question-mark">?</span>;
+<a href=#214 id=214 data-nosnippet>214</a>        <span class="kw">if </span>source_end &gt; <span class="self">self</span>.buffer.len || target_end &gt; new_memory.buffer.len {
+<a href=#215 id=215 data-nosnippet>215</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(MemoryAccessError::HeapOutOfBounds);
+<a href=#216 id=216 data-nosnippet>216</a>        }
+<a href=#217 id=217 data-nosnippet>217</a>
+<a href=#218 id=218 data-nosnippet>218</a>        <span class="kw">unsafe </span>{
+<a href=#219 id=219 data-nosnippet>219</a>            std::ptr::copy(
+<a href=#220 id=220 data-nosnippet>220</a>                <span class="self">self</span>.buffer.base.add(source_offset),
+<a href=#221 id=221 data-nosnippet>221</a>                new_memory.buffer.base.add(target_offset),
+<a href=#222 id=222 data-nosnippet>222</a>                amount,
+<a href=#223 id=223 data-nosnippet>223</a>            );
+<a href=#224 id=224 data-nosnippet>224</a>        }
+<a href=#225 id=225 data-nosnippet>225</a>        <span class="prelude-val">Ok</span>(())
+<a href=#226 id=226 data-nosnippet>226</a>    }
+<a href=#227 id=227 data-nosnippet>227</a>}
 </code></pre></div></section></main></body></html>
