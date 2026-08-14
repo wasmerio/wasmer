@@ -602,8 +602,10 @@ impl WasiProcess {
         if let Some(thread) = inner.threads.get(&tid) {
             if signal == Signal::Sigkill {
                 thread.set_status_finished(Ok(Errno::Intr.into()));
+                thread.signal(Signal::Sigwakeup);
+            } else {
+                thread.signal(signal);
             }
-            thread.signal(signal);
         } else {
             trace!(
                 "wasi[{}]::lost-signal(tid={}, sig={:?})",
@@ -923,6 +925,20 @@ fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
         }
     }
 
+    // SIGKILL is not catchable or observable by the guest. Mark every thread
+    // finished and wake blocked execution directly instead of invoking the
+    // libc signal trampoline. Delivering SIGKILL to that trampoline lets the
+    // guest's default handler call abort(), which can recursively fan out into
+    // SIGABRT diagnostics while a process tree is being torn down.
+    if signal == Signal::Sigkill {
+        wake_atomic_waiters(&guard, signal);
+        for thread in guard.threads.values() {
+            thread.set_status_finished(Ok(Errno::Intr.into()));
+            thread.signal(Signal::Sigwakeup);
+        }
+        return;
+    }
+
     // Otherwise just send the signal to all the threads
     wake_atomic_waiters(&guard, signal);
     for thread in guard.threads.values() {
@@ -1007,6 +1023,27 @@ mod tests {
         process.terminate(exit_code);
 
         assert_eq!(thread.try_join().unwrap().unwrap(), exit_code);
+        assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
+    }
+
+    #[test]
+    fn sigkill_finishes_threads_without_entering_the_guest_signal_handler() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: None,
+            enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
+        });
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let thread = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+
+        process.signal_process(Signal::Sigkill);
+
+        assert_eq!(
+            thread.try_join().unwrap().unwrap(),
+            ExitCode::from(Errno::Intr)
+        );
         assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
     }
 }
