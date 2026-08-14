@@ -241,6 +241,23 @@ jobs:
         run: ${{ matrix.build-what.lint-cmd }}
       - name: Test V8 API
         run: ${{ matrix.build-what.build-cmd }}
+  test_store_context_miri:
+    name: Store context under Miri
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly
+          components: miri
+      # These tests replay the store context's borrow flow without executing
+      # any Wasm, so Miri can check that a store re-acquired inside a nested
+      # call does not invalidate the borrow its caller is still holding. They
+      # pass trivially when run natively — Miri is the point.
+      - name: Borrow provenance of the store context
+        run: cargo miri test -p wasmer --features sys --lib borrow_provenance
   test_build_docs_rs:
     name: Build docs.rs
     runs-on: ubuntu-22.04
@@ -796,6 +813,7 @@ jobs:
       - cargo_deny
       - test_nodejs
       - test_interpreter_api
+      - test_store_context_miri
       - test_build_docs_rs
       - build_linux_riscv64
       - build
