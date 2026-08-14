@@ -222,16 +222,54 @@ impl<'a> BackendMemoryView<'a> {
     /// Copies the memory to another new memory object
     #[inline]
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
-        let mut offset = 0;
+        self.copy_range_to_memory(0, 0, amount, new_memory)
+    }
+
+    #[inline]
+    #[allow(unreachable_patterns)]
+    pub fn copy_range_to_memory(
+        &self,
+        source_offset: u64,
+        target_offset: u64,
+        amount: u64,
+        new_memory: &Self,
+    ) -> Result<(), MemoryAccessError> {
+        match (self, new_memory) {
+            #[cfg(feature = "sys")]
+            (Self::Sys(source), Self::Sys(target)) => {
+                return source.copy_range_to_memory(source_offset, target_offset, amount, target);
+            }
+            #[cfg(feature = "v8")]
+            (Self::V8(source), Self::V8(target)) => {
+                return source.copy_range_to_memory(source_offset, target_offset, amount, target);
+            }
+            #[cfg(feature = "js")]
+            (Self::Js(source), Self::Js(target)) => {
+                return source.copy_range_to_memory(source_offset, target_offset, amount, target);
+            }
+            _ => {}
+        }
+
+        let source_end = source_offset
+            .checked_add(amount)
+            .ok_or(MemoryAccessError::Overflow)?;
+        let target_end = target_offset
+            .checked_add(amount)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if source_end > self.data_size() || target_end > new_memory.data_size() {
+            return Err(MemoryAccessError::HeapOutOfBounds);
+        }
+
+        let mut copied = 0;
         let mut chunk = [0u8; 40960];
-        while offset < amount {
-            let remaining = amount - offset;
+        while copied < amount {
+            let remaining = amount - copied;
             let sublen = remaining.min(chunk.len() as u64) as usize;
-            self.read(offset, &mut chunk[..sublen])?;
+            self.read(source_offset + copied, &mut chunk[..sublen])?;
 
-            new_memory.write(offset, &chunk[..sublen])?;
+            new_memory.write(target_offset + copied, &chunk[..sublen])?;
 
-            offset += sublen as u64;
+            copied += sublen as u64;
         }
         Ok(())
     }
