@@ -808,6 +808,13 @@ cfg_select! {
 /// WebAssembly. Currently in wasmer's integration this function is called on
 /// creation of a `Store`.
 pub fn init_traps() {
+    // Miri cannot call `sigaction`/`sigemptyset`, and nothing under Miri
+    // executes compiled Wasm, so there is no trap for a handler to catch.
+    // Without this, building a `Store` at all is out of reach there, and the
+    // store-context tests that need one cannot run.
+    if cfg!(miri) {
+        return;
+    }
     static INIT: Once = Once::new();
     INIT.call_once(|| unsafe {
         platform_init();

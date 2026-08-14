@@ -69,7 +69,7 @@ macro_rules! impl_native_traits {
 
                 // Install the store into the store context
                 let store_install_guard = unsafe {
-                    StoreContext::ensure_installed(store.as_store_mut().inner as *mut _)
+                    StoreContext::install(store.as_store_mut().inner as *mut _)
                 };
 
                 let mut r;
@@ -206,7 +206,7 @@ macro_rules! impl_native_traits {
 
                 // Install the store into the store context
                 let store_install_guard = unsafe {
-                    StoreContext::ensure_installed(store.as_store_mut().inner as *mut _)
+                    StoreContext::install(store.as_store_mut().inner as *mut _)
                 };
 
                 let mut r;
