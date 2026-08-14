@@ -869,11 +869,14 @@ impl WasiProcess {
     pub fn terminate(&self, exit_code: ExitCode) {
         let pid = self.pid;
         tracing::trace!(%pid, %exit_code, "process-terminate");
-        // FIXME: this is wrong, threads might still be running!
-        // Need special logic for the main thread.
         let guard = self.inner.0.lock().unwrap();
+        wake_atomic_waiters(&guard, Signal::Sigwakeup);
         for thread in guard.threads.values() {
-            thread.set_status_finished(Ok(exit_code))
+            thread.set_status_finished(Ok(exit_code));
+            // Wake a thread blocked in a syscall without delivering a
+            // guest-visible termination signal. The finished status above is
+            // the source of truth for the next signal/exit checkpoint.
+            thread.signal(Signal::Sigwakeup);
         }
     }
 }
@@ -942,9 +945,14 @@ fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
                 "failed to wake atomic waiters"
             );
         }
+    } else if signal == Signal::Sigwakeup {
+        // Sigwakeup is host-side-only. It is used when process status already
+        // carries the exit result and only blocked atomic waiters need to be
+        // resumed so they can observe it.
+        let _ = memory.wake_all_atomic_waiters();
     }
 
-    // TODO: Should other signals also wake up waiters?
+    // TODO: Should other guest-visible signals also wake up waiters?
     // We have low confidence this is useful outside the kill path.
     // SEE https://github.com/wasmerio/wasmer/pull/6536
     //
@@ -959,7 +967,6 @@ fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
     //         | Signal::Sigint
     //         | Signal::Sigstop
     //         | Signal::Sigpipe
-    //         | Signal::Sigwakeup
     // ) {
     //    memory.wake_all_atomic_waiters();
     // }
@@ -973,5 +980,33 @@ impl SignalHandlerAbi for WasiProcess {
         } else {
             Err(SignalDeliveryError)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::os::task::{
+        control_plane::{ControlPlaneConfig, WasiControlPlane},
+        thread::WasiMemoryLayout,
+    };
+
+    #[test]
+    fn terminate_wakes_threads_without_guest_visible_termination_signal() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: None,
+            enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
+        });
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let thread = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let exit_code = ExitCode::from(42u16);
+
+        process.terminate(exit_code);
+
+        assert_eq!(thread.try_join().unwrap().unwrap(), exit_code);
+        assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
     }
 }

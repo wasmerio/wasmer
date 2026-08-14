@@ -1355,11 +1355,11 @@ impl WasiEnv {
                         }
                     }
 
-                    // Record the real exit code before broadcasting Sigquit.
-                    // Otherwise a pending Sigquit can win the status race and
-                    // make waiters observe a successful exit.
+                    // The process exit status is authoritative. terminate()
+                    // wakes residual threads with the host-only Sigwakeup so
+                    // libc cannot turn normal cleanup into guest-visible
+                    // SIGQUIT/SIGABRT diagnostics.
                     process.terminate(process_exit_code);
-                    process.signal_process(Signal::Sigquit);
                 }
             })
         } else {
