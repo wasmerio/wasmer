@@ -251,14 +251,19 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
-          components: miri
+          components: miri, rust-src
+      # Build Miri's sysroot as its own step: it needs `rust-src`, it takes a
+      # few minutes, and doing it here keeps a sysroot problem from being
+      # reported as a test failure. `+nightly` throughout, since
+      # rust-toolchain.toml pins a stable channel for this directory and that
+      # overrides the default the toolchain action sets.
+      - name: Prepare the Miri sysroot
+        run: cargo +nightly miri setup
       # These tests replay the store context's borrow flow without executing
       # any Wasm, so Miri can check that a store re-acquired inside a nested
       # call does not invalidate the borrow its caller is still holding. They
       # pass trivially when run natively — Miri is the point.
       - name: Borrow provenance of the store context
-        # `+nightly` explicitly: rust-toolchain.toml pins a stable channel
-        # for the directory, which has no miri component.
         run: cargo +nightly miri test -p wasmer --features sys --lib borrow_provenance
   test_build_docs_rs:
     name: Build docs.rs

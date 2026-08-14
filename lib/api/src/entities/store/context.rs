@@ -519,7 +519,7 @@ impl Drop for StoreInstallGuard {
                 (None, false) => panic!("Store context stack underflow"),
                 (None, true) => {
                     // Nothing to do if we're panicking; panics can put the context
-                    // in an invalid state, and we don't to cause another panic here.
+                    // in an invalid state, and we don't want to cause another panic here.
                 }
             }
         })
@@ -549,7 +549,7 @@ impl Drop for ForcedStoreInstallGuard {
                 (None, false) => panic!("Store context stack underflow"),
                 (None, true) => {
                     // Nothing to do if we're panicking; panics can put the context
-                    // in an invalid state, and we don't to cause another panic here.
+                    // in an invalid state, and we don't want to cause another panic here.
                 }
             }
         })
