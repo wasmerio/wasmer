@@ -54,7 +54,7 @@ impl VMFunction {
             &encode_types(ty.params()).into(),
             &encode_types(ty.results()).into(),
         );
-        let _ = Reflect::set(&function, type_key().as_ref(), &encoded);
+        let _ = Reflect::set(function, type_key().as_ref(), &encoded);
     }
 
     pub(crate) fn type_from_js(function: &JsFunction) -> Option<FunctionType> {
