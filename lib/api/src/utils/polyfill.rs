@@ -30,6 +30,60 @@ pub struct ModuleInfoPolyfill {
 }
 
 impl ModuleInfoPolyfill {
+    /// Rejects externrefs that would cross a backend's host API boundary.
+    ///
+    /// The V8 wasm-c-api backend can compile reference-types instructions,
+    /// but it cannot currently marshal externrefs through exported values.
+    #[cfg(feature = "v8")]
+    pub(crate) fn validate_no_exported_externrefs(&self) -> WasmResult<()> {
+        for (name, export) in self.info.exports.iter() {
+            let uses_externref = match export {
+                ExportIndex::Function(index) => {
+                    let signature = self.info.functions.get(*index).ok_or_else(|| {
+                        format!("function export `{name}` references unknown function {index:?}")
+                    })?;
+                    let ty = self.info.signatures.get(*signature).ok_or_else(|| {
+                        format!(
+                            "function export `{name}` references unknown signature {signature:?}"
+                        )
+                    })?;
+                    ty.params()
+                        .iter()
+                        .chain(ty.results().iter())
+                        .any(|ty| *ty == Type::ExternRef)
+                }
+                ExportIndex::Table(index) => {
+                    let ty = self.info.tables.get(*index).ok_or_else(|| {
+                        format!("table export `{name}` references unknown table {index:?}")
+                    })?;
+                    ty.ty == Type::ExternRef
+                }
+                ExportIndex::Memory(_) => false,
+                ExportIndex::Global(index) => {
+                    let ty = self.info.globals.get(*index).ok_or_else(|| {
+                        format!("global export `{name}` references unknown global {index:?}")
+                    })?;
+                    ty.ty == Type::ExternRef
+                }
+                ExportIndex::Tag(index) => {
+                    let signature = self.info.tags.get(*index).ok_or_else(|| {
+                        format!("tag export `{name}` references unknown tag {index:?}")
+                    })?;
+                    let ty = self.info.signatures.get(*signature).ok_or_else(|| {
+                        format!("tag export `{name}` references unknown signature {signature:?}")
+                    })?;
+                    ty.params().contains(&Type::ExternRef)
+                }
+            };
+
+            if uses_externref {
+                return Err("ExternRef is not supported by this backend yet".to_string());
+            }
+        }
+
+        Ok(())
+    }
+
     pub(crate) fn declare_export(&mut self, export: ExportIndex, name: &str) -> WasmResult<()> {
         // See #6560 for more context why such names are unsupported by V8.
         if !name.is_empty() && name.bytes().all(|b| b.is_ascii_digit()) {
@@ -413,11 +467,12 @@ fn parse_element_section(
                         Operator::RefNull { .. } => {
                             functions.push(FunctionIndex::reserved_value());
                         }
-                        other => {
-                            return Err(format!(
-                                "unsupported element expression in type polyfill: {other:?}"
-                            ));
-                        }
+                        // The polyfill only needs function indices to annotate
+                        // JavaScript table entries with their signatures. Other
+                        // valid expressions (for example an imported funcref
+                        // global) cannot provide that signature, so retain the
+                        // table slot with an unresolvable sentinel.
+                        _ => functions.push(FunctionIndex::reserved_value()),
                     }
                 }
             }

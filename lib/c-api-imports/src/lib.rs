@@ -666,20 +666,11 @@ fn allocate_guest_memory(env: &mut FunctionEnvMut<WasmCapiEnv>, len: usize) -> O
         return Some(0);
     }
 
-    let Some(malloc_fn) = env.data().malloc_fn.clone() else {
-        return None;
-    };
-    let Ok(len) = i32::try_from(len) else {
-        return None;
-    };
+    let malloc_fn = env.data().malloc_fn.clone()?;
+    let len = i32::try_from(len).ok()?;
     let guest_ptr: i32 = {
         let (_, mut store_ref) = env.data_and_store_mut();
-        match malloc_fn.call(&mut store_ref, len) {
-            Ok(ptr) => ptr,
-            Err(error) => {
-                return None;
-            }
-        }
+        malloc_fn.call(&mut store_ref, len).ok()?
     };
     if guest_ptr <= INVALID_HANDLE {
         return None;
