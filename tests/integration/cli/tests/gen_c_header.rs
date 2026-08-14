@@ -41,3 +41,30 @@ fn gen_c_header_works_pirita() -> anyhow::Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn gen_c_header_works_wasm() -> anyhow::Result<()> {
+    let temp_dir = tempfile::tempdir()?;
+    let operating_dir: PathBuf = temp_dir.path().to_owned();
+
+    let wasm_path = operating_dir.join(fixtures::qjs());
+    let out_path = temp_dir.path().join("header.h");
+
+    let cmd = wasmer_command()
+        .arg("gen-c-header")
+        .arg(&wasm_path)
+        .arg("-o")
+        .arg(&out_path)
+        .output()
+        .unwrap();
+    let file = std::fs::read_to_string(&out_path).expect("no header.h file");
+    assert!(
+        file.contains(
+            "wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_0"
+        ),
+        "no wasmer_function_6f62a6bc5c8f8e3e12a54e2ecbc5674ccfe1c75f91d8e4dd6ebb3fec422a4d6c_930 in file"
+    );
+    assert!(cmd.status.success());
+
+    Ok(())
+}
