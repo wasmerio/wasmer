@@ -91,8 +91,7 @@ pub type LockableWasiProcessInner = Arc<(Mutex<WasiProcessInner>, Condvar)>;
 /// This is a cheap, clonable handle to a [`WasiProcessData`]. Every clone shares
 /// the same underlying state, and when the *last* handle goes away the process
 /// de-registers itself from the [`super::control_plane::WasiControlPlane`] - see
-/// [`WasiProcessData::drop`]. The control plane therefore only holds a `Weak`
-/// reference and never keeps a terminated process alive on its own.
+/// [`WasiProcessData::drop`].
 #[derive(Debug, Clone)]
 pub struct WasiProcess(pub(crate) Arc<WasiProcessData>);
 
@@ -134,9 +133,6 @@ pub struct WasiProcessData {
 
 impl Drop for WasiProcessData {
     fn drop(&mut self) {
-        // This runs when the last `WasiProcess` handle is dropped, which is the
-        // point at which nobody can observe this process any more. Note the
-        // control plane holds only a `Weak`, so it cannot keep us alive itself.
         if let Some(plane) = self.compute.upgrade() {
             plane.deregister_process(self.pid);
         }

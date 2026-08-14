@@ -253,15 +253,6 @@ impl WasiEnv {
 
     /// Forking the WasiState is used when either fork or vfork is called
     /// Releases any thread handles this environment holds on behalf of `pid`.
-    ///
-    /// `proc_spawn` parks a child's main-thread handle in `owned_handles` to keep the
-    /// child alive while it runs - dropping the handle is what marks a thread finished
-    /// (see `WasiThreadHandleProtected::drop`), so it cannot be released early. This is
-    /// the counterpart to `inner.children.retain(..)` and must only be called once the
-    /// child has actually exited, i.e. at reap time.
-    ///
-    /// Without this the child's `WasiProcessInner` - and its linear memory - stays
-    /// pinned for the parent's whole lifetime.
     pub(crate) fn release_child_handles(&mut self, pid: WasiProcessId) {
         self.owned_handles
             .retain(|handle| handle.as_thread().pid() != pid);

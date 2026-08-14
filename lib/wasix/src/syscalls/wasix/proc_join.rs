@@ -47,9 +47,7 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
             let mut ret = Errno::Success;
 
             // The child has been reaped, so release the main-thread handle that
-            // `proc_spawn` parked in `owned_handles`. This is the counterpart to the
-            // `children.retain(..)` below; without it the child's `WasiProcessInner`,
-            // and its linear memory, stays pinned for as long as this process lives.
+            // `proc_spawn` parked in `owned_handles`.
             if let JoinStatusResult::ExitNormal(pid, _) = &status {
                 ctx.data_mut().release_child_handles(*pid);
             }

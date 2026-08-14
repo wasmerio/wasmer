@@ -162,8 +162,6 @@ impl WasiControlPlane {
     /// removing a still-referenced process would make it unreachable via
     /// [`Self::get_process`] while it is still running.
     pub(crate) fn deregister_process(&self, pid: WasiProcessId) {
-        // May be poisoned if a thread panicked while holding the lock; there is
-        // nothing useful to do in a `Drop` impl, so leave the entry behind.
         if let Ok(mut mutable) = self.state.mutable.write() {
             mutable.processes.remove(&pid);
         }
@@ -248,7 +246,7 @@ mod tests {
 
     /// Runs a process to completion, returning weak probes on `WasiProcessData` and on
     /// `WasiProcessInner` (which holds the linear memory). Both are checked because they
-    /// are freed independently - a removed table entry does not mean freed memory.
+    /// are freed independently.
     #[allow(clippy::type_complexity)]
     fn spawn_and_finish(
         plane: &WasiControlPlane,
