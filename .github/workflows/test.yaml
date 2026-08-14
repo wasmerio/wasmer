@@ -257,7 +257,9 @@ jobs:
       # call does not invalidate the borrow its caller is still holding. They
       # pass trivially when run natively — Miri is the point.
       - name: Borrow provenance of the store context
-        run: cargo miri test -p wasmer --features sys --lib borrow_provenance
+        # `+nightly` explicitly: rust-toolchain.toml pins a stable channel
+        # for the directory, which has no miri component.
+        run: cargo +nightly miri test -p wasmer --features sys --lib borrow_provenance
   test_build_docs_rs:
     name: Build docs.rs
     runs-on: ubuntu-22.04
