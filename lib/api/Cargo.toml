@@ -33,7 +33,7 @@ bytes.workspace = true
 tracing = { workspace = true, default-features = true }
 # - Optional shared dependencies.
 wat = { workspace = true, optional = true }
-symbolic-demangle.workspace = true
+symbolic-demangle = { workspace = true, optional = true }
 shared-buffer.workspace = true
 
 loupe = { workspace = true, optional = true, features = [
@@ -126,7 +126,10 @@ artifact-size = [
 
 # Features for `sys`.
 sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
-sys-default = ["sys", "wat", "cranelift"]
+sys-default = ["sys", "wat", "cranelift", "demangle"]
+
+# Improve native stack traces without forcing the demanglers into browser builds.
+demangle = ["dep:symbolic-demangle"]
 
 headless = []
 
