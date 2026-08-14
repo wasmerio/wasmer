@@ -455,7 +455,7 @@ impl WasiProcess {
         impl SignalHandlerAbi for SignalHandler {
             fn signal(&self, signal: u8) -> Result<(), SignalDeliveryError> {
                 if let Ok(signal) = signal.try_into() {
-                    signal_process_internal(&self.0, signal);
+                    signal_process_internal(&self.0, signal, true);
                     Ok(())
                 } else {
                     Err(SignalDeliveryError)
@@ -624,7 +624,7 @@ impl WasiProcess {
 
     /// Signals all the threads in this process
     pub fn signal_process(&self, signal: Signal) {
-        signal_process_internal(&self.inner, signal);
+        signal_process_internal(&self.inner, signal, false);
     }
 
     /// Registers the shared memory used by this process.
@@ -884,7 +884,11 @@ impl WasiProcess {
 }
 
 /// Signals all the threads in this process
-fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
+fn signal_process_internal(
+    process: &LockableWasiProcessInner,
+    signal: Signal,
+    route_to_waited_child: bool,
+) {
     #[allow(unused_mut)]
     let mut guard = process.0.lock().unwrap();
     let pid = guard.pid;
@@ -914,10 +918,10 @@ fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
 
     // Check if there are subprocesses that will receive this signal
     // instead of this process
-    if guard.waiting.load(Ordering::Acquire) > 0 {
+    if route_to_waited_child && guard.waiting.load(Ordering::Acquire) > 0 {
         let mut triggered = false;
         for child in guard.children.iter() {
-            child.signal_process(signal);
+            signal_process_internal(&child.inner, signal, true);
             triggered = true;
         }
         if triggered {
@@ -991,7 +995,7 @@ fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
 impl SignalHandlerAbi for WasiProcess {
     fn signal(&self, sig: u8) -> Result<(), SignalDeliveryError> {
         if let Ok(sig) = sig.try_into() {
-            self.signal_process(sig);
+            signal_process_internal(&self.inner, sig, true);
             Ok(())
         } else {
             Err(SignalDeliveryError)
@@ -1045,5 +1049,31 @@ mod tests {
             ExitCode::from(Errno::Intr)
         );
         assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
+    }
+
+    #[test]
+    fn direct_signal_targets_the_requested_process_even_while_it_waits() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: None,
+            enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
+        });
+        let parent = plane.new_process(ModuleHash::random()).unwrap();
+        let parent_thread = parent
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let child = plane.new_process(ModuleHash::random()).unwrap();
+        let child_thread = child
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        parent.lock().children.push(child);
+        let _wait = WasiProcessWait::new(&parent);
+
+        parent.signal_process(Signal::Sigkill);
+
+        assert!(parent_thread.try_join().is_some());
+        assert!(child_thread.try_join().is_none());
+        assert_eq!(parent_thread.pop_signals(), vec![Signal::Sigwakeup]);
+        assert!(child_thread.pop_signals().is_empty());
     }
 }
