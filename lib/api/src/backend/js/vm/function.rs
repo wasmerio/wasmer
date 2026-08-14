@@ -10,32 +10,21 @@ fn type_key() -> Symbol {
 }
 
 fn encode_types(types: &[Type]) -> Array {
-    Array::from_iter(types.iter().map(|ty| {
-        JsValue::from_f64(match ty {
-            Type::I32 => 0.0,
-            Type::I64 => 1.0,
-            Type::F32 => 2.0,
-            Type::F64 => 3.0,
-            Type::V128 => 4.0,
-            Type::ExternRef => 5.0,
-            Type::FuncRef => 6.0,
-            Type::ExceptionRef => 7.0,
-        })
-    }))
+    Array::from_iter(types.iter().map(|ty| JsValue::from_f64(*ty as u8 as f64)))
 }
 
 fn decode_types(types: &Array) -> Option<Vec<Type>> {
     types
         .iter()
         .map(|value| match value.as_f64()? as u8 {
-            0 => Some(Type::I32),
-            1 => Some(Type::I64),
-            2 => Some(Type::F32),
-            3 => Some(Type::F64),
-            4 => Some(Type::V128),
-            5 => Some(Type::ExternRef),
-            6 => Some(Type::FuncRef),
-            7 => Some(Type::ExceptionRef),
+            value if value == Type::I32 as u8 => Some(Type::I32),
+            value if value == Type::I64 as u8 => Some(Type::I64),
+            value if value == Type::F32 as u8 => Some(Type::F32),
+            value if value == Type::F64 as u8 => Some(Type::F64),
+            value if value == Type::V128 as u8 => Some(Type::V128),
+            value if value == Type::ExternRef as u8 => Some(Type::ExternRef),
+            value if value == Type::FuncRef as u8 => Some(Type::FuncRef),
+            value if value == Type::ExceptionRef as u8 => Some(Type::ExceptionRef),
             _ => None,
         })
         .collect()

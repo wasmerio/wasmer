@@ -1,8 +1,8 @@
 use macro_wasmer_engine_test::engine_test;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::JsValue;
-#[cfg(feature = "js")]
-use wasm_bindgen_test::*;
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_test::wasm_bindgen_test;
 
 use wasmer::*;
 
@@ -13,7 +13,9 @@ use std::os::unix::ffi::OsStrExt;
 
 async fn assert_module_new_async() -> Result<(), String> {
     let store = Store::default();
-    let module = Module::new_async(&store, "(module (func (export \"run\")))")
+    let wasm =
+        wat::parse_str("(module (func (export \"run\")))").map_err(|error| format!("{error:?}"))?;
+    let module = Module::new_async(&store, wasm)
         .await
         .map_err(|error| format!("{error:?}"))?;
     assert!(module.exports().any(|export| export.name() == "run"));

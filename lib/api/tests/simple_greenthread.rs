@@ -1,4 +1,7 @@
-#![cfg(feature = "experimental-async")]
+#![cfg(all(
+    feature = "experimental-async",
+    any(not(target_arch = "wasm32"), feature = "js")
+))]
 
 use std::collections::BTreeMap;
 use std::future::Future;
