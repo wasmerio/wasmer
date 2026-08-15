@@ -88,7 +88,7 @@ pub type LockableWasiProcessInner = Arc<(Mutex<WasiProcessInner>, Condvar)>;
 
 /// Represents a process running within the compute state.
 ///
-/// This is a cheap, clonable handle to a [`WasiProcessData`]. Every clone shares
+/// This is a cheap, cloneable handle to a [`WasiProcessData`]. Every clone shares
 /// the same underlying state, and when the *last* handle goes away the process
 /// de-registers itself from the [`super::control_plane::WasiControlPlane`] - see
 /// [`WasiProcessData::drop`].
