@@ -965,7 +965,7 @@ update-graphql-schema:
 	curl -sSfL https://registry.wapm.io/graphql/schema.graphql > lib/registry/graphql/schema.graphql
 
 require-nextest:
-	cargo nextest --version > /dev/null || cargo binstall cargo-nextest --secure || cargo install cargo-nextest
+	cargo nextest --version > /dev/null || cargo binstall cargo-nextest --secure || cargo install cargo-nextest --locked
 
 # Check all the features compatible with the `sys` backend.
 check-api-features:
