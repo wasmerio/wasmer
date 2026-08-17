@@ -272,6 +272,9 @@ impl SinglepassCompiler {
                 Ok(res)
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
+        if let Some(output_budget) = output_budget.as_ref() {
+            output_budget.ensure_within_limit()?;
+        }
         let function_max_stack_usage = functions
             .iter()
             .map(|output| match output {

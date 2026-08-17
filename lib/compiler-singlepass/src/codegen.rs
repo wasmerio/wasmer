@@ -13,7 +13,7 @@ use crate::{
     machine::{
         AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
     },
-    output_budget::OutputBudget,
+    output_budget::{LocalOutputBudget, OutputBudget},
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
@@ -150,8 +150,8 @@ pub struct FuncGen<'a, M: Machine> {
     /// Assembly comments.
     assembly_comments: HashMap<usize, AssemblyComment>,
 
-    /// Shared allowance for all machine code emitted by this module compilation.
-    output_budget: Option<Arc<OutputBudget>>,
+    /// Batched function local accounting backed by the module output budget.
+    output_budget: Option<LocalOutputBudget>,
 
     /// Assembler offset already charged to the shared output budget.
     accounted_output_size: usize,
@@ -290,9 +290,9 @@ enum NativeCallType {
 const RED_ZONE_SIZE: usize = 32;
 
 impl<'a, M: Machine> FuncGen<'a, M> {
-    /// Charges newly emitted machine code to the module's shared output budget.
+    /// Charges newly emitted machine code to the function local output batch.
     pub fn ensure_output_size_within_limit(&mut self) -> Result<(), CompileError> {
-        let Some(output_budget) = self.output_budget.as_ref() else {
+        let Some(output_budget) = self.output_budget.as_mut() else {
             return Ok(());
         };
         let output_size = self.machine.assembler_get_offset().0;
@@ -1087,7 +1087,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .ok(),
             function_name,
             assembly_comments: HashMap::new(),
-            output_budget,
+            output_budget: output_budget.map(LocalOutputBudget::new),
             accounted_output_size: 0,
         };
         fg.emit_head()?;
@@ -6108,6 +6108,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             assembly_comments,
         } = self.machine.assembler_finalize(self.assembly_comments)?;
         body.shrink_to_fit();
+
+        if let Some(output_budget) = self.output_budget.as_mut() {
+            output_budget.finish()?;
+        }
 
         if let Some(callbacks) = self.config.callbacks.as_ref() {
             callbacks.obj_memory_buffer(

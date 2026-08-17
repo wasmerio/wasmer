@@ -1,9 +1,14 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicUsize, Ordering},
+};
 
 use wasmer_compiler::types::{function::FunctionBody, unwind::CompiledFunctionUnwindInfo};
 use wasmer_types::CompileError;
 
 use crate::config::output_size_limit_error;
+
+const LOCAL_BUDGET_CHUNK_SIZE: usize = 1024;
 
 /// Bytes stored after an already accounted function body for Windows unwind information.
 pub(crate) fn windows_unwind_output_delta(body_len: usize, unwind_len: usize) -> usize {
@@ -58,9 +63,50 @@ impl OutputBudget {
         }
     }
 
+    pub(crate) fn ensure_within_limit(&self) -> Result<(), CompileError> {
+        let total = self.total.load(Ordering::Relaxed);
+        if total > self.limit {
+            return Err(output_size_limit_error(total, self.limit));
+        }
+        Ok(())
+    }
+
     #[cfg(test)]
     fn total(&self) -> usize {
         self.total.load(Ordering::Relaxed)
+    }
+}
+
+/// Function local output accounting that commits emitted bytes to the shared
+/// module budget in chunks
+#[derive(Debug)]
+pub(crate) struct LocalOutputBudget {
+    shared: Arc<OutputBudget>,
+    pending: usize,
+}
+
+impl LocalOutputBudget {
+    pub(crate) fn new(shared: Arc<OutputBudget>) -> Self {
+        Self { shared, pending: 0 }
+    }
+
+    pub(crate) fn reserve(&mut self, delta: usize) -> Result<(), CompileError> {
+        let pending = self
+            .pending
+            .checked_add(delta)
+            .ok_or_else(|| output_size_limit_error(usize::MAX, self.shared.limit))?;
+        let committed = pending / LOCAL_BUDGET_CHUNK_SIZE * LOCAL_BUDGET_CHUNK_SIZE;
+        if committed > 0 {
+            self.shared.reserve(committed)?;
+        }
+        self.pending = pending - committed;
+        Ok(())
+    }
+
+    pub(crate) fn finish(&mut self) -> Result<(), CompileError> {
+        self.shared.reserve(self.pending)?;
+        self.pending = 0;
+        Ok(())
     }
 }
 
@@ -103,6 +149,67 @@ mod tests {
                 )
         ));
         assert_eq!(budget.total(), LIMIT);
+    }
+
+    #[test]
+    fn local_reservations_commit_full_chunks_and_flush_the_remainder() {
+        let budget = Arc::new(OutputBudget::new(10_000));
+        let mut local = LocalOutputBudget::new(Arc::clone(&budget));
+        local.reserve(1).unwrap();
+        assert_eq!(budget.total(), 0);
+
+        local.reserve(LOCAL_BUDGET_CHUNK_SIZE - 1).unwrap();
+        assert_eq!(budget.total(), LOCAL_BUDGET_CHUNK_SIZE);
+
+        local.reserve(1).unwrap();
+        assert_eq!(budget.total(), LOCAL_BUDGET_CHUNK_SIZE);
+
+        local.finish().unwrap();
+        assert_eq!(budget.total(), LOCAL_BUDGET_CHUNK_SIZE + 1);
+        assert!(budget.ensure_within_limit().is_ok());
+    }
+
+    #[test]
+    fn local_remainder_is_checked_at_function_completion() {
+        const LIMIT: usize = 1_500;
+        let budget = Arc::new(OutputBudget::new(LIMIT));
+        let mut local = LocalOutputBudget::new(Arc::clone(&budget));
+        local.reserve(LOCAL_BUDGET_CHUNK_SIZE).unwrap();
+        local.reserve(LIMIT - LOCAL_BUDGET_CHUNK_SIZE).unwrap();
+        local.finish().unwrap();
+        assert_eq!(budget.total(), LIMIT);
+
+        let mut overflow = LocalOutputBudget::new(Arc::clone(&budget));
+        overflow.reserve(1).unwrap();
+        assert!(matches!(
+            overflow.finish(),
+            Err(CompileError::Codegen(message))
+                if message == "singlepass compiler output exceeds limit: 1501 > 1500 bytes"
+        ));
+        assert_eq!(budget.total(), LIMIT);
+    }
+
+    #[test]
+    fn parallel_local_reservations_preserve_the_exact_total() {
+        const THREADS: usize = 8;
+        const BYTES_PER_THREAD: usize = 1_000;
+        let budget = Arc::new(OutputBudget::new(THREADS * BYTES_PER_THREAD));
+
+        std::thread::scope(|scope| {
+            for _ in 0..THREADS {
+                let budget = Arc::clone(&budget);
+                scope.spawn(move || {
+                    let mut local = LocalOutputBudget::new(budget);
+                    for _ in 0..BYTES_PER_THREAD {
+                        local.reserve(1).unwrap();
+                    }
+                    local.finish().unwrap();
+                });
+            }
+        });
+
+        assert_eq!(budget.total(), THREADS * BYTES_PER_THREAD);
+        assert!(budget.ensure_within_limit().is_ok());
     }
 
     #[test]
