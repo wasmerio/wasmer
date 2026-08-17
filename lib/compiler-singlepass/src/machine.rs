@@ -105,7 +105,7 @@ pub trait Machine {
     type GPR: Copy + Eq + Debug + Reg;
     type SIMD: Copy + Eq + Debug + Reg;
 
-    /// A stack alignment in bytes that fullfills the ABI requirement.
+    /// A stack alignment in bytes that fulfills the ABI requirement.
     const STACK_ALIGNMENT: usize;
 
     /// Get current assembler offset
