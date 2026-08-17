@@ -18,6 +18,11 @@ use crate::{
 
 pub const CRON_JOB_PAGE_SIZE: i32 = 100;
 
+/// Prefix of a cron job invocation's opaque id. An invocation carrying this
+/// prefix can be resolved directly, without searching a cron job's invocation
+/// pages.
+pub const CRON_JOB_INVOCATION_ID_PREFIX: &str = "croninv_";
+
 /// Retrieve the persistent `AppVolume` nodes of an app, including their S3
 /// state and (for S3-enabled volumes) credentials.
 ///
@@ -472,13 +477,7 @@ pub async fn get_cron_job_invocations_page(
             .into_iter()
             .find(|node| node.id.inner() == cron_job || node.name == cron_job)
         {
-            let invocations = cron
-                .invocations
-                .edges
-                .iter()
-                .flatten()
-                .flat_map(|edge| edge.node.clone())
-                .collect::<Vec<_>>();
+            let invocations = cron.invocations.nodes.clone();
             let next_cursor = cron
                 .invocations
                 .page_info
@@ -538,13 +537,7 @@ pub async fn get_cron_job_invocations_page_by_id(
         .cron_job
         .and_then(types::NodeCronJobWithInvocations::into_cron_job)
         .with_context(|| format!("cron job '{cron_job_id}' not found"))?;
-    let invocations = cron
-        .invocations
-        .edges
-        .iter()
-        .flatten()
-        .flat_map(|edge| edge.node.clone())
-        .collect::<Vec<_>>();
+    let invocations = cron.invocations.nodes.clone();
     let next_cursor = cron
         .invocations
         .page_info
@@ -607,13 +600,10 @@ pub async fn get_cron_job_invocation_logs(
                 .into_iter()
                 .find(|node| node.id.inner() == cron_job || node.name == cron_job)
             {
-                if let Some(invocation_logs) = cron
-                    .invocations
-                    .edges
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|edge| edge.node)
-                    .find(|node| node.id.inner() == invocation || node.edge_job_id == invocation)
+                if let Some(invocation_logs) =
+                    cron.invocations.nodes.into_iter().find(|node| {
+                        node.id.inner() == invocation || node.edge_job_id == invocation
+                    })
                 {
                     return Ok(logs_from_connection(invocation_logs.logs));
                 }
@@ -674,10 +664,8 @@ pub async fn get_cron_job_invocation_logs_by_id(
 
         if let Some(invocation_logs) = cron
             .invocations
-            .edges
+            .nodes
             .into_iter()
-            .flatten()
-            .filter_map(|edge| edge.node)
             .find(|node| node.id.inner() == invocation || node.edge_job_id == invocation)
         {
             return Ok(logs_from_connection(invocation_logs.logs));
@@ -693,6 +681,34 @@ pub async fn get_cron_job_invocation_logs_by_id(
                 .context("cron job invocations cursor missing")?,
         );
     }
+}
+
+/// Retrieve the logs of one cron job invocation, referenced by its own id.
+///
+/// Unlike the cron-job-scoped lookups this resolves the invocation directly,
+/// so it needs neither the owning cron job nor a time window to search in.
+pub async fn get_cron_job_invocation_logs_by_invocation_id(
+    client: &WasmerClient,
+    invocation_id: impl Into<String>,
+    log_first: Option<i32>,
+) -> Result<Vec<types::CronJobLog>, anyhow::Error> {
+    let invocation_id = invocation_id.into();
+    let res = client
+        .run_graphql_strict(types::GetCronJobInvocationLogsByInvocationId::build(
+            types::GetCronJobInvocationLogsByInvocationIdVars {
+                id: types::Id::from(invocation_id.clone()),
+                log_first,
+            },
+        ))
+        .await?;
+
+    // The backend answers null for an invocation the caller may not see just as
+    // it does for one that does not exist, so both land on the same message.
+    let invocation = res.get_cron_job_invocation.with_context(|| {
+        format!("cron job invocation '{invocation_id}' not found or not accessible")
+    })?;
+
+    Ok(logs_from_connection(invocation.logs))
 }
 
 fn default_cron_invocation_window(

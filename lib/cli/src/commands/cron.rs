@@ -283,11 +283,16 @@ pub struct CmdCronLogs {
     cron_job: String,
 
     /// Cron job invocation id or edge job id.
+    ///
+    /// An invocation id resolves directly, so the cron job, --start and --end
+    /// are only used to search for an edge job id.
     invocation: String,
 
     /// The earliest invocation timestamp to include.
     ///
     /// Defaults to 31 days before --end, or 31 days before now.
+    ///
+    /// Ignored when the invocation is given by id.
     ///
     /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
     #[clap(long = "start", alias = "from", value_parser = parse_timestamp_or_relative_time_negative_offset)]
@@ -296,6 +301,8 @@ pub struct CmdCronLogs {
     /// The latest invocation timestamp to include.
     ///
     /// Defaults to now.
+    ///
+    /// Ignored when the invocation is given by id.
     ///
     /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
     #[clap(long = "end", alias = "until", value_parser = parse_timestamp_or_relative_time_negative_offset)]
@@ -321,7 +328,16 @@ impl AsyncCliCommand for CmdCronLogs {
         }
 
         let client = self.env.client()?;
-        let logs = if should_resolve_cron_job_by_id(&self.ident, &self.cron_job) {
+        let logs = if is_cron_job_invocation_id(&self.invocation) {
+            // An invocation id identifies the invocation on its own, so neither
+            // the app, nor the cron job, nor a window to search in is needed.
+            wasmer_backend_api::query::get_cron_job_invocation_logs_by_invocation_id(
+                &client,
+                &self.invocation,
+                Some(self.max),
+            )
+            .await?
+        } else if should_resolve_cron_job_by_id(&self.ident, &self.cron_job) {
             wasmer_backend_api::query::get_cron_job_invocation_logs_by_id(
                 &client,
                 &self.cron_job,
@@ -436,6 +452,10 @@ async fn resolve_cron_job(
 
 fn should_resolve_cron_job_by_id(ident: &AppIdentArgOpts, cron_job: &str) -> bool {
     ident.app.is_none() && cron_job.starts_with("cron_")
+}
+
+fn is_cron_job_invocation_id(invocation: &str) -> bool {
+    invocation.starts_with(wasmer_backend_api::query::CRON_JOB_INVOCATION_ID_PREFIX)
 }
 
 async fn find_app_cron_job(
