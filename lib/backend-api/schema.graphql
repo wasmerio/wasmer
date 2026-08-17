@@ -1802,7 +1802,6 @@ type CronJobEdge {
 
 type CronJobInvocation {
 	id: ID!
-	edgeJobId: String!
 	status: CronJobInvocationStatus
 	scheduledAt: DateTime
 	startedAt: DateTime
