@@ -305,6 +305,29 @@ impl StoreContext {
         })
     }
 
+    /// The active entry's store, if no frame on this thread's stack is holding
+    /// a borrow of it.
+    ///
+    /// A non-zero borrow count means some frame further up still holds a
+    /// `StoreMut` it can reach, so handing out a second one would alias it;
+    /// the caller gets `None` instead. A frame that has lent its borrow out
+    /// ([`StoreMut::parked`]) installed an entry of its own, whose count is
+    /// zero until somebody takes it — which is how an imported function lends
+    /// its store to code it calls into.
+    pub(crate) fn try_get_current_unborrowed() -> Option<StorePtrWrapper> {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack.last_mut()?;
+            if top.borrow_count != 0 {
+                return None;
+            }
+            top.borrow_count += 1;
+            Some(StorePtrWrapper {
+                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+            })
+        })
+    }
+
     /// Safety: This method lets you borrow multiple mutable references
     /// to the currently active store context. The caller must ensure that:
     ///   * there is only one mutable reference alive, or
@@ -643,6 +666,36 @@ mod borrow_provenance {
         }
 
         // --- and goes on using the borrow it held throughout
+        let _ = shim.objects_mut().id();
+
+        drop(wrapper);
+        drop(install);
+    }
+
+    /// The lending path, which is the nesting above with the inner entry
+    /// installed by [`StoreMut::parked`] instead of by a nested call: the
+    /// borrow handed out by [`crate::Store::with_current`] must not invalidate
+    /// the one the lender is holding. Miri checks the last line.
+    #[test]
+    fn a_lend_keeps_the_lending_borrow_usable() {
+        let mut store = Store::default();
+        let id = store.id();
+
+        let mut caller = store.as_store_mut();
+        let install = unsafe { StoreContext::install(caller.as_store_mut().inner as *mut _) };
+
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let mut shim = wrapper.as_mut();
+        let _ = shim.objects_mut().id();
+
+        shim.parked(|| {
+            crate::Store::with_current(|lent| {
+                let _ = lent.objects_mut().id();
+            })
+            .expect("a parked store is lendable");
+        });
+
+        // The lender goes back to the borrow it held throughout.
         let _ = shim.objects_mut().id();
 
         drop(wrapper);
