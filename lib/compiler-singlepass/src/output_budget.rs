@@ -45,6 +45,22 @@ impl OutputBudget {
     }
 }
 
+fn reserve_batched(
+    shared: &OutputBudget,
+    pending: &mut usize,
+    delta: usize,
+) -> Result<(), CompileError> {
+    let new_pending = pending
+        .checked_add(delta)
+        .ok_or_else(|| output_size_limit_error(shared.limit))?;
+    let committed = new_pending / LOCAL_BUDGET_CHUNK_SIZE * LOCAL_BUDGET_CHUNK_SIZE;
+    if committed > 0 {
+        shared.reserve(committed)?;
+    }
+    *pending = new_pending - committed;
+    Ok(())
+}
+
 /// Function local output accounting that commits emitted bytes to the shared
 /// module budget in chunks
 #[derive(Debug)]
@@ -59,21 +75,52 @@ impl LocalOutputBudget {
     }
 
     pub(crate) fn reserve(&mut self, delta: usize) -> Result<(), CompileError> {
-        let pending = self
-            .pending
-            .checked_add(delta)
-            .ok_or_else(|| output_size_limit_error(self.shared.limit))?;
-        let committed = pending / LOCAL_BUDGET_CHUNK_SIZE * LOCAL_BUDGET_CHUNK_SIZE;
-        if committed > 0 {
-            self.shared.reserve(committed)?;
-        }
-        self.pending = pending - committed;
-        Ok(())
+        reserve_batched(&self.shared, &mut self.pending, delta)
     }
 
     pub(crate) fn finish(&mut self) -> Result<(), CompileError> {
         let pending = std::mem::take(&mut self.pending);
         self.shared.reserve(pending)
+    }
+}
+
+/// Batched accounting for an assembler whose current output offset can be
+/// sampled while it emits a trampoline.
+pub(crate) struct EmittedOutputBudget<'a> {
+    shared: Option<&'a OutputBudget>,
+    accounted: usize,
+    pending: usize,
+}
+
+impl<'a> EmittedOutputBudget<'a> {
+    pub(crate) fn new(shared: Option<&'a OutputBudget>) -> Self {
+        Self {
+            shared,
+            accounted: 0,
+            pending: 0,
+        }
+    }
+
+    pub(crate) fn check(&mut self, output_size: usize) -> Result<(), CompileError> {
+        debug_assert!(output_size >= self.accounted);
+        if let Some(shared) = self.shared {
+            reserve_batched(
+                shared,
+                &mut self.pending,
+                output_size.saturating_sub(self.accounted),
+            )?;
+        }
+        self.accounted = output_size;
+        Ok(())
+    }
+
+    pub(crate) fn finish(&mut self, output_size: usize) -> Result<(), CompileError> {
+        self.check(output_size)?;
+        if let Some(shared) = self.shared {
+            let pending = std::mem::take(&mut self.pending);
+            shared.reserve(pending)?;
+        }
+        Ok(())
     }
 }
 
@@ -126,6 +173,37 @@ mod tests {
 
         local.finish().unwrap();
         assert_eq!(budget.remaining(), 10_000 - LOCAL_BUDGET_CHUNK_SIZE - 1);
+    }
+
+    #[test]
+    fn emitted_output_checks_commit_chunks_and_finish_flushes_the_remainder() {
+        let budget = OutputBudget::new(10_000);
+        let mut emitted = EmittedOutputBudget::new(Some(&budget));
+
+        emitted.check(1).unwrap();
+        assert_eq!(budget.remaining(), 10_000);
+
+        emitted.check(LOCAL_BUDGET_CHUNK_SIZE).unwrap();
+        assert_eq!(budget.remaining(), 10_000 - LOCAL_BUDGET_CHUNK_SIZE);
+
+        emitted.finish(LOCAL_BUDGET_CHUNK_SIZE + 1).unwrap();
+        assert_eq!(budget.remaining(), 10_000 - LOCAL_BUDGET_CHUNK_SIZE - 1);
+    }
+
+    #[test]
+    fn emitted_output_check_stops_when_a_full_chunk_exceeds_the_limit() {
+        let budget = OutputBudget::new(LOCAL_BUDGET_CHUNK_SIZE - 1);
+        let mut emitted = EmittedOutputBudget::new(Some(&budget));
+
+        assert!(matches!(
+            emitted.check(LOCAL_BUDGET_CHUNK_SIZE),
+            Err(CompileError::Codegen(message))
+                if message == format!(
+                    "singlepass compiler output exceeds limit of {} bytes",
+                    LOCAL_BUDGET_CHUNK_SIZE - 1
+                )
+        ));
+        assert_eq!(budget.remaining(), LOCAL_BUDGET_CHUNK_SIZE - 1);
     }
 
     #[cfg(debug_assertions)]

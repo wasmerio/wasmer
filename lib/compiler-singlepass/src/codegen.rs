@@ -335,6 +335,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let loc = self.machine.local_on_stack(self.stack_offset.get() as i32);
         if stack_diff > 0 {
             self.machine.extend_stack(stack_diff as u32)?;
+            self.ensure_output_size_within_limit()?;
         }
 
         Ok(loc)
@@ -497,6 +498,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 *loc
             };
             new_params_reversed.push((mapped_loc, *canonicalize));
+            self.ensure_output_size_within_limit()?;
         }
         self.value_stack
             .extend(new_params_reversed.into_iter().rev());
@@ -557,9 +559,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .skip(1)
         {
             self.machine.zero_location(Size::S64, locations[i])?;
+            self.ensure_output_size_within_limit()?;
         }
 
         self.machine.extend_stack(static_area_size as _)?;
+        self.ensure_output_size_within_limit()?;
 
         // Save callee-saved registers.
         for loc in locations.iter() {
@@ -567,6 +571,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.stack_offset += 8;
                 self.machine
                     .move_local(self.stack_offset.get() as i32, *loc)?;
+                self.ensure_output_size_within_limit()?;
             }
         }
 
@@ -576,6 +581,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.stack_offset.get() as i32,
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
+        self.ensure_output_size_within_limit()?;
 
         // Save the offset of register save area.
         self.save_area_offset = Some(self.stack_offset.get());
@@ -602,6 +608,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             );
             self.machine
                 .move_location_extend(sz, false, loc, Size::S64, locations[i])?;
+            self.ensure_output_size_within_limit()?;
         }
 
         // Load vmctx into it's GPR.
@@ -610,6 +617,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Location::GPR(self.machine.get_simple_param_location(0)),
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
+        self.ensure_output_size_within_limit()?;
 
         // Initialize all normal locals to zero.
         let mut init_stack_loc_cnt = 0;
@@ -622,6 +630,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 Location::GPR(_) => {
                     self.machine.zero_location(Size::S64, *location)?;
+                    self.ensure_output_size_within_limit()?;
                 }
                 _ => codegen_error!("singlepass init_local unreachable"),
             }
@@ -629,6 +638,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         if init_stack_loc_cnt > 0 {
             self.machine
                 .init_stack_loc(init_stack_loc_cnt, last_stack_loc)?;
+            self.ensure_output_size_within_limit()?;
         }
 
         // Add the size of all locals allocated to stack.
@@ -803,11 +813,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
         let mut used_stack = self.machine.push_used_gpr(&used_gprs)?;
+        self.ensure_output_size_within_limit()?;
 
         // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
         if !used_simds.is_empty() {
             used_stack += self.machine.push_used_simd(&used_simds)?;
+            self.ensure_output_size_within_limit()?;
         }
         // mark the GPR used for Call as used
         self.machine
@@ -845,6 +857,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             stack_offset += 16 - stack_unaligned;
         }
         self.machine.extend_stack(stack_offset as u32)?;
+        self.ensure_output_size_within_limit()?;
 
         #[allow(clippy::type_complexity)]
         let mut call_movs = Vec::new();
@@ -860,6 +873,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 Location::Memory(_, _) => {
                     self.machine
                         .move_location_for_native(param_sizes[i], *param, loc)?;
+                    self.ensure_output_size_within_limit()?;
                 }
                 _ => {
                     return Err(CompileError::Codegen(
@@ -880,6 +894,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             // Adjust the argument if required by ABI
             self.machine.adjust_gpr_param_location(gpr, size)?;
+            self.ensure_output_size_within_limit()?;
         }
 
         if matches!(call_type, NativeCallType::IncludeVMCtxArgument) {
@@ -889,6 +904,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 Location::GPR(self.machine.get_vmctx_reg()),
                 Location::GPR(self.machine.get_simple_param_location(0)),
             )?; // vmctx
+            self.ensure_output_size_within_limit()?;
         }
 
         self.stack_offset
@@ -898,6 +914,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let begin = self.machine.assembler_get_offset().0;
         cb(self)?;
+        self.ensure_output_size_within_limit()?;
         if matches!(call_type, NativeCallType::Unreachable) {
             let end = self.machine.assembler_get_offset().0;
             self.machine.mark_address_range_with_trap_code(
@@ -914,20 +931,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 return_args[i],
                 return_values[i].0,
             )?;
+            self.ensure_output_size_within_limit()?;
         }
 
         // Restore stack.
         if stack_offset > 0 {
             self.machine.truncate_stack(stack_offset as u32)?;
+            self.ensure_output_size_within_limit()?;
         }
 
         // Restore SIMDs.
         if !used_simds.is_empty() {
             self.machine.pop_used_simd(&used_simds)?;
+            self.ensure_output_size_within_limit()?;
         }
 
         // Restore GPRs.
         self.machine.pop_used_gpr(&used_gprs)?;
+        self.ensure_output_size_within_limit()?;
 
         // We are re-using the params for the return values, thus release just the chunk
         // we're not planning to use!
@@ -1016,6 +1037,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
         self.add_assembly_comment(AssemblyComment::FunctionBody);
+        self.ensure_output_size_within_limit()?;
 
         Ok(())
     }

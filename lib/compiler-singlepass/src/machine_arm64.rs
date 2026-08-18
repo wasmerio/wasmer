@@ -26,6 +26,7 @@ use crate::{
     emitter_arm64::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
+    output_budget::OutputBudget,
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
 };
 
@@ -8371,8 +8372,9 @@ impl Machine for MachineARM64 {
         &self,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        output_budget: Option<&OutputBudget>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_trampoline_arm64(sig, calling_convention)
+        gen_std_trampoline_arm64(sig, calling_convention, output_budget)
     }
     // Generates dynamic import function call trampoline for a function type.
 
@@ -8381,8 +8383,9 @@ impl Machine for MachineARM64 {
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        output_budget: Option<&OutputBudget>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_dynamic_import_trampoline_arm64(vmoffsets, sig, calling_convention)
+        gen_std_dynamic_import_trampoline_arm64(vmoffsets, sig, calling_convention, output_budget)
     }
     // Singlepass calls import functions through a trampoline.
 
@@ -8392,8 +8395,9 @@ impl Machine for MachineARM64 {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        output_budget: Option<&OutputBudget>,
     ) -> Result<CustomSection, CompileError> {
-        gen_import_call_trampoline_arm64(vmoffsets, index, sig, calling_convention)
+        gen_import_call_trampoline_arm64(vmoffsets, index, sig, calling_convention, output_budget)
     }
 
     #[cfg(feature = "unwind")]
