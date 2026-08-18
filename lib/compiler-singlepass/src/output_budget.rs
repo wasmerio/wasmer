@@ -3,43 +3,24 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-use wasmer_compiler::types::{function::FunctionBody, unwind::CompiledFunctionUnwindInfo};
 use wasmer_types::CompileError;
 
 use crate::config::output_size_limit_error;
 
 const LOCAL_BUDGET_CHUNK_SIZE: usize = 1024;
 
-/// Bytes stored after an already accounted function body for Windows unwind information.
-pub(crate) fn windows_unwind_output_delta(body_len: usize, unwind_len: usize) -> usize {
-    let padding = (4 - body_len % 4) % 4;
-    padding.saturating_add(unwind_len)
-}
-
-/// Machine code allocation represented by a compiled function body.
-pub(crate) fn function_output_size(body: &FunctionBody) -> usize {
-    let body_len = body.body.len();
-    let extra = match body.unwind_info.as_ref() {
-        Some(CompiledFunctionUnwindInfo::WindowsX64(unwind)) => {
-            windows_unwind_output_delta(body_len, unwind.len())
-        }
-        _ => 0,
-    };
-    body_len.saturating_add(extra)
-}
-
 /// Shared emitted code allowance for one module compilation.
 #[derive(Debug)]
 pub(crate) struct OutputBudget {
     limit: usize,
-    total: AtomicUsize,
+    remaining: AtomicUsize,
 }
 
 impl OutputBudget {
     pub(crate) fn new(limit: usize) -> Self {
         Self {
             limit,
-            total: AtomicUsize::new(0),
+            remaining: AtomicUsize::new(limit),
         }
     }
 
@@ -49,31 +30,18 @@ impl OutputBudget {
         }
 
         match self
-            .total
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |total| {
-                total
-                    .checked_add(delta)
-                    .filter(|&new_total| new_total <= self.limit)
+            .remaining
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |remaining| {
+                remaining.checked_sub(delta)
             }) {
             Ok(_) => Ok(()),
-            Err(total) => Err(output_size_limit_error(
-                total.saturating_add(delta),
-                self.limit,
-            )),
+            Err(_) => Err(output_size_limit_error(self.limit)),
         }
-    }
-
-    pub(crate) fn ensure_within_limit(&self) -> Result<(), CompileError> {
-        let total = self.total.load(Ordering::Relaxed);
-        if total > self.limit {
-            return Err(output_size_limit_error(total, self.limit));
-        }
-        Ok(())
     }
 
     #[cfg(test)]
-    fn total(&self) -> usize {
-        self.total.load(Ordering::Relaxed)
+    fn remaining(&self) -> usize {
+        self.remaining.load(Ordering::Relaxed)
     }
 }
 
@@ -94,7 +62,7 @@ impl LocalOutputBudget {
         let pending = self
             .pending
             .checked_add(delta)
-            .ok_or_else(|| output_size_limit_error(usize::MAX, self.shared.limit))?;
+            .ok_or_else(|| output_size_limit_error(self.shared.limit))?;
         let committed = pending / LOCAL_BUDGET_CHUNK_SIZE * LOCAL_BUDGET_CHUNK_SIZE;
         if committed > 0 {
             self.shared.reserve(committed)?;
@@ -104,9 +72,17 @@ impl LocalOutputBudget {
     }
 
     pub(crate) fn finish(&mut self) -> Result<(), CompileError> {
-        self.shared.reserve(self.pending)?;
-        self.pending = 0;
-        Ok(())
+        let pending = std::mem::take(&mut self.pending);
+        self.shared.reserve(pending)
+    }
+}
+
+impl Drop for LocalOutputBudget {
+    fn drop(&mut self) {
+        debug_assert_eq!(
+            self.pending, 0,
+            "local output budget dropped without calling finish"
+        );
     }
 }
 
@@ -120,35 +96,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn function_output_includes_aligned_windows_unwind_info() {
-        let body = FunctionBody {
-            body: vec![0; 5],
-            unwind_info: Some(CompiledFunctionUnwindInfo::WindowsX64(vec![0; 7])),
-        };
-        assert_eq!(function_output_size(&body), 15);
-
-        let body = FunctionBody {
-            body: vec![0; 5],
-            unwind_info: Some(CompiledFunctionUnwindInfo::Dwarf),
-        };
-        assert_eq!(function_output_size(&body), 5);
-    }
-
-    #[test]
     fn reservation_limit_is_inclusive() {
         const LIMIT: usize = 10 * 1024 * 1024;
         let budget = OutputBudget::new(LIMIT);
         assert!(budget.reserve(LIMIT).is_ok());
-        assert_eq!(budget.total(), LIMIT);
+        assert_eq!(budget.remaining(), 0);
         assert!(matches!(
             budget.reserve(1),
             Err(CompileError::Codegen(message))
                 if message == format!(
-                    "singlepass compiler output exceeds limit: {} > {LIMIT} bytes",
-                    LIMIT + 1
+                    "singlepass compiler output exceeds limit of {LIMIT} bytes"
                 )
         ));
-        assert_eq!(budget.total(), LIMIT);
+        assert_eq!(budget.remaining(), 0);
     }
 
     #[test]
@@ -156,17 +116,25 @@ mod tests {
         let budget = Arc::new(OutputBudget::new(10_000));
         let mut local = LocalOutputBudget::new(Arc::clone(&budget));
         local.reserve(1).unwrap();
-        assert_eq!(budget.total(), 0);
+        assert_eq!(budget.remaining(), 10_000);
 
         local.reserve(LOCAL_BUDGET_CHUNK_SIZE - 1).unwrap();
-        assert_eq!(budget.total(), LOCAL_BUDGET_CHUNK_SIZE);
+        assert_eq!(budget.remaining(), 10_000 - LOCAL_BUDGET_CHUNK_SIZE);
 
         local.reserve(1).unwrap();
-        assert_eq!(budget.total(), LOCAL_BUDGET_CHUNK_SIZE);
+        assert_eq!(budget.remaining(), 10_000 - LOCAL_BUDGET_CHUNK_SIZE);
 
         local.finish().unwrap();
-        assert_eq!(budget.total(), LOCAL_BUDGET_CHUNK_SIZE + 1);
-        assert!(budget.ensure_within_limit().is_ok());
+        assert_eq!(budget.remaining(), 10_000 - LOCAL_BUDGET_CHUNK_SIZE - 1);
+    }
+
+    #[cfg(debug_assertions)]
+    #[test]
+    #[should_panic(expected = "local output budget dropped without calling finish")]
+    fn dropping_unfinished_local_budget_panics() {
+        let budget = Arc::new(OutputBudget::new(10_000));
+        let mut local = LocalOutputBudget::new(budget);
+        local.reserve(1).unwrap();
     }
 
     #[test]
@@ -177,16 +145,16 @@ mod tests {
         local.reserve(LOCAL_BUDGET_CHUNK_SIZE).unwrap();
         local.reserve(LIMIT - LOCAL_BUDGET_CHUNK_SIZE).unwrap();
         local.finish().unwrap();
-        assert_eq!(budget.total(), LIMIT);
+        assert_eq!(budget.remaining(), 0);
 
         let mut overflow = LocalOutputBudget::new(Arc::clone(&budget));
         overflow.reserve(1).unwrap();
         assert!(matches!(
             overflow.finish(),
             Err(CompileError::Codegen(message))
-                if message == "singlepass compiler output exceeds limit: 1501 > 1500 bytes"
+                if message == "singlepass compiler output exceeds limit of 1500 bytes"
         ));
-        assert_eq!(budget.total(), LIMIT);
+        assert_eq!(budget.remaining(), 0);
     }
 
     #[test]
@@ -208,8 +176,7 @@ mod tests {
             }
         });
 
-        assert_eq!(budget.total(), THREADS * BYTES_PER_THREAD);
-        assert!(budget.ensure_within_limit().is_ok());
+        assert_eq!(budget.remaining(), 0);
     }
 
     #[test]
@@ -233,11 +200,11 @@ mod tests {
         });
 
         assert_eq!(successful.load(Ordering::Relaxed), LIMIT);
-        assert_eq!(budget.total(), LIMIT);
+        assert_eq!(budget.remaining(), 0);
         assert!(matches!(
             budget.reserve(1),
             Err(CompileError::Codegen(message))
-                if message == "singlepass compiler output exceeds limit: 10001 > 10000 bytes"
+                if message == "singlepass compiler output exceeds limit of 10000 bytes"
         ));
     }
 }

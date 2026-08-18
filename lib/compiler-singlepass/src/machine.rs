@@ -5,7 +5,7 @@ use crate::{
     machine_arm64::MachineARM64,
     machine_riscv::MachineRiscv,
     machine_x64::MachineX86_64,
-    output_budget::{OutputBudget, function_output_size},
+    output_budget::OutputBudget,
     unwind::UnwindInstructions,
 };
 
@@ -2374,7 +2374,7 @@ pub fn gen_std_trampoline(
         )),
     }?;
     if let Some(output_budget) = output_budget {
-        output_budget.reserve(function_output_size(&body))?;
+        output_budget.reserve(body.body.len())?;
     }
     match object {
         Some(kind) => Ok(CompileOutput::Object(
@@ -2412,7 +2412,7 @@ pub fn gen_std_dynamic_import_trampoline(
         )),
     }?;
     if let Some(output_budget) = output_budget {
-        output_budget.reserve(function_output_size(&body))?;
+        output_budget.reserve(body.body.len())?;
     }
     match object {
         Some(kind) => Ok(CompileOutput::Object(

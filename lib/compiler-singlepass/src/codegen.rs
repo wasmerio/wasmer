@@ -1,8 +1,5 @@
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-#[cfg(feature = "unwind")]
-use crate::output_budget::windows_unwind_output_delta;
-
 use crate::{
     address_map::get_function_address_map,
     codegen_error,

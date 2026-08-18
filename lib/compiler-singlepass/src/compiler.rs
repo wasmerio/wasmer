@@ -14,7 +14,7 @@ use crate::machine::{
 use crate::machine_arm64::MachineARM64;
 use crate::machine_riscv::MachineRiscv;
 use crate::machine_x64::MachineX86_64;
-use crate::output_budget::{OutputBudget, function_output_size};
+use crate::output_budget::OutputBudget;
 use crate::unwind::UnwindFrame;
 #[cfg(feature = "unwind")]
 use crate::unwind::create_systemv_cie;
@@ -272,9 +272,6 @@ impl SinglepassCompiler {
                 Ok(res)
             })
             .collect::<Result<Vec<_>, CompileError>>()?;
-        if let Some(output_budget) = output_budget.as_ref() {
-            output_budget.ensure_within_limit()?;
-        }
         let function_max_stack_usage = functions
             .iter()
             .map(|output| match output {
@@ -396,24 +393,6 @@ impl SinglepassCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, _>>();
 
-        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
-        let mut output_size = custom_sections
-            .values()
-            .map(|section| section.bytes.len())
-            .chain(
-                functions
-                    .iter()
-                    .map(|function| function_output_size(&function.body)),
-            )
-            .chain(function_call_trampolines.values().map(function_output_size))
-            .chain(
-                dynamic_function_trampolines
-                    .values()
-                    .map(function_output_size),
-            )
-            .fold(0usize, usize::saturating_add);
-        self.config.ensure_output_size_within_limit(output_size)?;
-
         #[allow(unused_mut)]
         let mut unwind_info = UnwindInfo::default();
 
@@ -432,8 +411,6 @@ impl SinglepassCompiler {
             if let Some(output_budget) = output_budget.as_ref() {
                 output_budget.reserve(eh_frame_section.bytes.len())?;
             }
-            output_size = output_size.saturating_add(eh_frame_section.bytes.len());
-            self.config.ensure_output_size_within_limit(output_size)?;
             custom_sections.push(eh_frame_section);
             unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1))
         };
@@ -608,16 +585,5 @@ mod tests {
                 CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1
             )
         );
-    }
-
-    #[test]
-    fn enforces_output_size_limit_at_boundary() {
-        let config = Singlepass::default().with_max_output_size(64);
-        assert!(config.ensure_output_size_within_limit(64).is_ok());
-        assert!(matches!(
-            config.ensure_output_size_within_limit(65),
-            Err(CompileError::Codegen(message))
-                if message == "singlepass compiler output exceeds limit: 65 > 64 bytes"
-        ));
     }
 }

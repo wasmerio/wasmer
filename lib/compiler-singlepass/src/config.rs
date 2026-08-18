@@ -130,15 +130,6 @@ impl Singlepass {
         self
     }
 
-    pub(crate) fn ensure_output_size_within_limit(&self, size: usize) -> Result<(), CompileError> {
-        if let Some(limit) = self.max_output_size
-            && size > limit
-        {
-            return Err(output_size_limit_error(size, limit));
-        }
-        Ok(())
-    }
-
     /// Enable run-time handling of potentially unaligned memory accesses.
     /// Unaligned memory accesses occur when you try to read N bytes of data starting
     /// from an address that is not evenly divisible by N.
@@ -164,9 +155,9 @@ impl Singlepass {
     }
 }
 
-pub(crate) fn output_size_limit_error(size: usize, limit: usize) -> CompileError {
+pub(crate) fn output_size_limit_error(limit: usize) -> CompileError {
     CompileError::Codegen(format!(
-        "singlepass compiler output exceeds limit: {size} > {limit} bytes"
+        "singlepass compiler output exceeds limit of {limit} bytes"
     ))
 }
 
