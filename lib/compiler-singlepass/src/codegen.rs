@@ -310,10 +310,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn acquire_location_on_stack(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
         let old_adjust = self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT);
         self.stack_offset += 8;
-        let new_adjust = self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT);
+        let stack_diff = self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT) - old_adjust;
 
         let loc = self.machine.local_on_stack(self.stack_offset.get() as i32);
-        let stack_diff = new_adjust - old_adjust;
         if stack_diff > 0 {
             self.machine.extend_stack(stack_diff as u32)?;
         }
@@ -359,8 +358,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.stack_offset -= 8;
             }
         }
-        let new_adjust = self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT);
-        let stack_diff = old_adjust - new_adjust;
+        let stack_diff = old_adjust - self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT);
         if stack_diff > 0 {
             self.machine.truncate_stack(stack_diff as u32)?;
         }
@@ -382,8 +380,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 stack_offset -= 8;
             }
         }
-        let new_adjust = stack_offset.next_multiple_of(M::STACK_ALIGNMENT);
-        let stack_diff = old_adjust - new_adjust;
+        let stack_diff = old_adjust - stack_offset.next_multiple_of(M::STACK_ALIGNMENT);
         if stack_diff > 0 {
             self.machine.truncate_stack(stack_diff as u32)?;
         }
