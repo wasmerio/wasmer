@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","edges","nodes","pageInfo"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","nodes","pageInfo"]};

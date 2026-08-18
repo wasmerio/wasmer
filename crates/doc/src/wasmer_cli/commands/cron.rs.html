@@ -276,181 +276,136 @@
 <a href=#276 id=276 data-nosnippet>276</a>    <span class="attr">#[clap(flatten)]
 <a href=#277 id=277 data-nosnippet>277</a>    </span>env: WasmerEnv,
 <a href=#278 id=278 data-nosnippet>278</a>
-<a href=#279 id=279 data-nosnippet>279</a>    <span class="attr">#[clap(flatten)]
-<a href=#280 id=280 data-nosnippet>280</a>    </span>ident: AppIdentArgOpts,
+<a href=#279 id=279 data-nosnippet>279</a>    <span class="doccomment">/// Cron job invocation id.
+<a href=#280 id=280 data-nosnippet>280</a>    </span>invocation: String,
 <a href=#281 id=281 data-nosnippet>281</a>
-<a href=#282 id=282 data-nosnippet>282</a>    <span class="doccomment">/// Cron job id or name.
-<a href=#283 id=283 data-nosnippet>283</a>    </span>cron_job: String,
-<a href=#284 id=284 data-nosnippet>284</a>
-<a href=#285 id=285 data-nosnippet>285</a>    <span class="doccomment">/// Cron job invocation id or edge job id.
-<a href=#286 id=286 data-nosnippet>286</a>    </span>invocation: String,
-<a href=#287 id=287 data-nosnippet>287</a>
-<a href=#288 id=288 data-nosnippet>288</a>    <span class="doccomment">/// The earliest invocation timestamp to include.
-<a href=#289 id=289 data-nosnippet>289</a>    ///
-<a href=#290 id=290 data-nosnippet>290</a>    /// Defaults to 31 days before --end, or 31 days before now.
-<a href=#291 id=291 data-nosnippet>291</a>    ///
-<a href=#292 id=292 data-nosnippet>292</a>    /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
-<a href=#293 id=293 data-nosnippet>293</a>    </span><span class="attr">#[clap(long = <span class="string">"start"</span>, alias = <span class="string">"from"</span>, value_parser = parse_timestamp_or_relative_time_negative_offset)]
-<a href=#294 id=294 data-nosnippet>294</a>    </span>start: <span class="prelude-ty">Option</span>&lt;OffsetDateTime&gt;,
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="doccomment">/// Maximum log lines to fetch.
+<a href=#283 id=283 data-nosnippet>283</a>    </span><span class="attr">#[clap(long, default_value = <span class="string">"1000"</span>)]
+<a href=#284 id=284 data-nosnippet>284</a>    </span>max: i32,
+<a href=#285 id=285 data-nosnippet>285</a>}
+<a href=#286 id=286 data-nosnippet>286</a>
+<a href=#287 id=287 data-nosnippet>287</a><span class="attr">#[async_trait::async_trait]
+<a href=#288 id=288 data-nosnippet>288</a></span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdCronLogs {
+<a href=#289 id=289 data-nosnippet>289</a>    <span class="kw">type </span>Output = ();
+<a href=#290 id=290 data-nosnippet>290</a>
+<a href=#291 id=291 data-nosnippet>291</a>    <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+<a href=#292 id=292 data-nosnippet>292</a>        <span class="kw">if </span><span class="self">self</span>.max &lt; <span class="number">1 </span>{
+<a href=#293 id=293 data-nosnippet>293</a>            <span class="macro">bail!</span>(<span class="string">"--max must be greater than 0"</span>);
+<a href=#294 id=294 data-nosnippet>294</a>        }
 <a href=#295 id=295 data-nosnippet>295</a>
-<a href=#296 id=296 data-nosnippet>296</a>    <span class="doccomment">/// The latest invocation timestamp to include.
-<a href=#297 id=297 data-nosnippet>297</a>    ///
-<a href=#298 id=298 data-nosnippet>298</a>    /// Defaults to now.
-<a href=#299 id=299 data-nosnippet>299</a>    ///
-<a href=#300 id=300 data-nosnippet>300</a>    /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
-<a href=#301 id=301 data-nosnippet>301</a>    </span><span class="attr">#[clap(long = <span class="string">"end"</span>, alias = <span class="string">"until"</span>, value_parser = parse_timestamp_or_relative_time_negative_offset)]
-<a href=#302 id=302 data-nosnippet>302</a>    </span>end: <span class="prelude-ty">Option</span>&lt;OffsetDateTime&gt;,
+<a href=#296 id=296 data-nosnippet>296</a>        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
+<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">let </span>logs = wasmer_backend_api::query::get_cron_job_invocation_logs_by_invocation_id(
+<a href=#298 id=298 data-nosnippet>298</a>            <span class="kw-2">&amp;</span>client,
+<a href=#299 id=299 data-nosnippet>299</a>            <span class="kw-2">&amp;</span><span class="self">self</span>.invocation,
+<a href=#300 id=300 data-nosnippet>300</a>            <span class="prelude-val">Some</span>(<span class="self">self</span>.max),
+<a href=#301 id=301 data-nosnippet>301</a>        )
+<a href=#302 id=302 data-nosnippet>302</a>        .<span class="kw">await</span><span class="question-mark">?</span>;
 <a href=#303 id=303 data-nosnippet>303</a>
-<a href=#304 id=304 data-nosnippet>304</a>    <span class="doccomment">/// Maximum log lines to fetch.
-<a href=#305 id=305 data-nosnippet>305</a>    </span><span class="attr">#[clap(long, default_value = <span class="string">"1000"</span>)]
-<a href=#306 id=306 data-nosnippet>306</a>    </span>max: i32,
-<a href=#307 id=307 data-nosnippet>307</a>}
-<a href=#308 id=308 data-nosnippet>308</a>
-<a href=#309 id=309 data-nosnippet>309</a><span class="attr">#[async_trait::async_trait]
-<a href=#310 id=310 data-nosnippet>310</a></span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdCronLogs {
-<a href=#311 id=311 data-nosnippet>311</a>    <span class="kw">type </span>Output = ();
-<a href=#312 id=312 data-nosnippet>312</a>
-<a href=#313 id=313 data-nosnippet>313</a>    <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-<a href=#314 id=314 data-nosnippet>314</a>        <span class="kw">if </span><span class="self">self</span>.max &lt; <span class="number">1 </span>{
-<a href=#315 id=315 data-nosnippet>315</a>            <span class="macro">bail!</span>(<span class="string">"--max must be greater than 0"</span>);
-<a href=#316 id=316 data-nosnippet>316</a>        }
-<a href=#317 id=317 data-nosnippet>317</a>        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(start), <span class="prelude-val">Some</span>(end)) = (<span class="self">self</span>.start, <span class="self">self</span>.end)
-<a href=#318 id=318 data-nosnippet>318</a>            &amp;&amp; start &gt; end
-<a href=#319 id=319 data-nosnippet>319</a>        {
-<a href=#320 id=320 data-nosnippet>320</a>            <span class="macro">bail!</span>(<span class="string">"--start must be before or equal to --end"</span>);
-<a href=#321 id=321 data-nosnippet>321</a>        }
+<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">if </span>logs.is_empty() {
+<a href=#305 id=305 data-nosnippet>305</a>            <span class="macro">eprintln!</span>(<span class="string">"Cron job invocation {} has no logs!"</span>, <span class="self">self</span>.invocation);
+<a href=#306 id=306 data-nosnippet>306</a>        } <span class="kw">else </span>{
+<a href=#307 id=307 data-nosnippet>307</a>            <span class="macro">println!</span>(<span class="string">"{}"</span>, <span class="self">self</span>.fmt.format.render(logs.as_slice()));
+<a href=#308 id=308 data-nosnippet>308</a>        }
+<a href=#309 id=309 data-nosnippet>309</a>
+<a href=#310 id=310 data-nosnippet>310</a>        <span class="prelude-val">Ok</span>(())
+<a href=#311 id=311 data-nosnippet>311</a>    }
+<a href=#312 id=312 data-nosnippet>312</a>}
+<a href=#313 id=313 data-nosnippet>313</a>
+<a href=#314 id=314 data-nosnippet>314</a><span class="doccomment">/// Enable one cron job.
+<a href=#315 id=315 data-nosnippet>315</a></span><span class="attr">#[derive(clap::Parser, Debug)]
+<a href=#316 id=316 data-nosnippet>316</a></span><span class="kw">pub struct </span>CmdCronEnable {
+<a href=#317 id=317 data-nosnippet>317</a>    <span class="attr">#[clap(flatten)]
+<a href=#318 id=318 data-nosnippet>318</a>    </span>env: WasmerEnv,
+<a href=#319 id=319 data-nosnippet>319</a>
+<a href=#320 id=320 data-nosnippet>320</a>    <span class="attr">#[clap(flatten)]
+<a href=#321 id=321 data-nosnippet>321</a>    </span>ident: AppIdentArgOpts,
 <a href=#322 id=322 data-nosnippet>322</a>
-<a href=#323 id=323 data-nosnippet>323</a>        <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
-<a href=#324 id=324 data-nosnippet>324</a>        <span class="kw">let </span>logs = <span class="kw">if </span>should_resolve_cron_job_by_id(<span class="kw-2">&amp;</span><span class="self">self</span>.ident, <span class="kw-2">&amp;</span><span class="self">self</span>.cron_job) {
-<a href=#325 id=325 data-nosnippet>325</a>            wasmer_backend_api::query::get_cron_job_invocation_logs_by_id(
-<a href=#326 id=326 data-nosnippet>326</a>                <span class="kw-2">&amp;</span>client,
-<a href=#327 id=327 data-nosnippet>327</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.cron_job,
-<a href=#328 id=328 data-nosnippet>328</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.invocation,
-<a href=#329 id=329 data-nosnippet>329</a>                <span class="prelude-val">Some</span>(<span class="self">self</span>.max),
-<a href=#330 id=330 data-nosnippet>330</a>                <span class="self">self</span>.start,
-<a href=#331 id=331 data-nosnippet>331</a>                <span class="self">self</span>.end,
-<a href=#332 id=332 data-nosnippet>332</a>            )
-<a href=#333 id=333 data-nosnippet>333</a>            .<span class="kw">await</span><span class="question-mark">?
-<a href=#334 id=334 data-nosnippet>334</a>        </span>} <span class="kw">else </span>{
-<a href=#335 id=335 data-nosnippet>335</a>            <span class="kw">let </span>(_ident, app) = <span class="self">self</span>.ident.to_opts().load_app(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#336 id=336 data-nosnippet>336</a>            wasmer_backend_api::query::get_cron_job_invocation_logs(
-<a href=#337 id=337 data-nosnippet>337</a>                <span class="kw-2">&amp;</span>client,
-<a href=#338 id=338 data-nosnippet>338</a>                <span class="kw-2">&amp;</span>app.owner.global_name,
-<a href=#339 id=339 data-nosnippet>339</a>                <span class="kw-2">&amp;</span>app.name,
-<a href=#340 id=340 data-nosnippet>340</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.cron_job,
-<a href=#341 id=341 data-nosnippet>341</a>                <span class="kw-2">&amp;</span><span class="self">self</span>.invocation,
-<a href=#342 id=342 data-nosnippet>342</a>                <span class="prelude-val">Some</span>(<span class="self">self</span>.max),
-<a href=#343 id=343 data-nosnippet>343</a>                <span class="self">self</span>.start,
-<a href=#344 id=344 data-nosnippet>344</a>                <span class="self">self</span>.end,
-<a href=#345 id=345 data-nosnippet>345</a>            )
-<a href=#346 id=346 data-nosnippet>346</a>            .<span class="kw">await</span><span class="question-mark">?
-<a href=#347 id=347 data-nosnippet>347</a>        </span>};
+<a href=#323 id=323 data-nosnippet>323</a>    <span class="doccomment">/// Cron job id or name.
+<a href=#324 id=324 data-nosnippet>324</a>    </span>cron_job: String,
+<a href=#325 id=325 data-nosnippet>325</a>}
+<a href=#326 id=326 data-nosnippet>326</a>
+<a href=#327 id=327 data-nosnippet>327</a><span class="attr">#[async_trait::async_trait]
+<a href=#328 id=328 data-nosnippet>328</a></span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdCronEnable {
+<a href=#329 id=329 data-nosnippet>329</a>    <span class="kw">type </span>Output = ();
+<a href=#330 id=330 data-nosnippet>330</a>
+<a href=#331 id=331 data-nosnippet>331</a>    <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+<a href=#332 id=332 data-nosnippet>332</a>        toggle_cron_job(<span class="self">self</span>.env, <span class="self">self</span>.ident, <span class="self">self</span>.cron_job, <span class="bool-val">true</span>).<span class="kw">await
+<a href=#333 id=333 data-nosnippet>333</a>    </span>}
+<a href=#334 id=334 data-nosnippet>334</a>}
+<a href=#335 id=335 data-nosnippet>335</a>
+<a href=#336 id=336 data-nosnippet>336</a><span class="doccomment">/// Disable one cron job.
+<a href=#337 id=337 data-nosnippet>337</a></span><span class="attr">#[derive(clap::Parser, Debug)]
+<a href=#338 id=338 data-nosnippet>338</a></span><span class="kw">pub struct </span>CmdCronDisable {
+<a href=#339 id=339 data-nosnippet>339</a>    <span class="attr">#[clap(flatten)]
+<a href=#340 id=340 data-nosnippet>340</a>    </span>env: WasmerEnv,
+<a href=#341 id=341 data-nosnippet>341</a>
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="attr">#[clap(flatten)]
+<a href=#343 id=343 data-nosnippet>343</a>    </span>ident: AppIdentArgOpts,
+<a href=#344 id=344 data-nosnippet>344</a>
+<a href=#345 id=345 data-nosnippet>345</a>    <span class="doccomment">/// Cron job id or name.
+<a href=#346 id=346 data-nosnippet>346</a>    </span>cron_job: String,
+<a href=#347 id=347 data-nosnippet>347</a>}
 <a href=#348 id=348 data-nosnippet>348</a>
-<a href=#349 id=349 data-nosnippet>349</a>        <span class="kw">if </span>logs.is_empty() {
-<a href=#350 id=350 data-nosnippet>350</a>            <span class="macro">eprintln!</span>(<span class="string">"Cron job invocation {} has no logs!"</span>, <span class="self">self</span>.invocation);
-<a href=#351 id=351 data-nosnippet>351</a>        } <span class="kw">else </span>{
-<a href=#352 id=352 data-nosnippet>352</a>            <span class="macro">println!</span>(<span class="string">"{}"</span>, <span class="self">self</span>.fmt.format.render(logs.as_slice()));
-<a href=#353 id=353 data-nosnippet>353</a>        }
-<a href=#354 id=354 data-nosnippet>354</a>
-<a href=#355 id=355 data-nosnippet>355</a>        <span class="prelude-val">Ok</span>(())
-<a href=#356 id=356 data-nosnippet>356</a>    }
-<a href=#357 id=357 data-nosnippet>357</a>}
-<a href=#358 id=358 data-nosnippet>358</a>
-<a href=#359 id=359 data-nosnippet>359</a><span class="doccomment">/// Enable one cron job.
-<a href=#360 id=360 data-nosnippet>360</a></span><span class="attr">#[derive(clap::Parser, Debug)]
-<a href=#361 id=361 data-nosnippet>361</a></span><span class="kw">pub struct </span>CmdCronEnable {
-<a href=#362 id=362 data-nosnippet>362</a>    <span class="attr">#[clap(flatten)]
-<a href=#363 id=363 data-nosnippet>363</a>    </span>env: WasmerEnv,
-<a href=#364 id=364 data-nosnippet>364</a>
-<a href=#365 id=365 data-nosnippet>365</a>    <span class="attr">#[clap(flatten)]
-<a href=#366 id=366 data-nosnippet>366</a>    </span>ident: AppIdentArgOpts,
-<a href=#367 id=367 data-nosnippet>367</a>
-<a href=#368 id=368 data-nosnippet>368</a>    <span class="doccomment">/// Cron job id or name.
-<a href=#369 id=369 data-nosnippet>369</a>    </span>cron_job: String,
-<a href=#370 id=370 data-nosnippet>370</a>}
-<a href=#371 id=371 data-nosnippet>371</a>
-<a href=#372 id=372 data-nosnippet>372</a><span class="attr">#[async_trait::async_trait]
-<a href=#373 id=373 data-nosnippet>373</a></span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdCronEnable {
-<a href=#374 id=374 data-nosnippet>374</a>    <span class="kw">type </span>Output = ();
-<a href=#375 id=375 data-nosnippet>375</a>
-<a href=#376 id=376 data-nosnippet>376</a>    <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-<a href=#377 id=377 data-nosnippet>377</a>        toggle_cron_job(<span class="self">self</span>.env, <span class="self">self</span>.ident, <span class="self">self</span>.cron_job, <span class="bool-val">true</span>).<span class="kw">await
-<a href=#378 id=378 data-nosnippet>378</a>    </span>}
-<a href=#379 id=379 data-nosnippet>379</a>}
-<a href=#380 id=380 data-nosnippet>380</a>
-<a href=#381 id=381 data-nosnippet>381</a><span class="doccomment">/// Disable one cron job.
-<a href=#382 id=382 data-nosnippet>382</a></span><span class="attr">#[derive(clap::Parser, Debug)]
-<a href=#383 id=383 data-nosnippet>383</a></span><span class="kw">pub struct </span>CmdCronDisable {
-<a href=#384 id=384 data-nosnippet>384</a>    <span class="attr">#[clap(flatten)]
-<a href=#385 id=385 data-nosnippet>385</a>    </span>env: WasmerEnv,
-<a href=#386 id=386 data-nosnippet>386</a>
-<a href=#387 id=387 data-nosnippet>387</a>    <span class="attr">#[clap(flatten)]
-<a href=#388 id=388 data-nosnippet>388</a>    </span>ident: AppIdentArgOpts,
-<a href=#389 id=389 data-nosnippet>389</a>
-<a href=#390 id=390 data-nosnippet>390</a>    <span class="doccomment">/// Cron job id or name.
-<a href=#391 id=391 data-nosnippet>391</a>    </span>cron_job: String,
-<a href=#392 id=392 data-nosnippet>392</a>}
-<a href=#393 id=393 data-nosnippet>393</a>
-<a href=#394 id=394 data-nosnippet>394</a><span class="attr">#[async_trait::async_trait]
-<a href=#395 id=395 data-nosnippet>395</a></span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdCronDisable {
-<a href=#396 id=396 data-nosnippet>396</a>    <span class="kw">type </span>Output = ();
-<a href=#397 id=397 data-nosnippet>397</a>
-<a href=#398 id=398 data-nosnippet>398</a>    <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-<a href=#399 id=399 data-nosnippet>399</a>        toggle_cron_job(<span class="self">self</span>.env, <span class="self">self</span>.ident, <span class="self">self</span>.cron_job, <span class="bool-val">false</span>).<span class="kw">await
-<a href=#400 id=400 data-nosnippet>400</a>    </span>}
-<a href=#401 id=401 data-nosnippet>401</a>}
-<a href=#402 id=402 data-nosnippet>402</a>
-<a href=#403 id=403 data-nosnippet>403</a><span class="kw">async fn </span>toggle_cron_job(
-<a href=#404 id=404 data-nosnippet>404</a>    env: WasmerEnv,
-<a href=#405 id=405 data-nosnippet>405</a>    ident: AppIdentArgOpts,
-<a href=#406 id=406 data-nosnippet>406</a>    cron_job: String,
-<a href=#407 id=407 data-nosnippet>407</a>    enabled: bool,
-<a href=#408 id=408 data-nosnippet>408</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-<a href=#409 id=409 data-nosnippet>409</a>    <span class="kw">let </span>client = env.client()<span class="question-mark">?</span>;
-<a href=#410 id=410 data-nosnippet>410</a>    <span class="kw">let </span>cron_job = resolve_cron_job(<span class="kw-2">&amp;</span>client, ident, <span class="kw-2">&amp;</span>cron_job).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#411 id=411 data-nosnippet>411</a>
-<a href=#412 id=412 data-nosnippet>412</a>    <span class="kw">let </span>cron_job =
-<a href=#413 id=413 data-nosnippet>413</a>        wasmer_backend_api::query::toggle_cron_job(<span class="kw-2">&amp;</span>client, cron_job.id.inner(), enabled).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#414 id=414 data-nosnippet>414</a>    <span class="kw">let </span>state = <span class="kw">if </span>cron_job.enabled {
-<a href=#415 id=415 data-nosnippet>415</a>        <span class="string">"enabled"
-<a href=#416 id=416 data-nosnippet>416</a>    </span>} <span class="kw">else </span>{
-<a href=#417 id=417 data-nosnippet>417</a>        <span class="string">"disabled"
-<a href=#418 id=418 data-nosnippet>418</a>    </span>};
-<a href=#419 id=419 data-nosnippet>419</a>
-<a href=#420 id=420 data-nosnippet>420</a>    <span class="macro">eprintln!</span>(<span class="string">"Cron job {} is now {}."</span>, cron_job.name, state);
-<a href=#421 id=421 data-nosnippet>421</a>    <span class="prelude-val">Ok</span>(())
-<a href=#422 id=422 data-nosnippet>422</a>}
-<a href=#423 id=423 data-nosnippet>423</a>
-<a href=#424 id=424 data-nosnippet>424</a><span class="kw">async fn </span>resolve_cron_job(
-<a href=#425 id=425 data-nosnippet>425</a>    client: <span class="kw-2">&amp;</span>wasmer_backend_api::WasmerClient,
-<a href=#426 id=426 data-nosnippet>426</a>    ident: AppIdentArgOpts,
-<a href=#427 id=427 data-nosnippet>427</a>    cron_job: <span class="kw-2">&amp;</span>str,
-<a href=#428 id=428 data-nosnippet>428</a>) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_backend_api::types::CronJob, anyhow::Error&gt; {
-<a href=#429 id=429 data-nosnippet>429</a>    <span class="kw">if </span>should_resolve_cron_job_by_id(<span class="kw-2">&amp;</span>ident, cron_job) {
-<a href=#430 id=430 data-nosnippet>430</a>        <span class="kw">return </span>wasmer_backend_api::query::get_cron_job_by_id(client, cron_job).<span class="kw">await</span>;
-<a href=#431 id=431 data-nosnippet>431</a>    }
-<a href=#432 id=432 data-nosnippet>432</a>
-<a href=#433 id=433 data-nosnippet>433</a>    <span class="kw">let </span>(_ident, app) = ident.to_opts().load_app(client).<span class="kw">await</span><span class="question-mark">?</span>;
-<a href=#434 id=434 data-nosnippet>434</a>    find_app_cron_job(client, <span class="kw-2">&amp;</span>app, cron_job).<span class="kw">await
-<a href=#435 id=435 data-nosnippet>435</a></span>}
-<a href=#436 id=436 data-nosnippet>436</a>
-<a href=#437 id=437 data-nosnippet>437</a><span class="kw">fn </span>should_resolve_cron_job_by_id(ident: <span class="kw-2">&amp;</span>AppIdentArgOpts, cron_job: <span class="kw-2">&amp;</span>str) -&gt; bool {
-<a href=#438 id=438 data-nosnippet>438</a>    ident.app.is_none() &amp;&amp; cron_job.starts_with(<span class="string">"cron_"</span>)
-<a href=#439 id=439 data-nosnippet>439</a>}
-<a href=#440 id=440 data-nosnippet>440</a>
-<a href=#441 id=441 data-nosnippet>441</a><span class="kw">async fn </span>find_app_cron_job(
-<a href=#442 id=442 data-nosnippet>442</a>    client: <span class="kw-2">&amp;</span>wasmer_backend_api::WasmerClient,
-<a href=#443 id=443 data-nosnippet>443</a>    app: <span class="kw-2">&amp;</span>wasmer_backend_api::types::DeployApp,
-<a href=#444 id=444 data-nosnippet>444</a>    cron_job: <span class="kw-2">&amp;</span>str,
-<a href=#445 id=445 data-nosnippet>445</a>) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_backend_api::types::CronJob, anyhow::Error&gt; {
-<a href=#446 id=446 data-nosnippet>446</a>    wasmer_backend_api::query::get_app_cron_jobs(client, <span class="kw-2">&amp;</span>app.owner.global_name, <span class="kw-2">&amp;</span>app.name)
-<a href=#447 id=447 data-nosnippet>447</a>        .<span class="kw">await</span><span class="question-mark">?
-<a href=#448 id=448 data-nosnippet>448</a>        </span>.into_iter()
-<a href=#449 id=449 data-nosnippet>449</a>        .find(|job| job.id.inner() == cron_job || job.name == cron_job)
-<a href=#450 id=450 data-nosnippet>450</a>        .with_context(|| <span class="macro">format!</span>(<span class="string">"cron job '{cron_job}' not found"</span>))
-<a href=#451 id=451 data-nosnippet>451</a>}
-<a href=#452 id=452 data-nosnippet>452</a>
-<a href=#453 id=453 data-nosnippet>453</a><span class="kw">fn </span>invocation_page_size(page_size: NonZeroU32) -&gt; <span class="prelude-ty">Result</span>&lt;i32, anyhow::Error&gt; {
-<a href=#454 id=454 data-nosnippet>454</a>    i32::try_from(page_size.get()).context(<span class="string">"--page-size must be less than or equal to 2147483647"</span>)
-<a href=#455 id=455 data-nosnippet>455</a>}
+<a href=#349 id=349 data-nosnippet>349</a><span class="attr">#[async_trait::async_trait]
+<a href=#350 id=350 data-nosnippet>350</a></span><span class="kw">impl </span>AsyncCliCommand <span class="kw">for </span>CmdCronDisable {
+<a href=#351 id=351 data-nosnippet>351</a>    <span class="kw">type </span>Output = ();
+<a href=#352 id=352 data-nosnippet>352</a>
+<a href=#353 id=353 data-nosnippet>353</a>    <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+<a href=#354 id=354 data-nosnippet>354</a>        toggle_cron_job(<span class="self">self</span>.env, <span class="self">self</span>.ident, <span class="self">self</span>.cron_job, <span class="bool-val">false</span>).<span class="kw">await
+<a href=#355 id=355 data-nosnippet>355</a>    </span>}
+<a href=#356 id=356 data-nosnippet>356</a>}
+<a href=#357 id=357 data-nosnippet>357</a>
+<a href=#358 id=358 data-nosnippet>358</a><span class="kw">async fn </span>toggle_cron_job(
+<a href=#359 id=359 data-nosnippet>359</a>    env: WasmerEnv,
+<a href=#360 id=360 data-nosnippet>360</a>    ident: AppIdentArgOpts,
+<a href=#361 id=361 data-nosnippet>361</a>    cron_job: String,
+<a href=#362 id=362 data-nosnippet>362</a>    enabled: bool,
+<a href=#363 id=363 data-nosnippet>363</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
+<a href=#364 id=364 data-nosnippet>364</a>    <span class="kw">let </span>client = env.client()<span class="question-mark">?</span>;
+<a href=#365 id=365 data-nosnippet>365</a>    <span class="kw">let </span>cron_job = resolve_cron_job(<span class="kw-2">&amp;</span>client, ident, <span class="kw-2">&amp;</span>cron_job).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#366 id=366 data-nosnippet>366</a>
+<a href=#367 id=367 data-nosnippet>367</a>    <span class="kw">let </span>cron_job =
+<a href=#368 id=368 data-nosnippet>368</a>        wasmer_backend_api::query::toggle_cron_job(<span class="kw-2">&amp;</span>client, cron_job.id.inner(), enabled).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#369 id=369 data-nosnippet>369</a>    <span class="kw">let </span>state = <span class="kw">if </span>cron_job.enabled {
+<a href=#370 id=370 data-nosnippet>370</a>        <span class="string">"enabled"
+<a href=#371 id=371 data-nosnippet>371</a>    </span>} <span class="kw">else </span>{
+<a href=#372 id=372 data-nosnippet>372</a>        <span class="string">"disabled"
+<a href=#373 id=373 data-nosnippet>373</a>    </span>};
+<a href=#374 id=374 data-nosnippet>374</a>
+<a href=#375 id=375 data-nosnippet>375</a>    <span class="macro">eprintln!</span>(<span class="string">"Cron job {} is now {}."</span>, cron_job.name, state);
+<a href=#376 id=376 data-nosnippet>376</a>    <span class="prelude-val">Ok</span>(())
+<a href=#377 id=377 data-nosnippet>377</a>}
+<a href=#378 id=378 data-nosnippet>378</a>
+<a href=#379 id=379 data-nosnippet>379</a><span class="kw">async fn </span>resolve_cron_job(
+<a href=#380 id=380 data-nosnippet>380</a>    client: <span class="kw-2">&amp;</span>wasmer_backend_api::WasmerClient,
+<a href=#381 id=381 data-nosnippet>381</a>    ident: AppIdentArgOpts,
+<a href=#382 id=382 data-nosnippet>382</a>    cron_job: <span class="kw-2">&amp;</span>str,
+<a href=#383 id=383 data-nosnippet>383</a>) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_backend_api::types::CronJob, anyhow::Error&gt; {
+<a href=#384 id=384 data-nosnippet>384</a>    <span class="kw">if </span>should_resolve_cron_job_by_id(<span class="kw-2">&amp;</span>ident, cron_job) {
+<a href=#385 id=385 data-nosnippet>385</a>        <span class="kw">return </span>wasmer_backend_api::query::get_cron_job_by_id(client, cron_job).<span class="kw">await</span>;
+<a href=#386 id=386 data-nosnippet>386</a>    }
+<a href=#387 id=387 data-nosnippet>387</a>
+<a href=#388 id=388 data-nosnippet>388</a>    <span class="kw">let </span>(_ident, app) = ident.to_opts().load_app(client).<span class="kw">await</span><span class="question-mark">?</span>;
+<a href=#389 id=389 data-nosnippet>389</a>    find_app_cron_job(client, <span class="kw-2">&amp;</span>app, cron_job).<span class="kw">await
+<a href=#390 id=390 data-nosnippet>390</a></span>}
+<a href=#391 id=391 data-nosnippet>391</a>
+<a href=#392 id=392 data-nosnippet>392</a><span class="kw">fn </span>should_resolve_cron_job_by_id(ident: <span class="kw-2">&amp;</span>AppIdentArgOpts, cron_job: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href=#393 id=393 data-nosnippet>393</a>    ident.app.is_none() &amp;&amp; cron_job.starts_with(<span class="string">"cron_"</span>)
+<a href=#394 id=394 data-nosnippet>394</a>}
+<a href=#395 id=395 data-nosnippet>395</a>
+<a href=#396 id=396 data-nosnippet>396</a><span class="kw">async fn </span>find_app_cron_job(
+<a href=#397 id=397 data-nosnippet>397</a>    client: <span class="kw-2">&amp;</span>wasmer_backend_api::WasmerClient,
+<a href=#398 id=398 data-nosnippet>398</a>    app: <span class="kw-2">&amp;</span>wasmer_backend_api::types::DeployApp,
+<a href=#399 id=399 data-nosnippet>399</a>    cron_job: <span class="kw-2">&amp;</span>str,
+<a href=#400 id=400 data-nosnippet>400</a>) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer_backend_api::types::CronJob, anyhow::Error&gt; {
+<a href=#401 id=401 data-nosnippet>401</a>    wasmer_backend_api::query::get_app_cron_jobs(client, <span class="kw-2">&amp;</span>app.owner.global_name, <span class="kw-2">&amp;</span>app.name)
+<a href=#402 id=402 data-nosnippet>402</a>        .<span class="kw">await</span><span class="question-mark">?
+<a href=#403 id=403 data-nosnippet>403</a>        </span>.into_iter()
+<a href=#404 id=404 data-nosnippet>404</a>        .find(|job| job.id.inner() == cron_job || job.name == cron_job)
+<a href=#405 id=405 data-nosnippet>405</a>        .with_context(|| <span class="macro">format!</span>(<span class="string">"cron job '{cron_job}' not found"</span>))
+<a href=#406 id=406 data-nosnippet>406</a>}
+<a href=#407 id=407 data-nosnippet>407</a>
+<a href=#408 id=408 data-nosnippet>408</a><span class="kw">fn </span>invocation_page_size(page_size: NonZeroU32) -&gt; <span class="prelude-ty">Result</span>&lt;i32, anyhow::Error&gt; {
+<a href=#409 id=409 data-nosnippet>409</a>    i32::try_from(page_size.get()).context(<span class="string">"--page-size must be less than or equal to 2147483647"</span>)
+<a href=#410 id=410 data-nosnippet>410</a>}
 </code></pre></div></section></main></body></html>
