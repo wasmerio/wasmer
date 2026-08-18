@@ -359,6 +359,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
         let stack_diff = old_adjust - self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT);
+        // It's important to emit a stack release instruction just once as we might be releasing
+        // potentially a big number of slots.
         if stack_diff > 0 {
             self.machine.truncate_stack(stack_diff as u32)?;
         }
@@ -381,6 +383,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
         let stack_diff = old_adjust - stack_offset.next_multiple_of(M::STACK_ALIGNMENT);
+        // It's important to emit a stack release instruction just once as we might be releasing
+        // potentially a big number of slots.
         if stack_diff > 0 {
             self.machine.truncate_stack(stack_diff as u32)?;
         }

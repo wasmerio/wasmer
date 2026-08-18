@@ -340,6 +340,7 @@ rustc_version.workspace = true
 
 [dev-dependencies]
 anyhow.workspace = true
+bytesize.workspace = true
 clap.workspace = true
 clap_builder.workspace = true
 clap_derive.workspace = true

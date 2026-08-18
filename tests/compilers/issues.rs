@@ -1,6 +1,7 @@
 //! This file is mainly to assure specific issues are working well
 
 use anyhow::{Context, Result};
+use bytesize::ByteSize;
 use itertools::Itertools;
 use wasmer::FunctionEnv;
 use wasmer::*;
@@ -1380,6 +1381,42 @@ fn issue_6534_declared_element_segment_with_global(config: crate::Config) -> Res
     let run: TypedFunction<i32, i32> = instance.exports.get_typed_function(&store, "run")?;
 
     assert_eq!(run.call(&mut store, 41)?, 42);
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn nested_blocks_with_large_br_table(mut config: crate::Config) -> Result<()> {
+    const MAX_NESTED_BLOCKS: usize = 4096;
+    const MAX_BR_TABLE_VALUES: usize = 10_000;
+
+    let mut store = config.store();
+
+    let nested_blocks = MAX_NESTED_BLOCKS;
+    let branch_depth = nested_blocks - 1;
+    let branch_targets =
+        std::iter::repeat_n(branch_depth.to_string(), MAX_BR_TABLE_VALUES).join(" ");
+    let wat = format!(
+        "(module
+                (func (export \"run\") (result i32)
+                    {}
+                    i64.const 0
+                    i32.const 100
+                    br_table {}
+                    {}
+                    drop
+                    i32.const 0))",
+        "block (result i64)\n".repeat(nested_blocks),
+        branch_targets,
+        "end\n".repeat(nested_blocks),
+    );
+
+    let module = Module::new(&store, wat)?;
+    let artifact_size = module.serialize()?.len();
+    assert!(artifact_size < ByteSize::mib(1).as_u64() as usize);
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let run: TypedFunction<(), i32> = instance.exports.get_typed_function(&store, "run")?;
+    assert_eq!(run.call(&mut store)?, 0);
 
     Ok(())
 }
