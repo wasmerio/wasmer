@@ -1,6 +1,6 @@
 use std::{collections::HashSet, time::Duration};
 
-use anyhow::{Context, bail};
+use anyhow::{Context, bail, ensure};
 use cynic::{MutationBuilder, QueryBuilder};
 use futures::StreamExt;
 use merge_streams::MergeStreams;
@@ -562,11 +562,10 @@ pub async fn get_cron_job_invocation_logs_by_invocation_id(
     log_first: Option<i32>,
 ) -> Result<Vec<types::CronJobLog>, anyhow::Error> {
     let invocation_id = invocation_id.into();
-    if !invocation_id.starts_with(CRON_JOB_INVOCATION_ID_PREFIX) {
-        bail!(
-            "invalid cron job invocation id '{invocation_id}': expected an id starting with '{CRON_JOB_INVOCATION_ID_PREFIX}'"
-        );
-    }
+    ensure!(
+        invocation_id.starts_with(CRON_JOB_INVOCATION_ID_PREFIX),
+        "invalid cron job invocation id '{invocation_id}': expected an id starting with '{CRON_JOB_INVOCATION_ID_PREFIX}'"
+    );
 
     let res = client
         .run_graphql_strict(types::GetCronJobInvocationLogsByInvocationId::build(
