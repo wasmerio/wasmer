@@ -508,9 +508,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Callee-saved vmctx.
         static_area_size += 8;
 
-        // Some ABI (like Windows) needs extract reg save
-        static_area_size += 8 * self.machine.list_to_save(calling_convention).len();
-
         // Total size of callee saved registers.
         let callee_saved_regs_size = static_area_size;
 
@@ -554,14 +551,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
 
-        // Check if need to same some CallingConvention specific regs
-        let regs_to_save = self.machine.list_to_save(calling_convention);
-        for loc in regs_to_save.iter() {
-            self.stack_offset += 8;
-            self.machine
-                .move_local(self.stack_offset.get() as i32, *loc)?;
-        }
-
         // Save the offset of register save area.
         self.save_area_offset = Some(self.stack_offset.get());
 
@@ -592,10 +581,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Load vmctx into it's GPR.
         self.machine.move_location(
             Size::S64,
-            Location::GPR(
-                self.machine
-                    .get_simple_param_location(0, calling_convention),
-            ),
+            Location::GPR(self.machine.get_simple_param_location(0)),
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
 
@@ -625,18 +611,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(locations)
     }
 
-    fn finalize_locals(
-        &mut self,
-        calling_convention: CallingConvention,
-    ) -> Result<(), CompileError> {
+    fn finalize_locals(&mut self) -> Result<(), CompileError> {
         // Unwind stack to the "save area".
         self.machine
             .restore_saved_area(self.save_area_offset.unwrap() as i32)?;
-
-        let regs_to_save = self.machine.list_to_save(calling_convention);
-        for loc in regs_to_save.iter().rev() {
-            self.machine.pop_location(*loc)?;
-        }
 
         // Restore register used by vmctx.
         self.machine
@@ -811,20 +789,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let calling_convention = self.calling_convention;
 
-        let stack_padding: usize = match calling_convention {
-            CallingConvention::WindowsFastcall => 32,
-            _ => 0,
-        };
-
         let mut stack_offset: usize = 0;
         // Allocate space for return values relative to SP (the allocation happens in reverse order, thus start with return slots).
         let mut return_args = Vec::with_capacity(return_value_sizes.len());
         for i in 0..return_value_sizes.len() {
-            return_args.push(self.machine.get_return_value_location(
-                i,
-                &mut stack_offset,
-                self.calling_convention,
-            ));
+            return_args.push(self.machine.get_return_value_location(i, &mut stack_offset));
         }
 
         // Allocate space for arguments relative to SP.
@@ -892,18 +861,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.move_location(
                 Size::S64,
                 Location::GPR(self.machine.get_vmctx_reg()),
-                Location::GPR(
-                    self.machine
-                        .get_simple_param_location(0, calling_convention),
-                ),
+                Location::GPR(self.machine.get_simple_param_location(0)),
             )?; // vmctx
         }
 
-        if stack_padding > 0 {
-            self.machine.extend_stack(stack_padding as u32)?;
-        }
         self.stack_offset
-            .track_temporary_extra_allocation(stack_offset + stack_padding + used_stack);
+            .track_temporary_extra_allocation(stack_offset + used_stack);
         // release the GPR used for call
         self.machine.release_gpr(self.machine.get_gpr_for_call());
 
@@ -928,9 +891,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         // Restore stack.
-        if stack_offset + stack_padding > 0 {
-            self.machine
-                .truncate_stack((stack_offset + stack_padding) as u32)?;
+        if stack_offset > 0 {
+            self.machine.truncate_stack(stack_offset as u32)?;
         }
 
         // Restore SIMDs.
@@ -1009,8 +971,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Push return value slots for the function return on the stack.
         self.value_stack.extend((0..return_types.len()).map(|i| {
             (
-                self.machine
-                    .get_call_return_value_location(i, self.calling_convention),
+                self.machine.get_call_return_value_location(i),
                 CanonicalizeType::None,
             )
         }));
@@ -2337,16 +2298,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         function_index - self.module.num_imported_functions,
                     ))
                 };
-                let calling_convention = self.calling_convention;
-
                 self.emit_call_native(
                     |this| {
                         let offset = this
                             .machine
                             .mark_instruction_with_trap_code(TrapCode::StackOverflow);
-                        let mut relocations = this
-                            .machine
-                            .emit_call_with_reloc(calling_convention, reloc_target)?;
+                        let mut relocations = this.machine.emit_call_with_reloc(reloc_target)?;
                         this.machine.mark_instruction_address_end(offset);
                         this.relocations.append(&mut relocations);
                         Ok(())
@@ -2558,7 +2515,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize;
                 let vmcaller_checked_anyfunc_vmctx =
                     self.vmoffsets.vmcaller_checked_anyfunc_vmctx() as usize;
-                let calling_convention = self.calling_convention;
 
                 self.emit_call_native(
                     |this| {
@@ -2570,10 +2526,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         this.machine.move_location(
                             Size::S64,
                             Location::Memory(gpr_for_call, vmcaller_checked_anyfunc_vmctx as i32),
-                            Location::GPR(
-                                this.machine
-                                    .get_simple_param_location(0, calling_convention),
-                            ),
+                            Location::GPR(this.machine.get_simple_param_location(0)),
                         )?;
 
                         this.machine.emit_call_location(Location::Memory(
@@ -3785,7 +3738,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 if self.control_stack.is_empty() {
                     self.machine.emit_label(frame.label)?;
-                    self.finalize_locals(self.calling_convention)?;
+                    self.finalize_locals()?;
                     self.machine.emit_function_epilog()?;
 
                     // Make a copy of the return value in XMM0, as required by the SysV CC.
@@ -6095,12 +6048,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
             }
-            CallingConvention::WindowsFastcall => {
-                let unwind = self.machine.gen_windows_unwind_info(body_len);
-                if let Some(unwind) = unwind {
-                    unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
-                }
-            }
+
             _ => (),
         };
 
