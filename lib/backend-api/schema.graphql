@@ -1802,7 +1802,6 @@ type CronJobEdge {
 
 type CronJobInvocation {
 	id: ID!
-	edgeJobId: String!
 	status: CronJobInvocationStatus
 	scheduledAt: DateTime
 	startedAt: DateTime
@@ -1816,13 +1815,7 @@ type CronJobInvocation {
 
 type CronJobInvocationConnection {
 	pageInfo: PageInfo!
-	edges: [CronJobInvocationEdge!]!
 	nodes: [CronJobInvocation!]!
-}
-
-type CronJobInvocationEdge {
-	cursor: String!
-	node: CronJobInvocation!
 }
 
 union CronJobInvocationResult = ExecuteCronJobInvocationResult | FetchCronJobInvocationResult
@@ -5837,6 +5830,7 @@ type Query {
 		"""
 		id: ID!
 	): Node
+	getCronJobInvocation(id: ID!): CronJobInvocation
 	nodes(ids: [ID!]!): [Node]!
 	info: RegistryInfo!
 }

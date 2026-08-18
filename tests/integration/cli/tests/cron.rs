@@ -180,23 +180,17 @@ jobs:
         });
 
         if let Some(invocation) = invocations.first() {
-            let invocation_id = invocation["id"]
-                .as_str()
-                .or_else(|| invocation["edge_job_id"].as_str())
-                .unwrap_or_else(|| {
-                    panic!(
-                        "cron invocation should include id or edge_job_id: {}",
-                        serde_json::to_string(invocation).unwrap()
-                    )
-                });
+            let invocation_id = invocation["id"].as_str().unwrap_or_else(|| {
+                panic!(
+                    "cron invocation should include id: {}",
+                    serde_json::to_string(invocation).unwrap()
+                )
+            });
 
             let logs_output = wasmer_command()
                 .arg("cron")
                 .arg("logs")
-                .arg(HOURLY_JOB)
                 .arg(invocation_id)
-                .arg("--app")
-                .arg(&app_ident)
                 .arg("--max=1")
                 .arg("--format=json")
                 .arg(format!("--registry={REGISTRY}"))
