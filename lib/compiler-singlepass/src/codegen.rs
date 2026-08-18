@@ -308,10 +308,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     /// Acquire location that will live on the stack.
     fn acquire_location_on_stack(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
+        let old_adjust = self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT);
         self.stack_offset += 8;
+        let stack_diff = self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT) - old_adjust;
+
         let loc = self.machine.local_on_stack(self.stack_offset.get() as i32);
-        self.machine
-            .extend_stack(self.machine.round_stack_adjust(8) as u32)?;
+        if stack_diff > 0 {
+            self.machine.extend_stack(stack_diff as u32)?;
+        }
 
         Ok(loc)
     }
@@ -347,13 +351,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
+        let old_adjust = self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT);
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
                 self.check_location_on_stack(loc, self.stack_offset.get())?;
                 self.stack_offset -= 8;
-                self.machine
-                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
             }
+        }
+        let stack_diff = old_adjust - self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT);
+        if stack_diff > 0 {
+            self.machine.truncate_stack(stack_diff as u32)?;
         }
 
         Ok(())
@@ -364,15 +371,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         stack_depth: usize,
     ) -> Result<(), CompileError> {
         let mut stack_offset = self.stack_offset.get();
+        let old_adjust = stack_offset.next_multiple_of(M::STACK_ALIGNMENT);
         let locs = &self.value_stack[stack_depth..];
 
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
                 self.check_location_on_stack(loc, stack_offset)?;
                 stack_offset -= 8;
-                self.machine
-                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
             }
+        }
+        let stack_diff = old_adjust - stack_offset.next_multiple_of(M::STACK_ALIGNMENT);
+        if stack_diff > 0 {
+            self.machine.truncate_stack(stack_diff as u32)?;
         }
 
         Ok(())
@@ -513,7 +523,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         static_area_size += num_mem_slots * 8;
 
         // Allocate save area, without actually writing to it.
-        static_area_size = self.machine.round_stack_adjust(static_area_size);
+        static_area_size = static_area_size.next_multiple_of(M::STACK_ALIGNMENT);
 
         // Stack probe.
         //
@@ -832,9 +842,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         // Align stack to 16 bytes.
-        let stack_unaligned =
-            (self.machine.round_stack_adjust(self.stack_offset.get()) + used_stack + stack_offset)
-                % 16;
+        let stack_unaligned = (self.stack_offset.get().next_multiple_of(M::STACK_ALIGNMENT)
+            + used_stack
+            + stack_offset)
+            % 16;
         if stack_unaligned != 0 {
             stack_offset += 16 - stack_unaligned;
         }
