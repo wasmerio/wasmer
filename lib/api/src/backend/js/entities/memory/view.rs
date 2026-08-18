@@ -268,17 +268,32 @@ impl<'a> MemoryView<'a> {
 
     /// Copies the memory to another new memory object
     pub fn copy_to_memory(&self, amount: u64, new_memory: &Self) -> Result<(), MemoryAccessError> {
-        let mut offset = 0;
-        let mut chunk = [0u8; 40960];
-        while offset < amount {
-            let remaining = amount - offset;
-            let sublen = remaining.min(chunk.len() as u64) as usize;
-            self.read(offset, &mut chunk[..sublen])?;
+        self.copy_range_to_memory(0, 0, amount, new_memory)
+    }
 
-            new_memory.write(offset, &chunk[..sublen])?;
-
-            offset += sublen as u64;
+    /// Copies a memory range directly between JavaScript WebAssembly memories.
+    pub(crate) fn copy_range_to_memory(
+        &self,
+        source_offset: u64,
+        target_offset: u64,
+        amount: u64,
+        new_memory: &Self,
+    ) -> Result<(), MemoryAccessError> {
+        let source_offset = u32::try_from(source_offset).map_err(|_| MemoryAccessError::Overflow)?;
+        let target_offset = u32::try_from(target_offset).map_err(|_| MemoryAccessError::Overflow)?;
+        let amount = u32::try_from(amount).map_err(|_| MemoryAccessError::Overflow)?;
+        let source_end = source_offset
+            .checked_add(amount)
+            .ok_or(MemoryAccessError::Overflow)?;
+        let target_end = target_offset
+            .checked_add(amount)
+            .ok_or(MemoryAccessError::Overflow)?;
+        if source_end > self.view.length() || target_end > new_memory.view.length() {
+            return Err(MemoryAccessError::HeapOutOfBounds);
         }
+
+        let source = self.view.subarray(source_offset, source_end);
+        new_memory.view.set(&source, target_offset);
         Ok(())
     }
 }

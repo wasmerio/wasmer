@@ -33,7 +33,7 @@ bytes.workspace = true
 tracing = { workspace = true, default-features = true }
 # - Optional shared dependencies.
 wat = { workspace = true, optional = true }
-symbolic-demangle.workspace = true
+symbolic-demangle = { workspace = true, optional = true }
 shared-buffer.workspace = true
 
 loupe = { workspace = true, optional = true, features = [
@@ -85,6 +85,7 @@ wasmer-types = { path = "../types", version = "=7.2.1", default-features = false
   "std",
 ] }
 wasm-bindgen.workspace = true
+wasm-bindgen-futures = { workspace = true, optional = true }
 js-sys.workspace = true
 wasmer-derive = { path = "../derive", version = "=7.2.1" }
 wasmer-compiler = { path = "../compiler", version = "=7.2.1" }
@@ -99,6 +100,7 @@ target-lexicon.workspace = true
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wat.workspace = true
 anyhow.workspace = true
+futures.workspace = true
 wasm-bindgen-test.workspace = true
 macro-wasmer-engine-test = { version = "7.2.1", path = "./macro-wasmer-engine-test" }
 
@@ -124,7 +126,10 @@ artifact-size = [
 
 # Features for `sys`.
 sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
-sys-default = ["sys", "wat", "cranelift"]
+sys-default = ["sys", "wat", "cranelift", "demangle"]
+
+# Improve native stack traces without forcing the demanglers into browser builds.
+demangle = ["dep:symbolic-demangle"]
 
 headless = []
 
@@ -156,7 +161,7 @@ v8-default = ["v8", "wat"]
 wasm-c-api = ["wasm-types-polyfill"]
 
 # Features for `js`.
-js = ["wasm-bindgen", "js-sys"]
+js = ["wasm-bindgen", "wasm-bindgen-futures", "js-sys"]
 js-default = ["js", "std", "wasm-types-polyfill"]
 
 wasm-types-polyfill = ["wasmparser"]

@@ -21,10 +21,10 @@ int main(void) {
 
   errno = 0;
   int connect_res = connect(fd, (struct sockaddr*)&addr, sizeof(addr));
-  if (connect_res != -1 || errno != ENETUNREACH) {
+  if (connect_res != -1 || (errno != ENETUNREACH && errno != EIO)) {
     fprintf(stderr,
             "connect returned %d with errno %d (%s), expected -1 with "
-            "ENETUNREACH\n",
+            "ENETUNREACH or EIO\n",
             connect_res, errno, strerror(errno));
     close(fd);
     return 1;

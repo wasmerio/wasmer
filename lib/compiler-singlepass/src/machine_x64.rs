@@ -108,6 +108,9 @@ pub struct MachineX86_64 {
 /// NOTE: The register set must be disjoint from pick_gpr registers!
 pub(crate) const X86_64_RETURN_VALUE_REGISTERS: [GPR; 2] = [GPR::RAX, GPR::RDX];
 
+/// Implicit registers used for the div/rem instructions.
+const DIV_REM_REGISTERS: [GPR; 2] = [GPR::RAX, GPR::RDX];
+
 impl MachineX86_64 {
     pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
         let assembler = AssemblerX64::new(0, target)?;
@@ -381,7 +384,7 @@ impl MachineX86_64 {
         loc: Location,
         integer_division_by_zero: Label,
     ) -> Result<usize, CompileError> {
-        self.assembler.emit_cmp(sz, Location::Imm32(0), loc)?;
+        self.emit_relaxed_cmp(sz, Location::Imm32(0), loc)?;
         self.assembler
             .emit_jmp(Condition::Equal, integer_division_by_zero)?;
 
@@ -536,8 +539,7 @@ impl MachineX86_64 {
                 Location::GPR(tmp2),
             )?;
             // Trap if the end address of the requested area is above that of the linear memory.
-            self.assembler
-                .emit_cmp(Size::S64, Location::GPR(tmp2), Location::GPR(tmp_addr))?;
+            self.emit_relaxed_cmp(Size::S64, Location::GPR(tmp2), Location::GPR(tmp_addr))?;
 
             // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
             self.assembler.emit_jmp(Condition::Above, heap_access_oob)?;
@@ -680,8 +682,7 @@ impl MachineX86_64 {
         self.assembler
             .emit_vcmpless(reg, XMMOrMemory::XMM(tmp_x), tmp_x)?;
         self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp))?;
-        self.assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
+        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
         self.assembler
             .emit_jmp(Condition::NotEqual, underflow_label)?;
 
@@ -691,8 +692,7 @@ impl MachineX86_64 {
         self.assembler
             .emit_vcmpgess(reg, XMMOrMemory::XMM(tmp_x), tmp_x)?;
         self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp))?;
-        self.assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
+        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
         self.assembler
             .emit_jmp(Condition::NotEqual, overflow_label)?;
 
@@ -700,8 +700,7 @@ impl MachineX86_64 {
         self.assembler
             .emit_vcmpeqss(reg, XMMOrMemory::XMM(reg), tmp_x)?;
         self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp))?;
-        self.assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
+        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
         self.assembler.emit_jmp(Condition::Equal, nan_label)?;
 
         self.assembler.emit_jmp(Condition::None, succeed_label)?;
@@ -829,8 +828,7 @@ impl MachineX86_64 {
         self.assembler
             .emit_vcmplesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x)?;
         self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp))?;
-        self.assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
+        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
         self.assembler
             .emit_jmp(Condition::NotEqual, underflow_label)?;
 
@@ -840,8 +838,7 @@ impl MachineX86_64 {
         self.assembler
             .emit_vcmpgesd(reg, XMMOrMemory::XMM(tmp_x), tmp_x)?;
         self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp))?;
-        self.assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
+        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
         self.assembler
             .emit_jmp(Condition::NotEqual, overflow_label)?;
 
@@ -849,8 +846,7 @@ impl MachineX86_64 {
         self.assembler
             .emit_vcmpeqsd(reg, XMMOrMemory::XMM(reg), tmp_x)?;
         self.move_location(Size::S32, Location::SIMD(tmp_x), Location::GPR(tmp))?;
-        self.assembler
-            .emit_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
+        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0), Location::GPR(tmp))?;
         self.assembler.emit_jmp(Condition::Equal, nan_label)?;
 
         self.assembler.emit_jmp(Condition::None, succeed_label)?;
@@ -1969,6 +1965,9 @@ impl Machine for MachineX86_64 {
     type GPR = GPR;
     type SIMD = XMM;
 
+    /// x86_64 stack slots are 8 bytes; 16-byte stack alignment for calls is handled separately.
+    const STACK_ALIGNMENT: usize = 8;
+
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
@@ -2173,10 +2172,6 @@ impl Machine for MachineX86_64 {
 
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
         Location::Memory(GPR::RBP, -stack_offset)
-    }
-
-    fn round_stack_adjust(&self, value: usize) -> usize {
-        value
     }
 
     fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
@@ -2679,7 +2674,7 @@ impl Machine for MachineX86_64 {
         source: Location,
         dest: Location,
     ) -> Result<(), CompileError> {
-        self.assembler.emit_cmp(size, source, dest)
+        self.emit_relaxed_cmp(size, source, dest)
     }
 
     fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError> {
@@ -2694,7 +2689,7 @@ impl Machine for MachineX86_64 {
         loc_b: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
-        self.assembler.emit_cmp(size, loc_b, loc_a)?;
+        self.emit_relaxed_cmp(size, loc_b, loc_a)?;
         let cond = match cond {
             UnsignedCondition::Equal => Condition::Equal,
             UnsignedCondition::NotEqual => Condition::NotEqual,
@@ -2832,7 +2827,9 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
     ) -> Result<usize, CompileError> {
-        // We assume that RAX and RDX are temporary registers here.
+        for reg in DIV_REM_REGISTERS {
+            self.reserve_unused_temp_gpr(reg);
+        }
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler
@@ -2845,6 +2842,9 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret)?;
+        for reg in DIV_REM_REGISTERS {
+            self.release_gpr(reg);
+        }
         Ok(offset)
     }
 
@@ -2856,7 +2856,9 @@ impl Machine for MachineX86_64 {
         integer_division_by_zero: Label,
         _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
-        // We assume that RAX and RDX are temporary registers here.
+        for reg in DIV_REM_REGISTERS {
+            self.reserve_unused_temp_gpr(reg);
+        }
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler.emit_cdq()?;
@@ -2868,6 +2870,9 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S32, Location::GPR(GPR::RAX), ret)?;
+        for reg in DIV_REM_REGISTERS {
+            self.release_gpr(reg);
+        }
         Ok(offset)
     }
 
@@ -2878,7 +2883,9 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
     ) -> Result<usize, CompileError> {
-        // We assume that RAX and RDX are temporary registers here.
+        for reg in DIV_REM_REGISTERS {
+            self.reserve_unused_temp_gpr(reg);
+        }
         self.assembler
             .emit_mov(Size::S32, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler
@@ -2891,6 +2898,9 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret)?;
+        for reg in DIV_REM_REGISTERS {
+            self.release_gpr(reg);
+        }
         Ok(offset)
     }
 
@@ -2901,7 +2911,9 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
     ) -> Result<usize, CompileError> {
-        // We assume that RAX and RDX are temporary registers here.
+        for reg in DIV_REM_REGISTERS {
+            self.reserve_unused_temp_gpr(reg);
+        }
         let normal_path = self.assembler.get_label();
         let end = self.assembler.get_label();
 
@@ -2926,6 +2938,9 @@ impl Machine for MachineX86_64 {
             .emit_mov(Size::S32, Location::GPR(GPR::RDX), ret)?;
 
         self.emit_label(end)?;
+        for reg in DIV_REM_REGISTERS {
+            self.release_gpr(reg);
+        }
         Ok(offset)
     }
 
@@ -4536,7 +4551,9 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
     ) -> Result<usize, CompileError> {
-        // We assume that RAX and RDX are temporary registers here.
+        for reg in DIV_REM_REGISTERS {
+            self.reserve_unused_temp_gpr(reg);
+        }
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler
@@ -4549,6 +4566,9 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret)?;
+        for reg in DIV_REM_REGISTERS {
+            self.release_gpr(reg);
+        }
         Ok(offset)
     }
 
@@ -4560,7 +4580,9 @@ impl Machine for MachineX86_64 {
         integer_division_by_zero: Label,
         _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
-        // We assume that RAX and RDX are temporary registers here.
+        for reg in DIV_REM_REGISTERS {
+            self.reserve_unused_temp_gpr(reg);
+        }
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler.emit_cqo()?;
@@ -4572,6 +4594,9 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret)?;
+        for reg in DIV_REM_REGISTERS {
+            self.release_gpr(reg);
+        }
         Ok(offset)
     }
 
@@ -4582,7 +4607,9 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
     ) -> Result<usize, CompileError> {
-        // We assume that RAX and RDX are temporary registers here.
+        for reg in DIV_REM_REGISTERS {
+            self.reserve_unused_temp_gpr(reg);
+        }
         self.assembler
             .emit_mov(Size::S64, loc_a, Location::GPR(GPR::RAX))?;
         self.assembler
@@ -4595,6 +4622,9 @@ impl Machine for MachineX86_64 {
         )?;
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret)?;
+        for reg in DIV_REM_REGISTERS {
+            self.release_gpr(reg);
+        }
         Ok(offset)
     }
 
@@ -4605,7 +4635,9 @@ impl Machine for MachineX86_64 {
         ret: Location,
         integer_division_by_zero: Label,
     ) -> Result<usize, CompileError> {
-        // We assume that RAX and RDX are temporary registers here.
+        for reg in DIV_REM_REGISTERS {
+            self.reserve_unused_temp_gpr(reg);
+        }
         let normal_path = self.assembler.get_label();
         let end = self.assembler.get_label();
 
@@ -4630,6 +4662,9 @@ impl Machine for MachineX86_64 {
             .emit_mov(Size::S64, Location::GPR(GPR::RDX), ret)?;
 
         self.emit_label(end)?;
+        for reg in DIV_REM_REGISTERS {
+            self.release_gpr(reg);
+        }
         Ok(offset)
     }
 
@@ -7228,8 +7263,7 @@ impl Machine for MachineX86_64 {
 
         self.move_location(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1))?;
         self.move_location(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2))?;
-        self.assembler
-            .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
+        self.emit_relaxed_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
         self.assembler
             .emit_vminsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
         let label1 = self.assembler.get_label();
@@ -7349,8 +7383,7 @@ impl Machine for MachineX86_64 {
 
         self.move_location(Size::S64, Location::SIMD(src1), Location::GPR(tmpg1))?;
         self.move_location(Size::S64, Location::SIMD(src2), Location::GPR(tmpg2))?;
-        self.assembler
-            .emit_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
+        self.emit_relaxed_cmp(Size::S64, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
         self.assembler
             .emit_vmaxsd(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
         let label1 = self.assembler.get_label();
@@ -7632,8 +7665,7 @@ impl Machine for MachineX86_64 {
 
         self.move_location(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1))?;
         self.move_location(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2))?;
-        self.assembler
-            .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
+        self.emit_relaxed_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
         self.assembler
             .emit_vminss(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
         let label1 = self.assembler.get_label();
@@ -7753,8 +7785,7 @@ impl Machine for MachineX86_64 {
 
         self.move_location(Size::S32, Location::SIMD(src1), Location::GPR(tmpg1))?;
         self.move_location(Size::S32, Location::SIMD(src2), Location::GPR(tmpg2))?;
-        self.assembler
-            .emit_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
+        self.emit_relaxed_cmp(Size::S32, Location::GPR(tmpg2), Location::GPR(tmpg1))?;
         self.assembler
             .emit_vmaxss(src1, XMMOrMemory::XMM(src2), tmp_xmm1)?;
         let label1 = self.assembler.get_label();

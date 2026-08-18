@@ -3,7 +3,10 @@ use std::{marker::PhantomData, num::NonZeroUsize};
 use wasm_bindgen::JsValue;
 use wasmer_types::StoreId;
 
-use crate::js::vm::{function::VMFunctionEnvironment, global::VMGlobal};
+use crate::js::{
+    entities::external::ExternRefData,
+    vm::{function::VMFunctionEnvironment, global::VMGlobal},
+};
 
 use super::handle::InternalStoreHandle;
 
@@ -40,6 +43,7 @@ impl_store_object! {
     // since the other JS objects (table, globals, memory and functions)
     // live in the JS VM Store by default
     function_environments => VMFunctionEnvironment,
+    externrefs => ExternRefData,
 }
 
 /// Set of objects managed by a context.
@@ -48,6 +52,7 @@ pub struct StoreObjects {
     id: StoreId,
     globals: Vec<VMGlobal>,
     function_environments: Vec<VMFunctionEnvironment>,
+    externrefs: Vec<ExternRefData>,
 }
 
 impl StoreObjects {

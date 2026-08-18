@@ -513,17 +513,7 @@ impl EmitterARM64 for Assembler {
         4 // relative jump, not full 32bits capable
     }
 
-    fn finalize_function(&mut self) {
-        dynasm!(
-            self
-            ; const_neg_one_32:
-            ; .i32 -1
-            ; const_zero_32:
-            ; .i32 0
-            ; const_pos_one_32:
-            ; .i32 1
-        );
-    }
+    fn finalize_function(&mut self) {}
 
     fn emit_str(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
         match (sz, reg, addr) {

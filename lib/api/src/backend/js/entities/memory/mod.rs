@@ -16,6 +16,11 @@ use crate::{
     vm::{VMExtern, VMExternMemory},
 };
 
+// QuickJS currently represents ArrayBuffer lengths with a signed 32-bit value.
+// Keep shared WASIX memories just below 2 GiB so nested WebAssembly runtimes can
+// grow large workloads without exposing a buffer QuickJS cannot address.
+const JS_SHARED_MEMORY_MAXIMUM_PAGES: Pages = Pages(32_767);
+
 #[derive(Debug, Clone, Eq)]
 pub struct Memory {
     pub(crate) handle: VMMemory,
@@ -37,8 +42,46 @@ unsafe impl Send for Memory {}
 unsafe impl Sync for Memory {}
 
 impl Memory {
-    pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        let vm_memory = VMMemory::new(Self::js_memory_from_type(&ty)?, ty);
+    pub fn new(store: &mut impl AsStoreMut, mut ty: MemoryType) -> Result<Self, MemoryError> {
+        if ty.shared
+            && let Some(maximum) = ty.maximum
+            && maximum > JS_SHARED_MEMORY_MAXIMUM_PAGES
+            && ty.minimum <= JS_SHARED_MEMORY_MAXIMUM_PAGES
+        {
+            ty.maximum = Some(JS_SHARED_MEMORY_MAXIMUM_PAGES);
+            tracing::debug!(
+                requested_maximum = maximum.0,
+                allocated_maximum = JS_SHARED_MEMORY_MAXIMUM_PAGES.0,
+                "bounding shared memory growth for the JavaScript backend",
+            );
+        }
+        let js_memory = match Self::js_memory_from_type(&ty) {
+            Ok(memory) => memory,
+            Err(original_error) if ty.shared => {
+                let Some(requested_maximum) = ty.maximum else {
+                    return Err(original_error);
+                };
+
+                let mut allocated = None;
+                for maximum in smaller_shared_memory_maxima(ty.minimum, requested_maximum) {
+                    let candidate = MemoryType::new(ty.minimum, Some(maximum), true);
+                    if let Ok(memory) = Self::js_memory_from_type(&candidate) {
+                        tracing::debug!(
+                            requested_maximum = requested_maximum.0,
+                            allocated_maximum = maximum.0,
+                            "browser rejected the requested shared memory maximum; using a smaller compatible maximum",
+                        );
+                        ty = candidate;
+                        allocated = Some(memory);
+                        break;
+                    }
+                }
+
+                allocated.ok_or(original_error)?
+            }
+            Err(error) => return Err(error),
+        };
+        let vm_memory = VMMemory::new(js_memory, ty);
         Ok(Self::from_vm_extern(store, VMExternMemory::Js(vm_memory)))
     }
 
@@ -174,6 +217,21 @@ impl Memory {
             self.handle.try_clone()?,
         )))
     }
+}
+
+fn smaller_shared_memory_maxima(minimum: Pages, maximum: Pages) -> impl Iterator<Item = Pages> {
+    // Shared memories reserve their declared maximum in the browser. Reduce the
+    // reservation gradually so a child process can still retain a useful heap
+    // alongside its parent instead of jumping straight to half the capacity.
+    const STEP: u32 = 1_024; // 64 MiB
+    let mut candidate = maximum.0;
+    std::iter::from_fn(move || {
+        if candidate <= minimum.0 {
+            return None;
+        }
+        candidate = candidate.saturating_sub(STEP).max(minimum.0);
+        Some(Pages(candidate))
+    })
 }
 
 impl std::cmp::PartialEq for Memory {

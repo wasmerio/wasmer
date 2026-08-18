@@ -1,4 +1,7 @@
 use wasmer_types::RawValue;
+use wasm_bindgen::JsValue;
+
+use crate::js::utils::js_handle::JsHandle;
 
 use crate::{AsStoreMut, Extern, VMExternToExtern};
 
@@ -50,9 +53,25 @@ impl VMExternToExtern for VMExtern {
 }
 
 /// A reference to an external value in the `js` VM.
-pub struct VMExternRef;
+#[derive(Debug, Clone)]
+pub struct VMExternRef {
+    value: JsHandle<JsValue>,
+}
+
+unsafe impl Send for VMExternRef {}
+unsafe impl Sync for VMExternRef {}
 
 impl VMExternRef {
+    pub(crate) fn new(value: JsValue) -> Self {
+        Self {
+            value: JsHandle::new(value),
+        }
+    }
+
+    pub(crate) fn into_js_value(self) -> JsValue {
+        self.value.into_inner()
+    }
+
     /// Converts the `VMExternRef` into a `RawValue`.
     pub fn into_raw(self) -> RawValue {
         unimplemented!();

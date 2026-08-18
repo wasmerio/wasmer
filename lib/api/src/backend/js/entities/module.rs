@@ -1,13 +1,18 @@
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use bytes::Bytes;
 use js_sys::{Reflect, Uint8Array, WebAssembly};
 use tracing::{debug, warn};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::JsCast;
 use wasm_bindgen::{JsValue, prelude::*};
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen_futures::JsFuture;
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
-    GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
-    SerializeError, TableType, Type,
+    CompileError, DeserializeError, ExportIndex, ExportType, ExportsIterator, ExternType,
+    FunctionType, GlobalIndex, GlobalType, ImportIndex, ImportType, ImportsIterator, InitExpr,
+    InitExprOp, MemoryType, ModuleInfo, Mutability, Pages, SerializeError, TableIndex, TableType,
+    Type,
 };
 
 use crate::{
@@ -40,10 +45,47 @@ pub struct ModuleTypeHints {
 pub struct Module {
     module: JsHandle<WebAssembly::Module>,
     name: Option<String>,
+    #[cfg(feature = "wasm-types-polyfill")]
+    info: ModuleInfo,
     // WebAssembly type hints
     type_hints: Option<ModuleTypeHints>,
     #[cfg(feature = "js-serializable-module")]
     raw_bytes: Option<Bytes>,
+}
+
+#[cfg(feature = "wasm-types-polyfill")]
+fn evaluate_i32_init_expr(
+    expression: &InitExpr,
+    globals: &HashMap<GlobalIndex, i64>,
+) -> Option<u32> {
+    let mut stack = Vec::<i64>::new();
+    for operation in expression.ops() {
+        match operation {
+            InitExprOp::GlobalGetI32(index) | InitExprOp::GlobalGetI64(index) => {
+                stack.push(*globals.get(index)?);
+            }
+            InitExprOp::I32Const(value) => stack.push(i64::from(*value)),
+            InitExprOp::I64Const(value) => stack.push(*value),
+            InitExprOp::I32Add | InitExprOp::I64Add => {
+                let rhs = stack.pop()?;
+                let lhs = stack.pop()?;
+                stack.push(lhs.checked_add(rhs)?);
+            }
+            InitExprOp::I32Sub | InitExprOp::I64Sub => {
+                let rhs = stack.pop()?;
+                let lhs = stack.pop()?;
+                stack.push(lhs.checked_sub(rhs)?);
+            }
+            InitExprOp::I32Mul | InitExprOp::I64Mul => {
+                let rhs = stack.pop()?;
+                let lhs = stack.pop()?;
+                stack.push(lhs.checked_mul(rhs)?);
+            }
+        }
+    }
+    u32::try_from(stack.pop()?)
+        .ok()
+        .filter(|_| stack.is_empty())
 }
 
 // XXX
@@ -60,6 +102,38 @@ impl From<Module> for JsValue {
 }
 
 impl Module {
+    #[cfg(target_arch = "wasm32")]
+    pub(crate) async fn new_async(
+        _engine: &impl AsEngineRef,
+        binary: &[u8],
+    ) -> Result<Self, CompileError> {
+        // Copy the bytes into JavaScript-owned memory before awaiting. A view
+        // into Wasm linear memory could be invalidated if that memory grows.
+        let js_bytes = Uint8Array::from(binary);
+        let module = JsFuture::from(WebAssembly::compile(&js_bytes))
+            .await
+            .map_err(|error| {
+                CompileError::Validate(
+                    error
+                        .as_string()
+                        .or_else(|| {
+                            Reflect::get(&error, &JsValue::from_str("message"))
+                                .ok()
+                                .and_then(|message| message.as_string())
+                        })
+                        .unwrap_or_else(|| "Unknown validation error".to_owned()),
+                )
+            })?
+            .dyn_into::<WebAssembly::Module>()
+            .map_err(|_| {
+                CompileError::Validate(
+                    "WebAssembly.compile returned an unexpected value".to_owned(),
+                )
+            })?;
+
+        Ok(unsafe { Self::from_js_module(module, binary) })
+    }
+
     pub(crate) fn from_binary(
         _engine: &impl AsEngineRef,
         binary: &[u8],
@@ -91,23 +165,24 @@ impl Module {
 
         // The module is now validated, so we can safely parse it's types
         #[cfg(feature = "wasm-types-polyfill")]
-        let (type_hints, name) = {
-            let info = crate::polyfill::translate_module(&binary[..]).unwrap();
+        let (type_hints, name, module_info) = {
+            let translated = crate::polyfill::translate_module(&binary[..]).unwrap();
 
             (
                 Some(ModuleTypeHints {
-                    imports: info
+                    imports: translated
                         .info
                         .imports()
                         .map(|import| import.ty().clone())
                         .collect::<Vec<_>>(),
-                    exports: info
+                    exports: translated
                         .info
                         .exports()
                         .map(|export| export.ty().clone())
                         .collect::<Vec<_>>(),
                 }),
-                info.info.name,
+                translated.info.name.clone(),
+                translated.info,
             )
         };
         #[cfg(not(feature = "wasm-types-polyfill"))]
@@ -117,6 +192,8 @@ impl Module {
             module: JsHandle::new(module),
             type_hints,
             name,
+            #[cfg(feature = "wasm-types-polyfill")]
+            info: module_info,
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: Some(binary),
         }
@@ -205,8 +282,72 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        WebAssembly::Instance::new(&self.module, &imports_object)
-            .map_err(|e: JsValue| -> RuntimeError { e.into() })
+        let instance = WebAssembly::Instance::new(&self.module, &imports_object)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
+        #[cfg(feature = "wasm-types-polyfill")]
+        self.annotate_table_functions(store, imports, &instance);
+        Ok(instance)
+    }
+
+    #[cfg(feature = "wasm-types-polyfill")]
+    fn annotate_table_functions(
+        &self,
+        store: &mut impl AsStoreMut,
+        imports: &Imports,
+        instance: &WebAssembly::Instance,
+    ) {
+        let mut tables = HashMap::<TableIndex, WebAssembly::Table>::new();
+        let mut globals = HashMap::<GlobalIndex, i64>::new();
+
+        for (key, import_index) in &self.info.imports {
+            let Some(extern_) = imports.get_export(&key.module, &key.field) else {
+                continue;
+            };
+            match (import_index, extern_) {
+                (ImportIndex::Table(index), Extern::Table(table)) => {
+                    tables.insert(*index, table.as_js().handle.table.clone());
+                }
+                (ImportIndex::Global(index), Extern::Global(global)) => {
+                    let value = match global.get(store) {
+                        crate::Value::I32(value) => i64::from(value),
+                        crate::Value::I64(value) => value,
+                        _ => continue,
+                    };
+                    globals.insert(*index, value);
+                }
+                _ => {}
+            }
+        }
+        let instance_exports = instance.exports();
+        for (name, export_index) in &self.info.exports {
+            let ExportIndex::Table(index) = export_index else {
+                continue;
+            };
+            let Ok(value) = Reflect::get(&instance_exports, &name.into()) else {
+                continue;
+            };
+            tables.insert(*index, value.into());
+        }
+        for initializer in &self.info.table_initializers {
+            let Some(table) = tables.get(&initializer.table_index) else {
+                continue;
+            };
+            let Some(start) = evaluate_i32_init_expr(&initializer.offset_expr, &globals) else {
+                continue;
+            };
+            for (offset, function_index) in initializer.elements.iter().enumerate() {
+                let Some(signature_index) = self.info.functions.get(*function_index) else {
+                    continue;
+                };
+                let Some(function_type) = self.info.signatures.get(*signature_index) else {
+                    continue;
+                };
+                let Ok(function) = table.get(start.saturating_add(offset as u32)) else {
+                    continue;
+                };
+                crate::js::vm::VMFunction::annotate_type(&function, function_type);
+            }
+        }
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -458,7 +599,14 @@ impl Module {
     }
 
     pub(crate) fn info(&self) -> &ModuleInfo {
-        unimplemented!()
+        #[cfg(feature = "wasm-types-polyfill")]
+        {
+            &self.info
+        }
+        #[cfg(not(feature = "wasm-types-polyfill"))]
+        {
+            unimplemented!("module info requires the wasm-types-polyfill feature")
+        }
     }
 }
 
@@ -469,6 +617,8 @@ impl From<WebAssembly::Module> for Module {
             module: JsHandle::new(module),
             name: None,
             type_hints: None,
+            #[cfg(feature = "wasm-types-polyfill")]
+            info: ModuleInfo::default(),
             #[cfg(feature = "js-serializable-module")]
             raw_bytes: None,
         }

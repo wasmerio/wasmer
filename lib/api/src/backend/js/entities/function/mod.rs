@@ -1,11 +1,17 @@
 pub(crate) mod env;
 pub(crate) mod typed;
 use std::marker::PhantomData;
+#[cfg(feature = "experimental-async")]
+use std::{future::Future, pin::Pin, rc::Rc, sync::Arc};
 
 pub(crate) use typed::*;
 
 use js_sys::{Array, Function as JsFunction};
+#[cfg(feature = "experimental-async")]
+use js_sys::{Promise, Reflect};
 use wasm_bindgen::{JsCast, prelude::*};
+#[cfg(feature = "experimental-async")]
+use wasm_bindgen_futures::{JsFuture, future_to_promise};
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
@@ -19,8 +25,36 @@ use crate::{
     },
     vm::{VMExtern, VMExternFunction},
 };
+#[cfg(feature = "experimental-async")]
+use crate::{
+    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync, StoreContext,
+    entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
+    js::{function::env::AsyncFunctionEnvMut as JsAsyncFunctionEnvMut, jspi},
+};
 
 use std::panic::{self, AssertUnwindSafe};
+
+#[derive(Debug)]
+struct HostFunctionPanic(String);
+
+impl std::fmt::Display for HostFunctionPanic {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for HostFunctionPanic {}
+
+fn raise_host_function_panic(payload: Box<dyn std::any::Any + Send>) -> ! {
+    let message = if let Some(message) = payload.downcast_ref::<&str>() {
+        (*message).to_owned()
+    } else if let Some(message) = payload.downcast_ref::<String>() {
+        message.clone()
+    } else {
+        "host function panicked with a non-string payload".to_owned()
+    };
+    crate::backend::js::error::raise(Box::new(HostFunctionPanic(message)))
+}
 
 #[inline]
 fn wasmer_array_to_js_array(values: &[Value]) -> Array {
@@ -50,6 +84,213 @@ impl Function {
         ))
     }
 
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_async<FT, F, Fut>(
+        store: &mut impl AsStoreMut,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    {
+        let env = FunctionEnv::new(store, ());
+        Self::new_with_env_async(store, &env, ty, move |_env, values| func(values))
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_with_env_async<FT, F, Fut, T>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+        T: 'static,
+    {
+        assert!(
+            jspi::is_supported(),
+            "the JavaScript host does not support WebAssembly JSPI"
+        );
+
+        let function_type = ty.into();
+        let func_ty = function_type.clone();
+        let store_id = store.objects_mut().id();
+        let raw_env = env.as_js().clone();
+        let func = Rc::new(func);
+        let wrapped_func = Closure::wrap(Box::new(move |args: &Array| -> Promise {
+            let Some(async_store) = jspi::active_store(store_id) else {
+                return Promise::reject(&JsValue::from_str(
+                    "an async host function was called outside Function::call_async",
+                ));
+            };
+            let callback_store = async_store.store();
+            let js_env = JsAsyncFunctionEnvMut {
+                store: async_store,
+                func_env: raw_env.clone(),
+            };
+            let env_mut =
+                AsyncFunctionEnvMut(BackendAsyncFunctionEnvMut::Js(js_env));
+            let parameter_types = function_type.params().to_vec();
+            let result_types = function_type.results().to_vec();
+            let args = args.clone();
+            let func = Rc::clone(&func);
+
+            future_to_promise(async move {
+                let mut write_lock = callback_store.write_lock().await;
+                let values = parameter_types
+                    .iter()
+                    .enumerate()
+                    .map(|(index, ty)| {
+                        js_value_to_wasmer(&mut write_lock, ty, &args.get(index as u32))
+                    })
+                    .collect::<Vec<_>>();
+                let store_context = StoreContext::install_async(write_lock.inner);
+                let future = func(env_mut, &values);
+                drop(store_context);
+
+                let results = future.await.map_err(JsValue::from)?;
+                match result_types.len() {
+                    0 => Ok(JsValue::UNDEFINED),
+                    1 => Ok(wasmer_value_to_js(&results[0])),
+                    _ => Ok(wasmer_array_to_js_array(&results).into()),
+                }
+            })
+        }) as Box<dyn FnMut(&Array) -> Promise>)
+        .into_js_value();
+
+        let variadic =
+            JsFunction::new_with_args("f", "return f(Array.prototype.slice.call(arguments, 1))");
+        let function = variadic
+            .bind1(&JsValue::UNDEFINED, &wrapped_func)
+            .unchecked_into::<JsFunction>();
+        let function = match jspi::suspending(&function) {
+            Ok(function) => function,
+            Err(error) => wasm_bindgen::throw_val(error),
+        };
+        let vm_function = VMFunction::new(function, func_ty);
+        Self::from_vm_extern(
+            &mut store.as_store_mut(),
+            VMExternFunction::Js(vm_function),
+        )
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_typed_async<F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        func: F,
+    ) -> Self
+    where
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
+    {
+        let env = FunctionEnv::new(store, ());
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
+        let func = Arc::new(func);
+        Self::new_with_env_async(
+            store,
+            &env,
+            signature,
+            move |mut env_mut, values| -> Pin<
+                Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>,
+            > {
+                let js_env = match env_mut.0 {
+                    BackendAsyncFunctionEnvMut::Js(ref mut js_env) => js_env,
+                    _ => panic!("Not a js backend"),
+                };
+                let mut store_wrapper = unsafe { StoreContext::get_current(js_env.store_id()) };
+                let mut store_mut = store_wrapper.as_mut();
+                let args = match typed_args_from_values::<Args>(
+                    &mut store_mut,
+                    args_sig.as_ref(),
+                    values,
+                ) {
+                    Ok(args) => args,
+                    Err(error) => return Box::pin(async { Err(error) }),
+                };
+                drop(store_wrapper);
+                let func = Arc::clone(&func);
+                let results_sig = Arc::clone(&results_sig);
+                let future = func
+                    .as_ref()
+                    .call_async(AsyncFunctionEnv::new(), args);
+                Box::pin(async move {
+                    let typed_result = future.await?;
+                    let mut store_mut = env_mut.write().await;
+                    typed_results_to_values::<Rets>(
+                        &mut store_mut.as_store_mut(),
+                        results_sig.as_ref(),
+                        typed_result,
+                    )
+                })
+            },
+        )
+    }
+
+    #[cfg(feature = "experimental-async")]
+    pub(crate) fn new_typed_with_env_async<T, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        T: 'static,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + 'static,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
+    {
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
+        let func = Arc::new(func);
+        Self::new_with_env_async(
+            store,
+            env,
+            signature,
+            move |mut env_mut, values| -> Pin<
+                Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>,
+            > {
+                let js_env = match env_mut.0 {
+                    BackendAsyncFunctionEnvMut::Js(ref mut js_env) => js_env,
+                    _ => panic!("Not a js backend"),
+                };
+                let mut store_wrapper = unsafe { StoreContext::get_current(js_env.store_id()) };
+                let mut store_mut = store_wrapper.as_mut();
+                let args = match typed_args_from_values::<Args>(
+                    &mut store_mut,
+                    args_sig.as_ref(),
+                    values,
+                ) {
+                    Ok(args) => args,
+                    Err(error) => return Box::pin(async { Err(error) }),
+                };
+                drop(store_wrapper);
+                let env_mut_clone = env_mut.as_mut();
+                let func = Arc::clone(&func);
+                let results_sig = Arc::clone(&results_sig);
+                let future = func
+                    .as_ref()
+                    .call_async(AsyncFunctionEnv::with_env(env_mut), args);
+                Box::pin(async move {
+                    let typed_result = future.await?;
+                    let mut store_mut = env_mut_clone.write().await;
+                    typed_results_to_values::<Rets>(
+                        &mut store_mut.as_store_mut(),
+                        results_sig.as_ref(),
+                        typed_result,
+                    )
+                })
+            },
+        )
+    }
+
     #[allow(clippy::cast_ptr_alignment)]
     pub fn new_with_env<FT, F, T: Send + 'static>(
         store: &mut impl AsStoreMut,
@@ -72,13 +313,15 @@ impl Function {
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
-                    .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
+                    .map(|(i, param)| {
+                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                    })
                     .collect::<Vec<_>>();
+                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let _results = func(env, &wasm_arguments)?;
                 Ok(())
             })
@@ -86,13 +329,15 @@ impl Function {
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
-                    .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
+                    .map(|(i, param)| {
+                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                    })
                     .collect::<Vec<_>>();
+                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &wasm_arguments)?;
                 Ok(wasmer_value_to_js(&results[0]))
             })
@@ -100,13 +345,15 @@ impl Function {
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
                 let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
                     .enumerate()
-                    .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
+                    .map(|(i, param)| {
+                        js_value_to_wasmer(&mut store, param, &args.get(i as u32))
+                    })
                     .collect::<Vec<_>>();
+                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
                 let results = func(env, &wasm_arguments)?;
                 Ok(wasmer_array_to_js_array(&results))
             })
@@ -247,7 +494,7 @@ impl Function {
         match result_types.len() {
             0 => Ok(Box::new([])),
             1 => {
-                let value = js_value_to_wasmer(&result_types[0], &result);
+                let value = js_value_to_wasmer(store, &result_types[0], &result);
                 Ok(vec![value].into_boxed_slice())
             }
             _n => {
@@ -255,11 +502,70 @@ impl Function {
                 Ok(result_array
                     .iter()
                     .enumerate()
-                    .map(|(i, js_val)| js_value_to_wasmer(&result_types[i], &js_val))
+                    .map(|(i, js_val)| {
+                        js_value_to_wasmer(store, &result_types[i], &js_val)
+                    })
                     .collect::<Vec<_>>()
                     .into_boxed_slice())
             }
         }
+    }
+
+    #[cfg(feature = "experimental-async")]
+    #[allow(clippy::type_complexity)]
+    pub(crate) fn call_async(
+        &self,
+        store: &impl AsStoreAsync,
+        params: Vec<Value>,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'static>> {
+        let function = self.clone();
+        let store = store.store();
+        Box::pin(async move {
+            let _active_store = jspi::install_store(store.store());
+            let function_type = function.handle.ty.clone();
+            let write_lock = store.write_lock().await;
+            let arguments = Array::new_with_length(params.len() as u32);
+            for (index, param) in params.iter().enumerate() {
+                arguments.set(index as u32, param.as_jsvalue(&write_lock));
+            }
+
+            let store_context = StoreContext::install_async(write_lock.inner);
+            let promising = jspi::promising(&function.handle.function)
+                .map_err(RuntimeError::from)?;
+            let promise = Reflect::apply(&promising, &JsValue::NULL, &arguments)
+                .map_err(RuntimeError::from)?
+                .dyn_into::<Promise>()
+                .map_err(RuntimeError::from)?;
+            drop(store_context);
+
+            let result = JsFuture::from(promise).await.map_err(RuntimeError::from)?;
+            let mut write_lock = store.write_lock().await;
+            match function_type.results().len() {
+                0 => Ok(Box::<[Value]>::default()),
+                1 => Ok(vec![js_value_to_wasmer(
+                    &mut write_lock,
+                    &function_type.results()[0],
+                    &result,
+                )]
+                .into_boxed_slice()),
+                _ => {
+                    let result: Array = result.into();
+                    Ok(function_type
+                        .results()
+                        .iter()
+                        .enumerate()
+                        .map(|(index, ty)| {
+                            js_value_to_wasmer(
+                                &mut write_lock,
+                                ty,
+                                &result.get(index as u32),
+                            )
+                        })
+                        .collect::<Vec<_>>()
+                        .into_boxed_slice())
+                }
+            }
+        })
     }
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
@@ -290,6 +596,50 @@ impl Function {
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
         true
     }
+}
+
+#[cfg(feature = "experimental-async")]
+fn typed_args_from_values<Args>(
+    store: &mut StoreMut,
+    function_type: &FunctionType,
+    values: &[Value],
+) -> Result<Args, RuntimeError>
+where
+    Args: WasmTypeList,
+{
+    if values.len() != function_type.params().len() {
+        return Err(RuntimeError::new(
+            "typed host function received wrong number of parameters",
+        ));
+    }
+    let mut raw_array = Args::empty_array();
+    for (slot, value) in raw_array.as_mut().iter_mut().zip(values) {
+        *slot = value.as_raw(store);
+    }
+    unsafe { Ok(Args::from_array(store, raw_array)) }
+}
+
+#[cfg(feature = "experimental-async")]
+fn typed_results_to_values<Rets>(
+    store: &mut StoreMut,
+    function_type: &FunctionType,
+    results: Rets,
+) -> Result<Vec<Value>, RuntimeError>
+where
+    Rets: WasmTypeList,
+{
+    let mut raw_array = unsafe { results.into_array(store) };
+    let mut values = Vec::with_capacity(function_type.results().len());
+    for (raw, ty) in raw_array
+        .as_mut()
+        .iter()
+        .zip(function_type.results())
+    {
+        unsafe {
+            values.push(Value::from_raw(store, *ty, *raw));
+        }
+    }
+    Ok(values)
 }
 
 impl std::fmt::Debug for Function {
@@ -403,7 +753,7 @@ macro_rules! impl_host_function {
                         return c_struct;
                     },
                     Ok(Err(trap)) => crate::backend::js::error::raise(Box::new(trap)),
-                    Err(_panic) => unimplemented!(),
+                    Err(panic) => raise_host_function_panic(panic),
                 }
             }
 
@@ -463,7 +813,7 @@ macro_rules! impl_host_function {
                     #[cfg(feature = "core")]
                     #[allow(deprecated)]
                     Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),
-                    Err(_panic) => unimplemented!(),
+                    Err(panic) => raise_host_function_panic(panic),
                 }
             }
 
