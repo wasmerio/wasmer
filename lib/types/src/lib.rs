@@ -81,7 +81,7 @@ pub use crate::stack::{FrameInfo, SourceLoc, TrapInformation};
 pub use crate::store_id::StoreId;
 pub use crate::trapcode::{OnCalledAction, TrapCode};
 pub use crate::utils::is_wasm;
-pub use crate::vmoffsets::{VMBuiltinFunctionIndex, VMOffsets};
+pub use crate::vmoffsets::{VMBuiltinFunctionIndex, VMOffsets, vmctx_offset};
 
 /// Offset in bytes from the beginning of the function.
 pub type CodeOffset = u32;

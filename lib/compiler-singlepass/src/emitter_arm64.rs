@@ -18,6 +18,7 @@ use wasmer_compiler::types::{
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, Type, VMOffsets, target::CallingConvention,
+    vmctx_offset,
 };
 
 type Assembler = VecAssembler<Aarch64Relocation>;
@@ -3235,32 +3236,33 @@ pub fn gen_import_call_trampoline_arm64(
             )?;
             0
         };
+    let offset = vmctx_offset(offset)?;
     #[allow(clippy::match_single_binding)]
     match calling_convention {
         _ => {
-            if offset.is_multiple_of(8) {
+            if (offset as u32).is_multiple_of(8) {
                 a.emit_ldr(
                     Size::S64,
                     Location::GPR(GPR::X16),
-                    Location::Memory(GPR::X0, offset as i32), // function pointer
+                    Location::Memory(GPR::X0, offset), // function pointer
                 )?;
                 a.emit_ldr(
                     Size::S64,
                     Location::GPR(GPR::X0),
-                    Location::Memory(GPR::X0, offset as i32 + 8), // target vmctx
+                    Location::Memory(GPR::X0, offset + 8), // target vmctx
                 )?;
             } else {
                 a.emit_ldur(
                     Size::S64,
                     Location::GPR(GPR::X16),
                     GPR::X0,
-                    offset as i32, // function pointer
+                    offset, // function pointer
                 )?;
                 a.emit_ldur(
                     Size::S64,
                     Location::GPR(GPR::X0),
                     GPR::X0,
-                    offset as i32 + 8, // target vmctx
+                    offset + 8, // target vmctx
                 )?;
             }
         }

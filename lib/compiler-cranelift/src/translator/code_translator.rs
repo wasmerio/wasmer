@@ -3942,7 +3942,7 @@ fn create_dispatch_block(
 
     builder.switch_to_block(dispatch_block);
     let selector = builder.append_block_param(dispatch_block, TAG_TYPE);
-    let exnref = environ.translate_exn_pointer_to_ref(builder, exn_ptr);
+    let exnref = environ.translate_exn_pointer_to_ref(builder, exn_ptr)?;
 
     let rethrow_block = builder.create_block();
     builder.append_block_param(rethrow_block, EXN_REF_TYPE);
