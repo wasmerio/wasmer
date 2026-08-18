@@ -1965,6 +1965,7 @@ impl Machine for MachineX86_64 {
     type GPR = GPR;
     type SIMD = XMM;
 
+    /// x86_64 stack slots are 8 bytes; 16-byte stack alignment for calls is handled separately.
     const STACK_ALIGNMENT: usize = 8;
 
     fn assembler_get_offset(&self) -> Offset {
