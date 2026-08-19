@@ -8,7 +8,7 @@ use crate::{
     common_decl::Size,
     location::Location as AbstractLocation,
     machine_arm64::ARM64_RETURN_VALUE_REGISTERS,
-    output_budget::{EmittedOutputBudget, OutputBudget},
+    output_budget::{LocalOutputBudget, OutputBudget},
 };
 pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
@@ -2812,7 +2812,7 @@ pub fn gen_std_trampoline_arm64(
     output_budget: Option<&OutputBudget>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_budget = EmittedOutputBudget::new(output_budget);
+    let mut output_budget = LocalOutputBudget::new(output_budget);
 
     let fptr = GPR::X27;
     let args = GPR::X28;
@@ -2941,7 +2941,8 @@ pub fn gen_std_trampoline_arm64(
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
-    output_budget.finish(body.len())?;
+    output_budget.check(body.len())?;
+    output_budget.finish()?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -2955,7 +2956,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     output_budget: Option<&OutputBudget>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_budget = EmittedOutputBudget::new(output_budget);
+    let mut output_budget = LocalOutputBudget::new(output_budget);
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
     // Save LR and X26, as scratch register
@@ -3100,7 +3101,8 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
-    output_budget.finish(body.len())?;
+    output_budget.check(body.len())?;
+    output_budget.finish()?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -3115,7 +3117,7 @@ pub fn gen_import_call_trampoline_arm64(
     output_budget: Option<&OutputBudget>,
 ) -> Result<CustomSection, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_budget = EmittedOutputBudget::new(output_budget);
+    let mut output_budget = LocalOutputBudget::new(output_budget);
 
     // Singlepass internally treats all arguments as integers
     // For the standard System V calling convention requires
@@ -3286,7 +3288,8 @@ pub fn gen_import_call_trampoline_arm64(
 
     let mut contents = a.finalize().unwrap();
     contents.shrink_to_fit();
-    output_budget.finish(contents.len())?;
+    output_budget.check(contents.len())?;
+    output_budget.finish()?;
     let section_body = SectionBody::new_with_vec(contents);
 
     Ok(CustomSection {

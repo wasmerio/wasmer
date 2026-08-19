@@ -148,10 +148,7 @@ pub struct FuncGen<'a, M: Machine> {
     assembly_comments: HashMap<usize, AssemblyComment>,
 
     /// Batched function local accounting backed by the module output budget.
-    output_budget: Option<LocalOutputBudget>,
-
-    /// Assembler offset already charged to the shared output budget.
-    accounted_output_size: usize,
+    output_budget: LocalOutputBudget<Arc<OutputBudget>>,
 
     /// DWARF debug information accumulated for this function.
     #[cfg(feature = "unwind")]
@@ -288,16 +285,13 @@ const RED_ZONE_SIZE: usize = 32;
 
 impl<'a, M: Machine> FuncGen<'a, M> {
     /// Charges newly emitted machine code to the function local output batch.
-    pub fn ensure_output_size_within_limit(&mut self) -> Result<(), CompileError> {
-        let Some(output_budget) = self.output_budget.as_mut() else {
+    #[inline]
+    fn ensure_output_size_within_limit(&mut self) -> Result<(), CompileError> {
+        if self.output_budget.shared.is_none() {
             return Ok(());
-        };
+        }
         let output_size = self.machine.assembler_get_offset().0;
-        debug_assert!(output_size >= self.accounted_output_size);
-        let delta = output_size.saturating_sub(self.accounted_output_size);
-        output_budget.reserve(delta)?;
-        self.accounted_output_size = output_size;
-        Ok(())
+        self.output_budget.check(output_size)
     }
 
     /// Acquires location from the machine state.
@@ -335,7 +329,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let loc = self.machine.local_on_stack(self.stack_offset.get() as i32);
         if stack_diff > 0 {
             self.machine.extend_stack(stack_diff as u32)?;
-            self.ensure_output_size_within_limit()?;
         }
 
         Ok(loc)
@@ -384,7 +377,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // potentially a big number of slots.
         if stack_diff > 0 {
             self.machine.truncate_stack(stack_diff as u32)?;
-            self.ensure_output_size_within_limit()?;
         }
 
         Ok(())
@@ -409,7 +401,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // potentially a big number of slots.
         if stack_diff > 0 {
             self.machine.truncate_stack(stack_diff as u32)?;
-            self.ensure_output_size_within_limit()?;
         }
 
         Ok(())
@@ -563,7 +554,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         self.machine.extend_stack(static_area_size as _)?;
-        self.ensure_output_size_within_limit()?;
 
         // Save callee-saved registers.
         for loc in locations.iter() {
@@ -571,7 +561,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.stack_offset += 8;
                 self.machine
                     .move_local(self.stack_offset.get() as i32, *loc)?;
-                self.ensure_output_size_within_limit()?;
             }
         }
 
@@ -581,7 +570,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.stack_offset.get() as i32,
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
-        self.ensure_output_size_within_limit()?;
 
         // Save the offset of register save area.
         self.save_area_offset = Some(self.stack_offset.get());
@@ -617,7 +605,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Location::GPR(self.machine.get_simple_param_location(0)),
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
-        self.ensure_output_size_within_limit()?;
 
         // Initialize all normal locals to zero.
         let mut init_stack_loc_cnt = 0;
@@ -630,7 +617,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 Location::GPR(_) => {
                     self.machine.zero_location(Size::S64, *location)?;
-                    self.ensure_output_size_within_limit()?;
                 }
                 _ => codegen_error!("singlepass init_local unreachable"),
             }
@@ -638,7 +624,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         if init_stack_loc_cnt > 0 {
             self.machine
                 .init_stack_loc(init_stack_loc_cnt, last_stack_loc)?;
-            self.ensure_output_size_within_limit()?;
         }
 
         // Add the size of all locals allocated to stack.
@@ -813,13 +798,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
         let mut used_stack = self.machine.push_used_gpr(&used_gprs)?;
-        self.ensure_output_size_within_limit()?;
 
         // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
         if !used_simds.is_empty() {
             used_stack += self.machine.push_used_simd(&used_simds)?;
-            self.ensure_output_size_within_limit()?;
         }
         // mark the GPR used for Call as used
         self.machine
@@ -857,7 +840,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             stack_offset += 16 - stack_unaligned;
         }
         self.machine.extend_stack(stack_offset as u32)?;
-        self.ensure_output_size_within_limit()?;
 
         #[allow(clippy::type_complexity)]
         let mut call_movs = Vec::new();
@@ -894,7 +876,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             // Adjust the argument if required by ABI
             self.machine.adjust_gpr_param_location(gpr, size)?;
-            self.ensure_output_size_within_limit()?;
         }
 
         if matches!(call_type, NativeCallType::IncludeVMCtxArgument) {
@@ -904,7 +885,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 Location::GPR(self.machine.get_vmctx_reg()),
                 Location::GPR(self.machine.get_simple_param_location(0)),
             )?; // vmctx
-            self.ensure_output_size_within_limit()?;
         }
 
         self.stack_offset
@@ -914,7 +894,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let begin = self.machine.assembler_get_offset().0;
         cb(self)?;
-        self.ensure_output_size_within_limit()?;
         if matches!(call_type, NativeCallType::Unreachable) {
             let end = self.machine.assembler_get_offset().0;
             self.machine.mark_address_range_with_trap_code(
@@ -937,18 +916,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Restore stack.
         if stack_offset > 0 {
             self.machine.truncate_stack(stack_offset as u32)?;
-            self.ensure_output_size_within_limit()?;
         }
 
         // Restore SIMDs.
         if !used_simds.is_empty() {
             self.machine.pop_used_simd(&used_simds)?;
-            self.ensure_output_size_within_limit()?;
         }
 
         // Restore GPRs.
         self.machine.pop_used_gpr(&used_gprs)?;
-        self.ensure_output_size_within_limit()?;
 
         // We are re-using the params for the return values, thus release just the chunk
         // we're not planning to use!
@@ -1037,7 +1013,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
         self.add_assembly_comment(AssemblyComment::FunctionBody);
-        self.ensure_output_size_within_limit()?;
 
         Ok(())
     }
@@ -1106,8 +1081,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .ok(),
             function_name,
             assembly_comments: HashMap::new(),
-            output_budget: output_budget.map(LocalOutputBudget::new),
-            accounted_output_size: 0,
+            output_budget: LocalOutputBudget::new(output_budget),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -1127,26 +1101,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         value_stack_depth_after: usize,
         return_values: usize,
     ) -> Result<(), CompileError> {
-        for (i, (stack_value, canonicalize)) in self
-            .value_stack
-            .iter()
-            .rev()
-            .take(return_values)
-            .enumerate()
-        {
+        for i in 0..return_values {
+            let (stack_value, canonicalize) = self.value_stack[self.value_stack.len() - i - 1];
             let dst = self.value_stack[value_stack_depth_after - i - 1].0;
             if let Some(canonicalize_size) = canonicalize.to_size()
                 && self.config.enable_nan_canonicalization
             {
                 self.machine
-                    .canonicalize_nan(canonicalize_size, *stack_value, dst)?;
+                    .canonicalize_nan(canonicalize_size, stack_value, dst)?;
             } else {
-                self.machine
-                    .emit_relaxed_mov(Size::S64, *stack_value, dst)?;
+                self.machine.emit_relaxed_mov(Size::S64, stack_value, dst)?;
             }
+            self.ensure_output_size_within_limit()?;
         }
-
-        self.ensure_output_size_within_limit()?;
 
         Ok(())
     }
@@ -1158,20 +1125,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         value_stack_depth_after: usize,
         param_count: usize,
     ) -> Result<(), CompileError> {
-        for (i, (stack_value, _)) in self
-            .value_stack
-            .iter()
-            .rev()
-            .take(param_count)
-            .rev()
-            .enumerate()
-        {
+        for i in 0..param_count {
+            let stack_value = self.value_stack[self.value_stack.len() - param_count + i].0;
             let dst = self.value_stack[value_stack_depth_after + i].0;
-            self.machine
-                .emit_relaxed_mov(Size::S64, *stack_value, dst)?;
+            self.machine.emit_relaxed_mov(Size::S64, stack_value, dst)?;
+            self.ensure_output_size_within_limit()?;
         }
-
-        self.ensure_output_size_within_limit()?;
 
         Ok(())
     }
@@ -6026,7 +5985,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        Ok(())
+        self.ensure_output_size_within_limit()
     }
 
     fn add_assembly_comment(&mut self, comment: AssemblyComment) {
@@ -6080,7 +6039,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Notify the assembler backend to generate necessary code at end of function.
         self.machine.finalize_function()?;
-        self.ensure_output_size_within_limit()?;
 
         let body_len = self.machine.assembler_get_offset().0;
 
@@ -6128,9 +6086,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         } = self.machine.assembler_finalize(self.assembly_comments)?;
         body.shrink_to_fit();
 
-        if let Some(output_budget) = self.output_budget.as_mut() {
-            output_budget.finish()?;
-        }
+        self.output_budget.check(body.len())?;
+        self.output_budget.finish()?;
 
         if let Some(callbacks) = self.config.callbacks.as_ref() {
             callbacks.obj_memory_buffer(

@@ -6,7 +6,7 @@ use crate::{
     emitter_x64::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
-    output_budget::{EmittedOutputBudget, OutputBudget},
+    output_budget::{LocalOutputBudget, OutputBudget},
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
     x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM},
 };
@@ -7830,7 +7830,7 @@ impl Machine for MachineX86_64 {
     ) -> Result<FunctionBody, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
-        let mut output_budget = EmittedOutputBudget::new(output_budget);
+        let mut output_budget = LocalOutputBudget::new(output_budget);
 
         // Calculate stack offset (+1 for the vmctx argument we are going to pass).
         let stack_params = (0..sig.params().len() + 1)
@@ -7940,7 +7940,8 @@ impl Machine for MachineX86_64 {
 
         let mut body = a.finalize().unwrap();
         body.shrink_to_fit();
-        output_budget.finish(body.len())?;
+        output_budget.check(body.len())?;
+        output_budget.finish()?;
 
         Ok(FunctionBody {
             body,
@@ -7958,7 +7959,7 @@ impl Machine for MachineX86_64 {
     ) -> Result<FunctionBody, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
-        let mut output_budget = EmittedOutputBudget::new(output_budget);
+        let mut output_budget = LocalOutputBudget::new(output_budget);
 
         // Allocate argument array.
         let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
@@ -8045,7 +8046,8 @@ impl Machine for MachineX86_64 {
 
         let mut body = a.finalize().unwrap();
         body.shrink_to_fit();
-        output_budget.finish(body.len())?;
+        output_budget.check(body.len())?;
+        output_budget.finish()?;
         Ok(FunctionBody {
             body,
             unwind_info: None,
@@ -8063,7 +8065,7 @@ impl Machine for MachineX86_64 {
     ) -> Result<CustomSection, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
-        let mut output_budget = EmittedOutputBudget::new(output_budget);
+        let mut output_budget = LocalOutputBudget::new(output_budget);
 
         // TODO: ARM entry trampoline is not emitted.
 
@@ -8170,7 +8172,8 @@ impl Machine for MachineX86_64 {
 
         let mut contents = a.finalize().unwrap();
         contents.shrink_to_fit();
-        output_budget.finish(contents.len())?;
+        output_budget.check(contents.len())?;
+        output_budget.finish()?;
         let section_body = SectionBody::new_with_vec(contents);
 
         Ok(CustomSection {

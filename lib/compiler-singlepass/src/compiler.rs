@@ -208,7 +208,6 @@ impl SinglepassCompiler {
                             generator.set_srcloc(reader.original_position() as u32);
                             let op = reader.read_operator()?;
                             generator.feed_operator(op)?;
-                            generator.ensure_output_size_within_limit()?;
                         }
 
                         generator.finalize(input, arch, target, &source_map)
@@ -231,7 +230,6 @@ impl SinglepassCompiler {
                             generator.set_srcloc(reader.original_position() as u32);
                             let op = reader.read_operator()?;
                             generator.feed_operator(op)?;
-                            generator.ensure_output_size_within_limit()?;
                         }
 
                         generator.finalize(input, arch, target, &source_map)
@@ -257,7 +255,6 @@ impl SinglepassCompiler {
                             generator.set_srcloc(reader.original_position() as u32);
                             let op = reader.read_operator()?;
                             generator.feed_operator(op)?;
-                            generator.ensure_output_size_within_limit()?;
                         }
 
                         generator.finalize(input, arch, target, &source_map)

@@ -155,12 +155,6 @@ impl Singlepass {
     }
 }
 
-pub(crate) fn output_size_limit_error(limit: usize) -> CompileError {
-    CompileError::Codegen(format!(
-        "singlepass compiler output exceeds limit of {limit} bytes"
-    ))
-}
-
 impl CompilerConfig for Singlepass {
     fn experimental_artifact(&mut self, enable: bool) {
         self.experimental_artifact = enable;

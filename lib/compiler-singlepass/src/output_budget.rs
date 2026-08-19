@@ -1,13 +1,17 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering},
+use std::{
+    borrow::Borrow,
+    sync::atomic::{AtomicUsize, Ordering},
 };
 
 use wasmer_types::CompileError;
 
-use crate::config::output_size_limit_error;
-
 const LOCAL_BUDGET_CHUNK_SIZE: usize = 1024;
+
+fn output_size_limit_error(limit: usize) -> CompileError {
+    CompileError::Codegen(format!(
+        "singlepass compiler output exceeds limit of {limit} bytes"
+    ))
+}
 
 /// Shared emitted code allowance for one module compilation.
 #[derive(Debug)]
@@ -24,6 +28,7 @@ impl OutputBudget {
         }
     }
 
+    #[inline]
     pub(crate) fn reserve(&self, delta: usize) -> Result<(), CompileError> {
         if delta == 0 {
             return Ok(());
@@ -45,55 +50,17 @@ impl OutputBudget {
     }
 }
 
-fn reserve_batched(
-    shared: &OutputBudget,
-    pending: &mut usize,
-    delta: usize,
-) -> Result<(), CompileError> {
-    let new_pending = pending
-        .checked_add(delta)
-        .ok_or_else(|| output_size_limit_error(shared.limit))?;
-    let committed = new_pending / LOCAL_BUDGET_CHUNK_SIZE * LOCAL_BUDGET_CHUNK_SIZE;
-    if committed > 0 {
-        shared.reserve(committed)?;
-    }
-    *pending = new_pending - committed;
-    Ok(())
-}
-
-/// Function local output accounting that commits emitted bytes to the shared
-/// module budget in chunks
+/// Local output accounting that commits emitted bytes to the shared module
+/// budget in chunks.
 #[derive(Debug)]
-pub(crate) struct LocalOutputBudget {
-    shared: Arc<OutputBudget>,
-    pending: usize,
-}
-
-impl LocalOutputBudget {
-    pub(crate) fn new(shared: Arc<OutputBudget>) -> Self {
-        Self { shared, pending: 0 }
-    }
-
-    pub(crate) fn reserve(&mut self, delta: usize) -> Result<(), CompileError> {
-        reserve_batched(&self.shared, &mut self.pending, delta)
-    }
-
-    pub(crate) fn finish(&mut self) -> Result<(), CompileError> {
-        let pending = std::mem::take(&mut self.pending);
-        self.shared.reserve(pending)
-    }
-}
-
-/// Batched accounting for an assembler whose current output offset can be
-/// sampled while it emits a trampoline.
-pub(crate) struct EmittedOutputBudget<'a> {
-    shared: Option<&'a OutputBudget>,
+pub(crate) struct LocalOutputBudget<T> {
+    pub(super) shared: Option<T>,
     accounted: usize,
     pending: usize,
 }
 
-impl<'a> EmittedOutputBudget<'a> {
-    pub(crate) fn new(shared: Option<&'a OutputBudget>) -> Self {
+impl<T: Borrow<OutputBudget>> LocalOutputBudget<T> {
+    pub(crate) fn new(shared: Option<T>) -> Self {
         Self {
             shared,
             accounted: 0,
@@ -101,30 +68,44 @@ impl<'a> EmittedOutputBudget<'a> {
         }
     }
 
+    #[inline]
+    fn reserve(&mut self, delta: usize) -> Result<(), CompileError> {
+        let Some(shared) = self.shared.as_ref().map(Borrow::borrow) else {
+            return Ok(());
+        };
+        let Some(new_pending) = self.pending.checked_add(delta) else {
+            self.pending = 0;
+            return Err(output_size_limit_error(shared.limit));
+        };
+        let committed = new_pending / LOCAL_BUDGET_CHUNK_SIZE * LOCAL_BUDGET_CHUNK_SIZE;
+        if committed > 0
+            && let Err(error) = shared.reserve(committed)
+        {
+            self.pending = 0;
+            return Err(error);
+        }
+        self.pending = new_pending - committed;
+        Ok(())
+    }
+
+    #[inline]
     pub(crate) fn check(&mut self, output_size: usize) -> Result<(), CompileError> {
         debug_assert!(output_size >= self.accounted);
-        if let Some(shared) = self.shared {
-            reserve_batched(
-                shared,
-                &mut self.pending,
-                output_size.saturating_sub(self.accounted),
-            )?;
-        }
+        self.reserve(output_size.saturating_sub(self.accounted))?;
         self.accounted = output_size;
         Ok(())
     }
 
-    pub(crate) fn finish(&mut self, output_size: usize) -> Result<(), CompileError> {
-        self.check(output_size)?;
-        if let Some(shared) = self.shared {
-            let pending = std::mem::take(&mut self.pending);
+    pub(crate) fn finish(&mut self) -> Result<(), CompileError> {
+        let pending = std::mem::take(&mut self.pending);
+        if let Some(shared) = self.shared.as_ref().map(Borrow::borrow) {
             shared.reserve(pending)?;
         }
         Ok(())
     }
 }
 
-impl Drop for LocalOutputBudget {
+impl<T> Drop for LocalOutputBudget<T> {
     fn drop(&mut self) {
         debug_assert_eq!(
             self.pending, 0,
@@ -161,7 +142,7 @@ mod tests {
     #[test]
     fn local_reservations_commit_full_chunks_and_flush_the_remainder() {
         let budget = Arc::new(OutputBudget::new(10_000));
-        let mut local = LocalOutputBudget::new(Arc::clone(&budget));
+        let mut local = LocalOutputBudget::new(Some(Arc::clone(&budget)));
         local.reserve(1).unwrap();
         assert_eq!(budget.remaining(), 10_000);
 
@@ -176,27 +157,28 @@ mod tests {
     }
 
     #[test]
-    fn emitted_output_checks_commit_chunks_and_finish_flushes_the_remainder() {
+    fn output_checks_commit_chunks_and_finish_flushes_the_remainder() {
         let budget = OutputBudget::new(10_000);
-        let mut emitted = EmittedOutputBudget::new(Some(&budget));
+        let mut local = LocalOutputBudget::new(Some(&budget));
 
-        emitted.check(1).unwrap();
+        local.check(1).unwrap();
         assert_eq!(budget.remaining(), 10_000);
 
-        emitted.check(LOCAL_BUDGET_CHUNK_SIZE).unwrap();
+        local.check(LOCAL_BUDGET_CHUNK_SIZE).unwrap();
         assert_eq!(budget.remaining(), 10_000 - LOCAL_BUDGET_CHUNK_SIZE);
 
-        emitted.finish(LOCAL_BUDGET_CHUNK_SIZE + 1).unwrap();
+        local.check(LOCAL_BUDGET_CHUNK_SIZE + 1).unwrap();
+        local.finish().unwrap();
         assert_eq!(budget.remaining(), 10_000 - LOCAL_BUDGET_CHUNK_SIZE - 1);
     }
 
     #[test]
-    fn emitted_output_check_stops_when_a_full_chunk_exceeds_the_limit() {
+    fn output_check_stops_when_a_full_chunk_exceeds_the_limit() {
         let budget = OutputBudget::new(LOCAL_BUDGET_CHUNK_SIZE - 1);
-        let mut emitted = EmittedOutputBudget::new(Some(&budget));
+        let mut local = LocalOutputBudget::new(Some(&budget));
 
         assert!(matches!(
-            emitted.check(LOCAL_BUDGET_CHUNK_SIZE),
+            local.check(LOCAL_BUDGET_CHUNK_SIZE),
             Err(CompileError::Codegen(message))
                 if message == format!(
                     "singlepass compiler output exceeds limit of {} bytes",
@@ -211,7 +193,7 @@ mod tests {
     #[should_panic(expected = "local output budget dropped without calling finish")]
     fn dropping_unfinished_local_budget_panics() {
         let budget = Arc::new(OutputBudget::new(10_000));
-        let mut local = LocalOutputBudget::new(budget);
+        let mut local = LocalOutputBudget::new(Some(budget));
         local.reserve(1).unwrap();
     }
 
@@ -219,13 +201,13 @@ mod tests {
     fn local_remainder_is_checked_at_function_completion() {
         const LIMIT: usize = 1_500;
         let budget = Arc::new(OutputBudget::new(LIMIT));
-        let mut local = LocalOutputBudget::new(Arc::clone(&budget));
+        let mut local = LocalOutputBudget::new(Some(Arc::clone(&budget)));
         local.reserve(LOCAL_BUDGET_CHUNK_SIZE).unwrap();
         local.reserve(LIMIT - LOCAL_BUDGET_CHUNK_SIZE).unwrap();
         local.finish().unwrap();
         assert_eq!(budget.remaining(), 0);
 
-        let mut overflow = LocalOutputBudget::new(Arc::clone(&budget));
+        let mut overflow = LocalOutputBudget::new(Some(Arc::clone(&budget)));
         overflow.reserve(1).unwrap();
         assert!(matches!(
             overflow.finish(),
@@ -245,7 +227,7 @@ mod tests {
             for _ in 0..THREADS {
                 let budget = Arc::clone(&budget);
                 scope.spawn(move || {
-                    let mut local = LocalOutputBudget::new(budget);
+                    let mut local = LocalOutputBudget::new(Some(budget));
                     for _ in 0..BYTES_PER_THREAD {
                         local.reserve(1).unwrap();
                     }

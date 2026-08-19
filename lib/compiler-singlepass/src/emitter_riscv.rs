@@ -6,7 +6,7 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::MaybeImmediate,
     machine_riscv::{ImmType, RISCV_RETURN_VALUE_REGISTERS},
-    output_budget::{EmittedOutputBudget, OutputBudget},
+    output_budget::{LocalOutputBudget, OutputBudget},
     riscv_decl::{ArgumentRegisterAllocator, RiscvRegister},
 };
 pub use crate::{
@@ -1752,7 +1752,7 @@ pub fn gen_std_trampoline_riscv(
     output_budget: Option<&OutputBudget>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_budget = EmittedOutputBudget::new(output_budget);
+    let mut output_budget = LocalOutputBudget::new(output_budget);
 
     // Callee-save registers must be used.
     let fptr = GPR::X26;
@@ -1889,7 +1889,8 @@ pub fn gen_std_trampoline_riscv(
     let mut body = a.finalize().unwrap();
 
     body.shrink_to_fit();
-    output_budget.finish(body.len())?;
+    output_budget.check(body.len())?;
+    output_budget.finish()?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -1903,7 +1904,7 @@ pub fn gen_std_dynamic_import_trampoline_riscv(
     output_budget: Option<&OutputBudget>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_budget = EmittedOutputBudget::new(output_budget);
+    let mut output_budget = LocalOutputBudget::new(output_budget);
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
 
@@ -2024,7 +2025,8 @@ pub fn gen_std_dynamic_import_trampoline_riscv(
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
-    output_budget.finish(body.len())?;
+    output_budget.check(body.len())?;
+    output_budget.finish()?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -2040,7 +2042,7 @@ pub fn gen_import_call_trampoline_riscv(
     output_budget: Option<&OutputBudget>,
 ) -> Result<CustomSection, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_budget = EmittedOutputBudget::new(output_budget);
+    let mut output_budget = LocalOutputBudget::new(output_budget);
 
     // Singlepass internally treats all arguments as integers
     // For the standard System V calling convention requires
@@ -2175,7 +2177,8 @@ pub fn gen_import_call_trampoline_riscv(
 
     let mut contents = a.finalize().unwrap();
     contents.shrink_to_fit();
-    output_budget.finish(contents.len())?;
+    output_budget.check(contents.len())?;
+    output_budget.finish()?;
     let section_body = SectionBody::new_with_vec(contents);
 
     Ok(CustomSection {
