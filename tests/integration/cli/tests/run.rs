@@ -786,6 +786,8 @@ fn issue_3794_unable_to_mount_relative_paths() {
 fn merged_filesystem_contains_all_files() {
     let assert = wasmer_command()
         .arg("run")
+        .arg("--use")
+        .arg("wasmer/bash")
         .arg("python/python")
         // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
         .arg("--llvm")
