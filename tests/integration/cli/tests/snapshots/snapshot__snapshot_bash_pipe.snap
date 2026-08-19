@@ -10,9 +10,6 @@ expression: snapshot
       "wasmer/coreutils"
     ],
     "include_webcs": [],
-    "wasmer_args": [
-      "--llvm"
-    ],
     "cli_args": [],
     "stdin_hash": "d83523479d9f84e9f94230d5aed27347",
     "enable_threads": true,
