@@ -3236,33 +3236,35 @@ pub fn gen_import_call_trampoline_arm64(
             )?;
             0
         };
-    let offset = vmctx_offset(offset)?;
+    let ptr_arg_offset = vmctx_offset(offset)?;
+    let vmctx_arg_offset = vmctx_offset(offset.saturating_add(8))?;
+
     #[allow(clippy::match_single_binding)]
     match calling_convention {
         _ => {
-            if (offset as u32).is_multiple_of(8) {
+            if (ptr_arg_offset as u32).is_multiple_of(8) {
                 a.emit_ldr(
                     Size::S64,
                     Location::GPR(GPR::X16),
-                    Location::Memory(GPR::X0, offset), // function pointer
+                    Location::Memory(GPR::X0, ptr_arg_offset), // function pointer
                 )?;
                 a.emit_ldr(
                     Size::S64,
                     Location::GPR(GPR::X0),
-                    Location::Memory(GPR::X0, offset + 8), // target vmctx
+                    Location::Memory(GPR::X0, vmctx_arg_offset), // target vmctx
                 )?;
             } else {
                 a.emit_ldur(
                     Size::S64,
                     Location::GPR(GPR::X16),
                     GPR::X0,
-                    offset, // function pointer
+                    ptr_arg_offset, // function pointer
                 )?;
                 a.emit_ldur(
                     Size::S64,
                     Location::GPR(GPR::X0),
                     GPR::X0,
-                    offset + 8, // target vmctx
+                    vmctx_arg_offset, // target vmctx
                 )?;
             }
         }

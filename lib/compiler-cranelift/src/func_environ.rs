@@ -1885,10 +1885,11 @@ impl FuncEnvironment<'_> {
             .load(pointer_type, mem_flags, base, body_offset);
 
         // First append the callee vmctx address.
-        let vmctx_offset = vmctx_offset(self.offsets.vmctx_vmfunction_import_vmctx(callee_index))?;
+        let vmctx_arg_offset =
+            vmctx_offset(self.offsets.vmctx_vmfunction_import_vmctx(callee_index))?;
         let vmctx = builder
             .ins()
-            .load(pointer_type, mem_flags, base, vmctx_offset);
+            .load(pointer_type, mem_flags, base, vmctx_arg_offset);
         real_call_args.push(vmctx);
 
         // Then append the regular call arguments.
