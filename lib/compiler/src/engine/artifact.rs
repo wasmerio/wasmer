@@ -915,13 +915,29 @@ impl Artifact {
         let (local_fn_offsets, rest) = function_offsets.split_at(local_function_count);
         let (trampoline_offsets, dynamic_trampoline_offsets) = rest.split_at(signature_count);
 
-        // Right now, we calculate function sizes as the difference from the next function.
-        let local_fn_sizes = function_offsets
+        // Linkers may reorder input text sections, for example by alignment, so offsets are not
+        // necessarily in metadata order. Use the next function in address order as the end of
+        // each local function, or the end of its section for the last function.
+        let mut sorted_function_offsets = function_offsets.clone();
+        sorted_function_offsets.sort_unstable();
+        let local_fn_sizes = local_fn_offsets
             .iter()
-            .skip(1)
-            .take(local_function_count)
-            .zip(function_offsets.iter())
-            .map(|(f1, f0)| f1.checked_sub(*f0).ok_or_else(&corrupted_offsets))
+            .map(|offset| {
+                let end = sorted_function_offsets
+                    .iter()
+                    .copied()
+                    .find(|candidate| candidate > offset)
+                    .or_else(|| {
+                        image.sections().find_map(|section| {
+                            let start = usize::try_from(section.address()).ok()?;
+                            let size = usize::try_from(section.size()).ok()?;
+                            let end = start.checked_add(size)?;
+                            (start <= *offset && *offset < end).then_some(end)
+                        })
+                    })
+                    .ok_or_else(&corrupted_offsets)?;
+                end.checked_sub(*offset).ok_or_else(&corrupted_offsets)
+            })
             .collect::<Result<Vec<_>, _>>()?;
 
         let signatures = {

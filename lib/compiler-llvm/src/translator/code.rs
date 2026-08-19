@@ -23,7 +23,7 @@ use inkwell::{
     targets::{FileType, TargetData, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
-        BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
+        AsValueRef, BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
         FunctionValue, InstructionOpcode, InstructionValue, IntValue, LLVMTailCallKind, PhiValue,
         PointerValue, VectorValue,
     },
@@ -1003,6 +1003,21 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         Ok(())
     }
 
+    /// Prevent LLVM from folding through an integer value while preserving its value.
+    ///
+    /// LLVM 23 incorrectly combines `uitofp (fptosi x)` into signed conversion instructions on
+    /// x86. Freezing the integer prevents that combine and has no runtime cost. Wasm values cannot
+    /// be poison, so this does not alter their semantics.
+    fn freeze_int(&self, value: IntValue<'ctx>) -> IntValue<'ctx> {
+        unsafe {
+            IntValue::new(inkwell::llvm_sys::core::LLVMBuildFreeze(
+                self.builder.as_mut_ptr(),
+                value.as_value_ref(),
+                c"".as_ptr(),
+            ))
+        }
+    }
+
     fn trap_if_zero_or_overflow(
         &self,
         left: IntValue<'ctx>,
@@ -1011,7 +1026,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let int_type = left.get_type();
 
         let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
-            let min_value = int_type.const_int(i32::MIN as u64, false);
+            let min_value = int_type.const_int(i32::MIN as u32 as u64, false);
             let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
             (min_value, neg_one_value)
         } else if int_type == self.intrinsics.i64_ty {
@@ -3161,7 +3176,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             // Generate const values.
             Operator::I32Const { value } => {
-                let i = self.intrinsics.i32_ty.const_int(value as u64, false);
+                let i = self.intrinsics.i32_ty.const_int(value as u32 as u64, false);
                 let info = if is_f32_arithmetic(value as u32) {
                     ExtraInfo::arithmetic_f32()
                 } else {
@@ -4937,7 +4952,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let int_type = v1.get_type();
                 let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
-                    let min_value = int_type.const_int(i32::MIN as u64, false);
+                    let min_value = int_type.const_int(i32::MIN as u32 as u64, false);
                     let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
                     (min_value, neg_one_value)
                 } else if int_type == self.intrinsics.i64_ty {
@@ -9540,7 +9555,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Operator::F32ConvertI32U | Operator::F32ConvertI64U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
-                let v = v.into_int_value();
+                let v = self.freeze_int(v.into_int_value());
                 let res = err!(self.builder.build_unsigned_int_to_float(
                     v,
                     self.intrinsics.f32_ty,
@@ -9551,7 +9566,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Operator::F64ConvertI32U | Operator::F64ConvertI64U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
-                let v = v.into_int_value();
+                let v = self.freeze_int(v.into_int_value());
                 let res = err!(self.builder.build_unsigned_int_to_float(
                     v,
                     self.intrinsics.f64_ty,
