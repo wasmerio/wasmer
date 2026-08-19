@@ -2449,9 +2449,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_imul_imm32(
                     Size::S64,
                     if local_fixed_funcref_table.is_some() {
-                        self.vmoffsets.size_of_vmcaller_checked_anyfunc() as u32
+                        u32::from(self.vmoffsets.size_of_vmcaller_checked_anyfunc())
                     } else {
-                        self.vmoffsets.size_of_vm_funcref() as u32
+                        u32::from(self.vmoffsets.size_of_vm_funcref())
                     },
                     table_count,
                 )?;
@@ -2467,7 +2467,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Size::S64,
                         Location::Memory(
                             table_count,
-                            self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as i32,
+                            i32::from(self.vmoffsets.vmcaller_checked_anyfunc_func_ptr()),
                         ),
                         Location::GPR(table_base),
                     )?;
@@ -2484,7 +2484,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Size::S64,
                         Location::Memory(
                             table_count,
-                            self.vmoffsets.vm_funcref_anyfunc_ptr() as i32,
+                            i32::from(self.vmoffsets.vm_funcref_anyfunc_ptr()),
                         ),
                         Location::GPR(table_count),
                     )?;
@@ -2510,7 +2510,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(sig_hash),
                     Location::Memory(
                         table_count,
-                        (self.vmoffsets.vmcaller_checked_anyfunc_signature_hash() as usize) as i32,
+                        i32::from(self.vmoffsets.vmcaller_checked_anyfunc_signature_hash()),
                     ),
                     self.special_labels.bad_signature,
                 )?;
@@ -2528,9 +2528,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
 
                 let vmcaller_checked_anyfunc_func_ptr =
-                    self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize;
+                    i32::from(self.vmoffsets.vmcaller_checked_anyfunc_func_ptr());
                 let vmcaller_checked_anyfunc_vmctx =
-                    self.vmoffsets.vmcaller_checked_anyfunc_vmctx() as usize;
+                    i32::from(self.vmoffsets.vmcaller_checked_anyfunc_vmctx());
 
                 self.emit_call_native(
                     |this| {
@@ -2541,13 +2541,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         // We set the context pointer
                         this.machine.move_location(
                             Size::S64,
-                            Location::Memory(gpr_for_call, vmcaller_checked_anyfunc_vmctx as i32),
+                            Location::Memory(gpr_for_call, vmcaller_checked_anyfunc_vmctx),
                             Location::GPR(this.machine.get_simple_param_location(0)),
                         )?;
 
                         this.machine.emit_call_location(Location::Memory(
                             gpr_for_call,
-                            vmcaller_checked_anyfunc_func_ptr as i32,
+                            vmcaller_checked_anyfunc_func_ptr,
                         ))?;
                         this.machine.mark_instruction_address_end(offset);
                         Ok(())
