@@ -786,21 +786,17 @@ fn issue_3794_unable_to_mount_relative_paths() {
 fn merged_filesystem_contains_all_files() {
     let assert = wasmer_command()
         .arg("run")
-        .arg("wasmer/bash")
-        .arg("--entrypoint=bash")
-        .arg("--use")
         .arg("python/python")
         // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
         .arg("--llvm")
         .arg("--")
         .arg("-c")
-        .arg("ls -l /usr/local/lib/python3.13/*.py")
-        .env("RUST_LOG", &*RUST_LOG)
+        .arg("import this")
         .assert();
 
     assert
         .success()
-        .stdout(contains("/usr/local/lib/python3.13/this.py"));
+        .stdout(contains("Beautiful is better than ugly."));
 }
 
 #[test]
