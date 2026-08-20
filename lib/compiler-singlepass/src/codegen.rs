@@ -286,8 +286,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     /// Charges newly emitted machine code to the function local output batch.
     #[inline]
     fn ensure_output_size_within_limit(&mut self) -> Result<(), CompileError> {
-        let output_size = self.machine.assembler_get_offset().0;
-        self.output_reporter.check(output_size)
+        self.output_reporter
+            .check(self.machine.assembler_get_offset().0)
     }
 
     /// Acquires location from the machine state.

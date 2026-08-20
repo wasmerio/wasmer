@@ -4,7 +4,9 @@ use wasmer_types::{CompilationProgressCallback, CompileError};
 #[derive(Debug)]
 pub(crate) struct ChunkedOutputReporter<'a> {
     progress_callback: Option<&'a CompilationProgressCallback>,
+    // Number of bytes already reported to the progress callback.
     accounted: usize,
+    // Currently allocated bytes.
     current: usize,
 }
 
