@@ -33,7 +33,7 @@ impl<'a> ChunkedOutputReporter<'a> {
             return Ok(());
         };
 
-        debug_assert!(output_size >= self.accounted);
+        debug_assert!(output_size >= self.current);
         self.current = output_size;
         let pending = self.current - self.accounted;
 
@@ -51,7 +51,7 @@ impl<'a> ChunkedOutputReporter<'a> {
             return Ok(());
         };
 
-        debug_assert!(output_size >= self.accounted);
+        debug_assert!(output_size >= self.current);
         self.current = output_size;
         let pending = self.current - self.accounted;
         self.accounted = self.current;
