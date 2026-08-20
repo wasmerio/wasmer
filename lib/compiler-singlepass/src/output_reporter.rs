@@ -27,7 +27,6 @@ impl<'a> ChunkedOutputReporter<'a> {
         };
 
         debug_assert!(output_size >= self.accounted);
-        // output cannot actually reach usize::MAX
         self.current = output_size;
         let pending = self.current - self.accounted;
 
@@ -40,12 +39,16 @@ impl<'a> ChunkedOutputReporter<'a> {
         Ok(())
     }
 
-    pub(crate) fn finish(&mut self) -> Result<(), CompileError> {
+    pub(crate) fn finish(mut self, output_size: usize) -> Result<(), CompileError> {
         let Some(progress_callback) = self.progress_callback.as_ref() else {
             return Ok(());
         };
 
+        debug_assert!(output_size >= self.accounted);
+        self.current = output_size;
         let pending = self.current - self.accounted;
+        self.accounted = self.current;
+
         Ok(progress_callback.reserve(pending)?)
     }
 }
@@ -53,7 +56,7 @@ impl<'a> ChunkedOutputReporter<'a> {
 impl<'a> Drop for ChunkedOutputReporter<'a> {
     fn drop(&mut self) {
         debug_assert_eq!(
-            self.current, 0,
+            self.current, self.accounted,
             "local output reporter dropped without calling finish"
         );
     }

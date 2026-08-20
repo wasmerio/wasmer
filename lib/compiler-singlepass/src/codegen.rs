@@ -10,7 +10,7 @@ use crate::{
     machine::{
         AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
     },
-    output_reporter::{ChunkedOutputReporter, OutputReporter},
+    output_reporter::ChunkedOutputReporter,
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
@@ -22,7 +22,6 @@ use std::{
     collections::HashMap,
     iter,
     ops::{AddAssign, Neg, SubAssign},
-    sync::Arc,
 };
 use target_lexicon::Architecture;
 
@@ -48,9 +47,9 @@ use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
 use wasmer_types::target::{CallingConvention, Target};
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
-    VMBuiltinFunctionIndex, VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, GlobalIndex,
+    LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex,
+    TableStyle, TrapCode, Type, VMBuiltinFunctionIndex, VMOffsets,
     entity::{EntityRef, PrimaryMap},
 };
 
@@ -148,7 +147,7 @@ pub struct FuncGen<'a, M: Machine> {
     assembly_comments: HashMap<usize, AssemblyComment>,
 
     /// Batched function local accounting backed by the module output budget.
-    output_reporter: ChunkedOutputReporter<Arc<OutputReporter>>,
+    output_reporter: ChunkedOutputReporter<'a>,
 
     /// DWARF debug information accumulated for this function.
     #[cfg(feature = "unwind")]
@@ -287,9 +286,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     /// Charges newly emitted machine code to the function local output batch.
     #[inline]
     fn ensure_output_size_within_limit(&mut self) -> Result<(), CompileError> {
-        if self.output_reporter.shared.is_none() {
-            return Ok(());
-        }
         let output_size = self.machine.assembler_get_offset().0;
         self.output_reporter.check(output_size)
     }
@@ -1028,7 +1024,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         local_types_excluding_arguments: &[WpType],
         machine: M,
         calling_convention: CallingConvention,
-        output_reporter: Option<Arc<OutputReporter>>,
+        progress_callback: Option<&'a CompilationProgressCallback>,
     ) -> Result<FuncGen<'a, M>, CompileError> {
         let func_index = module.func_index(local_func_index);
         let sig_index = module.functions[func_index];
@@ -1081,7 +1077,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .ok(),
             function_name,
             assembly_comments: HashMap::new(),
-            output_reporter: ChunkedOutputReporter::new(output_reporter),
+            output_reporter: ChunkedOutputReporter::new(progress_callback),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -6086,8 +6082,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         } = self.machine.assembler_finalize(self.assembly_comments)?;
         body.shrink_to_fit();
 
-        self.output_reporter.check(body.len())?;
-        self.output_reporter.finish()?;
+        self.output_reporter.finish(body.len())?;
 
         if let Some(callbacks) = self.config.callbacks.as_ref() {
             callbacks.obj_memory_buffer(

@@ -15,7 +15,8 @@ use wasmer_compiler::{
     wasmparser::MemArg,
 };
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode,
+    TrapInformation, VMOffsets,
     target::{CallingConvention, CpuFeature, Target},
 };
 
@@ -26,7 +27,6 @@ use crate::{
     emitter_arm64::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
-    output_reporter::OutputReporter,
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
 };
 
@@ -8372,9 +8372,9 @@ impl Machine for MachineARM64 {
         &self,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-        output_reporter: Option<&OutputReporter>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_trampoline_arm64(sig, calling_convention, output_reporter)
+        gen_std_trampoline_arm64(sig, calling_convention, progress_callback)
     }
     // Generates dynamic import function call trampoline for a function type.
 
@@ -8383,9 +8383,14 @@ impl Machine for MachineARM64 {
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-        output_reporter: Option<&OutputReporter>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_dynamic_import_trampoline_arm64(vmoffsets, sig, calling_convention, output_reporter)
+        gen_std_dynamic_import_trampoline_arm64(
+            vmoffsets,
+            sig,
+            calling_convention,
+            progress_callback,
+        )
     }
     // Singlepass calls import functions through a trampoline.
 
@@ -8395,9 +8400,15 @@ impl Machine for MachineARM64 {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
-        output_reporter: Option<&OutputReporter>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<CustomSection, CompileError> {
-        gen_import_call_trampoline_arm64(vmoffsets, index, sig, calling_convention, output_reporter)
+        gen_import_call_trampoline_arm64(
+            vmoffsets,
+            index,
+            sig,
+            calling_convention,
+            progress_callback,
+        )
     }
 
     #[cfg(feature = "unwind")]

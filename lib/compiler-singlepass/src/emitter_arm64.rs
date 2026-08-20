@@ -4,11 +4,8 @@ pub use crate::{
     machine::{Label, Offset},
 };
 use crate::{
-    codegen_error,
-    common_decl::Size,
-    location::Location as AbstractLocation,
-    machine_arm64::ARM64_RETURN_VALUE_REGISTERS,
-    output_reporter::{ChunkedOutputReporter, OutputReporter},
+    codegen_error, common_decl::Size, location::Location as AbstractLocation,
+    machine_arm64::ARM64_RETURN_VALUE_REGISTERS, output_reporter::ChunkedOutputReporter,
 };
 pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
@@ -20,7 +17,8 @@ use wasmer_compiler::types::{
     section::{CustomSection, CustomSectionProtection, SectionBody},
 };
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, Type, VMOffsets, target::CallingConvention,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
+    target::CallingConvention,
 };
 
 type Assembler = VecAssembler<Aarch64Relocation>;
@@ -2809,10 +2807,10 @@ impl EmitterARM64 for Assembler {
 pub fn gen_std_trampoline_arm64(
     sig: &FunctionType,
     calling_convention: CallingConvention,
-    output_reporter: Option<&OutputReporter>,
+    progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
+    let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
     let fptr = GPR::X27;
     let args = GPR::X28;
@@ -2941,8 +2939,7 @@ pub fn gen_std_trampoline_arm64(
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
-    output_reporter.check(body.len())?;
-    output_reporter.finish()?;
+    output_reporter.finish(body.len())?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -2953,10 +2950,10 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     vmoffsets: &VMOffsets,
     sig: &FunctionType,
     calling_convention: CallingConvention,
-    output_reporter: Option<&OutputReporter>,
+    progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
+    let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
     // Save LR and X26, as scratch register
@@ -3101,8 +3098,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
-    output_reporter.check(body.len())?;
-    output_reporter.finish()?;
+    output_reporter.finish(body.len())?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -3114,10 +3110,10 @@ pub fn gen_import_call_trampoline_arm64(
     index: FunctionIndex,
     sig: &FunctionType,
     calling_convention: CallingConvention,
-    output_reporter: Option<&OutputReporter>,
+    progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<CustomSection, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
+    let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
     // Singlepass internally treats all arguments as integers
     // For the standard System V calling convention requires
@@ -3288,8 +3284,7 @@ pub fn gen_import_call_trampoline_arm64(
 
     let mut contents = a.finalize().unwrap();
     contents.shrink_to_fit();
-    output_reporter.check(contents.len())?;
-    output_reporter.finish()?;
+    output_reporter.finish(contents.len())?;
     let section_body = SectionBody::new_with_vec(contents);
 
     Ok(CustomSection {
