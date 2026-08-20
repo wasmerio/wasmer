@@ -3942,7 +3942,7 @@
 <a href=#3942 id=3942 data-nosnippet>3942</a>
 <a href=#3943 id=3943 data-nosnippet>3943</a>    builder.switch_to_block(dispatch_block);
 <a href=#3944 id=3944 data-nosnippet>3944</a>    <span class="kw">let </span>selector = builder.append_block_param(dispatch_block, TAG_TYPE);
-<a href=#3945 id=3945 data-nosnippet>3945</a>    <span class="kw">let </span>exnref = environ.translate_exn_pointer_to_ref(builder, exn_ptr);
+<a href=#3945 id=3945 data-nosnippet>3945</a>    <span class="kw">let </span>exnref = environ.translate_exn_pointer_to_ref(builder, exn_ptr)<span class="question-mark">?</span>;
 <a href=#3946 id=3946 data-nosnippet>3946</a>
 <a href=#3947 id=3947 data-nosnippet>3947</a>    <span class="kw">let </span>rethrow_block = builder.create_block();
 <a href=#3948 id=3948 data-nosnippet>3948</a>    builder.append_block_param(rethrow_block, EXN_REF_TYPE);
