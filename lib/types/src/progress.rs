@@ -65,10 +65,15 @@ impl UserAbort {
     }
 }
 
-/// Wraps a boxed callback that can receive compilation progress notifications.
+type ProgressCallback =
+    dyn Fn(CompilationProgress) -> Result<(), UserAbort> + Send + Sync + 'static;
+type ReserveCallback = dyn Fn(usize) -> Result<(), UserAbort> + Send + Sync + 'static;
+
+/// Wraps callbacks that can receive compilation progress and reservation notifications.
 #[derive(Clone)]
 pub struct CompilationProgressCallback {
-    callback: Arc<dyn Fn(CompilationProgress) -> Result<(), UserAbort> + Send + Sync + 'static>,
+    callback: Arc<ProgressCallback>,
+    reserve_callback: Option<Arc<ReserveCallback>>,
 }
 
 impl CompilationProgressCallback {
@@ -84,7 +89,35 @@ impl CompilationProgressCallback {
     {
         Self {
             callback: Arc::new(callback),
+            reserve_callback: None,
         }
+    }
+
+    /// Configures a callback for reserving resources during compilation.
+    ///
+    /// Singlepass uses this callback to account for emitted native-code bytes.
+    /// Calls may be made concurrently when compilation uses multiple threads.
+    pub fn with_reserve_callback<F>(mut self, callback: F) -> Self
+    where
+        F: Fn(usize) -> Result<(), UserAbort> + Send + Sync + 'static,
+    {
+        self.reserve_callback = Some(Arc::new(callback));
+        self
+    }
+
+    /// Reserves the requested amount through the configured reservation callback.
+    ///
+    /// This is a no-op when no reservation callback was configured.
+    pub fn reserve(&self, amount: usize) -> Result<(), UserAbort> {
+        match &self.reserve_callback {
+            Some(callback) => callback(amount),
+            None => Ok(()),
+        }
+    }
+
+    /// Returns whether a reservation callback is configured.
+    pub fn has_reserve_callback(&self) -> bool {
+        self.reserve_callback.is_some()
     }
 
     /// Notify the callback about new progress information.

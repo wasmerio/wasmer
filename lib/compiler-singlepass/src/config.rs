@@ -85,6 +85,9 @@ pub struct Singlepass {
     pub(crate) debugger: Option<Debugger>,
     pub(crate) experimental_artifact: bool,
 
+    /// Number of emitted native-code bytes to reserve per callback invocation.
+    pub(crate) output_report_chunk_size: Option<usize>,
+
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 
@@ -103,6 +106,7 @@ impl Singlepass {
             allow_experimental_unaligned_memory_accesses: false,
             debugger: None,
             experimental_artifact: false,
+            output_report_chunk_size: None,
             middlewares: vec![],
             callbacks: None,
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
@@ -117,6 +121,16 @@ impl Singlepass {
 
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
+        self
+    }
+
+    /// Reports emitted native-code bytes to the compilation progress callback in
+    /// chunks of this size.
+    ///
+    /// Reporting is active only when the callback has a reservation callback.
+    pub fn with_output_report_chunk_size(mut self, chunk_size: usize) -> Self {
+        assert!(chunk_size > 0, "output report chunk size must be non-zero");
+        self.output_report_chunk_size = Some(chunk_size);
         self
     }
 

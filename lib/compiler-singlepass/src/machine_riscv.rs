@@ -26,6 +26,7 @@ use crate::{
     emitter_riscv::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
+    output_reporter::OutputReporter,
     riscv_decl::{FPR, GPR},
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
 };
@@ -6530,8 +6531,9 @@ impl Machine for MachineRiscv {
         &self,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        output_reporter: Option<&OutputReporter>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_trampoline_riscv(sig, calling_convention)
+        gen_std_trampoline_riscv(sig, calling_convention, output_reporter)
     }
 
     fn gen_std_dynamic_import_trampoline(
@@ -6539,8 +6541,9 @@ impl Machine for MachineRiscv {
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         _calling_convention: CallingConvention,
+        output_reporter: Option<&OutputReporter>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_dynamic_import_trampoline_riscv(vmoffsets, sig)
+        gen_std_dynamic_import_trampoline_riscv(vmoffsets, sig, output_reporter)
     }
     // Singlepass calls import functions through a trampoline.
 
@@ -6550,8 +6553,9 @@ impl Machine for MachineRiscv {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        output_reporter: Option<&OutputReporter>,
     ) -> Result<CustomSection, CompileError> {
-        gen_import_call_trampoline_riscv(vmoffsets, index, sig, calling_convention)
+        gen_import_call_trampoline_riscv(vmoffsets, index, sig, calling_convention, output_reporter)
     }
 
     #[cfg(feature = "unwind")]

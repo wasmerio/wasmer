@@ -5,6 +5,7 @@ use crate::{
     machine_arm64::MachineARM64,
     machine_riscv::MachineRiscv,
     machine_x64::MachineX86_64,
+    output_reporter::OutputReporter,
     unwind::UnwindInstructions,
 };
 
@@ -2325,6 +2326,7 @@ pub trait Machine {
         &self,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        output_reporter: Option<&OutputReporter>,
     ) -> Result<FunctionBody, CompileError>;
     /// Generates dynamic import function call trampoline for a function type.
     fn gen_std_dynamic_import_trampoline(
@@ -2332,6 +2334,7 @@ pub trait Machine {
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        output_reporter: Option<&OutputReporter>,
     ) -> Result<FunctionBody, CompileError>;
     /// Singlepass calls import functions through a trampoline.
     fn gen_import_call_trampoline(
@@ -2340,6 +2343,7 @@ pub trait Machine {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        output_reporter: Option<&OutputReporter>,
     ) -> Result<CustomSection, CompileError>;
     /// generate eh_frame instruction (or None if not possible / supported)
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
@@ -2353,19 +2357,20 @@ pub fn gen_std_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
     object: Option<&CompiledKind>,
+    output_reporter: Option<&OutputReporter>,
 ) -> Result<CompileOutput<FunctionBody>, CompileError> {
     let body = match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
-            machine.gen_std_trampoline(sig, calling_convention)
+            machine.gen_std_trampoline(sig, calling_convention, output_reporter)
         }
         Architecture::Aarch64(_) => {
             let machine = MachineARM64::new(Some(target.clone()));
-            machine.gen_std_trampoline(sig, calling_convention)
+            machine.gen_std_trampoline(sig, calling_convention, output_reporter)
         }
         Architecture::Riscv64(_) => {
             let machine = MachineRiscv::new(Some(target.clone()), false)?;
-            machine.gen_std_trampoline(sig, calling_convention)
+            machine.gen_std_trampoline(sig, calling_convention, output_reporter)
         }
         _ => Err(CompileError::UnsupportedTarget(
             "singlepass unimplemented arch for gen_std_trampoline".to_owned(),
@@ -2387,19 +2392,35 @@ pub fn gen_std_dynamic_import_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
     object: Option<&CompiledKind>,
+    output_reporter: Option<&OutputReporter>,
 ) -> Result<CompileOutput<FunctionBody>, CompileError> {
     let body = match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
-            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+            machine.gen_std_dynamic_import_trampoline(
+                vmoffsets,
+                sig,
+                calling_convention,
+                output_reporter,
+            )
         }
         Architecture::Aarch64(_) => {
             let machine = MachineARM64::new(Some(target.clone()));
-            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+            machine.gen_std_dynamic_import_trampoline(
+                vmoffsets,
+                sig,
+                calling_convention,
+                output_reporter,
+            )
         }
         Architecture::Riscv64(_) => {
             let machine = MachineRiscv::new(Some(target.clone()), false)?;
-            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+            machine.gen_std_dynamic_import_trampoline(
+                vmoffsets,
+                sig,
+                calling_convention,
+                output_reporter,
+            )
         }
         _ => Err(CompileError::UnsupportedTarget(
             "singlepass unimplemented arch for gen_std_dynamic_import_trampoline".to_owned(),
@@ -2421,19 +2442,38 @@ pub fn gen_import_call_trampoline(
     target: &Target,
     calling_convention: CallingConvention,
     experimental_artifact: bool,
+    output_reporter: Option<&OutputReporter>,
 ) -> Result<CompileOutput<CustomSection>, CompileError> {
     let section = match target.triple().architecture {
         Architecture::X86_64 => {
             let machine = MachineX86_64::new(Some(target.clone()))?;
-            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+            machine.gen_import_call_trampoline(
+                vmoffsets,
+                index,
+                sig,
+                calling_convention,
+                output_reporter,
+            )
         }
         Architecture::Aarch64(_) => {
             let machine = MachineARM64::new(Some(target.clone()));
-            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+            machine.gen_import_call_trampoline(
+                vmoffsets,
+                index,
+                sig,
+                calling_convention,
+                output_reporter,
+            )
         }
         Architecture::Riscv64(_) => {
             let machine = MachineRiscv::new(Some(target.clone()), false)?;
-            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+            machine.gen_import_call_trampoline(
+                vmoffsets,
+                index,
+                sig,
+                calling_convention,
+                output_reporter,
+            )
         }
         _ => Err(CompileError::UnsupportedTarget(
             "singlepass unimplemented arch for gen_import_call_trampoline".to_owned(),
