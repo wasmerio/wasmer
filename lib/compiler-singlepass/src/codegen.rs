@@ -10,7 +10,7 @@ use crate::{
     machine::{
         AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
     },
-    output_reporter::{LocalOutputReporter, OutputReporter},
+    output_reporter::{ChunkedOutputReporter, OutputReporter},
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
@@ -148,7 +148,7 @@ pub struct FuncGen<'a, M: Machine> {
     assembly_comments: HashMap<usize, AssemblyComment>,
 
     /// Batched function local accounting backed by the module output budget.
-    output_reporter: LocalOutputReporter<Arc<OutputReporter>>,
+    output_reporter: ChunkedOutputReporter<Arc<OutputReporter>>,
 
     /// DWARF debug information accumulated for this function.
     #[cfg(feature = "unwind")]
@@ -1081,7 +1081,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .ok(),
             function_name,
             assembly_comments: HashMap::new(),
-            output_reporter: LocalOutputReporter::new(output_reporter),
+            output_reporter: ChunkedOutputReporter::new(output_reporter),
         };
         fg.emit_head()?;
         Ok(fg)

@@ -6,7 +6,7 @@ use crate::{
     emitter_x64::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
-    output_reporter::{LocalOutputReporter, OutputReporter},
+    output_reporter::{ChunkedOutputReporter, OutputReporter},
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
     x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM},
 };
@@ -7830,7 +7830,7 @@ impl Machine for MachineX86_64 {
     ) -> Result<FunctionBody, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
-        let mut output_reporter = LocalOutputReporter::new(output_reporter);
+        let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
 
         // Calculate stack offset (+1 for the vmctx argument we are going to pass).
         let stack_params = (0..sig.params().len() + 1)
@@ -7959,7 +7959,7 @@ impl Machine for MachineX86_64 {
     ) -> Result<FunctionBody, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
-        let mut output_reporter = LocalOutputReporter::new(output_reporter);
+        let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
 
         // Allocate argument array.
         let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
@@ -8065,7 +8065,7 @@ impl Machine for MachineX86_64 {
     ) -> Result<CustomSection, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
-        let mut output_reporter = LocalOutputReporter::new(output_reporter);
+        let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
 
         // TODO: ARM entry trampoline is not emitted.
 

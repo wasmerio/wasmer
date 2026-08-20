@@ -8,7 +8,7 @@ use crate::{
     common_decl::Size,
     location::Location as AbstractLocation,
     machine_arm64::ARM64_RETURN_VALUE_REGISTERS,
-    output_reporter::{LocalOutputReporter, OutputReporter},
+    output_reporter::{ChunkedOutputReporter, OutputReporter},
 };
 pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
@@ -2812,7 +2812,7 @@ pub fn gen_std_trampoline_arm64(
     output_reporter: Option<&OutputReporter>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_reporter = LocalOutputReporter::new(output_reporter);
+    let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
 
     let fptr = GPR::X27;
     let args = GPR::X28;
@@ -2956,7 +2956,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
     output_reporter: Option<&OutputReporter>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_reporter = LocalOutputReporter::new(output_reporter);
+    let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
     // Save LR and X26, as scratch register
@@ -3117,7 +3117,7 @@ pub fn gen_import_call_trampoline_arm64(
     output_reporter: Option<&OutputReporter>,
 ) -> Result<CustomSection, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_reporter = LocalOutputReporter::new(output_reporter);
+    let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
 
     // Singlepass internally treats all arguments as integers
     // For the standard System V calling convention requires

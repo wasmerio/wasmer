@@ -6,7 +6,7 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::MaybeImmediate,
     machine_riscv::{ImmType, RISCV_RETURN_VALUE_REGISTERS},
-    output_reporter::{LocalOutputReporter, OutputReporter},
+    output_reporter::ChunkedOutputReporter,
     riscv_decl::{ArgumentRegisterAllocator, RiscvRegister},
 };
 pub use crate::{
@@ -1752,7 +1752,7 @@ pub fn gen_std_trampoline_riscv(
     output_reporter: Option<&OutputReporter>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_reporter = LocalOutputReporter::new(output_reporter);
+    let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
 
     // Callee-save registers must be used.
     let fptr = GPR::X26;
@@ -1904,7 +1904,7 @@ pub fn gen_std_dynamic_import_trampoline_riscv(
     output_reporter: Option<&OutputReporter>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_reporter = LocalOutputReporter::new(output_reporter);
+    let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
 
@@ -2042,7 +2042,7 @@ pub fn gen_import_call_trampoline_riscv(
     output_reporter: Option<&OutputReporter>,
 ) -> Result<CustomSection, CompileError> {
     let mut a = Assembler::new(0);
-    let mut output_reporter = LocalOutputReporter::new(output_reporter);
+    let mut output_reporter = ChunkedOutputReporter::new(output_reporter);
 
     // Singlepass internally treats all arguments as integers
     // For the standard System V calling convention requires
