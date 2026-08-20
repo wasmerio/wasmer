@@ -1,6 +1,5 @@
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-
 use crate::{
     address_map::get_function_address_map,
     codegen_error,
@@ -11,6 +10,7 @@ use crate::{
     machine::{
         AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
     },
+    output_reporter::ChunkedOutputReporter,
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
@@ -47,9 +47,9 @@ use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
 use wasmer_types::target::{CallingConvention, Target};
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
-    MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
-    VMBuiltinFunctionIndex, VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, GlobalIndex,
+    LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex,
+    TableStyle, TrapCode, Type, VMBuiltinFunctionIndex, VMOffsets,
     entity::{EntityRef, PrimaryMap},
 };
 
@@ -145,6 +145,9 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Assembly comments.
     assembly_comments: HashMap<usize, AssemblyComment>,
+
+    /// Batched function local accounting backed by the module output budget.
+    output_reporter: ChunkedOutputReporter<'a>,
 
     /// DWARF debug information accumulated for this function.
     #[cfg(feature = "unwind")]
@@ -280,6 +283,13 @@ enum NativeCallType {
 const RED_ZONE_SIZE: usize = 32;
 
 impl<'a, M: Machine> FuncGen<'a, M> {
+    /// Charges newly emitted machine code to the function local output batch.
+    #[inline]
+    fn ensure_output_size_within_limit(&mut self) -> Result<(), CompileError> {
+        self.output_reporter
+            .check(self.machine.assembler_get_offset().0)
+    }
+
     /// Acquires location from the machine state.
     ///
     /// If the returned location is used for stack value, `release_location` needs to be called on it;
@@ -475,6 +485,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 *loc
             };
             new_params_reversed.push((mapped_loc, *canonicalize));
+            self.ensure_output_size_within_limit()?;
         }
         self.value_stack
             .extend(new_params_reversed.into_iter().rev());
@@ -535,6 +546,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .skip(1)
         {
             self.machine.zero_location(Size::S64, locations[i])?;
+            self.ensure_output_size_within_limit()?;
         }
 
         self.machine.extend_stack(static_area_size as _)?;
@@ -580,6 +592,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             );
             self.machine
                 .move_location_extend(sz, false, loc, Size::S64, locations[i])?;
+            self.ensure_output_size_within_limit()?;
         }
 
         // Load vmctx into it's GPR.
@@ -838,6 +851,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 Location::Memory(_, _) => {
                     self.machine
                         .move_location_for_native(param_sizes[i], *param, loc)?;
+                    self.ensure_output_size_within_limit()?;
                 }
                 _ => {
                     return Err(CompileError::Codegen(
@@ -892,6 +906,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 return_args[i],
                 return_values[i].0,
             )?;
+            self.ensure_output_size_within_limit()?;
         }
 
         // Restore stack.
@@ -1009,6 +1024,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         local_types_excluding_arguments: &[WpType],
         machine: M,
         calling_convention: CallingConvention,
+        progress_callback: Option<&'a CompilationProgressCallback>,
     ) -> Result<FuncGen<'a, M>, CompileError> {
         let func_index = module.func_index(local_func_index);
         let sig_index = module.functions[func_index];
@@ -1061,6 +1077,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .ok(),
             function_name,
             assembly_comments: HashMap::new(),
+            output_reporter: ChunkedOutputReporter::new(progress_callback),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -1080,23 +1097,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         value_stack_depth_after: usize,
         return_values: usize,
     ) -> Result<(), CompileError> {
-        for (i, (stack_value, canonicalize)) in self
+        let return_values: SmallVec<[LocationWithCanonicalization<M>; 8]> = self
             .value_stack
             .iter()
             .rev()
             .take(return_values)
-            .enumerate()
-        {
+            .copied()
+            .collect();
+        for (i, (stack_value, canonicalize)) in return_values.into_iter().enumerate() {
             let dst = self.value_stack[value_stack_depth_after - i - 1].0;
             if let Some(canonicalize_size) = canonicalize.to_size()
                 && self.config.enable_nan_canonicalization
             {
                 self.machine
-                    .canonicalize_nan(canonicalize_size, *stack_value, dst)?;
+                    .canonicalize_nan(canonicalize_size, stack_value, dst)?;
             } else {
-                self.machine
-                    .emit_relaxed_mov(Size::S64, *stack_value, dst)?;
+                self.machine.emit_relaxed_mov(Size::S64, stack_value, dst)?;
             }
+            self.ensure_output_size_within_limit()?;
         }
 
         Ok(())
@@ -1109,17 +1127,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         value_stack_depth_after: usize,
         param_count: usize,
     ) -> Result<(), CompileError> {
-        for (i, (stack_value, _)) in self
+        let params: SmallVec<[LocationWithCanonicalization<M>; 8]> = self
             .value_stack
             .iter()
             .rev()
             .take(param_count)
             .rev()
-            .enumerate()
-        {
+            .copied()
+            .collect();
+        for (i, (stack_value, _)) in params.into_iter().enumerate() {
             let dst = self.value_stack[value_stack_depth_after + i].0;
-            self.machine
-                .emit_relaxed_mov(Size::S64, *stack_value, dst)?;
+            self.machine.emit_relaxed_mov(Size::S64, stack_value, dst)?;
+            self.ensure_output_size_within_limit()?;
         }
 
         Ok(())
@@ -3695,6 +3714,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     let label = frame.label;
                     self.release_stack_locations_keep_stack_offset(stack_depth)?;
                     self.machine.jmp_unconditional(label)?;
+                    self.ensure_output_size_within_limit()?;
                 }
                 self.machine.emit_label(default_br)?;
 
@@ -3724,6 +3744,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_label(table_label)?;
                 for x in table {
                     self.machine.jmp_unconditional(x)?;
+                    self.ensure_output_size_within_limit()?;
                 }
                 self.unreachable_depth = 1;
             }
@@ -5973,7 +5994,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        Ok(())
+        self.ensure_output_size_within_limit()
     }
 
     fn add_assembly_comment(&mut self, comment: AssemblyComment) {
@@ -6052,7 +6073,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
             }
-
             _ => (),
         };
 
@@ -6074,6 +6094,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             assembly_comments,
         } = self.machine.assembler_finalize(self.assembly_comments)?;
         body.shrink_to_fit();
+
+        self.output_reporter.finish(body.len())?;
 
         if let Some(callbacks) = self.config.callbacks.as_ref() {
             callbacks.obj_memory_buffer(

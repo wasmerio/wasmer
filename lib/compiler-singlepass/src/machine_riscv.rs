@@ -16,7 +16,8 @@ use wasmer_compiler::{
     wasmparser::MemArg,
 };
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode,
+    TrapInformation, VMOffsets,
     target::{CallingConvention, Target},
 };
 
@@ -6530,8 +6531,9 @@ impl Machine for MachineRiscv {
         &self,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_trampoline_riscv(sig, calling_convention)
+        gen_std_trampoline_riscv(sig, calling_convention, progress_callback)
     }
 
     fn gen_std_dynamic_import_trampoline(
@@ -6539,8 +6541,9 @@ impl Machine for MachineRiscv {
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         _calling_convention: CallingConvention,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<FunctionBody, CompileError> {
-        gen_std_dynamic_import_trampoline_riscv(vmoffsets, sig)
+        gen_std_dynamic_import_trampoline_riscv(vmoffsets, sig, progress_callback)
     }
     // Singlepass calls import functions through a trampoline.
 
@@ -6550,8 +6553,15 @@ impl Machine for MachineRiscv {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<CustomSection, CompileError> {
-        gen_import_call_trampoline_riscv(vmoffsets, index, sig, calling_convention)
+        gen_import_call_trampoline_riscv(
+            vmoffsets,
+            index,
+            sig,
+            calling_convention,
+            progress_callback,
+        )
     }
 
     #[cfg(feature = "unwind")]
