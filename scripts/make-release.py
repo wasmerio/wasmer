@@ -57,8 +57,12 @@ def replace(file, pattern, subst):
 
 def sync_submodule(repo_dir, path):
     submodule_dir = os.path.join(repo_dir, path)
-    subprocess.run(["git", "-C", submodule_dir, "checkout", "main"], check=True)
-    subprocess.run(["git", "-C", submodule_dir, "pull"], check=True)
+    subprocess.run(
+        ["git", "-C", submodule_dir, "fetch", "origin", "wasmer-release"], check=True
+    )
+    subprocess.run(
+        ["git", "-C", submodule_dir, "checkout", "--detach", "FETCH_HEAD"], check=True
+    )
     subprocess.run(["git", "-C", submodule_dir, "rev-parse", "HEAD"], check=True)
 
 
