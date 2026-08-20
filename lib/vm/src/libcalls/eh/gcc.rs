@@ -272,6 +272,31 @@ pub unsafe fn read_exnref(exception: *mut c_void) -> u32 {
     }
 }
 
+/// Stack headroom reserved before entering `_Unwind_RaiseException`.
+/// Conservative safety margin for the native unwinder + sanitizer overhead.
+const UNWIND_STACK_HEADROOM: usize = 64 * 1024;
+
+/// Returns the current stack pointer, or 0 on unsupported architectures.
+#[inline(always)]
+fn current_stack_pointer() -> usize {
+    let sp: usize;
+    cfg_select! {
+        target_arch = "x86_64" => {
+            unsafe { core::arch::asm!("mov {}, rsp", out(reg) sp, options(nomem, nostack, preserves_flags)) };
+        }
+        target_arch = "aarch64" => {
+            unsafe { core::arch::asm!("mov {}, sp", out(reg) sp, options(nomem, nostack, preserves_flags)) };
+        }
+        target_arch = "riscv64" => {
+            unsafe { core::arch::asm!("mv {}, sp", out(reg) sp, options(nomem, nostack, preserves_flags)) };
+        }
+        _ => {
+            sp = 0;
+        }
+    }
+    sp
+}
+
 /// # Safety
 ///
 /// Performs libunwind unwinding magic. Highly unsafe.
@@ -282,6 +307,19 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
             crate::raise_lib_trap(crate::Trap::lib(
                 wasmer_types::TrapCode::UninitializedExnRef,
             ))
+        }
+
+        // Guard: trap with StackOverflow if insufficient headroom remains
+        // for the native unwinder on the Wasm coroutine stack.
+        // See: https://github.com/wasmerio/wasmer/issues/6793
+        if crate::is_on_wasm_stack() {
+            let limit = crate::wasm_stack_limit();
+            let sp = current_stack_pointer();
+            if sp != 0 && sp.saturating_sub(limit) < UNWIND_STACK_HEADROOM {
+                crate::raise_lib_trap(crate::Trap::lib(
+                    wasmer_types::TrapCode::StackOverflow,
+                ))
+            }
         }
 
         let exception = Box::new(UwExceptionWrapper::new(exnref));

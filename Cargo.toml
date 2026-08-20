@@ -366,6 +366,7 @@ wasmer = { version = "=7.3.0", path = "lib/api", default-features = false, featu
   "singlepass",
   "sys",
 ] }
+wasmer-vm = { version = "=7.2.1", path = "lib/vm" }
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
 wasmer = { version = "=7.3.0", path = "lib/api", default-features = false, features = [
