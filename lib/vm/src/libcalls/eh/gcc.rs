@@ -316,9 +316,7 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
             let limit = crate::wasm_stack_limit();
             let sp = current_stack_pointer();
             if sp != 0 && sp.saturating_sub(limit) < UNWIND_STACK_HEADROOM {
-                crate::raise_lib_trap(crate::Trap::lib(
-                    wasmer_types::TrapCode::StackOverflow,
-                ))
+                crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::StackOverflow))
             }
         }
 
