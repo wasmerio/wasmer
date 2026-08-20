@@ -1,6 +1,6 @@
 //! Types used to report and handle compilation progress.
 
-use std::{borrow::Cow, fmt, string::String, sync::Arc};
+use std::{borrow::Cow, fmt, num::NonZeroUsize, string::String, sync::Arc};
 use thiserror::Error;
 
 /// Indicates the current compilation progress.
@@ -67,13 +67,19 @@ impl UserAbort {
 
 type ProgressCallback =
     dyn Fn(CompilationProgress) -> Result<(), UserAbort> + Send + Sync + 'static;
-type ReserveCallback = dyn Fn(usize) -> Result<(), UserAbort> + Send + Sync + 'static;
+type ReserveSizeCallbackFn = dyn Fn(usize) -> Result<(), UserAbort> + Send + Sync + 'static;
 
-/// Wraps callbacks that can receive compilation progress and reservation notifications.
+#[derive(Clone)]
+struct ReserveSizeCallback {
+    callback: Arc<ReserveSizeCallbackFn>,
+    chunk_size: NonZeroUsize,
+}
+
+/// Wraps callbacks that can receive compilation progress and output-size notifications.
 #[derive(Clone)]
 pub struct CompilationProgressCallback {
     callback: Arc<ProgressCallback>,
-    reserve_callback: Option<Arc<ReserveCallback>>,
+    reserve_size_callback: Option<ReserveSizeCallback>,
 }
 
 impl CompilationProgressCallback {
@@ -89,35 +95,40 @@ impl CompilationProgressCallback {
     {
         Self {
             callback: Arc::new(callback),
-            reserve_callback: None,
+            reserve_size_callback: None,
         }
     }
 
-    /// Configures a callback for reserving resources during compilation.
+    /// Configures a callback for reporting increases in compilation output size.
     ///
-    /// Singlepass uses this callback to account for emitted native-code bytes.
-    /// Calls may be made concurrently when compilation uses multiple threads.
-    pub fn with_reserve_callback<F>(mut self, callback: F) -> Self
+    /// Singlepass uses this callback to account for emitted native-code bytes, reporting after
+    /// at least `chunk_size` bytes.
+    pub fn with_reserve_size_callback<F>(mut self, callback: F, chunk_size: NonZeroUsize) -> Self
     where
         F: Fn(usize) -> Result<(), UserAbort> + Send + Sync + 'static,
     {
-        self.reserve_callback = Some(Arc::new(callback));
+        self.reserve_size_callback = Some(ReserveSizeCallback {
+            callback: Arc::new(callback),
+            chunk_size,
+        });
         self
     }
 
-    /// Reserves the requested amount through the configured reservation callback.
-    ///
-    /// This is a no-op when no reservation callback was configured.
-    pub fn reserve(&self, amount: usize) -> Result<(), UserAbort> {
-        match &self.reserve_callback {
-            Some(callback) => callback(amount),
-            None => Ok(()),
-        }
+    /// Returns the configured reserve-size reporting chunk size.
+    pub fn reserve_size_chunk_size(&self) -> Option<NonZeroUsize> {
+        self.reserve_size_callback
+            .as_ref()
+            .map(|callback| callback.chunk_size)
     }
 
-    /// Returns whether a reservation callback is configured.
-    pub fn has_reserve_callback(&self) -> bool {
-        self.reserve_callback.is_some()
+    /// Reports an increase in compilation output size, in bytes.
+    ///
+    /// This is a no-op when no reserve-size callback was configured.
+    pub fn reserve_size(&self, size_increase: usize) -> Result<(), UserAbort> {
+        match &self.reserve_size_callback {
+            Some(callback) => (callback.callback)(size_increase),
+            None => Ok(()),
+        }
     }
 
     /// Notify the callback about new progress information.

@@ -74,8 +74,6 @@ impl SinglepassCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
         progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
-        let progress_callback =
-            progress_callback.filter(|callback| callback.has_reserve_callback());
         let arch = target.triple().architecture;
         match arch {
             Architecture::X86_64 => {}
@@ -403,7 +401,7 @@ impl SinglepassCompiler {
 
             let eh_frame_section = eh_frame.0.into_section();
             if let Some(progress_callback) = progress_callback.as_ref() {
-                progress_callback.reserve(eh_frame_section.bytes.len())?;
+                progress_callback.reserve_size(eh_frame_section.bytes.len())?;
             }
             custom_sections.push(eh_frame_section);
             unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1))
