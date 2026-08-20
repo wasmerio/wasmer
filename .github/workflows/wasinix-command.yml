@@ -1,0 +1,29 @@
+name: Wasinix command
+# `/wasinix <command>` on a pull request. The pipeline lives in wasinix's
+# ci-command-run.yml: it authorizes and runs the command against a
+# wasix-org/wasinix checkout, maps this repository's PR onto an override of its
+# packaged pin, and replies on the PR the comment came from. This file is only
+# the trigger.
+on:
+  issue_comment:
+    types: [created]
+concurrency:
+  group: command-${{ github.repository_id }}-pr-${{ github.event.issue.number }}
+  cancel-in-progress: false
+jobs:
+  command:
+    # Cheap pre-filter only; authorization decides for real.
+    if: >-
+      github.event.issue.pull_request && contains(github.event.comment.body, '/wasinix')
+    permissions:
+      contents: write
+      checks: write
+      pull-requests: write
+      # The timings job reads the run's own step records.
+      actions: read
+    uses: wasix-org/wasinix/.github/workflows/ci-command-run.yml@main
+    secrets: inherit
+    with:
+      builder-runs-on: ubuntu-24.04
+      eval-workers: "2"
+      eval-memory: "8192"
