@@ -30,6 +30,7 @@ use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
     VMOffsets,
     target::{CallingConvention, CpuFeature, Target},
+    vmctx_offset,
 };
 
 type Assembler = VecAssembler<X64Relocation>;
@@ -8140,15 +8141,17 @@ impl Machine for MachineX86_64 {
         // from Ctx and jumps to it.
 
         let offset = vmoffsets.vmctx_vmfunction_import(index);
+        let ptr_arg_offset = vmctx_offset(offset)?;
+        let vmctx_arg_offset = vmctx_offset(offset.saturating_add(8))?;
 
         a.emit_mov(
             Size::S64,
-            Location::Memory(GPR::RDI, offset as i32), // function pointer
+            Location::Memory(GPR::RDI, ptr_arg_offset), // function pointer
             Location::GPR(GPR::RAX),
         )?;
         a.emit_mov(
             Size::S64,
-            Location::Memory(GPR::RDI, offset as i32 + 8), // target vmctx
+            Location::Memory(GPR::RDI, vmctx_arg_offset), // target vmctx
             Location::GPR(GPR::RDI),
         )?;
         a.emit_host_redirection(GPR::RAX)?;
