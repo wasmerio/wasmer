@@ -1097,8 +1097,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         value_stack_depth_after: usize,
         return_values: usize,
     ) -> Result<(), CompileError> {
-        for i in 0..return_values {
-            let (stack_value, canonicalize) = self.value_stack[self.value_stack.len() - i - 1];
+        let return_values: SmallVec<[LocationWithCanonicalization<M>; 8]> = self
+            .value_stack
+            .iter()
+            .rev()
+            .take(return_values)
+            .copied()
+            .collect();
+        for (i, (stack_value, canonicalize)) in return_values.into_iter().enumerate() {
             let dst = self.value_stack[value_stack_depth_after - i - 1].0;
             if let Some(canonicalize_size) = canonicalize.to_size()
                 && self.config.enable_nan_canonicalization
@@ -1121,8 +1127,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         value_stack_depth_after: usize,
         param_count: usize,
     ) -> Result<(), CompileError> {
-        for i in 0..param_count {
-            let stack_value = self.value_stack[self.value_stack.len() - param_count + i].0;
+        let params: SmallVec<[LocationWithCanonicalization<M>; 8]> = self
+            .value_stack
+            .iter()
+            .rev()
+            .take(param_count)
+            .rev()
+            .copied()
+            .collect();
+        for (i, (stack_value, _)) in params.into_iter().enumerate() {
             let dst = self.value_stack[value_stack_depth_after + i].0;
             self.machine.emit_relaxed_mov(Size::S64, stack_value, dst)?;
             self.ensure_output_size_within_limit()?;
