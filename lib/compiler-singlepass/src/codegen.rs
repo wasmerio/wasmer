@@ -2387,24 +2387,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     )?;
                 } else if let Some(local_table_index) = self.module.local_table_index(table_index) {
                     let (vmctx_offset_base, vmctx_offset_len) = (
-                        self.vmoffsets.vmctx_vmtable_definition(local_table_index),
-                        self.vmoffsets
-                            .vmctx_vmtable_definition_current_elements(local_table_index),
+                        vmctx_offset(self.vmoffsets.vmctx_vmtable_definition(local_table_index))?,
+                        vmctx_offset(
+                            self.vmoffsets
+                                .vmctx_vmtable_definition_current_elements(local_table_index),
+                        )?,
                     );
                     self.machine.move_location(
                         Size::S64,
-                        Location::Memory(
-                            self.machine.get_vmctx_reg(),
-                            vmctx_offset(vmctx_offset_base)?,
-                        ),
+                        Location::Memory(self.machine.get_vmctx_reg(), vmctx_offset_base),
                         Location::GPR(table_base),
                     )?;
                     self.machine.move_location(
                         Size::S32,
-                        Location::Memory(
-                            self.machine.get_vmctx_reg(),
-                            vmctx_offset(vmctx_offset_len)?,
-                        ),
+                        Location::Memory(self.machine.get_vmctx_reg(), vmctx_offset_len),
                         Location::GPR(table_count),
                     )?;
                 } else {
