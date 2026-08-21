@@ -25,7 +25,7 @@ pub struct FunctionBodyData<'a> {
     pub data: &'a [u8],
 
     /// Body offset relative to the module file.
-    pub module_offset: usize,
+    pub module_offset: u64,
 }
 
 /// Trait for iterating over the operators of a Wasm Function
@@ -411,7 +411,7 @@ impl<'data> ModuleEnvironment<'data> {
         &mut self,
         _module_translation_state: &ModuleTranslationState,
         body_bytes: &'data [u8],
-        body_offset: usize,
+        body_offset: u64,
     ) -> WasmResult<()> {
         self.function_body_inputs.push(FunctionBodyData {
             data: body_bytes,

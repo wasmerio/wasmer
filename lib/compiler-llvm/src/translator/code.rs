@@ -447,7 +447,7 @@ impl FuncTranslator {
             let op = reader.read_operator()?;
             if let Some((dibuilder, subprogram)) = debug_info.as_ref() {
                 let (line, column, scope) =
-                    if let Some(location) = self.source_map.get(original_pos as usize) {
+                    if let Some(location) = self.source_map.get(u64::from(original_pos)) {
                         let file = dibuilder.create_file(&location.file, &location.directory);
                         // TODO: try caching the lexical scopes (might be a space saver)
                         let block = dibuilder.create_lexical_block(
