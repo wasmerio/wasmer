@@ -37,75 +37,29 @@ pub fn fd_readdir<M: MemorySize>(
     let working_dir = wasi_try_ok!(state.fs.get_fd(fd));
     let mut buf_idx = 0usize;
 
-    let entries: Vec<(String, Filetype, u64)> = {
+    let (dir_path, cached_entries, is_root): (
+        Option<std::path::PathBuf>,
+        Vec<(String, InodeGuard)>,
+        bool,
+    ) = {
         let guard = working_dir.inode.read();
         match guard.deref() {
-            Kind::Dir { path, entries, .. } => {
-                trace!("reading dir {:?}", path);
-                // TODO: refactor this code
-                // we need to support multiple calls,
-                // simple and obviously correct implementation for now:
-                // maintain consistent order via lexacographic sorting
-                let fs_info = wasi_try_ok!(
-                    wasi_try_ok!(state.fs_read_dir(path))
-                        .collect::<Result<Vec<_>, _>>()
-                        .map_err(fs_error_into_wasi_err)
-                );
-                let mut entry_vec = wasi_try_ok!(
-                    fs_info
-                        .into_iter()
-                        .map(|entry| {
-                            let filename = entry.file_name().to_string_lossy().to_string();
-                            trace!("getting file: {:?}", filename);
-                            let filetype = virtual_file_type_to_wasi_file_type(
-                                entry.file_type().map_err(fs_error_into_wasi_err)?,
-                            );
-                            Ok((
-                                filename, filetype, 0, // TODO: inode
-                            ))
-                        })
-                        .collect::<Result<Vec<(String, Filetype, u64)>, _>>()
-                );
-                let entry_names: std::collections::HashSet<_> =
-                    entry_vec.iter().map(|(name, _, _)| name.clone()).collect();
-                entry_vec.extend(
-                    entries
-                        .iter()
-                        .filter(|(name, _)| !entry_names.contains(*name))
-                        .map(|(name, inode)| {
-                            let stat = inode.stat.read().unwrap();
-                            (name.clone(), stat.st_filetype, stat.st_ino)
-                        }),
-                );
-                // adding . and .. special folders
-                // TODO: inode
-                entry_vec.push((".".to_string(), Filetype::Directory, 0));
-                entry_vec.push(("..".to_string(), Filetype::Directory, 0));
-                entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
-                entry_vec
-            }
-            Kind::Root { entries } => {
-                trace!("reading root");
-                let sorted_entries = {
-                    let mut entry_vec: Vec<(String, InodeGuard)> = entries
-                        .iter()
-                        .map(|(a, b)| (a.clone(), b.clone()))
-                        .collect();
-                    entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
-                    entry_vec
-                };
-                sorted_entries
-                    .into_iter()
-                    .map(|(name, inode)| {
-                        let stat = inode.stat.read().unwrap();
-                        (
-                            format!("/{}", inode.name.read().unwrap().as_ref()),
-                            stat.st_filetype,
-                            stat.st_ino,
-                        )
-                    })
-                    .collect()
-            }
+            Kind::Dir { path, entries, .. } => (
+                Some(path.clone()),
+                entries
+                    .iter()
+                    .map(|(name, inode)| (name.clone(), inode.clone()))
+                    .collect(),
+                false,
+            ),
+            Kind::Root { entries } => (
+                None,
+                entries
+                    .iter()
+                    .map(|(name, inode)| (name.clone(), inode.clone()))
+                    .collect(),
+                true,
+            ),
             Kind::File { .. }
             | Kind::Symlink { .. }
             | Kind::Buffer { .. }
@@ -115,6 +69,72 @@ pub fn fd_readdir<M: MemorySize>(
             | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
             | Kind::Epoll { .. } => return Ok(Errno::Notdir),
+        }
+    };
+
+    let entries: Vec<(String, Filetype, u64)> = {
+        match dir_path {
+            Some(path) => {
+                trace!("reading dir {:?}", path);
+                // TODO: we need to support multiple calls. Keep ordering stable
+                // with a lexicographic sort for now.
+                let fs_info = wasi_try_ok!(
+                    wasi_try_ok!(state.fs_read_dir(&path))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map_err(fs_error_into_wasi_err)
+                );
+                let fs_entries = fs_info
+                    .into_iter()
+                    .map(|entry| {
+                        let filename = entry.file_name().to_string_lossy().to_string();
+                        trace!("getting file: {:?}", filename);
+                        let filetype = virtual_file_type_to_wasi_file_type(
+                            entry.file_type().map_err(fs_error_into_wasi_err)?,
+                        );
+                        Ok((
+                            filename, filetype, 0, // TODO: inode
+                        ))
+                    })
+                    .collect::<Result<Vec<(String, Filetype, u64)>, Errno>>();
+                let mut entry_vec: Vec<(String, Filetype, u64)> = wasi_try_ok!(fs_entries);
+                let entry_names: std::collections::HashSet<_> =
+                    entry_vec.iter().map(|(name, _, _)| name.clone()).collect();
+                entry_vec.extend(
+                    cached_entries
+                        .iter()
+                        .filter(|(name, _)| !entry_names.contains(name))
+                        .map(|(name, inode)| {
+                            let stat = inode.stat.read().unwrap();
+                            (
+                                format_entry_name(name, is_root),
+                                stat.st_filetype,
+                                stat.st_ino,
+                            )
+                        }),
+                );
+                // adding . and .. special folders
+                // TODO: inode
+                entry_vec.push((".".to_string(), Filetype::Directory, 0));
+                entry_vec.push(("..".to_string(), Filetype::Directory, 0));
+                entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
+                entry_vec
+            }
+            None => {
+                trace!("reading root");
+                let mut entry_vec: Vec<(String, Filetype, u64)> = cached_entries
+                    .into_iter()
+                    .map(|(name, inode)| {
+                        let stat = inode.stat.read().unwrap();
+                        (
+                            format_entry_name(&name, true),
+                            stat.st_filetype,
+                            stat.st_ino,
+                        )
+                    })
+                    .collect();
+                entry_vec.sort_by(|a, b| a.0.cmp(&b.0));
+                entry_vec
+            }
         }
     };
 
@@ -155,4 +175,25 @@ pub fn fd_readdir<M: MemorySize>(
     let buf_idx: M::Offset = wasi_try_ok!(buf_idx.try_into().map_err(|_| Errno::Overflow));
     wasi_try_mem_ok!(bufused_ref.write(buf_idx));
     Ok(Errno::Success)
+}
+
+fn format_entry_name(name: &str, is_root: bool) -> String {
+    if !is_root {
+        name.to_string()
+    } else {
+        format!("/{name}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::format_entry_name;
+
+    #[test]
+    fn root_entry_names_are_prefixed_for_virtual_root() {
+        assert_eq!(format_entry_name("/", true), "//");
+        assert_eq!(format_entry_name(".", true), "/.");
+        assert_eq!(format_entry_name("foo", true), "/foo");
+        assert_eq!(format_entry_name("foo", false), "foo");
+    }
 }
