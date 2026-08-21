@@ -23,7 +23,7 @@ use inkwell::{
     targets::{FileType, TargetData, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
-        AsValueRef, BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
+        BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
         FunctionValue, InstructionOpcode, InstructionValue, IntValue, LLVMTailCallKind, PhiValue,
         PointerValue, VectorValue,
     },
@@ -1001,21 +1001,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         self.builder.position_at_end(continue_block);
 
         Ok(())
-    }
-
-    /// Prevent LLVM from folding through an integer value while preserving its value.
-    ///
-    /// LLVM 23 incorrectly combines `uitofp (fptosi x)` into signed conversion instructions on
-    /// x86. Freezing the integer prevents that combine and has no runtime cost. Wasm values cannot
-    /// be poison, so this does not alter their semantics.
-    fn freeze_int(&self, value: IntValue<'ctx>) -> IntValue<'ctx> {
-        unsafe {
-            IntValue::new(inkwell::llvm_sys::core::LLVMBuildFreeze(
-                self.builder.as_mut_ptr(),
-                value.as_value_ref(),
-                c"".as_ptr(),
-            ))
-        }
     }
 
     fn trap_if_zero_or_overflow(
@@ -9555,7 +9540,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Operator::F32ConvertI32U | Operator::F32ConvertI64U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
-                let v = self.freeze_int(v.into_int_value());
+                let v = v.into_int_value();
                 let res = err!(self.builder.build_unsigned_int_to_float(
                     v,
                     self.intrinsics.f32_ty,
@@ -9566,7 +9551,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             Operator::F64ConvertI32U | Operator::F64ConvertI64U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i)?;
-                let v = self.freeze_int(v.into_int_value());
+                let v = v.into_int_value();
                 let res = err!(self.builder.build_unsigned_int_to_float(
                     v,
                     self.intrinsics.f64_ty,
