@@ -13,7 +13,14 @@ git pull
 
 First, prepare a PR (or push) version bump for all submodules!
 
-Run the release script (adjust the version as needed):
+Run the release script with the current repository version and the version being
+released. Both arguments are required:
+
+```bash
+python3 ./scripts/make-release.py OLD_VERSION RELEASE_VERSION
+```
+
+For example:
 
 ```bash
 python3 ./scripts/make-release.py 6.0.1 6.1.0

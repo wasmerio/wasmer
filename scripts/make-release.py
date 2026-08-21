@@ -1,6 +1,7 @@
 #! /usr/bin/env python3
 
 from itertools import takewhile
+from pathlib import Path
 import argparse
 import os
 import time
@@ -17,6 +18,7 @@ parser.add_argument(
 parser.add_argument("release_version", metavar="NEW_VERSION", help="version to release")
 args = parser.parse_args()
 
+UPDATE_VERSION_SCRIPT = Path(__file__).resolve().with_name("update-version.py")
 DATE = datetime.date.today().strftime("%d/%m/%Y")
 SIGNOFF_REVIEWER = "Arshia001"
 RELEASE_SUBMODULES = ("lib/napi",)
@@ -279,11 +281,10 @@ def make_release():
         subprocess.check_output(
             [
                 "python3",
-                temp_dir.name + "/scripts/update-version.py",
+                UPDATE_VERSION_SCRIPT,
                 args.old_version,
                 args.release_version,
             ],
-            shell=True,
             cwd=temp_dir.name,
         )
         for path in RELEASE_SUBMODULES:
