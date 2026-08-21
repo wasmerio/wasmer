@@ -1838,11 +1838,25 @@ impl WasiFs {
         Ok(*guard.deref())
     }
 
+    fn std_fd_filetype(is_tty: bool) -> Filetype {
+        if is_tty {
+            Filetype::CharacterDevice
+        } else {
+            Filetype::Unknown
+        }
+    }
+
+    fn std_fd_is_terminal(&self, fd: WasiFd) -> bool {
+        WasiInodes::std_dev_get(&self.fd_map, fd)
+            .map(|file| file.is_terminal())
+            .unwrap_or(false)
+    }
+
     pub fn fdstat(&self, fd: WasiFd) -> Result<Fdstat, Errno> {
         match fd {
             __WASI_STDIN_FILENO => {
                 return Ok(Fdstat {
-                    fs_filetype: Filetype::CharacterDevice,
+                    fs_filetype: Self::std_fd_filetype(self.std_fd_is_terminal(fd)),
                     fs_flags: Fdflags::empty(),
                     fs_rights_base: STDIN_DEFAULT_RIGHTS,
                     fs_rights_inheriting: Rights::empty(),
@@ -1850,7 +1864,7 @@ impl WasiFs {
             }
             __WASI_STDOUT_FILENO => {
                 return Ok(Fdstat {
-                    fs_filetype: Filetype::CharacterDevice,
+                    fs_filetype: Self::std_fd_filetype(self.std_fd_is_terminal(fd)),
                     fs_flags: Fdflags::APPEND,
                     fs_rights_base: STDOUT_DEFAULT_RIGHTS,
                     fs_rights_inheriting: Rights::empty(),
@@ -1858,7 +1872,7 @@ impl WasiFs {
             }
             __WASI_STDERR_FILENO => {
                 return Ok(Fdstat {
-                    fs_filetype: Filetype::CharacterDevice,
+                    fs_filetype: Self::std_fd_filetype(self.std_fd_is_terminal(fd)),
                     fs_flags: Fdflags::APPEND,
                     fs_rights_base: STDERR_DEFAULT_RIGHTS,
                     fs_rights_inheriting: Rights::empty(),
@@ -2899,12 +2913,77 @@ mod tests {
     use super::*;
     use once_cell::sync::OnceCell;
     use tempfile::tempdir;
-    use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
+    use virtual_fs::{NullFile, RootFileSystemBuilder, TmpFileSystem};
     use wasmer::Engine;
     use wasmer_config::package::PackageId;
 
     use crate::WasiEnvBuilder;
     use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
+
+    #[tokio::test]
+    async fn fdstat_uses_swapped_stdio_terminal_state() {
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
+
+        for fd in [
+            __WASI_STDIN_FILENO,
+            __WASI_STDOUT_FILENO,
+            __WASI_STDERR_FILENO,
+        ] {
+            wasi_fs.swap_file(fd, Box::<NullFile>::default()).unwrap();
+            assert_eq!(wasi_fs.fdstat(fd).unwrap().fs_filetype, Filetype::Unknown);
+        }
+    }
+
+    #[cfg(all(unix, feature = "host-fs"))]
+    #[tokio::test]
+    async fn fdstat_reports_a_swapped_pty_as_a_terminal() {
+        use std::{
+            io::IsTerminal,
+            os::fd::{FromRawFd, RawFd},
+        };
+
+        let mut master: RawFd = -1;
+        let mut slave: RawFd = -1;
+        assert_eq!(
+            unsafe {
+                libc::openpty(
+                    &mut master,
+                    &mut slave,
+                    std::ptr::null_mut(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                )
+            },
+            0
+        );
+
+        let _master = unsafe { std::fs::File::from_raw_fd(master) };
+        let slave = unsafe { std::fs::File::from_raw_fd(slave) };
+        assert!(slave.is_terminal());
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let wasi_fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
+        let pty = virtual_fs::host_fs::File::new(
+            tokio::runtime::Handle::current(),
+            slave,
+            PathBuf::from("/dev/pts/test"),
+            true,
+            true,
+            false,
+        );
+
+        wasi_fs
+            .swap_file(__WASI_STDIN_FILENO, Box::new(pty))
+            .unwrap();
+        assert_eq!(
+            wasi_fs.fdstat(__WASI_STDIN_FILENO).unwrap().fs_filetype,
+            Filetype::CharacterDevice
+        );
+    }
 
     fn webc_symlink_fs() -> virtual_fs::WebcVolumeFileSystem {
         let timestamps = webc::v3::Timestamps::default();

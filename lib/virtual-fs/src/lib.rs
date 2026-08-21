@@ -389,6 +389,14 @@ pub trait VirtualFile:
         None
     }
 
+    /// Indicates whether this file is connected to a terminal.
+    ///
+    /// Virtual files are not terminals by default. Implementations that wrap
+    /// host standard streams may override this to report the host TTY state.
+    fn is_terminal(&self) -> bool {
+        false
+    }
+
     /// Writes to this file using an mmap offset and reference
     /// (this method only works for mmap optimized file systems)
     fn write_from_mmap(&mut self, _offset: u64, _len: u64) -> std::io::Result<()> {

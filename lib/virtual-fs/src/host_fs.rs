@@ -468,6 +468,10 @@ impl VirtualFile for File {
         None
     }
 
+    fn is_terminal(&self) -> bool {
+        std::io::IsTerminal::is_terminal(&self.inner_std)
+    }
+
     fn poll_read_ready(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         let cursor = match self.inner_std.stream_position() {
             Ok(a) => a,
@@ -614,6 +618,10 @@ impl VirtualFile for Stdout {
 
     fn get_special_fd(&self) -> Option<u32> {
         Some(1)
+    }
+
+    fn is_terminal(&self) -> bool {
+        std::io::IsTerminal::is_terminal(&std::io::stdout())
     }
 
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
@@ -790,6 +798,10 @@ impl VirtualFile for Stderr {
         Some(2)
     }
 
+    fn is_terminal(&self) -> bool {
+        std::io::IsTerminal::is_terminal(&std::io::stderr())
+    }
+
     fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Poll::Ready(Ok(0))
     }
@@ -905,6 +917,11 @@ impl VirtualFile for Stdin {
     fn get_special_fd(&self) -> Option<u32> {
         Some(0)
     }
+
+    fn is_terminal(&self) -> bool {
+        std::io::IsTerminal::is_terminal(&std::io::stdin())
+    }
+
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         {
             let read_buffer = self.read_buffer.lock().unwrap();

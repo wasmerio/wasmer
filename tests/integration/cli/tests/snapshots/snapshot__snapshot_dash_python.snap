@@ -21,7 +21,7 @@ expression: snapshot
   "result": {
     "Success": {
       "stdout": "10\n",
-      "stderr": "# # \n",
+      "stderr": "",
       "exit_code": 0
     }
   }
