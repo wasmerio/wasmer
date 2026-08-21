@@ -34,18 +34,16 @@ release_prerelease_version = make_prerelease_version(args.release_version)
 
 def replace(file, pattern, subst):
     # Read contents from file as a single string
-    file_handle = open(file, "r")
-    file_string = file_handle.read()
-    file_handle.close()
+    with open(file, "r") as file_handle:
+        file_string = file_handle.read()
 
     # Use RE package to allow for replacement (also allowing for (multiline) REGEX)
     file_string = re.sub(pattern, subst, file_string)
 
     # Write contents to file.
     # Using mode 'w' truncates the file.
-    file_handle = open(file, "w")
-    file_handle.write(file_string)
-    file_handle.close()
+    with open(file, "w") as file_handle:
+        file_handle.write(file_string)
 
 
 def replace_version(path):

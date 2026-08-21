@@ -378,7 +378,7 @@ def make_release():
             + "    https://github.com/wasmerio/wasmer/pull/"
             + pr_number
         )
-        print("")
+        print()
 
         for line in proc.stdout:
             line = line.decode("utf-8").rstrip()
