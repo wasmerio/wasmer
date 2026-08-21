@@ -39,8 +39,7 @@ def replace(file, pattern, subst):
     with open(file, "r") as file_handle:
         file_string = file_handle.read()
 
-    # Use RE package to allow for replacement (also allowing for (multiline) REGEX)
-    file_string = re.sub(pattern, subst, file_string)
+    file_string = file_string.replace(pattern, subst)
 
     # Write contents to file.
     # Using mode 'w' truncates the file.
