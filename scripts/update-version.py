@@ -16,6 +16,8 @@ parser.add_argument(
     help="version_to_release",
 )
 args = parser.parse_args()
+args.old_version = args.old_version.removeprefix("v")
+args.release_version = args.release_version.removeprefix("v")
 
 
 def make_prerelease_version(version: str) -> str:
