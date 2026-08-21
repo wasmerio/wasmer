@@ -555,9 +555,6 @@ fn present_after_module_drop(config: crate::Config) -> Result<()> {
     }
 }
 
-/// Regression test for https://github.com/wasmerio/wasmer/issues/6793 /
-/// https://github.com/wasmerio/wasmer/issues/6795.
-///
 /// Deep Wasm EH recursion used to exhaust the coroutine stack and then invoke
 /// the native unwinder with no headroom, producing a stack-buffer-overflow.
 /// After the fix a clean StackOverflow trap is raised instead.

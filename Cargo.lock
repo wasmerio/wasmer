@@ -8089,6 +8089,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-middlewares",
  "wasmer-types",
+ "wasmer-vm",
  "wasmer-wasix",
  "wasmer-wast",
 ]
