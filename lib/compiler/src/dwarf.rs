@@ -401,7 +401,7 @@ impl DwarfState {
         srcloc: SourceLoc,
         source_map: &WasmSourceMap,
     ) {
-        let Some(location) = source_map.get(srcloc.bits() as usize) else {
+        let Some(location) = source_map.get(u64::from(srcloc.bits())) else {
             self.add_row(code_offset, srcloc);
             return;
         };

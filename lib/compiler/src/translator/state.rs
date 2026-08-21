@@ -18,7 +18,7 @@ pub(crate) type WasmTypes =
 #[derive(Debug)]
 pub struct ModuleTranslationState {
     /// Offset of the code-section payload in the original Wasm file.
-    pub(crate) code_section_offset: Option<usize>,
+    pub(crate) code_section_offset: Option<u64>,
 
     /// A map containing a Wasm module's original, raw signatures.
     ///
@@ -37,7 +37,7 @@ impl ModuleTranslationState {
     }
 
     /// Get the offset of the code-section payload in the original Wasm file.
-    pub fn code_section_offset(&self) -> Option<usize> {
+    pub fn code_section_offset(&self) -> Option<u64> {
         self.code_section_offset
     }
 
