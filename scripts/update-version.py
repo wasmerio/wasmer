@@ -1,10 +1,23 @@
 #!/usr/bin/python
 
+import argparse
 import os
 import re
 
-PREVIOUS_VERSION = "7.2.1"
-NEXT_VERSION = "7.3.0-rc.1"
+parser = argparse.ArgumentParser(description="Update Wasmer versions")
+parser.add_argument(
+    "old_version",
+    metavar="OLD_VERSION",
+    help="version currently used by the repository",
+)
+parser.add_argument(
+    "release_version",
+    metavar="RELEASE_VERSION",
+    help="version_to_release",
+)
+args = parser.parse_args()
+args.old_version = args.old_version.removeprefix("v")
+args.release_version = args.release_version.removeprefix("v")
 
 
 def make_prerelease_version(version: str) -> str:
@@ -17,84 +30,84 @@ def make_prerelease_version(version: str) -> str:
     return f"0.{new_minor}.{patch}"
 
 
-PREVIOUS_PRERELEASE_VERSION = make_prerelease_version(PREVIOUS_VERSION)
-NEXT_PRERELEASE_VERSION = make_prerelease_version(NEXT_VERSION)
+old_prerelease_version = make_prerelease_version(args.old_version)
+release_prerelease_version = make_prerelease_version(args.release_version)
 
 
 def replace(file, pattern, subst):
     # Read contents from file as a single string
-    file_handle = open(file, "r")
-    file_string = file_handle.read()
-    file_handle.close()
+    with open(file, "r") as file_handle:
+        file_string = file_handle.read()
 
-    # Use RE package to allow for replacement (also allowing for (multiline) REGEX)
-    file_string = re.sub(pattern, subst, file_string)
+    file_string = file_string.replace(pattern, subst)
 
     # Write contents to file.
     # Using mode 'w' truncates the file.
-    file_handle = open(file, "w")
-    file_handle.write(file_string)
-    file_handle.close()
+    with open(file, "w") as file_handle:
+        file_handle.write(file_string)
 
 
 def replace_version(path):
-    print(PREVIOUS_VERSION + " -> " + NEXT_VERSION + " (" + path + ")")
+    print(args.old_version + " -> " + args.release_version + " (" + path + ")")
     replace(
-        path, 'version = "' + PREVIOUS_VERSION + '"', 'version = "' + NEXT_VERSION + '"'
+        path,
+        'version = "' + args.old_version + '"',
+        'version = "' + args.release_version + '"',
     )
     replace(
         path,
-        'version = "=' + PREVIOUS_VERSION + '"',
-        'version = "=' + NEXT_VERSION + '"',
+        'version = "=' + args.old_version + '"',
+        'version = "=' + args.release_version + '"',
     )
     replace(
         path,
-        'version = "' + PREVIOUS_PRERELEASE_VERSION + '"',
-        'version = "' + NEXT_PRERELEASE_VERSION + '"',
+        'version = "' + old_prerelease_version + '"',
+        'version = "' + release_prerelease_version + '"',
     )
     replace(
         path,
-        'version = "=' + PREVIOUS_PRERELEASE_VERSION + '"',
-        'version = "=' + NEXT_PRERELEASE_VERSION + '"',
+        'version = "=' + old_prerelease_version + '"',
+        'version = "=' + release_prerelease_version + '"',
     )
-    pass
 
 
 def replace_version_py(path):
-    print(PREVIOUS_VERSION + " -> " + NEXT_VERSION + " (" + path + ")")
+    print(args.old_version + " -> " + args.release_version + " (" + path + ")")
     replace(
         path,
-        'target_version = "' + PREVIOUS_VERSION + '"',
-        'target_version = "' + NEXT_VERSION + '"',
+        'target_version = "' + args.old_version + '"',
+        'target_version = "' + args.release_version + '"',
     )
     replace(
         path,
-        'target_version = "' + PREVIOUS_PRERELEASE_VERSION + '"',
-        'target_version = "' + NEXT_PRERELEASE_VERSION + '"',
+        'target_version = "' + old_prerelease_version + '"',
+        'target_version = "' + release_prerelease_version + '"',
     )
-    pass
 
 
 def replace_version_iss(path):
-    print(PREVIOUS_VERSION + " -> " + NEXT_VERSION + " (" + path + ")")
-    replace(path, "AppVersion=" + PREVIOUS_VERSION, "AppVersion=" + NEXT_VERSION)
+    print(args.old_version + " -> " + args.release_version + " (" + path + ")")
     replace(
         path,
-        "AppVersion=" + PREVIOUS_PRERELEASE_VERSION,
-        "AppVersion=" + NEXT_PRERELEASE_VERSION,
+        "AppVersion=" + args.old_version,
+        "AppVersion=" + args.release_version,
     )
-    pass
+    replace(
+        path,
+        "AppVersion=" + old_prerelease_version,
+        "AppVersion=" + release_prerelease_version,
+    )
 
 
 print(
     "Updating crate versions from "
-    + PREVIOUS_VERSION
+    + args.old_version
     + " to "
-    + NEXT_VERSION
+    + args.release_version
     + " (and prerelease versions from "
-    + PREVIOUS_PRERELEASE_VERSION
+    + old_prerelease_version
     + " to "
-    + NEXT_PRERELEASE_VERSION
+    + release_prerelease_version
     + ")"
 )
 for root, dirs, files in os.walk("."):
