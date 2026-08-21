@@ -7,7 +7,9 @@ use std::{
 use anyhow::{Context, Error};
 use wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageIdent, PackageSource};
 
-use crate::runtime::resolver::{PackageSummary, QueryError, Source};
+use crate::runtime::resolver::{
+    PackageSummary, QueryError, Source, utils::cmp_versions_with_build,
+};
 
 /// A [`Source`] that tracks packages in memory.
 ///
@@ -87,8 +89,9 @@ impl InMemorySource {
                     .entry(ident.full_name.clone())
                     .or_default();
                 summaries.push(NamedPackageSummary { ident, summary });
-                summaries
-                    .sort_by(|left, right| left.ident.version.cmp_precedence(&right.ident.version));
+                summaries.sort_by(|left, right| {
+                    cmp_versions_with_build(&left.ident.version, &right.ident.version)
+                });
                 summaries.dedup_by(|left, right| left.ident.version == right.ident.version);
             }
             PackageId::Hash(hash) => {
@@ -142,9 +145,7 @@ impl Source for InMemorySource {
                     Some(summaries) => {
                         let matches: Vec<_> = summaries
                             .iter()
-                            .filter(|summary| {
-                                named.version_or_default().matches(&summary.ident.version)
-                            })
+                            .filter(|summary| named.matches_version(&summary.ident.version))
                             .map(|n| n.summary.clone())
                             .collect();
 
@@ -159,7 +160,7 @@ impl Source for InMemorySource {
                         if matches.is_empty() {
                             return Err(QueryError::NoMatches {
                                 query: package.clone(),
-                                archived_versions: Vec::new(),
+                                yanked_versions: Vec::new(),
                             });
                         }
 
@@ -176,7 +177,7 @@ impl Source for InMemorySource {
                 .map(|x| vec![x.clone()])
                 .ok_or_else(|| QueryError::NoMatches {
                     query: package.clone(),
-                    archived_versions: Vec::new(),
+                    yanked_versions: Vec::new(),
                 }),
             PackageSource::Url(_) | PackageSource::Path(_) => Err(QueryError::Unsupported {
                 query: package.clone(),
