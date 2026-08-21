@@ -1,37 +1,35 @@
 #! /usr/bin/env python3
 
 from itertools import takewhile
+import argparse
 import os
 import time
-import sys
 import subprocess
 import tempfile
 import datetime
 import re
 
-RELEASE_VERSION = ""
+parser = argparse.ArgumentParser(description="Create a Wasmer release")
+parser.add_argument(
+    "old_version",
+    metavar="OLD_VERSION",
+    help="version currently used by the repository",
+)
+parser.add_argument("release_version", metavar="NEW_VERSION", help="version to release")
+args = parser.parse_args()
+
 DATE = datetime.date.today().strftime("%d/%m/%Y")
 SIGNOFF_REVIEWER = "Arshia001"
-TAG = "main"
 RELEASE_SUBMODULES = ("lib/napi",)
 SUBMODULE_BRANCH = "wasmer-release"
 
-if len(sys.argv) > 1:
-    RELEASE_VERSION = sys.argv[1]
+args.old_version = args.old_version.removeprefix("v")
+
+RELEASE_VERSION_WITH_V = args.release_version
+if not args.release_version.startswith("v"):
+    RELEASE_VERSION_WITH_V = "v" + args.release_version
 else:
-    print("no release version as first argument")
-    sys.exit(1)
-
-
-if len(sys.argv) > 2:
-    TAG = sys.argv[2]
-
-RELEASE_VERSION_WITH_V = RELEASE_VERSION
-
-if not (RELEASE_VERSION.startswith("v")):
-    RELEASE_VERSION_WITH_V = "v" + RELEASE_VERSION
-else:
-    RELEASE_VERSION = RELEASE_VERSION[1:]
+    args.release_version = args.release_version[1:]
 
 subprocess.check_output(["git", "--version"])
 subprocess.check_output(["gh", "--version"])
@@ -76,7 +74,7 @@ def verify_submodule(repo_dir, path):
         raise Exception(f"submodule {path} has unexpected local changes:\n{status}")
 
 
-def make_release(version):
+def make_release():
     subprocess.check_output(["gh", "auth", "status"])
 
     temp_dir = tempfile.TemporaryDirectory(prefix="wasmer-git-")
@@ -87,7 +85,7 @@ def make_release(version):
             "git@github.com:wasmerio/wasmer.git",
             "--recurse-submodules",
             "--branch",
-            TAG,
+            "main",
             "--depth",
             "1",
             temp_dir.name,
@@ -150,7 +148,7 @@ def make_release(version):
 
     changelog.append("## **Unreleased**")
     changelog.append("")
-    changelog.append("## " + RELEASE_VERSION + " - " + DATE)
+    changelog.append("## " + args.release_version + " - " + DATE)
     changelog.append("")
     changelog.append("## Added")
     changelog.append("")
@@ -191,7 +189,7 @@ def make_release(version):
     already_released_str = ""
     for line in proc.stdout:
         line = line.decode("utf-8").rstrip()
-        if RELEASE_VERSION + "\t" in line:
+        if args.release_version + "\t" in line:
             already_released_str = line
             break
 
@@ -207,7 +205,7 @@ def make_release(version):
     github_link_line = ""
     for line in proc.stdout:
         line = line.decode("utf-8").rstrip()
-        if "release-" + RELEASE_VERSION + "\t" in line:
+        if "release-" + args.release_version + "\t" in line:
             github_link_line = line
             break
 
@@ -215,21 +213,21 @@ def make_release(version):
 
     if github_link_line != "":
         proc = subprocess.Popen(
-            ["git", "pull", "origin", "release-" + RELEASE_VERSION],
+            ["git", "pull", "origin", "release-" + args.release_version],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
         proc.wait()
 
         proc = subprocess.Popen(
-            ["git", "checkout", "-b", "release-" + RELEASE_VERSION],
+            ["git", "checkout", "-b", "release-" + args.release_version],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
         proc.wait()
 
         proc = subprocess.Popen(
-            ["git", "pull", "origin", "release-" + RELEASE_VERSION],
+            ["git", "pull", "origin", "release-" + args.release_version],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
@@ -245,7 +243,7 @@ def make_release(version):
     if github_link_line == "" and not (already_released):
         # git checkout -b release-3.0.0-rc.2
         proc = subprocess.Popen(
-            ["git", "checkout", "-b", "release-" + RELEASE_VERSION],
+            ["git", "checkout", "-b", "release-" + args.release_version],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
@@ -254,7 +252,9 @@ def make_release(version):
         if proc.returncode != 0:
             for line in proc.stdout:
                 print(line.rstrip())
-            raise Exception("could not run git checkout -b release-" + RELEASE_VERSION)
+            raise Exception(
+                "could not run git checkout -b release-" + args.release_version
+            )
 
         replace(
             temp_dir.name + "/CHANGELOG.md", "## **Unreleased**", "\n".join(changelog)
@@ -280,10 +280,8 @@ def make_release(version):
         update_version_py = get_file_string(
             temp_dir.name + "/scripts/update-version.py"
         )
-        previous_version = re.search('NEXT_VERSION = "(.*)"', update_version_py).groups(
-            1
-        )[0]
-        next_version = RELEASE_VERSION
+        previous_version = args.old_version
+        next_version = args.release_version
         print("updating version " + previous_version + " -> " + next_version)
         update_version_py = re.sub(
             'PREVIOUS_VERSION = ".*"',
@@ -309,7 +307,7 @@ def make_release(version):
             print(f"verified submodule {path}")
 
         proc = subprocess.Popen(
-            ["git", "commit", "-am", "Release " + RELEASE_VERSION],
+            ["git", "commit", "-am", "Release " + args.release_version],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
@@ -328,7 +326,14 @@ def make_release(version):
         proc.wait()
 
         proc = subprocess.Popen(
-            ["git", "push", "-f", "-u", "origin", "release-" + RELEASE_VERSION],
+            [
+                "git",
+                "push",
+                "-f",
+                "-u",
+                "origin",
+                "release-" + args.release_version,
+            ],
             stdout=subprocess.PIPE,
             cwd=temp_dir.name,
         )
@@ -340,11 +345,11 @@ def make_release(version):
                 "pr",
                 "create",
                 "--head",
-                "release-" + RELEASE_VERSION,
+                "release-" + args.release_version,
                 "--title",
-                "Release " + RELEASE_VERSION,
+                "Release " + args.release_version,
                 "--body",
-                "[bot] Release wasmer version " + RELEASE_VERSION,
+                "[bot] Release wasmer version " + args.release_version,
                 "--reviewer",
                 SIGNOFF_REVIEWER,
             ],
@@ -362,7 +367,7 @@ def make_release(version):
 
         for line in proc.stdout:
             line = line.decode("utf-8").rstrip()
-            if "release-" + RELEASE_VERSION + "\t" in line:
+            if "release-" + args.release_version + "\t" in line:
                 github_link_line = line
                 break
 
@@ -470,7 +475,7 @@ def make_release(version):
         github_link_line = ""
         for line in proc.stdout:
             line = line.decode("utf-8").rstrip()
-            if RELEASE_VERSION + "\t" in line:
+            if args.release_version + "\t" in line:
                 github_link_line = line
                 break
 
@@ -629,7 +634,7 @@ def make_release(version):
     for c in changed:
         release_notes.append(c)
 
-    hash = RELEASE_VERSION + "---" + DATE
+    hash = args.release_version + "---" + DATE
     hash = hash.replace(".", "")
     hash = hash.replace("/", "")
 
@@ -657,4 +662,4 @@ def make_release(version):
     print("Script done and merged 🎉🎉🎉")
 
 
-make_release(RELEASE_VERSION)
+make_release()
