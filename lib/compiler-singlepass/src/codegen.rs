@@ -930,7 +930,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         cb: F,
     ) -> Result<(), CompileError> {
         let need_check = match self.memory_styles[memory_index] {
-            MemoryStyle::Static { .. } => false,
+            MemoryStyle::Static => false,
             MemoryStyle::Dynamic { .. } => true,
         };
 

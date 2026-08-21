@@ -3015,6 +3015,7 @@ pub enum Reachability<T> {
     /// The Wasm execution state has been determined to be statically
     /// unreachable. It is the receiver of this value's responsibility to update
     /// `FuncTranslationState::reachable` as necessary.
+    #[allow(dead_code)]
     Unreachable,
 }
 

@@ -45,7 +45,7 @@ pub fn default_engine() -> Engine {
     }
 
     let mut engine = get_engine();
-    let tunables = BaseTunables::for_target(engine.target());
+    let tunables = BaseTunables::new();
     engine.set_tunables(tunables);
     engine
 }

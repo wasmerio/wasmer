@@ -151,7 +151,7 @@ impl FuncTranslator {
         // the allocated heap is never moved to a different location.
         let m0_is_enabled = memory_styles
             .get(MemoryIndex::from_u32(0))
-            .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
+            .is_some_and(|memory| matches!(memory, MemoryStyle::Static));
 
         let (function_name, module_name) = if config.experimental_artifact {
             (function.linkage_name(), String::new())
