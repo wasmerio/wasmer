@@ -6,6 +6,20 @@
 
 ## **Unreleased**
 
+## 7.3.0 - 21/08/2026
+
+## Added
+
+
+## Changed
+
+  - [#6903](https://github.com/wasmerio/wasmer/pull/6903) feat!(CLI): disable gen-c-header
+
+## Fixed
+
+
+
+
 ## 7.3.0-rc.1 - 21/08/2026
 
 ## Added
