@@ -7,7 +7,6 @@ import time
 import subprocess
 import tempfile
 import datetime
-import re
 
 parser = argparse.ArgumentParser(description="Create a Wasmer release")
 parser.add_argument(
@@ -277,31 +276,16 @@ def make_release():
             print(f"synchronized submodule {path}")
 
         # Update version numbers
-        update_version_py = get_file_string(
-            temp_dir.name + "/scripts/update-version.py"
-        )
-        previous_version = args.old_version
-        next_version = args.release_version
-        print("updating version " + previous_version + " -> " + next_version)
-        update_version_py = re.sub(
-            'PREVIOUS_VERSION = ".*"',
-            f'PREVIOUS_VERSION = "{previous_version}"',
-            update_version_py,
-        )
-        update_version_py = re.sub(
-            'NEXT_VERSION = ".*"',
-            f'NEXT_VERSION = "{next_version}"',
-            update_version_py,
-        )
-        write_file_string(
-            temp_dir.name + "/scripts/update-version.py", update_version_py
-        )
-        proc = subprocess.Popen(
-            ["python3", temp_dir.name + "/scripts/update-version.py"],
-            stdout=subprocess.PIPE,
+        subprocess.check_output(
+            [
+                "python3",
+                temp_dir.name + "/scripts/update-version.py",
+                args.old_version,
+                args.release_version,
+            ],
+            shell=True,
             cwd=temp_dir.name,
         )
-        proc.wait()
         for path in RELEASE_SUBMODULES:
             verify_submodule(temp_dir.name, path)
             print(f"verified submodule {path}")
