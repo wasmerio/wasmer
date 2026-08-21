@@ -3292,7 +3292,7 @@ dependencies = [
  "rayon",
  "serde",
  "serde_yaml",
- "sha2 0.11.0",
+ "sha2",
  "sharded-offset-map",
  "sharded-vec-writer",
  "smallvec",
@@ -5400,17 +5400,6 @@ dependencies = [
 
 [[package]]
 name = "sha2"
-version = "0.10.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a7507d819769d01a365ab707794a4084392c824f54a7a6a7862f8c3d0892b283"
-dependencies = [
- "cfg-if",
- "cpufeatures 0.2.17",
- "digest 0.10.7",
-]
-
-[[package]]
-name = "sha2"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "446ba717509524cb3f22f17ecc096f10f4822d76ab5c0b9822c5f9c284e825f4"
@@ -7507,7 +7496,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "sha2 0.11.0",
+ "sha2",
  "shared-buffer",
  "tar",
  "target-lexicon 0.13.5",
@@ -7805,7 +7794,7 @@ dependencies = [
  "semver 1.0.28",
  "serde",
  "serde_json",
- "sha2 0.11.0",
+ "sha2",
  "shared-buffer",
  "tar",
  "tempfile",
@@ -7832,7 +7821,7 @@ dependencies = [
  "semver 1.0.28",
  "serde",
  "serde_yaml",
- "sha2 0.11.0",
+ "sha2",
  "tempfile",
  "thiserror 2.0.19",
  "tokio",
@@ -7892,7 +7881,7 @@ dependencies = [
  "rkyv",
  "serde",
  "serde_bytes",
- "sha2 0.11.0",
+ "sha2",
  "target-lexicon 0.13.5",
  "thiserror 2.0.19",
  "wasmparser 0.256.0",
@@ -7985,7 +7974,7 @@ dependencies = [
  "serde_derive",
  "serde_json",
  "serde_yaml",
- "sha2 0.11.0",
+ "sha2",
  "shared-buffer",
  "strum",
  "tempfile",
@@ -8212,9 +8201,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "12.0.0"
+version = "12.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5cb48ee4bc7a902c0f1d9eb0c0656f0e78149f1190b7f78e1f28256e88279a84"
+checksum = "715cbfae9eb87236aedca786d0f094e4b513ae5c1bc328a81760d1f9b19f187e"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
@@ -8232,7 +8221,7 @@ dependencies = [
  "rand 0.9.5",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2",
  "shared-buffer",
  "thiserror 2.0.19",
  "url",
