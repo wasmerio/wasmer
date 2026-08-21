@@ -479,7 +479,7 @@ impl VirtualFile for File {
         };
         let _ = self.inner_std.seek(io::SeekFrom::Start(cursor));
 
-        let remaining = end - cursor;
+        let remaining = end.saturating_sub(cursor);
         Poll::Ready(Ok(remaining as usize))
     }
 
