@@ -101,7 +101,7 @@ for root, dirs, files in os.walk("."):
     path = root.split(os.sep)
     # print((len(path) - 1) * '---', os.path.basename(root))
     for file in files:
-        if "Cargo.toml" in file:
+        if "Cargo.toml" in file or "Cargo.standalone.toml" in file:
             replace_version(root + "/" + file)
         elif "wasmer.iss" in file:
             replace_version_iss(root + "/" + file)

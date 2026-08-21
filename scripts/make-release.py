@@ -14,6 +14,7 @@ DATE = datetime.date.today().strftime("%d/%m/%Y")
 SIGNOFF_REVIEWER = "Arshia001"
 TAG = "main"
 RELEASE_SUBMODULES = ("lib/napi",)
+SUBMODULE_BRANCH = "wasmer-release"
 
 if len(sys.argv) > 1:
     RELEASE_VERSION = sys.argv[1]
@@ -57,8 +58,12 @@ def replace(file, pattern, subst):
 
 def sync_submodule(repo_dir, path):
     submodule_dir = os.path.join(repo_dir, path)
-    subprocess.run(["git", "-C", submodule_dir, "checkout", "main"], check=True)
-    subprocess.run(["git", "-C", submodule_dir, "pull"], check=True)
+    subprocess.run(
+        ["git", "-C", submodule_dir, "fetch", "origin", SUBMODULE_BRANCH], check=True
+    )
+    subprocess.run(
+        ["git", "-C", submodule_dir, "checkout", "--detach", "FETCH_HEAD"], check=True
+    )
     subprocess.run(["git", "-C", submodule_dir, "rev-parse", "HEAD"], check=True)
 
 
@@ -266,7 +271,7 @@ def make_release(version):
                 print(line.rstrip())
             raise Exception("could not commit CHANGELOG " + RELEASE_VERSION_WITH_V)
 
-        # Sync submodules to main (must contain version bump)
+        # Sync submodules to SUBMODULE_BRANCH branch (must contain version bump)
         for path in RELEASE_SUBMODULES:
             sync_submodule(temp_dir.name, path)
             print(f"synchronized submodule {path}")
