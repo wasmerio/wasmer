@@ -561,16 +561,21 @@ fn present_after_module_drop(config: crate::Config) -> Result<()> {
 #[cfg(not(target_os = "windows"))]
 #[compiler_test(traps)]
 fn test_eh_deep_recursion_traps_cleanly(config: crate::Config) -> Result<()> {
-    // Temporarily use a smaller coroutine stack so the headroom condition
-    // is reached quickly and the regression test remains safe and fast.
-    // Restore the original size unconditionally via RAII.
+    // V8 manages its own execution stack; this test targets wasmer's
+    // coroutine-based stack and headroom guard.
+    if config.compiler == crate::config::Compiler::V8 {
+        return Ok(());
+    }
+
+    // Drain cached stacks so set_stack_size takes effect immediately.
+    wasmer_vm::drain_stack_pool();
     let orig_stack_size = wasmer_vm::get_stack_size();
     wasmer_vm::set_stack_size(256 * 1024);
-    // RAII guard: restores the stack size on exit, even on early return.
     struct RestoreStack(usize);
     impl Drop for RestoreStack {
         fn drop(&mut self) {
             wasmer_vm::set_stack_size(self.0);
+            wasmer_vm::drain_stack_pool();
         }
     }
     let _restore = RestoreStack(orig_stack_size);
