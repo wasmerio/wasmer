@@ -526,7 +526,7 @@ impl Function {
             // Safety: the store context is uninstalled before we return, and the
             // store mut is valid for the duration of the call.
             let store_install_guard =
-                unsafe { StoreContext::ensure_installed(store.as_store_mut().inner as *mut _) };
+                unsafe { StoreContext::install(store.as_store_mut().inner as *mut _) };
 
             let mut r;
             // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
