@@ -890,6 +890,25 @@ where
 thread_local! {
     static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
+    /// Lower address boundary of the active Wasm coroutine stack (0 if none).
+    /// Saved/restored per coroutine so nested calls see their own boundary.
+    static WASM_STACK_LIMIT: Cell<usize> = const { Cell::new(0) };
+}
+
+/// Returns `true` when the current thread is executing inside a Wasm coroutine.
+///
+/// Use this rather than `wasm_stack_limit() != 0` — the limit is preserved
+/// while the coroutine is suspended (e.g. during `on_host_stack`).
+#[inline]
+pub fn is_on_wasm_stack() -> bool {
+    YIELDER.with(|cell| cell.get().is_some())
+}
+
+/// Returns the lower address boundary of the active Wasm coroutine stack, or 0.
+/// Only meaningful when [`is_on_wasm_stack`] is true.
+#[inline]
+pub fn wasm_stack_limit() -> usize {
+    WASM_STACK_LIMIT.with(Cell::get)
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
@@ -1082,10 +1101,15 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     let stack = acquire_stack(stack_size);
     let mut stack = scopeguard::guard(stack, release_stack);
 
+    let stack_limit = stack.limit().get();
+
     // Create a coroutine with a new stack to run the function on.
     let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
         // Save the yielder to TLS so that it can be used later.
         YIELDER.with(|cell| cell.set(Some(yielder.into())));
+        // Publish this coroutine's stack limit for the EH headroom check.
+        let old_limit = WASM_STACK_LIMIT.with(|c| c.replace(stack_limit));
+        defer! { WASM_STACK_LIMIT.with(|c| c.set(old_limit)); }
 
         Ok(f())
     });
