@@ -51,6 +51,7 @@ pub struct GenCHeader {
 
 impl GenCHeader {
     /// Runs logic for the `gen-c-header` subcommand
+    #[allow(dead_code)]
     pub fn execute(&self) -> Result<(), Error> {
         let file: Bytes = std::fs::read(&self.path)
             .with_context(|| format!("Unable to read \"{}\"", self.path.display()))?

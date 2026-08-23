@@ -554,8 +554,6 @@ fn test_snapshot_file_copy() {
 #[test]
 fn test_snapshot_execve() {
     let snapshot = TestBuilder::new()
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .wasmer_arg("--llvm")
         .with_name(function!())
         .use_coreutils()
         .run_wasm(include_bytes!(
@@ -772,8 +770,6 @@ fn test_snapshot_web_server_poll() {
 fn test_snapshot_fork_and_exec() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .wasmer_arg("--llvm")
         .use_coreutils()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-execve.wasm"
@@ -939,8 +935,6 @@ fn test_snapshot_sleep_async() {
 fn test_snapshot_process_spawn() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .wasmer_arg("--llvm")
         .use_coreutils()
         .run_wasm(include_bytes!(
             "../../../../wasmer-test-files/integration/wasm/example-spawn.wasm"
@@ -1067,8 +1061,6 @@ fn test_snapshot_dash_echo() {
 fn test_snapshot_dash_echo_to_cat() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .wasmer_arg("--llvm")
         .use_coreutils()
         .stdin_str("echo hello | cat")
         .run_wasm(include_bytes!(
@@ -1148,8 +1140,6 @@ fn test_snapshot_bash_echo() {
 fn test_snapshot_bash_ls() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .wasmer_arg("--llvm")
         .stdin_str("ls\nexit\n")
         .use_coreutils()
         .run_wasm(include_bytes!(
@@ -1163,8 +1153,6 @@ fn test_snapshot_bash_ls() {
 fn test_snapshot_bash_cd_ls() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .wasmer_arg("--llvm")
         .stdin_str("cd bin\nls\nexit\n")
         .use_bash()
         .run_wasm(include_bytes!(
@@ -1178,8 +1166,6 @@ fn test_snapshot_bash_cd_ls() {
 fn test_snapshot_bash_pipe() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .wasmer_arg("--llvm")
         .stdin_str("echo hello | cat\nexit\n")
         .use_coreutils()
         .run_wasm(include_bytes!(

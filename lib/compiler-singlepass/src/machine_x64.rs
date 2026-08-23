@@ -30,6 +30,7 @@ use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
     VMOffsets,
     target::{CallingConvention, CpuFeature, Target},
+    vmctx_offset,
 };
 
 type Assembler = VecAssembler<X64Relocation>;
@@ -1965,6 +1966,9 @@ impl Machine for MachineX86_64 {
     type GPR = GPR;
     type SIMD = XMM;
 
+    /// x86_64 stack slots are 8 bytes; 16-byte stack alignment for calls is handled separately.
+    const STACK_ALIGNMENT: usize = 8;
+
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
@@ -2171,10 +2175,6 @@ impl Machine for MachineX86_64 {
         Location::Memory(GPR::RBP, -stack_offset)
     }
 
-    fn round_stack_adjust(&self, value: usize) -> usize {
-        value
-    }
-
     fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_sub(
             Size::S64,
@@ -2258,20 +2258,8 @@ impl Machine for MachineX86_64 {
         }
     }
 
-    fn list_to_save(&self, calling_convention: CallingConvention) -> Vec<Location> {
-        match calling_convention {
-            CallingConvention::WindowsFastcall => {
-                vec![Location::GPR(GPR::RDI), Location::GPR(GPR::RSI)]
-            }
-            _ => vec![],
-        }
-    }
-
-    fn get_param_registers(&self, calling_convention: CallingConvention) -> &'static [Self::GPR] {
-        match calling_convention {
-            CallingConvention::WindowsFastcall => &[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9],
-            _ => &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9],
-        }
+    fn get_param_registers(&self) -> &'static [Self::GPR] {
+        &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9]
     }
 
     fn get_param_location(
@@ -2279,18 +2267,16 @@ impl Machine for MachineX86_64 {
         idx: usize,
         _sz: Size,
         stack_location: &mut usize,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Location {
-        self.get_param_registers(calling_convention)
-            .get(idx)
-            .map_or_else(
-                || {
-                    let loc = Location::Memory(GPR::RSP, *stack_location as i32);
-                    *stack_location += 8;
-                    loc
-                },
-                |reg| Location::GPR(*reg),
-            )
+        self.get_param_registers().get(idx).map_or_else(
+            || {
+                let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                *stack_location += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
     }
 
     fn get_call_param_location(
@@ -2299,40 +2285,24 @@ impl Machine for MachineX86_64 {
         idx: usize,
         _sz: Size,
         _stack_location: &mut usize,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Location {
-        let register_params = self.get_param_registers(calling_convention);
+        let register_params = self.get_param_registers();
         let return_values_memory_size =
             8 * return_slots.saturating_sub(X86_64_RETURN_VALUE_REGISTERS.len());
-        match calling_convention {
-            CallingConvention::WindowsFastcall => register_params.get(idx).map_or_else(
-                || {
-                    Location::Memory(
-                        GPR::RBP,
-                        (32 + 16 + return_values_memory_size + (idx - register_params.len()) * 8)
-                            as i32,
-                    )
-                },
-                |reg| Location::GPR(*reg),
-            ),
-            _ => register_params.get(idx).map_or_else(
-                || {
-                    Location::Memory(
-                        GPR::RBP,
-                        (16 + return_values_memory_size + (idx - register_params.len()) * 8) as i32,
-                    )
-                },
-                |reg| Location::GPR(*reg),
-            ),
-        }
+        register_params.get(idx).map_or_else(
+            || {
+                Location::Memory(
+                    GPR::RBP,
+                    (16 + return_values_memory_size + (idx - register_params.len()) * 8) as i32,
+                )
+            },
+            |reg| Location::GPR(*reg),
+        )
     }
 
-    fn get_simple_param_location(
-        &self,
-        idx: usize,
-        calling_convention: CallingConvention,
-    ) -> Self::GPR {
-        self.get_param_registers(calling_convention)[idx]
+    fn get_simple_param_location(&self, idx: usize) -> Self::GPR {
+        self.get_param_registers()[idx]
     }
 
     fn adjust_gpr_param_location(
@@ -2343,19 +2313,10 @@ impl Machine for MachineX86_64 {
         Ok(())
     }
 
-    fn get_return_value_location(
-        &self,
-        idx: usize,
-        stack_location: &mut usize,
-        calling_convention: CallingConvention,
-    ) -> Location {
+    fn get_return_value_location(&self, idx: usize, stack_location: &mut usize) -> Location {
         X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
-                let stack_padding = match calling_convention {
-                    CallingConvention::WindowsFastcall => 32,
-                    _ => 0,
-                };
-                let loc = Location::Memory(GPR::RSP, *stack_location as i32 + stack_padding);
+                let loc = Location::Memory(GPR::RSP, *stack_location as i32);
                 *stack_location += 8;
                 loc
             },
@@ -2363,20 +2324,12 @@ impl Machine for MachineX86_64 {
         )
     }
 
-    fn get_call_return_value_location(
-        &self,
-        idx: usize,
-        calling_convention: CallingConvention,
-    ) -> Location {
+    fn get_call_return_value_location(&self, idx: usize) -> Location {
         X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
-                let stack_padding = match calling_convention {
-                    CallingConvention::WindowsFastcall => 32,
-                    _ => 0,
-                };
                 Location::Memory(
                     GPR::RBP,
-                    (16 + stack_padding + (idx - X86_64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
+                    (16 + (idx - X86_64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
                 )
             },
             |reg| Location::GPR(*reg),
@@ -4501,7 +4454,6 @@ impl Machine for MachineX86_64 {
 
     fn emit_call_with_reloc(
         &mut self,
-        _calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
     ) -> Result<Vec<Relocation>, CompileError> {
         let mut relocations = vec![];
@@ -7873,18 +7825,14 @@ impl Machine for MachineX86_64 {
     fn gen_std_trampoline(
         &self,
         sig: &FunctionType,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Result<FunctionBody, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
 
         // Calculate stack offset (+1 for the vmctx argument we are going to pass).
         let stack_params = (0..sig.params().len() + 1)
-            .filter(|&i| {
-                self.get_param_registers(calling_convention)
-                    .get(i)
-                    .is_none()
-            })
+            .filter(|&i| self.get_param_registers().get(i).is_none())
             .count();
         let stack_return_slots = sig
             .results()
@@ -7893,10 +7841,6 @@ impl Machine for MachineX86_64 {
 
         // Stack slots are not shared in between function params and return values.
         let mut stack_offset = 8 * (stack_params + stack_return_slots) as u32;
-        let stack_padding: u32 = match calling_convention {
-            CallingConvention::WindowsFastcall => 32,
-            _ => 0,
-        };
 
         // Align to 16 bytes. We push two 8-byte registers below, so here we need to ensure stack_offset % 16 == 8.
         if stack_offset % 16 != 8 {
@@ -7910,19 +7854,19 @@ impl Machine for MachineX86_64 {
         // Prepare stack space.
         a.emit_sub(
             Size::S64,
-            Location::Imm32(stack_offset + stack_padding),
+            Location::Imm32(stack_offset),
             Location::GPR(GPR::RSP),
         )?;
 
         // Arguments
         a.emit_mov(
             Size::S64,
-            Location::GPR(self.get_simple_param_location(1, calling_convention)),
+            Location::GPR(self.get_simple_param_location(1)),
             Location::GPR(GPR::R15),
         )?; // func_ptr
         a.emit_mov(
             Size::S64,
-            Location::GPR(self.get_simple_param_location(2, calling_convention)),
+            Location::GPR(self.get_simple_param_location(2)),
             Location::GPR(GPR::R14),
         )?; // args_rets
 
@@ -7932,7 +7876,7 @@ impl Machine for MachineX86_64 {
             let mut n_stack_args = 0u32;
             for (i, _param) in sig.params().iter().enumerate() {
                 let src_loc = Location::Memory(GPR::R14, (i * 16) as _); // args_rets[i]
-                let dst_loc = self.get_param_registers(calling_convention).get(1 + i);
+                let dst_loc = self.get_param_registers().get(1 + i);
 
                 match dst_loc {
                     Some(&gpr) => {
@@ -7947,8 +7891,7 @@ impl Machine for MachineX86_64 {
                             Location::GPR(GPR::RAX),
                             Location::Memory(
                                 GPR::RSP,
-                                (stack_padding + (n_stack_args + stack_return_slots as u32) * 8)
-                                    as _,
+                                ((n_stack_args + stack_return_slots as u32) * 8) as _,
                             ),
                         )?;
                         n_stack_args += 1;
@@ -7969,10 +7912,7 @@ impl Machine for MachineX86_64 {
                 let loc = Location::GPR(GPR::R15);
                 a.emit_mov(
                     Size::S64,
-                    Location::Memory(
-                        GPR::RSP,
-                        (stack_padding + (n_stack_return_slots as u32 * 8)) as _,
-                    ),
+                    Location::Memory(GPR::RSP, (n_stack_return_slots as u32 * 8) as _),
                     loc,
                 )?;
                 n_stack_return_slots += 1;
@@ -7984,7 +7924,7 @@ impl Machine for MachineX86_64 {
         // Restore stack.
         a.emit_add(
             Size::S64,
-            Location::Imm32(stack_offset + stack_padding),
+            Location::Imm32(stack_offset),
             Location::GPR(GPR::RSP),
         )?;
 
@@ -8015,13 +7955,9 @@ impl Machine for MachineX86_64 {
 
         // Allocate argument array.
         let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
-        let stack_padding: usize = match calling_convention {
-            CallingConvention::WindowsFastcall => 32,
-            _ => 0,
-        };
         a.emit_sub(
             Size::S64,
-            Location::Imm32((stack_offset + stack_padding) as _),
+            Location::Imm32(stack_offset as _),
             Location::GPR(GPR::RSP),
         )?;
 
@@ -8041,7 +7977,7 @@ impl Machine for MachineX86_64 {
                             Size::S64,
                             Location::Memory(
                                 GPR::RSP,
-                                (stack_padding * 2 + stack_offset + 8 + stack_param_count * 8) as _,
+                                (stack_offset + 8 + stack_param_count * 8) as _,
                             ),
                             Location::GPR(GPR::RAX),
                         )?;
@@ -8052,50 +7988,29 @@ impl Machine for MachineX86_64 {
                 a.emit_mov(
                     Size::S64,
                     source_loc,
-                    Location::Memory(GPR::RSP, (stack_padding + i * 16) as _),
+                    Location::Memory(GPR::RSP, (i * 16) as _),
                 )?;
 
                 // Zero upper 64 bits.
                 a.emit_mov(
                     Size::S64,
                     Location::Imm32(0),
-                    Location::Memory(GPR::RSP, (stack_padding + i * 16 + 8) as _),
+                    Location::Memory(GPR::RSP, (i * 16 + 8) as _),
                 )?;
             }
         }
 
-        match calling_convention {
-            CallingConvention::WindowsFastcall => {
-                // Load target address.
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(
-                        GPR::RCX,
-                        vmoffsets.vmdynamicfunction_import_context_address() as i32,
-                    ),
-                    Location::GPR(GPR::RAX),
-                )?;
-                // Load values array.
-                a.emit_lea(
-                    Size::S64,
-                    Location::Memory(GPR::RSP, stack_padding as i32),
-                    Location::GPR(GPR::RDX),
-                )?;
-            }
-            _ => {
-                // Load target address.
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(
-                        GPR::RDI,
-                        vmoffsets.vmdynamicfunction_import_context_address() as i32,
-                    ),
-                    Location::GPR(GPR::RAX),
-                )?;
-                // Load values array.
-                a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RSI))?;
-            }
-        };
+        // Load target address.
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(
+                GPR::RDI,
+                vmoffsets.vmdynamicfunction_import_context_address() as i32,
+            ),
+            Location::GPR(GPR::RAX),
+        )?;
+        // Load values array.
+        a.emit_mov(Size::S64, Location::GPR(GPR::RSP), Location::GPR(GPR::RSI))?;
 
         // Call target.
         a.emit_call_location(Location::GPR(GPR::RAX))?;
@@ -8105,7 +8020,7 @@ impl Machine for MachineX86_64 {
             assert_eq!(sig.results().len(), 1);
             a.emit_mov(
                 Size::S64,
-                Location::Memory(GPR::RSP, stack_padding as i32),
+                Location::Memory(GPR::RSP, 0),
                 Location::GPR(GPR::RAX),
             )?;
         }
@@ -8113,7 +8028,7 @@ impl Machine for MachineX86_64 {
         // Release values array.
         a.emit_add(
             Size::S64,
-            Location::Imm32((stack_offset + stack_padding) as _),
+            Location::Imm32((stack_offset) as _),
             Location::GPR(GPR::RSP),
         )?;
 
@@ -8153,106 +8068,72 @@ impl Machine for MachineX86_64 {
             .iter()
             .any(|&x| x == Type::F32 || x == Type::F64)
         {
-            match calling_convention {
-                CallingConvention::WindowsFastcall => {
-                    let mut param_locations: Vec<Location> = vec![];
-                    static PARAM_REGS: &[GPR] = &[GPR::RDX, GPR::R8, GPR::R9];
-                    #[allow(clippy::needless_range_loop)]
-                    for i in 0..sig.params().len() {
-                        let loc = match i {
-                            0..=2 => Location::GPR(PARAM_REGS[i]),
-                            _ => Location::Memory(GPR::RSP, 32 + 8 + ((i - 3) * 8) as i32), // will not be used anyway
-                        };
-                        param_locations.push(loc);
-                    }
+            let mut param_locations = vec![];
 
-                    // Copy Float arguments to XMM from GPR.
-                    let mut argalloc = ArgumentRegisterAllocator::default();
-                    for (i, ty) in sig.params().iter().enumerate() {
-                        let prev_loc = param_locations[i];
-                        match argalloc.next(*ty, calling_convention)? {
-                            Some(X64Register::GPR(_gpr)) => continue,
-                            Some(X64Register::XMM(xmm)) => {
-                                a.emit_mov(Size::S64, prev_loc, Location::SIMD(xmm))?
-                            }
-                            None => continue,
-                        };
-                    }
-                }
-                _ => {
-                    let mut param_locations = vec![];
+            // Allocate stack space for arguments.
+            let stack_offset: i32 = if sig.params().len() > 5 {
+                5 * 8
+            } else {
+                (sig.params().len() as i32) * 8
+            };
+            if stack_offset > 0 {
+                a.emit_sub(
+                    Size::S64,
+                    Location::Imm32(stack_offset as u32),
+                    Location::GPR(GPR::RSP),
+                )?;
+            }
 
-                    // Allocate stack space for arguments.
-                    let stack_offset: i32 = if sig.params().len() > 5 {
-                        5 * 8
-                    } else {
-                        (sig.params().len() as i32) * 8
-                    };
-                    if stack_offset > 0 {
-                        a.emit_sub(
+            // Store all arguments to the stack to prevent overwrite.
+            static PARAM_REGS: &[GPR] = &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+            #[allow(clippy::needless_range_loop)]
+            for i in 0..sig.params().len() {
+                let loc = match i {
+                    0..=4 => {
+                        let loc = Location::Memory(GPR::RSP, (i * 8) as i32);
+                        a.emit_mov(Size::S64, Location::GPR(PARAM_REGS[i]), loc)?;
+                        loc
+                    }
+                    _ => Location::Memory(GPR::RSP, stack_offset + 8 + ((i - 5) * 8) as i32),
+                };
+                param_locations.push(loc);
+            }
+
+            // Copy arguments.
+            let mut argalloc = ArgumentRegisterAllocator::default();
+            argalloc.next(Type::I64, calling_convention)?.unwrap(); // skip VMContext
+            let mut caller_stack_offset: i32 = 0;
+            for (i, ty) in sig.params().iter().enumerate() {
+                let prev_loc = param_locations[i];
+                let targ = match argalloc.next(*ty, calling_convention)? {
+                    Some(X64Register::GPR(gpr)) => Location::GPR(gpr),
+                    Some(X64Register::XMM(xmm)) => Location::SIMD(xmm),
+                    None => {
+                        // No register can be allocated. Put this argument on the stack.
+                        //
+                        // Since here we never use fewer registers than by the original call, on the caller's frame
+                        // we always have enough space to store the rearranged arguments, and the copy "backward" between different
+                        // slots in the caller argument region will always work.
+                        a.emit_mov(Size::S64, prev_loc, Location::GPR(GPR::RAX))?;
+                        a.emit_mov(
                             Size::S64,
-                            Location::Imm32(stack_offset as u32),
-                            Location::GPR(GPR::RSP),
+                            Location::GPR(GPR::RAX),
+                            Location::Memory(GPR::RSP, stack_offset + 8 + caller_stack_offset),
                         )?;
+                        caller_stack_offset += 8;
+                        continue;
                     }
+                };
+                a.emit_mov(Size::S64, prev_loc, targ)?;
+            }
 
-                    // Store all arguments to the stack to prevent overwrite.
-                    static PARAM_REGS: &[GPR] = &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
-                    #[allow(clippy::needless_range_loop)]
-                    for i in 0..sig.params().len() {
-                        let loc = match i {
-                            0..=4 => {
-                                let loc = Location::Memory(GPR::RSP, (i * 8) as i32);
-                                a.emit_mov(Size::S64, Location::GPR(PARAM_REGS[i]), loc)?;
-                                loc
-                            }
-                            _ => {
-                                Location::Memory(GPR::RSP, stack_offset + 8 + ((i - 5) * 8) as i32)
-                            }
-                        };
-                        param_locations.push(loc);
-                    }
-
-                    // Copy arguments.
-                    let mut argalloc = ArgumentRegisterAllocator::default();
-                    argalloc.next(Type::I64, calling_convention)?.unwrap(); // skip VMContext
-                    let mut caller_stack_offset: i32 = 0;
-                    for (i, ty) in sig.params().iter().enumerate() {
-                        let prev_loc = param_locations[i];
-                        let targ = match argalloc.next(*ty, calling_convention)? {
-                            Some(X64Register::GPR(gpr)) => Location::GPR(gpr),
-                            Some(X64Register::XMM(xmm)) => Location::SIMD(xmm),
-                            None => {
-                                // No register can be allocated. Put this argument on the stack.
-                                //
-                                // Since here we never use fewer registers than by the original call, on the caller's frame
-                                // we always have enough space to store the rearranged arguments, and the copy "backward" between different
-                                // slots in the caller argument region will always work.
-                                a.emit_mov(Size::S64, prev_loc, Location::GPR(GPR::RAX))?;
-                                a.emit_mov(
-                                    Size::S64,
-                                    Location::GPR(GPR::RAX),
-                                    Location::Memory(
-                                        GPR::RSP,
-                                        stack_offset + 8 + caller_stack_offset,
-                                    ),
-                                )?;
-                                caller_stack_offset += 8;
-                                continue;
-                            }
-                        };
-                        a.emit_mov(Size::S64, prev_loc, targ)?;
-                    }
-
-                    // Restore stack pointer.
-                    if stack_offset > 0 {
-                        a.emit_add(
-                            Size::S64,
-                            Location::Imm32(stack_offset as u32),
-                            Location::GPR(GPR::RSP),
-                        )?;
-                    }
-                }
+            // Restore stack pointer.
+            if stack_offset > 0 {
+                a.emit_add(
+                    Size::S64,
+                    Location::Imm32(stack_offset as u32),
+                    Location::GPR(GPR::RSP),
+                )?;
             }
         }
 
@@ -8260,33 +8141,19 @@ impl Machine for MachineX86_64 {
         // from Ctx and jumps to it.
 
         let offset = vmoffsets.vmctx_vmfunction_import(index);
+        let ptr_arg_offset = vmctx_offset(offset)?;
+        let vmctx_arg_offset = vmctx_offset(offset.saturating_add(8))?;
 
-        match calling_convention {
-            CallingConvention::WindowsFastcall => {
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RCX, offset as i32), // function pointer
-                    Location::GPR(GPR::RAX),
-                )?;
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RCX, offset as i32 + 8), // target vmctx
-                    Location::GPR(GPR::RCX),
-                )?;
-            }
-            _ => {
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RDI, offset as i32), // function pointer
-                    Location::GPR(GPR::RAX),
-                )?;
-                a.emit_mov(
-                    Size::S64,
-                    Location::Memory(GPR::RDI, offset as i32 + 8), // target vmctx
-                    Location::GPR(GPR::RDI),
-                )?;
-            }
-        }
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RDI, ptr_arg_offset), // function pointer
+            Location::GPR(GPR::RAX),
+        )?;
+        a.emit_mov(
+            Size::S64,
+            Location::Memory(GPR::RDI, vmctx_arg_offset), // target vmctx
+            Location::GPR(GPR::RDI),
+        )?;
         a.emit_host_redirection(GPR::RAX)?;
 
         let mut contents = a.finalize().unwrap();

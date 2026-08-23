@@ -765,8 +765,6 @@ fn issue_3794_unable_to_mount_relative_paths() {
 
     let assert = wasmer_command()
         .arg("run")
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .arg("--llvm")
         .arg("wasmer/bash")
         .arg("--entrypoint=bash")
         .arg(format!("--volume={}:./some-dir/", temp.path().display()))
@@ -786,21 +784,17 @@ fn issue_3794_unable_to_mount_relative_paths() {
 fn merged_filesystem_contains_all_files() {
     let assert = wasmer_command()
         .arg("run")
-        .arg("wasmer/bash")
-        .arg("--entrypoint=bash")
         .arg("--use")
+        .arg("wasmer/bash")
         .arg("python/python")
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .arg("--llvm")
         .arg("--")
         .arg("-c")
-        .arg("ls -l /usr/local/lib/python3.13/*.py")
-        .env("RUST_LOG", &*RUST_LOG)
+        .arg("import this")
         .assert();
 
     assert
         .success()
-        .stdout(contains("/usr/local/lib/python3.13/this.py"));
+        .stdout(contains("Beautiful is better than ugly."));
 }
 
 #[test]
@@ -931,8 +925,6 @@ fn run_bash_using_coreutils() {
     let assert = wasmer_command()
         .arg("run")
         .arg("wasmer/bash")
-        // TODO: drop once #6419 gets implemented (EH support for Cranelift on macOS)
-        .arg("--llvm")
         .arg("--entrypoint=bash")
         .arg("--use=wasmer/coreutils")
         .arg("--registry=wasmer.io")

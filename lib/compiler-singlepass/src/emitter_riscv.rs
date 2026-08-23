@@ -20,6 +20,7 @@ use wasmer_compiler::types::{
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
     target::{CallingConvention, CpuFeature},
+    vmctx_offset,
 };
 
 type Assembler = VecAssembler<RiscvRelocation>;
@@ -2142,18 +2143,20 @@ pub fn gen_import_call_trampoline_riscv(
     // from Ctx and jumps to it.
 
     let offset = vmoffsets.vmctx_vmfunction_import(index);
+    let ptr_arg_offset = vmctx_offset(offset)?;
+    let vmctx_arg_offset = vmctx_offset(offset.saturating_add(8))?;
 
     a.emit_ld(
         Size::S64,
         false,
         Location::GPR(SCRATCH_REG),
-        Location::Memory(GPR::X10, offset as i32), // function pointer
+        Location::Memory(GPR::X10, ptr_arg_offset), // function pointer
     )?;
     a.emit_ld(
         Size::S64,
         false,
         Location::GPR(GPR::X10),
-        Location::Memory(GPR::X10, offset as i32 + 8), // target vmctx
+        Location::Memory(GPR::X10, vmctx_arg_offset), // target vmctx
     )?;
 
     a.emit_j_register(SCRATCH_REG)?;

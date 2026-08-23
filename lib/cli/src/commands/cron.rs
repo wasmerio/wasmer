@@ -276,30 +276,8 @@ pub struct CmdCronLogs {
     #[clap(flatten)]
     env: WasmerEnv,
 
-    #[clap(flatten)]
-    ident: AppIdentArgOpts,
-
-    /// Cron job id or name.
-    cron_job: String,
-
-    /// Cron job invocation id or edge job id.
+    /// Cron job invocation id.
     invocation: String,
-
-    /// The earliest invocation timestamp to include.
-    ///
-    /// Defaults to 31 days before --end, or 31 days before now.
-    ///
-    /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
-    #[clap(long = "start", alias = "from", value_parser = parse_timestamp_or_relative_time_negative_offset)]
-    start: Option<OffsetDateTime>,
-
-    /// The latest invocation timestamp to include.
-    ///
-    /// Defaults to now.
-    ///
-    /// Accepts RFC 3339, RFC 2822, date, Unix timestamp, or relative time.
-    #[clap(long = "end", alias = "until", value_parser = parse_timestamp_or_relative_time_negative_offset)]
-    end: Option<OffsetDateTime>,
 
     /// Maximum log lines to fetch.
     #[clap(long, default_value = "1000")]
@@ -314,37 +292,14 @@ impl AsyncCliCommand for CmdCronLogs {
         if self.max < 1 {
             bail!("--max must be greater than 0");
         }
-        if let (Some(start), Some(end)) = (self.start, self.end)
-            && start > end
-        {
-            bail!("--start must be before or equal to --end");
-        }
 
         let client = self.env.client()?;
-        let logs = if should_resolve_cron_job_by_id(&self.ident, &self.cron_job) {
-            wasmer_backend_api::query::get_cron_job_invocation_logs_by_id(
-                &client,
-                &self.cron_job,
-                &self.invocation,
-                Some(self.max),
-                self.start,
-                self.end,
-            )
-            .await?
-        } else {
-            let (_ident, app) = self.ident.to_opts().load_app(&client).await?;
-            wasmer_backend_api::query::get_cron_job_invocation_logs(
-                &client,
-                &app.owner.global_name,
-                &app.name,
-                &self.cron_job,
-                &self.invocation,
-                Some(self.max),
-                self.start,
-                self.end,
-            )
-            .await?
-        };
+        let logs = wasmer_backend_api::query::get_cron_job_invocation_logs_by_invocation_id(
+            &client,
+            &self.invocation,
+            Some(self.max),
+        )
+        .await?;
 
         if logs.is_empty() {
             eprintln!("Cron job invocation {} has no logs!", self.invocation);

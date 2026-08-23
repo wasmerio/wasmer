@@ -104,6 +104,10 @@ pub(crate) struct FinalizedAssembly {
 pub trait Machine {
     type GPR: Copy + Eq + Debug + Reg;
     type SIMD: Copy + Eq + Debug + Reg;
+
+    /// A stack alignment in bytes that fulfills the ABI requirement.
+    const STACK_ALIGNMENT: usize;
+
     /// Get current assembler offset
     fn assembler_get_offset(&self) -> Offset;
     /// Get the GPR that hold vmctx
@@ -150,8 +154,6 @@ pub trait Machine {
     fn push_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<usize, CompileError>;
     /// Pop used simd regs to the stack
     fn pop_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<(), CompileError>;
-    /// Return a rounded stack adjustment value (must be multiple of 16bytes on ARM64 for example)
-    fn round_stack_adjust(&self, value: usize) -> usize;
     /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32);
     /// Marks each address in the code range emitted by `f` with the trap code `code`.
@@ -206,13 +208,8 @@ pub trait Machine {
         stack_offset: i32,
         location: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// List of register to save, depending on the CallingConvention
-    fn list_to_save(
-        &self,
-        calling_convention: CallingConvention,
-    ) -> Vec<Location<Self::GPR, Self::SIMD>>;
     /// Get registers for first N function call parameters.
-    fn get_param_registers(&self, calling_convention: CallingConvention) -> &'static [Self::GPR];
+    fn get_param_registers(&self) -> &'static [Self::GPR];
     /// Get param location (to build a call, using SP for stack args)
     fn get_param_location(
         &self,
@@ -231,11 +228,7 @@ pub trait Machine {
         calling_convention: CallingConvention,
     ) -> Location<Self::GPR, Self::SIMD>;
     /// Get param location (idx must point to an argument that is passed in a GPR).
-    fn get_simple_param_location(
-        &self,
-        idx: usize,
-        calling_convention: CallingConvention,
-    ) -> Self::GPR;
+    fn get_simple_param_location(&self, idx: usize) -> Self::GPR;
     /// Adjust GPR param for calling convention ABI purpose.
     fn adjust_gpr_param_location(
         &mut self,
@@ -247,14 +240,9 @@ pub trait Machine {
         &self,
         idx: usize,
         stack_location: &mut usize,
-        calling_convention: CallingConvention,
     ) -> Location<Self::GPR, Self::SIMD>;
     /// Get return value location (from a call, using FP for stack return values).
-    fn get_call_return_value_location(
-        &self,
-        idx: usize,
-        calling_convention: CallingConvention,
-    ) -> Location<Self::GPR, Self::SIMD>;
+    fn get_call_return_value_location(&self, idx: usize) -> Location<Self::GPR, Self::SIMD>;
     /// move a location to another
     fn move_location(
         &mut self,
@@ -1105,7 +1093,6 @@ pub trait Machine {
     /// emit a move function address to GPR ready for call, using appropriate relocation
     fn emit_call_with_reloc(
         &mut self,
-        calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
     ) -> Result<Vec<Relocation>, CompileError>;
     /// Add with location directly from the stack

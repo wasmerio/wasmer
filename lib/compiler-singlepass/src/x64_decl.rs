@@ -243,74 +243,41 @@ impl ArgumentRegisterAllocator {
         ty: Type,
         calling_convention: CallingConvention,
     ) -> Result<Option<X64Register>, CompileError> {
-        let ret = match calling_convention {
-            CallingConvention::WindowsFastcall => {
-                static GPR_SEQ: &[GPR] = &[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9];
-                static XMM_SEQ: &[XMM] = &[XMM::XMM0, XMM::XMM1, XMM::XMM2, XMM::XMM3];
-                let idx = self.n_gprs + self.n_xmms;
-                match ty {
-                    Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef => {
-                        if idx < 4 {
-                            let gpr = GPR_SEQ[idx];
-                            self.n_gprs += 1;
-                            Some(X64Register::GPR(gpr))
-                        } else {
-                            None
-                        }
-                    }
-                    Type::F32 | Type::F64 => {
-                        if idx < 4 {
-                            let xmm = XMM_SEQ[idx];
-                            self.n_xmms += 1;
-                            Some(X64Register::XMM(xmm))
-                        } else {
-                            None
-                        }
-                    }
-                    _ => {
-                        return Err(CompileError::Codegen(format!(
-                            "No register available for {calling_convention:?} and type {ty}"
-                        )));
+        let ret = {
+            static GPR_SEQ: &[GPR] = &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+            static XMM_SEQ: &[XMM] = &[
+                XMM::XMM0,
+                XMM::XMM1,
+                XMM::XMM2,
+                XMM::XMM3,
+                XMM::XMM4,
+                XMM::XMM5,
+                XMM::XMM6,
+                XMM::XMM7,
+            ];
+            match ty {
+                Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef => {
+                    if self.n_gprs < GPR_SEQ.len() {
+                        let gpr = GPR_SEQ[self.n_gprs];
+                        self.n_gprs += 1;
+                        Some(X64Register::GPR(gpr))
+                    } else {
+                        None
                     }
                 }
-            }
-            _ => {
-                static GPR_SEQ: &[GPR] =
-                    &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
-                static XMM_SEQ: &[XMM] = &[
-                    XMM::XMM0,
-                    XMM::XMM1,
-                    XMM::XMM2,
-                    XMM::XMM3,
-                    XMM::XMM4,
-                    XMM::XMM5,
-                    XMM::XMM6,
-                    XMM::XMM7,
-                ];
-                match ty {
-                    Type::I32 | Type::I64 | Type::FuncRef | Type::ExternRef => {
-                        if self.n_gprs < GPR_SEQ.len() {
-                            let gpr = GPR_SEQ[self.n_gprs];
-                            self.n_gprs += 1;
-                            Some(X64Register::GPR(gpr))
-                        } else {
-                            None
-                        }
+                Type::F32 | Type::F64 => {
+                    if self.n_xmms < XMM_SEQ.len() {
+                        let xmm = XMM_SEQ[self.n_xmms];
+                        self.n_xmms += 1;
+                        Some(X64Register::XMM(xmm))
+                    } else {
+                        None
                     }
-                    Type::F32 | Type::F64 => {
-                        if self.n_xmms < XMM_SEQ.len() {
-                            let xmm = XMM_SEQ[self.n_xmms];
-                            self.n_xmms += 1;
-                            Some(X64Register::XMM(xmm))
-                        } else {
-                            None
-                        }
-                    }
-                    _ => {
-                        return Err(CompileError::Codegen(format!(
-                            "No register available for {calling_convention:?} and type {ty}"
-                        )));
-                    }
+                }
+                _ => {
+                    return Err(CompileError::Codegen(format!(
+                        "No register available for {calling_convention:?} and type {ty}"
+                    )));
                 }
             }
         };

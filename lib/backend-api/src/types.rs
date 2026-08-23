@@ -1397,25 +1397,8 @@ mod queries {
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone)]
-    pub struct GetCronJobInvocationLogsVars {
-        pub owner: String,
-        pub name: String,
-        pub cron_after: Option<String>,
-        pub cron_first: Option<i32>,
-        pub invocation_start: Option<DateTime>,
-        pub invocation_end: Option<DateTime>,
-        pub invocation_after: Option<String>,
-        pub invocation_first: Option<i32>,
-        pub log_first: Option<i32>,
-    }
-
-    #[derive(cynic::QueryVariables, Debug, Clone)]
-    pub struct GetCronJobInvocationLogsByIdVars {
+    pub struct GetCronJobInvocationLogsByInvocationIdVars {
         pub id: cynic::Id,
-        pub invocation_start: Option<DateTime>,
-        pub invocation_end: Option<DateTime>,
-        pub invocation_after: Option<String>,
-        pub invocation_first: Option<i32>,
         pub log_first: Option<i32>,
     }
 
@@ -1427,19 +1410,16 @@ mod queries {
         pub cron_job: Option<NodeCronJobWithInvocations>,
     }
 
+    /// Resolve one invocation directly by its own id, without walking the
+    /// cron job's invocation pages.
     #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(graphql_type = "Query", variables = "GetCronJobInvocationLogsVars")]
-    pub struct GetCronJobInvocationLogs {
-        #[arguments(owner: $owner, name: $name)]
-        pub get_deploy_app: Option<DeployAppCronJobInvocationLogs>,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(graphql_type = "Query", variables = "GetCronJobInvocationLogsByIdVars")]
-    pub struct GetCronJobInvocationLogsById {
+    #[cynic(
+        graphql_type = "Query",
+        variables = "GetCronJobInvocationLogsByInvocationIdVars"
+    )]
+    pub struct GetCronJobInvocationLogsByInvocationId {
         #[arguments(id: $id)]
-        #[cynic(rename = "node")]
-        pub cron_job: Option<NodeCronJobWithInvocationLogs>,
+        pub get_cron_job_invocation: Option<CronJobInvocationWithLogsByInvocationId>,
     }
 
     #[derive(cynic::InlineFragments, Debug, Clone)]
@@ -1452,23 +1432,6 @@ mod queries {
 
     impl NodeCronJobWithInvocations {
         pub fn into_cron_job(self) -> Option<CronJobWithInvocationsById> {
-            match self {
-                Self::CronJob(cron_job) => Some(cron_job),
-                Self::Unknown => None,
-            }
-        }
-    }
-
-    #[derive(cynic::InlineFragments, Debug, Clone)]
-    #[cynic(graphql_type = "Node", variables = "GetCronJobInvocationLogsByIdVars")]
-    pub enum NodeCronJobWithInvocationLogs {
-        CronJob(CronJobWithInvocationLogsById),
-        #[cynic(fallback)]
-        Unknown,
-    }
-
-    impl NodeCronJobWithInvocationLogs {
-        pub fn into_cron_job(self) -> Option<CronJobWithInvocationLogsById> {
             match self {
                 Self::CronJob(cron_job) => Some(cron_job),
                 Self::Unknown => None,
@@ -1491,13 +1454,6 @@ mod queries {
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(graphql_type = "DeployApp", variables = "GetCronJobInvocationLogsVars")]
-    pub struct DeployAppCronJobInvocationLogs {
-        #[arguments(first: $cron_first, after: $cron_after)]
-        pub cron_jobs: CronJobConnectionForInvocationLogs,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone)]
     #[cynic(
         graphql_type = "CronJobConnection",
         variables = "GetCronJobInvocationsVars"
@@ -1505,16 +1461,6 @@ mod queries {
     pub struct CronJobConnectionForInvocations {
         pub page_info: PageInfo,
         pub nodes: Vec<CronJobWithInvocations>,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(
-        graphql_type = "CronJobConnection",
-        variables = "GetCronJobInvocationLogsVars"
-    )]
-    pub struct CronJobConnectionForInvocationLogs {
-        pub page_info: PageInfo,
-        pub nodes: Vec<CronJobWithInvocationLogs>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
@@ -1535,43 +1481,15 @@ mod queries {
         pub invocations: CronJobInvocationConnection,
     }
 
-    #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(graphql_type = "CronJob", variables = "GetCronJobInvocationLogsVars")]
-    pub struct CronJobWithInvocationLogs {
-        pub id: cynic::Id,
-        pub name: String,
-        #[arguments(first: $invocation_first, after: $invocation_after, start: $invocation_start, end: $invocation_end)]
-        pub invocations: CronJobInvocationLogsConnection,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(
-        graphql_type = "CronJob",
-        variables = "GetCronJobInvocationLogsByIdVars"
-    )]
-    pub struct CronJobWithInvocationLogsById {
-        pub id: cynic::Id,
-        pub name: String,
-        #[arguments(first: $invocation_first, after: $invocation_after, start: $invocation_start, end: $invocation_end)]
-        pub invocations: CronJobInvocationLogsConnectionById,
-    }
-
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     pub struct CronJobInvocationConnection {
         pub page_info: PageInfo,
-        pub edges: Vec<Option<CronJobInvocationEdge>>,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
-    pub struct CronJobInvocationEdge {
-        pub cursor: String,
-        pub node: Option<CronJobInvocation>,
+        pub nodes: Vec<CronJobInvocation>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     pub struct CronJobInvocation {
         pub id: cynic::Id,
-        pub edge_job_id: String,
         pub status: Option<CronJobInvocationStatus>,
         pub scheduled_at: Option<DateTime>,
         pub started_at: Option<DateTime>,
@@ -1584,62 +1502,10 @@ mod queries {
 
     #[derive(cynic::QueryFragment, Debug, Clone)]
     #[cynic(
-        graphql_type = "CronJobInvocationConnection",
-        variables = "GetCronJobInvocationLogsVars"
-    )]
-    pub struct CronJobInvocationLogsConnection {
-        pub page_info: PageInfo,
-        pub edges: Vec<Option<CronJobInvocationLogsEdge>>,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(
-        graphql_type = "CronJobInvocationEdge",
-        variables = "GetCronJobInvocationLogsVars"
-    )]
-    pub struct CronJobInvocationLogsEdge {
-        pub node: Option<CronJobInvocationWithLogs>,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(
-        graphql_type = "CronJobInvocationConnection",
-        variables = "GetCronJobInvocationLogsByIdVars"
-    )]
-    pub struct CronJobInvocationLogsConnectionById {
-        pub page_info: PageInfo,
-        pub edges: Vec<Option<CronJobInvocationLogsEdgeById>>,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(
-        graphql_type = "CronJobInvocationEdge",
-        variables = "GetCronJobInvocationLogsByIdVars"
-    )]
-    pub struct CronJobInvocationLogsEdgeById {
-        pub node: Option<CronJobInvocationWithLogsById>,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(
         graphql_type = "CronJobInvocation",
-        variables = "GetCronJobInvocationLogsVars"
+        variables = "GetCronJobInvocationLogsByInvocationIdVars"
     )]
-    pub struct CronJobInvocationWithLogs {
-        pub id: cynic::Id,
-        pub edge_job_id: String,
-        #[arguments(first: $log_first)]
-        pub logs: CronJobLogConnection,
-    }
-
-    #[derive(cynic::QueryFragment, Debug, Clone)]
-    #[cynic(
-        graphql_type = "CronJobInvocation",
-        variables = "GetCronJobInvocationLogsByIdVars"
-    )]
-    pub struct CronJobInvocationWithLogsById {
-        pub id: cynic::Id,
-        pub edge_job_id: String,
+    pub struct CronJobInvocationWithLogsByInvocationId {
         #[arguments(first: $log_first)]
         pub logs: CronJobLogConnection,
     }
