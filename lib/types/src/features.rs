@@ -22,7 +22,7 @@ pub struct Features {
     pub simd: bool,
     /// Bulk Memory proposal should be enabled
     pub bulk_memory: bool,
-    /// Multi Value proposal should be enabled
+    /// Multi-value proposal should be enabled
     pub multi_value: bool,
     /// Tail call proposal should be enabled
     pub tail_call: bool,
@@ -210,6 +210,9 @@ impl Features {
     ///
     /// This feature gates functions and blocks returning multiple values in a
     /// module, for example.
+    ///
+    /// Singlepass support for multi-value is experimental and does not include
+    /// integration with host functions returning multiple values.
     ///
     /// This is `true` by default.
     ///
