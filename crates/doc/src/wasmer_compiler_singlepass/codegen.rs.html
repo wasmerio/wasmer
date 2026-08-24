@@ -930,7 +930,7 @@
 <a href=#930 id=930 data-nosnippet>930</a>        cb: F,
 <a href=#931 id=931 data-nosnippet>931</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
 <a href=#932 id=932 data-nosnippet>932</a>        <span class="kw">let </span>need_check = <span class="kw">match </span><span class="self">self</span>.memory_styles[memory_index] {
-<a href=#933 id=933 data-nosnippet>933</a>            MemoryStyle::Static { .. } =&gt; <span class="bool-val">false</span>,
+<a href=#933 id=933 data-nosnippet>933</a>            MemoryStyle::Static =&gt; <span class="bool-val">false</span>,
 <a href=#934 id=934 data-nosnippet>934</a>            MemoryStyle::Dynamic { .. } =&gt; <span class="bool-val">true</span>,
 <a href=#935 id=935 data-nosnippet>935</a>        };
 <a href=#936 id=936 data-nosnippet>936</a>

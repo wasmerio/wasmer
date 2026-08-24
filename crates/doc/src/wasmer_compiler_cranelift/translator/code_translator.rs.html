@@ -3015,984 +3015,985 @@
 <a href=#3015 id=3015 data-nosnippet>3015</a>    <span class="doccomment">/// The Wasm execution state has been determined to be statically
 <a href=#3016 id=3016 data-nosnippet>3016</a>    /// unreachable. It is the receiver of this value's responsibility to update
 <a href=#3017 id=3017 data-nosnippet>3017</a>    /// `FuncTranslationState::reachable` as necessary.
-<a href=#3018 id=3018 data-nosnippet>3018</a>    </span>Unreachable,
-<a href=#3019 id=3019 data-nosnippet>3019</a>}
-<a href=#3020 id=3020 data-nosnippet>3020</a>
-<a href=#3021 id=3021 data-nosnippet>3021</a><span class="doccomment">/// Translate a load instruction.
-<a href=#3022 id=3022 data-nosnippet>3022</a>///
-<a href=#3023 id=3023 data-nosnippet>3023</a>/// Returns the execution state's reachability after the load is translated.
-<a href=#3024 id=3024 data-nosnippet>3024</a></span><span class="kw">fn </span>translate_load(
-<a href=#3025 id=3025 data-nosnippet>3025</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
-<a href=#3026 id=3026 data-nosnippet>3026</a>    opcode: ir::Opcode,
-<a href=#3027 id=3027 data-nosnippet>3027</a>    result_ty: Type,
-<a href=#3028 id=3028 data-nosnippet>3028</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3029 id=3029 data-nosnippet>3029</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3030 id=3030 data-nosnippet>3030</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#3031 id=3031 data-nosnippet>3031</a>    allow_unaligned_memory_accesses: bool,
-<a href=#3032 id=3032 data-nosnippet>3032</a>) -&gt; WasmResult&lt;Reachability&lt;()&gt;&gt; {
-<a href=#3033 id=3033 data-nosnippet>3033</a>    <span class="kw">let </span>mem_op_size = mem_op_size(opcode, result_ty);
-<a href=#3034 id=3034 data-nosnippet>3034</a>    <span class="kw">let </span>(flags, _wasm_index, base) =
-<a href=#3035 id=3035 data-nosnippet>3035</a>        <span class="kw">match </span>prepare_addr(memarg, mem_op_size, builder, state, environ)<span class="question-mark">? </span>{
-<a href=#3036 id=3036 data-nosnippet>3036</a>            Reachability::Unreachable =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Reachability::Unreachable),
-<a href=#3037 id=3037 data-nosnippet>3037</a>            Reachability::Reachable((f, i, b)) =&gt; (f, i, b),
-<a href=#3038 id=3038 data-nosnippet>3038</a>        };
-<a href=#3039 id=3039 data-nosnippet>3039</a>    <span class="kw">let </span>raw_flags = insert_mem_flags(builder.func, flags);
-<a href=#3040 id=3040 data-nosnippet>3040</a>
-<a href=#3041 id=3041 data-nosnippet>3041</a>    <span class="comment">// TODO: maybe support also v128
-<a href=#3042 id=3042 data-nosnippet>3042</a>    </span><span class="kw">if </span>allow_unaligned_memory_accesses &amp;&amp; mem_op_size &gt; <span class="number">1 </span>&amp;&amp; mem_op_size &lt; <span class="number">16 </span>{
-<a href=#3043 id=3043 data-nosnippet>3043</a>        <span class="comment">// Test and handle aligned / unaligned loads separately
-<a href=#3044 id=3044 data-nosnippet>3044</a>        </span><span class="kw">let </span>block_aligned = builder.create_block();
-<a href=#3045 id=3045 data-nosnippet>3045</a>        <span class="kw">let </span>block_unaligned = builder.create_block();
-<a href=#3046 id=3046 data-nosnippet>3046</a>        <span class="kw">let </span>block_merge = builder.create_block();
-<a href=#3047 id=3047 data-nosnippet>3047</a>        builder.append_block_param(block_merge, result_ty);
-<a href=#3048 id=3048 data-nosnippet>3048</a>
-<a href=#3049 id=3049 data-nosnippet>3049</a>        <span class="kw">let </span>alignment_check = builder.ins().band_imm_u(base, (mem_op_size - <span class="number">1</span>) <span class="kw">as </span>i64);
-<a href=#3050 id=3050 data-nosnippet>3050</a>        builder
-<a href=#3051 id=3051 data-nosnippet>3051</a>            .ins()
-<a href=#3052 id=3052 data-nosnippet>3052</a>            .brif(alignment_check, block_unaligned, <span class="kw-2">&amp;</span>[], block_aligned, <span class="kw-2">&amp;</span>[]);
-<a href=#3053 id=3053 data-nosnippet>3053</a>
-<a href=#3054 id=3054 data-nosnippet>3054</a>        builder.seal_block(block_aligned);
-<a href=#3055 id=3055 data-nosnippet>3055</a>        builder.seal_block(block_unaligned);
-<a href=#3056 id=3056 data-nosnippet>3056</a>
-<a href=#3057 id=3057 data-nosnippet>3057</a>        builder.switch_to_block(block_aligned);
-<a href=#3058 id=3058 data-nosnippet>3058</a>        <span class="kw">let </span>(fast_load, fast_dfg) =
-<a href=#3059 id=3059 data-nosnippet>3059</a>            builder
-<a href=#3060 id=3060 data-nosnippet>3060</a>                .ins()
-<a href=#3061 id=3061 data-nosnippet>3061</a>                .Load(opcode, result_ty, raw_flags, Offset32::new(<span class="number">0</span>), base);
-<a href=#3062 id=3062 data-nosnippet>3062</a>        <span class="kw">let </span>fast_val = fast_dfg.first_result(fast_load);
-<a href=#3063 id=3063 data-nosnippet>3063</a>        builder.ins().jump(block_merge, <span class="kw-2">&amp;</span>[fast_val.into()]);
-<a href=#3064 id=3064 data-nosnippet>3064</a>
-<a href=#3065 id=3065 data-nosnippet>3065</a>        builder.switch_to_block(block_unaligned);
-<a href=#3066 id=3066 data-nosnippet>3066</a>
-<a href=#3067 id=3067 data-nosnippet>3067</a>        <span class="comment">// We're going to build the final value as an unsigned integer type that will be later bitcasted.
-<a href=#3068 id=3068 data-nosnippet>3068</a>        </span><span class="kw">let </span>result_uint_type = Type::int_with_byte_size(u16::try_from(result_ty.bytes()).unwrap())
-<a href=#3069 id=3069 data-nosnippet>3069</a>            .ok_or(WasmError::Generic(
-<a href=#3070 id=3070 data-nosnippet>3070</a>                <span class="string">"cannot get uint type for memory load"</span>.to_string(),
-<a href=#3071 id=3071 data-nosnippet>3071</a>            ))<span class="question-mark">?</span>;
-<a href=#3072 id=3072 data-nosnippet>3072</a>        <span class="kw">let </span>raw_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
-<a href=#3073 id=3073 data-nosnippet>3073</a>            WasmError::Generic(<span class="string">"cannot get uint type for memory load"</span>.to_string()),
-<a href=#3074 id=3074 data-nosnippet>3074</a>        )<span class="question-mark">?</span>;
-<a href=#3075 id=3075 data-nosnippet>3075</a>        <span class="kw">let </span><span class="kw-2">mut </span>slow_val = builder.ins().uload8(result_uint_type, flags, base, <span class="number">0</span>);
-<a href=#3076 id=3076 data-nosnippet>3076</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..mem_op_size {
-<a href=#3077 id=3077 data-nosnippet>3077</a>            <span class="kw">let </span>byte = builder
-<a href=#3078 id=3078 data-nosnippet>3078</a>                .ins()
-<a href=#3079 id=3079 data-nosnippet>3079</a>                .uload8(result_uint_type, flags, base, i <span class="kw">as </span>i32);
-<a href=#3080 id=3080 data-nosnippet>3080</a>            <span class="kw">let </span>shifted = builder.ins().ishl_imm_u(byte, (i * <span class="number">8</span>) <span class="kw">as </span>i64);
-<a href=#3081 id=3081 data-nosnippet>3081</a>            slow_val = builder.ins().bor(slow_val, shifted);
-<a href=#3082 id=3082 data-nosnippet>3082</a>        }
-<a href=#3083 id=3083 data-nosnippet>3083</a>        <span class="kw">if </span><span class="macro">matches!</span>(
-<a href=#3084 id=3084 data-nosnippet>3084</a>            opcode,
-<a href=#3085 id=3085 data-nosnippet>3085</a>            ir::Opcode::Sload8 | ir::Opcode::Sload16 | ir::Opcode::Sload32
-<a href=#3086 id=3086 data-nosnippet>3086</a>        ) {
-<a href=#3087 id=3087 data-nosnippet>3087</a>            <span class="kw">let </span>narrow = builder.ins().ireduce(raw_uint_type, slow_val);
-<a href=#3088 id=3088 data-nosnippet>3088</a>            slow_val = builder.ins().sextend(result_uint_type, narrow);
-<a href=#3089 id=3089 data-nosnippet>3089</a>        }
-<a href=#3090 id=3090 data-nosnippet>3090</a>        <span class="kw">let </span>slow_val = builder.ins().bitcast(
-<a href=#3091 id=3091 data-nosnippet>3091</a>            result_ty,
-<a href=#3092 id=3092 data-nosnippet>3092</a>            MemFlagsData::new().with_endianness(ir::Endianness::Little),
-<a href=#3093 id=3093 data-nosnippet>3093</a>            slow_val,
-<a href=#3094 id=3094 data-nosnippet>3094</a>        );
-<a href=#3095 id=3095 data-nosnippet>3095</a>        builder.ins().jump(block_merge, <span class="kw-2">&amp;</span>[slow_val.into()]);
-<a href=#3096 id=3096 data-nosnippet>3096</a>
-<a href=#3097 id=3097 data-nosnippet>3097</a>        builder.seal_block(block_merge);
-<a href=#3098 id=3098 data-nosnippet>3098</a>        builder.switch_to_block(block_merge);
-<a href=#3099 id=3099 data-nosnippet>3099</a>        state.push1(builder.block_params(block_merge)[<span class="number">0</span>]);
-<a href=#3100 id=3100 data-nosnippet>3100</a>    } <span class="kw">else </span>{
-<a href=#3101 id=3101 data-nosnippet>3101</a>        <span class="kw">let </span>(load, dfg) = builder
-<a href=#3102 id=3102 data-nosnippet>3102</a>            .ins()
-<a href=#3103 id=3103 data-nosnippet>3103</a>            .Load(opcode, result_ty, raw_flags, Offset32::new(<span class="number">0</span>), base);
-<a href=#3104 id=3104 data-nosnippet>3104</a>        state.push1(dfg.first_result(load));
-<a href=#3105 id=3105 data-nosnippet>3105</a>    }
-<a href=#3106 id=3106 data-nosnippet>3106</a>
-<a href=#3107 id=3107 data-nosnippet>3107</a>    <span class="prelude-val">Ok</span>(Reachability::Reachable(()))
-<a href=#3108 id=3108 data-nosnippet>3108</a>}
-<a href=#3109 id=3109 data-nosnippet>3109</a>
-<a href=#3110 id=3110 data-nosnippet>3110</a><span class="doccomment">/// Translate a store instruction.
-<a href=#3111 id=3111 data-nosnippet>3111</a></span><span class="kw">fn </span>translate_store(
-<a href=#3112 id=3112 data-nosnippet>3112</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
-<a href=#3113 id=3113 data-nosnippet>3113</a>    opcode: ir::Opcode,
-<a href=#3114 id=3114 data-nosnippet>3114</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3115 id=3115 data-nosnippet>3115</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3116 id=3116 data-nosnippet>3116</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#3117 id=3117 data-nosnippet>3117</a>    allow_unaligned_memory_accesses: bool,
-<a href=#3118 id=3118 data-nosnippet>3118</a>) -&gt; WasmResult&lt;()&gt; {
-<a href=#3119 id=3119 data-nosnippet>3119</a>    <span class="kw">let </span>val = state.pop1();
-<a href=#3120 id=3120 data-nosnippet>3120</a>    <span class="kw">let </span>val_ty = builder.func.dfg.value_type(val);
-<a href=#3121 id=3121 data-nosnippet>3121</a>    <span class="kw">let </span>mem_op_size = mem_op_size(opcode, val_ty);
-<a href=#3122 id=3122 data-nosnippet>3122</a>
-<a href=#3123 id=3123 data-nosnippet>3123</a>    <span class="kw">let </span>(flags, _wasm_index, base) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
-<a href=#3124 id=3124 data-nosnippet>3124</a>        state,
-<a href=#3125 id=3125 data-nosnippet>3125</a>        prepare_addr(memarg, mem_op_size, builder, state, environ)<span class="question-mark">?
-<a href=#3126 id=3126 data-nosnippet>3126</a>    </span>);
-<a href=#3127 id=3127 data-nosnippet>3127</a>    <span class="kw">let </span>raw_flags = insert_mem_flags(builder.func, flags);
-<a href=#3128 id=3128 data-nosnippet>3128</a>
-<a href=#3129 id=3129 data-nosnippet>3129</a>    <span class="kw">if </span>allow_unaligned_memory_accesses &amp;&amp; mem_op_size &gt; <span class="number">1 </span>&amp;&amp; mem_op_size &lt; <span class="number">16 </span>{
-<a href=#3130 id=3130 data-nosnippet>3130</a>        <span class="kw">let </span>block_aligned = builder.create_block();
-<a href=#3131 id=3131 data-nosnippet>3131</a>        <span class="kw">let </span>block_unaligned = builder.create_block();
-<a href=#3132 id=3132 data-nosnippet>3132</a>        <span class="kw">let </span>block_merge = builder.create_block();
-<a href=#3133 id=3133 data-nosnippet>3133</a>
-<a href=#3134 id=3134 data-nosnippet>3134</a>        <span class="kw">let </span>alignment_check = builder.ins().band_imm_u(base, (mem_op_size - <span class="number">1</span>) <span class="kw">as </span>i64);
-<a href=#3135 id=3135 data-nosnippet>3135</a>        builder
-<a href=#3136 id=3136 data-nosnippet>3136</a>            .ins()
-<a href=#3137 id=3137 data-nosnippet>3137</a>            .brif(alignment_check, block_unaligned, <span class="kw-2">&amp;</span>[], block_aligned, <span class="kw-2">&amp;</span>[]);
-<a href=#3138 id=3138 data-nosnippet>3138</a>
-<a href=#3139 id=3139 data-nosnippet>3139</a>        builder.seal_block(block_aligned);
-<a href=#3140 id=3140 data-nosnippet>3140</a>        builder.seal_block(block_unaligned);
-<a href=#3141 id=3141 data-nosnippet>3141</a>
-<a href=#3142 id=3142 data-nosnippet>3142</a>        builder.switch_to_block(block_aligned);
-<a href=#3143 id=3143 data-nosnippet>3143</a>        builder
-<a href=#3144 id=3144 data-nosnippet>3144</a>            .ins()
-<a href=#3145 id=3145 data-nosnippet>3145</a>            .Store(opcode, val_ty, raw_flags, Offset32::new(<span class="number">0</span>), val, base);
-<a href=#3146 id=3146 data-nosnippet>3146</a>        builder.ins().jump(block_merge, <span class="kw-2">&amp;</span>[]);
-<a href=#3147 id=3147 data-nosnippet>3147</a>
-<a href=#3148 id=3148 data-nosnippet>3148</a>        builder.switch_to_block(block_unaligned);
-<a href=#3149 id=3149 data-nosnippet>3149</a>        <span class="kw">let </span>val = <span class="kw">if </span>val_ty.is_int() {
-<a href=#3150 id=3150 data-nosnippet>3150</a>            val
-<a href=#3151 id=3151 data-nosnippet>3151</a>        } <span class="kw">else </span>{
-<a href=#3152 id=3152 data-nosnippet>3152</a>            <span class="kw">let </span>result_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
-<a href=#3153 id=3153 data-nosnippet>3153</a>                WasmError::Generic(<span class="macro">format!</span>(
-<a href=#3154 id=3154 data-nosnippet>3154</a>                    <span class="string">"cannot get uint type of size {mem_op_size} bytes for memory store from {val_ty:?}"</span>,
-<a href=#3155 id=3155 data-nosnippet>3155</a>                )),
-<a href=#3156 id=3156 data-nosnippet>3156</a>            )<span class="question-mark">?</span>;
-<a href=#3157 id=3157 data-nosnippet>3157</a>            builder.ins().bitcast(
-<a href=#3158 id=3158 data-nosnippet>3158</a>                result_uint_type,
-<a href=#3159 id=3159 data-nosnippet>3159</a>                MemFlagsData::new().with_endianness(ir::Endianness::Little),
-<a href=#3160 id=3160 data-nosnippet>3160</a>                val,
-<a href=#3161 id=3161 data-nosnippet>3161</a>            )
-<a href=#3162 id=3162 data-nosnippet>3162</a>        };
-<a href=#3163 id=3163 data-nosnippet>3163</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..mem_op_size {
-<a href=#3164 id=3164 data-nosnippet>3164</a>            <span class="kw">let </span>shifted = builder.ins().ushr_imm_u(val, (i * <span class="number">8</span>) <span class="kw">as </span>i64);
-<a href=#3165 id=3165 data-nosnippet>3165</a>            builder.ins().istore8(flags, shifted, base, i <span class="kw">as </span>i32);
-<a href=#3166 id=3166 data-nosnippet>3166</a>        }
-<a href=#3167 id=3167 data-nosnippet>3167</a>        builder.ins().jump(block_merge, <span class="kw-2">&amp;</span>[]);
-<a href=#3168 id=3168 data-nosnippet>3168</a>
-<a href=#3169 id=3169 data-nosnippet>3169</a>        builder.seal_block(block_merge);
-<a href=#3170 id=3170 data-nosnippet>3170</a>        builder.switch_to_block(block_merge);
-<a href=#3171 id=3171 data-nosnippet>3171</a>    } <span class="kw">else </span>{
-<a href=#3172 id=3172 data-nosnippet>3172</a>        builder
-<a href=#3173 id=3173 data-nosnippet>3173</a>            .ins()
-<a href=#3174 id=3174 data-nosnippet>3174</a>            .Store(opcode, val_ty, raw_flags, Offset32::new(<span class="number">0</span>), val, base);
-<a href=#3175 id=3175 data-nosnippet>3175</a>    }
-<a href=#3176 id=3176 data-nosnippet>3176</a>
-<a href=#3177 id=3177 data-nosnippet>3177</a>    <span class="prelude-val">Ok</span>(())
-<a href=#3178 id=3178 data-nosnippet>3178</a>}
-<a href=#3179 id=3179 data-nosnippet>3179</a>
-<a href=#3180 id=3180 data-nosnippet>3180</a><span class="kw">fn </span>mem_op_size(opcode: ir::Opcode, ty: Type) -&gt; u8 {
-<a href=#3181 id=3181 data-nosnippet>3181</a>    <span class="kw">match </span>opcode {
-<a href=#3182 id=3182 data-nosnippet>3182</a>        ir::Opcode::Istore8 | ir::Opcode::Sload8 | ir::Opcode::Uload8 =&gt; <span class="number">1</span>,
-<a href=#3183 id=3183 data-nosnippet>3183</a>        ir::Opcode::Istore16 | ir::Opcode::Sload16 | ir::Opcode::Uload16 =&gt; <span class="number">2</span>,
-<a href=#3184 id=3184 data-nosnippet>3184</a>        ir::Opcode::Istore32 | ir::Opcode::Sload32 | ir::Opcode::Uload32 =&gt; <span class="number">4</span>,
-<a href=#3185 id=3185 data-nosnippet>3185</a>        ir::Opcode::Store | ir::Opcode::Load =&gt; u8::try_from(ty.bytes()).unwrap(),
-<a href=#3186 id=3186 data-nosnippet>3186</a>        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"unknown size of mem op for {opcode:?}"</span>),
-<a href=#3187 id=3187 data-nosnippet>3187</a>    }
-<a href=#3188 id=3188 data-nosnippet>3188</a>}
-<a href=#3189 id=3189 data-nosnippet>3189</a>
-<a href=#3190 id=3190 data-nosnippet>3190</a><span class="kw">fn </span>translate_icmp(cc: IntCC, builder: <span class="kw-2">&amp;mut </span>FunctionBuilder, state: <span class="kw-2">&amp;mut </span>FuncTranslationState) {
-<a href=#3191 id=3191 data-nosnippet>3191</a>    <span class="kw">let </span>(arg0, arg1) = state.pop2();
-<a href=#3192 id=3192 data-nosnippet>3192</a>    <span class="kw">let </span>val = builder.ins().icmp(cc, arg0, arg1);
-<a href=#3193 id=3193 data-nosnippet>3193</a>    state.push1(builder.ins().uextend(I32, val));
-<a href=#3194 id=3194 data-nosnippet>3194</a>}
-<a href=#3195 id=3195 data-nosnippet>3195</a>
-<a href=#3196 id=3196 data-nosnippet>3196</a><span class="kw">fn </span>fold_atomic_mem_addr(
-<a href=#3197 id=3197 data-nosnippet>3197</a>    linear_mem_addr: Value,
-<a href=#3198 id=3198 data-nosnippet>3198</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
-<a href=#3199 id=3199 data-nosnippet>3199</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3200 id=3200 data-nosnippet>3200</a>) -&gt; Value {
-<a href=#3201 id=3201 data-nosnippet>3201</a>    <span class="kw">if </span>memarg.offset &gt; <span class="number">0 </span>{
-<a href=#3202 id=3202 data-nosnippet>3202</a>        <span class="macro">assert!</span>(builder.func.dfg.value_type(linear_mem_addr) == I32);
-<a href=#3203 id=3203 data-nosnippet>3203</a>        <span class="kw">let </span>linear_mem_addr = builder.ins().uextend(I64, linear_mem_addr);
-<a href=#3204 id=3204 data-nosnippet>3204</a>        <span class="kw">let </span>a = builder
-<a href=#3205 id=3205 data-nosnippet>3205</a>            .ins()
-<a href=#3206 id=3206 data-nosnippet>3206</a>            .iadd_imm_u(linear_mem_addr, memarg.offset <span class="kw">as </span>i64);
-<a href=#3207 id=3207 data-nosnippet>3207</a>        <span class="kw">let </span>r = builder
-<a href=#3208 id=3208 data-nosnippet>3208</a>            .ins()
-<a href=#3209 id=3209 data-nosnippet>3209</a>            .icmp_imm_u(IntCC::UnsignedGreaterThanOrEqual, a, <span class="number">0x1_0000_0000</span>);
-<a href=#3210 id=3210 data-nosnippet>3210</a>        builder.ins().trapnz(r, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
-<a href=#3211 id=3211 data-nosnippet>3211</a>        builder.ins().ireduce(I32, a)
-<a href=#3212 id=3212 data-nosnippet>3212</a>    } <span class="kw">else </span>{
-<a href=#3213 id=3213 data-nosnippet>3213</a>        linear_mem_addr
-<a href=#3214 id=3214 data-nosnippet>3214</a>    }
-<a href=#3215 id=3215 data-nosnippet>3215</a>    <span class="comment">// Note the alignment is checked at the libcall side.
-<a href=#3216 id=3216 data-nosnippet>3216</a></span>}
-<a href=#3217 id=3217 data-nosnippet>3217</a>
-<a href=#3218 id=3218 data-nosnippet>3218</a><span class="kw">fn </span>translate_atomic_rmw(
-<a href=#3219 id=3219 data-nosnippet>3219</a>    widened_ty: Type,
-<a href=#3220 id=3220 data-nosnippet>3220</a>    access_ty: Type,
-<a href=#3221 id=3221 data-nosnippet>3221</a>    op: AtomicRmwOp,
-<a href=#3222 id=3222 data-nosnippet>3222</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
-<a href=#3223 id=3223 data-nosnippet>3223</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3224 id=3224 data-nosnippet>3224</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3225 id=3225 data-nosnippet>3225</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#3226 id=3226 data-nosnippet>3226</a>) -&gt; WasmResult&lt;()&gt; {
-<a href=#3227 id=3227 data-nosnippet>3227</a>    <span class="kw">let </span><span class="kw-2">mut </span>arg2 = state.pop1();
-<a href=#3228 id=3228 data-nosnippet>3228</a>    <span class="kw">let </span>arg2_ty = builder.func.dfg.value_type(arg2);
-<a href=#3229 id=3229 data-nosnippet>3229</a>
-<a href=#3230 id=3230 data-nosnippet>3230</a>    <span class="comment">// The operation is performed at type `access_ty`, and the old value is zero-extended
-<a href=#3231 id=3231 data-nosnippet>3231</a>    // to type `widened_ty`.
-<a href=#3232 id=3232 data-nosnippet>3232</a>    </span><span class="kw">match </span>access_ty {
-<a href=#3233 id=3233 data-nosnippet>3233</a>        I8 | I16 | I32 | I64 =&gt; {}
-<a href=#3234 id=3234 data-nosnippet>3234</a>        <span class="kw">_ </span>=&gt; {
-<a href=#3235 id=3235 data-nosnippet>3235</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-<a href=#3236 id=3236 data-nosnippet>3236</a>                <span class="string">"atomic_rmw: unsupported access type {:?}"</span>,
-<a href=#3237 id=3237 data-nosnippet>3237</a>                access_ty
-<a href=#3238 id=3238 data-nosnippet>3238</a>            ));
-<a href=#3239 id=3239 data-nosnippet>3239</a>        }
-<a href=#3240 id=3240 data-nosnippet>3240</a>    };
-<a href=#3241 id=3241 data-nosnippet>3241</a>    <span class="kw">let </span>w_ty_ok = <span class="macro">matches!</span>(widened_ty, I32 | I64);
-<a href=#3242 id=3242 data-nosnippet>3242</a>    <span class="macro">assert!</span>(w_ty_ok &amp;&amp; widened_ty.bytes() &gt;= access_ty.bytes());
-<a href=#3243 id=3243 data-nosnippet>3243</a>
-<a href=#3244 id=3244 data-nosnippet>3244</a>    <span class="macro">assert!</span>(arg2_ty.bytes() &gt;= access_ty.bytes());
-<a href=#3245 id=3245 data-nosnippet>3245</a>    <span class="kw">if </span>arg2_ty.bytes() &gt; access_ty.bytes() {
-<a href=#3246 id=3246 data-nosnippet>3246</a>        arg2 = builder.ins().ireduce(access_ty, arg2);
-<a href=#3247 id=3247 data-nosnippet>3247</a>    }
-<a href=#3248 id=3248 data-nosnippet>3248</a>
-<a href=#3249 id=3249 data-nosnippet>3249</a>    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
-<a href=#3250 id=3250 data-nosnippet>3250</a>        state,
-<a href=#3251 id=3251 data-nosnippet>3251</a>        prepare_atomic_addr(
-<a href=#3252 id=3252 data-nosnippet>3252</a>            memarg,
-<a href=#3253 id=3253 data-nosnippet>3253</a>            u8::try_from(access_ty.bytes()).unwrap(),
-<a href=#3254 id=3254 data-nosnippet>3254</a>            builder,
-<a href=#3255 id=3255 data-nosnippet>3255</a>            state,
-<a href=#3256 id=3256 data-nosnippet>3256</a>            environ,
-<a href=#3257 id=3257 data-nosnippet>3257</a>        )<span class="question-mark">?
-<a href=#3258 id=3258 data-nosnippet>3258</a>    </span>);
-<a href=#3259 id=3259 data-nosnippet>3259</a>
-<a href=#3260 id=3260 data-nosnippet>3260</a>    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_rmw(access_ty, flags, op, addr, arg2);
-<a href=#3261 id=3261 data-nosnippet>3261</a>    <span class="kw">if </span>access_ty != widened_ty {
-<a href=#3262 id=3262 data-nosnippet>3262</a>        res = builder.ins().uextend(widened_ty, res);
-<a href=#3263 id=3263 data-nosnippet>3263</a>    }
-<a href=#3264 id=3264 data-nosnippet>3264</a>    state.push1(res);
-<a href=#3265 id=3265 data-nosnippet>3265</a>    <span class="prelude-val">Ok</span>(())
-<a href=#3266 id=3266 data-nosnippet>3266</a>}
-<a href=#3267 id=3267 data-nosnippet>3267</a><span class="kw">fn </span>translate_atomic_cas(
-<a href=#3268 id=3268 data-nosnippet>3268</a>    widened_ty: Type,
-<a href=#3269 id=3269 data-nosnippet>3269</a>    access_ty: Type,
-<a href=#3270 id=3270 data-nosnippet>3270</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
-<a href=#3271 id=3271 data-nosnippet>3271</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3272 id=3272 data-nosnippet>3272</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3273 id=3273 data-nosnippet>3273</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#3274 id=3274 data-nosnippet>3274</a>) -&gt; WasmResult&lt;()&gt; {
-<a href=#3275 id=3275 data-nosnippet>3275</a>    <span class="kw">let </span>(<span class="kw-2">mut </span>expected, <span class="kw-2">mut </span>replacement) = state.pop2();
-<a href=#3276 id=3276 data-nosnippet>3276</a>    <span class="kw">let </span>expected_ty = builder.func.dfg.value_type(expected);
-<a href=#3277 id=3277 data-nosnippet>3277</a>    <span class="kw">let </span>replacement_ty = builder.func.dfg.value_type(replacement);
-<a href=#3278 id=3278 data-nosnippet>3278</a>
-<a href=#3279 id=3279 data-nosnippet>3279</a>    <span class="comment">// The compare-and-swap is performed at type `access_ty`, and the old value is zero-extended
-<a href=#3280 id=3280 data-nosnippet>3280</a>    // to type `widened_ty`.
-<a href=#3281 id=3281 data-nosnippet>3281</a>    </span><span class="kw">match </span>access_ty {
-<a href=#3282 id=3282 data-nosnippet>3282</a>        I8 | I16 | I32 | I64 =&gt; {}
-<a href=#3283 id=3283 data-nosnippet>3283</a>        <span class="kw">_ </span>=&gt; {
-<a href=#3284 id=3284 data-nosnippet>3284</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-<a href=#3285 id=3285 data-nosnippet>3285</a>                <span class="string">"atomic_cas: unsupported access type {:?}"</span>,
-<a href=#3286 id=3286 data-nosnippet>3286</a>                access_ty
-<a href=#3287 id=3287 data-nosnippet>3287</a>            ));
-<a href=#3288 id=3288 data-nosnippet>3288</a>        }
-<a href=#3289 id=3289 data-nosnippet>3289</a>    };
-<a href=#3290 id=3290 data-nosnippet>3290</a>    <span class="kw">let </span>w_ty_ok = <span class="macro">matches!</span>(widened_ty, I32 | I64);
-<a href=#3291 id=3291 data-nosnippet>3291</a>    <span class="macro">assert!</span>(w_ty_ok &amp;&amp; widened_ty.bytes() &gt;= access_ty.bytes());
-<a href=#3292 id=3292 data-nosnippet>3292</a>
-<a href=#3293 id=3293 data-nosnippet>3293</a>    <span class="macro">assert!</span>(expected_ty.bytes() &gt;= access_ty.bytes());
-<a href=#3294 id=3294 data-nosnippet>3294</a>    <span class="kw">if </span>expected_ty.bytes() &gt; access_ty.bytes() {
-<a href=#3295 id=3295 data-nosnippet>3295</a>        expected = builder.ins().ireduce(access_ty, expected);
-<a href=#3296 id=3296 data-nosnippet>3296</a>    }
-<a href=#3297 id=3297 data-nosnippet>3297</a>    <span class="macro">assert!</span>(replacement_ty.bytes() &gt;= access_ty.bytes());
-<a href=#3298 id=3298 data-nosnippet>3298</a>    <span class="kw">if </span>replacement_ty.bytes() &gt; access_ty.bytes() {
-<a href=#3299 id=3299 data-nosnippet>3299</a>        replacement = builder.ins().ireduce(access_ty, replacement);
-<a href=#3300 id=3300 data-nosnippet>3300</a>    }
-<a href=#3301 id=3301 data-nosnippet>3301</a>
-<a href=#3302 id=3302 data-nosnippet>3302</a>    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
-<a href=#3303 id=3303 data-nosnippet>3303</a>        state,
-<a href=#3304 id=3304 data-nosnippet>3304</a>        prepare_atomic_addr(
-<a href=#3305 id=3305 data-nosnippet>3305</a>            memarg,
-<a href=#3306 id=3306 data-nosnippet>3306</a>            u8::try_from(access_ty.bytes()).unwrap(),
-<a href=#3307 id=3307 data-nosnippet>3307</a>            builder,
-<a href=#3308 id=3308 data-nosnippet>3308</a>            state,
-<a href=#3309 id=3309 data-nosnippet>3309</a>            environ,
-<a href=#3310 id=3310 data-nosnippet>3310</a>        )<span class="question-mark">?
-<a href=#3311 id=3311 data-nosnippet>3311</a>    </span>);
-<a href=#3312 id=3312 data-nosnippet>3312</a>    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_cas(flags, addr, expected, replacement);
-<a href=#3313 id=3313 data-nosnippet>3313</a>    <span class="kw">if </span>access_ty != widened_ty {
-<a href=#3314 id=3314 data-nosnippet>3314</a>        res = builder.ins().uextend(widened_ty, res);
-<a href=#3315 id=3315 data-nosnippet>3315</a>    }
-<a href=#3316 id=3316 data-nosnippet>3316</a>    state.push1(res);
-<a href=#3317 id=3317 data-nosnippet>3317</a>    <span class="prelude-val">Ok</span>(())
-<a href=#3318 id=3318 data-nosnippet>3318</a>}
-<a href=#3319 id=3319 data-nosnippet>3319</a>
-<a href=#3320 id=3320 data-nosnippet>3320</a><span class="kw">fn </span>translate_atomic_load(
-<a href=#3321 id=3321 data-nosnippet>3321</a>    widened_ty: Type,
-<a href=#3322 id=3322 data-nosnippet>3322</a>    access_ty: Type,
-<a href=#3323 id=3323 data-nosnippet>3323</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
-<a href=#3324 id=3324 data-nosnippet>3324</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3325 id=3325 data-nosnippet>3325</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3326 id=3326 data-nosnippet>3326</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#3327 id=3327 data-nosnippet>3327</a>) -&gt; WasmResult&lt;()&gt; {
-<a href=#3328 id=3328 data-nosnippet>3328</a>    <span class="comment">// The load is performed at type `access_ty`, and the loaded value is zero extended
-<a href=#3329 id=3329 data-nosnippet>3329</a>    // to `widened_ty`.
-<a href=#3330 id=3330 data-nosnippet>3330</a>    </span><span class="kw">match </span>access_ty {
-<a href=#3331 id=3331 data-nosnippet>3331</a>        I8 | I16 | I32 | I64 =&gt; {}
-<a href=#3332 id=3332 data-nosnippet>3332</a>        <span class="kw">_ </span>=&gt; {
-<a href=#3333 id=3333 data-nosnippet>3333</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-<a href=#3334 id=3334 data-nosnippet>3334</a>                <span class="string">"atomic_load: unsupported access type {:?}"</span>,
-<a href=#3335 id=3335 data-nosnippet>3335</a>                access_ty
-<a href=#3336 id=3336 data-nosnippet>3336</a>            ));
-<a href=#3337 id=3337 data-nosnippet>3337</a>        }
-<a href=#3338 id=3338 data-nosnippet>3338</a>    };
-<a href=#3339 id=3339 data-nosnippet>3339</a>    <span class="kw">let </span>w_ty_ok = <span class="macro">matches!</span>(widened_ty, I32 | I64);
-<a href=#3340 id=3340 data-nosnippet>3340</a>    <span class="macro">assert!</span>(w_ty_ok &amp;&amp; widened_ty.bytes() &gt;= access_ty.bytes());
-<a href=#3341 id=3341 data-nosnippet>3341</a>
-<a href=#3342 id=3342 data-nosnippet>3342</a>    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
-<a href=#3343 id=3343 data-nosnippet>3343</a>        state,
-<a href=#3344 id=3344 data-nosnippet>3344</a>        prepare_atomic_addr(
-<a href=#3345 id=3345 data-nosnippet>3345</a>            memarg,
-<a href=#3346 id=3346 data-nosnippet>3346</a>            u8::try_from(access_ty.bytes()).unwrap(),
-<a href=#3347 id=3347 data-nosnippet>3347</a>            builder,
-<a href=#3348 id=3348 data-nosnippet>3348</a>            state,
-<a href=#3349 id=3349 data-nosnippet>3349</a>            environ,
-<a href=#3350 id=3350 data-nosnippet>3350</a>        )<span class="question-mark">?
-<a href=#3351 id=3351 data-nosnippet>3351</a>    </span>);
-<a href=#3352 id=3352 data-nosnippet>3352</a>    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_load(access_ty, flags, addr);
-<a href=#3353 id=3353 data-nosnippet>3353</a>    <span class="kw">if </span>access_ty != widened_ty {
-<a href=#3354 id=3354 data-nosnippet>3354</a>        res = builder.ins().uextend(widened_ty, res);
-<a href=#3355 id=3355 data-nosnippet>3355</a>    }
-<a href=#3356 id=3356 data-nosnippet>3356</a>    state.push1(res);
-<a href=#3357 id=3357 data-nosnippet>3357</a>    <span class="prelude-val">Ok</span>(())
-<a href=#3358 id=3358 data-nosnippet>3358</a>}
-<a href=#3359 id=3359 data-nosnippet>3359</a>
-<a href=#3360 id=3360 data-nosnippet>3360</a><span class="kw">fn </span>translate_atomic_store(
-<a href=#3361 id=3361 data-nosnippet>3361</a>    access_ty: Type,
-<a href=#3362 id=3362 data-nosnippet>3362</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
-<a href=#3363 id=3363 data-nosnippet>3363</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3364 id=3364 data-nosnippet>3364</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3365 id=3365 data-nosnippet>3365</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#3366 id=3366 data-nosnippet>3366</a>) -&gt; WasmResult&lt;()&gt; {
-<a href=#3367 id=3367 data-nosnippet>3367</a>    <span class="kw">let </span><span class="kw-2">mut </span>data = state.pop1();
-<a href=#3368 id=3368 data-nosnippet>3368</a>    <span class="kw">let </span>data_ty = builder.func.dfg.value_type(data);
-<a href=#3369 id=3369 data-nosnippet>3369</a>
-<a href=#3370 id=3370 data-nosnippet>3370</a>    <span class="comment">// The operation is performed at type `access_ty`, and the data to be stored may first
-<a href=#3371 id=3371 data-nosnippet>3371</a>    // need to be narrowed accordingly.
-<a href=#3372 id=3372 data-nosnippet>3372</a>    </span><span class="kw">match </span>access_ty {
-<a href=#3373 id=3373 data-nosnippet>3373</a>        I8 | I16 | I32 | I64 =&gt; {}
-<a href=#3374 id=3374 data-nosnippet>3374</a>        <span class="kw">_ </span>=&gt; {
-<a href=#3375 id=3375 data-nosnippet>3375</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
-<a href=#3376 id=3376 data-nosnippet>3376</a>                <span class="string">"atomic_store: unsupported access type {:?}"</span>,
-<a href=#3377 id=3377 data-nosnippet>3377</a>                access_ty
-<a href=#3378 id=3378 data-nosnippet>3378</a>            ));
-<a href=#3379 id=3379 data-nosnippet>3379</a>        }
-<a href=#3380 id=3380 data-nosnippet>3380</a>    };
-<a href=#3381 id=3381 data-nosnippet>3381</a>    <span class="kw">let </span>d_ty_ok = <span class="macro">matches!</span>(data_ty, I32 | I64);
-<a href=#3382 id=3382 data-nosnippet>3382</a>    <span class="macro">assert!</span>(d_ty_ok &amp;&amp; data_ty.bytes() &gt;= access_ty.bytes());
-<a href=#3383 id=3383 data-nosnippet>3383</a>
-<a href=#3384 id=3384 data-nosnippet>3384</a>    <span class="kw">if </span>data_ty.bytes() &gt; access_ty.bytes() {
-<a href=#3385 id=3385 data-nosnippet>3385</a>        data = builder.ins().ireduce(access_ty, data);
-<a href=#3386 id=3386 data-nosnippet>3386</a>    }
-<a href=#3387 id=3387 data-nosnippet>3387</a>
-<a href=#3388 id=3388 data-nosnippet>3388</a>    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
-<a href=#3389 id=3389 data-nosnippet>3389</a>        state,
-<a href=#3390 id=3390 data-nosnippet>3390</a>        prepare_atomic_addr(
-<a href=#3391 id=3391 data-nosnippet>3391</a>            memarg,
-<a href=#3392 id=3392 data-nosnippet>3392</a>            u8::try_from(access_ty.bytes()).unwrap(),
-<a href=#3393 id=3393 data-nosnippet>3393</a>            builder,
-<a href=#3394 id=3394 data-nosnippet>3394</a>            state,
-<a href=#3395 id=3395 data-nosnippet>3395</a>            environ,
-<a href=#3396 id=3396 data-nosnippet>3396</a>        )<span class="question-mark">?
-<a href=#3397 id=3397 data-nosnippet>3397</a>    </span>);
-<a href=#3398 id=3398 data-nosnippet>3398</a>    builder.ins().atomic_store(flags, data, addr);
-<a href=#3399 id=3399 data-nosnippet>3399</a>    <span class="prelude-val">Ok</span>(())
-<a href=#3400 id=3400 data-nosnippet>3400</a>}
-<a href=#3401 id=3401 data-nosnippet>3401</a>
-<a href=#3402 id=3402 data-nosnippet>3402</a><span class="kw">fn </span>translate_vector_icmp(
-<a href=#3403 id=3403 data-nosnippet>3403</a>    cc: IntCC,
-<a href=#3404 id=3404 data-nosnippet>3404</a>    needed_type: Type,
-<a href=#3405 id=3405 data-nosnippet>3405</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3406 id=3406 data-nosnippet>3406</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3407 id=3407 data-nosnippet>3407</a>) {
-<a href=#3408 id=3408 data-nosnippet>3408</a>    <span class="kw">let </span>(a, b) = state.pop2();
-<a href=#3409 id=3409 data-nosnippet>3409</a>    <span class="kw">let </span>bitcast_a = optionally_bitcast_vector(a, needed_type, builder);
-<a href=#3410 id=3410 data-nosnippet>3410</a>    <span class="kw">let </span>bitcast_b = optionally_bitcast_vector(b, needed_type, builder);
-<a href=#3411 id=3411 data-nosnippet>3411</a>    state.push1(builder.ins().icmp(cc, bitcast_a, bitcast_b))
-<a href=#3412 id=3412 data-nosnippet>3412</a>}
-<a href=#3413 id=3413 data-nosnippet>3413</a>
-<a href=#3414 id=3414 data-nosnippet>3414</a><span class="kw">fn </span>translate_fcmp(cc: FloatCC, builder: <span class="kw-2">&amp;mut </span>FunctionBuilder, state: <span class="kw-2">&amp;mut </span>FuncTranslationState) {
-<a href=#3415 id=3415 data-nosnippet>3415</a>    <span class="kw">let </span>(arg0, arg1) = state.pop2();
-<a href=#3416 id=3416 data-nosnippet>3416</a>    <span class="kw">let </span>val = builder.ins().fcmp(cc, arg0, arg1);
-<a href=#3417 id=3417 data-nosnippet>3417</a>    state.push1(builder.ins().uextend(I32, val));
-<a href=#3418 id=3418 data-nosnippet>3418</a>}
-<a href=#3419 id=3419 data-nosnippet>3419</a>
-<a href=#3420 id=3420 data-nosnippet>3420</a><span class="kw">fn </span>translate_vector_fcmp(
-<a href=#3421 id=3421 data-nosnippet>3421</a>    cc: FloatCC,
-<a href=#3422 id=3422 data-nosnippet>3422</a>    needed_type: Type,
-<a href=#3423 id=3423 data-nosnippet>3423</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3424 id=3424 data-nosnippet>3424</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3425 id=3425 data-nosnippet>3425</a>) {
-<a href=#3426 id=3426 data-nosnippet>3426</a>    <span class="kw">let </span>(a, b) = state.pop2();
-<a href=#3427 id=3427 data-nosnippet>3427</a>    <span class="kw">let </span>bitcast_a = optionally_bitcast_vector(a, needed_type, builder);
-<a href=#3428 id=3428 data-nosnippet>3428</a>    <span class="kw">let </span>bitcast_b = optionally_bitcast_vector(b, needed_type, builder);
-<a href=#3429 id=3429 data-nosnippet>3429</a>    state.push1(builder.ins().fcmp(cc, bitcast_a, bitcast_b))
-<a href=#3430 id=3430 data-nosnippet>3430</a>}
-<a href=#3431 id=3431 data-nosnippet>3431</a>
-<a href=#3432 id=3432 data-nosnippet>3432</a><span class="kw">fn </span>translate_br_if(
-<a href=#3433 id=3433 data-nosnippet>3433</a>    relative_depth: u32,
-<a href=#3434 id=3434 data-nosnippet>3434</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3435 id=3435 data-nosnippet>3435</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3436 id=3436 data-nosnippet>3436</a>) {
-<a href=#3437 id=3437 data-nosnippet>3437</a>    <span class="kw">let </span>val = state.pop1();
-<a href=#3438 id=3438 data-nosnippet>3438</a>    <span class="kw">let </span>(br_destination, inputs) = translate_br_if_args(relative_depth, state);
-<a href=#3439 id=3439 data-nosnippet>3439</a>    <span class="kw">let </span>next_block = builder.create_block();
-<a href=#3440 id=3440 data-nosnippet>3440</a>    canonicalise_brif(builder, val, br_destination, inputs, next_block, <span class="kw-2">&amp;</span>[]);
-<a href=#3441 id=3441 data-nosnippet>3441</a>
-<a href=#3442 id=3442 data-nosnippet>3442</a>    builder.seal_block(next_block); <span class="comment">// The only predecessor is the current block.
-<a href=#3443 id=3443 data-nosnippet>3443</a>    </span>builder.switch_to_block(next_block);
-<a href=#3444 id=3444 data-nosnippet>3444</a>}
-<a href=#3445 id=3445 data-nosnippet>3445</a>
-<a href=#3446 id=3446 data-nosnippet>3446</a><span class="kw">fn </span>translate_br_if_args(
-<a href=#3447 id=3447 data-nosnippet>3447</a>    relative_depth: u32,
-<a href=#3448 id=3448 data-nosnippet>3448</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3449 id=3449 data-nosnippet>3449</a>) -&gt; (ir::Block, <span class="kw-2">&amp;mut </span>[ir::Value]) {
-<a href=#3450 id=3450 data-nosnippet>3450</a>    <span class="kw">let </span>i = state.control_stack.len() - <span class="number">1 </span>- (relative_depth <span class="kw">as </span>usize);
-<a href=#3451 id=3451 data-nosnippet>3451</a>    <span class="kw">let </span>(return_count, br_destination) = {
-<a href=#3452 id=3452 data-nosnippet>3452</a>        <span class="kw">let </span>frame = <span class="kw-2">&amp;mut </span>state.control_stack[i];
-<a href=#3453 id=3453 data-nosnippet>3453</a>        <span class="comment">// The values returned by the branch are still available for the reachable
-<a href=#3454 id=3454 data-nosnippet>3454</a>        // code that comes after it
-<a href=#3455 id=3455 data-nosnippet>3455</a>        </span>frame.set_branched_to_exit();
-<a href=#3456 id=3456 data-nosnippet>3456</a>        <span class="kw">let </span>return_count = <span class="kw">if </span>frame.is_loop() {
-<a href=#3457 id=3457 data-nosnippet>3457</a>            frame.num_param_values()
-<a href=#3458 id=3458 data-nosnippet>3458</a>        } <span class="kw">else </span>{
-<a href=#3459 id=3459 data-nosnippet>3459</a>            frame.num_return_values()
-<a href=#3460 id=3460 data-nosnippet>3460</a>        };
-<a href=#3461 id=3461 data-nosnippet>3461</a>        (return_count, frame.br_destination())
-<a href=#3462 id=3462 data-nosnippet>3462</a>    };
-<a href=#3463 id=3463 data-nosnippet>3463</a>    <span class="kw">let </span>inputs = state.peekn_mut(return_count);
-<a href=#3464 id=3464 data-nosnippet>3464</a>    (br_destination, inputs)
-<a href=#3465 id=3465 data-nosnippet>3465</a>}
-<a href=#3466 id=3466 data-nosnippet>3466</a>
-<a href=#3467 id=3467 data-nosnippet>3467</a><span class="doccomment">/// Determine the returned value type of a WebAssembly operator
-<a href=#3468 id=3468 data-nosnippet>3468</a></span><span class="kw">fn </span>type_of(operator: <span class="kw-2">&amp;</span>Operator) -&gt; Type {
-<a href=#3469 id=3469 data-nosnippet>3469</a>    <span class="kw">match </span>operator {
-<a href=#3470 id=3470 data-nosnippet>3470</a>        Operator::V128Load { .. }
-<a href=#3471 id=3471 data-nosnippet>3471</a>        | Operator::V128Store { .. }
-<a href=#3472 id=3472 data-nosnippet>3472</a>        | Operator::V128Const { .. }
-<a href=#3473 id=3473 data-nosnippet>3473</a>        | Operator::V128Not
-<a href=#3474 id=3474 data-nosnippet>3474</a>        | Operator::V128And
-<a href=#3475 id=3475 data-nosnippet>3475</a>        | Operator::V128AndNot
-<a href=#3476 id=3476 data-nosnippet>3476</a>        | Operator::V128Or
-<a href=#3477 id=3477 data-nosnippet>3477</a>        | Operator::V128Xor
-<a href=#3478 id=3478 data-nosnippet>3478</a>        | Operator::V128AnyTrue
-<a href=#3479 id=3479 data-nosnippet>3479</a>        | Operator::V128Bitselect =&gt; I8X16, <span class="comment">// default type representing V128
-<a href=#3480 id=3480 data-nosnippet>3480</a>
-<a href=#3481 id=3481 data-nosnippet>3481</a>        </span>Operator::I8x16Shuffle { .. }
-<a href=#3482 id=3482 data-nosnippet>3482</a>        | Operator::I8x16Splat
-<a href=#3483 id=3483 data-nosnippet>3483</a>        | Operator::V128Load8Splat { .. }
-<a href=#3484 id=3484 data-nosnippet>3484</a>        | Operator::V128Load8Lane { .. }
-<a href=#3485 id=3485 data-nosnippet>3485</a>        | Operator::V128Store8Lane { .. }
-<a href=#3486 id=3486 data-nosnippet>3486</a>        | Operator::I8x16ExtractLaneS { .. }
-<a href=#3487 id=3487 data-nosnippet>3487</a>        | Operator::I8x16ExtractLaneU { .. }
-<a href=#3488 id=3488 data-nosnippet>3488</a>        | Operator::I8x16ReplaceLane { .. }
-<a href=#3489 id=3489 data-nosnippet>3489</a>        | Operator::I8x16RelaxedSwizzle
-<a href=#3490 id=3490 data-nosnippet>3490</a>        | Operator::I8x16RelaxedLaneselect
-<a href=#3491 id=3491 data-nosnippet>3491</a>        | Operator::I8x16Eq
-<a href=#3492 id=3492 data-nosnippet>3492</a>        | Operator::I8x16Ne
-<a href=#3493 id=3493 data-nosnippet>3493</a>        | Operator::I8x16LtS
-<a href=#3494 id=3494 data-nosnippet>3494</a>        | Operator::I8x16LtU
-<a href=#3495 id=3495 data-nosnippet>3495</a>        | Operator::I8x16GtS
-<a href=#3496 id=3496 data-nosnippet>3496</a>        | Operator::I8x16GtU
-<a href=#3497 id=3497 data-nosnippet>3497</a>        | Operator::I8x16LeS
-<a href=#3498 id=3498 data-nosnippet>3498</a>        | Operator::I8x16LeU
-<a href=#3499 id=3499 data-nosnippet>3499</a>        | Operator::I8x16GeS
-<a href=#3500 id=3500 data-nosnippet>3500</a>        | Operator::I8x16GeU
-<a href=#3501 id=3501 data-nosnippet>3501</a>        | Operator::I8x16Neg
-<a href=#3502 id=3502 data-nosnippet>3502</a>        | Operator::I8x16Abs
-<a href=#3503 id=3503 data-nosnippet>3503</a>        | Operator::I8x16AllTrue
-<a href=#3504 id=3504 data-nosnippet>3504</a>        | Operator::I8x16Shl
-<a href=#3505 id=3505 data-nosnippet>3505</a>        | Operator::I8x16ShrS
-<a href=#3506 id=3506 data-nosnippet>3506</a>        | Operator::I8x16ShrU
-<a href=#3507 id=3507 data-nosnippet>3507</a>        | Operator::I8x16Add
-<a href=#3508 id=3508 data-nosnippet>3508</a>        | Operator::I8x16AddSatS
-<a href=#3509 id=3509 data-nosnippet>3509</a>        | Operator::I8x16AddSatU
-<a href=#3510 id=3510 data-nosnippet>3510</a>        | Operator::I8x16Sub
-<a href=#3511 id=3511 data-nosnippet>3511</a>        | Operator::I8x16SubSatS
-<a href=#3512 id=3512 data-nosnippet>3512</a>        | Operator::I8x16SubSatU
-<a href=#3513 id=3513 data-nosnippet>3513</a>        | Operator::I8x16MinS
-<a href=#3514 id=3514 data-nosnippet>3514</a>        | Operator::I8x16MinU
-<a href=#3515 id=3515 data-nosnippet>3515</a>        | Operator::I8x16MaxS
-<a href=#3516 id=3516 data-nosnippet>3516</a>        | Operator::I8x16MaxU
-<a href=#3517 id=3517 data-nosnippet>3517</a>        | Operator::I8x16AvgrU
-<a href=#3518 id=3518 data-nosnippet>3518</a>        | Operator::I8x16Bitmask
-<a href=#3519 id=3519 data-nosnippet>3519</a>        | Operator::I8x16Popcnt =&gt; I8X16,
-<a href=#3520 id=3520 data-nosnippet>3520</a>
-<a href=#3521 id=3521 data-nosnippet>3521</a>        Operator::I16x8Splat
-<a href=#3522 id=3522 data-nosnippet>3522</a>        | Operator::V128Load16Splat { .. }
-<a href=#3523 id=3523 data-nosnippet>3523</a>        | Operator::V128Load16Lane { .. }
-<a href=#3524 id=3524 data-nosnippet>3524</a>        | Operator::V128Store16Lane { .. }
-<a href=#3525 id=3525 data-nosnippet>3525</a>        | Operator::I16x8ExtractLaneS { .. }
-<a href=#3526 id=3526 data-nosnippet>3526</a>        | Operator::I16x8ExtractLaneU { .. }
-<a href=#3527 id=3527 data-nosnippet>3527</a>        | Operator::I16x8ReplaceLane { .. }
-<a href=#3528 id=3528 data-nosnippet>3528</a>        | Operator::I16x8RelaxedLaneselect
-<a href=#3529 id=3529 data-nosnippet>3529</a>        | Operator::I16x8Eq
-<a href=#3530 id=3530 data-nosnippet>3530</a>        | Operator::I16x8Ne
-<a href=#3531 id=3531 data-nosnippet>3531</a>        | Operator::I16x8LtS
-<a href=#3532 id=3532 data-nosnippet>3532</a>        | Operator::I16x8LtU
-<a href=#3533 id=3533 data-nosnippet>3533</a>        | Operator::I16x8GtS
-<a href=#3534 id=3534 data-nosnippet>3534</a>        | Operator::I16x8GtU
-<a href=#3535 id=3535 data-nosnippet>3535</a>        | Operator::I16x8LeS
-<a href=#3536 id=3536 data-nosnippet>3536</a>        | Operator::I16x8LeU
-<a href=#3537 id=3537 data-nosnippet>3537</a>        | Operator::I16x8GeS
-<a href=#3538 id=3538 data-nosnippet>3538</a>        | Operator::I16x8GeU
-<a href=#3539 id=3539 data-nosnippet>3539</a>        | Operator::I16x8Neg
-<a href=#3540 id=3540 data-nosnippet>3540</a>        | Operator::I16x8Abs
-<a href=#3541 id=3541 data-nosnippet>3541</a>        | Operator::I16x8AllTrue
-<a href=#3542 id=3542 data-nosnippet>3542</a>        | Operator::I16x8Shl
-<a href=#3543 id=3543 data-nosnippet>3543</a>        | Operator::I16x8ShrS
-<a href=#3544 id=3544 data-nosnippet>3544</a>        | Operator::I16x8ShrU
-<a href=#3545 id=3545 data-nosnippet>3545</a>        | Operator::I16x8Add
-<a href=#3546 id=3546 data-nosnippet>3546</a>        | Operator::I16x8AddSatS
-<a href=#3547 id=3547 data-nosnippet>3547</a>        | Operator::I16x8AddSatU
-<a href=#3548 id=3548 data-nosnippet>3548</a>        | Operator::I16x8Sub
-<a href=#3549 id=3549 data-nosnippet>3549</a>        | Operator::I16x8SubSatS
-<a href=#3550 id=3550 data-nosnippet>3550</a>        | Operator::I16x8SubSatU
-<a href=#3551 id=3551 data-nosnippet>3551</a>        | Operator::I16x8MinS
-<a href=#3552 id=3552 data-nosnippet>3552</a>        | Operator::I16x8MinU
-<a href=#3553 id=3553 data-nosnippet>3553</a>        | Operator::I16x8MaxS
-<a href=#3554 id=3554 data-nosnippet>3554</a>        | Operator::I16x8MaxU
-<a href=#3555 id=3555 data-nosnippet>3555</a>        | Operator::I16x8AvgrU
-<a href=#3556 id=3556 data-nosnippet>3556</a>        | Operator::I16x8Mul
-<a href=#3557 id=3557 data-nosnippet>3557</a>        | Operator::I16x8RelaxedQ15mulrS
-<a href=#3558 id=3558 data-nosnippet>3558</a>        | Operator::I16x8RelaxedDotI8x16I7x16S
-<a href=#3559 id=3559 data-nosnippet>3559</a>        | Operator::I16x8Bitmask =&gt; I16X8,
-<a href=#3560 id=3560 data-nosnippet>3560</a>
-<a href=#3561 id=3561 data-nosnippet>3561</a>        Operator::I32x4Splat
-<a href=#3562 id=3562 data-nosnippet>3562</a>        | Operator::V128Load32Splat { .. }
-<a href=#3563 id=3563 data-nosnippet>3563</a>        | Operator::V128Load32Lane { .. }
-<a href=#3564 id=3564 data-nosnippet>3564</a>        | Operator::V128Store32Lane { .. }
-<a href=#3565 id=3565 data-nosnippet>3565</a>        | Operator::I32x4ExtractLane { .. }
-<a href=#3566 id=3566 data-nosnippet>3566</a>        | Operator::I32x4ReplaceLane { .. }
-<a href=#3567 id=3567 data-nosnippet>3567</a>        | Operator::I32x4RelaxedLaneselect
-<a href=#3568 id=3568 data-nosnippet>3568</a>        | Operator::I32x4Eq
-<a href=#3569 id=3569 data-nosnippet>3569</a>        | Operator::I32x4Ne
-<a href=#3570 id=3570 data-nosnippet>3570</a>        | Operator::I32x4LtS
-<a href=#3571 id=3571 data-nosnippet>3571</a>        | Operator::I32x4LtU
-<a href=#3572 id=3572 data-nosnippet>3572</a>        | Operator::I32x4GtS
-<a href=#3573 id=3573 data-nosnippet>3573</a>        | Operator::I32x4GtU
-<a href=#3574 id=3574 data-nosnippet>3574</a>        | Operator::I32x4LeS
-<a href=#3575 id=3575 data-nosnippet>3575</a>        | Operator::I32x4LeU
-<a href=#3576 id=3576 data-nosnippet>3576</a>        | Operator::I32x4GeS
-<a href=#3577 id=3577 data-nosnippet>3577</a>        | Operator::I32x4GeU
-<a href=#3578 id=3578 data-nosnippet>3578</a>        | Operator::I32x4Neg
-<a href=#3579 id=3579 data-nosnippet>3579</a>        | Operator::I32x4Abs
-<a href=#3580 id=3580 data-nosnippet>3580</a>        | Operator::I32x4AllTrue
-<a href=#3581 id=3581 data-nosnippet>3581</a>        | Operator::I32x4Shl
-<a href=#3582 id=3582 data-nosnippet>3582</a>        | Operator::I32x4ShrS
-<a href=#3583 id=3583 data-nosnippet>3583</a>        | Operator::I32x4ShrU
-<a href=#3584 id=3584 data-nosnippet>3584</a>        | Operator::I32x4Add
-<a href=#3585 id=3585 data-nosnippet>3585</a>        | Operator::I32x4Sub
-<a href=#3586 id=3586 data-nosnippet>3586</a>        | Operator::I32x4Mul
-<a href=#3587 id=3587 data-nosnippet>3587</a>        | Operator::I32x4MinS
-<a href=#3588 id=3588 data-nosnippet>3588</a>        | Operator::I32x4MinU
-<a href=#3589 id=3589 data-nosnippet>3589</a>        | Operator::I32x4MaxS
-<a href=#3590 id=3590 data-nosnippet>3590</a>        | Operator::I32x4MaxU
-<a href=#3591 id=3591 data-nosnippet>3591</a>        | Operator::I32x4Bitmask
-<a href=#3592 id=3592 data-nosnippet>3592</a>        | Operator::I32x4TruncSatF32x4S
-<a href=#3593 id=3593 data-nosnippet>3593</a>        | Operator::I32x4TruncSatF32x4U
-<a href=#3594 id=3594 data-nosnippet>3594</a>        | Operator::I32x4RelaxedTruncF32x4S
-<a href=#3595 id=3595 data-nosnippet>3595</a>        | Operator::I32x4RelaxedTruncF32x4U
-<a href=#3596 id=3596 data-nosnippet>3596</a>        | Operator::I32x4RelaxedTruncF64x2SZero
-<a href=#3597 id=3597 data-nosnippet>3597</a>        | Operator::I32x4RelaxedTruncF64x2UZero
-<a href=#3598 id=3598 data-nosnippet>3598</a>        | Operator::I32x4RelaxedDotI8x16I7x16AddS
-<a href=#3599 id=3599 data-nosnippet>3599</a>        | Operator::V128Load32Zero { .. } =&gt; I32X4,
-<a href=#3600 id=3600 data-nosnippet>3600</a>
-<a href=#3601 id=3601 data-nosnippet>3601</a>        Operator::I64x2Splat
-<a href=#3602 id=3602 data-nosnippet>3602</a>        | Operator::V128Load64Splat { .. }
-<a href=#3603 id=3603 data-nosnippet>3603</a>        | Operator::V128Load64Lane { .. }
-<a href=#3604 id=3604 data-nosnippet>3604</a>        | Operator::V128Store64Lane { .. }
-<a href=#3605 id=3605 data-nosnippet>3605</a>        | Operator::I64x2ExtractLane { .. }
-<a href=#3606 id=3606 data-nosnippet>3606</a>        | Operator::I64x2ReplaceLane { .. }
-<a href=#3607 id=3607 data-nosnippet>3607</a>        | Operator::I64x2RelaxedLaneselect
-<a href=#3608 id=3608 data-nosnippet>3608</a>        | Operator::I64x2Eq
-<a href=#3609 id=3609 data-nosnippet>3609</a>        | Operator::I64x2Ne
-<a href=#3610 id=3610 data-nosnippet>3610</a>        | Operator::I64x2LtS
-<a href=#3611 id=3611 data-nosnippet>3611</a>        | Operator::I64x2GtS
-<a href=#3612 id=3612 data-nosnippet>3612</a>        | Operator::I64x2LeS
-<a href=#3613 id=3613 data-nosnippet>3613</a>        | Operator::I64x2GeS
-<a href=#3614 id=3614 data-nosnippet>3614</a>        | Operator::I64x2Neg
-<a href=#3615 id=3615 data-nosnippet>3615</a>        | Operator::I64x2Abs
-<a href=#3616 id=3616 data-nosnippet>3616</a>        | Operator::I64x2AllTrue
-<a href=#3617 id=3617 data-nosnippet>3617</a>        | Operator::I64x2Shl
-<a href=#3618 id=3618 data-nosnippet>3618</a>        | Operator::I64x2ShrS
-<a href=#3619 id=3619 data-nosnippet>3619</a>        | Operator::I64x2ShrU
-<a href=#3620 id=3620 data-nosnippet>3620</a>        | Operator::I64x2Add
-<a href=#3621 id=3621 data-nosnippet>3621</a>        | Operator::I64x2Sub
-<a href=#3622 id=3622 data-nosnippet>3622</a>        | Operator::I64x2Mul
-<a href=#3623 id=3623 data-nosnippet>3623</a>        | Operator::I64x2Bitmask
-<a href=#3624 id=3624 data-nosnippet>3624</a>        | Operator::V128Load64Zero { .. } =&gt; I64X2,
-<a href=#3625 id=3625 data-nosnippet>3625</a>
-<a href=#3626 id=3626 data-nosnippet>3626</a>        Operator::F32x4Splat
-<a href=#3627 id=3627 data-nosnippet>3627</a>        | Operator::F32x4ExtractLane { .. }
-<a href=#3628 id=3628 data-nosnippet>3628</a>        | Operator::F32x4ReplaceLane { .. }
-<a href=#3629 id=3629 data-nosnippet>3629</a>        | Operator::F32x4Eq
-<a href=#3630 id=3630 data-nosnippet>3630</a>        | Operator::F32x4Ne
-<a href=#3631 id=3631 data-nosnippet>3631</a>        | Operator::F32x4Lt
-<a href=#3632 id=3632 data-nosnippet>3632</a>        | Operator::F32x4Gt
-<a href=#3633 id=3633 data-nosnippet>3633</a>        | Operator::F32x4Le
-<a href=#3634 id=3634 data-nosnippet>3634</a>        | Operator::F32x4Ge
-<a href=#3635 id=3635 data-nosnippet>3635</a>        | Operator::F32x4Abs
-<a href=#3636 id=3636 data-nosnippet>3636</a>        | Operator::F32x4Neg
-<a href=#3637 id=3637 data-nosnippet>3637</a>        | Operator::F32x4Sqrt
-<a href=#3638 id=3638 data-nosnippet>3638</a>        | Operator::F32x4Add
-<a href=#3639 id=3639 data-nosnippet>3639</a>        | Operator::F32x4Sub
-<a href=#3640 id=3640 data-nosnippet>3640</a>        | Operator::F32x4Mul
-<a href=#3641 id=3641 data-nosnippet>3641</a>        | Operator::F32x4Div
-<a href=#3642 id=3642 data-nosnippet>3642</a>        | Operator::F32x4Min
-<a href=#3643 id=3643 data-nosnippet>3643</a>        | Operator::F32x4Max
-<a href=#3644 id=3644 data-nosnippet>3644</a>        | Operator::F32x4PMin
-<a href=#3645 id=3645 data-nosnippet>3645</a>        | Operator::F32x4PMax
-<a href=#3646 id=3646 data-nosnippet>3646</a>        | Operator::F32x4RelaxedMin
-<a href=#3647 id=3647 data-nosnippet>3647</a>        | Operator::F32x4RelaxedMax
-<a href=#3648 id=3648 data-nosnippet>3648</a>        | Operator::F32x4RelaxedMadd
-<a href=#3649 id=3649 data-nosnippet>3649</a>        | Operator::F32x4RelaxedNmadd
-<a href=#3650 id=3650 data-nosnippet>3650</a>        | Operator::F32x4ConvertI32x4S
-<a href=#3651 id=3651 data-nosnippet>3651</a>        | Operator::F32x4ConvertI32x4U
-<a href=#3652 id=3652 data-nosnippet>3652</a>        | Operator::F32x4Ceil
-<a href=#3653 id=3653 data-nosnippet>3653</a>        | Operator::F32x4Floor
-<a href=#3654 id=3654 data-nosnippet>3654</a>        | Operator::F32x4Trunc
-<a href=#3655 id=3655 data-nosnippet>3655</a>        | Operator::F32x4Nearest =&gt; F32X4,
-<a href=#3656 id=3656 data-nosnippet>3656</a>
-<a href=#3657 id=3657 data-nosnippet>3657</a>        Operator::F64x2Splat
-<a href=#3658 id=3658 data-nosnippet>3658</a>        | Operator::F64x2ExtractLane { .. }
-<a href=#3659 id=3659 data-nosnippet>3659</a>        | Operator::F64x2ReplaceLane { .. }
-<a href=#3660 id=3660 data-nosnippet>3660</a>        | Operator::F64x2Eq
-<a href=#3661 id=3661 data-nosnippet>3661</a>        | Operator::F64x2Ne
-<a href=#3662 id=3662 data-nosnippet>3662</a>        | Operator::F64x2Lt
-<a href=#3663 id=3663 data-nosnippet>3663</a>        | Operator::F64x2Gt
-<a href=#3664 id=3664 data-nosnippet>3664</a>        | Operator::F64x2Le
-<a href=#3665 id=3665 data-nosnippet>3665</a>        | Operator::F64x2Ge
-<a href=#3666 id=3666 data-nosnippet>3666</a>        | Operator::F64x2Abs
-<a href=#3667 id=3667 data-nosnippet>3667</a>        | Operator::F64x2Neg
-<a href=#3668 id=3668 data-nosnippet>3668</a>        | Operator::F64x2Sqrt
-<a href=#3669 id=3669 data-nosnippet>3669</a>        | Operator::F64x2Add
-<a href=#3670 id=3670 data-nosnippet>3670</a>        | Operator::F64x2Sub
-<a href=#3671 id=3671 data-nosnippet>3671</a>        | Operator::F64x2Mul
-<a href=#3672 id=3672 data-nosnippet>3672</a>        | Operator::F64x2Div
-<a href=#3673 id=3673 data-nosnippet>3673</a>        | Operator::F64x2Min
-<a href=#3674 id=3674 data-nosnippet>3674</a>        | Operator::F64x2Max
-<a href=#3675 id=3675 data-nosnippet>3675</a>        | Operator::F64x2PMin
-<a href=#3676 id=3676 data-nosnippet>3676</a>        | Operator::F64x2PMax
-<a href=#3677 id=3677 data-nosnippet>3677</a>        | Operator::F64x2RelaxedMin
-<a href=#3678 id=3678 data-nosnippet>3678</a>        | Operator::F64x2RelaxedMax
-<a href=#3679 id=3679 data-nosnippet>3679</a>        | Operator::F64x2RelaxedMadd
-<a href=#3680 id=3680 data-nosnippet>3680</a>        | Operator::F64x2RelaxedNmadd
-<a href=#3681 id=3681 data-nosnippet>3681</a>        | Operator::F64x2Ceil
-<a href=#3682 id=3682 data-nosnippet>3682</a>        | Operator::F64x2Floor
-<a href=#3683 id=3683 data-nosnippet>3683</a>        | Operator::F64x2Trunc
-<a href=#3684 id=3684 data-nosnippet>3684</a>        | Operator::F64x2Nearest =&gt; F64X2,
-<a href=#3685 id=3685 data-nosnippet>3685</a>
-<a href=#3686 id=3686 data-nosnippet>3686</a>        <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(
-<a href=#3687 id=3687 data-nosnippet>3687</a>            <span class="string">"Currently only SIMD instructions are mapped to their return type; the \
-<a href=#3688 id=3688 data-nosnippet>3688</a>             following instruction is not mapped: {:?}"</span>,
-<a href=#3689 id=3689 data-nosnippet>3689</a>            operator
-<a href=#3690 id=3690 data-nosnippet>3690</a>        ),
-<a href=#3691 id=3691 data-nosnippet>3691</a>    }
-<a href=#3692 id=3692 data-nosnippet>3692</a>}
-<a href=#3693 id=3693 data-nosnippet>3693</a>
-<a href=#3694 id=3694 data-nosnippet>3694</a><span class="doccomment">/// Some SIMD operations only operate on I8X16 in CLIF; this will convert them to that type by
-<a href=#3695 id=3695 data-nosnippet>3695</a>/// adding a raw_bitcast if necessary.
-<a href=#3696 id=3696 data-nosnippet>3696</a></span><span class="kw">fn </span>optionally_bitcast_vector(
-<a href=#3697 id=3697 data-nosnippet>3697</a>    value: Value,
-<a href=#3698 id=3698 data-nosnippet>3698</a>    needed_type: Type,
-<a href=#3699 id=3699 data-nosnippet>3699</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3700 id=3700 data-nosnippet>3700</a>) -&gt; Value {
-<a href=#3701 id=3701 data-nosnippet>3701</a>    <span class="kw">if </span>builder.func.dfg.value_type(value) != needed_type {
-<a href=#3702 id=3702 data-nosnippet>3702</a>        builder.ins().bitcast(
-<a href=#3703 id=3703 data-nosnippet>3703</a>            needed_type,
-<a href=#3704 id=3704 data-nosnippet>3704</a>            MemFlagsData::new().with_endianness(ir::Endianness::Little),
-<a href=#3705 id=3705 data-nosnippet>3705</a>            value,
-<a href=#3706 id=3706 data-nosnippet>3706</a>        )
-<a href=#3707 id=3707 data-nosnippet>3707</a>    } <span class="kw">else </span>{
-<a href=#3708 id=3708 data-nosnippet>3708</a>        value
-<a href=#3709 id=3709 data-nosnippet>3709</a>    }
-<a href=#3710 id=3710 data-nosnippet>3710</a>}
-<a href=#3711 id=3711 data-nosnippet>3711</a>
-<a href=#3712 id=3712 data-nosnippet>3712</a><span class="attr">#[inline(always)]
-<a href=#3713 id=3713 data-nosnippet>3713</a></span><span class="kw">fn </span>is_non_canonical_v128(ty: ir::Type) -&gt; bool {
-<a href=#3714 id=3714 data-nosnippet>3714</a>    <span class="macro">matches!</span>(ty, I64X2 | I32X4 | I16X8 | F32X4 | F64X2)
-<a href=#3715 id=3715 data-nosnippet>3715</a>}
-<a href=#3716 id=3716 data-nosnippet>3716</a>
-<a href=#3717 id=3717 data-nosnippet>3717</a><span class="doccomment">/// Cast to I8X16, any vector values in `values` that are of "non-canonical" type (meaning, not
-<a href=#3718 id=3718 data-nosnippet>3718</a>/// I8X16), and return them in a slice.  A pre-scan is made to determine whether any casts are
-<a href=#3719 id=3719 data-nosnippet>3719</a>/// actually necessary, and if not, the original slice is returned.  Otherwise the cast values
-<a href=#3720 id=3720 data-nosnippet>3720</a>/// are returned in a slice that belongs to the caller-supplied `SmallVec`.
-<a href=#3721 id=3721 data-nosnippet>3721</a></span><span class="kw">fn </span>canonicalise_v128_values&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#3722 id=3722 data-nosnippet>3722</a>    tmp_canonicalised: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>SmallVec&lt;[ir::BlockArg; <span class="number">16</span>]&gt;,
-<a href=#3723 id=3723 data-nosnippet>3723</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3724 id=3724 data-nosnippet>3724</a>    values: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ir::Value],
-<a href=#3725 id=3725 data-nosnippet>3725</a>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ir::BlockArg] {
-<a href=#3726 id=3726 data-nosnippet>3726</a>    <span class="macro">debug_assert!</span>(tmp_canonicalised.is_empty());
-<a href=#3727 id=3727 data-nosnippet>3727</a>    <span class="kw">for </span>v <span class="kw">in </span>values {
-<a href=#3728 id=3728 data-nosnippet>3728</a>        <span class="kw">let </span>value = <span class="kw">if </span>is_non_canonical_v128(builder.func.dfg.value_type(<span class="kw-2">*</span>v)) {
-<a href=#3729 id=3729 data-nosnippet>3729</a>            builder.ins().bitcast(
-<a href=#3730 id=3730 data-nosnippet>3730</a>                I8X16,
-<a href=#3731 id=3731 data-nosnippet>3731</a>                MemFlagsData::new().with_endianness(ir::Endianness::Little),
-<a href=#3732 id=3732 data-nosnippet>3732</a>                <span class="kw-2">*</span>v,
-<a href=#3733 id=3733 data-nosnippet>3733</a>            )
-<a href=#3734 id=3734 data-nosnippet>3734</a>        } <span class="kw">else </span>{
-<a href=#3735 id=3735 data-nosnippet>3735</a>            <span class="kw-2">*</span>v
-<a href=#3736 id=3736 data-nosnippet>3736</a>        };
-<a href=#3737 id=3737 data-nosnippet>3737</a>        tmp_canonicalised.push(BlockArg::from(value));
-<a href=#3738 id=3738 data-nosnippet>3738</a>    }
-<a href=#3739 id=3739 data-nosnippet>3739</a>    tmp_canonicalised.as_slice()
-<a href=#3740 id=3740 data-nosnippet>3740</a>}
-<a href=#3741 id=3741 data-nosnippet>3741</a>
-<a href=#3742 id=3742 data-nosnippet>3742</a><span class="doccomment">/// Generate a `jump` instruction, but first cast all 128-bit vector values to I8X16 if they
-<a href=#3743 id=3743 data-nosnippet>3743</a>/// don't have that type.  This is done in somewhat roundabout way so as to ensure that we
-<a href=#3744 id=3744 data-nosnippet>3744</a>/// almost never have to do any heap allocation.
-<a href=#3745 id=3745 data-nosnippet>3745</a></span><span class="kw">fn </span>canonicalise_then_jump(
-<a href=#3746 id=3746 data-nosnippet>3746</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3747 id=3747 data-nosnippet>3747</a>    destination: ir::Block,
-<a href=#3748 id=3748 data-nosnippet>3748</a>    params: <span class="kw-2">&amp;</span>[ir::Value],
-<a href=#3749 id=3749 data-nosnippet>3749</a>) -&gt; ir::Inst {
-<a href=#3750 id=3750 data-nosnippet>3750</a>    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised = SmallVec::&lt;[<span class="kw">_</span>; <span class="number">16</span>]&gt;::new();
-<a href=#3751 id=3751 data-nosnippet>3751</a>    <span class="kw">let </span>canonicalised = canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised, builder, params);
-<a href=#3752 id=3752 data-nosnippet>3752</a>    builder.ins().jump(destination, canonicalised)
-<a href=#3753 id=3753 data-nosnippet>3753</a>}
-<a href=#3754 id=3754 data-nosnippet>3754</a>
-<a href=#3755 id=3755 data-nosnippet>3755</a><span class="doccomment">/// The same but for a `brif` instruction.
-<a href=#3756 id=3756 data-nosnippet>3756</a></span><span class="kw">fn </span>canonicalise_brif(
-<a href=#3757 id=3757 data-nosnippet>3757</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3758 id=3758 data-nosnippet>3758</a>    cond: ir::Value,
-<a href=#3759 id=3759 data-nosnippet>3759</a>    block_then: ir::Block,
-<a href=#3760 id=3760 data-nosnippet>3760</a>    params_then: <span class="kw-2">&amp;</span>[ir::Value],
-<a href=#3761 id=3761 data-nosnippet>3761</a>    block_else: ir::Block,
-<a href=#3762 id=3762 data-nosnippet>3762</a>    params_else: <span class="kw-2">&amp;</span>[ir::Value],
-<a href=#3763 id=3763 data-nosnippet>3763</a>) -&gt; ir::Inst {
-<a href=#3764 id=3764 data-nosnippet>3764</a>    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised_then = SmallVec::&lt;[<span class="kw">_</span>; <span class="number">16</span>]&gt;::new();
-<a href=#3765 id=3765 data-nosnippet>3765</a>    <span class="kw">let </span>canonicalised_then =
-<a href=#3766 id=3766 data-nosnippet>3766</a>        canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised_then, builder, params_then);
-<a href=#3767 id=3767 data-nosnippet>3767</a>    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised_else = SmallVec::&lt;[<span class="kw">_</span>; <span class="number">16</span>]&gt;::new();
-<a href=#3768 id=3768 data-nosnippet>3768</a>    <span class="kw">let </span>canonicalised_else =
-<a href=#3769 id=3769 data-nosnippet>3769</a>        canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised_else, builder, params_else);
-<a href=#3770 id=3770 data-nosnippet>3770</a>    builder.ins().brif(
-<a href=#3771 id=3771 data-nosnippet>3771</a>        cond,
-<a href=#3772 id=3772 data-nosnippet>3772</a>        block_then,
-<a href=#3773 id=3773 data-nosnippet>3773</a>        canonicalised_then,
-<a href=#3774 id=3774 data-nosnippet>3774</a>        block_else,
-<a href=#3775 id=3775 data-nosnippet>3775</a>        canonicalised_else,
-<a href=#3776 id=3776 data-nosnippet>3776</a>    )
-<a href=#3777 id=3777 data-nosnippet>3777</a>}
-<a href=#3778 id=3778 data-nosnippet>3778</a>
-<a href=#3779 id=3779 data-nosnippet>3779</a><span class="doccomment">/// A helper for popping and bitcasting a single value; since SIMD values can lose their type by
-<a href=#3780 id=3780 data-nosnippet>3780</a>/// using v128 (i.e. CLIF's I8x16) we must re-type the values using a bitcast to avoid CLIF
-<a href=#3781 id=3781 data-nosnippet>3781</a>/// typing issues.
-<a href=#3782 id=3782 data-nosnippet>3782</a></span><span class="kw">fn </span>pop1_with_bitcast(
-<a href=#3783 id=3783 data-nosnippet>3783</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3784 id=3784 data-nosnippet>3784</a>    needed_type: Type,
-<a href=#3785 id=3785 data-nosnippet>3785</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3786 id=3786 data-nosnippet>3786</a>) -&gt; Value {
-<a href=#3787 id=3787 data-nosnippet>3787</a>    optionally_bitcast_vector(state.pop1(), needed_type, builder)
-<a href=#3788 id=3788 data-nosnippet>3788</a>}
-<a href=#3789 id=3789 data-nosnippet>3789</a>
-<a href=#3790 id=3790 data-nosnippet>3790</a><span class="doccomment">/// A helper for popping and bitcasting two values; since SIMD values can lose their type by
-<a href=#3791 id=3791 data-nosnippet>3791</a>/// using v128 (i.e. CLIF's I8x16) we must re-type the values using a bitcast to avoid CLIF
-<a href=#3792 id=3792 data-nosnippet>3792</a>/// typing issues.
-<a href=#3793 id=3793 data-nosnippet>3793</a></span><span class="kw">fn </span>pop2_with_bitcast(
-<a href=#3794 id=3794 data-nosnippet>3794</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3795 id=3795 data-nosnippet>3795</a>    needed_type: Type,
-<a href=#3796 id=3796 data-nosnippet>3796</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3797 id=3797 data-nosnippet>3797</a>) -&gt; (Value, Value) {
-<a href=#3798 id=3798 data-nosnippet>3798</a>    <span class="kw">let </span>(a, b) = state.pop2();
-<a href=#3799 id=3799 data-nosnippet>3799</a>    <span class="kw">let </span>bitcast_a = optionally_bitcast_vector(a, needed_type, builder);
-<a href=#3800 id=3800 data-nosnippet>3800</a>    <span class="kw">let </span>bitcast_b = optionally_bitcast_vector(b, needed_type, builder);
-<a href=#3801 id=3801 data-nosnippet>3801</a>    (bitcast_a, bitcast_b)
-<a href=#3802 id=3802 data-nosnippet>3802</a>}
-<a href=#3803 id=3803 data-nosnippet>3803</a>
-<a href=#3804 id=3804 data-nosnippet>3804</a><span class="kw">pub fn </span>bitcast_arguments&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#3805 id=3805 data-nosnippet>3805</a>    builder: <span class="kw-2">&amp;</span>FunctionBuilder,
-<a href=#3806 id=3806 data-nosnippet>3806</a>    arguments: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>[Value],
-<a href=#3807 id=3807 data-nosnippet>3807</a>    params: <span class="kw-2">&amp;</span>[ir::AbiParam],
-<a href=#3808 id=3808 data-nosnippet>3808</a>    param_predicate: <span class="kw">impl </span>Fn(usize) -&gt; bool,
-<a href=#3809 id=3809 data-nosnippet>3809</a>) -&gt; Vec&lt;(Type, <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Value)&gt; {
-<a href=#3810 id=3810 data-nosnippet>3810</a>    <span class="kw">let </span>filtered_param_types = params
-<a href=#3811 id=3811 data-nosnippet>3811</a>        .iter()
-<a href=#3812 id=3812 data-nosnippet>3812</a>        .enumerate()
-<a href=#3813 id=3813 data-nosnippet>3813</a>        .filter(|(i, <span class="kw">_</span>)| param_predicate(<span class="kw-2">*</span>i))
-<a href=#3814 id=3814 data-nosnippet>3814</a>        .map(|(<span class="kw">_</span>, param)| param.value_type);
-<a href=#3815 id=3815 data-nosnippet>3815</a>
-<a href=#3816 id=3816 data-nosnippet>3816</a>    <span class="comment">// zip_eq, from the itertools::Itertools trait, is like Iterator::zip but panics if one
-<a href=#3817 id=3817 data-nosnippet>3817</a>    // iterator ends before the other. The `param_predicate` is required to select exactly as many
-<a href=#3818 id=3818 data-nosnippet>3818</a>    // elements of `params` as there are elements in `arguments`.
-<a href=#3819 id=3819 data-nosnippet>3819</a>    </span><span class="kw">let </span>pairs = filtered_param_types.zip_eq(arguments.iter_mut());
-<a href=#3820 id=3820 data-nosnippet>3820</a>
-<a href=#3821 id=3821 data-nosnippet>3821</a>    <span class="comment">// The arguments which need to be bitcasted are those which have some vector type but the type
-<a href=#3822 id=3822 data-nosnippet>3822</a>    // expected by the parameter is not the same vector type as that of the provided argument.
-<a href=#3823 id=3823 data-nosnippet>3823</a>    </span>pairs
-<a href=#3824 id=3824 data-nosnippet>3824</a>        .filter(|(param_type, <span class="kw">_</span>)| param_type.is_vector())
-<a href=#3825 id=3825 data-nosnippet>3825</a>        .filter(|(param_type, arg)| {
-<a href=#3826 id=3826 data-nosnippet>3826</a>            <span class="kw">let </span>arg_type = builder.func.dfg.value_type(<span class="kw-2">**</span>arg);
-<a href=#3827 id=3827 data-nosnippet>3827</a>            <span class="macro">assert!</span>(
-<a href=#3828 id=3828 data-nosnippet>3828</a>                arg_type.is_vector(),
-<a href=#3829 id=3829 data-nosnippet>3829</a>                <span class="string">"unexpected type mismatch: expected {}, argument {} was actually of type {}"</span>,
-<a href=#3830 id=3830 data-nosnippet>3830</a>                param_type,
-<a href=#3831 id=3831 data-nosnippet>3831</a>                <span class="kw-2">*</span>arg,
-<a href=#3832 id=3832 data-nosnippet>3832</a>                arg_type
-<a href=#3833 id=3833 data-nosnippet>3833</a>            );
-<a href=#3834 id=3834 data-nosnippet>3834</a>
-<a href=#3835 id=3835 data-nosnippet>3835</a>            <span class="comment">// This is the same check that would be done by `optionally_bitcast_vector`, except we
-<a href=#3836 id=3836 data-nosnippet>3836</a>            // can't take a mutable borrow of the FunctionBuilder here, so we defer inserting the
-<a href=#3837 id=3837 data-nosnippet>3837</a>            // bitcast instruction to the caller.
-<a href=#3838 id=3838 data-nosnippet>3838</a>            </span>arg_type != <span class="kw-2">*</span>param_type
-<a href=#3839 id=3839 data-nosnippet>3839</a>        })
-<a href=#3840 id=3840 data-nosnippet>3840</a>        .collect()
-<a href=#3841 id=3841 data-nosnippet>3841</a>}
-<a href=#3842 id=3842 data-nosnippet>3842</a>
-<a href=#3843 id=3843 data-nosnippet>3843</a><span class="doccomment">/// Like `bitcast_wasm_returns`, but for the parameters being passed to a specified callee.
-<a href=#3844 id=3844 data-nosnippet>3844</a></span><span class="kw">pub fn </span>bitcast_wasm_params(
-<a href=#3845 id=3845 data-nosnippet>3845</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#3846 id=3846 data-nosnippet>3846</a>    callee_signature: ir::SigRef,
-<a href=#3847 id=3847 data-nosnippet>3847</a>    arguments: <span class="kw-2">&amp;mut </span>[Value],
-<a href=#3848 id=3848 data-nosnippet>3848</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3849 id=3849 data-nosnippet>3849</a>) {
-<a href=#3850 id=3850 data-nosnippet>3850</a>    <span class="kw">let </span>callee_signature = <span class="kw-2">&amp;</span>builder.func.dfg.signatures[callee_signature];
-<a href=#3851 id=3851 data-nosnippet>3851</a>    <span class="kw">let </span>changes = bitcast_arguments(builder, arguments, <span class="kw-2">&amp;</span>callee_signature.params, |i| {
-<a href=#3852 id=3852 data-nosnippet>3852</a>        environ.is_wasm_parameter(callee_signature, i)
-<a href=#3853 id=3853 data-nosnippet>3853</a>    });
-<a href=#3854 id=3854 data-nosnippet>3854</a>    <span class="kw">for </span>(t, arg) <span class="kw">in </span>changes {
-<a href=#3855 id=3855 data-nosnippet>3855</a>        <span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlagsData::new();
-<a href=#3856 id=3856 data-nosnippet>3856</a>        flags.set_endianness(ir::Endianness::Little);
-<a href=#3857 id=3857 data-nosnippet>3857</a>        <span class="kw-2">*</span>arg = builder.ins().bitcast(t, flags, <span class="kw-2">*</span>arg);
-<a href=#3858 id=3858 data-nosnippet>3858</a>    }
-<a href=#3859 id=3859 data-nosnippet>3859</a>}
-<a href=#3860 id=3860 data-nosnippet>3860</a>
-<a href=#3861 id=3861 data-nosnippet>3861</a><span class="attr">#[derive(Debug, Clone)]
-<a href=#3862 id=3862 data-nosnippet>3862</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CatchClause {
-<a href=#3863 id=3863 data-nosnippet>3863</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) wasm_tag: <span class="prelude-ty">Option</span>&lt;u32&gt;,
-<a href=#3864 id=3864 data-nosnippet>3864</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) tag_value: i32,
-<a href=#3865 id=3865 data-nosnippet>3865</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) block: ir::Block,
-<a href=#3866 id=3866 data-nosnippet>3866</a>}
-<a href=#3867 id=3867 data-nosnippet>3867</a>
-<a href=#3868 id=3868 data-nosnippet>3868</a><span class="kw">fn </span>create_catch_block(
-<a href=#3869 id=3869 data-nosnippet>3869</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3870 id=3870 data-nosnippet>3870</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
-<a href=#3871 id=3871 data-nosnippet>3871</a>    catch: <span class="kw-2">&amp;</span>wasmparser::Catch,
-<a href=#3872 id=3872 data-nosnippet>3872</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#3873 id=3873 data-nosnippet>3873</a>) -&gt; WasmResult&lt;CatchClause&gt; {
-<a href=#3874 id=3874 data-nosnippet>3874</a>    <span class="kw">let </span>(is_ref, wasm_tag, label) = <span class="kw">match </span>catch {
-<a href=#3875 id=3875 data-nosnippet>3875</a>        wasmparser::Catch::One { tag, label } =&gt; (<span class="bool-val">false</span>, <span class="prelude-val">Some</span>(<span class="kw-2">*</span>tag), <span class="kw-2">*</span>label),
-<a href=#3876 id=3876 data-nosnippet>3876</a>        wasmparser::Catch::OneRef { tag, label } =&gt; (<span class="bool-val">true</span>, <span class="prelude-val">Some</span>(<span class="kw-2">*</span>tag), <span class="kw-2">*</span>label),
-<a href=#3877 id=3877 data-nosnippet>3877</a>        wasmparser::Catch::All { label } =&gt; (<span class="bool-val">false</span>, <span class="prelude-val">None</span>, <span class="kw-2">*</span>label),
-<a href=#3878 id=3878 data-nosnippet>3878</a>        wasmparser::Catch::AllRef { label } =&gt; (<span class="bool-val">true</span>, <span class="prelude-val">None</span>, <span class="kw-2">*</span>label),
-<a href=#3879 id=3879 data-nosnippet>3879</a>    };
-<a href=#3880 id=3880 data-nosnippet>3880</a>
-<a href=#3881 id=3881 data-nosnippet>3881</a>    <span class="kw">let </span>tag_value = wasm_tag.map_or(CATCH_ALL_TAG_VALUE, |t| t <span class="kw">as </span>i32);
-<a href=#3882 id=3882 data-nosnippet>3882</a>
-<a href=#3883 id=3883 data-nosnippet>3883</a>    <span class="kw">let </span>block = builder.create_block();
-<a href=#3884 id=3884 data-nosnippet>3884</a>    <span class="kw">let </span>exnref = builder.append_block_param(block, EXN_REF_TYPE);
-<a href=#3885 id=3885 data-nosnippet>3885</a>
-<a href=#3886 id=3886 data-nosnippet>3886</a>    builder.switch_to_block(block);
-<a href=#3887 id=3887 data-nosnippet>3887</a>
-<a href=#3888 id=3888 data-nosnippet>3888</a>    <span class="kw">let </span><span class="kw-2">mut </span>params = SmallVec::&lt;[Value; <span class="number">4</span>]&gt;::new();
-<a href=#3889 id=3889 data-nosnippet>3889</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(tag) = wasm_tag {
-<a href=#3890 id=3890 data-nosnippet>3890</a>        <span class="kw">let </span>tag_index = TagIndex::from_u32(tag);
-<a href=#3891 id=3891 data-nosnippet>3891</a>        params.extend(environ.translate_exn_unbox(builder, tag_index, exnref)<span class="question-mark">?</span>);
-<a href=#3892 id=3892 data-nosnippet>3892</a>    }
-<a href=#3893 id=3893 data-nosnippet>3893</a>    <span class="kw">if </span>is_ref {
-<a href=#3894 id=3894 data-nosnippet>3894</a>        params.push(exnref);
-<a href=#3895 id=3895 data-nosnippet>3895</a>    }
-<a href=#3896 id=3896 data-nosnippet>3896</a>
-<a href=#3897 id=3897 data-nosnippet>3897</a>    <span class="kw">let </span>depth = label <span class="kw">as </span>usize;
-<a href=#3898 id=3898 data-nosnippet>3898</a>    <span class="kw">let </span>idx = state.control_stack.len() - <span class="number">1 </span>- depth;
-<a href=#3899 id=3899 data-nosnippet>3899</a>    <span class="kw">let </span>frame = <span class="kw-2">&amp;mut </span>state.control_stack[idx];
-<a href=#3900 id=3900 data-nosnippet>3900</a>    frame.set_branched_to_exit();
-<a href=#3901 id=3901 data-nosnippet>3901</a>    canonicalise_then_jump(builder, frame.br_destination(), params.as_slice());
-<a href=#3902 id=3902 data-nosnippet>3902</a>
-<a href=#3903 id=3903 data-nosnippet>3903</a>    <span class="prelude-val">Ok</span>(CatchClause {
-<a href=#3904 id=3904 data-nosnippet>3904</a>        wasm_tag,
-<a href=#3905 id=3905 data-nosnippet>3905</a>        tag_value,
-<a href=#3906 id=3906 data-nosnippet>3906</a>        block,
-<a href=#3907 id=3907 data-nosnippet>3907</a>    })
-<a href=#3908 id=3908 data-nosnippet>3908</a>}
-<a href=#3909 id=3909 data-nosnippet>3909</a>
-<a href=#3910 id=3910 data-nosnippet>3910</a><span class="kw">fn </span>create_dispatch_block(
-<a href=#3911 id=3911 data-nosnippet>3911</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
-<a href=#3912 id=3912 data-nosnippet>3912</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#3913 id=3913 data-nosnippet>3913</a>    clauses: <span class="kw">impl </span>Iterator&lt;Item = CatchClause&gt;,
-<a href=#3914 id=3914 data-nosnippet>3914</a>) -&gt; WasmResult&lt;ir::Block&gt; {
-<a href=#3915 id=3915 data-nosnippet>3915</a>    <span class="kw">let </span>clauses = clauses.collect_vec();
-<a href=#3916 id=3916 data-nosnippet>3916</a>
-<a href=#3917 id=3917 data-nosnippet>3917</a>    <span class="kw">let </span>catch_block = builder.create_block();
-<a href=#3918 id=3918 data-nosnippet>3918</a>    <span class="kw">let </span>exn_ptr = builder.append_block_param(catch_block, environ.reference_type());
-<a href=#3919 id=3919 data-nosnippet>3919</a>    <span class="kw">let </span>pre_selector = builder.append_block_param(catch_block, I64);
-<a href=#3920 id=3920 data-nosnippet>3920</a>    <span class="kw">let </span>catch_all_block = builder.create_block();
-<a href=#3921 id=3921 data-nosnippet>3921</a>    <span class="kw">let </span>catch_one_block = builder.create_block();
-<a href=#3922 id=3922 data-nosnippet>3922</a>    <span class="kw">let </span>dispatch_block = builder.create_block();
-<a href=#3923 id=3923 data-nosnippet>3923</a>
-<a href=#3924 id=3924 data-nosnippet>3924</a>    builder.switch_to_block(catch_block);
-<a href=#3925 id=3925 data-nosnippet>3925</a>    <span class="kw">let </span>catch_all_tag = builder.ins().iconst(I64, <span class="number">0</span>);
-<a href=#3926 id=3926 data-nosnippet>3926</a>    <span class="kw">let </span>matches = builder
-<a href=#3927 id=3927 data-nosnippet>3927</a>        .ins()
-<a href=#3928 id=3928 data-nosnippet>3928</a>        .icmp(IntCC::Equal, pre_selector, catch_all_tag);
-<a href=#3929 id=3929 data-nosnippet>3929</a>    canonicalise_brif(builder, matches, catch_all_block, <span class="kw-2">&amp;</span>[], catch_one_block, <span class="kw-2">&amp;</span>[]);
-<a href=#3930 id=3930 data-nosnippet>3930</a>
-<a href=#3931 id=3931 data-nosnippet>3931</a>    builder.switch_to_block(catch_all_block);
-<a href=#3932 id=3932 data-nosnippet>3932</a>    <span class="kw">let </span>catch_all_tag = builder
-<a href=#3933 id=3933 data-nosnippet>3933</a>        .ins()
-<a href=#3934 id=3934 data-nosnippet>3934</a>        .iconst(TAG_TYPE, i64::from(CATCH_ALL_TAG_VALUE));
-<a href=#3935 id=3935 data-nosnippet>3935</a>    canonicalise_then_jump(builder, dispatch_block, <span class="kw-2">&amp;</span>[catch_all_tag]);
-<a href=#3936 id=3936 data-nosnippet>3936</a>    builder.seal_block(catch_all_block);
-<a href=#3937 id=3937 data-nosnippet>3937</a>
-<a href=#3938 id=3938 data-nosnippet>3938</a>    builder.switch_to_block(catch_one_block);
-<a href=#3939 id=3939 data-nosnippet>3939</a>    <span class="kw">let </span>selector = environ.translate_exn_personality_selector(builder, exn_ptr)<span class="question-mark">?</span>;
-<a href=#3940 id=3940 data-nosnippet>3940</a>    canonicalise_then_jump(builder, dispatch_block, <span class="kw-2">&amp;</span>[selector]);
-<a href=#3941 id=3941 data-nosnippet>3941</a>    builder.seal_block(catch_one_block);
-<a href=#3942 id=3942 data-nosnippet>3942</a>
-<a href=#3943 id=3943 data-nosnippet>3943</a>    builder.switch_to_block(dispatch_block);
-<a href=#3944 id=3944 data-nosnippet>3944</a>    <span class="kw">let </span>selector = builder.append_block_param(dispatch_block, TAG_TYPE);
-<a href=#3945 id=3945 data-nosnippet>3945</a>    <span class="kw">let </span>exnref = environ.translate_exn_pointer_to_ref(builder, exn_ptr)<span class="question-mark">?</span>;
-<a href=#3946 id=3946 data-nosnippet>3946</a>
-<a href=#3947 id=3947 data-nosnippet>3947</a>    <span class="kw">let </span>rethrow_block = builder.create_block();
-<a href=#3948 id=3948 data-nosnippet>3948</a>    builder.append_block_param(rethrow_block, EXN_REF_TYPE);
-<a href=#3949 id=3949 data-nosnippet>3949</a>
-<a href=#3950 id=3950 data-nosnippet>3950</a>    <span class="kw">let </span><span class="kw-2">mut </span>current_selector = selector;
-<a href=#3951 id=3951 data-nosnippet>3951</a>    <span class="kw">let </span><span class="kw-2">mut </span>current_exn = exnref;
-<a href=#3952 id=3952 data-nosnippet>3952</a>
-<a href=#3953 id=3953 data-nosnippet>3953</a>    <span class="kw">for </span>(idx, clause) <span class="kw">in </span>clauses.iter().enumerate() {
-<a href=#3954 id=3954 data-nosnippet>3954</a>        <span class="kw">let </span>tag_value = builder.ins().iconst(TAG_TYPE, i64::from(clause.tag_value));
-<a href=#3955 id=3955 data-nosnippet>3955</a>        <span class="kw">let </span>matches = builder
-<a href=#3956 id=3956 data-nosnippet>3956</a>            .ins()
-<a href=#3957 id=3957 data-nosnippet>3957</a>            .icmp(IntCC::Equal, current_selector, tag_value);
-<a href=#3958 id=3958 data-nosnippet>3958</a>
-<a href=#3959 id=3959 data-nosnippet>3959</a>        <span class="kw">if </span>idx + <span class="number">1 </span>== clauses.len() {
-<a href=#3960 id=3960 data-nosnippet>3960</a>            canonicalise_brif(
-<a href=#3961 id=3961 data-nosnippet>3961</a>                builder,
-<a href=#3962 id=3962 data-nosnippet>3962</a>                matches,
-<a href=#3963 id=3963 data-nosnippet>3963</a>                clause.block,
-<a href=#3964 id=3964 data-nosnippet>3964</a>                <span class="kw-2">&amp;</span>[current_exn],
-<a href=#3965 id=3965 data-nosnippet>3965</a>                rethrow_block,
-<a href=#3966 id=3966 data-nosnippet>3966</a>                <span class="kw-2">&amp;</span>[exnref],
-<a href=#3967 id=3967 data-nosnippet>3967</a>            );
-<a href=#3968 id=3968 data-nosnippet>3968</a>        } <span class="kw">else </span>{
-<a href=#3969 id=3969 data-nosnippet>3969</a>            <span class="kw">let </span>continue_block = builder.create_block();
-<a href=#3970 id=3970 data-nosnippet>3970</a>            builder.append_block_param(continue_block, TAG_TYPE);
-<a href=#3971 id=3971 data-nosnippet>3971</a>            builder.append_block_param(continue_block, EXN_REF_TYPE);
-<a href=#3972 id=3972 data-nosnippet>3972</a>
-<a href=#3973 id=3973 data-nosnippet>3973</a>            canonicalise_brif(
-<a href=#3974 id=3974 data-nosnippet>3974</a>                builder,
-<a href=#3975 id=3975 data-nosnippet>3975</a>                matches,
-<a href=#3976 id=3976 data-nosnippet>3976</a>                clause.block,
-<a href=#3977 id=3977 data-nosnippet>3977</a>                <span class="kw-2">&amp;</span>[current_exn],
-<a href=#3978 id=3978 data-nosnippet>3978</a>                continue_block,
-<a href=#3979 id=3979 data-nosnippet>3979</a>                <span class="kw-2">&amp;</span>[current_selector, current_exn],
-<a href=#3980 id=3980 data-nosnippet>3980</a>            );
-<a href=#3981 id=3981 data-nosnippet>3981</a>
-<a href=#3982 id=3982 data-nosnippet>3982</a>            builder.seal_block(continue_block);
-<a href=#3983 id=3983 data-nosnippet>3983</a>            builder.switch_to_block(continue_block);
-<a href=#3984 id=3984 data-nosnippet>3984</a>            <span class="kw">let </span>params = builder.func.dfg.block_params(continue_block);
-<a href=#3985 id=3985 data-nosnippet>3985</a>            current_selector = params[<span class="number">0</span>];
-<a href=#3986 id=3986 data-nosnippet>3986</a>            current_exn = params[<span class="number">1</span>];
-<a href=#3987 id=3987 data-nosnippet>3987</a>        }
-<a href=#3988 id=3988 data-nosnippet>3988</a>    }
-<a href=#3989 id=3989 data-nosnippet>3989</a>    builder.seal_block(dispatch_block);
-<a href=#3990 id=3990 data-nosnippet>3990</a>
-<a href=#3991 id=3991 data-nosnippet>3991</a>    builder.switch_to_block(rethrow_block);
-<a href=#3992 id=3992 data-nosnippet>3992</a>    <span class="kw">let </span>rethrow_exn = builder.func.dfg.block_params(rethrow_block)[<span class="number">0</span>];
-<a href=#3993 id=3993 data-nosnippet>3993</a>    environ.translate_exn_reraise_unmatched(builder, rethrow_exn)<span class="question-mark">?</span>;
-<a href=#3994 id=3994 data-nosnippet>3994</a>    builder.seal_block(rethrow_block);
-<a href=#3995 id=3995 data-nosnippet>3995</a>
-<a href=#3996 id=3996 data-nosnippet>3996</a>    <span class="prelude-val">Ok</span>(catch_block)
-<a href=#3997 id=3997 data-nosnippet>3997</a>}
+<a href=#3018 id=3018 data-nosnippet>3018</a>    </span><span class="attr">#[allow(dead_code)]
+<a href=#3019 id=3019 data-nosnippet>3019</a>    </span>Unreachable,
+<a href=#3020 id=3020 data-nosnippet>3020</a>}
+<a href=#3021 id=3021 data-nosnippet>3021</a>
+<a href=#3022 id=3022 data-nosnippet>3022</a><span class="doccomment">/// Translate a load instruction.
+<a href=#3023 id=3023 data-nosnippet>3023</a>///
+<a href=#3024 id=3024 data-nosnippet>3024</a>/// Returns the execution state's reachability after the load is translated.
+<a href=#3025 id=3025 data-nosnippet>3025</a></span><span class="kw">fn </span>translate_load(
+<a href=#3026 id=3026 data-nosnippet>3026</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
+<a href=#3027 id=3027 data-nosnippet>3027</a>    opcode: ir::Opcode,
+<a href=#3028 id=3028 data-nosnippet>3028</a>    result_ty: Type,
+<a href=#3029 id=3029 data-nosnippet>3029</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3030 id=3030 data-nosnippet>3030</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3031 id=3031 data-nosnippet>3031</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#3032 id=3032 data-nosnippet>3032</a>    allow_unaligned_memory_accesses: bool,
+<a href=#3033 id=3033 data-nosnippet>3033</a>) -&gt; WasmResult&lt;Reachability&lt;()&gt;&gt; {
+<a href=#3034 id=3034 data-nosnippet>3034</a>    <span class="kw">let </span>mem_op_size = mem_op_size(opcode, result_ty);
+<a href=#3035 id=3035 data-nosnippet>3035</a>    <span class="kw">let </span>(flags, _wasm_index, base) =
+<a href=#3036 id=3036 data-nosnippet>3036</a>        <span class="kw">match </span>prepare_addr(memarg, mem_op_size, builder, state, environ)<span class="question-mark">? </span>{
+<a href=#3037 id=3037 data-nosnippet>3037</a>            Reachability::Unreachable =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Reachability::Unreachable),
+<a href=#3038 id=3038 data-nosnippet>3038</a>            Reachability::Reachable((f, i, b)) =&gt; (f, i, b),
+<a href=#3039 id=3039 data-nosnippet>3039</a>        };
+<a href=#3040 id=3040 data-nosnippet>3040</a>    <span class="kw">let </span>raw_flags = insert_mem_flags(builder.func, flags);
+<a href=#3041 id=3041 data-nosnippet>3041</a>
+<a href=#3042 id=3042 data-nosnippet>3042</a>    <span class="comment">// TODO: maybe support also v128
+<a href=#3043 id=3043 data-nosnippet>3043</a>    </span><span class="kw">if </span>allow_unaligned_memory_accesses &amp;&amp; mem_op_size &gt; <span class="number">1 </span>&amp;&amp; mem_op_size &lt; <span class="number">16 </span>{
+<a href=#3044 id=3044 data-nosnippet>3044</a>        <span class="comment">// Test and handle aligned / unaligned loads separately
+<a href=#3045 id=3045 data-nosnippet>3045</a>        </span><span class="kw">let </span>block_aligned = builder.create_block();
+<a href=#3046 id=3046 data-nosnippet>3046</a>        <span class="kw">let </span>block_unaligned = builder.create_block();
+<a href=#3047 id=3047 data-nosnippet>3047</a>        <span class="kw">let </span>block_merge = builder.create_block();
+<a href=#3048 id=3048 data-nosnippet>3048</a>        builder.append_block_param(block_merge, result_ty);
+<a href=#3049 id=3049 data-nosnippet>3049</a>
+<a href=#3050 id=3050 data-nosnippet>3050</a>        <span class="kw">let </span>alignment_check = builder.ins().band_imm_u(base, (mem_op_size - <span class="number">1</span>) <span class="kw">as </span>i64);
+<a href=#3051 id=3051 data-nosnippet>3051</a>        builder
+<a href=#3052 id=3052 data-nosnippet>3052</a>            .ins()
+<a href=#3053 id=3053 data-nosnippet>3053</a>            .brif(alignment_check, block_unaligned, <span class="kw-2">&amp;</span>[], block_aligned, <span class="kw-2">&amp;</span>[]);
+<a href=#3054 id=3054 data-nosnippet>3054</a>
+<a href=#3055 id=3055 data-nosnippet>3055</a>        builder.seal_block(block_aligned);
+<a href=#3056 id=3056 data-nosnippet>3056</a>        builder.seal_block(block_unaligned);
+<a href=#3057 id=3057 data-nosnippet>3057</a>
+<a href=#3058 id=3058 data-nosnippet>3058</a>        builder.switch_to_block(block_aligned);
+<a href=#3059 id=3059 data-nosnippet>3059</a>        <span class="kw">let </span>(fast_load, fast_dfg) =
+<a href=#3060 id=3060 data-nosnippet>3060</a>            builder
+<a href=#3061 id=3061 data-nosnippet>3061</a>                .ins()
+<a href=#3062 id=3062 data-nosnippet>3062</a>                .Load(opcode, result_ty, raw_flags, Offset32::new(<span class="number">0</span>), base);
+<a href=#3063 id=3063 data-nosnippet>3063</a>        <span class="kw">let </span>fast_val = fast_dfg.first_result(fast_load);
+<a href=#3064 id=3064 data-nosnippet>3064</a>        builder.ins().jump(block_merge, <span class="kw-2">&amp;</span>[fast_val.into()]);
+<a href=#3065 id=3065 data-nosnippet>3065</a>
+<a href=#3066 id=3066 data-nosnippet>3066</a>        builder.switch_to_block(block_unaligned);
+<a href=#3067 id=3067 data-nosnippet>3067</a>
+<a href=#3068 id=3068 data-nosnippet>3068</a>        <span class="comment">// We're going to build the final value as an unsigned integer type that will be later bitcasted.
+<a href=#3069 id=3069 data-nosnippet>3069</a>        </span><span class="kw">let </span>result_uint_type = Type::int_with_byte_size(u16::try_from(result_ty.bytes()).unwrap())
+<a href=#3070 id=3070 data-nosnippet>3070</a>            .ok_or(WasmError::Generic(
+<a href=#3071 id=3071 data-nosnippet>3071</a>                <span class="string">"cannot get uint type for memory load"</span>.to_string(),
+<a href=#3072 id=3072 data-nosnippet>3072</a>            ))<span class="question-mark">?</span>;
+<a href=#3073 id=3073 data-nosnippet>3073</a>        <span class="kw">let </span>raw_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
+<a href=#3074 id=3074 data-nosnippet>3074</a>            WasmError::Generic(<span class="string">"cannot get uint type for memory load"</span>.to_string()),
+<a href=#3075 id=3075 data-nosnippet>3075</a>        )<span class="question-mark">?</span>;
+<a href=#3076 id=3076 data-nosnippet>3076</a>        <span class="kw">let </span><span class="kw-2">mut </span>slow_val = builder.ins().uload8(result_uint_type, flags, base, <span class="number">0</span>);
+<a href=#3077 id=3077 data-nosnippet>3077</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..mem_op_size {
+<a href=#3078 id=3078 data-nosnippet>3078</a>            <span class="kw">let </span>byte = builder
+<a href=#3079 id=3079 data-nosnippet>3079</a>                .ins()
+<a href=#3080 id=3080 data-nosnippet>3080</a>                .uload8(result_uint_type, flags, base, i <span class="kw">as </span>i32);
+<a href=#3081 id=3081 data-nosnippet>3081</a>            <span class="kw">let </span>shifted = builder.ins().ishl_imm_u(byte, (i * <span class="number">8</span>) <span class="kw">as </span>i64);
+<a href=#3082 id=3082 data-nosnippet>3082</a>            slow_val = builder.ins().bor(slow_val, shifted);
+<a href=#3083 id=3083 data-nosnippet>3083</a>        }
+<a href=#3084 id=3084 data-nosnippet>3084</a>        <span class="kw">if </span><span class="macro">matches!</span>(
+<a href=#3085 id=3085 data-nosnippet>3085</a>            opcode,
+<a href=#3086 id=3086 data-nosnippet>3086</a>            ir::Opcode::Sload8 | ir::Opcode::Sload16 | ir::Opcode::Sload32
+<a href=#3087 id=3087 data-nosnippet>3087</a>        ) {
+<a href=#3088 id=3088 data-nosnippet>3088</a>            <span class="kw">let </span>narrow = builder.ins().ireduce(raw_uint_type, slow_val);
+<a href=#3089 id=3089 data-nosnippet>3089</a>            slow_val = builder.ins().sextend(result_uint_type, narrow);
+<a href=#3090 id=3090 data-nosnippet>3090</a>        }
+<a href=#3091 id=3091 data-nosnippet>3091</a>        <span class="kw">let </span>slow_val = builder.ins().bitcast(
+<a href=#3092 id=3092 data-nosnippet>3092</a>            result_ty,
+<a href=#3093 id=3093 data-nosnippet>3093</a>            MemFlagsData::new().with_endianness(ir::Endianness::Little),
+<a href=#3094 id=3094 data-nosnippet>3094</a>            slow_val,
+<a href=#3095 id=3095 data-nosnippet>3095</a>        );
+<a href=#3096 id=3096 data-nosnippet>3096</a>        builder.ins().jump(block_merge, <span class="kw-2">&amp;</span>[slow_val.into()]);
+<a href=#3097 id=3097 data-nosnippet>3097</a>
+<a href=#3098 id=3098 data-nosnippet>3098</a>        builder.seal_block(block_merge);
+<a href=#3099 id=3099 data-nosnippet>3099</a>        builder.switch_to_block(block_merge);
+<a href=#3100 id=3100 data-nosnippet>3100</a>        state.push1(builder.block_params(block_merge)[<span class="number">0</span>]);
+<a href=#3101 id=3101 data-nosnippet>3101</a>    } <span class="kw">else </span>{
+<a href=#3102 id=3102 data-nosnippet>3102</a>        <span class="kw">let </span>(load, dfg) = builder
+<a href=#3103 id=3103 data-nosnippet>3103</a>            .ins()
+<a href=#3104 id=3104 data-nosnippet>3104</a>            .Load(opcode, result_ty, raw_flags, Offset32::new(<span class="number">0</span>), base);
+<a href=#3105 id=3105 data-nosnippet>3105</a>        state.push1(dfg.first_result(load));
+<a href=#3106 id=3106 data-nosnippet>3106</a>    }
+<a href=#3107 id=3107 data-nosnippet>3107</a>
+<a href=#3108 id=3108 data-nosnippet>3108</a>    <span class="prelude-val">Ok</span>(Reachability::Reachable(()))
+<a href=#3109 id=3109 data-nosnippet>3109</a>}
+<a href=#3110 id=3110 data-nosnippet>3110</a>
+<a href=#3111 id=3111 data-nosnippet>3111</a><span class="doccomment">/// Translate a store instruction.
+<a href=#3112 id=3112 data-nosnippet>3112</a></span><span class="kw">fn </span>translate_store(
+<a href=#3113 id=3113 data-nosnippet>3113</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
+<a href=#3114 id=3114 data-nosnippet>3114</a>    opcode: ir::Opcode,
+<a href=#3115 id=3115 data-nosnippet>3115</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3116 id=3116 data-nosnippet>3116</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3117 id=3117 data-nosnippet>3117</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#3118 id=3118 data-nosnippet>3118</a>    allow_unaligned_memory_accesses: bool,
+<a href=#3119 id=3119 data-nosnippet>3119</a>) -&gt; WasmResult&lt;()&gt; {
+<a href=#3120 id=3120 data-nosnippet>3120</a>    <span class="kw">let </span>val = state.pop1();
+<a href=#3121 id=3121 data-nosnippet>3121</a>    <span class="kw">let </span>val_ty = builder.func.dfg.value_type(val);
+<a href=#3122 id=3122 data-nosnippet>3122</a>    <span class="kw">let </span>mem_op_size = mem_op_size(opcode, val_ty);
+<a href=#3123 id=3123 data-nosnippet>3123</a>
+<a href=#3124 id=3124 data-nosnippet>3124</a>    <span class="kw">let </span>(flags, _wasm_index, base) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+<a href=#3125 id=3125 data-nosnippet>3125</a>        state,
+<a href=#3126 id=3126 data-nosnippet>3126</a>        prepare_addr(memarg, mem_op_size, builder, state, environ)<span class="question-mark">?
+<a href=#3127 id=3127 data-nosnippet>3127</a>    </span>);
+<a href=#3128 id=3128 data-nosnippet>3128</a>    <span class="kw">let </span>raw_flags = insert_mem_flags(builder.func, flags);
+<a href=#3129 id=3129 data-nosnippet>3129</a>
+<a href=#3130 id=3130 data-nosnippet>3130</a>    <span class="kw">if </span>allow_unaligned_memory_accesses &amp;&amp; mem_op_size &gt; <span class="number">1 </span>&amp;&amp; mem_op_size &lt; <span class="number">16 </span>{
+<a href=#3131 id=3131 data-nosnippet>3131</a>        <span class="kw">let </span>block_aligned = builder.create_block();
+<a href=#3132 id=3132 data-nosnippet>3132</a>        <span class="kw">let </span>block_unaligned = builder.create_block();
+<a href=#3133 id=3133 data-nosnippet>3133</a>        <span class="kw">let </span>block_merge = builder.create_block();
+<a href=#3134 id=3134 data-nosnippet>3134</a>
+<a href=#3135 id=3135 data-nosnippet>3135</a>        <span class="kw">let </span>alignment_check = builder.ins().band_imm_u(base, (mem_op_size - <span class="number">1</span>) <span class="kw">as </span>i64);
+<a href=#3136 id=3136 data-nosnippet>3136</a>        builder
+<a href=#3137 id=3137 data-nosnippet>3137</a>            .ins()
+<a href=#3138 id=3138 data-nosnippet>3138</a>            .brif(alignment_check, block_unaligned, <span class="kw-2">&amp;</span>[], block_aligned, <span class="kw-2">&amp;</span>[]);
+<a href=#3139 id=3139 data-nosnippet>3139</a>
+<a href=#3140 id=3140 data-nosnippet>3140</a>        builder.seal_block(block_aligned);
+<a href=#3141 id=3141 data-nosnippet>3141</a>        builder.seal_block(block_unaligned);
+<a href=#3142 id=3142 data-nosnippet>3142</a>
+<a href=#3143 id=3143 data-nosnippet>3143</a>        builder.switch_to_block(block_aligned);
+<a href=#3144 id=3144 data-nosnippet>3144</a>        builder
+<a href=#3145 id=3145 data-nosnippet>3145</a>            .ins()
+<a href=#3146 id=3146 data-nosnippet>3146</a>            .Store(opcode, val_ty, raw_flags, Offset32::new(<span class="number">0</span>), val, base);
+<a href=#3147 id=3147 data-nosnippet>3147</a>        builder.ins().jump(block_merge, <span class="kw-2">&amp;</span>[]);
+<a href=#3148 id=3148 data-nosnippet>3148</a>
+<a href=#3149 id=3149 data-nosnippet>3149</a>        builder.switch_to_block(block_unaligned);
+<a href=#3150 id=3150 data-nosnippet>3150</a>        <span class="kw">let </span>val = <span class="kw">if </span>val_ty.is_int() {
+<a href=#3151 id=3151 data-nosnippet>3151</a>            val
+<a href=#3152 id=3152 data-nosnippet>3152</a>        } <span class="kw">else </span>{
+<a href=#3153 id=3153 data-nosnippet>3153</a>            <span class="kw">let </span>result_uint_type = Type::int_with_byte_size(u16::from(mem_op_size)).ok_or(
+<a href=#3154 id=3154 data-nosnippet>3154</a>                WasmError::Generic(<span class="macro">format!</span>(
+<a href=#3155 id=3155 data-nosnippet>3155</a>                    <span class="string">"cannot get uint type of size {mem_op_size} bytes for memory store from {val_ty:?}"</span>,
+<a href=#3156 id=3156 data-nosnippet>3156</a>                )),
+<a href=#3157 id=3157 data-nosnippet>3157</a>            )<span class="question-mark">?</span>;
+<a href=#3158 id=3158 data-nosnippet>3158</a>            builder.ins().bitcast(
+<a href=#3159 id=3159 data-nosnippet>3159</a>                result_uint_type,
+<a href=#3160 id=3160 data-nosnippet>3160</a>                MemFlagsData::new().with_endianness(ir::Endianness::Little),
+<a href=#3161 id=3161 data-nosnippet>3161</a>                val,
+<a href=#3162 id=3162 data-nosnippet>3162</a>            )
+<a href=#3163 id=3163 data-nosnippet>3163</a>        };
+<a href=#3164 id=3164 data-nosnippet>3164</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..mem_op_size {
+<a href=#3165 id=3165 data-nosnippet>3165</a>            <span class="kw">let </span>shifted = builder.ins().ushr_imm_u(val, (i * <span class="number">8</span>) <span class="kw">as </span>i64);
+<a href=#3166 id=3166 data-nosnippet>3166</a>            builder.ins().istore8(flags, shifted, base, i <span class="kw">as </span>i32);
+<a href=#3167 id=3167 data-nosnippet>3167</a>        }
+<a href=#3168 id=3168 data-nosnippet>3168</a>        builder.ins().jump(block_merge, <span class="kw-2">&amp;</span>[]);
+<a href=#3169 id=3169 data-nosnippet>3169</a>
+<a href=#3170 id=3170 data-nosnippet>3170</a>        builder.seal_block(block_merge);
+<a href=#3171 id=3171 data-nosnippet>3171</a>        builder.switch_to_block(block_merge);
+<a href=#3172 id=3172 data-nosnippet>3172</a>    } <span class="kw">else </span>{
+<a href=#3173 id=3173 data-nosnippet>3173</a>        builder
+<a href=#3174 id=3174 data-nosnippet>3174</a>            .ins()
+<a href=#3175 id=3175 data-nosnippet>3175</a>            .Store(opcode, val_ty, raw_flags, Offset32::new(<span class="number">0</span>), val, base);
+<a href=#3176 id=3176 data-nosnippet>3176</a>    }
+<a href=#3177 id=3177 data-nosnippet>3177</a>
+<a href=#3178 id=3178 data-nosnippet>3178</a>    <span class="prelude-val">Ok</span>(())
+<a href=#3179 id=3179 data-nosnippet>3179</a>}
+<a href=#3180 id=3180 data-nosnippet>3180</a>
+<a href=#3181 id=3181 data-nosnippet>3181</a><span class="kw">fn </span>mem_op_size(opcode: ir::Opcode, ty: Type) -&gt; u8 {
+<a href=#3182 id=3182 data-nosnippet>3182</a>    <span class="kw">match </span>opcode {
+<a href=#3183 id=3183 data-nosnippet>3183</a>        ir::Opcode::Istore8 | ir::Opcode::Sload8 | ir::Opcode::Uload8 =&gt; <span class="number">1</span>,
+<a href=#3184 id=3184 data-nosnippet>3184</a>        ir::Opcode::Istore16 | ir::Opcode::Sload16 | ir::Opcode::Uload16 =&gt; <span class="number">2</span>,
+<a href=#3185 id=3185 data-nosnippet>3185</a>        ir::Opcode::Istore32 | ir::Opcode::Sload32 | ir::Opcode::Uload32 =&gt; <span class="number">4</span>,
+<a href=#3186 id=3186 data-nosnippet>3186</a>        ir::Opcode::Store | ir::Opcode::Load =&gt; u8::try_from(ty.bytes()).unwrap(),
+<a href=#3187 id=3187 data-nosnippet>3187</a>        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"unknown size of mem op for {opcode:?}"</span>),
+<a href=#3188 id=3188 data-nosnippet>3188</a>    }
+<a href=#3189 id=3189 data-nosnippet>3189</a>}
+<a href=#3190 id=3190 data-nosnippet>3190</a>
+<a href=#3191 id=3191 data-nosnippet>3191</a><span class="kw">fn </span>translate_icmp(cc: IntCC, builder: <span class="kw-2">&amp;mut </span>FunctionBuilder, state: <span class="kw-2">&amp;mut </span>FuncTranslationState) {
+<a href=#3192 id=3192 data-nosnippet>3192</a>    <span class="kw">let </span>(arg0, arg1) = state.pop2();
+<a href=#3193 id=3193 data-nosnippet>3193</a>    <span class="kw">let </span>val = builder.ins().icmp(cc, arg0, arg1);
+<a href=#3194 id=3194 data-nosnippet>3194</a>    state.push1(builder.ins().uextend(I32, val));
+<a href=#3195 id=3195 data-nosnippet>3195</a>}
+<a href=#3196 id=3196 data-nosnippet>3196</a>
+<a href=#3197 id=3197 data-nosnippet>3197</a><span class="kw">fn </span>fold_atomic_mem_addr(
+<a href=#3198 id=3198 data-nosnippet>3198</a>    linear_mem_addr: Value,
+<a href=#3199 id=3199 data-nosnippet>3199</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
+<a href=#3200 id=3200 data-nosnippet>3200</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3201 id=3201 data-nosnippet>3201</a>) -&gt; Value {
+<a href=#3202 id=3202 data-nosnippet>3202</a>    <span class="kw">if </span>memarg.offset &gt; <span class="number">0 </span>{
+<a href=#3203 id=3203 data-nosnippet>3203</a>        <span class="macro">assert!</span>(builder.func.dfg.value_type(linear_mem_addr) == I32);
+<a href=#3204 id=3204 data-nosnippet>3204</a>        <span class="kw">let </span>linear_mem_addr = builder.ins().uextend(I64, linear_mem_addr);
+<a href=#3205 id=3205 data-nosnippet>3205</a>        <span class="kw">let </span>a = builder
+<a href=#3206 id=3206 data-nosnippet>3206</a>            .ins()
+<a href=#3207 id=3207 data-nosnippet>3207</a>            .iadd_imm_u(linear_mem_addr, memarg.offset <span class="kw">as </span>i64);
+<a href=#3208 id=3208 data-nosnippet>3208</a>        <span class="kw">let </span>r = builder
+<a href=#3209 id=3209 data-nosnippet>3209</a>            .ins()
+<a href=#3210 id=3210 data-nosnippet>3210</a>            .icmp_imm_u(IntCC::UnsignedGreaterThanOrEqual, a, <span class="number">0x1_0000_0000</span>);
+<a href=#3211 id=3211 data-nosnippet>3211</a>        builder.ins().trapnz(r, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
+<a href=#3212 id=3212 data-nosnippet>3212</a>        builder.ins().ireduce(I32, a)
+<a href=#3213 id=3213 data-nosnippet>3213</a>    } <span class="kw">else </span>{
+<a href=#3214 id=3214 data-nosnippet>3214</a>        linear_mem_addr
+<a href=#3215 id=3215 data-nosnippet>3215</a>    }
+<a href=#3216 id=3216 data-nosnippet>3216</a>    <span class="comment">// Note the alignment is checked at the libcall side.
+<a href=#3217 id=3217 data-nosnippet>3217</a></span>}
+<a href=#3218 id=3218 data-nosnippet>3218</a>
+<a href=#3219 id=3219 data-nosnippet>3219</a><span class="kw">fn </span>translate_atomic_rmw(
+<a href=#3220 id=3220 data-nosnippet>3220</a>    widened_ty: Type,
+<a href=#3221 id=3221 data-nosnippet>3221</a>    access_ty: Type,
+<a href=#3222 id=3222 data-nosnippet>3222</a>    op: AtomicRmwOp,
+<a href=#3223 id=3223 data-nosnippet>3223</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
+<a href=#3224 id=3224 data-nosnippet>3224</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3225 id=3225 data-nosnippet>3225</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3226 id=3226 data-nosnippet>3226</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#3227 id=3227 data-nosnippet>3227</a>) -&gt; WasmResult&lt;()&gt; {
+<a href=#3228 id=3228 data-nosnippet>3228</a>    <span class="kw">let </span><span class="kw-2">mut </span>arg2 = state.pop1();
+<a href=#3229 id=3229 data-nosnippet>3229</a>    <span class="kw">let </span>arg2_ty = builder.func.dfg.value_type(arg2);
+<a href=#3230 id=3230 data-nosnippet>3230</a>
+<a href=#3231 id=3231 data-nosnippet>3231</a>    <span class="comment">// The operation is performed at type `access_ty`, and the old value is zero-extended
+<a href=#3232 id=3232 data-nosnippet>3232</a>    // to type `widened_ty`.
+<a href=#3233 id=3233 data-nosnippet>3233</a>    </span><span class="kw">match </span>access_ty {
+<a href=#3234 id=3234 data-nosnippet>3234</a>        I8 | I16 | I32 | I64 =&gt; {}
+<a href=#3235 id=3235 data-nosnippet>3235</a>        <span class="kw">_ </span>=&gt; {
+<a href=#3236 id=3236 data-nosnippet>3236</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
+<a href=#3237 id=3237 data-nosnippet>3237</a>                <span class="string">"atomic_rmw: unsupported access type {:?}"</span>,
+<a href=#3238 id=3238 data-nosnippet>3238</a>                access_ty
+<a href=#3239 id=3239 data-nosnippet>3239</a>            ));
+<a href=#3240 id=3240 data-nosnippet>3240</a>        }
+<a href=#3241 id=3241 data-nosnippet>3241</a>    };
+<a href=#3242 id=3242 data-nosnippet>3242</a>    <span class="kw">let </span>w_ty_ok = <span class="macro">matches!</span>(widened_ty, I32 | I64);
+<a href=#3243 id=3243 data-nosnippet>3243</a>    <span class="macro">assert!</span>(w_ty_ok &amp;&amp; widened_ty.bytes() &gt;= access_ty.bytes());
+<a href=#3244 id=3244 data-nosnippet>3244</a>
+<a href=#3245 id=3245 data-nosnippet>3245</a>    <span class="macro">assert!</span>(arg2_ty.bytes() &gt;= access_ty.bytes());
+<a href=#3246 id=3246 data-nosnippet>3246</a>    <span class="kw">if </span>arg2_ty.bytes() &gt; access_ty.bytes() {
+<a href=#3247 id=3247 data-nosnippet>3247</a>        arg2 = builder.ins().ireduce(access_ty, arg2);
+<a href=#3248 id=3248 data-nosnippet>3248</a>    }
+<a href=#3249 id=3249 data-nosnippet>3249</a>
+<a href=#3250 id=3250 data-nosnippet>3250</a>    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+<a href=#3251 id=3251 data-nosnippet>3251</a>        state,
+<a href=#3252 id=3252 data-nosnippet>3252</a>        prepare_atomic_addr(
+<a href=#3253 id=3253 data-nosnippet>3253</a>            memarg,
+<a href=#3254 id=3254 data-nosnippet>3254</a>            u8::try_from(access_ty.bytes()).unwrap(),
+<a href=#3255 id=3255 data-nosnippet>3255</a>            builder,
+<a href=#3256 id=3256 data-nosnippet>3256</a>            state,
+<a href=#3257 id=3257 data-nosnippet>3257</a>            environ,
+<a href=#3258 id=3258 data-nosnippet>3258</a>        )<span class="question-mark">?
+<a href=#3259 id=3259 data-nosnippet>3259</a>    </span>);
+<a href=#3260 id=3260 data-nosnippet>3260</a>
+<a href=#3261 id=3261 data-nosnippet>3261</a>    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_rmw(access_ty, flags, op, addr, arg2);
+<a href=#3262 id=3262 data-nosnippet>3262</a>    <span class="kw">if </span>access_ty != widened_ty {
+<a href=#3263 id=3263 data-nosnippet>3263</a>        res = builder.ins().uextend(widened_ty, res);
+<a href=#3264 id=3264 data-nosnippet>3264</a>    }
+<a href=#3265 id=3265 data-nosnippet>3265</a>    state.push1(res);
+<a href=#3266 id=3266 data-nosnippet>3266</a>    <span class="prelude-val">Ok</span>(())
+<a href=#3267 id=3267 data-nosnippet>3267</a>}
+<a href=#3268 id=3268 data-nosnippet>3268</a><span class="kw">fn </span>translate_atomic_cas(
+<a href=#3269 id=3269 data-nosnippet>3269</a>    widened_ty: Type,
+<a href=#3270 id=3270 data-nosnippet>3270</a>    access_ty: Type,
+<a href=#3271 id=3271 data-nosnippet>3271</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
+<a href=#3272 id=3272 data-nosnippet>3272</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3273 id=3273 data-nosnippet>3273</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3274 id=3274 data-nosnippet>3274</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#3275 id=3275 data-nosnippet>3275</a>) -&gt; WasmResult&lt;()&gt; {
+<a href=#3276 id=3276 data-nosnippet>3276</a>    <span class="kw">let </span>(<span class="kw-2">mut </span>expected, <span class="kw-2">mut </span>replacement) = state.pop2();
+<a href=#3277 id=3277 data-nosnippet>3277</a>    <span class="kw">let </span>expected_ty = builder.func.dfg.value_type(expected);
+<a href=#3278 id=3278 data-nosnippet>3278</a>    <span class="kw">let </span>replacement_ty = builder.func.dfg.value_type(replacement);
+<a href=#3279 id=3279 data-nosnippet>3279</a>
+<a href=#3280 id=3280 data-nosnippet>3280</a>    <span class="comment">// The compare-and-swap is performed at type `access_ty`, and the old value is zero-extended
+<a href=#3281 id=3281 data-nosnippet>3281</a>    // to type `widened_ty`.
+<a href=#3282 id=3282 data-nosnippet>3282</a>    </span><span class="kw">match </span>access_ty {
+<a href=#3283 id=3283 data-nosnippet>3283</a>        I8 | I16 | I32 | I64 =&gt; {}
+<a href=#3284 id=3284 data-nosnippet>3284</a>        <span class="kw">_ </span>=&gt; {
+<a href=#3285 id=3285 data-nosnippet>3285</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
+<a href=#3286 id=3286 data-nosnippet>3286</a>                <span class="string">"atomic_cas: unsupported access type {:?}"</span>,
+<a href=#3287 id=3287 data-nosnippet>3287</a>                access_ty
+<a href=#3288 id=3288 data-nosnippet>3288</a>            ));
+<a href=#3289 id=3289 data-nosnippet>3289</a>        }
+<a href=#3290 id=3290 data-nosnippet>3290</a>    };
+<a href=#3291 id=3291 data-nosnippet>3291</a>    <span class="kw">let </span>w_ty_ok = <span class="macro">matches!</span>(widened_ty, I32 | I64);
+<a href=#3292 id=3292 data-nosnippet>3292</a>    <span class="macro">assert!</span>(w_ty_ok &amp;&amp; widened_ty.bytes() &gt;= access_ty.bytes());
+<a href=#3293 id=3293 data-nosnippet>3293</a>
+<a href=#3294 id=3294 data-nosnippet>3294</a>    <span class="macro">assert!</span>(expected_ty.bytes() &gt;= access_ty.bytes());
+<a href=#3295 id=3295 data-nosnippet>3295</a>    <span class="kw">if </span>expected_ty.bytes() &gt; access_ty.bytes() {
+<a href=#3296 id=3296 data-nosnippet>3296</a>        expected = builder.ins().ireduce(access_ty, expected);
+<a href=#3297 id=3297 data-nosnippet>3297</a>    }
+<a href=#3298 id=3298 data-nosnippet>3298</a>    <span class="macro">assert!</span>(replacement_ty.bytes() &gt;= access_ty.bytes());
+<a href=#3299 id=3299 data-nosnippet>3299</a>    <span class="kw">if </span>replacement_ty.bytes() &gt; access_ty.bytes() {
+<a href=#3300 id=3300 data-nosnippet>3300</a>        replacement = builder.ins().ireduce(access_ty, replacement);
+<a href=#3301 id=3301 data-nosnippet>3301</a>    }
+<a href=#3302 id=3302 data-nosnippet>3302</a>
+<a href=#3303 id=3303 data-nosnippet>3303</a>    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+<a href=#3304 id=3304 data-nosnippet>3304</a>        state,
+<a href=#3305 id=3305 data-nosnippet>3305</a>        prepare_atomic_addr(
+<a href=#3306 id=3306 data-nosnippet>3306</a>            memarg,
+<a href=#3307 id=3307 data-nosnippet>3307</a>            u8::try_from(access_ty.bytes()).unwrap(),
+<a href=#3308 id=3308 data-nosnippet>3308</a>            builder,
+<a href=#3309 id=3309 data-nosnippet>3309</a>            state,
+<a href=#3310 id=3310 data-nosnippet>3310</a>            environ,
+<a href=#3311 id=3311 data-nosnippet>3311</a>        )<span class="question-mark">?
+<a href=#3312 id=3312 data-nosnippet>3312</a>    </span>);
+<a href=#3313 id=3313 data-nosnippet>3313</a>    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_cas(flags, addr, expected, replacement);
+<a href=#3314 id=3314 data-nosnippet>3314</a>    <span class="kw">if </span>access_ty != widened_ty {
+<a href=#3315 id=3315 data-nosnippet>3315</a>        res = builder.ins().uextend(widened_ty, res);
+<a href=#3316 id=3316 data-nosnippet>3316</a>    }
+<a href=#3317 id=3317 data-nosnippet>3317</a>    state.push1(res);
+<a href=#3318 id=3318 data-nosnippet>3318</a>    <span class="prelude-val">Ok</span>(())
+<a href=#3319 id=3319 data-nosnippet>3319</a>}
+<a href=#3320 id=3320 data-nosnippet>3320</a>
+<a href=#3321 id=3321 data-nosnippet>3321</a><span class="kw">fn </span>translate_atomic_load(
+<a href=#3322 id=3322 data-nosnippet>3322</a>    widened_ty: Type,
+<a href=#3323 id=3323 data-nosnippet>3323</a>    access_ty: Type,
+<a href=#3324 id=3324 data-nosnippet>3324</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
+<a href=#3325 id=3325 data-nosnippet>3325</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3326 id=3326 data-nosnippet>3326</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3327 id=3327 data-nosnippet>3327</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#3328 id=3328 data-nosnippet>3328</a>) -&gt; WasmResult&lt;()&gt; {
+<a href=#3329 id=3329 data-nosnippet>3329</a>    <span class="comment">// The load is performed at type `access_ty`, and the loaded value is zero extended
+<a href=#3330 id=3330 data-nosnippet>3330</a>    // to `widened_ty`.
+<a href=#3331 id=3331 data-nosnippet>3331</a>    </span><span class="kw">match </span>access_ty {
+<a href=#3332 id=3332 data-nosnippet>3332</a>        I8 | I16 | I32 | I64 =&gt; {}
+<a href=#3333 id=3333 data-nosnippet>3333</a>        <span class="kw">_ </span>=&gt; {
+<a href=#3334 id=3334 data-nosnippet>3334</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
+<a href=#3335 id=3335 data-nosnippet>3335</a>                <span class="string">"atomic_load: unsupported access type {:?}"</span>,
+<a href=#3336 id=3336 data-nosnippet>3336</a>                access_ty
+<a href=#3337 id=3337 data-nosnippet>3337</a>            ));
+<a href=#3338 id=3338 data-nosnippet>3338</a>        }
+<a href=#3339 id=3339 data-nosnippet>3339</a>    };
+<a href=#3340 id=3340 data-nosnippet>3340</a>    <span class="kw">let </span>w_ty_ok = <span class="macro">matches!</span>(widened_ty, I32 | I64);
+<a href=#3341 id=3341 data-nosnippet>3341</a>    <span class="macro">assert!</span>(w_ty_ok &amp;&amp; widened_ty.bytes() &gt;= access_ty.bytes());
+<a href=#3342 id=3342 data-nosnippet>3342</a>
+<a href=#3343 id=3343 data-nosnippet>3343</a>    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+<a href=#3344 id=3344 data-nosnippet>3344</a>        state,
+<a href=#3345 id=3345 data-nosnippet>3345</a>        prepare_atomic_addr(
+<a href=#3346 id=3346 data-nosnippet>3346</a>            memarg,
+<a href=#3347 id=3347 data-nosnippet>3347</a>            u8::try_from(access_ty.bytes()).unwrap(),
+<a href=#3348 id=3348 data-nosnippet>3348</a>            builder,
+<a href=#3349 id=3349 data-nosnippet>3349</a>            state,
+<a href=#3350 id=3350 data-nosnippet>3350</a>            environ,
+<a href=#3351 id=3351 data-nosnippet>3351</a>        )<span class="question-mark">?
+<a href=#3352 id=3352 data-nosnippet>3352</a>    </span>);
+<a href=#3353 id=3353 data-nosnippet>3353</a>    <span class="kw">let </span><span class="kw-2">mut </span>res = builder.ins().atomic_load(access_ty, flags, addr);
+<a href=#3354 id=3354 data-nosnippet>3354</a>    <span class="kw">if </span>access_ty != widened_ty {
+<a href=#3355 id=3355 data-nosnippet>3355</a>        res = builder.ins().uextend(widened_ty, res);
+<a href=#3356 id=3356 data-nosnippet>3356</a>    }
+<a href=#3357 id=3357 data-nosnippet>3357</a>    state.push1(res);
+<a href=#3358 id=3358 data-nosnippet>3358</a>    <span class="prelude-val">Ok</span>(())
+<a href=#3359 id=3359 data-nosnippet>3359</a>}
+<a href=#3360 id=3360 data-nosnippet>3360</a>
+<a href=#3361 id=3361 data-nosnippet>3361</a><span class="kw">fn </span>translate_atomic_store(
+<a href=#3362 id=3362 data-nosnippet>3362</a>    access_ty: Type,
+<a href=#3363 id=3363 data-nosnippet>3363</a>    memarg: <span class="kw-2">&amp;</span>MemArg,
+<a href=#3364 id=3364 data-nosnippet>3364</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3365 id=3365 data-nosnippet>3365</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3366 id=3366 data-nosnippet>3366</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#3367 id=3367 data-nosnippet>3367</a>) -&gt; WasmResult&lt;()&gt; {
+<a href=#3368 id=3368 data-nosnippet>3368</a>    <span class="kw">let </span><span class="kw-2">mut </span>data = state.pop1();
+<a href=#3369 id=3369 data-nosnippet>3369</a>    <span class="kw">let </span>data_ty = builder.func.dfg.value_type(data);
+<a href=#3370 id=3370 data-nosnippet>3370</a>
+<a href=#3371 id=3371 data-nosnippet>3371</a>    <span class="comment">// The operation is performed at type `access_ty`, and the data to be stored may first
+<a href=#3372 id=3372 data-nosnippet>3372</a>    // need to be narrowed accordingly.
+<a href=#3373 id=3373 data-nosnippet>3373</a>    </span><span class="kw">match </span>access_ty {
+<a href=#3374 id=3374 data-nosnippet>3374</a>        I8 | I16 | I32 | I64 =&gt; {}
+<a href=#3375 id=3375 data-nosnippet>3375</a>        <span class="kw">_ </span>=&gt; {
+<a href=#3376 id=3376 data-nosnippet>3376</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported!</span>(
+<a href=#3377 id=3377 data-nosnippet>3377</a>                <span class="string">"atomic_store: unsupported access type {:?}"</span>,
+<a href=#3378 id=3378 data-nosnippet>3378</a>                access_ty
+<a href=#3379 id=3379 data-nosnippet>3379</a>            ));
+<a href=#3380 id=3380 data-nosnippet>3380</a>        }
+<a href=#3381 id=3381 data-nosnippet>3381</a>    };
+<a href=#3382 id=3382 data-nosnippet>3382</a>    <span class="kw">let </span>d_ty_ok = <span class="macro">matches!</span>(data_ty, I32 | I64);
+<a href=#3383 id=3383 data-nosnippet>3383</a>    <span class="macro">assert!</span>(d_ty_ok &amp;&amp; data_ty.bytes() &gt;= access_ty.bytes());
+<a href=#3384 id=3384 data-nosnippet>3384</a>
+<a href=#3385 id=3385 data-nosnippet>3385</a>    <span class="kw">if </span>data_ty.bytes() &gt; access_ty.bytes() {
+<a href=#3386 id=3386 data-nosnippet>3386</a>        data = builder.ins().ireduce(access_ty, data);
+<a href=#3387 id=3387 data-nosnippet>3387</a>    }
+<a href=#3388 id=3388 data-nosnippet>3388</a>
+<a href=#3389 id=3389 data-nosnippet>3389</a>    <span class="kw">let </span>(flags, <span class="kw">_</span>, addr) = <span class="macro">unwrap_or_return_unreachable_state!</span>(
+<a href=#3390 id=3390 data-nosnippet>3390</a>        state,
+<a href=#3391 id=3391 data-nosnippet>3391</a>        prepare_atomic_addr(
+<a href=#3392 id=3392 data-nosnippet>3392</a>            memarg,
+<a href=#3393 id=3393 data-nosnippet>3393</a>            u8::try_from(access_ty.bytes()).unwrap(),
+<a href=#3394 id=3394 data-nosnippet>3394</a>            builder,
+<a href=#3395 id=3395 data-nosnippet>3395</a>            state,
+<a href=#3396 id=3396 data-nosnippet>3396</a>            environ,
+<a href=#3397 id=3397 data-nosnippet>3397</a>        )<span class="question-mark">?
+<a href=#3398 id=3398 data-nosnippet>3398</a>    </span>);
+<a href=#3399 id=3399 data-nosnippet>3399</a>    builder.ins().atomic_store(flags, data, addr);
+<a href=#3400 id=3400 data-nosnippet>3400</a>    <span class="prelude-val">Ok</span>(())
+<a href=#3401 id=3401 data-nosnippet>3401</a>}
+<a href=#3402 id=3402 data-nosnippet>3402</a>
+<a href=#3403 id=3403 data-nosnippet>3403</a><span class="kw">fn </span>translate_vector_icmp(
+<a href=#3404 id=3404 data-nosnippet>3404</a>    cc: IntCC,
+<a href=#3405 id=3405 data-nosnippet>3405</a>    needed_type: Type,
+<a href=#3406 id=3406 data-nosnippet>3406</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3407 id=3407 data-nosnippet>3407</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3408 id=3408 data-nosnippet>3408</a>) {
+<a href=#3409 id=3409 data-nosnippet>3409</a>    <span class="kw">let </span>(a, b) = state.pop2();
+<a href=#3410 id=3410 data-nosnippet>3410</a>    <span class="kw">let </span>bitcast_a = optionally_bitcast_vector(a, needed_type, builder);
+<a href=#3411 id=3411 data-nosnippet>3411</a>    <span class="kw">let </span>bitcast_b = optionally_bitcast_vector(b, needed_type, builder);
+<a href=#3412 id=3412 data-nosnippet>3412</a>    state.push1(builder.ins().icmp(cc, bitcast_a, bitcast_b))
+<a href=#3413 id=3413 data-nosnippet>3413</a>}
+<a href=#3414 id=3414 data-nosnippet>3414</a>
+<a href=#3415 id=3415 data-nosnippet>3415</a><span class="kw">fn </span>translate_fcmp(cc: FloatCC, builder: <span class="kw-2">&amp;mut </span>FunctionBuilder, state: <span class="kw-2">&amp;mut </span>FuncTranslationState) {
+<a href=#3416 id=3416 data-nosnippet>3416</a>    <span class="kw">let </span>(arg0, arg1) = state.pop2();
+<a href=#3417 id=3417 data-nosnippet>3417</a>    <span class="kw">let </span>val = builder.ins().fcmp(cc, arg0, arg1);
+<a href=#3418 id=3418 data-nosnippet>3418</a>    state.push1(builder.ins().uextend(I32, val));
+<a href=#3419 id=3419 data-nosnippet>3419</a>}
+<a href=#3420 id=3420 data-nosnippet>3420</a>
+<a href=#3421 id=3421 data-nosnippet>3421</a><span class="kw">fn </span>translate_vector_fcmp(
+<a href=#3422 id=3422 data-nosnippet>3422</a>    cc: FloatCC,
+<a href=#3423 id=3423 data-nosnippet>3423</a>    needed_type: Type,
+<a href=#3424 id=3424 data-nosnippet>3424</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3425 id=3425 data-nosnippet>3425</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3426 id=3426 data-nosnippet>3426</a>) {
+<a href=#3427 id=3427 data-nosnippet>3427</a>    <span class="kw">let </span>(a, b) = state.pop2();
+<a href=#3428 id=3428 data-nosnippet>3428</a>    <span class="kw">let </span>bitcast_a = optionally_bitcast_vector(a, needed_type, builder);
+<a href=#3429 id=3429 data-nosnippet>3429</a>    <span class="kw">let </span>bitcast_b = optionally_bitcast_vector(b, needed_type, builder);
+<a href=#3430 id=3430 data-nosnippet>3430</a>    state.push1(builder.ins().fcmp(cc, bitcast_a, bitcast_b))
+<a href=#3431 id=3431 data-nosnippet>3431</a>}
+<a href=#3432 id=3432 data-nosnippet>3432</a>
+<a href=#3433 id=3433 data-nosnippet>3433</a><span class="kw">fn </span>translate_br_if(
+<a href=#3434 id=3434 data-nosnippet>3434</a>    relative_depth: u32,
+<a href=#3435 id=3435 data-nosnippet>3435</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3436 id=3436 data-nosnippet>3436</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3437 id=3437 data-nosnippet>3437</a>) {
+<a href=#3438 id=3438 data-nosnippet>3438</a>    <span class="kw">let </span>val = state.pop1();
+<a href=#3439 id=3439 data-nosnippet>3439</a>    <span class="kw">let </span>(br_destination, inputs) = translate_br_if_args(relative_depth, state);
+<a href=#3440 id=3440 data-nosnippet>3440</a>    <span class="kw">let </span>next_block = builder.create_block();
+<a href=#3441 id=3441 data-nosnippet>3441</a>    canonicalise_brif(builder, val, br_destination, inputs, next_block, <span class="kw-2">&amp;</span>[]);
+<a href=#3442 id=3442 data-nosnippet>3442</a>
+<a href=#3443 id=3443 data-nosnippet>3443</a>    builder.seal_block(next_block); <span class="comment">// The only predecessor is the current block.
+<a href=#3444 id=3444 data-nosnippet>3444</a>    </span>builder.switch_to_block(next_block);
+<a href=#3445 id=3445 data-nosnippet>3445</a>}
+<a href=#3446 id=3446 data-nosnippet>3446</a>
+<a href=#3447 id=3447 data-nosnippet>3447</a><span class="kw">fn </span>translate_br_if_args(
+<a href=#3448 id=3448 data-nosnippet>3448</a>    relative_depth: u32,
+<a href=#3449 id=3449 data-nosnippet>3449</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3450 id=3450 data-nosnippet>3450</a>) -&gt; (ir::Block, <span class="kw-2">&amp;mut </span>[ir::Value]) {
+<a href=#3451 id=3451 data-nosnippet>3451</a>    <span class="kw">let </span>i = state.control_stack.len() - <span class="number">1 </span>- (relative_depth <span class="kw">as </span>usize);
+<a href=#3452 id=3452 data-nosnippet>3452</a>    <span class="kw">let </span>(return_count, br_destination) = {
+<a href=#3453 id=3453 data-nosnippet>3453</a>        <span class="kw">let </span>frame = <span class="kw-2">&amp;mut </span>state.control_stack[i];
+<a href=#3454 id=3454 data-nosnippet>3454</a>        <span class="comment">// The values returned by the branch are still available for the reachable
+<a href=#3455 id=3455 data-nosnippet>3455</a>        // code that comes after it
+<a href=#3456 id=3456 data-nosnippet>3456</a>        </span>frame.set_branched_to_exit();
+<a href=#3457 id=3457 data-nosnippet>3457</a>        <span class="kw">let </span>return_count = <span class="kw">if </span>frame.is_loop() {
+<a href=#3458 id=3458 data-nosnippet>3458</a>            frame.num_param_values()
+<a href=#3459 id=3459 data-nosnippet>3459</a>        } <span class="kw">else </span>{
+<a href=#3460 id=3460 data-nosnippet>3460</a>            frame.num_return_values()
+<a href=#3461 id=3461 data-nosnippet>3461</a>        };
+<a href=#3462 id=3462 data-nosnippet>3462</a>        (return_count, frame.br_destination())
+<a href=#3463 id=3463 data-nosnippet>3463</a>    };
+<a href=#3464 id=3464 data-nosnippet>3464</a>    <span class="kw">let </span>inputs = state.peekn_mut(return_count);
+<a href=#3465 id=3465 data-nosnippet>3465</a>    (br_destination, inputs)
+<a href=#3466 id=3466 data-nosnippet>3466</a>}
+<a href=#3467 id=3467 data-nosnippet>3467</a>
+<a href=#3468 id=3468 data-nosnippet>3468</a><span class="doccomment">/// Determine the returned value type of a WebAssembly operator
+<a href=#3469 id=3469 data-nosnippet>3469</a></span><span class="kw">fn </span>type_of(operator: <span class="kw-2">&amp;</span>Operator) -&gt; Type {
+<a href=#3470 id=3470 data-nosnippet>3470</a>    <span class="kw">match </span>operator {
+<a href=#3471 id=3471 data-nosnippet>3471</a>        Operator::V128Load { .. }
+<a href=#3472 id=3472 data-nosnippet>3472</a>        | Operator::V128Store { .. }
+<a href=#3473 id=3473 data-nosnippet>3473</a>        | Operator::V128Const { .. }
+<a href=#3474 id=3474 data-nosnippet>3474</a>        | Operator::V128Not
+<a href=#3475 id=3475 data-nosnippet>3475</a>        | Operator::V128And
+<a href=#3476 id=3476 data-nosnippet>3476</a>        | Operator::V128AndNot
+<a href=#3477 id=3477 data-nosnippet>3477</a>        | Operator::V128Or
+<a href=#3478 id=3478 data-nosnippet>3478</a>        | Operator::V128Xor
+<a href=#3479 id=3479 data-nosnippet>3479</a>        | Operator::V128AnyTrue
+<a href=#3480 id=3480 data-nosnippet>3480</a>        | Operator::V128Bitselect =&gt; I8X16, <span class="comment">// default type representing V128
+<a href=#3481 id=3481 data-nosnippet>3481</a>
+<a href=#3482 id=3482 data-nosnippet>3482</a>        </span>Operator::I8x16Shuffle { .. }
+<a href=#3483 id=3483 data-nosnippet>3483</a>        | Operator::I8x16Splat
+<a href=#3484 id=3484 data-nosnippet>3484</a>        | Operator::V128Load8Splat { .. }
+<a href=#3485 id=3485 data-nosnippet>3485</a>        | Operator::V128Load8Lane { .. }
+<a href=#3486 id=3486 data-nosnippet>3486</a>        | Operator::V128Store8Lane { .. }
+<a href=#3487 id=3487 data-nosnippet>3487</a>        | Operator::I8x16ExtractLaneS { .. }
+<a href=#3488 id=3488 data-nosnippet>3488</a>        | Operator::I8x16ExtractLaneU { .. }
+<a href=#3489 id=3489 data-nosnippet>3489</a>        | Operator::I8x16ReplaceLane { .. }
+<a href=#3490 id=3490 data-nosnippet>3490</a>        | Operator::I8x16RelaxedSwizzle
+<a href=#3491 id=3491 data-nosnippet>3491</a>        | Operator::I8x16RelaxedLaneselect
+<a href=#3492 id=3492 data-nosnippet>3492</a>        | Operator::I8x16Eq
+<a href=#3493 id=3493 data-nosnippet>3493</a>        | Operator::I8x16Ne
+<a href=#3494 id=3494 data-nosnippet>3494</a>        | Operator::I8x16LtS
+<a href=#3495 id=3495 data-nosnippet>3495</a>        | Operator::I8x16LtU
+<a href=#3496 id=3496 data-nosnippet>3496</a>        | Operator::I8x16GtS
+<a href=#3497 id=3497 data-nosnippet>3497</a>        | Operator::I8x16GtU
+<a href=#3498 id=3498 data-nosnippet>3498</a>        | Operator::I8x16LeS
+<a href=#3499 id=3499 data-nosnippet>3499</a>        | Operator::I8x16LeU
+<a href=#3500 id=3500 data-nosnippet>3500</a>        | Operator::I8x16GeS
+<a href=#3501 id=3501 data-nosnippet>3501</a>        | Operator::I8x16GeU
+<a href=#3502 id=3502 data-nosnippet>3502</a>        | Operator::I8x16Neg
+<a href=#3503 id=3503 data-nosnippet>3503</a>        | Operator::I8x16Abs
+<a href=#3504 id=3504 data-nosnippet>3504</a>        | Operator::I8x16AllTrue
+<a href=#3505 id=3505 data-nosnippet>3505</a>        | Operator::I8x16Shl
+<a href=#3506 id=3506 data-nosnippet>3506</a>        | Operator::I8x16ShrS
+<a href=#3507 id=3507 data-nosnippet>3507</a>        | Operator::I8x16ShrU
+<a href=#3508 id=3508 data-nosnippet>3508</a>        | Operator::I8x16Add
+<a href=#3509 id=3509 data-nosnippet>3509</a>        | Operator::I8x16AddSatS
+<a href=#3510 id=3510 data-nosnippet>3510</a>        | Operator::I8x16AddSatU
+<a href=#3511 id=3511 data-nosnippet>3511</a>        | Operator::I8x16Sub
+<a href=#3512 id=3512 data-nosnippet>3512</a>        | Operator::I8x16SubSatS
+<a href=#3513 id=3513 data-nosnippet>3513</a>        | Operator::I8x16SubSatU
+<a href=#3514 id=3514 data-nosnippet>3514</a>        | Operator::I8x16MinS
+<a href=#3515 id=3515 data-nosnippet>3515</a>        | Operator::I8x16MinU
+<a href=#3516 id=3516 data-nosnippet>3516</a>        | Operator::I8x16MaxS
+<a href=#3517 id=3517 data-nosnippet>3517</a>        | Operator::I8x16MaxU
+<a href=#3518 id=3518 data-nosnippet>3518</a>        | Operator::I8x16AvgrU
+<a href=#3519 id=3519 data-nosnippet>3519</a>        | Operator::I8x16Bitmask
+<a href=#3520 id=3520 data-nosnippet>3520</a>        | Operator::I8x16Popcnt =&gt; I8X16,
+<a href=#3521 id=3521 data-nosnippet>3521</a>
+<a href=#3522 id=3522 data-nosnippet>3522</a>        Operator::I16x8Splat
+<a href=#3523 id=3523 data-nosnippet>3523</a>        | Operator::V128Load16Splat { .. }
+<a href=#3524 id=3524 data-nosnippet>3524</a>        | Operator::V128Load16Lane { .. }
+<a href=#3525 id=3525 data-nosnippet>3525</a>        | Operator::V128Store16Lane { .. }
+<a href=#3526 id=3526 data-nosnippet>3526</a>        | Operator::I16x8ExtractLaneS { .. }
+<a href=#3527 id=3527 data-nosnippet>3527</a>        | Operator::I16x8ExtractLaneU { .. }
+<a href=#3528 id=3528 data-nosnippet>3528</a>        | Operator::I16x8ReplaceLane { .. }
+<a href=#3529 id=3529 data-nosnippet>3529</a>        | Operator::I16x8RelaxedLaneselect
+<a href=#3530 id=3530 data-nosnippet>3530</a>        | Operator::I16x8Eq
+<a href=#3531 id=3531 data-nosnippet>3531</a>        | Operator::I16x8Ne
+<a href=#3532 id=3532 data-nosnippet>3532</a>        | Operator::I16x8LtS
+<a href=#3533 id=3533 data-nosnippet>3533</a>        | Operator::I16x8LtU
+<a href=#3534 id=3534 data-nosnippet>3534</a>        | Operator::I16x8GtS
+<a href=#3535 id=3535 data-nosnippet>3535</a>        | Operator::I16x8GtU
+<a href=#3536 id=3536 data-nosnippet>3536</a>        | Operator::I16x8LeS
+<a href=#3537 id=3537 data-nosnippet>3537</a>        | Operator::I16x8LeU
+<a href=#3538 id=3538 data-nosnippet>3538</a>        | Operator::I16x8GeS
+<a href=#3539 id=3539 data-nosnippet>3539</a>        | Operator::I16x8GeU
+<a href=#3540 id=3540 data-nosnippet>3540</a>        | Operator::I16x8Neg
+<a href=#3541 id=3541 data-nosnippet>3541</a>        | Operator::I16x8Abs
+<a href=#3542 id=3542 data-nosnippet>3542</a>        | Operator::I16x8AllTrue
+<a href=#3543 id=3543 data-nosnippet>3543</a>        | Operator::I16x8Shl
+<a href=#3544 id=3544 data-nosnippet>3544</a>        | Operator::I16x8ShrS
+<a href=#3545 id=3545 data-nosnippet>3545</a>        | Operator::I16x8ShrU
+<a href=#3546 id=3546 data-nosnippet>3546</a>        | Operator::I16x8Add
+<a href=#3547 id=3547 data-nosnippet>3547</a>        | Operator::I16x8AddSatS
+<a href=#3548 id=3548 data-nosnippet>3548</a>        | Operator::I16x8AddSatU
+<a href=#3549 id=3549 data-nosnippet>3549</a>        | Operator::I16x8Sub
+<a href=#3550 id=3550 data-nosnippet>3550</a>        | Operator::I16x8SubSatS
+<a href=#3551 id=3551 data-nosnippet>3551</a>        | Operator::I16x8SubSatU
+<a href=#3552 id=3552 data-nosnippet>3552</a>        | Operator::I16x8MinS
+<a href=#3553 id=3553 data-nosnippet>3553</a>        | Operator::I16x8MinU
+<a href=#3554 id=3554 data-nosnippet>3554</a>        | Operator::I16x8MaxS
+<a href=#3555 id=3555 data-nosnippet>3555</a>        | Operator::I16x8MaxU
+<a href=#3556 id=3556 data-nosnippet>3556</a>        | Operator::I16x8AvgrU
+<a href=#3557 id=3557 data-nosnippet>3557</a>        | Operator::I16x8Mul
+<a href=#3558 id=3558 data-nosnippet>3558</a>        | Operator::I16x8RelaxedQ15mulrS
+<a href=#3559 id=3559 data-nosnippet>3559</a>        | Operator::I16x8RelaxedDotI8x16I7x16S
+<a href=#3560 id=3560 data-nosnippet>3560</a>        | Operator::I16x8Bitmask =&gt; I16X8,
+<a href=#3561 id=3561 data-nosnippet>3561</a>
+<a href=#3562 id=3562 data-nosnippet>3562</a>        Operator::I32x4Splat
+<a href=#3563 id=3563 data-nosnippet>3563</a>        | Operator::V128Load32Splat { .. }
+<a href=#3564 id=3564 data-nosnippet>3564</a>        | Operator::V128Load32Lane { .. }
+<a href=#3565 id=3565 data-nosnippet>3565</a>        | Operator::V128Store32Lane { .. }
+<a href=#3566 id=3566 data-nosnippet>3566</a>        | Operator::I32x4ExtractLane { .. }
+<a href=#3567 id=3567 data-nosnippet>3567</a>        | Operator::I32x4ReplaceLane { .. }
+<a href=#3568 id=3568 data-nosnippet>3568</a>        | Operator::I32x4RelaxedLaneselect
+<a href=#3569 id=3569 data-nosnippet>3569</a>        | Operator::I32x4Eq
+<a href=#3570 id=3570 data-nosnippet>3570</a>        | Operator::I32x4Ne
+<a href=#3571 id=3571 data-nosnippet>3571</a>        | Operator::I32x4LtS
+<a href=#3572 id=3572 data-nosnippet>3572</a>        | Operator::I32x4LtU
+<a href=#3573 id=3573 data-nosnippet>3573</a>        | Operator::I32x4GtS
+<a href=#3574 id=3574 data-nosnippet>3574</a>        | Operator::I32x4GtU
+<a href=#3575 id=3575 data-nosnippet>3575</a>        | Operator::I32x4LeS
+<a href=#3576 id=3576 data-nosnippet>3576</a>        | Operator::I32x4LeU
+<a href=#3577 id=3577 data-nosnippet>3577</a>        | Operator::I32x4GeS
+<a href=#3578 id=3578 data-nosnippet>3578</a>        | Operator::I32x4GeU
+<a href=#3579 id=3579 data-nosnippet>3579</a>        | Operator::I32x4Neg
+<a href=#3580 id=3580 data-nosnippet>3580</a>        | Operator::I32x4Abs
+<a href=#3581 id=3581 data-nosnippet>3581</a>        | Operator::I32x4AllTrue
+<a href=#3582 id=3582 data-nosnippet>3582</a>        | Operator::I32x4Shl
+<a href=#3583 id=3583 data-nosnippet>3583</a>        | Operator::I32x4ShrS
+<a href=#3584 id=3584 data-nosnippet>3584</a>        | Operator::I32x4ShrU
+<a href=#3585 id=3585 data-nosnippet>3585</a>        | Operator::I32x4Add
+<a href=#3586 id=3586 data-nosnippet>3586</a>        | Operator::I32x4Sub
+<a href=#3587 id=3587 data-nosnippet>3587</a>        | Operator::I32x4Mul
+<a href=#3588 id=3588 data-nosnippet>3588</a>        | Operator::I32x4MinS
+<a href=#3589 id=3589 data-nosnippet>3589</a>        | Operator::I32x4MinU
+<a href=#3590 id=3590 data-nosnippet>3590</a>        | Operator::I32x4MaxS
+<a href=#3591 id=3591 data-nosnippet>3591</a>        | Operator::I32x4MaxU
+<a href=#3592 id=3592 data-nosnippet>3592</a>        | Operator::I32x4Bitmask
+<a href=#3593 id=3593 data-nosnippet>3593</a>        | Operator::I32x4TruncSatF32x4S
+<a href=#3594 id=3594 data-nosnippet>3594</a>        | Operator::I32x4TruncSatF32x4U
+<a href=#3595 id=3595 data-nosnippet>3595</a>        | Operator::I32x4RelaxedTruncF32x4S
+<a href=#3596 id=3596 data-nosnippet>3596</a>        | Operator::I32x4RelaxedTruncF32x4U
+<a href=#3597 id=3597 data-nosnippet>3597</a>        | Operator::I32x4RelaxedTruncF64x2SZero
+<a href=#3598 id=3598 data-nosnippet>3598</a>        | Operator::I32x4RelaxedTruncF64x2UZero
+<a href=#3599 id=3599 data-nosnippet>3599</a>        | Operator::I32x4RelaxedDotI8x16I7x16AddS
+<a href=#3600 id=3600 data-nosnippet>3600</a>        | Operator::V128Load32Zero { .. } =&gt; I32X4,
+<a href=#3601 id=3601 data-nosnippet>3601</a>
+<a href=#3602 id=3602 data-nosnippet>3602</a>        Operator::I64x2Splat
+<a href=#3603 id=3603 data-nosnippet>3603</a>        | Operator::V128Load64Splat { .. }
+<a href=#3604 id=3604 data-nosnippet>3604</a>        | Operator::V128Load64Lane { .. }
+<a href=#3605 id=3605 data-nosnippet>3605</a>        | Operator::V128Store64Lane { .. }
+<a href=#3606 id=3606 data-nosnippet>3606</a>        | Operator::I64x2ExtractLane { .. }
+<a href=#3607 id=3607 data-nosnippet>3607</a>        | Operator::I64x2ReplaceLane { .. }
+<a href=#3608 id=3608 data-nosnippet>3608</a>        | Operator::I64x2RelaxedLaneselect
+<a href=#3609 id=3609 data-nosnippet>3609</a>        | Operator::I64x2Eq
+<a href=#3610 id=3610 data-nosnippet>3610</a>        | Operator::I64x2Ne
+<a href=#3611 id=3611 data-nosnippet>3611</a>        | Operator::I64x2LtS
+<a href=#3612 id=3612 data-nosnippet>3612</a>        | Operator::I64x2GtS
+<a href=#3613 id=3613 data-nosnippet>3613</a>        | Operator::I64x2LeS
+<a href=#3614 id=3614 data-nosnippet>3614</a>        | Operator::I64x2GeS
+<a href=#3615 id=3615 data-nosnippet>3615</a>        | Operator::I64x2Neg
+<a href=#3616 id=3616 data-nosnippet>3616</a>        | Operator::I64x2Abs
+<a href=#3617 id=3617 data-nosnippet>3617</a>        | Operator::I64x2AllTrue
+<a href=#3618 id=3618 data-nosnippet>3618</a>        | Operator::I64x2Shl
+<a href=#3619 id=3619 data-nosnippet>3619</a>        | Operator::I64x2ShrS
+<a href=#3620 id=3620 data-nosnippet>3620</a>        | Operator::I64x2ShrU
+<a href=#3621 id=3621 data-nosnippet>3621</a>        | Operator::I64x2Add
+<a href=#3622 id=3622 data-nosnippet>3622</a>        | Operator::I64x2Sub
+<a href=#3623 id=3623 data-nosnippet>3623</a>        | Operator::I64x2Mul
+<a href=#3624 id=3624 data-nosnippet>3624</a>        | Operator::I64x2Bitmask
+<a href=#3625 id=3625 data-nosnippet>3625</a>        | Operator::V128Load64Zero { .. } =&gt; I64X2,
+<a href=#3626 id=3626 data-nosnippet>3626</a>
+<a href=#3627 id=3627 data-nosnippet>3627</a>        Operator::F32x4Splat
+<a href=#3628 id=3628 data-nosnippet>3628</a>        | Operator::F32x4ExtractLane { .. }
+<a href=#3629 id=3629 data-nosnippet>3629</a>        | Operator::F32x4ReplaceLane { .. }
+<a href=#3630 id=3630 data-nosnippet>3630</a>        | Operator::F32x4Eq
+<a href=#3631 id=3631 data-nosnippet>3631</a>        | Operator::F32x4Ne
+<a href=#3632 id=3632 data-nosnippet>3632</a>        | Operator::F32x4Lt
+<a href=#3633 id=3633 data-nosnippet>3633</a>        | Operator::F32x4Gt
+<a href=#3634 id=3634 data-nosnippet>3634</a>        | Operator::F32x4Le
+<a href=#3635 id=3635 data-nosnippet>3635</a>        | Operator::F32x4Ge
+<a href=#3636 id=3636 data-nosnippet>3636</a>        | Operator::F32x4Abs
+<a href=#3637 id=3637 data-nosnippet>3637</a>        | Operator::F32x4Neg
+<a href=#3638 id=3638 data-nosnippet>3638</a>        | Operator::F32x4Sqrt
+<a href=#3639 id=3639 data-nosnippet>3639</a>        | Operator::F32x4Add
+<a href=#3640 id=3640 data-nosnippet>3640</a>        | Operator::F32x4Sub
+<a href=#3641 id=3641 data-nosnippet>3641</a>        | Operator::F32x4Mul
+<a href=#3642 id=3642 data-nosnippet>3642</a>        | Operator::F32x4Div
+<a href=#3643 id=3643 data-nosnippet>3643</a>        | Operator::F32x4Min
+<a href=#3644 id=3644 data-nosnippet>3644</a>        | Operator::F32x4Max
+<a href=#3645 id=3645 data-nosnippet>3645</a>        | Operator::F32x4PMin
+<a href=#3646 id=3646 data-nosnippet>3646</a>        | Operator::F32x4PMax
+<a href=#3647 id=3647 data-nosnippet>3647</a>        | Operator::F32x4RelaxedMin
+<a href=#3648 id=3648 data-nosnippet>3648</a>        | Operator::F32x4RelaxedMax
+<a href=#3649 id=3649 data-nosnippet>3649</a>        | Operator::F32x4RelaxedMadd
+<a href=#3650 id=3650 data-nosnippet>3650</a>        | Operator::F32x4RelaxedNmadd
+<a href=#3651 id=3651 data-nosnippet>3651</a>        | Operator::F32x4ConvertI32x4S
+<a href=#3652 id=3652 data-nosnippet>3652</a>        | Operator::F32x4ConvertI32x4U
+<a href=#3653 id=3653 data-nosnippet>3653</a>        | Operator::F32x4Ceil
+<a href=#3654 id=3654 data-nosnippet>3654</a>        | Operator::F32x4Floor
+<a href=#3655 id=3655 data-nosnippet>3655</a>        | Operator::F32x4Trunc
+<a href=#3656 id=3656 data-nosnippet>3656</a>        | Operator::F32x4Nearest =&gt; F32X4,
+<a href=#3657 id=3657 data-nosnippet>3657</a>
+<a href=#3658 id=3658 data-nosnippet>3658</a>        Operator::F64x2Splat
+<a href=#3659 id=3659 data-nosnippet>3659</a>        | Operator::F64x2ExtractLane { .. }
+<a href=#3660 id=3660 data-nosnippet>3660</a>        | Operator::F64x2ReplaceLane { .. }
+<a href=#3661 id=3661 data-nosnippet>3661</a>        | Operator::F64x2Eq
+<a href=#3662 id=3662 data-nosnippet>3662</a>        | Operator::F64x2Ne
+<a href=#3663 id=3663 data-nosnippet>3663</a>        | Operator::F64x2Lt
+<a href=#3664 id=3664 data-nosnippet>3664</a>        | Operator::F64x2Gt
+<a href=#3665 id=3665 data-nosnippet>3665</a>        | Operator::F64x2Le
+<a href=#3666 id=3666 data-nosnippet>3666</a>        | Operator::F64x2Ge
+<a href=#3667 id=3667 data-nosnippet>3667</a>        | Operator::F64x2Abs
+<a href=#3668 id=3668 data-nosnippet>3668</a>        | Operator::F64x2Neg
+<a href=#3669 id=3669 data-nosnippet>3669</a>        | Operator::F64x2Sqrt
+<a href=#3670 id=3670 data-nosnippet>3670</a>        | Operator::F64x2Add
+<a href=#3671 id=3671 data-nosnippet>3671</a>        | Operator::F64x2Sub
+<a href=#3672 id=3672 data-nosnippet>3672</a>        | Operator::F64x2Mul
+<a href=#3673 id=3673 data-nosnippet>3673</a>        | Operator::F64x2Div
+<a href=#3674 id=3674 data-nosnippet>3674</a>        | Operator::F64x2Min
+<a href=#3675 id=3675 data-nosnippet>3675</a>        | Operator::F64x2Max
+<a href=#3676 id=3676 data-nosnippet>3676</a>        | Operator::F64x2PMin
+<a href=#3677 id=3677 data-nosnippet>3677</a>        | Operator::F64x2PMax
+<a href=#3678 id=3678 data-nosnippet>3678</a>        | Operator::F64x2RelaxedMin
+<a href=#3679 id=3679 data-nosnippet>3679</a>        | Operator::F64x2RelaxedMax
+<a href=#3680 id=3680 data-nosnippet>3680</a>        | Operator::F64x2RelaxedMadd
+<a href=#3681 id=3681 data-nosnippet>3681</a>        | Operator::F64x2RelaxedNmadd
+<a href=#3682 id=3682 data-nosnippet>3682</a>        | Operator::F64x2Ceil
+<a href=#3683 id=3683 data-nosnippet>3683</a>        | Operator::F64x2Floor
+<a href=#3684 id=3684 data-nosnippet>3684</a>        | Operator::F64x2Trunc
+<a href=#3685 id=3685 data-nosnippet>3685</a>        | Operator::F64x2Nearest =&gt; F64X2,
+<a href=#3686 id=3686 data-nosnippet>3686</a>
+<a href=#3687 id=3687 data-nosnippet>3687</a>        <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(
+<a href=#3688 id=3688 data-nosnippet>3688</a>            <span class="string">"Currently only SIMD instructions are mapped to their return type; the \
+<a href=#3689 id=3689 data-nosnippet>3689</a>             following instruction is not mapped: {:?}"</span>,
+<a href=#3690 id=3690 data-nosnippet>3690</a>            operator
+<a href=#3691 id=3691 data-nosnippet>3691</a>        ),
+<a href=#3692 id=3692 data-nosnippet>3692</a>    }
+<a href=#3693 id=3693 data-nosnippet>3693</a>}
+<a href=#3694 id=3694 data-nosnippet>3694</a>
+<a href=#3695 id=3695 data-nosnippet>3695</a><span class="doccomment">/// Some SIMD operations only operate on I8X16 in CLIF; this will convert them to that type by
+<a href=#3696 id=3696 data-nosnippet>3696</a>/// adding a raw_bitcast if necessary.
+<a href=#3697 id=3697 data-nosnippet>3697</a></span><span class="kw">fn </span>optionally_bitcast_vector(
+<a href=#3698 id=3698 data-nosnippet>3698</a>    value: Value,
+<a href=#3699 id=3699 data-nosnippet>3699</a>    needed_type: Type,
+<a href=#3700 id=3700 data-nosnippet>3700</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3701 id=3701 data-nosnippet>3701</a>) -&gt; Value {
+<a href=#3702 id=3702 data-nosnippet>3702</a>    <span class="kw">if </span>builder.func.dfg.value_type(value) != needed_type {
+<a href=#3703 id=3703 data-nosnippet>3703</a>        builder.ins().bitcast(
+<a href=#3704 id=3704 data-nosnippet>3704</a>            needed_type,
+<a href=#3705 id=3705 data-nosnippet>3705</a>            MemFlagsData::new().with_endianness(ir::Endianness::Little),
+<a href=#3706 id=3706 data-nosnippet>3706</a>            value,
+<a href=#3707 id=3707 data-nosnippet>3707</a>        )
+<a href=#3708 id=3708 data-nosnippet>3708</a>    } <span class="kw">else </span>{
+<a href=#3709 id=3709 data-nosnippet>3709</a>        value
+<a href=#3710 id=3710 data-nosnippet>3710</a>    }
+<a href=#3711 id=3711 data-nosnippet>3711</a>}
+<a href=#3712 id=3712 data-nosnippet>3712</a>
+<a href=#3713 id=3713 data-nosnippet>3713</a><span class="attr">#[inline(always)]
+<a href=#3714 id=3714 data-nosnippet>3714</a></span><span class="kw">fn </span>is_non_canonical_v128(ty: ir::Type) -&gt; bool {
+<a href=#3715 id=3715 data-nosnippet>3715</a>    <span class="macro">matches!</span>(ty, I64X2 | I32X4 | I16X8 | F32X4 | F64X2)
+<a href=#3716 id=3716 data-nosnippet>3716</a>}
+<a href=#3717 id=3717 data-nosnippet>3717</a>
+<a href=#3718 id=3718 data-nosnippet>3718</a><span class="doccomment">/// Cast to I8X16, any vector values in `values` that are of "non-canonical" type (meaning, not
+<a href=#3719 id=3719 data-nosnippet>3719</a>/// I8X16), and return them in a slice.  A pre-scan is made to determine whether any casts are
+<a href=#3720 id=3720 data-nosnippet>3720</a>/// actually necessary, and if not, the original slice is returned.  Otherwise the cast values
+<a href=#3721 id=3721 data-nosnippet>3721</a>/// are returned in a slice that belongs to the caller-supplied `SmallVec`.
+<a href=#3722 id=3722 data-nosnippet>3722</a></span><span class="kw">fn </span>canonicalise_v128_values&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#3723 id=3723 data-nosnippet>3723</a>    tmp_canonicalised: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>SmallVec&lt;[ir::BlockArg; <span class="number">16</span>]&gt;,
+<a href=#3724 id=3724 data-nosnippet>3724</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3725 id=3725 data-nosnippet>3725</a>    values: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ir::Value],
+<a href=#3726 id=3726 data-nosnippet>3726</a>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[ir::BlockArg] {
+<a href=#3727 id=3727 data-nosnippet>3727</a>    <span class="macro">debug_assert!</span>(tmp_canonicalised.is_empty());
+<a href=#3728 id=3728 data-nosnippet>3728</a>    <span class="kw">for </span>v <span class="kw">in </span>values {
+<a href=#3729 id=3729 data-nosnippet>3729</a>        <span class="kw">let </span>value = <span class="kw">if </span>is_non_canonical_v128(builder.func.dfg.value_type(<span class="kw-2">*</span>v)) {
+<a href=#3730 id=3730 data-nosnippet>3730</a>            builder.ins().bitcast(
+<a href=#3731 id=3731 data-nosnippet>3731</a>                I8X16,
+<a href=#3732 id=3732 data-nosnippet>3732</a>                MemFlagsData::new().with_endianness(ir::Endianness::Little),
+<a href=#3733 id=3733 data-nosnippet>3733</a>                <span class="kw-2">*</span>v,
+<a href=#3734 id=3734 data-nosnippet>3734</a>            )
+<a href=#3735 id=3735 data-nosnippet>3735</a>        } <span class="kw">else </span>{
+<a href=#3736 id=3736 data-nosnippet>3736</a>            <span class="kw-2">*</span>v
+<a href=#3737 id=3737 data-nosnippet>3737</a>        };
+<a href=#3738 id=3738 data-nosnippet>3738</a>        tmp_canonicalised.push(BlockArg::from(value));
+<a href=#3739 id=3739 data-nosnippet>3739</a>    }
+<a href=#3740 id=3740 data-nosnippet>3740</a>    tmp_canonicalised.as_slice()
+<a href=#3741 id=3741 data-nosnippet>3741</a>}
+<a href=#3742 id=3742 data-nosnippet>3742</a>
+<a href=#3743 id=3743 data-nosnippet>3743</a><span class="doccomment">/// Generate a `jump` instruction, but first cast all 128-bit vector values to I8X16 if they
+<a href=#3744 id=3744 data-nosnippet>3744</a>/// don't have that type.  This is done in somewhat roundabout way so as to ensure that we
+<a href=#3745 id=3745 data-nosnippet>3745</a>/// almost never have to do any heap allocation.
+<a href=#3746 id=3746 data-nosnippet>3746</a></span><span class="kw">fn </span>canonicalise_then_jump(
+<a href=#3747 id=3747 data-nosnippet>3747</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3748 id=3748 data-nosnippet>3748</a>    destination: ir::Block,
+<a href=#3749 id=3749 data-nosnippet>3749</a>    params: <span class="kw-2">&amp;</span>[ir::Value],
+<a href=#3750 id=3750 data-nosnippet>3750</a>) -&gt; ir::Inst {
+<a href=#3751 id=3751 data-nosnippet>3751</a>    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised = SmallVec::&lt;[<span class="kw">_</span>; <span class="number">16</span>]&gt;::new();
+<a href=#3752 id=3752 data-nosnippet>3752</a>    <span class="kw">let </span>canonicalised = canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised, builder, params);
+<a href=#3753 id=3753 data-nosnippet>3753</a>    builder.ins().jump(destination, canonicalised)
+<a href=#3754 id=3754 data-nosnippet>3754</a>}
+<a href=#3755 id=3755 data-nosnippet>3755</a>
+<a href=#3756 id=3756 data-nosnippet>3756</a><span class="doccomment">/// The same but for a `brif` instruction.
+<a href=#3757 id=3757 data-nosnippet>3757</a></span><span class="kw">fn </span>canonicalise_brif(
+<a href=#3758 id=3758 data-nosnippet>3758</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3759 id=3759 data-nosnippet>3759</a>    cond: ir::Value,
+<a href=#3760 id=3760 data-nosnippet>3760</a>    block_then: ir::Block,
+<a href=#3761 id=3761 data-nosnippet>3761</a>    params_then: <span class="kw-2">&amp;</span>[ir::Value],
+<a href=#3762 id=3762 data-nosnippet>3762</a>    block_else: ir::Block,
+<a href=#3763 id=3763 data-nosnippet>3763</a>    params_else: <span class="kw-2">&amp;</span>[ir::Value],
+<a href=#3764 id=3764 data-nosnippet>3764</a>) -&gt; ir::Inst {
+<a href=#3765 id=3765 data-nosnippet>3765</a>    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised_then = SmallVec::&lt;[<span class="kw">_</span>; <span class="number">16</span>]&gt;::new();
+<a href=#3766 id=3766 data-nosnippet>3766</a>    <span class="kw">let </span>canonicalised_then =
+<a href=#3767 id=3767 data-nosnippet>3767</a>        canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised_then, builder, params_then);
+<a href=#3768 id=3768 data-nosnippet>3768</a>    <span class="kw">let </span><span class="kw-2">mut </span>tmp_canonicalised_else = SmallVec::&lt;[<span class="kw">_</span>; <span class="number">16</span>]&gt;::new();
+<a href=#3769 id=3769 data-nosnippet>3769</a>    <span class="kw">let </span>canonicalised_else =
+<a href=#3770 id=3770 data-nosnippet>3770</a>        canonicalise_v128_values(<span class="kw-2">&amp;mut </span>tmp_canonicalised_else, builder, params_else);
+<a href=#3771 id=3771 data-nosnippet>3771</a>    builder.ins().brif(
+<a href=#3772 id=3772 data-nosnippet>3772</a>        cond,
+<a href=#3773 id=3773 data-nosnippet>3773</a>        block_then,
+<a href=#3774 id=3774 data-nosnippet>3774</a>        canonicalised_then,
+<a href=#3775 id=3775 data-nosnippet>3775</a>        block_else,
+<a href=#3776 id=3776 data-nosnippet>3776</a>        canonicalised_else,
+<a href=#3777 id=3777 data-nosnippet>3777</a>    )
+<a href=#3778 id=3778 data-nosnippet>3778</a>}
+<a href=#3779 id=3779 data-nosnippet>3779</a>
+<a href=#3780 id=3780 data-nosnippet>3780</a><span class="doccomment">/// A helper for popping and bitcasting a single value; since SIMD values can lose their type by
+<a href=#3781 id=3781 data-nosnippet>3781</a>/// using v128 (i.e. CLIF's I8x16) we must re-type the values using a bitcast to avoid CLIF
+<a href=#3782 id=3782 data-nosnippet>3782</a>/// typing issues.
+<a href=#3783 id=3783 data-nosnippet>3783</a></span><span class="kw">fn </span>pop1_with_bitcast(
+<a href=#3784 id=3784 data-nosnippet>3784</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3785 id=3785 data-nosnippet>3785</a>    needed_type: Type,
+<a href=#3786 id=3786 data-nosnippet>3786</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3787 id=3787 data-nosnippet>3787</a>) -&gt; Value {
+<a href=#3788 id=3788 data-nosnippet>3788</a>    optionally_bitcast_vector(state.pop1(), needed_type, builder)
+<a href=#3789 id=3789 data-nosnippet>3789</a>}
+<a href=#3790 id=3790 data-nosnippet>3790</a>
+<a href=#3791 id=3791 data-nosnippet>3791</a><span class="doccomment">/// A helper for popping and bitcasting two values; since SIMD values can lose their type by
+<a href=#3792 id=3792 data-nosnippet>3792</a>/// using v128 (i.e. CLIF's I8x16) we must re-type the values using a bitcast to avoid CLIF
+<a href=#3793 id=3793 data-nosnippet>3793</a>/// typing issues.
+<a href=#3794 id=3794 data-nosnippet>3794</a></span><span class="kw">fn </span>pop2_with_bitcast(
+<a href=#3795 id=3795 data-nosnippet>3795</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3796 id=3796 data-nosnippet>3796</a>    needed_type: Type,
+<a href=#3797 id=3797 data-nosnippet>3797</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3798 id=3798 data-nosnippet>3798</a>) -&gt; (Value, Value) {
+<a href=#3799 id=3799 data-nosnippet>3799</a>    <span class="kw">let </span>(a, b) = state.pop2();
+<a href=#3800 id=3800 data-nosnippet>3800</a>    <span class="kw">let </span>bitcast_a = optionally_bitcast_vector(a, needed_type, builder);
+<a href=#3801 id=3801 data-nosnippet>3801</a>    <span class="kw">let </span>bitcast_b = optionally_bitcast_vector(b, needed_type, builder);
+<a href=#3802 id=3802 data-nosnippet>3802</a>    (bitcast_a, bitcast_b)
+<a href=#3803 id=3803 data-nosnippet>3803</a>}
+<a href=#3804 id=3804 data-nosnippet>3804</a>
+<a href=#3805 id=3805 data-nosnippet>3805</a><span class="kw">pub fn </span>bitcast_arguments&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#3806 id=3806 data-nosnippet>3806</a>    builder: <span class="kw-2">&amp;</span>FunctionBuilder,
+<a href=#3807 id=3807 data-nosnippet>3807</a>    arguments: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>[Value],
+<a href=#3808 id=3808 data-nosnippet>3808</a>    params: <span class="kw-2">&amp;</span>[ir::AbiParam],
+<a href=#3809 id=3809 data-nosnippet>3809</a>    param_predicate: <span class="kw">impl </span>Fn(usize) -&gt; bool,
+<a href=#3810 id=3810 data-nosnippet>3810</a>) -&gt; Vec&lt;(Type, <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Value)&gt; {
+<a href=#3811 id=3811 data-nosnippet>3811</a>    <span class="kw">let </span>filtered_param_types = params
+<a href=#3812 id=3812 data-nosnippet>3812</a>        .iter()
+<a href=#3813 id=3813 data-nosnippet>3813</a>        .enumerate()
+<a href=#3814 id=3814 data-nosnippet>3814</a>        .filter(|(i, <span class="kw">_</span>)| param_predicate(<span class="kw-2">*</span>i))
+<a href=#3815 id=3815 data-nosnippet>3815</a>        .map(|(<span class="kw">_</span>, param)| param.value_type);
+<a href=#3816 id=3816 data-nosnippet>3816</a>
+<a href=#3817 id=3817 data-nosnippet>3817</a>    <span class="comment">// zip_eq, from the itertools::Itertools trait, is like Iterator::zip but panics if one
+<a href=#3818 id=3818 data-nosnippet>3818</a>    // iterator ends before the other. The `param_predicate` is required to select exactly as many
+<a href=#3819 id=3819 data-nosnippet>3819</a>    // elements of `params` as there are elements in `arguments`.
+<a href=#3820 id=3820 data-nosnippet>3820</a>    </span><span class="kw">let </span>pairs = filtered_param_types.zip_eq(arguments.iter_mut());
+<a href=#3821 id=3821 data-nosnippet>3821</a>
+<a href=#3822 id=3822 data-nosnippet>3822</a>    <span class="comment">// The arguments which need to be bitcasted are those which have some vector type but the type
+<a href=#3823 id=3823 data-nosnippet>3823</a>    // expected by the parameter is not the same vector type as that of the provided argument.
+<a href=#3824 id=3824 data-nosnippet>3824</a>    </span>pairs
+<a href=#3825 id=3825 data-nosnippet>3825</a>        .filter(|(param_type, <span class="kw">_</span>)| param_type.is_vector())
+<a href=#3826 id=3826 data-nosnippet>3826</a>        .filter(|(param_type, arg)| {
+<a href=#3827 id=3827 data-nosnippet>3827</a>            <span class="kw">let </span>arg_type = builder.func.dfg.value_type(<span class="kw-2">**</span>arg);
+<a href=#3828 id=3828 data-nosnippet>3828</a>            <span class="macro">assert!</span>(
+<a href=#3829 id=3829 data-nosnippet>3829</a>                arg_type.is_vector(),
+<a href=#3830 id=3830 data-nosnippet>3830</a>                <span class="string">"unexpected type mismatch: expected {}, argument {} was actually of type {}"</span>,
+<a href=#3831 id=3831 data-nosnippet>3831</a>                param_type,
+<a href=#3832 id=3832 data-nosnippet>3832</a>                <span class="kw-2">*</span>arg,
+<a href=#3833 id=3833 data-nosnippet>3833</a>                arg_type
+<a href=#3834 id=3834 data-nosnippet>3834</a>            );
+<a href=#3835 id=3835 data-nosnippet>3835</a>
+<a href=#3836 id=3836 data-nosnippet>3836</a>            <span class="comment">// This is the same check that would be done by `optionally_bitcast_vector`, except we
+<a href=#3837 id=3837 data-nosnippet>3837</a>            // can't take a mutable borrow of the FunctionBuilder here, so we defer inserting the
+<a href=#3838 id=3838 data-nosnippet>3838</a>            // bitcast instruction to the caller.
+<a href=#3839 id=3839 data-nosnippet>3839</a>            </span>arg_type != <span class="kw-2">*</span>param_type
+<a href=#3840 id=3840 data-nosnippet>3840</a>        })
+<a href=#3841 id=3841 data-nosnippet>3841</a>        .collect()
+<a href=#3842 id=3842 data-nosnippet>3842</a>}
+<a href=#3843 id=3843 data-nosnippet>3843</a>
+<a href=#3844 id=3844 data-nosnippet>3844</a><span class="doccomment">/// Like `bitcast_wasm_returns`, but for the parameters being passed to a specified callee.
+<a href=#3845 id=3845 data-nosnippet>3845</a></span><span class="kw">pub fn </span>bitcast_wasm_params(
+<a href=#3846 id=3846 data-nosnippet>3846</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#3847 id=3847 data-nosnippet>3847</a>    callee_signature: ir::SigRef,
+<a href=#3848 id=3848 data-nosnippet>3848</a>    arguments: <span class="kw-2">&amp;mut </span>[Value],
+<a href=#3849 id=3849 data-nosnippet>3849</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3850 id=3850 data-nosnippet>3850</a>) {
+<a href=#3851 id=3851 data-nosnippet>3851</a>    <span class="kw">let </span>callee_signature = <span class="kw-2">&amp;</span>builder.func.dfg.signatures[callee_signature];
+<a href=#3852 id=3852 data-nosnippet>3852</a>    <span class="kw">let </span>changes = bitcast_arguments(builder, arguments, <span class="kw-2">&amp;</span>callee_signature.params, |i| {
+<a href=#3853 id=3853 data-nosnippet>3853</a>        environ.is_wasm_parameter(callee_signature, i)
+<a href=#3854 id=3854 data-nosnippet>3854</a>    });
+<a href=#3855 id=3855 data-nosnippet>3855</a>    <span class="kw">for </span>(t, arg) <span class="kw">in </span>changes {
+<a href=#3856 id=3856 data-nosnippet>3856</a>        <span class="kw">let </span><span class="kw-2">mut </span>flags = MemFlagsData::new();
+<a href=#3857 id=3857 data-nosnippet>3857</a>        flags.set_endianness(ir::Endianness::Little);
+<a href=#3858 id=3858 data-nosnippet>3858</a>        <span class="kw-2">*</span>arg = builder.ins().bitcast(t, flags, <span class="kw-2">*</span>arg);
+<a href=#3859 id=3859 data-nosnippet>3859</a>    }
+<a href=#3860 id=3860 data-nosnippet>3860</a>}
+<a href=#3861 id=3861 data-nosnippet>3861</a>
+<a href=#3862 id=3862 data-nosnippet>3862</a><span class="attr">#[derive(Debug, Clone)]
+<a href=#3863 id=3863 data-nosnippet>3863</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>CatchClause {
+<a href=#3864 id=3864 data-nosnippet>3864</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) wasm_tag: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+<a href=#3865 id=3865 data-nosnippet>3865</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) tag_value: i32,
+<a href=#3866 id=3866 data-nosnippet>3866</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) block: ir::Block,
+<a href=#3867 id=3867 data-nosnippet>3867</a>}
+<a href=#3868 id=3868 data-nosnippet>3868</a>
+<a href=#3869 id=3869 data-nosnippet>3869</a><span class="kw">fn </span>create_catch_block(
+<a href=#3870 id=3870 data-nosnippet>3870</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3871 id=3871 data-nosnippet>3871</a>    state: <span class="kw-2">&amp;mut </span>FuncTranslationState,
+<a href=#3872 id=3872 data-nosnippet>3872</a>    catch: <span class="kw-2">&amp;</span>wasmparser::Catch,
+<a href=#3873 id=3873 data-nosnippet>3873</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#3874 id=3874 data-nosnippet>3874</a>) -&gt; WasmResult&lt;CatchClause&gt; {
+<a href=#3875 id=3875 data-nosnippet>3875</a>    <span class="kw">let </span>(is_ref, wasm_tag, label) = <span class="kw">match </span>catch {
+<a href=#3876 id=3876 data-nosnippet>3876</a>        wasmparser::Catch::One { tag, label } =&gt; (<span class="bool-val">false</span>, <span class="prelude-val">Some</span>(<span class="kw-2">*</span>tag), <span class="kw-2">*</span>label),
+<a href=#3877 id=3877 data-nosnippet>3877</a>        wasmparser::Catch::OneRef { tag, label } =&gt; (<span class="bool-val">true</span>, <span class="prelude-val">Some</span>(<span class="kw-2">*</span>tag), <span class="kw-2">*</span>label),
+<a href=#3878 id=3878 data-nosnippet>3878</a>        wasmparser::Catch::All { label } =&gt; (<span class="bool-val">false</span>, <span class="prelude-val">None</span>, <span class="kw-2">*</span>label),
+<a href=#3879 id=3879 data-nosnippet>3879</a>        wasmparser::Catch::AllRef { label } =&gt; (<span class="bool-val">true</span>, <span class="prelude-val">None</span>, <span class="kw-2">*</span>label),
+<a href=#3880 id=3880 data-nosnippet>3880</a>    };
+<a href=#3881 id=3881 data-nosnippet>3881</a>
+<a href=#3882 id=3882 data-nosnippet>3882</a>    <span class="kw">let </span>tag_value = wasm_tag.map_or(CATCH_ALL_TAG_VALUE, |t| t <span class="kw">as </span>i32);
+<a href=#3883 id=3883 data-nosnippet>3883</a>
+<a href=#3884 id=3884 data-nosnippet>3884</a>    <span class="kw">let </span>block = builder.create_block();
+<a href=#3885 id=3885 data-nosnippet>3885</a>    <span class="kw">let </span>exnref = builder.append_block_param(block, EXN_REF_TYPE);
+<a href=#3886 id=3886 data-nosnippet>3886</a>
+<a href=#3887 id=3887 data-nosnippet>3887</a>    builder.switch_to_block(block);
+<a href=#3888 id=3888 data-nosnippet>3888</a>
+<a href=#3889 id=3889 data-nosnippet>3889</a>    <span class="kw">let </span><span class="kw-2">mut </span>params = SmallVec::&lt;[Value; <span class="number">4</span>]&gt;::new();
+<a href=#3890 id=3890 data-nosnippet>3890</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(tag) = wasm_tag {
+<a href=#3891 id=3891 data-nosnippet>3891</a>        <span class="kw">let </span>tag_index = TagIndex::from_u32(tag);
+<a href=#3892 id=3892 data-nosnippet>3892</a>        params.extend(environ.translate_exn_unbox(builder, tag_index, exnref)<span class="question-mark">?</span>);
+<a href=#3893 id=3893 data-nosnippet>3893</a>    }
+<a href=#3894 id=3894 data-nosnippet>3894</a>    <span class="kw">if </span>is_ref {
+<a href=#3895 id=3895 data-nosnippet>3895</a>        params.push(exnref);
+<a href=#3896 id=3896 data-nosnippet>3896</a>    }
+<a href=#3897 id=3897 data-nosnippet>3897</a>
+<a href=#3898 id=3898 data-nosnippet>3898</a>    <span class="kw">let </span>depth = label <span class="kw">as </span>usize;
+<a href=#3899 id=3899 data-nosnippet>3899</a>    <span class="kw">let </span>idx = state.control_stack.len() - <span class="number">1 </span>- depth;
+<a href=#3900 id=3900 data-nosnippet>3900</a>    <span class="kw">let </span>frame = <span class="kw-2">&amp;mut </span>state.control_stack[idx];
+<a href=#3901 id=3901 data-nosnippet>3901</a>    frame.set_branched_to_exit();
+<a href=#3902 id=3902 data-nosnippet>3902</a>    canonicalise_then_jump(builder, frame.br_destination(), params.as_slice());
+<a href=#3903 id=3903 data-nosnippet>3903</a>
+<a href=#3904 id=3904 data-nosnippet>3904</a>    <span class="prelude-val">Ok</span>(CatchClause {
+<a href=#3905 id=3905 data-nosnippet>3905</a>        wasm_tag,
+<a href=#3906 id=3906 data-nosnippet>3906</a>        tag_value,
+<a href=#3907 id=3907 data-nosnippet>3907</a>        block,
+<a href=#3908 id=3908 data-nosnippet>3908</a>    })
+<a href=#3909 id=3909 data-nosnippet>3909</a>}
+<a href=#3910 id=3910 data-nosnippet>3910</a>
+<a href=#3911 id=3911 data-nosnippet>3911</a><span class="kw">fn </span>create_dispatch_block(
+<a href=#3912 id=3912 data-nosnippet>3912</a>    builder: <span class="kw-2">&amp;mut </span>FunctionBuilder,
+<a href=#3913 id=3913 data-nosnippet>3913</a>    environ: <span class="kw-2">&amp;mut </span>FuncEnvironment&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#3914 id=3914 data-nosnippet>3914</a>    clauses: <span class="kw">impl </span>Iterator&lt;Item = CatchClause&gt;,
+<a href=#3915 id=3915 data-nosnippet>3915</a>) -&gt; WasmResult&lt;ir::Block&gt; {
+<a href=#3916 id=3916 data-nosnippet>3916</a>    <span class="kw">let </span>clauses = clauses.collect_vec();
+<a href=#3917 id=3917 data-nosnippet>3917</a>
+<a href=#3918 id=3918 data-nosnippet>3918</a>    <span class="kw">let </span>catch_block = builder.create_block();
+<a href=#3919 id=3919 data-nosnippet>3919</a>    <span class="kw">let </span>exn_ptr = builder.append_block_param(catch_block, environ.reference_type());
+<a href=#3920 id=3920 data-nosnippet>3920</a>    <span class="kw">let </span>pre_selector = builder.append_block_param(catch_block, I64);
+<a href=#3921 id=3921 data-nosnippet>3921</a>    <span class="kw">let </span>catch_all_block = builder.create_block();
+<a href=#3922 id=3922 data-nosnippet>3922</a>    <span class="kw">let </span>catch_one_block = builder.create_block();
+<a href=#3923 id=3923 data-nosnippet>3923</a>    <span class="kw">let </span>dispatch_block = builder.create_block();
+<a href=#3924 id=3924 data-nosnippet>3924</a>
+<a href=#3925 id=3925 data-nosnippet>3925</a>    builder.switch_to_block(catch_block);
+<a href=#3926 id=3926 data-nosnippet>3926</a>    <span class="kw">let </span>catch_all_tag = builder.ins().iconst(I64, <span class="number">0</span>);
+<a href=#3927 id=3927 data-nosnippet>3927</a>    <span class="kw">let </span>matches = builder
+<a href=#3928 id=3928 data-nosnippet>3928</a>        .ins()
+<a href=#3929 id=3929 data-nosnippet>3929</a>        .icmp(IntCC::Equal, pre_selector, catch_all_tag);
+<a href=#3930 id=3930 data-nosnippet>3930</a>    canonicalise_brif(builder, matches, catch_all_block, <span class="kw-2">&amp;</span>[], catch_one_block, <span class="kw-2">&amp;</span>[]);
+<a href=#3931 id=3931 data-nosnippet>3931</a>
+<a href=#3932 id=3932 data-nosnippet>3932</a>    builder.switch_to_block(catch_all_block);
+<a href=#3933 id=3933 data-nosnippet>3933</a>    <span class="kw">let </span>catch_all_tag = builder
+<a href=#3934 id=3934 data-nosnippet>3934</a>        .ins()
+<a href=#3935 id=3935 data-nosnippet>3935</a>        .iconst(TAG_TYPE, i64::from(CATCH_ALL_TAG_VALUE));
+<a href=#3936 id=3936 data-nosnippet>3936</a>    canonicalise_then_jump(builder, dispatch_block, <span class="kw-2">&amp;</span>[catch_all_tag]);
+<a href=#3937 id=3937 data-nosnippet>3937</a>    builder.seal_block(catch_all_block);
+<a href=#3938 id=3938 data-nosnippet>3938</a>
+<a href=#3939 id=3939 data-nosnippet>3939</a>    builder.switch_to_block(catch_one_block);
+<a href=#3940 id=3940 data-nosnippet>3940</a>    <span class="kw">let </span>selector = environ.translate_exn_personality_selector(builder, exn_ptr)<span class="question-mark">?</span>;
+<a href=#3941 id=3941 data-nosnippet>3941</a>    canonicalise_then_jump(builder, dispatch_block, <span class="kw-2">&amp;</span>[selector]);
+<a href=#3942 id=3942 data-nosnippet>3942</a>    builder.seal_block(catch_one_block);
+<a href=#3943 id=3943 data-nosnippet>3943</a>
+<a href=#3944 id=3944 data-nosnippet>3944</a>    builder.switch_to_block(dispatch_block);
+<a href=#3945 id=3945 data-nosnippet>3945</a>    <span class="kw">let </span>selector = builder.append_block_param(dispatch_block, TAG_TYPE);
+<a href=#3946 id=3946 data-nosnippet>3946</a>    <span class="kw">let </span>exnref = environ.translate_exn_pointer_to_ref(builder, exn_ptr)<span class="question-mark">?</span>;
+<a href=#3947 id=3947 data-nosnippet>3947</a>
+<a href=#3948 id=3948 data-nosnippet>3948</a>    <span class="kw">let </span>rethrow_block = builder.create_block();
+<a href=#3949 id=3949 data-nosnippet>3949</a>    builder.append_block_param(rethrow_block, EXN_REF_TYPE);
+<a href=#3950 id=3950 data-nosnippet>3950</a>
+<a href=#3951 id=3951 data-nosnippet>3951</a>    <span class="kw">let </span><span class="kw-2">mut </span>current_selector = selector;
+<a href=#3952 id=3952 data-nosnippet>3952</a>    <span class="kw">let </span><span class="kw-2">mut </span>current_exn = exnref;
+<a href=#3953 id=3953 data-nosnippet>3953</a>
+<a href=#3954 id=3954 data-nosnippet>3954</a>    <span class="kw">for </span>(idx, clause) <span class="kw">in </span>clauses.iter().enumerate() {
+<a href=#3955 id=3955 data-nosnippet>3955</a>        <span class="kw">let </span>tag_value = builder.ins().iconst(TAG_TYPE, i64::from(clause.tag_value));
+<a href=#3956 id=3956 data-nosnippet>3956</a>        <span class="kw">let </span>matches = builder
+<a href=#3957 id=3957 data-nosnippet>3957</a>            .ins()
+<a href=#3958 id=3958 data-nosnippet>3958</a>            .icmp(IntCC::Equal, current_selector, tag_value);
+<a href=#3959 id=3959 data-nosnippet>3959</a>
+<a href=#3960 id=3960 data-nosnippet>3960</a>        <span class="kw">if </span>idx + <span class="number">1 </span>== clauses.len() {
+<a href=#3961 id=3961 data-nosnippet>3961</a>            canonicalise_brif(
+<a href=#3962 id=3962 data-nosnippet>3962</a>                builder,
+<a href=#3963 id=3963 data-nosnippet>3963</a>                matches,
+<a href=#3964 id=3964 data-nosnippet>3964</a>                clause.block,
+<a href=#3965 id=3965 data-nosnippet>3965</a>                <span class="kw-2">&amp;</span>[current_exn],
+<a href=#3966 id=3966 data-nosnippet>3966</a>                rethrow_block,
+<a href=#3967 id=3967 data-nosnippet>3967</a>                <span class="kw-2">&amp;</span>[exnref],
+<a href=#3968 id=3968 data-nosnippet>3968</a>            );
+<a href=#3969 id=3969 data-nosnippet>3969</a>        } <span class="kw">else </span>{
+<a href=#3970 id=3970 data-nosnippet>3970</a>            <span class="kw">let </span>continue_block = builder.create_block();
+<a href=#3971 id=3971 data-nosnippet>3971</a>            builder.append_block_param(continue_block, TAG_TYPE);
+<a href=#3972 id=3972 data-nosnippet>3972</a>            builder.append_block_param(continue_block, EXN_REF_TYPE);
+<a href=#3973 id=3973 data-nosnippet>3973</a>
+<a href=#3974 id=3974 data-nosnippet>3974</a>            canonicalise_brif(
+<a href=#3975 id=3975 data-nosnippet>3975</a>                builder,
+<a href=#3976 id=3976 data-nosnippet>3976</a>                matches,
+<a href=#3977 id=3977 data-nosnippet>3977</a>                clause.block,
+<a href=#3978 id=3978 data-nosnippet>3978</a>                <span class="kw-2">&amp;</span>[current_exn],
+<a href=#3979 id=3979 data-nosnippet>3979</a>                continue_block,
+<a href=#3980 id=3980 data-nosnippet>3980</a>                <span class="kw-2">&amp;</span>[current_selector, current_exn],
+<a href=#3981 id=3981 data-nosnippet>3981</a>            );
+<a href=#3982 id=3982 data-nosnippet>3982</a>
+<a href=#3983 id=3983 data-nosnippet>3983</a>            builder.seal_block(continue_block);
+<a href=#3984 id=3984 data-nosnippet>3984</a>            builder.switch_to_block(continue_block);
+<a href=#3985 id=3985 data-nosnippet>3985</a>            <span class="kw">let </span>params = builder.func.dfg.block_params(continue_block);
+<a href=#3986 id=3986 data-nosnippet>3986</a>            current_selector = params[<span class="number">0</span>];
+<a href=#3987 id=3987 data-nosnippet>3987</a>            current_exn = params[<span class="number">1</span>];
+<a href=#3988 id=3988 data-nosnippet>3988</a>        }
+<a href=#3989 id=3989 data-nosnippet>3989</a>    }
+<a href=#3990 id=3990 data-nosnippet>3990</a>    builder.seal_block(dispatch_block);
+<a href=#3991 id=3991 data-nosnippet>3991</a>
+<a href=#3992 id=3992 data-nosnippet>3992</a>    builder.switch_to_block(rethrow_block);
+<a href=#3993 id=3993 data-nosnippet>3993</a>    <span class="kw">let </span>rethrow_exn = builder.func.dfg.block_params(rethrow_block)[<span class="number">0</span>];
+<a href=#3994 id=3994 data-nosnippet>3994</a>    environ.translate_exn_reraise_unmatched(builder, rethrow_exn)<span class="question-mark">?</span>;
+<a href=#3995 id=3995 data-nosnippet>3995</a>    builder.seal_block(rethrow_block);
+<a href=#3996 id=3996 data-nosnippet>3996</a>
+<a href=#3997 id=3997 data-nosnippet>3997</a>    <span class="prelude-val">Ok</span>(catch_block)
+<a href=#3998 id=3998 data-nosnippet>3998</a>}
 </code></pre></div></section></main></body></html>

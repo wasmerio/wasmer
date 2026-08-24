@@ -151,7 +151,7 @@
 <a href=#151 id=151 data-nosnippet>151</a>        // the allocated heap is never moved to a different location.
 <a href=#152 id=152 data-nosnippet>152</a>        </span><span class="kw">let </span>m0_is_enabled = memory_styles
 <a href=#153 id=153 data-nosnippet>153</a>            .get(MemoryIndex::from_u32(<span class="number">0</span>))
-<a href=#154 id=154 data-nosnippet>154</a>            .is_some_and(|memory| <span class="macro">matches!</span>(memory, MemoryStyle::Static { .. }));
+<a href=#154 id=154 data-nosnippet>154</a>            .is_some_and(|memory| <span class="macro">matches!</span>(memory, MemoryStyle::Static));
 <a href=#155 id=155 data-nosnippet>155</a>
 <a href=#156 id=156 data-nosnippet>156</a>        <span class="kw">let </span>(function_name, module_name) = <span class="kw">if </span>config.experimental_artifact {
 <a href=#157 id=157 data-nosnippet>157</a>            (function.linkage_name(), String::new())

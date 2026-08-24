@@ -68,7 +68,7 @@
 <a href=#68 id=68 data-nosnippet>68</a>        features: Features,
 <a href=#69 id=69 data-nosnippet>69</a>    ) -&gt; <span class="self">Self </span>{
 <a href=#70 id=70 data-nosnippet>70</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#71 id=71 data-nosnippet>71</a>        </span><span class="kw">let </span>tunables = BaseTunables::for_target(<span class="kw-2">&amp;</span>target);
+<a href=#71 id=71 data-nosnippet>71</a>        </span><span class="kw">let </span>tunables = BaseTunables::new();
 <a href=#72 id=72 data-nosnippet>72</a>        <span class="kw">let </span>compiler = compiler_config.compiler();
 <a href=#73 id=73 data-nosnippet>73</a>        <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"engine-{}"</span>, compiler.name());
 <a href=#74 id=74 data-nosnippet>74</a>        <span class="self">Self </span>{
@@ -143,7 +143,7 @@
 <a href=#143 id=143 data-nosnippet>143</a>    </span><span class="kw">pub fn </span>headless() -&gt; <span class="self">Self </span>{
 <a href=#144 id=144 data-nosnippet>144</a>        <span class="kw">let </span>target = Target::default();
 <a href=#145 id=145 data-nosnippet>145</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#146 id=146 data-nosnippet>146</a>        </span><span class="kw">let </span>tunables = BaseTunables::for_target(<span class="kw-2">&amp;</span>target);
+<a href=#146 id=146 data-nosnippet>146</a>        </span><span class="kw">let </span>tunables = BaseTunables::new();
 <a href=#147 id=147 data-nosnippet>147</a>        <span class="self">Self </span>{
 <a href=#148 id=148 data-nosnippet>148</a>            inner: Arc::new(Mutex::new(EngineInner {
 <a href=#149 id=149 data-nosnippet>149</a>                <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
