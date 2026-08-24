@@ -211,8 +211,8 @@ impl Features {
     /// This feature gates functions and blocks returning multiple values in a
     /// module, for example.
     ///
-    /// Singlepass support is experimental and does not include integration with
-    /// host functions.
+    /// Singlepass support for multi-value is experimental and does not include
+    /// integration with host functions returning multiple values.
     ///
     /// This is `true` by default.
     ///
