@@ -12,7 +12,7 @@ macro_rules! wasm_unsupported {
 pub fn from_binaryreadererror_wasmerror(original: BinaryReaderError) -> WasmError {
     WasmError::InvalidWebAssembly {
         message: original.message().into(),
-        offset: original.offset(),
+        offset: original.offset() as usize,
     }
 }
 

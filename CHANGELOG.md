@@ -6,6 +6,114 @@
 
 ## **Unreleased**
 
+## 7.3.0 - 21/08/2026
+
+This release includes:
+- Async JavaScript API with JSPI support.
+- Experimental artifact format across LLVM, Cranelift, and Singlepass on all Linux targets, including GDB/LLDB profiling support.
+- Full multi-memory support across all compiler backends.
+- Multi-value host functions for Cranelift and LLVM.
+- New CLI capabilities for cronjobs, app CDN cache management, and offline dependency resolution.
+- C API support for externref and funcref.
+- Page-granular mmap support through the updated WASIX libc.
+- Windows support has been removed from the Sys compiler backends, including Singlepass.
+- LLVM support for the RV32 target has been removed.
+
+## Fixed
+
+## Changed
+
+  - [#6903](https://github.com/wasmerio/wasmer/pull/6903) feat!(CLI): disable gen-c-header
+
+
+
+## 7.3.0-rc.1 - 21/08/2026
+
+## Added
+
+  - [#6771](https://github.com/wasmerio/wasmer/pull/6771) Add app CDN cache CLI commands
+  - [#6878](https://github.com/wasmerio/wasmer/pull/6878) fix(CI): address 2 build errors on macOS
+  - [#6843](https://github.com/wasmerio/wasmer/pull/6843) Add async JavaScript API and JSPI support
+  - [#6879](https://github.com/wasmerio/wasmer/pull/6879) fix(security): add missing bounds check for static linear
+  - [#6862](https://github.com/wasmerio/wasmer/pull/6862) fix(memory.atomic): offset, add boundary and alignment checks
+  - [#6849](https://github.com/wasmerio/wasmer/pull/6849) feat(experimental-artifact): add --profiler gdb/lldb
+  - [#6812](https://github.com/wasmerio/wasmer/pull/6812) feat(Singlepass,Cranelift): add experiment Artifact format support
+  - [#6790](https://github.com/wasmerio/wasmer/pull/6790) feat(LLVM): add experimental Artifact format
+  - [#6801](https://github.com/wasmerio/wasmer/pull/6801) feat: add CLI support for offline dependency resolution
+  - [#6671](https://github.com/wasmerio/wasmer/pull/6671) Add `CoroutineStoreGuard` for safe store context management across yield points
+  - [#6772](https://github.com/wasmerio/wasmer/pull/6772) Bump wasix-libc to v2026-07-03.1 (page-granular mmap) and add mmap emulation tests
+  - [#6672](https://github.com/wasmerio/wasmer/pull/6672) Add two variants of the `sqrt` libcall
+
+## Changed
+
+  - [#6915](https://github.com/wasmerio/wasmer/pull/6915) deps: update webc package
+  - [#6912](https://github.com/wasmerio/wasmer/pull/6912) script: release submodules from a dedicated 'wasmer-release' branch
+  - [#6906](https://github.com/wasmerio/wasmer/pull/6906) CI(integration): always use Cranelift compiler
+  - [#6896](https://github.com/wasmerio/wasmer/pull/6896) feat: directly fetch cronjob invocations by ID & bump schema
+  - [#6881](https://github.com/wasmerio/wasmer/pull/6881) test(Singlepass): test many stack slots released
+  - [#6898](https://github.com/wasmerio/wasmer/pull/6898) feat!(Singlepass): drop Windows support and simplify
+  - [#6882](https://github.com/wasmerio/wasmer/pull/6882) deps: update to latest SemVer-breaking version
+  - [#6876](https://github.com/wasmerio/wasmer/pull/6876) feat!: drop unused and broken no-std support
+  - [#6866](https://github.com/wasmerio/wasmer/pull/6866) feat(experimental-artifact): replace Cargo feature with a config option
+  - [#6860](https://github.com/wasmerio/wasmer/pull/6860) deps(inkwell): port to latest release
+  - [#6826](https://github.com/wasmerio/wasmer/pull/6826) feat!: drop Windows support for Sys (Compilers) back-end
+  - [#6841](https://github.com/wasmerio/wasmer/pull/6841) feat(experimental-artifact): support all Linux targets
+  - [#6855](https://github.com/wasmerio/wasmer/pull/6855) deps: bump MSRV to 1.95
+  - [#6856](https://github.com/wasmerio/wasmer/pull/6856) deps(comfy-table): port to latest release
+  - [#6848](https://github.com/wasmerio/wasmer/pull/6848) feat: port to vanilla Wild and use in-memory FS
+  - [#6839](https://github.com/wasmerio/wasmer/pull/6839) deps: update to latest SemVer-breaking version
+  - [#6838](https://github.com/wasmerio/wasmer/pull/6838) test(wasix): cover POSIX signal semantics (SA_SIGINFO, SA_RESETHAND, signal masks)
+  - [#6840](https://github.com/wasmerio/wasmer/pull/6840) chore: do not cast from integer to pointer and back
+  - [#6831](https://github.com/wasmerio/wasmer/pull/6831) feat(LLVM,Cranelift,Singlepass): fully support multi-memory WA proposal
+  - [#6832](https://github.com/wasmerio/wasmer/pull/6832) chore: simplify assumptions about `PointerWidth`
+  - [#6828](https://github.com/wasmerio/wasmer/pull/6828) feat!(rv32): drop LLVM target
+  - [#6827](https://github.com/wasmerio/wasmer/pull/6827) test: sync SPEC test submodule
+  - [#6816](https://github.com/wasmerio/wasmer/pull/6816) feat(Cranelift,LLVM): fully support multi-value for host functions
+  - [#6817](https://github.com/wasmerio/wasmer/pull/6817) deps: update crates that need major version bump
+  - [#6813](https://github.com/wasmerio/wasmer/pull/6813) deps(Cranelift): update to 0.134.2
+  - [#6814](https://github.com/wasmerio/wasmer/pull/6814) chore: merge 7.2.1 release version update
+  - [#6806](https://github.com/wasmerio/wasmer/pull/6806) chore: properly communicate usage of BUSL license
+  - [#6791](https://github.com/wasmerio/wasmer/pull/6791) feat(c-api): implement externref/funcref reference surface
+  - [#6739](https://github.com/wasmerio/wasmer/pull/6739) feat: cronjobs CLI support
+  - [#6782](https://github.com/wasmerio/wasmer/pull/6782) Remove dependency on `memoffset`
+  - [#6751](https://github.com/wasmerio/wasmer/pull/6751) feat(cli): preserve yaml formatting in edits
+  - [#6781](https://github.com/wasmerio/wasmer/pull/6781) Update crossbeam-epoch to 0.9.20
+
+## Fixed
+
+  - [#6904](https://github.com/wasmerio/wasmer/pull/6904) fix(VMOffsets): handle gracefully u32 -> i32 casting
+  - [#6905](https://github.com/wasmerio/wasmer/pull/6905) fix(tests): reflect recent Nix-based python package changes
+  - [#6895](https://github.com/wasmerio/wasmer/pull/6895) fix(Singlepass): simplify stack rounding logic
+  - [#6894](https://github.com/wasmerio/wasmer/pull/6894) test: fix `cargo-nextest` installation
+  - [#6880](https://github.com/wasmerio/wasmer/pull/6880) fix(Singlepass): drop wrong constant folding for emit comparison on x86_64
+  - [#6871](https://github.com/wasmerio/wasmer/pull/6871) fix(deterministic_id): include all code-sensitive config flags
+  - [#6698](https://github.com/wasmerio/wasmer/pull/6698) feat(wasix): build wasm_tests Rust fixtures with cargo-wasix
+  - [#6875](https://github.com/wasmerio/wasmer/pull/6875) fix(wasix): complete built-in subprocesses and support version flags
+  - [#6863](https://github.com/wasmerio/wasmer/pull/6863) fix(wasix): preserve CR and LF in noncanonical tty mode
+  - [#6872](https://github.com/wasmerio/wasmer/pull/6872) fix(wasix): don't inherit a dependency's entrypoint over the root's own commands
+  - [#6858](https://github.com/wasmerio/wasmer/pull/6858) fix(wasix): preserve nonblocking connect errors
+  - [#6853](https://github.com/wasmerio/wasmer/pull/6853) fix: memory32_atomic_check miss off-by-width bounds check
+  - [#6842](https://github.com/wasmerio/wasmer/pull/6842) fix: parse plan-based perish reason
+  - [#6834](https://github.com/wasmerio/wasmer/pull/6834) Macos unwind fixes (debug and release builds)
+  - [#6836](https://github.com/wasmerio/wasmer/pull/6836) fix(Singlepass,Cranelift,LLVM): properly support multiple local/imported tables
+  - [#6837](https://github.com/wasmerio/wasmer/pull/6837) fix: don't panic when forwarding a non-UTF-8 host environment
+  - [#6804](https://github.com/wasmerio/wasmer/pull/6804) refactor(wasix): thread per-instantiation state through runtime hooks (fixes WAX-600 cross-store panic)
+  - [#6818](https://github.com/wasmerio/wasmer/pull/6818) fix(wasix): make package resolution semver-compliant
+  - [#6815](https://github.com/wasmerio/wasmer/pull/6815) fix(config): loudly reject build metadata in version requirements
+  - [#6810](https://github.com/wasmerio/wasmer/pull/6810) fix(virtual-io): retry selector poll on EINTR in release builds
+  - [#6807](https://github.com/wasmerio/wasmer/pull/6807) fix(c-api): skip hostref test for the V8 backend
+  - [#6792](https://github.com/wasmerio/wasmer/pull/6792) fix(virtual-fs): follow symlinks in webc volumes
+  - [#6805](https://github.com/wasmerio/wasmer/pull/6805) fix(cli): skip yaml-edit if it emits invalid yaml
+  - [#6788](https://github.com/wasmerio/wasmer/pull/6788) fix(cli): migrate app volume commands to per-volume S3 credentials
+  - [#6767](https://github.com/wasmerio/wasmer/pull/6767) fix(wasix): pass through EFD_NONBLOCK
+  - [#6784](https://github.com/wasmerio/wasmer/pull/6784) fix(wasix): report SocketStream filetype for socketpair fds
+  - [#6757](https://github.com/wasmerio/wasmer/pull/6757) fix: allow seek on readonly mem_fs files
+  - [#6639](https://github.com/wasmerio/wasmer/pull/6639) fix: Prevent memory leak for subprocesses
+  - [#6776](https://github.com/wasmerio/wasmer/pull/6776) fix(vm): share module passive data across instances instead of deep-copying
+  - [#6605](https://github.com/wasmerio/wasmer/pull/6605) fix(wasix): allow unlinking symlinks discovered on the backing FS
+
+
+
 ## 7.2.1 - 23/07/2026
 
 ## Added

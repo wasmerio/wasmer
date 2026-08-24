@@ -133,7 +133,7 @@ impl<'a: 'b, 'b> Extend<&'b Operator<'a>> for MiddlewareReaderState<'a> {
 
 impl<'a> MiddlewareBinaryReader<'a> {
     /// Constructs a `MiddlewareBinaryReader` with an explicit starting offset.
-    pub fn new_with_offset(data: &'a [u8], original_offset: usize) -> Self {
+    pub fn new_with_offset(data: &'a [u8], original_offset: u64) -> Self {
         let inner = BinaryReader::new(data, original_offset);
         Self {
             state: MiddlewareReaderState {
@@ -273,8 +273,10 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
 
     fn original_position(&self) -> usize {
         match self.state.inner.as_ref().expect("inner state must exist") {
-            MiddlewareInnerReader::Binary { reader, .. } => reader.original_position(),
-            MiddlewareInnerReader::Operator(operator_reader) => operator_reader.original_position(),
+            MiddlewareInnerReader::Binary { reader, .. } => reader.original_position() as usize,
+            MiddlewareInnerReader::Operator(operator_reader) => {
+                operator_reader.original_position() as usize
+            }
         }
     }
 
@@ -295,11 +297,12 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
     }
 
     fn range(&self) -> Range<usize> {
-        match self.state.inner.as_ref().expect("inner state must exist") {
+        let range = match self.state.inner.as_ref().expect("inner state must exist") {
             MiddlewareInnerReader::Binary { reader, .. } => reader.range(),
             MiddlewareInnerReader::Operator(operator_reader) => {
                 operator_reader.get_binary_reader().range()
             }
-        }
+        };
+        range.start as usize..range.end as usize
     }
 }

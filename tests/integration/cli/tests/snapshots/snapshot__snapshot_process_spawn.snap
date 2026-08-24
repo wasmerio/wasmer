@@ -10,9 +10,6 @@ expression: snapshot
       "wasmer/coreutils"
     ],
     "include_webcs": [],
-    "wasmer_args": [
-      "--llvm"
-    ],
     "cli_args": [],
     "enable_threads": true,
     "enable_network": false

@@ -12,17 +12,17 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=7.2.1", path = "lib/api", default-features = false }
-wasmer-cache = { version = "=7.2.1", path = "lib/cache", optional = true }
-wasmer-compiler = { version = "=7.2.1", path = "lib/compiler", features = [
+wasmer = { version = "=7.3.0", path = "lib/api", default-features = false }
+wasmer-cache = { version = "=7.3.0", path = "lib/cache", optional = true }
+wasmer-compiler = { version = "=7.3.0", path = "lib/compiler", features = [
   "compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=7.2.1", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=7.2.1", path = "lib/compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=7.2.1", path = "lib/compiler-singlepass", optional = true }
-wasmer-middlewares = { version = "=7.2.1", path = "lib/middlewares", optional = true }
-wasmer-types = { version = "=7.2.1", path = "lib/types" }
-wasmer-wast = { version = "=7.2.1", path = "tests/lib/wast", optional = true }
+wasmer-compiler-cranelift = { version = "=7.3.0", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=7.3.0", path = "lib/compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=7.3.0", path = "lib/compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=7.3.0", path = "lib/middlewares", optional = true }
+wasmer-types = { version = "=7.3.0", path = "lib/types" }
+wasmer-wast = { version = "=7.3.0", path = "tests/lib/wast", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 
 # Third party dependencies
@@ -81,17 +81,17 @@ homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
 rust-version = "1.95"
-version = "7.2.1"
+version = "7.3.0"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.702.1", path = "lib/package" }
+wasmer-package = { version = "0.703.0", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
 
 # Wasmer-owned crates
-webc = "=12.0.0"
+webc = "=12.0.1"
 shared-buffer = "0.1.4"
 loupe = "0.2.0"
 
@@ -134,9 +134,9 @@ console = "0.16.1"
 console-subscriber = "0.5.0"
 cooked-waker = "5"
 corosensei = "0.3.0"
-cranelift-codegen = { version = "=0.134.3", default-features = false }
-cranelift-entity = { version = "=0.134.3", default-features = false }
-cranelift-frontend = { version = "=0.134.3", default-features = false }
+cranelift-codegen = { version = "=0.135.0", default-features = false }
+cranelift-entity = { version = "=0.135.0", default-features = false }
+cranelift-frontend = { version = "=0.135.0", default-features = false }
 crc32fast = "1.5.0"
 criterion = { version = "0.8.1", default-features = false }
 crossbeam-channel = "0.5.15"
@@ -308,17 +308,17 @@ wasm-bindgen = "0.2.120"
 wasm-bindgen-futures = "0.4.70"
 wasm-bindgen-test = "0.3.70"
 wasm-coredump-builder = "0.2.2"
-wasm-encoder = { version = "0.256.0", default-features = false, features = [
+wasm-encoder = { version = "0.257.1", default-features = false, features = [
   "std",
 ] }
-wasm-smith = "0.256.0"
-wasmparser = { version = "0.256.0", default-features = false, features = [
+wasm-smith = "0.257.1"
+wasmparser = { version = "0.257.1", default-features = false, features = [
   "validate",
   "features",
   "simd",
 ] }
-wasmprinter = "0.256.0"
-wast = "256.0.0"
+wasmprinter = "0.257.1"
+wast = "257.0.0"
 wat = "1.256.0"
 wcgi = "0.3.0"
 wcgi-host = "0.3.0"
@@ -361,14 +361,14 @@ reqwest = { workspace = true, features = ["blocking", "rustls"] }
 itertools.workspace = true
 
 [target.'cfg(not(target_os = "windows"))'.dev-dependencies]
-wasmer = { version = "=7.2.1", path = "lib/api", default-features = false, features = [
+wasmer = { version = "=7.3.0", path = "lib/api", default-features = false, features = [
   "compiler",
   "singlepass",
   "sys",
 ] }
 
 [target.'cfg(target_os = "windows")'.dev-dependencies]
-wasmer = { version = "=7.2.1", path = "lib/api", default-features = false, features = [
+wasmer = { version = "=7.3.0", path = "lib/api", default-features = false, features = [
   "compiler",
   "sys",
   "v8",

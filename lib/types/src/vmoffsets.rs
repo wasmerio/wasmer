@@ -8,7 +8,7 @@
 
 use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, TableIndex, entity::EntityRef,
+    ModuleInfo, TableIndex, WasmError, WasmResult, entity::EntityRef,
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
@@ -675,6 +675,14 @@ impl VMOffsets {
         4
     }
 }
+
+/// Convert a `VMContext` offset to the signed displacement used by compilers.
+pub fn vmctx_offset(offset: u32) -> WasmResult<i32> {
+    i32::try_from(offset)
+        .map_err(|_| WasmError::Generic(format!("VMContext offset {offset} exceeds i32::MAX")))
+}
+
+// TODO: make a breaking change where the return type will be `i32` instead!
 
 /// Offsets for `VMContext`.
 impl VMOffsets {
