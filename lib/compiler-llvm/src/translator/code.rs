@@ -151,7 +151,7 @@ impl FuncTranslator {
         // the allocated heap is never moved to a different location.
         let m0_is_enabled = memory_styles
             .get(MemoryIndex::from_u32(0))
-            .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }));
+            .is_some_and(|memory| matches!(memory, MemoryStyle::Static));
 
         let (function_name, module_name) = if config.experimental_artifact {
             (function.linkage_name(), String::new())
@@ -447,7 +447,7 @@ impl FuncTranslator {
             let op = reader.read_operator()?;
             if let Some((dibuilder, subprogram)) = debug_info.as_ref() {
                 let (line, column, scope) =
-                    if let Some(location) = self.source_map.get(original_pos as usize) {
+                    if let Some(location) = self.source_map.get(u64::from(original_pos)) {
                         let file = dibuilder.create_file(&location.file, &location.directory);
                         // TODO: try caching the lexical scopes (might be a space saver)
                         let block = dibuilder.create_lexical_block(

@@ -112,7 +112,7 @@ in
         ''
           install -Dm755 target/release/wasmer $out/bin/wasmer
 
-          install -Dm644 lib/c-api/wasmer.h $out/include/wasmer.h
+          install -Dm644 target/release/build/wasmer-c-api-*/out/wasmer.h $out/include/wasmer.h
           install -Dm644 lib/c-api/wasmer_wasm.h $out/include/wasmer_wasm.h
           install -Dm644 lib/c-api/tests/wasm-c-api/include/wasm.h $out/include/wasm.h
           install -Dm644 lib/c-api/tests/wasm-c-api/include/wasm.hh $out/include/wasm.hh

@@ -326,13 +326,16 @@ impl VMOwnedMemory {
                 }
             }
 
-            let offset_guard_bytes = style.offset_guard_size() as usize;
+            let offset_guard_bytes = usize::try_from(style.offset_guard_size()).map_err(|e| {
+                MemoryError::Generic(format!("cannot install memory guard page: {e}"))
+            })?;
 
             let minimum_pages = match style {
                 MemoryStyle::Dynamic { .. } => memory.minimum,
-                MemoryStyle::Static { bound, .. } => {
-                    assert_ge!(*bound, memory.minimum);
-                    *bound
+                MemoryStyle::Static => {
+                    let bound = MemoryStyle::static_bound();
+                    assert_ge!(bound, memory.minimum);
+                    bound
                 }
             };
             let minimum_bytes = minimum_pages.bytes().0;

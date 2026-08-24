@@ -51,7 +51,7 @@ fn enable_m0_optimization(compile_info: &CompileModuleInfo) -> bool {
     compile_info
         .memory_styles
         .get(MemoryIndex::from_u32(0))
-        .is_some_and(|memory| matches!(memory, MemoryStyle::Static { .. }))
+        .is_some_and(|memory| matches!(memory, MemoryStyle::Static))
 }
 
 impl FuncTrampoline {

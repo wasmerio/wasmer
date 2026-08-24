@@ -1596,14 +1596,9 @@ impl FuncEnvironment<'_> {
                     false,
                 )
             }
-            MemoryStyle::Static {
-                bound,
-                offset_guard_size,
-            } => (
-                Uimm64::new(offset_guard_size),
-                HeapStyle::Static {
-                    bound: bound.bytes().0 as u64,
-                },
+            MemoryStyle::Static => (
+                Uimm64::new(MemoryStyle::static_offset_guard_size()),
+                HeapStyle::Static,
                 true,
             ),
         };

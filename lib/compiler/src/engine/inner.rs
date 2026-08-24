@@ -68,7 +68,7 @@ impl Engine {
         features: Features,
     ) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
-        let tunables = BaseTunables::for_target(&target);
+        let tunables = BaseTunables::new();
         let compiler = compiler_config.compiler();
         let name = format!("engine-{}", compiler.name());
         Self {
@@ -143,7 +143,7 @@ impl Engine {
     pub fn headless() -> Self {
         let target = Target::default();
         #[cfg(not(target_arch = "wasm32"))]
-        let tunables = BaseTunables::for_target(&target);
+        let tunables = BaseTunables::new();
         Self {
             inner: Arc::new(Mutex::new(EngineInner {
                 #[cfg(feature = "compiler")]

@@ -27,7 +27,7 @@ pub struct SourceLocation {
 /// module. This map performs that translation once before parallel codegen.
 #[derive(Default)]
 pub struct WasmSourceMap {
-    locations: BTreeMap<usize, SourceLocation>,
+    locations: BTreeMap<u64, SourceLocation>,
 }
 
 impl WasmSourceMap {
@@ -70,7 +70,7 @@ impl WasmSourceMap {
                     format!(
                         "Wasm operator offset {offset} precedes code section offset {code_base}"
                     )
-                })? as u64;
+                })?;
                 let Ok(Some(location)) = context.find_location(address) else {
                     continue;
                 };
@@ -102,14 +102,14 @@ impl WasmSourceMap {
     }
 
     /// Return the source location for a module-relative Wasm offset.
-    pub fn get(&self, wasm_offset: usize) -> Option<&SourceLocation> {
+    pub fn get(&self, wasm_offset: u64) -> Option<&SourceLocation> {
         self.locations.get(&wasm_offset)
     }
 
     /// Return the first mapped source location in a function body.
     pub fn first_in_function(&self, body: &FunctionBodyData<'_>) -> Option<&SourceLocation> {
         self.locations
-            .range(body.module_offset..body.module_offset.saturating_add(body.data.len()))
+            .range(body.module_offset..body.module_offset.saturating_add(body.data.len() as u64))
             .next()
             .map(|(_, location)| location)
     }
