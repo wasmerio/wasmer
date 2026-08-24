@@ -204,6 +204,9 @@ pub extern "C" fn wasmer_features_bulk_memory(
 /// This feature gates functions and blocks returning multiple values in a
 /// module, for example.
 ///
+/// Singlepass support is experimental and does not include integration with
+/// host functions.
+///
 /// This is `true` by default.
 ///
 /// [proposal]: https://github.com/webassembly/multi-value

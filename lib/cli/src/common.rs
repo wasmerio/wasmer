@@ -23,7 +23,8 @@ pub struct WasmFeatures {
     #[clap(long = "enable-reference-types")]
     pub reference_types: bool,
 
-    /// Enable support for the multi value proposal.
+    /// Enable support for the multi-value proposal. Singlepass support is
+    /// experimental and does not include integration with host functions.
     #[clap(long = "enable-multi-value")]
     pub multi_value: bool,
 
