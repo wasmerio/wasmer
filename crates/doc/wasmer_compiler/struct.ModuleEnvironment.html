@@ -91,7 +91,7 @@ The function bodies will be translated by a specific compiler backend.</p>
     &amp;mut self,
     _module_translation_state: &amp;<a class="struct" href="struct.ModuleTranslationState.html" title="struct wasmer_compiler::ModuleTranslationState">ModuleTranslationState</a>,
     body_bytes: &amp;'data [<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u8.html">u8</a>],
-    body_offset: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.usize.html">usize</a>,
+    body_offset: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u64.html">u64</a>,
 ) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="method.reserve_data_initializers" class="method"><a class="src rightside" href="../src/wasmer_compiler/translator/environ.rs.html#423-427">Source</a><h4 class="code-header">pub(crate) fn <a href="#method.reserve_data_initializers" class="fn">reserve_data_initializers</a>(&amp;mut self, num: <a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.u32.html">u32</a>) -&gt; WasmResult&lt;<a class="primitive" href="https://doc.rust-lang.org/1.95.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="method.declare_data_initialization" class="method"><a class="src rightside" href="../src/wasmer_compiler/translator/environ.rs.html#429-443">Source</a><h4 class="code-header">pub(crate) fn <a href="#method.declare_data_initialization" class="fn">declare_data_initialization</a>(
     &amp;mut self,
     memory_index: MemoryIndex,

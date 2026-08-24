@@ -133,7 +133,7 @@
 <a href=#133 id=133 data-nosnippet>133</a>
 <a href=#134 id=134 data-nosnippet>134</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; MiddlewareBinaryReader&lt;<span class="lifetime">'a</span>&gt; {
 <a href=#135 id=135 data-nosnippet>135</a>    <span class="doccomment">/// Constructs a `MiddlewareBinaryReader` with an explicit starting offset.
-<a href=#136 id=136 data-nosnippet>136</a>    </span><span class="kw">pub fn </span>new_with_offset(data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], original_offset: usize) -&gt; <span class="self">Self </span>{
+<a href=#136 id=136 data-nosnippet>136</a>    </span><span class="kw">pub fn </span>new_with_offset(data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], original_offset: u64) -&gt; <span class="self">Self </span>{
 <a href=#137 id=137 data-nosnippet>137</a>        <span class="kw">let </span>inner = BinaryReader::new(data, original_offset);
 <a href=#138 id=138 data-nosnippet>138</a>        <span class="self">Self </span>{
 <a href=#139 id=139 data-nosnippet>139</a>            state: MiddlewareReaderState {
@@ -273,34 +273,37 @@
 <a href=#273 id=273 data-nosnippet>273</a>
 <a href=#274 id=274 data-nosnippet>274</a>    <span class="kw">fn </span>original_position(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
 <a href=#275 id=275 data-nosnippet>275</a>        <span class="kw">match </span><span class="self">self</span>.state.inner.as_ref().expect(<span class="string">"inner state must exist"</span>) {
-<a href=#276 id=276 data-nosnippet>276</a>            MiddlewareInnerReader::Binary { reader, .. } =&gt; reader.original_position(),
-<a href=#277 id=277 data-nosnippet>277</a>            MiddlewareInnerReader::Operator(operator_reader) =&gt; operator_reader.original_position(),
-<a href=#278 id=278 data-nosnippet>278</a>        }
-<a href=#279 id=279 data-nosnippet>279</a>    }
-<a href=#280 id=280 data-nosnippet>280</a>
-<a href=#281 id=281 data-nosnippet>281</a>    <span class="kw">fn </span>bytes_remaining(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-<a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">match </span><span class="self">self</span>.state.inner.as_ref().expect(<span class="string">"inner state must exist"</span>) {
-<a href=#283 id=283 data-nosnippet>283</a>            MiddlewareInnerReader::Binary { reader, .. } =&gt; reader.bytes_remaining(),
-<a href=#284 id=284 data-nosnippet>284</a>            MiddlewareInnerReader::Operator(operator_reader) =&gt; {
-<a href=#285 id=285 data-nosnippet>285</a>                operator_reader.get_binary_reader().bytes_remaining()
-<a href=#286 id=286 data-nosnippet>286</a>            }
-<a href=#287 id=287 data-nosnippet>287</a>        }
-<a href=#288 id=288 data-nosnippet>288</a>    }
-<a href=#289 id=289 data-nosnippet>289</a>
-<a href=#290 id=290 data-nosnippet>290</a>    <span class="kw">fn </span>eof(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#291 id=291 data-nosnippet>291</a>        <span class="kw">match </span><span class="self">self</span>.state.inner.as_ref().expect(<span class="string">"inner state must exist"</span>) {
-<a href=#292 id=292 data-nosnippet>292</a>            MiddlewareInnerReader::Binary { reader, .. } =&gt; reader.eof(),
-<a href=#293 id=293 data-nosnippet>293</a>            MiddlewareInnerReader::Operator(operator_reader) =&gt; operator_reader.eof(),
-<a href=#294 id=294 data-nosnippet>294</a>        }
-<a href=#295 id=295 data-nosnippet>295</a>    }
-<a href=#296 id=296 data-nosnippet>296</a>
-<a href=#297 id=297 data-nosnippet>297</a>    <span class="kw">fn </span>range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Range&lt;usize&gt; {
-<a href=#298 id=298 data-nosnippet>298</a>        <span class="kw">match </span><span class="self">self</span>.state.inner.as_ref().expect(<span class="string">"inner state must exist"</span>) {
-<a href=#299 id=299 data-nosnippet>299</a>            MiddlewareInnerReader::Binary { reader, .. } =&gt; reader.range(),
-<a href=#300 id=300 data-nosnippet>300</a>            MiddlewareInnerReader::Operator(operator_reader) =&gt; {
-<a href=#301 id=301 data-nosnippet>301</a>                operator_reader.get_binary_reader().range()
-<a href=#302 id=302 data-nosnippet>302</a>            }
-<a href=#303 id=303 data-nosnippet>303</a>        }
-<a href=#304 id=304 data-nosnippet>304</a>    }
-<a href=#305 id=305 data-nosnippet>305</a>}
+<a href=#276 id=276 data-nosnippet>276</a>            MiddlewareInnerReader::Binary { reader, .. } =&gt; reader.original_position() <span class="kw">as </span>usize,
+<a href=#277 id=277 data-nosnippet>277</a>            MiddlewareInnerReader::Operator(operator_reader) =&gt; {
+<a href=#278 id=278 data-nosnippet>278</a>                operator_reader.original_position() <span class="kw">as </span>usize
+<a href=#279 id=279 data-nosnippet>279</a>            }
+<a href=#280 id=280 data-nosnippet>280</a>        }
+<a href=#281 id=281 data-nosnippet>281</a>    }
+<a href=#282 id=282 data-nosnippet>282</a>
+<a href=#283 id=283 data-nosnippet>283</a>    <span class="kw">fn </span>bytes_remaining(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href=#284 id=284 data-nosnippet>284</a>        <span class="kw">match </span><span class="self">self</span>.state.inner.as_ref().expect(<span class="string">"inner state must exist"</span>) {
+<a href=#285 id=285 data-nosnippet>285</a>            MiddlewareInnerReader::Binary { reader, .. } =&gt; reader.bytes_remaining(),
+<a href=#286 id=286 data-nosnippet>286</a>            MiddlewareInnerReader::Operator(operator_reader) =&gt; {
+<a href=#287 id=287 data-nosnippet>287</a>                operator_reader.get_binary_reader().bytes_remaining()
+<a href=#288 id=288 data-nosnippet>288</a>            }
+<a href=#289 id=289 data-nosnippet>289</a>        }
+<a href=#290 id=290 data-nosnippet>290</a>    }
+<a href=#291 id=291 data-nosnippet>291</a>
+<a href=#292 id=292 data-nosnippet>292</a>    <span class="kw">fn </span>eof(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#293 id=293 data-nosnippet>293</a>        <span class="kw">match </span><span class="self">self</span>.state.inner.as_ref().expect(<span class="string">"inner state must exist"</span>) {
+<a href=#294 id=294 data-nosnippet>294</a>            MiddlewareInnerReader::Binary { reader, .. } =&gt; reader.eof(),
+<a href=#295 id=295 data-nosnippet>295</a>            MiddlewareInnerReader::Operator(operator_reader) =&gt; operator_reader.eof(),
+<a href=#296 id=296 data-nosnippet>296</a>        }
+<a href=#297 id=297 data-nosnippet>297</a>    }
+<a href=#298 id=298 data-nosnippet>298</a>
+<a href=#299 id=299 data-nosnippet>299</a>    <span class="kw">fn </span>range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Range&lt;usize&gt; {
+<a href=#300 id=300 data-nosnippet>300</a>        <span class="kw">let </span>range = <span class="kw">match </span><span class="self">self</span>.state.inner.as_ref().expect(<span class="string">"inner state must exist"</span>) {
+<a href=#301 id=301 data-nosnippet>301</a>            MiddlewareInnerReader::Binary { reader, .. } =&gt; reader.range(),
+<a href=#302 id=302 data-nosnippet>302</a>            MiddlewareInnerReader::Operator(operator_reader) =&gt; {
+<a href=#303 id=303 data-nosnippet>303</a>                operator_reader.get_binary_reader().range()
+<a href=#304 id=304 data-nosnippet>304</a>            }
+<a href=#305 id=305 data-nosnippet>305</a>        };
+<a href=#306 id=306 data-nosnippet>306</a>        range.start <span class="kw">as </span>usize..range.end <span class="kw">as </span>usize
+<a href=#307 id=307 data-nosnippet>307</a>    }
+<a href=#308 id=308 data-nosnippet>308</a>}
 </code></pre></div></section></main></body></html>

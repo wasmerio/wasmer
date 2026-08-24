@@ -447,7 +447,7 @@
 <a href=#447 id=447 data-nosnippet>447</a>            <span class="kw">let </span>op = reader.read_operator()<span class="question-mark">?</span>;
 <a href=#448 id=448 data-nosnippet>448</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>((dibuilder, subprogram)) = debug_info.as_ref() {
 <a href=#449 id=449 data-nosnippet>449</a>                <span class="kw">let </span>(line, column, scope) =
-<a href=#450 id=450 data-nosnippet>450</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(location) = <span class="self">self</span>.source_map.get(original_pos <span class="kw">as </span>usize) {
+<a href=#450 id=450 data-nosnippet>450</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(location) = <span class="self">self</span>.source_map.get(u64::from(original_pos)) {
 <a href=#451 id=451 data-nosnippet>451</a>                        <span class="kw">let </span>file = dibuilder.create_file(<span class="kw-2">&amp;</span>location.file, <span class="kw-2">&amp;</span>location.directory);
 <a href=#452 id=452 data-nosnippet>452</a>                        <span class="comment">// TODO: try caching the lexical scopes (might be a space saver)
 <a href=#453 id=453 data-nosnippet>453</a>                        </span><span class="kw">let </span>block = dibuilder.create_lexical_block(

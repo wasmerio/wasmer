@@ -27,7 +27,7 @@
 <a href=#27 id=27 data-nosnippet>27</a>/// module. This map performs that translation once before parallel codegen.
 <a href=#28 id=28 data-nosnippet>28</a></span><span class="attr">#[derive(Default)]
 <a href=#29 id=29 data-nosnippet>29</a></span><span class="kw">pub struct </span>WasmSourceMap {
-<a href=#30 id=30 data-nosnippet>30</a>    locations: BTreeMap&lt;usize, SourceLocation&gt;,
+<a href=#30 id=30 data-nosnippet>30</a>    locations: BTreeMap&lt;u64, SourceLocation&gt;,
 <a href=#31 id=31 data-nosnippet>31</a>}
 <a href=#32 id=32 data-nosnippet>32</a>
 <a href=#33 id=33 data-nosnippet>33</a><span class="kw">impl </span>WasmSourceMap {
@@ -70,7 +70,7 @@
 <a href=#70 id=70 data-nosnippet>70</a>                    <span class="macro">format!</span>(
 <a href=#71 id=71 data-nosnippet>71</a>                        <span class="string">"Wasm operator offset {offset} precedes code section offset {code_base}"
 <a href=#72 id=72 data-nosnippet>72</a>                    </span>)
-<a href=#73 id=73 data-nosnippet>73</a>                })<span class="question-mark">? </span><span class="kw">as </span>u64;
+<a href=#73 id=73 data-nosnippet>73</a>                })<span class="question-mark">?</span>;
 <a href=#74 id=74 data-nosnippet>74</a>                <span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(location)) = context.find_location(address) <span class="kw">else </span>{
 <a href=#75 id=75 data-nosnippet>75</a>                    <span class="kw">continue</span>;
 <a href=#76 id=76 data-nosnippet>76</a>                };
@@ -102,14 +102,14 @@
 <a href=#102 id=102 data-nosnippet>102</a>    }
 <a href=#103 id=103 data-nosnippet>103</a>
 <a href=#104 id=104 data-nosnippet>104</a>    <span class="doccomment">/// Return the source location for a module-relative Wasm offset.
-<a href=#105 id=105 data-nosnippet>105</a>    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm_offset: usize) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>SourceLocation&gt; {
+<a href=#105 id=105 data-nosnippet>105</a>    </span><span class="kw">pub fn </span>get(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm_offset: u64) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>SourceLocation&gt; {
 <a href=#106 id=106 data-nosnippet>106</a>        <span class="self">self</span>.locations.get(<span class="kw-2">&amp;</span>wasm_offset)
 <a href=#107 id=107 data-nosnippet>107</a>    }
 <a href=#108 id=108 data-nosnippet>108</a>
 <a href=#109 id=109 data-nosnippet>109</a>    <span class="doccomment">/// Return the first mapped source location in a function body.
 <a href=#110 id=110 data-nosnippet>110</a>    </span><span class="kw">pub fn </span>first_in_function(<span class="kw-2">&amp;</span><span class="self">self</span>, body: <span class="kw-2">&amp;</span>FunctionBodyData&lt;<span class="lifetime">'_</span>&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>SourceLocation&gt; {
 <a href=#111 id=111 data-nosnippet>111</a>        <span class="self">self</span>.locations
-<a href=#112 id=112 data-nosnippet>112</a>            .range(body.module_offset..body.module_offset.saturating_add(body.data.len()))
+<a href=#112 id=112 data-nosnippet>112</a>            .range(body.module_offset..body.module_offset.saturating_add(body.data.len() <span class="kw">as </span>u64))
 <a href=#113 id=113 data-nosnippet>113</a>            .next()
 <a href=#114 id=114 data-nosnippet>114</a>            .map(|(<span class="kw">_</span>, location)| location)
 <a href=#115 id=115 data-nosnippet>115</a>    }

@@ -25,7 +25,7 @@
 <a href=#25 id=25 data-nosnippet>25</a>    </span><span class="kw">pub </span>data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
 <a href=#26 id=26 data-nosnippet>26</a>
 <a href=#27 id=27 data-nosnippet>27</a>    <span class="doccomment">/// Body offset relative to the module file.
-<a href=#28 id=28 data-nosnippet>28</a>    </span><span class="kw">pub </span>module_offset: usize,
+<a href=#28 id=28 data-nosnippet>28</a>    </span><span class="kw">pub </span>module_offset: u64,
 <a href=#29 id=29 data-nosnippet>29</a>}
 <a href=#30 id=30 data-nosnippet>30</a>
 <a href=#31 id=31 data-nosnippet>31</a><span class="doccomment">/// Trait for iterating over the operators of a Wasm Function
@@ -411,7 +411,7 @@
 <a href=#411 id=411 data-nosnippet>411</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#412 id=412 data-nosnippet>412</a>        _module_translation_state: <span class="kw-2">&amp;</span>ModuleTranslationState,
 <a href=#413 id=413 data-nosnippet>413</a>        body_bytes: <span class="kw-2">&amp;</span><span class="lifetime">'data </span>[u8],
-<a href=#414 id=414 data-nosnippet>414</a>        body_offset: usize,
+<a href=#414 id=414 data-nosnippet>414</a>        body_offset: u64,
 <a href=#415 id=415 data-nosnippet>415</a>    ) -&gt; WasmResult&lt;()&gt; {
 <a href=#416 id=416 data-nosnippet>416</a>        <span class="self">self</span>.function_body_inputs.push(FunctionBodyData {
 <a href=#417 id=417 data-nosnippet>417</a>            data: body_bytes,

@@ -18,7 +18,7 @@
 <a href=#18 id=18 data-nosnippet>18</a></span><span class="attr">#[derive(Debug)]
 <a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">pub struct </span>ModuleTranslationState {
 <a href=#20 id=20 data-nosnippet>20</a>    <span class="doccomment">/// Offset of the code-section payload in the original Wasm file.
-<a href=#21 id=21 data-nosnippet>21</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) code_section_offset: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href=#21 id=21 data-nosnippet>21</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) code_section_offset: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 <a href=#22 id=22 data-nosnippet>22</a>
 <a href=#23 id=23 data-nosnippet>23</a>    <span class="doccomment">/// A map containing a Wasm module's original, raw signatures.
 <a href=#24 id=24 data-nosnippet>24</a>    ///
@@ -37,7 +37,7 @@
 <a href=#37 id=37 data-nosnippet>37</a>    }
 <a href=#38 id=38 data-nosnippet>38</a>
 <a href=#39 id=39 data-nosnippet>39</a>    <span class="doccomment">/// Get the offset of the code-section payload in the original Wasm file.
-<a href=#40 id=40 data-nosnippet>40</a>    </span><span class="kw">pub fn </span>code_section_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+<a href=#40 id=40 data-nosnippet>40</a>    </span><span class="kw">pub fn </span>code_section_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
 <a href=#41 id=41 data-nosnippet>41</a>        <span class="self">self</span>.code_section_offset
 <a href=#42 id=42 data-nosnippet>42</a>    }
 <a href=#43 id=43 data-nosnippet>43</a>

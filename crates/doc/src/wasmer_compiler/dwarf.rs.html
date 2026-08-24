@@ -401,7 +401,7 @@
 <a href=#401 id=401 data-nosnippet>401</a>        srcloc: SourceLoc,
 <a href=#402 id=402 data-nosnippet>402</a>        source_map: <span class="kw-2">&amp;</span>WasmSourceMap,
 <a href=#403 id=403 data-nosnippet>403</a>    ) {
-<a href=#404 id=404 data-nosnippet>404</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(location) = source_map.get(srcloc.bits() <span class="kw">as </span>usize) <span class="kw">else </span>{
+<a href=#404 id=404 data-nosnippet>404</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(location) = source_map.get(u64::from(srcloc.bits())) <span class="kw">else </span>{
 <a href=#405 id=405 data-nosnippet>405</a>            <span class="self">self</span>.add_row(code_offset, srcloc);
 <a href=#406 id=406 data-nosnippet>406</a>            <span class="kw">return</span>;
 <a href=#407 id=407 data-nosnippet>407</a>        };
