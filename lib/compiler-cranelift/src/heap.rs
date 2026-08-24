@@ -100,11 +100,6 @@ pub enum HeapStyle {
         bound_gv: GlobalValue,
     },
 
-    /// A static heap has a fixed base address and a number of not-yet-allocated
-    /// pages before the offset-guard pages.
-    Static {
-        /// Heap bound in bytes. The offset-guard pages are allocated after the
-        /// bound.
-        bound: u64,
-    },
+    /// A static heap access is fully covered by memory protection mechanism.
+    Static,
 }

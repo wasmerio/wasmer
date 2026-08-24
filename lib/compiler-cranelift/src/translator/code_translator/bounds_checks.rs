@@ -202,64 +202,10 @@ pub fn bounds_check_and_compute_addr(
 
         // ====== Static Memories ======
         //
-        // With static memories we know the size of the heap bound at compile
-        // time.
-        //
-        // 1. First special case: trap immediately if `offset + access_size >
-        //    bound`, since we will end up being out-of-bounds regardless of the
-        //    given `index`.
-        HeapStyle::Static { bound } if offset_and_size > bound => {
-            assert!(
-                can_use_virtual_memory,
-                "static memories require the ability to use virtual memory"
-            );
-            builder.ins().trap(ir::TrapCode::HEAP_OUT_OF_BOUNDS);
-            Unreachable
-        }
-
-        // 2. Second special case for when we can completely omit explicit
-        //    bounds checks for 32-bit static memories.
-        //
-        //    First, let's rewrite our comparison to move all of the constants
-        //    to one side:
-        //
-        //            index + offset + access_size > bound
-        //        ==> index > bound - (offset + access_size)
-        //
-        //    We know the subtraction on the right-hand side won't wrap because
-        //    we didn't hit the first special case.
-        //
-        //    Additionally, we add our guard pages (if any) to the right-hand
-        //    side, since we can rely on the virtual memory subsystem at runtime
-        //    to catch out-of-bound accesses within the range `bound .. bound +
-        //    guard_size`. So now we are dealing with
-        //
-        //        index > bound + guard_size - (offset + access_size)
-        //
-        //    Note that `bound + guard_size` cannot overflow for
-        //    correctly-configured heaps, as otherwise the heap wouldn't fit in
-        //    a 64-bit memory space.
-        //
-        //    The complement of our should-this-trap comparison expression is
-        //    the should-this-not-trap comparison expression:
-        //
-        //        index <= bound + guard_size - (offset + access_size)
-        //
-        //    If we know the right-hand side is greater than or equal to
-        //    `u32::MAX`, then
-        //
-        //        index <= u32::MAX <= bound + guard_size - (offset + access_size)
-        //
-        //    This expression is always true when the heap is indexed with
-        //    32-bit integers because `index` cannot be larger than
-        //    `u32::MAX`. This means that `index` is always either in bounds or
-        //    within the guard page region, neither of which require emitting an
-        //    explicit bounds check.
-        HeapStyle::Static { bound }
-            if can_use_virtual_memory
-                && heap.index_type == ir::types::I32
-                && u64::from(u32::MAX) <= bound + heap.offset_guard_size - offset_and_size =>
-        {
+        // Static memories reserve the full wasm32 address space plus the offset
+        // guard up front: omit explicit bounds checks and rely on virtual memory
+        // protection to trap out-of-bounds accesses.
+        HeapStyle::Static => {
             assert!(
                 can_use_virtual_memory,
                 "static memories require the ability to use virtual memory"
@@ -270,45 +216,6 @@ pub fn bounds_check_and_compute_addr(
                 env.pointer_type(),
                 index,
                 offset,
-            ))
-        }
-
-        // 3. General case for static memories.
-        //
-        //    We have to explicitly test whether
-        //
-        //        index > bound - (offset + access_size)
-        //
-        //    and trap if so.
-        //
-        //    Since we have to emit explicit bounds checks, we might as well be
-        //    precise, not rely on the virtual memory subsystem at all, and not
-        //    factor in the guard pages here.
-        HeapStyle::Static { bound } => {
-            assert!(
-                can_use_virtual_memory,
-                "static memories require the ability to use virtual memory"
-            );
-            // NB: this subtraction cannot wrap because we didn't hit the first
-            // special case.
-            let adjusted_bound = bound - offset_and_size;
-            let adjusted_bound_value = builder
-                .ins()
-                .iconst(env.pointer_type(), adjusted_bound as i64);
-            let oob = make_compare(
-                builder,
-                IntCC::UnsignedGreaterThan,
-                index,
-                adjusted_bound_value,
-            );
-            Reachable(explicit_check_oob_condition_and_compute_addr(
-                &mut builder.cursor(),
-                heap,
-                env.pointer_type(),
-                index,
-                offset,
-                spectre_mitigations_enabled,
-                oob,
             ))
         }
     })
@@ -329,7 +236,7 @@ fn get_dynamic_heap_bound(
         (_, HeapStyle::Dynamic { bound_gv }) => {
             materialize_global_value(&mut builder.cursor(), env.pointer_type(), *bound_gv)
         }
-        (_, HeapStyle::Static { .. }) => unreachable!("not a dynamic heap"),
+        (_, HeapStyle::Static) => unreachable!("not a dynamic heap"),
     }
 }
 
