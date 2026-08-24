@@ -15,12 +15,19 @@ pub(crate) struct ChunkedOutputReporter<'a> {
 
 impl<'a> ChunkedOutputReporter<'a> {
     pub(crate) fn new(progress_callback: Option<&'a CompilationProgressCallback>) -> Self {
-        let chunk_size = progress_callback
-            .and_then(CompilationProgressCallback::reserve_size_chunk_size)
-            .unwrap_or(NonZeroUsize::MAX);
+        let Some((progress_callback, chunk_size)) = progress_callback
+            .and_then(|cb| cb.reserve_size_chunk_size().map(|chunk_size| (cb, chunk_size)))
+        else {
+            return Self {
+                progress_callback: None,
+                chunk_size: NonZeroUsize::MAX,
+                accounted: 0,
+                current: 0,
+            };
+        };
 
         Self {
-            progress_callback,
+            progress_callback: Some(progress_callback),
             chunk_size,
             accounted: 0,
             current: 0,
