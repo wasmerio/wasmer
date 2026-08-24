@@ -4036,12 +4036,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "17359afc20d7ab31fdb42bb844c8b3bb1dabd7dcf7e68428492da7f16966fcef"
 
 [[package]]
-name = "pathdiff"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df94ce210e5bc13cb6651479fa48d14f601d9858cfe0467f43ae157023b938d3"
-
-[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7475,12 +7469,10 @@ dependencies = [
  "mac_address",
  "mio",
  "normpath",
- "object 0.40.0",
  "once_cell",
  "opener",
  "parking_lot",
  "path-clean",
- "pathdiff",
  "predicates 3.1.4",
  "pretty_assertions",
  "regex",
@@ -7686,13 +7678,11 @@ dependencies = [
  "anyhow",
  "assert_cmd 2.2.2",
  "dirs",
- "flate2",
  "futures",
  "hex",
  "insta",
  "libc",
  "md5",
- "object 0.40.0",
  "once_cell",
  "predicates 3.1.4",
  "pretty_assertions",
@@ -7701,7 +7691,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "tar",
  "target-lexicon 0.13.5",
  "tempfile",
  "tokio",
