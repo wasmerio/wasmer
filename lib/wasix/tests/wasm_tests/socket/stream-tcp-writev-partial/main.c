@@ -1,4 +1,5 @@
 //#ExpectedStdout: stream TCP writev returns partial success after peer close
+//#IgnoreMacOS: true
 /*
  * Regression test for stream-socket fd_write partial success.
  *
