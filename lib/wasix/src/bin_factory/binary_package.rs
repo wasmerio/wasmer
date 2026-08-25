@@ -268,7 +268,7 @@ impl BinaryPackage {
                 .await
                 .map_err(|error| ResolveError::Registry {
                     package: specifier.clone(),
-                    error,
+                    error: Box::new(error),
                 })?;
         let root = runtime.package_loader().load(&root_summary).await?;
         let id = root_summary.package_id();

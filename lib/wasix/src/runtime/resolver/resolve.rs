@@ -44,7 +44,7 @@ pub enum ResolveError {
     Registry {
         package: PackageSource,
         #[source]
-        error: QueryError,
+        error: Box<QueryError>,
     },
     #[error("Dependency cycle detected: {}", print_cycle(_0))]
     Cycle(Vec<PackageId>),
@@ -201,7 +201,7 @@ async fn discover_dependencies_once(
                 .await
                 .map_err(|error| ResolveError::Registry {
                     package: dep.pkg.clone(),
-                    error,
+                    error: Box::new(error),
                 })?;
             let dep_id = dep_summary.package_id();
 
@@ -496,15 +496,15 @@ async fn dependency_candidates(
                 .await
                 .map_err(|error| ResolveError::Registry {
                     package: dep.pkg.clone(),
-                    error,
+                    error: Box::new(error),
                 })?
                 .into_iter()
                 .next()
                 .ok_or_else(|| ResolveError::Registry {
                     package: dep.pkg.clone(),
-                    error: QueryError::NotFound {
+                    error: Box::new(QueryError::NotFound {
                         query: dep.pkg.clone(),
-                    },
+                    }),
                 })?,
         ]),
     }
@@ -528,7 +528,7 @@ async fn named_dependency_candidates(
                     .await
                     .map_err(|error| ResolveError::Registry {
                         package: query.clone(),
-                        error,
+                        error: Box::new(error),
                     })?;
             sort_named_candidates_desc(&mut candidates);
             candidate_cache.insert(cache_key, candidates.clone());

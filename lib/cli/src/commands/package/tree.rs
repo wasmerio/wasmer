@@ -38,7 +38,7 @@ impl AsyncCliCommand for PackageTree {
         let root_summary = source.latest(&package).await.map_err(|error| {
             wasmer_wasix::runtime::resolver::ResolveError::Registry {
                 package: package.clone(),
-                error,
+                error: Box::new(error),
             }
         })?;
         let root_id = root_summary.package_id();
