@@ -49,7 +49,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-            submodules: true
+          submodules: true
       - name: Install nightly Rust
         uses: dtolnay/rust-toolchain@nightly
       - name: Check for eligible dependency updates
