@@ -2,7 +2,7 @@
 min-publish-age = true
 
 [registry]
-# Even one day makes a big diffence: https://cooldowns.dev/#does-it-actually-work
+# Even one day makes a big difference: https://cooldowns.dev/#does-it-actually-work
 global-min-publish-age = "3 days"
 
 [resolver]
