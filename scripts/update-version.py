@@ -2,7 +2,7 @@
 
 import argparse
 import os
-import re
+import subprocess
 
 parser = argparse.ArgumentParser(description="Update Wasmer versions")
 parser.add_argument(
@@ -121,4 +121,5 @@ for root, dirs, files in os.walk("."):
         elif "publish.py" in file:
             replace_version_py(root + "/" + file)
 
-os.system("cargo generate-lockfile")
+
+subprocess.check_output("cargo +nightly generate-lockfile", shell=True)
