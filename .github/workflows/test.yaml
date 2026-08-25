@@ -43,6 +43,15 @@ jobs:
           echo "DOING_RELEASE=${DOING_RELEASE}" >> $GITHUB_OUTPUT
           echo $VERSION
           echo $DOING_RELEASE
+  dependency_cooldown:
+    name: Dependency cooldown
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install nightly Rust
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Check for eligible dependency updates
+        run: cargo +nightly update
   lint:
     name: Code lint
     runs-on: ubuntu-24.04
@@ -788,6 +797,7 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - setup
+      - dependency_cooldown
       - lint
       - cargo_deny
       - test_nodejs
