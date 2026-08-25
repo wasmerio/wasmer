@@ -249,7 +249,70 @@ impl VirtualNetworking for LocalNetworking {
 
         if let Ok(p) = stream.peer_addr() {
             peer = p;
+            let socket = Box::new(LocalTcpStream::new(self.selector.clone(), stream, peer));
+            return Ok(socket);
         }
+
+        let start = std::time::Instant::now();
+        let timeout = std::time::Duration::from_secs(3);
+
+        loop {
+            #[cfg(not(target_os = "windows"))]
+            {
+                if let Some(val) = libc_poll(stream.as_raw_fd(), libc::POLLOUT | libc::POLLHUP) {
+                    if (val & libc::POLLHUP) != 0 {
+                        let sock_err = socket2::SockRef::from(&stream)
+                            .take_error()
+                            .map_err(io_err_into_net_error)?;
+                        if let Some(err) = sock_err {
+                            return Err(io_err_into_net_error(err));
+                        } else {
+                            return Err(NetworkError::IOError);
+                        }
+                    }
+                    if (val & libc::POLLOUT) != 0 {
+                        let sock_err = socket2::SockRef::from(&stream)
+                            .take_error()
+                            .map_err(io_err_into_net_error)?;
+                        if let Some(err) = sock_err {
+                            return Err(io_err_into_net_error(err));
+                        }
+                        if let Ok(p) = stream.peer_addr() {
+                            peer = p;
+                            break;
+                        } else {
+                            return Err(NetworkError::IOError);
+                        }
+                    }
+                }
+            }
+
+            #[cfg(target_os = "windows")]
+            {
+                if let Ok(p) = stream.peer_addr() {
+                    peer = p;
+                    break;
+                }
+                let sock_err = {
+                    let b = unsafe {
+                        std::os::windows::io::BorrowedSocket::borrow_raw(stream.as_raw_socket())
+                    };
+                    socket2::SockRef::from(&b)
+                        .take_error()
+                        .map_err(io_err_into_net_error)?
+                };
+                if let Some(err) = sock_err {
+                    return Err(io_err_into_net_error(err));
+                }
+            }
+
+            if start.elapsed() > timeout {
+                return Err(NetworkError::IOError);
+            }
+
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+
         let socket = Box::new(LocalTcpStream::new(self.selector.clone(), stream, peer));
         Ok(socket)
     }
