@@ -124,10 +124,9 @@ impl BackendSource {
             "Received a response from GraphQL",
         );
 
-        let response: WebQuery =
-            serde_json::from_slice(&body).context("Unable to deserialize the response")?;
+        let data: WebQueryData = parse_graphql_data(&body)?;
 
-        Ok(response)
+        Ok(WebQuery { data })
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
@@ -186,10 +185,9 @@ impl BackendSource {
             "Received a response from GraphQL",
         );
 
-        let response: Reply<GetPackageRelease> =
-            serde_json::from_slice(&body).context("Unable to deserialize the response")?;
+        let data: GetPackageRelease = parse_graphql_data(&body)?;
 
-        Ok(response.data.get_package_release)
+        Ok(data.get_package_release)
     }
 
     fn headers(&self) -> HeaderMap {
@@ -692,9 +690,40 @@ pub const WASMER_WEBC_QUERY_BY_HASH: &str = r#"{
     }
 }"#;
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct Reply<T> {
-    pub data: T,
+/// One entry of a GraphQL `errors` array.
+#[derive(Debug, serde::Deserialize)]
+struct GraphQlError {
+    message: String,
+}
+
+/// Parses a GraphQL envelope. A failed query still returns HTTP 200 with
+/// `data: null` and the cause under `errors`, so surface those messages
+/// instead of a deserialization error about the null.
+fn parse_graphql_data<T: serde::de::DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
+    #[derive(serde::Deserialize)]
+    struct Envelope<T> {
+        data: Option<T>,
+        #[serde(default)]
+        errors: Vec<GraphQlError>,
+    }
+
+    let envelope: Envelope<T> =
+        serde_json::from_slice(body).context("Unable to deserialize the response")?;
+    match envelope.data {
+        Some(data) => Ok(data),
+        None if envelope.errors.is_empty() => {
+            anyhow::bail!("GraphQL query failed: the response contained no data")
+        }
+        None => anyhow::bail!(
+            "GraphQL query failed: {}",
+            envelope
+                .errors
+                .iter()
+                .map(|error| error.message.as_str())
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+    }
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
