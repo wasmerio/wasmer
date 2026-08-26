@@ -46,7 +46,7 @@ jobs:
           - build: linux-arm64
             os: ubuntu-22.04-arm
             artifact_name: "wasmer-linux-aarch64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-aarch64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             build_wasm: true
             enable_llvm: true
@@ -55,7 +55,7 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
             artifact_name: "wasmer-linux-amd64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-amd64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             build_wasm: true
             enable_llvm: true
@@ -66,7 +66,7 @@ jobs:
             target: aarch64-apple-darwin
             artifact_name: "wasmer-darwin-arm64"
             build_wasm: false
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-aarch64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-darwin-aarch64.tar.xz"
             enable_llvm: true
             enable_v8: true
             enable_napi_v8: true
@@ -91,8 +91,8 @@ jobs:
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add git bash make curl cmake ninja clang22 zstd-static llvm22-dev clang22-static llvm22-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
-          ln -s /usr/bin/clang-22 /usr/bin/clang
+          apk add git bash make curl cmake ninja clang23 zstd-static llvm23-dev clang23-static llvm23-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
+          ln -s /usr/bin/clang-23 /usr/bin/clang
       - uses: actions/checkout@v6
         with:
           submodules: true
@@ -150,7 +150,7 @@ jobs:
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          echo LLVM_SYS_221_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
+          echo LLVM_SYS_231_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
@@ -178,13 +178,13 @@ jobs:
       - name: Build & Package C API headless
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-22 make build-capi-headless
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-23 make build-capi-headless
           make package-capi-headless
       - name: Build & Package C API
         if: ${{ !startsWith(matrix.build, 'windows-') }}
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-22 make build-capi
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-23 make build-capi
           make package-capi
       - name: Build Wasmer binary
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
@@ -208,9 +208,9 @@ jobs:
         run: |
           echo "#!/bin/bash" >> /usr/bin/llvm-config
           echo 'if [ "$1" = "--libs" ]; then' >> /usr/bin/llvm-config
-          echo 'llvm-config-22 "$@" "--link-static"' >> /usr/bin/llvm-config
+          echo 'llvm-config-23 "$@" "--link-static"' >> /usr/bin/llvm-config
           echo "else" >> /usr/bin/llvm-config
-          echo 'llvm-config-22 "$@"' >> /usr/bin/llvm-config
+          echo 'llvm-config-23 "$@"' >> /usr/bin/llvm-config
           echo 'fi' >> /usr/bin/llvm-config
           cat /usr/bin/llvm-config
           chmod +x /usr/bin/llvm-config

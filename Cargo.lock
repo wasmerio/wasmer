@@ -2928,6 +2928,7 @@ dependencies = [
 [[package]]
 name = "inkwell"
 version = "0.10.0"
+source = "git+https://github.com/marxin/inkwell?branch=llvm_sys_231#cf00f6a57999573fa2621d0b35aaf2368c353a7c"
 dependencies = [
  "bitflags 2.13.1",
  "inkwell_internals",
@@ -2939,6 +2940,7 @@ dependencies = [
 [[package]]
 name = "inkwell_internals"
 version = "0.15.0"
+source = "git+https://github.com/marxin/inkwell?branch=llvm_sys_231#cf00f6a57999573fa2621d0b35aaf2368c353a7c"
 dependencies = [
  "proc-macro2",
  "quote",

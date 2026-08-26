@@ -24,5 +24,5 @@ A comprehensive CI test suite will be run by a Wasmer team member after the PR h
 
 `Didn't find usable system-wide LLVM`
 
-Building Wasmer with the LLVM backend requires LLVM 22 to be installed.
+Building Wasmer with the LLVM backend requires LLVM 23.1 to be installed.
 See [Building Wasmer from Source](./BUILD.md#llvm-compiler) for the current installation instructions.
