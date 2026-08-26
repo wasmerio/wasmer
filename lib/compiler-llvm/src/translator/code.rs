@@ -194,6 +194,8 @@ impl FuncTranslator {
         )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
+        func.as_global_value()
+            .set_alignment(super::FUNCTION_ALIGNMENT);
         let debug_info = if config.experimental_artifact {
             let source_location = self.source_map.first_in_function(function_body);
             let debug_metadata_version = self
@@ -1011,7 +1013,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let int_type = left.get_type();
 
         let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
-            let min_value = int_type.const_int(i32::MIN as u64, false);
+            let min_value = int_type.const_int(u64::from(i32::MIN as u32), false);
             let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
             (min_value, neg_one_value)
         } else if int_type == self.intrinsics.i64_ty {
@@ -3161,7 +3163,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
             // Generate const values.
             Operator::I32Const { value } => {
-                let i = self.intrinsics.i32_ty.const_int(value as u64, false);
+                let i = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(u64::from(value as u32), false);
                 let info = if is_f32_arithmetic(value as u32) {
                     ExtraInfo::arithmetic_f32()
                 } else {
@@ -4937,7 +4942,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let int_type = v1.get_type();
                 let (min_value, neg_one_value) = if int_type == self.intrinsics.i32_ty {
-                    let min_value = int_type.const_int(i32::MIN as u64, false);
+                    let min_value = int_type.const_int(u64::from(i32::MIN as u32), false);
                     let neg_one_value = int_type.const_int(-1i32 as u32 as u64, false);
                     (min_value, neg_one_value)
                 } else if int_type == self.intrinsics.i64_ty {
