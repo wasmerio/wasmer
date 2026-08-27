@@ -447,7 +447,9 @@ fn prime_immediate_writable_if_applicable(
     // Prime EPOLLOUT once at registration so level-triggered epoll can observe them.
     let writable_now = matches!(
         fd_guard.mode,
-        InodeValFilePollGuardMode::EventNotifications(_) | InodeValFilePollGuardMode::PipeTx { .. }
+        InodeValFilePollGuardMode::EventNotifications(_)
+            | InodeValFilePollGuardMode::PipeTx { .. }
+            | InodeValFilePollGuardMode::DuplexPipe { .. }
     );
 
     if !writable_now {
