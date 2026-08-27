@@ -79,7 +79,7 @@ pub fn generate_header_file(
     c_statements.push(CStatement::LiteralConstant {
         value: r#"
 // Compiled Wasm function pointers ordered by function index: the order they
-// appeared in in the Wasm module.
+// appeared in the Wasm module.
 "#
         .to_string(),
     });

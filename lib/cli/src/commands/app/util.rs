@@ -47,7 +47,7 @@ impl AppIdent {
             AppIdent::Name(name) => {
                 // The API only allows to query by owner + name,
                 // so default to the current user as the owner.
-                // To to so the username must first be retrieved.
+                // To do so, the username must first be retrieved.
                 let user = wasmer_backend_api::query::current_user(client)
                     .await?
                     .context("not logged in")?;
