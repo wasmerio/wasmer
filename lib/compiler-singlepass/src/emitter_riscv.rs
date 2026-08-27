@@ -6,6 +6,7 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::MaybeImmediate,
     machine_riscv::{ImmType, RISCV_RETURN_VALUE_REGISTERS},
+    output_reporter::ChunkedOutputReporter,
     riscv_decl::{ArgumentRegisterAllocator, RiscvRegister},
 };
 pub use crate::{
@@ -18,7 +19,7 @@ use wasmer_compiler::types::{
     section::{CustomSection, CustomSectionProtection, SectionBody},
 };
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
     target::{CallingConvention, CpuFeature},
     vmctx_offset,
 };
@@ -1749,8 +1750,10 @@ impl EmitterRiscv for Assembler {
 pub fn gen_std_trampoline_riscv(
     sig: &FunctionType,
     _calling_convention: CallingConvention,
+    progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
+    let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
     // Callee-save registers must be used.
     let fptr = GPR::X26;
@@ -1839,6 +1842,7 @@ pub fn gen_std_trampoline_riscv(
                 caller_stack_offset += 8;
             }
         }
+        output_reporter.check(a.offset().0)?;
     }
 
     dynasm!(a
@@ -1864,6 +1868,7 @@ pub fn gen_std_trampoline_riscv(
             Location::GPR(src),
             Location::Memory(args, (i * 16) as _),
         )?;
+        output_reporter.check(a.offset().0)?;
     }
 
     // Restore stack.
@@ -1885,6 +1890,7 @@ pub fn gen_std_trampoline_riscv(
     let mut body = a.finalize().unwrap();
 
     body.shrink_to_fit();
+    output_reporter.finish(body.len())?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -1895,8 +1901,10 @@ pub fn gen_std_trampoline_riscv(
 pub fn gen_std_dynamic_import_trampoline_riscv(
     vmoffsets: &VMOffsets,
     sig: &FunctionType,
+    progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
+    let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
 
@@ -1956,6 +1964,7 @@ pub fn gen_std_dynamic_import_trampoline_riscv(
                 Location::GPR(GPR::XZero),
                 Location::Memory(GPR::Sp, (i * 16 + 8) as _),
             )?;
+            output_reporter.check(a.offset().0)?;
         }
     }
 
@@ -2016,6 +2025,7 @@ pub fn gen_std_dynamic_import_trampoline_riscv(
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
+    output_reporter.finish(body.len())?;
     Ok(FunctionBody {
         body,
         unwind_info: None,
@@ -2028,8 +2038,10 @@ pub fn gen_import_call_trampoline_riscv(
     index: FunctionIndex,
     sig: &FunctionType,
     _calling_convention: CallingConvention,
+    progress_callback: Option<&CompilationProgressCallback>,
 ) -> Result<CustomSection, CompileError> {
     let mut a = Assembler::new(0);
+    let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
     // Singlepass internally treats all arguments as integers
     // For the standard System V calling convention requires
@@ -2092,6 +2104,7 @@ pub fn gen_import_call_trampoline_riscv(
                 _ => Location::Memory(GPR::Sp, stack_offset + ((i - PARAM_REGS_COUNT) * 8) as i32),
             };
             param_locations.push(loc);
+            output_reporter.check(a.offset().0)?;
         }
 
         // Copy arguments.
@@ -2112,10 +2125,12 @@ pub fn gen_import_call_trampoline_riscv(
                         Location::Memory(GPR::Sp, stack_offset + caller_stack_offset),
                     )?;
                     caller_stack_offset += 8;
+                    output_reporter.check(a.offset().0)?;
                     continue;
                 }
             };
             a.emit_ld(Size::S64, false, targ, prev_loc)?;
+            output_reporter.check(a.offset().0)?;
         }
 
         // Restore stack pointer.
@@ -2163,6 +2178,7 @@ pub fn gen_import_call_trampoline_riscv(
 
     let mut contents = a.finalize().unwrap();
     contents.shrink_to_fit();
+    output_reporter.finish(contents.len())?;
     let section_body = SectionBody::new_with_vec(contents);
 
     Ok(CustomSection {
