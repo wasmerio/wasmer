@@ -6,7 +6,7 @@ use std::{
 };
 
 use virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
-use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Filestat, Rights};
+use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Filestat, Filetype, Rights};
 
 use crate::net::socket::InodeSocket;
 use crate::os::epoll::EpollState;
@@ -37,6 +37,8 @@ pub struct FdInner {
     pub flags: Fdflags,         // This is file table related flags, not fd flags
     pub offset: Arc<AtomicU64>, // This also belongs in the file table
     pub fd_flags: Fdflagsext,   // This is the actual FD flags that belongs here
+    /// Stable directory entries for `fd_readdir` continuation cookies.
+    pub readdir_snapshot: Arc<RwLock<Option<Vec<(String, Filetype, u64)>>>>,
 }
 
 impl Fd {
