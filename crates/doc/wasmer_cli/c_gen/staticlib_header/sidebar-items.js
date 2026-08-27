@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["gen_helper_functions","generate_header_file"]};
