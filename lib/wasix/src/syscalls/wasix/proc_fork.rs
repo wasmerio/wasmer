@@ -78,6 +78,18 @@ pub fn proc_fork<M: MemorySize>(
     let child_pid = child_env.process.pid();
     let child_finished = child_env.process.finished.clone();
 
+    // POSIX fork inherits signal dispositions. The forked child gets a fresh
+    // instance (signal_set=false), and its libc will not re-register
+    // __wasm_signal because the registration guard sits in fork-copied memory,
+    // leading it to think it already registered.
+    // Capture the parent's state here and re-point the child at __wasm_signal
+    // once its instance is live (in run).
+    let parent_signal_set = ctx
+        .data()
+        .try_inner()
+        .map(|inner| inner.main_module_instance_handles().signal_set)
+        .unwrap_or(false);
+
     // We write a zero to the PID before we capture the stack
     // so that this is what will be returned to the child
     {
@@ -224,7 +236,7 @@ pub fn proc_fork<M: MemorySize>(
                 }
 
                 // Invoke the start function
-                run::<M>(ctx, store, child_handle, None);
+                run::<M>(ctx, store, child_handle, None, parent_signal_set);
             };
 
             tasks_outer
@@ -268,6 +280,7 @@ fn run<M: MemorySize>(
     mut store: Store,
     child_handle: WasiThreadHandle,
     rewind_state: Option<(RewindState, RewindResultType)>,
+    parent_signal_set: bool,
 ) -> ExitCode {
     let env = ctx.data(&store);
     let tasks = env.tasks().clone();
@@ -287,6 +300,25 @@ fn run<M: MemorySize>(
         if res != Errno::Success {
             return res.into();
         }
+    }
+
+    // Inherit the parent's signal handler (see proc_fork above): re-point this
+    // fresh child instance at the module's __wasm_signal export so signals can
+    // reach the guest handler properly.
+    if parent_signal_set {
+        let mut ctx = ctx.env.clone().into_mut(&mut store);
+        let funct = ctx
+            .data()
+            .inner()
+            .main_module_instance_handles()
+            .instance
+            .exports
+            .get_typed_function(&ctx, "__wasm_signal")
+            .ok();
+        let mut env_inner = ctx.data_mut().inner_mut();
+        let inner = env_inner.main_module_instance_handles_mut();
+        inner.signal = funct;
+        inner.signal_set = true;
     }
 
     let mut ret: ExitCode = Errno::Success.into();
@@ -335,6 +367,7 @@ fn run<M: MemorySize>(
                                 rewind_state,
                                 RewindResultType::RewindWithResult(rewind_result),
                             )),
+                            parent_signal_set,
                         );
                     }
                 };
