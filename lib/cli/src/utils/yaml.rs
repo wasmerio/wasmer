@@ -58,9 +58,7 @@ fn try_format_preserving_edit(text: &str, target: &Value) -> anyhow::Result<Stri
         (Some(mapping), Value::Mapping(target_mapping), Value::Mapping(original_mapping)) => {
             merge_into_mapping(&mapping, target_mapping, Some(original_mapping), true)?;
             let out = doc.to_string();
-            // Restore the leading comment block that `yaml_edit` drops (see
-            // `leading_trivia`).
-            let header = leading_trivia(text);
+            let header = text;
             if !header.is_empty() && !out.starts_with(header) {
                 Ok(format!("{header}{out}"))
             } else {
@@ -157,23 +155,6 @@ fn set_value(mapping: &Mapping, key: &str, value: &Value) -> anyhow::Result<()> 
     }
 
     Ok(())
-}
-
-/// Return the leading run of blank and comment-only lines at the top of `text`.
-///
-/// `yaml_edit` has a bug that drops this block (as of 0.2), so we
-/// capture it here to splice back after editing.
-fn leading_trivia(text: &str) -> &str {
-    let mut end = 0;
-    for line in text.split_inclusive('\n') {
-        let trimmed = line.trim_start();
-        if trimmed.is_empty() || trimmed.starts_with('#') {
-            end += line.len();
-        } else {
-            break;
-        }
-    }
-    &text[..end]
 }
 
 fn stale_top_level_keys(mapping: &Mapping, target: &serde_yaml::Mapping) -> Vec<String> {
@@ -451,21 +432,6 @@ package: .
         assert!(!out.contains("app_id"), "app_id should be removed: {out}");
         assert!(!out.contains("da_old"), "old id should be removed: {out}");
         assert!(out.contains("kind: wasmer.io/App.v0"));
-    }
-
-    /// Fails once `yaml_edit` fixes the [`leading_trivia`] bug, cueing us to
-    /// drop the workaround.
-    #[test]
-    fn yaml_edit_still_drops_leading_comments_so_workaround_is_needed() {
-        let src = "# leading comment\nkind: wasmer.io/App.v0\nname: my-app\n";
-        let roundtripped = Document::from_str(src).unwrap().to_string();
-
-        assert!(
-            !roundtripped.contains("# leading comment"),
-            "yaml_edit now preserves leading comments on round-trip; drop the \
-             `leading_trivia` workaround in `apply_app_config_to_yaml` (and this \
-             test).\nGot:\n{roundtripped}"
-        );
     }
 
     /// The workaround must re-attach the dropped leading comment, even when a
