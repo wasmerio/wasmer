@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use anyhow::Context as _;
 use serde_yaml::Value;
-use yaml_edit::{Document, Mapping, YamlNode};
+use yaml_edit::{Mapping, YamlFile, YamlNode};
 
 /// Apply `target` onto the original app YAML `text`, preserving the formatting
 /// of everything that did not change.
@@ -46,8 +46,11 @@ pub(crate) fn apply_app_config_to_yaml(text: &str, target: &Value) -> anyhow::Re
 }
 
 fn try_format_preserving_edit(text: &str, target: &Value) -> anyhow::Result<String> {
-    let doc = Document::from_str(text)
+    let yaml_file = YamlFile::from_str(text)
         .map_err(|e| anyhow::anyhow!("could not parse YAML for format-preserving edit: {e}"))?;
+    let doc = yaml_file
+        .document()
+        .context("could not find a document in YAML for format-preserving edit")?;
     // Second parse, used to detect which keys changed. `yaml_edit` node text
     // cannot be reparsed for this: it is dedented on the first line only, so
     // block values are not valid standalone YAML.
@@ -57,13 +60,7 @@ fn try_format_preserving_edit(text: &str, target: &Value) -> anyhow::Result<Stri
     match (doc.as_mapping(), target, &original) {
         (Some(mapping), Value::Mapping(target_mapping), Value::Mapping(original_mapping)) => {
             merge_into_mapping(&mapping, target_mapping, Some(original_mapping), true)?;
-            let out = doc.to_string();
-            let header = text;
-            if !header.is_empty() && !out.starts_with(header) {
-                Ok(format!("{header}{out}"))
-            } else {
-                Ok(out)
-            }
+            Ok(yaml_file.to_string())
         }
         // The document root is not a mapping (or the target is not a mapping).
         // We have no formatting to preserve in a meaningful way, so fall back to
@@ -434,10 +431,10 @@ package: .
         assert!(out.contains("kind: wasmer.io/App.v0"));
     }
 
-    /// The workaround must re-attach the dropped leading comment, even when a
-    /// value changes.
+    /// Stream-level comments must remain attached to the YAML file when a value
+    /// changes in its document.
     #[test]
-    fn workaround_reattaches_leading_comment() {
+    fn preserves_leading_comment() {
         let original = "# leading comment\nkind: wasmer.io/App.v0\nowner: alice\n";
         let target = parse("kind: wasmer.io/App.v0\nowner: bob\n");
 
