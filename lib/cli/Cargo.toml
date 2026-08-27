@@ -196,9 +196,7 @@ bytes.workspace = true
 thiserror.workspace = true
 log.workspace = true
 semver.workspace = true
-pathdiff.workspace = true
 sha2.workspace = true
-object.workspace = true
 wasm-coredump-builder = { workspace = true, optional = true }
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = [
