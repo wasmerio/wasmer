@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["CompilationProgress","CompilationProgressCallback","UserAbort"]};
+window.SIDEBAR_ITEMS = {"struct":["CompilationProgress","CompilationProgressCallback","ReserveSizeCallback","UserAbort"],"type":["ProgressCallback","ReserveSizeCallbackFn"]};

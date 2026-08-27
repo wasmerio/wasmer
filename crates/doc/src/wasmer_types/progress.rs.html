@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/types/src/progress.rs`."><title>progress.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-b7b9f40b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.95.0 (59807616e 2026-04-14)" data-channel="1.95.0" data-search-js="search-63369b7b.js" data-stringdex-js="stringdex-b897f86f.js" data-settings-js="settings-170eb4bf.js" ><script src="../../static.files/storage-41dd4d93.js"></script><script defer src="../../static.files/src-script-813739b1.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5013f961.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-f7c3ffd8.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">wasmer_types/</div>progress.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Types used to report and handle compilation progress.
 <a href=#2 id=2 data-nosnippet>2</a>
-<a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>std::{borrow::Cow, fmt, string::String, sync::Arc};
+<a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>std::{borrow::Cow, fmt, num::NonZeroUsize, string::String, sync::Arc};
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>thiserror::Error;
 <a href=#5 id=5 data-nosnippet>5</a>
 <a href=#6 id=6 data-nosnippet>6</a><span class="doccomment">/// Indicates the current compilation progress.
@@ -65,37 +65,81 @@
 <a href=#65 id=65 data-nosnippet>65</a>    }
 <a href=#66 id=66 data-nosnippet>66</a>}
 <a href=#67 id=67 data-nosnippet>67</a>
-<a href=#68 id=68 data-nosnippet>68</a><span class="doccomment">/// Wraps a boxed callback that can receive compilation progress notifications.
-<a href=#69 id=69 data-nosnippet>69</a></span><span class="attr">#[derive(Clone)]
-<a href=#70 id=70 data-nosnippet>70</a></span><span class="kw">pub struct </span>CompilationProgressCallback {
-<a href=#71 id=71 data-nosnippet>71</a>    callback: Arc&lt;<span class="kw">dyn </span>Fn(CompilationProgress) -&gt; <span class="prelude-ty">Result</span>&lt;(), UserAbort&gt; + Send + Sync + <span class="lifetime">'static</span>&gt;,
-<a href=#72 id=72 data-nosnippet>72</a>}
-<a href=#73 id=73 data-nosnippet>73</a>
-<a href=#74 id=74 data-nosnippet>74</a><span class="kw">impl </span>CompilationProgressCallback {
-<a href=#75 id=75 data-nosnippet>75</a>    <span class="doccomment">/// Create a new callback wrapper.
-<a href=#76 id=76 data-nosnippet>76</a>    ///
-<a href=#77 id=77 data-nosnippet>77</a>    /// The provided callback will be invoked with progress updates during the compilation process,
-<a href=#78 id=78 data-nosnippet>78</a>    /// and has to return a `Result&lt;(), UserAbort&gt;`.
-<a href=#79 id=79 data-nosnippet>79</a>    ///
-<a href=#80 id=80 data-nosnippet>80</a>    /// If the callback returns an error, the compilation will be aborted with a `CompileError::Aborted`.
-<a href=#81 id=81 data-nosnippet>81</a>    </span><span class="kw">pub fn </span>new&lt;F&gt;(callback: F) -&gt; <span class="self">Self
-<a href=#82 id=82 data-nosnippet>82</a>    </span><span class="kw">where
-<a href=#83 id=83 data-nosnippet>83</a>        </span>F: Fn(CompilationProgress) -&gt; <span class="prelude-ty">Result</span>&lt;(), UserAbort&gt; + Send + Sync + <span class="lifetime">'static</span>,
-<a href=#84 id=84 data-nosnippet>84</a>    {
-<a href=#85 id=85 data-nosnippet>85</a>        <span class="self">Self </span>{
-<a href=#86 id=86 data-nosnippet>86</a>            callback: Arc::new(callback),
-<a href=#87 id=87 data-nosnippet>87</a>        }
-<a href=#88 id=88 data-nosnippet>88</a>    }
-<a href=#89 id=89 data-nosnippet>89</a>
-<a href=#90 id=90 data-nosnippet>90</a>    <span class="doccomment">/// Notify the callback about new progress information.
-<a href=#91 id=91 data-nosnippet>91</a>    </span><span class="kw">pub fn </span>notify(<span class="kw-2">&amp;</span><span class="self">self</span>, progress: CompilationProgress) -&gt; <span class="prelude-ty">Result</span>&lt;(), UserAbort&gt; {
-<a href=#92 id=92 data-nosnippet>92</a>        (<span class="self">self</span>.callback)(progress)
-<a href=#93 id=93 data-nosnippet>93</a>    }
-<a href=#94 id=94 data-nosnippet>94</a>}
-<a href=#95 id=95 data-nosnippet>95</a>
-<a href=#96 id=96 data-nosnippet>96</a><span class="kw">impl </span>fmt::Debug <span class="kw">for </span>CompilationProgressCallback {
-<a href=#97 id=97 data-nosnippet>97</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
-<a href=#98 id=98 data-nosnippet>98</a>        f.debug_struct(<span class="string">"CompilationProgressCallback"</span>).finish()
-<a href=#99 id=99 data-nosnippet>99</a>    }
-<a href=#100 id=100 data-nosnippet>100</a>}
+<a href=#68 id=68 data-nosnippet>68</a><span class="kw">type </span>ProgressCallback =
+<a href=#69 id=69 data-nosnippet>69</a>    <span class="kw">dyn </span>Fn(CompilationProgress) -&gt; <span class="prelude-ty">Result</span>&lt;(), UserAbort&gt; + Send + Sync + <span class="lifetime">'static</span>;
+<a href=#70 id=70 data-nosnippet>70</a><span class="kw">type </span>ReserveSizeCallbackFn = <span class="kw">dyn </span>Fn(usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), UserAbort&gt; + Send + Sync + <span class="lifetime">'static</span>;
+<a href=#71 id=71 data-nosnippet>71</a>
+<a href=#72 id=72 data-nosnippet>72</a><span class="attr">#[derive(Clone)]
+<a href=#73 id=73 data-nosnippet>73</a></span><span class="kw">struct </span>ReserveSizeCallback {
+<a href=#74 id=74 data-nosnippet>74</a>    callback: Arc&lt;ReserveSizeCallbackFn&gt;,
+<a href=#75 id=75 data-nosnippet>75</a>    chunk_size: NonZeroUsize,
+<a href=#76 id=76 data-nosnippet>76</a>}
+<a href=#77 id=77 data-nosnippet>77</a>
+<a href=#78 id=78 data-nosnippet>78</a><span class="doccomment">/// Wraps callbacks that can receive compilation progress and output-size notifications.
+<a href=#79 id=79 data-nosnippet>79</a></span><span class="attr">#[derive(Clone)]
+<a href=#80 id=80 data-nosnippet>80</a></span><span class="kw">pub struct </span>CompilationProgressCallback {
+<a href=#81 id=81 data-nosnippet>81</a>    callback: Arc&lt;ProgressCallback&gt;,
+<a href=#82 id=82 data-nosnippet>82</a>    reserve_size_callback: <span class="prelude-ty">Option</span>&lt;ReserveSizeCallback&gt;,
+<a href=#83 id=83 data-nosnippet>83</a>}
+<a href=#84 id=84 data-nosnippet>84</a>
+<a href=#85 id=85 data-nosnippet>85</a><span class="kw">impl </span>CompilationProgressCallback {
+<a href=#86 id=86 data-nosnippet>86</a>    <span class="doccomment">/// Create a new callback wrapper.
+<a href=#87 id=87 data-nosnippet>87</a>    ///
+<a href=#88 id=88 data-nosnippet>88</a>    /// The provided callback will be invoked with progress updates during the compilation process,
+<a href=#89 id=89 data-nosnippet>89</a>    /// and has to return a `Result&lt;(), UserAbort&gt;`.
+<a href=#90 id=90 data-nosnippet>90</a>    ///
+<a href=#91 id=91 data-nosnippet>91</a>    /// If the callback returns an error, the compilation will be aborted with a `CompileError::Aborted`.
+<a href=#92 id=92 data-nosnippet>92</a>    </span><span class="kw">pub fn </span>new&lt;F&gt;(callback: F) -&gt; <span class="self">Self
+<a href=#93 id=93 data-nosnippet>93</a>    </span><span class="kw">where
+<a href=#94 id=94 data-nosnippet>94</a>        </span>F: Fn(CompilationProgress) -&gt; <span class="prelude-ty">Result</span>&lt;(), UserAbort&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#95 id=95 data-nosnippet>95</a>    {
+<a href=#96 id=96 data-nosnippet>96</a>        <span class="self">Self </span>{
+<a href=#97 id=97 data-nosnippet>97</a>            callback: Arc::new(callback),
+<a href=#98 id=98 data-nosnippet>98</a>            reserve_size_callback: <span class="prelude-val">None</span>,
+<a href=#99 id=99 data-nosnippet>99</a>        }
+<a href=#100 id=100 data-nosnippet>100</a>    }
+<a href=#101 id=101 data-nosnippet>101</a>
+<a href=#102 id=102 data-nosnippet>102</a>    <span class="doccomment">/// Configures a callback for reporting increases in compilation output size.
+<a href=#103 id=103 data-nosnippet>103</a>    ///
+<a href=#104 id=104 data-nosnippet>104</a>    /// Singlepass uses this callback to account for emitted native-code bytes, reporting after
+<a href=#105 id=105 data-nosnippet>105</a>    /// at least `chunk_size` bytes.
+<a href=#106 id=106 data-nosnippet>106</a>    </span><span class="kw">pub fn </span>with_reserve_size_callback&lt;F&gt;(<span class="kw-2">mut </span><span class="self">self</span>, callback: F, chunk_size: NonZeroUsize) -&gt; <span class="self">Self
+<a href=#107 id=107 data-nosnippet>107</a>    </span><span class="kw">where
+<a href=#108 id=108 data-nosnippet>108</a>        </span>F: Fn(usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), UserAbort&gt; + Send + Sync + <span class="lifetime">'static</span>,
+<a href=#109 id=109 data-nosnippet>109</a>    {
+<a href=#110 id=110 data-nosnippet>110</a>        <span class="self">self</span>.reserve_size_callback = <span class="prelude-val">Some</span>(ReserveSizeCallback {
+<a href=#111 id=111 data-nosnippet>111</a>            callback: Arc::new(callback),
+<a href=#112 id=112 data-nosnippet>112</a>            chunk_size,
+<a href=#113 id=113 data-nosnippet>113</a>        });
+<a href=#114 id=114 data-nosnippet>114</a>        <span class="self">self
+<a href=#115 id=115 data-nosnippet>115</a>    </span>}
+<a href=#116 id=116 data-nosnippet>116</a>
+<a href=#117 id=117 data-nosnippet>117</a>    <span class="doccomment">/// Returns the configured reserve-size reporting chunk size.
+<a href=#118 id=118 data-nosnippet>118</a>    </span><span class="kw">pub fn </span>reserve_size_chunk_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;NonZeroUsize&gt; {
+<a href=#119 id=119 data-nosnippet>119</a>        <span class="self">self</span>.reserve_size_callback
+<a href=#120 id=120 data-nosnippet>120</a>            .as_ref()
+<a href=#121 id=121 data-nosnippet>121</a>            .map(|callback| callback.chunk_size)
+<a href=#122 id=122 data-nosnippet>122</a>    }
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>    <span class="doccomment">/// Reports an increase in compilation output size, in bytes.
+<a href=#125 id=125 data-nosnippet>125</a>    ///
+<a href=#126 id=126 data-nosnippet>126</a>    /// This is a no-op when no reserve-size callback was configured.
+<a href=#127 id=127 data-nosnippet>127</a>    </span><span class="kw">pub fn </span>reserve_size(<span class="kw-2">&amp;</span><span class="self">self</span>, size_increase: usize) -&gt; <span class="prelude-ty">Result</span>&lt;(), UserAbort&gt; {
+<a href=#128 id=128 data-nosnippet>128</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.reserve_size_callback {
+<a href=#129 id=129 data-nosnippet>129</a>            <span class="prelude-val">Some</span>(callback) =&gt; (callback.callback)(size_increase),
+<a href=#130 id=130 data-nosnippet>130</a>            <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Ok</span>(()),
+<a href=#131 id=131 data-nosnippet>131</a>        }
+<a href=#132 id=132 data-nosnippet>132</a>    }
+<a href=#133 id=133 data-nosnippet>133</a>
+<a href=#134 id=134 data-nosnippet>134</a>    <span class="doccomment">/// Notify the callback about new progress information.
+<a href=#135 id=135 data-nosnippet>135</a>    </span><span class="kw">pub fn </span>notify(<span class="kw-2">&amp;</span><span class="self">self</span>, progress: CompilationProgress) -&gt; <span class="prelude-ty">Result</span>&lt;(), UserAbort&gt; {
+<a href=#136 id=136 data-nosnippet>136</a>        (<span class="self">self</span>.callback)(progress)
+<a href=#137 id=137 data-nosnippet>137</a>    }
+<a href=#138 id=138 data-nosnippet>138</a>}
+<a href=#139 id=139 data-nosnippet>139</a>
+<a href=#140 id=140 data-nosnippet>140</a><span class="kw">impl </span>fmt::Debug <span class="kw">for </span>CompilationProgressCallback {
+<a href=#141 id=141 data-nosnippet>141</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; fmt::Result {
+<a href=#142 id=142 data-nosnippet>142</a>        f.debug_struct(<span class="string">"CompilationProgressCallback"</span>).finish()
+<a href=#143 id=143 data-nosnippet>143</a>    }
+<a href=#144 id=144 data-nosnippet>144</a>}
 </code></pre></div></section></main></body></html>
