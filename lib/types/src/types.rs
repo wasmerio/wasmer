@@ -162,13 +162,6 @@ fn is_global_compatible(exported: GlobalType, imported: GlobalType) -> bool {
     exported_ty == imported_ty && imported_mutability == exported_mutability
 }
 
-fn is_table_element_type_compatible(exported_type: Type, imported_type: Type) -> bool {
-    match exported_type {
-        Type::FuncRef => true,
-        _ => imported_type == exported_type,
-    }
-}
-
 fn is_table_compatible(
     exported: &TableType,
     imported: &TableType,
@@ -187,7 +180,7 @@ fn is_table_compatible(
         ..
     } = imported;
 
-    is_table_element_type_compatible(*exported_ty, *imported_ty)
+    exported_ty == imported_ty
         && *imported_minimum <= imported_runtime_size.unwrap_or(*exported_minimum)
         && (imported_maximum.is_none()
             || (!exported_maximum.is_none()
