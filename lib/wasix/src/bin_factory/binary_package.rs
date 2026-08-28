@@ -345,7 +345,7 @@ impl BinaryPackage {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "package-authoring"))]
 mod tests {
     use sha2::Digest;
     use tempfile::TempDir;

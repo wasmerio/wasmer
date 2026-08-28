@@ -148,7 +148,7 @@ static-artifact-create = [
   "wasmer-compiler/static-artifact-create",
   "wasmer-c-api-imports/static-artifact-create",
 ]
-webc_runner = ["virtual-fs", "webc"]
+webc_runner = ["virtual-fs", "webc", "webc/v1"]
 # Deprecated features.
 jit = ["compiler"]
 

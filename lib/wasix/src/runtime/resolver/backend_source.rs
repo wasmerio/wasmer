@@ -480,8 +480,7 @@ impl FileSystemQueryCache {
     }
 
     fn path(&self, package_name: &str) -> PathBuf {
-        self.cache_dir
-            .join(package_name.replace('/', "#").replace('\\', "#"))
+        self.cache_dir.join(package_name.replace(['/', '\\'], "#"))
     }
 }
 
@@ -490,33 +489,24 @@ impl QueryCache for FileSystemQueryCache {
     async fn load(&self, package_name: &str) -> Result<Option<Bytes>, Error> {
         let filename = self.path(package_name);
 
-        let _span =
-            tracing::debug_span!("lookup_cached_query", filename=%filename.display()).entered();
-
-        tracing::trace!("Reading cached entry from disk");
-        match std::fs::read(&filename) {
+        tracing::trace!(filename=%filename.display(), "Reading cached entry from disk");
+        let result = crate::spawn_blocking(move || match std::fs::read(&filename) {
             Ok(json) => Ok(Some(Bytes::from(json))),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                tracing::debug!("Cache miss");
-                Ok(None)
-            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(e) => {
                 Err(Error::new(e).context(format!("Unable to read \"{}\"", filename.display())))
             }
+        })
+        .await
+        .context("Unable to run the cache read task")??;
+        if result.is_none() {
+            tracing::debug!("Cache miss");
         }
+        Ok(result)
     }
 
     async fn save(&self, package_name: &str, bytes: Bytes) -> Result<(), Error> {
-        let _ = std::fs::create_dir_all(&self.cache_dir);
-
-        let mut temp = tempfile::NamedTempFile::new_in(&self.cache_dir)
-            .context("Unable to create a temporary file")?;
-        temp.write_all(&bytes)
-            .context("Unable to write the cached query")?;
-        temp.as_file()
-            .sync_all()
-            .context("Flushing the temp file failed")?;
-
+        let cache_dir = self.cache_dir.clone();
         let filename = self.path(package_name);
         tracing::debug!(
             filename=%filename.display(),
@@ -524,25 +514,44 @@ impl QueryCache for FileSystemQueryCache {
             "Saving the query to disk",
         );
 
-        if let Some(parent) = filename.parent() {
-            let _ = std::fs::create_dir_all(parent);
-        }
-        temp.persist(&filename).with_context(|| {
-            format!(
-                "Unable to persist the temp file to \"{}\"",
-                filename.display()
-            )
-        })?;
+        crate::spawn_blocking(move || -> Result<(), Error> {
+            let _ = std::fs::create_dir_all(&cache_dir);
+
+            let mut temp = tempfile::NamedTempFile::new_in(&cache_dir)
+                .context("Unable to create a temporary file")?;
+            temp.write_all(&bytes)
+                .context("Unable to write the cached query")?;
+            temp.as_file()
+                .sync_all()
+                .context("Flushing the temp file failed")?;
+
+            if let Some(parent) = filename.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            temp.persist(&filename).with_context(|| {
+                format!(
+                    "Unable to persist the temp file to \"{}\"",
+                    filename.display()
+                )
+            })?;
+
+            Ok(())
+        })
+        .await
+        .context("Unable to run the cache write task")??;
 
         Ok(())
     }
 
     async fn remove(&self, package_name: &str) -> Result<(), Error> {
-        match std::fs::remove_file(self.path(package_name)) {
+        let filename = self.path(package_name);
+        crate::spawn_blocking(move || match std::fs::remove_file(filename) {
             Ok(()) => Ok(()),
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(()),
             Err(error) => Err(error.into()),
-        }
+        })
+        .await
+        .context("Unable to run the cache removal task")?
     }
 }
 
