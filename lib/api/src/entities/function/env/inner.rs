@@ -289,13 +289,20 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
     }
 
     /// Uses the Store context already installed on the current JSPI stack.
+    ///
+    /// # Safety
+    ///
+    /// No other mutable handle to this Store may be accessible while the
+    /// closure runs.
     #[cfg(feature = "js")]
-    pub fn with_current_mut<R>(
+    pub unsafe fn with_current_mut<R>(
         &self,
         f: impl FnOnce(BackendFunctionEnvMut<'_, T>) -> R,
     ) -> Option<R> {
         match self {
-            Self::Js(env) => env.with_current_mut(|env| f(BackendFunctionEnvMut::Js(env))),
+            Self::Js(env) => unsafe {
+                env.with_current_mut(|env| f(BackendFunctionEnvMut::Js(env)))
+            },
             #[allow(unreachable_patterns)]
             _ => None,
         }

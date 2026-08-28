@@ -280,7 +280,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         let store = self
             .store
             .upgrade()
-            .expect("async function store was dropped");
+            .expect("async function environment outlived its Function::call_async store context");
         AsyncFunctionEnvHandle {
             read_lock: store.read_lock().await,
             func_env: self.func_env.clone(),
@@ -291,7 +291,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         let store = self
             .store
             .upgrade()
-            .expect("async function store was dropped");
+            .expect("async function environment outlived its Function::call_async store context");
         AsyncFunctionEnvHandleMut {
             write_lock: store.write_lock().await,
             func_env: self.func_env.clone(),
@@ -309,7 +309,12 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     /// Uses the Store context already installed on the current JSPI stack.
     /// This permits synchronous callbacks to re-enter the guest without
     /// attempting to acquire the async Store lock a second time.
-    pub fn with_current_mut<R>(
+    ///
+    /// # Safety
+    ///
+    /// No other mutable handle to this Store may be accessible while the
+    /// closure runs.
+    pub unsafe fn with_current_mut<R>(
         &self,
         f: impl FnOnce(FunctionEnvMut<'_, T>) -> R,
     ) -> Option<R> {
@@ -331,7 +336,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
         self.store
             .upgrade()
-            .expect("async function store was dropped")
+            .expect("async function environment outlived its Function::call_async store context")
     }
 }
 

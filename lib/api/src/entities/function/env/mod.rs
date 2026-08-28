@@ -161,9 +161,17 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     /// Uses the Store context already installed on the current JSPI stack.
+    ///
+    /// # Safety
+    ///
+    /// No other [`StoreMut`](crate::StoreMut), [`FunctionEnvMut`], or other
+    /// mutable handle to this Store may be accessible while the closure runs.
     #[cfg(feature = "js")]
-    pub fn with_current_mut<R>(&self, f: impl FnOnce(FunctionEnvMut<'_, T>) -> R) -> Option<R> {
-        self.0.with_current_mut(|env| f(FunctionEnvMut(env)))
+    pub unsafe fn with_current_mut<R>(
+        &self,
+        f: impl FnOnce(FunctionEnvMut<'_, T>) -> R,
+    ) -> Option<R> {
+        unsafe { self.0.with_current_mut(|env| f(FunctionEnvMut(env))) }
     }
 
     /// Borrows a new immmutable reference
