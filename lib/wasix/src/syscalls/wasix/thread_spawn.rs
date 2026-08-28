@@ -29,7 +29,7 @@ use wasmer_wasix_types::wasi::ThreadStart;
 /// Returns the thread index of the newly created thread
 /// (indices always start from the same value as `pid` and increments in steps)
 #[instrument(level = "trace", skip_all, ret)]
-pub fn thread_spawn_v2<M: MemorySize>(
+pub fn thread_spawn_v2<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
     ret_tid: WasmPtr<Tid, M>,
@@ -52,7 +52,7 @@ pub fn thread_spawn_v2<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
+pub fn thread_spawn_internal_from_wasi<M: MemorySize + 'static>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
 ) -> Result<Tid, Errno> {
@@ -111,7 +111,7 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
     Ok(thread_id)
 }
 
-pub fn thread_spawn_internal_using_layout<M: MemorySize>(
+pub fn thread_spawn_internal_using_layout<M: MemorySize + 'static>(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     thread_handle: Arc<WasiThreadHandle>,
     layout: WasiMemoryLayout,
@@ -298,7 +298,7 @@ fn handle_thread_result(
 }
 
 /// Calls the module
-async fn call_module<M: MemorySize>(
+async fn call_module<M: MemorySize + 'static>(
     mut ctx: WasiFunctionEnv,
     mut store: Store,
     start_ptr_offset: M::Offset,
