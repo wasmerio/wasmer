@@ -273,7 +273,7 @@ js = [
   "wasmer/js-serializable-module",
 ]
 js-default = ["js"]
-test-js = ["js", "wasmer/wat"]
+test-js = ["js", "wasmer/wat", "package-authoring", "webc/v2"]
 
 host-vnet = ["virtual-net/host-net"]
 host-threads = []

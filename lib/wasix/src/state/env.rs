@@ -930,14 +930,6 @@ impl WasiEnv {
         )
     }
 
-    /// Provides safe access to the initialized part of WasiEnv
-    /// (it must be initialized before it can be used)
-    pub(crate) fn inner_mut(&mut self) -> WasiInstanceGuardMut<'_> {
-        self.inner.get_mut().expect(
-            "You must initialize the WasiEnv before using it and can not pass it between threads",
-        )
-    }
-
     /// Providers safe access to the initialized part of WasiEnv
     pub(crate) fn try_inner(&self) -> Option<WasiInstanceGuard<'_>> {
         self.inner.get()

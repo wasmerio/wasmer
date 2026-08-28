@@ -480,8 +480,7 @@ impl FileSystemQueryCache {
     }
 
     fn path(&self, package_name: &str) -> PathBuf {
-        self.cache_dir
-            .join(package_name.replace('/', "#").replace('\\', "#"))
+        self.cache_dir.join(package_name.replace(['/', '\\'], "#"))
     }
 }
 
