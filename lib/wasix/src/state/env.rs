@@ -544,7 +544,7 @@ impl WasiEnv {
         let runtime = func_env.data(&store).runtime.clone();
         let instantiation_state = runtime
             .prepare_imports(&module, &mut store, &mut import_object)
-            .map_err(|err| WasiThreadError::AdditionalImportCreationFailed(Arc::new(err)))?;
+            .map_err(|err| WasiThreadError::ImportPreparationFailed(Arc::new(err)))?;
 
         let imported_memory = import_object
             .get_export("env", "memory")

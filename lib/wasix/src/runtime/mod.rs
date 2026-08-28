@@ -133,10 +133,13 @@ pub trait InstantiationHook: fmt::Debug + Send + Sync + 'static {
     ///
     /// The default implementation preserves the original
     /// [`InstantiationHook::additional_imports`] contract by merging its
-    /// returned imports without replacing imports already supplied by WASIX.
-    /// Hooks that need to inspect or reuse an existing import, such as an
-    /// imported memory, can override this method and update `imports` in place.
-    /// Overrides must preserve existing entries.
+    /// returned imports without replacing any entry already present in
+    /// `imports`. This includes imports supplied by WASIX and imports inserted
+    /// by earlier hooks. Unlike [`wasmer::Imports::extend`], duplicate entries
+    /// from `additional_imports` do not overwrite existing ones. Hooks that
+    /// need to inspect or reuse an existing import, such as an imported memory,
+    /// can override this method and update `imports` in place. Overrides must
+    /// preserve existing entries.
     fn prepare_imports(
         &self,
         module: &wasmer::Module,
