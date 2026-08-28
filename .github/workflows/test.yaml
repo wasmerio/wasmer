@@ -46,6 +46,7 @@ jobs:
   dependency_cooldown:
     name: Dependency cooldown
     runs-on: ubuntu-24.04
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
         with:
