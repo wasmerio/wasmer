@@ -799,7 +799,6 @@ jobs:
     runs-on: ubuntu-22.04
     needs:
       - setup
-      - dependency_cooldown
       - lint
       - cargo_deny
       - test_nodejs
