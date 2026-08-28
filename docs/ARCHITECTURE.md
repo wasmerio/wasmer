@@ -1,8 +1,9 @@
-# Repository architecture
+# Repository Architecture
 
-This document maps the workspace: which crate owns which concern. One place
-per concern — if two crates seem to own the same thing, one of them is the
-wrong place for your change.
+This document maps the workspace, one crate per concern. The workspace
+holds tens of crates; the full listing is the `members` section of the
+root [Cargo.toml](../Cargo.toml). The table below covers the paths you
+will touch most:
 
 | Path                                                  | Content                                                              |
 | ----------------------------------------------------- | -------------------------------------------------------------------- |
@@ -19,20 +20,11 @@ wrong place for your change.
 | `lib/config`, `lib/package`                           | `wasmer.toml` parsing and webc packaging.                            |
 | `tests/compilers`                                     | Integration tests (`wast.rs`, `traps.rs`, `issues.rs`, more).        |
 | `tests/wast/{spec,wasmer}`                            | WAST test files. `spec` is a submodule.                              |
-| `tests/ignores.txt`                                   | Per-compiler test skip list: `<compiler> <test> # reason`.           |
 
-The root crate is a meta-crate. The root `build.rs` generates one WAST spec
-test per compiler from `tests/wast/spec`.
+The root crate is a meta-crate.
 
 ## Submodules
 
 Three submodules: `tests/wast/spec`, `lib/napi`, `wasmer-test-files`.
-Initialize with:
 
-```bash
-git submodule update --init --recursive
-```
-
-`git status` often shows the submodules as modified. Do not commit a
-submodule pointer bump in an unrelated PR. Spec syncs are explicit commits,
-for example `test: sync SPEC test submodule (#6827)`.
+For initialization and working with the different crates + submodules, see [BUILD.md](./BUILD.md)

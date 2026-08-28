@@ -26,5 +26,5 @@ Wasmer provides multiple documentations. Here are some pointers:
 For contributors, one document per concern:
 [CONTRIBUTING.md](./CONTRIBUTING.md), [ARCHITECTURE.md](./ARCHITECTURE.md),
 [BUILD.md](./BUILD.md), [TEST.md](./TEST.md),
-[DEBUGGING.md](./DEBUGGING.md), [SECURITY.md](./SECURITY.md). The root
-[AGENTS.md](../AGENTS.md) indexes them for coding agents.
+[SECURITY.md](./SECURITY.md). The root [AGENTS.md](../AGENTS.md) indexes
+them for coding agents and covers debugging the runtime.

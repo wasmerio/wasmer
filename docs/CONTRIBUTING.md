@@ -3,7 +3,7 @@
 Thank you for your interest in contributing to Wasmer. This document
 outlines the expectations for issues and pull requests.
 
-## Issues and feature requests
+## Issues & Feature Requests
 
 Please use the issue template and provide a failing example if possible to
 help us recreate the issue.
@@ -13,11 +13,11 @@ help us recreate the issue.
 > through the private process in [SECURITY.md](./SECURITY.md). A public fix
 > before disclosure exposes users.
 
-## Code style
+## Code Style
 
 Sparse "why" comments. Short single-responsibility functions.
 
-## Lint and format
+## Lint and Format
 
 CI rejects lint and format failures. Run before you push:
 
@@ -25,9 +25,8 @@ CI rejects lint and format failures. Run before you push:
 make lint
 ```
 
-This runs `cargo fmt --all -- --check`, clippy with `-D clippy::all` plus a
-RUSTFLAGS deny list, `taplo format --check`, `yamlfmt -lint .github`, and
-`clang-format`. To apply clippy fixes in bulk:
+The `lint` target in the [Makefile](../Makefile) defines exactly what
+runs. To apply clippy fixes in bulk:
 
 ```bash
 cargo clippy --all --exclude wasmer-swift --locked --fix --allow-dirty -- -D clippy::all
@@ -36,7 +35,7 @@ cargo clippy --all --exclude wasmer-swift --locked --fix --allow-dirty -- -D cli
 `cargo fmt` does not cover `lib/wasix/tests/wasm_tests`. CI formats those
 files with `rustfmt --edition 2024` directly.
 
-## Pull requests
+## Pull Requests
 
 For large changes, open a GitHub issue first to ensure we can accept the
 change once it is ready.
@@ -52,15 +51,11 @@ change once it is ready.
   both (see [dev/release.md](./dev/release.md)).
 - macOS and musl CI jobs run on a PR only when the PR has the `macos` or
   `musl` label. If your change touches platform code, add the label.
-- Do not commit a submodule pointer bump in an unrelated PR (see
-  [ARCHITECTURE.md](./ARCHITECTURE.md)).
-- Windows builds use `--no-default-features --features v8`. The native sys
-  backend is not supported on Windows. no-std support is removed, but the
-  `check-compilers-only-std` and `check-baremetal` CI jobs still gate.
+- Do not commit a submodule pointer bump in an unrelated PR.
 
-## Common build issues
+## Common Build Issues
 
-### LLVM dependency
+### LLVM Dependency
 
 `Didn't find usable system-wide LLVM` means LLVM 22 is missing. Either
 install it or build with `ENABLE_LLVM=0`. See
