@@ -844,9 +844,7 @@ fn allocate_guest_memory(env: &mut FunctionEnvMut<WasmCapiEnv>, len: usize) -> O
         return Some(0);
     }
 
-    let Some(malloc_fn) = env.data().malloc_fn.clone() else {
-        return None;
-    };
+    let malloc_fn = env.data().malloc_fn.clone()?;
     let Ok(len) = i32::try_from(len) else {
         return None;
     };
@@ -1691,6 +1689,7 @@ fn js_atomic_operation(
     Some(result)
 }
 
+#[allow(clippy::too_many_arguments)]
 fn wasm_memory_atomic(
     env: FunctionEnvMut<WasmCapiEnv>,
     memory_handle: i32,
