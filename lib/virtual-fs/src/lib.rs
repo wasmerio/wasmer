@@ -347,6 +347,17 @@ impl<'a> OpenOptions<'a> {
 pub trait VirtualFile:
     fmt::Debug + AsyncRead + AsyncWrite + AsyncSeek + Unpin + Upcastable + Send
 {
+    /// Polls until file data has reached durable storage.
+    ///
+    /// Unlike [`AsyncWrite::poll_flush`], this operation need not synchronize
+    /// metadata that is not required to retrieve the file's data. The default
+    /// delegates to `poll_flush`, preserving the stronger behavior of existing
+    /// backends. Implementors should override this only when they can provide a
+    /// genuine data-durability barrier.
+    fn poll_sync_data(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        AsyncWrite::poll_flush(self, cx)
+    }
+
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> u64;
 
