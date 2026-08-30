@@ -186,13 +186,11 @@ impl FdList {
             self.fds.resize(idx + 1, None);
         }
 
-        if self.fds[idx].is_some() {
-            if exclusive {
-                return InsertOutcome {
-                    inserted: false,
-                    shutdown_target: None,
-                };
-            }
+        if self.fds[idx].is_some() && exclusive {
+            return InsertOutcome {
+                inserted: false,
+                shutdown_target: None,
+            };
         }
 
         // Acquire the incoming reference before dropping a replaced one. If
