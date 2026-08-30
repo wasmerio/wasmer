@@ -526,7 +526,7 @@
 <a href=#526 id=526 data-nosnippet>526</a>            <span class="comment">// Safety: the store context is uninstalled before we return, and the
 <a href=#527 id=527 data-nosnippet>527</a>            // store mut is valid for the duration of the call.
 <a href=#528 id=528 data-nosnippet>528</a>            </span><span class="kw">let </span>store_install_guard =
-<a href=#529 id=529 data-nosnippet>529</a>                <span class="kw">unsafe </span>{ StoreContext::ensure_installed(store.as_store_mut().inner <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>) };
+<a href=#529 id=529 data-nosnippet>529</a>                <span class="kw">unsafe </span>{ StoreContext::install(store.as_store_mut().inner <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>) };
 <a href=#530 id=530 data-nosnippet>530</a>
 <a href=#531 id=531 data-nosnippet>531</a>            <span class="kw">let </span><span class="kw-2">mut </span>r;
 <a href=#532 id=532 data-nosnippet>532</a>            <span class="comment">// TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451

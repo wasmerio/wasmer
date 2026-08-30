@@ -69,7 +69,7 @@
 <a href=#69 id=69 data-nosnippet>69</a>
 <a href=#70 id=70 data-nosnippet>70</a>                <span class="comment">// Install the store into the store context
 <a href=#71 id=71 data-nosnippet>71</a>                </span><span class="kw">let </span>store_install_guard = <span class="kw">unsafe </span>{
-<a href=#72 id=72 data-nosnippet>72</a>                    StoreContext::ensure_installed(store.as_store_mut().inner <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>)
+<a href=#72 id=72 data-nosnippet>72</a>                    StoreContext::install(store.as_store_mut().inner <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>)
 <a href=#73 id=73 data-nosnippet>73</a>                };
 <a href=#74 id=74 data-nosnippet>74</a>
 <a href=#75 id=75 data-nosnippet>75</a>                <span class="kw">let </span><span class="kw-2">mut </span>r;
@@ -206,7 +206,7 @@
 <a href=#206 id=206 data-nosnippet>206</a>
 <a href=#207 id=207 data-nosnippet>207</a>                <span class="comment">// Install the store into the store context
 <a href=#208 id=208 data-nosnippet>208</a>                </span><span class="kw">let </span>store_install_guard = <span class="kw">unsafe </span>{
-<a href=#209 id=209 data-nosnippet>209</a>                    StoreContext::ensure_installed(store.as_store_mut().inner <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>)
+<a href=#209 id=209 data-nosnippet>209</a>                    StoreContext::install(store.as_store_mut().inner <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>)
 <a href=#210 id=210 data-nosnippet>210</a>                };
 <a href=#211 id=211 data-nosnippet>211</a>
 <a href=#212 id=212 data-nosnippet>212</a>                <span class="kw">let </span><span class="kw-2">mut </span>r;
