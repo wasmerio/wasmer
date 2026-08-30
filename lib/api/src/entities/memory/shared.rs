@@ -75,14 +75,6 @@ impl SharedMemory {
         }
     }
 
-    /// The backing VM shared-memory handle.
-    ///
-    /// Clones share the underlying allocation, allowing embedders to grow the
-    /// memory from a thread that does not hold a Store.
-    pub fn vm_shared_memory(&self) -> &VMSharedMemory {
-        &self.memory
-    }
-
     #[inline]
     fn shared_ops(&self) -> Result<&(dyn SharedMemoryOps + Send + Sync), AtomicsError> {
         self.ops
