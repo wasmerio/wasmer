@@ -19,6 +19,7 @@ singlepass wasmer::simd
 singlepass      spec::throw
 singlepass      spec::try_table
 singlepass      wasmer::exception_handling
+singlepass      wasmer::exceptions_call_indirect
 
 # Misc
 singlepass wide_arithmetic
