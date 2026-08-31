@@ -13,7 +13,9 @@ readme = "README.md"
 [dependencies]
 wasmer-backend-api = { path = "../backend-api", version = "=0.703.0" }
 wasmer-config = { path = "../config", version = "=0.703.0" }
-wasmer-package = { path = "../package", version = "=0.703.0" }
+wasmer-package = { path = "../package", version = "=0.703.0", features = [
+  "authoring",
+] }
 
 reqwest = { workspace = true, default-features = false, features = [
   "json",

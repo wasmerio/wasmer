@@ -26,7 +26,12 @@ wasmer-wasix = { version = "=0.703.0", path = "../wasix", default-features = fal
   "sys",
 ] }
 webc.workspace = true
-wasmer-package.workspace = true
+wasmer-package = { workspace = true, features = [
+  "execution",
+  "webc-v1",
+  "webc-v2",
+  "webc-v3",
+] }
 
 
 [build-dependencies]

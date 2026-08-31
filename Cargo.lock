@@ -7785,6 +7785,7 @@ version = "0.703.0"
 dependencies = [
  "anyhow",
  "bytes",
+ "cfg-if",
  "ciborium",
  "flate2",
  "hexdump",
@@ -8014,6 +8015,7 @@ dependencies = [
  "wcgi",
  "wcgi-host",
  "web-sys",
+ "web-time",
  "webc",
  "windows-sys 0.61.2",
  "xxhash-rust",
