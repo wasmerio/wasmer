@@ -878,7 +878,7 @@ mod tests {
             entries
                 .iter()
                 .map(|entry| entry.path.as_path())
-                .collect_vec(),
+                .collect::<Vec<_>>(),
             [Path::new("/lib/python3.13"), Path::new("/lib/wasm32-wasi"),],
         );
         assert!(

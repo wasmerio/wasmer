@@ -190,84 +190,97 @@ mod tests {
     use tempfile::TempDir;
 
     use crate::runtime::resolver::{
-        Dependency, WebcHash,
-        inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
+        Dependency,
+        inputs::{DistributionInfo, PackageInfo},
     };
 
     use super::*;
 
     const PYTHON: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../wasmer-test-files/examples/python-0.1.0.wasmer"
+        "/../../wasmer-test-files/examples/python--python@3.13.5.webc"
     ));
-    const COREUTILS_16: &[u8] = include_bytes!(concat!(
+    const COREUTILS_24: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+        "/../../wasmer-test-files/integration/webc/wasmer--coreutils@1.0.24.webc"
     ));
-    const COREUTILS_11: &[u8] = include_bytes!(concat!(
+    const COREUTILS_25: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../wasmer-test-files/integration/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc"
+        "/../../wasmer-test-files/integration/webc/wasmer--coreutils@1.0.25.webc"
     ));
     const BASH: &[u8] = include_bytes!(concat!(
         env!("CARGO_MANIFEST_DIR"),
-        "/../../wasmer-test-files/integration/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc"
+        "/../../wasmer-test-files/integration/webc/wasmer--bash@1.0.25.webc"
     ));
 
     #[test]
     fn load_a_directory_tree() {
         let temp = TempDir::new().unwrap();
-        std::fs::write(temp.path().join("python-0.1.0.webc"), PYTHON).unwrap();
-        std::fs::write(temp.path().join("coreutils-1.0.16.webc"), COREUTILS_16).unwrap();
-        std::fs::write(temp.path().join("coreutils-1.0.11.webc"), COREUTILS_11).unwrap();
         let nested = temp.path().join("nested");
         std::fs::create_dir(&nested).unwrap();
-        let bash = nested.join("bash-1.0.12.webc");
-        std::fs::write(&bash, BASH).unwrap();
+
+        let bash = nested.join("bash-1.0.25.webc");
+        let fixtures = [
+            (temp.path().join("python.webc"), PYTHON),
+            (temp.path().join("coreutils-1.0.24.webc"), COREUTILS_24),
+            (temp.path().join("coreutils-1.0.25.webc"), COREUTILS_25),
+            (bash.clone(), BASH),
+        ];
+        for (path, bytes) in &fixtures {
+            std::fs::write(path, bytes).unwrap();
+        }
+        std::fs::write(temp.path().join("not-a-webc.txt"), b"ignored").unwrap();
 
         let source = InMemorySource::from_directory_tree(temp.path()).unwrap();
 
+        assert!(source.named_packages.is_empty());
+        assert_eq!(source.len(), fixtures.len());
+        for (path, bytes) in fixtures {
+            let webc_hash = crate::runtime::resolver::WebcHash::sha256(bytes);
+            let package_hash = PackageHash::from_sha256_bytes(webc_hash.0);
+            let summary = source.get(&PackageId::Hash(package_hash)).unwrap();
+
+            assert_eq!(summary.dist.webc_sha256, webc_hash);
+            assert_eq!(
+                summary.dist.webc,
+                crate::runtime::resolver::utils::url_from_file_path(path.canonicalize().unwrap())
+                    .unwrap(),
+            );
+        }
+
+        let bash_hash = crate::runtime::resolver::WebcHash::parse_hex(
+            "059606d132e2e6bc1afe3b432ee64dcb1b1b059815c8bb213cf3b24798ef21e1",
+        )
+        .unwrap();
+        let bash_id = PackageId::Hash(PackageHash::from_sha256_bytes(bash_hash.0));
         assert_eq!(
-            source
-                .named_packages
-                .keys()
-                .map(|k| k.as_str())
-                .collect::<Vec<_>>(),
-            ["python", "sharrattj/bash", "sharrattj/coreutils"]
-        );
-        assert_eq!(source.named_packages["sharrattj/coreutils"].len(), 2);
-        assert_eq!(
-            source.named_packages["sharrattj/bash"][0].summary,
-            PackageSummary {
+            source.get(&bash_id).unwrap(),
+            &PackageSummary {
                 pkg: PackageInfo {
-                    id: PackageId::Named(
-                        NamedPackageId::try_new("sharrattj/bash", "1.0.16").unwrap()
-                    ),
+                    id: bash_id.clone(),
                     dependencies: vec![Dependency {
-                        alias: "coreutils".to_string(),
-                        pkg: "sharrattj/coreutils@^1.0.16".parse().unwrap()
+                        alias: "wasmer/coreutils".to_string(),
+                        pkg: "wasmer/coreutils@^1.0.19".parse().unwrap(),
                     }],
-                    commands: vec![crate::runtime::resolver::Command {
-                        name: "bash".to_string(),
-                    }],
+                    commands: vec![
+                        crate::runtime::resolver::Command {
+                            name: "bash".to_string(),
+                        },
+                        crate::runtime::resolver::Command {
+                            name: "sh".to_string(),
+                        },
+                    ],
                     entrypoint: Some("bash".to_string()),
-                    filesystem: vec![FileSystemMapping {
-                        volume_name: "atom".to_string(),
-                        mount_path: "/".to_string(),
-                        original_path: Some("/".to_string()),
-                        dependency_name: None,
-                    }],
+                    filesystem: vec![],
                 },
                 dist: DistributionInfo {
                     webc: crate::runtime::resolver::utils::url_from_file_path(
-                        bash.canonicalize().unwrap()
+                        bash.canonicalize().unwrap(),
                     )
                     .unwrap(),
-                    webc_sha256: WebcHash::from_bytes([
-                        161, 101, 23, 194, 244, 92, 186, 213, 143, 33, 200, 128, 238, 23, 185, 174,
-                        180, 195, 144, 145, 78, 17, 227, 159, 118, 64, 83, 153, 0, 205, 253, 215,
-                    ]),
+                    webc_sha256: bash_hash,
                 },
-            }
+            },
         );
     }
 }
