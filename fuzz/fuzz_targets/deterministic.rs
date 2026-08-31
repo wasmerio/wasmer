@@ -50,7 +50,6 @@ fuzz_target!(|module: SinglePassFuzzModule| {
 
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
-    compiler.enable_verifier();
     compile_and_compare(
         "llvm",
         EngineBuilder::new(compiler.clone()).engine(),

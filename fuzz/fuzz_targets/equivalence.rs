@@ -52,7 +52,6 @@ fn maybe_instantiate_cranelift(wasm_bytes: &[u8]) -> Result<Option<(Store, Insta
 fn maybe_instantiate_llvm(wasm_bytes: &[u8]) -> Result<Option<(Store, Instance)>> {
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
-    compiler.enable_verifier();
     let mut store = Store::new(EngineBuilder::new(compiler));
     let module = Module::new(&store, wasm_bytes)?;
     let instance = Instance::new(&mut store, &module, &imports! {})?;

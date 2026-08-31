@@ -149,13 +149,7 @@ impl FuncTrampoline {
             callbacks.preopt_ir(function, &compile_info.module.hash_string(), &module);
         }
 
-        let mut passes = vec![];
-
-        if config.enable_verifier {
-            passes.push("verify");
-        }
-
-        passes.push("instcombine");
+        let passes = &["verify", "instcombine"];
         module
             .run_passes(
                 passes.join(",").as_str(),
@@ -311,13 +305,7 @@ impl FuncTrampoline {
             callbacks.preopt_ir(function, module_hash, &module);
         }
 
-        let mut passes = vec![];
-
-        if config.enable_verifier {
-            passes.push("verify");
-        }
-
-        passes.push("early-cse");
+        let passes = &["verify", "early-cse"];
         module
             .run_passes(
                 passes.join(",").as_str(),
