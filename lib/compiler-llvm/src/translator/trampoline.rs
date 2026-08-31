@@ -149,14 +149,10 @@ impl FuncTrampoline {
             callbacks.preopt_ir(function, &compile_info.module.hash_string(), &module);
         }
 
-        let passes = &["verify", "instcombine"];
-        module
-            .run_passes(
-                passes.join(",").as_str(),
-                target_machine,
-                PassBuilderOptions::create(),
-            )
-            .unwrap();
+        // Always verify the LLVM IR.
+        err!(module.verify());
+
+        err!(module.run_passes("instcombine", target_machine, PassBuilderOptions::create(),));
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(function, &compile_info.module.hash_string(), &module);
@@ -305,14 +301,10 @@ impl FuncTrampoline {
             callbacks.preopt_ir(function, module_hash, &module);
         }
 
-        let passes = &["verify", "early-cse"];
-        module
-            .run_passes(
-                passes.join(",").as_str(),
-                target_machine,
-                PassBuilderOptions::create(),
-            )
-            .unwrap();
+        // Always verify the LLVM IR.
+        err!(module.verify());
+
+        err!(module.run_passes("early-cse", target_machine, PassBuilderOptions::create(),));
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(function, module_hash, &module);

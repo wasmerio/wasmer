@@ -479,10 +479,7 @@ impl FuncTranslator {
             callbacks.preopt_ir(&function, &wasm_module.hash_string(), &module);
         }
 
-        // Always verify the LLVM IR; otherwise, invalid IR could cause a nasty
-        // miscompilation instead of a compilation error. Measurements show that
-        // verification adds approximately 2% to compilation time.
-        let mut passes = vec!["verify"];
+        let mut passes = Vec::new();
 
         match opt_style {
             OptimizationStyle::Disabled => {
@@ -522,13 +519,16 @@ impl FuncTranslator {
             }
         }
 
-        module
-            .run_passes(
-                &passes.join(","),
-                target_machine,
-                PassBuilderOptions::create(),
-            )
-            .unwrap();
+        // Always verify the LLVM IR; otherwise, invalid IR could cause a nasty
+        // miscompilation instead of a compilation error. Measurements show that
+        // verification adds approximately 2% to compilation time.
+        err!(module.verify());
+
+        err!(module.run_passes(
+            &passes.join(","),
+            target_machine,
+            PassBuilderOptions::create(),
+        ));
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &wasm_module.hash_string(), &module);
