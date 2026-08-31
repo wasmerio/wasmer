@@ -2261,6 +2261,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             self.builder
                 .position_at_end(cont.expect("non-return call requires cont"));
 
+            if foreign_rets.len() != local_rets.len() {
+                return Err(CompileError::Codegen(format!(
+                    "mismatched return counts in indirect call branches: foreign={}, local={}.",
+                    foreign_rets.len(),
+                    local_rets.len()
+                )));
+            }
+
             for (foreign_ret, local_ret) in foreign_rets.iter().zip(local_rets.iter()) {
                 let v = err!(self.builder.build_phi(foreign_ret.get_type(), ""));
                 v.add_incoming(&[
