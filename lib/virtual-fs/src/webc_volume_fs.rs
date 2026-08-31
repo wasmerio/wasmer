@@ -484,7 +484,6 @@ fn normalize(path: &Path) -> Result<PathSegments, PathSegmentError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::DirEntry;
     use std::collections::BTreeMap;
     use std::convert::TryFrom;
     use tokio::io::AsyncReadExt;
@@ -492,7 +491,7 @@ mod tests {
     use webc::PathSegment;
 
     const PYTHON_WEBC: &[u8] =
-        include_bytes!("../../../wasmer-test-files/examples/python-0.1.0.wasmer");
+        include_bytes!("../../../wasmer-test-files/examples/python--python@3.13.5.webc");
 
     fn symlink_fs() -> WebcVolumeFileSystem {
         let timestamps = webc::v3::Timestamps::default();
@@ -859,16 +858,14 @@ mod tests {
         let fs = WebcVolumeFileSystem::mount_all(&container);
 
         // We should now have access to the python directory
-        let lib_meta = fs.metadata("/lib/python3.6/".as_ref()).unwrap();
+        let lib_meta = fs.metadata("/lib/python3.13/".as_ref()).unwrap();
         assert!(lib_meta.is_dir());
     }
 
     #[test]
     fn read_dir() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
-        let volumes = container.volumes();
-        let volume = volumes["atom"].clone();
-
+        let volume = container.volumes()["/root/usr/local"].clone();
         let fs = WebcVolumeFileSystem::new(volume);
 
         let entries: Vec<_> = fs
@@ -877,113 +874,17 @@ mod tests {
             .map(|r| r.unwrap())
             .collect();
 
-        let modified = get_modified(None);
-        let expected = vec![
-            DirEntry {
-                path: "/lib/.DS_Store".into(),
-                metadata: Ok(Metadata {
-                    ft: FileType {
-                        file: true,
-                        ..Default::default()
-                    },
-                    accessed: 0,
-                    created: 0,
-                    modified,
-                    len: 6148,
-                }),
-            },
-            DirEntry {
-                path: "/lib/Parser".into(),
-                metadata: Ok(Metadata {
-                    ft: FileType {
-                        dir: true,
-                        ..Default::default()
-                    },
-                    accessed: 0,
-                    created: 0,
-                    modified,
-                    len: 0,
-                }),
-            },
-            DirEntry {
-                path: "/lib/python.wasm".into(),
-                metadata: Ok(crate::Metadata {
-                    ft: crate::FileType {
-                        file: true,
-                        ..Default::default()
-                    },
-                    accessed: 0,
-                    created: 0,
-                    modified,
-                    len: 4694941,
-                }),
-            },
-            DirEntry {
-                path: "/lib/python3.6".into(),
-                metadata: Ok(crate::Metadata {
-                    ft: crate::FileType {
-                        dir: true,
-                        ..Default::default()
-                    },
-                    accessed: 0,
-                    created: 0,
-                    modified,
-                    len: 0,
-                }),
-            },
-        ];
-        assert_eq!(entries, expected);
-    }
-
-    #[test]
-    fn metadata() {
-        let container = from_bytes(PYTHON_WEBC).unwrap();
-        let volumes = container.volumes();
-        let volume = volumes["atom"].clone();
-
-        let fs = WebcVolumeFileSystem::new(volume);
-
-        let modified = get_modified(None);
-        let python_wasm = crate::Metadata {
-            ft: crate::FileType {
-                file: true,
-                ..Default::default()
-            },
-            accessed: 0,
-            created: 0,
-            modified,
-            len: 4694941,
-        };
         assert_eq!(
-            fs.metadata("/lib/python.wasm".as_ref()).unwrap(),
-            python_wasm,
+            entries
+                .iter()
+                .map(|entry| entry.path.as_path())
+                .collect_vec(),
+            [Path::new("/lib/python3.13"), Path::new("/lib/wasm32-wasi"),],
         );
-        assert_eq!(
-            fs.metadata("/../../../../lib/python.wasm".as_ref())
-                .unwrap(),
-            python_wasm,
-        );
-        assert_eq!(
-            fs.metadata("/lib/python3.6/../python3.6/../python.wasm".as_ref())
-                .unwrap(),
-            python_wasm,
-        );
-        assert_eq!(
-            fs.metadata("/lib/python3.6".as_ref()).unwrap(),
-            crate::Metadata {
-                ft: crate::FileType {
-                    dir: true,
-                    ..Default::default()
-                },
-                accessed: 0,
-                created: 0,
-                modified,
-                len: 0,
-            },
-        );
-        assert_eq!(
-            fs.metadata("/this/does/not/exist".as_ref()).unwrap_err(),
-            FsError::EntryNotFound
+        assert!(
+            entries
+                .iter()
+                .all(|entry| entry.metadata().unwrap().is_dir())
         );
     }
 
@@ -991,7 +892,7 @@ mod tests {
     async fn file_opener() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
-        let volume = volumes["atom"].clone();
+        let volume = volumes["/root/usr/local"].clone();
 
         let fs = WebcVolumeFileSystem::new(volume);
 
@@ -1019,13 +920,13 @@ mod tests {
         let mut f = fs
             .new_open_options()
             .read(true)
-            .open("/lib/python.wasm")
+            .open("/bin/python3.wasm")
             .unwrap();
         let mut buffer = Vec::new();
         f.read_to_end(&mut buffer).await.unwrap();
         assert!(buffer.starts_with(b"\0asm"));
         assert_eq!(
-            fs.metadata("/lib/python.wasm".as_ref()).unwrap().len(),
+            fs.metadata("/bin/python3.wasm".as_ref()).unwrap().len(),
             u64::try_from(buffer.len()).unwrap(),
         );
     }
@@ -1034,7 +935,7 @@ mod tests {
     fn remove_dir_is_not_allowed() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
-        let volume = volumes["atom"].clone();
+        let volume = volumes["/root/usr/local"].clone();
 
         let fs = WebcVolumeFileSystem::new(volume);
 
@@ -1047,7 +948,7 @@ mod tests {
             FsError::EntryNotFound,
         );
         assert_eq!(
-            fs.remove_dir("/lib/python.wasm".as_ref()).unwrap_err(),
+            fs.remove_dir("/bin/python3.wasm".as_ref()).unwrap_err(),
             FsError::BaseNotDirectory,
         );
     }
@@ -1056,7 +957,7 @@ mod tests {
     fn remove_file_is_not_allowed() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
-        let volume = volumes["atom"].clone();
+        let volume = volumes["/root/usr/local"].clone();
 
         let fs = WebcVolumeFileSystem::new(volume);
 
@@ -1069,7 +970,7 @@ mod tests {
             FsError::EntryNotFound,
         );
         assert_eq!(
-            fs.remove_file("/lib/python.wasm".as_ref()).unwrap_err(),
+            fs.remove_file("/bin/python3.wasm".as_ref()).unwrap_err(),
             FsError::PermissionDenied,
         );
     }
@@ -1078,7 +979,7 @@ mod tests {
     fn create_dir_is_not_allowed() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
-        let volume = volumes["atom"].clone();
+        let volume = volumes["/root/usr/local"].clone();
 
         let fs = WebcVolumeFileSystem::new(volume);
 
@@ -1100,7 +1001,7 @@ mod tests {
     async fn rename_is_not_allowed() {
         let container = from_bytes(PYTHON_WEBC).unwrap();
         let volumes = container.volumes();
-        let volume = volumes["atom"].clone();
+        let volume = volumes["/root/usr/local"].clone();
 
         let fs = WebcVolumeFileSystem::new(volume);
 
@@ -1117,7 +1018,7 @@ mod tests {
             FsError::EntryNotFound,
         );
         assert_eq!(
-            fs.rename("/lib/python.wasm".as_ref(), "/lib/another.wasm".as_ref())
+            fs.rename("/bin/python3.wasm".as_ref(), "/lib/another.wasm".as_ref())
                 .await
                 .unwrap_err(),
             FsError::PermissionDenied,

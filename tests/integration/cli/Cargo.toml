@@ -41,7 +41,5 @@ target-lexicon.workspace = true
 dirs.workspace = true
 
 [features]
-default = ["webc_runner"]
-webc_runner = []
 v8 = []
 debug = []

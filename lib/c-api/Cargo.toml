@@ -38,10 +38,6 @@ wasmer-wasix = { path = "../wasix", version = "=0.703.0", features = [
   "host-vnet",
   "sys",
 ], default-features = false, optional = true }
-webc = { workspace = true, optional = true }
-virtual-fs = { version = "0.703.0", path = "../virtual-fs", optional = true, default-features = false, features = [
-  "static-fs",
-] }
 anyhow.workspace = true
 enumset.workspace = true
 libc.workspace = true
@@ -148,9 +144,9 @@ static-artifact-create = [
   "wasmer-compiler/static-artifact-create",
   "wasmer-c-api-imports/static-artifact-create",
 ]
-webc_runner = ["virtual-fs", "webc"]
 # Deprecated features.
 jit = ["compiler"]
+webc_runner = []
 
 [build-dependencies]
 cbindgen = { workspace = true, default-features = false }
