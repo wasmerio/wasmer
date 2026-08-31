@@ -8,6 +8,12 @@
 
 ## 7.4.0 - 31/08/2026
 
+This release includes:
+- A WASIX import preparation hook.
+- General N-API improvements, including guest heap growth through the store.
+- A maximum output-size budget for Singlepass.
+- An updated static `MemoryStyle` API, now requiring an 8 GiB memory mapping.
+
 ## Added
 
   - [#6960](https://github.com/wasmerio/wasmer/pull/6960) Add a WASIX import preparation hook
