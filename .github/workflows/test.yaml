@@ -81,10 +81,10 @@ jobs:
       - run: go install github.com/google/yamlfmt/cmd/yamlfmt@v0.21.0
       - name: Install LLVM (Linux)
         run: |
-          mkdir -p /opt/llvm-22
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.zst -L -o - | tar --zstd -xf - --strip-components=1 -C /opt/llvm-22
-          echo '/opt/llvm-22/bin' >> $GITHUB_PATH
-          echo 'LLVM_SYS_221_PREFIX=/opt/llvm-22' >> $GITHUB_ENV
+          mkdir -p /opt/llvm-23
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-amd64.tar.zst -L -o - | tar --zstd -xf - --strip-components=1 -C /opt/llvm-23
+          echo '/opt/llvm-23/bin' >> $GITHUB_PATH
+          echo 'LLVM_SYS_231_PREFIX=/opt/llvm-23' >> $GITHUB_ENV
       - name: Install taplo
         run: curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin /usr/local/bin/taplo
       - name: Cache
@@ -236,9 +236,9 @@ jobs:
         if: startsWith(matrix.metadata.build, 'macos-')
         shell: bash
         run: |
-          brew install ninja llvm@22
-          echo "/opt/homebrew/opt/llvm@22/bin" >> $GITHUB_PATH
-          ls -laR /opt/homebrew/opt/llvm@22/bin/
+          brew install ninja llvm@23
+          echo "/opt/homebrew/opt/llvm@23/bin" >> $GITHUB_PATH
+          ls -laR /opt/homebrew/opt/llvm@23/bin/
       - name: Install `ninja` on Windows
         if: startsWith(matrix.metadata.build, 'windows-')
         shell: bash
@@ -292,15 +292,15 @@ jobs:
         shell: bash
         run: |
           sudo apt-get install ninja-build -y
-      - name: Install LLVM 22
+      - name: Install LLVM 23.1
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
           mkdir ${LLVM_DIR}
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.zst -L -o - | tar --zstd -xf - --strip-components=1 -C ${LLVM_DIR}
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-amd64.tar.zst -L -o - | tar --zstd -xf - --strip-components=1 -C ${LLVM_DIR}
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_231_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: make test-build-docs-rs-ci
@@ -394,7 +394,7 @@ jobs:
             os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             exe: ""
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.zst"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-amd64.tar.zst"
             # Unfortunately, building a shared lib of the c_api with the V8
             # backend does not work, due to unsupported relocations to hidden
             # symbols in wee8.
@@ -403,19 +403,19 @@ jobs:
             os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             exe: ""
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.zst"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-aarch64.tar.zst"
             supports_v8: false
           - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin
             exe: ""
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-aarch64.tar.zst"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-darwin-aarch64.tar.zst"
             supports_v8: true
           - build: windows-x64
             os: windows-2022
             target: x86_64-pc-windows-msvc
             exe: ".exe"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-windows-amd64.tar.zst"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-windows-amd64.tar.zst"
             supports_v8: false
           - build: windows-gnu
             target: x86_64-pc-windows-gnu
@@ -526,7 +526,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_231_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Setup Rust target
@@ -649,24 +649,24 @@ jobs:
             target: x86_64-unknown-linux-gnu
             exe: ""
             wasix_rust_toolchain: true
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.zst"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-amd64.tar.zst"
           - build: linux-arm64
             os: ubuntu-22.04-arm
             target: aarch64-unknown-linux-gnu
             exe: ""
             wasix_rust_toolchain: true
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-aarch64.tar.zst"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-linux-aarch64.tar.zst"
           - build: macos-arm
             os: depot-macos-14
             target: aarch64-apple-darwin
             exe: ""
             wasix_rust_toolchain: true
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-darwin-aarch64.tar.zst"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-darwin-aarch64.tar.zst"
           - build: windows-x64
             os: windows-2022
             target: x86_64-pc-windows-msvc
             exe: ".exe"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-windows-amd64.tar.zst"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/23.x/llvm-windows-amd64.tar.zst"
           - build: linux-musl
             target: x86_64-unknown-linux-musl
             os: ubuntu-22.04
@@ -784,7 +784,7 @@ jobs:
           curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf "${{ matrix.metadata.llvm_url }}" -L -o - | tar --zstd -xf - --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_221_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_231_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm

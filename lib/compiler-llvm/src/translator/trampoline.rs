@@ -119,6 +119,9 @@ impl FuncTrampoline {
             trampoline_ty,
             Some(Linkage::External),
         );
+        trampoline_func
+            .as_global_value()
+            .set_alignment(super::FUNCTION_ALIGNMENT);
         if !config.experimental_artifact {
             trampoline_func
                 .as_global_value()
@@ -289,6 +292,9 @@ impl FuncTrampoline {
             trampoline_ty,
             Some(Linkage::External),
         );
+        trampoline_func
+            .as_global_value()
+            .set_alignment(super::FUNCTION_ALIGNMENT);
         trampoline_func.set_personality_function(intrinsics.personality);
         trampoline_func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
         for (attr, attr_loc) in trampoline_attrs {
