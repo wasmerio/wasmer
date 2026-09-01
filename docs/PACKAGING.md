@@ -39,9 +39,7 @@
   `wasmer --version -v` by omitting the verbose `commit-date:` line,
   which is useful for distribution packaging.
 
-* If you split the package into several subpackages, beware that the
-  `create-exe` command of the `wasmer` CLI requires `libwasmer.a` to
-  be installed at `$WASMER_INSTALL_PREFIX/lib/libwasmer.a`. Suggestions for splitting:
+* If you split the package into several subpackages:
 
   * The `wasmer-headless` CLI contains a subset of the `wasmer`'s functionalities
     and should only be packaged when splitting — it must be built
