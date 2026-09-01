@@ -112,44 +112,48 @@
 <a href=#112 id=112 data-nosnippet>112</a>    </span><span class="kw">fn </span>test_cmd_package_extract() {
 <a href=#113 id=113 data-nosnippet>113</a>        <span class="kw">let </span>dir = tempfile::tempdir().unwrap();
 <a href=#114 id=114 data-nosnippet>114</a>
-<a href=#115 id=115 data-nosnippet>115</a>        <span class="kw">let </span>package_path = std::env::var(<span class="string">"CARGO_MANIFEST_DIR"</span>).map(PathBuf::from).unwrap()
-<a href=#116 id=116 data-nosnippet>116</a>            .parent().unwrap()
-<a href=#117 id=117 data-nosnippet>117</a>            .parent().unwrap()
-<a href=#118 id=118 data-nosnippet>118</a>            .join(<span class="string">"wasmer-test-files/integration/webc/hello-0.1.0-665d2ddc-80e6-4845-85d3-4587b1693bb7.webc"</span>);
-<a href=#119 id=119 data-nosnippet>119</a>
-<a href=#120 id=120 data-nosnippet>120</a>        <span class="macro">assert!</span>(package_path.is_file());
-<a href=#121 id=121 data-nosnippet>121</a>
-<a href=#122 id=122 data-nosnippet>122</a>        <span class="kw">let </span>cmd = PackageUnpack {
-<a href=#123 id=123 data-nosnippet>123</a>            out_dir: dir.path().to_owned(),
-<a href=#124 id=124 data-nosnippet>124</a>            overwrite: <span class="bool-val">false</span>,
-<a href=#125 id=125 data-nosnippet>125</a>            package_path,
-<a href=#126 id=126 data-nosnippet>126</a>            quiet: <span class="bool-val">true</span>,
-<a href=#127 id=127 data-nosnippet>127</a>            format: Format::Webc,
-<a href=#128 id=128 data-nosnippet>128</a>        };
-<a href=#129 id=129 data-nosnippet>129</a>
-<a href=#130 id=130 data-nosnippet>130</a>        cmd.execute().unwrap();
-<a href=#131 id=131 data-nosnippet>131</a>
-<a href=#132 id=132 data-nosnippet>132</a>        <span class="kw">let </span><span class="kw-2">mut </span>items = std::fs::read_dir(dir.path())
-<a href=#133 id=133 data-nosnippet>133</a>            .unwrap()
-<a href=#134 id=134 data-nosnippet>134</a>            .map(|x| {
-<a href=#135 id=135 data-nosnippet>135</a>                x.unwrap()
-<a href=#136 id=136 data-nosnippet>136</a>                    .path()
-<a href=#137 id=137 data-nosnippet>137</a>                    .file_name()
-<a href=#138 id=138 data-nosnippet>138</a>                    .unwrap()
-<a href=#139 id=139 data-nosnippet>139</a>                    .to_str()
-<a href=#140 id=140 data-nosnippet>140</a>                    .unwrap()
-<a href=#141 id=141 data-nosnippet>141</a>                    .to_string()
-<a href=#142 id=142 data-nosnippet>142</a>            })
-<a href=#143 id=143 data-nosnippet>143</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#144 id=144 data-nosnippet>144</a>        items.sort();
-<a href=#145 id=145 data-nosnippet>145</a>        <span class="macro">assert_eq!</span>(
-<a href=#146 id=146 data-nosnippet>146</a>            items,
-<a href=#147 id=147 data-nosnippet>147</a>            <span class="macro">vec!</span>[
-<a href=#148 id=148 data-nosnippet>148</a>                <span class="string">"atom"</span>.to_string(),
-<a href=#149 id=149 data-nosnippet>149</a>                <span class="string">"manifest.json"</span>.to_string(),
-<a href=#150 id=150 data-nosnippet>150</a>                <span class="string">"metadata"</span>.to_string(),
-<a href=#151 id=151 data-nosnippet>151</a>            ]
-<a href=#152 id=152 data-nosnippet>152</a>        );
-<a href=#153 id=153 data-nosnippet>153</a>    }
-<a href=#154 id=154 data-nosnippet>154</a>}
+<a href=#115 id=115 data-nosnippet>115</a>        <span class="kw">let </span>package_path = std::env::var(<span class="string">"CARGO_MANIFEST_DIR"</span>)
+<a href=#116 id=116 data-nosnippet>116</a>            .map(PathBuf::from)
+<a href=#117 id=117 data-nosnippet>117</a>            .unwrap()
+<a href=#118 id=118 data-nosnippet>118</a>            .parent()
+<a href=#119 id=119 data-nosnippet>119</a>            .unwrap()
+<a href=#120 id=120 data-nosnippet>120</a>            .parent()
+<a href=#121 id=121 data-nosnippet>121</a>            .unwrap()
+<a href=#122 id=122 data-nosnippet>122</a>            .join(<span class="string">"wasmer-test-files/integration/webc/wasmer--bash@1.0.25.webc"</span>);
+<a href=#123 id=123 data-nosnippet>123</a>
+<a href=#124 id=124 data-nosnippet>124</a>        <span class="macro">assert!</span>(package_path.is_file());
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>        <span class="kw">let </span>cmd = PackageUnpack {
+<a href=#127 id=127 data-nosnippet>127</a>            out_dir: dir.path().to_owned(),
+<a href=#128 id=128 data-nosnippet>128</a>            overwrite: <span class="bool-val">false</span>,
+<a href=#129 id=129 data-nosnippet>129</a>            package_path,
+<a href=#130 id=130 data-nosnippet>130</a>            quiet: <span class="bool-val">true</span>,
+<a href=#131 id=131 data-nosnippet>131</a>            format: Format::Webc,
+<a href=#132 id=132 data-nosnippet>132</a>        };
+<a href=#133 id=133 data-nosnippet>133</a>
+<a href=#134 id=134 data-nosnippet>134</a>        cmd.execute().unwrap();
+<a href=#135 id=135 data-nosnippet>135</a>
+<a href=#136 id=136 data-nosnippet>136</a>        <span class="kw">let </span><span class="kw-2">mut </span>items = std::fs::read_dir(dir.path())
+<a href=#137 id=137 data-nosnippet>137</a>            .unwrap()
+<a href=#138 id=138 data-nosnippet>138</a>            .map(|x| {
+<a href=#139 id=139 data-nosnippet>139</a>                x.unwrap()
+<a href=#140 id=140 data-nosnippet>140</a>                    .path()
+<a href=#141 id=141 data-nosnippet>141</a>                    .file_name()
+<a href=#142 id=142 data-nosnippet>142</a>                    .unwrap()
+<a href=#143 id=143 data-nosnippet>143</a>                    .to_str()
+<a href=#144 id=144 data-nosnippet>144</a>                    .unwrap()
+<a href=#145 id=145 data-nosnippet>145</a>                    .to_string()
+<a href=#146 id=146 data-nosnippet>146</a>            })
+<a href=#147 id=147 data-nosnippet>147</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#148 id=148 data-nosnippet>148</a>        items.sort();
+<a href=#149 id=149 data-nosnippet>149</a>        <span class="macro">assert_eq!</span>(
+<a href=#150 id=150 data-nosnippet>150</a>            items,
+<a href=#151 id=151 data-nosnippet>151</a>            <span class="macro">vec!</span>[
+<a href=#152 id=152 data-nosnippet>152</a>                <span class="string">"bash"</span>.to_string(),
+<a href=#153 id=153 data-nosnippet>153</a>                <span class="string">"manifest.json"</span>.to_string(),
+<a href=#154 id=154 data-nosnippet>154</a>                <span class="string">"metadata"</span>.to_string(),
+<a href=#155 id=155 data-nosnippet>155</a>            ]
+<a href=#156 id=156 data-nosnippet>156</a>        );
+<a href=#157 id=157 data-nosnippet>157</a>    }
+<a href=#158 id=158 data-nosnippet>158</a>}
 </code></pre></div></section></main></body></html>

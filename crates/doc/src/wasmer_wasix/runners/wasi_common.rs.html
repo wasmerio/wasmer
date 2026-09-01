@@ -474,7 +474,7 @@
 <a href=#474 id=474 data-nosnippet>474</a>    }
 <a href=#475 id=475 data-nosnippet>475</a>
 <a href=#476 id=476 data-nosnippet>476</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] =
-<a href=#477 id=477 data-nosnippet>477</a>        <span class="macro">include_bytes!</span>(<span class="string">"../../../../wasmer-test-files/examples/python-0.1.0.wasmer"</span>);
+<a href=#477 id=477 data-nosnippet>477</a>        <span class="macro">include_bytes!</span>(<span class="string">"../../../../wasmer-test-files/examples/python--python@3.13.5.webc"</span>);
 <a href=#478 id=478 data-nosnippet>478</a>
 <a href=#479 id=479 data-nosnippet>479</a>    <span class="attr">#[derive(Debug)]
 <a href=#480 id=480 data-nosnippet>480</a>    </span><span class="kw">struct </span>CountingLimiter {
@@ -600,12 +600,12 @@
 <a href=#600 id=600 data-nosnippet>600</a>        <span class="macro">assert!</span>(fs.metadata(<span class="string">"/home/file.txt"</span>.as_ref()).unwrap().is_file());
 <a href=#601 id=601 data-nosnippet>601</a>        <span class="macro">assert!</span>(fs.metadata(<span class="string">"lib"</span>.as_ref()).unwrap().is_dir());
 <a href=#602 id=602 data-nosnippet>602</a>        <span class="macro">assert!</span>(
-<a href=#603 id=603 data-nosnippet>603</a>            fs.metadata(<span class="string">"lib/python3.6/collections/__init__.py"</span>.as_ref())
+<a href=#603 id=603 data-nosnippet>603</a>            fs.metadata(<span class="string">"lib/python3.13/collections/__init__.py"</span>.as_ref())
 <a href=#604 id=604 data-nosnippet>604</a>                .unwrap()
 <a href=#605 id=605 data-nosnippet>605</a>                .is_file()
 <a href=#606 id=606 data-nosnippet>606</a>        );
 <a href=#607 id=607 data-nosnippet>607</a>        <span class="macro">assert!</span>(
-<a href=#608 id=608 data-nosnippet>608</a>            fs.metadata(<span class="string">"lib/python3.6/encodings/__init__.py"</span>.as_ref())
+<a href=#608 id=608 data-nosnippet>608</a>            fs.metadata(<span class="string">"lib/python3.13/encodings/__init__.py"</span>.as_ref())
 <a href=#609 id=609 data-nosnippet>609</a>                .unwrap()
 <a href=#610 id=610 data-nosnippet>610</a>                .is_file()
 <a href=#611 id=611 data-nosnippet>611</a>        );
@@ -646,7 +646,7 @@
 <a href=#646 id=646 data-nosnippet>646</a>                .is_file()
 <a href=#647 id=647 data-nosnippet>647</a>        );
 <a href=#648 id=648 data-nosnippet>648</a>        <span class="macro">assert!</span>(
-<a href=#649 id=649 data-nosnippet>649</a>            fs.metadata(Path::new(<span class="string">"/python/lib/python3.6/collections/__init__.py"</span>))
+<a href=#649 id=649 data-nosnippet>649</a>            fs.metadata(Path::new(<span class="string">"/python/lib/python3.13/collections/__init__.py"</span>))
 <a href=#650 id=650 data-nosnippet>650</a>                .unwrap()
 <a href=#651 id=651 data-nosnippet>651</a>                .is_file()
 <a href=#652 id=652 data-nosnippet>652</a>        );
@@ -675,14 +675,14 @@
 <a href=#675 id=675 data-nosnippet>675</a>        .unwrap();
 <a href=#676 id=676 data-nosnippet>676</a>
 <a href=#677 id=677 data-nosnippet>677</a>        fs.create_symlink(
-<a href=#678 id=678 data-nosnippet>678</a>            Path::new(<span class="string">"lib/python3.6/collections"</span>),
+<a href=#678 id=678 data-nosnippet>678</a>            Path::new(<span class="string">"lib/python3.13/collections"</span>),
 <a href=#679 id=679 data-nosnippet>679</a>            Path::new(<span class="string">"/python/collections-link"</span>),
 <a href=#680 id=680 data-nosnippet>680</a>        )
 <a href=#681 id=681 data-nosnippet>681</a>        .unwrap();
 <a href=#682 id=682 data-nosnippet>682</a>
 <a href=#683 id=683 data-nosnippet>683</a>        <span class="macro">assert_eq!</span>(
 <a href=#684 id=684 data-nosnippet>684</a>            fs.readlink(Path::new(<span class="string">"/python/collections-link"</span>)).unwrap(),
-<a href=#685 id=685 data-nosnippet>685</a>            Path::new(<span class="string">"lib/python3.6/collections"</span>)
+<a href=#685 id=685 data-nosnippet>685</a>            Path::new(<span class="string">"lib/python3.13/collections"</span>)
 <a href=#686 id=686 data-nosnippet>686</a>        );
 <a href=#687 id=687 data-nosnippet>687</a>        <span class="macro">assert!</span>(
 <a href=#688 id=688 data-nosnippet>688</a>            fs.symlink_metadata(Path::new(<span class="string">"/python/collections-link"</span>))

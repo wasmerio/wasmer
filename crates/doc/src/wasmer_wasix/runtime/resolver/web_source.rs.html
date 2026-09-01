@@ -388,11 +388,11 @@
 <a href=#388 id=388 data-nosnippet>388</a>
 <a href=#389 id=389 data-nosnippet>389</a>    <span class="kw">const </span>PYTHON: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
 <a href=#390 id=390 data-nosnippet>390</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
-<a href=#391 id=391 data-nosnippet>391</a>        <span class="string">"/../../wasmer-test-files/examples/python-0.1.0.wasmer"
+<a href=#391 id=391 data-nosnippet>391</a>        <span class="string">"/../../wasmer-test-files/examples/python--python@3.13.5.webc"
 <a href=#392 id=392 data-nosnippet>392</a>    </span>));
 <a href=#393 id=393 data-nosnippet>393</a>    <span class="kw">const </span>COREUTILS: <span class="kw-2">&amp;</span>[u8] = <span class="macro">include_bytes!</span>(<span class="macro">concat!</span>(
 <a href=#394 id=394 data-nosnippet>394</a>        <span class="macro">env!</span>(<span class="string">"CARGO_MANIFEST_DIR"</span>),
-<a href=#395 id=395 data-nosnippet>395</a>        <span class="string">"/../../wasmer-test-files/integration/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+<a href=#395 id=395 data-nosnippet>395</a>        <span class="string">"/../../wasmer-test-files/integration/webc/wasmer--coreutils@1.0.25.webc"
 <a href=#396 id=396 data-nosnippet>396</a>    </span>));
 <a href=#397 id=397 data-nosnippet>397</a>    <span class="kw">const </span>DUMMY_URL: <span class="kw-2">&amp;</span>str = <span class="string">"http://my-registry.io/some/package"</span>;
 <a href=#398 id=398 data-nosnippet>398</a>    <span class="kw">const </span>DUMMY_URL_HASH: <span class="kw-2">&amp;</span>str = <span class="string">"4D7481F44E1D971A8C60D3C7BD505E2727602CF9369ED623920E029C2BA2351D"</span>;
@@ -473,7 +473,7 @@
 <a href=#473 id=473 data-nosnippet>473</a>
 <a href=#474 id=474 data-nosnippet>474</a>        <span class="comment">// We got the right response, as expected
 <a href=#475 id=475 data-nosnippet>475</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-<a href=#476 id=476 data-nosnippet>476</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
+<a href=#476 id=476 data-nosnippet>476</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].dist.webc.as_str(), DUMMY_URL);
 <a href=#477 id=477 data-nosnippet>477</a>        <span class="comment">// But we should have also cached the file and etag
 <a href=#478 id=478 data-nosnippet>478</a>        </span><span class="kw">let </span>path = temp.path().join(DUMMY_URL_HASH);
 <a href=#479 id=479 data-nosnippet>479</a>        <span class="macro">assert!</span>(path.exists());
@@ -506,7 +506,7 @@
 <a href=#506 id=506 data-nosnippet>506</a>
 <a href=#507 id=507 data-nosnippet>507</a>        <span class="comment">// We got the right response, as expected
 <a href=#508 id=508 data-nosnippet>508</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-<a href=#509 id=509 data-nosnippet>509</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
+<a href=#509 id=509 data-nosnippet>509</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].dist.webc.as_str(), DUMMY_URL);
 <a href=#510 id=510 data-nosnippet>510</a>        <span class="comment">// And no requests were sent
 <a href=#511 id=511 data-nosnippet>511</a>        </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">0</span>);
 <a href=#512 id=512 data-nosnippet>512</a>    }
@@ -536,7 +536,7 @@
 <a href=#536 id=536 data-nosnippet>536</a>
 <a href=#537 id=537 data-nosnippet>537</a>        <span class="comment">// We got the right response, as expected
 <a href=#538 id=538 data-nosnippet>538</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-<a href=#539 id=539 data-nosnippet>539</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name, <span class="string">"python"</span>);
+<a href=#539 id=539 data-nosnippet>539</a>        <span class="macro">assert_eq!</span>(summaries[<span class="number">0</span>].dist.webc.as_str(), DUMMY_URL);
 <a href=#540 id=540 data-nosnippet>540</a>        <span class="comment">// And one request was sent
 <a href=#541 id=541 data-nosnippet>541</a>        </span><span class="macro">assert_eq!</span>(client.requests.lock().unwrap().len(), <span class="number">1</span>);
 <a href=#542 id=542 data-nosnippet>542</a>        <span class="comment">// The etag file wasn't written
@@ -575,30 +575,27 @@
 <a href=#575 id=575 data-nosnippet>575</a>
 <a href=#576 id=576 data-nosnippet>576</a>        <span class="comment">// Instead of Python (the originally cached item), we should get coreutils
 <a href=#577 id=577 data-nosnippet>577</a>        </span><span class="macro">assert_eq!</span>(summaries.len(), <span class="number">1</span>);
-<a href=#578 id=578 data-nosnippet>578</a>        <span class="macro">assert_eq!</span>(
-<a href=#579 id=579 data-nosnippet>579</a>            summaries[<span class="number">0</span>].pkg.id.as_named().unwrap().full_name,
-<a href=#580 id=580 data-nosnippet>580</a>            <span class="string">"sharrattj/coreutils"
-<a href=#581 id=581 data-nosnippet>581</a>        </span>);
-<a href=#582 id=582 data-nosnippet>582</a>        <span class="comment">// both a HEAD and GET request were sent
-<a href=#583 id=583 data-nosnippet>583</a>        </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
-<a href=#584 id=584 data-nosnippet>584</a>        <span class="macro">assert_eq!</span>(requests.len(), <span class="number">2</span>);
-<a href=#585 id=585 data-nosnippet>585</a>        <span class="macro">assert_eq!</span>(requests[<span class="number">0</span>].method, <span class="string">"HEAD"</span>);
-<a href=#586 id=586 data-nosnippet>586</a>        <span class="macro">assert_eq!</span>(requests[<span class="number">1</span>].method, <span class="string">"GET"</span>);
-<a href=#587 id=587 data-nosnippet>587</a>        <span class="comment">// The etag file was also updated
-<a href=#588 id=588 data-nosnippet>588</a>        </span><span class="macro">assert_eq!</span>(
-<a href=#589 id=589 data-nosnippet>589</a>            std::fs::read_to_string(path.with_extension(<span class="string">"etag"</span>)).unwrap(),
-<a href=#590 id=590 data-nosnippet>590</a>            <span class="string">"coreutils"
-<a href=#591 id=591 data-nosnippet>591</a>        </span>);
-<a href=#592 id=592 data-nosnippet>592</a>    }
-<a href=#593 id=593 data-nosnippet>593</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#594 id=594 data-nosnippet>594</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
-<a href=#595 id=595 data-nosnippet>595</a>    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
-<a href=#596 id=596 data-nosnippet>596</a>        download_again_if_etag_is_different_internal().<span class="kw">await
-<a href=#597 id=597 data-nosnippet>597</a>    </span>}
-<a href=#598 id=598 data-nosnippet>598</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
-<a href=#599 id=599 data-nosnippet>599</a>    #[tokio::test()]
-<a href=#600 id=600 data-nosnippet>600</a>    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
-<a href=#601 id=601 data-nosnippet>601</a>        download_again_if_etag_is_different_internal().<span class="kw">await
-<a href=#602 id=602 data-nosnippet>602</a>    </span>}
-<a href=#603 id=603 data-nosnippet>603</a>}
+<a href=#578 id=578 data-nosnippet>578</a>        <span class="macro">assert_eq!</span>(std::fs::read(<span class="kw-2">&amp;</span>path).unwrap(), COREUTILS);
+<a href=#579 id=579 data-nosnippet>579</a>        <span class="comment">// both a HEAD and GET request were sent
+<a href=#580 id=580 data-nosnippet>580</a>        </span><span class="kw">let </span>requests = client.requests.lock().unwrap();
+<a href=#581 id=581 data-nosnippet>581</a>        <span class="macro">assert_eq!</span>(requests.len(), <span class="number">2</span>);
+<a href=#582 id=582 data-nosnippet>582</a>        <span class="macro">assert_eq!</span>(requests[<span class="number">0</span>].method, <span class="string">"HEAD"</span>);
+<a href=#583 id=583 data-nosnippet>583</a>        <span class="macro">assert_eq!</span>(requests[<span class="number">1</span>].method, <span class="string">"GET"</span>);
+<a href=#584 id=584 data-nosnippet>584</a>        <span class="comment">// The etag file was also updated
+<a href=#585 id=585 data-nosnippet>585</a>        </span><span class="macro">assert_eq!</span>(
+<a href=#586 id=586 data-nosnippet>586</a>            std::fs::read_to_string(path.with_extension(<span class="string">"etag"</span>)).unwrap(),
+<a href=#587 id=587 data-nosnippet>587</a>            <span class="string">"coreutils"
+<a href=#588 id=588 data-nosnippet>588</a>        </span>);
+<a href=#589 id=589 data-nosnippet>589</a>    }
+<a href=#590 id=590 data-nosnippet>590</a>    <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#591 id=591 data-nosnippet>591</a>    #[tokio::test(flavor = <span class="string">"multi_thread"</span>)]
+<a href=#592 id=592 data-nosnippet>592</a>    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
+<a href=#593 id=593 data-nosnippet>593</a>        download_again_if_etag_is_different_internal().<span class="kw">await
+<a href=#594 id=594 data-nosnippet>594</a>    </span>}
+<a href=#595 id=595 data-nosnippet>595</a>    <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
+<a href=#596 id=596 data-nosnippet>596</a>    #[tokio::test()]
+<a href=#597 id=597 data-nosnippet>597</a>    </span><span class="kw">async fn </span>download_again_if_etag_is_different() {
+<a href=#598 id=598 data-nosnippet>598</a>        download_again_if_etag_is_different_internal().<span class="kw">await
+<a href=#599 id=599 data-nosnippet>599</a>    </span>}
+<a href=#600 id=600 data-nosnippet>600</a>}
 </code></pre></div></section></main></body></html>
