@@ -137,11 +137,11 @@ pub(crate) struct WasiState {
     pub signals: Mutex<HashMap<Signal, Disposition>>,
     /// Whether this *process* has registered a signal handler callback.
     ///
-    /// `InstanceHandles::signal_set` only records whether the instance doing
-    /// the asking registered one, and every spawned thread gets its own
-    /// instance. Signals are delivered to all of a process's threads, so a
-    /// per-instance flag makes sibling threads believe the program handles no
-    /// signals and apply the runtime's default disposition -- terminating a
+    /// `WasiModuleInstanceHandles::signal_set` only records whether the
+    /// instance doing the asking registered one, and every spawned thread gets
+    /// its own instance. Signals are delivered to all of a process's threads,
+    /// so a per-instance flag makes sibling threads believe the program handles
+    /// no signals and apply the runtime's default disposition -- terminating a
     /// process that does in fact have a handler installed.
     pub signal_handler_registered: std::sync::atomic::AtomicBool,
 

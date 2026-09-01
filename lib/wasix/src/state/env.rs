@@ -717,9 +717,10 @@ impl WasiEnv {
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
         // Ask the process, not just this instance: a spawned thread has its own
-        // InstanceHandles and never sees the main instance's registration, so
-        // `inner.signal_set` alone would apply the default disposition on
-        // sibling threads and terminate a process that does handle the signal.
+        // WasiModuleInstanceHandles and never sees the main instance's
+        // registration, so `inner.signal_set` alone would apply the default
+        // disposition on sibling threads and terminate a process that does
+        // handle the signal.
         let handler_registered = inner.signal_set
             || env
                 .state
@@ -763,7 +764,13 @@ impl WasiEnv {
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
         if !inner.signal_set {
-            return Ok(Ok(false));
+            // Process-directed signals are copied into every thread's queue,
+            // but the guest callback belongs only to the instance that
+            // registered it. A sibling instance must discard its copy after
+            // the process-wide registration suppressed the default disposition;
+            // otherwise that copy remains queued forever.
+            let drained = !env.thread.pop_signals().is_empty();
+            return Ok(Ok(drained));
         }
 
         // Check for any signals that we need to trigger
