@@ -142,6 +142,7 @@ impl Function {
 
             future_to_promise(async move {
                 let mut write_lock = callback_store.write_lock().await;
+                drop(callback_store);
                 let values = parameter_types
                     .iter()
                     .enumerate()
