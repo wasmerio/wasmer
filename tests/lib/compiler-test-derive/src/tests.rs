@@ -71,6 +71,15 @@ gen_tests! {
                         crate::Compiler::Singlepass
                     ).with_experimental_artifact())
                 }
+                #[test_log::test]
+                #[cold]
+                #[cfg(feature = "singlepass")]
+                #[cfg(target_os = "linux")]
+                fn singlepass_dynamic_memory_exp_artifact() {
+                    foo(crate::Config::new(
+                        crate::Compiler::Singlepass
+                    ).with_experimental_artifact().with_dynamic_memory())
+                }
             }
 
             #[cfg(feature = "cranelift")]
@@ -93,6 +102,15 @@ gen_tests! {
                         crate::Compiler::Cranelift
                     ).with_experimental_artifact())
                 }
+                #[test_log::test]
+                #[cold]
+                #[cfg(feature = "cranelift")]
+                #[cfg(target_os = "linux")]
+                fn cranelift_dynamic_memory_exp_artifact() {
+                    foo(crate::Config::new(
+                        crate::Compiler::Cranelift
+                    ).with_experimental_artifact().with_dynamic_memory())
+                }
             }
 
             #[cfg(feature = "llvm")]
@@ -114,6 +132,15 @@ gen_tests! {
                     foo(crate::Config::new(
                         crate::Compiler::LLVM
                     ).with_experimental_artifact())
+                }
+                #[test_log::test]
+                #[cold]
+                #[cfg(feature = "llvm")]
+                #[cfg(target_os = "linux")]
+                fn llvm_dynamic_memory_exp_artifact() {
+                    foo(crate::Config::new(
+                        crate::Compiler::LLVM
+                    ).with_experimental_artifact().with_dynamic_memory())
                 }
             }
 
