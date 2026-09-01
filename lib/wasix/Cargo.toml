@@ -20,7 +20,10 @@ harness = false
 required-features = ["sys-thread"]
 
 [dependencies]
-wasmer-package = { workspace = true, default-features = false, features = ["execution", "webc-v3"] }
+wasmer-package = { workspace = true, default-features = false, features = [
+  "execution",
+  "webc-v3",
+] }
 wasmer-wasix-types = { path = "../wasi-types", version = "0.704.0", features = [
   "enable-serde",
 ] }
