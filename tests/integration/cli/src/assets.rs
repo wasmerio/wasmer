@@ -74,29 +74,6 @@ pub fn wasmer_target_path_2() -> &'static Path {
 
 /* env var TARGET is set by tests/integration/cli/build.rs on compile-time */
 
-pub const LIBWASMER_FILENAME: &str = {
-    if cfg!(windows) {
-        "wasmer.lib"
-    } else {
-        "libwasmer.a"
-    }
-};
-
-/// Get the path to the `libwasmer.a` static library.
-pub fn get_libwasmer_path() -> PathBuf {
-    let mut ret = env::var("WASMER_TEST_LIBWASMER_PATH")
-        .map(PathBuf::from)
-        .unwrap_or_else(|_| wasmer_target_path().join(LIBWASMER_FILENAME));
-
-    if !ret.exists() {
-        ret = wasmer_target_path_2().join(LIBWASMER_FILENAME);
-    }
-    if !ret.exists() {
-        panic!("Could not find libwasmer path! {ret:?}");
-    }
-    ret
-}
-
 /// Get the path to the `wasmer` executable to be used in this test.
 pub fn get_wasmer_path() -> PathBuf {
     let mut ret = env::var("WASMER_TEST_WASMER_PATH")
