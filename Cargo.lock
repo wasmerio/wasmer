@@ -129,12 +129,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "any_ascii"
-version = "0.1.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70033777eb8b5124a81a1889416543dddef2de240019b674c81285a2635a7e1e"
-
-[[package]]
 name = "anyhow"
 version = "1.0.104"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3176,15 +3170,6 @@ name = "leb128fmt"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
-
-[[package]]
-name = "lexical-sort"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c09e4591611e231daf4d4c685a66cb0410cc1e502027a20ae55f2bb9e997207a"
-dependencies = [
- "any_ascii",
-]
 
 [[package]]
 name = "libc"
@@ -6830,7 +6815,6 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "virtual-fs"
 version = "0.704.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "bytes",
  "dashmap",
@@ -6840,7 +6824,6 @@ dependencies = [
  "fs_extra",
  "futures",
  "getrandom 0.4.3",
- "indexmap",
  "libc",
  "pin-project-lite",
  "pretty_assertions",
@@ -7397,7 +7380,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "typetag",
- "virtual-fs",
  "wasmer",
  "wasmer-c-api-imports",
  "wasmer-compiler",
@@ -7408,7 +7390,6 @@ dependencies = [
  "wasmer-types",
  "wasmer-wasix",
  "wat",
- "webc",
 ]
 
 [[package]]
@@ -8258,12 +8239,8 @@ dependencies = [
  "document-features",
  "ignore",
  "indexmap",
- "leb128",
- "lexical-sort",
  "libc",
  "once_cell",
- "path-clean",
- "rand 0.9.5",
  "serde",
  "serde_json",
  "sha2",

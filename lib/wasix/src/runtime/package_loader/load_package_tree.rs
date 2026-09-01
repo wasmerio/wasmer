@@ -424,11 +424,6 @@ fn filesystem(
         })?;
 
         match container.version() {
-            webc::Version::V1 => {
-                anyhow::bail!(
-                    "the package '{package}' is a webc v1 package, but webc v1 support was removed"
-                );
-            }
             webc::Version::V2 => {
                 if found_v2.is_none() {
                     found_v2 = Some(package.clone());
