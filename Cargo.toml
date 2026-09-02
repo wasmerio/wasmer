@@ -91,7 +91,10 @@ wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
 
 # Wasmer-owned crates
-webc = { version = "=12.0.1", default-features = false }
+webc = { version = "=12.0.1", default-features = false, features = [
+  "v2",
+  "v3",
+] }
 shared-buffer = "0.1.4"
 loupe = "0.2.0"
 

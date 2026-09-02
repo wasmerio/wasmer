@@ -6830,7 +6830,6 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "virtual-fs"
 version = "0.704.0"
 dependencies = [
- "anyhow",
  "async-trait",
  "bytes",
  "dashmap",
@@ -6840,7 +6839,6 @@ dependencies = [
  "fs_extra",
  "futures",
  "getrandom 0.4.3",
- "indexmap",
  "libc",
  "pin-project-lite",
  "pretty_assertions",
@@ -7397,7 +7395,6 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "typetag",
- "virtual-fs",
  "wasmer",
  "wasmer-c-api-imports",
  "wasmer-compiler",
@@ -7408,7 +7405,6 @@ dependencies = [
  "wasmer-types",
  "wasmer-wasix",
  "wat",
- "webc",
 ]
 
 [[package]]

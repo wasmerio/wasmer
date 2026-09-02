@@ -66,7 +66,6 @@ pub fn from_disk(path: impl AsRef<Path>) -> Result<Container, WasmerPackageError
     }
 
     match webc::detect(&mut f) {
-        Ok(Version::V1) => parse_v1_mmap(f).map_err(Into::into),
         Ok(Version::V2) => parse_v2_mmap(f).map_err(Into::into),
         Ok(Version::V3) => parse_v3_mmap(f).map_err(Into::into),
         Ok(other) => {
@@ -123,23 +122,6 @@ fn parse_dir(path: &Path) -> Result<Container, WasmerPackageError> {
 }
 
 #[allow(clippy::result_large_err)]
-#[cfg(feature = "webc-v1")]
-fn parse_v1_mmap(f: File) -> Result<Container, ContainerError> {
-    // We need to explicitly use WebcMmap to get a memory-mapped
-    // parser
-    let options = webc::v1::ParseOptions::default();
-    let webc = webc::v1::WebCMmap::from_file(f, &options)?;
-    Ok(Container::new(webc))
-}
-
-#[allow(clippy::result_large_err)]
-#[cfg(not(feature = "webc-v1"))]
-fn parse_v1_mmap(_f: File) -> Result<Container, ContainerError> {
-    Err(ContainerError::FeatureNotEnabled { feature: "v1" })
-}
-
-#[allow(clippy::result_large_err)]
-#[cfg(feature = "webc-v2")]
 fn parse_v2_mmap(f: File) -> Result<Container, ContainerError> {
     // Note: OwnedReader::from_file() will automatically try to
     // use a memory-mapped file when possible.

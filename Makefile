@@ -567,19 +567,19 @@ build-docs-capi:
 
 build-capi:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,sys-default,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked
+		--no-default-features --features wat,sys-default,compiler,wasi,middlewares $(capi_compiler_features) --locked
 
 build-capi-singlepass:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,singlepass,wasi,middlewares,webc_runner --locked
+		--no-default-features --features wat,compiler,singlepass,wasi,middlewares --locked
 
 build-capi-cranelift:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,cranelift,wasi,middlewares,webc_runner --locked
+		--no-default-features --features wat,compiler,cranelift,wasi,middlewares --locked
 
 build-capi-llvm:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,llvm,wasi,middlewares,webc_runner --locked
+		--no-default-features --features wat,compiler,llvm,wasi,middlewares --locked
 
 build-capi-v8:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
@@ -590,15 +590,15 @@ build-capi-v8:
 build-capi-headless:
 ifeq ($(CARGO_TARGET_FLAG),)
 	CARGO_TARGET_DIR=target/headless CARGO_PROFILE_RELEASE_LTO=true RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner$(headless_compiler_feature) --locked
+		--no-default-features --features compiler-headless,wasi$(headless_compiler_feature) --locked
 else
 	CARGO_TARGET_DIR=target/headless CARGO_PROFILE_RELEASE_LTO=true RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner$(headless_compiler_feature) --locked
+		--no-default-features --features compiler-headless,wasi$(headless_compiler_feature) --locked
 endif
 
 build-capi-headless-ios:
 	CARGO_TARGET_DIR=target/$(CARGO_TARGET)/headless RUSTFLAGS="${RUSTFLAGS} -C panic=abort" cargo lipo --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner
+		--no-default-features --features compiler-headless,wasi
 
 #####
 #
@@ -690,11 +690,11 @@ test-capi-v8: build-capi-v8 package-capi test-capi-integration-v8
 
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked -- --nocapture
+		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features) --locked -- --nocapture
 
 lint-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/lint-capi-crate-//) RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked -- -D clippy::all
+		--no-default-features --features wat,compiler,wasi,middlewares $(capi_compiler_features) --locked -- -D clippy::all
 
 test-capi-integration-%:
 	# Test the Wasmer C API tests for C
@@ -705,10 +705,10 @@ test-capi-integration-%:
 # Before running this in the CI, we need to set up link.tar.gz and /cache/wasmer-[target].tar.gz
 test-integration-cli-ci: require-nextest build-wasmer
 	rustup target add wasm32-wasip1
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-cli --locked
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) -p wasmer-integration-tests-cli --locked
 
 test-integration-ios:
-	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --features webc_runner -p wasmer-integration-tests-ios --locked
+	$(CARGO_BINARY) test $(CARGO_TARGET_FLAG) -p wasmer-integration-tests-ios --locked
 
 #####
 #

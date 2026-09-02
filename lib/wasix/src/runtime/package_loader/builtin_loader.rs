@@ -839,7 +839,7 @@ mod tests {
     use super::*;
 
     const PYTHON: &[u8] =
-        include_bytes!("../../../../../wasmer-test-files/examples/python-0.1.0.wasmer");
+        include_bytes!("../../../../../wasmer-test-files/examples/python--python@3.13.5.webc");
 
     #[derive(Debug)]
     pub(crate) struct DummyClient {

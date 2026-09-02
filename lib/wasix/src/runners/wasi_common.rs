@@ -474,7 +474,7 @@ mod tests {
     }
 
     const PYTHON: &[u8] =
-        include_bytes!("../../../../wasmer-test-files/examples/python-0.1.0.wasmer");
+        include_bytes!("../../../../wasmer-test-files/examples/python--python@3.13.5.webc");
 
     #[derive(Debug)]
     struct CountingLimiter {
@@ -600,12 +600,12 @@ mod tests {
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
         assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
         assert!(
-            fs.metadata("lib/python3.6/collections/__init__.py".as_ref())
+            fs.metadata("lib/python3.13/collections/__init__.py".as_ref())
                 .unwrap()
                 .is_file()
         );
         assert!(
-            fs.metadata("lib/python3.6/encodings/__init__.py".as_ref())
+            fs.metadata("lib/python3.13/encodings/__init__.py".as_ref())
                 .unwrap()
                 .is_file()
         );
@@ -646,7 +646,7 @@ mod tests {
                 .is_file()
         );
         assert!(
-            fs.metadata(Path::new("/python/lib/python3.6/collections/__init__.py"))
+            fs.metadata(Path::new("/python/lib/python3.13/collections/__init__.py"))
                 .unwrap()
                 .is_file()
         );
@@ -675,14 +675,14 @@ mod tests {
         .unwrap();
 
         fs.create_symlink(
-            Path::new("lib/python3.6/collections"),
+            Path::new("lib/python3.13/collections"),
             Path::new("/python/collections-link"),
         )
         .unwrap();
 
         assert_eq!(
             fs.readlink(Path::new("/python/collections-link")).unwrap(),
-            Path::new("lib/python3.6/collections")
+            Path::new("lib/python3.13/collections")
         );
         assert!(
             fs.symlink_metadata(Path::new("/python/collections-link"))
