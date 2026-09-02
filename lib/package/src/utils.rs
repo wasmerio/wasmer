@@ -122,6 +122,7 @@ fn parse_dir(path: &Path) -> Result<Container, WasmerPackageError> {
 }
 
 #[allow(clippy::result_large_err)]
+#[cfg(feature = "webc-v2")]
 fn parse_v2_mmap(f: File) -> Result<Container, ContainerError> {
     // Note: OwnedReader::from_file() will automatically try to
     // use a memory-mapped file when possible.
