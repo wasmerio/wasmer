@@ -103,6 +103,10 @@ where
         self.inner.get_special_fd()
     }
 
+    fn is_terminal(&self) -> Option<bool> {
+        self.inner.is_terminal()
+    }
+
     fn write_from_mmap(&mut self, offset: u64, len: u64) -> std::io::Result<()> {
         self.inner.write_from_mmap(offset, len)
     }
@@ -1059,6 +1063,10 @@ where
 
         fn created_time(&self) -> u64 {
             self.state.as_ref().created_time()
+        }
+
+        fn is_terminal(&self) -> Option<bool> {
+            self.state.as_ref().is_terminal()
         }
 
         fn size(&self) -> u64 {

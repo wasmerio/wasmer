@@ -318,6 +318,36 @@ impl VirtualFile for FileHandle {
         }
     }
 
+    fn is_terminal(&self) -> Option<bool> {
+        let fs = match self.filesystem.inner.read() {
+            Ok(a) => a,
+            Err(_) => {
+                return None;
+            }
+        };
+
+        let inode = fs.storage.get(self.inode);
+        match inode {
+            Some(Node::CustomFile(node)) => {
+                let file = node.file.lock().unwrap();
+                file.is_terminal()
+            }
+            Some(Node::ArcFile(node)) => match self.arc_file.as_ref() {
+                Some(file) => file.as_ref().map(|file| file.is_terminal()).unwrap_or(None),
+                None => node
+                    .fs
+                    .new_open_options()
+                    .read(self.readable)
+                    .write(self.writable)
+                    .append(self.append_mode)
+                    .open(node.path.as_path())
+                    .map(|file| file.is_terminal())
+                    .unwrap_or(None),
+            },
+            _ => None,
+        }
+    }
+
     fn copy_reference(
         &mut self,
         src: Box<dyn VirtualFile + Send + Sync + 'static>,

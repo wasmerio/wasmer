@@ -387,6 +387,26 @@ pub trait VirtualFile:
         None
     }
 
+    /// Whether this file is connected to an interactive terminal, when that is
+    /// knowable.
+    ///
+    /// `None` means "no opinion", and is the default. WASIX has always reported
+    /// stdio as a character device, and an embedder that wires up its own stdio
+    /// -- a browser terminal, an SSH session, a test harness -- is usually
+    /// driving a real terminal that this crate cannot see. Only implementations
+    /// that actually know, such as a host file descriptor that can be probed
+    /// with `isatty(3)`, return `Some`.
+    ///
+    /// # Implementors
+    ///
+    /// Every *wrapper* type must forward this to the file it wraps; a missed
+    /// forward silently degrades to "no opinion". Single-field wrappers should
+    /// use [`forward_virtual_file_capability_queries!`]. The rest are covered by
+    /// the `is_terminal_forwarding` tests at the bottom of this module.
+    fn is_terminal(&self) -> Option<bool> {
+        None
+    }
+
     /// Writes to this file using an mmap offset and reference
     /// (this method only works for mmap optimized file systems)
     fn write_from_mmap(&mut self, _offset: u64, _len: u64) -> std::io::Result<()> {
@@ -776,5 +796,201 @@ impl Iterator for ReadDir {
             return Some(Ok(v));
         }
         None
+    }
+}
+
+/// Every wrapper in this crate has to hand-forward [`VirtualFile::is_terminal`]
+/// to the file it wraps. A missed forward is invisible -- it just quietly
+/// degrades to "no opinion" -- so each one is pinned down here.
+#[cfg(test)]
+mod is_terminal_forwarding {
+    use std::io::{self, IoSlice, SeekFrom};
+    use std::pin::Pin;
+    use std::sync::Arc;
+    use std::task::{Context, Poll};
+
+    use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
+
+    use super::*;
+
+    /// A leaf that claims to be a terminal. If a wrapper forgets to forward,
+    /// the assertion below sees `None` instead of `Some(true)`.
+    #[derive(Debug, Default)]
+    struct TerminalProbe;
+
+    impl AsyncSeek for TerminalProbe {
+        fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
+            Ok(())
+        }
+        fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+            Poll::Ready(Ok(0))
+        }
+    }
+
+    impl AsyncWrite for TerminalProbe {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(buf.len()))
+        }
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+        fn poll_write_vectored(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            bufs: &[IoSlice<'_>],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(bufs.len()))
+        }
+        fn is_write_vectored(&self) -> bool {
+            false
+        }
+    }
+
+    impl AsyncRead for TerminalProbe {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl VirtualFile for TerminalProbe {
+        fn last_accessed(&self) -> u64 {
+            0
+        }
+        fn last_modified(&self) -> u64 {
+            0
+        }
+        fn created_time(&self) -> u64 {
+            0
+        }
+        fn size(&self) -> u64 {
+            0
+        }
+        fn set_len(&mut self, _new_size: u64) -> Result<()> {
+            Ok(())
+        }
+        fn unlink(&mut self) -> Result<()> {
+            Ok(())
+        }
+        fn is_terminal(&self) -> Option<bool> {
+            Some(true)
+        }
+        fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(0))
+        }
+        fn poll_write_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(8192))
+        }
+    }
+
+    /// A mem-fs holding a `TerminalProbe` at `/probe`, so the wrappers that are
+    /// private and only reachable through a `FileSystem` can be exercised too.
+    fn probe_fs() -> Arc<mem_fs::FileSystem> {
+        let fs = Arc::new(mem_fs::FileSystem::default());
+        fs.insert_device_file("/probe".into(), Box::new(TerminalProbe))
+            .unwrap();
+        fs
+    }
+
+    fn open(fs: &dyn FileSystem, write: bool) -> Box<dyn VirtualFile + Send + Sync + 'static> {
+        fs.new_open_options()
+            .read(true)
+            .write(write)
+            .open("/probe")
+            .unwrap()
+    }
+
+    #[test]
+    fn arc_box_file_forwards() {
+        assert_eq!(
+            ArcBoxFile::new(Box::new(TerminalProbe)).is_terminal(),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn arc_file_forwards() {
+        assert_eq!(
+            ArcFile::new(Box::new(TerminalProbe)).is_terminal(),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn dual_write_file_forwards() {
+        assert_eq!(
+            DualWriteFile::new(Box::new(TerminalProbe), |_| {}).is_terminal(),
+            Some(true)
+        );
+    }
+
+    #[test]
+    fn combine_file_forwards_either_half() {
+        assert_eq!(
+            CombineFile::new(Box::new(TerminalProbe), Box::new(NullFile::default())).is_terminal(),
+            Some(true),
+            "the tx half should be consulted"
+        );
+        assert_eq!(
+            CombineFile::new(Box::new(NullFile::default()), Box::new(TerminalProbe)).is_terminal(),
+            Some(true),
+            "the rx half should be consulted"
+        );
+    }
+
+    #[test]
+    fn mem_fs_custom_file_forwards() {
+        assert_eq!(open(&*probe_fs(), false).is_terminal(), Some(true));
+    }
+
+    #[test]
+    fn trace_file_forwards() {
+        let fs = TraceFileSystem::new(probe_fs());
+        assert_eq!(open(&fs, false).is_terminal(), Some(true));
+    }
+
+    #[test]
+    fn overlay_secondary_file_forwards() {
+        // A read-only open of a secondary-only path yields a `SecondaryFile`.
+        let fs = OverlayFileSystem::new(mem_fs::FileSystem::default(), [probe_fs()]);
+        assert_eq!(open(&fs, false).is_terminal(), Some(true));
+    }
+
+    #[test]
+    fn overlay_copy_on_write_file_forwards() {
+        // A writable open of a secondary-only path yields a `CopyOnWriteFile`.
+        let fs = OverlayFileSystem::new(mem_fs::FileSystem::default(), [probe_fs()]);
+        assert_eq!(open(&fs, true).is_terminal(), Some(true));
+    }
+
+    #[test]
+    fn pipe_is_opt_in_both_ways() {
+        assert_eq!(Pipe::new().is_terminal(), None);
+        assert_eq!(Pipe::new().with_terminal(true).is_terminal(), Some(true));
+        assert_eq!(Pipe::new().with_terminal(false).is_terminal(), Some(false));
+    }
+
+    /// The default must stay `None` rather than drifting to `Some(false)`:
+    /// WASIX reads an absent opinion as "character device", which is what keeps
+    /// existing embedders reporting a terminal.
+    #[test]
+    fn plain_leaves_have_no_opinion() {
+        assert_eq!(NullFile::default().is_terminal(), None);
+        assert_eq!(StaticFile::new(Vec::<u8>::new()).is_terminal(), None);
+        assert_eq!(BufferFile::default().is_terminal(), None);
+        assert_eq!(ZeroFile::default().is_terminal(), None);
     }
 }

@@ -422,13 +422,6 @@ impl InodeValFileWriteGuard {
             guard: crate::utils::write_owned(file).unwrap(),
         }
     }
-    pub(crate) fn swap(
-        &mut self,
-        mut file: Box<dyn VirtualFile + Send + Sync + 'static>,
-    ) -> Box<dyn VirtualFile + Send + Sync + 'static> {
-        std::mem::swap(self.guard.deref_mut(), &mut file);
-        file
-    }
 }
 
 impl Deref for InodeValFileWriteGuard {
@@ -556,6 +549,15 @@ impl VirtualFile for WasiStateFileGuard {
         } else {
             false
         }
+    }
+
+    fn is_terminal(&self) -> Option<bool> {
+        // Like `is_open`, this takes a blocking read lock on the underlying
+        // file handle. Callers must not already hold that lock -- see
+        // `WasiFs::swap_file`, which queries the incoming file before it
+        // acquires anything.
+        let guard = self.lock_read();
+        guard.as_ref().and_then(|file| file.is_terminal())
     }
 
     fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<usize>> {

@@ -123,6 +123,10 @@ impl VirtualFile for ArcBoxFile {
         let inner = self.inner.lock().unwrap();
         inner.get_special_fd()
     }
+    fn is_terminal(&self) -> Option<bool> {
+        let inner = self.inner.lock().unwrap();
+        inner.is_terminal()
+    }
     fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         let mut inner = self.inner.lock().unwrap();
         let inner = Pin::new(inner.as_mut());

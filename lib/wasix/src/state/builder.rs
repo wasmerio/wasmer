@@ -67,6 +67,7 @@ pub struct WasiEnvBuilder {
     pub(super) stdout: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) stderr: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
+    pub(super) stdio_is_terminal: Option<bool>,
     pub(super) fs: Option<WasiFsRoot>,
     pub(super) engine: Option<Engine>,
     pub(super) runtime: Option<Arc<dyn crate::Runtime + Send + Sync + 'static>>,
@@ -761,6 +762,19 @@ impl WasiEnvBuilder {
         self.stdin = Some(new_file);
     }
 
+    /// Force what stdin, stdout and stderr report about being connected to a
+    /// terminal, instead of letting the handles behind them decide.
+    pub fn stdio_is_terminal(mut self, is_terminal: bool) -> Self {
+        self.set_stdio_is_terminal(Some(is_terminal));
+        self
+    }
+
+    /// See [`WasiEnvBuilder::stdio_is_terminal`]. `None` restores the default of
+    /// deferring to the stdio handles.
+    pub fn set_stdio_is_terminal(&mut self, is_terminal: Option<bool>) {
+        self.stdio_is_terminal = is_terminal;
+    }
+
     /// Sets the FileSystem to be used with this WASI instance.
     ///
     /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
@@ -977,6 +991,18 @@ impl WasiEnvBuilder {
             if let Some(f) = &self.setup_fs_fn {
                 f(&inodes, &mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
             }
+
+            // Applied last so it wins over every handle installed above.
+            if let Some(is_terminal) = self.stdio_is_terminal {
+                for fd in [
+                    __WASI_STDIN_FILENO,
+                    __WASI_STDOUT_FILENO,
+                    __WASI_STDERR_FILENO,
+                ] {
+                    wasi_fs.set_stdio_terminal(fd, Some(is_terminal));
+                }
+            }
+
             wasi_fs
         };
 
