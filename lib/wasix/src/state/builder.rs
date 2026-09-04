@@ -21,8 +21,8 @@ use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
-    os::command::VirtualCommand,
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
+    os::{TtyBridge, command::VirtualCommand},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
 };
@@ -70,6 +70,7 @@ pub struct WasiEnvBuilder {
     pub(super) fs: Option<WasiFsRoot>,
     pub(super) engine: Option<Engine>,
     pub(super) runtime: Option<Arc<dyn crate::Runtime + Send + Sync + 'static>>,
+    pub(super) tty: Option<Arc<dyn TtyBridge + Send + Sync + 'static>>,
     pub(super) current_dir: Option<PathBuf>,
 
     /// List of webc dependencies to be injected.
@@ -822,6 +823,17 @@ impl WasiEnvBuilder {
         self.runtime = Some(runtime);
     }
 
+    /// Override the terminal bridge for this process tree.
+    pub fn tty(mut self, tty: Arc<dyn TtyBridge + Send + Sync>) -> Self {
+        self.tty = Some(tty);
+        self
+    }
+
+    /// Override the terminal bridge for this process tree.
+    pub fn set_tty(&mut self, tty: Arc<dyn TtyBridge + Send + Sync>) {
+        self.tty = Some(tty);
+    }
+
     pub fn capabilities(mut self, capabilities: Capabilities) -> Self {
         self.set_capabilities(capabilities);
         self
@@ -1067,6 +1079,7 @@ impl WasiEnvBuilder {
         let init = WasiEnvInit {
             state,
             runtime,
+            tty: self.tty,
             webc_dependencies: uses,
             mapped_commands: map_commands,
             control_plane,

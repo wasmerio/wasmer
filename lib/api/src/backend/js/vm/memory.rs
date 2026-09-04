@@ -105,4 +105,4 @@ impl From<VMMemory> for (JsValue, MemoryType) {
 }
 
 /// Shared VM memory, in `js`, is the "normal" memory.
-pub type VMSharedMemory = VMMemory;
+pub(crate) type VMSharedMemory = VMMemory;

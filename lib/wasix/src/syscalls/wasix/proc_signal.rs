@@ -19,7 +19,21 @@ pub fn proc_signal(
         ctx.data().control_plane.get_process(pid)
     };
     if let Some(process) = process {
+        let threads = process.all_threads();
         process.signal_process(sig);
+        if sig == Signal::Sigkill {
+            for tid in threads {
+                if let Err(error) = ctx.data().tasks().terminate_wasm_thread(process.pid(), tid) {
+                    tracing::debug!(
+                        %error,
+                        pid = %process.pid(),
+                        %tid,
+                        "task manager could not terminate WASM thread",
+                    );
+                    process.wake_atomic_waiters(sig);
+                }
+            }
+        }
     }
 
     WasiEnv::do_pending_operations(&mut ctx)?;

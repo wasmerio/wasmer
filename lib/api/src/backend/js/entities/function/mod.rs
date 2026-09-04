@@ -130,7 +130,7 @@ impl Function {
             };
             let callback_store = async_store.store();
             let js_env = JsAsyncFunctionEnvMut {
-                store: async_store,
+                store: async_store.downgrade(),
                 func_env: raw_env.clone(),
             };
             let env_mut =
@@ -142,6 +142,7 @@ impl Function {
 
             future_to_promise(async move {
                 let mut write_lock = callback_store.write_lock().await;
+                drop(callback_store);
                 let values = parameter_types
                     .iter()
                     .enumerate()
