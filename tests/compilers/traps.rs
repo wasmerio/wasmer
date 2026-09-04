@@ -554,3 +554,118 @@ fn present_after_module_drop(config: crate::Config) -> Result<()> {
         // assert_eq!(t.trace()[0].func_index(), 0);
     }
 }
+
+/// Deep Wasm EH recursion used to exhaust the coroutine stack and then invoke
+/// the native unwinder with no headroom, producing a stack-buffer-overflow.
+/// After the fix a clean StackOverflow trap is raised instead.
+#[cfg(not(target_os = "windows"))]
+#[compiler_test(traps)]
+fn test_eh_deep_recursion_traps_cleanly(config: crate::Config) -> Result<()> {
+    // V8 manages its own execution stack; this test targets wasmer's
+    // coroutine-based stack and headroom guard.
+    if config.compiler == crate::config::Compiler::V8 {
+        return Ok(());
+    }
+
+    // Drain cached stacks so set_stack_size takes effect immediately.
+    wasmer_vm::drain_stack_pool();
+    let orig_stack_size = wasmer_vm::get_stack_size();
+    wasmer_vm::set_stack_size(256 * 1024);
+    struct RestoreStack(usize);
+    impl Drop for RestoreStack {
+        fn drop(&mut self) {
+            wasmer_vm::set_stack_size(self.0);
+            wasmer_vm::drain_stack_pool();
+        }
+    }
+    let _restore = RestoreStack(orig_stack_size);
+
+    // $recurse builds a catch_ref/throw_ref chain of depth N.
+    // $wrap catches everything with catch_all_ref.
+    // $main recurses (not loops) so each level adds a live frame to the
+    // coroutine stack until the headroom check fires.
+    let wat = r#"
+        (module
+          (type $i32_exnref (func (result i32 exnref)))
+          (tag $e-depth (param i32))
+          (export "main" (func $main))
+
+          (func $recurse (param $n i32)
+            local.get $n
+            i32.eqz
+            if
+              i32.const 0
+              throw $e-depth
+            end
+            block $h (type $i32_exnref) (result i32 exnref)
+              try_table (type $i32_exnref) (result i32 exnref) (catch_ref $e-depth $h)
+                local.get $n
+                i32.const 1
+                i32.sub
+                call $recurse
+                unreachable
+              end
+            end
+            throw_ref
+          )
+
+          (func $wrap (param i32) (result i32)
+            block $top (result exnref)
+              try_table (result exnref) (catch_all_ref $top)
+                local.get 0
+                call $recurse
+                unreachable
+              end
+            end
+            drop
+            i32.const 0
+          )
+
+          ;; Bounded recursive countdown — each level adds a live frame to the
+          ;; Wasm coroutine stack.  Stack exhaustion fires a StackOverflow trap
+          ;; long before $remaining reaches 0.
+          (func $main (param $remaining i32)
+            local.get $remaining
+            i32.eqz
+            if return end
+            i32.const 3
+            call $wrap
+            drop
+            local.get $remaining
+            i32.const 1
+            i32.sub
+            call $main
+          )
+        )
+    "#;
+
+    let mut store = config.store();
+
+    // Some compiler configurations don't enable the exceptions proposal; skip
+    // gracefully rather than failing on a validation error.
+    let module = match Module::new(&store, wat) {
+        Ok(m) => m,
+        Err(e) if e.to_string().contains("exceptions proposal not enabled") => return Ok(()),
+        Err(e) if e.to_string().contains("not supported") => return Ok(()),
+        Err(e) => return Err(e.into()),
+    };
+
+    let instance = Instance::new(&mut store, &module, &imports! {})?;
+    let main_func = instance.exports.get_function("main")?;
+
+    // 10_000 is well above the frame budget for a 256 KiB stack with 64 KiB
+    // headroom reserved, so the trap fires via the headroom guard.
+    let err = main_func
+        .call(&mut store, &[Value::I32(10_000)])
+        .expect_err("deep EH recursion must trap, not return normally");
+
+    let msg = err.message();
+    assert!(
+        msg.contains("call stack exhausted")
+            || msg.contains("out of stack space")
+            || msg.contains("stack overflow"),
+        "expected a stack-overflow trap, got: {msg}"
+    );
+
+    Ok(())
+}
