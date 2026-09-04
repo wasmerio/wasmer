@@ -2,8 +2,11 @@
 #[cfg(feature = "sys-thread")]
 pub mod tokio;
 
+use std::fmt;
 use std::ops::Deref;
+use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::thread::ThreadId;
 use std::{pin::Pin, time::Duration};
 
 use bytes::Bytes;
@@ -41,7 +44,71 @@ pub enum SpawnMemoryTypeOrStore {
     StoreAndMemory(wasmer::Store, Memory),
 }
 
-pub type WasmResumeTask = dyn FnOnce(WasiFunctionEnv, Store, Bytes) + Send + 'static;
+/// A worker-local future which may hold non-`Send` WebAssembly state.
+pub type WasmTaskFuture = Pin<Box<dyn Future<Output = ()> + 'static>>;
+
+type SpawnLocalTask =
+    dyn Fn(WasmTaskFuture) -> Result<(), LocalTaskSpawnError> + Send + Sync + 'static;
+
+/// Spawns worker-local futures on the executor which owns a WebAssembly task.
+///
+/// Task-manager implementations provide the executor. WASIX can therefore use
+/// the same async execution path on native and JavaScript targets.
+#[derive(Clone)]
+pub struct LocalTaskSpawner {
+    thread: ThreadId,
+    spawn: Arc<SpawnLocalTask>,
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum LocalTaskSpawnError {
+    #[error(
+        "local tasks must be spawned on their owning thread; expected {expected:?}, found {found:?}"
+    )]
+    WrongThread { expected: ThreadId, found: ThreadId },
+    #[error("the local task executor has shut down")]
+    ShutDown,
+    #[error("the local task executor rejected the task")]
+    Spawn,
+}
+
+impl LocalTaskSpawner {
+    pub fn new<F>(spawn: F) -> Self
+    where
+        F: Fn(WasmTaskFuture) -> Result<(), LocalTaskSpawnError> + Send + Sync + 'static,
+    {
+        Self {
+            thread: std::thread::current().id(),
+            spawn: Arc::new(spawn),
+        }
+    }
+
+    pub fn spawn<F>(&self, future: F) -> Result<(), LocalTaskSpawnError>
+    where
+        F: Future<Output = ()> + 'static,
+    {
+        let found = std::thread::current().id();
+        if found != self.thread {
+            return Err(LocalTaskSpawnError::WrongThread {
+                expected: self.thread,
+                found,
+            });
+        }
+        (self.spawn)(Box::pin(future))
+    }
+}
+
+impl fmt::Debug for LocalTaskSpawner {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("LocalTaskSpawner")
+            .field("thread", &self.thread)
+            .finish_non_exhaustive()
+    }
+}
+
+pub type WasmResumeTask =
+    dyn FnOnce(WasiFunctionEnv, Store, Bytes, LocalTaskSpawner) -> WasmTaskFuture + Send + 'static;
 
 pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<Bytes, ExitCode>> + Send + 'static>>
     + Send
@@ -52,6 +119,8 @@ pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<
 pub struct TaskWasmRunProperties {
     pub ctx: WasiFunctionEnv,
     pub store: Store,
+    /// Spawns futures on the worker-local executor driving this task.
+    pub local_tasks: LocalTaskSpawner,
     /// The result of the asynchronous trigger serialized into bytes using the bincode serializer
     /// When no trigger is associated with the run operation (i.e. spawning threads) then this will be None.
     /// (if the trigger returns an ExitCode then the WASM process will be terminated without resuming)
@@ -67,8 +136,11 @@ pub type TaskWasmPreRun = dyn (for<'a> FnOnce(
     ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>)
     + Send;
 
-/// Callback that will be invoked
-pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
+/// An asynchronous callback invoked on the worker owning the instance.
+///
+/// The callback itself is `Send` because it may be transferred to another
+/// worker. Its future is worker-local and is created only after that transfer.
+pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) -> WasmTaskFuture + Send + 'static;
 
 /// Callback that will be invoked
 pub type TaskExecModule = dyn FnOnce(Module) + Send + 'static;
@@ -103,17 +175,21 @@ pub struct TaskWasm {
 }
 
 impl TaskWasm {
-    pub fn new(
-        run: Box<TaskWasmRun>,
+    pub fn new<F, Fut>(
+        run: F,
         env: WasiEnv,
         module: Module,
         update_layout: bool,
         call_initialize: bool,
-    ) -> Self {
+    ) -> Self
+    where
+        F: FnOnce(TaskWasmRunProperties) -> Fut + Send + 'static,
+        Fut: Future<Output = ()> + 'static,
+    {
         let shared_memory = module.imports().memories().next().map(|a| *a.ty());
         Self {
             callbacks: TaskWasmCallbacks {
-                run,
+                run: Box::new(move |properties| Box::pin(run(properties))),
                 recycle: None,
                 pre_run: None,
                 trigger: None,
@@ -376,7 +452,7 @@ impl dyn VirtualTaskManager {
         let thread_inner = thread.clone();
         self.task_wasm(
             TaskWasm::new(
-                Box::new(move |props| {
+                move |props| async move {
                     let result = props
                         .trigger_result
                         .expect("If there is no result then its likely the trigger did not run");
@@ -387,8 +463,8 @@ impl dyn VirtualTaskManager {
                             return;
                         }
                     };
-                    task(props.ctx, props.store, result)
-                }),
+                    task(props.ctx, props.store, result, props.local_tasks).await
+                },
                 env.clone(),
                 module,
                 false,
