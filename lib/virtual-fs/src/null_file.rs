@@ -40,7 +40,9 @@ impl AsyncWrite for NullFile {
         _cx: &mut Context<'_>,
         bufs: &[IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(Ok(bufs.len()))
+        // Bytes written, not the number of slices. `/dev/null` swallows all of
+        // them, so that is the total length.
+        Poll::Ready(Ok(bufs.iter().map(|buf| buf.len()).sum()))
     }
     fn is_write_vectored(&self) -> bool {
         false
@@ -85,3 +87,35 @@ impl VirtualFile for NullFile {
 }
 
 impl CloneableVirtualFile for NullFile {}
+
+#[cfg(test)]
+mod tests {
+    use tokio::io::AsyncWriteExt;
+
+    use super::*;
+
+    /// `poll_write_vectored` reports bytes written, not slices. Returning the
+    /// slice count made a caller believe a 300-byte write had moved 3 bytes.
+    #[tokio::test]
+    async fn write_vectored_reports_bytes_not_slices() {
+        let mut file = NullFile::default();
+        let bufs = [
+            IoSlice::new(&[0u8; 100]),
+            IoSlice::new(&[0u8; 100]),
+            IoSlice::new(&[0u8; 100]),
+        ];
+
+        let written = std::future::poll_fn(|cx| Pin::new(&mut file).poll_write_vectored(cx, &bufs))
+            .await
+            .unwrap();
+
+        assert_eq!(written, 300);
+    }
+
+    /// The unvectored path already agreed; keep the two consistent.
+    #[tokio::test]
+    async fn write_reports_bytes() {
+        let mut file = NullFile::default();
+        assert_eq!(file.write(&[0u8; 100]).await.unwrap(), 100);
+    }
+}
