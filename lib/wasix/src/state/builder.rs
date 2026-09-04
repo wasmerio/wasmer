@@ -999,7 +999,7 @@ impl WasiEnvBuilder {
                     __WASI_STDOUT_FILENO,
                     __WASI_STDERR_FILENO,
                 ] {
-                    wasi_fs.set_stdio_terminal(fd, Some(is_terminal));
+                    wasi_fs.set_stdio_terminal(fd, is_terminal);
                 }
             }
 

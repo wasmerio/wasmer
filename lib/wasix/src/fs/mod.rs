@@ -1056,9 +1056,14 @@ impl WasiFs {
     /// Override what one of stdin/stdout/stderr reports about being connected
     /// to a terminal, ignoring whatever the handle behind it has to say.
     ///
-    /// `None` restores the default of deferring to the handle. Has no effect on
-    /// a descriptor that is no longer stdio (after a `dup2` onto it, say).
-    pub fn set_stdio_terminal(&self, fd: WasiFd, is_terminal: Option<bool>) {
+    /// This is one-way on purpose. There is no "stop overriding": undoing it
+    /// would mean re-asking the handle, and the reason the answer is cached at
+    /// all is so that no caller has to take the handle's lock. An embedder that
+    /// wants the handle to decide should simply not call this.
+    ///
+    /// Has no effect on a descriptor that is no longer stdio (after a `dup2`
+    /// onto it, say).
+    pub fn set_stdio_terminal(&self, fd: WasiFd, is_terminal: bool) {
         let inode = {
             let fd_map = self.fd_map.read().unwrap();
             match fd_map.get(fd) {
@@ -1066,7 +1071,7 @@ impl WasiFs {
                 _ => return,
             }
         };
-        inode.stat.write().unwrap().st_filetype = stdio_filetype(is_terminal);
+        inode.stat.write().unwrap().st_filetype = stdio_filetype(Some(is_terminal));
     }
 
     /// Change the backing of a given file descriptor
@@ -3014,10 +3019,10 @@ mod tests {
         )
         .unwrap();
 
-        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, Some(false));
+        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, false);
         assert_stdio_filetype(&fs, __WASI_STDOUT_FILENO, Filetype::Unknown);
 
-        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, None);
+        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, true);
         assert_stdio_filetype(&fs, __WASI_STDOUT_FILENO, Filetype::CharacterDevice);
     }
 
@@ -3037,7 +3042,7 @@ mod tests {
             "a dup of stdout used to report RegularFile"
         );
 
-        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, Some(true));
+        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, true);
         assert_eq!(
             fs.fdstat(dup).unwrap().fs_filetype,
             Filetype::CharacterDevice
@@ -3073,7 +3078,7 @@ mod tests {
         );
 
         // fd 1 is no longer stdio, so the override must leave it alone.
-        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, Some(true));
+        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, true);
         assert_eq!(
             fs.fdstat(__WASI_STDOUT_FILENO).unwrap().fs_filetype,
             Filetype::RegularFile

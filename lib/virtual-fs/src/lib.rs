@@ -400,9 +400,9 @@ pub trait VirtualFile:
     /// # Implementors
     ///
     /// Every *wrapper* type must forward this to the file it wraps; a missed
-    /// forward silently degrades to "no opinion". Single-field wrappers should
-    /// use [`forward_virtual_file_capability_queries!`]. The rest are covered by
-    /// the `is_terminal_forwarding` tests at the bottom of this module.
+    /// forward silently degrades to "no opinion". The `is_terminal_forwarding`
+    /// tests at the bottom of this module cover each wrapper in this crate, so
+    /// add a case there when adding one.
     fn is_terminal(&self) -> Option<bool> {
         None
     }
@@ -846,7 +846,8 @@ mod is_terminal_forwarding {
             _cx: &mut Context<'_>,
             bufs: &[IoSlice<'_>],
         ) -> Poll<io::Result<usize>> {
-            Poll::Ready(Ok(bufs.len()))
+            // Bytes written, not the number of slices.
+            Poll::Ready(Ok(bufs.iter().map(|buf| buf.len()).sum()))
         }
         fn is_write_vectored(&self) -> bool {
             false
@@ -970,8 +971,17 @@ mod is_terminal_forwarding {
     }
 
     #[test]
+    fn cow_file_forwards_while_read_only() {
+        assert_eq!(
+            CopyOnWriteFile::new(Box::new(TerminalProbe)).is_terminal(),
+            Some(true)
+        );
+    }
+
+    #[test]
     fn overlay_copy_on_write_file_forwards() {
-        // A writable open of a secondary-only path yields a `CopyOnWriteFile`.
+        // A writable open of a secondary-only path yields `overlay_fs`'s own
+        // `CopyOnWriteFile`, which is distinct from `cow_file`'s above.
         let fs = OverlayFileSystem::new(mem_fs::FileSystem::default(), [probe_fs()]);
         assert_eq!(open(&fs, true).is_terminal(), Some(true));
     }
