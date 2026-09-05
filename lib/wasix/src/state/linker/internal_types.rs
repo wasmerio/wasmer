@@ -172,7 +172,7 @@ pub(super) enum SymbolResolutionResult {
 }
 
 pub(super) struct DlModule {
-    pub(super) module: Module,
+    pub(super) module: super::SharedModule,
     pub(super) dylink_info: DylinkInfo,
     pub(super) memory_base: u64,
     pub(super) table_base: u64,

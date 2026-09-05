@@ -13,8 +13,8 @@ use super::{
     DlModule, DlOperation, DylinkInfo, InProgressLinkState, InProgressSymbolResolution, LinkError,
     LinkerState, MAIN_MODULE_HANDLE, ModuleHandle, NeededSymbolResolutionKey,
     PartiallyResolvedExport, PendingFunctionResolutionFromLinkerState,
-    PendingResolutionsFromLinker, PendingTlsPointer, ResolveError, SymbolResolutionKey,
-    SymbolResolutionResult, UnresolvedGlobal, WasiModuleInstanceHandles,
+    PendingResolutionsFromLinker, PendingTlsPointer, ResolveError, SharedModule,
+    SymbolResolutionKey, SymbolResolutionResult, UnresolvedGlobal, WasiModuleInstanceHandles,
     call_initialization_function, define_integer_global_import, get_tls_base_export,
     set_integer_global,
 };
@@ -172,7 +172,7 @@ impl InstanceGroupState {
         );
 
         let dl_module = DlModule {
-            module,
+            module: SharedModule::new(&module)?,
             dylink_info,
             memory_base,
             table_base,
@@ -219,7 +219,10 @@ impl InstanceGroupState {
             .get(&module_handle)
             .expect("Internal error: module not loaded into linker");
 
-        let mut imports = import_object_for_all_wasi_versions(&dl_module.module, store, env);
+        let engine = env.as_ref(store).runtime().engine().clone();
+        let module = dl_module.module.load(&engine)?;
+
+        let mut imports = import_object_for_all_wasi_versions(&module, store, env);
 
         let well_known_imports = [
             ("env", "__memory_base", dl_module.memory_base),
@@ -231,20 +234,15 @@ impl InstanceGroupState {
             module_handle,
             linker_state,
             store,
-            &dl_module.module,
+            &module,
             &mut imports,
             env,
             &well_known_imports,
             pending_resolutions,
         )?;
 
-        let instance = instantiate_with_runtime_hooks(
-            env,
-            store,
-            &dl_module.module,
-            &mut imports,
-            &self.memory,
-        )?;
+        let instance =
+            instantiate_with_runtime_hooks(env, store, &module, &mut imports, &self.memory)?;
 
         Ok(PreparedSideFromLinker {
             module_handle,

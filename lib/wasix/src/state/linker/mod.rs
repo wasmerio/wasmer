@@ -416,7 +416,7 @@ impl Linker {
 
         let mut linker_state = LinkerState {
             engine,
-            main_module: main_module.clone(),
+            main_module: SharedModule::new(main_module)?,
             main_module_dylink_info: dylink_section,
             main_module_memory_base: memory_base,
             side_modules: BTreeMap::new(),
@@ -643,7 +643,7 @@ impl Linker {
         Ok(PreparedInstanceGroupData {
             linker_shared: self.shared.clone(),
             topology_token,
-            memory,
+            memory: Some(memory),
             indirect_function_table_type,
             expected_table_length,
         })
@@ -688,11 +688,12 @@ impl Linker {
         let (topology_hold, mut ls_write) =
             linker_shared.write_linker_state_blocking_holding_topology(topology_token);
 
-        let main_module = ls_write.main_module.clone();
+        let engine = func_env.env.as_ref(store).runtime().engine().clone();
+        let main_module = ls_write.main_module.load(&engine)?;
 
         let mut imports = import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
 
-        let memory = memory.attach(store);
+        let memory = memory.ok_or(LinkError::MemoryNotShared)?.attach(store);
 
         let indirect_function_table = create_indirect_function_table(
             store,

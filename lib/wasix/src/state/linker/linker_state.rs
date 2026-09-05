@@ -29,7 +29,7 @@ use crate::state::WasiState;
 pub(super) struct LinkerState {
     pub(super) engine: Engine,
 
-    pub(super) main_module: Module,
+    pub(super) main_module: super::SharedModule,
     pub(super) main_module_dylink_info: DylinkInfo,
     pub(super) main_module_memory_base: u64,
 

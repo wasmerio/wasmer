@@ -2,7 +2,10 @@ use std::path::PathBuf;
 
 use crate::SpawnError;
 use virtual_fs::FsError;
-use wasmer::{ExportError, ExternType, InstantiationError, MemoryError, RuntimeError};
+use wasmer::{
+    CompileError, ExportError, ExternType, InstantiationError, MemoryError, RuntimeError,
+    SerializeError,
+};
 
 use super::ModuleHandle;
 
@@ -19,6 +22,12 @@ pub enum LinkError {
 
     #[error("Failed to instantiate module: {0}")]
     InstantiationError(#[from] InstantiationError),
+
+    #[error("Failed to serialize a module for another instance group: {0}")]
+    ModuleSerializationError(#[from] SerializeError),
+
+    #[error("Failed to compile a module for another instance group: {0}")]
+    ModuleCompilationError(#[from] CompileError),
 
     #[error("Memory allocation error: {0}")]
     MemoryAllocationError(#[from] MemoryError),
