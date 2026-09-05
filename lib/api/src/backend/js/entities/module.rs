@@ -108,7 +108,12 @@ impl Module {
             self.module.install(module.clone());
             return module;
         }
-        panic!("module was not transported to this worker and has no retained bytes");
+        panic!(
+            "module is unavailable in this worker: deliver it with \
+             wasmer::js::SharedObjectTransport and call receive_shared_object_message \
+             before accessing the task (or use export_shared_objects/import_shared_objects); \
+             the local compilation fallback requires js-serializable-module and retained bytes"
+        );
     }
 
     #[cfg(target_arch = "wasm32")]

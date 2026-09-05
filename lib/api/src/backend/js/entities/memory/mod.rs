@@ -199,8 +199,15 @@ impl Memory {
     }
 
     pub fn copy(&self, _store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
+        // Non-shared detachment snapshots bytes; only shared memory needs a
+        // separate WebAssembly.Memory allocation before transport.
+        let memory = if self.handle.ty.shared {
+            self.handle.copy()?
+        } else {
+            self.handle.clone()
+        };
         Ok(SharedMemory::new(crate::vm::VMSharedMemory::Js(
-            self.handle.copy()?.into(),
+            memory.into(),
         )))
     }
 

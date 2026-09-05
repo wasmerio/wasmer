@@ -234,6 +234,10 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
 /// worker is replaced. It is intentionally local, not Send or Sync. The first
 /// send includes all live local objects; later sends omit successfully sent IDs.
 /// Receivers must import every message before running its task.
+/// Successful receive installs the attached objects before returning the payload;
+/// this guarantees availability at that dispatch boundary, not for modules later
+/// published through shared Rust state while a worker is executing synchronously.
+/// Queued postMessage handlers cannot run until that worker yields.
 ///
 /// This is a trusted-pool protocol, not an object-capability boundary: snapshots
 /// are not restricted to objects reachable from the application payload.
@@ -398,14 +402,7 @@ mod tests {
     fn snapshots_reject_invalid_ids_and_object_kinds() {
         let handle = module_handle();
         let module: JsValue = handle.get::<WebAssembly::Module>().unwrap().into();
-        for id in [
-            0.0,
-            -1.0,
-            1.5,
-            f64::NAN,
-            f64::INFINITY,
-            f64::from(u32::MAX) + 1.0,
-        ] {
+        for id in [0.0, -1.0, 1.5, f64::NAN, f64::INFINITY, 4_294_967_296.0] {
             let snapshot = Array::of1(&Array::of2(&JsValue::from(id), &module));
             assert!(unsafe { import_shared_objects(&snapshot) }.is_err());
         }
@@ -482,6 +479,24 @@ mod tests {
         // SDK browser integration separately exercises real postMessage.
         unsafe { import_shared_objects(&snapshot) }.unwrap();
         assert!(handle.get::<js_sys::WebAssembly::Module>().is_some());
+    }
+
+    #[wasm_bindgen_test]
+    fn receive_installs_module_before_returning_payload_without_fallback() {
+        let js = WebAssembly::Module::new(
+            &js_sys::Uint8Array::from(b"\0asm\x01\0\0\0".as_slice()).into(),
+        )
+        .unwrap();
+        // Modules wrapped from JS have no retained bytes to fall back to.
+        let module = crate::js::module::Module::from(js.clone());
+        let transport = SharedObjectTransport::default();
+        let prepared = transport.prepare(JsValue::from_str("run"));
+        OBJECTS.with_borrow_mut(HashMap::clear);
+        let fallbacks = shared_object_stats().1;
+        let payload = unsafe { receive_shared_object_message(prepared.message().clone()) }.unwrap();
+        assert_eq!(payload, "run");
+        assert_eq!(JsValue::from(module), JsValue::from(js));
+        assert_eq!(shared_object_stats().1, fallbacks);
     }
 
     #[test]

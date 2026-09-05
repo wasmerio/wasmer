@@ -136,16 +136,64 @@ impl VMSharedMemory {
         let memory = match self.memory {
             DetachedMemory::Shared(handle) => handle
                 .get()
-                .expect("shared memory was not transported to this worker"),
+                .expect(
+                    "shared memory is unavailable in this worker: deliver it with \
+                     wasmer::js::SharedObjectTransport and call receive_shared_object_message \
+                     before attaching it (or use export_shared_objects/import_shared_objects)",
+                ),
             DetachedMemory::Copied(bytes) => {
                 let mut allocation = self.ty;
                 allocation.minimum = Pages((bytes.len() / WASM_PAGE_SIZE) as u32);
                 let memory = crate::js::memory::Memory::js_memory_from_type(&allocation)
-                    .expect("failed to attach copied memory");
+                    .unwrap_or_else(|error| panic!("failed to attach copied memory: {error}"));
                 js_sys::Uint8Array::new(&memory.buffer()).copy_from(&bytes);
                 memory
             }
         };
         VMMemory::new(memory, self.ty)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Memory, MemoryType, Pages, Store};
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn nonshared_copy_preserves_grown_snapshot_and_attaches_independently() {
+        let mut store = Store::default();
+        let source = Memory::new(&mut store, MemoryType::new(1, Some(4), false)).unwrap();
+        source.grow(&mut store, 1u32).unwrap();
+        let offset = 2 * wasmer_types::WASM_PAGE_SIZE as u64 - 1;
+        source.view(&store).write(offset, &[41]).unwrap();
+        let snapshot = source.copy(&store).unwrap();
+        source.view(&store).write(offset, &[99]).unwrap();
+        let first = snapshot.clone().attach(&mut store);
+        let second = snapshot.attach(&mut store);
+        assert_eq!(first.size(&store), Pages(2));
+        assert_eq!(second.size(&store), Pages(2));
+        let mut byte = [0];
+        first.view(&store).read(offset, &mut byte).unwrap();
+        assert_eq!(byte, [41]);
+        first.view(&store).write(offset, &[7]).unwrap();
+        second.view(&store).read(offset, &mut byte).unwrap();
+        assert_eq!(byte, [41]);
+        source.view(&store).read(offset, &mut byte).unwrap();
+        assert_eq!(byte, [99]);
+    }
+
+    #[wasm_bindgen_test]
+    fn shared_copy_allocates_independent_shared_memory() {
+        let mut store = Store::default();
+        let source = Memory::new(&mut store, MemoryType::new(1, Some(4), true)).unwrap();
+        source.grow(&mut store, 1u32).unwrap();
+        source.view(&store).write(0, &[41]).unwrap();
+        let copy = source.copy(&store).unwrap().attach(&mut store);
+        assert!(copy.ty(&store).shared);
+        assert_eq!(copy.size(&store), Pages(2));
+        source.view(&store).write(0, &[99]).unwrap();
+        let mut byte = [0];
+        copy.view(&store).read(0, &mut byte).unwrap();
+        assert_eq!(byte, [41]);
     }
 }
