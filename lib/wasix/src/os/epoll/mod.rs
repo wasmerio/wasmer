@@ -142,30 +142,34 @@ impl EpollJoinGuard {
 
 impl Drop for EpollJoinGuard {
     fn drop(&mut self) {
-        // Dropping a subscription must detach its interest handler from the source.
-        match &self.fd_guard.mode {
+        // Detach the interest handler, then drop it only after the resource
+        // lock is released: a stale epoll handler owns join guards whose drop
+        // re-enters this function and re-acquires the same lock.
+        let detached = match &self.fd_guard.mode {
             InodeValFilePollGuardMode::File(_) => {
                 // Intentionally ignored, epoll doesn't work with files
+                None
             }
             InodeValFilePollGuardMode::Socket { inner } => {
                 let mut inner = inner.protected.write().unwrap();
                 inner.remove_handler();
+                None
             }
-            InodeValFilePollGuardMode::EventNotifications(inner) => {
-                inner.remove_interest_handler();
-            }
+            InodeValFilePollGuardMode::EventNotifications(inner) => inner.remove_interest_handler(),
             InodeValFilePollGuardMode::DuplexPipe { pipe } => {
                 let inner = pipe.write().unwrap();
-                inner.remove_interest_handler();
+                inner.remove_interest_handler()
             }
             InodeValFilePollGuardMode::PipeRx { rx } => {
                 let inner = rx.write().unwrap();
-                inner.remove_interest_handler();
+                inner.remove_interest_handler()
             }
             InodeValFilePollGuardMode::PipeTx { .. } => {
                 // Intentionally ignored, the sending end of a pipe can't have an interest handler
+                None
             }
-        }
+        };
+        drop(detached);
     }
 }
 
@@ -614,7 +618,10 @@ pub(crate) fn register_epoll_handler(
     let fd_guard = poll_fd_guard(state, peb.build(), event.fd(), s)?;
     let handler = EpollHandler::new(event.fd(), epoll_state.clone(), sub_state.clone());
 
-    match &fd_guard.mode {
+    // A replaced handler from a closed epoll owns that epoll's join guards;
+    // its drop re-acquires the lock held in the arms below, so it stays alive
+    // until every lock is released.
+    let detached = match &fd_guard.mode {
         InodeValFilePollGuardMode::File(_) => {
             // Intentionally ignored, epoll doesn't work with files
             return Ok(None);
@@ -623,15 +630,16 @@ pub(crate) fn register_epoll_handler(
             let mut inner = inner.protected.write().unwrap();
             inner.set_handler(handler).map_err(net_error_into_io_err)?;
             drop(inner);
+            None
         }
         InodeValFilePollGuardMode::EventNotifications(inner) => inner.set_interest_handler(handler),
         InodeValFilePollGuardMode::DuplexPipe { pipe } => {
             let inner = pipe.write().unwrap();
-            inner.set_interest_handler(handler);
+            inner.set_interest_handler(handler)
         }
         InodeValFilePollGuardMode::PipeRx { rx } => {
             let inner = rx.write().unwrap();
-            inner.set_interest_handler(handler);
+            inner.set_interest_handler(handler)
         }
         InodeValFilePollGuardMode::PipeTx { .. } => {
             // The sending end of a pipe can't have an interest handler, since we
@@ -640,7 +648,8 @@ pub(crate) fn register_epoll_handler(
             prime_immediate_writable_if_applicable(event, &fd_guard, &epoll_state, &sub_state);
             return Ok(None);
         }
-    }
+    };
+    drop(detached);
 
     prime_immediate_writable_if_applicable(event, &fd_guard, &epoll_state, &sub_state);
 

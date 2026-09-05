@@ -130,12 +130,18 @@ impl PipeRx {
         }
     }
 
-    pub fn set_interest_handler(&self, interest_handler: Box<dyn InterestHandler>) {
+    // Returns the replaced handler: its drop chain can re-acquire locks the
+    // caller holds (an epoll handler owns join guards that detach from this
+    // pipe), so the caller drops it after releasing them.
+    pub fn set_interest_handler(
+        &self,
+        interest_handler: Box<dyn InterestHandler>,
+    ) -> Option<Box<dyn InterestHandler>> {
         let Some(ref rx) = self.rx else {
-            return;
+            return None;
         };
         let mut rx = rx.lock().unwrap();
-        rx.interest_handler.replace(interest_handler);
+        rx.interest_handler.replace(interest_handler)
     }
 
     pub fn remove_interest_handler(&self) -> Option<Box<dyn InterestHandler>> {
@@ -198,8 +204,11 @@ impl Pipe {
         self.recv.close();
     }
 
-    pub fn set_interest_handler(&self, interest_handler: Box<dyn InterestHandler>) {
-        self.recv.set_interest_handler(interest_handler);
+    pub fn set_interest_handler(
+        &self,
+        interest_handler: Box<dyn InterestHandler>,
+    ) -> Option<Box<dyn InterestHandler>> {
+        self.recv.set_interest_handler(interest_handler)
     }
 
     pub fn remove_interest_handler(&self) -> Option<Box<dyn InterestHandler>> {
