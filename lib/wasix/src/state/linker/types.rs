@@ -1,6 +1,6 @@
 use std::{fmt::Display, path::Path};
 
-use wasmer::{Instance, Memory, SharedMemory, Table, TableType};
+use wasmer::{Instance, Memory, Table, TableType};
 
 use super::{sync::LinkerShared, sync::TopologyToken};
 
@@ -49,7 +49,6 @@ pub struct PreparedInstanceGroupData {
     pub(super) topology_token: TopologyToken,
 
     // Data read from the parent context
-    pub(super) memory: SharedMemory,
     pub(super) indirect_function_table_type: TableType,
     pub(super) expected_table_length: u32,
 }

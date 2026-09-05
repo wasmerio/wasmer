@@ -29,7 +29,6 @@ use crate::state::WasiState;
 pub(super) struct LinkerState {
     pub(super) engine: Engine,
 
-    pub(super) main_module: Module,
     pub(super) main_module_dylink_info: DylinkInfo,
     pub(super) main_module_memory_base: u64,
 
@@ -382,7 +381,7 @@ impl LinkerState {
             DlModuleSpec::Memory { bytes, .. } => (HashedModuleData::new(bytes), None),
         };
 
-        let module = runtime.load_hashed_module_sync(module_data, Some(&self.engine))?;
+        let module = runtime.load_hashed_module_sync(module_data.clone(), Some(&self.engine))?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
@@ -441,6 +440,7 @@ impl LinkerState {
             handle,
             dylink_info,
             module,
+            module_data,
         });
         // Put the name in the linker state - the actual DlModule must be
         // constructed later by the instance group once table addresses are
