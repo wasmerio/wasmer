@@ -1140,22 +1140,28 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         info: ExtraInfo,
         int_vec_ty: VectorType<'ctx>,
     ) -> Result<(VectorValue<'ctx>, ExtraInfo), CompileError> {
-        let (value, info) = if self.config.enable_nan_canonicalization {
-            if info.has_pending_f32_nan() {
+        let (value, info) = if info.has_pending_f32_nan() {
+            let value = if self.config.enable_nan_canonicalization {
                 let value = err!(
                     self.builder
                         .build_bit_cast(value, self.intrinsics.f32x4_ty, "")
                 );
-                (self.canonicalize_nans(value)?, info.strip_pending())
-            } else if info.has_pending_f64_nan() {
+                self.canonicalize_nans(value)?
+            } else {
+                value
+            };
+            (value, info.strip_pending())
+        } else if info.has_pending_f64_nan() {
+            let value = if self.config.enable_nan_canonicalization {
                 let value = err!(
                     self.builder
                         .build_bit_cast(value, self.intrinsics.f64x2_ty, "")
                 );
-                (self.canonicalize_nans(value)?, info.strip_pending())
+                self.canonicalize_nans(value)?
             } else {
-                (value, info)
-            }
+                value
+            };
+            (value, info.strip_pending())
         } else {
             (value, info)
         };
@@ -1204,13 +1210,17 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         value: BasicValueEnum<'ctx>,
         info: ExtraInfo,
     ) -> Result<(VectorValue<'ctx>, ExtraInfo), CompileError> {
-        let (value, info) = if self.config.enable_nan_canonicalization && info.has_pending_f64_nan()
-        {
-            let value = err!(
-                self.builder
-                    .build_bit_cast(value, self.intrinsics.f64x2_ty, "")
-            );
-            (self.canonicalize_nans(value)?, info.strip_pending())
+        let (value, info) = if info.has_pending_f64_nan() {
+            let value = if self.config.enable_nan_canonicalization {
+                let value = err!(
+                    self.builder
+                        .build_bit_cast(value, self.intrinsics.f64x2_ty, "")
+                );
+                self.canonicalize_nans(value)?
+            } else {
+                value
+            };
+            (value, info.strip_pending())
         } else {
             (value, info)
         };
@@ -1231,13 +1241,17 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         value: BasicValueEnum<'ctx>,
         info: ExtraInfo,
     ) -> Result<(VectorValue<'ctx>, ExtraInfo), CompileError> {
-        let (value, info) = if self.config.enable_nan_canonicalization && info.has_pending_f32_nan()
-        {
-            let value = err!(
-                self.builder
-                    .build_bit_cast(value, self.intrinsics.f32x4_ty, "")
-            );
-            (self.canonicalize_nans(value)?, info.strip_pending())
+        let (value, info) = if info.has_pending_f32_nan() {
+            let value = if self.config.enable_nan_canonicalization {
+                let value = err!(
+                    self.builder
+                        .build_bit_cast(value, self.intrinsics.f32x4_ty, "")
+                );
+                self.canonicalize_nans(value)?
+            } else {
+                value
+            };
+            (value, info.strip_pending())
         } else {
             (value, info)
         };
@@ -7023,7 +7037,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::F32x4Ceil => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = self.v128_into_f32x4(v, i)?;
+                let (v, i) = self.v128_into_f32x4(v, i)?;
                 let res = err!(self.build_call_with_param_attributes(
                     self.intrinsics.ceil_f32x4,
                     &[v.into()],
@@ -7052,7 +7066,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::F64x2Ceil => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = self.v128_into_f64x2(v, i)?;
+                let (v, i) = self.v128_into_f64x2(v, i)?;
                 let res = err!(self.build_call_with_param_attributes(
                     self.intrinsics.ceil_f64x2,
                     &[v.into()],
@@ -7081,7 +7095,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::F32x4Floor => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = self.v128_into_f32x4(v, i)?;
+                let (v, i) = self.v128_into_f32x4(v, i)?;
                 let res = err!(self.build_call_with_param_attributes(
                     self.intrinsics.floor_f32x4,
                     &[v.into()],
@@ -7110,7 +7124,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::F64x2Floor => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = self.v128_into_f64x2(v, i)?;
+                let (v, i) = self.v128_into_f64x2(v, i)?;
                 let res = err!(self.build_call_with_param_attributes(
                     self.intrinsics.floor_f64x2,
                     &[v.into()],
@@ -7138,7 +7152,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::F32x4Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = self.v128_into_f32x4(v, i)?;
+                let (v, i) = self.v128_into_f32x4(v, i)?;
                 let res = err!(self.build_call_with_param_attributes(
                     self.intrinsics.trunc_f32x4,
                     &[v.into()],
@@ -7166,7 +7180,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::F64x2Trunc => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = self.v128_into_f64x2(v, i)?;
+                let (v, i) = self.v128_into_f64x2(v, i)?;
                 let res = err!(self.build_call_with_param_attributes(
                     self.intrinsics.trunc_f64x2,
                     &[v.into()],
@@ -7195,7 +7209,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::F32x4Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = self.v128_into_f32x4(v, i)?;
+                let (v, i) = self.v128_into_f32x4(v, i)?;
                 let res = err!(self.build_call_with_param_attributes(
                     self.intrinsics.nearbyint_f32x4,
                     &[v.into()],
@@ -7224,7 +7238,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
             Operator::F64x2Nearest => {
                 let (v, i) = self.state.pop1_extra()?;
-                let (v, _) = self.v128_into_f64x2(v, i)?;
+                let (v, i) = self.v128_into_f64x2(v, i)?;
                 let res = err!(self.build_call_with_param_attributes(
                     self.intrinsics.nearbyint_f64x2,
                     &[v.into()],
