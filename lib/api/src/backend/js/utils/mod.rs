@@ -1,7 +1,6 @@
 pub(crate) mod convert;
 pub(crate) mod js_handle;
 pub(crate) mod shared_handle;
-mod shared_handle_cleanup;
 
 pub use convert::*;
 pub use js_handle::*;

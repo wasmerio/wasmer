@@ -1,5 +1,4 @@
 //! Shared Rust ownership with worker-local JavaScript references.
-use super::shared_handle_cleanup;
 use js_sys::{Array, SharedArrayBuffer, WebAssembly};
 use std::{
     cell::RefCell,
@@ -13,8 +12,7 @@ use wasm_bindgen::{JsCast, JsValue};
 
 static NEXT_ID: AtomicU32 = AtomicU32::new(1);
 static OWNERS: LazyLock<Mutex<HashMap<u32, Weak<Owner>>>> = LazyLock::new(Mutex::default);
-// A routing namespace, not an authentication credential. Notifications only
-// request collection; each recipient checks its own Rust ownership.
+// A routing namespace for task envelopes, not an authentication credential.
 static NAMESPACE: LazyLock<String> = LazyLock::new(|| {
     format!(
         "wasmer-shared-objects-v1-{}-{}-{}",
@@ -45,12 +43,8 @@ impl ObjectKind {
 struct Owner {
     kind: ObjectKind,
 }
-impl Drop for Owner {
-    fn drop(&mut self) {
-        shared_handle_cleanup::notify(&NAMESPACE);
-    }
-}
 struct LocalObject {
+    // Rust ownership is invisible to JS GC, so a live handle needs a strong JS root.
     value: JsValue,
     owner: Weak<Owner>,
 }
@@ -75,7 +69,7 @@ impl SharedJsHandle {
         collect_shared_objects();
         let value = value.into();
         let kind = ObjectKind::of(&value).expect("only modules and shared memories can be shared");
-        let handle = OBJECTS.with_borrow_mut(|objects| {
+        OBJECTS.with_borrow_mut(|objects| {
             for (&id, object) in objects.iter() {
                 if object.value == value
                     && let Some(owner) = object.owner.upgrade()
@@ -91,9 +85,7 @@ impl SharedJsHandle {
             OWNERS.lock().unwrap().insert(id, weak.clone());
             objects.insert(id, LocalObject { value, owner: weak });
             Self { id, owner }
-        });
-        shared_handle_cleanup::listen(&NAMESPACE);
-        handle
+        })
     }
     pub fn get<T: JsCast>(&self) -> Option<T> {
         OBJECTS.with_borrow(|objects| {
@@ -119,21 +111,20 @@ impl SharedJsHandle {
             );
         });
         FALLBACKS.with_borrow_mut(|count| *count += 1);
-        shared_handle_cleanup::listen(&NAMESPACE);
     }
 }
 
 /// Release dead references in this worker and expired entries in the owner index.
+///
+/// Collection is opportunistic: registration and snapshot boundaries call this;
+/// hosts may also call it at task boundaries. There are no background notifications
+/// or timers. Idle workers can retain expired objects until collection or teardown.
 pub fn collect_shared_objects() {
     OBJECTS.with_borrow_mut(|objects| objects.retain(|_, object| object.owner.strong_count() > 0));
     OWNERS
         .lock()
         .unwrap()
         .retain(|_, owner| owner.strong_count() > 0);
-}
-
-pub(super) fn has_local_objects() -> bool {
-    OBJECTS.with_borrow(|objects| !objects.is_empty())
 }
 
 /// Export all live local objects for structured cloning within one trusted runtime.
@@ -195,9 +186,6 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
             });
         }
     });
-    if has_local_objects() {
-        shared_handle_cleanup::listen(&NAMESPACE);
-    }
     Ok(())
 }
 
@@ -352,14 +340,18 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    async fn final_drop_schedules_local_collection_without_a_task_boundary() {
+    async fn final_drop_retains_local_reference_until_collection() {
         let handle = module_handle();
         let id = handle.id;
         drop(handle);
         wasm_bindgen_futures::JsFuture::from(js_sys::Promise::resolve(&JsValue::UNDEFINED))
             .await
             .unwrap();
+        assert!(OBJECTS.with_borrow(|objects| objects.contains_key(&id)));
+        assert!(OWNERS.lock().unwrap().get(&id).unwrap().upgrade().is_none());
+        collect_shared_objects();
         assert!(!OBJECTS.with_borrow(|objects| objects.contains_key(&id)));
+        assert!(!OWNERS.lock().unwrap().contains_key(&id));
     }
 
     #[wasm_bindgen_test]
