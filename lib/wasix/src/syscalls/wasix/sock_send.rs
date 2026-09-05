@@ -93,6 +93,7 @@ pub(crate) fn sock_send_internal<M: MemorySize>(
     let runtime = env.runtime.clone();
 
     let nonblocking_flag = (si_flags & __WASI_SOCK_SEND_INPUT_DONT_WAIT) != 0;
+    let oob = (si_flags & __WASI_SOCK_SEND_INPUT_OOB) != 0;
 
     let bytes_written = wasi_try_ok_ok!(__sock_asyncify(
         env,
@@ -106,7 +107,7 @@ pub(crate) fn sock_send_internal<M: MemorySize>(
                 .flatten()
                 .unwrap_or(Duration::from_secs(30));
 
-            if socket.is_dgram() {
+            if socket.is_dgram() || oob {
                 let data = si_data.coalesce(&memory, MAX_SOCKET_PAYLOAD)?;
                 return socket
                     .send(
@@ -114,6 +115,7 @@ pub(crate) fn sock_send_internal<M: MemorySize>(
                         data.as_ref(),
                         Some(timeout),
                         nonblocking,
+                        oob,
                     )
                     .await;
             }
@@ -136,6 +138,7 @@ pub(crate) fn sock_send_internal<M: MemorySize>(
                                 buf.as_ref(),
                                 Some(timeout),
                                 nonblocking,
+                                false,
                             )
                             .await
                         {
@@ -157,6 +160,7 @@ pub(crate) fn sock_send_internal<M: MemorySize>(
                             data.as_ref(),
                             Some(timeout),
                             nonblocking,
+                            false,
                         )
                         .await
                 }
