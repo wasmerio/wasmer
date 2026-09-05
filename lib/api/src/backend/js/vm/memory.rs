@@ -104,5 +104,48 @@ impl From<VMMemory> for (JsValue, MemoryType) {
     }
 }
 
-/// Shared VM memory, in `js`, is the "normal" memory.
-pub type VMSharedMemory = VMMemory;
+/// Detached shared memory contains no worker-local JavaScript handle.
+#[derive(Clone, Debug)]
+pub struct VMSharedMemory {
+    memory: DetachedMemory,
+    ty: MemoryType,
+}
+
+#[derive(Clone, Debug)]
+enum DetachedMemory {
+    Shared(crate::js::utils::shared_handle::SharedJsHandle),
+    // Non-shared WebAssembly.Memory objects cannot be structured-cloned.
+    Copied(std::sync::Arc<[u8]>),
+}
+
+impl From<VMMemory> for VMSharedMemory {
+    fn from(memory: VMMemory) -> Self {
+        let value = memory.memory.into_inner();
+        Self {
+            memory: if memory.ty.shared {
+                DetachedMemory::Shared(crate::js::utils::shared_handle::SharedJsHandle::new(value))
+            } else {
+                DetachedMemory::Copied(js_sys::Uint8Array::new(&value.buffer()).to_vec().into())
+            },
+            ty: memory.ty,
+        }
+    }
+}
+impl VMSharedMemory {
+    pub fn attach(self) -> VMMemory {
+        let memory = match self.memory {
+            DetachedMemory::Shared(handle) => handle
+                .get()
+                .expect("shared memory was not transported to this worker"),
+            DetachedMemory::Copied(bytes) => {
+                let mut allocation = self.ty;
+                allocation.minimum = Pages((bytes.len() / WASM_PAGE_SIZE) as u32);
+                let memory = crate::js::memory::Memory::js_memory_from_type(&allocation)
+                    .expect("failed to attach copied memory");
+                js_sys::Uint8Array::new(&memory.buffer()).copy_from(&bytes);
+                memory
+            }
+        };
+        VMMemory::new(memory, self.ty)
+    }
+}

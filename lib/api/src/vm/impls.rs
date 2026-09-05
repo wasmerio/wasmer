@@ -61,7 +61,9 @@ impl VMMemory {
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_shared().map(VMSharedMemory::V8),
             #[cfg(feature = "js")]
-            Self::Js(s) => s.try_clone().map(VMSharedMemory::Js),
+            Self::Js(s) => s
+                .try_clone()
+                .map(|memory| VMSharedMemory::Js(memory.into())),
         }
     }
 }
@@ -75,10 +77,7 @@ impl VMSharedMemory {
             #[cfg(feature = "v8")]
             Self::V8(s) => Self::V8(s.clone()),
             #[cfg(feature = "js")]
-            Self::Js(s) => Self::Js(
-                s.try_clone()
-                    .expect("cloning JavaScript shared memory should not fail"),
-            ),
+            Self::Js(s) => Self::Js(s.clone()),
         }
     }
 
@@ -92,7 +91,7 @@ impl VMSharedMemory {
                 VMMemory::V8(s.into_vm_memory(store.inner.store.as_v8_mut()))
             }
             #[cfg(feature = "js")]
-            Self::Js(s) => VMMemory::Js(s),
+            Self::Js(s) => VMMemory::Js(s.attach()),
         }
     }
 }

@@ -19,7 +19,7 @@ use crate::{
     AsEngineRef, AsStoreMut, BackendModule, Extern, Imports, InstantiationError, IntoBytes,
     RuntimeError,
     js::{
-        utils::{convert::AsJs as _, js_handle::JsHandle},
+        utils::{convert::AsJs as _, shared_handle::SharedJsHandle},
         vm::VMInstance,
     },
 };
@@ -43,7 +43,7 @@ pub struct ModuleTypeHints {
 
 #[derive(Clone, PartialEq, Eq)]
 pub struct Module {
-    module: JsHandle<WebAssembly::Module>,
+    module: SharedJsHandle,
     name: Option<String>,
     #[cfg(feature = "wasm-types-polyfill")]
     info: ModuleInfo,
@@ -88,20 +88,29 @@ fn evaluate_i32_init_expr(
         .filter(|_| stack.is_empty())
 }
 
-// XXX
-// Do not rely on `Module` being `Send`: it will panic at runtime
-// if accessed from multiple threads thanks to [`JsHandle`].
-// See https://github.com/wasmerio/wasmer/issues/4158 for details.
-unsafe impl Send for Module {}
-unsafe impl Sync for Module {}
-
 impl From<Module> for JsValue {
     fn from(val: Module) -> Self {
-        Self::from(val.module)
+        Self::from(val.local_module())
     }
 }
 
 impl Module {
+    fn local_module(&self) -> WebAssembly::Module {
+        if let Some(module) = self.module.get() {
+            return module;
+        }
+        // A running sibling can observe dlopen before receiving postMessage.
+        #[cfg(feature = "js-serializable-module")]
+        if let Some(bytes) = &self.raw_bytes {
+            let bytes = Uint8Array::from(bytes.as_ref());
+            let module = WebAssembly::Module::new(&bytes.into())
+                .expect("failed to compile a shared module in this worker");
+            self.module.install(module.clone());
+            return module;
+        }
+        panic!("module was not transported to this worker and has no retained bytes");
+    }
+
     #[cfg(target_arch = "wasm32")]
     pub(crate) async fn new_async(
         _engine: &impl AsEngineRef,
@@ -189,7 +198,7 @@ impl Module {
         let (type_hints, name) = (None, None);
 
         Self {
-            module: JsHandle::new(module),
+            module: SharedJsHandle::new(module),
             type_hints,
             name,
             #[cfg(feature = "wasm-types-polyfill")]
@@ -282,7 +291,7 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        let instance = WebAssembly::Instance::new(&self.module, &imports_object)
+        let instance = WebAssembly::Instance::new(&self.local_module(), &imports_object)
             .map_err(|e: JsValue| -> RuntimeError { e.into() })?;
         #[cfg(feature = "wasm-types-polyfill")]
         self.annotate_table_functions(store, imports, &instance);
@@ -426,7 +435,7 @@ impl Module {
     }
 
     pub fn imports<'a>(&'a self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + 'a>> {
-        let imports = WebAssembly::Module::imports(&self.module);
+        let imports = WebAssembly::Module::imports(&self.local_module());
         let iter = imports
             .iter()
             .enumerate()
@@ -489,7 +498,7 @@ impl Module {
     /// import or export types of the module.
     #[allow(unused)]
     pub fn set_type_hints(&mut self, type_hints: ModuleTypeHints) -> Result<(), String> {
-        let exports = WebAssembly::Module::exports(&self.module);
+        let exports = WebAssembly::Module::exports(&self.local_module());
         // Check exports
         if exports.length() as usize != type_hints.exports.len() {
             return Err("The exports length must match the type hints length".to_owned());
@@ -526,7 +535,7 @@ impl Module {
     }
 
     pub fn exports<'a>(&'a self) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + 'a>> {
-        let exports = WebAssembly::Module::exports(&self.module);
+        let exports = WebAssembly::Module::exports(&self.local_module());
         let iter = exports
             .iter()
             .enumerate()
@@ -587,7 +596,7 @@ impl Module {
         name: &'a str,
     ) -> Box<dyn Iterator<Item = Box<[u8]>> + 'a> {
         Box::new(
-            WebAssembly::Module::custom_sections(&self.module, name)
+            WebAssembly::Module::custom_sections(&self.local_module(), name)
                 .iter()
                 .map(move |buf_val| {
                     let typebuf: js_sys::Uint8Array = js_sys::Uint8Array::new(&buf_val);
@@ -614,7 +623,7 @@ impl From<WebAssembly::Module> for Module {
     #[track_caller]
     fn from(module: WebAssembly::Module) -> Self {
         Self {
-            module: JsHandle::new(module),
+            module: SharedJsHandle::new(module),
             name: None,
             type_hints: None,
             #[cfg(feature = "wasm-types-polyfill")]
@@ -643,7 +652,7 @@ impl From<WebAssembly::Module> for crate::module::Module {
 }
 impl From<crate::module::Module> for WebAssembly::Module {
     fn from(value: crate::module::Module) -> Self {
-        value.into_js().module.into_inner()
+        value.into_js().local_module()
     }
 }
 

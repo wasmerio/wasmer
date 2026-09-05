@@ -200,7 +200,7 @@ impl Memory {
 
     pub fn copy(&self, _store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         Ok(SharedMemory::new(crate::vm::VMSharedMemory::Js(
-            self.handle.copy()?,
+            self.handle.copy()?.into(),
         )))
     }
 
@@ -214,7 +214,7 @@ impl Memory {
         }
 
         Ok(SharedMemory::new(crate::vm::VMSharedMemory::Js(
-            self.handle.try_clone()?,
+            self.handle.try_clone()?.into(),
         )))
     }
 }
