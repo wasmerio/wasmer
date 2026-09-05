@@ -183,7 +183,6 @@ impl Config {
                 let mut compiler = wasmer_compiler_llvm::LLVM::new();
                 compiler.experimental_artifact(self.experimental_artifact);
                 compiler.canonicalize_nans(canonicalize_nans);
-                compiler.enable_verifier();
                 if let Some(mut debug_dir) = debug_dir {
                     use wasmer_compiler_llvm::LLVMCallbacks;
                     debug_dir.push("llvm");
