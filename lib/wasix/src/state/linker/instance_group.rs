@@ -13,8 +13,8 @@ use super::{
     DlModule, DlOperation, DylinkInfo, InProgressLinkState, InProgressSymbolResolution, LinkError,
     LinkerState, MAIN_MODULE_HANDLE, ModuleHandle, NeededSymbolResolutionKey,
     PartiallyResolvedExport, PendingFunctionResolutionFromLinkerState,
-    PendingResolutionsFromLinker, PendingTlsPointer, ResolveError, SharedModule,
-    SymbolResolutionKey, SymbolResolutionResult, UnresolvedGlobal, WasiModuleInstanceHandles,
+    PendingResolutionsFromLinker, PendingTlsPointer, ResolveError, SymbolResolutionKey,
+    SymbolResolutionResult, UnresolvedGlobal, WasiModuleInstanceHandles,
     call_initialization_function, define_integer_global_import, get_tls_base_export,
     set_integer_global,
 };
@@ -137,6 +137,7 @@ impl InstanceGroupState {
         ];
 
         let module = pending_module.module.clone();
+        let module_data = pending_module.module_data.clone();
         let dylink_info = pending_module.dylink_info.clone();
 
         trace!(?module_handle, "Resolving symbols");
@@ -172,7 +173,7 @@ impl InstanceGroupState {
         );
 
         let dl_module = DlModule {
-            module: SharedModule::new(&module)?,
+            module_data,
             dylink_info,
             memory_base,
             table_base,
@@ -219,8 +220,9 @@ impl InstanceGroupState {
             .get(&module_handle)
             .expect("Internal error: module not loaded into linker");
 
-        let engine = env.as_ref(store).runtime().engine().clone();
-        let module = dl_module.module.load(&engine)?;
+        let runtime = env.as_ref(store).runtime();
+        let module = runtime
+            .load_hashed_module_sync(dl_module.module_data.clone(), Some(&linker_state.engine))?;
 
         let mut imports = import_object_for_all_wasi_versions(&module, store, env);
 

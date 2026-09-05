@@ -3,6 +3,8 @@ use std::{collections::HashMap, path::PathBuf};
 use derive_more::Debug;
 use wasmer::{Function, FunctionType, Global, Module};
 
+use crate::runtime::module_cache::HashedModuleData;
+
 use super::{DylinkInfo, ModuleHandle};
 
 #[derive(Debug)]
@@ -106,6 +108,7 @@ pub(super) enum InProgressSymbolResolution {
 pub(super) struct InProgressModuleLoad {
     pub(super) handle: ModuleHandle,
     pub(super) module: Module,
+    pub(super) module_data: HashedModuleData,
     pub(super) dylink_info: DylinkInfo,
 }
 
@@ -172,7 +175,8 @@ pub(super) enum SymbolResolutionResult {
 }
 
 pub(super) struct DlModule {
-    pub(super) module: super::SharedModule,
+    // Compiled JavaScript handles belong to a worker, not shared linker state.
+    pub(super) module_data: HashedModuleData,
     pub(super) dylink_info: DylinkInfo,
     pub(super) memory_base: u64,
     pub(super) table_base: u64,

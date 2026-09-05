@@ -416,7 +416,6 @@ impl Linker {
 
         let mut linker_state = LinkerState {
             engine,
-            main_module: SharedModule::new(main_module)?,
             main_module_dylink_info: dylink_section,
             main_module_memory_base: memory_base,
             side_modules: BTreeMap::new(),
@@ -672,6 +671,7 @@ impl Linker {
 
     pub fn create_instance_group(
         prepared_instance_group_data: PreparedInstanceGroupData,
+        main_module: &Module,
         store: &mut StoreMut<'_>,
         func_env: &mut WasiFunctionEnv,
     ) -> Result<(Self, LinkedMainModule), LinkError> {
@@ -688,12 +688,11 @@ impl Linker {
         let (topology_hold, mut ls_write) =
             linker_shared.write_linker_state_blocking_holding_topology(topology_token);
 
-        let engine = func_env.env.as_ref(store).runtime().engine().clone();
-        let main_module = ls_write.main_module.load(&engine)?;
+        let mut imports = import_object_for_all_wasi_versions(main_module, store, &func_env.env);
 
-        let mut imports = import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
-
-        let memory = memory.ok_or(LinkError::MemoryNotShared)?.attach(store);
+        let memory = memory
+            .ok_or(LinkError::MissingTransferredMemory)?
+            .attach(store);
 
         let indirect_function_table = create_indirect_function_table(
             store,
@@ -719,7 +718,7 @@ impl Linker {
 
         // WASIX threads initialize their own stack pointer global in wasi_thread_start,
         // so no need to initialize it to a value here.
-        let stack_pointer = create_main_stack_pointer_global(store, &main_module, 0)?;
+        let stack_pointer = create_main_stack_pointer_global(store, main_module, 0)?;
 
         let c_longjmp = Tag::new(store, vec![Type::I32]);
         let cpp_exception = Tag::new(store, vec![Type::I32]);
@@ -755,7 +754,7 @@ impl Linker {
             MAIN_MODULE_HANDLE,
             &ls_write,
             store,
-            &main_module,
+            main_module,
             &mut imports,
             &func_env.env,
             &well_known_imports,
@@ -765,7 +764,7 @@ impl Linker {
         let main_instance = instantiate_with_runtime_hooks(
             &func_env.env,
             store,
-            &main_module,
+            main_module,
             &mut imports,
             &memory,
         )?;

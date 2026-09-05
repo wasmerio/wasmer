@@ -99,40 +99,6 @@ pub(super) fn main_module_memory_type(main_module: &Module) -> Result<MemoryType
         .ok_or(LinkError::MissingMainModuleImport("env.memory".to_string()))
 }
 
-/// Module data owned by the linker shared between instance groups.
-///
-/// JavaScript handles cannot be cloned, used, or dropped on another worker.
-/// Keep only bytes in shared state and compile in the receiving worker.
-pub(super) struct SharedModule {
-    #[cfg(feature = "js")]
-    bytes: bytes::Bytes,
-    #[cfg(not(feature = "js"))]
-    module: Module,
-}
-
-impl SharedModule {
-    pub(super) fn new(module: &Module) -> Result<Self, LinkError> {
-        Ok(Self {
-            #[cfg(feature = "js")]
-            bytes: module.serialize()?,
-            #[cfg(not(feature = "js"))]
-            module: module.clone(),
-        })
-    }
-
-    pub(super) fn load(&self, engine: &wasmer::Engine) -> Result<Module, LinkError> {
-        #[cfg(feature = "js")]
-        {
-            Ok(Module::new(engine, &self.bytes)?)
-        }
-        #[cfg(not(feature = "js"))]
-        {
-            let _ = engine;
-            Ok(self.module.clone())
-        }
-    }
-}
-
 pub(super) fn create_indirect_function_table(
     store: &mut impl AsStoreMut,
     table_type: TableType,

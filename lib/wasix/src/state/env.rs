@@ -480,9 +480,12 @@ impl WasiEnv {
         let is_dl = super::linker::is_dynamically_linked(&module);
         if is_dl {
             let linker = match linker_instance_group_data {
-                Some(instance_group_data) => {
-                    Linker::create_instance_group(instance_group_data, &mut store, &mut func_env)
-                }
+                Some(instance_group_data) => Linker::create_instance_group(
+                    instance_group_data,
+                    &module,
+                    &mut store,
+                    &mut func_env,
+                ),
                 None => {
                     // FIXME: should we be storing envs as raw byte arrays?
                     let ld_library_path_owned;
