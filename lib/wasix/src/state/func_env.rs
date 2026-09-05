@@ -1,6 +1,7 @@
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module,
+    SharedMemory, Store,
 };
 use wasmer_wasix_types::{wasi::ExitCode, wasix::WasiMemoryLayout};
 
@@ -43,7 +44,7 @@ impl WasiFunctionEnv {
         spawn_type: SpawnMemoryTypeOrStore,
         update_layout: bool,
         call_initialize: bool,
-        linker_instance_group_data: Option<PreparedInstanceGroupData>,
+        linker_instance_group_data: Option<(PreparedInstanceGroupData, SharedMemory)>,
     ) -> Result<(Self, Store), WasiThreadError> {
         // Create a new store and put the memory object in it
         // (but only if it has imported memory)

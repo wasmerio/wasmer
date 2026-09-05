@@ -1,6 +1,6 @@
 use std::{fmt::Display, path::Path};
 
-use wasmer::{Instance, Memory, SharedMemory, Table, TableType};
+use wasmer::{Instance, Memory, Table, TableType};
 
 use super::{sync::LinkerShared, sync::TopologyToken};
 
@@ -49,22 +49,8 @@ pub struct PreparedInstanceGroupData {
     pub(super) topology_token: TopologyToken,
 
     // Data read from the parent context
-    pub(super) memory: Option<SharedMemory>,
     pub(super) indirect_function_table_type: TableType,
     pub(super) expected_table_length: u32,
-}
-
-impl PreparedInstanceGroupData {
-    /// Remove the memory before transporting this state to another JavaScript worker.
-    /// The receiver must restore a worker-local handle with `set_memory`.
-    pub fn take_memory(&mut self) -> Option<SharedMemory> {
-        self.memory.take()
-    }
-
-    /// Restore the shared memory after transporting it to the destination worker.
-    pub fn set_memory(&mut self, memory: SharedMemory) {
-        self.memory = Some(memory);
-    }
 }
 
 pub enum DlModuleSpec<'a> {

@@ -35,11 +35,6 @@ pub enum LinkError {
     #[error("Module's memory is not shared")]
     MemoryNotShared,
 
-    #[error(
-        "Prepared instance group's memory handle is missing; restore it with set_memory before creating the instance group"
-    )]
-    MissingTransferredMemory,
-
     #[error("Failed to parse dylink.0 section: {0}")]
     Dylink0SectionParseError(#[from] wasmparser::BinaryReaderError),
 

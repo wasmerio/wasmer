@@ -164,11 +164,11 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     let thread_module = module_handles.module_clone();
     let spawn_type = match linker {
         Some(linker) => {
-            let instance_group_data = linker.prepare_for_instance_group(ctx).map_err(|e| {
+            let (data, memory) = linker.prepare_for_instance_group(ctx).map_err(|e| {
                 tracing::warn!("failed to prepare linker for thread spawn: {e}");
                 Errno::Notcapable
             })?;
-            crate::runtime::SpawnType::NewLinkerInstanceGroup(instance_group_data)
+            crate::runtime::SpawnType::NewLinkerInstanceGroup { data, memory }
         }
         None => crate::runtime::SpawnType::AttachMemory(
             thread_memory.as_shared(&store).ok_or_else(|| {

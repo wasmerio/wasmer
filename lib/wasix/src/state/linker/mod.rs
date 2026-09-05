@@ -293,7 +293,9 @@ use std::{
 
 use bus::Bus;
 use tracing::trace;
-use wasmer::{AsStoreMut, Engine, FunctionEnvMut, Memory, Module, StoreMut, Tag, Type};
+use wasmer::{
+    AsStoreMut, Engine, FunctionEnvMut, Memory, Module, SharedMemory, StoreMut, Tag, Type,
+};
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use crate::{WasiEnv, WasiFunctionEnv, WasiModuleTreeHandles, import_object_for_all_wasi_versions};
@@ -603,11 +605,12 @@ impl Linker {
     /// environment, so a child thread can later call [`Self::create_instance_group`]
     /// and have its own instance group, letting it take part in dynamic linking.
     /// This two-part process is needed because the parent and child each have
-    /// their own [`Store`], and [`Store`]s are not `Send`.
+    /// their own [`Store`], and [`Store`]s are not `Send`. Memory is returned separately
+    /// so task managers can transport its handle without embedding it in shared linker state.
     pub fn prepare_for_instance_group(
         &self,
         parent_ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    ) -> Result<PreparedInstanceGroupData, LinkError> {
+    ) -> Result<(PreparedInstanceGroupData, SharedMemory), LinkError> {
         trace!("Preparing for new instance group");
 
         lock_instance_group_state!(
@@ -639,13 +642,15 @@ impl Linker {
             .indirect_function_table
             .size(&parent_store);
 
-        Ok(PreparedInstanceGroupData {
-            linker_shared: self.shared.clone(),
-            topology_token,
-            memory: Some(memory),
-            indirect_function_table_type,
-            expected_table_length,
-        })
+        Ok((
+            PreparedInstanceGroupData {
+                linker_shared: self.shared.clone(),
+                topology_token,
+                indirect_function_table_type,
+                expected_table_length,
+            },
+            memory,
+        ))
     }
 
     pub(crate) fn do_pending_link_operations(
@@ -672,6 +677,7 @@ impl Linker {
     pub fn create_instance_group(
         prepared_instance_group_data: PreparedInstanceGroupData,
         main_module: &Module,
+        memory: SharedMemory,
         store: &mut StoreMut<'_>,
         func_env: &mut WasiFunctionEnv,
     ) -> Result<(Self, LinkedMainModule), LinkError> {
@@ -680,7 +686,6 @@ impl Linker {
         let PreparedInstanceGroupData {
             linker_shared,
             topology_token,
-            memory,
             indirect_function_table_type,
             expected_table_length,
         } = prepared_instance_group_data;
@@ -690,9 +695,7 @@ impl Linker {
 
         let mut imports = import_object_for_all_wasi_versions(main_module, store, &func_env.env);
 
-        let memory = memory
-            .ok_or(LinkError::MissingTransferredMemory)?
-            .attach(store);
+        let memory = memory.attach(store);
 
         let indirect_function_table = create_indirect_function_table(
             store,

@@ -30,7 +30,7 @@ use virtual_mio::block_on;
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
-    Module,
+    Module, SharedMemory,
 };
 use wasmer_config::package::PackageSource;
 use wasmer_types::ModuleHash;
@@ -469,7 +469,7 @@ impl WasiEnv {
         memory: Option<Memory>,
         update_layout: bool,
         call_initialize: bool,
-        linker_instance_group_data: Option<PreparedInstanceGroupData>,
+        linker_instance_group_data: Option<(PreparedInstanceGroupData, SharedMemory)>,
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
         let pid = self.process.pid();
 
@@ -480,9 +480,10 @@ impl WasiEnv {
         let is_dl = super::linker::is_dynamically_linked(&module);
         if is_dl {
             let linker = match linker_instance_group_data {
-                Some(instance_group_data) => Linker::create_instance_group(
+                Some((instance_group_data, memory)) => Linker::create_instance_group(
                     instance_group_data,
                     &module,
+                    memory,
                     &mut store,
                     &mut func_env,
                 ),
