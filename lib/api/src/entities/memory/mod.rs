@@ -161,7 +161,8 @@ impl Memory {
         self.0.reset(store)
     }
 
-    /// Attempts to duplicate this memory in a new store with a byte-for-byte copy
+    /// Attempts to duplicate shared memory in a new store with a byte-for-byte copy.
+    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory.
     ///
     /// Since Wasmer 8.0, this function can no longer be used for stores
     /// in different threads; for that, use `copy`, and then `attach`
@@ -183,11 +184,11 @@ impl Memory {
         self.0.is_from_store(store)
     }
 
-    /// Attempts to create a detached copied memory handle that can later be
-    /// attached to a different store.
+    /// Attempts to create an independent copy of shared memory, detached from
+    /// its store, that can later be attached to a different store.
     ///
-    /// If the memory is shared, this returns a shared handle. Otherwise, it
-    /// creates an independent byte-for-byte copy.
+    /// The copy is shared memory, but does not alias the source memory.
+    /// Returns [`MemoryError::MemoryNotShared`] for non-shared memory.
     pub fn copy(&self, store: &impl AsStoreRef) -> Result<SharedMemory, MemoryError> {
         self.0.copy(store)
     }

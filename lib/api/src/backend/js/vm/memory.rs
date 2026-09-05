@@ -107,79 +107,61 @@ impl From<VMMemory> for (JsValue, MemoryType) {
 /// Detached shared memory contains no worker-local JavaScript handle.
 #[derive(Clone, Debug)]
 pub struct VMSharedMemory {
-    memory: DetachedMemory,
+    memory: crate::js::utils::shared_handle::SharedJsHandle,
     ty: MemoryType,
 }
 
-#[derive(Clone, Debug)]
-enum DetachedMemory {
-    Shared(crate::js::utils::shared_handle::SharedJsHandle),
-    // Non-shared WebAssembly.Memory objects cannot be structured-cloned.
-    Copied(std::sync::Arc<[u8]>),
-}
+impl TryFrom<VMMemory> for VMSharedMemory {
+    type Error = MemoryError;
 
-impl From<VMMemory> for VMSharedMemory {
-    fn from(memory: VMMemory) -> Self {
-        let value = memory.memory.into_inner();
-        Self {
-            memory: if memory.ty.shared {
-                DetachedMemory::Shared(crate::js::utils::shared_handle::SharedJsHandle::new(value))
-            } else {
-                DetachedMemory::Copied(js_sys::Uint8Array::new(&value.buffer()).to_vec().into())
-            },
-            ty: memory.ty,
+    fn try_from(memory: VMMemory) -> Result<Self, Self::Error> {
+        if !memory.ty.shared
+            || !memory.memory.buffer().is_instance_of::<js_sys::SharedArrayBuffer>()
+        {
+            return Err(MemoryError::MemoryNotShared);
         }
+        Ok(Self {
+            memory: crate::js::utils::shared_handle::SharedJsHandle::new(memory.memory.into_inner()),
+            ty: memory.ty,
+        })
     }
 }
 impl VMSharedMemory {
     pub fn attach(self) -> VMMemory {
-        let memory = match self.memory {
-            DetachedMemory::Shared(handle) => handle
-                .get()
-                .expect(
-                    "shared memory is unavailable in this worker: deliver it with \
-                     wasmer::js::SharedObjectTransport and call receive_shared_object_message \
-                     before attaching it (or use export_shared_objects/import_shared_objects)",
-                ),
-            DetachedMemory::Copied(bytes) => {
-                let mut allocation = self.ty;
-                allocation.minimum = Pages((bytes.len() / WASM_PAGE_SIZE) as u32);
-                let memory = crate::js::memory::Memory::js_memory_from_type(&allocation)
-                    .unwrap_or_else(|error| panic!("failed to attach copied memory: {error}"));
-                js_sys::Uint8Array::new(&memory.buffer()).copy_from(&bytes);
-                memory
-            }
-        };
+        let memory = self.memory.get().expect(
+            "shared memory is unavailable in this worker: deliver it with \
+             wasmer::js::SharedObjectTransport and call receive_shared_object_message \
+             before attaching it (or use export_shared_objects/import_shared_objects)",
+        );
         VMMemory::new(memory, self.ty)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{Memory, MemoryType, Pages, Store};
+    use super::{VMMemory, VMSharedMemory};
+    use crate::{Memory, MemoryError, MemoryType, Pages, Store};
     use wasm_bindgen_test::wasm_bindgen_test;
 
     #[wasm_bindgen_test]
-    fn nonshared_copy_preserves_grown_snapshot_and_attaches_independently() {
+    fn nonshared_memory_cannot_be_detached() {
         let mut store = Store::default();
-        let source = Memory::new(&mut store, MemoryType::new(1, Some(4), false)).unwrap();
-        source.grow(&mut store, 1u32).unwrap();
-        let offset = 2 * wasmer_types::WASM_PAGE_SIZE as u64 - 1;
-        source.view(&store).write(offset, &[41]).unwrap();
-        let snapshot = source.copy(&store).unwrap();
-        source.view(&store).write(offset, &[99]).unwrap();
-        let first = snapshot.clone().attach(&mut store);
-        let second = snapshot.attach(&mut store);
-        assert_eq!(first.size(&store), Pages(2));
-        assert_eq!(second.size(&store), Pages(2));
-        let mut byte = [0];
-        first.view(&store).read(offset, &mut byte).unwrap();
-        assert_eq!(byte, [41]);
-        first.view(&store).write(offset, &[7]).unwrap();
-        second.view(&store).read(offset, &mut byte).unwrap();
-        assert_eq!(byte, [41]);
-        source.view(&store).read(offset, &mut byte).unwrap();
-        assert_eq!(byte, [99]);
+        let ty = MemoryType::new(1, Some(4), false);
+        let source = Memory::new(&mut store, ty).unwrap();
+        assert!(matches!(source.copy(&store), Err(MemoryError::MemoryNotShared)));
+        assert!(source.as_shared(&store).is_none());
+        let js = crate::js::memory::Memory::js_memory_from_type(&ty).unwrap();
+        let vm = VMMemory::new(js.clone(), ty);
+        assert!(matches!(
+            crate::vm::VMMemory::Js(vm).as_shared(),
+            Err(MemoryError::MemoryNotShared)
+        ));
+        // Incorrect metadata must not turn a non-shared JS object into a shared handle.
+        let mislabeled = VMMemory::new(js, MemoryType::new(1, Some(4), true));
+        assert!(matches!(
+            VMSharedMemory::try_from(mislabeled),
+            Err(MemoryError::MemoryNotShared)
+        ));
     }
 
     #[wasm_bindgen_test]

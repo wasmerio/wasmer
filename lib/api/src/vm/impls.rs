@@ -61,9 +61,7 @@ impl VMMemory {
             #[cfg(feature = "v8")]
             Self::V8(s) => s.as_shared().map(VMSharedMemory::V8),
             #[cfg(feature = "js")]
-            Self::Js(s) => s
-                .try_clone()
-                .map(|memory| VMSharedMemory::Js(memory.into())),
+            Self::Js(s) => s.try_clone()?.try_into().map(VMSharedMemory::Js),
         }
     }
 }
