@@ -104,5 +104,78 @@ impl From<VMMemory> for (JsValue, MemoryType) {
     }
 }
 
-/// Shared VM memory, in `js`, is the "normal" memory.
-pub type VMSharedMemory = VMMemory;
+/// Detached shared memory contains no worker-local JavaScript handle.
+#[derive(Clone, Debug)]
+pub struct VMSharedMemory {
+    memory: crate::js::utils::shared_handle::SharedJsHandle,
+    ty: MemoryType,
+}
+
+impl TryFrom<VMMemory> for VMSharedMemory {
+    type Error = MemoryError;
+
+    fn try_from(memory: VMMemory) -> Result<Self, Self::Error> {
+        if !memory.ty.shared
+            || !memory.memory.buffer().is_instance_of::<js_sys::SharedArrayBuffer>()
+        {
+            return Err(MemoryError::MemoryNotShared);
+        }
+        Ok(Self {
+            memory: crate::js::utils::shared_handle::SharedJsHandle::new(memory.memory.into_inner()),
+            ty: memory.ty,
+        })
+    }
+}
+impl VMSharedMemory {
+    pub fn attach(self) -> VMMemory {
+        let memory = self.memory.get().expect(
+            "shared memory is unavailable in this worker: deliver it with \
+             wasmer::js::prepare_shared_object_message and call receive_shared_object_message \
+             before attaching it (or use export_shared_objects/import_shared_objects)",
+        );
+        VMMemory::new(memory, self.ty)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{VMMemory, VMSharedMemory};
+    use crate::{Memory, MemoryError, MemoryType, Pages, Store};
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn nonshared_memory_cannot_be_detached() {
+        let mut store = Store::default();
+        let ty = MemoryType::new(1, Some(4), false);
+        let source = Memory::new(&mut store, ty).unwrap();
+        assert!(matches!(source.copy(&store), Err(MemoryError::MemoryNotShared)));
+        assert!(source.as_shared(&store).is_none());
+        let js = crate::js::memory::Memory::js_memory_from_type(&ty).unwrap();
+        let vm = VMMemory::new(js.clone(), ty);
+        assert!(matches!(
+            crate::vm::VMMemory::Js(vm).as_shared(),
+            Err(MemoryError::MemoryNotShared)
+        ));
+        // Incorrect metadata must not turn a non-shared JS object into a shared handle.
+        let mislabeled = VMMemory::new(js, MemoryType::new(1, Some(4), true));
+        assert!(matches!(
+            VMSharedMemory::try_from(mislabeled),
+            Err(MemoryError::MemoryNotShared)
+        ));
+    }
+
+    #[wasm_bindgen_test]
+    fn shared_copy_allocates_independent_shared_memory() {
+        let mut store = Store::default();
+        let source = Memory::new(&mut store, MemoryType::new(1, Some(4), true)).unwrap();
+        source.grow(&mut store, 1u32).unwrap();
+        source.view(&store).write(0, &[41]).unwrap();
+        let copy = source.copy(&store).unwrap().attach(&mut store);
+        assert!(copy.ty(&store).shared);
+        assert_eq!(copy.size(&store), Pages(2));
+        source.view(&store).write(0, &[99]).unwrap();
+        let mut byte = [0];
+        copy.view(&store).read(0, &mut byte).unwrap();
+        assert_eq!(byte, [41]);
+    }
+}

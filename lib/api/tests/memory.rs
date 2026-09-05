@@ -105,6 +105,22 @@ fn test_shared_memory_copy_is_independent() {
     assert_eq!(&buf, b"before");
 }
 
+#[test]
+fn test_non_shared_memory_copy_is_rejected() {
+    let mut store = Store::default();
+    let memory = Memory::new(&mut store, MemoryType::new(1, Some(2), false)).unwrap();
+    assert!(matches!(
+        memory.copy(&store),
+        Err(wasmer::MemoryError::MemoryNotShared)
+    ));
+    assert!(memory.as_shared(&store).is_none());
+    let mut other_store = Store::default();
+    assert!(matches!(
+        memory.copy_to_store(&store, &mut other_store),
+        Err(wasmer::MemoryError::MemoryNotShared)
+    ));
+}
+
 /// See https://github.com/wasmerio/wasmer/issues/5444
 #[test]
 #[cfg(feature = "sys")]
