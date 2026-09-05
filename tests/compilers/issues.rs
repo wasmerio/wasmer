@@ -1468,3 +1468,29 @@ fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
 
     Ok(())
 }
+
+#[compiler_test(issues)]
+fn table_import_element_type_mismatch(mut config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let module = Module::new(
+        &store,
+        r#"(module (import "env" "table" (table 1 externref)))"#,
+    )?;
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 1, None),
+        Value::FuncRef(None),
+    )?;
+    let imports = imports! {
+        "env" => {
+            "table" => table,
+        },
+    };
+
+    assert!(
+        Instance::new(&mut store, &module, &imports).is_err(),
+        "a funcref table was accepted for an externref table import"
+    );
+
+    Ok(())
+}
