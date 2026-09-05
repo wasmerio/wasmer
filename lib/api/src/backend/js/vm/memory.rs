@@ -130,7 +130,7 @@ impl VMSharedMemory {
     pub fn attach(self) -> VMMemory {
         let memory = self.memory.get().expect(
             "shared memory is unavailable in this worker: deliver it with \
-             wasmer::js::SharedObjectTransport and call receive_shared_object_message \
+             wasmer::js::prepare_shared_object_message and call receive_shared_object_message \
              before attaching it (or use export_shared_objects/import_shared_objects)",
         );
         VMMemory::new(memory, self.ty)

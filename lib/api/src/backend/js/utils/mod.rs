@@ -6,6 +6,6 @@ mod shared_handle_cleanup;
 pub use convert::*;
 pub use js_handle::*;
 pub use shared_handle::{
-    PreparedSharedObjects, SharedObjectTransport, collect_shared_objects, export_shared_objects,
-    import_shared_objects, receive_shared_object_message, shared_object_stats,
+    collect_shared_objects, export_shared_objects, import_shared_objects,
+    prepare_shared_object_message, receive_shared_object_message, shared_object_stats,
 };

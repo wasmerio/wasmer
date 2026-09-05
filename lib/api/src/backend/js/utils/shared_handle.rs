@@ -4,7 +4,6 @@ use js_sys::{Array, SharedArrayBuffer, WebAssembly};
 use std::{
     cell::RefCell,
     collections::{HashMap, HashSet},
-    rc::{Rc, Weak as LocalWeak},
     sync::{
         Arc, LazyLock, Mutex, Weak,
         atomic::{AtomicU32, Ordering},
@@ -55,10 +54,8 @@ struct LocalObject {
     value: JsValue,
     owner: Weak<Owner>,
 }
-type KnownObjects = RefCell<HashSet<u32>>;
 thread_local! {
     static OBJECTS: RefCell<HashMap<u32, LocalObject>> = RefCell::default();
-    static TRANSPORTS: RefCell<Vec<LocalWeak<KnownObjects>>> = RefCell::default();
     static FALLBACKS: RefCell<u32> = const { RefCell::new(0) };
 }
 
@@ -126,53 +123,29 @@ impl SharedJsHandle {
     }
 }
 
-/// Release dead references and delivery bookkeeping in this worker.
+/// Release dead references in this worker and expired entries in the owner index.
 pub fn collect_shared_objects() {
     OBJECTS.with_borrow_mut(|objects| objects.retain(|_, object| object.owner.strong_count() > 0));
-    let live: HashSet<_> = {
-        let mut owners = OWNERS.lock().unwrap();
-        owners.retain(|_, owner| owner.strong_count() > 0);
-        owners.keys().copied().collect()
-    };
-    TRANSPORTS.with_borrow_mut(|transports| {
-        transports.retain(|transport| {
-            if let Some(known) = transport.upgrade() {
-                known.borrow_mut().retain(|id| live.contains(id));
-                true
-            } else {
-                false
-            }
-        })
-    });
+    OWNERS
+        .lock()
+        .unwrap()
+        .retain(|_, owner| owner.strong_count() > 0);
 }
 
 pub(super) fn has_local_objects() -> bool {
     OBJECTS.with_borrow(|objects| !objects.is_empty())
 }
 
-fn snapshot_excluding(known: &HashSet<u32>) -> (Array, Vec<u32>) {
-    OBJECTS.with_borrow(|objects| {
-        let snapshot = Array::new();
-        let mut ids = Vec::new();
-        for (&id, object) in objects {
-            if known.contains(&id) {
-                continue;
-            }
-            let entry = Array::new();
-            entry.push(&JsValue::from(id));
-            entry.push(&object.value);
-            snapshot.push(&entry);
-            ids.push(id);
-        }
-        (snapshot, ids)
-    })
-}
-
-/// Export all live local objects. Prefer SharedObjectTransport for repeated sends.
-/// Contains shared memories: use only inside one trusted runtime/worker pool.
+/// Export all live local objects for structured cloning within one trusted runtime.
 pub fn export_shared_objects() -> Array {
     collect_shared_objects();
-    snapshot_excluding(&HashSet::new()).0
+    OBJECTS.with_borrow(|objects| {
+        let snapshot = Array::new();
+        for (&id, object) in objects {
+            snapshot.push(&Array::of2(&JsValue::from(id), &object.value));
+        }
+        snapshot
+    })
 }
 
 /// Install a snapshot, validating the whole batch before modifying the registry.
@@ -228,83 +201,34 @@ pub unsafe fn import_shared_objects(snapshot: &Array) -> Result<(), JsValue> {
     Ok(())
 }
 
-/// Incremental delivery state for one ordered postMessage connection.
+/// Wrap a task payload with all live local modules and shared memories.
 ///
-/// Keep one instance per receiving worker/connection, and discard it when that
-/// worker is replaced. It is intentionally local, not Send or Sync. The first
-/// send includes all live local objects; later sends omit successfully sent IDs.
-/// Receivers must import every message before running its task.
-/// Successful receive installs the attached objects before returning the payload;
-/// this guarantees availability at that dispatch boundary, not for modules later
-/// published through shared Rust state while a worker is executing synchronously.
-/// Queued postMessage handlers cannot run until that worker yields.
+/// Post this envelope, then import it with receive_shared_object_message before
+/// accessing the task. No per-connection state is retained: retries and new workers
+/// use the same full-snapshot protocol. Plain lifecycle messages need no envelope.
 ///
-/// This is a trusted-pool protocol, not an object-capability boundary: snapshots
-/// are not restricted to objects reachable from the application payload.
+/// This is a trusted-pool protocol, not per-task capability isolation. It guarantees
+/// availability of the attached objects at dispatch, not modules published later
+/// through shared Rust state while a worker is executing synchronously.
 ///
 /// ```ignore
-/// let prepared = transport.prepare(payload);
-/// worker.post_message(prepared.message())?;
-/// prepared.sent(); // Never commit on a failed postMessage.
-/// // Receiver, before accessing any shared Rust task:
+/// worker.post_message(&prepare_shared_object_message(payload))?;
 /// let payload = unsafe { receive_shared_object_message(event.data())? };
 /// ```
-#[derive(Debug)]
-pub struct SharedObjectTransport {
-    known: Rc<KnownObjects>,
-}
-impl Default for SharedObjectTransport {
-    fn default() -> Self {
-        let known = Rc::new(RefCell::default());
-        TRANSPORTS.with_borrow_mut(|transports| transports.push(Rc::downgrade(&known)));
-        Self { known }
-    }
-}
-impl SharedObjectTransport {
-    /// Prepare an envelope without advancing delivery state. Call sent only
-    /// after postMessage succeeds; dropping a failed preparation permits retry.
-    pub fn prepare(&self, payload: JsValue) -> PreparedSharedObjects {
-        collect_shared_objects();
-        let (objects, ids) = snapshot_excluding(&self.known.borrow());
-        let message = Array::new();
-        message.push(&JsValue::from_str(&NAMESPACE));
-        message.push(&payload);
-        message.push(&objects);
-        PreparedSharedObjects {
-            message: message.into(),
-            ids,
-            known: self.known.clone(),
-        }
-    }
-}
-
-/// A local envelope awaiting a successful postMessage call.
-#[must_use = "post the message, then call sent; drop it on send failure"]
-pub struct PreparedSharedObjects {
-    message: JsValue,
-    ids: Vec<u32>,
-    known: Rc<KnownObjects>,
-}
-impl PreparedSharedObjects {
-    /// Envelope to structured-clone through postMessage.
-    pub fn message(&self) -> &JsValue {
-        &self.message
-    }
-    /// Number of objects actually attached to this message.
-    pub fn object_count(&self) -> usize {
-        self.ids.len()
-    }
-    /// Commit only after this envelope was successfully posted on its connection.
-    pub fn sent(self) {
-        self.known.borrow_mut().extend(self.ids);
-    }
+pub fn prepare_shared_object_message(payload: JsValue) -> JsValue {
+    Array::of3(
+        &JsValue::from_str(&NAMESPACE),
+        &payload,
+        &export_shared_objects(),
+    )
+    .into()
 }
 
 /// Import a transport envelope and return its application payload.
 /// Plain non-array lifecycle messages pass through unchanged.
 ///
 /// # Safety
-/// The envelope must be produced by this runtime's SharedObjectTransport on the
+/// The envelope must be produced by this runtime's prepare_shared_object_message on the
 /// same trusted worker connection; see import_shared_objects.
 pub unsafe fn receive_shared_object_message(message: JsValue) -> Result<JsValue, JsValue> {
     if !Array::is_array(&message) {
@@ -349,25 +273,17 @@ mod tests {
     }
 
     #[wasm_bindgen_test]
-    fn transport_retries_failed_sends_and_skips_delivered_objects() {
+    fn snapshots_resend_live_objects_and_omit_expired_ones() {
         let handle = module_handle();
-        let transport = SharedObjectTransport::default();
-        let failed = transport.prepare(JsValue::UNDEFINED);
-        assert_eq!(failed.object_count(), 1);
-        drop(failed);
-        let retry = transport.prepare(JsValue::UNDEFINED);
-        assert_eq!(retry.object_count(), 1);
-        retry.sent();
-        assert_eq!(transport.prepare(JsValue::UNDEFINED).object_count(), 0);
-        assert_eq!(
-            SharedObjectTransport::default()
-                .prepare(JsValue::UNDEFINED)
-                .object_count(),
-            1
-        );
+        for _ in 0..3 {
+            let message = prepare_shared_object_message(JsValue::UNDEFINED);
+            let envelope = Array::from(&message);
+            assert_eq!(Array::from(&envelope.get(2)).length(), 1);
+            unsafe { receive_shared_object_message(message) }.unwrap();
+        }
         drop(handle);
-        collect_shared_objects();
-        assert!(transport.known.borrow().is_empty());
+        let message = Array::from(&prepare_shared_object_message(JsValue::UNDEFINED));
+        assert_eq!(Array::from(&message.get(2)).length(), 0);
     }
 
     #[wasm_bindgen_test]
@@ -425,13 +341,12 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn envelopes_reject_other_runtimes_and_preserve_payloads() {
-        let transport = SharedObjectTransport::default();
-        let prepared = transport.prepare(JsValue::from_str("payload"));
+        let message = prepare_shared_object_message(JsValue::from_str("payload"));
         assert_eq!(
-            unsafe { receive_shared_object_message(prepared.message().clone()) }.unwrap(),
+            unsafe { receive_shared_object_message(message.clone()) }.unwrap(),
             "payload"
         );
-        let foreign = Array::from(prepared.message());
+        let foreign = Array::from(&message);
         foreign.set(0, JsValue::from_str("another-runtime"));
         assert!(unsafe { receive_shared_object_message(foreign.into()) }.is_err());
     }
@@ -489,11 +404,10 @@ mod tests {
         .unwrap();
         // Modules wrapped from JS have no retained bytes to fall back to.
         let module = crate::js::module::Module::from(js.clone());
-        let transport = SharedObjectTransport::default();
-        let prepared = transport.prepare(JsValue::from_str("run"));
+        let message = prepare_shared_object_message(JsValue::from_str("run"));
         OBJECTS.with_borrow_mut(HashMap::clear);
         let fallbacks = shared_object_stats().1;
-        let payload = unsafe { receive_shared_object_message(prepared.message().clone()) }.unwrap();
+        let payload = unsafe { receive_shared_object_message(message.clone()) }.unwrap();
         assert_eq!(payload, "run");
         assert_eq!(JsValue::from(module), JsValue::from(js));
         assert_eq!(shared_object_stats().1, fallbacks);
