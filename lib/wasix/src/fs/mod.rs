@@ -151,6 +151,27 @@ const STDOUT_DEFAULT_RIGHTS: Rights = {
 };
 const STDERR_DEFAULT_RIGHTS: Rights = STDOUT_DEFAULT_RIGHTS;
 
+/// The file type WASIX reports for stdin/stdout/stderr, which is what libc's
+/// `isatty(3)` keys off.
+///
+/// `None` means the handle behind the descriptor has no opinion on whether it
+/// is a terminal (see [`virtual_fs::VirtualFile::is_terminal`]). WASIX has
+/// always reported stdio as a character device, and an embedder that wires up
+/// its own stdio is usually driving a terminal we cannot see from here, so an
+/// absent opinion keeps the historical answer. Only a handle that positively
+/// knows it is not a terminal -- a redirected host descriptor, say -- makes us
+/// say otherwise.
+///
+/// `Unknown` rather than `RegularFile` for the negative case: stdio carries
+/// neither [`Rights::FD_SEEK`] nor [`Rights::FD_TELL`], so claiming a regular
+/// file would invite guests to seek or mmap stdout and collect an error.
+fn stdio_filetype(is_terminal: Option<bool>) -> Filetype {
+    match is_terminal {
+        Some(false) => Filetype::Unknown,
+        Some(true) | None => Filetype::CharacterDevice,
+    }
+}
+
 /// A completely arbitrary "big enough" number used as the upper limit for
 /// the number of symlinks that can be traversed when resolving a path
 pub const MAX_SYMLINKS: u32 = 128;
@@ -353,11 +374,6 @@ impl WasiInodes {
             open_handles,
             inner: val,
         }
-    }
-
-    /// Get the `VirtualFile` object at stdout mutably
-    pub(crate) fn stdout_mut(fd_map: &RwLock<FdList>) -> Result<InodeValFileWriteGuard, FsError> {
-        Self::std_dev_get_mut(fd_map, __WASI_STDOUT_FILENO)
     }
 
     /// Get the `VirtualFile` object at stderr mutably
@@ -1037,6 +1053,27 @@ impl WasiFs {
         }
     }
 
+    /// Override what one of stdin/stdout/stderr reports about being connected
+    /// to a terminal, ignoring whatever the handle behind it has to say.
+    ///
+    /// This is one-way on purpose. There is no "stop overriding": undoing it
+    /// would mean re-asking the handle, and the reason the answer is cached at
+    /// all is so that no caller has to take the handle's lock. An embedder that
+    /// wants the handle to decide should simply not call this.
+    ///
+    /// Has no effect on a descriptor that is no longer stdio (after a `dup2`
+    /// onto it, say).
+    pub fn set_stdio_terminal(&self, fd: WasiFd, is_terminal: bool) {
+        let inode = {
+            let fd_map = self.fd_map.read().unwrap();
+            match fd_map.get(fd) {
+                Some(entry) if entry.is_stdio => entry.inode.clone(),
+                _ => return,
+            }
+        };
+        inode.stat.write().unwrap().st_filetype = stdio_filetype(Some(is_terminal));
+    }
+
     /// Change the backing of a given file descriptor
     /// Returns the old backing
     /// TODO: add examples
@@ -1047,17 +1084,47 @@ impl WasiFs {
         mut file: Box<dyn VirtualFile + Send + Sync + 'static>,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
         match fd {
-            __WASI_STDIN_FILENO => {
-                let mut target = WasiInodes::stdin_mut(&self.fd_map)?;
-                Ok(Some(target.swap(file)))
-            }
-            __WASI_STDOUT_FILENO => {
-                let mut target = WasiInodes::stdout_mut(&self.fd_map)?;
-                Ok(Some(target.swap(file)))
-            }
-            __WASI_STDERR_FILENO => {
-                let mut target = WasiInodes::stderr_mut(&self.fd_map)?;
-                Ok(Some(target.swap(file)))
+            __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => {
+                // Ask the incoming file first, while holding nothing: wrappers
+                // such as `ArcBoxFile` and `WasiStateFileGuard` take locks of
+                // their own to answer this.
+                let new_is_terminal = file.is_terminal();
+
+                // Lock order is fd_map -> inode.kind -> handle, with
+                // inode.stat taken on its own. Each is released before the
+                // next is acquired, so unlike `WasiInodes::std_dev_get_mut` we
+                // never block on the handle while holding the fd map.
+                let (inode, is_stdio) = {
+                    let fd_map = self.fd_map.read().unwrap();
+                    let entry = fd_map.get(fd).ok_or(FsError::NoDevice)?;
+                    (entry.inode.clone(), entry.is_stdio)
+                };
+
+                let handle = {
+                    let guard = inode.read();
+                    match guard.deref() {
+                        Kind::File {
+                            handle: Some(handle),
+                            ..
+                        } => handle.clone(),
+                        _ => return Err(FsError::NotAFile),
+                    }
+                };
+
+                {
+                    let mut guard = handle.write().map_err(|_| FsError::Lock)?;
+                    std::mem::swap(guard.deref_mut(), &mut file);
+                }
+
+                // Guarded on `is_stdio`: after a guest `dup2(3, 1)` this fd
+                // resolves to a regular file's inode, and stamping a stdio file
+                // type onto it would corrupt that file's `fstat`.
+                if is_stdio {
+                    inode.stat.write().map_err(|_| FsError::Lock)?.st_filetype =
+                        stdio_filetype(new_is_terminal);
+                }
+
+                Ok(Some(file))
             }
             _ => {
                 let base_inode = self.get_fd_inode(fd).map_err(fs_error_from_wasi_err)?;
@@ -1839,49 +1906,36 @@ impl WasiFs {
     }
 
     pub fn fdstat(&self, fd: WasiFd) -> Result<Fdstat, Errno> {
-        match fd {
-            __WASI_STDIN_FILENO => {
-                return Ok(Fdstat {
-                    fs_filetype: Filetype::CharacterDevice,
-                    fs_flags: Fdflags::empty(),
-                    fs_rights_base: STDIN_DEFAULT_RIGHTS,
-                    fs_rights_inheriting: Rights::empty(),
-                });
-            }
-            __WASI_STDOUT_FILENO => {
-                return Ok(Fdstat {
-                    fs_filetype: Filetype::CharacterDevice,
-                    fs_flags: Fdflags::APPEND,
-                    fs_rights_base: STDOUT_DEFAULT_RIGHTS,
-                    fs_rights_inheriting: Rights::empty(),
-                });
-            }
-            __WASI_STDERR_FILENO => {
-                return Ok(Fdstat {
-                    fs_filetype: Filetype::CharacterDevice,
-                    fs_flags: Fdflags::APPEND,
-                    fs_rights_base: STDERR_DEFAULT_RIGHTS,
-                    fs_rights_inheriting: Rights::empty(),
-                });
-            }
-            VIRTUAL_ROOT_FD => {
-                return Ok(Fdstat {
-                    fs_filetype: Filetype::Directory,
-                    fs_flags: Fdflags::empty(),
-                    // TODO: fix this
-                    fs_rights_base: ALL_RIGHTS,
-                    fs_rights_inheriting: ALL_RIGHTS,
-                });
-            }
-            _ => (),
+        // Note that stdin/stdout/stderr are deliberately *not* special-cased
+        // here. The rights and flags below already come from the `Fd` entry,
+        // which `create_std_dev_inner` populates with exactly the values the
+        // old hardcoded arms returned, and the file type now comes from the
+        // inode -- so `fdstat`, `fd_filestat_get` and a `dup`'d stdio
+        // descriptor all report the same thing.
+        if fd == VIRTUAL_ROOT_FD {
+            return Ok(Fdstat {
+                fs_filetype: Filetype::Directory,
+                fs_flags: Fdflags::empty(),
+                // TODO: fix this
+                fs_rights_base: ALL_RIGHTS,
+                fs_rights_inheriting: ALL_RIGHTS,
+            });
         }
         let fd = self.get_fd(fd)?;
+
+        // Read before the kind guard is taken, to avoid a needless
+        // inode.kind -> inode.stat lock edge.
+        let cached_stdio_filetype = if fd.is_stdio {
+            Some(fd.inode.stat.read().unwrap().st_filetype)
+        } else {
+            None
+        };
 
         let guard = fd.inode.read();
         let deref = guard.deref();
         Ok(Fdstat {
             fs_filetype: match deref {
-                Kind::File { .. } => Filetype::RegularFile,
+                Kind::File { .. } => cached_stdio_filetype.unwrap_or(Filetype::RegularFile),
                 Kind::Dir { .. } => Filetype::Directory,
                 Kind::Symlink { .. } => Filetype::SymbolicLink,
                 Kind::Socket { socket } => match &socket.inner.protected.read().unwrap().kind {
@@ -2571,9 +2625,14 @@ impl WasiFs {
         fd_flags: Fdflags,
         st_ino: Inode,
     ) {
+        // Asked here, with no locks held, and cached on the inode: `fdstat` and
+        // `fd_filestat_get` both read that one field, so they cannot disagree,
+        // and neither has to touch the file handle's lock (which `fd_read` and
+        // `fd_write` hold across an await).
+        let is_terminal = handle.is_terminal();
         let inode = {
             let stat = Filestat {
-                st_filetype: Filetype::CharacterDevice,
+                st_filetype: stdio_filetype(is_terminal),
                 st_ino: st_ino.as_u64(),
                 ..Filestat::default()
             };
@@ -2905,6 +2964,190 @@ mod tests {
 
     use crate::WasiEnvBuilder;
     use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
+
+    fn test_fs() -> (WasiInodes, WasiFs) {
+        let inodes = WasiInodes::new();
+        let fs_backing =
+            WasiFsRoot::from_filesystem(Arc::new(RootFileSystemBuilder::default().build_tmp()));
+        let fs = WasiFs::new_init(fs_backing, &inodes, FS_ROOT_INO).unwrap();
+        (inodes, fs)
+    }
+
+    const STDIO: [WasiFd; 3] = [
+        __WASI_STDIN_FILENO,
+        __WASI_STDOUT_FILENO,
+        __WASI_STDERR_FILENO,
+    ];
+
+    /// `fdstat` and `fd_filestat_get` read the same cached field, so they can
+    /// never disagree about whether stdio is a terminal.
+    fn assert_stdio_filetype(fs: &WasiFs, fd: WasiFd, expected: Filetype) {
+        assert_eq!(fs.fdstat(fd).unwrap().fs_filetype, expected);
+        assert_eq!(fs.filestat_fd(fd).unwrap().st_filetype, expected);
+    }
+
+    #[tokio::test]
+    async fn stdio_defaults_to_a_terminal_when_the_handle_has_no_opinion() {
+        let (_inodes, fs) = test_fs();
+        for fd in STDIO {
+            fs.swap_file(fd, Box::<virtual_fs::NullFile>::default())
+                .unwrap();
+            assert_stdio_filetype(&fs, fd, Filetype::CharacterDevice);
+        }
+    }
+
+    #[tokio::test]
+    async fn swap_file_recomputes_the_stdio_filetype() {
+        let (_inodes, fs) = test_fs();
+        for fd in STDIO {
+            fs.swap_file(fd, Box::new(virtual_fs::Pipe::new().with_terminal(false)))
+                .unwrap();
+            assert_stdio_filetype(&fs, fd, Filetype::Unknown);
+
+            fs.swap_file(fd, Box::new(virtual_fs::Pipe::new().with_terminal(true)))
+                .unwrap();
+            assert_stdio_filetype(&fs, fd, Filetype::CharacterDevice);
+        }
+    }
+
+    #[tokio::test]
+    async fn the_stdio_terminal_override_beats_the_handle() {
+        let (_inodes, fs) = test_fs();
+        fs.swap_file(
+            __WASI_STDOUT_FILENO,
+            Box::new(virtual_fs::Pipe::new().with_terminal(true)),
+        )
+        .unwrap();
+
+        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, false);
+        assert_stdio_filetype(&fs, __WASI_STDOUT_FILENO, Filetype::Unknown);
+
+        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, true);
+        assert_stdio_filetype(&fs, __WASI_STDOUT_FILENO, Filetype::CharacterDevice);
+    }
+
+    #[tokio::test]
+    async fn a_duplicate_of_stdio_reports_the_same_filetype() {
+        let (_inodes, fs) = test_fs();
+        fs.swap_file(
+            __WASI_STDOUT_FILENO,
+            Box::new(virtual_fs::Pipe::new().with_terminal(false)),
+        )
+        .unwrap();
+
+        let dup = fs.clone_fd(__WASI_STDOUT_FILENO).unwrap();
+        assert_eq!(
+            fs.fdstat(dup).unwrap().fs_filetype,
+            Filetype::Unknown,
+            "a dup of stdout used to report RegularFile"
+        );
+
+        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, true);
+        assert_eq!(
+            fs.fdstat(dup).unwrap().fs_filetype,
+            Filetype::CharacterDevice
+        );
+    }
+
+    /// After a shell redirect, fd 1 is a regular file and must say so -- and
+    /// swapping stdio afterwards must not stamp a stdio file type onto it.
+    #[tokio::test]
+    async fn dup2_onto_stdout_reports_the_target() {
+        let (inodes, mut fs) = test_fs();
+        let file = fs
+            .open_file_at(
+                &inodes,
+                VIRTUAL_ROOT_FD,
+                Box::<virtual_fs::BufferFile>::default(),
+                0,
+                "redirect".to_string(),
+                ALL_RIGHTS,
+                ALL_RIGHTS,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+            )
+            .unwrap();
+        let file_filetype = fs.fdstat(file).unwrap().fs_filetype;
+        assert_eq!(file_filetype, Filetype::RegularFile);
+
+        fs.dup2_at(file, __WASI_STDOUT_FILENO).unwrap();
+        assert_eq!(
+            fs.fdstat(__WASI_STDOUT_FILENO).unwrap().fs_filetype,
+            Filetype::RegularFile,
+            "a redirected stdout used to keep claiming CharacterDevice"
+        );
+
+        // fd 1 is no longer stdio, so the override must leave it alone.
+        fs.set_stdio_terminal(__WASI_STDOUT_FILENO, true);
+        assert_eq!(
+            fs.fdstat(__WASI_STDOUT_FILENO).unwrap().fs_filetype,
+            Filetype::RegularFile
+        );
+    }
+
+    #[tokio::test]
+    async fn fdstat_on_closed_stdio_is_badf() {
+        let (_inodes, fs) = test_fs();
+        fs.close_fd(__WASI_STDOUT_FILENO).unwrap();
+        assert_eq!(fs.fdstat(__WASI_STDOUT_FILENO).unwrap_err(), Errno::Badf);
+    }
+
+    /// The rights and flags the removed hardcoded arms used to return have to
+    /// keep coming out of the `Fd` entry unchanged.
+    #[tokio::test]
+    async fn stdio_rights_and_flags_are_unchanged() {
+        let (_inodes, fs) = test_fs();
+        for (fd, rights, flags) in [
+            (__WASI_STDIN_FILENO, STDIN_DEFAULT_RIGHTS, Fdflags::empty()),
+            (__WASI_STDOUT_FILENO, STDOUT_DEFAULT_RIGHTS, Fdflags::APPEND),
+            (__WASI_STDERR_FILENO, STDERR_DEFAULT_RIGHTS, Fdflags::APPEND),
+        ] {
+            let stat = fs.fdstat(fd).unwrap();
+            assert_eq!(stat.fs_rights_base, rights);
+            assert_eq!(stat.fs_rights_inheriting, Rights::empty());
+            assert_eq!(stat.fs_flags, flags);
+        }
+    }
+
+    #[cfg(all(unix, feature = "host-fs"))]
+    #[tokio::test]
+    async fn a_pty_swapped_into_stdin_reports_a_terminal() {
+        use std::{
+            io::IsTerminal,
+            os::fd::{FromRawFd, RawFd},
+        };
+
+        let mut controller: RawFd = -1;
+        let mut device: RawFd = -1;
+        assert_eq!(
+            unsafe {
+                libc::openpty(
+                    &mut controller,
+                    &mut device,
+                    std::ptr::null_mut(),
+                    std::ptr::null(),
+                    std::ptr::null(),
+                )
+            },
+            0
+        );
+
+        let _controller = unsafe { std::fs::File::from_raw_fd(controller) };
+        let device = unsafe { std::fs::File::from_raw_fd(device) };
+        assert!(device.is_terminal());
+
+        let (_inodes, fs) = test_fs();
+        let pty = virtual_fs::host_fs::File::new(
+            tokio::runtime::Handle::current(),
+            device,
+            PathBuf::from("/dev/pts/test"),
+            true,
+            true,
+            false,
+        );
+        fs.swap_file(__WASI_STDIN_FILENO, Box::new(pty)).unwrap();
+        assert_stdio_filetype(&fs, __WASI_STDIN_FILENO, Filetype::CharacterDevice);
+    }
 
     fn webc_symlink_fs() -> virtual_fs::WebcVolumeFileSystem {
         let timestamps = webc::v3::Timestamps::default();

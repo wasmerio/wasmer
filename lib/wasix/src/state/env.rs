@@ -320,6 +320,10 @@ impl WasiEnv {
             *self.state.fs.current_dir.lock().unwrap() = "/".to_string();
 
             // We need to rebuild the basic file descriptors
+            // TODO: this reinstalls the *default* stdio, discarding whatever the
+            // embedder supplied via `WasiEnvBuilder`/`WasiRunner`. One visible
+            // symptom is that `isatty` flips back to the host's answer after a
+            // reinit; the handles themselves are lost too.
             self.state.fs.create_stdin(&self.state.inodes);
             self.state.fs.create_stdout(&self.state.inodes);
             self.state.fs.create_stderr(&self.state.inodes);

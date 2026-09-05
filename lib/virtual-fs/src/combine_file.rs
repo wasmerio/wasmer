@@ -46,6 +46,13 @@ impl VirtualFile for CombineFile {
         self.tx.unlink()
     }
 
+    fn is_terminal(&self) -> Option<bool> {
+        // A `CombineFile` models a single bidirectional device (see `Tty`), so
+        // either half may know the answer; `rx` alone would be wrong for a
+        // write-only console.
+        self.rx.is_terminal().or_else(|| self.tx.is_terminal())
+    }
+
     fn poll_read_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
         Pin::new(self.rx.as_mut()).poll_read_ready(cx)
     }
