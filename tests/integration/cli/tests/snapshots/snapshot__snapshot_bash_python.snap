@@ -1,5 +1,6 @@
 ---
 source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1189
 expression: snapshot
 ---
 {
@@ -10,11 +11,11 @@ expression: snapshot
     ],
     "include_webcs": [
       {
-        "name": "syrusakbary/python@0.1.0"
+        "name": "wasmer/python@3.13.5"
       }
     ],
     "cli_args": [],
-    "stdin_hash": "bda2b0db976f1724ef16ae1491211d52",
+    "stdin_hash": "09acf737d13ae7b81e6c04116f6d93b1",
     "enable_threads": true,
     "enable_network": false
   },

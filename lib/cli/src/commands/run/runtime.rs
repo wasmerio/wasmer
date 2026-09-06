@@ -101,6 +101,15 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         self.runtime.additional_imports(module, store)
     }
 
+    fn prepare_imports(
+        &self,
+        module: &Module,
+        store: &mut wasmer::StoreMut,
+        imports: &mut wasmer::Imports,
+    ) -> anyhow::Result<wasmer_wasix::runtime::InstantiationState> {
+        self.runtime.prepare_imports(module, store, imports)
+    }
+
     fn configure_new_instance(
         &self,
         module: &Module,

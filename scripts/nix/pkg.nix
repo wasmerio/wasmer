@@ -6,6 +6,7 @@
   lib,
   stdenv,
   rustPlatform,
+  installShellFiles,
   craneLib,
   v8Prebuilt,
   llvmPackages_22,
@@ -24,7 +25,7 @@
     ++ lib.optional withV8 "napi-v8";
 
   # C API always uses cranelift only
-  capiFeatureList = ["wat" "sys-default" "compiler" "wasi" "middlewares" "webc_runner" "cranelift"];
+  capiFeatureList = ["wat" "sys-default" "compiler" "wasi" "middlewares" "cranelift"];
 
   cliFeatures = lib.concatStringsSep "," cliFeatureList;
   capiFeatures = lib.concatStringsSep "," capiFeatureList;
@@ -93,6 +94,8 @@ in
 
       inherit cargoArtifacts;
 
+      nativeBuildInputs = commonArgs.nativeBuildInputs ++ [installShellFiles];
+
       buildPhaseCargoCommand = ''
         WASMER_INSTALL_PREFIX=$out \
           cargo build --release \
@@ -118,6 +121,18 @@ in
           install -Dm644 lib/c-api/tests/wasm-c-api/include/wasm.hh $out/include/wasm.hh
           install -Dm644 lib/c-api/README.md $out/include/wasmer-README.md
           install -Dm644 LICENSE $out/share/licenses/wasmer/LICENSE
+
+          # clap derives the completion function names from argv[0], so invoke
+          # the binary through PATH rather than by its store path.
+          completions=$(mktemp -d)
+          for shell in bash zsh fish; do
+            env -u WASMER_DIR PATH="$out/bin:$PATH" \
+              wasmer gen-completions "$shell" --out "$completions/$shell"
+          done
+          installShellCompletion --cmd wasmer \
+            --bash "$completions/bash" \
+            --zsh "$completions/zsh" \
+            --fish "$completions/fish"
         ''
         + lib.optionalString stdenv.hostPlatform.isLinux ''
           install -Dm755 target/release/libwasmer.so $out/lib/libwasmer.so

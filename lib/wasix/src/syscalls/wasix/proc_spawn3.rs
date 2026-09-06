@@ -111,7 +111,10 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
         match find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), name) {
             FindExecutableResult::Found(p) => *name = p,
             FindExecutableResult::AccessError => return Ok(Errno::Access),
-            FindExecutableResult::NotFound => return Ok(Errno::Noexec),
+            // Nothing by that name on PATH is ENOENT. ENOEXEC means the file
+            // was found but is not an executable format, which is what the
+            // spawn failure below reports. proc_exec4 already gets this right.
+            FindExecutableResult::NotFound => return Ok(Errno::Noent),
         }
     } else if name.starts_with("./") {
         *name = ctx.data().state.fs.relative_path_to_absolute(name.clone());

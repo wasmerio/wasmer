@@ -56,9 +56,16 @@
         };
         defaultApp = apps.${NAME};
 
+        # Shell with the built CLI and its shell completions on PATH.
+        # Run "nix develop .#cli" to activate.
+        devShells.cli = pkgs.mkShell {
+          name = "${NAME}-cli";
+          packages = [wasmerPkg];
+        };
+
         # Development shell.
         # Run "nix develop" to activate.
-        devShell = pkgs.mkShell {
+        devShells.default = pkgs.mkShell {
           name = NAME;
           src = self;
           packages = with pkgs; [

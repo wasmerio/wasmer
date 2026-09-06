@@ -6,6 +6,7 @@ use crate::{
     emitter_x64::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
+    output_reporter::ChunkedOutputReporter,
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
     x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM},
 };
@@ -27,8 +28,8 @@ use wasmer_compiler::{
     wasmparser::MemArg,
 };
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
-    VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode,
+    TrapInformation, Type, VMOffsets,
     target::{CallingConvention, CpuFeature, Target},
     vmctx_offset,
 };
@@ -7826,9 +7827,11 @@ impl Machine for MachineX86_64 {
         &self,
         sig: &FunctionType,
         _calling_convention: CallingConvention,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<FunctionBody, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
+        let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
         // Calculate stack offset (+1 for the vmctx argument we are going to pass).
         let stack_params = (0..sig.params().len() + 1)
@@ -7897,6 +7900,7 @@ impl Machine for MachineX86_64 {
                         n_stack_args += 1;
                     }
                 }
+                output_reporter.check(a.get_offset().0)?;
             }
         }
 
@@ -7919,6 +7923,7 @@ impl Machine for MachineX86_64 {
                 loc
             };
             a.emit_mov(Size::S64, src, Location::Memory(GPR::R14, (i * 16) as _))?;
+            output_reporter.check(a.get_offset().0)?;
         }
 
         // Restore stack.
@@ -7936,6 +7941,7 @@ impl Machine for MachineX86_64 {
 
         let mut body = a.finalize().unwrap();
         body.shrink_to_fit();
+        output_reporter.finish(body.len())?;
 
         Ok(FunctionBody {
             body,
@@ -7949,9 +7955,11 @@ impl Machine for MachineX86_64 {
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<FunctionBody, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
+        let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
         // Allocate argument array.
         let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
@@ -7997,6 +8005,7 @@ impl Machine for MachineX86_64 {
                     Location::Imm32(0),
                     Location::Memory(GPR::RSP, (i * 16 + 8) as _),
                 )?;
+                output_reporter.check(a.get_offset().0)?;
             }
         }
 
@@ -8037,6 +8046,7 @@ impl Machine for MachineX86_64 {
 
         let mut body = a.finalize().unwrap();
         body.shrink_to_fit();
+        output_reporter.finish(body.len())?;
         Ok(FunctionBody {
             body,
             unwind_info: None,
@@ -8050,9 +8060,11 @@ impl Machine for MachineX86_64 {
         index: FunctionIndex,
         sig: &FunctionType,
         calling_convention: CallingConvention,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<CustomSection, CompileError> {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
+        let mut output_reporter = ChunkedOutputReporter::new(progress_callback);
 
         // TODO: ARM entry trampoline is not emitted.
 
@@ -8097,6 +8109,7 @@ impl Machine for MachineX86_64 {
                     _ => Location::Memory(GPR::RSP, stack_offset + 8 + ((i - 5) * 8) as i32),
                 };
                 param_locations.push(loc);
+                output_reporter.check(a.get_offset().0)?;
             }
 
             // Copy arguments.
@@ -8121,10 +8134,12 @@ impl Machine for MachineX86_64 {
                             Location::Memory(GPR::RSP, stack_offset + 8 + caller_stack_offset),
                         )?;
                         caller_stack_offset += 8;
+                        output_reporter.check(a.get_offset().0)?;
                         continue;
                     }
                 };
                 a.emit_mov(Size::S64, prev_loc, targ)?;
+                output_reporter.check(a.get_offset().0)?;
             }
 
             // Restore stack pointer.
@@ -8158,6 +8173,7 @@ impl Machine for MachineX86_64 {
 
         let mut contents = a.finalize().unwrap();
         contents.shrink_to_fit();
+        output_reporter.finish(contents.len())?;
         let section_body = SectionBody::new_with_vec(contents);
 
         Ok(CustomSection {

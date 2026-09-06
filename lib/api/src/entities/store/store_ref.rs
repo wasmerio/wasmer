@@ -75,6 +75,53 @@ impl StoreMut<'_> {
         (self.inner.store.engine(), &mut self.inner.objects)
     }
 
+    /// Parks this borrow of the store for the duration of `f`, lending the
+    /// store to code that runs inside `f` without reaching it through Rust:
+    /// [`Store::with_current`](crate::Store::with_current) hands the store back to any frame `f` reaches,
+    /// however many foreign frames deep.
+    ///
+    /// This is how host code lends the store across an FFI boundary. An
+    /// embedded engine that calls back into the host — a JS engine's allocator
+    /// hook, say — cannot be handed a Rust reference through its own C frames,
+    /// and cannot be given one out of band either, because the imported
+    /// function it was called from is still holding the only borrow. Parking
+    /// that borrow, which the `&mut self` receiver here makes unreachable for
+    /// exactly as long as `f` runs, is what makes lending it sound rather than
+    /// aliasing.
+    ///
+    /// Parks nest, and a store nobody parked stays unlendable:
+    /// [`Store::with_current`](crate::Store::with_current) returns `None`
+    /// unless every borrow on this thread's stack has been parked this way.
+    ///
+    /// ```
+    /// use wasmer::{AsStoreMut, FunctionEnvMut, Store};
+    ///
+    /// // A host function lending its store to code it calls into.
+    /// fn host_call(mut env: FunctionEnvMut<'_, ()>) {
+    ///     // `env` holds the store, so nobody else may have it.
+    ///     assert!(Store::with_current(|_| ()).is_none());
+    ///
+    ///     env.as_store_mut().parked(|| {
+    ///         // ...but code reached from here can pick it back up.
+    ///         assert!(Store::with_current(|_| ()).is_some());
+    ///     });
+    /// }
+    /// ```
+    pub fn parked<R>(&mut self, f: impl FnOnce() -> R) -> R {
+        // This is the same thing `Function::call` does before entering Wasm:
+        // install this borrow as the store executing on the thread, so that
+        // code which reaches the store through the context — rather than
+        // through a reference it was handed — picks up a borrow derived from
+        // *this* one. The new entry starts unborrowed, which is what makes the
+        // store lendable for as long as it is on top.
+        let ptr: *mut StoreInner = &mut *self.inner;
+        // SAFETY: `ptr` comes from `&mut *self.inner`, which `&mut self` keeps
+        // alive and unreachable for every frame on this thread until `f`
+        // returns and the guard is dropped.
+        let _guard = unsafe { super::StoreContext::install(ptr) };
+        f()
+    }
+
     // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
     /// Sets the unwind callback which will be invoked when the call finishes
     pub fn on_called<F>(&mut self, callback: F)

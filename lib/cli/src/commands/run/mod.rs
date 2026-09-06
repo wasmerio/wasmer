@@ -346,6 +346,14 @@ impl Run {
 
         pb.finish_and_clear();
 
+        if let ExecutableTarget::Package(pkg) = &target
+            && pkg.webc_version == webc::Version::V2
+        {
+            crate::warning!(
+                "WebC v2 is a deprecated format and support for it will be removed in a future release"
+            );
+        }
+
         // push the TTY state so we can restore it after the program finishes
         let tty = runtime.tty().map(|tty| tty.tty_get());
 

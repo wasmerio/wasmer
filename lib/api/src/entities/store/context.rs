@@ -114,9 +114,10 @@ pub(crate) struct ForcedStoreInstallGuard {
     store_id: StoreId,
 }
 
-pub(crate) enum StoreInstallGuard {
-    Installed(StoreId),
-    NotInstalled,
+pub(crate) struct StoreInstallGuard {
+    /// `None` when this guard installed nothing, which happens only for a
+    /// store an async context already holds — see [`StoreContext::install`].
+    store_id: Option<StoreId>,
 }
 
 thread_local! {
@@ -139,7 +140,7 @@ impl StoreContext {
             })
     }
 
-    fn install(id: StoreId, entry: StoreContextEntry) {
+    fn push(id: StoreId, entry: StoreContextEntry) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             stack.push(Self {
@@ -151,7 +152,7 @@ impl StoreContext {
     }
 
     #[cfg(feature = "unsafe-cothread")]
-    fn install_cothread(id: StoreId, store_ptr: NonNull<StoreInner>) {
+    fn push_cothread(id: StoreId, store_ptr: NonNull<StoreInner>) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             stack.push(Self {
@@ -194,27 +195,75 @@ impl StoreContext {
         guard: LocalRwLockWriteGuard<Box<StoreInner>>,
     ) -> ForcedStoreInstallGuard {
         let store_id = guard.objects.id();
-        Self::install(store_id, StoreContextEntry::Async(guard));
+        Self::push(store_id, StoreContextEntry::Async(guard));
         ForcedStoreInstallGuard { store_id }
     }
 
-    /// Install the store context as sync if it is not already installed.
+    /// Whether the active entry is `id`'s, held by an async context.
+    fn active_is_async(id: StoreId) -> bool {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let stack = cell.borrow();
+            let Some(top) = stack.last() else {
+                return false;
+            };
+            if top.id != id {
+                return false;
+            }
+            match unsafe { top.entry.get().as_ref().unwrap() } {
+                StoreContextEntry::Sync(_) => false,
+                #[cfg(feature = "experimental-async")]
+                StoreContextEntry::Async(_) => true,
+            }
+        })
+    }
+
+    /// Install `store_ptr` as this thread's executing store until the returned
+    /// guard is dropped.
+    ///
+    /// A store already executing here gets a *second* entry rather than
+    /// re-using its first: the entries differ in which borrow their pointer was
+    /// derived from, and that difference is load-bearing. Every re-acquisition
+    /// ([`Self::get_current`] and friends) reborrows the top entry's pointer,
+    /// so re-using an outer entry would make the inner borrow a *sibling* of
+    /// the one the caller is still holding — creating it invalidates the
+    /// caller's, and the caller's next use of its own store is undefined
+    /// behaviour. Installing the pointer the caller just derived from its live
+    /// borrow makes the inner borrow a child of it instead, which is what lets
+    /// the caller carry on once the nested call returns. See the
+    /// `borrow_provenance` tests, which fail under Miri if this re-uses the
+    /// outer entry.
+    ///
+    /// An async context is the exception, and installs nothing: it owns the
+    /// store through a write guard held in the entry itself, and every
+    /// re-acquisition re-derives from that guard rather than from a caller's
+    /// borrow (see `AsyncCallStoreMut`), so there is no borrow to nest under.
+    /// Shadowing it would also hide the guard from async host functions, which
+    /// reach it by inspecting the active entry.
     ///
     /// # Safety
-    /// The pointer must be dereferenceable and remain valid until the
-    /// store context is uninstalled.
-    pub(crate) unsafe fn ensure_installed(store_ptr: *mut StoreInner) -> StoreInstallGuard {
+    /// `store_ptr` must be derived from a mutable borrow of the store that
+    /// stays alive, and unreachable to every frame on this thread, until the
+    /// guard is dropped.
+    pub(crate) unsafe fn install(store_ptr: *mut StoreInner) -> StoreInstallGuard {
         let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
-        if Self::is_active(store_id) {
-            let current_ptr = STORE_CONTEXT_STACK.with(|cell| {
-                let stack = cell.borrow();
-                unsafe { stack.last().unwrap().entry.get().as_ref().unwrap().as_ptr() }
-            });
-            assert_eq!(store_ptr, current_ptr, "Store context pointer mismatch");
-            StoreInstallGuard::NotInstalled
-        } else {
-            Self::install(store_id, StoreContextEntry::Sync(store_ptr));
-            StoreInstallGuard::Installed(store_id)
+        // Nesting changes a pointer's provenance, never which store it
+        // addresses, so the same store must arrive at the same address.
+        debug_assert!(
+            !Self::is_active(store_id)
+                || STORE_CONTEXT_STACK.with(|cell| {
+                    let stack = cell.borrow();
+                    let active =
+                        unsafe { stack.last().unwrap().entry.get().as_ref().unwrap().as_ptr() };
+                    active == store_ptr
+                }),
+            "Store context pointer mismatch"
+        );
+        if Self::active_is_async(store_id) {
+            return StoreInstallGuard { store_id: None };
+        }
+        Self::push(store_id, StoreContextEntry::Sync(store_ptr));
+        StoreInstallGuard {
+            store_id: Some(store_id),
         }
     }
 
@@ -253,6 +302,29 @@ impl StoreContext {
                 ptr: unsafe { top.entry.get().as_ref().unwrap().as_ptr() },
                 ref_count_decremented,
             }
+        })
+    }
+
+    /// The active entry's store, if no frame on this thread's stack is holding
+    /// a borrow of it.
+    ///
+    /// A non-zero borrow count means some frame further up still holds a
+    /// `StoreMut` it can reach, so handing out a second one would alias it;
+    /// the caller gets `None` instead. A frame that has lent its borrow out
+    /// ([`StoreMut::parked`]) installed an entry of its own, whose count is
+    /// zero until somebody takes it — which is how an imported function lends
+    /// its store to code it calls into.
+    pub(crate) fn try_get_current_unborrowed() -> Option<StorePtrWrapper> {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack.last_mut()?;
+            if top.borrow_count != 0 {
+                return None;
+            }
+            top.borrow_count += 1;
+            Some(StorePtrWrapper {
+                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
+            })
         })
     }
 
@@ -358,7 +430,7 @@ impl<'a> CoroutineStoreGuard<'a> {
             !StoreContext::is_active(store_id) && !StoreContext::is_suspended(store_id),
             "store is already on the current thread's context stack (active or suspended)"
         );
-        StoreContext::install_cothread(store_id, NonNull::from(store));
+        StoreContext::push_cothread(store_id, NonNull::from(store));
         Self {
             store_id,
             _store: std::marker::PhantomData,
@@ -446,33 +518,34 @@ impl Drop for StoreAsyncGuardWrapper {
 
 impl Drop for StoreInstallGuard {
     fn drop(&mut self) {
-        if let Self::Installed(store_id) = self {
-            STORE_CONTEXT_STACK.with(|cell| {
-                let mut stack = cell.borrow_mut();
-                match (stack.pop(), std::thread::panicking()) {
-                    (Some(top), false) => {
-                        assert_eq!(top.id, *store_id, "Mismatched store context uninstall");
-                        assert_eq!(
-                            top.borrow_count, 0,
-                            "Cannot uninstall store context while it is still borrowed"
-                        );
-                    }
-                    (Some(top), true) => {
-                        // If we're panicking and there's a store ID mismatch, just
-                        // put the store back in the hope that its own install guard
-                        // take care of uninstalling it later.
-                        if top.id != *store_id {
-                            stack.push(top);
-                        }
-                    }
-                    (None, false) => panic!("Store context stack underflow"),
-                    (None, true) => {
-                        // Nothing to do if we're panicking; panics can put the context
-                        // in an invalid state, and we don't to cause another panic here.
+        let Some(store_id) = self.store_id else {
+            return;
+        };
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            match (stack.pop(), std::thread::panicking()) {
+                (Some(top), false) => {
+                    assert_eq!(top.id, store_id, "Mismatched store context uninstall");
+                    assert_eq!(
+                        top.borrow_count, 0,
+                        "Cannot uninstall store context while it is still borrowed"
+                    );
+                }
+                (Some(top), true) => {
+                    // If we're panicking and there's a store ID mismatch, just
+                    // put the store back in the hope that its own install guard
+                    // take care of uninstalling it later.
+                    if top.id != store_id {
+                        stack.push(top);
                     }
                 }
-            })
-        }
+                (None, false) => panic!("Store context stack underflow"),
+                (None, true) => {
+                    // Nothing to do if we're panicking; panics can put the context
+                    // in an invalid state, and we don't want to cause another panic here.
+                }
+            }
+        })
     }
 }
 
@@ -499,7 +572,7 @@ impl Drop for ForcedStoreInstallGuard {
                 (None, false) => panic!("Store context stack underflow"),
                 (None, true) => {
                     // Nothing to do if we're panicking; panics can put the context
-                    // in an invalid state, and we don't to cause another panic here.
+                    // in an invalid state, and we don't want to cause another panic here.
                 }
             }
         })
@@ -526,5 +599,106 @@ impl Drop for StorePtrPauseGuard {
                 top.borrow_count += 1;
             }
         })
+    }
+}
+
+#[cfg(test)]
+mod borrow_provenance {
+    use super::*;
+    use crate::{AsStoreMut, Store};
+
+    /// Replays a recursive guest call at the level of the store context, which
+    /// is the part of it that has nothing to do with executing Wasm:
+    ///
+    /// ```text
+    /// Function::call(&mut store)          install(ptr from the caller's borrow)
+    ///   wasm -> import                    get_current            -> the shim's borrow
+    ///     shim: Function::call(&mut env)  install(ptr from *that* borrow)
+    ///       wasm -> import                get_current            -> the inner borrow
+    ///     shim carries on using its own borrow
+    /// ```
+    ///
+    /// Natively this always passes; it earns its keep under Miri, which is
+    /// where the last step is checked. If [`StoreContext::install`] ever goes
+    /// back to re-using an entry that is already active, the inner borrow
+    /// becomes a sibling of the shim's rather than a child of it, and this test
+    /// reports the shim's own store as invalidated:
+    ///
+    /// ```text
+    /// error: Undefined Behavior: trying to retag from <..> for Unique
+    ///        permission, but that tag does not exist in the borrow stack
+    ///   --> lib/api/src/entities/store/store_ref.rs   &mut self.inner.objects
+    /// ```
+    ///
+    /// Run it with:
+    ///
+    /// ```text
+    /// cargo +nightly miri test -p wasmer --features sys --lib borrow_provenance
+    /// ```
+    #[test]
+    fn nested_call_keeps_the_outer_borrow_usable() {
+        let mut store = Store::default();
+        let id = store.id();
+
+        // --- the embedder's Function::call(&mut store)
+        let mut caller = store.as_store_mut();
+        let install = unsafe { StoreContext::install(caller.as_store_mut().inner as *mut _) };
+
+        // --- the import trampoline, handing the shim its store
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let mut shim = wrapper.as_mut();
+        let _ = shim.objects_mut().id();
+
+        {
+            // --- the shim calls back into the guest
+            let inner_install =
+                unsafe { StoreContext::install(shim.as_store_mut().inner as *mut _) };
+            let pause = unsafe { StoreContext::pause(id) };
+
+            // --- the inner import trampoline
+            let mut inner_wrapper = unsafe { StoreContext::get_current(id) };
+            let mut inner_shim = inner_wrapper.as_mut();
+            let _ = inner_shim.objects_mut().id();
+            drop(inner_wrapper);
+
+            drop(pause);
+            drop(inner_install);
+        }
+
+        // --- and goes on using the borrow it held throughout
+        let _ = shim.objects_mut().id();
+
+        drop(wrapper);
+        drop(install);
+    }
+
+    /// The lending path, which is the nesting above with the inner entry
+    /// installed by [`StoreMut::parked`] instead of by a nested call: the
+    /// borrow handed out by [`crate::Store::with_current`] must not invalidate
+    /// the one the lender is holding. Miri checks the last line.
+    #[test]
+    fn a_lend_keeps_the_lending_borrow_usable() {
+        let mut store = Store::default();
+        let id = store.id();
+
+        let mut caller = store.as_store_mut();
+        let install = unsafe { StoreContext::install(caller.as_store_mut().inner as *mut _) };
+
+        let mut wrapper = unsafe { StoreContext::get_current(id) };
+        let mut shim = wrapper.as_mut();
+        let _ = shim.objects_mut().id();
+
+        shim.parked(|| {
+            crate::Store::with_current(|lent| {
+                let _ = lent.objects_mut().id();
+            })
+            .expect("a parked store is lendable");
+        });
+
+        // The lender goes back to the borrow it held throughout.
+        let _ = shim.objects_mut().id();
+
+        drop(wrapper);
+        drop(install);
     }
 }

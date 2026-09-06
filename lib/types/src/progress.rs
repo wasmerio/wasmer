@@ -1,6 +1,6 @@
 //! Types used to report and handle compilation progress.
 
-use std::{borrow::Cow, fmt, string::String, sync::Arc};
+use std::{borrow::Cow, fmt, num::NonZeroUsize, string::String, sync::Arc};
 use thiserror::Error;
 
 /// Indicates the current compilation progress.
@@ -65,10 +65,21 @@ impl UserAbort {
     }
 }
 
-/// Wraps a boxed callback that can receive compilation progress notifications.
+type ProgressCallback =
+    dyn Fn(CompilationProgress) -> Result<(), UserAbort> + Send + Sync + 'static;
+type ReserveSizeCallbackFn = dyn Fn(usize) -> Result<(), UserAbort> + Send + Sync + 'static;
+
+#[derive(Clone)]
+struct ReserveSizeCallback {
+    callback: Arc<ReserveSizeCallbackFn>,
+    chunk_size: NonZeroUsize,
+}
+
+/// Wraps callbacks that can receive compilation progress and output-size notifications.
 #[derive(Clone)]
 pub struct CompilationProgressCallback {
-    callback: Arc<dyn Fn(CompilationProgress) -> Result<(), UserAbort> + Send + Sync + 'static>,
+    callback: Arc<ProgressCallback>,
+    reserve_size_callback: Option<ReserveSizeCallback>,
 }
 
 impl CompilationProgressCallback {
@@ -84,6 +95,39 @@ impl CompilationProgressCallback {
     {
         Self {
             callback: Arc::new(callback),
+            reserve_size_callback: None,
+        }
+    }
+
+    /// Configures a callback for reporting increases in compilation output size.
+    ///
+    /// Singlepass uses this callback to account for emitted native-code bytes, reporting after
+    /// at least `chunk_size` bytes.
+    pub fn with_reserve_size_callback<F>(mut self, callback: F, chunk_size: NonZeroUsize) -> Self
+    where
+        F: Fn(usize) -> Result<(), UserAbort> + Send + Sync + 'static,
+    {
+        self.reserve_size_callback = Some(ReserveSizeCallback {
+            callback: Arc::new(callback),
+            chunk_size,
+        });
+        self
+    }
+
+    /// Returns the configured reserve-size reporting chunk size.
+    pub fn reserve_size_chunk_size(&self) -> Option<NonZeroUsize> {
+        self.reserve_size_callback
+            .as_ref()
+            .map(|callback| callback.chunk_size)
+    }
+
+    /// Reports an increase in compilation output size, in bytes.
+    ///
+    /// This is a no-op when no reserve-size callback was configured.
+    pub fn reserve_size(&self, size_increase: usize) -> Result<(), UserAbort> {
+        match &self.reserve_size_callback {
+            Some(callback) => (callback.callback)(size_increase),
+            None => Ok(()),
         }
     }
 

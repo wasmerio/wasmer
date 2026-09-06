@@ -22,7 +22,8 @@
 //! `BuildEnv:{key}={value}` sets an environment variable before building.
 //!
 //! The harness also sets `WASMER_BACKEND` to the engine name (`cranelift`, `v8`,
-//! etc.) before every build so shell scripts can tune compile-time parameters per backend.
+//! etc.) and `WASMER_ARCH` to the host architecture before every build so shell scripts
+//! can tune compile-time parameters per backend and architecture.
 //!
 //! `Env:{key}={value}` sets an environment variable before running.
 //!
@@ -51,6 +52,8 @@
 //! Defaults to `wasix,wasip1` for single-file Rust fixtures.
 //!
 //! `UnixOnly:{bool}` ignores the configuration on non-Unix hosts when true.
+//!
+//! `IgnoreMacOS:{bool}` ignores the configuration on macOS hosts when true.
 //!
 //! `MinimalLibc:{version}` ignores the configuration when the selected sysroot
 //! version is older than the given minimal libc version.
@@ -259,6 +262,7 @@ struct Config {
     ignored: Option<String>,
     skipped_engines: Vec<(Engine, String)>,
     unix_only: bool,
+    ignore_macos: bool,
     mapped_directories: Vec<MappedDirectory>,
     current_directory: Option<String>,
     prefilled_files: Vec<(PathBuf, String)>,
@@ -303,6 +307,7 @@ impl Config {
             ignored: None,
             skipped_engines: Vec::new(),
             unix_only: false,
+            ignore_macos: false,
             mapped_directories: Vec::new(),
             current_directory: None,
             prefilled_files: Vec::new(),
@@ -554,6 +559,7 @@ fn process_directive(
             }
         }
         "UnixOnly" => config.unix_only = arg.parse::<bool>()?,
+        "IgnoreMacOS" => config.ignore_macos = arg.parse::<bool>()?,
         "MinimalLibc" => {
             ensure!(!arg.is_empty(), "MinimalLibc version must not be empty");
             config.minimal_libc = Some(arg.to_owned());
@@ -896,6 +902,7 @@ fn run_build_script(config: &Config) -> anyhow::Result<PathBuf> {
         cmd.env(k, v);
     }
     cmd.env("WASMER_BACKEND", config.engine.name());
+    cmd.env("WASMER_ARCH", std::env::consts::ARCH);
     let output = cmd.output()?;
 
     if !output.status.success() {
@@ -1179,6 +1186,9 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     }
     if !cfg!(unix) && config.unix_only {
         return Ok(libtest_mimic::Completion::ignored_with("Unix only"));
+    }
+    if cfg!(target_os = "macos") && config.ignore_macos {
+        return Ok(libtest_mimic::Completion::ignored_with("Ignored on macOS"));
     }
     if let Some((_, reason)) = config
         .skipped_engines

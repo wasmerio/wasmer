@@ -1,10 +1,59 @@
 use std::path::PathBuf;
+use std::ptr::NonNull;
 use std::sync::Arc;
+use wasmer::WASM_PAGE_SIZE;
 use wasmer::sys::Features;
 use wasmer::{
-    Store,
-    sys::{CompilerConfig, ModuleMiddleware},
+    MemoryError, MemoryStyle, MemoryType, Store, TableStyle, TableType,
+    sys::{
+        BaseTunables, CompilerConfig, ModuleMiddleware, Tunables,
+        vm::{VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition},
+    },
 };
+
+struct DynamicMemoryTunables(BaseTunables);
+
+impl Tunables for DynamicMemoryTunables {
+    fn memory_style(&self, _memory: &MemoryType) -> MemoryStyle {
+        MemoryStyle::Dynamic {
+            offset_guard_size: WASM_PAGE_SIZE as u64,
+        }
+    }
+
+    fn table_style(&self, table: &TableType) -> TableStyle {
+        self.0.table_style(table)
+    }
+
+    fn create_host_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+    ) -> Result<VMMemory, MemoryError> {
+        self.0.create_host_memory(ty, style)
+    }
+
+    unsafe fn create_vm_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+        vm_definition_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<VMMemory, MemoryError> {
+        unsafe { self.0.create_vm_memory(ty, style, vm_definition_location) }
+    }
+
+    fn create_host_table(&self, ty: &TableType, style: &TableStyle) -> Result<VMTable, String> {
+        self.0.create_host_table(ty, style)
+    }
+
+    unsafe fn create_vm_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: NonNull<VMTableDefinition>,
+    ) -> Result<VMTable, String> {
+        unsafe { self.0.create_vm_table(ty, style, vm_definition_location) }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Compiler {
@@ -22,6 +71,7 @@ pub struct Config {
     pub canonicalize_nans: bool,
     pub allow_unaligned_memory_accesses: bool,
     pub experimental_artifact: bool,
+    pub dynamic_memory: bool,
 }
 
 impl Config {
@@ -32,12 +82,18 @@ impl Config {
             canonicalize_nans: false,
             allow_unaligned_memory_accesses: false,
             experimental_artifact: false,
+            dynamic_memory: false,
             middlewares: vec![],
         }
     }
 
     pub fn with_experimental_artifact(mut self) -> Self {
         self.experimental_artifact = true;
+        self
+    }
+
+    pub fn with_dynamic_memory(mut self) -> Self {
+        self.dynamic_memory = true;
         self
     }
 
@@ -78,7 +134,11 @@ impl Config {
                 if let Some(ref features) = self.features {
                     engine = engine.set_features(Some(features.clone()));
                 }
-                engine.engine().into()
+                let mut engine = engine.engine();
+                if self.dynamic_memory {
+                    engine.set_tunables(DynamicMemoryTunables(BaseTunables::new()));
+                }
+                engine.into()
             }
         }
     }

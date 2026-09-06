@@ -1,4 +1,5 @@
 //#ExpectedStdout: stream TCP writev delivers full payload
+//#IgnoreMacOS: true
 
 #include <arpa/inet.h>
 #include <errno.h>

@@ -3439,6 +3439,7 @@ mod tests {
         let pkg = BinaryPackage {
             id: PackageId::new_named("ns/pkg", "0.1.0".parse().unwrap()),
             package_ids: vec![],
+            webc_version: webc::Version::V3,
             when_cached: None,
             entrypoint_cmd: None,
             hash: OnceCell::new(),

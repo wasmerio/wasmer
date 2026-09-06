@@ -10,14 +10,8 @@ mod compile;
 mod config;
 mod connect;
 mod container;
-#[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-mod create_exe;
-#[cfg(feature = "static-artifact-create")]
-mod create_obj;
 mod cron;
 pub(crate) mod domain;
-#[cfg(feature = "static-artifact-create")]
-mod gen_c_header;
 mod gen_completions;
 mod gen_manpage;
 mod init;
@@ -41,13 +35,8 @@ pub use binfmt::*;
 use clap::{CommandFactory, Parser};
 #[cfg(feature = "compiler")]
 pub use compile::*;
-#[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;
-#[cfg(feature = "static-artifact-create")]
-#[allow(unused_imports)]
-pub use {create_obj::*, gen_c_header::*};
 
 #[cfg(feature = "journal")]
 pub use self::journal::*;
@@ -181,13 +170,6 @@ impl WasmerCmd {
             Some(Cmd::Validate(validate)) => validate.execute(),
             #[cfg(feature = "compiler")]
             Some(Cmd::Compile(compile)) => compile.execute(),
-            // CreateExe, CreateObj and GenCHeader commands are temporarily disabled
-            // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-            // Some(Cmd::CreateExe(create_exe)) => create_exe.run(),
-            // #[cfg(feature = "static-artifact-create")]
-            // Some(Cmd::CreateObj(create_obj)) => create_obj.execute(),
-            // #[cfg(feature = "static-artifact-create")]
-            // Some(Cmd::GenCHeader(gen_header)) => gen_header.execute(),
             Some(Cmd::Config(config)) => config.run(),
             Some(Cmd::Inspect(inspect)) => inspect.execute(),
             Some(Cmd::Init(init)) => init.run(),
@@ -361,76 +343,6 @@ enum Cmd {
     /// Compile a WebAssembly binary
     #[cfg(feature = "compiler")]
     Compile(Compile),
-
-    // Compile a WebAssembly binary into a native executable
-    //
-    // To use, you need to set the `WASMER_DIR` environment variable
-    // to the location of your Wasmer installation. This will probably be `~/.wasmer`. It
-    // should include a `lib`, `include` and `bin` subdirectories. To create an executable
-    // you will need `libwasmer`, so by setting `WASMER_DIR` the CLI knows where to look for
-    // header files and libraries.
-    //
-    // Example usage:
-    //
-    // ```text
-    // $ # in two lines:
-    // $ export WASMER_DIR=/home/user/.wasmer/
-    // $ wasmer create-exe qjs.wasm -o qjs.exe # or in one line:
-    // $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm -o qjs.exe
-    // $ file qjs.exe
-    // qjs.exe: ELF 64-bit LSB pie executable, x86-64 ...
-    // ```
-    //
-    // ## Cross-compilation
-    //
-    // Accepted target triple values must follow the
-    // ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
-    //
-    // The recommended targets we try to support are:
-    //
-    // - "x86_64-linux-gnu"
-    // - "aarch64-linux-gnu"
-    // - "arm64-apple-darwin"
-    // #[cfg(any(feature = "static-artifact-create", feature = "wasmer-artifact-create"))]
-    // #[clap(name = "create-exe", verbatim_doc_comment)]
-    // CreateExe(CreateExe),
-    /// Compile a WebAssembly binary into an object file
-    ///
-    /// To use, you need to set the `WASMER_DIR` environment variable to the location of your
-    /// Wasmer installation. This will probably be `~/.wasmer`. It should include a `lib`,
-    /// `include` and `bin` subdirectories. To create an object you will need `libwasmer`, so by
-    /// setting `WASMER_DIR` the CLI knows where to look for header files and libraries.
-    ///
-    /// Example usage:
-    ///
-    /// ```text
-    /// $ # in two lines:
-    /// $ export WASMER_DIR=/home/user/.wasmer/
-    /// $ wasmer create-obj qjs.wasm --object-format symbols -o qjs.obj # or in one line:
-    /// $ WASMER_DIR=/home/user/.wasmer/ wasmer create-exe qjs.wasm --object-format symbols -o qjs.obj
-    /// $ file qjs.obj
-    /// qjs.obj: ELF 64-bit LSB relocatable, x86-64 ...
-    /// ```
-    ///
-    /// ## Cross-compilation
-    ///
-    /// Accepted target triple values must follow the
-    /// ['target_lexicon'](https://crates.io/crates/target-lexicon) crate format.
-    ///
-    /// The recommended targets we try to support are:
-    ///
-    /// - "x86_64-linux-gnu"
-    /// - "aarch64-linux-gnu"
-    /// - "arm64-apple-darwin"
-    // #[cfg(feature = "static-artifact-create")]
-    // #[structopt(name = "create-obj", verbatim_doc_comment)]
-    // CreateObj(CreateObj),
-
-    ///
-    /// Generate the C static_defs.h header file for the input .wasm module
-    ///
-    // #[cfg(feature = "static-artifact-create")]
-    // GenCHeader(GenCHeader),
 
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
