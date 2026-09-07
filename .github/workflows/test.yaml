@@ -28,7 +28,7 @@ env:
 jobs:
   setup:
     name: Set up
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     outputs:
       VERSION: ${{ steps.setup.outputs.VERSION }}
       DOING_RELEASE: ${{ steps.setup.outputs.DOING_RELEASE }}
@@ -57,7 +57,7 @@ jobs:
         run: cargo +nightly update
   lint:
     name: Code lint
-    runs-on: ubuntu-24.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -142,7 +142,7 @@ jobs:
           fi
   cargo_deny:
     name: cargo-deny
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -152,7 +152,7 @@ jobs:
           log-level: error
   test_nodejs:
     name: NodeJS
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -194,7 +194,7 @@ jobs:
         #     make test-js-core
   test_interpreter_api:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
-    runs-on: ${{ matrix.metadata.os }}
+    runs-on: ${{ matrix.metadata.build == 'linux-x64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.metadata.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -282,7 +282,7 @@ jobs:
         run: cargo +nightly miri test -p wasmer --features sys --lib borrow_provenance
   test_build_docs_rs:
     name: Build docs.rs
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -311,7 +311,7 @@ jobs:
         run: make test-build-docs-rs-ci
   build_linux_riscv64:
     name: ${{ matrix.build-what.name }} - linux-riscv64
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     strategy:
       fail-fast: false
       matrix:
@@ -370,7 +370,7 @@ jobs:
           retention-days: 2
   build:
     name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
-    runs-on: ${{ matrix.metadata.os }}
+    runs-on: ${{ (matrix.metadata.build == 'linux-x64' || matrix.metadata.build == 'linux-musl' || matrix.metadata.build == 'windows-gnu') && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.metadata.build == 'linux-arm64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-arm64' || 'aux-pub-trusted-16cpu-arm64') || matrix.metadata.os }}
     needs: setup
     strategy:
       fail-fast: false
@@ -623,7 +623,7 @@ jobs:
           retention-days: 2
   test:
     name: ${{ matrix.stage.description }} - ${{ matrix.metadata.build }}
-    runs-on: ${{ matrix.metadata.os }}
+    runs-on: ${{ (matrix.metadata.build == 'linux-x64' || matrix.metadata.build == 'linux-musl') && (github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64') || matrix.metadata.build == 'linux-arm64' && (github.event_name == 'pull_request' && 'aux-pub-16cpu-arm64' || 'aux-pub-trusted-16cpu-arm64') || matrix.metadata.os }}
     needs: setup
     strategy:
       fail-fast: false
@@ -826,7 +826,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
   ci_success:
     name: Tests CI
-    runs-on: ubuntu-22.04
+    runs-on: ${{ github.event_name == 'pull_request' && 'aux-pub-16cpu-amd64' || 'aux-pub-trusted-16cpu-amd64' }}
     needs:
       - setup
       - lint
