@@ -73,20 +73,24 @@ jobs:
       - name: Install libtinfo
         shell: bash
         run: |
-          sudo apt install -y libtinfo6
+          sudo apt-get update -y && sudo apt-get install -y libtinfo6
       - uses: actions/setup-go@v6
         with:
           go-version: "1.26.0"
           cache: false
       - run: go install github.com/google/yamlfmt/cmd/yamlfmt@v0.21.0
       - name: Install LLVM (Linux)
+        # $HOME instead of /opt: not root-writable on hardened ARC runners
         run: |
-          mkdir -p /opt/llvm-22
-          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.zst -L -o - | tar --zstd -xf - --strip-components=1 -C /opt/llvm-22
-          echo '/opt/llvm-22/bin' >> $GITHUB_PATH
-          echo 'LLVM_SYS_221_PREFIX=/opt/llvm-22' >> $GITHUB_ENV
+          mkdir -p $HOME/llvm-22
+          curl -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" --retry 3 --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/22.x/llvm-linux-amd64.tar.zst -L -o - | tar --zstd -xf - --strip-components=1 -C $HOME/llvm-22
+          echo "$HOME/llvm-22/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_221_PREFIX=$HOME/llvm-22" >> $GITHUB_ENV
       - name: Install taplo
-        run: curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin /usr/local/bin/taplo
+        run: |
+          mkdir -p $HOME/.local/bin
+          curl -fsSL https://github.com/tamasfe/taplo/releases/latest/download/taplo-linux-x86_64.gz | gzip -d - | install -m 755 /dev/stdin $HOME/.local/bin/taplo
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
       - name: Cache
         # TODO: v3 is unable to Restore the cache for some reason
         uses: whywaita/actions-cache-s3@v2
@@ -291,7 +295,7 @@ jobs:
       - name: Install `ninja` on Ubuntu
         shell: bash
         run: |
-          sudo apt-get install ninja-build -y
+          sudo apt-get update -y && sudo apt-get install -y ninja-build
       - name: Install LLVM 22
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
@@ -455,7 +459,8 @@ jobs:
         if: matrix.metadata.build == 'linux-x64'
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y --allow-downgrades libstdc++6 libtinfo5
+          # libtinfo6: libtinfo5 does not exist on ubuntu >= 24.04 (ARC image)
+          sudo apt-get install -y --allow-downgrades libstdc++6 libtinfo6
           sudo apt-get install --reinstall g++
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
@@ -482,7 +487,7 @@ jobs:
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
         shell: bash
         run: |
-          sudo apt install -y mingw-w64
+          sudo apt-get update -y && sudo apt-get install -y mingw-w64
       - name: Install Windows-GNU target
         if: ${{ matrix.metadata.build == 'windows-gnu' }}
         shell: bash
