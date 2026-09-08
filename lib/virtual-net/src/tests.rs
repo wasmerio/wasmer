@@ -954,3 +954,197 @@ async fn test_loopback_connected_socket_holds_local_port_reservation() {
         .await
         .unwrap();
 }
+
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_loopback_wildcard_listener_preserves_bind_and_connects_concrete_endpoints() {
+    let networking = LoopbackNetworking::new();
+    let mut listener = networking
+        .listen_tcp(
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+    let bound_addr = listener.addr_local().unwrap();
+    assert_eq!(bound_addr.ip(), IpAddr::V4(Ipv4Addr::UNSPECIFIED));
+    assert_ne!(bound_addr.port(), 0);
+
+    let destination = SocketAddr::from((Ipv4Addr::new(127, 0, 0, 42), bound_addr.port()));
+    let mut client_bound = networking
+        .bind_tcp(
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+    let client = client_bound.connect(destination).unwrap();
+    let client_local = client.addr_local().unwrap();
+    assert!(!client_local.ip().is_unspecified());
+    assert_eq!(client.addr_peer().unwrap(), destination);
+
+    let (accepted, accepted_peer) = listener.try_accept().unwrap();
+    assert_eq!(accepted.addr_local().unwrap(), destination);
+    assert_eq!(accepted.addr_peer().unwrap(), client_local);
+    assert_eq!(accepted_peer, client_local);
+}
+
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_loopback_wildcard_and_specific_bind_conflicts_are_symmetric() {
+    let networking = LoopbackNetworking::new();
+    let wildcard = SocketAddr::from((Ipv4Addr::UNSPECIFIED, 40201));
+    let specific = SocketAddr::from((Ipv4Addr::new(127, 0, 0, 42), wildcard.port()));
+
+    let mut wildcard_bound = networking
+        .bind_tcp(wildcard, false, false, false)
+        .await
+        .unwrap();
+    let err = networking
+        .bind_tcp(specific, false, false, false)
+        .await
+        .unwrap_err();
+    assert_eq!(err, NetworkError::AddressInUse);
+
+    let _wildcard_listener = wildcard_bound.listen().unwrap();
+    let err = networking
+        .bind_tcp(specific, false, false, false)
+        .await
+        .unwrap_err();
+    assert_eq!(err, NetworkError::AddressInUse);
+
+    let networking = LoopbackNetworking::new();
+    let mut specific_bound = networking
+        .bind_tcp(specific, false, false, false)
+        .await
+        .unwrap();
+    let err = networking
+        .bind_tcp(wildcard, false, false, false)
+        .await
+        .unwrap_err();
+    assert_eq!(err, NetworkError::AddressInUse);
+
+    let _specific_listener = specific_bound.listen().unwrap();
+    let err = networking
+        .bind_tcp(wildcard, false, false, false)
+        .await
+        .unwrap_err();
+    assert_eq!(err, NetworkError::AddressInUse);
+}
+
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_loopback_connect_selects_only_exact_or_wildcard_listener() {
+    let networking = LoopbackNetworking::new();
+    let first_addr = SocketAddr::from((Ipv4Addr::new(127, 0, 0, 1), 40202));
+    let second_addr = SocketAddr::from((Ipv4Addr::new(127, 0, 0, 2), first_addr.port()));
+    let missing_addr = SocketAddr::from((Ipv4Addr::new(127, 0, 0, 3), first_addr.port()));
+    let mut first = networking
+        .listen_tcp(first_addr, false, false, false)
+        .await
+        .unwrap();
+    let mut second = networking
+        .listen_tcp(second_addr, false, false, false)
+        .await
+        .unwrap();
+
+    let mut bound = networking
+        .bind_tcp(
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+    let _client = bound.connect(second_addr).unwrap();
+    assert!(second.try_accept().is_ok());
+    assert_eq!(first.try_accept().unwrap_err(), NetworkError::WouldBlock);
+
+    let mut bound = networking
+        .bind_tcp(
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+    assert!(matches!(
+        bound.connect(missing_addr),
+        Err(NetworkError::ConnectionRefused)
+    ));
+}
+
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_loopback_bind_conflicts_only_within_the_same_address_family() {
+    let networking = LoopbackNetworking::new();
+    let port = 40203;
+    let _ipv4 = networking
+        .bind_tcp(
+            SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+    let _ipv6 = networking
+        .bind_tcp(
+            SocketAddr::from((Ipv6Addr::UNSPECIFIED, port)),
+            true,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+}
+
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_loopback_wildcard_conflict_tracks_all_specific_bindings_on_a_port() {
+    let networking = LoopbackNetworking::new();
+    let port = 40204;
+    let first = networking
+        .bind_tcp(
+            SocketAddr::from((Ipv4Addr::new(127, 0, 0, 1), port)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+    let second = networking
+        .bind_tcp(
+            SocketAddr::from((Ipv4Addr::new(127, 0, 0, 2), port)),
+            false,
+            false,
+            false,
+        )
+        .await
+        .unwrap();
+
+    drop(first);
+    let wildcard = SocketAddr::from((Ipv4Addr::UNSPECIFIED, port));
+    let err = networking
+        .bind_tcp(wildcard, false, false, false)
+        .await
+        .unwrap_err();
+    assert_eq!(err, NetworkError::AddressInUse);
+
+    drop(second);
+    networking
+        .bind_tcp(wildcard, false, false, false)
+        .await
+        .unwrap();
+}

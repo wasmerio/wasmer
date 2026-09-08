@@ -79,6 +79,9 @@
 //! `FileSystems:{kind}` selects the filesystem backend. Supported values are
 //! `host`, `inmemory`, `tmp`, `passthrumemory`, `union`, `root`, comma-separated
 //! lists of those values, and `all`.
+//!
+//! `Networking:loopback` runs the fixture with an isolated in-memory loopback
+//! network.
 
 use anyhow::{Context, Result, anyhow, ensure};
 use itertools::Itertools;
@@ -220,6 +223,12 @@ enum FileSystemKind {
     Root,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display, strum::EnumString)]
+#[strum(ascii_case_insensitive, serialize_all = "lowercase")]
+enum NetworkingKind {
+    Loopback,
+}
+
 impl Engine {
     pub fn name(self) -> &'static str {
         match self {
@@ -249,6 +258,7 @@ struct Config {
     rust_toolchains: Option<Vec<RustToolchain>>,
     selected_file_system: FileSystemKind,
     file_systems: Option<Vec<FileSystemKind>>,
+    networking: Option<NetworkingKind>,
     is_abstract: bool,
 
     nonzero_exit_code: bool,
@@ -294,6 +304,7 @@ impl Config {
             rust_toolchain: RustToolchain::Wasix,
             rust_toolchains: None,
             file_systems: None,
+            networking: None,
             selected_file_system: FileSystemKind::Host,
             is_abstract: false,
             arguments: Vec::new(),
@@ -650,6 +661,12 @@ fn process_directive(
                 );
                 file_systems
             });
+        }
+        "Networking" => {
+            config.networking = Some(
+                arg.parse::<NetworkingKind>()
+                    .map_err(|_| anyhow!("unsupported networking: '{arg}'"))?,
+            );
         }
         other => bail!("Unknown directive '{other}'"),
     }
@@ -1210,32 +1227,49 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     let stdin = config.stdin.clone();
 
     let mut extra_temporary_folders = Vec::new();
-    let result = runner::run_wasm_with_runner_config(
-        &wasm,
-        run_dir,
-        config.engine,
-        config.program_name.as_deref(),
-        config.default_mapped_directories,
-        |runner| {
-            if !config.arguments.is_empty() {
-                runner.with_args(config.arguments.iter().cloned());
-            }
+    let configure_runner = |runner: &mut wasmer_wasix::runners::wasi::WasiRunner| {
+        if !config.arguments.is_empty() {
+            runner.with_args(config.arguments.iter().cloned());
+        }
 
-            if !config.env.is_empty() {
-                runner.with_envs(config.env.iter().cloned());
-            }
+        if !config.env.is_empty() {
+            runner.with_envs(config.env.iter().cloned());
+        }
 
-            if let Some(stdin) = stdin {
-                runner.with_stdin(Box::new(StaticFile::new(stdin)));
-            }
+        if let Some(stdin) = stdin {
+            runner.with_stdin(Box::new(StaticFile::new(stdin)));
+        }
 
-            configure_mapped_directories(runner, &config, &mut extra_temporary_folders)?;
-            if let Some(current_directory) = &config.current_directory {
-                runner.with_current_dir(current_directory.clone());
-            }
-            Ok(())
-        },
-    )?;
+        configure_mapped_directories(runner, &config, &mut extra_temporary_folders)?;
+        if let Some(current_directory) = &config.current_directory {
+            runner.with_current_dir(current_directory.clone());
+        }
+        Ok(())
+    };
+    let result = match config.networking {
+        None => runner::run_wasm_with_runner_config(
+            &wasm,
+            run_dir,
+            config.engine,
+            config.program_name.as_deref(),
+            config.default_mapped_directories,
+            configure_runner,
+        )?,
+        Some(NetworkingKind::Loopback) => runner::run_wasm_with_runner_and_runtime_config(
+            &wasm,
+            run_dir,
+            config.engine,
+            config.program_name.as_deref(),
+            config.default_mapped_directories,
+            configure_runner,
+            |runtime| {
+                runtime.set_networking_implementation(
+                    wasmer_wasix::virtual_net::LoopbackNetworking::new(),
+                );
+                Ok(())
+            },
+        )?,
+    };
 
     if config.nonzero_exit_code {
         ensure!(

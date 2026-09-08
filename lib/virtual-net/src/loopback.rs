@@ -19,6 +19,8 @@ const LOOPBACK_EPHEMERAL_PORT_START: u16 = 49152;
 struct LoopbackNetworkingState {
     tcp_listeners: HashMap<SocketAddr, LoopbackTcpListener>,
     tcp_bound: HashSet<SocketAddr>,
+    // Keeps wildcard ephemeral-port checks constant-time per candidate.
+    tcp_ports_in_use: HashMap<(bool, u16), usize>,
     ip_addresses: Vec<IpCidr>,
     next_ephemeral_port: u16,
 }
@@ -28,8 +30,76 @@ impl Default for LoopbackNetworkingState {
         Self {
             tcp_listeners: HashMap::new(),
             tcp_bound: HashSet::new(),
+            tcp_ports_in_use: HashMap::new(),
             ip_addresses: Vec::new(),
             next_ephemeral_port: LOOPBACK_EPHEMERAL_PORT_START,
+        }
+    }
+}
+
+impl LoopbackNetworkingState {
+    fn contains_tcp_addr(&self, addr: SocketAddr) -> bool {
+        self.tcp_listeners.contains_key(&addr) || self.tcp_bound.contains(&addr)
+    }
+
+    fn tcp_addr_conflicts(&self, addr: SocketAddr) -> bool {
+        if addr.ip().is_unspecified() {
+            return self
+                .tcp_ports_in_use
+                .contains_key(&LoopbackNetworking::tcp_port_key(addr));
+        }
+
+        [addr, LoopbackNetworking::wildcard_addr(addr)]
+            .into_iter()
+            .any(|bound| {
+                self.contains_tcp_addr(bound) && LoopbackNetworking::tcp_addrs_conflict(bound, addr)
+            })
+    }
+
+    fn reserve_tcp_addr(&mut self, addr: SocketAddr) -> bool {
+        if self.tcp_addr_conflicts(addr) || !self.tcp_bound.insert(addr) {
+            return false;
+        }
+        *self
+            .tcp_ports_in_use
+            .entry(LoopbackNetworking::tcp_port_key(addr))
+            .or_default() += 1;
+        true
+    }
+
+    fn release_tcp_bound_addr(&mut self, addr: SocketAddr) -> bool {
+        if !self.tcp_bound.remove(&addr) {
+            return false;
+        }
+        self.release_tcp_port(addr);
+        true
+    }
+
+    fn promote_tcp_bound_addr(
+        &mut self,
+        addr: SocketAddr,
+        listener: LoopbackTcpListener,
+    ) -> crate::Result<()> {
+        if !self.tcp_bound.contains(&addr) {
+            return Err(NetworkError::InvalidFd);
+        }
+        if self.tcp_listeners.contains_key(&addr) {
+            return Err(NetworkError::AddressInUse);
+        }
+        self.tcp_bound.remove(&addr);
+        self.tcp_listeners.insert(addr, listener);
+        Ok(())
+    }
+
+    fn release_tcp_port(&mut self, addr: SocketAddr) {
+        let key = LoopbackNetworking::tcp_port_key(addr);
+        let count = self
+            .tcp_ports_in_use
+            .get_mut(&key)
+            .expect("reserved TCP address must have a port entry");
+        *count -= 1;
+        if *count == 0 {
+            self.tcp_ports_in_use.remove(&key);
         }
     }
 }
@@ -66,43 +136,34 @@ impl LoopbackNetworking {
             ip => SocketAddr::new(ip, port),
         };
 
-        let peer_key = Self::normalize_listener_addr(peer_addr);
-        let state = self.state.lock().unwrap();
-        if let Some(listener) = state.tcp_listeners.get(&peer_key) {
-            Some(listener.connect_to(local_addr))
-        } else {
+        let listener = {
+            let state = self.state.lock().unwrap();
             state
                 .tcp_listeners
-                .iter()
-                .next()
-                .map(|listener| listener.1.connect_to(local_addr))
-        }
+                .get(&peer_addr)
+                .or_else(|| state.tcp_listeners.get(&Self::wildcard_addr(peer_addr)))
+                .cloned()
+        }?;
+        Some(listener.connect_to(local_addr, Self::concrete_addr(peer_addr)))
     }
 
     fn allocate_tcp_bind_addr(
         state: &mut LoopbackNetworkingState,
         mut addr: SocketAddr,
     ) -> crate::Result<SocketAddr> {
-        let is_available = |candidate: SocketAddr, state: &LoopbackNetworkingState| {
-            let key = Self::normalize_listener_addr(candidate);
-            !state.tcp_listeners.contains_key(&key) && !state.tcp_bound.contains(&key)
-        };
-
         if addr.port() == 0 {
             let start = state.next_ephemeral_port;
             let mut candidate = start;
             loop {
                 let candidate_addr = SocketAddr::new(addr.ip(), candidate);
-                if is_available(candidate_addr, state) {
+                if state.reserve_tcp_addr(candidate_addr) {
                     addr.set_port(candidate);
-                    let normalized = Self::normalize_listener_addr(addr);
-                    state.tcp_bound.insert(normalized);
                     state.next_ephemeral_port = if candidate == u16::MAX {
                         LOOPBACK_EPHEMERAL_PORT_START
                     } else {
                         candidate + 1
                     };
-                    return Ok(normalized);
+                    return Ok(addr);
                 }
 
                 candidate = if candidate == u16::MAX {
@@ -116,23 +177,43 @@ impl LoopbackNetworking {
             }
         }
 
-        let reservation_key = Self::normalize_listener_addr(addr);
-        if state.tcp_listeners.contains_key(&reservation_key)
-            || state.tcp_bound.contains(&reservation_key)
-        {
+        if !state.reserve_tcp_addr(addr) {
             return Err(NetworkError::AddressInUse);
         }
-        state.tcp_bound.insert(reservation_key);
-        Ok(reservation_key)
+        Ok(addr)
     }
 
-    fn normalize_listener_addr(mut addr: SocketAddr) -> SocketAddr {
-        if addr.ip() == IpAddr::V4(Ipv4Addr::UNSPECIFIED) {
-            addr = SocketAddr::new(Ipv4Addr::LOCALHOST.into(), addr.port());
-        } else if addr.ip() == IpAddr::V6(Ipv6Addr::UNSPECIFIED) {
-            addr = SocketAddr::new(Ipv6Addr::LOCALHOST.into(), addr.port());
+    fn tcp_addr_covers(bound: SocketAddr, destination: SocketAddr) -> bool {
+        bound.port() == destination.port()
+            && bound.is_ipv4() == destination.is_ipv4()
+            && (bound.ip().is_unspecified() || bound.ip() == destination.ip())
+    }
+
+    fn tcp_addrs_conflict(left: SocketAddr, right: SocketAddr) -> bool {
+        Self::tcp_addr_covers(left, right) || Self::tcp_addr_covers(right, left)
+    }
+
+    fn tcp_port_key(addr: SocketAddr) -> (bool, u16) {
+        (addr.is_ipv6(), addr.port())
+    }
+
+    fn wildcard_addr(addr: SocketAddr) -> SocketAddr {
+        match addr {
+            SocketAddr::V4(_) => SocketAddr::new(Ipv4Addr::UNSPECIFIED.into(), addr.port()),
+            SocketAddr::V6(_) => SocketAddr::new(Ipv6Addr::UNSPECIFIED.into(), addr.port()),
         }
-        addr
+    }
+
+    fn concrete_addr(addr: SocketAddr) -> SocketAddr {
+        match addr.ip() {
+            IpAddr::V4(Ipv4Addr::UNSPECIFIED) => {
+                SocketAddr::new(Ipv4Addr::LOCALHOST.into(), addr.port())
+            }
+            IpAddr::V6(Ipv6Addr::UNSPECIFIED) => {
+                SocketAddr::new(Ipv6Addr::LOCALHOST.into(), addr.port())
+            }
+            _ => addr,
+        }
     }
 }
 
@@ -222,9 +303,11 @@ impl LoopbackNetworking {
         let mut state = self.state.lock().unwrap();
         for port in LOOPBACK_EPHEMERAL_PORT_START..=u16::MAX {
             let addr = SocketAddr::new(ip, port);
-            state
-                .tcp_listeners
-                .insert(addr, LoopbackTcpListener::new(addr, 64));
+            if state.reserve_tcp_addr(addr) {
+                state
+                    .promote_tcp_bound_addr(addr, LoopbackTcpListener::new(addr, 64))
+                    .unwrap();
+            }
         }
         state.next_ephemeral_port = LOOPBACK_EPHEMERAL_PORT_START;
     }
@@ -245,7 +328,11 @@ struct LoopbackConnectedSocket {
 impl LoopbackConnectedSocket {
     fn release_reservation(&mut self) {
         if let Some(key) = self.reservation_key.take() {
-            self.networking.state.lock().unwrap().tcp_bound.remove(&key);
+            self.networking
+                .state
+                .lock()
+                .unwrap()
+                .release_tcp_bound_addr(key);
         }
     }
 }
@@ -407,10 +494,10 @@ impl LoopbackTcpListener {
         }
     }
 
-    pub fn connect_to(&self, addr_local: SocketAddr) -> TcpSocketHalf {
+    pub fn connect_to(&self, addr_local: SocketAddr, listener_addr: SocketAddr) -> TcpSocketHalf {
         let mut state = self.state.lock().unwrap();
         let (mut half1, half2) =
-            TcpSocketHalf::channel(DEFAULT_MAX_BUFFER_SIZE, state.addr_local, addr_local);
+            TcpSocketHalf::channel(DEFAULT_MAX_BUFFER_SIZE, listener_addr, addr_local);
         half1.set_ttl(u32::from(state.ttl)).ok();
 
         state.backlog.push_back(half1);
@@ -499,7 +586,7 @@ impl Drop for LoopbackTcpBoundSocket {
     fn drop(&mut self) {
         if let Some(reservation_key) = self.reservation_key.take() {
             let mut state = self.networking.state.lock().unwrap();
-            state.tcp_bound.remove(&reservation_key);
+            state.release_tcp_bound_addr(reservation_key);
         }
     }
 }
@@ -514,16 +601,7 @@ impl VirtualTcpBoundSocket for LoopbackTcpBoundSocket {
             LoopbackTcpListener::new(self.local_addr, u8::try_from(self.ttl).unwrap_or(u8::MAX));
         let mut state = self.networking.state.lock().unwrap();
         let reservation_key = self.reservation_key.ok_or(NetworkError::InvalidFd)?;
-        if !state.tcp_bound.remove(&reservation_key) {
-            return Err(NetworkError::InvalidFd);
-        }
-        if state.tcp_listeners.contains_key(&reservation_key) {
-            state.tcp_bound.insert(reservation_key);
-            return Err(NetworkError::AddressInUse);
-        }
-        state
-            .tcp_listeners
-            .insert(reservation_key, listener.clone());
+        state.promote_tcp_bound_addr(reservation_key, listener.clone())?;
         self.reservation_key = None;
         Ok(Box::new(listener))
     }
