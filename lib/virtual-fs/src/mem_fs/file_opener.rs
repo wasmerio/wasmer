@@ -857,7 +857,10 @@ mod test_file_opener {
             .write(true)
             .create_new(true)
             .open(path!("/foo.txt"))
-            .expect("create file in backing fs");
+            .expect("create file in backing fs")
+            .write_all(b"backing contents")
+            .await
+            .unwrap();
 
         fs.insert_arc_directory_at(
             path!("/mnt").to_path_buf(),
@@ -866,9 +869,14 @@ mod test_file_opener {
         )
         .expect("mount arc directory");
 
-        let metadata = fs.metadata(path!("/mnt")).expect("stat arc directory");
-        assert!(metadata.is_dir());
-        assert!(!metadata.is_file());
+        for metadata in [
+            fs.metadata(path!("/mnt")),
+            fs.symlink_metadata(path!("/mnt")),
+        ] {
+            let metadata = metadata.expect("stat arc directory");
+            assert!(metadata.is_dir());
+            assert!(!metadata.is_file());
+        }
 
         let entry = fs
             .read_dir(path!("/"))
@@ -891,7 +899,15 @@ mod test_file_opener {
         file.read_to_string(&mut contents)
             .await
             .expect("read redirected file");
-        assert_eq!(contents, "");
+        assert_eq!(contents, "backing contents");
+
+        backing
+            .new_open_options()
+            .write(true)
+            .create_new(true)
+            .open(path!("/added.txt"))
+            .unwrap();
+        assert!(fs.metadata(path!("/mnt/added.txt")).unwrap().is_file());
 
         assert!(
             matches!(
