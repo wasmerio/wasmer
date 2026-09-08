@@ -40,6 +40,7 @@ pub use self::{
     builder::*,
     env::{WasiEnv, WasiEnvInit, WasiModuleInstanceHandles, WasiModuleTreeHandles},
     func_env::WasiFunctionEnv,
+    linker::PreparedInstanceGroupData,
     types::*,
 };
 pub use crate::fs::{InodeGuard, InodeWeakGuard};

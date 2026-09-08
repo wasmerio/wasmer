@@ -115,8 +115,8 @@ pub use crate::{
     rewind::*,
     runtime::{PluggableRuntime, Runtime, task_manager::VirtualTaskManager},
     state::{
-        ALL_RIGHTS, WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv,
-        WasiModuleInstanceHandles, WasiModuleTreeHandles, WasiStateCreationError,
+        ALL_RIGHTS, PreparedInstanceGroupData, WasiEnv, WasiEnvBuilder, WasiEnvInit,
+        WasiFunctionEnv, WasiModuleInstanceHandles, WasiModuleTreeHandles, WasiStateCreationError,
     },
     syscalls::{journal::wait_for_snapshot, rewind, rewind_ext, types, unwind},
     utils::is_wasix_module,

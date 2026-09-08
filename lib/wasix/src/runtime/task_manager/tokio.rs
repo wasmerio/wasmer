@@ -144,8 +144,8 @@ impl VirtualTaskManager for TokioTaskManager {
         ) -> Result<(WasiFunctionEnv, wasmer::Store, TaskWasmCallbacks), WasiThreadError> {
             let (make_memory, instance_group_data) = match task.spawn_type {
                 SpawnType::CreateMemory => (SpawnMemoryTypeOrStore::New, None),
-                SpawnType::NewLinkerInstanceGroup(instance_group_data) => {
-                    (SpawnMemoryTypeOrStore::New, Some(instance_group_data))
+                SpawnType::NewLinkerInstanceGroup { data, memory } => {
+                    (SpawnMemoryTypeOrStore::New, Some((data, memory)))
                 }
                 SpawnType::CreateMemoryOfType(t) => (SpawnMemoryTypeOrStore::Type(t), None),
                 SpawnType::AttachMemory(mem) => {

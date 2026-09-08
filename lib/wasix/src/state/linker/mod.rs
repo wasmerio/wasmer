@@ -293,7 +293,9 @@ use std::{
 
 use bus::Bus;
 use tracing::trace;
-use wasmer::{AsStoreMut, Engine, FunctionEnvMut, Memory, Module, StoreMut, Tag, Type};
+use wasmer::{
+    AsStoreMut, Engine, FunctionEnvMut, Memory, Module, SharedMemory, StoreMut, Tag, Type,
+};
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use crate::{WasiEnv, WasiFunctionEnv, WasiModuleTreeHandles, import_object_for_all_wasi_versions};
@@ -416,7 +418,6 @@ impl Linker {
 
         let mut linker_state = LinkerState {
             engine,
-            main_module: main_module.clone(),
             main_module_dylink_info: dylink_section,
             main_module_memory_base: memory_base,
             side_modules: BTreeMap::new(),
@@ -604,11 +605,12 @@ impl Linker {
     /// environment, so a child thread can later call [`Self::create_instance_group`]
     /// and have its own instance group, letting it take part in dynamic linking.
     /// This two-part process is needed because the parent and child each have
-    /// their own [`Store`], and [`Store`]s are not `Send`.
+    /// their own [`Store`], and [`Store`]s are not `Send`. Memory is returned separately
+    /// so task managers can transport its handle without embedding it in shared linker state.
     pub fn prepare_for_instance_group(
         &self,
         parent_ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    ) -> Result<PreparedInstanceGroupData, LinkError> {
+    ) -> Result<(PreparedInstanceGroupData, SharedMemory), LinkError> {
         trace!("Preparing for new instance group");
 
         lock_instance_group_state!(
@@ -640,13 +642,15 @@ impl Linker {
             .indirect_function_table
             .size(&parent_store);
 
-        Ok(PreparedInstanceGroupData {
-            linker_shared: self.shared.clone(),
-            topology_token,
+        Ok((
+            PreparedInstanceGroupData {
+                linker_shared: self.shared.clone(),
+                topology_token,
+                indirect_function_table_type,
+                expected_table_length,
+            },
             memory,
-            indirect_function_table_type,
-            expected_table_length,
-        })
+        ))
     }
 
     pub(crate) fn do_pending_link_operations(
@@ -672,6 +676,8 @@ impl Linker {
 
     pub fn create_instance_group(
         prepared_instance_group_data: PreparedInstanceGroupData,
+        main_module: &Module,
+        memory: SharedMemory,
         store: &mut StoreMut<'_>,
         func_env: &mut WasiFunctionEnv,
     ) -> Result<(Self, LinkedMainModule), LinkError> {
@@ -680,7 +686,6 @@ impl Linker {
         let PreparedInstanceGroupData {
             linker_shared,
             topology_token,
-            memory,
             indirect_function_table_type,
             expected_table_length,
         } = prepared_instance_group_data;
@@ -688,9 +693,7 @@ impl Linker {
         let (topology_hold, mut ls_write) =
             linker_shared.write_linker_state_blocking_holding_topology(topology_token);
 
-        let main_module = ls_write.main_module.clone();
-
-        let mut imports = import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
+        let mut imports = import_object_for_all_wasi_versions(main_module, store, &func_env.env);
 
         let memory = memory.attach(store);
 
@@ -718,7 +721,7 @@ impl Linker {
 
         // WASIX threads initialize their own stack pointer global in wasi_thread_start,
         // so no need to initialize it to a value here.
-        let stack_pointer = create_main_stack_pointer_global(store, &main_module, 0)?;
+        let stack_pointer = create_main_stack_pointer_global(store, main_module, 0)?;
 
         let c_longjmp = Tag::new(store, vec![Type::I32]);
         let cpp_exception = Tag::new(store, vec![Type::I32]);
@@ -754,7 +757,7 @@ impl Linker {
             MAIN_MODULE_HANDLE,
             &ls_write,
             store,
-            &main_module,
+            main_module,
             &mut imports,
             &func_env.env,
             &well_known_imports,
@@ -764,7 +767,7 @@ impl Linker {
         let main_instance = instantiate_with_runtime_hooks(
             &func_env.env,
             store,
-            &main_module,
+            main_module,
             &mut imports,
             &memory,
         )?;
