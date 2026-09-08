@@ -213,9 +213,9 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
             env.state.fs.close_fd(op.fd)
         }
         ProcSpawnFdOpName::Dup2 => {
-            let flush_target = env.state.fs.dup2_at(op.src_fd, op.fd)?;
-            if let Some(file) = flush_target {
-                block_on(WasiFs::flush_file_best_effort(file));
+            let shutdown_target = env.state.fs.dup2_at(op.src_fd, op.fd)?;
+            if let Some(file) = shutdown_target {
+                block_on(WasiFs::shutdown_file_best_effort(file));
             }
             Ok(())
         }
