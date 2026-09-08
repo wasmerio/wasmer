@@ -33,8 +33,8 @@ pub struct Pipe {
 
 #[derive(Debug, Clone)]
 pub struct PipeTx {
-    /// Sends bytes down the pipe
-    tx: Option<mpsc::UnboundedSender<Vec<u8>>>,
+    /// Shared across clones to identify the final writer atomically.
+    tx: Option<Arc<mpsc::UnboundedSender<Vec<u8>>>>,
     rx_end: Weak<Mutex<PipeReceiver>>,
 }
 
@@ -130,11 +130,14 @@ impl PipeRx {
         }
     }
 
-    pub fn set_interest_handler(&self, interest_handler: Box<dyn InterestHandler>) {
+    pub fn set_interest_handler(&self, mut interest_handler: Box<dyn InterestHandler>) {
         let Some(ref rx) = self.rx else {
             return;
         };
         let mut rx = rx.lock().unwrap();
+        if rx.chan.is_closed() {
+            interest_handler.push_interest(InterestType::Closed);
+        }
         rx.interest_handler.replace(interest_handler);
     }
 
@@ -165,7 +168,7 @@ impl Pipe {
         }));
         Pipe {
             send: PipeTx {
-                tx: Some(tx),
+                tx: Some(Arc::new(tx)),
                 rx_end: Arc::downgrade(&recv),
             },
             recv: PipeRx { rx: Some(recv) },
@@ -215,7 +218,21 @@ impl Default for Pipe {
 
 impl PipeTx {
     pub fn close(&mut self) {
-        _ = self.tx.take();
+        let Some(sender) = self.tx.take() else {
+            return;
+        };
+        let Some(sender) = Arc::into_inner(sender) else {
+            return;
+        };
+        drop(sender);
+
+        let Some(rx_end) = self.rx_end.upgrade() else {
+            return;
+        };
+        let mut receiver = rx_end.lock().unwrap();
+        if let Some(interest_handler) = receiver.interest_handler.as_mut() {
+            interest_handler.push_interest(InterestType::Closed);
+        }
     }
 
     pub fn poll_write_ready(self: Pin<&mut Self>) -> Poll<io::Result<usize>> {
@@ -240,6 +257,12 @@ impl PipeTx {
                 interest_handler.push_interest(InterestType::Readable);
             }
         }
+    }
+}
+
+impl Drop for PipeTx {
+    fn drop(&mut self) {
+        self.close();
     }
 }
 
@@ -601,3 +624,170 @@ impl DuplexPipe {
 /// Shared version of BidiPipe for situations where you need
 /// to emulate the old behaviour of `Pipe` (both send and recv on one channel).
 pub type WasiBidirectionalSharedPipePair = ArcFile<DuplexPipe>;
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        sync::{Arc, Barrier, Mutex, mpsc},
+        thread,
+        time::{Duration, Instant},
+    };
+
+    use super::*;
+
+    #[derive(Debug, Clone)]
+    struct RecordingHandler {
+        interests: Arc<Mutex<Vec<InterestType>>>,
+    }
+
+    impl InterestHandler for RecordingHandler {
+        fn push_interest(&mut self, interest: InterestType) {
+            self.interests.lock().unwrap().push(interest);
+        }
+
+        fn pop_interest(&mut self, interest: InterestType) -> bool {
+            let mut interests = self.interests.lock().unwrap();
+            let Some(index) = interests.iter().position(|item| *item == interest) else {
+                return false;
+            };
+            interests.remove(index);
+            true
+        }
+
+        fn has_interest(&self, interest: InterestType) -> bool {
+            self.interests.lock().unwrap().contains(&interest)
+        }
+    }
+
+    fn recording_handler() -> (Box<RecordingHandler>, Arc<Mutex<Vec<InterestType>>>) {
+        let interests = Arc::new(Mutex::new(Vec::new()));
+        (
+            Box::new(RecordingHandler {
+                interests: interests.clone(),
+            }),
+            interests,
+        )
+    }
+
+    #[test]
+    fn final_sender_close_notifies_once_and_exposes_eof() {
+        let (mut sender, mut receiver) = Pipe::new().split();
+        let mut other_sender = sender.clone();
+        let (handler, interests) = recording_handler();
+        receiver.set_interest_handler(handler);
+
+        sender.close();
+        assert!(interests.lock().unwrap().is_empty());
+        assert_eq!(receiver.try_read(&mut [0; 1]), None);
+
+        other_sender.close();
+        assert_eq!(*interests.lock().unwrap(), [InterestType::Closed]);
+        assert_eq!(receiver.try_read(&mut [0; 1]), Some(0));
+
+        other_sender.close();
+        assert_eq!(*interests.lock().unwrap(), [InterestType::Closed]);
+    }
+
+    #[test]
+    fn dropping_final_sender_notifies_receiver() {
+        let (sender, receiver) = Pipe::new().split();
+        let (handler, interests) = recording_handler();
+        receiver.set_interest_handler(handler);
+
+        drop(sender);
+
+        assert_eq!(*interests.lock().unwrap(), [InterestType::Closed]);
+    }
+
+    #[test]
+    fn late_handler_observes_closed_channel() {
+        let (sender, receiver) = Pipe::new().split();
+        drop(sender);
+        let (handler, interests) = recording_handler();
+
+        receiver.set_interest_handler(handler);
+
+        assert_eq!(*interests.lock().unwrap(), [InterestType::Closed]);
+    }
+
+    #[test]
+    fn buffered_data_survives_final_sender_close() {
+        let (mut sender, mut receiver) = Pipe::new().split();
+        std::io::Write::write_all(&mut sender, b"payload").unwrap();
+        drop(sender);
+        let (handler, interests) = recording_handler();
+        receiver.set_interest_handler(handler);
+
+        let mut payload = [0; 7];
+        assert_eq!(receiver.try_read(&mut payload), Some(payload.len()));
+        assert_eq!(&payload, b"payload");
+        assert_eq!(receiver.try_read(&mut [0; 1]), Some(0));
+        assert_eq!(*interests.lock().unwrap(), [InterestType::Closed]);
+    }
+
+    #[test]
+    fn sender_keeps_only_a_weak_receiver_reference() {
+        let (mut sender, receiver) = Pipe::new().split();
+        let receiver_ref = sender.rx_end.clone();
+        drop(receiver);
+
+        assert!(receiver_ref.upgrade().is_none());
+        sender.close();
+        assert!(sender.tx.is_none());
+    }
+
+    #[test]
+    fn non_final_sender_close_does_not_take_receiver_lock() {
+        let (mut sender, receiver) = Pipe::new().split();
+        let other_sender = sender.clone();
+        let receiver_ref = receiver.rx.as_ref().unwrap().clone();
+        let receiver_guard = receiver_ref.lock().unwrap();
+        let barrier = Arc::new(Barrier::new(2));
+        let worker_barrier = barrier.clone();
+        let (done_tx, done_rx) = mpsc::channel();
+
+        let worker = thread::spawn(move || {
+            worker_barrier.wait();
+            sender.close();
+            done_tx.send(()).unwrap();
+        });
+        barrier.wait();
+
+        done_rx
+            .recv_timeout(Duration::from_secs(1))
+            .expect("a non-final close waited for the receiver lock");
+        assert!(!receiver_guard.chan.is_closed());
+        drop(receiver_guard);
+        worker.join().unwrap();
+        drop(other_sender);
+    }
+
+    #[test]
+    fn final_sender_drops_channel_before_taking_receiver_lock() {
+        let (mut sender, receiver) = Pipe::new().split();
+        let receiver_ref = receiver.rx.as_ref().unwrap().clone();
+        let receiver_guard = receiver_ref.lock().unwrap();
+        let barrier = Arc::new(Barrier::new(2));
+        let worker_barrier = barrier.clone();
+        let (done_tx, done_rx) = mpsc::channel();
+
+        let worker = thread::spawn(move || {
+            worker_barrier.wait();
+            sender.close();
+            done_tx.send(()).unwrap();
+        });
+        barrier.wait();
+
+        let deadline = Instant::now() + Duration::from_secs(1);
+        while !receiver_guard.chan.is_closed() && Instant::now() < deadline {
+            thread::yield_now();
+        }
+        let channel_closed_before_unlock = receiver_guard.chan.is_closed();
+        let close_result = done_rx.recv_timeout(Duration::from_millis(50));
+        drop(receiver_guard);
+        worker.join().unwrap();
+
+        assert!(channel_closed_before_unlock);
+        assert!(matches!(close_result, Err(mpsc::RecvTimeoutError::Timeout)));
+    }
+}
