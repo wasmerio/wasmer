@@ -148,7 +148,8 @@ pub struct Wasi {
     // and when --net=<ruleset> is specified, the inner Option will be initialized: Some(Some(ruleset))
     pub networking: Option<Option<String>>,
 
-    /// Disables the TTY bridge
+    /// Disables the TTY bridge, and makes the guest see stdio as not being a
+    /// terminal
     #[clap(long = "no-tty")]
     pub no_tty: bool,
 
@@ -355,6 +356,12 @@ impl Wasi {
             .envs(self.env_vars.clone())
             .uses(uses)
             .map_commands(map_commands);
+
+        // `--no-tty` means the guest should see no terminal at all, not just
+        // that we withhold the `TtyBridge`, so force `isatty` to say so too.
+        if self.no_tty {
+            builder.set_stdio_is_terminal(Some(false));
+        }
 
         let mut builder = {
             let mount_fs = RootFileSystemBuilder::new()

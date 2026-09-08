@@ -72,6 +72,10 @@
 //!
 //! `StdinFile:{relative_path}` writes a fixture file to the test program's stdin.
 //!
+//! `StdioIsTerminal:{bool}` forces whether the guest sees stdin/stdout/stderr as
+//! a terminal. Stdio otherwise has no opinion, which WASIX reports as a
+//! character device, so `isatty` defaults to true.
+//!
 //! `ProgramName:{name}` overrides argv[0].
 //!
 //! `DefaultMappedDirectories:{bool}` controls the harness default directory mappings.
@@ -259,6 +263,7 @@ struct Config {
     build_env: Vec<(String, String)>,
     env: Vec<(String, String)>,
     stdin: Option<Vec<u8>>,
+    stdio_is_terminal: Option<bool>,
     ignored: Option<String>,
     skipped_engines: Vec<(Engine, String)>,
     unix_only: bool,
@@ -304,6 +309,7 @@ impl Config {
             expected_stdout: Vec::new(),
             expected_stderr: Vec::new(),
             stdin: None,
+            stdio_is_terminal: None,
             ignored: None,
             skipped_engines: Vec::new(),
             unix_only: false,
@@ -603,6 +609,9 @@ fn process_directive(
         }
         "StdinFile" => {
             config.stdin = Some(read_fixture_bytes(&config.test_src_dir, arg, "StdinFile")?);
+        }
+        "StdioIsTerminal" => {
+            config.stdio_is_terminal = Some(arg.parse::<bool>()?);
         }
         "ProgramName" => {
             config.program_name = Some(arg.to_owned());
@@ -1208,6 +1217,7 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
     }
 
     let stdin = config.stdin.clone();
+    let stdio_is_terminal = config.stdio_is_terminal;
 
     let mut extra_temporary_folders = Vec::new();
     let result = runner::run_wasm_with_runner_config(
@@ -1225,8 +1235,13 @@ fn run_integration_test(config: Config) -> Result<libtest_mimic::Completion> {
                 runner.with_envs(config.env.iter().cloned());
             }
 
-            if let Some(stdin) = stdin {
-                runner.with_stdin(Box::new(StaticFile::new(stdin)));
+            // Always pinned: left unset, stdin would be the host process's own,
+            // and `isatty(0)` would then depend on whether the suite was run
+            // from a terminal.
+            runner.with_stdin(Box::new(StaticFile::new(stdin.unwrap_or_default())));
+
+            if let Some(stdio_is_terminal) = stdio_is_terminal {
+                runner.with_stdio_is_terminal(stdio_is_terminal);
             }
 
             configure_mapped_directories(runner, &config, &mut extra_temporary_folders)?;

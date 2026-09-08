@@ -422,13 +422,6 @@ impl InodeValFileWriteGuard {
             guard: crate::utils::write_owned(file).unwrap(),
         }
     }
-    pub(crate) fn swap(
-        &mut self,
-        mut file: Box<dyn VirtualFile + Send + Sync + 'static>,
-    ) -> Box<dyn VirtualFile + Send + Sync + 'static> {
-        std::mem::swap(self.guard.deref_mut(), &mut file);
-        file
-    }
 }
 
 impl Deref for InodeValFileWriteGuard {
@@ -446,6 +439,7 @@ impl DerefMut for InodeValFileWriteGuard {
 #[derive(Debug)]
 pub(crate) struct WasiStateFileGuard {
     inode: InodeGuard,
+    is_stdio: bool,
 }
 
 impl WasiStateFileGuard {
@@ -454,6 +448,7 @@ impl WasiStateFileGuard {
         if let Some(fd) = fd_map.get(fd) {
             Ok(Some(Self {
                 inode: fd.inode.clone(),
+                is_stdio: fd.is_stdio,
             }))
         } else {
             Ok(None)
@@ -556,6 +551,18 @@ impl VirtualFile for WasiStateFileGuard {
         } else {
             false
         }
+    }
+
+    fn is_terminal(&self) -> Option<bool> {
+        if self.is_stdio {
+            // Export the effective status, including overrides, without waiting
+            // for a read or write that holds the backing file's lock.
+            return Some(
+                self.inode.stat.read().unwrap().st_filetype == wasi::Filetype::CharacterDevice,
+            );
+        }
+        let guard = self.lock_read();
+        guard.as_ref().and_then(|file| file.is_terminal())
     }
 
     fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<std::io::Result<usize>> {
