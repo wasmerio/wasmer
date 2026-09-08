@@ -108,6 +108,7 @@ async fn test_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkingServe
         .connect_tcp(SocketAddr::from((Ipv4Addr::LOCALHOST, 0)), addr)
         .await
         .unwrap();
+    assert_eq!(socket.addr_peer().unwrap(), addr);
 
     tracing::info!("sending test string - {TEST1}");
     socket.write_all(TEST1.as_bytes()).await.unwrap();
@@ -147,6 +148,32 @@ async fn test_bound_tcp(client: RemoteNetworkingClient, _server: RemoteNetworkin
         addr_after_listen, addr_after_bind,
         "remote listen should preserve the already-bound local address"
     );
+}
+
+#[cfg(all(feature = "remote", not(target_os = "windows")))]
+async fn test_failed_tcp_peer(client: RemoteNetworkingClient, _server: RemoteNetworkingServer) {
+    use tokio::time::{Duration, Instant, sleep};
+
+    let probe = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let peer = probe.local_addr().unwrap();
+    drop(probe);
+
+    let socket = client
+        .connect_tcp(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)), peer)
+        .await
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(1);
+    loop {
+        match socket.addr_peer() {
+            Err(NetworkError::NotConnected) => break,
+            Ok(addr) => {
+                assert_eq!(addr, peer);
+                assert!(Instant::now() < deadline, "remote peer stayed fabricated");
+                sleep(Duration::from_millis(10)).await;
+            }
+            Err(err) => panic!("remote failed connection returned unexpected error: {err:?}"),
+        }
+    }
 }
 
 #[cfg(feature = "remote")]
@@ -232,6 +259,15 @@ async fn test_tcp_with_mpsc() {
 async fn test_bound_tcp_with_mpsc() {
     let (client, server) = setup_mpsc().await;
     test_bound_tcp(client, server).await
+}
+
+#[cfg(all(feature = "remote", not(target_os = "windows")))]
+#[traced_test]
+#[tokio::test(flavor = "multi_thread")]
+#[serial_test::serial]
+async fn test_failed_tcp_peer_with_mpsc() {
+    let (client, server) = setup_mpsc().await;
+    test_failed_tcp_peer(client, server).await
 }
 
 #[cfg(feature = "remote")]
@@ -673,6 +709,44 @@ async fn test_failed_connect_status_stays_failed() {
     }
 
     assert!(matches!(socket.status().unwrap(), SocketStatus::Failed));
+}
+
+#[cfg(not(target_os = "windows"))]
+#[traced_test]
+#[tokio::test]
+#[serial_test::serial]
+async fn test_failed_connect_peer_queries_preserve_socket_error() {
+    use tokio::time::{Duration, Instant, sleep};
+
+    let probe = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+    let peer = probe.local_addr().unwrap();
+    drop(probe);
+
+    let networking = LocalNetworking::new();
+    let socket = networking
+        .connect_tcp(SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)), peer)
+        .await
+        .unwrap();
+
+    let deadline = Instant::now() + Duration::from_secs(1);
+    loop {
+        assert_eq!(socket.addr_peer(), Err(NetworkError::NotConnected));
+        match socket.status().unwrap() {
+            SocketStatus::Failed => break,
+            SocketStatus::Opening => {
+                assert!(Instant::now() < deadline, "connection did not fail in time");
+                sleep(Duration::from_millis(10)).await;
+            }
+            SocketStatus::Opened => panic!("unused localhost port unexpectedly connected"),
+            SocketStatus::Closed => panic!("connect status unexpectedly reported Closed"),
+        }
+    }
+
+    assert_eq!(socket.addr_peer(), Err(NetworkError::NotConnected));
+    assert_eq!(
+        socket.last_error().unwrap(),
+        Some(NetworkError::ConnectionRefused)
+    );
 }
 
 #[cfg(not(target_os = "windows"))]

@@ -896,14 +896,9 @@ impl InodeSocket {
         let inner = self.inner.protected.read().unwrap();
         match &inner.kind {
             InodeSocketKind::BoundTcp { .. } => Err(Errno::Notconn),
-            InodeSocketKind::PreSocket { props, .. } => Ok(SocketAddr::new(
-                match props.family {
-                    Addressfamily::Inet4 => IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-                    Addressfamily::Inet6 => IpAddr::V6(Ipv6Addr::UNSPECIFIED),
-                    _ => return Err(Errno::Inval),
-                },
-                0,
-            )),
+            InodeSocketKind::PreSocket { .. } | InodeSocketKind::TcpListener { .. } => {
+                Err(Errno::Notconn)
+            }
             InodeSocketKind::TcpStream { socket, .. } => {
                 socket.addr_peer().map_err(net_error_into_wasi_err)
             }
@@ -1872,7 +1867,8 @@ mod tests {
     use virtual_mio::InterestHandler;
     use virtual_net::{
         NetworkError, Result as NetResult, SocketStatus, VirtualConnectedSocket, VirtualIoSource,
-        VirtualNetworking, VirtualSocket, VirtualTcpBoundSocket, VirtualTcpSocket,
+        VirtualNetworking, VirtualSocket, VirtualTcpBoundSocket, VirtualTcpListener,
+        VirtualTcpSocket,
     };
     use wasmer_wasix_types::wasi::{Addressfamily, Errno, SockProto, Socktype};
 
@@ -2045,6 +2041,46 @@ mod tests {
     }
 
     #[derive(Debug)]
+    struct MockTcpListener;
+
+    impl VirtualIoSource for MockTcpListener {
+        fn remove_handler(&mut self) {}
+
+        fn poll_read_ready(&mut self, _cx: &mut Context<'_>) -> Poll<NetResult<usize>> {
+            Poll::Pending
+        }
+
+        fn poll_write_ready(&mut self, _cx: &mut Context<'_>) -> Poll<NetResult<usize>> {
+            Poll::Pending
+        }
+    }
+
+    impl VirtualTcpListener for MockTcpListener {
+        fn try_accept(&mut self) -> NetResult<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
+            Err(NetworkError::WouldBlock)
+        }
+
+        fn set_handler(
+            &mut self,
+            _handler: Box<dyn InterestHandler + Send + Sync>,
+        ) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn addr_local(&self) -> NetResult<SocketAddr> {
+            Ok(SocketAddr::from((Ipv4Addr::LOCALHOST, 1234)))
+        }
+
+        fn set_ttl(&mut self, _ttl: u8) -> NetResult<()> {
+            Ok(())
+        }
+
+        fn ttl(&self) -> NetResult<u8> {
+            Ok(64)
+        }
+    }
+
+    #[derive(Debug)]
     struct PendingBindNetworking;
 
     #[async_trait::async_trait]
@@ -2101,6 +2137,38 @@ mod tests {
         assert!(matches!(inode.status().unwrap(), WasiSocketStatus::Opening));
         status.store(MOCK_STATUS_OPENED, Ordering::Relaxed);
         assert!(matches!(inode.status().unwrap(), WasiSocketStatus::Opened));
+    }
+
+    #[test]
+    fn inode_socket_unconnected_tcp_has_no_peer() {
+        let presocket = InodeSocket::new(InodeSocketKind::PreSocket {
+            props: SocketProperties {
+                family: Addressfamily::Inet4,
+                ty: Socktype::Stream,
+                pt: SockProto::Tcp,
+                only_v6: false,
+                reuse_port: false,
+                reuse_addr: false,
+                no_delay: None,
+                keep_alive: None,
+                dont_route: None,
+                send_buf_size: None,
+                recv_buf_size: None,
+                write_timeout: None,
+                read_timeout: None,
+                accept_timeout: None,
+                connect_timeout: None,
+                handler: None,
+            },
+            addr: None,
+        });
+        let listener = InodeSocket::new(InodeSocketKind::TcpListener {
+            socket: Box::new(MockTcpListener),
+            accept_timeout: None,
+        });
+
+        assert_eq!(presocket.addr_peer(), Err(Errno::Notconn));
+        assert_eq!(listener.addr_peer(), Err(Errno::Notconn));
     }
 
     #[test]

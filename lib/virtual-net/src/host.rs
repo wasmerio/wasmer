@@ -236,7 +236,7 @@ impl VirtualNetworking for LocalNetworking {
     async fn connect_tcp(
         &self,
         _addr: SocketAddr,
-        mut peer: SocketAddr,
+        peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         if let Some(ruleset) = self.ruleset.as_ref()
             && !ruleset.allows_socket(peer, Direction::Outbound)
@@ -247,10 +247,7 @@ impl VirtualNetworking for LocalNetworking {
 
         let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
 
-        if let Ok(p) = stream.peer_addr() {
-            peer = p;
-        }
-        let socket = Box::new(LocalTcpStream::new(self.selector.clone(), stream, peer));
+        let socket = Box::new(LocalTcpStream::new(self.selector.clone(), stream));
         Ok(socket)
     }
 
@@ -314,7 +311,7 @@ impl LocalTcpListener {
                     return Err(NetworkError::PermissionDenied);
                 }
 
-                let mut socket = LocalTcpStream::new(self.selector.clone(), stream, addr);
+                let mut socket = LocalTcpStream::new(self.selector.clone(), stream);
                 if let Some(no_delay) = self.no_delay {
                     socket.set_nodelay(no_delay).ok();
                 }
@@ -478,7 +475,7 @@ impl VirtualTcpBoundSocket for LocalTcpBoundSocket {
         }))
     }
 
-    fn connect(&mut self, mut peer: SocketAddr) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
+    fn connect(&mut self, peer: SocketAddr) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
         if let Some(ruleset) = self.ruleset.as_ref()
             && !ruleset.allows_socket(peer, Direction::Outbound)
         {
@@ -494,14 +491,7 @@ impl VirtualTcpBoundSocket for LocalTcpBoundSocket {
         }
 
         let stream = mio::net::TcpStream::from_std(socket.into());
-        if let Ok(p) = stream.peer_addr() {
-            peer = p;
-        }
-        Ok(Box::new(LocalTcpStream::new(
-            self.selector.clone(),
-            stream,
-            peer,
-        )))
+        Ok(Box::new(LocalTcpStream::new(self.selector.clone(), stream)))
     }
 
     fn set_ttl(&mut self, ttl: u32) -> Result<()> {
@@ -534,7 +524,6 @@ enum ConnectState {
 #[derive(Debug)]
 pub struct LocalTcpStream {
     stream: mio::net::TcpStream,
-    addr: SocketAddr,
     shutdown: Option<Shutdown>,
     selector: Arc<Selector>,
     handler_guard: HandlerGuardState,
@@ -543,11 +532,10 @@ pub struct LocalTcpStream {
 }
 
 impl LocalTcpStream {
-    fn new(selector: Arc<Selector>, stream: mio::net::TcpStream, addr: SocketAddr) -> Self {
+    fn new(selector: Arc<Selector>, stream: mio::net::TcpStream) -> Self {
         #[allow(unused_mut)]
         let mut ret = Self {
             stream,
-            addr,
             shutdown: None,
             selector,
             handler_guard: HandlerGuardState::None,
@@ -680,7 +668,7 @@ impl VirtualTcpSocket for LocalTcpStream {
     }
 
     fn addr_peer(&self) -> Result<SocketAddr> {
-        Ok(self.addr)
+        self.stream.peer_addr().map_err(io_err_into_net_error)
     }
 
     fn shutdown(&mut self, how: Shutdown) -> Result<()> {

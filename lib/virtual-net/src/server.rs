@@ -970,14 +970,7 @@ impl RemoteNetworkingServerDriver {
                 req_id,
             ),
             RequestType::GetAddrPeer => self.process_inner(
-                move |socket| match socket {
-                    RemoteAdapterSocket::BoundTcp(_) => Err(NetworkError::Unsupported),
-                    RemoteAdapterSocket::TcpSocket(s) => s.addr_peer().map(Some),
-                    RemoteAdapterSocket::TcpListener { .. } => Err(NetworkError::Unsupported),
-                    RemoteAdapterSocket::UdpSocket(s) => s.addr_peer(),
-                    RemoteAdapterSocket::IcmpSocket(_) => Err(NetworkError::Unsupported),
-                    RemoteAdapterSocket::RawSocket(_) => Err(NetworkError::Unsupported),
-                },
+                move |socket| socket.addr_peer(),
                 |ret| match ret {
                     Ok(Some(addr)) => ResponseType::SocketAddr(addr),
                     Ok(None) => ResponseType::None,
@@ -1337,6 +1330,15 @@ enum RemoteAdapterSocket {
 }
 
 impl RemoteAdapterSocket {
+    fn addr_peer(&self) -> Result<Option<SocketAddr>, NetworkError> {
+        match self {
+            Self::BoundTcp(_) | Self::TcpListener { .. } => Err(NetworkError::NotConnected),
+            Self::TcpSocket(socket) => socket.addr_peer().map(Some),
+            Self::UdpSocket(socket) => socket.addr_peer(),
+            Self::IcmpSocket(_) | Self::RawSocket(_) => Err(NetworkError::Unsupported),
+        }
+    }
+
     pub fn send(
         &mut self,
         common: &Arc<RemoteAdapterCommon>,
@@ -1739,5 +1741,42 @@ impl RemoteAdapterCommon {
                 tracing::debug!("failed to send message - {}", err);
             }
         }))
+    }
+}
+
+#[cfg(all(test, feature = "host-net"))]
+mod tests {
+    use super::RemoteAdapterSocket;
+    use crate::{NetworkError, VirtualNetworking, host::LocalNetworking};
+    use std::net::{Ipv4Addr, SocketAddr};
+
+    #[tokio::test]
+    async fn unconnected_tcp_adapters_report_not_connected() {
+        let networking = LocalNetworking::new();
+        let bound = networking
+            .bind_tcp(
+                SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
+                false,
+                false,
+                false,
+            )
+            .await
+            .unwrap();
+        let bound_adapter = RemoteAdapterSocket::BoundTcp(bound);
+        assert_eq!(bound_adapter.addr_peer(), Err(NetworkError::NotConnected));
+
+        let mut bound = match bound_adapter {
+            RemoteAdapterSocket::BoundTcp(bound) => bound,
+            _ => unreachable!(),
+        };
+        let listener = bound.listen().unwrap();
+        let listener_adapter = RemoteAdapterSocket::TcpListener {
+            socket: listener,
+            next_accept: None,
+        };
+        assert_eq!(
+            listener_adapter.addr_peer(),
+            Err(NetworkError::NotConnected)
+        );
     }
 }
