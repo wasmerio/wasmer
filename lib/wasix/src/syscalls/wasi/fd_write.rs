@@ -144,7 +144,10 @@ impl<'a, M: MemorySize> FdWriteSource<'a, M> {
                     return Err(Errno::Msgsize);
                 }
 
-                let mut coalesced = Vec::with_capacity(total_len);
+                let mut coalesced = Vec::new();
+                coalesced
+                    .try_reserve_exact(total_len)
+                    .map_err(|_| Errno::Nomem)?;
 
                 for iov in iovs_arr.iter() {
                     let buf = WasmPtr::<u8, M>::new(iov.buf)
@@ -286,50 +289,19 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     let res = __asyncify_light(env, None, async {
                         let mut sent = 0usize;
 
-                        if socket.is_dgram() {
-                            let data = data.coalesce(&memory, MAX_SOCKET_PAYLOAD)?;
-                            sent += socket
-                                .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
-                                .await?;
-                            return Ok(sent);
-                        }
-
-                        match &data {
-                            FdWriteSource::Iovs { iovs, iovs_len } => {
-                                let iovs_arr =
-                                    iovs.slice(&memory, *iovs_len).map_err(mem_error_to_wasi)?;
-                                let iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)?;
-                                for iovs in iovs_arr.iter() {
-                                    let buf = WasmPtr::<u8, M>::new(iovs.buf)
-                                        .slice(&memory, iovs.buf_len)
-                                        .map_err(mem_error_to_wasi)?
-                                        .access()
-                                        .map_err(mem_error_to_wasi)?;
-                                    let local_sent = match socket
-                                        .send(
-                                            tasks.deref(),
-                                            buf.as_ref(),
-                                            Some(timeout),
-                                            nonblocking,
-                                        )
-                                        .await
-                                    {
-                                        Ok(sent) => sent,
-                                        Err(_) if sent > 0 => break,
-                                        Err(err) => return Err(err),
-                                    };
-                                    sent += local_sent;
-                                    if local_sent != buf.len() {
-                                        break;
-                                    }
-                                }
-                            }
-                            FdWriteSource::Buffer(data) => {
-                                sent += socket
-                                    .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
-                                    .await?;
-                            }
-                        }
+                        // VirtualConnectedSocket exposes one contiguous send operation. Preserve
+                        // writev's single-operation ordering by coalescing guest iovecs before
+                        // crossing that boundary; issuing one send per iovec lets the peer react
+                        // between logically adjacent protocol frames.
+                        let max_len = if socket.is_dgram() {
+                            MAX_SOCKET_PAYLOAD
+                        } else {
+                            usize::MAX
+                        };
+                        let data = data.coalesce(&memory, max_len)?;
+                        sent += socket
+                            .send(tasks.deref(), data.as_ref(), Some(timeout), nonblocking)
+                            .await?;
                         Ok(sent)
                     });
                     let written = wasi_try_ok_ok!(res?);

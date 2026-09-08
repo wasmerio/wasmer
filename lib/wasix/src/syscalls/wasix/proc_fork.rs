@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     WasiThreadHandle, WasiVForkAsyncify, capture_store_snapshot,
     os::task::OwnedTaskStatus,
-    runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
+    runtime::task_manager::{LocalTaskSpawner, TaskWasm, TaskWasmRunProperties, WasmTaskFuture},
     state::context_switching::ContextSwitchingEnvironment,
     syscalls::*,
 };
@@ -193,9 +193,10 @@ pub fn proc_fork<M: MemorySize>(
             let tasks_outer = tasks.clone();
             let store_data = store_data.clone();
 
-            let run = move |mut props: TaskWasmRunProperties| {
+            let run = move |props: TaskWasmRunProperties| async move {
                 let ctx = props.ctx;
                 let mut store = props.store;
+                let local_tasks = props.local_tasks;
 
                 // Rewind the stack and carry on
                 {
@@ -224,12 +225,12 @@ pub fn proc_fork<M: MemorySize>(
                 }
 
                 // Invoke the start function
-                run::<M>(ctx, store, child_handle, None);
+                run::<M>(ctx, store, child_handle, None, local_tasks).await;
             };
 
             tasks_outer
                 .task_wasm(
-                    TaskWasm::new(Box::new(run), child_env, module, false, false)
+                    TaskWasm::new(run, child_env, module, false, false)
                         .with_globals(snapshot)
                         .with_memory(spawn_type),
                 )
@@ -263,11 +264,12 @@ pub fn proc_fork<M: MemorySize>(
     })
 }
 
-fn run<M: MemorySize>(
+async fn run<M: MemorySize>(
     ctx: WasiFunctionEnv,
     mut store: Store,
     child_handle: WasiThreadHandle,
     rewind_state: Option<(RewindState, RewindResultType)>,
+    local_tasks: LocalTaskSpawner,
 ) -> ExitCode {
     let env = ctx.data(&store);
     let tasks = env.tasks().clone();
@@ -300,7 +302,14 @@ fn run<M: MemorySize>(
             .start
             .clone()
             .unwrap();
-        ContextSwitchingEnvironment::run_main_context(&ctx, store, start.into(), vec![])
+        ContextSwitchingEnvironment::run_main_context(
+            &ctx,
+            store,
+            start.into(),
+            vec![],
+            local_tasks.clone(),
+        )
+        .await
     } else {
         trace!(%pid, %tid, "re-invoking thread_spawn");
         let start = ctx
@@ -312,7 +321,14 @@ fn run<M: MemorySize>(
             .clone()
             .unwrap();
         let params = vec![0i32.into(), 0i32.into()];
-        ContextSwitchingEnvironment::run_main_context(&ctx, store, start.into(), params)
+        ContextSwitchingEnvironment::run_main_context(
+            &ctx,
+            store,
+            start.into(),
+            params,
+            local_tasks.clone(),
+        )
+        .await
     };
     if let Err(err) = err {
         match err.downcast::<WasiError>() {
@@ -326,16 +342,20 @@ fn run<M: MemorySize>(
                 let respawn = {
                     let tasks = tasks.clone();
                     let rewind_state = deep.rewind;
-                    move |ctx, store, rewind_result| {
-                        run::<M>(
-                            ctx,
-                            store,
-                            child_handle,
-                            Some((
-                                rewind_state,
-                                RewindResultType::RewindWithResult(rewind_result),
-                            )),
-                        );
+                    move |ctx, store, rewind_result, local_tasks| -> WasmTaskFuture {
+                        Box::pin(async move {
+                            run::<M>(
+                                ctx,
+                                store,
+                                child_handle,
+                                Some((
+                                    rewind_state,
+                                    RewindResultType::RewindWithResult(rewind_result),
+                                )),
+                                local_tasks,
+                            )
+                            .await;
+                        })
                     }
                 };
 

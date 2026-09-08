@@ -58,7 +58,7 @@ pub fn tty_set_internal(
     state: WasiTtyState,
 ) -> Result<(), Errno> {
     let env = ctx.data();
-    let bridge = if let Some(t) = env.runtime.tty() {
+    let bridge = if let Some(t) = env.tty() {
         t
     } else {
         return Err(Errno::Notsup);

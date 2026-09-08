@@ -1,14 +1,46 @@
 use std::sync::Mutex;
 use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
-use futures::{Future, future::BoxFuture};
+use futures::{
+    Future,
+    executor::{LocalPool, LocalSpawner},
+    future::BoxFuture,
+    task::LocalSpawnExt,
+};
 use tokio::runtime::{Handle, Runtime};
 use virtual_mio::block_on;
 
 use crate::runtime::{SpawnType, task_manager::TaskWasmCallbacks};
 use crate::{WasiFunctionEnv, os::task::thread::WasiThreadError};
 
-use super::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
+use super::{
+    LocalTaskSpawnError, LocalTaskSpawner, SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties,
+    VirtualTaskManager,
+};
+
+struct WorkerLocalSpawner(LocalSpawner);
+
+// SAFETY: `LocalTaskSpawner` checks the current thread before invoking this
+// wrapper, so the `LocalSpawner` is only accessed on its owning worker.
+unsafe impl Send for WorkerLocalSpawner {}
+// SAFETY: See the `Send` implementation above.
+unsafe impl Sync for WorkerLocalSpawner {}
+
+impl WorkerLocalSpawner {
+    fn spawn(&self, future: super::WasmTaskFuture) -> Result<(), LocalTaskSpawnError> {
+        self.0
+            .spawn_local(future)
+            .map_err(|error| match error.is_shutdown() {
+                true => LocalTaskSpawnError::ShutDown,
+                false => LocalTaskSpawnError::Spawn,
+            })
+    }
+}
+
+fn local_task_spawner(pool: &LocalPool) -> LocalTaskSpawner {
+    let spawner = WorkerLocalSpawner(pool.spawner());
+    LocalTaskSpawner::new(move |future| spawner.spawn(future))
+}
 
 #[derive(Debug, Clone)]
 pub enum RuntimeOrHandle {
@@ -234,13 +266,16 @@ impl VirtualTaskManager for TokioTaskManager {
                     })
                 };
 
-                // Invoke the callback
-                (callbacks.run)(TaskWasmRunProperties {
+                // Invoke the callback and any worker-local contexts it creates.
+                let mut local_pool = LocalPool::new();
+                let local_tasks = local_task_spawner(&local_pool);
+                local_pool.run_until((callbacks.run)(TaskWasmRunProperties {
                     ctx,
                     store,
+                    local_tasks,
                     trigger_result: Some(result),
                     recycle: callbacks.recycle,
-                });
+                }));
             });
         } else {
             tracing::trace!("spawning task_wasm in blocking thread");
@@ -263,13 +298,16 @@ impl VirtualTaskManager for TokioTaskManager {
                     block_on(pre_run(&mut ctx, &mut store));
                 }
 
-                // Invoke the callback
-                (callbacks.run)(TaskWasmRunProperties {
+                // Invoke the callback and any worker-local contexts it creates.
+                let mut local_pool = LocalPool::new();
+                let local_tasks = local_task_spawner(&local_pool);
+                local_pool.run_until((callbacks.run)(TaskWasmRunProperties {
                     ctx,
                     store,
+                    local_tasks,
                     trigger_result: None,
                     recycle: callbacks.recycle,
-                });
+                }));
             });
         }
 
@@ -327,5 +365,28 @@ impl Drop for SleepNow {
         if let Some(h) = self.abort_handle.as_ref() {
             h.abort()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use futures::channel::oneshot;
+
+    use super::*;
+
+    #[test]
+    fn wasm_callback_drives_worker_local_tasks() {
+        let mut pool = LocalPool::new();
+        let spawner = local_task_spawner(&pool);
+        let (completed, wait_for_completion) = oneshot::channel();
+
+        pool.run_until(async move {
+            spawner
+                .spawn(async move {
+                    completed.send(()).unwrap();
+                })
+                .unwrap();
+            wait_for_completion.await.unwrap();
+        });
     }
 }

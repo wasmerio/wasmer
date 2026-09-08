@@ -455,7 +455,7 @@ impl WasiProcess {
         impl SignalHandlerAbi for SignalHandler {
             fn signal(&self, signal: u8) -> Result<(), SignalDeliveryError> {
                 if let Ok(signal) = signal.try_into() {
-                    signal_process_internal(&self.0, signal);
+                    signal_process_internal(&self.0, signal, true);
                     Ok(())
                 } else {
                     Err(SignalDeliveryError)
@@ -599,9 +599,13 @@ impl WasiProcess {
 
         let inner = self.inner.0.lock().unwrap();
 
-        wake_atomic_waiters(&inner, signal);
         if let Some(thread) = inner.threads.get(&tid) {
-            thread.signal(signal);
+            if signal == Signal::Sigkill {
+                thread.set_status_finished(Ok(Errno::Intr.into()));
+                thread.signal(Signal::Sigwakeup);
+            } else {
+                thread.signal(signal);
+            }
         } else {
             trace!(
                 "wasi[{}]::lost-signal(tid={}, sig={:?})",
@@ -612,9 +616,15 @@ impl WasiProcess {
         }
     }
 
+    /// Wake threads blocked on this process's atomic waiters.
+    pub(crate) fn wake_atomic_waiters(&self, signal: Signal) {
+        let inner = self.inner.0.lock().unwrap();
+        wake_atomic_waiters(&inner, signal);
+    }
+
     /// Signals all the threads in this process
     pub fn signal_process(&self, signal: Signal) {
-        signal_process_internal(&self.inner, signal);
+        signal_process_internal(&self.inner, signal, false);
     }
 
     /// Registers the shared memory used by this process.
@@ -861,17 +871,24 @@ impl WasiProcess {
     pub fn terminate(&self, exit_code: ExitCode) {
         let pid = self.pid;
         tracing::trace!(%pid, %exit_code, "process-terminate");
-        // FIXME: this is wrong, threads might still be running!
-        // Need special logic for the main thread.
         let guard = self.inner.0.lock().unwrap();
+        wake_atomic_waiters(&guard, Signal::Sigwakeup);
         for thread in guard.threads.values() {
-            thread.set_status_finished(Ok(exit_code))
+            thread.set_status_finished(Ok(exit_code));
+            // Wake a thread blocked in a syscall without delivering a
+            // guest-visible termination signal. The finished status above is
+            // the source of truth for the next signal/exit checkpoint.
+            thread.signal(Signal::Sigwakeup);
         }
     }
 }
 
 /// Signals all the threads in this process
-fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
+fn signal_process_internal(
+    process: &LockableWasiProcessInner,
+    signal: Signal,
+    route_to_waited_child: bool,
+) {
     #[allow(unused_mut)]
     let mut guard = process.0.lock().unwrap();
     let pid = guard.pid;
@@ -901,15 +918,29 @@ fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
 
     // Check if there are subprocesses that will receive this signal
     // instead of this process
-    if guard.waiting.load(Ordering::Acquire) > 0 {
+    if route_to_waited_child && guard.waiting.load(Ordering::Acquire) > 0 {
         let mut triggered = false;
         for child in guard.children.iter() {
-            child.signal_process(signal);
+            signal_process_internal(&child.inner, signal, true);
             triggered = true;
         }
         if triggered {
             return;
         }
+    }
+
+    // SIGKILL is not catchable or observable by the guest. Mark every thread
+    // finished and wake blocked execution directly instead of invoking the
+    // libc signal trampoline. Delivering SIGKILL to that trampoline lets the
+    // guest's default handler call abort(), which can recursively fan out into
+    // SIGABRT diagnostics while a process tree is being torn down.
+    if signal == Signal::Sigkill {
+        wake_atomic_waiters(&guard, signal);
+        for thread in guard.threads.values() {
+            thread.set_status_finished(Ok(Errno::Intr.into()));
+            thread.signal(Signal::Sigwakeup);
+        }
+        return;
     }
 
     // Otherwise just send the signal to all the threads
@@ -934,9 +965,14 @@ fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
                 "failed to wake atomic waiters"
             );
         }
+    } else if signal == Signal::Sigwakeup {
+        // Sigwakeup is host-side-only. It is used when process status already
+        // carries the exit result and only blocked atomic waiters need to be
+        // resumed so they can observe it.
+        let _ = memory.wake_all_atomic_waiters();
     }
 
-    // TODO: Should other signals also wake up waiters?
+    // TODO: Should other guest-visible signals also wake up waiters?
     // We have low confidence this is useful outside the kill path.
     // SEE https://github.com/wasmerio/wasmer/pull/6536
     //
@@ -951,7 +987,6 @@ fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
     //         | Signal::Sigint
     //         | Signal::Sigstop
     //         | Signal::Sigpipe
-    //         | Signal::Sigwakeup
     // ) {
     //    memory.wake_all_atomic_waiters();
     // }
@@ -960,10 +995,85 @@ fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
 impl SignalHandlerAbi for WasiProcess {
     fn signal(&self, sig: u8) -> Result<(), SignalDeliveryError> {
         if let Ok(sig) = sig.try_into() {
-            self.signal_process(sig);
+            signal_process_internal(&self.inner, sig, true);
             Ok(())
         } else {
             Err(SignalDeliveryError)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::os::task::{
+        control_plane::{ControlPlaneConfig, WasiControlPlane},
+        thread::WasiMemoryLayout,
+    };
+
+    #[test]
+    fn terminate_wakes_threads_without_guest_visible_termination_signal() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: None,
+            enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
+        });
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let thread = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let exit_code = ExitCode::from(42u16);
+
+        process.terminate(exit_code);
+
+        assert_eq!(thread.try_join().unwrap().unwrap(), exit_code);
+        assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
+    }
+
+    #[test]
+    fn sigkill_finishes_threads_without_entering_the_guest_signal_handler() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: None,
+            enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
+        });
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let thread = process
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+
+        process.signal_process(Signal::Sigkill);
+
+        assert_eq!(
+            thread.try_join().unwrap().unwrap(),
+            ExitCode::from(Errno::Intr)
+        );
+        assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
+    }
+
+    #[test]
+    fn direct_signal_targets_the_requested_process_even_while_it_waits() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: None,
+            enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
+        });
+        let parent = plane.new_process(ModuleHash::random()).unwrap();
+        let parent_thread = parent
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        let child = plane.new_process(ModuleHash::random()).unwrap();
+        let child_thread = child
+            .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+            .unwrap();
+        parent.lock().children.push(child);
+        let _wait = WasiProcessWait::new(&parent);
+
+        parent.signal_process(Signal::Sigkill);
+
+        assert!(parent_thread.try_join().is_some());
+        assert!(child_thread.try_join().is_none());
+        assert_eq!(parent_thread.pop_signals(), vec![Signal::Sigwakeup]);
+        assert!(child_thread.pop_signals().is_empty());
     }
 }

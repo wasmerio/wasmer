@@ -154,7 +154,7 @@ impl VMExceptionRef {
 #[derive(Debug, Clone)]
 pub struct VMMemory(pub(super) *mut wasm_memory_t);
 struct SharedMemoryPointer(*mut wasm_shared_memory_t);
-pub struct VMSharedMemory(Arc<SharedMemoryPointer>);
+pub(crate) struct VMSharedMemory(Arc<SharedMemoryPointer>);
 pub(crate) type VMExternMemory = *mut wasm_memory_t;
 
 impl SharedMemoryPointer {
