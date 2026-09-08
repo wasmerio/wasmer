@@ -1238,6 +1238,86 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn dropped_any_and_all_waits_keep_children_registered() {
+        let (mut parent, children) = parent_with_children(2);
+
+        assert!(parent.join_any_child().now_or_never().is_none());
+        assert!(parent.join_children().now_or_never().is_none());
+        assert_eq!(parent.waiting.load(Ordering::Acquire), 0);
+        assert_eq!(parent.lock().children.len(), 2);
+        for child in &children {
+            assert_eq!(child.waiting.load(Ordering::Acquire), 0);
+            finish(child, 10);
+            assert!(parent.try_reap_child(Some(child.pid())).unwrap().is_some());
+        }
+    }
+
+    #[test]
+    fn concurrent_nonblocking_waiters_claim_one_status() {
+        let (parent, children) = parent_with_children(1);
+        let pid = children[0].pid();
+        finish(&children[0], 17);
+        let barrier = std::sync::Barrier::new(3);
+
+        let claim = |filter| {
+            barrier.wait();
+            parent.try_reap_child(filter).map(|result| {
+                let (pid, status) = result.expect("child is finished");
+                assert_eq!(status.unwrap().raw(), 17);
+                pid
+            })
+        };
+        let (first, second) = std::thread::scope(|scope| {
+            let first = scope.spawn(|| claim(Some(pid)));
+            let second = scope.spawn(|| claim(None));
+            barrier.wait();
+            (first.join().unwrap(), second.join().unwrap())
+        });
+
+        assert_one_reaper(pid, first, second);
+        assert!(parent.lock().children.is_empty());
+    }
+
+    #[tokio::test]
+    async fn any_wait_retries_when_a_nonblocking_wait_claims_the_exit() {
+        let (parent, children) = parent_with_children(2);
+        let wait = parent.join_any_child();
+        tokio::pin!(wait);
+        assert!(futures::poll!(&mut wait).is_pending());
+
+        finish(&children[0], 21);
+        let (pid, status) = parent.try_reap_child(None).unwrap().unwrap();
+        assert_eq!(pid, children[0].pid());
+        assert_eq!(status.unwrap().raw(), 21);
+        assert!(futures::poll!(&mut wait).is_pending());
+
+        finish(&children[1], 22);
+        let (pid, status) = wait.await.unwrap().unwrap();
+        assert_eq!(pid, children[1].pid());
+        assert_eq!(status.raw(), 22);
+        assert!(parent.lock().children.is_empty());
+    }
+
+    #[tokio::test]
+    async fn join_children_returns_only_a_status_it_claimed() {
+        let (mut parent, children) = parent_with_children(2);
+        let competing_parent = parent.clone();
+        let wait = parent.join_children();
+        tokio::pin!(wait);
+        assert!(futures::poll!(&mut wait).is_pending());
+
+        finish(&children[0], 21);
+        assert!(futures::poll!(&mut wait).is_pending());
+        let (pid, status) = competing_parent.try_reap_child(None).unwrap().unwrap();
+        assert_eq!(pid, children[0].pid());
+        assert_eq!(status.unwrap().raw(), 21);
+
+        finish(&children[1], 22);
+        assert_eq!(wait.await.unwrap().unwrap().raw(), 22);
+        assert!(competing_parent.lock().children.is_empty());
+    }
+
+    #[tokio::test]
     async fn specific_waiters_race_for_one_status() {
         let (parent, children) = parent_with_children(1);
         let pid = children[0].pid();
