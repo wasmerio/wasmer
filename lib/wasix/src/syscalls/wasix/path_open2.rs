@@ -1,6 +1,6 @@
 use super::*;
 use crate::VIRTUAL_ROOT_FD;
-use crate::fs::{FdList, WasiFs};
+use crate::fs::{FdList, MAX_FD, WasiFs};
 use crate::syscalls::*;
 
 /// ### `path_open()`
@@ -167,6 +167,9 @@ pub(crate) fn path_open_internal(
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
+    if let Some(target) = with_fd {
+        wasi_try_ok_ok!(validate_open_target(&env.state.fs, target));
+    }
     path_open_internal_with_symlink_depth(
         env,
         dirfd,
@@ -422,12 +425,29 @@ fn path_open_internal_with_symlink_depth(
         let out_fd = match guard.deref_mut() {
             Kind::File {
                 handle,
-                path,
                 fd: Some(special_fd),
                 ..
             } => {
-                assert!(handle.is_some());
-                *special_fd
+                if handle.is_none() {
+                    return Ok(Err(Errno::Badf));
+                }
+                let special_fd = *special_fd;
+                if let Some(target) = with_fd {
+                    drop(guard);
+                    wasi_try_ok_ok!(insert_fd_locked(
+                        &mut fd_map,
+                        state,
+                        adjusted_rights,
+                        adjusted_rights_inheriting,
+                        fs_flags,
+                        fd_flags,
+                        file_open_flags,
+                        inode,
+                        Some(target),
+                    ))
+                } else {
+                    special_fd
+                }
             }
             Kind::File {
                 handle,
@@ -463,15 +483,33 @@ fn path_open_internal_with_symlink_depth(
                     }
                 {
                     drop(guard);
-                    let dup_fd = wasi_try_ok_ok!(WasiFs::clone_fd_locked(
-                        &state.fs,
-                        &mut fd_map,
-                        special_fd,
-                        0,
-                        None,
-                    ));
-                    trace!(%dup_fd);
-                    return Ok(Ok(dup_fd));
+                    let out_fd = if let Some(target) = with_fd {
+                        let source = wasi_try_ok_ok!(WasiFs::get_fd_from_locked_map(
+                            &state.fs, &fd_map, special_fd,
+                        ));
+                        wasi_try_ok_ok!(WasiFs::ensure_file_handle_present(&source));
+                        wasi_try_ok_ok!(insert_fd_locked(
+                            &mut fd_map,
+                            state,
+                            adjusted_rights,
+                            adjusted_rights_inheriting,
+                            fs_flags,
+                            fd_flags,
+                            file_open_flags,
+                            source.inode,
+                            Some(target),
+                        ))
+                    } else {
+                        wasi_try_ok_ok!(WasiFs::clone_fd_locked(
+                            &state.fs,
+                            &mut fd_map,
+                            special_fd,
+                            0,
+                            None,
+                        ))
+                    };
+                    trace!(%out_fd);
+                    return Ok(Ok(out_fd));
                 }
 
                 let out_fd = wasi_try_ok_ok!(insert_fd_locked(
@@ -716,6 +754,21 @@ fn path_open_internal_with_symlink_depth(
             Ok(Err(maybe_inode.unwrap_err()))
         }
     }
+}
+
+pub(crate) fn validate_open_target(fs: &WasiFs, target: WasiFd) -> Result<(), Errno> {
+    if target > MAX_FD {
+        return Err(Errno::Badf);
+    }
+    if target == VIRTUAL_ROOT_FD {
+        return Err(Errno::Notsup);
+    }
+    if let Ok(fd) = fs.get_fd(target)
+        && fd.is_protected_preopen()
+    {
+        return Err(Errno::Notsup);
+    }
+    Ok(())
 }
 
 fn insert_fd_locked(

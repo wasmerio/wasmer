@@ -723,7 +723,7 @@ impl WasiFs {
                 .filter_map(|(k, v)| {
                     if v.inner.fd_flags.contains(Fdflagsext::CLOEXEC)
                         && !v.is_stdio
-                        && !v.inode.is_preopened
+                        && !v.is_protected_preopen()
                     {
                         tracing::trace!(fd = %k, "Closing FD due to CLOEXEC flag");
                         Some(k)
@@ -1905,10 +1905,11 @@ impl WasiFs {
     }
 
     pub fn prestat_fd(&self, fd: WasiFd) -> Result<Prestat, Errno> {
-        let inode = self.get_fd_inode(fd)?;
+        let entry = self.get_fd(fd)?;
+        let inode = &entry.inode;
         //trace!("in prestat_fd {:?}", self.get_fd(fd)?);
 
-        if inode.is_preopened {
+        if entry.is_preopened() {
             Ok(self.prestat_fd_inner(inode.deref()))
         } else {
             Err(Errno::Badf)
@@ -2139,7 +2140,7 @@ impl WasiFs {
         }
     }
 
-    fn ensure_file_handle_present(fd: &Fd) -> Result<(), Errno> {
+    pub(crate) fn ensure_file_handle_present(fd: &Fd) -> Result<(), Errno> {
         let guard = fd.inode.read();
         match guard.deref() {
             Kind::File { handle: None, .. } => Err(Errno::Badf),
@@ -2172,8 +2173,7 @@ impl WasiFs {
             }
 
             if let Some(target_fd) = fd_map.get(dst)
-                && !target_fd.is_stdio
-                && target_fd.inode.is_preopened
+                && target_fd.is_protected_preopen()
             {
                 warn!("Refusing dup2({src}, {dst}) because FD {dst} is pre-opened");
                 return Err(Errno::Notsup);
@@ -2684,7 +2684,7 @@ impl WasiFs {
             return CloseFdOutcome::not_found();
         };
 
-        if !fd_ref.is_stdio && fd_ref.inode.is_preopened {
+        if fd_ref.is_protected_preopen() {
             return CloseFdOutcome {
                 skipped_preopen: true,
                 removed: false,
