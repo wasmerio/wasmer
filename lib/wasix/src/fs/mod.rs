@@ -2157,6 +2157,24 @@ impl WasiFs {
         src: WasiFd,
         dst: WasiFd,
     ) -> Result<Option<VirtualFileLock>, Errno> {
+        self.dup2_at_impl(src, dst, false)
+    }
+
+    /// Apply a dup2 spawn action, including its same-fd CLOEXEC semantics.
+    pub(crate) fn dup2_for_spawn(
+        &self,
+        src: WasiFd,
+        dst: WasiFd,
+    ) -> Result<Option<VirtualFileLock>, Errno> {
+        self.dup2_at_impl(src, dst, true)
+    }
+
+    fn dup2_at_impl(
+        &self,
+        src: WasiFd,
+        dst: WasiFd,
+        clear_cloexec_on_same_fd: bool,
+    ) -> Result<Option<VirtualFileLock>, Errno> {
         if dst > MAX_FD {
             return Err(Errno::Badf);
         }
@@ -2168,6 +2186,13 @@ impl WasiFs {
             Self::ensure_file_handle_present(fd_entry)?;
 
             if src == dst {
+                if clear_cloexec_on_same_fd {
+                    fd_map
+                        .get_mut(src)
+                        .unwrap()
+                        .fd_flags
+                        .set(Fdflagsext::CLOEXEC, false);
+                }
                 return Ok(None);
             }
 
@@ -2900,7 +2925,7 @@ mod tests {
     use once_cell::sync::OnceCell;
     use tempfile::tempdir;
     use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
-    use wasmer::Engine;
+    use wasmer::{Engine, Store};
     use wasmer_config::package::PackageId;
 
     use crate::WasiEnvBuilder;
@@ -2938,6 +2963,150 @@ mod tests {
         let volume = container.volumes()["atom"].clone();
 
         virtual_fs::WebcVolumeFileSystem::new(volume)
+    }
+
+    fn assert_same_fd_state(before: &Fd, after: &Fd) {
+        assert_eq!(before.inner.rights, after.inner.rights);
+        assert_eq!(
+            before.inner.rights_inheriting,
+            after.inner.rights_inheriting
+        );
+        assert_eq!(before.inner.flags, after.inner.flags);
+        assert!(Arc::ptr_eq(&before.inner.offset, &after.inner.offset));
+        assert_eq!(before.open_flags, after.open_flags);
+        assert_eq!(before.inode.ino(), after.inode.ino());
+        assert!(Arc::ptr_eq(&before.inode.inner, &after.inode.inner));
+        assert_eq!(before.is_stdio, after.is_stdio);
+    }
+
+    fn spawn_dup2_test_file(env: &crate::WasiEnv, name: &str) -> WasiFd {
+        let fs = &env.state.fs;
+        let inode = fs.create_inode_with_default_stat(
+            &env.state.inodes,
+            Kind::File {
+                handle: Some(Arc::new(RwLock::new(Box::new(
+                    virtual_fs::StaticFile::new(vec![b'S']),
+                )))),
+                path: name.into(),
+                fd: None,
+            },
+            false,
+            name.to_owned().into(),
+        );
+        fs.create_fd(
+            Rights::FD_READ,
+            Rights::FD_WRITE,
+            Fdflags::APPEND | Fdflags::NONBLOCK,
+            Fdflagsext::from_bits_preserve(Fdflagsext::CLOEXEC.bits() | 0x80),
+            Fd::READ,
+            inode,
+        )
+        .unwrap()
+    }
+
+    #[tokio::test]
+    async fn spawn_dup2_identity_is_child_local_and_preserves_fd_state() {
+        let store = Store::default();
+        let env = WasiEnvBuilder::new("test")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        let parent = &env.state.fs;
+        let fd = spawn_dup2_test_file(&env, "source");
+        let control = spawn_dup2_test_file(&env, "control");
+        let parent_before = parent.get_fd(fd).unwrap();
+        parent_before.inner.offset.store(37, Ordering::Relaxed);
+        assert!(fd > 2 && !parent_before.is_stdio && !parent_before.inode.is_preopened);
+
+        let child = parent.fork();
+        let before = child.get_fd(fd).unwrap();
+        let handles = before.inode.handle_count();
+
+        assert_eq!(child.dup2_for_spawn(99, fd).unwrap_err(), Errno::Badf);
+        assert_eq!(child.dup2_for_spawn(99, 99).unwrap_err(), Errno::Badf);
+        assert_eq!(
+            child.dup2_for_spawn(fd, MAX_FD + 1).unwrap_err(),
+            Errno::Badf
+        );
+        let after_invalid_source = child.get_fd(fd).unwrap();
+        assert_same_fd_state(&before, &after_invalid_source);
+        assert_eq!(before.inner.fd_flags, after_invalid_source.inner.fd_flags);
+
+        assert!(child.dup2_for_spawn(fd, fd).unwrap().is_none());
+        assert!(child.dup2_for_spawn(fd, fd).unwrap().is_none());
+        let after_spawn_action = child.get_fd(fd).unwrap();
+        assert_same_fd_state(&before, &after_spawn_action);
+        let mut expected_flags = before.inner.fd_flags;
+        expected_flags.set(Fdflagsext::CLOEXEC, false);
+        assert_eq!(after_spawn_action.inner.fd_flags, expected_flags);
+        assert_eq!(after_spawn_action.inner.offset.load(Ordering::Relaxed), 37);
+        assert_eq!(before.inode.handle_count(), handles);
+
+        child.close_cloexec_fds().await;
+        assert_same_fd_state(&before, &child.get_fd(fd).unwrap());
+        assert_eq!(child.get_fd(control).unwrap_err(), Errno::Badf);
+        assert!(parent.get_fd(control).is_ok());
+        assert_eq!(before.inode.handle_count(), handles);
+
+        assert!(parent.dup2_at(fd, fd).unwrap().is_none());
+        let parent_after = parent.get_fd(fd).unwrap();
+        assert_same_fd_state(&parent_before, &parent_after);
+        assert_eq!(parent_before.inner.fd_flags, parent_after.inner.fd_flags);
+    }
+
+    #[tokio::test]
+    async fn spawn_dup2_rejects_a_file_without_an_open_handle() {
+        let store = Store::default();
+        let env = WasiEnvBuilder::new("test")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        let fs = &env.state.fs;
+        let fd = spawn_dup2_test_file(&env, "closed");
+        let target = spawn_dup2_test_file(&env, "target");
+        let before = fs.get_fd(fd).unwrap();
+        let target_before = fs.get_fd(target).unwrap();
+        if let Kind::File { handle, .. } = &mut *before.inode.write() {
+            *handle = None;
+        } else {
+            panic!("expected a file");
+        }
+        for destination in [fd, target] {
+            assert_eq!(fs.dup2_for_spawn(fd, destination).unwrap_err(), Errno::Badf);
+        }
+        assert_eq!(fs.dup2_at(fd, fd).unwrap_err(), Errno::Badf);
+        let after = fs.get_fd(fd).unwrap();
+        let target_after = fs.get_fd(target).unwrap();
+        assert_same_fd_state(&before, &after);
+        assert_same_fd_state(&target_before, &target_after);
+        assert_eq!(before.inner.fd_flags, after.inner.fd_flags);
+        assert_eq!(target_before.inner.fd_flags, target_after.inner.fd_flags);
+    }
+
+    #[tokio::test]
+    async fn spawn_dup2_distinct_fd_keeps_existing_dup2_behavior() {
+        let store = Store::default();
+        let env = WasiEnvBuilder::new("test")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        let fs = &env.state.fs;
+        let src = spawn_dup2_test_file(&env, "source");
+        let dst = spawn_dup2_test_file(&env, "target");
+        let source = fs.get_fd(src).unwrap();
+        let ordinary = fs.fork();
+
+        assert!(fs.dup2_for_spawn(src, dst).unwrap().is_some());
+        assert!(ordinary.dup2_at(src, dst).unwrap().is_some());
+
+        let target = fs.get_fd(dst).unwrap();
+        let ordinary_target = ordinary.get_fd(dst).unwrap();
+        assert_same_fd_state(&ordinary_target, &target);
+        assert_eq!(ordinary_target.inner.fd_flags, target.inner.fd_flags);
+        assert_eq!(source.inode.ino(), target.inode.ino());
+        assert!(Arc::ptr_eq(&source.inner.offset, &target.inner.offset));
+        assert!(source.inner.fd_flags.contains(Fdflagsext::CLOEXEC));
+        assert!(!target.inner.fd_flags.contains(Fdflagsext::CLOEXEC));
     }
 
     #[tokio::test]
