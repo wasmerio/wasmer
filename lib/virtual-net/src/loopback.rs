@@ -39,6 +39,7 @@ impl Default for LoopbackNetworkingState {
 
 impl LoopbackNetworkingState {
     fn contains_tcp_addr(&self, addr: SocketAddr) -> bool {
+        let addr = LoopbackNetworking::tcp_addr_key(addr);
         self.tcp_listeners.contains_key(&addr) || self.tcp_bound.contains(&addr)
     }
 
@@ -57,6 +58,7 @@ impl LoopbackNetworkingState {
     }
 
     fn reserve_tcp_addr(&mut self, addr: SocketAddr) -> bool {
+        let addr = LoopbackNetworking::tcp_addr_key(addr);
         if self.tcp_addr_conflicts(addr) || !self.tcp_bound.insert(addr) {
             return false;
         }
@@ -68,6 +70,7 @@ impl LoopbackNetworkingState {
     }
 
     fn release_tcp_bound_addr(&mut self, addr: SocketAddr) -> bool {
+        let addr = LoopbackNetworking::tcp_addr_key(addr);
         if !self.tcp_bound.remove(&addr) {
             return false;
         }
@@ -80,6 +83,7 @@ impl LoopbackNetworkingState {
         addr: SocketAddr,
         listener: LoopbackTcpListener,
     ) -> crate::Result<()> {
+        let addr = LoopbackNetworking::tcp_addr_key(addr);
         if !self.tcp_bound.contains(&addr) {
             return Err(NetworkError::InvalidFd);
         }
@@ -140,11 +144,11 @@ impl LoopbackNetworking {
             let state = self.state.lock().unwrap();
             state
                 .tcp_listeners
-                .get(&peer_addr)
+                .get(&Self::tcp_addr_key(peer_addr))
                 .or_else(|| state.tcp_listeners.get(&Self::wildcard_addr(peer_addr)))
                 .cloned()
         }?;
-        Some(listener.connect_to(local_addr, Self::concrete_addr(peer_addr)))
+        Some(listener.connect_to_addr(local_addr, Self::concrete_addr(peer_addr)))
     }
 
     fn allocate_tcp_bind_addr(
@@ -155,9 +159,8 @@ impl LoopbackNetworking {
             let start = state.next_ephemeral_port;
             let mut candidate = start;
             loop {
-                let candidate_addr = SocketAddr::new(addr.ip(), candidate);
-                if state.reserve_tcp_addr(candidate_addr) {
-                    addr.set_port(candidate);
+                addr.set_port(candidate);
+                if state.reserve_tcp_addr(addr) {
                     state.next_ephemeral_port = if candidate == u16::MAX {
                         LOOPBACK_EPHEMERAL_PORT_START
                     } else {
@@ -195,6 +198,15 @@ impl LoopbackNetworking {
 
     fn tcp_port_key(addr: SocketAddr) -> (bool, u16) {
         (addr.is_ipv6(), addr.port())
+    }
+
+    fn tcp_addr_key(addr: SocketAddr) -> SocketAddr {
+        // Wildcard reservations cover the family regardless of IPv6 scope or flow information.
+        if addr.ip().is_unspecified() {
+            Self::wildcard_addr(addr)
+        } else {
+            addr
+        }
     }
 
     fn wildcard_addr(addr: SocketAddr) -> SocketAddr {
@@ -494,7 +506,12 @@ impl LoopbackTcpListener {
         }
     }
 
-    pub fn connect_to(&self, addr_local: SocketAddr, listener_addr: SocketAddr) -> TcpSocketHalf {
+    pub fn connect_to(&self, addr_local: SocketAddr) -> TcpSocketHalf {
+        let listener_addr = self.state.lock().unwrap().addr_local;
+        self.connect_to_addr(addr_local, LoopbackNetworking::concrete_addr(listener_addr))
+    }
+
+    fn connect_to_addr(&self, addr_local: SocketAddr, listener_addr: SocketAddr) -> TcpSocketHalf {
         let mut state = self.state.lock().unwrap();
         let (mut half1, half2) =
             TcpSocketHalf::channel(DEFAULT_MAX_BUFFER_SIZE, listener_addr, addr_local);
@@ -607,16 +624,14 @@ impl VirtualTcpBoundSocket for LoopbackTcpBoundSocket {
     }
 
     fn connect(&mut self, peer: SocketAddr) -> crate::Result<Box<dyn VirtualTcpSocket + Sync>> {
+        let reservation_key = self.reservation_key.ok_or(NetworkError::InvalidFd)?;
         let mut socket = self
             .networking
             .loopback_connect_to(self.local_addr, peer)
             .ok_or(NetworkError::ConnectionRefused)?;
-        // Transfer the port reservation to the connected socket so that the
-        // local port stays in `tcp_bound` for the socket's entire lifetime,
-        // matching POSIX/Linux semantics (a connected socket holds its local
-        // port; rebinding it returns EADDRINUSE).
-        let reservation_key = self.reservation_key.take().ok_or(NetworkError::InvalidFd)?;
         socket.set_ttl(self.ttl)?;
+        // The connected socket owns the bind reservation until close or drop.
+        self.reservation_key = None;
         Ok(Box::new(LoopbackConnectedSocket {
             inner: socket,
             networking: self.networking.clone(),

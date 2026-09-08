@@ -1,5 +1,7 @@
+//#Config: first
 //#Networking: loopback
 //#ExpectedStdout: loopback TCP address matching works
+//#Config: second:first
 
 #include <arpa/inet.h>
 #include <errno.h>
@@ -100,7 +102,8 @@ static int test_wildcard_listener(void) {
     return -1;
   }
   if (client_local.sin_addr.s_addr == htonl(INADDR_ANY) ||
-      client_peer.sin_addr.s_addr != destination.sin_addr.s_addr) {
+      client_peer.sin_addr.s_addr != destination.sin_addr.s_addr ||
+      client_peer.sin_port != destination.sin_port) {
     fprintf(stderr, "client connection endpoints were not concrete\n");
     return -1;
   }
@@ -115,7 +118,9 @@ static int test_wildcard_listener(void) {
     return -1;
   }
   if (accepted_local.sin_addr.s_addr != destination.sin_addr.s_addr ||
-      accepted_peer.sin_addr.s_addr == htonl(INADDR_ANY)) {
+      accepted_local.sin_port != destination.sin_port ||
+      accepted_peer.sin_addr.s_addr != client_local.sin_addr.s_addr ||
+      accepted_peer.sin_port != client_local.sin_port) {
     fprintf(stderr, "accepted connection endpoints were not concrete\n");
     return -1;
   }
@@ -128,7 +133,8 @@ static int test_wildcard_listener(void) {
 
 static int test_specific_listeners(void) {
   int first = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-  struct sockaddr_in first_addr = ipv4_addr("127.0.0.1", 0);
+  // Reusing this port detects a network shared between fixture configurations.
+  struct sockaddr_in first_addr = ipv4_addr("127.0.0.1", 40205);
   if (first < 0 ||
       bind(first, (struct sockaddr*)&first_addr, sizeof(first_addr)) != 0 ||
       listen(first, 2) != 0 || local_addr(first, &first_addr) != 0) {

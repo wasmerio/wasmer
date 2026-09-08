@@ -1496,6 +1496,11 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
 
+    tests.push(libtest_mimic::Trial::test(
+        "wasm/networking_directive",
+        || check_networking_directive().map_err(|e| libtest_mimic::Failed::from(format!("{e:?}"))),
+    ));
+
     tests.push(libtest_mimic::Trial::test("wasm/dynamic_runtime_hooks", {
         let tests_dir = tests_dir.clone();
         let tests_build_root = tests_build_root.clone();
@@ -1627,6 +1632,44 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
         }
     }
 
+    Ok(())
+}
+
+fn check_networking_directive() -> Result<()> {
+    let default = Config::new(
+        PrimarySource::CSourceFile("main.c".into()),
+        PathBuf::new(),
+        PathBuf::new(),
+        "networking_directive".into(),
+    );
+    let mut config = default.clone();
+    let mut build_env = Vec::new();
+    let mut names = HashMap::new();
+    let mut configs = Vec::new();
+    let mut apply = |directive: &str, config: &mut Config| {
+        process_directive(
+            directive,
+            &mut build_env,
+            config,
+            &default,
+            &mut names,
+            &mut configs,
+        )
+    };
+
+    for invalid in ["", "host", "loopback,host", "loopbak"] {
+        let directive = format!("Networking:{invalid}");
+        let error = apply(&directive, &mut config).unwrap_err();
+        ensure!(error.to_string().contains("unsupported networking"));
+        ensure!(config.networking.is_none());
+    }
+    apply("AbstractConfig:isolated", &mut config)?;
+    apply("Networking: LoOpBaCk ", &mut config)?;
+    apply("Config:inherited:isolated", &mut config)?;
+    ensure!(config.networking == Some(NetworkingKind::Loopback));
+    apply("Config:default", &mut config)?;
+    ensure!(config.networking.is_none());
+    ensure!(default.networking.is_none());
     Ok(())
 }
 
