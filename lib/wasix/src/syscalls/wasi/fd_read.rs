@@ -146,6 +146,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state();
     let is_stdio = fd_entry.is_stdio;
+    let uses_stream_io = fd_entry.uses_stream_io();
 
     let bytes_read = {
         if !is_stdio && !fd_entry.inner.rights.contains(Rights::FD_READ) {
@@ -180,7 +181,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                 Ok(a) => a,
                                 Err(_) => return Err(Errno::Fault),
                             };
-                            if !is_stdio {
+                            if !uses_stream_io {
                                 handle
                                     .seek(std::io::SeekFrom::Start(offset as u64))
                                     .await
@@ -458,7 +459,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
             }
         };
 
-        if !is_stdio && should_update_cursor && can_update_cursor {
+        if !uses_stream_io && should_update_cursor && can_update_cursor {
             fd_entry
                 .inner
                 .offset

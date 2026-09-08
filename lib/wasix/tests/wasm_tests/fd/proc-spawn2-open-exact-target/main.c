@@ -1,5 +1,6 @@
 //#ExpectedStdout: ST
 //#ExpectedStdout: proc_spawn2 open exact target test passed
+//#Stdin: AB
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -84,11 +85,42 @@ static int child_main(int argc, char** argv) {
     int fd = atoi(argv[2]);
     assert(argc == 3);
     assert(write(fd, "S", 1) == 1);
+    __wasi_filesize_t offset = 99;
+    assert(__wasi_fd_tell(fd, &offset) == __WASI_ERRNO_SUCCESS);
+    assert(offset == 0);
     assert(close(fd) == 0);
     errno = 0;
     assert(write(fd, "X", 1) == -1);
     assert(errno == EBADF);
     assert(write(STDOUT_FILENO, "T\n", 2) == 2);
+    return 0;
+  }
+
+  if (strcmp(argv[1], "closed") == 0) {
+    int fd = atoi(argv[2]);
+    errno = 0;
+    assert(fcntl(fd, F_GETFD) == -1 && errno == EBADF);
+    assert(fcntl(STDOUT_FILENO, F_GETFD) >= 0);
+    return 0;
+  }
+
+  if (strcmp(argv[1], "readonly") == 0) {
+    int fd = atoi(argv[2]);
+    errno = 0;
+    assert(write(fd, "X", 1) == -1 && errno == EACCES);
+    assert(close(fd) == 0);
+    return 0;
+  }
+
+  if (strcmp(argv[1], "special-read") == 0) {
+    int fd = atoi(argv[2]);
+    char value = 0;
+    assert(read(fd, &value, 1) == 1 && value == 'A');
+    __wasi_filesize_t offset = 99;
+    assert(__wasi_fd_tell(fd, &offset) == __WASI_ERRNO_SUCCESS);
+    assert(offset == 0);
+    assert(close(fd) == 0);
+    assert(read(STDIN_FILENO, &value, 1) == 1 && value == 'B');
     return 0;
   }
 
@@ -159,6 +191,20 @@ static void test_special_file_target(void) {
       open_op(OCCUPIED_FD, "/dev/stdout", 0, __WASI_RIGHTS_FD_WRITE, 0, 0);
   __wasi_pid_t pid = 0;
   assert(spawn("special\n10\n", &op, 1, &pid) == __WASI_ERRNO_SUCCESS);
+  wait_ok(pid);
+
+  op.fdflagsext = __WASI_FDFLAGSEXT_CLOEXEC;
+  assert(spawn("closed\n10\n", &op, 1, &pid) == __WASI_ERRNO_SUCCESS);
+  wait_ok(pid);
+
+  op.fdflagsext = 0;
+  op.fs_rights_base = __WASI_RIGHTS_FD_READ;
+  op.fs_rights_inheriting = __WASI_RIGHTS_FD_READ;
+  assert(spawn("readonly\n10\n", &op, 1, &pid) == __WASI_ERRNO_SUCCESS);
+  wait_ok(pid);
+
+  op = open_op(OCCUPIED_FD, "/dev/stdin", 0, __WASI_RIGHTS_FD_READ, 0, 0);
+  assert(spawn("special-read\n10\n", &op, 1, &pid) == __WASI_ERRNO_SUCCESS);
   wait_ok(pid);
 }
 

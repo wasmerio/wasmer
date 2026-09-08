@@ -1,6 +1,6 @@
 use super::*;
 use crate::VIRTUAL_ROOT_FD;
-use crate::fs::{FdInner, FdList, MAX_FD, WasiFs};
+use crate::fs::{FdList, MAX_FD, WasiFs};
 use crate::syscalls::*;
 
 /// ### `path_open()`
@@ -167,6 +167,9 @@ pub(crate) fn path_open_internal(
     fd_flags: Fdflagsext,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
+    if let Some(target) = with_fd {
+        wasi_try_ok_ok!(validate_open_target(&env.state.fs, target));
+    }
     path_open_internal_with_symlink_depth(
         env,
         dirfd,
@@ -425,19 +428,22 @@ fn path_open_internal_with_symlink_depth(
                 fd: Some(special_fd),
                 ..
             } => {
-                assert!(handle.is_some());
+                if handle.is_none() {
+                    return Ok(Err(Errno::Badf));
+                }
                 let special_fd = *special_fd;
                 if let Some(target) = with_fd {
                     drop(guard);
-                    wasi_try_ok_ok!(insert_special_fd_locked(
+                    wasi_try_ok_ok!(insert_fd_locked(
                         &mut fd_map,
+                        state,
                         adjusted_rights,
                         adjusted_rights_inheriting,
                         fs_flags,
                         fd_flags,
                         file_open_flags,
                         inode,
-                        target,
+                        Some(target),
                     ))
                 } else {
                     special_fd
@@ -481,15 +487,17 @@ fn path_open_internal_with_symlink_depth(
                         let source = wasi_try_ok_ok!(WasiFs::get_fd_from_locked_map(
                             &state.fs, &fd_map, special_fd,
                         ));
-                        wasi_try_ok_ok!(insert_special_fd_locked(
+                        wasi_try_ok_ok!(WasiFs::ensure_file_handle_present(&source));
+                        wasi_try_ok_ok!(insert_fd_locked(
                             &mut fd_map,
+                            state,
                             adjusted_rights,
                             adjusted_rights_inheriting,
                             fs_flags,
                             fd_flags,
                             file_open_flags,
                             source.inode,
-                            target,
+                            Some(target),
                         ))
                     } else {
                         wasi_try_ok_ok!(WasiFs::clone_fd_locked(
@@ -748,37 +756,19 @@ fn path_open_internal_with_symlink_depth(
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn insert_special_fd_locked(
-    fd_map: &mut FdList,
-    rights: Rights,
-    rights_inheriting: Rights,
-    fs_flags: Fdflags,
-    fd_flags: Fdflagsext,
-    open_flags: u16,
-    inode: InodeGuard,
-    target: WasiFd,
-) -> Result<WasiFd, Errno> {
+pub(crate) fn validate_open_target(fs: &WasiFs, target: WasiFd) -> Result<(), Errno> {
     if target > MAX_FD {
         return Err(Errno::Badf);
     }
-    let fd = Fd {
-        inner: FdInner {
-            rights,
-            rights_inheriting,
-            flags: fs_flags,
-            offset: Arc::new(AtomicU64::new(0)),
-            fd_flags,
-        },
-        open_flags,
-        inode,
-        is_stdio: true,
-    };
-    if fd_map.insert(true, target, fd) {
-        Ok(target)
-    } else {
-        Err(Errno::Exist)
+    if target == VIRTUAL_ROOT_FD {
+        return Err(Errno::Notsup);
     }
+    if let Ok(fd) = fs.get_fd(target)
+        && fd.is_protected_preopen()
+    {
+        return Err(Errno::Notsup);
+    }
+    Ok(())
 }
 
 fn insert_fd_locked(

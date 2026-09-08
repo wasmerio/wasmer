@@ -181,6 +181,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
     let mut env = ctx.data();
     let state = env.state.clone();
     let is_stdio = fd_entry.is_stdio;
+    let uses_stream_io = fd_entry.uses_stream_io();
 
     let bytes_written = {
         if !is_stdio && !fd_entry.inner.rights.contains(Rights::FD_WRITE) {
@@ -208,7 +209,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             },
                             async {
                                 let mut handle = handle.write().unwrap();
-                                if !is_stdio {
+                                if !uses_stream_io {
                                     if fd_entry.inner.flags.contains(Fdflags::APPEND) {
                                         // `fdflags::append` means we need to seek to the end before writing.
                                         offset = fd_entry.inode.stat.read().unwrap().st_size;
@@ -572,7 +573,7 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
         memory = unsafe { env.memory_view(&ctx) };
 
         // reborrow and update the size
-        if !is_stdio {
+        if !uses_stream_io {
             let curr_offset = if is_file && should_update_cursor {
                 let bytes_written = bytes_written as u64;
                 fd_entry
