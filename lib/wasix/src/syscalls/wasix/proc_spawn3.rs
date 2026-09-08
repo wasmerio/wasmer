@@ -275,15 +275,15 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
 mod tests {
     use super::*;
     use crate::WasiEnvBuilder;
-    use wasmer::{Memory, Memory32, MemoryType, Store};
+    use wasmer::{Memory, Memory32, Memory64, MemoryType, Store};
 
-    fn dup2_op(source: WasiFd, target: WasiFd) -> ProcSpawnFdOp<Memory32> {
+    fn dup2_op<M: MemorySize>(source: WasiFd, target: WasiFd) -> ProcSpawnFdOp<M> {
         ProcSpawnFdOp {
             cmd: ProcSpawnFdOpName::Dup2,
             fd: target,
             src_fd: source,
-            name: 0,
-            name_len: 0,
+            name: Default::default(),
+            name_len: Default::default(),
             dirflags: 0,
             oflags: Oflags::empty(),
             fs_rights_base: Rights::empty(),
@@ -295,6 +295,11 @@ mod tests {
 
     #[tokio::test]
     async fn spawn_dup2_identity_clears_cloexec() {
+        check_spawn_dup2_identity::<Memory32>();
+        check_spawn_dup2_identity::<Memory64>();
+    }
+
+    fn check_spawn_dup2_identity<M: MemorySize>() {
         let mut store = Store::default();
         let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
         let view = memory.view(&store);
@@ -311,7 +316,11 @@ mod tests {
             .unwrap()
             .fd_flags = Fdflagsext::CLOEXEC;
 
-        apply_fd_op(&mut env, &view, &dup2_op(0, 0)).unwrap();
+        assert_eq!(
+            apply_fd_op(&mut env, &view, &dup2_op::<M>(99, 99)),
+            Err(Errno::Badf)
+        );
+        apply_fd_op(&mut env, &view, &dup2_op::<M>(0, 0)).unwrap();
 
         assert!(
             !env.state

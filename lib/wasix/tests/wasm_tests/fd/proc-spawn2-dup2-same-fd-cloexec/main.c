@@ -147,9 +147,12 @@ static int parent_main(enum spawn_api api) {
     return 3;
   }
 
-  if (__wasi_fd_fdflags_set(source, 0) != __WASI_ERRNO_SUCCESS ||
-      check_flags(source, 0) != 0) {
-    fputs("failed to clear CLOEXEC for the control case\n", stderr);
+  __wasi_errno_t err = __wasi_fd_fdflags_set(source, 0);
+  if (err != __WASI_ERRNO_SUCCESS) {
+    fprintf(stderr, "failed to clear source CLOEXEC: %u\n", (unsigned)err);
+    return 4;
+  }
+  if (check_flags(source, 0) != 0) {
     return 4;
   }
   if (spawn_with_dup2(api, source, source, 'S') != 0 ||
@@ -159,9 +162,9 @@ static int parent_main(enum spawn_api api) {
     return 4;
   }
 
-  if (__wasi_fd_fdflags_set(source, __WASI_FDFLAGSEXT_CLOEXEC) !=
-      __WASI_ERRNO_SUCCESS) {
-    fprintf(stderr, "failed to restore source CLOEXEC: %s\n", strerror(errno));
+  err = __wasi_fd_fdflags_set(source, __WASI_FDFLAGSEXT_CLOEXEC);
+  if (err != __WASI_ERRNO_SUCCESS) {
+    fprintf(stderr, "failed to restore source CLOEXEC: %u\n", (unsigned)err);
     return 5;
   }
   int decoy = open(decoy_path, O_CREAT | O_TRUNC | O_RDWR, 0600);
