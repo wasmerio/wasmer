@@ -3509,6 +3509,16 @@ mod tests {
         let link = wasi_fs
             .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", false)
             .unwrap();
+        let stat = *link.stat.read().unwrap();
+        assert_eq!(stat.st_filetype, Filetype::SymbolicLink);
+        assert_ne!(stat.st_ino, 0);
+        assert_eq!(stat.st_nlink, 1);
+        assert_eq!(stat.st_size, 10);
+
+        let resolved_again = wasi_fs
+            .get_inode_at_path(&inodes, crate::VIRTUAL_ROOT_FD, "/link", false)
+            .unwrap();
+        assert_eq!(resolved_again.ino(), link.ino());
         assert!(matches!(
             link.read().deref(),
             Kind::Symlink {
