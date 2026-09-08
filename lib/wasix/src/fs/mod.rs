@@ -2157,6 +2157,24 @@ impl WasiFs {
         src: WasiFd,
         dst: WasiFd,
     ) -> Result<Option<VirtualFileLock>, Errno> {
+        self.dup2_at_impl(src, dst, false)
+    }
+
+    /// Apply a dup2 spawn action, including its same-fd CLOEXEC semantics.
+    pub(crate) fn dup2_for_spawn(
+        &self,
+        src: WasiFd,
+        dst: WasiFd,
+    ) -> Result<Option<VirtualFileLock>, Errno> {
+        self.dup2_at_impl(src, dst, true)
+    }
+
+    fn dup2_at_impl(
+        &self,
+        src: WasiFd,
+        dst: WasiFd,
+        clear_cloexec_on_same_fd: bool,
+    ) -> Result<Option<VirtualFileLock>, Errno> {
         if dst > MAX_FD {
             return Err(Errno::Badf);
         }
@@ -2168,6 +2186,13 @@ impl WasiFs {
             Self::ensure_file_handle_present(fd_entry)?;
 
             if src == dst {
+                if clear_cloexec_on_same_fd {
+                    fd_map
+                        .get_mut(src)
+                        .unwrap()
+                        .fd_flags
+                        .set(Fdflagsext::CLOEXEC, false);
+                }
                 return Ok(None);
             }
 
@@ -2900,7 +2925,7 @@ mod tests {
     use once_cell::sync::OnceCell;
     use tempfile::tempdir;
     use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
-    use wasmer::Engine;
+    use wasmer::{Engine, Store};
     use wasmer_config::package::PackageId;
 
     use crate::WasiEnvBuilder;
@@ -2938,6 +2963,84 @@ mod tests {
         let volume = container.volumes()["atom"].clone();
 
         virtual_fs::WebcVolumeFileSystem::new(volume)
+    }
+
+    fn assert_same_fd_state(before: &Fd, after: &Fd) {
+        assert_eq!(before.inner.rights, after.inner.rights);
+        assert_eq!(
+            before.inner.rights_inheriting,
+            after.inner.rights_inheriting
+        );
+        assert_eq!(before.inner.flags, after.inner.flags);
+        assert!(Arc::ptr_eq(&before.inner.offset, &after.inner.offset));
+        assert_eq!(before.open_flags, after.open_flags);
+        assert_eq!(before.inode.ino(), after.inode.ino());
+        assert!(Arc::ptr_eq(&before.inode.inner, &after.inode.inner));
+        assert_eq!(before.is_stdio, after.is_stdio);
+    }
+
+    #[tokio::test]
+    async fn spawn_dup2_identity_is_child_local_and_preserves_fd_state() {
+        let store = Store::default();
+        let env = WasiEnvBuilder::new("test")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        let parent = &env.state.fs;
+        parent.fd_map.write().unwrap().get_mut(0).unwrap().fd_flags = Fdflagsext::CLOEXEC;
+
+        let child = parent.fork();
+        let before = child.get_fd(0).unwrap();
+
+        assert_eq!(child.dup2_for_spawn(99, 0).unwrap_err(), Errno::Badf);
+        let after_invalid_source = child.get_fd(0).unwrap();
+        assert_same_fd_state(&before, &after_invalid_source);
+        assert_eq!(before.inner.fd_flags, after_invalid_source.inner.fd_flags);
+
+        assert!(child.dup2_for_spawn(0, 0).unwrap().is_none());
+        let after_spawn_action = child.get_fd(0).unwrap();
+        assert_same_fd_state(&before, &after_spawn_action);
+        let mut expected_flags = before.inner.fd_flags;
+        expected_flags.set(Fdflagsext::CLOEXEC, false);
+        assert_eq!(after_spawn_action.inner.fd_flags, expected_flags);
+        assert!(
+            parent
+                .get_fd(0)
+                .unwrap()
+                .inner
+                .fd_flags
+                .contains(Fdflagsext::CLOEXEC)
+        );
+
+        assert!(parent.dup2_at(0, 0).unwrap().is_none());
+        assert!(
+            parent
+                .get_fd(0)
+                .unwrap()
+                .inner
+                .fd_flags
+                .contains(Fdflagsext::CLOEXEC)
+        );
+    }
+
+    #[tokio::test]
+    async fn spawn_dup2_distinct_fd_keeps_existing_dup2_behavior() {
+        let store = Store::default();
+        let env = WasiEnvBuilder::new("test")
+            .engine(store.engine().clone())
+            .build()
+            .unwrap();
+        let fs = &env.state.fs;
+        fs.fd_map.write().unwrap().get_mut(0).unwrap().fd_flags = Fdflagsext::CLOEXEC;
+        let source = fs.get_fd(0).unwrap();
+
+        fs.dup2_for_spawn(0, 1).unwrap();
+
+        let target = fs.get_fd(1).unwrap();
+        assert_eq!(source.inode.ino(), target.inode.ino());
+        assert!(Arc::ptr_eq(&source.inner.offset, &target.inner.offset));
+        assert!(source.inner.fd_flags.contains(Fdflagsext::CLOEXEC));
+        assert!(!target.inner.fd_flags.contains(Fdflagsext::CLOEXEC));
     }
 
     #[tokio::test]
