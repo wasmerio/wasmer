@@ -43,6 +43,18 @@ pub fn get_stack_size() -> usize {
     panic!("get_stack_size is not supported in baremetal mode");
 }
 
+/// Always `false` — baremetal mode has no coroutine stacks.
+#[inline]
+pub fn is_on_wasm_stack() -> bool {
+    false
+}
+
+/// Always 0 — baremetal mode has no coroutine stacks.
+#[inline]
+pub fn wasm_stack_limit() -> usize {
+    0
+}
+
 /// No-op — no signal handlers to install.
 pub fn init_traps() {}
 
