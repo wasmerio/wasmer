@@ -709,17 +709,37 @@ impl WasiFs {
             return Err(Errno::Noent);
         }
 
-        let inode = self.get_inode_at_path(inodes, base, path, false)?;
-        if inode.is_preopened {
-            return Err(Errno::Access);
-        }
-
-        let (parent, backing_path) = match inode.read().deref() {
-            Kind::Dir { parent, path, .. } => {
-                let parent = parent.upgrade().ok_or(Errno::Noent)?;
-                (parent, path.clone())
+        let direct_virtual_root = base == VIRTUAL_ROOT_FD
+            && matches!(
+                self.root_inode.read().deref(),
+                Kind::Root { entries } if entries.is_empty()
+            );
+        let (cache_entry, backing_path) = match self.get_inode_at_path(inodes, base, path, false) {
+            Ok(inode) => {
+                if inode.is_preopened {
+                    return Err(Errno::Access);
+                }
+                let (parent, backing_path) = match inode.read().deref() {
+                    Kind::Dir { parent, path, .. } => {
+                        let parent = parent.upgrade().ok_or(Errno::Noent)?;
+                        (parent, path.clone())
+                    }
+                    _ => return Err(Errno::Notdir),
+                };
+                (Some((parent, inode)), backing_path)
             }
-            _ => return Err(Errno::Notdir),
+            Err(Errno::Notcapable) if direct_virtual_root => {
+                let backing_path = PathBuf::from(path);
+                let metadata = self
+                    .root_fs
+                    .symlink_metadata(&backing_path)
+                    .map_err(fs_error_into_wasi_err)?;
+                if !metadata.file_type().is_dir() {
+                    return Err(Errno::Notdir);
+                }
+                (None, backing_path)
+            }
+            Err(error) => return Err(error),
         };
 
         let directory_key = PosixPath::from_path(&backing_path)
@@ -739,6 +759,9 @@ impl WasiFs {
             .remove_dir(&backing_path)
             .map_err(fs_error_into_wasi_err)?;
 
+        let Some((parent, inode)) = cache_entry else {
+            return Ok(());
+        };
         let mut parent = parent.write();
         let entries = match parent.deref_mut() {
             Kind::Dir { entries, .. } | Kind::Root { entries } => entries,

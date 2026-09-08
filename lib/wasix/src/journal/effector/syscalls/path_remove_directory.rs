@@ -50,8 +50,6 @@ mod tests {
         let env = WasiEnvBuilder::new("test")
             .engine(Engine::default())
             .fs(backing.clone() as Arc<dyn FileSystem + Send + Sync>)
-            .preopen_dir("/")
-            .unwrap()
             .build()
             .unwrap();
         let mut store = Store::default();
