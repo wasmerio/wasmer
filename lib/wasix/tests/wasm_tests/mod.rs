@@ -1664,7 +1664,7 @@ fn check_networking_directive() -> Result<()> {
         ensure!(config.networking.is_none());
     }
     apply("AbstractConfig:isolated", &mut config)?;
-    apply("Networking: LoOpBaCk ", &mut config)?;
+    apply("Networking: LOOPBACK ", &mut config)?;
     apply("Config:inherited:isolated", &mut config)?;
     ensure!(config.networking == Some(NetworkingKind::Loopback));
     apply("Config:default", &mut config)?;
