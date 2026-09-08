@@ -376,7 +376,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             drop(iovs_arr);
 
                             if raise_sigpipe {
-                                env.process.signal_process(Signal::Sigpipe);
+                                env.process
+                                    .signal_thread(&env.thread.tid(), Signal::Sigpipe);
                                 wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
                                 return Ok(Err(Errno::Pipe));
                             }
@@ -385,7 +386,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             match std::io::Write::write_all(tx, data) {
                                 Ok(()) => (),
                                 Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
-                                    env.process.signal_process(Signal::Sigpipe);
+                                    env.process
+                                        .signal_thread(&env.thread.tid(), Signal::Sigpipe);
                                     wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
                                     return Ok(Err(Errno::Pipe));
                                 }
@@ -435,7 +437,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             drop(iovs_arr);
 
                             if raise_sigpipe {
-                                env.process.signal_process(Signal::Sigpipe);
+                                env.process
+                                    .signal_thread(&env.thread.tid(), Signal::Sigpipe);
                                 wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
                                 return Ok(Err(Errno::Pipe));
                             }
@@ -444,7 +447,8 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                             match std::io::Write::write_all(pipe, data) {
                                 Ok(()) => (),
                                 Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => {
-                                    env.process.signal_process(Signal::Sigpipe);
+                                    env.process
+                                        .signal_thread(&env.thread.tid(), Signal::Sigpipe);
                                     wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
                                     return Ok(Err(Errno::Pipe));
                                 }

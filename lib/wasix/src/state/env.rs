@@ -128,7 +128,7 @@ impl WasiEnvInit {
                 args: std::sync::Mutex::new(self.state.args.lock().unwrap().clone()),
                 envs: std::sync::Mutex::new(self.state.envs.lock().unwrap().deref().clone()),
                 signals: std::sync::Mutex::new(self.state.signals.lock().unwrap().deref().clone()),
-                signal_handler_registered: std::sync::atomic::AtomicBool::new(false),
+                signal_handler: std::sync::Mutex::new(None),
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
@@ -702,17 +702,11 @@ impl WasiEnv {
         let env_inner = env
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
-        let inner = env_inner.main_module_instance_handles();
-        // Ask the process, not just this instance: a spawned thread has its own
-        // WasiModuleInstanceHandles and never sees the main instance's
-        // registration, so `inner.signal_set` alone would apply the default
-        // disposition on sibling threads and terminate a process that does
-        // handle the signal.
-        let handler_registered = inner.signal_set
-            || env
-                .state
-                .signal_handler_registered
-                .load(std::sync::atomic::Ordering::SeqCst);
+        let handler_registered = env_inner
+            .main_module_instance_handles()
+            .signal_handler
+            .is_some()
+            || env.state.signal_handler.lock().unwrap().is_some();
         if !handler_registered {
             let signals = env.thread.pop_signals();
             if !signals.is_empty() {
@@ -743,31 +737,9 @@ impl WasiEnv {
 
     /// Processes any signals that are batched up
     pub(crate) fn process_signals(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
-        // If a signal handler has never been set then we need to handle signals
-        // differently
         let env = ctx.data();
-        let env_inner = env
-            .try_inner()
-            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
-        let inner = env_inner.main_module_instance_handles();
-        if !inner.signal_set {
-            // Process-directed signals are copied into every thread's queue,
-            // but the guest callback belongs only to the instance that
-            // registered it. A sibling instance must discard its copy after
-            // the process-wide registration suppressed the default disposition;
-            // otherwise that copy remains queued forever.
-            let drained = !env.thread.pop_signals().is_empty();
-            return Ok(Ok(drained));
-        }
-
-        // Check for any signals that we need to trigger
-        // (but only if a signal handler is registered)
-        let ret = if inner.signal.as_ref().is_some() {
-            let signals = env.thread.pop_signals();
-            Self::process_signals_internal(ctx, signals)?
-        } else {
-            false
-        };
+        let signals = env.thread.pop_signals();
+        let ret = Self::process_signals_internal(ctx, signals)?;
 
         Ok(Ok(ret))
     }
@@ -781,7 +753,18 @@ impl WasiEnv {
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
         let inner = env_inner.main_module_instance_handles();
-        if let Some(handler) = inner.signal.clone() {
+        let handler_name = inner
+            .signal_handler
+            .clone()
+            .or_else(|| env.state.signal_handler.lock().unwrap().clone());
+        let handler = handler_name.and_then(|name| {
+            inner
+                .instance
+                .exports
+                .get_typed_function::<i32, ()>(&ctx, &name)
+                .ok()
+        });
+        if let Some(handler) = handler {
             // We might also have signals that trigger on timers
             let mut now = 0;
             {
@@ -893,8 +876,7 @@ impl WasiEnv {
         )
     }
 
-    /// Provides safe access to the initialized part of WasiEnv
-    /// (it must be initialized before it can be used)
+    /// Provides safe access to the initialized part of WasiEnv.
     pub(crate) fn inner_mut(&mut self) -> WasiInstanceGuardMut<'_> {
         self.inner.get_mut().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
@@ -1315,11 +1297,7 @@ impl WasiEnv {
                         }
                     }
 
-                    // Record the real exit code before broadcasting Sigquit.
-                    // Otherwise a pending Sigquit can win the status race and
-                    // make waiters observe a successful exit.
                     process.terminate(process_exit_code);
-                    process.signal_process(Signal::Sigquit);
                 }
             })
         } else {
