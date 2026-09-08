@@ -98,35 +98,13 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
     ret: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
     let memory = unsafe { ctx.data().memory_view(&ctx) };
-
-    // Convert relative paths into absolute paths
-    if search_path == Bool::True && !name.contains('/') {
-        let path = if let Some(path) = path {
-            path.split(':').collect::<Vec<_>>()
-        } else {
-            vec!["/usr/local/bin", "/bin", "/usr/bin"]
-        };
-        let (_, state, inodes) =
-            unsafe { ctx.data().get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        match find_executable_in_path(&state.fs, inodes, path.iter().map(AsRef::as_ref), name) {
-            FindExecutableResult::Found(p) => *name = p,
-            FindExecutableResult::AccessError => return Ok(Errno::Access),
-            // Nothing by that name on PATH is ENOENT. ENOEXEC means the file
-            // was found but is not an executable format, which is what the
-            // spawn failure below reports. proc_exec4 already gets this right.
-            FindExecutableResult::NotFound => return Ok(Errno::Noent),
-        }
-    } else if name.starts_with("./") {
-        *name = ctx.data().state.fs.relative_path_to_absolute(name.clone());
-    }
-
-    Span::current().record("full_path", name.as_str());
+    wasi_try_mem_ok!(ret.access(&memory));
 
     // Fork the environment which will copy all the open file handlers
     // and associate a new context but otherwise shares things like the
     // file system interface. The handle to the forked process is stored
     // in the parent process context
-    let (mut child_env, mut child_handle) = match ctx.data().fork() {
+    let (mut child_env, child_handle) = match ctx.data().fork() {
         Ok(p) => p,
         Err(err) => {
             debug!("could not fork process: {err}");
@@ -135,17 +113,12 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
         }
     };
 
-    {
-        let mut inner = ctx.data().process.lock();
-        inner.children.push(child_env.process.clone());
-    }
-
     // Setup some properties in the child environment
     let pid = child_env.pid();
     let tid = child_env.tid();
+    let child_process = child_env.process.clone();
     let child_finished = child_env.process.finished.clone();
     let tasks = child_env.tasks().clone();
-    wasi_try_mem_ok!(ret.write(&memory, pid.raw()));
     Span::current()
         .record("pid", pid.raw())
         .record("tid", tid.raw());
@@ -155,6 +128,15 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
     for fd_op in fd_ops {
         wasi_try_ok!(apply_fd_op(&mut child_env, &memory, &fd_op));
     }
+
+    *name = wasi_try_ok!(resolve_spawn_executable(
+        &child_env,
+        name,
+        search_path,
+        path
+    ));
+    Span::current().record("full_path", name.as_str());
+    wasi_try_mem_ok!(ret.write(&memory, pid.raw()));
 
     // Create the process and drop the context
     let bin_factory = Box::new(child_env.bin_factory.clone());
@@ -182,6 +164,10 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
 
     match process {
         Ok(_) => {
+            {
+                let mut inner = ctx.data().process.lock();
+                inner.children.push(child_process);
+            }
             ctx.data_mut().owned_handles.push(child_handle);
             trace!(child_pid = %pid, "spawned sub-process");
             Ok(Errno::Success)
@@ -194,6 +180,41 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
             Ok(Errno::Noexec)
         }
     }
+}
+
+fn resolve_spawn_executable(
+    env: &WasiEnv,
+    name: &str,
+    search_path: Bool,
+    path: Option<&str>,
+) -> Result<String, Errno> {
+    if search_path == Bool::True && !name.contains('/') {
+        let path = resolve_spawn_search_path(env, path);
+        return match find_executable_in_path(
+            &env.state.fs,
+            &env.state.inodes,
+            path.iter().map(AsRef::as_ref),
+            name,
+        ) {
+            FindExecutableResult::Found(path) => Ok(path),
+            FindExecutableResult::AccessError => Err(Errno::Access),
+            FindExecutableResult::NotFound => Err(Errno::Noent),
+        };
+    }
+
+    if name.starts_with('/') {
+        Ok(name.to_string())
+    } else {
+        Ok(env.state.fs.relative_path_to_absolute(name.to_string()))
+    }
+}
+
+fn resolve_spawn_search_path(env: &WasiEnv, path: Option<&str>) -> Vec<String> {
+    path.map(|path| path.split(':').collect::<Vec<_>>())
+        .unwrap_or_else(|| vec!["/usr/local/bin", "/bin", "/usr/bin"])
+        .into_iter()
+        .map(|entry| env.state.fs.relative_path_to_absolute(entry.to_string()))
+        .collect()
 }
 
 pub(crate) fn apply_fd_op<M: MemorySize>(
@@ -268,5 +289,62 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
             }
         }
         _ => Err(Errno::Inval),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasmer::Engine;
+
+    #[tokio::test]
+    async fn spawn_resolution_uses_prepared_child_cwd() {
+        let env = WasiEnv::builder("test")
+            .engine(Engine::default())
+            .build()
+            .unwrap();
+        env.state.fs.set_current_dir("/child");
+
+        assert_eq!(
+            resolve_spawn_executable(&env, "tool", Bool::False, None),
+            Ok("/child/tool".to_string())
+        );
+        assert_eq!(
+            resolve_spawn_executable(&env, "./tool", Bool::False, None),
+            Ok("/child/./tool".to_string())
+        );
+        assert_eq!(
+            resolve_spawn_executable(&env, "sub/tool", Bool::False, None),
+            Ok("/child/sub/tool".to_string())
+        );
+        assert_eq!(
+            resolve_spawn_search_path(&env, Some("bin::/absolute")),
+            vec![
+                "/child/bin".to_string(),
+                "/child/".to_string(),
+                "/absolute".to_string()
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn uncommitted_child_is_finished_without_parent_publication() {
+        let parent = WasiEnv::builder("test")
+            .engine(Engine::default())
+            .build()
+            .unwrap();
+        let owned_handles = parent.owned_handles.len();
+        let children = parent.process.lock().children.len();
+        let (child, child_handle) = parent.fork().unwrap();
+        let child_process = child.process.clone();
+
+        drop(child);
+        drop(child_handle);
+
+        assert_eq!(parent.owned_handles.len(), owned_handles);
+        assert_eq!(parent.process.lock().children.len(), children);
+        assert!(
+            matches!(child_process.try_join(), Some(Ok(code)) if code == Errno::Success.into())
+        );
     }
 }
