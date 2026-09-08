@@ -83,6 +83,9 @@ int main(void) {
   if (posix_spawn_file_actions_init(&actions) != 0 ||
       posix_spawn_file_actions_addchdir_np(&actions, "chdir") != 0 ||
       spawn_and_expect("./tool", &actions, 0, 11) != 0 ||
+      spawn_and_expect("tool", &actions, 0, 11) != 0 ||
+      spawn_and_expect("./tool", &actions, 1, 11) != 0 ||
+      spawn_and_expect("/home/tool", &actions, 1, 10) != 0 ||
       posix_spawn_file_actions_destroy(&actions) != 0)
     return EXIT_FAILURE;
 
@@ -99,7 +102,7 @@ int main(void) {
       posix_spawn_file_actions_destroy(&actions) != 0)
     return EXIT_FAILURE;
 
-  if (setenv("PATH", "bin:/missing", 1) != 0 ||
+  if (setenv("PATH", "missing:bin:/missing", 1) != 0 ||
       posix_spawn_file_actions_init(&actions) != 0 ||
       posix_spawn_file_actions_addchdir_np(&actions, "path-relative") != 0 ||
       spawn_and_expect("tool", &actions, 1, 14) != 0 ||
@@ -109,6 +112,12 @@ int main(void) {
   if (setenv("PATH", ":/missing", 1) != 0 ||
       posix_spawn_file_actions_init(&actions) != 0 ||
       posix_spawn_file_actions_addchdir_np(&actions, "path-empty") != 0 ||
+      spawn_and_expect("tool", &actions, 1, 15) != 0 ||
+      setenv("PATH", "/missing:", 1) != 0 ||
+      spawn_and_expect("tool", &actions, 1, 15) != 0 ||
+      setenv("PATH", "/missing::/also-missing", 1) != 0 ||
+      spawn_and_expect("tool", &actions, 1, 15) != 0 ||
+      setenv("PATH", "", 1) != 0 ||
       spawn_and_expect("tool", &actions, 1, 15) != 0 ||
       posix_spawn_file_actions_destroy(&actions) != 0)
     return EXIT_FAILURE;
@@ -131,6 +140,29 @@ int main(void) {
       posix_spawn_file_actions_addchdir_np(&actions, "path-empty") != 0 ||
       expect_failed_spawn("missing", &actions, 1, ENOENT) != 0 ||
       posix_spawn_file_actions_destroy(&actions) != 0)
+    return EXIT_FAILURE;
+
+  if (posix_spawn_file_actions_init(&actions) != 0 ||
+      posix_spawn_file_actions_addopen(&actions, 20, "before-chdir",
+                                       O_WRONLY | O_CREAT | O_EXCL,
+                                       0600) != 0 ||
+      posix_spawn_file_actions_addchdir_np(&actions, "chdir") != 0 ||
+      posix_spawn_file_actions_addopen(&actions, 21, "after-chdir",
+                                       O_WRONLY | O_CREAT | O_EXCL,
+                                       0600) != 0 ||
+      spawn_and_expect("./tool", &actions, 0, 11) != 0 ||
+      posix_spawn_file_actions_destroy(&actions) != 0 ||
+      access("before-chdir", F_OK) != 0 ||
+      access("chdir/after-chdir", F_OK) != 0)
+    return EXIT_FAILURE;
+
+  if (expect_failed_spawn("/home/missing", NULL, 0, ENOEXEC) != 0)
+    return EXIT_FAILURE;
+
+  FILE* invalid = fopen("invalid", "w");
+  if (invalid == NULL || fputs("not a wasm module", invalid) == EOF ||
+      fclose(invalid) != 0 ||
+      expect_failed_spawn("/home/invalid", NULL, 0, ENOEXEC) != 0)
     return EXIT_FAILURE;
 
   close(dirfd);
