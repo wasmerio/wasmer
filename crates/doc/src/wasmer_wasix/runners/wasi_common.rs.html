@@ -544,408 +544,411 @@
 <a href=#544 id=544 data-nosnippet>544</a>    <span class="attr">#[tokio::test]
 <a href=#545 id=545 data-nosnippet>545</a>    </span><span class="kw">async fn </span>mix_env_vars_from_the_webc_and_user() {
 <a href=#546 id=546 data-nosnippet>546</a>        <span class="kw">let </span>args = CommonWasiOptions {
-<a href=#547 id=547 data-nosnippet>547</a>            env: <span class="macro">vec!</span>[(<span class="string">"EXTRA"</span>.to_string(), <span class="string">"envs"</span>.to_string())]
-<a href=#548 id=548 data-nosnippet>548</a>                .into_iter()
-<a href=#549 id=549 data-nosnippet>549</a>                .collect(),
-<a href=#550 id=550 data-nosnippet>550</a>            ..Default::default()
-<a href=#551 id=551 data-nosnippet>551</a>        };
-<a href=#552 id=552 data-nosnippet>552</a>        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">"python"</span>);
-<a href=#553 id=553 data-nosnippet>553</a>        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">"python"</span>);
-<a href=#554 id=554 data-nosnippet>554</a>        annotations.env = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">"HARD_CODED=env-vars"</span>.to_string()]);
-<a href=#555 id=555 data-nosnippet>555</a>
-<a href=#556 id=556 data-nosnippet>556</a>        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
-<a href=#557 id=557 data-nosnippet>557</a>            .unwrap();
+<a href=#547 id=547 data-nosnippet>547</a>            env: <span class="macro">vec!</span>[
+<a href=#548 id=548 data-nosnippet>548</a>                (<span class="string">"EXTRA"</span>.to_string(), <span class="string">"envs"</span>.to_string()),
+<a href=#549 id=549 data-nosnippet>549</a>                (<span class="string">"HARD_CODED"</span>.to_string(), <span class="string">"user-override"</span>.to_string()),
+<a href=#550 id=550 data-nosnippet>550</a>            ]
+<a href=#551 id=551 data-nosnippet>551</a>            .into_iter()
+<a href=#552 id=552 data-nosnippet>552</a>            .collect(),
+<a href=#553 id=553 data-nosnippet>553</a>            ..Default::default()
+<a href=#554 id=554 data-nosnippet>554</a>        };
+<a href=#555 id=555 data-nosnippet>555</a>        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(<span class="string">"python"</span>);
+<a href=#556 id=556 data-nosnippet>556</a>        <span class="kw">let </span><span class="kw-2">mut </span>annotations = WasiAnnotation::new(<span class="string">"python"</span>);
+<a href=#557 id=557 data-nosnippet>557</a>        annotations.env = <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[<span class="string">"HARD_CODED=env-vars"</span>.to_string()]);
 <a href=#558 id=558 data-nosnippet>558</a>
-<a href=#559 id=559 data-nosnippet>559</a>        <span class="macro">assert_eq!</span>(
-<a href=#560 id=560 data-nosnippet>560</a>            builder.get_env(),
-<a href=#561 id=561 data-nosnippet>561</a>            [
-<a href=#562 id=562 data-nosnippet>562</a>                (<span class="string">"HARD_CODED"</span>.to_string(), <span class="string">b"env-vars"</span>.to_vec()),
-<a href=#563 id=563 data-nosnippet>563</a>                (<span class="string">"EXTRA"</span>.to_string(), <span class="string">b"envs"</span>.to_vec()),
-<a href=#564 id=564 data-nosnippet>564</a>            ]
-<a href=#565 id=565 data-nosnippet>565</a>        );
-<a href=#566 id=566 data-nosnippet>566</a>    }
-<a href=#567 id=567 data-nosnippet>567</a>
-<a href=#568 id=568 data-nosnippet>568</a>    <span class="kw">fn </span>unix_timestamp_nanos(instant: SystemTime) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
-<a href=#569 id=569 data-nosnippet>569</a>        <span class="kw">let </span>duration = instant.duration_since(SystemTime::UNIX_EPOCH).ok()<span class="question-mark">?</span>;
-<a href=#570 id=570 data-nosnippet>570</a>        <span class="prelude-val">Some</span>(duration.as_nanos() <span class="kw">as </span>u64)
-<a href=#571 id=571 data-nosnippet>571</a>    }
-<a href=#572 id=572 data-nosnippet>572</a>
-<a href=#573 id=573 data-nosnippet>573</a>    <span class="attr">#[tokio::test]
-<a href=#574 id=574 data-nosnippet>574</a>    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
-<a href=#575 id=575 data-nosnippet>575</a>    </span><span class="kw">async fn </span>python_use_case() {
-<a href=#576 id=576 data-nosnippet>576</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#577 id=577 data-nosnippet>577</a>        <span class="kw">let </span>sub_dir = temp.path().join(<span class="string">"path"</span>).join(<span class="string">"to"</span>);
-<a href=#578 id=578 data-nosnippet>578</a>        std::fs::create_dir_all(<span class="kw-2">&amp;</span>sub_dir).unwrap();
-<a href=#579 id=579 data-nosnippet>579</a>        std::fs::write(sub_dir.join(<span class="string">"file.txt"</span>), <span class="string">b"Hello, World!"</span>).unwrap();
-<a href=#580 id=580 data-nosnippet>580</a>        <span class="kw">let </span>mapping = [MountedDirectory::from(MappedDirectory {
-<a href=#581 id=581 data-nosnippet>581</a>            guest: <span class="string">"/home"</span>.to_string(),
-<a href=#582 id=582 data-nosnippet>582</a>            host: sub_dir,
-<a href=#583 id=583 data-nosnippet>583</a>        })];
-<a href=#584 id=584 data-nosnippet>584</a>        <span class="kw">let </span>container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
-<a href=#585 id=585 data-nosnippet>585</a>        <span class="kw">let </span>webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
-<a href=#586 id=586 data-nosnippet>586</a>        <span class="kw">let </span>mount_fs = MountFileSystem::new();
-<a href=#587 id=587 data-nosnippet>587</a>        mount_fs.mount(Path::new(<span class="string">"/"</span>), Arc::new(webc_fs)).unwrap();
-<a href=#588 id=588 data-nosnippet>588</a>
-<a href=#589 id=589 data-nosnippet>589</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-<a href=#590 id=590 data-nosnippet>590</a>        <span class="kw">let </span>fs = prepare_filesystem(
-<a href=#591 id=591 data-nosnippet>591</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
-<a href=#592 id=592 data-nosnippet>592</a>            <span class="prelude-val">None</span>,
-<a href=#593 id=593 data-nosnippet>593</a>            <span class="kw-2">&amp;</span>mapping,
-<a href=#594 id=594 data-nosnippet>594</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(mount_fs)),
-<a href=#595 id=595 data-nosnippet>595</a>            ExistingMountConflictBehavior::Override,
-<a href=#596 id=596 data-nosnippet>596</a>        )
-<a href=#597 id=597 data-nosnippet>597</a>        .unwrap();
-<a href=#598 id=598 data-nosnippet>598</a>
-<a href=#599 id=599 data-nosnippet>599</a>        <span class="kw">use </span>virtual_fs::FileSystem;
-<a href=#600 id=600 data-nosnippet>600</a>        <span class="macro">assert!</span>(fs.metadata(<span class="string">"/home/file.txt"</span>.as_ref()).unwrap().is_file());
-<a href=#601 id=601 data-nosnippet>601</a>        <span class="macro">assert!</span>(fs.metadata(<span class="string">"lib"</span>.as_ref()).unwrap().is_dir());
-<a href=#602 id=602 data-nosnippet>602</a>        <span class="macro">assert!</span>(
-<a href=#603 id=603 data-nosnippet>603</a>            fs.metadata(<span class="string">"lib/python3.13/collections/__init__.py"</span>.as_ref())
-<a href=#604 id=604 data-nosnippet>604</a>                .unwrap()
-<a href=#605 id=605 data-nosnippet>605</a>                .is_file()
-<a href=#606 id=606 data-nosnippet>606</a>        );
-<a href=#607 id=607 data-nosnippet>607</a>        <span class="macro">assert!</span>(
-<a href=#608 id=608 data-nosnippet>608</a>            fs.metadata(<span class="string">"lib/python3.13/encodings/__init__.py"</span>.as_ref())
-<a href=#609 id=609 data-nosnippet>609</a>                .unwrap()
-<a href=#610 id=610 data-nosnippet>610</a>                .is_file()
-<a href=#611 id=611 data-nosnippet>611</a>        );
-<a href=#612 id=612 data-nosnippet>612</a>    }
-<a href=#613 id=613 data-nosnippet>613</a>
-<a href=#614 id=614 data-nosnippet>614</a>    <span class="attr">#[tokio::test]
-<a href=#615 id=615 data-nosnippet>615</a>    </span><span class="kw">async fn </span>package_mount_paths_remain_writable() {
-<a href=#616 id=616 data-nosnippet>616</a>        <span class="kw">use </span>virtual_fs::FileSystem;
-<a href=#617 id=617 data-nosnippet>617</a>
-<a href=#618 id=618 data-nosnippet>618</a>        <span class="kw">let </span>container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
-<a href=#619 id=619 data-nosnippet>619</a>        <span class="kw">let </span>pkg_mount = virtual_fs::WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
+<a href=#559 id=559 data-nosnippet>559</a>        args.prepare_webc_env(<span class="kw-2">&amp;mut </span>builder, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>annotations, <span class="prelude-val">None</span>)
+<a href=#560 id=560 data-nosnippet>560</a>            .unwrap();
+<a href=#561 id=561 data-nosnippet>561</a>
+<a href=#562 id=562 data-nosnippet>562</a>        <span class="macro">assert_eq!</span>(
+<a href=#563 id=563 data-nosnippet>563</a>            builder.get_env(),
+<a href=#564 id=564 data-nosnippet>564</a>            [
+<a href=#565 id=565 data-nosnippet>565</a>                (<span class="string">"HARD_CODED"</span>.to_string(), <span class="string">b"user-override"</span>.to_vec()),
+<a href=#566 id=566 data-nosnippet>566</a>                (<span class="string">"EXTRA"</span>.to_string(), <span class="string">b"envs"</span>.to_vec()),
+<a href=#567 id=567 data-nosnippet>567</a>            ]
+<a href=#568 id=568 data-nosnippet>568</a>        );
+<a href=#569 id=569 data-nosnippet>569</a>    }
+<a href=#570 id=570 data-nosnippet>570</a>
+<a href=#571 id=571 data-nosnippet>571</a>    <span class="kw">fn </span>unix_timestamp_nanos(instant: SystemTime) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
+<a href=#572 id=572 data-nosnippet>572</a>        <span class="kw">let </span>duration = instant.duration_since(SystemTime::UNIX_EPOCH).ok()<span class="question-mark">?</span>;
+<a href=#573 id=573 data-nosnippet>573</a>        <span class="prelude-val">Some</span>(duration.as_nanos() <span class="kw">as </span>u64)
+<a href=#574 id=574 data-nosnippet>574</a>    }
+<a href=#575 id=575 data-nosnippet>575</a>
+<a href=#576 id=576 data-nosnippet>576</a>    <span class="attr">#[tokio::test]
+<a href=#577 id=577 data-nosnippet>577</a>    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
+<a href=#578 id=578 data-nosnippet>578</a>    </span><span class="kw">async fn </span>python_use_case() {
+<a href=#579 id=579 data-nosnippet>579</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#580 id=580 data-nosnippet>580</a>        <span class="kw">let </span>sub_dir = temp.path().join(<span class="string">"path"</span>).join(<span class="string">"to"</span>);
+<a href=#581 id=581 data-nosnippet>581</a>        std::fs::create_dir_all(<span class="kw-2">&amp;</span>sub_dir).unwrap();
+<a href=#582 id=582 data-nosnippet>582</a>        std::fs::write(sub_dir.join(<span class="string">"file.txt"</span>), <span class="string">b"Hello, World!"</span>).unwrap();
+<a href=#583 id=583 data-nosnippet>583</a>        <span class="kw">let </span>mapping = [MountedDirectory::from(MappedDirectory {
+<a href=#584 id=584 data-nosnippet>584</a>            guest: <span class="string">"/home"</span>.to_string(),
+<a href=#585 id=585 data-nosnippet>585</a>            host: sub_dir,
+<a href=#586 id=586 data-nosnippet>586</a>        })];
+<a href=#587 id=587 data-nosnippet>587</a>        <span class="kw">let </span>container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
+<a href=#588 id=588 data-nosnippet>588</a>        <span class="kw">let </span>webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
+<a href=#589 id=589 data-nosnippet>589</a>        <span class="kw">let </span>mount_fs = MountFileSystem::new();
+<a href=#590 id=590 data-nosnippet>590</a>        mount_fs.mount(Path::new(<span class="string">"/"</span>), Arc::new(webc_fs)).unwrap();
+<a href=#591 id=591 data-nosnippet>591</a>
+<a href=#592 id=592 data-nosnippet>592</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+<a href=#593 id=593 data-nosnippet>593</a>        <span class="kw">let </span>fs = prepare_filesystem(
+<a href=#594 id=594 data-nosnippet>594</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
+<a href=#595 id=595 data-nosnippet>595</a>            <span class="prelude-val">None</span>,
+<a href=#596 id=596 data-nosnippet>596</a>            <span class="kw-2">&amp;</span>mapping,
+<a href=#597 id=597 data-nosnippet>597</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(mount_fs)),
+<a href=#598 id=598 data-nosnippet>598</a>            ExistingMountConflictBehavior::Override,
+<a href=#599 id=599 data-nosnippet>599</a>        )
+<a href=#600 id=600 data-nosnippet>600</a>        .unwrap();
+<a href=#601 id=601 data-nosnippet>601</a>
+<a href=#602 id=602 data-nosnippet>602</a>        <span class="kw">use </span>virtual_fs::FileSystem;
+<a href=#603 id=603 data-nosnippet>603</a>        <span class="macro">assert!</span>(fs.metadata(<span class="string">"/home/file.txt"</span>.as_ref()).unwrap().is_file());
+<a href=#604 id=604 data-nosnippet>604</a>        <span class="macro">assert!</span>(fs.metadata(<span class="string">"lib"</span>.as_ref()).unwrap().is_dir());
+<a href=#605 id=605 data-nosnippet>605</a>        <span class="macro">assert!</span>(
+<a href=#606 id=606 data-nosnippet>606</a>            fs.metadata(<span class="string">"lib/python3.13/collections/__init__.py"</span>.as_ref())
+<a href=#607 id=607 data-nosnippet>607</a>                .unwrap()
+<a href=#608 id=608 data-nosnippet>608</a>                .is_file()
+<a href=#609 id=609 data-nosnippet>609</a>        );
+<a href=#610 id=610 data-nosnippet>610</a>        <span class="macro">assert!</span>(
+<a href=#611 id=611 data-nosnippet>611</a>            fs.metadata(<span class="string">"lib/python3.13/encodings/__init__.py"</span>.as_ref())
+<a href=#612 id=612 data-nosnippet>612</a>                .unwrap()
+<a href=#613 id=613 data-nosnippet>613</a>                .is_file()
+<a href=#614 id=614 data-nosnippet>614</a>        );
+<a href=#615 id=615 data-nosnippet>615</a>    }
+<a href=#616 id=616 data-nosnippet>616</a>
+<a href=#617 id=617 data-nosnippet>617</a>    <span class="attr">#[tokio::test]
+<a href=#618 id=618 data-nosnippet>618</a>    </span><span class="kw">async fn </span>package_mount_paths_remain_writable() {
+<a href=#619 id=619 data-nosnippet>619</a>        <span class="kw">use </span>virtual_fs::FileSystem;
 <a href=#620 id=620 data-nosnippet>620</a>
-<a href=#621 id=621 data-nosnippet>621</a>        <span class="kw">let </span>mount_fs = MountFileSystem::new();
-<a href=#622 id=622 data-nosnippet>622</a>        mount_fs
-<a href=#623 id=623 data-nosnippet>623</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(pkg_mount))
-<a href=#624 id=624 data-nosnippet>624</a>            .unwrap();
-<a href=#625 id=625 data-nosnippet>625</a>
-<a href=#626 id=626 data-nosnippet>626</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-<a href=#627 id=627 data-nosnippet>627</a>        <span class="kw">let </span>fs = prepare_filesystem(
-<a href=#628 id=628 data-nosnippet>628</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
-<a href=#629 id=629 data-nosnippet>629</a>            <span class="prelude-val">None</span>,
-<a href=#630 id=630 data-nosnippet>630</a>            <span class="kw-2">&amp;</span>[],
-<a href=#631 id=631 data-nosnippet>631</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(mount_fs)),
-<a href=#632 id=632 data-nosnippet>632</a>            ExistingMountConflictBehavior::Override,
-<a href=#633 id=633 data-nosnippet>633</a>        )
-<a href=#634 id=634 data-nosnippet>634</a>        .unwrap();
-<a href=#635 id=635 data-nosnippet>635</a>
-<a href=#636 id=636 data-nosnippet>636</a>        fs.create_dir(Path::new(<span class="string">"/python/custom"</span>)).unwrap();
-<a href=#637 id=637 data-nosnippet>637</a>        fs.new_open_options()
-<a href=#638 id=638 data-nosnippet>638</a>            .create(<span class="bool-val">true</span>)
-<a href=#639 id=639 data-nosnippet>639</a>            .write(<span class="bool-val">true</span>)
-<a href=#640 id=640 data-nosnippet>640</a>            .open(Path::new(<span class="string">"/python/custom/sitecustomize.py"</span>))
-<a href=#641 id=641 data-nosnippet>641</a>            .unwrap();
-<a href=#642 id=642 data-nosnippet>642</a>
-<a href=#643 id=643 data-nosnippet>643</a>        <span class="macro">assert!</span>(
-<a href=#644 id=644 data-nosnippet>644</a>            fs.metadata(Path::new(<span class="string">"/python/custom/sitecustomize.py"</span>))
-<a href=#645 id=645 data-nosnippet>645</a>                .unwrap()
-<a href=#646 id=646 data-nosnippet>646</a>                .is_file()
-<a href=#647 id=647 data-nosnippet>647</a>        );
-<a href=#648 id=648 data-nosnippet>648</a>        <span class="macro">assert!</span>(
-<a href=#649 id=649 data-nosnippet>649</a>            fs.metadata(Path::new(<span class="string">"/python/lib/python3.13/collections/__init__.py"</span>))
-<a href=#650 id=650 data-nosnippet>650</a>                .unwrap()
-<a href=#651 id=651 data-nosnippet>651</a>                .is_file()
-<a href=#652 id=652 data-nosnippet>652</a>        );
-<a href=#653 id=653 data-nosnippet>653</a>    }
-<a href=#654 id=654 data-nosnippet>654</a>
-<a href=#655 id=655 data-nosnippet>655</a>    <span class="attr">#[tokio::test]
-<a href=#656 id=656 data-nosnippet>656</a>    </span><span class="kw">async fn </span>package_mount_symlinks_remain_writable() {
-<a href=#657 id=657 data-nosnippet>657</a>        <span class="kw">use </span>virtual_fs::FileSystem;
-<a href=#658 id=658 data-nosnippet>658</a>
-<a href=#659 id=659 data-nosnippet>659</a>        <span class="kw">let </span>container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
-<a href=#660 id=660 data-nosnippet>660</a>        <span class="kw">let </span>pkg_mount = virtual_fs::WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
+<a href=#621 id=621 data-nosnippet>621</a>        <span class="kw">let </span>container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
+<a href=#622 id=622 data-nosnippet>622</a>        <span class="kw">let </span>pkg_mount = virtual_fs::WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
+<a href=#623 id=623 data-nosnippet>623</a>
+<a href=#624 id=624 data-nosnippet>624</a>        <span class="kw">let </span>mount_fs = MountFileSystem::new();
+<a href=#625 id=625 data-nosnippet>625</a>        mount_fs
+<a href=#626 id=626 data-nosnippet>626</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(pkg_mount))
+<a href=#627 id=627 data-nosnippet>627</a>            .unwrap();
+<a href=#628 id=628 data-nosnippet>628</a>
+<a href=#629 id=629 data-nosnippet>629</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+<a href=#630 id=630 data-nosnippet>630</a>        <span class="kw">let </span>fs = prepare_filesystem(
+<a href=#631 id=631 data-nosnippet>631</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
+<a href=#632 id=632 data-nosnippet>632</a>            <span class="prelude-val">None</span>,
+<a href=#633 id=633 data-nosnippet>633</a>            <span class="kw-2">&amp;</span>[],
+<a href=#634 id=634 data-nosnippet>634</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(mount_fs)),
+<a href=#635 id=635 data-nosnippet>635</a>            ExistingMountConflictBehavior::Override,
+<a href=#636 id=636 data-nosnippet>636</a>        )
+<a href=#637 id=637 data-nosnippet>637</a>        .unwrap();
+<a href=#638 id=638 data-nosnippet>638</a>
+<a href=#639 id=639 data-nosnippet>639</a>        fs.create_dir(Path::new(<span class="string">"/python/custom"</span>)).unwrap();
+<a href=#640 id=640 data-nosnippet>640</a>        fs.new_open_options()
+<a href=#641 id=641 data-nosnippet>641</a>            .create(<span class="bool-val">true</span>)
+<a href=#642 id=642 data-nosnippet>642</a>            .write(<span class="bool-val">true</span>)
+<a href=#643 id=643 data-nosnippet>643</a>            .open(Path::new(<span class="string">"/python/custom/sitecustomize.py"</span>))
+<a href=#644 id=644 data-nosnippet>644</a>            .unwrap();
+<a href=#645 id=645 data-nosnippet>645</a>
+<a href=#646 id=646 data-nosnippet>646</a>        <span class="macro">assert!</span>(
+<a href=#647 id=647 data-nosnippet>647</a>            fs.metadata(Path::new(<span class="string">"/python/custom/sitecustomize.py"</span>))
+<a href=#648 id=648 data-nosnippet>648</a>                .unwrap()
+<a href=#649 id=649 data-nosnippet>649</a>                .is_file()
+<a href=#650 id=650 data-nosnippet>650</a>        );
+<a href=#651 id=651 data-nosnippet>651</a>        <span class="macro">assert!</span>(
+<a href=#652 id=652 data-nosnippet>652</a>            fs.metadata(Path::new(<span class="string">"/python/lib/python3.13/collections/__init__.py"</span>))
+<a href=#653 id=653 data-nosnippet>653</a>                .unwrap()
+<a href=#654 id=654 data-nosnippet>654</a>                .is_file()
+<a href=#655 id=655 data-nosnippet>655</a>        );
+<a href=#656 id=656 data-nosnippet>656</a>    }
+<a href=#657 id=657 data-nosnippet>657</a>
+<a href=#658 id=658 data-nosnippet>658</a>    <span class="attr">#[tokio::test]
+<a href=#659 id=659 data-nosnippet>659</a>    </span><span class="kw">async fn </span>package_mount_symlinks_remain_writable() {
+<a href=#660 id=660 data-nosnippet>660</a>        <span class="kw">use </span>virtual_fs::FileSystem;
 <a href=#661 id=661 data-nosnippet>661</a>
-<a href=#662 id=662 data-nosnippet>662</a>        <span class="kw">let </span>mount_fs = MountFileSystem::new();
-<a href=#663 id=663 data-nosnippet>663</a>        mount_fs
-<a href=#664 id=664 data-nosnippet>664</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(pkg_mount))
-<a href=#665 id=665 data-nosnippet>665</a>            .unwrap();
-<a href=#666 id=666 data-nosnippet>666</a>
-<a href=#667 id=667 data-nosnippet>667</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-<a href=#668 id=668 data-nosnippet>668</a>        <span class="kw">let </span>fs = prepare_filesystem(
-<a href=#669 id=669 data-nosnippet>669</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
-<a href=#670 id=670 data-nosnippet>670</a>            <span class="prelude-val">None</span>,
-<a href=#671 id=671 data-nosnippet>671</a>            <span class="kw-2">&amp;</span>[],
-<a href=#672 id=672 data-nosnippet>672</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(mount_fs)),
-<a href=#673 id=673 data-nosnippet>673</a>            ExistingMountConflictBehavior::Override,
-<a href=#674 id=674 data-nosnippet>674</a>        )
-<a href=#675 id=675 data-nosnippet>675</a>        .unwrap();
-<a href=#676 id=676 data-nosnippet>676</a>
-<a href=#677 id=677 data-nosnippet>677</a>        fs.create_symlink(
-<a href=#678 id=678 data-nosnippet>678</a>            Path::new(<span class="string">"lib/python3.13/collections"</span>),
-<a href=#679 id=679 data-nosnippet>679</a>            Path::new(<span class="string">"/python/collections-link"</span>),
-<a href=#680 id=680 data-nosnippet>680</a>        )
-<a href=#681 id=681 data-nosnippet>681</a>        .unwrap();
-<a href=#682 id=682 data-nosnippet>682</a>
-<a href=#683 id=683 data-nosnippet>683</a>        <span class="macro">assert_eq!</span>(
-<a href=#684 id=684 data-nosnippet>684</a>            fs.readlink(Path::new(<span class="string">"/python/collections-link"</span>)).unwrap(),
-<a href=#685 id=685 data-nosnippet>685</a>            Path::new(<span class="string">"lib/python3.13/collections"</span>)
-<a href=#686 id=686 data-nosnippet>686</a>        );
-<a href=#687 id=687 data-nosnippet>687</a>        <span class="macro">assert!</span>(
-<a href=#688 id=688 data-nosnippet>688</a>            fs.symlink_metadata(Path::new(<span class="string">"/python/collections-link"</span>))
-<a href=#689 id=689 data-nosnippet>689</a>                .unwrap()
-<a href=#690 id=690 data-nosnippet>690</a>                .ft
-<a href=#691 id=691 data-nosnippet>691</a>                .is_symlink()
-<a href=#692 id=692 data-nosnippet>692</a>        );
-<a href=#693 id=693 data-nosnippet>693</a>    }
-<a href=#694 id=694 data-nosnippet>694</a>
-<a href=#695 id=695 data-nosnippet>695</a>    <span class="attr">#[tokio::test]
-<a href=#696 id=696 data-nosnippet>696</a>    </span><span class="kw">async fn </span>user_mounts_override_package_mounts_when_configured() {
-<a href=#697 id=697 data-nosnippet>697</a>        <span class="kw">use </span>virtual_fs::FileSystem;
-<a href=#698 id=698 data-nosnippet>698</a>
-<a href=#699 id=699 data-nosnippet>699</a>        <span class="kw">let </span>user_mount = TmpFileSystem::new();
-<a href=#700 id=700 data-nosnippet>700</a>        user_mount
-<a href=#701 id=701 data-nosnippet>701</a>            .new_open_options()
-<a href=#702 id=702 data-nosnippet>702</a>            .create(<span class="bool-val">true</span>)
-<a href=#703 id=703 data-nosnippet>703</a>            .write(<span class="bool-val">true</span>)
-<a href=#704 id=704 data-nosnippet>704</a>            .open(Path::new(<span class="string">"/user.txt"</span>))
-<a href=#705 id=705 data-nosnippet>705</a>            .unwrap();
-<a href=#706 id=706 data-nosnippet>706</a>
-<a href=#707 id=707 data-nosnippet>707</a>        <span class="kw">let </span>package_mount = TmpFileSystem::new();
-<a href=#708 id=708 data-nosnippet>708</a>        package_mount
-<a href=#709 id=709 data-nosnippet>709</a>            .new_open_options()
-<a href=#710 id=710 data-nosnippet>710</a>            .create(<span class="bool-val">true</span>)
-<a href=#711 id=711 data-nosnippet>711</a>            .write(<span class="bool-val">true</span>)
-<a href=#712 id=712 data-nosnippet>712</a>            .open(Path::new(<span class="string">"/pkg.txt"</span>))
-<a href=#713 id=713 data-nosnippet>713</a>            .unwrap();
-<a href=#714 id=714 data-nosnippet>714</a>
-<a href=#715 id=715 data-nosnippet>715</a>        <span class="kw">let </span>mounted_dirs = [MountedDirectory {
-<a href=#716 id=716 data-nosnippet>716</a>            guest: <span class="string">"/python"</span>.to_string(),
-<a href=#717 id=717 data-nosnippet>717</a>            fs: Arc::new(user_mount),
-<a href=#718 id=718 data-nosnippet>718</a>        }];
-<a href=#719 id=719 data-nosnippet>719</a>
-<a href=#720 id=720 data-nosnippet>720</a>        <span class="kw">let </span>container_mounts = MountFileSystem::new();
-<a href=#721 id=721 data-nosnippet>721</a>        container_mounts
-<a href=#722 id=722 data-nosnippet>722</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(package_mount))
-<a href=#723 id=723 data-nosnippet>723</a>            .unwrap();
-<a href=#724 id=724 data-nosnippet>724</a>
-<a href=#725 id=725 data-nosnippet>725</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-<a href=#726 id=726 data-nosnippet>726</a>        <span class="kw">let </span>fs = prepare_filesystem(
-<a href=#727 id=727 data-nosnippet>727</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
-<a href=#728 id=728 data-nosnippet>728</a>            <span class="prelude-val">None</span>,
-<a href=#729 id=729 data-nosnippet>729</a>            <span class="kw-2">&amp;</span>mounted_dirs,
-<a href=#730 id=730 data-nosnippet>730</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(container_mounts)),
-<a href=#731 id=731 data-nosnippet>731</a>            ExistingMountConflictBehavior::Override,
-<a href=#732 id=732 data-nosnippet>732</a>        )
-<a href=#733 id=733 data-nosnippet>733</a>        .unwrap();
-<a href=#734 id=734 data-nosnippet>734</a>
-<a href=#735 id=735 data-nosnippet>735</a>        <span class="macro">assert!</span>(
-<a href=#736 id=736 data-nosnippet>736</a>            fs.metadata(Path::new(<span class="string">"/python/user.txt"</span>))
-<a href=#737 id=737 data-nosnippet>737</a>                .unwrap()
-<a href=#738 id=738 data-nosnippet>738</a>                .is_file()
-<a href=#739 id=739 data-nosnippet>739</a>        );
-<a href=#740 id=740 data-nosnippet>740</a>        <span class="macro">assert_eq!</span>(
-<a href=#741 id=741 data-nosnippet>741</a>            fs.metadata(Path::new(<span class="string">"/python/pkg.txt"</span>)),
-<a href=#742 id=742 data-nosnippet>742</a>            <span class="prelude-val">Err</span>(virtual_fs::FsError::EntryNotFound)
-<a href=#743 id=743 data-nosnippet>743</a>        );
-<a href=#744 id=744 data-nosnippet>744</a>    }
-<a href=#745 id=745 data-nosnippet>745</a>
-<a href=#746 id=746 data-nosnippet>746</a>    <span class="attr">#[tokio::test]
-<a href=#747 id=747 data-nosnippet>747</a>    </span><span class="kw">async fn </span>conflicting_mounts_fail_when_configured() {
-<a href=#748 id=748 data-nosnippet>748</a>        <span class="kw">let </span>user_mount = TmpFileSystem::new();
-<a href=#749 id=749 data-nosnippet>749</a>        <span class="kw">let </span>package_mount = TmpFileSystem::new();
-<a href=#750 id=750 data-nosnippet>750</a>
-<a href=#751 id=751 data-nosnippet>751</a>        <span class="kw">let </span>mounted_dirs = [MountedDirectory {
-<a href=#752 id=752 data-nosnippet>752</a>            guest: <span class="string">"/python"</span>.to_string(),
-<a href=#753 id=753 data-nosnippet>753</a>            fs: Arc::new(user_mount),
-<a href=#754 id=754 data-nosnippet>754</a>        }];
-<a href=#755 id=755 data-nosnippet>755</a>
-<a href=#756 id=756 data-nosnippet>756</a>        <span class="kw">let </span>container_mounts = MountFileSystem::new();
-<a href=#757 id=757 data-nosnippet>757</a>        container_mounts
-<a href=#758 id=758 data-nosnippet>758</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(package_mount))
-<a href=#759 id=759 data-nosnippet>759</a>            .unwrap();
-<a href=#760 id=760 data-nosnippet>760</a>
-<a href=#761 id=761 data-nosnippet>761</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-<a href=#762 id=762 data-nosnippet>762</a>        <span class="kw">let </span>error = prepare_filesystem(
-<a href=#763 id=763 data-nosnippet>763</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
-<a href=#764 id=764 data-nosnippet>764</a>            <span class="prelude-val">None</span>,
-<a href=#765 id=765 data-nosnippet>765</a>            <span class="kw-2">&amp;</span>mounted_dirs,
-<a href=#766 id=766 data-nosnippet>766</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(container_mounts)),
-<a href=#767 id=767 data-nosnippet>767</a>            ExistingMountConflictBehavior::Fail,
-<a href=#768 id=768 data-nosnippet>768</a>        )
-<a href=#769 id=769 data-nosnippet>769</a>        .unwrap_err();
-<a href=#770 id=770 data-nosnippet>770</a>
-<a href=#771 id=771 data-nosnippet>771</a>        <span class="macro">assert!</span>(
-<a href=#772 id=772 data-nosnippet>772</a>            error
-<a href=#773 id=773 data-nosnippet>773</a>                .to_string()
-<a href=#774 id=774 data-nosnippet>774</a>                .contains(<span class="string">"Unable to merge container mount \"/python\""</span>),
-<a href=#775 id=775 data-nosnippet>775</a>            <span class="string">"{error:#}"
-<a href=#776 id=776 data-nosnippet>776</a>        </span>);
-<a href=#777 id=777 data-nosnippet>777</a>    }
-<a href=#778 id=778 data-nosnippet>778</a>
-<a href=#779 id=779 data-nosnippet>779</a>    <span class="attr">#[tokio::test]
-<a href=#780 id=780 data-nosnippet>780</a>    </span><span class="kw">async fn </span>root_mounts_are_composed_even_in_fail_mode() {
-<a href=#781 id=781 data-nosnippet>781</a>        <span class="kw">use </span>virtual_fs::FileSystem;
-<a href=#782 id=782 data-nosnippet>782</a>
-<a href=#783 id=783 data-nosnippet>783</a>        <span class="kw">let </span>root_mount = TmpFileSystem::new();
-<a href=#784 id=784 data-nosnippet>784</a>        root_mount
-<a href=#785 id=785 data-nosnippet>785</a>            .new_open_options()
-<a href=#786 id=786 data-nosnippet>786</a>            .create(<span class="bool-val">true</span>)
-<a href=#787 id=787 data-nosnippet>787</a>            .write(<span class="bool-val">true</span>)
-<a href=#788 id=788 data-nosnippet>788</a>            .open(Path::new(<span class="string">"/user.txt"</span>))
-<a href=#789 id=789 data-nosnippet>789</a>            .unwrap();
-<a href=#790 id=790 data-nosnippet>790</a>
-<a href=#791 id=791 data-nosnippet>791</a>        <span class="kw">let </span>mounted_dirs = [MountedDirectory {
-<a href=#792 id=792 data-nosnippet>792</a>            guest: <span class="string">"/"</span>.to_string(),
-<a href=#793 id=793 data-nosnippet>793</a>            fs: Arc::new(root_mount),
-<a href=#794 id=794 data-nosnippet>794</a>        }];
-<a href=#795 id=795 data-nosnippet>795</a>
-<a href=#796 id=796 data-nosnippet>796</a>        <span class="kw">let </span>container_mounts = MountFileSystem::new();
-<a href=#797 id=797 data-nosnippet>797</a>        <span class="kw">let </span>container_root = TmpFileSystem::new();
-<a href=#798 id=798 data-nosnippet>798</a>        container_root
-<a href=#799 id=799 data-nosnippet>799</a>            .new_open_options()
-<a href=#800 id=800 data-nosnippet>800</a>            .create(<span class="bool-val">true</span>)
-<a href=#801 id=801 data-nosnippet>801</a>            .write(<span class="bool-val">true</span>)
-<a href=#802 id=802 data-nosnippet>802</a>            .open(Path::new(<span class="string">"/pkg.txt"</span>))
-<a href=#803 id=803 data-nosnippet>803</a>            .unwrap();
-<a href=#804 id=804 data-nosnippet>804</a>        container_mounts
-<a href=#805 id=805 data-nosnippet>805</a>            .mount(Path::new(<span class="string">"/"</span>), Arc::new(container_root))
+<a href=#662 id=662 data-nosnippet>662</a>        <span class="kw">let </span>container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
+<a href=#663 id=663 data-nosnippet>663</a>        <span class="kw">let </span>pkg_mount = virtual_fs::WebcVolumeFileSystem::mount_all(<span class="kw-2">&amp;</span>container);
+<a href=#664 id=664 data-nosnippet>664</a>
+<a href=#665 id=665 data-nosnippet>665</a>        <span class="kw">let </span>mount_fs = MountFileSystem::new();
+<a href=#666 id=666 data-nosnippet>666</a>        mount_fs
+<a href=#667 id=667 data-nosnippet>667</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(pkg_mount))
+<a href=#668 id=668 data-nosnippet>668</a>            .unwrap();
+<a href=#669 id=669 data-nosnippet>669</a>
+<a href=#670 id=670 data-nosnippet>670</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+<a href=#671 id=671 data-nosnippet>671</a>        <span class="kw">let </span>fs = prepare_filesystem(
+<a href=#672 id=672 data-nosnippet>672</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
+<a href=#673 id=673 data-nosnippet>673</a>            <span class="prelude-val">None</span>,
+<a href=#674 id=674 data-nosnippet>674</a>            <span class="kw-2">&amp;</span>[],
+<a href=#675 id=675 data-nosnippet>675</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(mount_fs)),
+<a href=#676 id=676 data-nosnippet>676</a>            ExistingMountConflictBehavior::Override,
+<a href=#677 id=677 data-nosnippet>677</a>        )
+<a href=#678 id=678 data-nosnippet>678</a>        .unwrap();
+<a href=#679 id=679 data-nosnippet>679</a>
+<a href=#680 id=680 data-nosnippet>680</a>        fs.create_symlink(
+<a href=#681 id=681 data-nosnippet>681</a>            Path::new(<span class="string">"lib/python3.13/collections"</span>),
+<a href=#682 id=682 data-nosnippet>682</a>            Path::new(<span class="string">"/python/collections-link"</span>),
+<a href=#683 id=683 data-nosnippet>683</a>        )
+<a href=#684 id=684 data-nosnippet>684</a>        .unwrap();
+<a href=#685 id=685 data-nosnippet>685</a>
+<a href=#686 id=686 data-nosnippet>686</a>        <span class="macro">assert_eq!</span>(
+<a href=#687 id=687 data-nosnippet>687</a>            fs.readlink(Path::new(<span class="string">"/python/collections-link"</span>)).unwrap(),
+<a href=#688 id=688 data-nosnippet>688</a>            Path::new(<span class="string">"lib/python3.13/collections"</span>)
+<a href=#689 id=689 data-nosnippet>689</a>        );
+<a href=#690 id=690 data-nosnippet>690</a>        <span class="macro">assert!</span>(
+<a href=#691 id=691 data-nosnippet>691</a>            fs.symlink_metadata(Path::new(<span class="string">"/python/collections-link"</span>))
+<a href=#692 id=692 data-nosnippet>692</a>                .unwrap()
+<a href=#693 id=693 data-nosnippet>693</a>                .ft
+<a href=#694 id=694 data-nosnippet>694</a>                .is_symlink()
+<a href=#695 id=695 data-nosnippet>695</a>        );
+<a href=#696 id=696 data-nosnippet>696</a>    }
+<a href=#697 id=697 data-nosnippet>697</a>
+<a href=#698 id=698 data-nosnippet>698</a>    <span class="attr">#[tokio::test]
+<a href=#699 id=699 data-nosnippet>699</a>    </span><span class="kw">async fn </span>user_mounts_override_package_mounts_when_configured() {
+<a href=#700 id=700 data-nosnippet>700</a>        <span class="kw">use </span>virtual_fs::FileSystem;
+<a href=#701 id=701 data-nosnippet>701</a>
+<a href=#702 id=702 data-nosnippet>702</a>        <span class="kw">let </span>user_mount = TmpFileSystem::new();
+<a href=#703 id=703 data-nosnippet>703</a>        user_mount
+<a href=#704 id=704 data-nosnippet>704</a>            .new_open_options()
+<a href=#705 id=705 data-nosnippet>705</a>            .create(<span class="bool-val">true</span>)
+<a href=#706 id=706 data-nosnippet>706</a>            .write(<span class="bool-val">true</span>)
+<a href=#707 id=707 data-nosnippet>707</a>            .open(Path::new(<span class="string">"/user.txt"</span>))
+<a href=#708 id=708 data-nosnippet>708</a>            .unwrap();
+<a href=#709 id=709 data-nosnippet>709</a>
+<a href=#710 id=710 data-nosnippet>710</a>        <span class="kw">let </span>package_mount = TmpFileSystem::new();
+<a href=#711 id=711 data-nosnippet>711</a>        package_mount
+<a href=#712 id=712 data-nosnippet>712</a>            .new_open_options()
+<a href=#713 id=713 data-nosnippet>713</a>            .create(<span class="bool-val">true</span>)
+<a href=#714 id=714 data-nosnippet>714</a>            .write(<span class="bool-val">true</span>)
+<a href=#715 id=715 data-nosnippet>715</a>            .open(Path::new(<span class="string">"/pkg.txt"</span>))
+<a href=#716 id=716 data-nosnippet>716</a>            .unwrap();
+<a href=#717 id=717 data-nosnippet>717</a>
+<a href=#718 id=718 data-nosnippet>718</a>        <span class="kw">let </span>mounted_dirs = [MountedDirectory {
+<a href=#719 id=719 data-nosnippet>719</a>            guest: <span class="string">"/python"</span>.to_string(),
+<a href=#720 id=720 data-nosnippet>720</a>            fs: Arc::new(user_mount),
+<a href=#721 id=721 data-nosnippet>721</a>        }];
+<a href=#722 id=722 data-nosnippet>722</a>
+<a href=#723 id=723 data-nosnippet>723</a>        <span class="kw">let </span>container_mounts = MountFileSystem::new();
+<a href=#724 id=724 data-nosnippet>724</a>        container_mounts
+<a href=#725 id=725 data-nosnippet>725</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(package_mount))
+<a href=#726 id=726 data-nosnippet>726</a>            .unwrap();
+<a href=#727 id=727 data-nosnippet>727</a>
+<a href=#728 id=728 data-nosnippet>728</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+<a href=#729 id=729 data-nosnippet>729</a>        <span class="kw">let </span>fs = prepare_filesystem(
+<a href=#730 id=730 data-nosnippet>730</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
+<a href=#731 id=731 data-nosnippet>731</a>            <span class="prelude-val">None</span>,
+<a href=#732 id=732 data-nosnippet>732</a>            <span class="kw-2">&amp;</span>mounted_dirs,
+<a href=#733 id=733 data-nosnippet>733</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(container_mounts)),
+<a href=#734 id=734 data-nosnippet>734</a>            ExistingMountConflictBehavior::Override,
+<a href=#735 id=735 data-nosnippet>735</a>        )
+<a href=#736 id=736 data-nosnippet>736</a>        .unwrap();
+<a href=#737 id=737 data-nosnippet>737</a>
+<a href=#738 id=738 data-nosnippet>738</a>        <span class="macro">assert!</span>(
+<a href=#739 id=739 data-nosnippet>739</a>            fs.metadata(Path::new(<span class="string">"/python/user.txt"</span>))
+<a href=#740 id=740 data-nosnippet>740</a>                .unwrap()
+<a href=#741 id=741 data-nosnippet>741</a>                .is_file()
+<a href=#742 id=742 data-nosnippet>742</a>        );
+<a href=#743 id=743 data-nosnippet>743</a>        <span class="macro">assert_eq!</span>(
+<a href=#744 id=744 data-nosnippet>744</a>            fs.metadata(Path::new(<span class="string">"/python/pkg.txt"</span>)),
+<a href=#745 id=745 data-nosnippet>745</a>            <span class="prelude-val">Err</span>(virtual_fs::FsError::EntryNotFound)
+<a href=#746 id=746 data-nosnippet>746</a>        );
+<a href=#747 id=747 data-nosnippet>747</a>    }
+<a href=#748 id=748 data-nosnippet>748</a>
+<a href=#749 id=749 data-nosnippet>749</a>    <span class="attr">#[tokio::test]
+<a href=#750 id=750 data-nosnippet>750</a>    </span><span class="kw">async fn </span>conflicting_mounts_fail_when_configured() {
+<a href=#751 id=751 data-nosnippet>751</a>        <span class="kw">let </span>user_mount = TmpFileSystem::new();
+<a href=#752 id=752 data-nosnippet>752</a>        <span class="kw">let </span>package_mount = TmpFileSystem::new();
+<a href=#753 id=753 data-nosnippet>753</a>
+<a href=#754 id=754 data-nosnippet>754</a>        <span class="kw">let </span>mounted_dirs = [MountedDirectory {
+<a href=#755 id=755 data-nosnippet>755</a>            guest: <span class="string">"/python"</span>.to_string(),
+<a href=#756 id=756 data-nosnippet>756</a>            fs: Arc::new(user_mount),
+<a href=#757 id=757 data-nosnippet>757</a>        }];
+<a href=#758 id=758 data-nosnippet>758</a>
+<a href=#759 id=759 data-nosnippet>759</a>        <span class="kw">let </span>container_mounts = MountFileSystem::new();
+<a href=#760 id=760 data-nosnippet>760</a>        container_mounts
+<a href=#761 id=761 data-nosnippet>761</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(package_mount))
+<a href=#762 id=762 data-nosnippet>762</a>            .unwrap();
+<a href=#763 id=763 data-nosnippet>763</a>
+<a href=#764 id=764 data-nosnippet>764</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+<a href=#765 id=765 data-nosnippet>765</a>        <span class="kw">let </span>error = prepare_filesystem(
+<a href=#766 id=766 data-nosnippet>766</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
+<a href=#767 id=767 data-nosnippet>767</a>            <span class="prelude-val">None</span>,
+<a href=#768 id=768 data-nosnippet>768</a>            <span class="kw-2">&amp;</span>mounted_dirs,
+<a href=#769 id=769 data-nosnippet>769</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(container_mounts)),
+<a href=#770 id=770 data-nosnippet>770</a>            ExistingMountConflictBehavior::Fail,
+<a href=#771 id=771 data-nosnippet>771</a>        )
+<a href=#772 id=772 data-nosnippet>772</a>        .unwrap_err();
+<a href=#773 id=773 data-nosnippet>773</a>
+<a href=#774 id=774 data-nosnippet>774</a>        <span class="macro">assert!</span>(
+<a href=#775 id=775 data-nosnippet>775</a>            error
+<a href=#776 id=776 data-nosnippet>776</a>                .to_string()
+<a href=#777 id=777 data-nosnippet>777</a>                .contains(<span class="string">"Unable to merge container mount \"/python\""</span>),
+<a href=#778 id=778 data-nosnippet>778</a>            <span class="string">"{error:#}"
+<a href=#779 id=779 data-nosnippet>779</a>        </span>);
+<a href=#780 id=780 data-nosnippet>780</a>    }
+<a href=#781 id=781 data-nosnippet>781</a>
+<a href=#782 id=782 data-nosnippet>782</a>    <span class="attr">#[tokio::test]
+<a href=#783 id=783 data-nosnippet>783</a>    </span><span class="kw">async fn </span>root_mounts_are_composed_even_in_fail_mode() {
+<a href=#784 id=784 data-nosnippet>784</a>        <span class="kw">use </span>virtual_fs::FileSystem;
+<a href=#785 id=785 data-nosnippet>785</a>
+<a href=#786 id=786 data-nosnippet>786</a>        <span class="kw">let </span>root_mount = TmpFileSystem::new();
+<a href=#787 id=787 data-nosnippet>787</a>        root_mount
+<a href=#788 id=788 data-nosnippet>788</a>            .new_open_options()
+<a href=#789 id=789 data-nosnippet>789</a>            .create(<span class="bool-val">true</span>)
+<a href=#790 id=790 data-nosnippet>790</a>            .write(<span class="bool-val">true</span>)
+<a href=#791 id=791 data-nosnippet>791</a>            .open(Path::new(<span class="string">"/user.txt"</span>))
+<a href=#792 id=792 data-nosnippet>792</a>            .unwrap();
+<a href=#793 id=793 data-nosnippet>793</a>
+<a href=#794 id=794 data-nosnippet>794</a>        <span class="kw">let </span>mounted_dirs = [MountedDirectory {
+<a href=#795 id=795 data-nosnippet>795</a>            guest: <span class="string">"/"</span>.to_string(),
+<a href=#796 id=796 data-nosnippet>796</a>            fs: Arc::new(root_mount),
+<a href=#797 id=797 data-nosnippet>797</a>        }];
+<a href=#798 id=798 data-nosnippet>798</a>
+<a href=#799 id=799 data-nosnippet>799</a>        <span class="kw">let </span>container_mounts = MountFileSystem::new();
+<a href=#800 id=800 data-nosnippet>800</a>        <span class="kw">let </span>container_root = TmpFileSystem::new();
+<a href=#801 id=801 data-nosnippet>801</a>        container_root
+<a href=#802 id=802 data-nosnippet>802</a>            .new_open_options()
+<a href=#803 id=803 data-nosnippet>803</a>            .create(<span class="bool-val">true</span>)
+<a href=#804 id=804 data-nosnippet>804</a>            .write(<span class="bool-val">true</span>)
+<a href=#805 id=805 data-nosnippet>805</a>            .open(Path::new(<span class="string">"/pkg.txt"</span>))
 <a href=#806 id=806 data-nosnippet>806</a>            .unwrap();
-<a href=#807 id=807 data-nosnippet>807</a>
-<a href=#808 id=808 data-nosnippet>808</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-<a href=#809 id=809 data-nosnippet>809</a>        <span class="kw">let </span>fs = prepare_filesystem(
-<a href=#810 id=810 data-nosnippet>810</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
-<a href=#811 id=811 data-nosnippet>811</a>            <span class="prelude-val">None</span>,
-<a href=#812 id=812 data-nosnippet>812</a>            <span class="kw-2">&amp;</span>mounted_dirs,
-<a href=#813 id=813 data-nosnippet>813</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(container_mounts)),
-<a href=#814 id=814 data-nosnippet>814</a>            ExistingMountConflictBehavior::Fail,
-<a href=#815 id=815 data-nosnippet>815</a>        )
-<a href=#816 id=816 data-nosnippet>816</a>        .unwrap();
-<a href=#817 id=817 data-nosnippet>817</a>
-<a href=#818 id=818 data-nosnippet>818</a>        <span class="macro">assert!</span>(fs.metadata(Path::new(<span class="string">"/user.txt"</span>)).unwrap().is_file());
-<a href=#819 id=819 data-nosnippet>819</a>        <span class="macro">assert!</span>(fs.metadata(Path::new(<span class="string">"/pkg.txt"</span>)).unwrap().is_file());
-<a href=#820 id=820 data-nosnippet>820</a>    }
-<a href=#821 id=821 data-nosnippet>821</a>
-<a href=#822 id=822 data-nosnippet>822</a>    <span class="attr">#[tokio::test]
-<a href=#823 id=823 data-nosnippet>823</a>    </span><span class="kw">async fn </span>multiple_root_mounts_are_composed() {
-<a href=#824 id=824 data-nosnippet>824</a>        <span class="kw">use </span>virtual_fs::FileSystem;
-<a href=#825 id=825 data-nosnippet>825</a>
-<a href=#826 id=826 data-nosnippet>826</a>        <span class="kw">let </span>first_root = TmpFileSystem::new();
-<a href=#827 id=827 data-nosnippet>827</a>        first_root
-<a href=#828 id=828 data-nosnippet>828</a>            .new_open_options()
-<a href=#829 id=829 data-nosnippet>829</a>            .create(<span class="bool-val">true</span>)
-<a href=#830 id=830 data-nosnippet>830</a>            .write(<span class="bool-val">true</span>)
-<a href=#831 id=831 data-nosnippet>831</a>            .open(Path::new(<span class="string">"/first.txt"</span>))
-<a href=#832 id=832 data-nosnippet>832</a>            .unwrap();
-<a href=#833 id=833 data-nosnippet>833</a>
-<a href=#834 id=834 data-nosnippet>834</a>        <span class="kw">let </span>second_root = TmpFileSystem::new();
-<a href=#835 id=835 data-nosnippet>835</a>        second_root
-<a href=#836 id=836 data-nosnippet>836</a>            .new_open_options()
-<a href=#837 id=837 data-nosnippet>837</a>            .create(<span class="bool-val">true</span>)
-<a href=#838 id=838 data-nosnippet>838</a>            .write(<span class="bool-val">true</span>)
-<a href=#839 id=839 data-nosnippet>839</a>            .open(Path::new(<span class="string">"/second.txt"</span>))
-<a href=#840 id=840 data-nosnippet>840</a>            .unwrap();
-<a href=#841 id=841 data-nosnippet>841</a>
-<a href=#842 id=842 data-nosnippet>842</a>        <span class="kw">let </span>mounted_dirs = [
-<a href=#843 id=843 data-nosnippet>843</a>            MountedDirectory {
-<a href=#844 id=844 data-nosnippet>844</a>                guest: <span class="string">"/"</span>.to_string(),
-<a href=#845 id=845 data-nosnippet>845</a>                fs: Arc::new(first_root),
-<a href=#846 id=846 data-nosnippet>846</a>            },
-<a href=#847 id=847 data-nosnippet>847</a>            MountedDirectory {
-<a href=#848 id=848 data-nosnippet>848</a>                guest: <span class="string">"/"</span>.to_string(),
-<a href=#849 id=849 data-nosnippet>849</a>                fs: Arc::new(second_root),
-<a href=#850 id=850 data-nosnippet>850</a>            },
-<a href=#851 id=851 data-nosnippet>851</a>        ];
-<a href=#852 id=852 data-nosnippet>852</a>
-<a href=#853 id=853 data-nosnippet>853</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-<a href=#854 id=854 data-nosnippet>854</a>        <span class="kw">let </span>fs = prepare_filesystem(
-<a href=#855 id=855 data-nosnippet>855</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
-<a href=#856 id=856 data-nosnippet>856</a>            <span class="prelude-val">None</span>,
-<a href=#857 id=857 data-nosnippet>857</a>            <span class="kw-2">&amp;</span>mounted_dirs,
-<a href=#858 id=858 data-nosnippet>858</a>            <span class="prelude-val">None</span>,
-<a href=#859 id=859 data-nosnippet>859</a>            ExistingMountConflictBehavior::Fail,
-<a href=#860 id=860 data-nosnippet>860</a>        )
-<a href=#861 id=861 data-nosnippet>861</a>        .unwrap();
-<a href=#862 id=862 data-nosnippet>862</a>
-<a href=#863 id=863 data-nosnippet>863</a>        <span class="macro">assert!</span>(fs.metadata(Path::new(<span class="string">"/first.txt"</span>)).unwrap().is_file());
-<a href=#864 id=864 data-nosnippet>864</a>        <span class="macro">assert!</span>(fs.metadata(Path::new(<span class="string">"/second.txt"</span>)).unwrap().is_file());
-<a href=#865 id=865 data-nosnippet>865</a>    }
-<a href=#866 id=866 data-nosnippet>866</a>
-<a href=#867 id=867 data-nosnippet>867</a>    <span class="attr">#[tokio::test]
-<a href=#868 id=868 data-nosnippet>868</a>    </span><span class="kw">async fn </span>prepared_filesystem_preserves_root_memory_limiter() {
-<a href=#869 id=869 data-nosnippet>869</a>        <span class="kw">let </span>limiter: virtual_fs::limiter::DynFsMemoryLimiter = Arc::new(CountingLimiter::new(<span class="number">1</span>));
-<a href=#870 id=870 data-nosnippet>870</a>
-<a href=#871 id=871 data-nosnippet>871</a>        <span class="kw">let </span>package_mount = TmpFileSystem::new();
-<a href=#872 id=872 data-nosnippet>872</a>        <span class="kw">let </span>container_mounts = MountFileSystem::new();
-<a href=#873 id=873 data-nosnippet>873</a>        container_mounts
-<a href=#874 id=874 data-nosnippet>874</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(package_mount))
-<a href=#875 id=875 data-nosnippet>875</a>            .unwrap();
-<a href=#876 id=876 data-nosnippet>876</a>
-<a href=#877 id=877 data-nosnippet>877</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
-<a href=#878 id=878 data-nosnippet>878</a>        <span class="kw">let </span>fs = prepare_filesystem(
-<a href=#879 id=879 data-nosnippet>879</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
-<a href=#880 id=880 data-nosnippet>880</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>limiter),
-<a href=#881 id=881 data-nosnippet>881</a>            <span class="kw-2">&amp;</span>[],
-<a href=#882 id=882 data-nosnippet>882</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(container_mounts)),
-<a href=#883 id=883 data-nosnippet>883</a>            ExistingMountConflictBehavior::Override,
-<a href=#884 id=884 data-nosnippet>884</a>        )
-<a href=#885 id=885 data-nosnippet>885</a>        .unwrap();
-<a href=#886 id=886 data-nosnippet>886</a>
-<a href=#887 id=887 data-nosnippet>887</a>        <span class="macro">assert!</span>(fs.memory_limiter().is_some());
-<a href=#888 id=888 data-nosnippet>888</a>    }
+<a href=#807 id=807 data-nosnippet>807</a>        container_mounts
+<a href=#808 id=808 data-nosnippet>808</a>            .mount(Path::new(<span class="string">"/"</span>), Arc::new(container_root))
+<a href=#809 id=809 data-nosnippet>809</a>            .unwrap();
+<a href=#810 id=810 data-nosnippet>810</a>
+<a href=#811 id=811 data-nosnippet>811</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+<a href=#812 id=812 data-nosnippet>812</a>        <span class="kw">let </span>fs = prepare_filesystem(
+<a href=#813 id=813 data-nosnippet>813</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
+<a href=#814 id=814 data-nosnippet>814</a>            <span class="prelude-val">None</span>,
+<a href=#815 id=815 data-nosnippet>815</a>            <span class="kw-2">&amp;</span>mounted_dirs,
+<a href=#816 id=816 data-nosnippet>816</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(container_mounts)),
+<a href=#817 id=817 data-nosnippet>817</a>            ExistingMountConflictBehavior::Fail,
+<a href=#818 id=818 data-nosnippet>818</a>        )
+<a href=#819 id=819 data-nosnippet>819</a>        .unwrap();
+<a href=#820 id=820 data-nosnippet>820</a>
+<a href=#821 id=821 data-nosnippet>821</a>        <span class="macro">assert!</span>(fs.metadata(Path::new(<span class="string">"/user.txt"</span>)).unwrap().is_file());
+<a href=#822 id=822 data-nosnippet>822</a>        <span class="macro">assert!</span>(fs.metadata(Path::new(<span class="string">"/pkg.txt"</span>)).unwrap().is_file());
+<a href=#823 id=823 data-nosnippet>823</a>    }
+<a href=#824 id=824 data-nosnippet>824</a>
+<a href=#825 id=825 data-nosnippet>825</a>    <span class="attr">#[tokio::test]
+<a href=#826 id=826 data-nosnippet>826</a>    </span><span class="kw">async fn </span>multiple_root_mounts_are_composed() {
+<a href=#827 id=827 data-nosnippet>827</a>        <span class="kw">use </span>virtual_fs::FileSystem;
+<a href=#828 id=828 data-nosnippet>828</a>
+<a href=#829 id=829 data-nosnippet>829</a>        <span class="kw">let </span>first_root = TmpFileSystem::new();
+<a href=#830 id=830 data-nosnippet>830</a>        first_root
+<a href=#831 id=831 data-nosnippet>831</a>            .new_open_options()
+<a href=#832 id=832 data-nosnippet>832</a>            .create(<span class="bool-val">true</span>)
+<a href=#833 id=833 data-nosnippet>833</a>            .write(<span class="bool-val">true</span>)
+<a href=#834 id=834 data-nosnippet>834</a>            .open(Path::new(<span class="string">"/first.txt"</span>))
+<a href=#835 id=835 data-nosnippet>835</a>            .unwrap();
+<a href=#836 id=836 data-nosnippet>836</a>
+<a href=#837 id=837 data-nosnippet>837</a>        <span class="kw">let </span>second_root = TmpFileSystem::new();
+<a href=#838 id=838 data-nosnippet>838</a>        second_root
+<a href=#839 id=839 data-nosnippet>839</a>            .new_open_options()
+<a href=#840 id=840 data-nosnippet>840</a>            .create(<span class="bool-val">true</span>)
+<a href=#841 id=841 data-nosnippet>841</a>            .write(<span class="bool-val">true</span>)
+<a href=#842 id=842 data-nosnippet>842</a>            .open(Path::new(<span class="string">"/second.txt"</span>))
+<a href=#843 id=843 data-nosnippet>843</a>            .unwrap();
+<a href=#844 id=844 data-nosnippet>844</a>
+<a href=#845 id=845 data-nosnippet>845</a>        <span class="kw">let </span>mounted_dirs = [
+<a href=#846 id=846 data-nosnippet>846</a>            MountedDirectory {
+<a href=#847 id=847 data-nosnippet>847</a>                guest: <span class="string">"/"</span>.to_string(),
+<a href=#848 id=848 data-nosnippet>848</a>                fs: Arc::new(first_root),
+<a href=#849 id=849 data-nosnippet>849</a>            },
+<a href=#850 id=850 data-nosnippet>850</a>            MountedDirectory {
+<a href=#851 id=851 data-nosnippet>851</a>                guest: <span class="string">"/"</span>.to_string(),
+<a href=#852 id=852 data-nosnippet>852</a>                fs: Arc::new(second_root),
+<a href=#853 id=853 data-nosnippet>853</a>            },
+<a href=#854 id=854 data-nosnippet>854</a>        ];
+<a href=#855 id=855 data-nosnippet>855</a>
+<a href=#856 id=856 data-nosnippet>856</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+<a href=#857 id=857 data-nosnippet>857</a>        <span class="kw">let </span>fs = prepare_filesystem(
+<a href=#858 id=858 data-nosnippet>858</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
+<a href=#859 id=859 data-nosnippet>859</a>            <span class="prelude-val">None</span>,
+<a href=#860 id=860 data-nosnippet>860</a>            <span class="kw-2">&amp;</span>mounted_dirs,
+<a href=#861 id=861 data-nosnippet>861</a>            <span class="prelude-val">None</span>,
+<a href=#862 id=862 data-nosnippet>862</a>            ExistingMountConflictBehavior::Fail,
+<a href=#863 id=863 data-nosnippet>863</a>        )
+<a href=#864 id=864 data-nosnippet>864</a>        .unwrap();
+<a href=#865 id=865 data-nosnippet>865</a>
+<a href=#866 id=866 data-nosnippet>866</a>        <span class="macro">assert!</span>(fs.metadata(Path::new(<span class="string">"/first.txt"</span>)).unwrap().is_file());
+<a href=#867 id=867 data-nosnippet>867</a>        <span class="macro">assert!</span>(fs.metadata(Path::new(<span class="string">"/second.txt"</span>)).unwrap().is_file());
+<a href=#868 id=868 data-nosnippet>868</a>    }
+<a href=#869 id=869 data-nosnippet>869</a>
+<a href=#870 id=870 data-nosnippet>870</a>    <span class="attr">#[tokio::test]
+<a href=#871 id=871 data-nosnippet>871</a>    </span><span class="kw">async fn </span>prepared_filesystem_preserves_root_memory_limiter() {
+<a href=#872 id=872 data-nosnippet>872</a>        <span class="kw">let </span>limiter: virtual_fs::limiter::DynFsMemoryLimiter = Arc::new(CountingLimiter::new(<span class="number">1</span>));
+<a href=#873 id=873 data-nosnippet>873</a>
+<a href=#874 id=874 data-nosnippet>874</a>        <span class="kw">let </span>package_mount = TmpFileSystem::new();
+<a href=#875 id=875 data-nosnippet>875</a>        <span class="kw">let </span>container_mounts = MountFileSystem::new();
+<a href=#876 id=876 data-nosnippet>876</a>        container_mounts
+<a href=#877 id=877 data-nosnippet>877</a>            .mount(Path::new(<span class="string">"/python"</span>), Arc::new(package_mount))
+<a href=#878 id=878 data-nosnippet>878</a>            .unwrap();
+<a href=#879 id=879 data-nosnippet>879</a>
+<a href=#880 id=880 data-nosnippet>880</a>        <span class="kw">let </span>root_fs = RootFileSystemBuilder::default().build();
+<a href=#881 id=881 data-nosnippet>881</a>        <span class="kw">let </span>fs = prepare_filesystem(
+<a href=#882 id=882 data-nosnippet>882</a>            base_root(<span class="kw-2">&amp;</span>root_fs),
+<a href=#883 id=883 data-nosnippet>883</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>limiter),
+<a href=#884 id=884 data-nosnippet>884</a>            <span class="kw-2">&amp;</span>[],
+<a href=#885 id=885 data-nosnippet>885</a>            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>package_mounts(container_mounts)),
+<a href=#886 id=886 data-nosnippet>886</a>            ExistingMountConflictBehavior::Override,
+<a href=#887 id=887 data-nosnippet>887</a>        )
+<a href=#888 id=888 data-nosnippet>888</a>        .unwrap();
 <a href=#889 id=889 data-nosnippet>889</a>
-<a href=#890 id=890 data-nosnippet>890</a>    <span class="attr">#[test]
-<a href=#891 id=891 data-nosnippet>891</a>    </span><span class="kw">fn </span>invalid_guest_mount_paths_are_rejected() {
-<a href=#892 id=892 data-nosnippet>892</a>        <span class="kw">let </span>error = normalized_mount_path(<span class="string">"../../python"</span>).unwrap_err();
-<a href=#893 id=893 data-nosnippet>893</a>        <span class="macro">assert!</span>(
-<a href=#894 id=894 data-nosnippet>894</a>            error
-<a href=#895 id=895 data-nosnippet>895</a>                .to_string()
-<a href=#896 id=896 data-nosnippet>896</a>                .contains(<span class="string">"parent traversal escapes the virtual root"</span>),
-<a href=#897 id=897 data-nosnippet>897</a>            <span class="string">"{error:#}"
-<a href=#898 id=898 data-nosnippet>898</a>        </span>);
-<a href=#899 id=899 data-nosnippet>899</a>    }
-<a href=#900 id=900 data-nosnippet>900</a>
-<a href=#901 id=901 data-nosnippet>901</a>    <span class="attr">#[tokio::test]
-<a href=#902 id=902 data-nosnippet>902</a>    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
-<a href=#903 id=903 data-nosnippet>903</a>    </span><span class="kw">async fn </span>convert_mapped_directory_to_mounted_directory() {
-<a href=#904 id=904 data-nosnippet>904</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
-<a href=#905 id=905 data-nosnippet>905</a>        <span class="kw">let </span>dir = MappedDirectory {
-<a href=#906 id=906 data-nosnippet>906</a>            guest: <span class="string">"/mnt/dir"</span>.to_string(),
-<a href=#907 id=907 data-nosnippet>907</a>            host: temp.path().to_path_buf(),
-<a href=#908 id=908 data-nosnippet>908</a>        };
-<a href=#909 id=909 data-nosnippet>909</a>        <span class="kw">let </span>contents = <span class="string">"Hello, World!"</span>;
-<a href=#910 id=910 data-nosnippet>910</a>        <span class="kw">let </span>file_txt = temp.path().join(<span class="string">"file.txt"</span>);
-<a href=#911 id=911 data-nosnippet>911</a>        std::fs::write(<span class="kw-2">&amp;</span>file_txt, contents).unwrap();
-<a href=#912 id=912 data-nosnippet>912</a>        <span class="kw">let </span>metadata = std::fs::metadata(<span class="kw-2">&amp;</span>file_txt).unwrap();
-<a href=#913 id=913 data-nosnippet>913</a>
-<a href=#914 id=914 data-nosnippet>914</a>        <span class="kw">let </span>got = MountedDirectory::from(dir);
-<a href=#915 id=915 data-nosnippet>915</a>
-<a href=#916 id=916 data-nosnippet>916</a>        <span class="kw">let </span>directory_contents: Vec&lt;<span class="kw">_</span>&gt; = got
-<a href=#917 id=917 data-nosnippet>917</a>            .fs
-<a href=#918 id=918 data-nosnippet>918</a>            .read_dir(<span class="string">"/"</span>.as_ref())
-<a href=#919 id=919 data-nosnippet>919</a>            .unwrap()
-<a href=#920 id=920 data-nosnippet>920</a>            .map(|entry| entry.unwrap())
-<a href=#921 id=921 data-nosnippet>921</a>            .collect();
-<a href=#922 id=922 data-nosnippet>922</a>        <span class="macro">assert_eq!</span>(
-<a href=#923 id=923 data-nosnippet>923</a>            directory_contents,
-<a href=#924 id=924 data-nosnippet>924</a>            <span class="macro">vec!</span>[DirEntry {
-<a href=#925 id=925 data-nosnippet>925</a>                path: PathBuf::from(<span class="string">"/file.txt"</span>),
-<a href=#926 id=926 data-nosnippet>926</a>                metadata: <span class="prelude-val">Ok</span>(Metadata {
-<a href=#927 id=927 data-nosnippet>927</a>                    ft: FileType::new_file(),
-<a href=#928 id=928 data-nosnippet>928</a>                    <span class="comment">// Note: Some timestamps aren't available on MUSL and will
-<a href=#929 id=929 data-nosnippet>929</a>                    // default to zero.
-<a href=#930 id=930 data-nosnippet>930</a>                    </span>accessed: metadata
-<a href=#931 id=931 data-nosnippet>931</a>                        .accessed()
-<a href=#932 id=932 data-nosnippet>932</a>                        .ok()
-<a href=#933 id=933 data-nosnippet>933</a>                        .and_then(unix_timestamp_nanos)
-<a href=#934 id=934 data-nosnippet>934</a>                        .unwrap_or(<span class="number">0</span>),
-<a href=#935 id=935 data-nosnippet>935</a>                    created: metadata
-<a href=#936 id=936 data-nosnippet>936</a>                        .created()
-<a href=#937 id=937 data-nosnippet>937</a>                        .ok()
-<a href=#938 id=938 data-nosnippet>938</a>                        .and_then(unix_timestamp_nanos)
-<a href=#939 id=939 data-nosnippet>939</a>                        .unwrap_or(<span class="number">0</span>),
-<a href=#940 id=940 data-nosnippet>940</a>                    modified: metadata
-<a href=#941 id=941 data-nosnippet>941</a>                        .modified()
-<a href=#942 id=942 data-nosnippet>942</a>                        .ok()
-<a href=#943 id=943 data-nosnippet>943</a>                        .and_then(unix_timestamp_nanos)
-<a href=#944 id=944 data-nosnippet>944</a>                        .unwrap_or(<span class="number">0</span>),
-<a href=#945 id=945 data-nosnippet>945</a>                    len: contents.len() <span class="kw">as </span>u64,
-<a href=#946 id=946 data-nosnippet>946</a>                })
-<a href=#947 id=947 data-nosnippet>947</a>            }]
-<a href=#948 id=948 data-nosnippet>948</a>        );
-<a href=#949 id=949 data-nosnippet>949</a>    }
-<a href=#950 id=950 data-nosnippet>950</a>}
+<a href=#890 id=890 data-nosnippet>890</a>        <span class="macro">assert!</span>(fs.memory_limiter().is_some());
+<a href=#891 id=891 data-nosnippet>891</a>    }
+<a href=#892 id=892 data-nosnippet>892</a>
+<a href=#893 id=893 data-nosnippet>893</a>    <span class="attr">#[test]
+<a href=#894 id=894 data-nosnippet>894</a>    </span><span class="kw">fn </span>invalid_guest_mount_paths_are_rejected() {
+<a href=#895 id=895 data-nosnippet>895</a>        <span class="kw">let </span>error = normalized_mount_path(<span class="string">"../../python"</span>).unwrap_err();
+<a href=#896 id=896 data-nosnippet>896</a>        <span class="macro">assert!</span>(
+<a href=#897 id=897 data-nosnippet>897</a>            error
+<a href=#898 id=898 data-nosnippet>898</a>                .to_string()
+<a href=#899 id=899 data-nosnippet>899</a>                .contains(<span class="string">"parent traversal escapes the virtual root"</span>),
+<a href=#900 id=900 data-nosnippet>900</a>            <span class="string">"{error:#}"
+<a href=#901 id=901 data-nosnippet>901</a>        </span>);
+<a href=#902 id=902 data-nosnippet>902</a>    }
+<a href=#903 id=903 data-nosnippet>903</a>
+<a href=#904 id=904 data-nosnippet>904</a>    <span class="attr">#[tokio::test]
+<a href=#905 id=905 data-nosnippet>905</a>    #[cfg_attr(not(feature = <span class="string">"host-fs"</span>), ignore)]
+<a href=#906 id=906 data-nosnippet>906</a>    </span><span class="kw">async fn </span>convert_mapped_directory_to_mounted_directory() {
+<a href=#907 id=907 data-nosnippet>907</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#908 id=908 data-nosnippet>908</a>        <span class="kw">let </span>dir = MappedDirectory {
+<a href=#909 id=909 data-nosnippet>909</a>            guest: <span class="string">"/mnt/dir"</span>.to_string(),
+<a href=#910 id=910 data-nosnippet>910</a>            host: temp.path().to_path_buf(),
+<a href=#911 id=911 data-nosnippet>911</a>        };
+<a href=#912 id=912 data-nosnippet>912</a>        <span class="kw">let </span>contents = <span class="string">"Hello, World!"</span>;
+<a href=#913 id=913 data-nosnippet>913</a>        <span class="kw">let </span>file_txt = temp.path().join(<span class="string">"file.txt"</span>);
+<a href=#914 id=914 data-nosnippet>914</a>        std::fs::write(<span class="kw-2">&amp;</span>file_txt, contents).unwrap();
+<a href=#915 id=915 data-nosnippet>915</a>        <span class="kw">let </span>metadata = std::fs::metadata(<span class="kw-2">&amp;</span>file_txt).unwrap();
+<a href=#916 id=916 data-nosnippet>916</a>
+<a href=#917 id=917 data-nosnippet>917</a>        <span class="kw">let </span>got = MountedDirectory::from(dir);
+<a href=#918 id=918 data-nosnippet>918</a>
+<a href=#919 id=919 data-nosnippet>919</a>        <span class="kw">let </span>directory_contents: Vec&lt;<span class="kw">_</span>&gt; = got
+<a href=#920 id=920 data-nosnippet>920</a>            .fs
+<a href=#921 id=921 data-nosnippet>921</a>            .read_dir(<span class="string">"/"</span>.as_ref())
+<a href=#922 id=922 data-nosnippet>922</a>            .unwrap()
+<a href=#923 id=923 data-nosnippet>923</a>            .map(|entry| entry.unwrap())
+<a href=#924 id=924 data-nosnippet>924</a>            .collect();
+<a href=#925 id=925 data-nosnippet>925</a>        <span class="macro">assert_eq!</span>(
+<a href=#926 id=926 data-nosnippet>926</a>            directory_contents,
+<a href=#927 id=927 data-nosnippet>927</a>            <span class="macro">vec!</span>[DirEntry {
+<a href=#928 id=928 data-nosnippet>928</a>                path: PathBuf::from(<span class="string">"/file.txt"</span>),
+<a href=#929 id=929 data-nosnippet>929</a>                metadata: <span class="prelude-val">Ok</span>(Metadata {
+<a href=#930 id=930 data-nosnippet>930</a>                    ft: FileType::new_file(),
+<a href=#931 id=931 data-nosnippet>931</a>                    <span class="comment">// Note: Some timestamps aren't available on MUSL and will
+<a href=#932 id=932 data-nosnippet>932</a>                    // default to zero.
+<a href=#933 id=933 data-nosnippet>933</a>                    </span>accessed: metadata
+<a href=#934 id=934 data-nosnippet>934</a>                        .accessed()
+<a href=#935 id=935 data-nosnippet>935</a>                        .ok()
+<a href=#936 id=936 data-nosnippet>936</a>                        .and_then(unix_timestamp_nanos)
+<a href=#937 id=937 data-nosnippet>937</a>                        .unwrap_or(<span class="number">0</span>),
+<a href=#938 id=938 data-nosnippet>938</a>                    created: metadata
+<a href=#939 id=939 data-nosnippet>939</a>                        .created()
+<a href=#940 id=940 data-nosnippet>940</a>                        .ok()
+<a href=#941 id=941 data-nosnippet>941</a>                        .and_then(unix_timestamp_nanos)
+<a href=#942 id=942 data-nosnippet>942</a>                        .unwrap_or(<span class="number">0</span>),
+<a href=#943 id=943 data-nosnippet>943</a>                    modified: metadata
+<a href=#944 id=944 data-nosnippet>944</a>                        .modified()
+<a href=#945 id=945 data-nosnippet>945</a>                        .ok()
+<a href=#946 id=946 data-nosnippet>946</a>                        .and_then(unix_timestamp_nanos)
+<a href=#947 id=947 data-nosnippet>947</a>                        .unwrap_or(<span class="number">0</span>),
+<a href=#948 id=948 data-nosnippet>948</a>                    len: contents.len() <span class="kw">as </span>u64,
+<a href=#949 id=949 data-nosnippet>949</a>                })
+<a href=#950 id=950 data-nosnippet>950</a>            }]
+<a href=#951 id=951 data-nosnippet>951</a>        );
+<a href=#952 id=952 data-nosnippet>952</a>    }
+<a href=#953 id=953 data-nosnippet>953</a>}
 </code></pre></div></section></main></body></html>
