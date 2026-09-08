@@ -56,6 +56,26 @@ mod tests {
         let function_env = WasiFunctionEnv::new(&mut store, env);
         let mut ctx = function_env.env.into_mut(&mut store);
 
+        ctx.data().state.fs.register_ephemeral_symlink(
+            "/journal-dir/link".into(),
+            "journal-dir/link".into(),
+            "target".into(),
+        );
+        assert!(
+            JournalEffector::apply_path_remove_directory(&mut ctx, VIRTUAL_ROOT_FD, "journal-dir")
+                .is_err()
+        );
+        assert!(
+            backing
+                .metadata(Path::new("/journal-dir"))
+                .unwrap()
+                .is_dir()
+        );
+        ctx.data()
+            .state
+            .fs
+            .unregister_ephemeral_symlink(Path::new("/journal-dir/link"));
+
         JournalEffector::apply_path_remove_directory(&mut ctx, VIRTUAL_ROOT_FD, "journal-dir")
             .unwrap();
 

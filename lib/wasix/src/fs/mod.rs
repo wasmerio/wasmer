@@ -714,33 +714,58 @@ impl WasiFs {
                 self.root_inode.read().deref(),
                 Kind::Root { entries } if entries.is_empty()
             );
-        let (cache_entry, backing_path) = match self.get_inode_at_path(inodes, base, path, false) {
-            Ok(inode) => {
-                if inode.is_preopened {
-                    return Err(Errno::Access);
-                }
-                let (parent, backing_path) = match inode.read().deref() {
-                    Kind::Dir { parent, path, .. } => {
-                        let parent = parent.upgrade().ok_or(Errno::Noent)?;
-                        (parent, path.clone())
-                    }
-                    _ => return Err(Errno::Notdir),
-                };
-                (Some((parent, inode)), backing_path)
-            }
-            Err(Errno::Notcapable) if direct_virtual_root => {
-                let backing_path = PathBuf::from(path);
-                let metadata = self
-                    .root_fs
-                    .symlink_metadata(&backing_path)
-                    .map_err(fs_error_into_wasi_err)?;
-                if !metadata.file_type().is_dir() {
-                    return Err(Errno::Notdir);
-                }
-                (None, backing_path)
-            }
-            Err(error) => return Err(error),
+        let root_relative_path = || {
+            PosixPath::new("/")
+                .join(&PosixPath::new(path.trim_end_matches('/')))
+                .into_path_buf()
         };
+        // Resolve only the parent: a trailing slash must not follow the final symlink.
+        let (cache_entry, backing_path) =
+            match self.get_parent_inode_at_path(inodes, base, Path::new(path), true) {
+                Ok((parent, _)) => {
+                    let root_mount = match parent.read().deref() {
+                        Kind::Root { entries } if !entries.contains_key(&entry_name) => {
+                            entries.get("/").cloned()
+                        }
+                        _ => None,
+                    };
+                    let parent = root_mount.unwrap_or(parent);
+                    let guard = parent.read();
+                    match guard.deref() {
+                        Kind::Dir { entries, path, .. } => {
+                            let cached = entries.get(&entry_name).cloned();
+                            if cached.as_ref().is_some_and(|inode| inode.is_preopened) {
+                                return Err(Errno::Access);
+                            }
+                            let backing_path = PosixPath::from_path(path)
+                                .join(&PosixPath::new(&entry_name))
+                                .into_path_buf();
+                            (cached.map(|inode| (parent.clone(), inode)), backing_path)
+                        }
+                        Kind::Root { entries } if entries.is_empty() && direct_virtual_root => {
+                            (None, root_relative_path())
+                        }
+                        Kind::Root { entries } if entries.contains_key(&entry_name) => {
+                            return Err(Errno::Access);
+                        }
+                        Kind::Root { .. } => return Err(Errno::Notcapable),
+                        _ => return Err(Errno::Notdir),
+                    }
+                }
+                Err(Errno::Notcapable) if direct_virtual_root => (None, root_relative_path()),
+                Err(error) => return Err(error),
+            };
+
+        if self.ephemeral_symlink_at(&backing_path).is_some() {
+            return Err(Errno::Notdir);
+        }
+        let metadata = self
+            .root_fs
+            .symlink_metadata(&backing_path)
+            .map_err(fs_error_into_wasi_err)?;
+        if !metadata.file_type().is_dir() {
+            return Err(Errno::Notdir);
+        }
 
         let directory_key = PosixPath::from_path(&backing_path)
             .normalize_virtual_symlink_key()
@@ -2993,6 +3018,8 @@ mod tests {
         inner: TmpFileSystem,
         remove_errors: Mutex<VecDeque<FsError>>,
         remove_hook: Mutex<Option<RemoveHook>>,
+        metadata_errors: Mutex<VecDeque<FsError>>,
+        metadata_hook: Mutex<Option<RemoveHook>>,
         remove_calls: AtomicUsize,
     }
 
@@ -3008,6 +3035,8 @@ mod tests {
                 inner: TmpFileSystem::new(),
                 remove_errors: Mutex::new(VecDeque::new()),
                 remove_hook: Mutex::new(None),
+                metadata_errors: Mutex::new(VecDeque::new()),
+                metadata_hook: Mutex::new(None),
                 remove_calls: AtomicUsize::new(0),
             }
         }
@@ -3040,7 +3069,8 @@ mod tests {
                 return Err(error);
             }
             self.inner.remove_dir(path)?;
-            if let Some(hook) = self.remove_hook.lock().unwrap().take() {
+            let hook = self.remove_hook.lock().unwrap().take();
+            if let Some(hook) = hook {
                 hook();
             }
             Ok(())
@@ -3059,6 +3089,13 @@ mod tests {
         }
 
         fn symlink_metadata(&self, path: &Path) -> Result<virtual_fs::Metadata, FsError> {
+            let hook = self.metadata_hook.lock().unwrap().take();
+            if let Some(hook) = hook {
+                hook();
+            }
+            if let Some(error) = self.metadata_errors.lock().unwrap().pop_front() {
+                return Err(error);
+            }
             self.inner.symlink_metadata(path)
         }
 
@@ -3888,5 +3925,158 @@ mod tests {
         fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/dir")
             .unwrap();
         assert_eq!(backing.remove_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn directory_remove_does_not_follow_a_final_symlink_with_a_trailing_slash() {
+        let (backing, fs, inodes) = directory_remove_fs();
+        backing.create_dir(Path::new("/target")).unwrap();
+        fs.register_ephemeral_symlink("/link".into(), "link".into(), "target".into());
+
+        assert_eq!(
+            fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/link/"),
+            Err(Errno::Notdir)
+        );
+        assert!(backing.metadata(Path::new("/target")).unwrap().is_dir());
+        assert_eq!(backing.remove_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn directory_remove_rootless_relative_path_checks_ephemeral_children() {
+        let inodes = WasiInodes::new();
+        let backing = Arc::new(DirectoryRemoveFileSystem::new());
+        let fs = WasiFs::new_with_preopen(
+            &inodes,
+            &[],
+            &[],
+            WasiFsRoot::from_filesystem(backing.clone()),
+        )
+        .unwrap();
+        backing.create_dir(Path::new("/dir")).unwrap();
+        fs.register_ephemeral_symlink("/dir/link".into(), "dir/link".into(), "target".into());
+
+        assert_eq!(
+            fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "dir"),
+            Err(Errno::Notempty)
+        );
+        assert_eq!(backing.remove_calls.load(Ordering::SeqCst), 0);
+        assert!(backing.metadata(Path::new("/dir")).unwrap().is_dir());
+    }
+
+    #[tokio::test]
+    async fn directory_remove_preserves_metadata_errors() {
+        for error in [
+            FsError::PermissionDenied,
+            FsError::IOError,
+            FsError::EntryNotFound,
+        ] {
+            for populate_cache in [false, true] {
+                let (backing, fs, inodes) = directory_remove_fs();
+                backing.create_dir(Path::new("/dir")).unwrap();
+                let selected = populate_cache.then(|| {
+                    fs.get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/dir", false)
+                        .unwrap()
+                });
+                backing.metadata_errors.lock().unwrap().push_back(error);
+                assert_eq!(
+                    fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/dir"),
+                    Err(fs_error_into_wasi_err(error))
+                );
+                assert_eq!(backing.remove_calls.load(Ordering::SeqCst), 0);
+                if let Some(selected) = selected {
+                    let cached = fs
+                        .get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/dir", false)
+                        .unwrap();
+                    assert!(Arc::ptr_eq(&cached.inner, &selected.inner));
+                }
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn directory_remove_metadata_callback_can_lock_the_parent() {
+        let (backing, fs, inodes) = directory_remove_fs();
+        backing.create_dir(Path::new("/dir")).unwrap();
+        let parent = fs
+            .get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/", true)
+            .unwrap();
+        *backing.metadata_hook.lock().unwrap() = Some(Box::new(move || {
+            assert!(
+                parent.inner.kind.try_write().is_ok(),
+                "backend metadata must not run under the parent lock"
+            );
+        }));
+        fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/dir")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn directory_remove_uses_backing_type_after_a_cached_file_is_replaced() {
+        let (backing, fs, inodes) = directory_remove_fs();
+        backing
+            .new_open_options()
+            .create_new(true)
+            .write(true)
+            .open(Path::new("/entry"))
+            .unwrap();
+        fs.get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/entry", false)
+            .unwrap();
+        backing.remove_file(Path::new("/entry")).unwrap();
+        backing.create_dir(Path::new("/entry")).unwrap();
+        fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/entry")
+            .unwrap();
+        assert_eq!(
+            backing.metadata(Path::new("/entry")),
+            Err(FsError::EntryNotFound)
+        );
+    }
+
+    #[tokio::test]
+    async fn directory_remove_does_not_bypass_configured_preopens() {
+        let inodes = WasiInodes::new();
+        let backing = Arc::new(DirectoryRemoveFileSystem::new());
+        backing.create_dir(Path::new("/sandbox")).unwrap();
+        backing.create_dir(Path::new("/outside")).unwrap();
+        let fs = WasiFs::new_with_preopen(
+            &inodes,
+            &[],
+            &["sandbox".to_owned()],
+            WasiFsRoot::from_filesystem(backing.clone()),
+        )
+        .unwrap();
+        assert_eq!(
+            fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/outside"),
+            Err(Errno::Notcapable)
+        );
+        assert_eq!(
+            fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/sandbox"),
+            Err(Errno::Access)
+        );
+        assert_eq!(backing.remove_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn directory_remove_callback_can_reenter_removal() {
+        let (backing, fs, inodes) = directory_remove_fs();
+        for path in ["/first", "/second"] {
+            backing.create_dir(Path::new(path)).unwrap();
+            fs.get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, path, false)
+                .unwrap();
+        }
+        let parent = fs
+            .get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/", true)
+            .unwrap();
+        let fs_for_hook = fs.clone();
+        let inodes_for_hook = inodes.clone();
+        backing.run_after_remove(move || {
+            assert!(parent.inner.kind.try_write().is_ok());
+            assert!(fs_for_hook.ephemeral_symlinks.try_write().is_ok());
+            fs_for_hook
+                .remove_directory(&inodes_for_hook, VIRTUAL_ROOT_FD, "/second")
+                .unwrap();
+        });
+        fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/first")
+            .unwrap();
+        assert_eq!(backing.remove_calls.load(Ordering::SeqCst), 2);
     }
 }

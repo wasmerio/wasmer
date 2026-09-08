@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
 ##AbstractConfig: base
+##FileSystems: host,tmp
 ##MappedDirectory: shared:/left
 ##MappedDirectory: shared:/right
 ##ExpectedStdout: directory remove case passed
