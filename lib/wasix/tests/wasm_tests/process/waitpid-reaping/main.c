@@ -1,11 +1,9 @@
 //#BuildEnv: WASIXCC_WASM_EXCEPTIONS=no
 
 #include <errno.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/wait.h>
-#include <time.h>
 #include <unistd.h>
 
 struct blocked_child {
@@ -77,32 +75,6 @@ static struct blocked_child spawn_blocked_child(int exit_code) {
   return (struct blocked_child){.pid = pid, .release_fd = release[1]};
 }
 
-static pid_t spawn_delayed_child(int exit_code, useconds_t delay_us) {
-  int ready[2];
-  if (pipe(ready) != 0) {
-    fail("pipe");
-  }
-
-  pid_t pid = fork();
-  if (pid < 0) {
-    fail("fork");
-  }
-  if (pid == 0) {
-    close(ready[0]);
-    write_byte(ready[1]);
-    close(ready[1]);
-    if (delay_us != 0) {
-      usleep(delay_us);
-    }
-    _Exit(exit_code);
-  }
-
-  close(ready[1]);
-  read_byte(ready[0]);
-  close(ready[0]);
-  return pid;
-}
-
 static int exited_with(int status, int exit_code) {
   return WIFEXITED(status) && WEXITSTATUS(status) == exit_code;
 }
@@ -139,31 +111,16 @@ static void specific_nonblocking_reaps_once(void) {
   expect_echild(child.pid, "repeated targeted wait did not return ECHILD");
 }
 
-static int64_t elapsed_milliseconds(struct timespec start,
-                                    struct timespec finish) {
-  return (finish.tv_sec - start.tv_sec) * 1000 +
-         (finish.tv_nsec - start.tv_nsec) / 1000000;
-}
-
 static void any_nonblocking_returns_promptly(void) {
-  pid_t child = spawn_delayed_child(38, 500000);
-  struct timespec start;
-  struct timespec finish;
+  struct blocked_child child = spawn_blocked_child(38);
   int status = 0;
-  if (clock_gettime(CLOCK_MONOTONIC, &start) != 0) {
-    fail("clock_gettime");
-  }
-  pid_t result = waitpid(-1, &status, WNOHANG);
-  if (clock_gettime(CLOCK_MONOTONIC, &finish) != 0) {
-    fail("clock_gettime");
-  }
 
-  check(result == 0, "any-child WNOHANG did not return zero");
-  check(elapsed_milliseconds(start, finish) < 250,
-        "any-child WNOHANG blocked for a running child");
-  if (result == 0) {
-    wait_for_child(child, 38);
-  }
+  check(waitpid(-1, &status, WNOHANG) == 0,
+        "first any-child WNOHANG did not return zero");
+  check(waitpid(-1, &status, WNOHANG) == 0,
+        "second any-child WNOHANG did not return zero");
+  release_child(child);
+  wait_for_child(child.pid, 38);
   expect_echild(-1,
                 "wait after the only child was reaped did not return ECHILD");
 }
@@ -200,20 +157,21 @@ static void two_children_are_reported_once(void) {
 }
 
 static void completed_nonblocking_child_is_reaped(void) {
-  pid_t child = spawn_delayed_child(43, 0);
+  struct blocked_child child = spawn_blocked_child(43);
+  release_child(child);
   int status = 0;
   pid_t result = 0;
 
   for (int attempt = 0; attempt < 5000 && result == 0; attempt++) {
-    result = waitpid(child, &status, WNOHANG);
+    result = waitpid(child.pid, &status, WNOHANG);
     if (result == 0) {
       usleep(1000);
     }
   }
 
-  check(result == child, "completed child was not returned by WNOHANG");
+  check(result == child.pid, "completed child was not returned by WNOHANG");
   check(exited_with(status, 43), "completed WNOHANG returned the wrong status");
-  expect_echild(child, "completed child was reported more than once");
+  expect_echild(child.pid, "completed child was reported more than once");
 }
 
 int main(void) {
