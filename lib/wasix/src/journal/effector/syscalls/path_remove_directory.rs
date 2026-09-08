@@ -1,9 +1,3 @@
-use std::path::Path;
-
-use virtual_fs::FileSystem;
-
-use crate::VIRTUAL_ROOT_FD;
-
 use super::*;
 
 impl JournalEffector {
@@ -26,21 +20,50 @@ impl JournalEffector {
         fd: Fd,
         path: &str,
     ) -> anyhow::Result<()> {
-        // see `VIRTUAL_ROOT_FD` for details as to why this exists
-        if fd == VIRTUAL_ROOT_FD {
-            ctx.data().state.fs.root_fs.remove_dir(Path::new(path))?;
-        } else {
-            let base_dir = ctx.data().state.fs.get_fd(fd).map_err(|err| {
-                anyhow::format_err!(
-                    "journal restore error: invalid directory descriptor (fd={fd}) - {err}"
-                )
-            })?;
-            if let Err(err) =
-                crate::syscalls::path_remove_directory_internal(ctx, fd, base_dir, path)
-            {
-                bail!("journal restore error: failed to remove directory - {err}");
-            }
+        let base_dir = ctx.data().state.fs.get_fd(fd).map_err(|err| {
+            anyhow::format_err!(
+                "journal restore error: invalid directory descriptor (fd={fd}) - {err}"
+            )
+        })?;
+        if let Err(err) = crate::syscalls::path_remove_directory_internal(ctx, fd, base_dir, path) {
+            bail!("journal restore error: failed to remove directory - {err}");
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{path::Path, sync::Arc};
+
+    use virtual_fs::{FileSystem, FsError, TmpFileSystem};
+    use wasmer::{Engine, Store};
+
+    use crate::{VIRTUAL_ROOT_FD, WasiEnvBuilder, WasiFunctionEnv};
+
+    use super::*;
+
+    #[tokio::test]
+    async fn journal_remove_directory_resolves_virtual_root_entries() {
+        let backing = Arc::new(TmpFileSystem::new());
+        backing.create_dir(Path::new("/journal-dir")).unwrap();
+        let env = WasiEnvBuilder::new("test")
+            .engine(Engine::default())
+            .fs(backing.clone() as Arc<dyn FileSystem + Send + Sync>)
+            .preopen_dir("/")
+            .unwrap()
+            .build()
+            .unwrap();
+        let mut store = Store::default();
+        let function_env = WasiFunctionEnv::new(&mut store, env);
+        let mut ctx = function_env.env.into_mut(&mut store);
+
+        JournalEffector::apply_path_remove_directory(&mut ctx, VIRTUAL_ROOT_FD, "journal-dir")
+            .unwrap();
+
+        assert_eq!(
+            backing.symlink_metadata(Path::new("/journal-dir")),
+            Err(FsError::EntryNotFound)
+        );
     }
 }

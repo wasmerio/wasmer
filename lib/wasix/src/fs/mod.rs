@@ -698,6 +698,62 @@ impl WasiFs {
         );
     }
 
+    pub(crate) fn remove_directory(
+        &self,
+        inodes: &WasiInodes,
+        base: WasiFd,
+        path: &str,
+    ) -> Result<(), Errno> {
+        let (_, entry_name) = PosixPath::new(path).parent_path_and_name()?;
+        if entry_name == "." || entry_name == ".." {
+            return Err(Errno::Noent);
+        }
+
+        let inode = self.get_inode_at_path(inodes, base, path, false)?;
+        if inode.is_preopened {
+            return Err(Errno::Access);
+        }
+
+        let (parent, backing_path) = match inode.read().deref() {
+            Kind::Dir { parent, path, .. } => {
+                let parent = parent.upgrade().ok_or(Errno::Noent)?;
+                (parent, path.clone())
+            }
+            _ => return Err(Errno::Notdir),
+        };
+
+        let directory_key = PosixPath::from_path(&backing_path)
+            .normalize_virtual_symlink_key()
+            .into_path_buf();
+        let contains_ephemeral_symlink = self
+            .ephemeral_symlinks
+            .read()
+            .unwrap()
+            .keys()
+            .any(|key| key != &directory_key && key.starts_with(&directory_key));
+        if contains_ephemeral_symlink {
+            return Err(Errno::Notempty);
+        }
+
+        self.root_fs
+            .remove_dir(&backing_path)
+            .map_err(fs_error_into_wasi_err)?;
+
+        let mut parent = parent.write();
+        let entries = match parent.deref_mut() {
+            Kind::Dir { entries, .. } | Kind::Root { entries } => entries,
+            _ => return Ok(()),
+        };
+        if entries
+            .get(&entry_name)
+            .is_some_and(|entry| Arc::ptr_eq(&entry.inner, &inode.inner))
+        {
+            entries.remove(&entry_name);
+        }
+
+        Ok(())
+    }
+
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Self {
         Self {
@@ -2898,6 +2954,8 @@ pub fn fs_error_into_wasi_err(fs_error: FsError) -> Errno {
 mod tests {
     use super::*;
     use once_cell::sync::OnceCell;
+    use std::collections::VecDeque;
+    use std::sync::atomic::AtomicUsize;
     use tempfile::tempdir;
     use virtual_fs::{RootFileSystemBuilder, TmpFileSystem};
     use wasmer::Engine;
@@ -2905,6 +2963,99 @@ mod tests {
 
     use crate::WasiEnvBuilder;
     use crate::bin_factory::{BinaryPackage, BinaryPackageMount, BinaryPackageMounts};
+
+    type RemoveHook = Box<dyn FnOnce() + Send>;
+
+    struct DirectoryRemoveFileSystem {
+        inner: TmpFileSystem,
+        remove_errors: Mutex<VecDeque<FsError>>,
+        remove_hook: Mutex<Option<RemoveHook>>,
+        remove_calls: AtomicUsize,
+    }
+
+    impl std::fmt::Debug for DirectoryRemoveFileSystem {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("DirectoryRemoveFileSystem").finish()
+        }
+    }
+
+    impl DirectoryRemoveFileSystem {
+        fn new() -> Self {
+            Self {
+                inner: TmpFileSystem::new(),
+                remove_errors: Mutex::new(VecDeque::new()),
+                remove_hook: Mutex::new(None),
+                remove_calls: AtomicUsize::new(0),
+            }
+        }
+
+        fn fail_next_remove(&self, error: FsError) {
+            self.remove_errors.lock().unwrap().push_back(error);
+        }
+
+        fn run_after_remove(&self, hook: impl FnOnce() + Send + 'static) {
+            *self.remove_hook.lock().unwrap() = Some(Box::new(hook));
+        }
+    }
+
+    impl FileSystem for DirectoryRemoveFileSystem {
+        fn readlink(&self, path: &Path) -> Result<PathBuf, FsError> {
+            self.inner.readlink(path)
+        }
+
+        fn read_dir(&self, path: &Path) -> Result<virtual_fs::ReadDir, FsError> {
+            self.inner.read_dir(path)
+        }
+
+        fn create_dir(&self, path: &Path) -> Result<(), FsError> {
+            self.inner.create_dir(path)
+        }
+
+        fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
+            self.remove_calls.fetch_add(1, Ordering::SeqCst);
+            if let Some(error) = self.remove_errors.lock().unwrap().pop_front() {
+                return Err(error);
+            }
+            self.inner.remove_dir(path)?;
+            if let Some(hook) = self.remove_hook.lock().unwrap().take() {
+                hook();
+            }
+            Ok(())
+        }
+
+        fn rename<'a>(
+            &'a self,
+            from: &'a Path,
+            to: &'a Path,
+        ) -> BoxFuture<'a, Result<(), FsError>> {
+            self.inner.rename(from, to)
+        }
+
+        fn metadata(&self, path: &Path) -> Result<virtual_fs::Metadata, FsError> {
+            self.inner.metadata(path)
+        }
+
+        fn symlink_metadata(&self, path: &Path) -> Result<virtual_fs::Metadata, FsError> {
+            self.inner.symlink_metadata(path)
+        }
+
+        fn remove_file(&self, path: &Path) -> Result<(), FsError> {
+            self.inner.remove_file(path)
+        }
+
+        fn new_open_options(&self) -> OpenOptions<'_> {
+            self.inner.new_open_options()
+        }
+    }
+
+    fn directory_remove_fs() -> (Arc<DirectoryRemoveFileSystem>, Arc<WasiFs>, WasiInodes) {
+        let inodes = WasiInodes::new();
+        let backing = Arc::new(DirectoryRemoveFileSystem::new());
+        let root = WasiFsRoot::from_filesystem(backing.clone());
+        let fs =
+            Arc::new(WasiFs::new_with_preopen(&inodes, &[], &["/".to_string()], root).unwrap());
+        (backing, fs, inodes)
+    }
 
     fn webc_symlink_fs() -> virtual_fs::WebcVolumeFileSystem {
         let timestamps = webc::v3::Timestamps::default();
@@ -3580,5 +3731,139 @@ mod tests {
             wasi_fs.remove_symlink_file(Path::new("/missing")),
             Errno::Noent
         );
+    }
+
+    #[tokio::test]
+    async fn directory_remove_uses_backing_state_instead_of_cached_children() {
+        let (backing, fs, inodes) = directory_remove_fs();
+        backing.create_dir(Path::new("/stale")).unwrap();
+        backing
+            .new_open_options()
+            .create_new(true)
+            .write(true)
+            .open(Path::new("/stale/child"))
+            .unwrap();
+
+        fs.get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/stale/child", false)
+            .unwrap();
+        backing.remove_file(Path::new("/stale/child")).unwrap();
+
+        fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/stale")
+            .unwrap();
+        assert_eq!(
+            backing.symlink_metadata(Path::new("/stale")),
+            Err(FsError::EntryNotFound)
+        );
+    }
+
+    #[tokio::test]
+    async fn directory_remove_resolves_an_uncached_final_target() {
+        let (backing, fs, inodes) = directory_remove_fs();
+        backing.create_dir(Path::new("/uncached")).unwrap();
+
+        fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/uncached")
+            .unwrap();
+
+        assert_eq!(backing.remove_calls.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn directory_remove_preserves_cache_after_a_backing_error() {
+        let (backing, fs, inodes) = directory_remove_fs();
+        backing.create_dir(Path::new("/retry")).unwrap();
+        let selected = fs
+            .get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/retry", false)
+            .unwrap();
+        backing.fail_next_remove(FsError::PermissionDenied);
+
+        assert_eq!(
+            fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/retry"),
+            Err(Errno::Perm)
+        );
+        let cached = fs
+            .get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/retry", false)
+            .unwrap();
+        assert!(Arc::ptr_eq(&cached.inner, &selected.inner));
+
+        fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/retry")
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn directory_remove_does_not_evict_a_replacement_inode() {
+        let (backing, fs, inodes) = directory_remove_fs();
+        backing.create_dir(Path::new("/replace")).unwrap();
+        let selected = fs
+            .get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/replace", false)
+            .unwrap();
+        let parent = match selected.read().deref() {
+            Kind::Dir { parent, .. } => parent.upgrade().unwrap(),
+            _ => panic!("expected a directory inode"),
+        };
+        let replacement_slot = Arc::new(Mutex::new(None));
+        let replacement_slot_for_hook = replacement_slot.clone();
+        let backing_for_hook = backing.clone();
+        let fs_for_hook = fs.clone();
+        let inodes_for_hook = inodes.clone();
+        let parent_for_hook = parent.clone();
+        backing.run_after_remove(move || {
+            backing_for_hook.create_dir(Path::new("/replace")).unwrap();
+            let replacement = fs_for_hook
+                .create_inode(
+                    &inodes_for_hook,
+                    Kind::Dir {
+                        parent: parent_for_hook.downgrade(),
+                        path: PathBuf::from("/replace"),
+                        entries: HashMap::new(),
+                    },
+                    false,
+                    "/replace".to_string(),
+                )
+                .unwrap();
+            match parent_for_hook.write().deref_mut() {
+                Kind::Dir { entries, .. } | Kind::Root { entries } => {
+                    entries.insert("replace".to_string(), replacement.clone());
+                }
+                _ => panic!("expected a directory parent"),
+            }
+            *replacement_slot_for_hook.lock().unwrap() = Some(replacement);
+        });
+
+        fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/replace")
+            .unwrap();
+
+        let replacement = replacement_slot.lock().unwrap().clone().unwrap();
+        let cached = fs
+            .get_inode_at_path(&inodes, VIRTUAL_ROOT_FD, "/replace", false)
+            .unwrap();
+        assert!(Arc::ptr_eq(&cached.inner, &replacement.inner));
+        assert!(!Arc::ptr_eq(&cached.inner, &selected.inner));
+    }
+
+    #[tokio::test]
+    async fn directory_remove_checks_normalized_ephemeral_descendants() {
+        let (backing, fs, inodes) = directory_remove_fs();
+        backing.create_dir(Path::new("/dir")).unwrap();
+        fs.register_ephemeral_symlink(
+            PathBuf::from("/dir/nested/../link"),
+            PathBuf::from("link"),
+            PathBuf::from("target"),
+        );
+        fs.register_ephemeral_symlink(
+            PathBuf::from("/directory/link"),
+            PathBuf::from("link"),
+            PathBuf::from("target"),
+        );
+
+        assert_eq!(
+            fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/dir"),
+            Err(Errno::Notempty)
+        );
+        assert_eq!(backing.remove_calls.load(Ordering::SeqCst), 0);
+
+        fs.unregister_ephemeral_symlink(Path::new("/dir/link"));
+        fs.remove_directory(&inodes, VIRTUAL_ROOT_FD, "/dir")
+            .unwrap();
+        assert_eq!(backing.remove_calls.load(Ordering::SeqCst), 1);
     }
 }
