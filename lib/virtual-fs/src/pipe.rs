@@ -224,6 +224,7 @@ impl PipeTx {
         let Some(sender) = Arc::into_inner(sender) else {
             return;
         };
+        // Wake blocking_recv before waiting for the receiver lock.
         drop(sender);
 
         let Some(rx_end) = self.rx_end.upgrade() else {
@@ -700,6 +701,75 @@ mod tests {
     }
 
     #[test]
+    fn concurrent_sender_close_and_drop_notify_once() {
+        for _ in 0..128 {
+            let (mut sender, mut receiver) = Pipe::new().split();
+            let other_sender = sender.clone();
+            let (handler, interests) = recording_handler();
+            receiver.set_interest_handler(handler);
+            let barrier = Arc::new(Barrier::new(2));
+            let worker_barrier = barrier.clone();
+            let (done_tx, done_rx) = mpsc::channel();
+            let other_done_tx = done_tx.clone();
+
+            let closer = thread::spawn(move || {
+                worker_barrier.wait();
+                sender.close();
+                done_tx.send(()).unwrap();
+            });
+            let dropper = thread::spawn(move || {
+                barrier.wait();
+                drop(other_sender);
+                other_done_tx.send(()).unwrap();
+            });
+
+            for _ in 0..2 {
+                done_rx
+                    .recv_timeout(Duration::from_secs(1))
+                    .expect("concurrent writer close did not finish");
+            }
+            closer.join().unwrap();
+            dropper.join().unwrap();
+            assert_eq!(*interests.lock().unwrap(), [InterestType::Closed]);
+            assert_eq!(receiver.try_read(&mut [0; 1]), Some(0));
+        }
+    }
+
+    #[test]
+    fn handler_registration_racing_final_close_observes_eof() {
+        for _ in 0..128 {
+            let (sender, receiver) = Pipe::new().split();
+            let (handler, interests) = recording_handler();
+            let barrier = Arc::new(Barrier::new(2));
+            let worker_barrier = barrier.clone();
+            let (done_tx, done_rx) = mpsc::channel();
+            let other_done_tx = done_tx.clone();
+
+            let closer = thread::spawn(move || {
+                worker_barrier.wait();
+                drop(sender);
+                done_tx.send(()).unwrap();
+            });
+            let registrar = thread::spawn(move || {
+                barrier.wait();
+                receiver.set_interest_handler(handler);
+                other_done_tx.send(()).unwrap();
+                receiver
+            });
+
+            for _ in 0..2 {
+                done_rx
+                    .recv_timeout(Duration::from_secs(1))
+                    .expect("handler registration or writer close did not finish");
+            }
+            closer.join().unwrap();
+            let mut receiver = registrar.join().unwrap();
+            assert!(interests.lock().unwrap().contains(&InterestType::Closed));
+            assert_eq!(receiver.try_read(&mut [0; 1]), Some(0));
+        }
+    }
+
+    #[test]
     fn late_handler_observes_closed_channel() {
         let (sender, receiver) = Pipe::new().split();
         drop(sender);
@@ -753,13 +823,14 @@ mod tests {
         });
         barrier.wait();
 
-        done_rx
-            .recv_timeout(Duration::from_secs(1))
-            .expect("a non-final close waited for the receiver lock");
-        assert!(!receiver_guard.chan.is_closed());
+        let close_result = done_rx.recv_timeout(Duration::from_secs(1));
+        let channel_closed = receiver_guard.chan.is_closed();
         drop(receiver_guard);
         worker.join().unwrap();
         drop(other_sender);
+
+        close_result.expect("a non-final close waited for the receiver lock");
+        assert!(!channel_closed);
     }
 
     #[test]

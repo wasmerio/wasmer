@@ -24,6 +24,13 @@ static void require(int condition, const char* message) {
   }
 }
 
+static void require_pthread(int error, const char* message) {
+  if (error != 0) {
+    fprintf(stderr, "%s: %s\n", message, strerror(error));
+    exit(EXIT_FAILURE);
+  }
+}
+
 static int add_reader(int epoll_fd, int reader) {
   struct epoll_event event = {.events = EPOLLIN, .data.fd = reader};
   return epoll_ctl(epoll_fd, EPOLL_CTL_ADD, reader, &event);
@@ -130,14 +137,14 @@ static void blocked_pthread_is_woken_by_final_close(void) {
       .epoll_fd = epoll_fd, .reader = fds[0], .saw_hup = 0};
   atomic_init(&args.ready, false);
   pthread_t waiter;
-  require(pthread_create(&waiter, NULL, wait_for_writer_close, &args) == 0,
-          "pthread_create failed");
+  require_pthread(pthread_create(&waiter, NULL, wait_for_writer_close, &args),
+                  "pthread_create failed");
   while (!atomic_load(&args.ready)) {
     sched_yield();
   }
   usleep(25000);
   require(close(fds[1]) == 0, "writer close failed for pthread test");
-  require(pthread_join(waiter, NULL) == 0, "pthread_join failed");
+  require_pthread(pthread_join(waiter, NULL), "pthread_join failed");
   check(args.saw_hup, "blocked pthread did not wake with HUP");
 
   close(fds[0]);
