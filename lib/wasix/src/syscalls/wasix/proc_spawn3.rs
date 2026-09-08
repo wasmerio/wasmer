@@ -2,7 +2,7 @@ use virtual_mio::block_on;
 use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
 
 use super::*;
-use crate::{VIRTUAL_ROOT_FD, WasiFs, syscalls::*};
+use crate::{VIRTUAL_ROOT_FD, WasiFs, fs::MAX_FD, syscalls::*};
 
 /// Spawns a new sub-process (posix-spawn style) with proper `WasmPtr<WasmPtr<u8>>` string lists.
 ///
@@ -220,31 +220,14 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
             Ok(())
         }
         ProcSpawnFdOpName::Open => {
+            validate_spawn_open_target(&env.state.fs, op.fd)?;
             let mut name = unsafe {
                 WasmPtr::<u8, M>::new(op.name)
                     .read_utf8_string(memory, op.name_len)
                     .map_err(mem_error_to_wasi)?
             };
             name = env.state.fs.relative_path_to_absolute(name.to_owned());
-            match path_open_internal(
-                env,
-                VIRTUAL_ROOT_FD,
-                op.dirflags,
-                &name,
-                op.oflags,
-                op.fs_rights_base,
-                op.fs_rights_inheriting,
-                op.fdflags,
-                op.fdflagsext,
-                Some(op.fd),
-            ) {
-                Err(e) => {
-                    tracing::warn!("Failed to open file for posix_spawn: {:?}", e);
-                    Err(Errno::Io)
-                }
-                Ok(Err(e)) => Err(e),
-                Ok(Ok(_)) => Ok(()),
-            }
+            open_for_spawn(env, op, &name)
         }
         ProcSpawnFdOpName::Chdir => {
             let mut path = unsafe {
@@ -268,5 +251,404 @@ pub(crate) fn apply_fd_op<M: MemorySize>(
             }
         }
         _ => Err(Errno::Inval),
+    }
+}
+
+fn validate_spawn_open_target(fs: &WasiFs, target: WasiFd) -> Result<(), Errno> {
+    if target > MAX_FD {
+        return Err(Errno::Badf);
+    }
+    if target == VIRTUAL_ROOT_FD {
+        return Err(Errno::Notsup);
+    }
+    if let Ok(fd) = fs.get_fd(target)
+        && !fd.is_stdio
+        && fd.inode.is_preopened
+    {
+        return Err(Errno::Notsup);
+    }
+    Ok(())
+}
+
+fn open_for_spawn<M: MemorySize>(
+    env: &WasiEnv,
+    op: &ProcSpawnFdOp<M>,
+    name: &str,
+) -> Result<(), Errno> {
+    validate_spawn_open_target(&env.state.fs, op.fd)?;
+
+    let close = env.state.fs.close_fd_and_capture_flush(op.fd);
+    if let Some(file) = close.flush_target {
+        block_on(WasiFs::flush_file_best_effort(file));
+    }
+
+    let opened_fd = match path_open_internal(
+        env,
+        VIRTUAL_ROOT_FD,
+        op.dirflags,
+        name,
+        op.oflags,
+        op.fs_rights_base,
+        op.fs_rights_inheriting,
+        op.fdflags,
+        op.fdflagsext,
+        Some(op.fd),
+    ) {
+        Err(err) => {
+            tracing::warn!("Failed to open file for posix_spawn: {err:?}");
+            return Err(Errno::Io);
+        }
+        Ok(Err(err)) => return Err(err),
+        Ok(Ok(fd)) => fd,
+    };
+
+    if opened_fd != op.fd {
+        tracing::error!(
+            requested_fd = op.fd,
+            %opened_fd,
+            "path_open_internal did not honor the requested descriptor"
+        );
+        return Err(Errno::Io);
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        io::{self, SeekFrom},
+        path::Path,
+        pin::Pin,
+        sync::{
+            Arc, RwLock,
+            atomic::{AtomicUsize, Ordering},
+        },
+        task::{Context, Poll},
+    };
+
+    use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
+    use virtual_fs::{FileSystem, FsError, NullFile, VirtualFile};
+    use wasmer::{Memory32, Store};
+    use wasmer_wasix_types::wasi::ProcSpawnFdOp;
+
+    use super::*;
+    use crate::{WasiEnvBuilder, fs::Kind};
+
+    const TARGET_FD: WasiFd = 10;
+
+    fn test_env() -> WasiEnv {
+        let store = Store::default();
+        let mut builder = WasiEnvBuilder::new("spawn-open-test").engine(store.engine().clone());
+        builder.preopen_vfs_dirs(["/".to_owned()]).unwrap();
+        builder.build().unwrap()
+    }
+
+    fn open_op(
+        fd: WasiFd,
+        oflags: Oflags,
+        rights: Rights,
+        fdflags: Fdflags,
+        fdflagsext: Fdflagsext,
+    ) -> ProcSpawnFdOp<Memory32> {
+        ProcSpawnFdOp {
+            cmd: ProcSpawnFdOpName::Open,
+            fd,
+            src_fd: 0,
+            name: 0,
+            name_len: 0,
+            dirflags: 0,
+            oflags,
+            fs_rights_base: rights,
+            fs_rights_inheriting: rights,
+            fdflags,
+            fdflagsext,
+        }
+    }
+
+    #[tokio::test]
+    async fn spawn_open_replaces_only_the_child_target() {
+        let parent = test_env();
+        parent.state.fs.dup2_at(0, TARGET_FD).unwrap();
+        let parent_inode = parent.state.fs.get_fd(TARGET_FD).unwrap().inode.ino();
+
+        let mut child = parent.clone();
+        child.state = Arc::new(parent.state.fork());
+        let op = open_op(
+            TARGET_FD,
+            Oflags::CREATE,
+            Rights::FD_READ | Rights::FD_WRITE,
+            Fdflags::NONBLOCK,
+            Fdflagsext::CLOEXEC,
+        );
+        open_for_spawn(&child, &op, "/spawn-open-child").unwrap();
+
+        let child_fd = child.state.fs.get_fd(TARGET_FD).unwrap();
+        assert_ne!(child_fd.inode.ino(), parent_inode);
+        assert!(child_fd.inner.rights.contains(Rights::FD_READ));
+        assert!(child_fd.inner.rights.contains(Rights::FD_WRITE));
+        assert_eq!(child_fd.inner.rights_inheriting, op.fs_rights_inheriting);
+        assert_eq!(child_fd.inner.flags, Fdflags::NONBLOCK);
+        assert_eq!(child_fd.inner.fd_flags, Fdflagsext::CLOEXEC);
+        assert_eq!(
+            child_fd.open_flags & (Fd::READ | Fd::WRITE),
+            Fd::READ | Fd::WRITE
+        );
+
+        assert_eq!(
+            parent.state.fs.get_fd(TARGET_FD).unwrap().inode.ino(),
+            parent_inode
+        );
+    }
+
+    #[tokio::test]
+    async fn spawn_open_errors_leave_the_child_target_closed_without_path_side_effects() {
+        let parent = test_env();
+        parent.state.fs.dup2_at(0, TARGET_FD).unwrap();
+        let mut child = parent.clone();
+        child.state = Arc::new(parent.state.fork());
+
+        let missing = open_op(
+            TARGET_FD,
+            Oflags::empty(),
+            Rights::FD_READ,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+        );
+        assert_eq!(
+            open_for_spawn(&child, &missing, "/missing-spawn-open"),
+            Err(Errno::Noent)
+        );
+        assert_eq!(child.state.fs.get_fd(TARGET_FD).unwrap_err(), Errno::Badf);
+        assert!(parent.state.fs.get_fd(TARGET_FD).is_ok());
+
+        let protected = open_op(
+            VIRTUAL_ROOT_FD,
+            Oflags::CREATE,
+            Rights::FD_WRITE,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+        );
+        assert_eq!(
+            open_for_spawn(&child, &protected, "/protected-spawn-open"),
+            Err(Errno::Notsup)
+        );
+        assert!(
+            child
+                .state
+                .fs
+                .root_fs
+                .metadata(Path::new("/protected-spawn-open"))
+                .is_err()
+        );
+
+        let huge = open_op(
+            MAX_FD + 1,
+            Oflags::CREATE,
+            Rights::FD_WRITE,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+        );
+        assert_eq!(
+            open_for_spawn(&child, &huge, "/huge-spawn-open"),
+            Err(Errno::Badf)
+        );
+        assert!(
+            child
+                .state
+                .fs
+                .root_fs
+                .metadata(Path::new("/huge-spawn-open"))
+                .is_err()
+        );
+    }
+
+    #[tokio::test]
+    async fn exact_target_open_preserves_special_sources_and_requested_flags() {
+        let env = test_env();
+        let stdout = env.state.fs.get_fd(1).unwrap();
+        let stdout_handles = stdout.inode.handle_count();
+        let expected_rights = Rights::FD_ADVISE
+            | Rights::FD_TELL
+            | Rights::FD_SEEK
+            | Rights::FD_DATASYNC
+            | Rights::FD_FDSTAT_SET_FLAGS
+            | Rights::FD_WRITE
+            | Rights::FD_SYNC
+            | Rights::FD_ALLOCATE
+            | Rights::FD_FILESTAT_GET
+            | Rights::FD_FILESTAT_SET_SIZE
+            | Rights::FD_FILESTAT_SET_TIMES;
+        let op = open_op(
+            TARGET_FD,
+            Oflags::empty(),
+            Rights::FD_WRITE,
+            Fdflags::APPEND,
+            Fdflagsext::CLOEXEC,
+        );
+        open_for_spawn(&env, &op, "/dev/stdout").unwrap();
+
+        let target = env.state.fs.get_fd(TARGET_FD).unwrap();
+        assert_eq!(target.inode.ino(), stdout.inode.ino());
+        assert_eq!(target.inner.rights, expected_rights);
+        assert_eq!(target.inner.rights_inheriting, Rights::FD_WRITE);
+        assert_eq!(target.inner.flags, Fdflags::APPEND);
+        assert_eq!(target.inner.fd_flags, Fdflagsext::CLOEXEC);
+        assert!(env.state.fs.get_fd(1).is_ok());
+        assert_eq!(stdout.inode.handle_count(), stdout_handles + 1);
+
+        env.state.fs.close_fd_and_capture_flush(TARGET_FD);
+        assert_eq!(stdout.inode.handle_count(), stdout_handles);
+
+        let direct_inode = env.state.fs.create_inode_with_default_stat(
+            &env.state.inodes,
+            Kind::File {
+                handle: Some(Arc::new(RwLock::new(Box::<NullFile>::default()))),
+                path: "".into(),
+                fd: Some(1),
+            },
+            false,
+            "direct-special".into(),
+        );
+        {
+            let mut root = env.state.fs.root_inode.write();
+            let Kind::Root { entries } = root.deref_mut() else {
+                panic!("expected root inode");
+            };
+            entries.insert("direct-special".to_owned(), direct_inode.clone());
+        }
+
+        let direct_target = TARGET_FD + 1;
+        let direct = open_op(
+            direct_target,
+            Oflags::empty(),
+            Rights::FD_WRITE,
+            Fdflags::APPEND,
+            Fdflagsext::CLOEXEC,
+        );
+        open_for_spawn(&env, &direct, "/direct-special").unwrap();
+        let target = env.state.fs.get_fd(direct_target).unwrap();
+        assert_eq!(target.inode.ino(), direct_inode.ino());
+        assert_eq!(target.inner.rights, expected_rights);
+        assert!(env.state.fs.get_fd(1).is_ok());
+    }
+
+    #[derive(Debug)]
+    struct FlushCountingFile(Arc<AtomicUsize>);
+
+    impl AsyncRead for FlushCountingFile {
+        fn poll_read(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            _buf: &mut ReadBuf<'_>,
+        ) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncWrite for FlushCountingFile {
+        fn poll_write(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+            buf: &[u8],
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(buf.len()))
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Poll::Ready(Ok(()))
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    impl AsyncSeek for FlushCountingFile {
+        fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
+            Ok(())
+        }
+
+        fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
+            Poll::Ready(Ok(0))
+        }
+    }
+
+    impl VirtualFile for FlushCountingFile {
+        fn last_accessed(&self) -> u64 {
+            0
+        }
+
+        fn last_modified(&self) -> u64 {
+            0
+        }
+
+        fn created_time(&self) -> u64 {
+            0
+        }
+
+        fn size(&self) -> u64 {
+            0
+        }
+
+        fn set_len(&mut self, _new_size: u64) -> Result<(), FsError> {
+            Ok(())
+        }
+
+        fn unlink(&mut self) -> Result<(), FsError> {
+            Ok(())
+        }
+
+        fn poll_read_ready(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(0))
+        }
+
+        fn poll_write_ready(
+            self: Pin<&mut Self>,
+            _cx: &mut Context<'_>,
+        ) -> Poll<io::Result<usize>> {
+            Poll::Ready(Ok(8192))
+        }
+    }
+
+    #[tokio::test]
+    async fn spawn_open_flushes_the_replaced_target_after_unlocking_the_fd_map() {
+        let env = test_env();
+        let flushes = Arc::new(AtomicUsize::new(0));
+        let inode = env.state.fs.create_inode_with_default_stat(
+            &env.state.inodes,
+            Kind::File {
+                handle: Some(Arc::new(RwLock::new(Box::new(FlushCountingFile(
+                    flushes.clone(),
+                ))))),
+                path: "".into(),
+                fd: None,
+            },
+            false,
+            "flush-counting".into(),
+        );
+        env.state
+            .fs
+            .with_fd(
+                Rights::FD_WRITE,
+                Rights::FD_WRITE,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                Fd::WRITE,
+                inode,
+                TARGET_FD,
+            )
+            .unwrap();
+
+        let op = open_op(
+            TARGET_FD,
+            Oflags::CREATE,
+            Rights::FD_WRITE,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+        );
+        open_for_spawn(&env, &op, "/spawn-open-after-flush").unwrap();
+        assert_eq!(flushes.load(Ordering::SeqCst), 1);
     }
 }

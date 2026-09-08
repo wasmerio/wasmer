@@ -1,6 +1,6 @@
 use super::*;
 use crate::VIRTUAL_ROOT_FD;
-use crate::fs::{FdList, WasiFs};
+use crate::fs::{FdInner, FdList, MAX_FD, WasiFs};
 use crate::syscalls::*;
 
 /// ### `path_open()`
@@ -422,12 +422,26 @@ fn path_open_internal_with_symlink_depth(
         let out_fd = match guard.deref_mut() {
             Kind::File {
                 handle,
-                path,
                 fd: Some(special_fd),
                 ..
             } => {
                 assert!(handle.is_some());
-                *special_fd
+                let special_fd = *special_fd;
+                if let Some(target) = with_fd {
+                    drop(guard);
+                    wasi_try_ok_ok!(insert_special_fd_locked(
+                        &mut fd_map,
+                        adjusted_rights,
+                        adjusted_rights_inheriting,
+                        fs_flags,
+                        fd_flags,
+                        file_open_flags,
+                        inode,
+                        target,
+                    ))
+                } else {
+                    special_fd
+                }
             }
             Kind::File {
                 handle,
@@ -463,15 +477,31 @@ fn path_open_internal_with_symlink_depth(
                     }
                 {
                     drop(guard);
-                    let dup_fd = wasi_try_ok_ok!(WasiFs::clone_fd_locked(
-                        &state.fs,
-                        &mut fd_map,
-                        special_fd,
-                        0,
-                        None,
-                    ));
-                    trace!(%dup_fd);
-                    return Ok(Ok(dup_fd));
+                    let out_fd = if let Some(target) = with_fd {
+                        let source = wasi_try_ok_ok!(WasiFs::get_fd_from_locked_map(
+                            &state.fs, &fd_map, special_fd,
+                        ));
+                        wasi_try_ok_ok!(insert_special_fd_locked(
+                            &mut fd_map,
+                            adjusted_rights,
+                            adjusted_rights_inheriting,
+                            fs_flags,
+                            fd_flags,
+                            file_open_flags,
+                            source.inode,
+                            target,
+                        ))
+                    } else {
+                        wasi_try_ok_ok!(WasiFs::clone_fd_locked(
+                            &state.fs,
+                            &mut fd_map,
+                            special_fd,
+                            0,
+                            None,
+                        ))
+                    };
+                    trace!(%out_fd);
+                    return Ok(Ok(out_fd));
                 }
 
                 let out_fd = wasi_try_ok_ok!(insert_fd_locked(
@@ -715,6 +745,39 @@ fn path_open_internal_with_symlink_depth(
         } else {
             Ok(Err(maybe_inode.unwrap_err()))
         }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn insert_special_fd_locked(
+    fd_map: &mut FdList,
+    rights: Rights,
+    rights_inheriting: Rights,
+    fs_flags: Fdflags,
+    fd_flags: Fdflagsext,
+    open_flags: u16,
+    inode: InodeGuard,
+    target: WasiFd,
+) -> Result<WasiFd, Errno> {
+    if target > MAX_FD {
+        return Err(Errno::Badf);
+    }
+    let fd = Fd {
+        inner: FdInner {
+            rights,
+            rights_inheriting,
+            flags: fs_flags,
+            offset: Arc::new(AtomicU64::new(0)),
+            fd_flags,
+        },
+        open_flags,
+        inode,
+        is_stdio: true,
+    };
+    if fd_map.insert(true, target, fd) {
+        Ok(target)
+    } else {
+        Err(Errno::Exist)
     }
 }
 
