@@ -1160,7 +1160,7 @@ mod tests {
         use wasmer::{Memory, MemoryLocation, MemoryType, Store};
 
         let (_plane, process, main, worker) = process_with_two_threads();
-        let mut store = Store::default();
+        let mut store = Store::new(wasmer::sys::EngineBuilder::headless().engine());
         let memory = Memory::new(&mut store, MemoryType::new(1, Some(1), true)).unwrap();
         let shared = memory.as_shared(&store).unwrap();
         process.register_memory(shared.ops());
