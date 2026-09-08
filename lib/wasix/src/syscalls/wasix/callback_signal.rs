@@ -32,23 +32,18 @@ pub fn callback_signal<M: MemorySize>(
         .main_module_instance_handles()
         .instance
         .exports
-        .get_typed_function(&ctx, &name)
+        .get_typed_function::<i32, ()>(&ctx, &name)
         .ok();
     Span::current().record("funct_is_some", funct.is_some());
 
     {
         let mut env_inner = ctx.data_mut().inner_mut();
-        let inner = env_inner.main_module_instance_handles_mut();
-        inner.signal = funct;
-        inner.signal_set = true;
+        env_inner.main_module_instance_handles_mut().signal_handler = Some(name.clone());
     }
-    // Record it for the whole process: signals are delivered to every thread,
-    // and the sibling threads have their own instances that never see the
-    // registration above.
-    ctx.data()
-        .state
-        .signal_handler_registered
-        .store(true, std::sync::atomic::Ordering::SeqCst);
+    {
+        let mut process_handler = ctx.data().state.signal_handler.lock().unwrap();
+        process_handler.get_or_insert(name);
+    }
 
     WasiEnv::do_pending_operations(&mut ctx)?;
 

@@ -9,14 +9,6 @@
 ##ExpectedStdout: targeted child waiting
 ##ExpectedStdout: targeted parent survived
 
-##Config: forwarded:base
-##Args: forwarded
-##ExpectedStdout: forwarding parent waiting
-##ExpectedStdout: forwarded child 1 waiting
-##ExpectedStdout: forwarded child 2 waiting
-##ExpectedStdout: forwarding parent survived
-##Ignored: SIGTERM atomic waiter wakeups are currently scoped back
-
 ##Config: vfork:base
 ##Args: vfork
 ##ExpectedStdout: vfork child waiting
