@@ -103,6 +103,7 @@ use wasmer_wasix::virtual_fs::{
     StaticFile, TmpFileSystem, create_dir_all as create_virtual_dir_all, mem_fs,
 };
 
+#[cfg(not(target_os = "windows"))]
 mod ephemeral_symlink;
 mod error;
 mod runner;
@@ -1463,6 +1464,7 @@ fn collect_tests(tests: &mut Vec<Trial>) -> Result<()> {
     let tests_dir = PathBuf::from_str(env!("CARGO_MANIFEST_DIR"))?.join("tests/wasm_tests/");
     let tests_build_root = tests_dir.join("build");
 
+    #[cfg(not(target_os = "windows"))]
     for sysroot in TESTED_LIBC_VERSIONS {
         let config =
             ephemeral_symlink::fallback_metadata_config(&tests_dir, &tests_build_root, *sysroot)?;
