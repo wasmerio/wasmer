@@ -872,7 +872,9 @@ impl WasiProcess {
         // Need special logic for the main thread.
         let guard = self.inner.0.lock().unwrap();
         for thread in guard.threads.values() {
-            thread.set_status_finished(Ok(exit_code))
+            thread.set_status_finished(Ok(exit_code));
+            // Syscall waiters subscribe to signals, not task status changes.
+            thread.signal(Signal::Sigwakeup);
         }
         wake_all_atomic_waiters(&guard);
     }
@@ -1035,6 +1037,42 @@ mod tests {
     }
 
     #[test]
+    fn selected_main_thread_exit_finishes_the_process() {
+        let (_plane, process, main, worker) = process_with_two_threads();
+
+        process.signal_process(Signal::Sigusr1);
+        main.set_status_finished(Ok(Errno::Success.into()));
+        drop(main);
+
+        assert!(worker.try_join().is_none());
+        assert_eq!(process.try_join().unwrap().unwrap().raw(), 0);
+        assert!(worker.pop_signals().is_empty());
+    }
+
+    #[test]
+    fn process_signal_selects_a_live_worker_without_a_main_thread() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig::default());
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        let workers: Vec<_> = (0..2)
+            .map(|_| {
+                process
+                    .new_thread(
+                        WasiMemoryLayout::default(),
+                        ThreadStartType::ThreadSpawn { start_ptr: 0 },
+                    )
+                    .unwrap()
+            })
+            .collect();
+        workers[0].set_status_finished(Ok(Errno::Success.into()));
+
+        process.signal_process(Signal::Sigusr1);
+
+        assert!(process.try_join().is_none());
+        assert!(workers[0].pop_signals().is_empty());
+        assert_eq!(workers[1].pop_signals(), vec![Signal::Sigusr1]);
+    }
+
+    #[test]
     fn unknown_thread_signal_does_not_queue_a_signal() {
         let (_plane, process, main, worker) = process_with_two_threads();
 
@@ -1086,12 +1124,64 @@ mod tests {
 
     #[test]
     fn terminate_finishes_every_thread_with_original_exit_code() {
+        #[derive(Default)]
+        struct WakeCounter(AtomicU32);
+
+        impl std::task::Wake for WakeCounter {
+            fn wake(self: Arc<Self>) {
+                self.0.fetch_add(1, Ordering::SeqCst);
+            }
+        }
+
         let (_plane, process, main, worker) = process_with_two_threads();
         let exit_code = ExitCode::from(37);
+        let main_wakes = Arc::new(WakeCounter::default());
+        let worker_wakes = Arc::new(WakeCounter::default());
+        main.signals_subscribe(&Waker::from(main_wakes.clone()));
+        worker.signals_subscribe(&Waker::from(worker_wakes.clone()));
 
         process.terminate(exit_code);
+        process.terminate(ExitCode::from(0));
 
         assert_eq!(main.try_join().unwrap().unwrap(), exit_code);
         assert_eq!(worker.try_join().unwrap().unwrap(), exit_code);
+        assert_eq!(main_wakes.0.load(Ordering::SeqCst), 1);
+        assert_eq!(worker_wakes.0.load(Ordering::SeqCst), 1);
+        for thread in [main, worker] {
+            assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
+            assert!(thread.signals().lock().unwrap().1.is_empty());
+        }
+    }
+
+    #[cfg(feature = "sys")]
+    #[test]
+    fn terminate_wakes_atomic_waiters_after_publishing_exit_code() {
+        use std::{sync::mpsc, thread, time::Instant};
+        use wasmer::{Memory, MemoryLocation, MemoryType, Store};
+
+        let (_plane, process, main, worker) = process_with_two_threads();
+        let mut store = Store::default();
+        let memory = Memory::new(&mut store, MemoryType::new(1, Some(1), true)).unwrap();
+        let shared = memory.as_shared(&store).unwrap();
+        process.register_memory(shared.ops());
+        let (done_tx, done_rx) = mpsc::channel();
+        let waiter = thread::spawn(move || {
+            let result = shared.wait(MemoryLocation::new_32(0), Some(Duration::from_secs(5)));
+            done_tx.send((result, worker.try_join())).unwrap();
+        });
+
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let (result, status) = loop {
+            process.terminate(ExitCode::from(37));
+            match done_rx.recv_timeout(Duration::from_millis(1)) {
+                Ok(result) => break result,
+                Err(mpsc::RecvTimeoutError::Timeout) if Instant::now() < deadline => continue,
+                Err(err) => panic!("atomic waiter did not finish: {err}"),
+            }
+        };
+        waiter.join().unwrap();
+        assert_eq!(result.unwrap(), 0);
+        assert_eq!(status.unwrap().unwrap(), ExitCode::from(37));
+        assert_eq!(main.try_join().unwrap().unwrap(), ExitCode::from(37));
     }
 }

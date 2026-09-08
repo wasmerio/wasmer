@@ -737,8 +737,6 @@ impl WasiEnv {
 
     /// Processes any signals that are batched up
     pub(crate) fn process_signals(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
-        // If a signal handler has never been set then we need to handle signals
-        // differently
         let env = ctx.data();
         let signals = env.thread.pop_signals();
         let ret = Self::process_signals_internal(ctx, signals)?;
@@ -1299,11 +1297,7 @@ impl WasiEnv {
                         }
                     }
 
-                    // Record the real exit code before broadcasting Sigquit.
-                    // Otherwise a pending Sigquit can win the status race and
-                    // make waiters observe a successful exit.
                     process.terminate(process_exit_code);
-                    process.signal_process(Signal::Sigquit);
                 }
             })
         } else {
