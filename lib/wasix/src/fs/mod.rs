@@ -1053,13 +1053,8 @@ impl WasiFs {
         }
     }
 
-    /// Override what one of stdin/stdout/stderr reports about being connected
-    /// to a terminal, ignoring whatever the handle behind it has to say.
-    ///
-    /// This is one-way on purpose. There is no "stop overriding": undoing it
-    /// would mean re-asking the handle, and the reason the answer is cached at
-    /// all is so that no caller has to take the handle's lock. An embedder that
-    /// wants the handle to decide should simply not call this.
+    /// Override the terminal status of a stdio inode, including its duplicates.
+    /// Replacing its backing handle with [`Self::swap_file`] recomputes the status.
     ///
     /// Has no effect on a descriptor that is no longer stdio (after a `dup2`
     /// onto it, say).
@@ -1083,82 +1078,49 @@ impl WasiFs {
         fd: WasiFd,
         mut file: Box<dyn VirtualFile + Send + Sync + 'static>,
     ) -> Result<Option<Box<dyn VirtualFile + Send + Sync + 'static>>, FsError> {
-        match fd {
-            __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => {
-                // Ask the incoming file first, while holding nothing: wrappers
-                // such as `ArcBoxFile` and `WasiStateFileGuard` take locks of
-                // their own to answer this.
-                let new_is_terminal = file.is_terminal();
-
-                // Lock order is fd_map -> inode.kind -> handle, with
-                // inode.stat taken on its own. Each is released before the
-                // next is acquired, so unlike `WasiInodes::std_dev_get_mut` we
-                // never block on the handle while holding the fd map.
-                let (inode, is_stdio) = {
-                    let fd_map = self.fd_map.read().unwrap();
-                    let entry = fd_map.get(fd).ok_or(FsError::NoDevice)?;
-                    (entry.inode.clone(), entry.is_stdio)
-                };
-
-                let handle = {
-                    let guard = inode.read();
-                    match guard.deref() {
-                        Kind::File {
-                            handle: Some(handle),
-                            ..
-                        } => handle.clone(),
-                        _ => return Err(FsError::NotAFile),
-                    }
-                };
-
-                {
-                    let mut guard = handle.write().map_err(|_| FsError::Lock)?;
-                    std::mem::swap(guard.deref_mut(), &mut file);
-                }
-
-                // Guarded on `is_stdio`: after a guest `dup2(3, 1)` this fd
-                // resolves to a regular file's inode, and stamping a stdio file
-                // type onto it would corrupt that file's `fstat`.
-                if is_stdio {
-                    inode.stat.write().map_err(|_| FsError::Lock)?.st_filetype =
-                        stdio_filetype(new_is_terminal);
-                }
-
-                Ok(Some(file))
+        let stdio_slot = matches!(
+            fd,
+            __WASI_STDIN_FILENO | __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO
+        );
+        let entry = self.get_fd(fd).map_err(|err| {
+            if stdio_slot {
+                FsError::NoDevice
+            } else {
+                fs_error_from_wasi_err(err)
             }
-            _ => {
-                let base_inode = self.get_fd_inode(fd).map_err(fs_error_from_wasi_err)?;
-                {
-                    // happy path
-                    let guard = base_inode.read();
-                    match guard.deref() {
-                        Kind::File { handle, .. } => {
-                            if let Some(handle) = handle {
-                                let mut handle = handle.write().unwrap();
-                                std::mem::swap(handle.deref_mut(), &mut file);
-                                return Ok(Some(file));
-                            }
-                        }
-                        _ => return Err(FsError::NotAFile),
+        })?;
+
+        // Wrappers can take their own locks when queried. Probe before taking
+        // any inode or handle lock, including when replacing a stdio duplicate.
+        let new_filetype = entry.is_stdio.then(|| stdio_filetype(file.is_terminal()));
+        let inode = entry.inode;
+        let handle = {
+            let mut guard = inode.write();
+            match guard.deref_mut() {
+                Kind::File { handle, .. } => match handle {
+                    Some(handle) => handle.clone(),
+                    None if stdio_slot || entry.is_stdio => return Err(FsError::NotAFile),
+                    None => {
+                        handle.replace(Arc::new(RwLock::new(file)));
+                        return Ok(None);
                     }
-                }
-                // slow path
-                let mut guard = base_inode.write();
-                match guard.deref_mut() {
-                    Kind::File { handle, .. } => {
-                        if let Some(handle) = handle {
-                            let mut handle = handle.write().unwrap();
-                            std::mem::swap(handle.deref_mut(), &mut file);
-                            Ok(Some(file))
-                        } else {
-                            handle.replace(Arc::new(RwLock::new(file)));
-                            Ok(None)
-                        }
-                    }
-                    _ => Err(FsError::NotAFile),
-                }
+                },
+                _ => return Err(FsError::NotAFile),
             }
+        };
+
+        // Release the map and inode locks before waiting for I/O. Keep the
+        // handle locked until its metadata is updated so concurrent swaps
+        // cannot publish their terminal answers in a different order.
+        let mut target = handle.write().map_err(|_| FsError::Lock)?;
+        let mut stat = new_filetype
+            .map(|_| inode.stat.write().map_err(|_| FsError::Lock))
+            .transpose()?;
+        std::mem::swap(target.deref_mut(), &mut file);
+        if let (Some(stat), Some(filetype)) = (stat.as_mut(), new_filetype) {
+            stat.st_filetype = filetype;
         }
+        Ok(Some(file))
     }
 
     /// refresh size from filesystem
@@ -3011,6 +2973,150 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn swap_file_through_a_stdio_duplicate_updates_all_aliases() {
+        let (_inodes, fs) = test_fs();
+        for fd in STDIO {
+            fs.swap_file(fd, Box::new(virtual_fs::Pipe::new().with_terminal(true)))
+                .unwrap();
+            let duplicate = fs.clone_fd(fd).unwrap();
+            fs.swap_file(
+                duplicate,
+                Box::new(virtual_fs::Pipe::new().with_terminal(false)),
+            )
+            .unwrap();
+            assert_stdio_filetype(&fs, fd, Filetype::Unknown);
+            assert_stdio_filetype(&fs, duplicate, Filetype::Unknown);
+        }
+    }
+
+    #[tokio::test]
+    async fn exported_stdio_preserves_the_terminal_override() {
+        for is_terminal in [false, true] {
+            let init = WasiEnvBuilder::new("parent")
+                .engine(Engine::default())
+                .stdin(Box::new(
+                    virtual_fs::Pipe::new().with_terminal(!is_terminal),
+                ))
+                .stdout(Box::new(
+                    virtual_fs::Pipe::new().with_terminal(!is_terminal),
+                ))
+                .stderr(Box::new(
+                    virtual_fs::Pipe::new().with_terminal(!is_terminal),
+                ))
+                .stdio_is_terminal(is_terminal)
+                .build_init()
+                .unwrap();
+            let child = WasiEnvBuilder::new("child")
+                .engine(Engine::default())
+                .stdin(init.state.stdin().unwrap().unwrap())
+                .stdout(init.state.stdout().unwrap().unwrap())
+                .stderr(init.state.stderr().unwrap().unwrap())
+                .build_init()
+                .unwrap();
+            for fd in STDIO {
+                assert_stdio_filetype(&child.state.fs, fd, stdio_filetype(Some(is_terminal)));
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn concurrent_stdio_swaps_keep_metadata_with_the_installed_handle() {
+        const ROUNDS: usize = 2000;
+        let (_inodes, fs) = test_fs();
+        let barrier = std::sync::Barrier::new(3);
+        let inode = fs.get_fd_inode(__WASI_STDOUT_FILENO).unwrap();
+        let handle = WasiFs::file_flush_target(&inode).unwrap();
+        std::thread::scope(|scope| {
+            for is_terminal in [false, true] {
+                let fs = &fs;
+                let barrier = &barrier;
+                scope.spawn(move || {
+                    for _ in 0..ROUNDS {
+                        barrier.wait();
+                        fs.swap_file(
+                            __WASI_STDOUT_FILENO,
+                            Box::new(virtual_fs::Pipe::new().with_terminal(is_terminal)),
+                        )
+                        .unwrap();
+                        barrier.wait();
+                        barrier.wait();
+                    }
+                });
+            }
+            let mut mismatches = 0;
+            for _ in 0..ROUNDS {
+                barrier.wait();
+                barrier.wait();
+                let expected = stdio_filetype(handle.read().unwrap().is_terminal());
+                if fs.fdstat(__WASI_STDOUT_FILENO).unwrap().fs_filetype != expected {
+                    mismatches += 1;
+                }
+                barrier.wait();
+            }
+            assert_eq!(mismatches, 0);
+        });
+    }
+
+    #[tokio::test]
+    async fn stdio_swap_does_not_publish_a_handle_before_its_metadata() {
+        let (_inodes, fs) = test_fs();
+        fs.swap_file(
+            __WASI_STDOUT_FILENO,
+            Box::new(virtual_fs::Pipe::new().with_terminal(true)),
+        )
+        .unwrap();
+        let inode = fs.get_fd_inode(__WASI_STDOUT_FILENO).unwrap();
+        let handle = WasiFs::file_flush_target(&inode).unwrap();
+        let stat = inode.stat.read().unwrap();
+        let inconsistent = std::thread::scope(|scope| {
+            let swap = scope.spawn(|| {
+                fs.swap_file(
+                    __WASI_STDOUT_FILENO,
+                    Box::new(virtual_fs::Pipe::new().with_terminal(false)),
+                )
+                .unwrap();
+            });
+            let deadline = std::time::Instant::now() + std::time::Duration::from_secs(1);
+            let mut inconsistent = false;
+            while std::time::Instant::now() < deadline {
+                if let Ok(file) = handle.try_read()
+                    && stdio_filetype(file.is_terminal()) != stat.st_filetype
+                {
+                    inconsistent = true;
+                    break;
+                }
+                std::thread::yield_now();
+            }
+            drop(stat);
+            swap.join().unwrap();
+            inconsistent
+        });
+        assert!(
+            !inconsistent,
+            "new handle was visible with the old file type"
+        );
+    }
+
+    #[tokio::test]
+    async fn exported_stdio_terminal_queries_do_not_wait_for_io() {
+        let init = WasiEnvBuilder::new("parent")
+            .engine(Engine::default())
+            .stdio_is_terminal(false)
+            .build_init()
+            .unwrap();
+        let stdout = init.state.stdout().unwrap().unwrap();
+        let inode = init.state.fs.get_fd_inode(__WASI_STDOUT_FILENO).unwrap();
+        let handle = WasiFs::file_flush_target(&inode).unwrap();
+        let io_guard = handle.write().unwrap();
+        let (send, recv) = std::sync::mpsc::channel();
+        let query = std::thread::spawn(move || send.send(stdout.is_terminal()).unwrap());
+        let answer = recv.recv_timeout(std::time::Duration::from_secs(2));
+        drop(io_guard);
+        query.join().unwrap();
+        assert_eq!(answer.unwrap(), Some(false));
+    }
+
+    #[tokio::test]
     async fn the_stdio_terminal_override_beats_the_handle() {
         let (_inodes, fs) = test_fs();
         fs.swap_file(
@@ -3083,6 +3189,52 @@ mod tests {
             fs.fdstat(__WASI_STDOUT_FILENO).unwrap().fs_filetype,
             Filetype::RegularFile
         );
+
+        for fd in [file, __WASI_STDOUT_FILENO] {
+            assert!(
+                fs.swap_file(fd, Box::new(virtual_fs::Pipe::new().with_terminal(true)))
+                    .unwrap()
+                    .is_some()
+            );
+            assert_stdio_filetype(&fs, file, Filetype::RegularFile);
+            assert_stdio_filetype(&fs, __WASI_STDOUT_FILENO, Filetype::RegularFile);
+        }
+    }
+
+    #[tokio::test]
+    async fn swap_file_installs_an_unopened_regular_file() {
+        let (inodes, fs) = test_fs();
+        let inode = fs.create_inode_with_stat(
+            &inodes,
+            Kind::File {
+                handle: None,
+                path: "/file".into(),
+                fd: None,
+            },
+            false,
+            "file".into(),
+            Filestat {
+                st_filetype: Filetype::RegularFile,
+                ..Filestat::default()
+            },
+        );
+        let fd = fs
+            .create_fd(
+                ALL_RIGHTS,
+                ALL_RIGHTS,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                Fd::READ,
+                inode,
+            )
+            .unwrap();
+        assert!(
+            fs.swap_file(fd, Box::new(virtual_fs::Pipe::new().with_terminal(true)))
+                .unwrap()
+                .is_none()
+        );
+        assert_stdio_filetype(&fs, fd, Filetype::RegularFile);
+        assert!(fs.clone_fd(fd).is_ok());
     }
 
     #[tokio::test]
