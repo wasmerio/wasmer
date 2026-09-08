@@ -85,6 +85,8 @@ impl std::fmt::Debug for WasiProcessId {
 }
 
 pub type LockableWasiProcessInner = Arc<(Mutex<WasiProcessInner>, Condvar)>;
+pub(crate) type ChildExitResult = Result<ExitCode, Arc<WasiRuntimeError>>;
+pub(crate) type ReapedChild = (WasiProcessId, ChildExitResult);
 
 /// Represents a process running within the compute state
 /// TODO: fields should be private and only accessed via methods.
@@ -799,6 +801,73 @@ impl WasiProcess {
         self.finished.status().into_finished()
     }
 
+    /// Claims one finished child from this process.
+    pub(crate) fn try_reap_child(
+        &self,
+        pid: Option<WasiProcessId>,
+    ) -> Result<Option<ReapedChild>, Errno> {
+        let mut inner = self.inner.0.lock().unwrap();
+        if inner.children.is_empty() {
+            return Err(Errno::Child);
+        }
+
+        let finished = match pid {
+            Some(pid) => {
+                let index = inner
+                    .children
+                    .iter()
+                    .position(|child| child.pid == pid)
+                    .ok_or(Errno::Child)?;
+                inner.children[index]
+                    .try_join()
+                    .map(|result| (index, result))
+            }
+            None => inner
+                .children
+                .iter()
+                .enumerate()
+                .find_map(|(index, child)| child.try_join().map(|result| (index, result))),
+        };
+
+        let Some((index, result)) = finished else {
+            return Ok(None);
+        };
+        let child = inner.children.remove(index);
+        Ok(Some((child.pid, result)))
+    }
+
+    pub(crate) fn child_exit_code(result: ChildExitResult) -> ExitCode {
+        result.unwrap_or_else(|error| {
+            error
+                .as_exit_code()
+                .unwrap_or_else(|| Errno::Canceled.into())
+        })
+    }
+
+    /// Waits for and claims a specific child process.
+    pub(crate) async fn join_child(
+        &self,
+        pid: WasiProcessId,
+    ) -> Result<(WasiProcessId, ExitCode), Errno> {
+        let _guard = WasiProcessWait::new(self);
+        loop {
+            if let Some((pid, result)) = self.try_reap_child(Some(pid))? {
+                return Ok((pid, Self::child_exit_code(result)));
+            }
+
+            let child = {
+                let inner = self.inner.0.lock().unwrap();
+                inner
+                    .children
+                    .iter()
+                    .find(|child| child.pid == pid)
+                    .cloned()
+                    .ok_or(Errno::Child)?
+            };
+            let _ = child.join().await;
+        }
+    }
+
     /// Waits for all the children to be finished
     pub async fn join_children(&mut self) -> Option<Result<ExitCode, Arc<WasiRuntimeError>>> {
         let _guard = WasiProcessWait::new(self);
@@ -809,52 +878,40 @@ impl WasiProcess {
         if children.is_empty() {
             return None;
         }
-        let mut waits = Vec::new();
+
+        futures::future::join_all(children.iter().map(WasiProcess::join)).await;
+
+        let mut first = None;
         for child in children {
-            if let Some(process) = self.compute.must_upgrade().get_process(child.pid) {
-                let inner = self.inner.clone();
-                waits.push(async move {
-                    let join = process.join().await;
-                    let mut inner = inner.0.lock().unwrap();
-                    inner.children.retain(|a| a.pid != child.pid);
-                    join
-                })
+            if let Ok(Some((_, result))) = self.try_reap_child(Some(child.pid)) {
+                first = first.or(Some(result));
             }
         }
-        futures::future::join_all(waits).await.into_iter().next()
+        first
     }
 
-    /// Waits for any of the children to finished
-    pub async fn join_any_child(&mut self) -> Result<Option<(WasiProcessId, ExitCode)>, Errno> {
+    /// Waits for any of the children to finish
+    pub async fn join_any_child(&self) -> Result<Option<(WasiProcessId, ExitCode)>, Errno> {
         let _guard = WasiProcessWait::new(self);
-        let children: Vec<_> = {
-            let inner = self.inner.0.lock().unwrap();
-            inner.children.clone()
-        };
-        if children.is_empty() {
-            return Err(Errno::Child);
-        }
-
-        let mut waits = Vec::new();
-        for child in children {
-            if let Some(process) = self.compute.must_upgrade().get_process(child.pid) {
-                let inner = self.inner.clone();
-                waits.push(async move {
-                    let join = process.join().await;
-                    let mut inner = inner.0.lock().unwrap();
-                    inner.children.retain(|a| a.pid != child.pid);
-                    (child, join)
-                })
+        loop {
+            if let Some((pid, result)) = self.try_reap_child(None)? {
+                return Ok(Some((pid, Self::child_exit_code(result))));
             }
+
+            let children = {
+                let inner = self.inner.0.lock().unwrap();
+                if inner.children.is_empty() {
+                    return Err(Errno::Child);
+                }
+                inner.children.clone()
+            };
+
+            let waits = children
+                .iter()
+                .map(|child| Box::pin(child.join()))
+                .collect::<Vec<_>>();
+            let _ = futures::future::select_all(waits).await;
         }
-        let (child, res) = futures::future::select_all(waits.into_iter().map(Box::pin))
-            .await
-            .0;
-
-        let code =
-            res.unwrap_or_else(|e| e.as_exit_code().unwrap_or_else(|| Errno::Canceled.into()));
-
-        Ok(Some((child.pid, code)))
     }
 
     /// Terminate the process and all its threads
@@ -965,5 +1022,323 @@ impl SignalHandlerAbi for WasiProcess {
         } else {
             Err(SignalDeliveryError)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{future::Future, sync::Arc, time::Duration};
+
+    use futures::FutureExt;
+    use tokio::sync::Barrier;
+
+    use super::*;
+    use crate::os::task::control_plane::WasiControlPlane;
+
+    fn parent_with_children(count: usize) -> (WasiProcess, Vec<WasiProcess>) {
+        let control_plane = WasiControlPlane::default();
+        let parent = control_plane.new_process(ModuleHash::random()).unwrap();
+        let children = (0..count)
+            .map(|_| control_plane.new_process(ModuleHash::random()).unwrap())
+            .collect::<Vec<_>>();
+        parent.lock().children.extend(children.iter().cloned());
+        (parent, children)
+    }
+
+    fn finish(child: &WasiProcess, code: u16) {
+        child.finished.set_finished(Ok(ExitCode::from(code)));
+    }
+
+    fn fail(child: &WasiProcess) {
+        child
+            .finished
+            .set_finished(Err(Arc::new(WasiRuntimeError::Anyhow(Arc::new(
+                anyhow::anyhow!("child failed"),
+            )))));
+    }
+
+    async fn wait_for_waiters(process: &WasiProcess, expected: u32) {
+        for _ in 0..10_000 {
+            if process.waiting.load(Ordering::Acquire) == expected {
+                return;
+            }
+            tokio::task::yield_now().await;
+        }
+        panic!("expected {expected} waiters");
+    }
+
+    async fn gated_specific(
+        process: WasiProcess,
+        pid: WasiProcessId,
+        barrier: Arc<Barrier>,
+    ) -> Result<WasiProcessId, Errno> {
+        barrier.wait().await;
+        process.join_child(pid).await.map(|(pid, _)| pid)
+    }
+
+    async fn gated_any(
+        process: WasiProcess,
+        barrier: Arc<Barrier>,
+    ) -> Result<WasiProcessId, Errno> {
+        barrier.wait().await;
+        process
+            .join_any_child()
+            .await
+            .map(|result| result.expect("a successful wait returns a child").0)
+    }
+
+    async fn run_race<A, B>(
+        parent: &WasiProcess,
+        child: &WasiProcess,
+        first: A,
+        second: B,
+        barrier: Arc<Barrier>,
+    ) -> (Result<WasiProcessId, Errno>, Result<WasiProcessId, Errno>)
+    where
+        A: Future<Output = Result<WasiProcessId, Errno>>,
+        B: Future<Output = Result<WasiProcessId, Errno>>,
+    {
+        let release = async {
+            barrier.wait().await;
+            wait_for_waiters(parent, 2).await;
+            finish(child, 17);
+        };
+        let (first, second, ()) = tokio::time::timeout(Duration::from_secs(2), async {
+            tokio::join!(first, second, release)
+        })
+        .await
+        .expect("child wait race timed out");
+        (first, second)
+    }
+
+    fn assert_one_reaper(
+        pid: WasiProcessId,
+        first: Result<WasiProcessId, Errno>,
+        second: Result<WasiProcessId, Errno>,
+    ) {
+        let results = [first, second];
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| matches!(result, Ok(result_pid) if *result_pid == pid))
+                .count(),
+            1
+        );
+        assert_eq!(
+            results
+                .iter()
+                .filter(|result| matches!(result, Err(Errno::Child)))
+                .count(),
+            1
+        );
+    }
+
+    #[tokio::test]
+    async fn no_or_unknown_child_is_not_waitable() {
+        let (parent, _) = parent_with_children(0);
+        let unknown = WasiProcessId::from(u32::MAX - 1);
+
+        assert!(matches!(parent.try_reap_child(None), Err(Errno::Child)));
+        assert!(matches!(
+            parent.try_reap_child(Some(unknown)),
+            Err(Errno::Child)
+        ));
+        assert!(matches!(
+            parent.join_child(unknown).await,
+            Err(Errno::Child)
+        ));
+        assert!(matches!(parent.join_any_child().await, Err(Errno::Child)));
+    }
+
+    #[test]
+    fn running_children_remain_registered() {
+        let (parent, children) = parent_with_children(2);
+
+        assert!(
+            parent
+                .try_reap_child(Some(children[0].pid()))
+                .unwrap()
+                .is_none()
+        );
+        assert!(parent.try_reap_child(None).unwrap().is_none());
+        assert_eq!(parent.lock().children.len(), 2);
+    }
+
+    #[test]
+    fn finished_status_is_claimed_once() {
+        let (parent, children) = parent_with_children(1);
+        finish(&children[0], 7);
+
+        let (pid, status) = parent.try_reap_child(None).unwrap().unwrap();
+        assert_eq!(pid, children[0].pid());
+        assert_eq!(status.unwrap().raw(), 7);
+        assert!(matches!(parent.try_reap_child(None), Err(Errno::Child)));
+    }
+
+    #[tokio::test]
+    async fn parent_children_are_the_only_waitable_processes() {
+        let control_plane = WasiControlPlane::default();
+        let parent = control_plane.new_process(ModuleHash::random()).unwrap();
+        let child = control_plane.new_process(ModuleHash::random()).unwrap();
+        let outsider = control_plane.new_process(ModuleHash::random()).unwrap();
+        parent.lock().children.push(child.clone());
+        finish(&outsider, 8);
+
+        assert!(matches!(
+            parent.try_reap_child(Some(outsider.pid())),
+            Err(Errno::Child)
+        ));
+        assert!(matches!(
+            parent.join_child(outsider.pid()).await,
+            Err(Errno::Child)
+        ));
+        assert_eq!(parent.lock().children.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn child_waits_do_not_need_the_control_plane() {
+        let (parent, children) = parent_with_children(1);
+        finish(&children[0], 9);
+
+        let (pid, code) = parent.join_any_child().await.unwrap().unwrap();
+        assert_eq!(pid, children[0].pid());
+        assert_eq!(code.raw(), 9);
+    }
+
+    #[tokio::test]
+    async fn runtime_errors_use_one_exit_code() {
+        let (specific_parent, specific_children) = parent_with_children(1);
+        fail(&specific_children[0]);
+        let (_, specific_code) = specific_parent
+            .join_child(specific_children[0].pid())
+            .await
+            .unwrap();
+
+        let (any_parent, any_children) = parent_with_children(1);
+        fail(&any_children[0]);
+        let (_, any_code) = any_parent.join_any_child().await.unwrap().unwrap();
+
+        let expected: ExitCode = Errno::Canceled.into();
+        assert_eq!(specific_code, expected);
+        assert_eq!(any_code, expected);
+    }
+
+    #[tokio::test]
+    async fn dropped_pending_wait_keeps_the_child_registered() {
+        let (parent, children) = parent_with_children(1);
+        let pid = children[0].pid();
+
+        assert!(parent.join_child(pid).now_or_never().is_none());
+        assert_eq!(parent.waiting.load(Ordering::Acquire), 0);
+        assert_eq!(children[0].waiting.load(Ordering::Acquire), 0);
+        assert_eq!(parent.lock().children.len(), 1);
+
+        finish(&children[0], 10);
+        assert!(parent.try_reap_child(Some(pid)).unwrap().is_some());
+    }
+
+    #[tokio::test]
+    async fn specific_waiters_race_for_one_status() {
+        let (parent, children) = parent_with_children(1);
+        let pid = children[0].pid();
+        let barrier = Arc::new(Barrier::new(3));
+        let results = run_race(
+            &parent,
+            &children[0],
+            gated_specific(parent.clone(), pid, barrier.clone()),
+            gated_specific(parent.clone(), pid, barrier.clone()),
+            barrier,
+        )
+        .await;
+
+        assert_one_reaper(pid, results.0, results.1);
+    }
+
+    #[tokio::test]
+    async fn any_waiters_race_for_one_status() {
+        let (parent, children) = parent_with_children(1);
+        let pid = children[0].pid();
+        let barrier = Arc::new(Barrier::new(3));
+        let results = run_race(
+            &parent,
+            &children[0],
+            gated_any(parent.clone(), barrier.clone()),
+            gated_any(parent.clone(), barrier.clone()),
+            barrier,
+        )
+        .await;
+
+        assert_one_reaper(pid, results.0, results.1);
+    }
+
+    #[tokio::test]
+    async fn specific_and_any_waiters_race_for_one_status() {
+        let (parent, children) = parent_with_children(1);
+        let pid = children[0].pid();
+        let barrier = Arc::new(Barrier::new(3));
+        let results = run_race(
+            &parent,
+            &children[0],
+            gated_specific(parent.clone(), pid, barrier.clone()),
+            gated_any(parent.clone(), barrier.clone()),
+            barrier,
+        )
+        .await;
+
+        assert_one_reaper(pid, results.0, results.1);
+    }
+
+    #[tokio::test]
+    async fn any_wait_and_join_children_race_for_one_status() {
+        let (parent, children) = parent_with_children(1);
+        let pid = children[0].pid();
+        let barrier = Arc::new(Barrier::new(3));
+        let join_all = {
+            let mut process = parent.clone();
+            let barrier = barrier.clone();
+            async move {
+                barrier.wait().await;
+                match process.join_children().await {
+                    Some(_) => Ok(pid),
+                    None => Err(Errno::Child),
+                }
+            }
+        };
+        let results = run_race(
+            &parent,
+            &children[0],
+            gated_any(parent.clone(), barrier.clone()),
+            join_all,
+            barrier,
+        )
+        .await;
+
+        assert_one_reaper(pid, results.0, results.1);
+    }
+
+    #[tokio::test]
+    async fn simultaneous_children_go_to_distinct_any_waiters() {
+        let (parent, children) = parent_with_children(2);
+        let barrier = Arc::new(Barrier::new(3));
+        let first = gated_any(parent.clone(), barrier.clone());
+        let second = gated_any(parent.clone(), barrier.clone());
+        let release = async {
+            barrier.wait().await;
+            wait_for_waiters(&parent, 2).await;
+            finish(&children[0], 21);
+            finish(&children[1], 22);
+        };
+        let (first, second, ()) = tokio::time::timeout(Duration::from_secs(2), async {
+            tokio::join!(first, second, release)
+        })
+        .await
+        .expect("two-child wait race timed out");
+
+        let mut pids = [first.unwrap(), second.unwrap()];
+        pids.sort();
+        let mut expected = [children[0].pid(), children[1].pid()];
+        expected.sort();
+        assert_eq!(pids, expected);
+        assert!(parent.lock().children.is_empty());
     }
 }
