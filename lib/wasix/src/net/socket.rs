@@ -2213,32 +2213,131 @@ mod tests {
     #[cfg(all(feature = "sys", feature = "host-vnet"))]
     #[tokio::test(flavor = "current_thread")]
     async fn inode_socket_udp_bind_preserves_only_v6() {
-        let inode = InodeSocket::new(InodeSocketKind::PreSocket {
-            props: ipv6_udp_properties(true),
-            addr: None,
-        });
         let tasks = crate::runtime::task_manager::tokio::TokioTaskManager::default();
         let net = virtual_net::host::LocalNetworking::new();
 
-        let bound = inode
-            .bind(&tasks, &net, SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)))
-            .await
-            .unwrap()
-            .unwrap();
-        assert!(bound.get_opt_flag(WasiSocketOption::OnlyV6).unwrap());
+        for only_v6 in [true, false] {
+            for kind in [
+                InodeSocketKind::PreSocket {
+                    props: ipv6_udp_properties(only_v6),
+                    addr: None,
+                },
+                InodeSocketKind::RemoteSocket {
+                    props: ipv6_udp_properties(only_v6),
+                    local_addr: "[::]:0".parse().unwrap(),
+                    peer_addr: "[::1]:9".parse().unwrap(),
+                    ttl: 0,
+                    multicast_ttl: 0,
+                    is_dead: false,
+                },
+            ] {
+                let inode = InodeSocket::new(kind);
+                let mut bound = inode
+                    .bind(&tasks, &net, SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)))
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert_eq!(
+                    bound.get_opt_flag(WasiSocketOption::OnlyV6).unwrap(),
+                    only_v6
+                );
+                assert_eq!(
+                    bound.set_opt_flag(WasiSocketOption::OnlyV6, !only_v6),
+                    Err(Errno::Inval)
+                );
+                assert_eq!(
+                    bound.get_opt_flag(WasiSocketOption::OnlyV6).unwrap(),
+                    only_v6
+                );
+            }
+        }
     }
 
     #[cfg(all(feature = "sys", feature = "host-vnet"))]
     #[tokio::test(flavor = "current_thread")]
     async fn inode_socket_udp_autobind_preserves_only_v6() {
+        let tasks = crate::runtime::task_manager::tokio::TokioTaskManager::default();
+        let net = virtual_net::host::LocalNetworking::new();
+
+        for only_v6 in [true, false] {
+            let inode = InodeSocket::new(InodeSocketKind::PreSocket {
+                props: ipv6_udp_properties(only_v6),
+                addr: None,
+            });
+            let bound = inode.auto_bind_udp(&tasks, &net).await.unwrap().unwrap();
+            assert_eq!(
+                bound.get_opt_flag(WasiSocketOption::OnlyV6).unwrap(),
+                only_v6
+            );
+        }
+    }
+
+    #[cfg(all(feature = "sys", feature = "host-vnet"))]
+    #[tokio::test(flavor = "current_thread")]
+    async fn inode_socket_udp_failed_bind_preserves_options_for_retry() {
+        let tasks = crate::runtime::task_manager::tokio::TokioTaskManager::default();
+        let net = virtual_net::host::LocalNetworking::new();
+        let occupied = net
+            .bind_udp("[::]:0".parse().unwrap(), true, false, false)
+            .await
+            .unwrap();
+        let addr = occupied.addr_local().unwrap();
+        let mut inode = InodeSocket::new(InodeSocketKind::PreSocket {
+            props: ipv6_udp_properties(true),
+            addr: None,
+        });
+        assert_eq!(
+            inode.bind(&tasks, &net, addr).await.unwrap_err(),
+            Errno::Addrinuse
+        );
+        assert_eq!(inode.addr_local().unwrap().port(), 0);
+        assert!(inode.get_opt_flag(WasiSocketOption::OnlyV6).unwrap());
+        inode.set_opt_flag(WasiSocketOption::OnlyV6, false).unwrap();
+        let bound = inode
+            .bind(&tasks, &net, "[::]:0".parse().unwrap())
+            .await
+            .unwrap()
+            .unwrap();
+        assert!(!bound.get_opt_flag(WasiSocketOption::OnlyV6).unwrap());
+    }
+
+    #[cfg(all(feature = "sys", feature = "host-vnet", feature = "remote-vnet"))]
+    #[tokio::test(flavor = "current_thread")]
+    async fn inode_socket_udp_unanswered_v2_request_obeys_bind_timeout() {
+        use virtual_net::meta::{MessageRequest, RequestType};
+
+        let (request_tx, mut requests) = tokio::sync::mpsc::channel(1);
+        let (_response_tx, responses) = tokio::sync::mpsc::channel(1);
+        let (net, driver) =
+            virtual_net::RemoteNetworkingClient::new_from_mpsc(request_tx, responses);
+        let driver = tokio::spawn(driver);
+        let tasks = crate::runtime::task_manager::tokio::TokioTaskManager::default();
         let inode = InodeSocket::new(InodeSocketKind::PreSocket {
             props: ipv6_udp_properties(true),
             addr: None,
         });
-        let tasks = crate::runtime::task_manager::tokio::TokioTaskManager::default();
-        let net = virtual_net::host::LocalNetworking::new();
-
-        let bound = inode.auto_bind_udp(&tasks, &net).await.unwrap().unwrap();
-        assert!(bound.get_opt_flag(WasiSocketOption::OnlyV6).unwrap());
+        let bind = inode.bind_internal(
+            &tasks,
+            &net,
+            "[::]:0".parse().unwrap(),
+            Duration::from_millis(20),
+        );
+        // Old peers cannot decode V2 and may leave the request unanswered.
+        let (result, request) = tokio::time::timeout(Duration::from_secs(2), async {
+            tokio::join!(bind, requests.recv())
+        })
+        .await
+        .unwrap();
+        assert!(matches!(
+            request.unwrap(),
+            MessageRequest::Interface {
+                req: RequestType::BindUdpV2 { only_v6: true, .. },
+                ..
+            }
+        ));
+        assert_eq!(result.unwrap_err(), Errno::Timedout);
+        assert_eq!(inode.addr_local().unwrap().port(), 0);
+        assert!(inode.get_opt_flag(WasiSocketOption::OnlyV6).unwrap());
+        driver.abort();
     }
 }

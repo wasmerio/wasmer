@@ -24,6 +24,7 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -51,6 +52,17 @@ static int expect_only_v6(int fd, int expected) {
     return -1;
   }
   return 0;
+}
+
+static int expect_bound_option_unchanged(int fd, int expected) {
+  int value = 1;
+  errno = 0;
+  if (setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &value, sizeof(value)) != -1 ||
+      errno != EINVAL) {
+    fputs("bound IPV6_V6ONLY change must fail with EINVAL\n", stderr);
+    return -1;
+  }
+  return expect_only_v6(fd, expected);
 }
 
 static int bind_ipv6_any(int fd) {
@@ -110,7 +122,7 @@ static int new_ipv6_socket(void) {
 static int test_explicit_v6only(void) {
   int fd6 = new_ipv6_socket();
   if (fd6 < 0 || set_only_v6(fd6, 1) < 0 || bind_ipv6_any(fd6) < 0 ||
-      expect_only_v6(fd6, 1) < 0)
+      expect_only_v6(fd6, 1) < 0 || expect_bound_option_unchanged(fd6, 1) < 0)
     return EXIT_FAILURE;
 
   int port = local_port(fd6);
@@ -130,7 +142,8 @@ static int test_dual_stack(int replacement) {
   int fd6 = new_ipv6_socket();
   if (fd6 < 0 || (replacement && set_only_v6(fd6, 1) < 0) ||
       set_only_v6(fd6, 0) < 0 || expect_only_v6(fd6, 0) < 0 ||
-      bind_ipv6_any(fd6) < 0 || expect_only_v6(fd6, 0) < 0)
+      bind_ipv6_any(fd6) < 0 || expect_only_v6(fd6, 0) < 0 ||
+      expect_bound_option_unchanged(fd6, 0) < 0)
     return EXIT_FAILURE;
 
   int port = local_port(fd6);
@@ -170,7 +183,16 @@ static int test_autobind(int use_connect) {
     return EXIT_FAILURE;
   }
 
-  if (local_port(fd) < 0 || expect_only_v6(fd, 1) < 0) return EXIT_FAILURE;
+  int port = local_port(fd);
+  if (port < 0 || expect_only_v6(fd, 1) < 0 ||
+      expect_bound_option_unchanged(fd, 1) < 0)
+    return EXIT_FAILURE;
+  int fd4 = bind_ipv4_port(port);
+  if (fd4 < 0) {
+    perror("IPv4 co-bind after automatic bind");
+    return EXIT_FAILURE;
+  }
+  close(fd4);
 
   close(fd);
   puts(use_connect ? "connect autobind preserved IPV6_V6ONLY"

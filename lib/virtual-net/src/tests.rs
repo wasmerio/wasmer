@@ -24,6 +24,18 @@ use super::*;
 #[serial_test::serial]
 async fn test_udp_only_v6_controls_ipv4_co_bind() {
     let net = LocalNetworking::new();
+    for only_v6 in [true, false] {
+        let ipv4 = net
+            .bind_udp(
+                SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0)),
+                only_v6,
+                false,
+                false,
+            )
+            .await
+            .unwrap();
+        assert!(ipv4.addr_local().unwrap().is_ipv4());
+    }
     let ipv6 = net
         .bind_udp(
             SocketAddr::from((Ipv6Addr::UNSPECIFIED, 0)),
@@ -156,18 +168,140 @@ impl VirtualNetworking for RecordingUdpNetworking {
 #[cfg(feature = "remote")]
 async fn test_remote_udp_v6only(
     client: RemoteNetworkingClient,
-    _server: RemoteNetworkingServer,
+    server: RemoteNetworkingServer,
     networking: Arc<RecordingUdpNetworking>,
 ) {
     let addr = SocketAddr::from((Ipv6Addr::UNSPECIFIED, 41003));
-    assert!(matches!(
-        client.bind_udp(addr, true, false, true).await,
-        Err(NetworkError::Unsupported)
-    ));
+    for only_v6 in [true, false] {
+        assert!(matches!(
+            tokio::time::timeout(
+                std::time::Duration::from_secs(2),
+                client.bind_udp(addr, only_v6, !only_v6, only_v6),
+            )
+            .await
+            .unwrap(),
+            Err(NetworkError::Unsupported)
+        ));
+        assert_eq!(server.socket_count_for_test(), 0);
+    }
     assert_eq!(
         networking.binds.lock().unwrap().as_slice(),
-        &[(addr, true, false, true)]
+        &[(addr, true, false, true), (addr, false, true, false)]
     );
+}
+
+#[cfg(all(feature = "remote", feature = "host-net"))]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn test_remote_udp_success_preserves_ipv6_binding() {
+    let (client, _server) = setup_pipe(1024, FrameSerializationFormat::Bincode).await;
+    for only_v6 in [true, false] {
+        let socket = tokio::time::timeout(
+            std::time::Duration::from_secs(2),
+            client.bind_udp("[::]:0".parse().unwrap(), only_v6, false, false),
+        )
+        .await
+        .unwrap()
+        .unwrap();
+        let (socket, port) = tokio::task::spawn_blocking(move || {
+            let port = socket.addr_local().unwrap().port();
+            (socket, port)
+        })
+        .await
+        .unwrap();
+        let ipv4 = LocalNetworking::new()
+            .bind_udp(
+                SocketAddr::from((Ipv4Addr::UNSPECIFIED, port)),
+                false,
+                false,
+                false,
+            )
+            .await;
+        if only_v6 {
+            assert!(ipv4.is_ok());
+        } else {
+            assert!(matches!(ipv4, Err(NetworkError::AddressInUse)));
+        }
+        drop(socket);
+    }
+}
+
+#[cfg(all(feature = "remote", feature = "tokio-tungstenite"))]
+#[tokio::test]
+async fn test_remote_udp_websocket_uses_legacy_bincode() {
+    use crate::meta::{MessageRequest, MessageResponse, RequestType, ResponseType};
+    use futures_util::{SinkExt, StreamExt};
+    use tokio_tungstenite::{
+        MaybeTlsStream, WebSocketStream,
+        tungstenite::{Message, protocol::Role},
+    };
+
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let (connection, accepted) = tokio::join!(
+        tokio::net::TcpStream::connect(listener.local_addr().unwrap()),
+        listener.accept(),
+    );
+    let transport = WebSocketStream::from_raw_socket(
+        MaybeTlsStream::Plain(connection.unwrap()),
+        Role::Client,
+        None,
+    )
+    .await;
+    let mut peer = WebSocketStream::from_raw_socket(accepted.unwrap().0, Role::Server, None).await;
+    let (tx, rx) = transport.split();
+    let (client, driver) =
+        RemoteNetworkingClient::new_from_tokio_ws_io(tx, rx, FrameSerializationFormat::Bincode);
+    let driver = tokio::spawn(driver);
+    let exchange = async {
+        for only_v6 in [false, true] {
+            let bind = client.bind_udp(
+                "[2001:db8::1234]:4242".parse().unwrap(),
+                only_v6,
+                true,
+                false,
+            );
+            let respond = async {
+                let Message::Binary(bytes) = peer.next().await.unwrap().unwrap() else {
+                    panic!("expected binary WebSocket frame");
+                };
+                if !only_v6 {
+                    const LEGACY_FRAME: &[u8] = &[
+                        0, 0, 0, 0, 17, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 32, 1, 13,
+                        184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 18, 52, 146, 16, 1, 0, 1, 1, 0, 0, 0, 0,
+                        0, 0, 0,
+                    ];
+                    assert_eq!(bytes.as_ref(), LEGACY_FRAME);
+                }
+                let (request, consumed): (MessageRequest, _) =
+                    bincode::serde::decode_from_slice(&bytes, bincode::config::legacy()).unwrap();
+                assert_eq!(consumed, bytes.len());
+                let MessageRequest::Interface {
+                    req,
+                    req_id: Some(req_id),
+                } = request
+                else {
+                    panic!("expected interface request");
+                };
+                match req {
+                    RequestType::BindUdp { .. } => assert!(!only_v6),
+                    RequestType::BindUdpV2 { only_v6: true, .. } => assert!(only_v6),
+                    other => panic!("unexpected UDP request: {other:?}"),
+                }
+                let response = MessageResponse::ResponseToRequest {
+                    req_id,
+                    res: ResponseType::Err(NetworkError::Unsupported),
+                };
+                let bytes =
+                    bincode::serde::encode_to_vec(response, bincode::config::legacy()).unwrap();
+                peer.send(Message::Binary(bytes.into())).await.unwrap();
+            };
+            let (result, ()) = tokio::join!(bind, respond);
+            assert!(matches!(result, Err(NetworkError::Unsupported)));
+        }
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(2), exchange)
+        .await
+        .unwrap();
+    driver.abort();
 }
 
 #[cfg(feature = "remote")]
