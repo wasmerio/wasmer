@@ -2085,6 +2085,21 @@ mod test_filesystem {
         main.mount_directory_entries(Path::new("/"), &other, Path::new("/a"))
             .unwrap();
 
+        let metadata = main.metadata(Path::new("/x")).unwrap();
+        assert!(metadata.is_dir());
+        assert!(!metadata.is_file());
+
+        let entry = main
+            .read_dir(Path::new("/"))
+            .unwrap()
+            .next()
+            .unwrap()
+            .unwrap();
+        assert_eq!(entry.path, Path::new("/x"));
+        let entry_metadata = entry.metadata.unwrap();
+        assert!(entry_metadata.is_dir());
+        assert!(!entry_metadata.is_file());
+
         let mut buf = Vec::new();
 
         let mut f = main

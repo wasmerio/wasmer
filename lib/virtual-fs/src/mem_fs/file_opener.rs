@@ -189,7 +189,7 @@ impl FileSystem {
                             let time = time();
                             Metadata {
                                 ft: FileType {
-                                    file: true,
+                                    dir: true,
                                     ..Default::default()
                                 },
                                 accessed: time,
@@ -847,7 +847,7 @@ mod test_file_opener {
     }
 
     #[tokio::test]
-    async fn test_opening_existing_file_in_arc_directory_redirects() {
+    async fn test_arc_directory_metadata_and_redirection() {
         let fs = FileSystem::default();
         let backing = FileSystem::default();
         let backing_arc: Arc<dyn crate::FileSystem + Send + Sync> = Arc::new(backing.clone());
@@ -865,6 +865,21 @@ mod test_file_opener {
             path!("/").to_path_buf(),
         )
         .expect("mount arc directory");
+
+        let metadata = fs.metadata(path!("/mnt")).expect("stat arc directory");
+        assert!(metadata.is_dir());
+        assert!(!metadata.is_file());
+
+        let entry = fs
+            .read_dir(path!("/"))
+            .expect("read parent directory")
+            .next()
+            .expect("arc directory entry")
+            .expect("stat arc directory entry");
+        assert_eq!(entry.path, path!("/mnt"));
+        let entry_metadata = entry.metadata.expect("read arc directory metadata");
+        assert!(entry_metadata.is_dir());
+        assert!(!entry_metadata.is_file());
 
         let mut file = fs
             .new_open_options()
