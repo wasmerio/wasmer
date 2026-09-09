@@ -44,7 +44,6 @@ fuzz_target!(|module: LLVMPassFuzzModule| {
 
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
-    compiler.enable_verifier();
     let mut store = Store::new(EngineBuilder::new(compiler));
     // Save early (and always) as we might hit a crash or a validation error in the LLVM library.
     save_wasm_file(&wasm_bytes);

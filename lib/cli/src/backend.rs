@@ -145,7 +145,7 @@ pub struct RuntimeOptions {
 
     /// Enable compiler internal verification.
     ///
-    /// Available for Cranelift, LLVM and Singlepass.
+    /// Available for Cranelift (enabled always for LLVM).
     #[clap(long)]
     enable_verifier: bool,
 
@@ -443,9 +443,6 @@ impl RuntimeOptions {
                 if self.enable_experimental_unaligned_memory_accesses {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
-                if self.enable_verifier {
-                    config.enable_verifier();
-                }
                 if self.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
                 }
@@ -515,9 +512,6 @@ impl RuntimeOptions {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                     config.verbose_asm(true);
-                }
-                if self.enable_verifier {
-                    config.enable_verifier();
                 }
                 if self.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
@@ -602,9 +596,6 @@ impl BackendType {
                     config.allow_experimental_unaligned_memory_accesses(true);
                 }
                 let supported_features = config.supported_features_for_target(target);
-                if runtime_opts.enable_verifier {
-                    config.enable_verifier();
-                }
                 if runtime_opts.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
                 }
@@ -689,9 +680,6 @@ impl BackendType {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                     config.verbose_asm(true);
-                }
-                if runtime_opts.enable_verifier {
-                    config.enable_verifier();
                 }
                 if runtime_opts.enable_nan_canonicalization {
                     config.canonicalize_nans(true);
