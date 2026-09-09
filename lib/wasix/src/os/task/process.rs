@@ -108,6 +108,9 @@ pub struct WasiProcess {
     pub(crate) compute: WasiControlPlaneHandle,
     /// Reference to the exit code for the main thread
     pub(crate) finished: Arc<OwnedTaskStatus>,
+    /// Separate from `inner` so control-plane cancellation never takes a
+    /// published process lock while holding the control-plane lock.
+    pub(super) forced_exit_code: Arc<Mutex<Option<ExitCode>>>,
     /// Number of threads waiting for children to exit
     pub(crate) waiting: Arc<AtomicU32>,
     /// Number of tokens that are currently active and thus
@@ -186,8 +189,6 @@ pub struct WasiProcessInner {
     pub cleanup_started: bool,
     /// Shared process memory.
     pub memory: Option<MemoryOps>,
-    /// Sticky host-requested shutdown, serialized with thread and memory registration.
-    pub(crate) forced_exit_code: Option<ExitCode>,
     /// The snapshot memory significantly reduce the amount of
     /// duplicate entries in the journal for memory that has not changed
     #[cfg(feature = "journal")]
@@ -443,7 +444,6 @@ impl WasiProcess {
                 wakers: Default::default(),
                 cleanup_started: false,
                 memory: Default::default(),
-                forced_exit_code: None,
                 waiting: waiting.clone(),
                 #[cfg(feature = "journal")]
                 snapshot_on: Default::default(),
@@ -479,6 +479,7 @@ impl WasiProcess {
                 OwnedTaskStatus::new(TaskStatus::Pending)
                     .with_signal_handler(Arc::new(SignalHandler(inner))),
             ),
+            forced_exit_code: Arc::new(Mutex::new(None)),
             waiting,
             cpu_run_tokens: Arc::new(AtomicU32::new(0)),
         }
@@ -569,7 +570,7 @@ impl WasiProcess {
 
         // The wait finished should be the process version if its the main thread
         let mut inner = self.inner.0.lock().unwrap();
-        if inner.forced_exit_code.is_some() {
+        if self.forced_exit_code().is_some() {
             return Err(ControlPlaneError::ProcessTerminated);
         }
         let finished = if is_main {
@@ -643,7 +644,7 @@ impl WasiProcess {
         let terminating = {
             let mut inner = self.inner.0.lock().unwrap();
             inner.memory = Some(memory.clone());
-            inner.forced_exit_code.is_some()
+            self.forced_exit_code().is_some()
         };
         if terminating {
             disable_atomic_waiters(self.pid, &memory);
@@ -655,7 +656,7 @@ impl WasiProcess {
     /// Task managers should check this before starting queued guest work. A
     /// process's ordinary exit status does not imply this stronger shutdown.
     pub fn forced_exit_code(&self) -> Option<ExitCode> {
-        self.inner.0.lock().unwrap().forced_exit_code
+        *self.forced_exit_code.lock().unwrap()
     }
 
     /// Takes a snapshot of the process and disables journaling returning
@@ -897,10 +898,15 @@ impl WasiProcess {
         let pid = self.pid;
         // FIXME: this is wrong, threads might still be running!
         // Need special logic for the main thread.
-        let guard = self.inner.0.lock().unwrap();
-        let exit_code = guard.forced_exit_code.unwrap_or(exit_code);
+        let (exit_code, threads) = {
+            let guard = self.inner.0.lock().unwrap();
+            (
+                self.forced_exit_code().unwrap_or(exit_code),
+                guard.threads.values().cloned().collect::<Vec<_>>(),
+            )
+        };
         tracing::trace!(%pid, %exit_code, "process-terminate");
-        for thread in guard.threads.values() {
+        for thread in threads {
             thread.set_status_finished(Ok(exit_code))
         }
     }
@@ -946,7 +952,11 @@ impl WasiProcess {
     pub(crate) fn force_terminate_local(&self, exit_code: ExitCode) {
         let (exit_code, threads, memory, wakers) = {
             let mut inner = self.inner.0.lock().unwrap();
-            let exit_code = *inner.forced_exit_code.get_or_insert(exit_code);
+            let exit_code = *self
+                .forced_exit_code
+                .lock()
+                .unwrap()
+                .get_or_insert(exit_code);
             inner.checkpoint = WasiProcessCheckpoint::Execute;
             inner.stop_running_after_checkpoint = true;
             (

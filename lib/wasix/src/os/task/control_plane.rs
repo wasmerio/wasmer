@@ -156,11 +156,7 @@ impl WasiControlPlane {
 
         // Child creation and subtree shutdown take the same control-plane lock.
         // A child is either included in the shutdown snapshot or rejected here.
-        let mut parent_inner = parent.map(WasiProcess::lock);
-        if parent_inner
-            .as_ref()
-            .is_some_and(|inner| inner.forced_exit_code.is_some())
-        {
+        if parent.is_some_and(|parent| parent.forced_exit_code().is_some()) {
             return Err(ControlPlaneError::ProcessTerminated);
         }
 
@@ -168,8 +164,13 @@ impl WasiControlPlane {
         proc.set_pid(pid);
         proc.parent = parent.map(|parent| Arc::downgrade(&parent.inner));
         mutable.processes.insert(pid, proc.clone());
-        if let Some(parent_inner) = parent_inner.as_mut() {
-            parent_inner.children.push(proc.clone());
+        drop(mutable);
+
+        // Never acquire a published process lock under the control-plane lock:
+        // signal/checkpoint wakers may re-enter the control plane. Shutdown can
+        // already find this child by ancestry while reap-list attachment waits.
+        if let Some(parent) = parent {
+            parent.lock().children.push(proc.clone());
         }
         Ok(proc)
     }
@@ -196,7 +197,11 @@ impl WasiControlPlane {
             let mut cursor = 0;
             while cursor < processes.len() {
                 let process = &processes[cursor];
-                process.lock().forced_exit_code.get_or_insert(exit_code);
+                process
+                    .forced_exit_code
+                    .lock()
+                    .unwrap()
+                    .get_or_insert(exit_code);
                 if let Some(descendants) = children.remove(&Arc::as_ptr(&process.inner)) {
                     processes.extend(descendants);
                 }
@@ -289,6 +294,55 @@ mod tests {
 
     #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
     #[tokio::test]
+    async fn force_terminate_finds_child_before_reap_list_attachment_without_lock_inversion() {
+        let env = crate::WasiEnv::builder("shutdown-before-child-attachment")
+            .engine(wasmer::Store::default().engine().clone())
+            .build()
+            .unwrap();
+        let plane = env.control_plane.clone();
+        let parent = env.process.clone();
+        let parent_guard = parent.lock();
+        let fork = std::thread::spawn(move || env.fork());
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while plane.state.mutable.read().unwrap().processes.len() == 1 {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+
+        let root = parent.clone();
+        let shutdown = std::thread::spawn(move || root.force_terminate(ExitCode::from(137)));
+        while parent.forced_exit_code().is_none() {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        let child = loop {
+            if let Ok(registry) = plane.state.mutable.try_read() {
+                break registry
+                    .processes
+                    .values()
+                    .find(|process| process.parent.is_some())
+                    .unwrap()
+                    .clone();
+            }
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::yield_now();
+        };
+        assert_eq!(child.forced_exit_code(), Some(ExitCode::from(137)));
+        assert!(parent_guard.children.is_empty());
+        // Both fork attachment and local parent cancellation are waiting for
+        // this lock, but neither may keep the control plane locked while doing so.
+        drop(parent_guard);
+        assert!(matches!(
+            fork.join().unwrap(),
+            Err(ControlPlaneError::ProcessTerminated)
+        ));
+        shutdown.join().unwrap().unwrap();
+        assert_eq!(child.try_join().unwrap().unwrap(), ExitCode::from(137));
+        assert!(parent.lock().children.is_empty());
+    }
+
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
+    #[tokio::test]
     async fn failed_fork_main_thread_does_not_leave_a_pending_child() {
         let plane = WasiControlPlane::new(ControlPlaneConfig {
             max_task_count: Some(4),
@@ -307,7 +361,7 @@ mod tests {
         let parent_guard = parent.lock();
         let fork = std::thread::spawn(move || env.fork());
         let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while plane.state.mutable.try_write().is_ok() {
+        while plane.state.mutable.read().unwrap().processes.len() == 1 {
             assert!(std::time::Instant::now() < deadline);
             std::thread::yield_now();
         }

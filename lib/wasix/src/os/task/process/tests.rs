@@ -125,6 +125,30 @@ fn ordinary_terminate_does_not_force_descendants_or_close_registration() {
 }
 
 #[test]
+fn ordinary_terminate_releases_process_lock_before_waking_completion_waiters() {
+    use std::{future::Future, task::Context};
+
+    let plane = WasiControlPlane::default();
+    let process = plane.new_process(ModuleHash::random()).unwrap();
+    let _main = thread(&process, true);
+    let check_process = process.clone();
+    let (tx, rx) = std::sync::mpsc::channel();
+    let waker = waker_fn::waker_fn(move || {
+        assert!(check_process.inner.0.try_lock().is_ok());
+        assert!(plane.get_process(check_process.pid()).is_some());
+        tx.send(()).unwrap();
+    });
+    let mut join = Box::pin(process.join());
+    assert!(
+        join.as_mut()
+            .poll(&mut Context::from_waker(&waker))
+            .is_pending()
+    );
+    process.terminate(ExitCode::from(0));
+    rx.recv_timeout(Duration::from_secs(2)).unwrap();
+}
+
+#[test]
 fn force_terminate_closes_every_registration_gate_before_waking_tasks() {
     let plane = WasiControlPlane::default();
     let root = plane.new_process(ModuleHash::random()).unwrap();
