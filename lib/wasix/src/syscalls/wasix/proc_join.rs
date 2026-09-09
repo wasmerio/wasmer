@@ -43,8 +43,14 @@ pub(super) fn proc_join_internal<M: MemorySize + 'static>(
     // This lambda will look at what we wrote in the status variable
     // and use this to determine the return code sent back to the caller
     let ret_result = {
-        move |ctx: FunctionEnvMut<'_, WasiEnv>, status: JoinStatusResult| {
+        move |mut ctx: FunctionEnvMut<'_, WasiEnv>, status: JoinStatusResult| {
             let mut ret = Errno::Success;
+
+            // The child has been reaped, so release the main-thread handle that
+            // `proc_spawn` parked in `owned_handles`.
+            if let JoinStatusResult::ExitNormal(pid, _) = &status {
+                ctx.data_mut().release_child_handles(*pid);
+            }
 
             let view = unsafe { ctx.data().memory_view(&ctx) };
             let status = match status {
