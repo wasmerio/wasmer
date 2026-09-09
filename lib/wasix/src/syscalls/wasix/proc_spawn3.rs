@@ -135,11 +135,6 @@ pub(crate) fn proc_spawn3_impl<M: MemorySize>(
         }
     };
 
-    {
-        let mut inner = ctx.data().process.lock();
-        inner.children.push(child_env.process.clone());
-    }
-
     // Setup some properties in the child environment
     let pid = child_env.pid();
     let tid = child_env.tid();

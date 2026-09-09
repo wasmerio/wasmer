@@ -10,6 +10,9 @@ use crate::{WasiFunctionEnv, os::task::thread::WasiThreadError};
 
 use super::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 
+#[cfg(all(test, not(target_arch = "wasm32")))]
+mod tests;
+
 #[derive(Debug, Clone)]
 pub enum RuntimeOrHandle {
     Handle(Handle),
@@ -195,6 +198,13 @@ impl VirtualTaskManager for TokioTaskManager {
                             let env = ctx.data(store);
                             break tokio::select! {
                                 r = &mut trigger => r,
+                                result = env.thread.join() => {
+                                    Err(result.unwrap_or_else(|err| {
+                                        err.as_exit_code().unwrap_or_else(|| {
+                                            wasmer_wasix_types::wasi::Errno::Canceled.into()
+                                        })
+                                    }))
+                                }
                                 _ = env.thread.wait_for_signal() => {
                                     tracing::debug!("wait-for-signal(triggered)");
                                     let mut ctx = ctx.env.clone().into_mut(store);
@@ -230,7 +240,10 @@ impl VirtualTaskManager for TokioTaskManager {
                             pre_run(ctx, store).await;
                         }
 
-                        result
+                        match ctx.data(store).process.forced_exit_code() {
+                            Some(exit_code) => Err(exit_code),
+                            None => result,
+                        }
                     })
                 };
 
@@ -261,6 +274,10 @@ impl VirtualTaskManager for TokioTaskManager {
 
                 if let Some(pre_run) = callbacks.pre_run {
                     block_on(pre_run(&mut ctx, &mut store));
+                }
+
+                if ctx.data(&store).process.forced_exit_code().is_some() {
+                    return;
                 }
 
                 // Invoke the callback

@@ -9,6 +9,7 @@ use std::{
 
 use crate::{WasiProcess, WasiProcessId};
 use wasmer_types::ModuleHash;
+use wasmer_wasix_types::wasi::ExitCode;
 
 #[derive(Debug, Clone)]
 pub struct WasiControlPlane {
@@ -132,6 +133,14 @@ impl WasiControlPlane {
     // FIXME: De-register terminated processes!
     // Currently they just accumulate.
     pub fn new_process(&self, module_hash: ModuleHash) -> Result<WasiProcess, ControlPlaneError> {
+        self.new_process_with_parent(module_hash, None)
+    }
+
+    pub(super) fn new_process_with_parent(
+        &self,
+        module_hash: ModuleHash,
+        parent: Option<&WasiProcess>,
+    ) -> Result<WasiProcess, ControlPlaneError> {
         if let Some(max) = self.state.config.max_task_count
             && self.active_task_count() >= max
         {
@@ -145,10 +154,62 @@ impl WasiControlPlane {
 
         let mut mutable = self.state.mutable.write().unwrap();
 
+        // Child creation and subtree shutdown take the same control-plane lock.
+        // A child is either included in the shutdown snapshot or rejected here.
+        let mut parent_inner = parent.map(WasiProcess::lock);
+        if parent_inner
+            .as_ref()
+            .is_some_and(|inner| inner.forced_exit_code.is_some())
+        {
+            return Err(ControlPlaneError::ProcessTerminated);
+        }
+
         let pid = mutable.next_process_id()?;
         proc.set_pid(pid);
+        proc.parent = parent.map(|parent| Arc::downgrade(&parent.inner));
         mutable.processes.insert(pid, proc.clone());
+        if let Some(parent_inner) = parent_inner.as_mut() {
+            parent_inner.children.push(proc.clone());
+        }
         Ok(proc)
+    }
+
+    pub(super) fn force_terminate(&self, root: &WasiProcess, exit_code: ExitCode) {
+        let processes = {
+            // Keep ancestry in the existing process registry, not in the reap
+            // lists: proc_join can remove a child while it is still running.
+            // Exclusivity also serializes competing force requests, so the
+            // first requested exit code is latched throughout the whole family.
+            #[allow(clippy::readonly_write_lock)]
+            let mutable = self.state.mutable.write().unwrap();
+            let mut children = HashMap::<_, Vec<_>>::new();
+            for process in mutable.processes.values() {
+                if let Some(parent) = &process.parent {
+                    children
+                        .entry(parent.as_ptr())
+                        .or_default()
+                        .push(process.clone());
+                }
+            }
+
+            let mut processes = vec![root.clone()];
+            let mut cursor = 0;
+            while cursor < processes.len() {
+                let process = &processes[cursor];
+                process.lock().forced_exit_code.get_or_insert(exit_code);
+                if let Some(descendants) = children.remove(&Arc::as_ptr(&process.inner)) {
+                    processes.extend(descendants);
+                }
+                cursor += 1;
+            }
+            processes
+        };
+
+        // Complete children before parents and never wake user tasks under the
+        // control-plane lock. All registration gates are already closed.
+        for process in processes.into_iter().rev() {
+            process.force_terminate_local(exit_code);
+        }
     }
 
     /// Generates a new process ID
@@ -201,6 +262,15 @@ impl Drop for TaskCountGuard {
 
 #[derive(thiserror::Error, PartialEq, Eq, Clone, Debug)]
 pub enum ControlPlaneError {
+    /// The owning control plane was dropped.
+    #[error("The control plane is unavailable")]
+    Unavailable,
+    /// Forced execution-family shutdown must be requested on its root process.
+    #[error("Forced termination requires a root process")]
+    NotRootProcess,
+    /// The process has been forcibly terminated and cannot create more work.
+    #[error("The process has been forcibly terminated")]
+    ProcessTerminated,
     /// The maximum number of execution tasks has been reached.
     #[error("The maximum number of execution tasks has been reached ({max})")]
     TaskLimitReached {
@@ -216,6 +286,54 @@ mod tests {
     use crate::os::task::thread::WasiMemoryLayout;
 
     use super::*;
+
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
+    #[tokio::test]
+    async fn failed_fork_main_thread_does_not_leave_a_pending_child() {
+        let plane = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: Some(4),
+            ..ControlPlaneConfig::default()
+        });
+        let mut init = crate::WasiEnv::builder("fork-capacity-race")
+            .engine(wasmer::Store::default().engine().clone())
+            .build_init()
+            .unwrap();
+        init.control_plane = plane.clone();
+        let env = crate::WasiEnv::from_init(init, ModuleHash::random()).unwrap();
+        let parent = env.process.clone();
+
+        // Pause child registration after its initial capacity check but before
+        // it can return from new_child and create the child's main thread.
+        let parent_guard = parent.lock();
+        let fork = std::thread::spawn(move || env.fork());
+        let deadline = std::time::Instant::now() + Duration::from_secs(2);
+        while plane.state.mutable.try_write().is_ok() {
+            assert!(std::time::Instant::now() < deadline);
+            std::thread::yield_now();
+        }
+        let capacity_guards = (0..4)
+            .map(|_| plane.register_task().unwrap())
+            .collect::<Vec<_>>();
+        drop(parent_guard);
+        assert!(matches!(
+            fork.join().unwrap(),
+            Err(ControlPlaneError::TaskLimitReached { .. })
+        ));
+        assert!(parent.lock().children.is_empty());
+        let children = plane
+            .state
+            .mutable
+            .read()
+            .unwrap()
+            .processes
+            .values()
+            .filter(|process| process.parent.is_some())
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_eq!(children.len(), 1);
+        assert!(children[0].try_join().is_some());
+        drop(capacity_guards);
+    }
 
     /// Simple test to ensure task limits are respected.
     #[test]

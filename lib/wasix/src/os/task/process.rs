@@ -9,7 +9,7 @@ use std::{
     convert::TryInto,
     ops::Range,
     sync::{
-        Arc, Condvar, Mutex, MutexGuard, RwLock, Weak,
+        Arc, Condvar, Mutex, MutexGuard, Weak,
         atomic::{AtomicU32, Ordering},
     },
     task::Waker,
@@ -37,6 +37,9 @@ use super::{
     task_join_handle::OwnedTaskStatus,
     thread::WasiMemoryLayout,
 };
+
+#[cfg(test)]
+mod tests;
 
 /// Represents the ID of a sub-process
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
@@ -94,8 +97,8 @@ pub struct WasiProcess {
     pub(crate) pid: WasiProcessId,
     /// Hash of the module that this process is using
     pub(crate) module_hash: ModuleHash,
-    /// List of all the children spawned from this thread
-    pub(crate) parent: Option<Weak<RwLock<WasiProcessInner>>>,
+    /// Creation ancestry, independent of the list of children still awaiting reaping.
+    pub(crate) parent: Option<Weak<(Mutex<WasiProcessInner>, Condvar)>>,
     /// The inner protected region of the process with a conditional
     /// variable that is used for coordination such as snapshots.
     pub(crate) inner: LockableWasiProcessInner,
@@ -183,6 +186,8 @@ pub struct WasiProcessInner {
     pub cleanup_started: bool,
     /// Shared process memory.
     pub memory: Option<MemoryOps>,
+    /// Sticky host-requested shutdown, serialized with thread and memory registration.
+    pub(crate) forced_exit_code: Option<ExitCode>,
     /// The snapshot memory significantly reduce the amount of
     /// duplicate entries in the journal for memory that has not changed
     #[cfg(feature = "journal")]
@@ -438,6 +443,7 @@ impl WasiProcess {
                 wakers: Default::default(),
                 cleanup_started: false,
                 memory: Default::default(),
+                forced_exit_code: None,
                 waiting: waiting.clone(),
                 #[cfg(feature = "journal")]
                 snapshot_on: Default::default(),
@@ -492,6 +498,7 @@ impl WasiProcess {
 
     pub(super) fn set_pid(&mut self, pid: WasiProcessId) {
         self.pid = pid;
+        self.inner.0.lock().unwrap().pid = pid;
     }
 
     /// Gets the process ID of this process
@@ -504,7 +511,7 @@ impl WasiProcess {
         self.parent
             .iter()
             .filter_map(|parent| parent.upgrade())
-            .map(|parent| parent.read().unwrap().pid)
+            .map(|parent| parent.0.lock().unwrap().pid)
             .next()
             .unwrap_or(WasiProcessId(0))
     }
@@ -513,6 +520,16 @@ impl WasiProcess {
     // TODO: Make this private, all inner access should be exposed with methods.
     pub fn lock(&self) -> MutexGuard<'_, WasiProcessInner> {
         self.inner.0.lock().unwrap()
+    }
+
+    /// Creates and registers a child before it can start executing.
+    ///
+    /// The control plane retains its ancestry even after the child is reaped, so
+    /// [`Self::force_terminate`] also reaches surviving grandchildren.
+    pub fn new_child(&self, module_hash: ModuleHash) -> Result<Self, ControlPlaneError> {
+        self.compute
+            .must_upgrade()
+            .new_process_with_parent(module_hash, Some(self))
     }
 
     /// Creates a thread and returns it
@@ -552,6 +569,9 @@ impl WasiProcess {
 
         // The wait finished should be the process version if its the main thread
         let mut inner = self.inner.0.lock().unwrap();
+        if inner.forced_exit_code.is_some() {
+            return Err(ControlPlaneError::ProcessTerminated);
+        }
         let finished = if is_main {
             self.finished.clone()
         } else {
@@ -619,8 +639,23 @@ impl WasiProcess {
 
     /// Registers the shared memory used by this process.
     pub fn register_memory(&self, memory: impl Into<MemoryOps>) {
-        let mut inner = self.inner.0.lock().unwrap();
-        inner.memory = Some(memory.into());
+        let memory = memory.into();
+        let terminating = {
+            let mut inner = self.inner.0.lock().unwrap();
+            inner.memory = Some(memory.clone());
+            inner.forced_exit_code.is_some()
+        };
+        if terminating {
+            disable_atomic_waiters(self.pid, &memory);
+        }
+    }
+
+    /// Returns the sticky exit code requested by [`Self::force_terminate`].
+    ///
+    /// Task managers should check this before starting queued guest work. A
+    /// process's ordinary exit status does not imply this stronger shutdown.
+    pub fn forced_exit_code(&self) -> Option<ExitCode> {
+        self.inner.0.lock().unwrap().forced_exit_code
     }
 
     /// Takes a snapshot of the process and disables journaling returning
@@ -860,12 +895,83 @@ impl WasiProcess {
     /// Terminate the process and all its threads
     pub fn terminate(&self, exit_code: ExitCode) {
         let pid = self.pid;
-        tracing::trace!(%pid, %exit_code, "process-terminate");
         // FIXME: this is wrong, threads might still be running!
         // Need special logic for the main thread.
         let guard = self.inner.0.lock().unwrap();
+        let exit_code = guard.forced_exit_code.unwrap_or(exit_code);
+        tracing::trace!(%pid, %exit_code, "process-terminate");
         for thread in guard.threads.values() {
             thread.set_status_finished(Ok(exit_code))
+        }
+    }
+
+    /// Forcibly shuts down a root process and all its descendants.
+    ///
+    /// Unlike [`Self::terminate`], this is a host cancellation operation: it
+    /// prevents new threads and children, interrupts shared-memory atomic waits,
+    /// and delivers `SIGKILL` to every local thread without child-join signal
+    /// forwarding. Descendants remain in scope after they are reaped, including
+    /// descendants whose main thread has exited but whose other threads remain.
+    /// Memories registered during or after shutdown also have atomics disabled.
+    /// Repeated calls preserve the first forced exit code and existing completed
+    /// task results, including tasks that finish concurrently with cancellation.
+    ///
+    /// This operation requires a root process. Calling it on a child returns
+    /// [`ControlPlaneError::NotRootProcess`] without changing any process.
+    /// In particular, a `vfork` child shares its parent's memory: permanently
+    /// disabling that memory's atomics is only safe when the entire execution
+    /// family is being cancelled. Embedders must likewise avoid sharing the
+    /// root's memories with other independently running workloads.
+    /// The owning control plane must still be alive; otherwise this returns
+    /// [`ControlPlaneError::Unavailable`] without attempting a partial shutdown.
+    ///
+    /// This requests cancellation and wakes execution; it does not wait for host
+    /// workers or memory owners to be dropped. Arbitrary host callbacks and guest
+    /// code that never reaches a WASIX call or atomic wait cannot be preempted.
+    /// Atomic interruption requires a backend that supports disabling atomics.
+    pub fn force_terminate(&self, exit_code: ExitCode) -> Result<(), ControlPlaneError> {
+        if self.parent.is_some() {
+            return Err(ControlPlaneError::NotRootProcess);
+        }
+        let plane = self
+            .compute
+            .upgrade()
+            .ok_or(ControlPlaneError::Unavailable)?;
+        plane.force_terminate(self, exit_code);
+        Ok(())
+    }
+
+    /// The control plane marks the entire subtree before calling this outside
+    /// its lock. Waking a task may re-enter the control plane or process.
+    pub(crate) fn force_terminate_local(&self, exit_code: ExitCode) {
+        let (exit_code, threads, memory, wakers) = {
+            let mut inner = self.inner.0.lock().unwrap();
+            let exit_code = *inner.forced_exit_code.get_or_insert(exit_code);
+            inner.checkpoint = WasiProcessCheckpoint::Execute;
+            inner.stop_running_after_checkpoint = true;
+            (
+                exit_code,
+                inner.threads.values().cloned().collect::<Vec<_>>(),
+                inner.memory.clone(),
+                std::mem::take(&mut inner.wakers),
+            )
+        };
+
+        // Publish the requested status before waking atomics or delivering a
+        // fatal signal, which could otherwise win the exit-code race.
+        for thread in &threads {
+            thread.set_status_finished(Ok(exit_code));
+        }
+        self.finished.set_finished(Ok(exit_code));
+        if let Some(memory) = memory {
+            disable_atomic_waiters(self.pid, &memory);
+        }
+        for thread in threads {
+            thread.signal(Signal::Sigkill);
+        }
+        self.inner.1.notify_all();
+        for waker in wakers {
+            waker.wake();
         }
     }
 }
@@ -927,13 +1033,7 @@ fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
     if signal == Signal::Sigkill {
         // On kill, disable atomics to prevent threads from resuming.
         // NOTE: disable_atomics also wakes all current waiters.
-        if let Err(err) = memory.disable_atomics() {
-            tracing::trace!(
-                pid=%process.pid,
-                error = &err as &dyn std::error::Error,
-                "failed to wake atomic waiters"
-            );
-        }
+        disable_atomic_waiters(process.pid, memory);
     }
 
     // TODO: Should other signals also wake up waiters?
@@ -955,6 +1055,16 @@ fn wake_atomic_waiters(process: &WasiProcessInner, signal: Signal) {
     // ) {
     //    memory.wake_all_atomic_waiters();
     // }
+}
+
+fn disable_atomic_waiters(pid: WasiProcessId, memory: &MemoryOps) {
+    if let Err(err) = memory.disable_atomics() {
+        tracing::trace!(
+            %pid,
+            error = &err as &dyn std::error::Error,
+            "failed to wake atomic waiters"
+        );
+    }
 }
 
 impl SignalHandlerAbi for WasiProcess {
