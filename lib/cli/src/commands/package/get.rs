@@ -125,7 +125,7 @@ impl PackageGet {
             PackageSource::Ident(PackageIdent::Named(id)) => {
                 let client = self.env.client_unauthennticated()?;
 
-                let version = id.version_or_default().to_string();
+                let version = id.version_string();
                 let version = if version == "*" {
                     String::from("latest")
                 } else {

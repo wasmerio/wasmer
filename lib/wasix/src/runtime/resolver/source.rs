@@ -5,7 +5,7 @@ use std::{
 
 use wasmer_config::package::{PackageIdent, PackageSource};
 
-use crate::runtime::resolver::{PackageSummary, utils::cmp_version_precedence};
+use crate::runtime::resolver::{PackageSummary, utils::cmp_version_with_build};
 
 /// Something that packages can be downloaded from.
 #[async_trait::async_trait]
@@ -34,11 +34,11 @@ pub trait Source: Sync + Debug {
                     let left_version = left.pkg.id.as_named().map(|x| &x.version);
                     let right_version = right.pkg.id.as_named().map(|x| &x.version);
 
-                    cmp_version_precedence(left_version, right_version)
+                    cmp_version_with_build(left_version, right_version)
                 })
                 .ok_or(QueryError::NoMatches {
                     query: pkg.clone(),
-                    archived_versions: Vec::new(),
+                    yanked_versions: Vec::new(),
                 }),
             _ => candidates
                 .into_iter()
@@ -69,7 +69,8 @@ pub enum QueryError {
     },
     NoMatches {
         query: PackageSource,
-        archived_versions: Vec<semver::Version>,
+        /// The matched versions that were skipped as yanked.
+        yanked_versions: Vec<semver::Version>,
     },
     Timeout {
         query: PackageSource,
@@ -111,20 +112,26 @@ impl Display for QueryError {
             Self::Timeout { .. } => f.write_str("timeout"),
             Self::NoMatches {
                 query: _,
-                archived_versions,
-            } => match archived_versions.as_slice() {
+                yanked_versions,
+            } => match yanked_versions.as_slice() {
                 [] => f.write_str(
                     "the package was found, but no published versions matched the constraint",
                 ),
                 [version] => write!(
                     f,
-                    "the only version satisfying the constraint, {version}, is archived"
+                    "the only version satisfying the constraint, {version}, has been yanked; \
+                     pin it exactly to use it anyway"
                 ),
                 [first, rest @ ..] => {
-                    let num_others = rest.len();
+                    let others = if rest.len() == 1 {
+                        "1 other".to_string()
+                    } else {
+                        format!("{} others", rest.len())
+                    };
                     write!(
                         f,
-                        "unable to satisfy the request - version {first}, and {num_others} are all archived"
+                        "every version satisfying the constraint has been yanked ({first} and \
+                         {others}); pin one exactly to use it anyway"
                     )
                 }
             },

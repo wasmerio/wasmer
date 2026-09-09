@@ -7,7 +7,9 @@ use wasmer_config::package::{
     NamedPackageId, NamedPackageIdent, PackageHash, PackageId, PackageIdent, PackageSource,
 };
 
-use crate::runtime::resolver::{PackageSummary, QueryError, Source, WebcHash};
+use crate::runtime::resolver::{
+    PackageSummary, QueryError, Source, WebcHash, utils::cmp_versions_with_build,
+};
 
 /// A [`Source`] backed by a directory tree laid out like a registry:
 /// `<root>/<namespace>/<name>/<version>.webc`, or `<root>/<name>/<version>.webc`
@@ -54,18 +56,17 @@ impl LocalRegistrySource {
             });
         }
 
-        let constraint = named.version_or_default();
         let matches: Vec<_> = published_versions(&dir)
             .map_err(|error| QueryError::new_other(error, query))?
             .into_iter()
-            .filter(|(version, _)| constraint.matches(version))
-            .sorted_by(|(left, _), (right, _)| left.cmp_precedence(right))
+            .filter(|(version, _)| named.matches_version(version))
+            .sorted_by(|(left, _), (right, _)| cmp_versions_with_build(left, right))
             .collect();
 
         if matches.is_empty() {
             return Err(QueryError::NoMatches {
                 query: query.clone(),
-                archived_versions: Vec::new(),
+                yanked_versions: Vec::new(),
             });
         }
 

@@ -770,7 +770,7 @@ pub async fn fetch_webc_package(
         PackageIdent::Named(n) => Url::parse(&format!(
             "{default_registry}/{}:{}",
             n.full_name(),
-            n.version_or_default()
+            n.version_string()
         ))?,
         PackageIdent::Hash(h) => match get_package_release(client, &h.to_string()).await? {
             Some(webc) => Url::parse(&webc.webc_url)?,
@@ -1273,6 +1273,64 @@ pub async fn push_package_release(
         ))
         .await
         .map(|r| r.push_package_release)
+}
+
+/// Yank (or, with `undo`, unyank) an explicit set of package versions by node
+/// id.
+///
+/// Requires package-admin rights. Returns only the versions whose yank state
+/// changed, so a repeated yank comes back empty.
+pub async fn yank_package_versions(
+    client: &WasmerClient,
+    package_version_ids: Vec<cynic::Id>,
+    reason: Option<&str>,
+    undo: bool,
+) -> Result<Vec<types::YankedPackageVersion>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::YankPackageVersions::build(
+            types::YankPackageVersionsVariables {
+                package_version_ids,
+                reason,
+                undo: Some(undo),
+            },
+        ))
+        .await
+        .map(|response| {
+            response
+                .yank_package_versions
+                .map(|payload| payload.package_versions)
+                .unwrap_or_default()
+        })
+}
+
+/// List every package version as `(node id, version)` pairs, including
+/// superseded rebuilds, or `None` when the package doesn't exist.
+pub async fn get_package_version_ids(
+    client: &WasmerClient,
+    name: String,
+) -> Result<Option<Vec<(cynic::Id, String)>>, anyhow::Error> {
+    let package = client
+        .run_graphql_strict(types::GetPackageVersionNumbers::build(
+            types::GetPackageVars { name },
+        ))
+        .await?
+        .get_package;
+
+    Ok(package.map(|p| {
+        p.versions
+            .unwrap_or_default()
+            .into_iter()
+            .flatten()
+            .flat_map(|version| {
+                std::iter::once((version.id, version.version)).chain(
+                    version
+                        .rebuilds
+                        .into_iter()
+                        .map(|rebuild| (rebuild.id, rebuild.version)),
+                )
+            })
+            .collect()
+    }))
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -2062,7 +2120,10 @@ pub async fn get_package_version_numbers(
             .unwrap_or_default()
             .into_iter()
             .flatten()
-            .map(|v| v.version)
+            .flat_map(|version| {
+                std::iter::once(version.version)
+                    .chain(version.rebuilds.into_iter().map(|rebuild| rebuild.version))
+            })
             .collect()
     }))
 }

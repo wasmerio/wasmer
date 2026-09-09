@@ -14,7 +14,7 @@ use crate::runtime::resolver::{
     Dependency, DependencyGraph, ItemLocation, PackageInfo, PackageSummary, QueryError, Resolution,
     ResolvedPackage, Source,
     outputs::{Edge, Node},
-    utils::cmp_version_precedence,
+    utils::cmp_version_with_build,
 };
 
 use super::ResolvedFileSystemMapping;
@@ -44,7 +44,7 @@ pub enum ResolveError {
     Registry {
         package: PackageSource,
         #[source]
-        error: QueryError,
+        error: Box<QueryError>,
     },
     #[error("Dependency cycle detected: {}", print_cycle(_0))]
     Cycle(Vec<PackageId>),
@@ -201,7 +201,7 @@ async fn discover_dependencies_once(
                 .await
                 .map_err(|error| ResolveError::Registry {
                     package: dep.pkg.clone(),
-                    error,
+                    error: Box::new(error),
                 })?;
             let dep_id = dep_summary.package_id();
 
@@ -297,11 +297,11 @@ fn select_latest_named_dependency(
             let left_version = left.pkg.id.as_named().map(|id| &id.version);
             let right_version = right.pkg.id.as_named().map(|id| &id.version);
 
-            cmp_version_precedence(left_version, right_version)
+            cmp_version_with_build(left_version, right_version)
         })
         .ok_or_else(|| QueryError::NoMatches {
             query: dep.pkg.clone(),
-            archived_versions: Vec::new(),
+            yanked_versions: Vec::new(),
         })
 }
 
@@ -369,7 +369,7 @@ async fn select_unified_named_dependency(
         let left_version = left.pkg.id.as_named().map(|id| &id.version);
         let right_version = right.pkg.id.as_named().map(|id| &id.version);
 
-        cmp_version_precedence(left_version, right_version)
+        cmp_version_with_build(left_version, right_version)
     }))
 }
 
@@ -496,15 +496,15 @@ async fn dependency_candidates(
                 .await
                 .map_err(|error| ResolveError::Registry {
                     package: dep.pkg.clone(),
-                    error,
+                    error: Box::new(error),
                 })?
                 .into_iter()
                 .next()
                 .ok_or_else(|| ResolveError::Registry {
                     package: dep.pkg.clone(),
-                    error: QueryError::NotFound {
+                    error: Box::new(QueryError::NotFound {
                         query: dep.pkg.clone(),
-                    },
+                    }),
                 })?,
         ]),
     }
@@ -528,7 +528,7 @@ async fn named_dependency_candidates(
                     .await
                     .map_err(|error| ResolveError::Registry {
                         package: query.clone(),
-                        error,
+                        error: Box::new(error),
                     })?;
             sort_named_candidates_desc(&mut candidates);
             candidate_cache.insert(cache_key, candidates.clone());
@@ -560,7 +560,7 @@ fn sort_named_candidates_desc(candidates: &mut [PackageSummary]) {
         let left_version = left.pkg.id.as_named().map(|id| &id.version);
         let right_version = right.pkg.id.as_named().map(|id| &id.version);
 
-        cmp_version_precedence(right_version, left_version)
+        cmp_version_with_build(right_version, left_version)
     });
 }
 

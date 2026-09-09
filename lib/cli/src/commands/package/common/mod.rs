@@ -277,8 +277,9 @@ pub(super) fn package_web_url(
 
 /// Adapter over [`package_web_url`] for a [`NamedPackageIdent`].
 pub(super) fn package_web_url_for_ident(client: &WasmerClient, pkg: &NamedPackageIdent) -> String {
-    // `*` when no version; an exact requirement renders as `=x.y.z`.
-    let version = pkg.version_or_default().to_string().replace('=', "");
+    // `*` when no version; an exact requirement renders as `=x.y.z`; an
+    // exact-build pin keeps its `+wasix.N` build metadata.
+    let version = pkg.version_string().replace('=', "");
     package_web_url(client, &pkg.full_name(), Some(&version))
 }
 

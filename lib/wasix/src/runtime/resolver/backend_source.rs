@@ -8,7 +8,9 @@ use anyhow::{Context, Error};
 use http::{HeaderMap, Method};
 use semver::{Version, VersionReq};
 use url::Url;
-use wasmer_config::package::{NamedPackageId, PackageHash, PackageId, PackageIdent, PackageSource};
+use wasmer_config::package::{
+    NamedPackageId, NamedPackageIdent, PackageHash, PackageId, PackageIdent, PackageSource, Tag,
+};
 use webc::metadata::Manifest;
 
 use crate::{
@@ -122,10 +124,9 @@ impl BackendSource {
             "Received a response from GraphQL",
         );
 
-        let response: WebQuery =
-            serde_json::from_slice(&body).context("Unable to deserialize the response")?;
+        let data: WebQueryData = parse_graphql_data(&body)?;
 
-        Ok(response)
+        Ok(WebQuery { data })
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
@@ -184,10 +185,9 @@ impl BackendSource {
             "Received a response from GraphQL",
         );
 
-        let response: Reply<GetPackageRelease> =
-            serde_json::from_slice(&body).context("Unable to deserialize the response")?;
+        let data: GetPackageRelease = parse_graphql_data(&body)?;
 
-        Ok(response.data.get_package_release)
+        Ok(data.get_package_release)
     }
 
     fn headers(&self) -> HeaderMap {
@@ -234,11 +234,10 @@ impl BackendSource {
 impl Source for BackendSource {
     #[tracing::instrument(level = "debug", skip_all, fields(%package))]
     async fn query(&self, package: &PackageSource) -> Result<Vec<PackageSummary>, QueryError> {
-        let (package_name, version_constraint) = match package {
-            PackageSource::Ident(PackageIdent::Named(n)) => (
-                n.full_name(),
-                n.version_opt().cloned().unwrap_or(semver::VersionReq::STAR),
-            ),
+        let (package_name, matcher) = match package {
+            PackageSource::Ident(PackageIdent::Named(n)) => {
+                (n.full_name(), VersionMatcher::for_ident(n))
+            }
             PackageSource::Ident(PackageIdent::Hash(hash)) => {
                 // TODO: implement caching!
                 match self.query_by_hash(hash).await {
@@ -246,7 +245,7 @@ impl Source for BackendSource {
                     Ok(None) => {
                         return Err(QueryError::NoMatches {
                             query: package.clone(),
-                            archived_versions: Vec::new(),
+                            yanked_versions: Vec::new(),
                         });
                     }
                     Err(error) => {
@@ -267,7 +266,7 @@ impl Source for BackendSource {
                     if let Ok(cached) = matching_package_summaries(
                         package,
                         cached,
-                        &version_constraint,
+                        &matcher,
                         self.preferred_webc_version,
                     ) {
                         tracing::debug!("Cache hit!");
@@ -300,20 +299,72 @@ impl Source for BackendSource {
             );
         }
 
-        matching_package_summaries(
-            package,
-            response,
-            &version_constraint,
-            self.preferred_webc_version,
-        )
+        matching_package_summaries(package, response, &matcher, self.preferred_webc_version)
     }
+}
+
+/// How a named query selects among a package's versions.
+enum VersionMatcher {
+    /// A SemVer range; build metadata is ignored, so `@1.2.3` matches every
+    /// build of 1.2.3 and the caller picks the highest.
+    Range(VersionReq),
+    /// A specific rebuild pinned by build metadata (`1.2.3+wasix.2`), matched
+    /// exactly including the build metadata.
+    ExactBuild(Version),
+}
+
+impl VersionMatcher {
+    fn for_ident(ident: &NamedPackageIdent) -> Self {
+        match &ident.tag {
+            Some(Tag::ExactBuild(v)) => VersionMatcher::ExactBuild(v.clone()),
+            Some(Tag::VersionReq(req)) => VersionMatcher::Range(req.clone()),
+            Some(Tag::Named(_)) | None => VersionMatcher::Range(VersionReq::STAR),
+        }
+    }
+
+    fn matches(&self, version: &Version) -> bool {
+        match self {
+            VersionMatcher::Range(req) => req.matches(version),
+            VersionMatcher::ExactBuild(target) => version == target,
+        }
+    }
+
+    /// The single version this pins exactly, if any. A yanked version still
+    /// resolves when pinned this way (with a warning).
+    fn exact_pin(&self) -> Option<Version> {
+        match self {
+            VersionMatcher::Range(req) => exact_pinned_version(req),
+            VersionMatcher::ExactBuild(v) => Some(v.clone()),
+        }
+    }
+}
+
+/// If `req` is an exact pin of a single fully-specified version (`=X.Y.Z`),
+/// return that version; otherwise `None`.
+///
+/// A bare `X.Y.Z` parses to a caret requirement, so only the `=` prefix counts
+/// as an exact pin.
+fn exact_pinned_version(req: &VersionReq) -> Option<Version> {
+    let [comparator] = req.comparators.as_slice() else {
+        return None;
+    };
+    if comparator.op != semver::Op::Exact {
+        return None;
+    }
+    Some(Version {
+        major: comparator.major,
+        minor: comparator.minor?,
+        patch: comparator.patch?,
+        pre: comparator.pre.clone(),
+        build: semver::BuildMetadata::EMPTY,
+    })
 }
 
 #[allow(clippy::result_large_err)]
 fn matching_package_summaries(
     query: &PackageSource,
     response: WebQuery,
-    version_constraint: &VersionReq,
+    matcher: &VersionMatcher,
     preferred_webc_version: webc::Version,
 ) -> Result<Vec<PackageSummary>, QueryError> {
     let mut summaries = Vec::new();
@@ -329,7 +380,10 @@ fn matching_package_summaries(
         .ok_or_else(|| QueryError::NotFound {
             query: query.clone(),
         })?;
-    let mut archived_versions = Vec::new();
+    // A yanked version is skipped for range and `latest` resolution. An exact
+    // pin still resolves it.
+    let exact_pin = matcher.exact_pin();
+    let mut yanked_versions = Vec::new();
 
     for pkg_version in versions {
         let version = match Version::parse(&pkg_version.version) {
@@ -344,30 +398,46 @@ fn matching_package_summaries(
             }
         };
 
-        if pkg_version.is_archived {
-            tracing::debug!(
-                pkg.version=%version,
-                "Skipping an archived version",
-            );
-            archived_versions.push(version);
+        if !matcher.matches(&version) {
             continue;
         }
 
-        if version_constraint.matches(&version) {
-            match decode_summary(
-                &namespace,
-                &package_name,
-                pkg_version,
-                preferred_webc_version,
-            ) {
-                Ok(summary) => summaries.push(summary),
-                Err(e) => {
-                    tracing::debug!(
-                        version=%version,
-                        error=&*e,
-                        "Skipping version because its metadata couldn't be parsed"
-                    );
+        if pkg_version.yanked_at.is_some() {
+            if exact_pin.as_ref() == Some(&version) {
+                match &pkg_version.yank_reason {
+                    Some(reason) => tracing::warn!(
+                        package = %format_args!("{namespace}/{package_name}@{version}"),
+                        %reason,
+                        "Resolving an exactly pinned yanked package version",
+                    ),
+                    None => tracing::warn!(
+                        package = %format_args!("{namespace}/{package_name}@{version}"),
+                        "Resolving an exactly pinned yanked package version",
+                    ),
                 }
+            } else {
+                tracing::debug!(
+                    pkg.version=%version,
+                    "Skipping a yanked version for a non-exact constraint",
+                );
+                yanked_versions.push(version);
+                continue;
+            }
+        }
+
+        match decode_summary(
+            &namespace,
+            &package_name,
+            pkg_version,
+            preferred_webc_version,
+        ) {
+            Ok(summary) => summaries.push(summary),
+            Err(e) => {
+                tracing::debug!(
+                    version=%version,
+                    error=&*e,
+                    "Skipping version because its metadata couldn't be parsed"
+                );
             }
         }
     }
@@ -375,7 +445,7 @@ fn matching_package_summaries(
     if summaries.is_empty() {
         Err(QueryError::NoMatches {
             query: query.clone(),
-            archived_versions,
+            yanked_versions,
         })
     } else {
         Ok(summaries)
@@ -593,7 +663,8 @@ pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
         namespace
         versions {
           version
-          isArchived
+          yankedAt
+          yankReason
           v2: distribution(version: V2) {
             piritaDownloadUrl
             piritaSha256Hash
@@ -611,17 +682,48 @@ pub const WASMER_WEBC_QUERY_ALL: &str = r#"{
     }
 }"#;
 
+// A content-digest pin always resolves, so this query never inspects yank state.
 pub const WASMER_WEBC_QUERY_BY_HASH: &str = r#"{
     getPackageRelease(hash: "$HASH") {
         piritaManifest
-        isArchived
         webcUrl
     }
 }"#;
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
-pub struct Reply<T> {
-    pub data: T,
+/// One entry of a GraphQL `errors` array.
+#[derive(Debug, serde::Deserialize)]
+struct GraphQlError {
+    message: String,
+}
+
+/// Parses a GraphQL envelope. A failed query still returns HTTP 200 with
+/// `data: null` and the cause under `errors`, so surface those messages
+/// instead of a deserialization error about the null.
+fn parse_graphql_data<T: serde::de::DeserializeOwned>(body: &[u8]) -> Result<T, Error> {
+    #[derive(serde::Deserialize)]
+    struct Envelope<T> {
+        data: Option<T>,
+        #[serde(default)]
+        errors: Vec<GraphQlError>,
+    }
+
+    let envelope: Envelope<T> =
+        serde_json::from_slice(body).context("Unable to deserialize the response")?;
+    match envelope.data {
+        Some(data) => Ok(data),
+        None if envelope.errors.is_empty() => {
+            anyhow::bail!("GraphQL query failed: the response contained no data")
+        }
+        None => anyhow::bail!(
+            "GraphQL query failed: {}",
+            envelope
+                .errors
+                .iter()
+                .map(|error| error.message.as_str())
+                .collect::<Vec<_>>()
+                .join("; ")
+        ),
+    }
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
@@ -634,8 +736,6 @@ struct GetPackageRelease {
 struct PackageWebc {
     #[serde(rename = "piritaManifest")]
     pub pirita_manifest: String,
-    #[serde(rename = "isArchived")]
-    pub is_archived: bool,
     #[serde(rename = "webcUrl")]
     pub webc_url: url::Url,
 }
@@ -691,9 +791,10 @@ pub struct WebQueryGetPackage {
 #[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
 pub struct WebQueryGetPackageVersion {
     pub version: String,
-    /// Has the package been archived?
-    #[serde(rename = "isArchived", default)]
-    pub is_archived: bool,
+    #[serde(rename = "yankedAt", default)]
+    pub yanked_at: Option<String>,
+    #[serde(rename = "yankReason", default)]
+    pub yank_reason: Option<String>,
     pub v2: WebQueryGetPackageVersionDistribution,
     pub v3: WebQueryGetPackageVersionDistribution,
 }
@@ -744,7 +845,7 @@ mod tests {
     //      -d '@wasmer_pack_cli_request.json' > wasmer_pack_cli_response.json
     const WASMER_PACK_CLI_REQUEST: &[u8] = br#"
     {
-        "query":"{\n    getPackage(name: \"wasmer/wasmer-pack-cli\") {\n        packageName\n        namespace\n        versions {\n          version\n          isArchived\n          v2: distribution(version: V2) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n          v3: distribution(version: V3) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n        }\n    }\n    info {\n        defaultFrontend\n    }\n}"
+        "query":"{\n    getPackage(name: \"wasmer/wasmer-pack-cli\") {\n        packageName\n        namespace\n        versions {\n          version\n          yankedAt\n          yankReason\n          v2: distribution(version: V2) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n          v3: distribution(version: V3) {\n            piritaDownloadUrl\n            piritaSha256Hash\n            webcManifest\n          }\n        }\n    }\n    info {\n        defaultFrontend\n    }\n}"
     }
     "#;
     const WASMER_PACK_CLI_RESPONSE: &[u8] = br#"
@@ -756,7 +857,7 @@ mod tests {
             "versions": [
               {
                 "version": "0.7.1",
-                "isArchived": false,
+                "yankedAt": null,
                 "v2": {
                     "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:gGeLZqPitpg893Jj/nvGa+1235RezSWA9FjssopzOZY=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.7.1\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
                   "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.1/wasmer-pack-cli-0.7.1.webc",
@@ -770,7 +871,7 @@ mod tests {
               },
               {
                 "version": "0.7.0",
-                "isArchived": false,
+                "yankedAt": null,
                 "v2": {
                     "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:FesCIAS6URjrIAAyy4G5u5HjJjGQBLGmnafjHPHRvqo=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.7.0\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.7.0/wasmer-pack-cli-0.7.0.webc",
@@ -784,7 +885,7 @@ mod tests {
               },
               {
                 "version": "0.6.0",
-                "isArchived": false,
+                "yankedAt": null,
                 "v2": {
                     "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:CzzhNaav3gjBkCJECGbk7e+qAKurWbcIAzQvEqsr2Co=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.6.0\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.6.0/wasmer-pack-cli-0.6.0.webc",
@@ -798,7 +899,7 @@ mod tests {
               },
               {
                 "version": "0.5.3",
-                "isArchived": false,
+                "yankedAt": null,
                 "v2": {
                     "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:qdiJVfpi4icJXdR7Y5US/pJ4PjqbAq9PkU+obMZIMlE=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.3\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.3/wasmer-pack-cli-0.5.3.webc",
@@ -812,7 +913,7 @@ mod tests {
               },
               {
                 "version": "0.5.2",
-                "isArchived": false,
+                "yankedAt": null,
                 "v2": {
                     "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:xiwrUFAo+cU1xW/IE6MVseiyjNGHtXooRlkYKiOKzQc=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/consulting/Documents/wasmer/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.2\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.2/wasmer-pack-cli-0.5.2.webc",
@@ -826,7 +927,7 @@ mod tests {
               },
               {
                 "version": "0.5.1",
-                "isArchived": false,
+                "yankedAt": null,
                 "v2": {
                     "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:TliPwutfkFvRite/3/k3OpLqvV0EBKGwyp3L5UjCuEI=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"/home/runner/work/wasmer-pack/wasmer-pack/crates/cli/../../README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.1\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.1/wasmer-pack-cli-0.5.1.webc",
@@ -840,7 +941,7 @@ mod tests {
               },
               {
                 "version": "0.5.0",
-                "isArchived": false,
+                "yankedAt": null,
                 "v2": {
                     "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:6UD7NS4KtyNYa3TcnKOvd+kd3LxBCw+JQ8UWRpMXeC0=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.0\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0/wasmer-pack-cli-0.5.0.webc",
@@ -854,7 +955,7 @@ mod tests {
               },
               {
                 "version": "0.5.0-rc.1",
-                "isArchived": false,
+                "yankedAt": null,
                 "v2": {
                     "webcManifest": "{\"atoms\": {\"wasmer-pack\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:ThybHIc2elJEcDdQiq5ffT1TVaNs70+WAqoKw4Tkh3E=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/wasmer-pack-cli\", \"readme\": {\"path\": \"README.md\", \"volume\": \"metadata\"}, \"license\": \"MIT\", \"version\": \"0.5.0-rc.1\", \"homepage\": \"https://wasmer.io/\", \"repository\": \"https://github.com/wasmerio/wasmer-pack\", \"description\": \"A code generator that lets you treat WebAssembly modules like native dependencies.\"}}, \"commands\": {\"wasmer-pack\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"wasmer-pack\", \"package\": \"wasmer/wasmer-pack-cli\", \"main_args\": null}}}}, \"entrypoint\": \"wasmer-pack\"}",
                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/webc/wasmer/wasmer-pack-cli/0.5.0-rc.1/wasmer-pack-cli-0.5.0-rc.1.webc",
@@ -1050,7 +1151,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn skip_archived_package_versions() {
+    async fn skip_yanked_package_versions_for_a_range() {
         let body = serde_json::json! {
             {
                 "data": {
@@ -1060,7 +1161,7 @@ mod tests {
                         "versions": [
                             {
                                 "version": "3.12.2",
-                                "isArchived": true,
+                                "yankedAt": "2024-01-01T00:00:00Z",
                                 "v2": {
                                     "webcManifest": "{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:ibsq6QL4qB4GtCE8IA2yfHVwI4fLoIGXsALsAx16y5M=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.2\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}",
                                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.5-a11e0414-c68d-473c-958f-fc96ef7adb20.webc",
@@ -1074,7 +1175,7 @@ mod tests {
                             },
                             {
                                 "version": "3.12.1",
-                                "isArchived": false,
+                                "yankedAt": null,
                                 "v2": {
                                     "webcManifest": "{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.1\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}",
                                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-build.2-ed98c999-fcda-4f80-96dc-7c0f8be8baa6.webc",
@@ -1088,7 +1189,7 @@ mod tests {
                             },
                             {
                                 "version": "3.12.0",
-                                "isArchived": true,
+                                "yankedAt": "2024-01-01T00:00:00Z",
                                 "v2": {
                                     "webcManifest": "{\"atoms\": {\"python\": {\"kind\": \"https://webc.org/kind/wasm\", \"signature\": \"sha256:O36BXLHv3/80cABbAiF7gzuSHzzin1blTfJ42LDhT18=\"}}, \"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"license\": \"ISC\", \"version\": \"3.12.0\", \"repository\": \"https://github.com/wapm-packages/python\", \"description\": \"Python is an interpreted, high-level, general-purpose programming language\"}}, \"commands\": {\"python\": {\"runner\": \"https://webc.org/runner/wasi/command@unstable_\", \"annotations\": {\"wasi\": {\"atom\": \"python\", \"package\": null, \"main_args\": null}}}}, \"entrypoint\": \"python\"}",
                                     "piritaDownloadUrl": "https://storage.googleapis.com/wapm-registry-prod/packages/wasmer/python/python-3.12.0-32065e5e-84fe-4483-a380-0aa750772a3a.webc",
@@ -1126,6 +1227,145 @@ mod tests {
             summaries[0].pkg.id.as_named().unwrap().version.to_string(),
             "3.12.1"
         );
+    }
+
+    fn python_versions_body() -> serde_json::Value {
+        serde_json::json! {
+            {
+                "data": {
+                    "getPackage": {
+                        "packageName": "python",
+                        "namespace": "wasmer",
+                        "versions": [
+                            {
+                                "version": "3.12.1",
+                                "yankedAt": "2024-01-01T00:00:00Z",
+                                "yankReason": "broken build",
+                                "v2": {
+                                    "webcManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.1\", \"description\": \"Python\"}}}",
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.1",
+                                    "piritaSha256Hash": "1111111111111111111111111111111111111111111111111111111111111111"
+                                },
+                                "v3": {
+                                    "webcManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.1\", \"description\": \"Python\"}}}",
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.1",
+                                    "piritaSha256Hash": "1111111111111111111111111111111111111111111111111111111111111111"
+                                }
+                            },
+                            {
+                                "version": "3.12.0",
+                                "yankedAt": null,
+                                "v2": {
+                                    "webcManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}",
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
+                                    "piritaSha256Hash": "0000000000000000000000000000000000000000000000000000000000000000"
+                                },
+                                "v3": {
+                                    "webcManifest": "{\"package\": {\"wapm\": {\"name\": \"wasmer/python\", \"version\": \"3.12.0\", \"description\": \"Python\"}}}",
+                                    "piritaDownloadUrl": "https://wasmer.io/wasmer/python@3.12.0",
+                                    "piritaSha256Hash": "0000000000000000000000000000000000000000000000000000000000000000"
+                                }
+                            }
+                        ]
+                    },
+                    "info": { "defaultFrontend": "https://wasmer.io/" }
+                }
+            }
+        }
+    }
+
+    fn python_source(body: serde_json::Value) -> BackendSource {
+        let response = HttpResponse {
+            body: Some(serde_json::to_vec(&body).unwrap()),
+            redirected: false,
+            status: StatusCode::OK,
+            headers: HeaderMap::new(),
+        };
+        let client = Arc::new(DummyClient::new(vec![response]));
+        let registry_endpoint = BackendSource::WASMER_PROD_ENDPOINT.parse().unwrap();
+        BackendSource::new(registry_endpoint, client)
+    }
+
+    #[tokio::test]
+    async fn exact_pin_resolves_a_yanked_version() {
+        let source = python_source(python_versions_body());
+        let request = PackageSource::from_str("wasmer/python@=3.12.1").unwrap();
+
+        let summaries = source.query(&request).await.unwrap();
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().version.to_string(),
+            "3.12.1"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_range_skips_the_yanked_version() {
+        let source = python_source(python_versions_body());
+        let request = PackageSource::from_str("wasmer/python@^3.12").unwrap();
+
+        let summaries = source.query(&request).await.unwrap();
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(
+            summaries[0].pkg.id.as_named().unwrap().version.to_string(),
+            "3.12.0"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_range_matching_only_a_yanked_version_errors() {
+        let source = python_source(python_versions_body());
+        // A range that only the yanked 3.12.1 satisfies.
+        let request = PackageSource::from_str("wasmer/python@>=3.12.1, <3.12.2").unwrap();
+
+        let err = source.query(&request).await.unwrap_err();
+        let QueryError::NoMatches {
+            yanked_versions, ..
+        } = &err
+        else {
+            panic!("expected NoMatches, got {err:?}");
+        };
+        assert_eq!(yanked_versions.len(), 1);
+        assert_eq!(yanked_versions[0].to_string(), "3.12.1");
+        assert!(
+            err.to_string().contains("yanked"),
+            "message should explain the yank: {err}"
+        );
+    }
+
+    #[test]
+    fn only_a_full_equals_version_is_an_exact_pin() {
+        // `=X.Y.Z` pins; whether bare/`^`/`~` reqs do is the async tests' job,
+        // since those exercise the resolver end to end.
+        let exact = exact_pinned_version(&VersionReq::from_str("=3.12.1").unwrap());
+        assert_eq!(exact.map(|v| v.to_string()).as_deref(), Some("3.12.1"));
+
+        // `=X.Y` ranges over the patch, and a two-comparator range is not a
+        // single version, so neither is an exact pin.
+        for not_a_pin in ["=3.12", ">=3.12.1, <4"] {
+            assert!(
+                exact_pinned_version(&VersionReq::from_str(not_a_pin).unwrap()).is_none(),
+                "`{not_a_pin}` must not be treated as an exact pin",
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn a_bare_version_is_not_an_exact_pin_and_skips_a_yanked_version() {
+        let source = python_source(python_versions_body());
+        let request = PackageSource::from_str("wasmer/python@3.12.1").unwrap();
+
+        let err = source.query(&request).await.unwrap_err();
+        let QueryError::NoMatches {
+            yanked_versions, ..
+        } = &err
+        else {
+            panic!("expected NoMatches, got {err:?}");
+        };
+        assert_eq!(yanked_versions.len(), 1);
+        assert_eq!(yanked_versions[0].to_string(), "3.12.1");
     }
 
     #[tokio::test]
