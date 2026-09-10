@@ -517,16 +517,7 @@ fn issue_4519_sdiv64_srem64_urem64(mut config: crate::Config) -> Result<()> {
 }
 
 #[compiler_test(issues)]
-/// Singlepass panics when encountering ref types.
-///
-/// Note: this one is specific to Singlepass, but we want to test in all
-/// available compilers.
-///
-/// Note: for now, we don't want to implement reference types, we just don't want singlepass to
-/// panic.
-///
-/// https://github.com/wasmerio/wasmer/issues/5309
-fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
+fn issue_5309_reftype(mut config: crate::Config) -> Result<(), CompileError> {
     let wat = r#"
       (module
         (type $x1 (func (param funcref)))
@@ -536,8 +527,7 @@ fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
     .to_string();
 
     let mut store = config.store();
-    let _ = Module::new(&store, wat);
-
+    Module::new(&store, wat)?;
     Ok(())
 }
 
