@@ -329,3 +329,6 @@ impl Drop for SleepNow {
         }
     }
 }
+
+#[cfg(test)]
+mod tests;
