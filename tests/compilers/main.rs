@@ -10,6 +10,8 @@ mod config;
 mod deterministic;
 mod imports;
 mod issues;
+#[cfg(feature = "llvm")]
+mod llvm_m0;
 #[cfg(feature = "middlewares")]
 mod metering;
 mod middlewares;
