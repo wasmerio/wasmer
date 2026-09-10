@@ -215,28 +215,7 @@ impl crate::FileSystem for FileSystem {
             if !to_parent.exists() {
                 return Err(FsError::EntryNotFound);
             }
-            let result = if from_parent != to_parent {
-                let _ = std::fs::create_dir_all(to_parent);
-                if from.is_dir() {
-                    fs_extra::move_items(
-                        &[&from],
-                        &to,
-                        &fs_extra::dir::CopyOptions {
-                            copy_inside: true,
-                            ..Default::default()
-                        },
-                    )
-                    .map(|_| ())
-                    .map_err(|_| FsError::UnknownError)?;
-                    let _ = fs_extra::remove_items(&[&from]);
-                    Ok(())
-                } else {
-                    fs::copy(&from, &to).map(|_| ()).map_err(FsError::from)?;
-                    fs::remove_file(&from).map(|_| ()).map_err(Into::into)
-                }
-            } else {
-                fs::rename(&from, &to).map_err(Into::into)
-            };
+            let result = fs::rename(&from, &to).map_err(Into::into);
             let _ = set_file_mtime(&to, FileTime::now()).map(|_| ());
             result
         })
