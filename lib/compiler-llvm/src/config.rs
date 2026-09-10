@@ -17,9 +17,11 @@ use wasmer_compiler::{
     Compiler, CompilerConfig, Debugger, Engine, EngineBuilder, ModuleMiddleware,
 };
 use wasmer_types::{
-    Features,
+    Features, MemoryIndex,
+    entity::PrimaryMap,
     target::{Architecture, OperatingSystem, Target, Triple},
 };
+use wasmer_vm::MemoryStyle;
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -113,6 +115,7 @@ pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_non_volatile_memops: bool,
     pub(crate) enable_readonly_funcref_table: bool,
+    pub(crate) enable_m0: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     pub(crate) debugger: Option<Debugger>,
@@ -142,6 +145,7 @@ impl LLVM {
             enable_nan_canonicalization: false,
             enable_non_volatile_memops: false,
             enable_readonly_funcref_table: false,
+            enable_m0: true,
             enable_verifier: false,
             enable_perfmap: false,
             debugger: None,
@@ -198,6 +202,16 @@ impl LLVM {
     pub fn readonly_funcref_table(&mut self, enable_readonly_funcref_table: bool) -> &mut Self {
         self.enable_readonly_funcref_table = enable_readonly_funcref_table;
         self
+    }
+
+    pub(crate) fn m0_is_enabled(
+        &self,
+        memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
+    ) -> bool {
+        self.enable_m0
+            && memory_styles
+                .get(MemoryIndex::from_u32(0))
+                .is_some_and(|memory| matches!(memory, MemoryStyle::Static))
     }
 
     fn reloc_mode(&self, binary_format: BinaryFormat) -> RelocMode {
@@ -449,5 +463,61 @@ impl Default for LLVM {
 impl From<LLVM> for Engine {
     fn from(config: LLVM) -> Self {
         EngineBuilder::new(config).engine()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn m0_requires_static_memory_zero_and_can_be_disabled() {
+        let mut config = LLVM::new();
+        let mut styles = PrimaryMap::new();
+        assert!(!config.m0_is_enabled(&styles));
+        styles.push(MemoryStyle::Dynamic {
+            offset_guard_size: 0,
+        });
+        styles.push(MemoryStyle::Static);
+        assert!(!config.m0_is_enabled(&styles));
+        styles[MemoryIndex::from_u32(0)] = MemoryStyle::Static;
+        assert!(config.m0_is_enabled(&styles));
+        config.enable_m0 = false;
+        assert!(!config.m0_is_enabled(&styles));
+        assert!(matches!(
+            styles[MemoryIndex::from_u32(0)],
+            MemoryStyle::Static
+        ));
+        config.enable_m0 = true;
+        assert!(config.m0_is_enabled(&styles));
+    }
+
+    #[test]
+    fn m0_options_preserve_unspecified_settings_and_change_compiler_id() {
+        use wasmer_types::target::UserCompilerOptimizations;
+
+        let mut compiler = LLVMCompiler::new(LLVM::new());
+        let default_id = compiler.deterministic_id();
+        compiler
+            .with_opts(&UserCompilerOptimizations::default())
+            .unwrap();
+        assert_eq!(default_id, compiler.deterministic_id());
+        compiler
+            .with_opts(&UserCompilerOptimizations {
+                pass_params: Some(false),
+            })
+            .unwrap();
+        let disabled_id = compiler.deterministic_id();
+        assert_ne!(default_id, disabled_id);
+        compiler
+            .with_opts(&UserCompilerOptimizations::default())
+            .unwrap();
+        assert_eq!(disabled_id, compiler.deterministic_id());
+        compiler
+            .with_opts(&UserCompilerOptimizations {
+                pass_params: Some(true),
+            })
+            .unwrap();
+        assert_eq!(default_id, compiler.deterministic_id());
     }
 }

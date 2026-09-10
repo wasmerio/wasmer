@@ -247,5 +247,9 @@ impl Default for Target {
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct UserCompilerOptimizations {
     /// Suggest the `pass_params` (also known as m0) optimization pass.
+    ///
+    /// LLVM enables this by default for static memory zero. `Some(false)` disables
+    /// passing its base pointer as a hidden function argument without changing the
+    /// memory style or allocation strategy. `None` preserves the current setting.
     pub pass_params: Option<bool>,
 }

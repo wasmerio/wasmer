@@ -207,6 +207,9 @@ impl Compiler for LLVMCompiler {
         if self.config.enable_readonly_funcref_table {
             components.push(Component::ReadonlyFuncrefTable);
         }
+        if !self.config.enable_m0 {
+            components.push(Component::DisableM0);
+        }
 
         components
             .into_iter()
@@ -638,8 +641,11 @@ impl Compiler for LLVMCompiler {
 
     fn with_opts(
         &mut self,
-        _suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,
+        suggested_compiler_opts: &wasmer_types::target::UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
+        if let Some(enable) = suggested_compiler_opts.pass_params {
+            self.config.enable_m0 = enable;
+        }
         Ok(())
     }
 }

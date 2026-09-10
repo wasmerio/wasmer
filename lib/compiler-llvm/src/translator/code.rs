@@ -147,11 +147,7 @@ impl FuncTranslator {
         let function =
             CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
 
-        // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
-        // the allocated heap is never moved to a different location.
-        let m0_is_enabled = memory_styles
-            .get(MemoryIndex::from_u32(0))
-            .is_some_and(|memory| matches!(memory, MemoryStyle::Static));
+        let m0_is_enabled = config.m0_is_enabled(memory_styles);
 
         let (function_name, module_name) = if config.experimental_artifact {
             (function.linkage_name(), String::new())
