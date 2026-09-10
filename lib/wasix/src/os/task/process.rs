@@ -912,10 +912,21 @@ fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
         }
     }
 
-    // Otherwise just send the signal to all the threads
-    wake_atomic_waiters(&guard, signal);
-    for thread in guard.threads.values() {
-        thread.signal(signal);
+    // SIGKILL cannot be caught by a guest handler. Complete every thread before
+    // waking execution so process-wide handler registration cannot suppress it.
+    if signal == Signal::Sigkill {
+        for thread in guard.threads.values() {
+            thread.set_status_finished(Ok(Errno::Intr.into()));
+        }
+        wake_atomic_waiters(&guard, signal);
+        for thread in guard.threads.values() {
+            thread.signal(Signal::Sigwakeup);
+        }
+    } else {
+        wake_atomic_waiters(&guard, signal);
+        for thread in guard.threads.values() {
+            thread.signal(signal);
+        }
     }
 }
 
@@ -964,6 +975,65 @@ impl SignalHandlerAbi for WasiProcess {
             Ok(())
         } else {
             Err(SignalDeliveryError)
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::os::task::control_plane::{ControlPlaneConfig, WasiControlPlane};
+
+    fn test_process() -> (WasiControlPlane, WasiProcess) {
+        let plane = WasiControlPlane::new(ControlPlaneConfig {
+            max_task_count: None,
+            enable_asynchronous_threading: false,
+            enable_exponential_cpu_backoff: None,
+        });
+        let process = plane.new_process(ModuleHash::random()).unwrap();
+        (plane, process)
+    }
+
+    fn add_threads(process: &WasiProcess) -> [WasiThreadHandle; 2] {
+        [
+            process
+                .new_thread(WasiMemoryLayout::default(), ThreadStartType::MainThread)
+                .unwrap(),
+            process
+                .new_thread(
+                    WasiMemoryLayout::default(),
+                    ThreadStartType::ThreadSpawn { start_ptr: 0 },
+                )
+                .unwrap(),
+        ]
+    }
+
+    #[test]
+    fn sigkill_finishes_all_threads_without_guest_visible_sigkill() {
+        let (_plane, process) = test_process();
+        let threads = add_threads(&process);
+
+        process.signal_process(Signal::Sigkill);
+
+        for thread in threads {
+            assert_eq!(
+                thread.try_join().unwrap().unwrap(),
+                ExitCode::from(Errno::Intr)
+            );
+            assert_eq!(thread.pop_signals(), vec![Signal::Sigwakeup]);
+        }
+    }
+
+    #[test]
+    fn catchable_process_signals_remain_guest_visible() {
+        let (_plane, process) = test_process();
+        let threads = add_threads(&process);
+
+        process.signal_process(Signal::Sigpipe);
+
+        for thread in threads {
+            assert!(thread.try_join().is_none());
+            assert_eq!(thread.pop_signals(), vec![Signal::Sigpipe]);
         }
     }
 }

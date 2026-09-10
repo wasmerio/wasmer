@@ -696,9 +696,16 @@ impl WasiEnv {
 
     /// Processes any signals that are batched up or any forced exit codes
     pub fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
+        // Forced completion takes precedence over queued signals. In particular,
+        // process SIGKILL uses a host-only wakeup that must not be drained and
+        // ignored by instances without their own guest signal callback.
+        let env = ctx.data();
+        if let Some(forced_exit) = env.should_exit() {
+            return Err(WasiError::Exit(forced_exit));
+        }
+
         // If a signal handler has never been set then we need to handle signals
         // differently
-        let env = ctx.data();
         let env_inner = env
             .try_inner()
             .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
@@ -713,8 +720,9 @@ impl WasiEnv {
                 .state
                 .signal_handler_registered
                 .load(std::sync::atomic::Ordering::SeqCst);
-        if !handler_registered {
+        let processed = if !handler_registered {
             let signals = env.thread.pop_signals();
+            let processed = !signals.is_empty();
             if !signals.is_empty() {
                 for sig in signals {
                     if sig == Signal::Sigint
@@ -729,16 +737,20 @@ impl WasiEnv {
                         tracing::trace!(pid=%env.pid(), ?sig, "Signal ignored");
                     }
                 }
-                return Ok(Ok(true));
             }
-        }
+            Ok(processed)
+        } else {
+            Self::process_signals(ctx)?
+        };
 
-        // Check for forced exit
-        if let Some(forced_exit) = env.should_exit() {
+        // Close the race between the first status check and signal draining.
+        // SIGKILL publishes completion before it queues Sigwakeup, so either
+        // this check observes it or the wake remains pending for the next pass.
+        if let Some(forced_exit) = ctx.data().should_exit() {
             return Err(WasiError::Exit(forced_exit));
         }
 
-        Self::process_signals(ctx)
+        Ok(processed)
     }
 
     /// Processes any signals that are batched up
