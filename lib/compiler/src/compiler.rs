@@ -81,6 +81,8 @@ pub enum DeterministicIdComponent {
     Pic,
     #[strum(serialize = "ro_ftable")]
     ReadonlyFuncrefTable,
+    #[strum(serialize = "no_m0")]
+    DisableM0,
     #[strum(serialize = "unaligned_mem")]
     ExperimentalUnalignedMemoryAccesses,
 }
@@ -149,6 +151,12 @@ pub trait CompilerConfig {
     /// NaN canonicalization is useful when trying to run WebAssembly
     /// deterministically across different architectures.
     fn canonicalize_nans(&mut self, _enable: bool) {
+        // By default we do nothing, each backend will need to customize this
+        // in case they create an IR that they can verify.
+    }
+
+    /// For the LLVM compiler, enable m0 optimization that passes pointer to first memory as a hidden argument.
+    fn enable_m0(&mut self, _enable: bool) {
         // By default we do nothing, each backend will need to customize this
         // in case they create an IR that they can verify.
     }
