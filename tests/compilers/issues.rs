@@ -1,5 +1,6 @@
 //! This file is mainly to assure specific issues are working well
 
+#[cfg(feature = "llvm")]
 use std::{fs, path::Path};
 
 use anyhow::{Context, Result};

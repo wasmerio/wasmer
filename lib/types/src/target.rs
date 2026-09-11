@@ -246,7 +246,7 @@ impl Default for Target {
 // avoid dependencies on `wasmer_config` for crates that already depend on `wasmer_types`.
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct UserCompilerOptimizations {
-    /// DEPRECATED: The pass_params` (also known as m0) optimization is enabled (or disabled) globally
-    /// in the LLVM's configuration. Keeping the field for the backward compatibility.
+    /// DEPRECATED: The `pass_params` (also known as m0) optimization is enabled (or disabled) globally
+    /// in the LLVM configuration. This field is kept for backward compatibility.
     pub pass_params: Option<bool>,
 }
