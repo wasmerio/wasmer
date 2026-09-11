@@ -199,6 +199,17 @@ impl VMTable {
         if self.maximum.is_some_and(|max| new_len > max) {
             return None;
         }
+
+        match self.table.ty {
+            ValType::FuncRef if !matches!(init_value, TableElement::FuncRef(_)) => {
+                return None;
+            }
+            ValType::ExternRef if !matches!(init_value, TableElement::ExternRef(_)) => {
+                return None;
+            }
+            _ => {}
+        }
+
         if new_len == size {
             debug_assert_eq!(delta, 0);
             return Some(size);
@@ -256,10 +267,8 @@ impl VMTable {
                     (ValType::FuncRef, r @ TableElement::FuncRef(_)) => {
                         *slot = r.into();
                     }
-                    // This path should never be hit by the generated code due to Wasm
-                    // validation.
-                    (ty, v) => {
-                        panic!("Attempted to set a table of type {ty} with the value {v:?}")
+                    _ => {
+                        return Err(Trap::lib(TrapCode::TableElementTypeMismatch));
                     }
                 };
 

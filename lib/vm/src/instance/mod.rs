@@ -669,8 +669,8 @@ impl Instance {
     ///
     /// # Errors
     ///
-    /// Returns a `Trap` error when the range within the table is out of bounds
-    /// or the range within the passive element is out of bounds.
+    /// Returns a `Trap` error when the source or destination range is out of bounds,
+    /// or when the element type does not match the destination table.
     pub(crate) fn table_init(
         &mut self,
         table_index: TableIndex,
@@ -684,6 +684,9 @@ impl Instance {
         let table = self.get_table_handle(table_index);
         let table = unsafe { table.get_mut(&mut *self.context) };
         let passive_elements = self.passive_elements.borrow();
+
+        // Passive elements use `Option<VMFuncRef>` for both reference types, so `None`
+        // does not retain whether the original value was a null funcref or externref.
         let elem = passive_elements
             .get(&elem_index)
             .map_or::<&[Option<VMFuncRef>], _>(&[], |e| &**e);
@@ -695,8 +698,21 @@ impl Instance {
         }
 
         for (dst, src) in (dst..dst + len).zip(src..src + len) {
+            let element = match table.ty().ty {
+                wasmer_types::Type::FuncRef => TableElement::FuncRef(elem[src as usize]),
+                wasmer_types::Type::ExternRef => {
+                    // Externref element expressions can only produce null here.
+                    if elem[src as usize].is_none() {
+                        TableElement::ExternRef(None)
+                    } else {
+                        return Err(Trap::lib(TrapCode::TableElementTypeMismatch));
+                    }
+                }
+                _ => unreachable!(),
+            };
+
             table
-                .set(dst, TableElement::FuncRef(elem[src as usize]))
+                .set(dst, element)
                 .expect("should never panic because we already did the bounds check above");
         }
 

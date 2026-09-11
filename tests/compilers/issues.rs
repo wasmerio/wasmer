@@ -1761,5 +1761,93 @@ fn implicit_else_reclaims_inputs(config: crate::Config) -> Result<()> {
             }
         }
     }
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+fn table_mismatch_types(mut config: crate::Config) -> Result<()> {
+    if config.compiler == crate::Compiler::V8 {
+        return Ok(());
+    }
+
+    let mut store = config.store();
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::ExternRef, 0, Some(1)),
+        Value::ExternRef(None),
+    )?;
+    let funcref = Function::new_typed(&mut store, || {});
+
+    let result = Table::new(
+        &mut store,
+        TableType::new(Type::ExternRef, 1, Some(1)),
+        Value::FuncRef(Some(funcref.clone())),
+    );
+    assert!(result.is_err());
+
+    let result = table.grow(&mut store, 1, Value::FuncRef(Some(funcref.clone())));
+    assert!(result.is_err());
+    assert_eq!(table.size(&store), 0);
+    assert_eq!(table.get(&mut store, 0), None);
+
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 0, Some(1)),
+        Value::FuncRef(None),
+    )?;
+    let externref = ExternRef::new(&mut store, 42usize);
+
+    let result = table.grow(&mut store, 1, Value::ExternRef(Some(externref)));
+    assert!(result.is_err());
+    assert_eq!(table.size(&store), 0);
+    assert_eq!(table.get(&mut store, 0), None);
+
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::ExternRef, 1, Some(1)),
+        Value::ExternRef(None),
+    )?;
+
+    let result = table.set(&mut store, 0, Value::FuncRef(Some(funcref)));
+    assert!(result.is_err());
+    assert!(matches!(
+        table.get(&mut store, 0),
+        Some(Value::ExternRef(None))
+    ));
+
+    let result = table.set(&mut store, 0, Value::I32(42));
+    assert!(result.is_err());
+    assert!(matches!(
+        table.get(&mut store, 0),
+        Some(Value::ExternRef(None))
+    ));
+
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 1, Some(1)),
+        Value::FuncRef(None),
+    )?;
+    let externref = ExternRef::new(&mut store, 42usize);
+
+    let result = table.set(&mut store, 0, Value::ExternRef(Some(externref)));
+    assert!(result.is_err());
+    assert!(matches!(
+        table.get(&mut store, 0),
+        Some(Value::FuncRef(None))
+    ));
+
+    let externref_table = Table::new(
+        &mut store,
+        TableType::new(Type::ExternRef, 1, Some(1)),
+        Value::ExternRef(None),
+    )?;
+    let result = Table::copy(&mut store, &externref_table, 0, &table, 0, 1);
+    assert!(result.is_err());
+    assert!(matches!(
+        externref_table.get(&mut store, 0),
+        Some(Value::ExternRef(None))
+    ));
+
     Ok(())
 }
