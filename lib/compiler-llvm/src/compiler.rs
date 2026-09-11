@@ -207,7 +207,7 @@ impl Compiler for LLVMCompiler {
         if self.config.enable_readonly_funcref_table {
             components.push(Component::ReadonlyFuncrefTable);
         }
-        // We intentional use negative marker in order to distinguish it from the already
+        // We intentionally use a negative marker to distinguish it from the already
         // existing compiled Artifacts built with M0 enabled!
         // TODO: flip it to EnableM0 in the future
         if !self.config.enable_m0 {
