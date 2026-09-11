@@ -113,6 +113,7 @@ pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_non_volatile_memops: bool,
     pub(crate) enable_readonly_funcref_table: bool,
+    pub(crate) enable_m0: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     pub(crate) debugger: Option<Debugger>,
@@ -142,6 +143,7 @@ impl LLVM {
             enable_nan_canonicalization: false,
             enable_non_volatile_memops: false,
             enable_readonly_funcref_table: false,
+            enable_m0: true,
             enable_verifier: false,
             enable_perfmap: false,
             debugger: None,
@@ -418,6 +420,11 @@ impl CompilerConfig for LLVM {
 
     fn canonicalize_nans(&mut self, enable: bool) {
         self.enable_nan_canonicalization = enable;
+    }
+
+    /// For the LLVM compiler, enable m0 optimization that passes pointer to the first memory as a hidden first argument.
+    fn enable_m0(&mut self, enable: bool) {
+        self.enable_m0 = enable;
     }
 
     /// Transform it into the compiler.

@@ -88,6 +88,18 @@ pub struct FuncTranslator {
 
 impl wasmer_compiler::FuncTranslator for FuncTranslator {}
 
+pub(crate) fn enable_m0_optimization(
+    config: &LLVM,
+    memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
+) -> bool {
+    config.enable_m0
+        // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
+        // the allocated heap is never moved to a different location.
+        && memory_styles
+            .get(MemoryIndex::from_u32(0))
+            .is_some_and(|memory| matches!(memory, MemoryStyle::Static))
+}
+
 impl FuncTranslator {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -147,11 +159,7 @@ impl FuncTranslator {
         let function =
             CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
 
-        // We can pass and use the heap pointer (memory #0) only and only if the memory static, that means
-        // the allocated heap is never moved to a different location.
-        let m0_is_enabled = memory_styles
-            .get(MemoryIndex::from_u32(0))
-            .is_some_and(|memory| matches!(memory, MemoryStyle::Static));
+        let m0_is_enabled = enable_m0_optimization(config, memory_styles);
 
         let (function_name, module_name) = if config.experimental_artifact {
             (function.linkage_name(), String::new())
