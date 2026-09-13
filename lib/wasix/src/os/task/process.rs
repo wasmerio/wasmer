@@ -527,6 +527,8 @@ impl WasiProcess {
     ///
     /// The control plane retains its ancestry even after the child is reaped, so
     /// [`Self::force_terminate`] also reaches surviving grandchildren.
+    /// This does not attach the child to the guest wait/reap list; the spawning
+    /// syscall does so once its setup has succeeded.
     pub fn new_child(&self, module_hash: ModuleHash) -> Result<Self, ControlPlaneError> {
         self.compute
             .must_upgrade()
@@ -1016,32 +1018,39 @@ fn signal_process_internal(process: &LockableWasiProcessInner, signal: Signal) {
         };
     }
 
-    // Check if there are subprocesses that will receive this signal
-    // instead of this process
-    if guard.waiting.load(Ordering::Acquire) > 0 {
-        let mut triggered = false;
-        for child in guard.children.iter() {
+    // Snapshot routing and recipients before waking any task. Join/signal
+    // wakers may synchronously re-enter this process or the control plane.
+    let children = if guard.waiting.load(Ordering::Acquire) > 0 {
+        guard.children.clone()
+    } else {
+        Vec::new()
+    };
+    let threads = guard.threads.values().cloned().collect::<Vec<_>>();
+    let memory = guard.memory.clone();
+    drop(guard);
+
+    // Preserve guest signal forwarding while a parent is waiting for children.
+    if !children.is_empty() {
+        for child in children {
             child.signal_process(signal);
-            triggered = true;
         }
-        if triggered {
-            return;
-        }
+        return;
     }
 
     // SIGKILL cannot be caught by a guest handler. Complete every thread before
     // waking execution so process-wide handler registration cannot suppress it.
     if signal == Signal::Sigkill {
-        for thread in guard.threads.values() {
+        for thread in &threads {
             thread.set_status_finished(Ok(Errno::Intr.into()));
         }
-        wake_atomic_waiters(&guard, signal);
-        for thread in guard.threads.values() {
+        if let Some(memory) = memory {
+            disable_atomic_waiters(pid, &memory);
+        }
+        for thread in threads {
             thread.signal(Signal::Sigwakeup);
         }
     } else {
-        wake_atomic_waiters(&guard, signal);
-        for thread in guard.threads.values() {
+        for thread in threads {
             thread.signal(signal);
         }
     }
