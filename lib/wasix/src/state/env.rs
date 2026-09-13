@@ -254,8 +254,21 @@ impl WasiEnv {
 
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Result<(Self, WasiThreadHandle), ControlPlaneError> {
-        let process = self.control_plane.new_process(self.process.module_hash)?;
-        let handle = process.new_thread(self.layout.clone(), ThreadStartType::MainThread)?;
+        let process = self.process.new_child(self.process.module_hash)?;
+        let handle = match process.new_thread(self.layout.clone(), ThreadStartType::MainThread) {
+            Ok(handle) => handle,
+            Err(err) => {
+                // Registration precedes execution so shutdown cannot miss the
+                // child. If creating its main thread fails, there is no child
+                // execution to reap.
+                process.force_terminate_local(Errno::Canceled.into());
+                self.process
+                    .lock()
+                    .children
+                    .retain(|child| child.pid() != process.pid());
+                return Err(err);
+            }
+        };
 
         let thread = handle.as_thread();
         thread.copy_stack_from(&self.thread);
@@ -471,6 +484,9 @@ impl WasiEnv {
         call_initialize: bool,
         linker_instance_group_data: Option<PreparedInstanceGroupData>,
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
+        if let Some(exit_code) = self.process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
         let pid = self.process.pid();
 
         let mut store = store.as_store_mut();
@@ -554,6 +570,18 @@ impl WasiEnv {
                 _ => None,
             });
 
+        // A Wasm start function can already block on atomics during
+        // Instance::new, before initialize_handles_and_layout is reached.
+        if let Some(memory) = imported_memory
+            .as_ref()
+            .and_then(|memory| memory.as_shared(&store))
+        {
+            func_env.data(&store).process.register_memory(memory);
+        }
+        if let Some(exit_code) = func_env.data(&store).process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
+        }
+
         // Construct the instance.
         let instance = match Instance::new(&mut store, &module, &import_object) {
             Ok(a) => a,
@@ -628,6 +656,10 @@ impl WasiEnv {
                 .data(&store)
                 .blocking_on_exit(Some(Errno::Noexec.into()));
             return Err(WasiThreadError::ExportError(err));
+        }
+
+        if let Some(exit_code) = func_env.data(&store).process.forced_exit_code() {
+            return Err(WasiThreadError::ProcessTerminated(exit_code));
         }
 
         // If this module exports an _initialize function, run that first.
