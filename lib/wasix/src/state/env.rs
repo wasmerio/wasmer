@@ -262,10 +262,6 @@ impl WasiEnv {
                 // child. If creating its main thread fails, there is no child
                 // execution to reap.
                 process.force_terminate_local(Errno::Canceled.into());
-                self.process
-                    .lock()
-                    .children
-                    .retain(|child| child.pid() != process.pid());
                 return Err(err);
             }
         };

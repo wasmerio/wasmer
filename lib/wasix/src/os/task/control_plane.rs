@@ -164,14 +164,9 @@ impl WasiControlPlane {
         proc.set_pid(pid);
         proc.parent = parent.map(|parent| Arc::downgrade(&parent.inner));
         mutable.processes.insert(pid, proc.clone());
-        drop(mutable);
-
-        // Never acquire a published process lock under the control-plane lock:
-        // signal/checkpoint wakers may re-enter the control plane. Shutdown can
-        // already find this child by ancestry while reap-list attachment waits.
-        if let Some(parent) = parent {
-            parent.lock().children.push(proc.clone());
-        }
+        // Cancellation ancestry is independent of guest wait/reap ownership.
+        // Syscalls attach to the parent's reap list at their existing success
+        // points; a failed spawn must not introduce a new waitable child.
         Ok(proc)
     }
 
@@ -329,14 +324,20 @@ mod tests {
         };
         assert_eq!(child.forced_exit_code(), Some(ExitCode::from(137)));
         assert!(parent_guard.children.is_empty());
-        // Both fork attachment and local parent cancellation are waiting for
+        // Local cancellation and dropping the original environment can wait for
         // this lock, but neither may keep the control plane locked while doing so.
         drop(parent_guard);
-        assert!(matches!(
-            fork.join().unwrap(),
-            Err(ControlPlaneError::ProcessTerminated)
-        ));
         shutdown.join().unwrap().unwrap();
+        match fork.join().unwrap() {
+            Ok((child_env, _handle)) => {
+                assert_eq!(
+                    child_env.process.forced_exit_code(),
+                    Some(ExitCode::from(137))
+                );
+            }
+            Err(ControlPlaneError::ProcessTerminated) => {}
+            Err(err) => panic!("unexpected fork error: {err}"),
+        }
         assert_eq!(child.try_join().unwrap().unwrap(), ExitCode::from(137));
         assert!(parent.lock().children.is_empty());
     }
@@ -358,17 +359,17 @@ mod tests {
 
         // Pause child registration after its initial capacity check but before
         // it can return from new_child and create the child's main thread.
-        let parent_guard = parent.lock();
+        let registration_guard = parent.forced_exit_code.lock().unwrap();
         let fork = std::thread::spawn(move || env.fork());
         let deadline = std::time::Instant::now() + Duration::from_secs(2);
-        while plane.state.mutable.read().unwrap().processes.len() == 1 {
+        while plane.state.mutable.try_read().is_ok() {
             assert!(std::time::Instant::now() < deadline);
             std::thread::yield_now();
         }
         let capacity_guards = (0..4)
             .map(|_| plane.register_task().unwrap())
             .collect::<Vec<_>>();
-        drop(parent_guard);
+        drop(registration_guard);
         assert!(matches!(
             fork.join().unwrap(),
             Err(ControlPlaneError::TaskLimitReached { .. })
@@ -387,6 +388,53 @@ mod tests {
         assert_eq!(children.len(), 1);
         assert!(children[0].try_join().is_some());
         drop(capacity_guards);
+    }
+
+    #[cfg(all(feature = "sys-thread", not(target_arch = "wasm32")))]
+    #[tokio::test]
+    async fn failed_spawn_setup_does_not_add_a_waitable_child() {
+        use wasmer_wasix_types::wasi::{Errno, StdioMode};
+
+        let mut store = wasmer::Store::default();
+        let module =
+            wasmer::Module::new(&store, "(module (memory (export \"memory\") 1))").unwrap();
+        let (_instance, env) = crate::WasiEnv::builder("failed-spawn-reap-list")
+            .engine(store.engine().clone())
+            .instantiate(module, &mut store)
+            .unwrap();
+        let plane = env.data(&store).control_plane.clone();
+        let mut parent = env.data(&store).process.clone();
+
+        // Unsupported preopens fail after fork and after the parent takes the
+        // child's main-thread handle, but before spawn success is published.
+        let result = crate::syscalls::proc_spawn_internal(
+            env.env.clone().into_mut(&mut store),
+            "unused".into(),
+            None,
+            Some(vec!["/".into()]),
+            None,
+            StdioMode::Inherit,
+            StdioMode::Inherit,
+            StdioMode::Inherit,
+        );
+        assert!(matches!(result, Ok(Err(Errno::Notsup))));
+        assert!(parent.lock().children.is_empty());
+        assert_eq!(parent.join_any_child().await, Err(Errno::Child));
+
+        // Native cancellation must still find the registered child even though
+        // failed setup never exposed it to guest wait/reap operations.
+        let child = plane
+            .state
+            .mutable
+            .read()
+            .unwrap()
+            .processes
+            .values()
+            .find(|process| process.parent.is_some())
+            .unwrap()
+            .clone();
+        parent.force_terminate(ExitCode::from(137)).unwrap();
+        assert_eq!(child.try_join().unwrap().unwrap(), ExitCode::from(137));
     }
 
     /// Simple test to ensure task limits are respected.
