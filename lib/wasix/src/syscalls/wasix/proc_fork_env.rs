@@ -61,12 +61,6 @@ pub fn proc_fork_env<M: MemorySize>(
 
     let parent_env = ctx.data_mut();
 
-    // Add the child to the parent's list of children
-    parent_env
-        .process
-        .lock()
-        .children
-        .push(child_env.process.clone());
     // Swap the current environment with the child environment
     child_env.swap_inner(parent_env);
     std::mem::swap(parent_env, &mut child_env);

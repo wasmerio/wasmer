@@ -20,6 +20,16 @@ pub(super) fn instantiate_with_runtime_hooks(
             .map_err(LinkError::RuntimeHookError)?
     };
 
+    // Start functions run inside Instance::new, before the final environment
+    // handles are installed. Make their shared memory interruptible already.
+    if let Some(memory) = imported_memory.as_shared(store) {
+        env.as_ref(store).process.register_memory(memory);
+    }
+    if let Some(exit_code) = env.as_ref(store).process.forced_exit_code() {
+        return Err(LinkError::RuntimeHookError(anyhow::anyhow!(
+            crate::WasiThreadError::ProcessTerminated(exit_code)
+        )));
+    }
     let instance = Instance::new(store, module, imports)?;
 
     {
