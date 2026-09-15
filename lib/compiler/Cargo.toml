@@ -12,6 +12,9 @@ repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
+[build-dependencies]
+cc.workspace = true
+
 [dependencies]
 wasmer-types = { path = "../types", version = "=7.4.1", default-features = false }
 wasmparser = { workspace = true, default-features = false, optional = true }
