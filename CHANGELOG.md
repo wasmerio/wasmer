@@ -4,6 +4,11 @@
 
 [Keep a Changelog]: http://keepachangelog.com/en/1.0.0/
 
+## 7.4.2 - 15/09/2026
+
+This release includes:
+- reliably detect libunwind
+
 ## **Unreleased**
 
 ## 7.4.1 - 08/09/2026
