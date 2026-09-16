@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["DurationUnit"],"struct":["PrettyDuration"]};
+window.SIDEBAR_ITEMS = {"enum":["DurationUnit"],"fn":["format_duration"],"struct":["PrettyDuration","PrettyDurationParseError"]};
