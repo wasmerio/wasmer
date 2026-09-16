@@ -479,56 +479,56 @@
 <a href=#479 id=479 data-nosnippet>479</a>            callbacks.preopt_ir(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>wasm_module.hash_string(), <span class="kw-2">&amp;</span>module);
 <a href=#480 id=480 data-nosnippet>480</a>        }
 <a href=#481 id=481 data-nosnippet>481</a>
-<a href=#482 id=482 data-nosnippet>482</a>        <span class="kw">let </span><span class="kw-2">mut </span>passes = <span class="macro">vec!</span>[];
-<a href=#483 id=483 data-nosnippet>483</a>        <span class="kw">if </span>config.enable_verifier {
-<a href=#484 id=484 data-nosnippet>484</a>            passes.push(<span class="string">"verify"</span>);
-<a href=#485 id=485 data-nosnippet>485</a>        }
-<a href=#486 id=486 data-nosnippet>486</a>
-<a href=#487 id=487 data-nosnippet>487</a>        <span class="kw">match </span>opt_style {
-<a href=#488 id=488 data-nosnippet>488</a>            OptimizationStyle::Disabled =&gt; {
-<a href=#489 id=489 data-nosnippet>489</a>                passes.push(<span class="string">"default&lt;O0&gt;"</span>);
-<a href=#490 id=490 data-nosnippet>490</a>            }
-<a href=#491 id=491 data-nosnippet>491</a>            OptimizationStyle::ForSize =&gt; {
-<a href=#492 id=492 data-nosnippet>492</a>                <span class="comment">// Apparently, the default&lt;Os&gt; could be much slower compared to -O1.
-<a href=#493 id=493 data-nosnippet>493</a>                </span>passes.push(<span class="string">"default&lt;O1&gt;"</span>);
-<a href=#494 id=494 data-nosnippet>494</a>            }
-<a href=#495 id=495 data-nosnippet>495</a>            OptimizationStyle::ForSpeed =&gt; {
-<a href=#496 id=496 data-nosnippet>496</a>                passes.push(<span class="string">"sccp"</span>);
-<a href=#497 id=497 data-nosnippet>497</a>                passes.push(<span class="string">"early-cse"</span>);
-<a href=#498 id=498 data-nosnippet>498</a>                <span class="comment">//passes.push("deadargelim");
-<a href=#499 id=499 data-nosnippet>499</a>                </span>passes.push(<span class="string">"adce"</span>);
-<a href=#500 id=500 data-nosnippet>500</a>                passes.push(<span class="string">"sroa"</span>);
-<a href=#501 id=501 data-nosnippet>501</a>                passes.push(<span class="string">"aggressive-instcombine"</span>);
-<a href=#502 id=502 data-nosnippet>502</a>                passes.push(<span class="string">"jump-threading"</span>);
-<a href=#503 id=503 data-nosnippet>503</a>                <span class="comment">//passes.push("ipsccp");
-<a href=#504 id=504 data-nosnippet>504</a>                </span>passes.push(<span class="string">"simplifycfg"</span>);
-<a href=#505 id=505 data-nosnippet>505</a>                passes.push(<span class="string">"reassociate"</span>);
-<a href=#506 id=506 data-nosnippet>506</a>                passes.push(<span class="string">"loop-rotate"</span>);
-<a href=#507 id=507 data-nosnippet>507</a>                passes.push(<span class="string">"indvars"</span>);
-<a href=#508 id=508 data-nosnippet>508</a>                <span class="comment">//passes.push("lcssa");
-<a href=#509 id=509 data-nosnippet>509</a>                //passes.push("licm");
-<a href=#510 id=510 data-nosnippet>510</a>                //passes.push("instcombine");
-<a href=#511 id=511 data-nosnippet>511</a>                </span>passes.push(<span class="string">"sccp"</span>);
-<a href=#512 id=512 data-nosnippet>512</a>                passes.push(<span class="string">"reassociate"</span>);
-<a href=#513 id=513 data-nosnippet>513</a>                passes.push(<span class="string">"simplifycfg"</span>);
-<a href=#514 id=514 data-nosnippet>514</a>                passes.push(<span class="string">"gvn"</span>);
-<a href=#515 id=515 data-nosnippet>515</a>                passes.push(<span class="string">"memcpyopt"</span>);
-<a href=#516 id=516 data-nosnippet>516</a>                passes.push(<span class="string">"dse"</span>);
-<a href=#517 id=517 data-nosnippet>517</a>                passes.push(<span class="string">"dce"</span>);
-<a href=#518 id=518 data-nosnippet>518</a>                <span class="comment">//passes.push("instcombine");
-<a href=#519 id=519 data-nosnippet>519</a>                </span>passes.push(<span class="string">"reassociate"</span>);
-<a href=#520 id=520 data-nosnippet>520</a>                passes.push(<span class="string">"simplifycfg"</span>);
-<a href=#521 id=521 data-nosnippet>521</a>                passes.push(<span class="string">"mem2reg"</span>);
-<a href=#522 id=522 data-nosnippet>522</a>            }
-<a href=#523 id=523 data-nosnippet>523</a>        }
-<a href=#524 id=524 data-nosnippet>524</a>
-<a href=#525 id=525 data-nosnippet>525</a>        module
-<a href=#526 id=526 data-nosnippet>526</a>            .run_passes(
-<a href=#527 id=527 data-nosnippet>527</a>                <span class="kw-2">&amp;</span>passes.join(<span class="string">","</span>),
-<a href=#528 id=528 data-nosnippet>528</a>                target_machine,
-<a href=#529 id=529 data-nosnippet>529</a>                PassBuilderOptions::create(),
-<a href=#530 id=530 data-nosnippet>530</a>            )
-<a href=#531 id=531 data-nosnippet>531</a>            .unwrap();
+<a href=#482 id=482 data-nosnippet>482</a>        <span class="kw">let </span><span class="kw-2">mut </span>passes = Vec::new();
+<a href=#483 id=483 data-nosnippet>483</a>
+<a href=#484 id=484 data-nosnippet>484</a>        <span class="kw">match </span>opt_style {
+<a href=#485 id=485 data-nosnippet>485</a>            OptimizationStyle::Disabled =&gt; {
+<a href=#486 id=486 data-nosnippet>486</a>                passes.push(<span class="string">"default&lt;O0&gt;"</span>);
+<a href=#487 id=487 data-nosnippet>487</a>            }
+<a href=#488 id=488 data-nosnippet>488</a>            OptimizationStyle::ForSize =&gt; {
+<a href=#489 id=489 data-nosnippet>489</a>                <span class="comment">// Apparently, the default&lt;Os&gt; could be much slower compared to -O1.
+<a href=#490 id=490 data-nosnippet>490</a>                </span>passes.push(<span class="string">"default&lt;O1&gt;"</span>);
+<a href=#491 id=491 data-nosnippet>491</a>            }
+<a href=#492 id=492 data-nosnippet>492</a>            OptimizationStyle::ForSpeed =&gt; {
+<a href=#493 id=493 data-nosnippet>493</a>                passes.push(<span class="string">"sccp"</span>);
+<a href=#494 id=494 data-nosnippet>494</a>                passes.push(<span class="string">"early-cse"</span>);
+<a href=#495 id=495 data-nosnippet>495</a>                <span class="comment">//passes.push("deadargelim");
+<a href=#496 id=496 data-nosnippet>496</a>                </span>passes.push(<span class="string">"adce"</span>);
+<a href=#497 id=497 data-nosnippet>497</a>                passes.push(<span class="string">"sroa"</span>);
+<a href=#498 id=498 data-nosnippet>498</a>                passes.push(<span class="string">"aggressive-instcombine"</span>);
+<a href=#499 id=499 data-nosnippet>499</a>                passes.push(<span class="string">"jump-threading"</span>);
+<a href=#500 id=500 data-nosnippet>500</a>                <span class="comment">//passes.push("ipsccp");
+<a href=#501 id=501 data-nosnippet>501</a>                </span>passes.push(<span class="string">"simplifycfg"</span>);
+<a href=#502 id=502 data-nosnippet>502</a>                passes.push(<span class="string">"reassociate"</span>);
+<a href=#503 id=503 data-nosnippet>503</a>                passes.push(<span class="string">"loop-rotate"</span>);
+<a href=#504 id=504 data-nosnippet>504</a>                passes.push(<span class="string">"indvars"</span>);
+<a href=#505 id=505 data-nosnippet>505</a>                <span class="comment">//passes.push("lcssa");
+<a href=#506 id=506 data-nosnippet>506</a>                //passes.push("licm");
+<a href=#507 id=507 data-nosnippet>507</a>                //passes.push("instcombine");
+<a href=#508 id=508 data-nosnippet>508</a>                </span>passes.push(<span class="string">"sccp"</span>);
+<a href=#509 id=509 data-nosnippet>509</a>                passes.push(<span class="string">"reassociate"</span>);
+<a href=#510 id=510 data-nosnippet>510</a>                passes.push(<span class="string">"simplifycfg"</span>);
+<a href=#511 id=511 data-nosnippet>511</a>                passes.push(<span class="string">"gvn"</span>);
+<a href=#512 id=512 data-nosnippet>512</a>                passes.push(<span class="string">"memcpyopt"</span>);
+<a href=#513 id=513 data-nosnippet>513</a>                passes.push(<span class="string">"dse"</span>);
+<a href=#514 id=514 data-nosnippet>514</a>                passes.push(<span class="string">"dce"</span>);
+<a href=#515 id=515 data-nosnippet>515</a>                <span class="comment">//passes.push("instcombine");
+<a href=#516 id=516 data-nosnippet>516</a>                </span>passes.push(<span class="string">"reassociate"</span>);
+<a href=#517 id=517 data-nosnippet>517</a>                passes.push(<span class="string">"simplifycfg"</span>);
+<a href=#518 id=518 data-nosnippet>518</a>                passes.push(<span class="string">"mem2reg"</span>);
+<a href=#519 id=519 data-nosnippet>519</a>            }
+<a href=#520 id=520 data-nosnippet>520</a>        }
+<a href=#521 id=521 data-nosnippet>521</a>
+<a href=#522 id=522 data-nosnippet>522</a>        <span class="comment">// Always verify the LLVM IR; otherwise, invalid IR could cause a nasty
+<a href=#523 id=523 data-nosnippet>523</a>        // miscompilation instead of a compilation error. Measurements show that
+<a href=#524 id=524 data-nosnippet>524</a>        // verification adds approximately 2% to compilation time.
+<a href=#525 id=525 data-nosnippet>525</a>        </span><span class="macro">err!</span>(module.verify());
+<a href=#526 id=526 data-nosnippet>526</a>
+<a href=#527 id=527 data-nosnippet>527</a>        <span class="macro">err!</span>(module.run_passes(
+<a href=#528 id=528 data-nosnippet>528</a>            <span class="kw-2">&amp;</span>passes.join(<span class="string">","</span>),
+<a href=#529 id=529 data-nosnippet>529</a>            target_machine,
+<a href=#530 id=530 data-nosnippet>530</a>            PassBuilderOptions::create(),
+<a href=#531 id=531 data-nosnippet>531</a>        ));
 <a href=#532 id=532 data-nosnippet>532</a>
 <a href=#533 id=533 data-nosnippet>533</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>callbacks) = config.callbacks {
 <a href=#534 id=534 data-nosnippet>534</a>            callbacks.postopt_ir(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>wasm_module.hash_string(), <span class="kw-2">&amp;</span>module);
