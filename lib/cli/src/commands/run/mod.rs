@@ -598,6 +598,12 @@ impl Run {
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
 
+        // `--no-tty` means the guest should see no terminal at all, not just
+        // that we withhold the `TtyBridge`, so force `isatty` to say so too.
+        if self.wasi.no_tty {
+            runner.with_stdio_is_terminal(false);
+        }
+
         if let Some(cwd) = self.wasi.cwd.as_ref() {
             if !cwd.starts_with("/") {
                 bail!("The argument to --cwd must be an absolute path");
