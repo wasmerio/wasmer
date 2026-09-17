@@ -11,11 +11,11 @@ expression: snapshot
     ],
     "include_webcs": [
       {
-        "name": "wasmer/python@3.13.5"
+        "name": "python/python@3.13.5"
       }
     ],
     "cli_args": [],
-    "stdin_hash": "74de24443b749cba5455e66eba933ce3",
+    "stdin_hash": "6e610cf236d75dfca9ad5360fc1846f8",
     "enable_threads": true,
     "enable_network": false
   },

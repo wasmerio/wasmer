@@ -114,7 +114,6 @@ pub struct LLVM {
     pub(crate) enable_non_volatile_memops: bool,
     pub(crate) enable_readonly_funcref_table: bool,
     pub(crate) enable_m0: bool,
-    pub(crate) enable_verifier: bool,
     pub(crate) enable_perfmap: bool,
     pub(crate) debugger: Option<Debugger>,
     pub(crate) opt_level: LLVMOptLevel,
@@ -144,7 +143,6 @@ impl LLVM {
             enable_non_volatile_memops: false,
             enable_readonly_funcref_table: false,
             enable_m0: true,
-            enable_verifier: false,
             enable_perfmap: false,
             debugger: None,
             opt_level: LLVMOptLevel::Aggressive,
@@ -180,6 +178,10 @@ impl LLVM {
         self.verbose_asm = verbose_asm;
         self
     }
+
+    /// Compiler IR verification is always enabled for LLVM.
+    #[deprecated(note = "LLVM compiler IR verification is always enabled")]
+    pub fn enable_verifier(&mut self) {}
 
     /// Callbacks that will triggered in the different compilation
     /// phases in LLVM.
@@ -399,11 +401,6 @@ impl CompilerConfig for LLVM {
 
     fn enable_debugger(&mut self, debugger: Debugger) {
         self.debugger = Some(debugger)
-    }
-
-    /// Whether to verify compiler IR.
-    fn enable_verifier(&mut self) {
-        self.enable_verifier = true;
     }
 
     /// For the LLVM compiler, we can use non-volatile memory operations which lead to a better performance

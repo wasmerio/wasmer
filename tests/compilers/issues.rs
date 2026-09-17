@@ -520,16 +520,7 @@ fn issue_4519_sdiv64_srem64_urem64(mut config: crate::Config) -> Result<()> {
 }
 
 #[compiler_test(issues)]
-/// Singlepass panics when encountering ref types.
-///
-/// Note: this one is specific to Singlepass, but we want to test in all
-/// available compilers.
-///
-/// Note: for now, we don't want to implement reference types, we just don't want singlepass to
-/// panic.
-///
-/// https://github.com/wasmerio/wasmer/issues/5309
-fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
+fn issue_5309_reftype(mut config: crate::Config) -> Result<(), CompileError> {
     let wat = r#"
       (module
         (type $x1 (func (param funcref)))
@@ -539,8 +530,7 @@ fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
     .to_string();
 
     let mut store = config.store();
-    let _ = Module::new(&store, wat);
-
+    Module::new(&store, wat)?;
     Ok(())
 }
 
@@ -1472,6 +1462,32 @@ fn functions_max_stack_usage(mut config: crate::Config) -> Result<()> {
     Ok(())
 }
 
+#[compiler_test(issues)]
+fn table_import_element_type_mismatch(mut config: crate::Config) -> Result<()> {
+    let mut store = config.store();
+    let module = Module::new(
+        &store,
+        r#"(module (import "env" "table" (table 1 externref)))"#,
+    )?;
+    let table = Table::new(
+        &mut store,
+        TableType::new(Type::FuncRef, 1, None),
+        Value::FuncRef(None),
+    )?;
+    let imports = imports! {
+        "env" => {
+            "table" => table,
+        },
+    };
+
+    assert!(
+        Instance::new(&mut store, &module, &imports).is_err(),
+        "a funcref table was accepted for an externref table import"
+    );
+
+    Ok(())
+}
+
 #[cfg(feature = "llvm")]
 fn static_memory_calls(enable_m0: bool) -> Result<()> {
     use wasmer_compiler::{BaseTunables, CompilerConfig, EngineBuilder, Tunables};
@@ -1492,7 +1508,6 @@ fn static_memory_calls(enable_m0: bool) -> Result<()> {
 
     let temp = tempfile::tempdir()?;
     let mut config = LLVM::new();
-    config.enable_verifier();
     config.enable_m0(enable_m0);
     config.callbacks(Some(LLVMCallbacks::new(temp.path().to_owned())?));
 

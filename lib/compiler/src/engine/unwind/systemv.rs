@@ -3,10 +3,7 @@
 
 //! Module for System V ABI unwind registry.
 
-use core::sync::atomic::{
-    AtomicBool, AtomicUsize,
-    Ordering::{self, Relaxed},
-};
+use core::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Once;
 
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
@@ -24,6 +21,7 @@ unsafe extern "C" {
     // libunwind import
     fn __register_frame(fde: *const u8);
     fn __deregister_frame(fde: *const u8);
+    fn wasmer_using_libunwind() -> bool;
 }
 
 // Apple-specific unwind functions - the following is taken from LLVM's libunwind itself.
@@ -48,53 +46,13 @@ mod compact_unwind;
 /// `__register_frame` so I don't think that interacts with this.
 #[allow(dead_code)]
 fn using_libunwind() -> bool {
-    static USING_LIBUNWIND: AtomicUsize = AtomicUsize::new(LIBUNWIND_UNKNOWN);
-
-    const LIBUNWIND_UNKNOWN: usize = 0;
-    const LIBUNWIND_YES: usize = 1;
-    const LIBUNWIND_NO: usize = 2;
-
-    // On macOS the libgcc interface is never used so libunwind is always used.
-    if cfg!(target_os = "macos") {
-        return true;
-    }
-
-    // TODO: wasmtime started using weak symbol definition that makes the detection
-    // more reliable on linux-musl target: https://github.com/bytecodealliance/wasmtime/pull/9479
-    if cfg!(target_env = "musl") {
-        return true;
-    }
-
-    // On other platforms the unwinder can vary. Sometimes the unwinder is
-    // selected at build time and sometimes it differs at build time and runtime
-    // (or at least I think that's possible). Fall back to a `libc::dlsym` to
-    // figure out what we're using and branch based on that.
+    // dlsym (e.g. on musl target) cannot distinguish reliably LLVM libunwind and the libgcc
+    // if the target binary is statically linked. Probe a
+    // weak symbol in C so the final link determines the registration ABI.
     //
-    // Note that the result of `libc::dlsym` is cached to only look this up
-    // once.
-    match USING_LIBUNWIND.load(Relaxed) {
-        LIBUNWIND_YES => true,
-        LIBUNWIND_NO => false,
-        LIBUNWIND_UNKNOWN => {
-            let looks_like_libunwind = unsafe {
-                !libc::dlsym(
-                    std::ptr::null_mut(),
-                    c"__unw_add_dynamic_fde".as_ptr().cast(),
-                )
-                .is_null()
-            };
-            USING_LIBUNWIND.store(
-                if looks_like_libunwind {
-                    LIBUNWIND_YES
-                } else {
-                    LIBUNWIND_NO
-                },
-                Relaxed,
-            );
-            looks_like_libunwind
-        }
-        _ => unreachable!(),
-    }
+    // On macOS the libgcc interface is never used so libunwind is always used.
+
+    cfg!(target_os = "macos") || unsafe { wasmer_using_libunwind() }
 }
 
 impl UnwindRegistry {
