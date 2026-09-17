@@ -166,6 +166,11 @@ pub struct RuntimeOptions {
     #[clap(long, hide = true)]
     _enable_pass_params_opt: bool,
 
+    /// For the LLVM compiler, disable passing the pointer to the first memory as a hidden argument.
+    #[cfg(feature = "llvm")]
+    #[clap(long)]
+    disable_m0_pass_param_opt: bool,
+
     /// Sets the number of threads used to compile the input module(s).
     #[clap(long, alias = "llvm-num-threads")]
     compiler_threads: Option<NonZero<usize>>,
@@ -499,6 +504,9 @@ impl RuntimeOptions {
                 use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
+                if self.disable_m0_pass_param_opt {
+                    config.enable_m0_pass_param(false);
+                }
                 if !self.disable_non_volatile_memops {
                     config.enable_non_volatile_memops();
                 }
@@ -667,6 +675,9 @@ impl BackendType {
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
+                if runtime_opts.disable_m0_pass_param_opt {
+                    config.enable_m0_pass_param(false);
+                }
                 if runtime_opts.experimental_artifact {
                     config.experimental_artifact(true);
                 }
